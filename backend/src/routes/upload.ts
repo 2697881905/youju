@@ -1,0 +1,25 @@
+import { Router, Response } from 'express';
+import { ok, fail } from '../utils/response';
+import { auth, AuthRequest } from '../middleware/auth';
+import { getUploadSignature } from '../services/uploadService';
+
+// 获取上传签名：POST /v1/upload/token
+// body: { contentType?: string } 默认 image/jpeg
+// 返回 { url, key, cdnUrl, contentType } 供前端直传 COS
+const router = Router();
+
+router.post('/token', auth, async (req: AuthRequest, res: Response) => {
+  try {
+    const contentType =
+      typeof req.body?.contentType === 'string' && req.body.contentType
+        ? req.body.contentType
+        : 'image/jpeg';
+    const sig = await getUploadSignature(contentType);
+    return ok(res, sig);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return fail(res, 400, msg, 400);
+  }
+});
+
+export default router;

@@ -1,0 +1,103 @@
+// 大蓝书 数据模型（MySQL + Prisma）
+// 生成客户端：npx prisma generate
+// 建表迁移：npx prisma migrate dev --name init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// 用户表
+model User {
+  id         Int      @id @default(autoincrement())
+  openId     String   @unique @db.VarChar(64) // 鸿蒙账号ID
+  nickname   String   @db.VarChar(32)
+  avatar     String?  @db.VarChar(255)
+  gender     Int?     @default(1) // 1-男 2-女
+  followTags Json?
+  status     Int      @default(1) // 1-正常 0-封禁
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  posts     Post[]
+  comments  Comment[]
+  ups       Up[]
+  bookmarks Bookmark[]
+}
+
+// 帖子表
+model Post {
+  id             Int      @id @default(autoincrement())
+  userId         Int
+  user           User     @relation(fields: [userId], references: [id])
+  title          String   @db.VarChar(100)
+  content        String?  @db.Text
+  coverImage     String?  @db.VarChar(255)
+  images         Json? // 图片URL列表，最多9张
+  genre          String   @db.VarChar(20) // review | pitfall | tutorial | debate
+  tags           Json // 标签列表，1~3个
+  structuredData Json? // 结构化字段（体裁不同，内容不同）
+  upCount        Int      @default(0)
+  bookmarkCount  Int      @default(0)
+  commentCount   Int      @default(0)
+  status         Int      @default(0) // 0-待审核 1-已发布 2-已拒绝
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  comments Comment[]
+  ups      Up[]
+  bookmarks Bookmark[]
+}
+
+// 评论表
+model Comment {
+  id        Int      @id @default(autoincrement())
+  postId    Int
+  post      Post     @relation(fields: [postId], references: [id])
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  parentId  Int? // 0或null表示一级评论
+  content   String   @db.Text
+  isFact    Int      @default(0) // 1-事实补充
+  upCount   Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 顶（点赞）记录表
+model Up {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  postId    Int
+  post      Post     @relation(fields: [postId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, postId]) // 同一用户对同一帖子只能顶一次
+}
+
+// 收藏（抄作业）记录表
+model Bookmark {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  postId    Int
+  post      Post     @relation(fields: [postId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, postId])
+}
+
+// 标签表
+model Tag {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique @db.VarChar(20) // 如"数码选购"
+  emoji     String?  @db.VarChar(10) // 如"📱"
+  category  String?  @db.VarChar(20) // 消费决策/动手实操/个人成长/生活方式
+  useCount  Int      @default(0) // 被使用次数
+  createdAt DateTime @default(now())
+}

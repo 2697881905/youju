@@ -1,0 +1,36 @@
+{
+  "color": [
+    {
+      "name": "start_window_background",
+      "value": "#000000"
+    },
+    {
+      "name": "brand_primary",
+      "value": "#0A84FF"
+    },
+    {
+      "name": "bg_primary",
+      "value": "#000000"
+    },
+    {
+      "name": "bg_secondary",
+      "value": "#1C1C1E"
+    },
+    {
+      "name": "card_bg",
+      "value": "#1C1C1E"
+    },
+    {
+      "name": "text_primary",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "text_secondary",
+      "value": "#8E8E93"
+    },
+    {
+      "name": "divider",
+      "value": "#38383A"
+    }
+  ]
+}

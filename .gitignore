@@ -1,0 +1,23 @@
+/node_modules
+/oh_modules
+/local.properties
+/.idea
+**/build
+/.hvigor
+.cxx
+/.clangd
+/.clang-format
+/.clang-tidy
+**/.test
+/.appanalyzer
+
+# 凭证 / 密钥（绝不提交）
+backend/.env
+.env
+*.p12
+*.pfx
+*.keystore
+*.jks
+
+# WorkBuddy agent 记忆（非项目源码）
+.workbuddy/
