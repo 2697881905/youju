@@ -16,6 +16,13 @@ export interface ApiResult<T> {
   message: string;
 }
 
+// 判断错误是否为网络连接类失败（后端未启动 / hdc rport 未建立 / 超时等）
+function isNetworkConnectionError(message: string): boolean {
+  const m: string = message.toLowerCase();
+  return m.includes('connect') || m.includes('refused') || m.includes('econnrefused') ||
+    m.includes('unreachable') || m.includes('timed out') || m.includes('network');
+}
+
 async function request<T>(method: http.RequestMethod, path: string, body?: Object): Promise<T> {
   const url = BASE_URL + path;
   const req = http.createHttp();
@@ -41,6 +48,14 @@ async function request<T>(method: http.RequestMethod, path: string, body?: Objec
       throw new Error(result.message || '请求失败');
     }
     return result.data;
+  } catch (e) {
+    const err: Error = e as Error;
+    const rawMsg: string = err.message ? err.message : '请求发生未知错误';
+    // 连接失败（ECONNREFUSED 等）给出可操作提示，避免直接透传系统底层错误
+    if (isNetworkConnectionError(rawMsg)) {
+      throw new Error('无法连接后端服务，请确认后端已启动且 hdc rport 已建立（模拟器重启后需重跑 rport）');
+    }
+    throw new Error(rawMsg);
   } finally {
     req.destroy();
   }

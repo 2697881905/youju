@@ -171,9 +171,25 @@ export struct HomeTab {
         .justifyContent(FlexAlign.Center)
       } else if (this.posts.length === 0) {
         Column() {
-          Text(this.error ? ('加载失败：' + this.error) : '暂无内容')
-            .fontSize(14)
-            .fontColor($r('app.color.text_secondary'))
+          if (this.error) {
+            Text('⚠️')
+              .fontSize(36)
+              .fontColor($r('app.color.text_secondary'))
+              .margin({ bottom: 8 })
+            Text('加载失败：' + this.error)
+              .fontSize(14)
+              .fontColor($r('app.color.text_secondary'))
+              .margin({ top: 8 })
+            Button('重试')
+              .margin({ top: 16 })
+              .onClick(() => {
+                this.refresh();
+              })
+          } else {
+            Text('暂无内容')
+              .fontSize(14)
+              .fontColor($r('app.color.text_secondary'))
+          }
         }
         .layoutWeight(1)
         .width('100%')
