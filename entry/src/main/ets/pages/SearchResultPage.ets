@@ -13,7 +13,9 @@ struct SearchResultPage {
   @State keyword: string = '';
   @State searchList: Post[] = [];
   @State total: number = 0;
-  @State loading: boolean = true;
+  // 初始必须为 false：fetch 的并发守卫 `if (this.loading) return` 会拦截首次加载。
+  // aboutToAppear→refresh→fetch 会在首个 await 前同步置 loading=true，build 仍能正常展示加载态。
+  @State loading: boolean = false;
   @State error: string = '';
   @State finished: boolean = false;
   @State isRefreshing: boolean = false;
