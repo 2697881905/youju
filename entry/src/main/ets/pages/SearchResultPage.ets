@@ -119,8 +119,8 @@ struct SearchResultPage {
           .onChange((v: string) => {
             this.keyword = v;
           })
-          .onSubmit((v: string) => {
-            this.doSearch(v);
+          .onSubmit(() => {
+            this.doSearch(this.keyword);
           })
 
         if (this.keyword !== '') {
