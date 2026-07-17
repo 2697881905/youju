@@ -1,6 +1,13 @@
 {
   "src": [
     "pages/Index",
-    "pages/DetailPage"
+    "pages/DetailPage",
+    {
+      "name": "SearchResultPage",
+      "pageSourceFile": "./ets/pages/SearchResultPage.ets",
+      "window": {
+        "designWidth": 720
+      }
+    }
   ]
 }

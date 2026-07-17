@@ -1,0 +1,99 @@
+classDiagram
+    %% ===== 前端数据模型（复用 models/types.ets）=====
+    class Post {
+        +number id
+        +string title
+        +string content
+        +string coverImage
+        +string[] images
+        +Genre genre
+        +string[] tags
+        +number upCount
+        +number bookmarkCount
+        +number commentCount
+        +string createdAt
+        +User user
+    }
+    class User {
+        +number id
+        +string nickname
+        +string avatar
+    }
+    class Pagination {
+        +number page
+        +number limit
+        +number total
+    }
+    class ListResult~T~ {
+        +T[] list
+        +Pagination pagination
+    }
+    ListResult~Post~ --|> ListResult : 实例化
+    ListResult~Post~ *-- Post : list
+    ListResult~Post~ *-- Pagination : pagination
+    Post *-- User : user
+
+    %% ===== 后端参数 / 服务（services/postService.ts）=====
+    class ListParams {
+        +number page
+        +number limit
+        +SortType sort
+        +string tag
+        +number author
+        +string keyword
+    }
+    class PostService {
+        +listPosts(params: ListParams) Promise~{list, pagination}~
+        +getPost(id: number) Promise~Post~
+    }
+
+    %% ===== 前端搜索参数 / API 客户端（services/api.ets）=====
+    class SearchPostsParams {
+        +string keyword
+        +number page
+        +number pageSize
+        +SortType sort
+    }
+    class ApiClient {
+        +request(method, path, body) Promise~T~
+        +listPosts(params) Promise~ListResult~Post~~
+        +searchPosts(params: SearchPostsParams) Promise~ListResult~Post~~
+    }
+    ApiClient ..> SearchPostsParams : 入参
+
+    %% ===== 页面 / 组件（前端 ArkUI）=====
+    class HomeTab {
+        +string searchKeyword
+        +onSubmit() void
+    }
+    class SearchResultPage {
+        +string keyword
+        +string searchText
+        +Post[] posts
+        +number page
+        +number total
+        +boolean loading
+        +boolean finished
+        +boolean isRefreshing
+        +string error
+        +aboutToAppear() void
+        +refresh() Promise~void~
+        +loadMore() Promise~void~
+        +fetch(reset: boolean) Promise~void~
+    }
+    class PostCard {
+        +Post post
+    }
+    class PostsRoute {
+        +GET /v1/posts(req, res) void
+    }
+
+    %% ===== 关系 =====
+    HomeTab ..> SearchResultPage : router.pushUrl
+    SearchResultPage ..> ApiClient : searchPosts()
+    ApiClient ..> PostsRoute : HTTP GET /v1/posts?keyword=
+    PostsRoute ..> PostService : listPosts({keyword})
+    PostService ..> ListParams : 消费
+    SearchResultPage ..> PostCard : 渲染(父级包裹点击)
+    SearchResultPage ..> Post : 渲染数据
+    PostsRoute ..> ListResult~Post~ : ok(res, {list, pagination})

@@ -81,6 +81,13 @@ export interface ListPostsParams {
   author?: number;
 }
 
+export interface SearchPostsParams {
+  keyword: string;
+  page?: number;
+  pageSize?: number;
+  sort?: SortType;
+}
+
 export interface CreatePostBody {
   title: string;
   content?: string;
@@ -144,6 +151,17 @@ export function listPosts(params: ListPostsParams = {}): Promise<ListResult<Post
 // GET /v1/posts/:id（含 comments）
 export function getPost(id: number): Promise<PostWithComments> {
   return api.get<PostWithComments>('/v1/posts/' + id);
+}
+
+// GET /v1/posts?keyword=&page=&limit=&sort=  （复用 /v1/posts 端点，keyword 选填）
+export function searchPosts(params: SearchPostsParams): Promise<ListResult<Post>> {
+  const path = '/v1/posts' + toQuery([
+    ['keyword', params.keyword],
+    ['page', params.page],
+    ['limit', params.pageSize],
+    ['sort', params.sort],
+  ]);
+  return api.get<ListResult<Post>>(path);
 }
 
 // POST /v1/posts（MVP 直接发布）

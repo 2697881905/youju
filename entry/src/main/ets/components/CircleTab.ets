@@ -1,8 +1,9 @@
-// 圈子（Tab 内容）：用已有的标签体系渲染圈子卡片，支持加入/退出
-// 数据来源：listTags（services/api.ets）
+// 圈子（Tab 内容）：用已有的标签体系渲染圈子卡片，支持加入/退出（后端持久化）
+// 数据来源：listTags / followTag / unfollowTag / listFollowedTags（services/api.ets）
 import { promptAction } from '@kit.ArkUI';
 import { Tag } from '../models/types';
-import { listTags } from '../services/api';
+import { listTags, followTag, unfollowTag, listFollowedTags } from '../services/api';
+import { ensureLogin } from '../utils/auth';
 
 @Component
 export struct CircleTab {
@@ -10,19 +11,26 @@ export struct CircleTab {
   @State joinedNames: string[] = [];
   @State loading: boolean = false;
   @State error: string = '';
+  @State togglingName: string = ''; // 正在切换的标签名，用于按钮禁用防并发
 
   aboutToAppear(): void {
-    this.loadCircles();
+    this.initData();
   }
 
-  async loadCircles(): Promise<void> {
+  private async initData(): Promise<void> {
     this.loading = true;
     this.error = '';
     try {
-      this.circles = await listTags();
+      await ensureLogin();
+      // 并行加载圈子列表与已加入列表
+      const tagsPromise: Promise<Tag[]> = listTags();
+      const followedPromise: Promise<string[]> = listFollowedTags();
+      this.circles = await tagsPromise;
+      this.joinedNames = await followedPromise;
     } catch (e) {
       this.error = (e as Error).message;
       this.circles = [];
+      this.joinedNames = [];
     } finally {
       this.loading = false;
     }
@@ -32,13 +40,28 @@ export struct CircleTab {
     return this.joinedNames.indexOf(name) >= 0;
   }
 
-  private toggleJoin(name: string): void {
-    if (this.isJoined(name)) {
-      this.joinedNames = this.joinedNames.filter((n: string) => n !== name);
-      promptAction.showToast({ message: '已退出「' + name + '」' });
-    } else {
-      this.joinedNames = [...this.joinedNames, name];
-      promptAction.showToast({ message: '已加入「' + name + '」' });
+  private async toggleJoin(name: string): Promise<void> {
+    if (this.togglingName !== '') {
+      return; // 防止并发点击
+    }
+    this.togglingName = name;
+    const joined: boolean = this.isJoined(name);
+    try {
+      if (joined) {
+        await unfollowTag(name);
+        this.joinedNames = this.joinedNames.filter((n: string) => n !== name);
+        promptAction.showToast({ message: '已退出「' + name + '」' });
+      } else {
+        await followTag(name);
+        const next: string[] = this.joinedNames.slice();
+        next.push(name);
+        this.joinedNames = next;
+        promptAction.showToast({ message: '已加入「' + name + '」' });
+      }
+    } catch (e) {
+      promptAction.showToast({ message: '操作失败：' + (e as Error).message });
+    } finally {
+      this.togglingName = '';
     }
   }
 
@@ -66,9 +89,10 @@ export struct CircleTab {
         .width('100%')
         .height(32)
         .fontSize(13)
+        .enabled(this.togglingName !== (c.name ?? ''))
         .backgroundColor(this.isJoined(c.name ?? '') ? $r('app.color.bg_primary') : $r('app.color.brand_primary'))
         .fontColor(this.isJoined(c.name ?? '') ? $r('app.color.text_secondary') : Color.White)
-        .onClick(() => this.toggleJoin(c.name ?? ''))
+        .onClick(() => { this.toggleJoin(c.name ?? ''); })
     }
     .width('100%')
     .padding(12)
@@ -98,6 +122,15 @@ export struct CircleTab {
           Text(this.error ? ('加载失败：' + this.error) : '暂无圈子')
             .fontSize(14)
             .fontColor($r('app.color.text_secondary'))
+          if (this.error) {
+            Button('重试')
+              .fontSize(13)
+              .height(32)
+              .margin({ top: 12 })
+              .backgroundColor($r('app.color.brand_primary'))
+              .fontColor(Color.White)
+              .onClick(() => { this.initData(); })
+          }
         }
         .layoutWeight(1)
         .width('100%')

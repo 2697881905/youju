@@ -139,7 +139,13 @@ export struct HomeTab {
               this.searchKeyword = v;
             })
             .onSubmit(() => {
-              promptAction.showToast({ message: '搜索：' + (this.searchKeyword || '空') });
+              const kw = this.searchKeyword.trim();
+              if (!kw) {
+                promptAction.showToast({ message: '请输入搜索内容' });
+                return;
+              }
+              AppStorage.setOrCreate('searchKeyword', kw);
+              router.pushUrl({ url: 'pages/SearchResultPage' });
             })
         }
       }

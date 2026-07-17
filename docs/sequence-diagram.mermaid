@@ -1,0 +1,58 @@
+sequenceDiagram
+    autonumber
+    actor U as 用户
+    participant H as HomeTab(搜索框)
+    participant AS as AppStorage
+    participant SRP as SearchResultPage
+    participant API as api.ets(searchPosts)
+    participant R as PostsRoute(GET /v1/posts)
+    participant S as postService.listPosts
+    participant DB as Prisma/MySQL
+
+    Note over H: 首页搜索框 onSubmit（原 toast 占位 → 改为跳转）
+    U->>H: 输入关键词并回车
+    H->>H: this.searchKeyword = 输入值
+    H->>AS: setOrCreate('searchKeyword', keyword)
+    H->>SRP: router.pushUrl({url:'pages/SearchResultPage'})
+
+    Note over SRP: aboutToAppear 初始化
+    SRP->>AS: get('searchKeyword') → keyword
+    SRP->>SRP: searchText = keyword; refresh()
+
+    rect rgb(235,245,255)
+    Note over SRP,DB: 首屏加载（refresh → fetch(reset=true)）
+    SRP->>API: searchPosts({keyword, page:1, limit:10, sort:'latest'})
+    API->>R: GET /v1/posts?keyword=..&page=1&limit=10&sort=latest
+    R->>S: listPosts({keyword, page, limit, sort})
+    S->>DB: findMany({where:{status:1, OR:[title/content/genre/tags 包含 kw]}, orderBy, skip, take})
+    S->>DB: count({where})
+    DB-->>S: [rows, total]
+    S-->>R: {list, pagination:{page,limit,total}}
+    R-->>API: {code:0, data:{list, pagination}}
+    API-->>SRP: ListResult<Post>
+    SRP->>SRP: posts = res.list; total = res.pagination.total
+    SRP->>SRP: finished = (res.list.length < limit)
+    SRP-->>U: 渲染 2 列 PostCard 网格 + "共找到 N 篇"
+    end
+
+    Note over SRP,U: 滚动到底加载更多
+    U->>SRP: 上滑（onScrollIndex 末项可见）
+    SRP->>SRP: loadMore(): if(!finished&&!loading){page++; fetch(false)}
+    SRP->>API: searchPosts({keyword, page:2, ...})
+    API->>R: GET /v1/posts?keyword=..&page=2...
+    R->>S: listPosts(...)
+    S->>DB: findMany(skip=limit, take=limit)
+    DB-->>S: 下一页 rows
+    S-->>API: {list, pagination}
+    API-->>SRP: ListResult<Post>
+    SRP->>SRP: posts = posts.concat(res.list)
+
+    Note over SRP,U: 点击卡片跳详情（复用 HomeTab 的父级包裹点击模式，不改 PostCard）
+    U->>SRP: 点击某 PostCard
+    SRP->>AS: setOrCreate('detailPostId', id) + setDetailPostId(id)
+    SRP->>SRP: router.pushUrl({url:'pages/DetailPage'})
+
+    Note over SRP,U: 失败态重试（P1-3）
+    SRP->>SRP: catch(e){ error = e.message }
+    U->>SRP: 点击"重试"按钮
+    SRP->>SRP: refresh() 重新走首屏加载流程

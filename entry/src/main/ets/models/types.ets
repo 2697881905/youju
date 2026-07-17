@@ -15,6 +15,7 @@ export interface Tag {
   emoji?: string;
   category?: string;
   useCount?: number;
+  followCount?: number;
 }
 
 // 结构化字段（按体裁不同，字段不同；自由 JSON，前端按已知键渲染）

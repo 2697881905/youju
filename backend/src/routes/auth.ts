@@ -3,6 +3,8 @@ import { ok, fail, CODE } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
 import { prisma } from '../prisma';
 import { login, updateProfile } from '../services/authService';
+import * as postService from '../services/postService';
+import * as tagService from '../services/tagService';
 
 const router = Router();
 
@@ -28,6 +30,22 @@ router.put('/me', auth, async (req: AuthRequest, res: Response) => {
   const { nickname, avatar } = req.body ?? {};
   const user = await updateProfile(req.userId!, nickname, avatar);
   return ok(res, user);
+});
+
+// 我的收藏帖子列表（分页）
+// GET /v1/auth/me/bookmarks?page=1&limit=20
+router.get('/me/bookmarks', auth, async (req: AuthRequest, res: Response) => {
+  const page = req.query.page ? Number(req.query.page) : 1;
+  const limit = req.query.limit ? Number(req.query.limit) : 20;
+  const data = await postService.listBookmarks(req.userId!, page, limit);
+  return ok(res, data);
+});
+
+// 我关注的标签列表（圈子已加入）
+// GET /v1/auth/me/followed-tags
+router.get('/me/followed-tags', auth, async (req: AuthRequest, res: Response) => {
+  const tags = await tagService.listFollowedTags(req.userId!);
+  return ok(res, tags);
 });
 
 export default router;

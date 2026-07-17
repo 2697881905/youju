@@ -7,9 +7,11 @@ export interface ListParams {
   limit?: number;
   sort?: SortType;
   tag?: string;
+  author?: number;
+  keyword?: string;
 }
 
-// 帖子列表（分页 + 标签筛选 + 排序）
+// 帖子列表（分页 + 标签筛选 + 排序 + 作者筛选）
 export async function listPosts(params: ListParams) {
   const page = Math.max(1, Number(params.page ?? 1));
   const limit = Math.min(50, Math.max(1, Number(params.limit ?? 20)));
@@ -18,6 +20,22 @@ export async function listPosts(params: ListParams) {
   const where: any = { status: 1 }; // 仅已发布
   if (params.tag) {
     where.tags = { arrayContains: params.tag };
+  }
+  if (params.author) {
+    where.userId = params.author;
+  }
+  // 关键词搜索：标题/正文/体裁/标签之间用 OR（任一命中即返回）
+  // tags 是 Json 列，标签关键词用 arrayContains 精确包含某标签；images 不参与搜索
+  if (params.keyword) {
+    const kw = params.keyword.trim();
+    if (kw) {
+      where.OR = [
+        { title: { contains: kw, mode: 'insensitive' } },
+        { content: { contains: kw, mode: 'insensitive' } },
+        { genre: { contains: kw, mode: 'insensitive' } },
+        { tags: { arrayContains: kw } },
+      ];
+    }
   }
 
   let orderBy: any = { createdAt: 'desc' };
@@ -87,4 +105,27 @@ export async function listByUser(userId: number) {
     orderBy: { createdAt: 'desc' },
     include: { user: { select: { id: true, nickname: true, avatar: true } } },
   });
+}
+
+// 我的收藏列表（分页，返回帖子）
+export async function listBookmarks(userId: number, page: number = 1, limit: number = 20) {
+  const p = Math.max(1, Number(page));
+  const l = Math.min(50, Math.max(1, Number(limit)));
+  const skip = (p - 1) * l;
+  const [rows, total] = await Promise.all([
+    prisma.bookmark.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: l,
+      include: {
+        post: {
+          include: { user: { select: { id: true, nickname: true, avatar: true } } },
+        },
+      },
+    }),
+    prisma.bookmark.count({ where: { userId } }),
+  ]);
+  const list = rows.map((r) => r.post);
+  return { list, pagination: { page: p, limit: l, total } };
 }

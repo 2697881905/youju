@@ -5,14 +5,16 @@ import * as postService from '../services/postService';
 
 const router = Router();
 
-// 帖子列表：GET /v1/posts?page=1&limit=20&sort=hot|latest|recommend&tag=数码选购
+// 帖子列表：GET /v1/posts?page=1&limit=20&sort=hot|latest|recommend&tag=数码选购&author=1
 router.get('/', async (req: AuthRequest, res: Response) => {
-  const { page, limit, sort, tag } = req.query;
+  const { page, limit, sort, tag, author, keyword } = req.query;
   const data = await postService.listPosts({
     page: page ? Number(page) : 1,
     limit: limit ? Number(limit) : 20,
     sort: (sort as postService.SortType) ?? 'latest',
     tag: tag as string | undefined,
+    author: author ? Number(author) : undefined,
+    keyword: keyword as string | undefined,
   });
   return ok(res, data);
 });

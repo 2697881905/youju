@@ -23,10 +23,11 @@ model User {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  posts     Post[]
-  comments  Comment[]
-  ups       Up[]
-  bookmarks Bookmark[]
+  posts          Post[]
+  comments       Comment[]
+  ups            Up[]
+  bookmarks      Bookmark[]
+  userFollowTags UserFollowTag[]
 }
 
 // 帖子表
@@ -94,10 +95,22 @@ model Bookmark {
 
 // 标签表
 model Tag {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(20) // 如"数码选购"
+  emoji       String?  @db.VarChar(10) // 如"📱"
+  category    String?  @db.VarChar(20) // 消费决策/动手实操/个人成长/生活方式
+  useCount    Int      @default(0) // 被使用次数
+  followCount Int      @default(0) // 被关注（加入圈子）次数
+  createdAt   DateTime @default(now())
+}
+
+// 用户关注标签（圈子加入）记录表
+model UserFollowTag {
   id        Int      @id @default(autoincrement())
-  name      String   @unique @db.VarChar(20) // 如"数码选购"
-  emoji     String?  @db.VarChar(10) // 如"📱"
-  category  String?  @db.VarChar(20) // 消费决策/动手实操/个人成长/生活方式
-  useCount  Int      @default(0) // 被使用次数
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  tagName   String   @db.VarChar(20)
   createdAt DateTime @default(now())
+
+  @@unique([userId, tagName]) // 同一用户对同一标签只能关注一次
 }
