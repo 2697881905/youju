@@ -2,10 +2,11 @@ import { http } from '@kit.NetworkKit';
 import { Post, Comment, Tag, User, Pagination, Genre } from '../models/types';
 
 // 本地后端地址（按运行环境替换）：
-// - HarmonyOS(DevEco) 模拟器访问宿主机：用本机局域网 IP（10.0.2.2 是 Android 约定，鸿蒙模拟器不认）
-// - 真机/同局域网：'http://<你电脑局域网IP>:3000'
+// - 模拟器/真机本地开发：用 hdc 反向端口转发，连 127.0.0.1:3000 即可，无需关心电脑 IP（IP 变了也不用改这里）
+//   设置命令：hdc rport tcp:3000 tcp:3000  （模拟器每次重启后重跑一次即可）
+// - 真机/同局域网直连：'http://<你电脑局域网IP>:3000'
 // - 上架后：'https://api.bigbluebook.com'
-const BASE_URL = 'http://192.168.31.104:3000';
+const BASE_URL = 'http://127.0.0.1:3000';
 
 // token 由 utils/auth.ts 统一管理（PersistentStorage 持久化），request 直接从 AppStorage 读取。
 
@@ -77,6 +78,7 @@ export interface ListPostsParams {
   limit?: number;
   sort?: SortType;
   tag?: string;
+  author?: number;
 }
 
 export interface CreatePostBody {
@@ -127,13 +129,14 @@ function toQuery(fields: Array<[string, string | number | undefined]>): string {
 }
 
 // ===== 帖子 =====
-// GET /v1/posts?page=&limit=&sort=hot|latest|recommend&tag=
+// GET /v1/posts?page=&limit=&sort=hot|latest|recommend&tag=&author=
 export function listPosts(params: ListPostsParams = {}): Promise<ListResult<Post>> {
   const path = '/v1/posts' + toQuery([
     ['page', params.page],
     ['limit', params.limit],
     ['sort', params.sort],
     ['tag', params.tag],
+    ['author', params.author],
   ]);
   return api.get<ListResult<Post>>(path);
 }
@@ -195,6 +198,24 @@ export function listTags(): Promise<Tag[]> {
   return api.get<Tag[]>('/v1/tags');
 }
 
+// 关注标签（加入圈子）
+// POST /v1/tags/:name/follow
+export async function followTag(name: string): Promise<void> {
+  await api.post<null>('/v1/tags/' + encodeURIComponent(name) + '/follow');
+}
+
+// 取消关注标签（退出圈子）
+// DELETE /v1/tags/:name/follow
+export async function unfollowTag(name: string): Promise<void> {
+  await api.del<null>('/v1/tags/' + encodeURIComponent(name) + '/follow');
+}
+
+// 当前用户关注的标签名列表（圈子已加入）
+// GET /v1/auth/me/followed-tags
+export function listFollowedTags(): Promise<string[]> {
+  return api.get<string[]>('/v1/auth/me/followed-tags');
+}
+
 // ===== 用户 / 鉴权 =====
 // POST /v1/auth/login（成功后由调用方 auth.ts 统一持久化 session）
 export function login(body: LoginBody): Promise<LoginResult> {
@@ -214,6 +235,12 @@ export interface UpdateMeBody {
 
 export function updateMe(body: UpdateMeBody): Promise<User> {
   return api.put<User>('/v1/auth/me', body);
+}
+
+// GET /v1/auth/me/bookmarks?page=&limit=（我的收藏帖子列表，分页）
+export function listMyBookmarks(page: number = 1, limit: number = 20): Promise<ListResult<Post>> {
+  const path = '/v1/auth/me/bookmarks' + toQuery([['page', page], ['limit', limit]]);
+  return api.get<ListResult<Post>>(path);
 }
 
 // ===== 上传 =====
