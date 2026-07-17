@@ -16,9 +16,13 @@ echo "=== 大蓝书后端一键启动 ==="
 
 # -------------------------------------------------------
 # 1. 检查 MySQL（3306 端口是否在监听）
+#    用 nc -z 探测端口连通性，而非 lsof -i:3306。
+#    原因：macOS 上 lsof 不带 sudo 看不到其他用户（如 _mysql）
+#    的进程端口监听，会误判 MySQL 未启动；nc -z 不需 sudo 且与
+#    进程所属用户无关，能正确检测端口是否在监听。
 # -------------------------------------------------------
-if ! lsof -i:3306 >/dev/null 2>&1; then
-  echo -e "${RED}MySQL 未启动，请先启动本机 /usr/local/mysql${NC}"
+if ! nc -z 127.0.0.1 3306 2>/dev/null; then
+  echo -e "${RED}MySQL 未启动（3306 未监听），请先启动本机 /usr/local/mysql${NC}"
   exit 1
 fi
 echo -e "${GREEN}✓ MySQL 已运行（3306 在监听）${NC}"
