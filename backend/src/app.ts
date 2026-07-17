@@ -6,6 +6,7 @@ import commentRouter from './routes/comments';
 import interactRouter from './routes/interact';
 import tagRouter from './routes/tags';
 import uploadRouter from './routes/upload';
+import searchRouter from './routes/search';
 
 export const app = express();
 
@@ -20,6 +21,7 @@ app.use('/v1/users', authRouter);
 app.use('/v1/posts', postRouter);
 app.use('/v1/tags', tagRouter);
 app.use('/v1/upload', uploadRouter);
+app.use('/v1/search', searchRouter);
 // 评论/互动使用完整路径（/v1/posts/:id/comments、/v1/posts/:id/up 等）
 app.use('/v1', commentRouter);
 app.use('/v1', interactRouter);

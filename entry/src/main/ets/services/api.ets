@@ -286,3 +286,67 @@ export function getUploadSignature(contentType: string = 'image/jpeg'): Promise<
   const body: UploadSignatureBody = { contentType };
   return api.post<UploadSignature>('/v1/upload/token', body);
 }
+
+// ===== 搜索历史 / 热搜词 =====
+
+// 搜索历史项（后端返回）
+export interface SearchHistoryItem {
+  id: number;
+  keyword: string;
+  createdAt: string;
+}
+
+// 热搜词项（后端返回）
+export interface HotKeywordItem {
+  keyword: string;
+  count: number;
+}
+
+// 搜索历史列表响应
+export interface SearchHistoryResult {
+  list: SearchHistoryItem[];
+}
+
+// 热搜词列表响应
+export interface HotKeywordResult {
+  list: HotKeywordItem[];
+}
+
+// 记录搜索历史的请求体
+export interface RecordSearchHistoryBody {
+  keyword: string;
+}
+
+// POST /v1/search/history  记录搜索历史（前端搜索成功后调用）
+export async function recordSearchHistory(keyword: string): Promise<void> {
+  const body: RecordSearchHistoryBody = { keyword: keyword };
+  await api.post<null>('/v1/search/history', body);
+}
+
+// GET /v1/search/history  搜索历史列表（返回关键词数组，按时间倒序）
+export async function listSearchHistory(): Promise<string[]> {
+  const res: SearchHistoryResult = await api.get<SearchHistoryResult>('/v1/search/history');
+  const items: SearchHistoryItem[] = res.list;
+  const keywords: string[] = [];
+  for (let i = 0; i < items.length; i++) {
+    keywords.push(items[i].keyword);
+  }
+  return keywords;
+}
+
+// DELETE /v1/search/history  清除搜索历史
+export async function clearSearchHistory(): Promise<void> {
+  await api.del<null>('/v1/search/history');
+}
+
+// GET /v1/search/hot?limit=10  热搜词列表（返回关键词数组，按搜索次数降序）
+export async function listHotKeywords(limit?: number): Promise<string[]> {
+  const path: string = '/v1/search/hot' + toQuery([['limit', limit]]);
+  const res: HotKeywordResult = await api.get<HotKeywordResult>(path);
+  const items: HotKeywordItem[] = res.list;
+  const keywords: string[] = [];
+  for (let i = 0; i < items.length; i++) {
+    keywords.push(items[i].keyword);
+  }
+  return keywords;
+}

@@ -1,10 +1,12 @@
 // 首页 feed（真实内容）：顶栏(三子Tab+搜索框同水平) + 标签筛选 + 帖子网格
-// 数据来源：listPosts / listTags（services/api.ets）
+// 搜索框获焦时展示 SearchPanel（搜索历史+热搜词），提交或选中关键词后跳结果页
+// 数据来源：listPosts / listTags / recordSearchHistory（services/api.ets）
 import { router, promptAction } from '@kit.ArkUI';
 import { Post, Tag } from '../models/types';
-import { listPosts, listTags } from '../services/api';
+import { listPosts, listTags, recordSearchHistory } from '../services/api';
 import { PostCard } from './PostCard';
 import { TagNav } from './TagNav';
+import { SearchPanel } from './SearchPanel';
 import { setDetailPostId } from '../utils/nav';
 
 type SortKey = 'hot' | 'latest' | 'recommend';
@@ -25,6 +27,7 @@ export struct HomeTab {
   @State isRefreshing: boolean = false;
   @State error: string = '';
   @State searchKeyword: string = '';
+  @State showPanel: boolean = false;
 
   aboutToAppear(): void {
     this.loadTags();
@@ -89,6 +92,35 @@ export struct HomeTab {
     }
   }
 
+  // 搜索：校验关键词 → 隐藏面板 → 跳结果页 → 记录历史（fire-and-forget）
+  private doSearch(raw: string): void {
+    const kw = raw.trim();
+    if (!kw) {
+      promptAction.showToast({ message: '请输入搜索内容' });
+      return;
+    }
+    this.showPanel = false;
+    AppStorage.setOrCreate('searchKeyword', kw);
+    router.pushUrl({ url: 'pages/SearchResultPage' });
+    // fire-and-forget：记录搜索历史，失败不阻断
+    this.recordHistoryAsync(kw);
+  }
+
+  // 异步记录搜索历史（独立方法，避免阻塞搜索跳转）
+  private async recordHistoryAsync(kw: string): Promise<void> {
+    try {
+      await recordSearchHistory(kw);
+    } catch (e) {
+      // 记录历史失败不影响搜索体验
+    }
+  }
+
+  // SearchPanel 关键词选中回调：填入搜索框 + 触发搜索
+  private onKeywordSelect(kw: string): void {
+    this.searchKeyword = kw;
+    this.doSearch(kw);
+  }
+
   @Builder
   refreshBuilder(): void {
     Row({ space: 8 }) {
@@ -138,14 +170,11 @@ export struct HomeTab {
             .onChange((v: string) => {
               this.searchKeyword = v;
             })
+            .onFocus(() => {
+              this.showPanel = true;
+            })
             .onSubmit(() => {
-              const kw = this.searchKeyword.trim();
-              if (!kw) {
-                promptAction.showToast({ message: '请输入搜索内容' });
-                return;
-              }
-              AppStorage.setOrCreate('searchKeyword', kw);
-              router.pushUrl({ url: 'pages/SearchResultPage' });
+              this.doSearch(this.searchKeyword);
             })
         }
       }
@@ -153,98 +182,112 @@ export struct HomeTab {
       .padding({ left: 16, right: 12, top: 12, bottom: 10 })
       .width('100%')
 
-      // 标签筛选栏
-      TagNav({
-        tags: this.displayTags,
-        selectedIndex: $tagIndex
-      })
-      .padding({ bottom: 8 })
-
-      // 列表区
-      if (this.posts.length === 0 && this.loading) {
-        Column() {
-          LoadingProgress().width(28).height(28)
-          Text('加载中…').fontSize(13).fontColor($r('app.color.text_secondary')).margin({ top: 10 })
-        }
-        .layoutWeight(1)
-        .width('100%')
-        .justifyContent(FlexAlign.Center)
-      } else if (this.posts.length === 0) {
-        Column() {
-          if (this.error) {
-            Text('⚠️')
-              .fontSize(36)
-              .fontColor($r('app.color.text_secondary'))
-              .margin({ bottom: 8 })
-            Text('加载失败：' + this.error)
-              .fontSize(14)
-              .fontColor($r('app.color.text_secondary'))
-              .margin({ top: 8 })
-            Button('重试')
-              .margin({ top: 16 })
-              .onClick(() => {
-                this.refresh();
-              })
-          } else {
-            Text('暂无内容')
-              .fontSize(14)
-              .fontColor($r('app.color.text_secondary'))
-          }
-        }
-        .layoutWeight(1)
-        .width('100%')
-        .justifyContent(FlexAlign.Center)
-      } else {
-        Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
-          Grid() {
-            ForEach(
-              this.posts,
-              (post: Post) => {
-                GridItem() {
-                  PostCard({ post: post })
-                    .onClick(() => {
-                      if (post.id !== undefined) {
-                        const id = post.id.toString();
-                        AppStorage.setOrCreate('detailPostId', id);
-                        setDetailPostId(id);
-                        router.pushUrl({ url: 'pages/DetailPage' });
-                      }
-                    })
-                }
-              },
-              (post: Post) => post.id?.toString() ?? ''
-            )
-            if (this.finished) {
-              GridItem() {
-                Text('没有更多了')
-                  .fontSize(12)
-                  .fontColor($r('app.color.text_secondary'))
-                  .width('100%')
-                  .textAlign(TextAlign.Center)
-                  .padding(16)
-              }
-              .columnStart(0)
-              .columnEnd(1)
-            }
-          }
-          .columnsTemplate('1fr 1fr')
-          .columnsGap(12)
-          .rowsGap(12)
-          .padding(12)
-          .onScrollIndex((_start: number, end: number) => {
-            if (end >= this.posts.length - 1) {
-              this.loadMore();
+      // 搜索面板（获焦时展示，替代标签栏+列表）
+      if (this.showPanel) {
+        Scroll() {
+          SearchPanel({
+            onKeywordSelect: (kw: string): void => {
+              this.onKeywordSelect(kw);
             }
           })
         }
-        .onRefreshing(() => {
-          this.isRefreshing = true;
-          this.refresh().finally(() => {
-            this.isRefreshing = false;
-          });
-        })
         .layoutWeight(1)
         .width('100%')
+        .scrollBar(BarState.Off)
+      } else {
+        // 标签筛选栏
+        TagNav({
+          tags: this.displayTags,
+          selectedIndex: $tagIndex
+        })
+        .padding({ bottom: 8 })
+
+        // 列表区
+        if (this.posts.length === 0 && this.loading) {
+          Column() {
+            LoadingProgress().width(28).height(28)
+            Text('加载中…').fontSize(13).fontColor($r('app.color.text_secondary')).margin({ top: 10 })
+          }
+          .layoutWeight(1)
+          .width('100%')
+          .justifyContent(FlexAlign.Center)
+        } else if (this.posts.length === 0) {
+          Column() {
+            if (this.error) {
+              Text('⚠️')
+                .fontSize(36)
+                .fontColor($r('app.color.text_secondary'))
+                .margin({ bottom: 8 })
+              Text('加载失败：' + this.error)
+                .fontSize(14)
+                .fontColor($r('app.color.text_secondary'))
+                .margin({ top: 8 })
+              Button('重试')
+                .margin({ top: 16 })
+                .onClick(() => {
+                  this.refresh();
+                })
+            } else {
+              Text('暂无内容')
+                .fontSize(14)
+                .fontColor($r('app.color.text_secondary'))
+            }
+          }
+          .layoutWeight(1)
+          .width('100%')
+          .justifyContent(FlexAlign.Center)
+        } else {
+          Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
+            Grid() {
+              ForEach(
+                this.posts,
+                (post: Post) => {
+                  GridItem() {
+                    PostCard({ post: post })
+                      .onClick(() => {
+                        if (post.id !== undefined) {
+                          const id = post.id.toString();
+                          AppStorage.setOrCreate('detailPostId', id);
+                          setDetailPostId(id);
+                          router.pushUrl({ url: 'pages/DetailPage' });
+                        }
+                      })
+                  }
+                },
+                (post: Post) => post.id?.toString() ?? ''
+              )
+              if (this.finished) {
+                GridItem() {
+                  Text('没有更多了')
+                    .fontSize(12)
+                    .fontColor($r('app.color.text_secondary'))
+                    .width('100%')
+                    .textAlign(TextAlign.Center)
+                    .padding(16)
+                }
+                .columnStart(0)
+                .columnEnd(1)
+              }
+            }
+            .columnsTemplate('1fr 1fr')
+            .columnsGap(12)
+            .rowsGap(12)
+            .padding(12)
+            .onScrollIndex((_start: number, end: number) => {
+              if (end >= this.posts.length - 1) {
+                this.loadMore();
+              }
+            })
+          }
+          .onRefreshing(() => {
+            this.isRefreshing = true;
+            this.refresh().finally(() => {
+              this.isRefreshing = false;
+            });
+          })
+          .layoutWeight(1)
+          .width('100%')
+        }
       }
     }
     .width('100%')

@@ -28,6 +28,7 @@ model User {
   ups            Up[]
   bookmarks      Bookmark[]
   userFollowTags UserFollowTag[]
+  searchHistories SearchHistory[]
 }
 
 // 帖子表
@@ -113,4 +114,16 @@ model UserFollowTag {
   createdAt DateTime @default(now())
 
   @@unique([userId, tagName]) // 同一用户对同一标签只能关注一次
+}
+
+// 搜索历史表
+model SearchHistory {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  keyword   String   @db.VarChar(100)
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt]) // 按用户+时间查询历史列表
+  @@index([keyword, createdAt]) // 热搜词按关键词+时间聚合
 }
