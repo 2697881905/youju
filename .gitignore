@@ -21,3 +21,8 @@ backend/.env
 
 # WorkBuddy agent 记忆（非项目源码）
 .workbuddy/
+
+# 操作系统垃圾文件
+.DS_Store
+**/.DS_Store
+Thumbs.db
