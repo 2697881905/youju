@@ -19,21 +19,25 @@ export async function listPosts(params: ListParams) {
 
   const where: any = { status: 1 }; // 仅已发布
   if (params.tag) {
-    where.tags = { arrayContains: params.tag };
+    where.tags = { array_contains: params.tag };
   }
   if (params.author) {
     where.userId = params.author;
   }
   // 关键词搜索：标题/正文/体裁/标签之间用 OR（任一命中即返回）
-  // tags 是 Json 列，标签关键词用 arrayContains 精确包含某标签；images 不参与搜索
+  // - MySQL 不支持 Prisma 的 mode:'insensitive'（该选项仅 PostgreSQL/MongoDB 可用，
+  //   生成客户端里根本没有 QueryMode/mode 字段，传入会触发 PrismaClientValidationError）。
+  //   MySQL 默认排序规则 utf8mb4_*_ci 已是大小写不敏感，故 contains 即为大小写不敏感匹配。
+  // - tags 是 Json 数组列，用 array_contains（snake_case；整列即数组，无需 path）
+  //   做标签精确包含匹配；images 不参与搜索。
   if (params.keyword) {
     const kw = params.keyword.trim();
     if (kw) {
       where.OR = [
-        { title: { contains: kw, mode: 'insensitive' } },
-        { content: { contains: kw, mode: 'insensitive' } },
-        { genre: { contains: kw, mode: 'insensitive' } },
-        { tags: { arrayContains: kw } },
+        { title: { contains: kw } },
+        { content: { contains: kw } },
+        { genre: { contains: kw } },
+        { tags: { array_contains: kw } },
       ];
     }
   }
