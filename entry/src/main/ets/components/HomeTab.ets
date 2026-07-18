@@ -3,7 +3,8 @@
 // 数据来源：listPosts / listTags / recordSearchHistory（services/api.ets）
 import { router } from '@kit.ArkUI';
 import { Post, Tag } from '../models/types';
-import { listPosts, listTags, recordSearchHistory } from '../services/api';
+import { listPosts, listFollowingPosts, listTags, recordSearchHistory, getUserProfile } from '../services/api';
+import { getUserId } from '../utils/auth';
 import { PostCard } from './PostCard';
 import { TagNav } from './TagNav';
 import { SearchPanel } from './SearchPanel';
@@ -11,9 +12,11 @@ import { setDetailPostId } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 
 type SortKey = 'hot' | 'latest' | 'recommend';
+type FeedMode = 'recommend' | 'following';
 
 const SUB_TABS: string[] = ['热榜', '最新', '推荐'];
 const SORT_KEYS: SortKey[] = ['hot', 'latest', 'recommend'];
+const FEED_TABS: string[] = ['推荐', '关注'];
 const ALL_TAG: Tag = { name: '全部', emoji: '🔥' };
 
 @Component
@@ -29,10 +32,23 @@ export struct HomeTab {
   @State error: string = '';
   @State searchKeyword: string = '';
   @State showPanel: boolean = false;
+  @State feedMode: FeedMode = 'recommend'; // 'recommend' | 'following'
+  @State needLogin: boolean = false; // 关注流且未登录的引导态
+  @State followingCount: number = 0; // 关注流的关注数缓存（空态 A/B 区分）
+  // 监听登录态：登录成功后 authToken 就绪，若处于关注流且列表空则自动补加载
+  @StorageLink('authToken') @Watch('onTokenReady') token: string = '';
 
   aboutToAppear(): void {
     this.loadTags();
+    // 默认加载推荐公开流（无需登录）；若已登录也保持推荐流默认
     this.refresh();
+  }
+
+  // token 由空变为非空（登录完成）→ 关注流且列表空、无 error 时自动补加载
+  onTokenReady(): void {
+    if (this.token !== '' && this.feedMode === 'following' && this.posts.length === 0 && this.error === '') {
+      this.refresh();
+    }
   }
 
   async loadTags(): Promise<void> {
@@ -49,6 +65,7 @@ export struct HomeTab {
   async refresh(): Promise<void> {
     this.page = 1;
     this.finished = false;
+    this.followingCount = 0; // 重置关注流空态缓存
     await this.fetch(true);
   }
 
@@ -69,15 +86,34 @@ export struct HomeTab {
     return this.tagIndex > 0 ? this.displayTags[this.tagIndex]?.name : undefined;
   }
 
+  // 切换信息源（推荐/关注）：重置并重新拉取
+  private switchFeed(mode: FeedMode): void {
+    if (this.feedMode !== mode) {
+      this.feedMode = mode;
+      this.needLogin = (mode === 'following' && this.token === '');
+      this.refresh();
+    }
+  }
+
   private async fetch(reset: boolean): Promise<void> {
     if (this.loading) {
       return;
     }
+    // 关注流且未登录：不发起请求，展示登录引导态
+    if (this.feedMode === 'following' && this.token === '') {
+      this.needLogin = true;
+      this.posts = []; // 清空上一流（推荐流）残留内容
+      return;
+    }
     this.loading = true;
     this.error = '';
+    this.needLogin = false; // 进入真正的拉取流程，复位登录引导态
     const sort = SORT_KEYS[this.sortIndex];
     try {
-      const res = await listPosts({ page: this.page, limit: 20, sort, tag: this.currentTag() });
+      const res =
+        this.feedMode === 'following'
+          ? await listFollowingPosts({ page: this.page, limit: 20, sort, tag: this.currentTag() })
+          : await listPosts({ page: this.page, limit: 20, sort, tag: this.currentTag() });
       if (reset) {
         this.posts = res.list;
       } else {
@@ -86,10 +122,30 @@ export struct HomeTab {
       if (res.list.length < 20) {
         this.finished = true;
       }
+      // 关注流空列表：异步取 followingCount 用于空态 A/B 区分（不阻塞渲染）
+      if (this.feedMode === 'following' && res.list.length === 0 && this.token !== '') {
+        this.loadFollowingCount();
+      }
     } catch (e) {
       this.error = (e as Error).message;
     } finally {
       this.loading = false;
+    }
+  }
+
+  // 取当前用户的关注数（关注流空态 A/B 区分：0→未关注任何人，>0→关注的人未发帖）
+  private async loadFollowingCount(): Promise<void> {
+    try {
+      const id: number = getUserId();
+      if (id === 0) {
+        this.followingCount = 0;
+        return;
+      }
+      const profile = await getUserProfile(id);
+      this.followingCount = profile.followingCount;
+    } catch (e) {
+      // 计数失败不阻断，默认按空态 A 处理
+      this.followingCount = 0;
     }
   }
 
@@ -132,6 +188,32 @@ export struct HomeTab {
 
   build() {
     Column() {
+      // 顶部分段控件：推荐 / 关注（信息源切换，与下方三子Tab/标签正交叠加）
+      Row() {
+        Row({ space: 0 }) {
+          ForEach(FEED_TABS, (name: string, idx: number) => {
+            Column() {
+              Text(name)
+                .fontSize(14)
+                .fontWeight(this.feedMode === (idx === 0 ? 'recommend' : 'following') ? FontWeight.Bold : FontWeight.Medium)
+                .fontColor(this.feedMode === (idx === 0 ? 'recommend' : 'following') ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
+                .padding({ left: 18, right: 18, top: 6, bottom: 6 })
+              if (this.feedMode === (idx === 0 ? 'recommend' : 'following')) {
+                Divider().width(24).height(2).color($r('app.color.brand_primary'))
+              }
+            }
+            .onClick(() => {
+              const mode: FeedMode = idx === 0 ? 'recommend' : 'following';
+              this.switchFeed(mode);
+            })
+          }, (name: string) => name)
+        }
+        .alignItems(VerticalAlign.Center)
+      }
+      .justifyContent(FlexAlign.Center)
+      .width('100%')
+      .padding({ top: 6, bottom: 8 })
+
       // 顶栏：左侧三子Tab（热榜/最新/推荐）+ 右侧搜索框（同一水平行）
       Row({ space: 12 }) {
         // 三子 Tab（下划线指示器）
@@ -204,7 +286,31 @@ export struct HomeTab {
         .padding({ bottom: 8 })
 
         // 列表区
-        if (this.posts.length === 0 && this.loading) {
+        if (this.needLogin) {
+          // 未登录引导态（关注流且未登录）：不发起请求，引导登录
+          Column({ space: 12 }) {
+            Text('🔐')
+              .fontSize(40)
+              .fontColor($r('app.color.text_secondary'))
+              .margin({ bottom: 4 })
+            Text('登录后查看你关注的人发布的帖子')
+              .fontSize(15)
+              .fontColor($r('app.color.text_primary'))
+              .textAlign(TextAlign.Center)
+            Text('关注的人发了什么，这里第一时间看到')
+              .fontSize(13)
+              .fontColor($r('app.color.text_secondary'))
+              .textAlign(TextAlign.Center)
+            Button('登录')
+              .margin({ top: 12 })
+              .onClick(() => {
+                router.pushUrl({ url: 'pages/LoginPage' });
+              })
+          }
+          .layoutWeight(1)
+          .width('100%')
+          .justifyContent(FlexAlign.Center)
+        } else if (this.posts.length === 0 && this.loading) {
           Column() {
             LoadingProgress().width(28).height(28)
             Text('加载中…').fontSize(13).fontColor($r('app.color.text_secondary')).margin({ top: 10 })
@@ -228,6 +334,45 @@ export struct HomeTab {
                 .onClick(() => {
                   this.refresh();
                 })
+            } else if (this.feedMode === 'following') {
+              // 关注流空态 A/B 区分：按 followingCount 判定
+              if (this.followingCount === 0) {
+                // 空态 A：未关注任何人
+                Text('🧭')
+                  .fontSize(40)
+                  .fontColor($r('app.color.text_secondary'))
+                  .margin({ bottom: 4 })
+                Text('你还没有关注任何人')
+                  .fontSize(15)
+                  .fontColor($r('app.color.text_primary'))
+                  .textAlign(TextAlign.Center)
+                Text('去发现有趣的人，关注后这里就有内容')
+                  .fontSize(13)
+                  .fontColor($r('app.color.text_secondary'))
+                  .textAlign(TextAlign.Center)
+                  .margin({ top: 4 })
+                Button('去发现')
+                  .margin({ top: 12 })
+                  .onClick(() => {
+                    // 跳转到底部「圈子」Tab（CircleTab），在此发现有趣的人/圈子
+                    AppStorage.setOrCreate('homeTabIndex', 1);
+                  })
+              } else {
+                // 空态 B：关注了人但无人发帖
+                Text('📭')
+                  .fontSize(40)
+                  .fontColor($r('app.color.text_secondary'))
+                  .margin({ bottom: 4 })
+                Text('你关注的人还没有发布内容')
+                  .fontSize(15)
+                  .fontColor($r('app.color.text_primary'))
+                  .textAlign(TextAlign.Center)
+                Text('去他们的主页催更吧～')
+                  .fontSize(13)
+                  .fontColor($r('app.color.text_secondary'))
+                  .textAlign(TextAlign.Center)
+                  .margin({ top: 4 })
+              }
             } else {
               Text('暂无内容')
                 .fontSize(14)

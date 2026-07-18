@@ -9,6 +9,8 @@ export interface ListParams {
   tag?: string;
   author?: number;
   keyword?: string;
+  following?: boolean; // 关注流：仅返回当前用户关注的人发布的帖子
+  viewerId?: number; // 当前登录用户 id（来自 auth 中间件 req.userId）
 }
 
 // 帖子列表（分页 + 标签筛选 + 排序 + 作者筛选）
@@ -47,6 +49,20 @@ export async function listPosts(params: ListParams) {
     orderBy = [{ upCount: 'desc' }, { createdAt: 'desc' }];
   }
   // recommend（P1）初期用简单规则：回退到最新
+
+  // 关注流：仅返回当前用户关注的人发布的帖子（公开流不进入此分支）
+  if (params.following && params.viewerId) {
+    const follows = await prisma.follow.findMany({
+      where: { followerId: params.viewerId },
+      select: { followingId: true },
+    });
+    const ids: number[] = follows.map((f) => f.followingId);
+    if (ids.length === 0) {
+      // 未关注任何人：直接返回空结果，不查 post 表（省一次 count）
+      return { list: [], pagination: { page, limit, total: 0 } };
+    }
+    where.userId = { in: ids };
+  }
 
   const [list, total] = await Promise.all([
     prisma.post.findMany({

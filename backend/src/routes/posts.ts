@@ -19,6 +19,23 @@ router.get('/', async (req: AuthRequest, res: Response) => {
   return ok(res, data);
 });
 
+// 关注流：GET /v1/posts/following?page=&limit=&sort=&tag=&keyword=
+// 仅当前用户关注的人的公开帖（必须登录，由 auth 中间件保证）
+// ⚠️ 必须注册在 GET /:id 之前，否则 /following 会被当作 id='following' 命中详情路由。
+router.get('/following', auth, async (req: AuthRequest, res: Response) => {
+  const { page, limit, sort, tag, keyword } = req.query;
+  const data = await postService.listPosts({
+    page: page ? Number(page) : 1,
+    limit: limit ? Number(limit) : 20,
+    sort: (sort as postService.SortType) ?? 'latest',
+    tag: tag as string | undefined,
+    keyword: keyword as string | undefined,
+    following: true,
+    viewerId: req.userId,
+  });
+  return ok(res, data);
+});
+
 // 帖子详情：GET /v1/posts/:id
 router.get('/:id', async (req: AuthRequest, res: Response) => {
   const id = Number(req.params.id);

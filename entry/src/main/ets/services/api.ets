@@ -173,6 +173,23 @@ export function getPost(id: number): Promise<PostWithComments> {
   return api.get<PostWithComments>('/v1/posts/' + id);
 }
 
+// GET /v1/posts/following?page=&limit=&sort=hot|latest|recommend&tag=
+// 关注流：仅当前用户关注的人的公开帖（需登录，request 自动带 Bearer）
+export function listFollowingPosts(params: {
+  page?: number;
+  limit?: number;
+  sort?: SortType;
+  tag?: string;
+} = {}): Promise<ListResult<Post>> {
+  const path: string = '/v1/posts/following' + toQuery([
+    ['page', params.page],
+    ['limit', params.limit],
+    ['sort', params.sort],
+    ['tag', params.tag],
+  ]);
+  return api.get<ListResult<Post>>(path);
+}
+
 // GET /v1/posts?keyword=&page=&limit=&sort=  （复用 /v1/posts 端点，keyword 选填）
 export function searchPosts(params: SearchPostsParams): Promise<ListResult<Post>> {
   const path = '/v1/posts' + toQuery([
