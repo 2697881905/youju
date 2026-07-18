@@ -11,6 +11,7 @@ import {
 import { ensureLogin } from '../utils/auth';
 import { Genre, StructuredData, Tag } from '../models/types';
 import { ImagePicker } from '../components/ImagePicker';
+import { safeShowToast } from '../utils/toast';
 
 // 体裁元数据
 interface GenreItem {
@@ -169,7 +170,7 @@ export struct PublishPage {
       this.selectedTags = this.selectedTags.filter((n: string) => n !== name);
     } else {
       if (this.selectedTags.length >= 3) {
-        this.getUIContext().getPromptAction().showToast({ message: '最多选 3 个标签' });
+        safeShowToast(this.getUIContext(),{ message: '最多选 3 个标签' });
         return;
       }
       this.selectedTags = [...this.selectedTags, name];
@@ -181,7 +182,7 @@ export struct PublishPage {
       return;
     }
     if (!this.title.trim()) {
-      this.getUIContext().getPromptAction().showToast({ message: '请填写标题' });
+      safeShowToast(this.getUIContext(),{ message: '请填写标题' });
       return;
     }
     const okTok: boolean = await this.ensureToken();
@@ -202,11 +203,11 @@ export struct PublishPage {
         images: images,
       };
       const p = await createPost(body);
-      this.getUIContext().getPromptAction().showToast({ message: '发布成功！帖子ID=' + (p.id ?? '') });
+      safeShowToast(this.getUIContext(),{ message: '发布成功！帖子ID=' + (p.id ?? '') });
       this.reset();
     } catch (e) {
       this.error = (e as Error).message;
-      this.getUIContext().getPromptAction().showToast({ message: '发布失败：' + this.error });
+      safeShowToast(this.getUIContext(),{ message: '发布失败：' + this.error });
     } finally {
       this.publishing = false;
     }
@@ -453,7 +454,7 @@ export struct PublishPage {
         .onClick(() => {
           if (this.step < 3) {
             if (this.step === 1 && this.selectedTags.length === 0) {
-              this.getUIContext().getPromptAction().showToast({ message: '至少选 1 个标签' });
+              safeShowToast(this.getUIContext(),{ message: '至少选 1 个标签' });
               return;
             }
             this.step = this.step + 1;

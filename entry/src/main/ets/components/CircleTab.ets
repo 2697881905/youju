@@ -3,6 +3,7 @@
 import { Tag } from '../models/types';
 import { listTags, followTag, unfollowTag, listFollowedTags } from '../services/api';
 import { ensureLogin } from '../utils/auth';
+import { safeShowToast } from '../utils/toast';
 
 @Component
 export struct CircleTab {
@@ -49,16 +50,16 @@ export struct CircleTab {
       if (joined) {
         await unfollowTag(name);
         this.joinedNames = this.joinedNames.filter((n: string) => n !== name);
-        this.getUIContext().getPromptAction().showToast({ message: '已退出「' + name + '」' });
+        safeShowToast(this.getUIContext(),{ message: '已退出「' + name + '」' });
       } else {
         await followTag(name);
         const next: string[] = this.joinedNames.slice();
         next.push(name);
         this.joinedNames = next;
-        this.getUIContext().getPromptAction().showToast({ message: '已加入「' + name + '」' });
+        safeShowToast(this.getUIContext(),{ message: '已加入「' + name + '」' });
       }
     } catch (e) {
-      this.getUIContext().getPromptAction().showToast({ message: '操作失败：' + (e as Error).message });
+      safeShowToast(this.getUIContext(),{ message: '操作失败：' + (e as Error).message });
     } finally {
       this.togglingName = '';
     }

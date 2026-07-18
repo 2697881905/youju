@@ -6,6 +6,7 @@ import { router } from '@kit.ArkUI';
 import { exchangeHuaweiCode, LoginResult } from '../services/api';
 import { setSession, ensureLogin } from '../utils/auth';
 import { HuaweiLoginButton } from '../components/HuaweiLoginButton';
+import { safeShowToast } from '../utils/toast';
 
 @Entry
 @Component
@@ -73,6 +74,6 @@ struct LoginPage {
   }
 
   private toast(message: string): void {
-    this.getUIContext().getPromptAction().showToast({ message: message, duration: 2000 });
+    safeShowToast(this.getUIContext(),{ message: message, duration: 2000 });
   }
 }

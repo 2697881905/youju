@@ -8,6 +8,7 @@ import { PostCard } from './PostCard';
 import { TagNav } from './TagNav';
 import { SearchPanel } from './SearchPanel';
 import { setDetailPostId } from '../utils/nav';
+import { safeShowToast } from '../utils/toast';
 
 type SortKey = 'hot' | 'latest' | 'recommend';
 
@@ -96,7 +97,7 @@ export struct HomeTab {
   private doSearch(raw: string): void {
     const kw = raw.trim();
     if (!kw) {
-      this.getUIContext().getPromptAction().showToast({ message: '请输入搜索内容' });
+      safeShowToast(this.getUIContext(),{ message: '请输入搜索内容' });
       return;
     }
     this.showPanel = false;

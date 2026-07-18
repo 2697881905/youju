@@ -6,6 +6,7 @@ import { Post } from '../models/types';
 import { searchPosts } from '../services/api';
 import { PostCard } from '../components/PostCard';
 import { setDetailPostId } from '../utils/nav';
+import { safeShowToast } from '../utils/toast';
 
 @Entry
 @Component
@@ -49,7 +50,7 @@ struct SearchResultPage {
   private doSearch(raw: string): void {
     const kw = raw.trim();
     if (!kw) {
-      this.getUIContext().getPromptAction().showToast({ message: '请输入搜索内容' });
+      safeShowToast(this.getUIContext(),{ message: '请输入搜索内容' });
       return;
     }
     AppStorage.setOrCreate('searchKeyword', kw);

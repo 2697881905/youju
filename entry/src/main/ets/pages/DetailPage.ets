@@ -13,6 +13,7 @@ import { Genre, Comment, StructuredData } from '../models/types';
 import { timeAgo, formatCount } from '../utils/format';
 import { CommentList } from '../components/CommentList';
 import { takeDetailPostId } from '../utils/nav';
+import { safeShowToast } from '../utils/toast';
 
 // 字段定义：[结构化字段键, 中文标签]，按产品文档 2.4 各体裁字段表
 type FieldDef = [keyof StructuredData, string];
@@ -187,7 +188,7 @@ struct DetailPage {
     } catch (e) {
       this.uped = !willUp;
       this.post.upCount = (this.post.upCount ?? 0) + (willUp ? -1 : 1);
-      this.getUIContext().getPromptAction().showToast({ message: '操作失败，请先登录' });
+      safeShowToast(this.getUIContext(),{ message: '操作失败，请先登录' });
     }
   }
 
@@ -208,12 +209,12 @@ struct DetailPage {
     } catch (e) {
       this.bookmarked = !willMark;
       this.post.bookmarkCount = (this.post.bookmarkCount ?? 0) + (willMark ? -1 : 1);
-      this.getUIContext().getPromptAction().showToast({ message: '操作失败，请先登录' });
+      safeShowToast(this.getUIContext(),{ message: '操作失败，请先登录' });
     }
   }
 
   onShare(): void {
-    this.getUIContext().getPromptAction().showToast({ message: '分享功能开发中' });
+    safeShowToast(this.getUIContext(),{ message: '分享功能开发中' });
   }
 
   async onSendComment(): Promise<void> {
@@ -227,7 +228,7 @@ struct DetailPage {
       this.commenting = false;
       await this.load();
     } catch (e) {
-      this.getUIContext().getPromptAction().showToast({ message: '评论失败，请先登录' });
+      safeShowToast(this.getUIContext(),{ message: '评论失败，请先登录' });
     }
   }
 

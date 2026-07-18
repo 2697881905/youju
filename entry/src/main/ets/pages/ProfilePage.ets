@@ -5,6 +5,7 @@ import { listPosts, listMyBookmarks } from '../services/api';
 import { PostCard } from '../components/PostCard';
 import { ensureLogin, getCurrentUser } from '../utils/auth';
 import { setDetailPostId } from '../utils/nav';
+import { safeShowToast } from '../utils/toast';
 
 const SUB_TABS: string[] = ['我发布', '我收藏'];
 
@@ -113,7 +114,7 @@ export struct ProfilePage {
           .fontColor($r('app.color.text_secondary'))
           .width(48)
           .onClick(() => {
-            this.getUIContext().getPromptAction().showToast({ message: '设置功能开发中' });
+            safeShowToast(this.getUIContext(),{ message: '设置功能开发中' });
           })
       }
       .width('100%')

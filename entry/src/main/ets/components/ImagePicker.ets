@@ -8,6 +8,7 @@ import { http } from '@kit.NetworkKit';
 import { compressImage, CompressedImage } from '../utils/image';
 import { getUploadSignature } from '../services/api';
 import { ensureLogin } from '../utils/auth';
+import { safeShowToast } from '../utils/toast';
 
 interface PickedImage {
   id: string; // 稳定 key
@@ -70,7 +71,7 @@ export struct ImagePicker {
     try {
       await ensureLogin();
     } catch (e) {
-      this.getUIContext().getPromptAction().showToast({ message: '登录失败，无法上传：' + (e as Error).message });
+      safeShowToast(this.getUIContext(),{ message: '登录失败，无法上传：' + (e as Error).message });
       this.picking = false;
       return;
     }
@@ -100,7 +101,7 @@ export struct ImagePicker {
         } catch (e) {
           // 上传失败：移除该预览，提示用户
           this.items = this.items.filter((it) => it !== item);
-          this.getUIContext().getPromptAction().showToast({ message: '图片上传失败：' + (e as Error).message });
+          safeShowToast(this.getUIContext(),{ message: '图片上传失败：' + (e as Error).message });
         }
       }
     } catch (e) {
