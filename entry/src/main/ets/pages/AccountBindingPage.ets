@@ -1,6 +1,6 @@
 // 账号绑定管理页（核心）：列表（harmony 主账号置顶 + 第三方）+ 绑定/解绑 + 二次确认 + 空状态。
 // 入口：设置页 → 账号绑定。遵循现有深色主题与 safeShowToast 提示风格。
-import { router, AlertDialog } from '@kit.ArkUI';
+import { router } from '@kit.ArkUI';
 import { BindingItem, Provider } from '../models/types';
 import { listBindings, bindAccount, unbindAccount } from '../services/api';
 import { HuaweiBindButton } from '../components/HuaweiBindButton';
@@ -141,7 +141,7 @@ struct AccountBindingPage {
         .fontColor($r('app.color.text_secondary'))
         .onClick(() => {
           this.pendingUnbindProvider = item.provider;
-          AlertDialog.show({
+          this.getUIContext().showAlertDialog({
             title: '解绑华为账号？',
             message: '解绑后你将无法使用华为账号登录大蓝书，但仍可用鸿蒙主账号登录。',
             primaryButton: {
