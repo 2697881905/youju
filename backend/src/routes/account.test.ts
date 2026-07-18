@@ -27,6 +27,7 @@ jest.mock('../prisma', () => ({
     },
     userBinding: {
       findMany: jest.fn(),
+      findFirst: jest.fn(),
       findUnique: jest.fn(),
       create: jest.fn(),
       delete: jest.fn(),
