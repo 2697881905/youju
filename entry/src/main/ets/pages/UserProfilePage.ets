@@ -5,6 +5,12 @@ import { PostCard } from '../components/PostCard';
 import { safeShowToast } from '../utils/toast';
 import { setDetailPostId } from '../utils/nav';
 
+// 关注态局部补丁（乐观更新时只传要改的字段）
+interface ProfileFollowPatch {
+  isFollowing?: boolean;
+  isMutual?: boolean;
+}
+
 @Entry
 @Component
 export struct UserProfilePage {
@@ -110,7 +116,7 @@ export struct UserProfilePage {
   }
 
   // 关注/取关（乐观更新，避免对象展开，用显式拷贝）
-  private cloneProfile(next: { isFollowing?: boolean; isMutual?: boolean }): UserProfile {
+  private cloneProfile(next: ProfileFollowPatch): UserProfile {
     return {
       id: this.profile.id,
       nickname: this.profile.nickname,

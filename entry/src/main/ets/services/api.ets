@@ -175,12 +175,7 @@ export function getPost(id: number): Promise<PostWithComments> {
 
 // GET /v1/posts/following?page=&limit=&sort=hot|latest|recommend&tag=
 // 关注流：仅当前用户关注的人的公开帖（需登录，request 自动带 Bearer）
-export function listFollowingPosts(params: {
-  page?: number;
-  limit?: number;
-  sort?: SortType;
-  tag?: string;
-} = {}): Promise<ListResult<Post>> {
+export function listFollowingPosts(params: ListPostsParams = {}): Promise<ListResult<Post>> {
   const path: string = '/v1/posts/following' + toQuery([
     ['page', params.page],
     ['limit', params.limit],
