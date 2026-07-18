@@ -14,7 +14,8 @@ datasource db {
 // 用户表
 model User {
   id         Int      @id @default(autoincrement())
-  openId     String   @unique @db.VarChar(64) // 鸿蒙账号ID
+  openId     String?  @unique @db.VarChar(64) // 鸿蒙账号ID（openId 授权登录；华为 unionID 登录用户此字段为空）
+  unionID    String?  @unique @db.VarChar(64) // 华为账号 UnionID（unionID 登录；openId 用户此字段为空）
   nickname   String   @db.VarChar(32)
   avatar     String?  @db.VarChar(255)
   gender     Int?     @default(1) // 1-男 2-女

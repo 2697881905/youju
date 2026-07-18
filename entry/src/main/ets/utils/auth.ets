@@ -62,3 +62,9 @@ export function initAuthStorage(): void {
   PersistentStorage.persistProp('authNickname', '');
   PersistentStorage.persistProp('authAvatar', '');
 }
+
+// 华为登录结果落地：语义化封装 setSession，供 LoginPage 在拿到 LoginResult 后调用。
+// 与 openId 登录共用同一套登录态（F2：直接调 setSession 复用）。
+export function loginByHuaweiResult(result: LoginResult): void {
+  setSession(result.token, result.user);
+}

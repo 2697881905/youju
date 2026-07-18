@@ -130,6 +130,11 @@ export interface LoginResult {
   user: User;
 }
 
+// 华为账号登录：用 Authorization Code 换取登录态
+export interface HuaweiExchangeBody {
+  code: string;
+}
+
 // 腾讯云 COS 直传签名：后端签发预签名 PUT URL，前端直传二进制
 export interface UploadSignature {
   url: string; // 预签名 PUT URL（前端直传目标）
@@ -253,6 +258,11 @@ export function listFollowedTags(): Promise<string[]> {
 // POST /v1/auth/login（成功后由调用方 auth.ts 统一持久化 session）
 export function login(body: LoginBody): Promise<LoginResult> {
   return api.post<LoginResult>('/v1/auth/login', body);
+}
+
+// POST /v1/auth/huawei/exchange（华为 Authorization Code 换登录态；返回结构与 login 一致，前端零改解析）
+export function exchangeHuaweiCode(body: HuaweiExchangeBody): Promise<LoginResult> {
+  return api.post<LoginResult>('/v1/auth/huawei/exchange', body);
 }
 
 // GET /v1/auth/me

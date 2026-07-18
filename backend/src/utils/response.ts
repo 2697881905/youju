@@ -9,6 +9,7 @@ export const CODE = {
   NOT_FOUND: 404,
   CONFLICT: 409,
   SERVER_ERROR: 500,
+  HUAWEI_AUTH_FAILED: 480, // 华为账号登录失败（换取 token / 用户信息 / 服务端落地异常）
 };
 
 // 统一响应包：{ code, data, message }

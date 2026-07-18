@@ -1,0 +1,44 @@
+sequenceDiagram
+    autonumber
+    actor U as 用户
+    participant LP as LoginPage(LoginWithHuaweiIDButton)
+    participant HW as 华为账号服务器
+    participant API as api.ets(exchangeHuaweiCode)
+    participant R as AuthRoute(POST /v1/auth/huawei/exchange)
+    participant HA as huaweiAuth.ts
+    participant AS as AuthService.loginWithHuawei
+    participant DB as Prisma/MySQL
+    participant AU as AuthUtils.setSession
+    participant ST as AppStorage(PersistentStorage)
+
+    Note over U,LP: 用户进入登录页（Index 无 session 时 pushUrl 至此）
+    U->>LP: 点击 LoginWithHuaweiIDButton
+    LP->>HW: 华为系统授权（指纹/密码）
+    HW-->>LP: onLoginSuccess(authorizationCode)
+    LP->>API: exchangeHuaweiCode({ code })
+    API->>R: POST /v1/auth/huawei/exchange  { code }
+    R->>HA: exchangeCodeForToken(code)
+    HA->>HW: POST /oauth2/v3/token (grant_type=authorization_code, client_id, client_secret, code)
+    HW-->>HA: { access_token }
+    HA->>HW: GET rest.php?nsp_svc=GOpen.User.getInfo (Bearer access_token)
+    HW-->>HA: { unionID, nickName, avatarUri }
+    HA-->>R: { unionID, nickName, avatarUri }
+    R->>AS: loginWithHuawei(unionID, nickName, avatarUri)
+    AS->>DB: findUnique({ where: { unionID } })
+    alt unionID 已存在（老用户/首次关联为准）
+        DB-->>AS: 现有 User
+    else unionID 不存在（新用户自动建号）
+        AS->>DB: create({ unionID, nickname, avatar })
+        DB-->>AS: 新建 User
+    end
+    AS->>AS: jwt.sign({ userId }) → token
+    AS-->>R: { token, user }
+    R-->>API: { code:0, data:{ token, user } }
+    API-->>LP: LoginResult
+    LP->>AU: setSession(token, user)
+    AU->>ST: PersistentStorage.setOrCreate(authToken/authUserId/authNickname/authAvatar)
+    LP->>LP: router.back() 回到 Index（已登录态）
+
+    Note over U,LP: 失败降级（P1-②，不阻塞原登录）
+    HW-->>LP: onLoginFailure(error)
+    LP->>LP: 显示 toast，保留“原方式”入口

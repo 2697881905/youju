@@ -5,7 +5,8 @@ import { CircleTab } from '../components/CircleTab';
 import { PublishPage } from './PublishPage';
 import { MessagePage } from './MessagePage';
 import { ProfilePage } from './ProfilePage';
-import { initAuthStorage } from '../utils/auth';
+import { initAuthStorage, getToken } from '../utils/auth';
+import { router } from '@kit.ArkUI';
 
 @Entry
 @Component
@@ -14,6 +15,10 @@ struct Index {
 
   aboutToAppear(): void {
     initAuthStorage();
+    // 无登录态时跳到登录页；登录成功后 router.back() 回此页
+    if (getToken() === '') {
+      router.pushUrl({ url: 'pages/LoginPage' });
+    }
   }
 
   @Builder

@@ -2,7 +2,8 @@ import { Router, Response } from 'express';
 import { ok, fail, CODE } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
 import { prisma } from '../prisma';
-import { login, updateProfile } from '../services/authService';
+import { login, updateProfile, loginWithHuawei } from '../services/authService';
+import { exchangeCodeForToken, fetchHuaweiUserProfile } from '../services/huaweiAuth';
 import * as postService from '../services/postService';
 import * as tagService from '../services/tagService';
 
@@ -15,6 +16,23 @@ router.post('/login', async (req: AuthRequest, res: Response) => {
   if (!openId) return fail(res, CODE.BAD_REQUEST, '缺少 openId');
   const result = await login(openId, nickname, avatar);
   return ok(res, result);
+});
+
+// 华为账号登录（Account Kit）：用 Authorization Code 换取 UnionID 并落地用户
+// POST /v1/auth/huawei/exchange  |  POST /v1/users/huawei/exchange
+router.post('/huawei/exchange', async (req: AuthRequest, res: Response) => {
+  const code: string = req.body?.code;
+  if (!code) {
+    return fail(res, CODE.BAD_REQUEST, '缺少 code');
+  }
+  try {
+    const accessToken: string = await exchangeCodeForToken(code);
+    const profile = await fetchHuaweiUserProfile(accessToken);
+    const result = await loginWithHuawei(profile.unionID, profile.nickName, profile.avatarUri);
+    return ok(res, result);
+  } catch (e) {
+    return fail(res, CODE.HUAWEI_AUTH_FAILED, '华为登录失败，请稍后重试或切换其他登录方式', 200);
+  }
 });
 
 // 当前用户信息

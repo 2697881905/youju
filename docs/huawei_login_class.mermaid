@@ -1,0 +1,89 @@
+classDiagram
+    direction LR
+
+    %% ===== 后端数据模型（prisma/schema.prisma）=====
+    class User {
+        +number id
+        +string? openId   // 鸿蒙 openId（华为登录用户可为空）
+        +string? unionID  // 华为 unionID（新增, 唯一）
+        +string nickname
+        +string? avatar
+        +number? gender
+        +Json? followTags
+        +number status
+        +DateTime createdAt
+        +DateTime updatedAt
+    }
+
+    %% ===== 后端 DTO =====
+    class HuaweiTokenResp {
+        +string access_token
+        +number expires_in
+        +string? token_type
+    }
+    class HuaweiUserInfo {
+        +string unionID
+        +string? nickName
+        +string? avatarUri
+    }
+
+    %% ===== 后端服务 / 路由 =====
+    class HuaweiAuthService {
+        +exchangeCodeForToken(code: string) Promise~string~
+        +fetchHuaweiUserProfile(accessToken: string) Promise~HuaweiUserInfo~
+    }
+    class AuthService {
+        +login(openId, nickname?, avatar?) Promise~LoginResult~
+        +loginWithHuawei(unionID, nickname?, avatar?) Promise~LoginResult~
+    }
+    class AuthRoute {
+        +POST /huawei/exchange(req, res) void
+        +POST /login(req, res) void
+    }
+
+    %% ===== 前端（ArkTS）=====
+    class ApiClient {
+        +exchangeHuaweiCode(body: HuaweiExchangeBody) Promise~LoginResult~
+        +login(body: LoginBody) Promise~LoginResult~
+    }
+    class AuthUtils {
+        +setSession(token, user) void
+        +getCurrentUser() User|null
+        +getToken() string
+        +clearSession() void
+    }
+    class LoginPage {
+        +aboutToAppear() void
+        +onHuaweiSuccess(resp) void
+        +onHuaweiFailure(err) void
+        +loginByOriginalWay() void
+    }
+    class HuaweiLoginButton {
+        +build() void
+    }
+    class AppStorage {
+        +setOrCreate(key, value) void
+        +get(key) Object|undefined
+    }
+
+    %% ===== 外部系统 =====
+    class HuaweiOAuth {
+        <<external>>
+        +POST /oauth2/v3/token
+        +GET rest.php?nsp_svc=GOpen.User.getInfo
+    }
+
+    %% ===== 关系 =====
+    AuthRoute ..> HuaweiAuthService : exchangeCodeForToken()\nfetchHuaweiUserProfile()
+    AuthRoute ..> AuthService : loginWithHuawei()
+    HuaweiAuthService ..> HuaweiOAuth : fetch 换token/取资料
+    AuthService ..> User : prisma findUnique/create
+    HuaweiAuthService ..> HuaweiTokenResp : 解析
+    HuaweiAuthService ..> HuaweiUserInfo : 解析
+
+    ApiClient ..> AuthRoute : HTTP POST /v1/auth/huawei/exchange
+    LoginPage ..> ApiClient : exchangeHuaweiCode()
+    LoginPage ..> AuthUtils : setSession(token, user)
+    LoginPage ..> HuaweiLoginButton : 嵌入系统组件
+    HuaweiLoginButton ..> LoginPage : onHuaweiSuccess(resp)
+    AuthUtils ..> AppStorage : PersistentStorage.setOrCreate
