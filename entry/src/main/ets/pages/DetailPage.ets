@@ -1,5 +1,5 @@
 // 帖子详情页（真实内容）：标签 → 体裁 → 标题 → 九宫格图 → 结构化字段 → 正文 → 评论区 → 底部操作栏
-import { router, promptAction } from '@kit.ArkUI';
+import { router } from '@kit.ArkUI';
 import {
   getPost,
   createComment,
@@ -187,7 +187,7 @@ struct DetailPage {
     } catch (e) {
       this.uped = !willUp;
       this.post.upCount = (this.post.upCount ?? 0) + (willUp ? -1 : 1);
-      promptAction.showToast({ message: '操作失败，请先登录' });
+      this.getUIContext().getPromptAction().showToast({ message: '操作失败，请先登录' });
     }
   }
 
@@ -208,12 +208,12 @@ struct DetailPage {
     } catch (e) {
       this.bookmarked = !willMark;
       this.post.bookmarkCount = (this.post.bookmarkCount ?? 0) + (willMark ? -1 : 1);
-      promptAction.showToast({ message: '操作失败，请先登录' });
+      this.getUIContext().getPromptAction().showToast({ message: '操作失败，请先登录' });
     }
   }
 
   onShare(): void {
-    promptAction.showToast({ message: '分享功能开发中' });
+    this.getUIContext().getPromptAction().showToast({ message: '分享功能开发中' });
   }
 
   async onSendComment(): Promise<void> {
@@ -227,7 +227,7 @@ struct DetailPage {
       this.commenting = false;
       await this.load();
     } catch (e) {
-      promptAction.showToast({ message: '评论失败，请先登录' });
+      this.getUIContext().getPromptAction().showToast({ message: '评论失败，请先登录' });
     }
   }
 

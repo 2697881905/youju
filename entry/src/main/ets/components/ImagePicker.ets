@@ -2,7 +2,7 @@
 // PhotoViewPicker 拉相册 → 压缩(jpeg) → 调 getUploadSignature 拿预签名 PUT URL → 直传二进制。
 // 本地用 PixelMap 即时预览；直传成功后把远端 URL 写入 @Link selected（供发布器提交）。
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
-import { LengthMetrics, promptAction } from '@kit.ArkUI';
+import { LengthMetrics } from '@kit.ArkUI';
 import { image } from '@kit.ImageKit';
 import { http } from '@kit.NetworkKit';
 import { compressImage, CompressedImage } from '../utils/image';
@@ -70,7 +70,7 @@ export struct ImagePicker {
     try {
       await ensureLogin();
     } catch (e) {
-      promptAction.showToast({ message: '登录失败，无法上传：' + (e as Error).message });
+      this.getUIContext().getPromptAction().showToast({ message: '登录失败，无法上传：' + (e as Error).message });
       this.picking = false;
       return;
     }
@@ -100,7 +100,7 @@ export struct ImagePicker {
         } catch (e) {
           // 上传失败：移除该预览，提示用户
           this.items = this.items.filter((it) => it !== item);
-          promptAction.showToast({ message: '图片上传失败：' + (e as Error).message });
+          this.getUIContext().getPromptAction().showToast({ message: '图片上传失败：' + (e as Error).message });
         }
       }
     } catch (e) {

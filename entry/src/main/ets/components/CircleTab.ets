@@ -1,6 +1,5 @@
 // 圈子（Tab 内容）：用已有的标签体系渲染圈子卡片，支持加入/退出（后端持久化）
 // 数据来源：listTags / followTag / unfollowTag / listFollowedTags（services/api.ets）
-import { promptAction } from '@kit.ArkUI';
 import { Tag } from '../models/types';
 import { listTags, followTag, unfollowTag, listFollowedTags } from '../services/api';
 import { ensureLogin } from '../utils/auth';
@@ -50,16 +49,16 @@ export struct CircleTab {
       if (joined) {
         await unfollowTag(name);
         this.joinedNames = this.joinedNames.filter((n: string) => n !== name);
-        promptAction.showToast({ message: '已退出「' + name + '」' });
+        this.getUIContext().getPromptAction().showToast({ message: '已退出「' + name + '」' });
       } else {
         await followTag(name);
         const next: string[] = this.joinedNames.slice();
         next.push(name);
         this.joinedNames = next;
-        promptAction.showToast({ message: '已加入「' + name + '」' });
+        this.getUIContext().getPromptAction().showToast({ message: '已加入「' + name + '」' });
       }
     } catch (e) {
-      promptAction.showToast({ message: '操作失败：' + (e as Error).message });
+      this.getUIContext().getPromptAction().showToast({ message: '操作失败：' + (e as Error).message });
     } finally {
       this.togglingName = '';
     }

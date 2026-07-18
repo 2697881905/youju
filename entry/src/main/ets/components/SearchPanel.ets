@@ -1,6 +1,5 @@
 // 搜索面板：搜索历史（可清除）+ 热搜词，点击关键词触发搜索回调
 // 子传父：通过普通函数属性 onKeywordSelect 回调（ArkTS V1 函数型变量不用 @Prop）
-import { promptAction } from '@kit.ArkUI';
 import { listSearchHistory, clearSearchHistory, listHotKeywords } from '../services/api';
 
 @Component
@@ -38,9 +37,9 @@ export struct SearchPanel {
     try {
       await clearSearchHistory();
       this.historyList = [];
-      promptAction.showToast({ message: '已清除搜索历史' });
+      this.getUIContext().getPromptAction().showToast({ message: '已清除搜索历史' });
     } catch (e) {
-      promptAction.showToast({ message: '清除失败，请重试' });
+      this.getUIContext().getPromptAction().showToast({ message: '清除失败，请重试' });
     }
   }
 

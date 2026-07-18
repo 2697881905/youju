@@ -17,6 +17,8 @@ export async function compressImage(uri: string): Promise<CompressedImage> {
       quality: 80,
     });
     return { preview: pixelMap, bytes };
+  } catch (e: Error) {
+    throw e;
   } finally {
     await packer.release();
   }

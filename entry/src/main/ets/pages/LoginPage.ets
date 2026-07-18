@@ -2,7 +2,7 @@
 // 提供两种登录方式：
 //   1) 华为账号一键登录（LoginWithHuaweiIDButton）：成功后用 code 换登录态，setSession 复用现有登录态
 //   2) 其他方式登录：走现有 openId 授权登录桩（ensureLogin），作为华为登录降级兜底
-import { router, promptAction } from '@kit.ArkUI';
+import { router } from '@kit.ArkUI';
 import { exchangeHuaweiCode, LoginResult } from '../services/api';
 import { setSession, ensureLogin } from '../utils/auth';
 import { HuaweiLoginButton } from '../components/HuaweiLoginButton';
@@ -73,6 +73,6 @@ struct LoginPage {
   }
 
   private toast(message: string): void {
-    promptAction.showToast({ message: message, duration: 2000 });
+    this.getUIContext().getPromptAction().showToast({ message: message, duration: 2000 });
   }
 }

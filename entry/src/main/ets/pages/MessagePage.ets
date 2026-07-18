@@ -1,5 +1,4 @@
 // 消息通知（Tab 内容，简版：四类消息入口 + 空态；真实通知系统待 P1）
-import { promptAction } from '@kit.ArkUI';
 
 interface MessageCategory {
   icon: string;
@@ -48,7 +47,7 @@ export struct MessagePage {
         .backgroundColor($r('app.color.card_bg'))
         .margin({ bottom: 8 })
         .onClick(() => {
-          promptAction.showToast({ message: c.title + '消息开发中' });
+          this.getUIContext().getPromptAction().showToast({ message: c.title + '消息开发中' });
         })
       }, (c: MessageCategory) => c.title)
 

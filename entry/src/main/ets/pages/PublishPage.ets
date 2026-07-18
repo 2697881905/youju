@@ -2,7 +2,7 @@
 // Step0 选体裁 → Step1 选标签(1~3) → Step2 填标题/正文/结构化表单/图片 → Step3 预览&发布
 // 发布前自动用 dev 账号 login 拿 token（Account Kit 未接，先用 dev 桩）。
 // 图片在 ImagePicker 内选图即直传腾讯云 COS，selected 已是远端 URL，本页直接提交。
-import { promptAction, LengthMetrics } from '@kit.ArkUI';
+import { LengthMetrics } from '@kit.ArkUI';
 import {
   createPost,
   listTags,
@@ -169,7 +169,7 @@ export struct PublishPage {
       this.selectedTags = this.selectedTags.filter((n: string) => n !== name);
     } else {
       if (this.selectedTags.length >= 3) {
-        promptAction.showToast({ message: '最多选 3 个标签' });
+        this.getUIContext().getPromptAction().showToast({ message: '最多选 3 个标签' });
         return;
       }
       this.selectedTags = [...this.selectedTags, name];
@@ -181,7 +181,7 @@ export struct PublishPage {
       return;
     }
     if (!this.title.trim()) {
-      promptAction.showToast({ message: '请填写标题' });
+      this.getUIContext().getPromptAction().showToast({ message: '请填写标题' });
       return;
     }
     const okTok: boolean = await this.ensureToken();
@@ -202,11 +202,11 @@ export struct PublishPage {
         images: images,
       };
       const p = await createPost(body);
-      promptAction.showToast({ message: '发布成功！帖子ID=' + (p.id ?? '') });
+      this.getUIContext().getPromptAction().showToast({ message: '发布成功！帖子ID=' + (p.id ?? '') });
       this.reset();
     } catch (e) {
       this.error = (e as Error).message;
-      promptAction.showToast({ message: '发布失败：' + this.error });
+      this.getUIContext().getPromptAction().showToast({ message: '发布失败：' + this.error });
     } finally {
       this.publishing = false;
     }
@@ -453,7 +453,7 @@ export struct PublishPage {
         .onClick(() => {
           if (this.step < 3) {
             if (this.step === 1 && this.selectedTags.length === 0) {
-              promptAction.showToast({ message: '至少选 1 个标签' });
+              this.getUIContext().getPromptAction().showToast({ message: '至少选 1 个标签' });
               return;
             }
             this.step = this.step + 1;

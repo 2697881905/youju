@@ -1,7 +1,7 @@
 // 帖子关键词搜索结果页：顶栏(返回+可改搜索框+清除✕+结果计数) + 2列Grid(复用PostCard) + 三态(加载/空/失败)
 // 数据来源：searchPosts（services/api.ets，复用 /v1/posts 端点）
 // 点击跳转详情：照抄 HomeTab 父级 GridItem().onClick 包裹模式（PostCard 自身不处理点击）
-import { router, promptAction } from '@kit.ArkUI';
+import { router } from '@kit.ArkUI';
 import { Post } from '../models/types';
 import { searchPosts } from '../services/api';
 import { PostCard } from '../components/PostCard';
@@ -49,7 +49,7 @@ struct SearchResultPage {
   private doSearch(raw: string): void {
     const kw = raw.trim();
     if (!kw) {
-      promptAction.showToast({ message: '请输入搜索内容' });
+      this.getUIContext().getPromptAction().showToast({ message: '请输入搜索内容' });
       return;
     }
     AppStorage.setOrCreate('searchKeyword', kw);

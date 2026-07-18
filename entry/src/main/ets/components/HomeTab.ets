@@ -1,7 +1,7 @@
 // 首页 feed（真实内容）：顶栏(三子Tab+搜索框同水平) + 标签筛选 + 帖子网格
 // 搜索框获焦时展示 SearchPanel（搜索历史+热搜词），提交或选中关键词后跳结果页
 // 数据来源：listPosts / listTags / recordSearchHistory（services/api.ets）
-import { router, promptAction } from '@kit.ArkUI';
+import { router } from '@kit.ArkUI';
 import { Post, Tag } from '../models/types';
 import { listPosts, listTags, recordSearchHistory } from '../services/api';
 import { PostCard } from './PostCard';
@@ -96,7 +96,7 @@ export struct HomeTab {
   private doSearch(raw: string): void {
     const kw = raw.trim();
     if (!kw) {
-      promptAction.showToast({ message: '请输入搜索内容' });
+      this.getUIContext().getPromptAction().showToast({ message: '请输入搜索内容' });
       return;
     }
     this.showPanel = false;

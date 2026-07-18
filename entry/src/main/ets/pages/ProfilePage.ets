@@ -1,5 +1,5 @@
 // 个人主页（我的）：头像/昵称 + 我发布/我收藏 双 Tab + 帖子网格
-import { router, promptAction } from '@kit.ArkUI';
+import { router } from '@kit.ArkUI';
 import { Post, User } from '../models/types';
 import { listPosts, listMyBookmarks } from '../services/api';
 import { PostCard } from '../components/PostCard';
@@ -113,7 +113,7 @@ export struct ProfilePage {
           .fontColor($r('app.color.text_secondary'))
           .width(48)
           .onClick(() => {
-            promptAction.showToast({ message: '设置功能开发中' });
+            this.getUIContext().getPromptAction().showToast({ message: '设置功能开发中' });
           })
       }
       .width('100%')
