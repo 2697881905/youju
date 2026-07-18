@@ -11,3 +11,12 @@ export function takeDetailPostId(): string {
   _detailPostId = '';
   return id;
 }
+
+// 跨 Tab 跳转信号：子组件调用此函数触发 Index 切换 Tab。
+// 用递增序列号保证 @Watch 每次都能触发（@Watch 对同值不触发）。
+// 注意：target 必须先写、signal 后写，确保 Index 的 @Watch 回调读到最新 target。
+export function emitTabSwitch(target: number): void {
+  AppStorage.setOrCreate('tabSwitchTarget', target);
+  const seq: number = (AppStorage.get<number>('tabSwitchSignal') ?? 0) + 1;
+  AppStorage.setOrCreate('tabSwitchSignal', seq);
+}

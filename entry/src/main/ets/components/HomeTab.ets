@@ -8,7 +8,7 @@ import { getUserId } from '../utils/auth';
 import { PostCard } from './PostCard';
 import { TagNav } from './TagNav';
 import { SearchPanel } from './SearchPanel';
-import { setDetailPostId } from '../utils/nav';
+import { setDetailPostId, emitTabSwitch } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 
 type SortKey = 'hot' | 'latest' | 'recommend';
@@ -355,7 +355,7 @@ export struct HomeTab {
                   .margin({ top: 12 })
                   .onClick(() => {
                     // 跳转到底部「圈子」Tab（CircleTab），在此发现有趣的人/圈子
-                    AppStorage.setOrCreate('homeTabIndex', 1);
+                    emitTabSwitch(1);
                   })
               } else {
                 // 空态 B：关注了人但无人发帖

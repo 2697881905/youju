@@ -14,6 +14,7 @@ import { router } from '@kit.ArkUI';
 struct Index {
   @State currentIndex: number = 0;
   @StorageLink('unreadMessageCount') unreadCount: number = 0;
+  @StorageLink('tabSwitchSignal') @Watch('onTabSwitch') tabSwitchSignal: number = 0;
 
   aboutToAppear(): void {
     initAuthStorage();
@@ -35,6 +36,14 @@ struct Index {
       .catch(() => {
         // 失败不阻断
       });
+  }
+
+  // 跨 Tab 跳转监听：子组件 emitTabSwitch() 写入 tabSwitchSignal 后触发
+  onTabSwitch(): void {
+    const target: number = AppStorage.get<number>('tabSwitchTarget') ?? 0;
+    if (target >= 0 && target <= 4) {
+      this.currentIndex = target;
+    }
   }
 
   @Builder
