@@ -14,15 +14,6 @@ import {
 import { getToken } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
 
-// 通知类型 → 图标
-const TYPE_ICON: Record<NotificationType, string> = {
-  comment: '💬',
-  up: '👍',
-  bookmark: '🔖',
-  follow: '➕',
-  system: '📢',
-};
-
 @Entry
 @Component
 export struct MessagePage {
@@ -139,11 +130,20 @@ export struct MessagePage {
       } catch (e) {
         // 标记失败不影响跳转
       }
-      // 重赋值数组，确保 @State 触发 UI 刷新
+      // 重赋值数组（逐字段构造新对象，规避 ArkTS V1 禁用的对象展开 {...x}），确保 @State 触发 UI 刷新
       const next: NotificationItem[] = this.list.slice();
       for (let i = 0; i < next.length; i++) {
         if (next[i].id === id) {
-          next[i] = { ...next[i], read: true };
+          const cur: NotificationItem = next[i];
+          next[i] = {
+            id: cur.id,
+            type: cur.type,
+            actor: cur.actor,
+            postId: cur.postId,
+            content: cur.content,
+            read: true,
+            createdAt: cur.createdAt,
+          };
           break;
         }
       }
@@ -162,13 +162,44 @@ export struct MessagePage {
   async onMarkAll(): Promise<void> {
     try {
       await markAllRead();
-      // 重赋值数组，确保 @State 触发 UI 刷新
-      this.list = this.list.map((it: NotificationItem) => ({ ...it, read: true }));
+      // 重赋值数组（逐字段构造新对象，规避对象展开 {...x}），确保 @State 触发 UI 刷新
+      const allRead: NotificationItem[] = this.list.slice();
+      for (let i = 0; i < allRead.length; i++) {
+        const cur: NotificationItem = allRead[i];
+        allRead[i] = {
+          id: cur.id,
+          type: cur.type,
+          actor: cur.actor,
+          postId: cur.postId,
+          content: cur.content,
+          read: true,
+          createdAt: cur.createdAt,
+        };
+      }
+      this.list = allRead;
       this.unreadCount = 0;
       safeShowToast(this.getUIContext(), { message: '已全部标记为已读' });
     } catch (e) {
       safeShowToast(this.getUIContext(), { message: '操作失败，请重试' });
     }
+  }
+
+  // 通知类型 → 图标（ArkTS V1 不支持 obj[key] 索引访问，用函数分发）
+  private typeIcon(type: NotificationType | undefined): string {
+    const t: NotificationType = type ?? 'system';
+    if (t === 'comment') {
+      return '💬';
+    }
+    if (t === 'up') {
+      return '👍';
+    }
+    if (t === 'bookmark') {
+      return '🔖';
+    }
+    if (t === 'follow') {
+      return '➕';
+    }
+    return '📢';
   }
 
   @Builder
@@ -185,7 +216,7 @@ export struct MessagePage {
         Circle({ width: 40, height: 40 })
           .fill($r('app.color.brand_primary'))
           .opacity(0.15)
-        Text(item.actor && item.actor.nickname ? item.actor.nickname.slice(0, 1) : TYPE_ICON[item.type ?? 'system'])
+        Text(item.actor && item.actor.nickname ? item.actor.nickname.slice(0, 1) : this.typeIcon(item.type))
           .fontSize(16)
           .fontColor($r('app.color.brand_primary'))
           .position({ x: 12, y: 10 })
@@ -294,7 +325,7 @@ export struct MessagePage {
             this.loadMore();
           })
         }
-        .onRefresh(() => {
+        .onRefreshing(() => {
           this.loadFirst().finally(() => {
             this.refreshing = false;
           });

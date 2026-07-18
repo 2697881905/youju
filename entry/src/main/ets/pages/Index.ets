@@ -7,20 +7,13 @@ import { MessagePage } from './MessagePage';
 import { ProfilePage } from './ProfilePage';
 import { initAuthStorage, getToken } from '../utils/auth';
 import { getUnreadCount } from '../services/api';
-import { router, TabsController } from '@kit.ArkUI';
+import { router } from '@kit.ArkUI';
 
 @Entry
 @Component
 struct Index {
-  // 通过 AppStorage 暴露底部 Tab 索引，供子页面（如 HomeTab「去发现」）跨 Tab 切换
-  @StorageLink('homeTabIndex') @Watch('onHomeTabIndexChange') currentIndex: number = 0;
+  @State currentIndex: number = 0;
   @StorageLink('unreadMessageCount') unreadCount: number = 0;
-  private tabsController: TabsController = new TabsController();
-
-  // 子页面写入 homeTabIndex 时，切换到底部对应 Tab
-  onHomeTabIndexChange(): void {
-    this.tabsController.changeIndex(this.currentIndex);
-  }
 
   aboutToAppear(): void {
     initAuthStorage();
@@ -76,7 +69,7 @@ struct Index {
   }
 
   build() {
-    Tabs({ barPosition: BarPosition.End, index: this.currentIndex, controller: this.tabsController }) {
+    Tabs({ barPosition: BarPosition.End, index: this.currentIndex }) {
       TabContent() {
         HomeTab()
       }
