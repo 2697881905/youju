@@ -30,19 +30,18 @@ export struct HuaweiLoginButton {
         }
       });
 
+  // 登录按钮参数（显式类型标注，规避 arkts-no-untyped-obj-literals）。
+  // style 为 loginComponentManager.Style 枚举（组件自带尺寸，颜色风格由枚举决定），
+  // 此处使用华为经典红色按钮 BUTTON_RED；如需浅色可改为 BUTTON_WHITE。
+  private huaweiParams: loginComponentManager.LoginWithHuaweiIDButtonParams = {
+    style: loginComponentManager.Style.BUTTON_RED,
+    supportDarkMode: true,
+    loginType: loginComponentManager.LoginType.ID,
+  };
+
   build() {
     LoginWithHuaweiIDButton({
-      params: {
-        // 按钮尺寸样式（必填）：宽 300vp 高 48vp，圆角由组件默认
-        style: {
-          width: 300,
-          height: 48,
-        },
-        // 跟随系统深浅色模式
-        supportDarkMode: true,
-        // 仅获取 UnionID / Authorization Code（不拉手机号，符合 P0 范围）
-        loginType: loginComponentManager.LoginType.ID,
-      },
+      params: this.huaweiParams,
       controller: this.controller,
     })
   }
