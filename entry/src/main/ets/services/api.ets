@@ -1,5 +1,5 @@
 import { http } from '@kit.NetworkKit';
-import { Post, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount } from '../models/types';
+import { Post, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult } from '../models/types';
 
 // 本地后端地址（按运行环境替换）：
 // - 模拟器/真机本地开发：用 hdc 反向端口转发，连 127.0.0.1:3000 即可，无需关心电脑 IP（IP 变了也不用改这里）
@@ -274,6 +274,7 @@ export function getMe(): Promise<User> {
 export interface UpdateMeBody {
   nickname?: string;
   avatar?: string;
+  bio?: string;
 }
 
 export function updateMe(body: UpdateMeBody): Promise<User> {
@@ -398,4 +399,33 @@ export async function listHotKeywords(limit?: number): Promise<string[]> {
     keywords.push(items[i].keyword);
   }
   return keywords;
+}
+
+// ===== 关注 / 他人主页 =====
+// GET /v1/users/:id（他人/自己资料，含聚合计数与关系态）
+// 注意：不要传 'me'——'me' 会被 /v1/users 下的 authRouter 抢先命中返回原始 user（缺计数），务必传数字 id。
+export function getUserProfile(id: number): Promise<UserProfile> {
+  return api.get<UserProfile>('/v1/users/' + id);
+}
+
+// POST /v1/users/:id/follow（关注，幂等；后端校验不可自关）
+export async function followUser(id: number): Promise<void> {
+  await api.post<null>('/v1/users/' + id + '/follow');
+}
+
+// DELETE /v1/users/:id/follow（取消关注，幂等）
+export async function unfollowUser(id: number): Promise<void> {
+  await api.del<null>('/v1/users/' + id + '/follow');
+}
+
+// GET /v1/users/:id/following?page=&limit=（关注列表，分页）
+export function listFollowing(id: number, page: number = 1, limit: number = 20): Promise<FollowListResult> {
+  const path = '/v1/users/' + id + '/following' + toQuery([['page', page], ['limit', limit]]);
+  return api.get<FollowListResult>(path);
+}
+
+// GET /v1/users/:id/followers?page=&limit=（粉丝列表，分页）
+export function listFollowers(id: number, page: number = 1, limit: number = 20): Promise<FollowListResult> {
+  const path = '/v1/users/' + id + '/followers' + toQuery([['page', page], ['limit', limit]]);
+  return api.get<FollowListResult>(path);
 }

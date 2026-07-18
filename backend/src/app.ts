@@ -9,6 +9,7 @@ import uploadRouter from './routes/upload';
 import searchRouter from './routes/search';
 import accountRouter from './routes/account';
 import notificationRouter from './routes/notifications';
+import userRouter from './routes/users';
 
 export const app = express();
 
@@ -20,6 +21,8 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 // 同时挂 /v1/auth 与 /v1/users，覆盖文档两类路径
 app.use('/v1/auth', authRouter);
 app.use('/v1/users', authRouter);
+// 用户资料 / 关注关系（挂在 /v1/users，authRouter 之后；GET /me 仍由 authRouter 命中）
+app.use('/v1/users', userRouter);
 app.use('/v1/posts', postRouter);
 app.use('/v1/tags', tagRouter);
 app.use('/v1/upload', uploadRouter);

@@ -1,9 +1,19 @@
-import { Post } from '../models/types';
+import { Post, User } from '../models/types';
 import { formatCount } from '../utils/format';
+import { router } from '@kit.ArkUI';
 
 @Component
 export struct PostCard {
   @Prop post: Post = {};
+
+  // 进入他人主页（作者区点击）
+  private goUser(): void {
+    const u: User | undefined = this.post.user;
+    if (u !== undefined && u.id !== undefined) {
+      AppStorage.setOrCreate('targetUserId', String(u.id));
+      router.pushUrl({ url: 'pages/UserProfilePage' });
+    }
+  }
 
   build() {
     Column() {
@@ -21,6 +31,29 @@ export struct PostCard {
         .fontColor($r('app.color.text_primary'))
         .maxLines(2)
         .textOverflow({ overflow: TextOverflow.Ellipsis });
+
+      // 作者区（点击进他人主页）
+      if (this.post.user !== undefined && this.post.user.id !== undefined) {
+        Row({ space: 8 }) {
+          if (this.post.user.avatar) {
+            Image(this.post.user.avatar)
+              .width(20).height(20).borderRadius(10)
+              .objectFit(ImageFit.Cover)
+          } else {
+            Text((this.post.user.nickname ?? '?').charAt(0))
+              .width(20).height(20).borderRadius(10)
+              .fontSize(11).fontColor('#fff')
+              .backgroundColor($r('app.color.brand_primary'))
+              .textAlign(TextAlign.Center)
+          }
+          Text(this.post.user.nickname ?? '匿名')
+            .fontSize(12).fontColor($r('app.color.text_secondary'))
+        }
+        .margin({ top: 8 })
+        .onClick(() => {
+          this.goUser();
+        })
+      }
 
       Row() {
         Text('⭐ ' + formatCount(this.post.upCount))

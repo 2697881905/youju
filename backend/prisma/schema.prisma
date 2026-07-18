@@ -19,6 +19,7 @@ model User {
   nickname   String   @db.VarChar(32)
   avatar     String?  @db.VarChar(255)
   gender     Int?     @default(1) // 1-男 2-女
+  bio        String?  @db.VarChar(120) // 个人简介（PRD P0-4）
   followTags Json?
   status     Int      @default(1) // 1-正常 0-封禁
   createdAt  DateTime @default(now())
@@ -160,4 +161,17 @@ model Notification {
 
   @@index([userId, read])       // 查未读：where { userId, read: false }
   @@index([userId, createdAt])  // 列表按时间倒序
+}
+
+// 关注关系表（独立轻量表，沿 Notification 取向：仅用标量外键，不建 @relation）
+// 设计取舍：避免 User 反向数组与级联复杂度；列表/资料查询时像
+// notificationService.listForUser 那样用 prisma.user.findMany({where:{id:{in: ids}}}) 补 user 信息。
+model Follow {
+  id          Int      @id @default(autoincrement())
+  followerId  Int      // 关注者
+  followingId Int      // 被关注者
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId]) // 同一人不能重复关注同一人（幂等基础）
+  @@index([followingId])              // 查粉丝列表
 }

@@ -1,7 +1,7 @@
-// 个人主页（我的）：头像/昵称 + 我发布/我收藏 双 Tab + 帖子网格
+// 个人主页（我的）：头像/昵称 + 关注/粉丝入口 + 我发布/我收藏 双 Tab + 帖子网格
 import { router } from '@kit.ArkUI';
-import { Post, User } from '../models/types';
-import { listPosts, listMyBookmarks } from '../services/api';
+import { Post, User, UserProfile } from '../models/types';
+import { listPosts, listMyBookmarks, getUserProfile } from '../services/api';
 import { PostCard } from '../components/PostCard';
 import { ensureLogin, getCurrentUser } from '../utils/auth';
 import { setDetailPostId } from '../utils/nav';
@@ -11,6 +11,8 @@ const SUB_TABS: string[] = ['我发布', '我收藏'];
 @Component
 export struct ProfilePage {
   @State user: User = {};
+  @State followingCount: number = 0;
+  @State followerCount: number = 0;
   @State tabIdx: number = 0; // 0 我发布, 1 我收藏
   @State posts: Post[] = [];
   @State page: number = 1;
@@ -35,7 +37,33 @@ export struct ProfilePage {
       }
     }
     this.ready = true;
+    await this.fetchCounts();
     await this.refresh();
+  }
+
+  // 拉取关注/粉丝数 + 简介（写入本地状态，不阻断主列表）
+  private async fetchCounts(): Promise<void> {
+    const uid: number = this.user.id ?? 0;
+    if (uid === 0) {
+      return;
+    }
+    try {
+      const p: UserProfile = await getUserProfile(uid);
+      this.followingCount = p.followingCount;
+      this.followerCount = p.followerCount;
+      if (p.bio) {
+        this.user = {
+          id: this.user.id,
+          nickname: this.user.nickname,
+          avatar: this.user.avatar,
+          gender: this.user.gender,
+          bio: p.bio,
+          followTags: this.user.followTags,
+        };
+      }
+    } catch (e) {
+      // 计数失败不影响主列表
+    }
   }
 
   async refresh(): Promise<void> {
@@ -84,6 +112,17 @@ export struct ProfilePage {
     } finally {
       this.loading = false;
     }
+  }
+
+  // 跳关注/粉丝列表页
+  private goFollow(mode: string): void {
+    const uid: number = this.user.id ?? 0;
+    if (uid === 0) {
+      return;
+    }
+    AppStorage.setOrCreate('targetUserId', String(uid));
+    AppStorage.setOrCreate('followMode', mode);
+    router.pushUrl({ url: 'pages/MyFollowPage', params: { userId: String(uid), mode: mode } });
   }
 
   onTabChange(idx: number): void {
@@ -136,6 +175,11 @@ export struct ProfilePage {
           Text(this.user.nickname ?? '未登录')
             .fontSize(18).fontWeight(FontWeight.Medium)
             .fontColor($r('app.color.text_primary'))
+          if (this.user.bio) {
+            Text(this.user.bio)
+              .fontSize(12).fontColor($r('app.color.text_secondary'))
+              .maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
+          }
           Text('ID: ' + String(this.user.id ?? '-'))
             .fontSize(12).fontColor($r('app.color.text_secondary'))
         }
@@ -143,7 +187,32 @@ export struct ProfilePage {
         .layoutWeight(1)
       }
       .width('100%')
-      .padding({ left: 16, right: 16, top: 8, bottom: 16 })
+      .padding({ left: 16, right: 16, top: 8, bottom: 8 })
+
+      // 关注 / 粉丝入口
+      Row({ space: 28 }) {
+        Row({ space: 4 }) {
+          Text(String(this.followingCount))
+            .fontSize(15).fontWeight(FontWeight.Bold)
+            .fontColor($r('app.color.text_primary'));
+          Text('关注').fontSize(13).fontColor($r('app.color.text_secondary'));
+        }
+        .onClick(() => {
+          this.goFollow('following');
+        })
+
+        Row({ space: 4 }) {
+          Text(String(this.followerCount))
+            .fontSize(15).fontWeight(FontWeight.Bold)
+            .fontColor($r('app.color.text_primary'));
+          Text('粉丝').fontSize(13).fontColor($r('app.color.text_secondary'));
+        }
+        .onClick(() => {
+          this.goFollow('followers');
+        })
+      }
+      .width('100%')
+      .padding({ left: 16, right: 16, bottom: 12 })
 
       // 子 Tab（我发布 / 我收藏）
       Row({ space: 24 }) {

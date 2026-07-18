@@ -6,6 +6,7 @@ export interface User {
   nickname?: string;
   avatar?: string;
   gender?: number;
+  bio?: string;
   followTags?: string[];
 }
 
@@ -114,4 +115,34 @@ export interface NotificationItem {
 // 未读总数响应（GET /v1/notifications/unread-count）
 export interface UnreadCount {
   count: number;
+}
+
+// ===== 关注 / 他人主页 =====
+// 他人/自己资料（GET /v1/users/:id 返回；isFollowing/isMutual 相对当前登录用户）
+export interface UserProfile {
+  id: number;
+  nickname: string;
+  avatar: string | null;
+  bio: string | null;
+  gender: number | null;
+  postCount: number;
+  followingCount: number;
+  followerCount: number;
+  isFollowing: boolean;
+  isMutual: boolean;
+}
+
+// 关注/粉丝列表项（GET /v1/users/:id/following|followers 返回）
+export interface FollowUser {
+  id?: number;
+  nickname: string;
+  avatar: string | null;
+  bio: string | null;
+  isFollowing: boolean;
+}
+
+// 关注/粉丝列表响应
+export interface FollowListResult {
+  list: FollowUser[];
+  pagination: Pagination;
 }

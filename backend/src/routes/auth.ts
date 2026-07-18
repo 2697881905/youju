@@ -42,11 +42,11 @@ router.get('/me', auth, async (req: AuthRequest, res: Response) => {
   return ok(res, user);
 });
 
-// 更新个人信息（昵称/头像）
+// 更新个人信息（昵称/头像/简介；bio 透传，预留编辑 UI）
 // PUT /v1/auth/me  |  PUT /v1/users/me
 router.put('/me', auth, async (req: AuthRequest, res: Response) => {
-  const { nickname, avatar } = req.body ?? {};
-  const user = await updateProfile(req.userId!, nickname, avatar);
+  const { nickname, avatar, bio } = req.body ?? {};
+  const user = await updateProfile(req.userId!, nickname, avatar, bio);
   return ok(res, user);
 });
 

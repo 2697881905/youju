@@ -163,3 +163,19 @@ export async function notifyOnInteract(
     content: `${nickname} ${verb}你的帖子`,
   });
 }
+
+// 关注：通知被关注者（自己关注自己不发通知；与 notifyOnComment 同构）
+export async function notifyOnFollow(receiverId: number, actorId: number): Promise<void> {
+  if (receiverId === actorId) return; // 自己关注自己不发通知
+  const actor = await prisma.user.findUnique({
+    where: { id: actorId },
+    select: { nickname: true },
+  });
+  const nickname = actor?.nickname ?? '有人';
+  await createNotification({
+    userId: receiverId,
+    actorId,
+    type: 'follow',
+    content: `${nickname} 关注了你`,
+  });
+}
