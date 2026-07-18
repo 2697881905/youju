@@ -6,19 +6,35 @@ import { PublishPage } from './PublishPage';
 import { MessagePage } from './MessagePage';
 import { ProfilePage } from './ProfilePage';
 import { initAuthStorage, getToken } from '../utils/auth';
+import { getUnreadCount } from '../services/api';
 import { router } from '@kit.ArkUI';
 
 @Entry
 @Component
 struct Index {
   @State currentIndex: number = 0;
+  @StorageLink('unreadMessageCount') unreadCount: number = 0;
 
   aboutToAppear(): void {
     initAuthStorage();
     // 无登录态时跳到登录页；登录成功后 router.back() 回此页
     if (getToken() === '') {
       router.pushUrl({ url: 'pages/LoginPage' });
+    } else {
+      // 已登录则拉一次未读总数，驱动消息 Tab 红点
+      this.refreshUnread();
     }
+  }
+
+  // 拉取未读消息总数（写入 AppStorage，红点随之刷新）
+  private refreshUnread(): void {
+    getUnreadCount()
+      .then((res) => {
+        this.unreadCount = res.count;
+      })
+      .catch(() => {
+        // 失败不阻断
+      });
   }
 
   @Builder
@@ -28,6 +44,16 @@ struct Index {
         // 发布：纯图标，无文字，加大尺寸
         Text(icon)
           .fontSize(28)
+      } else if (index === 3) {
+        // 消息：图标 + 红点（有未读时显示）
+        Badge({
+          count: this.unreadCount,
+          style: { badgeColor: '#FF453A' },
+          position: BadgePosition.RightTop,
+        }) {
+          Text(icon)
+            .fontSize(20)
+        }
       } else {
         Text(icon)
           .fontSize(20)

@@ -95,3 +95,23 @@ export interface UnbindResult {
   provider: Provider;
   unbound: boolean;
 }
+
+// ===== 消息通知 =====
+// 通知类型（与后端 notificationService 的 NotificationType 单一来源对齐）
+export type NotificationType = 'comment' | 'up' | 'bookmark' | 'follow' | 'system';
+
+// 通知列表项（后端 Notification 返回；actor 可能为 null，如系统消息）
+export interface NotificationItem {
+  id?: number;
+  type?: NotificationType;
+  actor?: User | null;
+  postId?: number | null;
+  content?: string;
+  read?: boolean;
+  createdAt?: string;
+}
+
+// 未读总数响应（GET /v1/notifications/unread-count）
+export interface UnreadCount {
+  count: number;
+}

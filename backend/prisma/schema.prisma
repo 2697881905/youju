@@ -144,3 +144,20 @@ model UserBinding {
   @@unique([userId, provider])          // (userId, provider) 唯一：同一用户同 provider 仅一条
   @@index([provider, externalId])       // 占用校验：快速查"该 externalId 是否已被他人占用"
 }
+
+// 消息通知表（评论/顶/收藏/系统消息统一落库，前端消息中心消费）
+// 设计取舍：仅用标量 userId/actorId，不建 @relation（保持轻量、避免 User 反向字段与级联复杂度）；
+// actor 的昵称/头像由 notificationService.listForUser 用单独查询按需补全。
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int      // 接收者（被通知人）
+  actorId   Int?     // 触发者（系统消息为 null）
+  type      String   @db.VarChar(20)   // 'comment' | 'up' | 'bookmark' | 'follow' | 'system'
+  postId    Int?     // 关联帖子（系统消息为 null）
+  content   String   @db.VarChar(255)  // 服务端预渲染展示文案
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])       // 查未读：where { userId, read: false }
+  @@index([userId, createdAt])  // 列表按时间倒序
+}

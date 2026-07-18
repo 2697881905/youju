@@ -8,6 +8,7 @@ PersistentStorage.persistProp('authToken', '');
 PersistentStorage.persistProp('authUserId', '');
 PersistentStorage.persistProp('authNickname', '');
 PersistentStorage.persistProp('authAvatar', '');
+PersistentStorage.persistProp('unreadMessageCount', 0); // 消息 Tab 未读红点
 
 export function getToken(): string {
   return (AppStorage.get<string>('authToken') ?? '') as string;
@@ -61,6 +62,7 @@ export function initAuthStorage(): void {
   PersistentStorage.persistProp('authUserId', '');
   PersistentStorage.persistProp('authNickname', '');
   PersistentStorage.persistProp('authAvatar', '');
+  PersistentStorage.persistProp('unreadMessageCount', 0);
 }
 
 // 华为登录结果落地：语义化封装 setSession，供 LoginPage 在拿到 LoginResult 后调用。

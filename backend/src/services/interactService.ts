@@ -1,4 +1,5 @@
 import { prisma } from '../prisma';
+import { notifyOnInteract } from './notificationService';
 
 // 顶帖子（幂等：唯一约束 userId+postId）
 export async function upPost(postId: number, userId: number) {
@@ -11,6 +12,8 @@ export async function upPost(postId: number, userId: number) {
     where: { id: postId },
     data: { upCount: { increment: 1 } },
   });
+  // 触发通知：顶了帖子（自己顶自己不发；失败不影响主流程）
+  notifyOnInteract(postId, userId, 'up').catch(() => {});
 }
 
 export async function cancelUp(postId: number, userId: number) {
@@ -32,6 +35,8 @@ export async function bookmarkPost(postId: number, userId: number) {
     where: { id: postId },
     data: { bookmarkCount: { increment: 1 } },
   });
+  // 触发通知：收藏了帖子（自己藏自己不发；失败不影响主流程）
+  notifyOnInteract(postId, userId, 'bookmark').catch(() => {});
 }
 
 export async function cancelBookmark(postId: number, userId: number) {

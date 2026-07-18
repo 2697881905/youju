@@ -1,5 +1,5 @@
 import { http } from '@kit.NetworkKit';
-import { Post, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult } from '../models/types';
+import { Post, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount } from '../models/types';
 
 // 本地后端地址（按运行环境替换）：
 // - 模拟器/真机本地开发：用 hdc 反向端口转发，连 127.0.0.1:3000 即可，无需关心电脑 IP（IP 变了也不用改这里）
@@ -301,6 +301,28 @@ export function bindAccount(provider: Provider, code: string): Promise<BindingIt
 // DELETE /v1/account/bindings/:provider（解绑第三方，harmony 不可解绑）
 export function unbindAccount(provider: Provider): Promise<UnbindResult> {
   return api.del<UnbindResult>('/v1/account/bindings/' + provider);
+}
+
+// ===== 消息通知 =====
+// GET /v1/notifications?page=&limit=（当前用户通知列表，分页）
+export function listNotifications(page: number = 1, limit: number = 20): Promise<ListResult<NotificationItem>> {
+  const path = '/v1/notifications' + toQuery([['page', page], ['limit', limit]]);
+  return api.get<ListResult<NotificationItem>>(path);
+}
+
+// GET /v1/notifications/unread-count（未读总数，用于 Tab 红点）
+export function getUnreadCount(): Promise<UnreadCount> {
+  return api.get<UnreadCount>('/v1/notifications/unread-count');
+}
+
+// POST /v1/notifications/:id/read（标记单条已读）
+export async function markNotificationRead(id: number): Promise<void> {
+  await api.post<null>('/v1/notifications/' + id + '/read');
+}
+
+// POST /v1/notifications/read-all（全部已读）
+export async function markAllRead(): Promise<void> {
+  await api.post<null>('/v1/notifications/read-all');
 }
 
 // ===== 上传 =====
