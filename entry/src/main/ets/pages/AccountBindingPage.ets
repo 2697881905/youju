@@ -1,6 +1,6 @@
 // 账号绑定管理页（核心）：列表（harmony 主账号置顶 + 第三方）+ 绑定/解绑 + 二次确认 + 空状态。
 // 入口：设置页 → 账号绑定。遵循现有深色主题与 safeShowToast 提示风格。
-import { router } from '@kit.ArkUI';
+import { router, AlertDialog } from '@kit.ArkUI';
 import { BindingItem, Provider } from '../models/types';
 import { listBindings, bindAccount, unbindAccount } from '../services/api';
 import { HuaweiBindButton } from '../components/HuaweiBindButton';
@@ -9,10 +9,9 @@ import { safeShowToast } from '../utils/toast';
 
 @Entry
 @Component
-export struct AccountBindingPage {
+struct AccountBindingPage {
   @State bindings: BindingItem[] = [];
   @State loading: boolean = false;
-  @State showUnbindDialog: boolean = false;
   @State pendingUnbindProvider: Provider = 'huawei';
 
   aboutToAppear(): void {
@@ -59,7 +58,6 @@ export struct AccountBindingPage {
 
   // 二次确认后执行解绑
   private async confirmUnbind(): Promise<void> {
-    this.showUnbindDialog = false;
     const provider: Provider = this.pendingUnbindProvider;
     try {
       await unbindAccount(provider);
@@ -143,7 +141,23 @@ export struct AccountBindingPage {
         .fontColor($r('app.color.text_secondary'))
         .onClick(() => {
           this.pendingUnbindProvider = item.provider;
-          this.showUnbindDialog = true;
+          AlertDialog.show({
+            title: '解绑华为账号？',
+            message: '解绑后你将无法使用华为账号登录大蓝书，但仍可用鸿蒙主账号登录。',
+            primaryButton: {
+              value: '确定解绑',
+              fontColor: '#FF453A',
+              action: (): void => {
+                this.confirmUnbind();
+              },
+            },
+            secondaryButton: {
+              value: '取消',
+              action: (): void => {
+                // 取消无需操作
+              },
+            },
+          });
         })
     }
     .width('100%')
@@ -267,23 +281,5 @@ export struct AccountBindingPage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.bg_primary'))
-    .alertDialog({
-      isShown: this.showUnbindDialog,
-      title: '解绑华为账号？',
-      message: '解绑后你将无法使用华为账号登录大蓝书，但仍可用鸿蒙主账号登录。',
-      primaryButton: {
-        value: '确定解绑',
-        fontColor: '#FF453A',
-        action: (): void => {
-          this.confirmUnbind();
-        },
-      },
-      secondaryButton: {
-        value: '取消',
-        action: (): void => {
-          this.showUnbindDialog = false;
-        },
-      },
-    })
   }
 }

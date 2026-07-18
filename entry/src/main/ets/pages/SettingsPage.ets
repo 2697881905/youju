@@ -4,7 +4,7 @@ import { router } from '@kit.ArkUI';
 
 @Entry
 @Component
-export struct SettingsPage {
+struct SettingsPage {
   build() {
     Column() {
       // 顶栏：返回 + 标题
