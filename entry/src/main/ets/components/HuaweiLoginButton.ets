@@ -33,6 +33,11 @@ export struct HuaweiLoginButton {
   build() {
     LoginWithHuaweiIDButton({
       params: {
+        // 按钮尺寸样式（必填）：宽 300vp 高 48vp，圆角由组件默认
+        style: {
+          width: 300,
+          height: 48,
+        },
         // 跟随系统深浅色模式
         supportDarkMode: true,
         // 仅获取 UnionID / Authorization Code（不拉手机号，符合 P0 范围）
