@@ -22,4 +22,10 @@ export const env = {
     region: process.env.COS_REGION ?? '',
     cdnBase: process.env.COS_CDN_BASE ?? '',
   },
+  // 内容审核 & 举报系统
+  adminUserIds: (process.env.ADMIN_USER_IDS ?? '')
+    .split(',')
+    .map((s) => parseInt(s.trim(), 10))
+    .filter((n) => !isNaN(n) && n > 0),
+  reportThreshold: Number(process.env.REPORT_THRESHOLD ?? 3),
 };

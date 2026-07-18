@@ -1,4 +1,6 @@
 import { prisma } from '../prisma';
+import { sensitiveWordService } from './sensitiveWordService';
+import { SensitiveWordError } from '../utils/errors';
 
 export type SortType = 'hot' | 'latest' | 'recommend';
 
@@ -78,13 +80,14 @@ export async function listPosts(params: ListParams) {
   return { list, pagination: { page, limit, total } };
 }
 
-// 帖子详情（含评论，评论按顶数降序）
+// 帖子详情（含评论，评论按顶数降序，仅返回 status=1 的正常评论）
 export async function getPost(id: number) {
   return prisma.post.findFirst({
     where: { id },
     include: {
       user: { select: { id: true, nickname: true, avatar: true } },
       comments: {
+        where: { status: 1 },
         orderBy: { upCount: 'desc' },
         take: 50,
         include: { user: { select: { id: true, nickname: true, avatar: true } } },
@@ -93,8 +96,13 @@ export async function getPost(id: number) {
   });
 }
 
-// 发布帖子（MVP 无审核流，直接发布 status=1；后续接入审核可改回 0）
+// 发布帖子（敏感词前置检测，通过后 status=1 直接发布）
 export async function createPost(data: any, userId: number) {
+  // 敏感词检测：检测 title + content
+  const fullText = (data.title ?? '') + ' ' + (data.content ?? '');
+  if (sensitiveWordService.checkText(fullText)) {
+    throw new SensitiveWordError();
+  }
   return prisma.post.create({
     data: {
       userId,

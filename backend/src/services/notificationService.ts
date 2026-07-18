@@ -179,3 +179,19 @@ export async function notifyOnFollow(receiverId: number, actorId: number): Promi
     content: `${nickname} 关注了你`,
   });
 }
+
+// 系统通知（actorId=null, type='system'）
+// 用于：帖子被举报下架 → 通知作者；审核通过/拒绝 → 通知作者；举报处理完成 → 通知举报人。
+export async function notifySystem(
+  userId: number,
+  content: string,
+  postId?: number | null
+): Promise<void> {
+  await createNotification({
+    userId,
+    actorId: null,
+    type: 'system',
+    content,
+    postId: postId ?? null,
+  });
+}

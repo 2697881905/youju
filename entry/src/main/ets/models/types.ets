@@ -146,3 +146,17 @@ export interface FollowListResult {
   list: FollowUser[];
   pagination: Pagination;
 }
+
+// ===== 内容审核 & 举报系统 =====
+// 举报理由枚举（与后端 ReportReason 单一来源对齐）
+export type ReportReason = 'political' | 'pornographic' | 'personal_attack' |
+  'gender_war' | 'advertisement' | 'spam' | 'other';
+
+// 举报请求体（POST /v1/posts/:id/report、POST /v1/comments/:id/report）
+export interface ReportBody {
+  reason: ReportReason;
+  description?: string;
+}
+
+// 举报目标类型
+export type ReportTargetType = 'post' | 'comment';

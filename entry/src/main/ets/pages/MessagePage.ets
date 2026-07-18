@@ -205,14 +205,24 @@ export struct MessagePage {
   @Builder
   notificationRow(item: NotificationItem) {
     Row({ space: 12 }) {
-      // 头像（无 URL 时用昵称首字兜底）
-      if (item.actor && item.actor.avatar) {
+      // 头像区域：系统通知用品牌色圆+图标，普通通知用用户头像或昵称首字
+      if (item.type === 'system') {
+        // 系统通知：品牌色背景圆 + 系统图标
+        Circle({ width: 40, height: 40 })
+          .fill($r('app.color.brand_primary'))
+        Text('📢')
+          .fontSize(18)
+          .fontColor(Color.White)
+          .position({ x: 10, y: 9 })
+      } else if (item.actor && item.actor.avatar) {
+        // 普通通知：用户头像
         Image(item.actor.avatar)
           .width(40)
           .height(40)
           .borderRadius(20)
           .objectFit(ImageFit.Cover)
       } else {
+        // 普通通知：昵称首字兜底
         Circle({ width: 40, height: 40 })
           .fill($r('app.color.brand_primary'))
           .opacity(0.15)

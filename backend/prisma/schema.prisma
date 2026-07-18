@@ -50,6 +50,7 @@ model Post {
   bookmarkCount  Int      @default(0)
   commentCount   Int      @default(0)
   status         Int      @default(0) // 0-待审核 1-已发布 2-已拒绝
+  reportCount    Int      @default(0) // 被举报累计次数（达阈值自动 status=0）
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -60,17 +61,19 @@ model Post {
 
 // 评论表
 model Comment {
-  id        Int      @id @default(autoincrement())
-  postId    Int
-  post      Post     @relation(fields: [postId], references: [id])
-  userId    Int
-  user      User     @relation(fields: [userId], references: [id])
-  parentId  Int? // 0或null表示一级评论
-  content   String   @db.Text
-  isFact    Int      @default(0) // 1-事实补充
-  upCount   Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          Int      @id @default(autoincrement())
+  postId      Int
+  post        Post     @relation(fields: [postId], references: [id])
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
+  parentId    Int? // 0或null表示一级评论
+  content     String   @db.Text
+  isFact      Int      @default(0) // 1-事实补充
+  status      Int      @default(1) // 1-正常 0-隐藏(待审核) 2-已删除
+  reportCount Int      @default(0) // 被举报累计次数
+  upCount     Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 // 顶（点赞）记录表
@@ -174,4 +177,21 @@ model Follow {
 
   @@unique([followerId, followingId]) // 同一人不能重复关注同一人（幂等基础）
   @@index([followingId])              // 查粉丝列表
+}
+
+// 举报记录表（内容审核 & 举报系统）
+model Report {
+  id          Int       @id @default(autoincrement())
+  reporterId  Int                          // 举报人 userId
+  targetType  String    @db.VarChar(10)    // 'post' | 'comment'
+  targetId    Int                          // 目标帖子或评论 ID
+  reason      String    @db.VarChar(20)    // 举报理由枚举值
+  description String?   @db.VarChar(200)   // 补充说明（other 时必填）
+  status      String    @default("pending") @db.VarChar(20) // pending/resolved/dismissed
+  createdAt   DateTime  @default(now())
+  resolvedAt  DateTime?
+
+  @@unique([reporterId, targetType, targetId]) // 同一用户对同一内容仅能举报一次（幂等）
+  @@index([targetType, targetId])               // 按内容查举报记录
+  @@index([status, createdAt])                  // 审核队列按状态+时间排序
 }

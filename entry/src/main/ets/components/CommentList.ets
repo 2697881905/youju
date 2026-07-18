@@ -1,10 +1,12 @@
-// 评论列表组件（盖楼式展示，含"事实补充"徽标）
+// 评论列表组件（盖楼式展示，含"事实补充"徽标 + 举报入口）
 import { Comment } from '../models/types';
 import { timeAgo, formatCount } from '../utils/format';
 
 @Component
 export struct CommentList {
   @Prop comments: Comment[] = [];
+  // 举报回调（由 DetailPage 传入，打开 ReportDialog）
+  reportCommentHandler: (commentId: number) => void = (_id: number) => {};
 
   @Builder
   avatar(c: Comment) {
@@ -62,6 +64,32 @@ export struct CommentList {
               }
               .layoutWeight(1)
               .alignItems(HorizontalAlign.Start)
+
+              // 举报入口
+              Text('⋯')
+                .fontSize(18)
+                .fontColor($r('app.color.text_secondary'))
+                .width(32)
+                .textAlign(TextAlign.Center)
+                .onClick(() => {
+                  this.getUIContext().showAlertDialog({
+                    title: '操作',
+                    message: '请选择操作',
+                    primaryButton: {
+                      value: '举报该评论',
+                      fontColor: '#FF453A',
+                      action: (): void => {
+                        if (c.id !== undefined) {
+                          this.reportCommentHandler(c.id);
+                        }
+                      },
+                    },
+                    secondaryButton: {
+                      value: '取消',
+                      action: (): void => {},
+                    },
+                  });
+                })
             }
             .width('100%')
             .alignItems(VerticalAlign.Top)

@@ -1,17 +1,20 @@
 import { prisma } from '../prisma';
 import { notifyOnComment } from './notificationService';
+import { sensitiveWordService } from './sensitiveWordService';
+import { SensitiveWordError } from '../utils/errors';
 
 export async function listComments(postId: number, page = 1, limit = 50) {
   const skip = (page - 1) * limit;
+  const where = { postId, status: 1 }; // 仅返回正常评论（隐藏被举报下架的）
   const [list, total] = await Promise.all([
     prisma.comment.findMany({
-      where: { postId },
+      where,
       orderBy: { upCount: 'desc' },
       skip,
       take: limit,
       include: { user: { select: { id: true, nickname: true, avatar: true } } },
     }),
-    prisma.comment.count({ where: { postId } }),
+    prisma.comment.count({ where }),
   ]);
   return { list, pagination: { page, limit, total } };
 }
@@ -23,6 +26,10 @@ export async function createComment(
   parentId?: number | null,
   isFact = 0
 ) {
+  // 敏感词前置检测
+  if (sensitiveWordService.checkText(content)) {
+    throw new SensitiveWordError();
+  }
   const comment = await prisma.comment.create({
     data: { postId, userId, content, parentId: parentId ?? null, isFact },
   });

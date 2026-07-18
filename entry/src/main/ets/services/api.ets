@@ -1,5 +1,5 @@
 import { http } from '@kit.NetworkKit';
-import { Post, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult } from '../models/types';
+import { Post, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody } from '../models/types';
 
 // 本地后端地址（按运行环境替换）：
 // - 模拟器/真机本地开发：用 hdc 反向端口转发，连 127.0.0.1:3000 即可，无需关心电脑 IP（IP 变了也不用改这里）
@@ -40,14 +40,20 @@ async function request<T>(method: http.RequestMethod, path: string, body?: Objec
       connectTimeout: 10000,
       readTimeout: 10000,
     });
+    // 先尝试解析 body 中的业务错误（后端 400/409/404 等返回 {code, message}）
+    // 让后端业务错误 message 透传到前端 catch 块（如"内容含敏感词"、"你已举报过该内容"）
+    const result = resp.result as ApiResult<T>;
+    if (result && typeof result.code === 'number') {
+      if (result.code !== 0) {
+        throw new Error(result.message || '请求失败');
+      }
+      return result.data;
+    }
+    // fallback：非 JSON 响应或无 code 字段
     if (resp.responseCode !== 200) {
       throw new Error('HTTP ' + resp.responseCode);
     }
-    const result = resp.result as ApiResult<T>;
-    if (result.code !== 0) {
-      throw new Error(result.message || '请求失败');
-    }
-    return result.data;
+    throw new Error('请求失败');
   } catch (e) {
     const err: Error = e as Error;
     const rawMsg: string = err.message ? err.message : '请求发生未知错误';
@@ -440,4 +446,15 @@ export function listFollowing(id: number, page: number = 1, limit: number = 20):
 export function listFollowers(id: number, page: number = 1, limit: number = 20): Promise<FollowListResult> {
   const path = '/v1/users/' + id + '/followers' + toQuery([['page', page], ['limit', limit]]);
   return api.get<FollowListResult>(path);
+}
+
+// ===== 举报 =====
+// POST /v1/posts/:id/report（举报帖子）
+export async function reportPost(id: number, body: ReportBody): Promise<void> {
+  await api.post<null>('/v1/posts/' + id + '/report', body);
+}
+
+// POST /v1/comments/:id/report（举报评论）
+export async function reportComment(id: number, body: ReportBody): Promise<void> {
+  await api.post<null>('/v1/comments/' + id + '/report', body);
 }

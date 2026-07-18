@@ -2,8 +2,21 @@ import { Router, Response } from 'express';
 import { ok, fail, CODE } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
 import * as postService from '../services/postService';
+import * as reportService from '../services/reportService';
+import { SensitiveWordError } from '../utils/errors';
 
 const router = Router();
+
+// 举报理由枚举（与 reportService 对齐）
+const VALID_REASONS = [
+  'political',
+  'pornographic',
+  'personal_attack',
+  'gender_war',
+  'advertisement',
+  'spam',
+  'other',
+];
 
 // 帖子列表：GET /v1/posts?page=1&limit=20&sort=hot|latest|recommend&tag=数码选购&author=1
 router.get('/', async (req: AuthRequest, res: Response) => {
@@ -49,8 +62,16 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
 router.post('/', auth, async (req: AuthRequest, res: Response) => {
   const { title, genre } = req.body ?? {};
   if (!title || !genre) return fail(res, CODE.BAD_REQUEST, '标题和体裁必填');
-  const post = await postService.createPost(req.body, req.userId!);
-  return ok(res, post);
+  try {
+    const post = await postService.createPost(req.body, req.userId!);
+    return ok(res, post);
+  } catch (e: any) {
+    if (e instanceof SensitiveWordError || e.reason === 'sensitive_word') {
+      return fail(res, CODE.BAD_REQUEST, e.message);
+    }
+    console.error('[posts.create] error:', e);
+    return fail(res, CODE.SERVER_ERROR, '发布失败', 500);
+  }
 });
 
 // 删除帖子（仅本人）：DELETE /v1/posts/:id
@@ -62,6 +83,39 @@ router.delete('/:id', auth, async (req: AuthRequest, res: Response) => {
     if (result.reason === 'forbidden') return fail(res, CODE.FORBIDDEN, '只能删除自己的帖子', 403);
   }
   return ok(res, null, '已删除');
+});
+
+// 举报帖子：POST /v1/posts/:id/report
+router.post('/:id/report', auth, async (req: AuthRequest, res: Response) => {
+  const postId = Number(req.params.id);
+  if (!postId) return fail(res, CODE.BAD_REQUEST, '无效帖子ID');
+  const { reason, description } = req.body ?? {};
+
+  // 校验 reason 合法性
+  if (!reason || !VALID_REASONS.includes(reason)) {
+    return fail(res, CODE.BAD_REQUEST, '请选择举报理由');
+  }
+  // other 必填 description
+  if (reason === 'other' && (!description || !description.trim())) {
+    return fail(res, CODE.BAD_REQUEST, '请填写补充说明');
+  }
+
+  try {
+    await reportService.createReport({
+      reporterId: req.userId!,
+      targetType: 'post',
+      targetId: postId,
+      reason: reason as reportService.ReportReason,
+      description: description?.trim() || undefined,
+    });
+    return ok(res, null, '举报已提交');
+  } catch (e: any) {
+    if (e.reason === 'conflict')
+      return fail(res, CODE.CONFLICT, '你已举报过该内容', 409);
+    if (e.reason === 'not_found')
+      return fail(res, CODE.NOT_FOUND, '帖子不存在', 404);
+    return fail(res, CODE.SERVER_ERROR, '举报失败', 500);
+  }
 });
 
 export default router;

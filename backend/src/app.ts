@@ -10,6 +10,8 @@ import searchRouter from './routes/search';
 import accountRouter from './routes/account';
 import notificationRouter from './routes/notifications';
 import userRouter from './routes/users';
+import adminRouter from './routes/admin';
+import { sensitiveWordService } from './services/sensitiveWordService';
 
 export const app = express();
 
@@ -17,6 +19,12 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
+
+// 启动时加载敏感词库（文件不存在时降级为空词库，不拦截）
+sensitiveWordService.loadFromFiles([
+  'data/sensitive-words.txt',
+  'data/gender-war-words.txt',
+]);
 
 // 同时挂 /v1/auth 与 /v1/users，覆盖文档两类路径
 app.use('/v1/auth', authRouter);
@@ -35,3 +43,5 @@ app.use('/v1', notificationRouter);
 // 评论/互动使用完整路径（/v1/posts/:id/comments、/v1/posts/:id/up 等）
 app.use('/v1', commentRouter);
 app.use('/v1', interactRouter);
+// admin 审核 API（GET /v1/admin/posts/pending、POST /v1/admin/posts/:id/moderate、GET /v1/admin/reports）
+app.use('/v1/admin', adminRouter);

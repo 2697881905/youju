@@ -7,13 +7,17 @@ import {
   cancelUpPost,
   bookmarkPost,
   cancelBookmarkPost,
+  reportPost,
+  reportComment,
   PostWithComments,
 } from '../services/api';
-import { Genre, Comment, StructuredData } from '../models/types';
+import { Genre, Comment, StructuredData, ReportReason } from '../models/types';
 import { timeAgo, formatCount } from '../utils/format';
 import { CommentList } from '../components/CommentList';
+import { ReportDialog } from '../components/ReportDialog';
 import { takeDetailPostId } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
+import { getUserId } from '../utils/auth';
 
 // 字段定义：[结构化字段键, 中文标签]，按产品文档 2.4 各体裁字段表
 type FieldDef = [keyof StructuredData, string];
@@ -100,10 +104,37 @@ struct DetailPage {
   @State bookmarked: boolean = false;
   @State commenting: boolean = false;
   @State commentText: string = '';
+  @State commentReportId: number = 0;
 
   private get pid(): number {
     return Number(this.postId);
   }
+
+  // 帖子举报弹窗控制器
+  private reportController: CustomDialogController = new CustomDialogController({
+    builder: ReportDialog({
+      targetType: 'post',
+      targetId: 0,
+      onSubmit: (reason: ReportReason, description: string) => {
+        this.submitReport(reason, description);
+      },
+    }),
+    alignment: DialogAlignment.Center,
+    customStyle: false,
+  });
+
+  // 评论举报弹窗控制器
+  private commentReportController: CustomDialogController = new CustomDialogController({
+    builder: ReportDialog({
+      targetType: 'comment',
+      targetId: 0,
+      onSubmit: (reason: ReportReason, description: string) => {
+        this.submitCommentReport(reason, description);
+      },
+    }),
+    alignment: DialogAlignment.Center,
+    customStyle: false,
+  });
 
   aboutToAppear(): void {
     // API 24 router.getParams 失效；AppStorage 是框架级全局单例（主通道），模块单例作 fallback
@@ -217,6 +248,60 @@ struct DetailPage {
     safeShowToast(this.getUIContext(),{ message: '分享功能开发中' });
   }
 
+  // 弹出帖子操作菜单（举报 / 分享）
+  // showActionMenu 不可用，降级为 showAlertDialog（双按钮）
+  private showPostActions(): void {
+    this.getUIContext().showAlertDialog({
+      title: '操作',
+      message: '请选择操作',
+      primaryButton: {
+        value: '举报该帖子',
+        fontColor: '#FF453A',
+        action: (): void => {
+          this.reportController.open();
+        },
+      },
+      secondaryButton: {
+        value: '分享',
+        action: (): void => {
+          this.onShare();
+        },
+      },
+    });
+  }
+
+  // 提交帖子举报
+  private async submitReport(reason: ReportReason, description: string): Promise<void> {
+    try {
+      await reportPost(this.pid, { reason, description: description || undefined });
+      this.reportController.close();
+      safeShowToast(this.getUIContext(), { message: '举报已提交，我们会在48小时内处理' });
+    } catch (e) {
+      const msg: string = (e as Error).message;
+      this.reportController.close();
+      safeShowToast(this.getUIContext(), { message: msg });
+    }
+  }
+
+  // 打开评论举报弹窗
+  private openCommentReport(commentId: number): void {
+    this.commentReportId = commentId;
+    this.commentReportController.open();
+  }
+
+  // 提交评论举报
+  private async submitCommentReport(reason: ReportReason, description: string): Promise<void> {
+    try {
+      await reportComment(this.commentReportId, { reason, description: description || undefined });
+      this.commentReportController.close();
+      safeShowToast(this.getUIContext(), { message: '举报已提交，我们会在48小时内处理' });
+    } catch (e) {
+      const msg: string = (e as Error).message;
+      this.commentReportController.close();
+      safeShowToast(this.getUIContext(), { message: msg });
+    }
+  }
+
   async onSendComment(): Promise<void> {
     const text = this.commentText.trim();
     if (!text || !this.post || this.post.id === undefined) {
@@ -228,7 +313,8 @@ struct DetailPage {
       this.commenting = false;
       await this.load();
     } catch (e) {
-      safeShowToast(this.getUIContext(),{ message: '评论失败，请先登录' });
+      // 透传后端错误 message（如"内容含敏感词，请修改后重试"）
+      safeShowToast(this.getUIContext(), { message: (e as Error).message });
     }
   }
 
@@ -245,8 +331,12 @@ struct DetailPage {
           .fontWeight(600)
           .layoutWeight(1)
           .textAlign(TextAlign.Center)
-        Text('')
+        Text('⋯')
+          .fontSize(22)
+          .fontColor($r('app.color.text_primary'))
           .width(48)
+          .textAlign(TextAlign.Center)
+          .onClick(() => this.showPostActions())
       }
       .width('100%')
       .padding({ top: 12, bottom: 12 })
@@ -277,6 +367,20 @@ struct DetailPage {
       } else if (this.post) {
         Scroll() {
           Column({ space: 16 }) {
+            // 待审核横幅（作者查看自己 status=0 帖子时显示）
+            if (this.post.status === 0 && this.post.userId === getUserId()) {
+              Row({ space: 8 }) {
+                Text('⏳').fontSize(14)
+                Text('该帖子正在审核中，仅你自己可见')
+                  .fontSize(13)
+                  .fontColor('#FF9500')
+              }
+              .width('100%')
+              .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+              .backgroundColor('#FFF8E1')
+              .borderRadius(8)
+            }
+
             // 标签 + 体裁 + 标题 + 作者
             Column({ space: 8 }) {
               if (this.post.tags && this.post.tags.length > 0) {
@@ -377,7 +481,12 @@ struct DetailPage {
                 .fontSize(16)
                 .fontWeight(600)
                 .fontColor($r('app.color.text_primary'))
-              CommentList({ comments: this.post.comments ?? [] })
+              CommentList({
+                comments: this.post.comments ?? [],
+                reportCommentHandler: (commentId: number) => {
+                  this.openCommentReport(commentId);
+                },
+              })
             }
             .width('100%')
             .alignItems(HorizontalAlign.Start)
