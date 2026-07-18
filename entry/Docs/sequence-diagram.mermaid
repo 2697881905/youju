@@ -1,0 +1,46 @@
+sequenceDiagram
+    actor U as 用户
+    participant ABP as AccountBindingPage
+    participant HB as HuaweiBindButton(@kit.AccountKit)
+    participant API as api.ets
+    participant AUTH as auth 中间件
+    participant SVC as AccountBindingService
+    participant DB as Prisma / MySQL
+
+    U->>ABP: 点击「绑定华为账号」
+    ABP->>HB: 触发系统级授权页
+    HB->>HB: LoginWithHuaweiIDButton 拉起
+    HB-->>ABP: onHuaweiBindSuccess(unionID)
+    ABP->>API: bindAccount('huawei', unionID)
+    API->>AUTH: POST 带 Authorization: Bearer <token>
+    AUTH-->>API: req.userId（JWT 解析）
+    API->>SVC: bind(userId, 'huawei', unionID)
+    SVC->>DB: 占用校验 (UserBinding + User.unionID，排除自己)
+    alt 已被他人占用
+        DB-->>SVC: 命中
+        SVC-->>API: throw 409 CONFLICT
+        API-->>ABP: Error('该华为账号已关联其他大蓝书账号')
+        ABP->>ABP: safeShowToast(错误提示)
+    else 通过
+        SVC->>DB: 写 UserBinding + 同步 User.unionID
+        DB-->>SVC: BindingItem
+        SVC-->>API: ok(BindingItem 已脱敏)
+        API-->>ABP: BindingItem
+        ABP->>ABP: 刷新列表 + safeShowToast('绑定成功')
+    end
+
+    Note over U,DB: ===== 解绑流程 =====
+
+    U->>ABP: 点击「解绑华为」
+    ABP->>ABP: AlertDialog 二次确认
+    U->>ABP: 点「确定解绑」
+    ABP->>API: unbindAccount('huawei')
+    API->>AUTH: DELETE 带 Authorization: Bearer <token>
+    AUTH-->>API: req.userId
+    API->>SVC: unbind(userId, 'huawei')
+    SVC->>DB: 删 UserBinding (WHERE userId & provider)
+    DB-->>SVC: 删除行
+    SVC-->>API: ok({ provider:'huawei', unbound:true })
+    API-->>ABP: 成功
+    ABP->>ABP: 刷新列表 + safeShowToast('解绑成功')
+    Note over ABP: 鸿蒙主账号行无解绑按钮；即便误调 DELETE /harmony，接口直接 403

@@ -1,5 +1,5 @@
 import { http } from '@kit.NetworkKit';
-import { Post, Comment, Tag, User, Pagination, Genre } from '../models/types';
+import { Post, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult } from '../models/types';
 
 // 本地后端地址（按运行环境替换）：
 // - 模拟器/真机本地开发：用 hdc 反向端口转发，连 127.0.0.1:3000 即可，无需关心电脑 IP（IP 变了也不用改这里）
@@ -284,6 +284,23 @@ export function updateMe(body: UpdateMeBody): Promise<User> {
 export function listMyBookmarks(page: number = 1, limit: number = 20): Promise<ListResult<Post>> {
   const path = '/v1/auth/me/bookmarks' + toQuery([['page', page], ['limit', limit]]);
   return api.get<ListResult<Post>>(path);
+}
+
+// ===== 账号绑定管理 =====
+// GET /v1/account/bindings（当前用户全部绑定，harmony 主账号置顶）
+export function listBindings(): Promise<BindingItem[]> {
+  return api.get<BindingItem[]>('/v1/account/bindings');
+}
+
+// POST /v1/account/bindings（绑定第三方，code 变体）
+export function bindAccount(provider: Provider, code: string): Promise<BindingItem> {
+  const body: BindAccountBody = { provider, code };
+  return api.post<BindingItem>('/v1/account/bindings', body);
+}
+
+// DELETE /v1/account/bindings/:provider（解绑第三方，harmony 不可解绑）
+export function unbindAccount(provider: Provider): Promise<UnbindResult> {
+  return api.del<UnbindResult>('/v1/account/bindings/' + provider);
 }
 
 // ===== 上传 =====

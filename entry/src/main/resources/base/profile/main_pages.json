@@ -3,6 +3,8 @@
     "pages/Index",
     "pages/DetailPage",
     "pages/SearchResultPage",
-    "pages/LoginPage"
+    "pages/LoginPage",
+    "pages/SettingsPage",
+    "pages/AccountBindingPage"
   ]
 }

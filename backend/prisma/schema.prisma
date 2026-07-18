@@ -30,6 +30,7 @@ model User {
   bookmarks      Bookmark[]
   userFollowTags UserFollowTag[]
   searchHistories SearchHistory[]
+  bindings       UserBinding[] // 账号绑定关系（虚拟关系，FK 落在 UserBinding.userId，不新增列）
 }
 
 // 帖子表
@@ -127,4 +128,19 @@ model SearchHistory {
 
   @@index([userId, createdAt]) // 按用户+时间查询历史列表
   @@index([keyword, createdAt]) // 热搜词按关键词+时间聚合
+}
+
+// 账号绑定关系表（第三方/主账号绑定统一以本表为准，横向扩展友好）
+model UserBinding {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider   String   @db.VarChar(32)   // 'harmony' | 'huawei' | 'wechat' ... 见共享知识
+  externalId String   @db.VarChar(128)  // 各 provider 的外部标识：openId / unionID / openid
+  boundAt    DateTime @default(now())
+  isPrimary  Boolean  @default(false)   // 当前仅 harmony 主账号为 true（合成项）
+  extra      Json?    // 扩展位：头像/昵称快照等，本期未用
+
+  @@unique([userId, provider])          // (userId, provider) 唯一：同一用户同 provider 仅一条
+  @@index([provider, externalId])       // 占用校验：快速查"该 externalId 是否已被他人占用"
 }

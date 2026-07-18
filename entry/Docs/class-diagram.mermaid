@@ -1,0 +1,68 @@
+classDiagram
+    class User {
+      +Int id
+      +String? openId
+      +String? unionID
+      +bindings UserBinding[]
+    }
+    class UserBinding {
+      +Int id
+      +Int userId
+      +String provider
+      +String externalId
+      +DateTime boundAt
+      +Boolean isPrimary
+      +Json? extra
+    }
+    User "1" --> "0..*" UserBinding : bindings
+
+    class AccountBindingService {
+      +listBindings(userId) BindingItem[]
+      +bind(userId, provider, externalId) BindingItem
+      +unbind(userId, provider) UnbindResult
+      -checkOccupied(provider, externalId, userId) boolean
+      -maskExternalId(provider, raw) string
+    }
+    AccountBindingService ..> UserBinding : reads / writes
+
+    class AccountRouter {
+      +GET /v1/account/bindings
+      +POST /v1/account/bindings
+      +DELETE /v1/account/bindings/:provider
+    }
+    AccountRouter ..> AccountBindingService : calls
+    AccountRouter ..> AuthMiddleware : protects
+
+    class BindingItem {
+      +Provider provider
+      +string externalId
+      +string boundAt
+      +boolean isPrimary
+      +string displayName
+      +string status
+    }
+    AccountBindingService ..> BindingItem : returns
+
+    class HuaweiBindButton {
+      +onHuaweiBindSuccess(unionID) void
+      +onHuaweiBindFailure(error) void
+    }
+    class AccountBindingPage {
+      +BindingItem[] bindings
+      +loadBindings() void
+      +handleBindHuawei(unionID) void
+      +handleUnbind(provider) void
+    }
+    class SettingsPage
+    class ProfilePage
+    class ApiClient {
+      +listBindings() BindingItem[]
+      +bindAccount(provider, externalId) BindingItem
+      +unbindAccount(provider) UnbindResult
+    }
+
+    AccountBindingPage ..> HuaweiBindButton : uses
+    AccountBindingPage ..> ApiClient : calls
+    ApiClient ..> AccountRouter : HTTP /v1/account/bindings
+    SettingsPage ..> AccountBindingPage : pushUrl
+    ProfilePage ..> SettingsPage : pushUrl
