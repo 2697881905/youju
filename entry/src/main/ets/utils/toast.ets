@@ -4,7 +4,7 @@ import { UIContext, ShowToastOptions } from '@kit.ArkUI';
 export function safeShowToast(uiContext: UIContext, options: ShowToastOptions): void {
   try {
     uiContext.getPromptAction().showToast(options);
-  } catch (e) {
+  } catch {
     // toast 失败不应阻断主流程，静默兜底
   }
 }
