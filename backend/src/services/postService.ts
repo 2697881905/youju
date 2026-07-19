@@ -77,12 +77,45 @@ export async function listPosts(params: ListParams) {
     prisma.post.count({ where }),
   ]);
 
-  return { list, pagination: { page, limit, total } };
+  // 批量打标 myUp / myBookmark：仅当有 viewerId 且列表非空时执行，
+  // 整页只额外发 2 次查询（up / bookmark 各一次，与列表长度无关，杜绝 N+1）。
+  // 无 viewerId 时短路，直接返回原 list，保证匿名请求不打标、不触发多余查询。
+  let taggedList = list;
+  if (params.viewerId && list.length > 0) {
+    const ids: number[] = list.map((p) => p.id);
+    const [ups, bms] = await Promise.all([
+      prisma.up.findMany({
+        where: { postId: { in: ids }, userId: params.viewerId },
+        select: { postId: true },
+      }),
+      prisma.bookmark.findMany({
+        where: { postId: { in: ids }, userId: params.viewerId },
+        select: { postId: true },
+      }),
+    ]);
+    const upSet = new Set<number>();
+    for (const u of ups) {
+      upSet.add(u.postId);
+    }
+    const bmSet = new Set<number>();
+    for (const b of bms) {
+      bmSet.add(b.postId);
+    }
+    taggedList = list.map((p) => ({
+      ...p,
+      myUp: upSet.has(p.id),
+      myBookmark: bmSet.has(p.id),
+    }));
+  }
+
+  return { list: taggedList, pagination: { page, limit, total } };
 }
 
 // 帖子详情（含评论，评论按顶数降序，仅返回 status=1 的正常评论）
-export async function getPost(id: number) {
-  return prisma.post.findFirst({
+// viewerId 可选：传入时并发查 Up/Bookmark 记录，给返回体附加 myUp / myBookmark
+// （当前登录用户对该帖的互动态，纯增量字段，不影响原有结构；缺失则不附加）。
+export async function getPost(id: number, viewerId?: number) {
+  const post = await prisma.post.findFirst({
     where: { id },
     include: {
       user: { select: { id: true, nickname: true, avatar: true } },
@@ -94,6 +127,17 @@ export async function getPost(id: number) {
       },
     },
   });
+  if (!post) {
+    return null;
+  }
+  if (!viewerId) {
+    return post;
+  }
+  const [up, bm] = await Promise.all([
+    prisma.up.findFirst({ where: { postId: id, userId: viewerId } }),
+    prisma.bookmark.findFirst({ where: { postId: id, userId: viewerId } }),
+  ]);
+  return { ...post, myUp: !!up, myBookmark: !!bm };
 }
 
 // 发布帖子（敏感词前置检测，通过后 status=1 直接发布）

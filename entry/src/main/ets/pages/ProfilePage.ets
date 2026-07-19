@@ -1,9 +1,10 @@
 // 个人主页（我的）：头像/昵称 + 关注/粉丝入口 + 我发布/我收藏 双 Tab + 帖子网格
 import { router } from '@kit.ArkUI';
 import { Post, User, UserProfile } from '../models/types';
-import { listPosts, listMyBookmarks, getUserProfile } from '../services/api';
+import { listPosts, listMyBookmarks, getUserProfile, cancelBookmarkPost } from '../services/api';
 import { PostCard } from '../components/PostCard';
 import { ensureLogin, getCurrentUser } from '../utils/auth';
+import { safeShowToast } from '../utils/toast';
 import { setDetailPostId } from '../utils/nav';
 
 const SUB_TABS: string[] = ['我发布', '我收藏'];
@@ -133,6 +134,16 @@ export struct ProfilePage {
     this.refresh();
   }
 
+  // 收藏 Tab：取消收藏（乐观移除 + 失败回滚）
+  private async handleCancelBookmark(id: number): Promise<void> {
+    try {
+      await cancelBookmarkPost(id);
+      this.posts = this.posts.filter((p: Post) => p.id !== id);
+    } catch (e) {
+      safeShowToast(this.getUIContext(), { message: (e as Error).message });
+    }
+  }
+
   @Builder
   refreshBuilder(): void {
     Row({ space: 8 }) {
@@ -252,7 +263,15 @@ export struct ProfilePage {
           Grid() {
             ForEach(this.posts, (post: Post) => {
               GridItem() {
-                PostCard({ post: post })
+                PostCard({
+                  post: post,
+                  // 仅「我收藏」Tab 传取消收藏回调；「我发布」Tab 不传（不显示取消入口）
+                  onCancelBookmark: this.tabIdx === 1
+                    ? (id: number): void => {
+                        this.handleCancelBookmark(id);
+                      }
+                    : undefined,
+                })
                   .onClick(() => {
                     if (post.id !== undefined) {
                       const id = post.id.toString();

@@ -166,6 +166,10 @@ struct DetailPage {
         return;
       }
       this.post = p;
+      // 依据后端返回的 myUp/myBookmark 初始化互动态，确保已点赞/已收藏帖进入详情时
+      // 高亮态正确（避免初始 false 导致再次点击「顶」重复 upPost 造成 upCount 膨胀）。
+      this.uped = p.myUp ?? false;
+      this.bookmarked = p.myBookmark ?? false;
       this.fields = this.buildFields(p);
       this.images = this.imagesOf(p);
     } catch (e) {

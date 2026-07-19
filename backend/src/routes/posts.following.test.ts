@@ -22,11 +22,19 @@ jest.mock('../prisma', () => ({
       count: jest.fn(),
       findUnique: jest.fn(),
     },
+    up: {
+      findMany: jest.fn(),
+    },
+    bookmark: {
+      findMany: jest.fn(),
+    },
   },
 }));
 
 import { prisma } from '../prisma';
 const mockPrisma = prisma as any;
+const mockedUpFindMany = prisma.up.findMany as jest.Mock;
+const mockedBmFindMany = prisma.bookmark.findMany as jest.Mock;
 
 const TEST_USER_ID = 1;
 
@@ -117,6 +125,9 @@ describe('GET /v1/posts/following', () => {
       { id: 11, userId: 3, title: 'B 的帖子' },
     ]);
     mockPrisma.post.count.mockResolvedValue(2);
+    // 关注流带 auth（viewerId 存在）→ 列表批量打标 myUp/myBookmark
+    mockedUpFindMany.mockResolvedValue([{ postId: 10 }]);
+    mockedBmFindMany.mockResolvedValue([{ postId: 11 }]);
     const res = await req('GET', '/v1/posts/following', undefined, authHeader());
     expect(res.status).toBe(200);
     expect(res.json.code).toBe(0);
@@ -131,12 +142,19 @@ describe('GET /v1/posts/following', () => {
     );
     expect(res.json.data.list.length).toBe(2);
     expect(res.json.data.pagination.total).toBe(2);
+    // 打标断言：post 10 已顶、post 11 已藏
+    expect(res.json.data.list[0].myUp).toBe(true);
+    expect(res.json.data.list[0].myBookmark).toBe(false);
+    expect(res.json.data.list[1].myUp).toBe(false);
+    expect(res.json.data.list[1].myBookmark).toBe(true);
   });
 
   it('tag/sort 透传（关注流内叠加生效）', async () => {
     mockPrisma.follow.findMany.mockResolvedValue([{ followingId: 5 }]);
     mockPrisma.post.findMany.mockResolvedValue([]);
     mockPrisma.post.count.mockResolvedValue(0);
+    mockedUpFindMany.mockResolvedValue([]);
+    mockedBmFindMany.mockResolvedValue([]);
     const res = await req('GET', '/v1/posts/following?tag=数码&sort=hot', undefined, authHeader());
     expect(res.status).toBe(200);
     expect(res.json.code).toBe(0);

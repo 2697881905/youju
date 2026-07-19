@@ -1,11 +1,30 @@
 import { Router, Response } from 'express';
+import jwt from 'jsonwebtoken';
 import { ok, fail, CODE } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
+import { env } from '../config/env';
 import * as postService from '../services/postService';
 import * as reportService from '../services/reportService';
 import { SensitiveWordError } from '../utils/errors';
 
 const router = Router();
+
+// 软鉴权（仅用于公开浏览 GET 路由：信息流 / 详情）：
+// 手动从 Authorization 头解析 Bearer token；有合法 token 则取 viewerId，
+// 缺失 / 非法 token 不返回 401（保证匿名用户也能浏览推荐流与详情，不破坏公开浏览）。
+// 解析方式参考 middleware/auth.ts，但失败时降级为 undefined 而非 401。
+function resolveViewerId(req: AuthRequest): number | undefined {
+  const header = req.headers.authorization;
+  if (!header || !header.startsWith('Bearer ')) {
+    return undefined;
+  }
+  try {
+    const payload = jwt.verify(header.slice(7), env.jwtSecret) as { userId?: number };
+    return typeof payload.userId === 'number' ? payload.userId : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 // 举报理由枚举（与 reportService 对齐）
 const VALID_REASONS = [
@@ -19,6 +38,7 @@ const VALID_REASONS = [
 ];
 
 // 帖子列表：GET /v1/posts?page=1&limit=20&sort=hot|latest|recommend&tag=数码选购&author=1
+// 软鉴权：匿名可浏览；带合法 token 时按 viewerId 批量打标 myUp/myBookmark。
 router.get('/', async (req: AuthRequest, res: Response) => {
   const { page, limit, sort, tag, author, keyword } = req.query;
   const data = await postService.listPosts({
@@ -28,6 +48,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     tag: tag as string | undefined,
     author: author ? Number(author) : undefined,
     keyword: keyword as string | undefined,
+    viewerId: resolveViewerId(req),
   });
   return ok(res, data);
 });
@@ -50,10 +71,12 @@ router.get('/following', auth, async (req: AuthRequest, res: Response) => {
 });
 
 // 帖子详情：GET /v1/posts/:id
+// 软鉴权：匿名可访问；带合法 token 时返回该帖的 myUp/myBookmark。
 router.get('/:id', async (req: AuthRequest, res: Response) => {
   const id = Number(req.params.id);
   if (!id) return fail(res, CODE.BAD_REQUEST, '无效帖子ID');
-  const post = await postService.getPost(id);
+  const viewerId = resolveViewerId(req);
+  const post = await postService.getPost(id, viewerId);
   if (!post) return fail(res, CODE.NOT_FOUND, '帖子不存在', 404);
   return ok(res, post);
 });

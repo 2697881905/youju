@@ -1,4 +1,4 @@
-import { listPosts } from './postService';
+import { listPosts, getPost } from './postService';
 import { prisma } from '../prisma';
 
 // 用 jest 替掉真实的 Prisma client（沙箱无 MySQL，不需要真实 DB）
@@ -9,13 +9,27 @@ jest.mock('../prisma', () => ({
   prisma: {
     post: {
       findMany: jest.fn(),
+      findFirst: jest.fn(),
       count: jest.fn(),
+    },
+    up: {
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+    },
+    bookmark: {
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
     },
   },
 }));
 
 const mockedFindMany = prisma.post.findMany as jest.Mock;
+const mockedFindFirst = prisma.post.findFirst as jest.Mock;
 const mockedCount = prisma.post.count as jest.Mock;
+const mockedUpFindFirst = prisma.up.findFirst as jest.Mock;
+const mockedUpFindMany = prisma.up.findMany as jest.Mock;
+const mockedBmFindFirst = prisma.bookmark.findFirst as jest.Mock;
+const mockedBmFindMany = prisma.bookmark.findMany as jest.Mock;
 
 describe('listPosts - 关键词 OR 过滤逻辑', () => {
   beforeEach(() => {
@@ -87,5 +101,101 @@ describe('listPosts - 关键词 OR 过滤逻辑', () => {
     expect(res).toHaveProperty('list');
     expect(res).toHaveProperty('pagination');
     expect(res.pagination).toEqual({ page: 2, limit: 10, total: 1 });
+  });
+});
+
+describe('listPosts - myUp/myBookmark 批量打标', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedFindMany.mockResolvedValue([]);
+    mockedCount.mockResolvedValue(0);
+  });
+
+  it('无 viewerId 时不查 up/bookmark，原样返回 list', async () => {
+    const raw = [{ id: 1 }, { id: 2 }];
+    mockedFindMany.mockResolvedValue(raw);
+
+    const res = await listPosts({});
+
+    expect(mockedUpFindMany).not.toHaveBeenCalled();
+    expect(mockedBmFindMany).not.toHaveBeenCalled();
+    expect(res.list).toEqual(raw);
+  });
+
+  it('有 viewerId 时对列表批量打标（Set 聚合）', async () => {
+    const raw = [{ id: 1 }, { id: 2 }, { id: 3 }];
+    mockedFindMany.mockResolvedValue(raw);
+    mockedUpFindMany.mockResolvedValue([{ postId: 1 }, { postId: 3 }]);
+    mockedBmFindMany.mockResolvedValue([{ postId: 2 }]);
+
+    const res = await listPosts({ viewerId: 5 });
+
+    // 整页仅 +2 次查询，与列表长度无关
+    expect(mockedUpFindMany).toHaveBeenCalledTimes(1);
+    expect(mockedBmFindMany).toHaveBeenCalledTimes(1);
+    // up: post 1/3 已顶；bm: post 2 已收藏
+    expect(res.list[0].myUp).toBe(true);
+    expect(res.list[0].myBookmark).toBe(false);
+    expect(res.list[1].myUp).toBe(false);
+    expect(res.list[1].myBookmark).toBe(true);
+    expect(res.list[2].myUp).toBe(true);
+    expect(res.list[2].myBookmark).toBe(false);
+  });
+
+  it('空列表 + viewerId 时不触发打标查询（短路）', async () => {
+    mockedFindMany.mockResolvedValue([]);
+    const res = await listPosts({ viewerId: 5 });
+    expect(mockedUpFindMany).not.toHaveBeenCalled();
+    expect(mockedBmFindMany).not.toHaveBeenCalled();
+    expect(res.list).toEqual([]);
+  });
+});
+
+describe('getPost - myUp/myBookmark', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('无 viewerId：不查 up/bookmark，返回原 post', async () => {
+    const raw = { id: 1, title: 't' };
+    mockedFindFirst.mockResolvedValue(raw);
+
+    const res = await getPost(1);
+
+    expect(mockedUpFindFirst).not.toHaveBeenCalled();
+    expect(mockedBmFindFirst).not.toHaveBeenCalled();
+    expect(res).toEqual(raw);
+  });
+
+  it('有 viewerId 且已顶已藏：返回 myUp/myBookmark 均为 true', async () => {
+    mockedFindFirst.mockResolvedValue({ id: 1, title: 't' });
+    mockedUpFindFirst.mockResolvedValue({ id: 9, postId: 1, userId: 5 });
+    mockedBmFindFirst.mockResolvedValue({ id: 7, postId: 1, userId: 5 });
+
+    const res = await getPost(1, 5);
+
+    expect(mockedUpFindFirst).toHaveBeenCalledTimes(1);
+    expect(mockedBmFindFirst).toHaveBeenCalledTimes(1);
+    expect(res?.myUp).toBe(true);
+    expect(res?.myBookmark).toBe(true);
+  });
+
+  it('有 viewerId 但未顶未藏：myUp/myBookmark 均为 false', async () => {
+    mockedFindFirst.mockResolvedValue({ id: 2, title: 't2' });
+    mockedUpFindFirst.mockResolvedValue(null);
+    mockedBmFindFirst.mockResolvedValue(null);
+
+    const res = await getPost(2, 5);
+
+    expect(res?.myUp).toBe(false);
+    expect(res?.myBookmark).toBe(false);
+  });
+
+  it('帖子不存在返回 null（且不触发打标查询）', async () => {
+    mockedFindFirst.mockResolvedValue(null);
+    const res = await getPost(999, 5);
+    expect(res).toBeNull();
+    expect(mockedUpFindFirst).not.toHaveBeenCalled();
+    expect(mockedBmFindFirst).not.toHaveBeenCalled();
   });
 });

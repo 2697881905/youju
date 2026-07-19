@@ -1,9 +1,8 @@
-// 发帖路由集成测试：POST /v1/posts
+// 发帖路由集成测试 + GET 列表/详情（软鉴权）集成测试
 // 覆盖：
-//   缺 token → 401；
-//   缺 title/genre → 400；
-//   命中敏感词 → 400 + 友好提示（P0 Bug 回归）；
-//   正常发帖 → 200 + code 0（成功路径不回归）。
+//   POST /v1/posts：缺 token → 401；缺 title/genre → 400；命中敏感词 → 400；正常 → 200（不回归）；
+//   GET  /v1/posts：匿名可浏览（200，不打标）；带 token → 列表项含 myUp/myBookmark；
+//   GET  /v1/posts/:id：匿名可访问（200，不 401）；带 token → 返回 myUp/myBookmark；不存在 → 404。
 // 参考 admin.test.ts 的 mock 风格（真实 HTTP + JWT + mock prisma/sensitiveWordService）。
 import express from 'express';
 import * as http from 'http';
@@ -13,11 +12,22 @@ import postRouter from './posts';
 import { env } from '../config/env';
 import { CODE } from '../utils/response';
 
-// mock prisma（postService.createPost 依赖 post.create）
+// mock prisma（postService 依赖 post/create/findMany/findFirst/count + up/bookmark findFirst/findMany）
 jest.mock('../prisma', () => ({
   prisma: {
     post: {
       create: jest.fn(),
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      count: jest.fn(),
+    },
+    up: {
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+    },
+    bookmark: {
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
     },
   },
 }));
@@ -34,6 +44,14 @@ import { prisma } from '../prisma';
 import { sensitiveWordService } from '../services/sensitiveWordService';
 const mockPrisma = prisma as any;
 const mockCheckText = sensitiveWordService.checkText as jest.Mock;
+
+const mockedPostFindMany = prisma.post.findMany as jest.Mock;
+const mockedPostFindFirst = prisma.post.findFirst as jest.Mock;
+const mockedPostCount = prisma.post.count as jest.Mock;
+const mockedUpFindFirst = prisma.up.findFirst as jest.Mock;
+const mockedUpFindMany = prisma.up.findMany as jest.Mock;
+const mockedBmFindFirst = prisma.bookmark.findFirst as jest.Mock;
+const mockedBmFindMany = prisma.bookmark.findMany as jest.Mock;
 
 const TEST_USER_ID = 1;
 
@@ -173,5 +191,71 @@ describe('POST /v1/posts（发帖）', () => {
         }),
       })
     );
+  });
+});
+
+describe('GET /v1/posts（信息流，软鉴权）', () => {
+  it('匿名（无 token）仍可浏览信息流，返回 200（不 401）', async () => {
+    mockedPostFindMany.mockResolvedValue([{ id: 1, user: {} }]);
+    mockedPostCount.mockResolvedValue(1);
+
+    const res = await req('GET', '/v1/posts');
+
+    expect(res.status).toBe(200);
+    expect(res.json.code).toBe(0);
+    expect(Array.isArray(res.json.data.list)).toBe(true);
+    // 匿名不打标（无 viewerId 分支），不触发 up/bookmark 查询
+    expect(mockedUpFindMany).not.toHaveBeenCalled();
+    expect(mockedBmFindMany).not.toHaveBeenCalled();
+  });
+
+  it('带 token 时列表项含 myUp/myBookmark', async () => {
+    mockedPostFindMany.mockResolvedValue([{ id: 1, user: {} }]);
+    mockedPostCount.mockResolvedValue(1);
+    mockedUpFindMany.mockResolvedValue([{ postId: 1 }]);
+    mockedBmFindMany.mockResolvedValue([]);
+
+    const res = await req('GET', '/v1/posts', undefined, authHeader());
+
+    expect(res.status).toBe(200);
+    expect(res.json.code).toBe(0);
+    expect(res.json.data.list[0].myUp).toBe(true);
+    expect(res.json.data.list[0].myBookmark).toBe(false);
+  });
+});
+
+describe('GET /v1/posts/:id（详情，软鉴权）', () => {
+  it('匿名（无 token）仍可访问详情，返回 200（不 401）', async () => {
+    mockedPostFindFirst.mockResolvedValue({ id: 1, user: {} });
+
+    const res = await req('GET', '/v1/posts/1');
+
+    expect(res.status).toBe(200);
+    expect(res.json.code).toBe(0);
+    // 匿名不打标（无 viewerId 分支）
+    expect(mockedUpFindFirst).not.toHaveBeenCalled();
+    expect(mockedBmFindFirst).not.toHaveBeenCalled();
+  });
+
+  it('带 token 时返回 myUp/myBookmark', async () => {
+    mockedPostFindFirst.mockResolvedValue({ id: 1, user: {} });
+    mockedUpFindFirst.mockResolvedValue({ id: 9, postId: 1, userId: 1 });
+    mockedBmFindFirst.mockResolvedValue(null);
+
+    const res = await req('GET', '/v1/posts/1', undefined, authHeader());
+
+    expect(res.status).toBe(200);
+    expect(res.json.code).toBe(0);
+    expect(res.json.data.myUp).toBe(true);
+    expect(res.json.data.myBookmark).toBe(false);
+  });
+
+  it('帖子不存在返回 404', async () => {
+    mockedPostFindFirst.mockResolvedValue(null);
+
+    const res = await req('GET', '/v1/posts/999');
+
+    expect(res.status).toBe(404);
+    expect(res.json.code).toBe(CODE.NOT_FOUND);
   });
 });

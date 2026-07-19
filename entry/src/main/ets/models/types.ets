@@ -48,6 +48,9 @@ export interface Post {
   upCount?: number;
   bookmarkCount?: number;
   commentCount?: number;
+  // —— 当前登录用户对帖子的互动态（后端按 viewerId 计算返回，纯增量字段）——
+  myUp?: boolean; // 我是否点赞
+  myBookmark?: boolean; // 我是否收藏
   status?: number;
   createdAt?: string;
   user?: User;
