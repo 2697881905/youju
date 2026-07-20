@@ -13,10 +13,13 @@ import { safeShowToast } from '../utils/toast';
 import { BasicDataSource } from '../utils/data-source';
 
 type SortKey = 'hot' | 'latest' | 'recommend';
-type FeedMode = 'recommend' | 'following';
+type FeedMode = 'recommend' | 'following' | 'hotspot';
+
+// FeedMode → 分段索引 的映射（用于顶栏 ForEach 选中态比较）
+const FEED_MODE_IDX_MAP: FeedMode[] = ['recommend', 'following', 'hotspot'];
 
 const SORT_KEYS: SortKey[] = ['hot', 'latest', 'recommend'];
-const FEED_TABS: string[] = ['推荐', '关注'];
+const FEED_TABS: string[] = ['推荐', '关注', '热点'];
 const ALL_TAG: Tag = { name: '全部', emoji: '🔥' };
 
 @Component
@@ -114,7 +117,7 @@ export struct HomeTab {
       const res =
         this.feedMode === 'following'
           ? await listFollowingPosts({ page: this.page, limit: 20, sort, tag: this.currentTag() })
-          : await listPosts({ page: this.page, limit: 20, sort, tag: this.currentTag() });
+          : await listPosts({ page: this.page, limit: 20, sort: this.feedMode === 'hotspot' ? 'hot' : sort, tag: this.currentTag() });
       if (reset) {
         this.posts = res.list;
         this.postSource.setData(res.list);
@@ -213,15 +216,15 @@ export struct HomeTab {
               Column() {
                 Text(name)
                   .fontSize(16)
-                  .fontWeight(this.feedMode === (idx === 0 ? 'recommend' : 'following') ? FontWeight.Bold : FontWeight.Medium)
-                  .fontColor(this.feedMode === (idx === 0 ? 'recommend' : 'following') ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
+                  .fontWeight(this.feedMode === FEED_MODE_IDX_MAP[idx] ? FontWeight.Bold : FontWeight.Medium)
+                  .fontColor(this.feedMode === FEED_MODE_IDX_MAP[idx] ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
                   .padding({ left: 14, right: 14, top: 6, bottom: 6 })
-                if (this.feedMode === (idx === 0 ? 'recommend' : 'following')) {
+                if (this.feedMode === FEED_MODE_IDX_MAP[idx]) {
                   Divider().width(24).height(2).color($r('app.color.brand_primary'))
                 }
               }
               .onClick(() => {
-                const mode: FeedMode = idx === 0 ? 'recommend' : 'following';
+                const mode: FeedMode = FEED_MODE_IDX_MAP[idx];
                 this.switchFeed(mode);
               })
             }, (name: string) => name)
