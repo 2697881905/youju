@@ -107,6 +107,7 @@ struct DetailPage {
   @State commenting: boolean = false;
   @State commentText: string = '';
   @State commentReportId: number = 0;
+  @State viewingImage: string = ''; // 全屏看图
 
   private get pid(): number {
     return Number(this.postId);
@@ -363,6 +364,25 @@ struct DetailPage {
 
   build() {
     Column() {
+      // 全屏图片查看器
+      if (this.viewingImage.length > 0) {
+        Stack() {
+          Column()
+            .width('100%')
+            .height('100%')
+            .backgroundColor('#000000')
+            .onClick(() => { this.viewingImage = ''; });
+
+          Image(this.viewingImage)
+            .objectFit(ImageFit.Contain)
+            .width('100%')
+            .height('100%');
+        }
+        .width('100%')
+        .height('100%')
+        .zIndex(999);
+      }
+
       // 顶部导航
       Row() {
         Text('← 返回')
@@ -474,6 +494,7 @@ struct DetailPage {
                       .aspectRatio(1)
                       .objectFit(ImageFit.Cover)
                       .borderRadius(8)
+                      .onClick(() => { this.viewingImage = url; })
                   },
                   (url: string) => url
                 )
