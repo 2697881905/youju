@@ -12,6 +12,15 @@ export struct CircleTab {
   @State loading: boolean = false;
   @State error: string = '';
   @State togglingName: string = ''; // 正在切换的标签名，用于按钮禁用防并发
+  @State filterName: string = ''; // 下拉筛选的圈子名（空=全部）
+  @State showDropdown: boolean = false;
+
+  private get filteredCircles(): Tag[] {
+    if (this.filterName.length === 0) {
+      return this.circles;
+    }
+    return this.circles.filter((t: Tag) => (t.name ?? '') === this.filterName);
+  }
 
   aboutToAppear(): void {
     this.initData();
@@ -101,13 +110,37 @@ export struct CircleTab {
   }
 
   build() {
-    Column() {
-      // 圈子标题
-      Text('圈子')
-        .fontSize(24)
-        .fontWeight(FontWeight.Bold)
-        .fontColor($r('app.color.text_primary'))
-        .padding({ left: 16, top: 10, bottom: 8 })
+    Stack({ alignContent: Alignment.TopStart }) {
+      Column() {
+      // 圈子标题（右侧下拉筛选）
+      Row() {
+        Text('圈子')
+          .fontSize(24)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.text_primary'))
+        Blank()
+        // 下拉筛选按钮
+        Button({ type: ButtonType.Capsule, stateEffect: true }) {
+          Row({ space: 4 }) {
+            Text(this.filterName.length > 0 ? this.filterName : '全部圈子')
+              .fontSize(11)
+              .fontColor($r('app.color.text_secondary'))
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .constraintSize({ maxWidth: 80 })
+            Text('▼')
+              .fontSize(10)
+              .fontColor($r('app.color.text_secondary'))
+          }
+        }
+        .height(28)
+        .backgroundColor('rgba(255,255,255,0.06)')
+        .border({ width: 0.5, color: 'rgba(255,255,255,0.12)' })
+        .borderRadius(14)
+        .onClick(() => { this.showDropdown = !this.showDropdown; })
+      }
+      .width('100%')
+      .padding({ left: 16, right: 16, top: 10, bottom: 8 })
 
       if (this.circles.length === 0 && this.loading) {
         Column() {
@@ -136,21 +169,25 @@ export struct CircleTab {
         .width('100%')
         .justifyContent(FlexAlign.Center)
       } else {
-        Grid() {
-          ForEach(
-            this.circles,
-            (c: Tag) => {
-              GridItem() {
-                this.circleCard(c)
-              }
-            },
-            (c: Tag) => c.name ?? ''
-          )
+        Column() {
+          Grid() {
+            ForEach(
+              this.filteredCircles,
+              (c: Tag) => {
+                GridItem() {
+                  this.circleCard(c)
+                }
+              },
+              (c: Tag) => c.name ?? ''
+            )
+          }
+          .columnsTemplate('1fr 1fr')
+          .columnsGap(12)
+          .rowsGap(12)
+          .padding(12)
+          .layoutWeight(1)
+          .width('100%')
         }
-        .columnsTemplate('1fr 1fr')
-        .columnsGap(12)
-        .rowsGap(12)
-        .padding(12)
         .layoutWeight(1)
         .width('100%')
       }
@@ -159,5 +196,58 @@ export struct CircleTab {
     .height('100%')
     .alignItems(HorizontalAlign.Start)
     .backgroundColor($r('app.color.bg_primary'))
+    }
+    .width('100%')
+    .height('100%')
+
+    // 下拉筛选面板（浮层）
+    if (this.showDropdown) {
+      Column() {
+        Scroll() {
+          Column({ space: 0 }) {
+            Row() {
+              Text('全部圈子')
+                .fontSize(14)
+                .fontColor($r('app.color.text_primary'))
+            }
+            .width('100%')
+            .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+            .onClick(() => {
+              this.filterName = '';
+              this.showDropdown = false;
+            })
+
+            Divider().color('rgba(255,255,255,0.1)')
+
+            ForEach(
+              this.circles,
+              (c: Tag) => {
+                Row() {
+                  Text(c.emoji ?? '').fontSize(14).margin({ right: 8 })
+                  Text(c.name ?? '')
+                    .fontSize(14)
+                    .fontColor(this.filterName === c.name ? $r('app.color.brand_primary') : $r('app.color.text_primary'))
+                }
+                .width('100%')
+                .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+                .onClick(() => {
+                  this.filterName = c.name ?? '';
+                  this.showDropdown = false;
+                })
+              },
+              (c: Tag) => c.name ?? ''
+            )
+          }
+          .width('100%')
+        }
+        .height(Math.min(this.circles.length * 48 + 48, 320))
+        .width('100%')
+        .backgroundBlurStyle(BlurStyle.BACKGROUND_THICK)
+        .backgroundColor('rgba(0,0,0,0.9)')
+        .borderRadius({ bottomLeft: 12, bottomRight: 12 })
+      }
+      .width('100%')
+      .padding({ left: 16, right: 16, top: 50 })
+    }
   }
 }
