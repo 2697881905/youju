@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { ok, fail, CODE } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
 import { env } from '../config/env';
+import { prisma } from '../prisma';
 import * as postService from '../services/postService';
 import * as reportService from '../services/reportService';
 import { SensitiveWordError } from '../utils/errors';
@@ -119,6 +120,42 @@ router.put('/:id', auth, async (req: AuthRequest, res: Response) => {
     if (result.reason === 'forbidden') return fail(res, CODE.FORBIDDEN, '只能编辑自己的帖子', 403);
   }
   return ok(res, result.post);
+});
+
+// 辩论投票：POST /v1/posts/:id/vote { choice: 'A' | 'B' }（幂等，同用户改票以最后一次为准）
+router.post('/:id/vote', auth, async (req: AuthRequest, res: Response) => {
+  const postId = Number(req.params.id);
+  const choice = req.body?.choice as string;
+  if (!postId || isNaN(postId)) return fail(res, CODE.BAD_REQUEST, '无效帖子ID');
+  if (choice !== 'A' && choice !== 'B') return fail(res, CODE.BAD_REQUEST, 'choice 必须为 A 或 B');
+  try {
+    // 查现有投票记录
+    const existing = await prisma.debateVote.findUnique({
+      where: { userId_postId: { userId: req.userId!, postId } },
+    });
+    if (existing) {
+      if (existing.choice === choice) {
+        // 同选项重复投 → 幂等，不更新
+        return ok(res, { voted: true, choice });
+      }
+      // 改票：减旧票 + 加新票
+      const decField = existing.choice === 'A' ? 'planAVotes' : 'planBVotes';
+      const incField = choice === 'A' ? 'planAVotes' : 'planBVotes';
+      await prisma.post.update({ where: { id: postId }, data: { [decField]: { decrement: 1 } } });
+      await prisma.post.update({ where: { id: postId }, data: { [incField]: { increment: 1 } } });
+      await prisma.debateVote.update({ where: { id: existing.id }, data: { choice } });
+    } else {
+      // 新投票
+      const incField = choice === 'A' ? 'planAVotes' : 'planBVotes';
+      await prisma.post.update({ where: { id: postId }, data: { [incField]: { increment: 1 } } });
+      await prisma.debateVote.create({ data: { userId: req.userId!, postId, choice } });
+    }
+    // 返回最新票数
+    const post = await prisma.post.findUnique({ where: { id: postId }, select: { planAVotes: true, planBVotes: true } });
+    return ok(res, { voted: true, choice, planAVotes: post?.planAVotes ?? 0, planBVotes: post?.planBVotes ?? 0 });
+  } catch (e) {
+    return fail(res, CODE.SERVER_ERROR, (e as Error).message);
+  }
 });
 
 // 举报帖子：POST /v1/posts/:id/report

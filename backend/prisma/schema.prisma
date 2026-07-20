@@ -52,6 +52,8 @@ model Post {
   commentCount   Int      @default(0)
   status         Int      @default(0) // 0-待审核 1-已发布 2-已拒绝
   reportCount    Int      @default(0) // 被举报累计次数（达阈值自动 status=0）
+  planAVotes     Int      @default(0) // 辩论方案A投票数
+  planBVotes     Int      @default(0) // 辩论方案B投票数
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -237,4 +239,15 @@ model PrivacySettings {
   allowFollow    Boolean  @default(true)
   allowMessage   Boolean  @default(true)
   updatedAt      DateTime @updatedAt
+}
+
+// 辩论投票记录表（用户对辩论帖子的 A/B 投票，幂等）
+model DebateVote {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  postId    Int
+  choice    String   @db.VarChar(1) // 'A' | 'B'
+  createdAt DateTime @default(now())
+
+  @@unique([userId, postId]) // 同一用户对同一辩论帖只能投一次
 }

@@ -1,5 +1,5 @@
 import { http } from '@kit.NetworkKit';
-import { Post, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody, PendingPost, ModerateAction, NotificationPrefs, BlockUser, PrivacySettingsData, UserExportData } from '../models/types';
+import { Post, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody, PendingPost, ModerateAction, NotificationPrefs, BlockUser, PrivacySettingsData, UserExportData, DebateVoteResult } from '../models/types';
 
 // 本地后端地址（按运行环境替换）：
 // - 模拟器/真机本地开发：用 hdc 反向端口转发，连 127.0.0.1:3000 即可，无需关心电脑 IP（IP 变了也不用改这里）
@@ -546,6 +546,12 @@ export function getPrivacySettings(): Promise<PrivacySettingsData> {
 // PUT /v1/me/privacy
 export function updatePrivacySettings(body: PrivacySettingsData): Promise<PrivacySettingsData> {
   return api.put<PrivacySettingsData>('/v1/me/privacy', body);
+}
+
+// ===== 辩论投票 =====
+// POST /v1/posts/:id/vote { choice: 'A' | 'B' }
+export function voteDebate(postId: number, choice: string): Promise<DebateVoteResult> {
+  return api.post<DebateVoteResult>('/v1/posts/' + postId + '/vote', { choice });
 }
 
 // ===== 数据导出 =====

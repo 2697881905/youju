@@ -8,6 +8,7 @@ import {
   bookmarkPost,
   cancelBookmarkPost,
   deletePost,
+  voteDebate,
   reportPost,
   reportComment,
   PostWithComments,
@@ -107,6 +108,9 @@ struct DetailPage {
   @State commentText: string = '';
   @State commentReportId: number = 0;
   @State viewingImage: string = ''; // 全屏看图
+  @State planAVotes: number = 0;
+  @State planBVotes: number = 0;
+  @State myVote: string = ''; // '' | 'A' | 'B'
 
   private get pid(): number {
     return Number(this.postId);
@@ -174,6 +178,10 @@ struct DetailPage {
       this.bookmarked = p.myBookmark ?? false;
       this.fields = this.buildFields(p);
       this.images = this.imagesOf(p);
+      // 辩论投票数据初始化
+      this.planAVotes = (p as Record<string, Object>).planAVotes as number ?? 0;
+      this.planBVotes = (p as Record<string, Object>).planBVotes as number ?? 0;
+      this.myVote = '';
     } catch (e) {
       this.error = (e as Error).message;
     } finally {
@@ -252,6 +260,33 @@ struct DetailPage {
 
   onShare(): void {
     safeShowToast(this.getUIContext(), { message: '分享：' + (this.post?.title ?? '大蓝书帖子') });
+  }
+
+  // 辩论投票：乐观更新票数
+  private async onDebateVote(choice: string): Promise<void> {
+    if (this.myVote === choice) return; // 重复投同选项
+    if (!this.post || this.post.id === undefined) return;
+    const prevVote: string = this.myVote;
+    const prevA: number = this.planAVotes;
+    const prevB: number = this.planBVotes;
+    // 乐观更新
+    if (prevVote !== '') {
+      if (prevVote === 'A') this.planAVotes -= 1;
+      else this.planBVotes -= 1;
+    }
+    if (choice === 'A') this.planAVotes += 1;
+    else this.planBVotes += 1;
+    this.myVote = choice;
+    try {
+      const r = await voteDebate(this.post.id, choice);
+      this.planAVotes = r.planAVotes;
+      this.planBVotes = r.planBVotes;
+    } catch (e) {
+      this.myVote = prevVote;
+      this.planAVotes = prevA;
+      this.planBVotes = prevB;
+      safeShowToast(this.getUIContext(), { message: (e as Error).message });
+    }
   }
 
   // 删除帖子：二次确认 → 调 deletePost API → toast + 返回
@@ -357,6 +392,29 @@ struct DetailPage {
       // 透传后端错误 message（如"内容含敏感词，请修改后重试"）
       safeShowToast(this.getUIContext(), { message: (e as Error).message });
     }
+  }
+
+  @Builder
+  voteBar(votes: number, total: number): void {
+    Row() {
+      Column()
+        .width(total > 0 ? (votes / total) * 100 + '%' : '0%')
+        .height(6)
+        .borderRadius(3)
+        .backgroundColor($r('app.color.brand_primary'));
+      Column()
+        .layoutWeight(1)
+        .height(6)
+        .borderRadius(3)
+        .backgroundColor($r('app.color.bg_secondary'));
+    }
+    .width('100%')
+    .height(6)
+    .layoutWeight(1);
+    Text(formatCount(votes) + '票')
+      .fontSize(12)
+      .fontColor($r('app.color.text_secondary'))
+      .margin({ left: 8 });
   }
 
   build() {
@@ -497,6 +555,47 @@ struct DetailPage {
                 )
               }
               .width('100%')
+            }
+
+            // 辩论投票区（仅 debate 体裁）
+            if (this.post?.genre === 'debate') {
+              Column({ space: 12 }) {
+                // 方案A 投票栏
+                Row() {
+                  Text('方案A')
+                    .fontSize(13)
+                    .fontColor($r('app.color.text_secondary'))
+                    .width(56);
+                  this.voteBar(this.planAVotes, this.planAVotes + this.planBVotes);
+                  Text(this.myVote === 'A' ? '✓ 已投' : '投票')
+                    .fontSize(13)
+                    .fontColor(this.myVote === 'A' ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
+                    .width(52)
+                    .textAlign(TextAlign.Center)
+                    .onClick(() => { this.onDebateVote('A'); });
+                }
+                .width('100%');
+
+                // 方案B 投票栏
+                Row() {
+                  Text('方案B')
+                    .fontSize(13)
+                    .fontColor($r('app.color.text_secondary'))
+                    .width(56);
+                  this.voteBar(this.planBVotes, this.planAVotes + this.planBVotes);
+                  Text(this.myVote === 'B' ? '✓ 已投' : '投票')
+                    .fontSize(13)
+                    .fontColor(this.myVote === 'B' ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
+                    .width(52)
+                    .textAlign(TextAlign.Center)
+                    .onClick(() => { this.onDebateVote('B'); });
+                }
+                .width('100%');
+              }
+              .width('100%')
+              .padding(14)
+              .backgroundColor($r('app.color.card_bg'))
+              .borderRadius(12);
             }
 
             // 结构化字段

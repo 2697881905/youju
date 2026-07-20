@@ -233,3 +233,12 @@ export interface UserExportData {
   followingsCount: number;
   followersCount: number;
 }
+
+// ===== 辩论投票 =====
+// 辩论投票结果（对应后端 POST /v1/posts/:id/vote）
+export interface DebateVoteResult {
+  voted: boolean;
+  choice: string;  // 'A' | 'B'
+  planAVotes: number;
+  planBVotes: number;
+}
