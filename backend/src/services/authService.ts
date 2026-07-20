@@ -81,3 +81,18 @@ export async function updateProfile(
     },
   });
 }
+
+// 注销（软删）：置 deletedAt + 匿名化昵称 + 清空头像。
+// 保留 posts/comments（FK 不变）；经核实 nickname 无 @@unique，可直接赋固定串。
+export const DELETED_NICKNAME = '已注销用户';
+
+export async function deactivateUser(userId: number) {
+  return prisma.user.update({
+    where: { id: userId },
+    data: {
+      deletedAt: new Date(),
+      nickname: DELETED_NICKNAME,
+      avatar: null,
+    },
+  });
+}

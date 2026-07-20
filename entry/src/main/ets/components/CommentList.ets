@@ -8,9 +8,33 @@ export struct CommentList {
   // 举报回调（由 DetailPage 传入，打开 ReportDialog）
   reportCommentHandler: (commentId: number) => void = (_id: number) => {};
 
+  // 评论作者是否已注销（后端软删匿名化）
+  private isDeletedCommentUser(c: Comment): boolean {
+    const u = c.user;
+    if (u === undefined) {
+      return false;
+    }
+    if (u.deleted === true) {
+      return true;
+    }
+    if (u.nickname === '已注销用户') {
+      return true;
+    }
+    return false;
+  }
+
   @Builder
   avatar(c: Comment) {
-    if (c.user?.avatar) {
+    if (this.isDeletedCommentUser(c)) {
+      Text('?')
+        .width(36)
+        .height(36)
+        .borderRadius(18)
+        .backgroundColor('#3A3A3C')
+        .fontColor(Color.White)
+        .fontSize(14)
+        .textAlign(TextAlign.Center)
+    } else if (c.user?.avatar) {
       Image(c.user.avatar)
         .width(36)
         .height(36)
@@ -42,7 +66,7 @@ export struct CommentList {
               this.avatar(c)
               Column({ space: 4 }) {
                 Row({ space: 6 }) {
-                  Text(c.user?.nickname ?? '匿名用户')
+                  Text(this.isDeletedCommentUser(c) ? '已注销用户' : (c.user?.nickname ?? '匿名用户'))
                     .fontSize(14)
                     .fontWeight(FontWeight.Medium)
                     .fontColor($r('app.color.text_secondary'))

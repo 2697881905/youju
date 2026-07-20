@@ -24,6 +24,7 @@ model User {
   status     Int      @default(1) // 1-正常 0-封禁
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  deletedAt  DateTime? // 软删时间，置位即视为「已注销」，旧 token 失效
 
   posts          Post[]
   comments       Comment[]

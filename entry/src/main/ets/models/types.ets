@@ -9,6 +9,7 @@ export interface User {
   bio?: string;
   followTags?: string[];
   isAdmin?: boolean;
+  deleted?: boolean; // 已注销（后端软删匿名化标记）
 }
 
 export interface Tag {
@@ -134,6 +135,7 @@ export interface UserProfile {
   followerCount: number;
   isFollowing: boolean;
   isMutual: boolean;
+  deleted?: boolean; // 已注销（后端软删匿名化标记）
 }
 
 // 关注/粉丝列表项（GET /v1/users/:id/following|followers 返回）
@@ -143,6 +145,7 @@ export interface FollowUser {
   avatar: string | null;
   bio: string | null;
   isFollowing: boolean;
+  deleted?: boolean; // 已注销（后端软删匿名化标记）
 }
 
 // 关注/粉丝列表响应

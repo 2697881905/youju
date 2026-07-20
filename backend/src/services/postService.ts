@@ -1,6 +1,7 @@
 import { prisma } from '../prisma';
 import { sensitiveWordService } from './sensitiveWordService';
 import { SensitiveWordError } from '../utils/errors';
+import { USER_PUBLIC_SELECT, publicUserView } from '../utils/userView';
 
 export type SortType = 'hot' | 'latest' | 'recommend';
 
@@ -72,7 +73,7 @@ export async function listPosts(params: ListParams) {
       orderBy,
       skip,
       take: limit,
-      include: { user: { select: { id: true, nickname: true, avatar: true } } },
+      include: { user: { select: USER_PUBLIC_SELECT } },
     }),
     prisma.post.count({ where }),
   ]);
@@ -80,7 +81,6 @@ export async function listPosts(params: ListParams) {
   // 批量打标 myUp / myBookmark：仅当有 viewerId 且列表非空时执行，
   // 整页只额外发 2 次查询（up / bookmark 各一次，与列表长度无关，杜绝 N+1）。
   // 无 viewerId 时短路，直接返回原 list，保证匿名请求不打标、不触发多余查询。
-  let taggedList = list;
   if (params.viewerId && list.length > 0) {
     const ids: number[] = list.map((p) => p.id);
     const [ups, bms] = await Promise.all([
@@ -101,14 +101,21 @@ export async function listPosts(params: ListParams) {
     for (const b of bms) {
       bmSet.add(b.postId);
     }
-    taggedList = list.map((p) => ({
+    const enriched = list.map((p) => ({
       ...p,
       myUp: upSet.has(p.id),
       myBookmark: bmSet.has(p.id),
     }));
+    return {
+      list: enriched.map((p) => ({ ...p, user: publicUserView(p.user) })),
+      pagination: { page, limit, total },
+    };
   }
 
-  return { list: taggedList, pagination: { page, limit, total } };
+  return {
+    list: list.map((p) => ({ ...p, user: publicUserView(p.user) })),
+    pagination: { page, limit, total },
+  };
 }
 
 // 帖子详情（含评论，评论按顶数降序，仅返回 status=1 的正常评论）
@@ -118,12 +125,12 @@ export async function getPost(id: number, viewerId?: number) {
   const post = await prisma.post.findFirst({
     where: { id },
     include: {
-      user: { select: { id: true, nickname: true, avatar: true } },
+      user: { select: USER_PUBLIC_SELECT },
       comments: {
         where: { status: 1 },
         orderBy: { upCount: 'desc' },
         take: 50,
-        include: { user: { select: { id: true, nickname: true, avatar: true } } },
+        include: { user: { select: USER_PUBLIC_SELECT } },
       },
     },
   });
@@ -131,13 +138,23 @@ export async function getPost(id: number, viewerId?: number) {
     return null;
   }
   if (!viewerId) {
-    return post;
+    return {
+      ...post,
+      user: publicUserView(post.user),
+      comments: (post.comments ?? []).map((c) => ({ ...c, user: publicUserView(c.user) })),
+    };
   }
   const [up, bm] = await Promise.all([
     prisma.up.findFirst({ where: { postId: id, userId: viewerId } }),
     prisma.bookmark.findFirst({ where: { postId: id, userId: viewerId } }),
   ]);
-  return { ...post, myUp: !!up, myBookmark: !!bm };
+  return {
+    ...post,
+    user: publicUserView(post.user),
+    comments: (post.comments ?? []).map((c) => ({ ...c, user: publicUserView(c.user) })),
+    myUp: !!up,
+    myBookmark: !!bm,
+  };
 }
 
 // 发布帖子（敏感词前置检测，通过后 status=1 直接发布）
@@ -172,11 +189,12 @@ export async function deletePost(id: number, userId: number) {
 
 // 个人主页：我发布的帖子
 export async function listByUser(userId: number) {
-  return prisma.post.findMany({
+  const rows = await prisma.post.findMany({
     where: { userId },
     orderBy: { createdAt: 'desc' },
-    include: { user: { select: { id: true, nickname: true, avatar: true } } },
+    include: { user: { select: USER_PUBLIC_SELECT } },
   });
+  return rows.map((p) => ({ ...p, user: publicUserView(p.user) }));
 }
 
 // 我的收藏列表（分页，返回帖子）
@@ -192,12 +210,12 @@ export async function listBookmarks(userId: number, page: number = 1, limit: num
       take: l,
       include: {
         post: {
-          include: { user: { select: { id: true, nickname: true, avatar: true } } },
+          include: { user: { select: USER_PUBLIC_SELECT } },
         },
       },
     }),
     prisma.bookmark.count({ where: { userId } }),
   ]);
-  const list = rows.map((r) => r.post);
+  const list = rows.map((r) => ({ ...r.post, user: publicUserView(r.post.user) }));
   return { list, pagination: { page: p, limit: l, total } };
 }

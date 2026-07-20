@@ -5,9 +5,10 @@ import { CircleTab } from '../components/CircleTab';
 import { PublishPage } from './PublishPage';
 import { MessagePage } from './MessagePage';
 import { ProfilePage } from './ProfilePage';
-import { initAuthStorage, getToken } from '../utils/auth';
+import { initAuthStorage, getToken, setPrivacyAgreed, isPrivacyAgreed } from '../utils/auth';
 import { getUnreadCount } from '../services/api';
-import { router } from '@kit.ArkUI';
+import { router, getContext } from '@kit.ArkUI';
+import { common } from '@kit.AbilityKit';
 
 @Entry
 @Component
@@ -18,6 +19,16 @@ struct Index {
 
   aboutToAppear(): void {
     initAuthStorage();
+    // 首启隐私协议弹窗：未同意则拦截初始化（同意后才继续登录态判断）
+    if (!isPrivacyAgreed()) {
+      this.showPrivacyDialog();
+      return;
+    }
+    this.startInit();
+  }
+
+  // 登录态判断 + 未读拉取（隐私同意后或已同意时执行）
+  private startInit(): void {
     // 无登录态时跳到登录页；登录成功后 router.back() 回此页
     if (getToken() === '') {
       router.pushUrl({ url: 'pages/LoginPage' });
@@ -25,6 +36,30 @@ struct Index {
       // 已登录则拉一次未读总数，驱动消息 Tab 红点
       this.refreshUnread();
     }
+  }
+
+  // 首启隐私协议弹窗（仅未同意时出现；不同意则退出应用）
+  private showPrivacyDialog(): void {
+    this.getUIContext().showAlertDialog({
+      title: '隐私政策与用户协议',
+      message: '欢迎使用大蓝书。请你仔细阅读并同意《隐私政策》与《用户协议》后再开始使用。' +
+        '我们仅在为你提供内容推荐、账号安全等必要服务时收集相关信息。\n（占位文案，后续替换为真实政策链接）',
+      primaryButton: {
+        value: '同意并继续',
+        action: (): void => {
+          setPrivacyAgreed();
+          this.startInit();
+        },
+      },
+      secondaryButton: {
+        value: '不同意',
+        fontColor: '#FF453A',
+        action: (): void => {
+          const ctx = getContext(this) as common.UIAbilityContext;
+          ctx.terminateSelf();
+        },
+      },
+    });
   }
 
   // 拉取未读消息总数（写入 AppStorage，红点随之刷新）

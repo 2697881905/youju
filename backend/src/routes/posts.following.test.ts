@@ -28,6 +28,9 @@ jest.mock('../prisma', () => ({
     bookmark: {
       findMany: jest.fn(),
     },
+    user: {
+      findUnique: jest.fn().mockResolvedValue({ deletedAt: null }),
+    },
   },
 }));
 

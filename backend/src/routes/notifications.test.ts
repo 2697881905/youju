@@ -28,7 +28,7 @@ jest.mock('../prisma', () => ({
       findUnique: jest.fn(),
     },
     user: {
-      findUnique: jest.fn(),
+      findUnique: jest.fn().mockResolvedValue({ deletedAt: null }),
       findMany: jest.fn(),
     },
   },

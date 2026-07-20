@@ -1,5 +1,6 @@
 import { prisma } from '../prisma';
 import { notifyOnFollow } from './notificationService';
+import { DELETED_NICKNAME } from '../utils/userView';
 
 // 关注领域自定义错误（与 accountBindingService 的 AccountError 同构）
 export class FollowError extends Error {
@@ -71,6 +72,22 @@ export async function getUserProfile(viewerId: number, rawTargetId: string) {
     prisma.follow.count({ where: { followerId: viewerId, followingId: targetId } }),
     prisma.follow.count({ where: { followerId: targetId, followingId: viewerId } }),
   ]);
+  // 已注销用户：匿名化昵称/头像/bio，并标记 deleted，前端据 deleted 降级展示。
+  if (user.deletedAt) {
+    return {
+      id: user.id,
+      nickname: DELETED_NICKNAME,
+      avatar: null,
+      bio: null,
+      gender: null,
+      postCount,
+      followingCount,
+      followerCount,
+      isFollowing: false,
+      isMutual: false,
+      deleted: true,
+    };
+  }
   return {
     id: user.id,
     nickname: user.nickname,
@@ -82,6 +99,7 @@ export async function getUserProfile(viewerId: number, rawTargetId: string) {
     followerCount,
     isFollowing: isFollowing > 0,
     isMutual: isMutual > 0,
+    deleted: false,
   };
 }
 
@@ -112,14 +130,23 @@ async function listFollows(
   const otherIds: number[] = rows.map((r) => (mode === 'following' ? r.followingId : r.followerId));
 
   // 批量补 user 信息（沿 Notification 取向：标量外键 + findMany 补 user）
-  const userMap = new Map<number, { id: number; nickname: string; avatar: string | null; bio: string | null }>();
+  const userMap = new Map<
+    number,
+    { id: number; nickname: string; avatar: string | null; bio: string | null; deletedAt: Date | null }
+  >();
   if (otherIds.length > 0) {
     const users = await prisma.user.findMany({
       where: { id: { in: otherIds } },
-      select: { id: true, nickname: true, avatar: true, bio: true },
+      select: { id: true, nickname: true, avatar: true, bio: true, deletedAt: true },
     });
     for (const u of users) {
-      userMap.set(u.id, { id: u.id, nickname: u.nickname, avatar: u.avatar, bio: u.bio });
+      userMap.set(u.id, {
+        id: u.id,
+        nickname: u.nickname,
+        avatar: u.avatar,
+        bio: u.bio,
+        deletedAt: u.deletedAt,
+      });
     }
   }
 
@@ -138,12 +165,14 @@ async function listFollows(
   const list = rows.map((r) => {
     const uid = mode === 'following' ? r.followingId : r.followerId;
     const u = userMap.get(uid);
+    const deleted = u?.deletedAt != null;
     return {
       id: u?.id ?? uid,
-      nickname: u?.nickname ?? '用户',
-      avatar: u?.avatar ?? null,
-      bio: u?.bio ?? null,
+      nickname: deleted ? DELETED_NICKNAME : (u?.nickname ?? '用户'),
+      avatar: deleted ? null : (u?.avatar ?? null),
+      bio: deleted ? null : (u?.bio ?? null),
       isFollowing: followingMap.get(uid) ?? false,
+      deleted,
     };
   });
 

@@ -30,6 +30,9 @@ jest.mock('../prisma', () => ({
     notification: {
       create: jest.fn(),
     },
+    user: {
+      findUnique: jest.fn().mockResolvedValue({ deletedAt: null }),
+    },
   },
 }));
 

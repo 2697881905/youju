@@ -23,9 +23,27 @@ export struct PostCard {
     this.likeCount = this.post.upCount ?? 0;
   }
 
-  // 进入他人主页（作者区点击）
+  // 作者是否已注销（后端软删匿名化）：deleted 标记或昵称==='已注销用户'
+  private isDeletedUser(): boolean {
+    const u = this.post.user;
+    if (u === undefined) {
+      return false;
+    }
+    if (u.deleted === true) {
+      return true;
+    }
+    if (u.nickname === '已注销用户') {
+      return true;
+    }
+    return false;
+  }
+
+  // 进入他人主页（作者区点击）；已注销作者不跳转
   private goUser(): void {
     const u: User | undefined = this.post.user;
+    if (this.isDeletedUser()) {
+      return;
+    }
     if (u !== undefined && u.id !== undefined) {
       AppStorage.setOrCreate('targetUserId', String(u.id));
       router.pushUrl({ url: 'pages/UserProfilePage' });
@@ -73,10 +91,16 @@ export struct PostCard {
         .maxLines(2)
         .textOverflow({ overflow: TextOverflow.Ellipsis });
 
-      // 作者区（点击进他人主页）
+      // 作者区（点击进他人主页；已注销作者降级展示且不跳转）
       if (this.post.user !== undefined && this.post.user.id !== undefined) {
         Row({ space: 8 }) {
-          if (this.post.user.avatar) {
+          if (this.isDeletedUser()) {
+            Text('?')
+              .width(20).height(20).borderRadius(10)
+              .fontSize(11).fontColor('#fff')
+              .backgroundColor('#3A3A3C')
+              .textAlign(TextAlign.Center)
+          } else if (this.post.user.avatar) {
             Image(this.post.user.avatar)
               .width(20).height(20).borderRadius(10)
               .objectFit(ImageFit.Cover)
@@ -87,7 +111,7 @@ export struct PostCard {
               .backgroundColor($r('app.color.brand_primary'))
               .textAlign(TextAlign.Center)
           }
-          Text(this.post.user.nickname ?? '匿名')
+          Text(this.isDeletedUser() ? '已注销用户' : (this.post.user.nickname ?? '匿名'))
             .fontSize(12).fontColor($r('app.color.text_secondary'))
         }
         .margin({ top: 8 })

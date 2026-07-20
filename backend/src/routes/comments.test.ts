@@ -13,11 +13,14 @@ import commentRouter from './comments';
 import { env } from '../config/env';
 import { CODE } from '../utils/response';
 
-// mock prisma（commentService.createComment 依赖 comment.create）
+// mock prisma（commentService.createComment 依赖 comment.create；auth 中间件依赖 user.findUnique）
 jest.mock('../prisma', () => ({
   prisma: {
     comment: {
       create: jest.fn(),
+    },
+    user: {
+      findUnique: jest.fn().mockResolvedValue({ deletedAt: null }),
     },
   },
 }));

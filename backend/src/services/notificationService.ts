@@ -1,4 +1,5 @@
 import { prisma } from '../prisma';
+import { DELETED_NICKNAME } from '../utils/userView';
 
 // 通知类型（与前端 NotificationType 单一来源对齐）
 export type NotificationType = 'comment' | 'up' | 'bookmark' | 'follow' | 'system';
@@ -72,10 +73,15 @@ export async function listForUser(
   if (actorIds.length > 0) {
     const actors = await prisma.user.findMany({
       where: { id: { in: actorIds } },
-      select: { id: true, nickname: true, avatar: true },
+      select: { id: true, nickname: true, avatar: true, deletedAt: true },
     });
     for (const a of actors) {
-      actorMap.set(a.id, { id: a.id, nickname: a.nickname, avatar: a.avatar });
+      if (a.deletedAt) {
+        // 已注销触发者：匿名化昵称/头像，前端据 nickname 显示「已注销用户」
+        actorMap.set(a.id, { id: a.id, nickname: DELETED_NICKNAME, avatar: null });
+      } else {
+        actorMap.set(a.id, { id: a.id, nickname: a.nickname, avatar: a.avatar });
+      }
     }
   }
 

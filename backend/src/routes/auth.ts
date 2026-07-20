@@ -3,7 +3,7 @@ import { ok, fail, CODE } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
 import { prisma } from '../prisma';
 import { env } from '../config/env';
-import { login, updateProfile, loginWithHuawei } from '../services/authService';
+import { login, updateProfile, loginWithHuawei, deactivateUser } from '../services/authService';
 import { exchangeCodeForToken, fetchHuaweiUserProfile } from '../services/huaweiAuth';
 import * as postService from '../services/postService';
 import * as tagService from '../services/tagService';
@@ -50,6 +50,13 @@ router.put('/me', auth, async (req: AuthRequest, res: Response) => {
   const { nickname, avatar, bio } = req.body ?? {};
   const user = await updateProfile(req.userId!, nickname, avatar, bio);
   return ok(res, user);
+});
+
+// 账号注销（软删）：POST /v1/auth/me/deactivate | POST /v1/users/me/deactivate
+// 仅操作当前登录用户自身（req.userId 来自 auth 中间件）；成功后旧 token 经 auth 中间件返回 401。
+router.post('/me/deactivate', auth, async (req: AuthRequest, res: Response) => {
+  await deactivateUser(req.userId!);
+  return ok(res, { success: true });
 });
 
 // 我的收藏帖子列表（分页）

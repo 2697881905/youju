@@ -141,7 +141,12 @@ describe('POST /v1/users/:id/follow', () => {
   });
 
   it('关注不存在用户 → NOT_FOUND(404)', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue(null);
+    // auth 中间件会查 requester(TEST_USER_ID)，需返回有效非注销用户；仅目标 999 返回 null。
+    mockPrisma.user.findUnique.mockImplementation((args: any) => {
+      const id = args?.where?.id;
+      if (id === 999) return Promise.resolve(null);
+      return Promise.resolve({ id, nickname: 'U' + id, avatar: null, bio: null, gender: 1 });
+    });
     const res = await req('POST', `/v1/users/999/follow`, undefined, authHeader());
     expect(res.status).toBe(404);
     expect(res.json.code).toBe(CODE.NOT_FOUND);
@@ -191,7 +196,12 @@ describe('GET /v1/users/:id', () => {
   });
 
   it('用户不存在 → NOT_FOUND(404)', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue(null);
+    // auth 中间件会查 requester(TEST_USER_ID)，需返回有效非注销用户；仅目标 999 返回 null。
+    mockPrisma.user.findUnique.mockImplementation((args: any) => {
+      const id = args?.where?.id;
+      if (id === 999) return Promise.resolve(null);
+      return Promise.resolve({ id, nickname: 'U' + id, avatar: null, bio: null, gender: 1 });
+    });
     const res = await req('GET', `/v1/users/999`, undefined, authHeader());
     expect(res.status).toBe(404);
     expect(res.json.code).toBe(CODE.NOT_FOUND);

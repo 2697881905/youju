@@ -21,7 +21,7 @@ jest.mock('../services/huaweiAuth', () => ({
 jest.mock('../prisma', () => ({
   prisma: {
     user: {
-      findUnique: jest.fn(),
+      findUnique: jest.fn().mockResolvedValue({ deletedAt: null }),
       findFirst: jest.fn(),
       update: jest.fn(),
     },

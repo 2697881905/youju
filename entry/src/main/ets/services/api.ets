@@ -299,6 +299,12 @@ export function updateMe(body: UpdateMeBody): Promise<User> {
   return api.put<User>('/v1/auth/me', body);
 }
 
+// 账号注销（软删）：POST /v1/auth/me/deactivate，无参，自动带 Bearer。
+// 成功后前端自行清 token（见 SettingsPage 的 doDeactivate）。
+export function deactivateAccount(): Promise<void> {
+  return api.post<void>('/v1/auth/me/deactivate');
+}
+
 // GET /v1/auth/me/bookmarks?page=&limit=（我的收藏帖子列表，分页）
 export function listMyBookmarks(page: number = 1, limit: number = 20): Promise<ListResult<Post>> {
   const path = '/v1/auth/me/bookmarks' + toQuery([['page', page], ['limit', limit]]);

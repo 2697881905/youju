@@ -10,6 +10,7 @@ PersistentStorage.persistProp('authNickname', '');
 PersistentStorage.persistProp('authAvatar', '');
 PersistentStorage.persistProp('authIsAdmin', false); // 管理员标识（后端 env.adminUserIds 计算，登录时落地）
 PersistentStorage.persistProp('unreadMessageCount', 0); // 消息 Tab 未读红点
+PersistentStorage.persistProp('privacyAgreed', '0'); // 首启隐私协议同意标记（'1'=已同意）
 
 export function getToken(): string {
   return (AppStorage.get<string>('authToken') ?? '') as string;
@@ -44,11 +45,13 @@ export function setSession(token: string, user: User): void {
   AppStorage.setOrCreate('authIsAdmin', user.isAdmin ? true : false);
 }
 
+// 清登录态：token / 用户信息 / 管理员态全部清空（登出、账号注销共用）。
 export function clearSession(): void {
   AppStorage.setOrCreate('authToken', '');
   AppStorage.setOrCreate('authUserId', '');
   AppStorage.setOrCreate('authNickname', '');
   AppStorage.setOrCreate('authAvatar', '');
+  AppStorage.setOrCreate('authIsAdmin', false);
 }
 
 // MVP 桩：无登录态时自动用 dev-seed-openid 登录（对应后端 seed 用户 科技老张 id=1）。
@@ -71,6 +74,17 @@ export function initAuthStorage(): void {
   PersistentStorage.persistProp('authAvatar', '');
   PersistentStorage.persistProp('authIsAdmin', false);
   PersistentStorage.persistProp('unreadMessageCount', 0);
+  PersistentStorage.persistProp('privacyAgreed', '0');
+}
+
+// 首启隐私协议：是否已同意（'1'=已同意）。未同意则 Index 弹窗拦截。
+export function isPrivacyAgreed(): boolean {
+  return (AppStorage.get<string>('privacyAgreed') ?? '0') === '1';
+}
+
+// 首启隐私协议：标记为已同意并持久化（PersistentStorage 自动落盘）。
+export function setPrivacyAgreed(): void {
+  AppStorage.setOrCreate('privacyAgreed', '1');
 }
 
 // 华为登录结果落地：语义化封装 setSession，供 LoginPage 在拿到 LoginResult 后调用。

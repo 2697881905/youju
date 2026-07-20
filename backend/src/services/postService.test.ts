@@ -20,6 +20,9 @@ jest.mock('../prisma', () => ({
       findFirst: jest.fn(),
       findMany: jest.fn(),
     },
+    user: {
+      findUnique: jest.fn(),
+    },
   },
 }));
 
@@ -30,6 +33,8 @@ const mockedUpFindFirst = prisma.up.findFirst as jest.Mock;
 const mockedUpFindMany = prisma.up.findMany as jest.Mock;
 const mockedBmFindFirst = prisma.bookmark.findFirst as jest.Mock;
 const mockedBmFindMany = prisma.bookmark.findMany as jest.Mock;
+
+const DELETED_NICKNAME = '已注销用户';
 
 describe('listPosts - 关键词 OR 过滤逻辑', () => {
   beforeEach(() => {
@@ -104,26 +109,36 @@ describe('listPosts - 关键词 OR 过滤逻辑', () => {
   });
 });
 
-describe('listPosts - myUp/myBookmark 批量打标', () => {
+describe('listPosts - myUp/myBookmark 批量打标 + 作者匿名化', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockedFindMany.mockResolvedValue([]);
     mockedCount.mockResolvedValue(0);
   });
 
-  it('无 viewerId 时不查 up/bookmark，原样返回 list', async () => {
-    const raw = [{ id: 1 }, { id: 2 }];
+  it('无 viewerId 时不查 up/bookmark，原样返回 list（含 user 视图）', async () => {
+    const raw = [
+      { id: 1, user: { id: 1, nickname: 'A', avatar: 'a.png' } },
+      { id: 2, user: { id: 2, nickname: 'B', avatar: null } },
+    ];
     mockedFindMany.mockResolvedValue(raw);
 
     const res = await listPosts({});
 
     expect(mockedUpFindMany).not.toHaveBeenCalled();
     expect(mockedBmFindMany).not.toHaveBeenCalled();
-    expect(res.list).toEqual(raw);
+    expect(res.list).toEqual([
+      { id: 1, user: { id: 1, nickname: 'A', avatar: 'a.png' } },
+      { id: 2, user: { id: 2, nickname: 'B', avatar: null } },
+    ]);
   });
 
-  it('有 viewerId 时对列表批量打标（Set 聚合）', async () => {
-    const raw = [{ id: 1 }, { id: 2 }, { id: 3 }];
+  it('有 viewerId 时对列表批量打标（Set 聚合）+ user 透传', async () => {
+    const raw = [
+      { id: 1, user: { id: 1, nickname: 'A', avatar: 'a.png' } },
+      { id: 2, user: { id: 2, nickname: 'B', avatar: null } },
+      { id: 3, user: { id: 3, nickname: 'C', avatar: 'c.png' } },
+    ];
     mockedFindMany.mockResolvedValue(raw);
     mockedUpFindMany.mockResolvedValue([{ postId: 1 }, { postId: 3 }]);
     mockedBmFindMany.mockResolvedValue([{ postId: 2 }]);
@@ -140,6 +155,8 @@ describe('listPosts - myUp/myBookmark 批量打标', () => {
     expect(res.list[1].myBookmark).toBe(true);
     expect(res.list[2].myUp).toBe(true);
     expect(res.list[2].myBookmark).toBe(false);
+    // user 透传（无 deletedAt）
+    expect(res.list[0].user).toEqual({ id: 1, nickname: 'A', avatar: 'a.png' });
   });
 
   it('空列表 + viewerId 时不触发打标查询（短路）', async () => {
@@ -149,26 +166,60 @@ describe('listPosts - myUp/myBookmark 批量打标', () => {
     expect(mockedBmFindMany).not.toHaveBeenCalled();
     expect(res.list).toEqual([]);
   });
+
+  it('已注销作者 → user 被匿名化为「已注销用户」且 deleted=true', async () => {
+    const raw = [
+      {
+        id: 1,
+        user: { id: 5, nickname: '旧用户', avatar: 'old.png', deletedAt: new Date('2024-01-01') },
+      },
+    ];
+    mockedFindMany.mockResolvedValue(raw);
+
+    const res = await listPosts({});
+
+    expect(res.list[0].user).toEqual({
+      id: 5,
+      nickname: DELETED_NICKNAME,
+      avatar: null,
+      deleted: true,
+    });
+  });
 });
 
-describe('getPost - myUp/myBookmark', () => {
+describe('getPost - myUp/myBookmark + 作者匿名化', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('无 viewerId：不查 up/bookmark，返回原 post', async () => {
-    const raw = { id: 1, title: 't' };
+  it('无 viewerId：不查 up/bookmark，返回原 post（含 user/comments 视图）', async () => {
+    const raw = {
+      id: 1,
+      title: 't',
+      user: { id: 1, nickname: 'A', avatar: 'a.png' },
+      comments: [{ id: 9, content: 'c', user: { id: 2, nickname: 'B', avatar: null } }],
+    };
     mockedFindFirst.mockResolvedValue(raw);
 
     const res = await getPost(1);
 
     expect(mockedUpFindFirst).not.toHaveBeenCalled();
     expect(mockedBmFindFirst).not.toHaveBeenCalled();
-    expect(res).toEqual(raw);
+    expect(res).toEqual({
+      id: 1,
+      title: 't',
+      user: { id: 1, nickname: 'A', avatar: 'a.png' },
+      comments: [{ id: 9, content: 'c', user: { id: 2, nickname: 'B', avatar: null } }],
+    });
   });
 
   it('有 viewerId 且已顶已藏：返回 myUp/myBookmark 均为 true', async () => {
-    mockedFindFirst.mockResolvedValue({ id: 1, title: 't' });
+    mockedFindFirst.mockResolvedValue({
+      id: 1,
+      title: 't',
+      user: { id: 1, nickname: 'A', avatar: 'a.png' },
+      comments: [],
+    });
     mockedUpFindFirst.mockResolvedValue({ id: 9, postId: 1, userId: 5 });
     mockedBmFindFirst.mockResolvedValue({ id: 7, postId: 1, userId: 5 });
 
@@ -181,7 +232,12 @@ describe('getPost - myUp/myBookmark', () => {
   });
 
   it('有 viewerId 但未顶未藏：myUp/myBookmark 均为 false', async () => {
-    mockedFindFirst.mockResolvedValue({ id: 2, title: 't2' });
+    mockedFindFirst.mockResolvedValue({
+      id: 2,
+      title: 't2',
+      user: { id: 1, nickname: 'A', avatar: 'a.png' },
+      comments: [],
+    });
     mockedUpFindFirst.mockResolvedValue(null);
     mockedBmFindFirst.mockResolvedValue(null);
 
@@ -197,5 +253,26 @@ describe('getPost - myUp/myBookmark', () => {
     expect(res).toBeNull();
     expect(mockedUpFindFirst).not.toHaveBeenCalled();
     expect(mockedBmFindFirst).not.toHaveBeenCalled();
+  });
+
+  it('已注销作者 → user 被匿名化且评论作者同样匿名化', async () => {
+    mockedFindFirst.mockResolvedValue({
+      id: 1,
+      title: 't',
+      user: { id: 5, nickname: '旧用户', avatar: 'old.png', deletedAt: new Date('2024-01-01') },
+      comments: [
+        { id: 9, content: 'c', user: { id: 5, nickname: '旧用户', avatar: 'old.png', deletedAt: new Date('2024-01-01') } },
+      ],
+    });
+
+    const res = await getPost(1);
+
+    expect(res?.user).toEqual({ id: 5, nickname: DELETED_NICKNAME, avatar: null, deleted: true });
+    expect(res?.comments[0].user).toEqual({
+      id: 5,
+      nickname: DELETED_NICKNAME,
+      avatar: null,
+      deleted: true,
+    });
   });
 });

@@ -5,6 +5,7 @@
     "pages/SearchResultPage",
     "pages/LoginPage",
     "pages/SettingsPage",
+    "pages/EditProfilePage",
     "pages/AccountBindingPage",
     "pages/UserProfilePage",
     "pages/MyFollowPage",

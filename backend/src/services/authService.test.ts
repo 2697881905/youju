@@ -2,19 +2,21 @@
 // 已知限制：jest mock prisma 不校验真实 SQL / 生成客户端 where 语法，
 // 此处只验证「按 unionID 落地用户」的业务逻辑（命中返回 / 未命中创建）。
 import { prisma } from '../prisma';
-import { loginWithHuawei } from './authService';
+import { loginWithHuawei, deactivateUser, DELETED_NICKNAME } from './authService';
 
 jest.mock('../prisma', () => ({
   prisma: {
     user: {
       findUnique: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
     },
   },
 }));
 
 const mockedFindUnique = prisma.user.findUnique as jest.Mock;
 const mockedCreate = prisma.user.create as jest.Mock;
+const mockedUpdate = prisma.user.update as jest.Mock;
 
 const EXISTING_USER = { id: 1, openId: null, unionID: 'U_EXIST', nickname: '老用户', avatar: 'a.png' };
 const NEW_USER = { id: 2, openId: null, unionID: 'U_NEW', nickname: '华为用户abcd', avatar: 'b.png' };
@@ -75,5 +77,34 @@ describe('loginWithHuawei', () => {
 
     expect(result).toHaveProperty('token');
     expect(result).toHaveProperty('user');
+  });
+});
+
+describe('deactivateUser', () => {
+  it('a) 置 deletedAt + 匿名化 nickname + 清空 avatar', async () => {
+    const deletedAt = new Date('2024-01-01T00:00:00Z');
+    mockedUpdate.mockResolvedValue({
+      id: 5,
+      nickname: DELETED_NICKNAME,
+      avatar: null,
+      deletedAt,
+    });
+
+    const result = await deactivateUser(5);
+
+    expect(mockedUpdate).toHaveBeenCalledWith({
+      where: { id: 5 },
+      data: { deletedAt: expect.any(Date), nickname: DELETED_NICKNAME, avatar: null },
+    });
+    expect(result.nickname).toBe(DELETED_NICKNAME);
+    expect(result.avatar).toBeNull();
+    expect(result.deletedAt).not.toBeNull();
+  });
+
+  it('b) 旧 token 经 auth 中间件将被拒（软删后 deletedAt 非空）', async () => {
+    // deactivateUser 仅负责写入软删标记；auth 中间件对 deletedAt 非空返回 401 的断言见 auth.test.ts
+    mockedUpdate.mockResolvedValue({ id: 7, nickname: DELETED_NICKNAME, avatar: null, deletedAt: new Date() });
+    const result = await deactivateUser(7);
+    expect(result.deletedAt).not.toBeNull();
   });
 });

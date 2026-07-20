@@ -231,7 +231,7 @@ export struct UserProfilePage {
           .onClick(() => {
             router.back();
           });
-        Text(this.profile.nickname !== '' ? this.profile.nickname : '用户主页')
+        Text(this.profile.deleted ? '已注销用户' : (this.profile.nickname !== '' ? this.profile.nickname : '用户主页'))
           .fontSize(17).fontWeight(600).layoutWeight(1).textAlign(TextAlign.Center);
         Text('').width(48);
       }
@@ -247,7 +247,11 @@ export struct UserProfilePage {
         // 信息卡
         Column({ space: 10 }) {
           Row({ space: 14 }) {
-            if (this.profile.avatar) {
+            if (this.profile.deleted) {
+              Text('?')
+                .width(64).height(64).borderRadius(32).fontSize(28).fontColor('#fff')
+                .backgroundColor('#3A3A3C').textAlign(TextAlign.Center);
+            } else if (this.profile.avatar) {
               Image(this.profile.avatar).width(64).height(64).borderRadius(32).objectFit(ImageFit.Cover);
             } else {
               Text((this.profile.nickname !== '' ? this.profile.nickname : '?').charAt(0))
@@ -255,7 +259,7 @@ export struct UserProfilePage {
                 .backgroundColor($r('app.color.brand_primary')).textAlign(TextAlign.Center);
             }
             Column({ space: 4 }) {
-              Text(this.profile.nickname).fontSize(18).fontWeight(FontWeight.Medium).fontColor($r('app.color.text_primary'));
+              Text(this.profile.deleted ? '已注销用户' : this.profile.nickname).fontSize(18).fontWeight(FontWeight.Medium).fontColor($r('app.color.text_primary'));
               if (this.profile.bio) {
                 Text(this.profile.bio).fontSize(13).fontColor($r('app.color.text_secondary')).maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis });
               }
@@ -272,14 +276,16 @@ export struct UserProfilePage {
           }
           .padding({ left: 16, bottom: 10 });
 
-          // 关注按钮（三态）
-          Button(this.followBtnText())
-            .width(140).height(36).borderRadius(18)
-            .backgroundColor(this.profile.isFollowing ? $r('app.color.card_bg') : $r('app.color.brand_primary'))
-            .fontColor(this.profile.isFollowing ? $r('app.color.text_primary') : '#fff')
-            .onClick(() => {
-              this.onFollowClick();
-            });
+          // 关注按钮（三态；已注销用户隐藏，避免误操作）
+          if (!this.profile.deleted) {
+            Button(this.followBtnText())
+              .width(140).height(36).borderRadius(18)
+              .backgroundColor(this.profile.isFollowing ? $r('app.color.card_bg') : $r('app.color.brand_primary'))
+              .fontColor(this.profile.isFollowing ? $r('app.color.text_primary') : '#fff')
+              .onClick(() => {
+                this.onFollowClick();
+              });
+          }
         }
         .alignItems(HorizontalAlign.Start);
 
