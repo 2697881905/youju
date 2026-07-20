@@ -1,8 +1,8 @@
-// 设置页：分区结构（账号与安全 / 通用 / 关于）+ 退出登录（二次确认）+ 账号注销（双重确认）。
-// 退出登录：clearSession + 跳登录页；账号注销：后端软删（POST /v1/auth/me/deactivate）+ 清态 + 跳登录页。
+// 设置页：分区结构（账号与安全 / 隐私 / 通用 / 关于）+ 退出登录 + 账号注销。
+// 覆盖全部设置功能：编辑资料、账号绑定、内容审核台、拉黑管理、数据导出、隐私设置、通知设置、清除缓存、关于、隐私政策。
 import { router } from '@kit.ArkUI';
 import { getIsAdmin, clearSession } from '../utils/auth';
-import { deactivateAccount } from '../services/api';
+import { deactivateAccount, clearSearchHistory, exportUserData } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 
 @Entry
@@ -19,13 +19,9 @@ export struct SettingsPage {
     this.getUIContext().showAlertDialog({
       title: '退出登录？',
       message: '退出后需重新登录才能使用大蓝书。',
-      primaryButton: {
-        value: '取消',
-        action: (): void => {},
-      },
+      primaryButton: { value: '取消', action: (): void => {} },
       secondaryButton: {
-        value: '确定退出',
-        fontColor: '#FF453A',
+        value: '确定退出', fontColor: '#FF453A',
         action: (): void => {
           clearSession();
           AppStorage.setOrCreate('authIsAdmin', false);
@@ -36,7 +32,7 @@ export struct SettingsPage {
     });
   }
 
-  // 账号注销：第一层意图确认 → 第二层再次确认（两层 showAlertDialog 嵌套）
+  // 账号注销：第一层意图确认 → 第二层再次确认
   private onDeactivateClick(): void {
     this.getUIContext().showAlertDialog({
       title: '注销账号？',
@@ -53,7 +49,6 @@ export struct SettingsPage {
     });
   }
 
-  // 执行注销：调后端软删 → 清态 + 跳登录页 + toast（旧 token 经 auth 中间件全面失效）
   private async doDeactivate(): Promise<void> {
     try {
       await deactivateAccount();
@@ -64,6 +59,43 @@ export struct SettingsPage {
     } catch (e) {
       safeShowToast(this.getUIContext(), { message: (e as Error).message });
     }
+  }
+
+  // 清除缓存：确认弹窗 → 清搜索历史（API） + toast
+  private onClearCacheClick(): void {
+    this.getUIContext().showAlertDialog({
+      title: '清除缓存？',
+      message: '将清除搜索历史等本地缓存数据，不影响你的帖子与账号。',
+      primaryButton: { value: '取消', action: (): void => {} },
+      secondaryButton: { value: '确定清除', action: async (): Promise<void> => {
+        try {
+          await clearSearchHistory();
+          safeShowToast(this.getUIContext(), { message: '缓存已清除' });
+        } catch (e) {
+          safeShowToast(this.getUIContext(), { message: (e as Error).message });
+        }
+      } },
+    });
+  }
+
+  // 数据导出：确认弹窗 → 调后端导出 → toast
+  private onExportDataClick(): void {
+    this.getUIContext().showAlertDialog({
+      title: '导出数据',
+      message: '将导出你的全部数据（个人信息、帖子、评论、收藏等），导出数据仅你本人可见。',
+      primaryButton: { value: '取消', action: (): void => {} },
+      secondaryButton: { value: '确认导出', action: async (): Promise<void> => {
+        try {
+          const data = await exportUserData();
+          // MVP：toast 展示导出数量，文件写入后续实现
+          const msg = '数据已导出：帖子' + data.postsCount + '篇、评论' + data.commentsCount +
+            '条、收藏' + data.bookmarksCount + '个、关注' + data.followingsCount + '人';
+          safeShowToast(this.getUIContext(), { message: msg });
+        } catch (e) {
+          safeShowToast(this.getUIContext(), { message: '导出失败：' + (e as Error).message });
+        }
+      } },
+    });
   }
 
   @Builder
@@ -81,9 +113,7 @@ export struct SettingsPage {
     .padding({ left: 16, right: 16, top: 16, bottom: 16 })
     .backgroundColor($r('app.color.card_bg'))
     .borderRadius(12)
-    .onClick(() => {
-      onTap();
-    });
+    .onClick(() => { onTap(); });
   }
 
   build() {
@@ -93,27 +123,23 @@ export struct SettingsPage {
         Text('‹')
           .fontSize(28)
           .fontColor($r('app.color.text_primary'))
-          .width(48)
-          .height(44)
+          .width(48).height(44)
           .textAlign(TextAlign.Center)
-          .onClick(() => {
-            router.back();
-          });
+          .onClick(() => { router.back(); });
         Text('设置')
           .fontSize(17)
           .fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.text_primary'))
           .layoutWeight(1)
           .textAlign(TextAlign.Center);
-        Text('')
-          .width(48);
+        Text('').width(48);
       }
       .width('100%')
       .padding({ top: 12, bottom: 8 });
 
       Scroll() {
         Column({ space: 24 }) {
-          // 账号与安全
+          // ===== 账号与安全 =====
           Column({ space: 10 }) {
             Text('账号与安全')
               .fontSize(13)
@@ -131,26 +157,45 @@ export struct SettingsPage {
                 router.pushUrl({ url: 'pages/ModerationPage' });
               });
             }
+            this.sectionRow('拉黑管理', (): void => {
+              router.pushUrl({ url: 'pages/BlocklistPage' });
+            });
+            this.sectionRow('数据导出', (): void => {
+              this.onExportDataClick();
+            });
           }
-          .width('100%')
+          .width('100%');
 
-          // 通用
+          // ===== 隐私 =====
+          Column({ space: 10 }) {
+            Text('隐私')
+              .fontSize(13)
+              .fontColor($r('app.color.text_secondary'))
+              .alignSelf(ItemAlign.Start)
+              .padding({ left: 4 });
+            this.sectionRow('隐私设置', (): void => {
+              router.pushUrl({ url: 'pages/PrivacySettingsPage' });
+            });
+            this.sectionRow('通知设置', (): void => {
+              router.pushUrl({ url: 'pages/NotificationSettingsPage' });
+            });
+          }
+          .width('100%');
+
+          // ===== 通用 =====
           Column({ space: 10 }) {
             Text('通用')
               .fontSize(13)
               .fontColor($r('app.color.text_secondary'))
               .alignSelf(ItemAlign.Start)
               .padding({ left: 4 });
-            this.sectionRow('通知设置', (): void => {
-              safeShowToast(this.getUIContext(), { message: '敬请期待' });
-            });
             this.sectionRow('清除缓存', (): void => {
-              safeShowToast(this.getUIContext(), { message: '敬请期待' });
+              this.onClearCacheClick();
             });
           }
-          .width('100%')
+          .width('100%');
 
-          // 关于
+          // ===== 关于 =====
           Column({ space: 10 }) {
             Text('关于')
               .fontSize(13)
@@ -158,13 +203,13 @@ export struct SettingsPage {
               .alignSelf(ItemAlign.Start)
               .padding({ left: 4 });
             this.sectionRow('关于大蓝书 · 版本 1.0.0', (): void => {
-              safeShowToast(this.getUIContext(), { message: '大蓝书 1.0.0' });
+              router.pushUrl({ url: 'pages/AboutPage' });
             });
             this.sectionRow('隐私政策', (): void => {
-              safeShowToast(this.getUIContext(), { message: '敬请期待' });
+              router.pushUrl({ url: 'pages/PrivacyPage' });
             });
           }
-          .width('100%')
+          .width('100%');
 
           // 退出登录（红色文字行）
           Row() {
@@ -180,9 +225,7 @@ export struct SettingsPage {
           .padding({ left: 16, right: 16, top: 16, bottom: 16 })
           .backgroundColor($r('app.color.card_bg'))
           .borderRadius(12)
-          .onClick(() => {
-            this.onLogoutClick();
-          });
+          .onClick(() => { this.onLogoutClick(); });
         }
         .width('100%')
         .padding({ left: 16, right: 16, top: 8, bottom: 16 });
@@ -190,7 +233,7 @@ export struct SettingsPage {
       .layoutWeight(1)
       .width('100%');
 
-      // 底部：账号注销（警示更强，红色全宽按钮）
+      // 底部：账号注销（红色全宽按钮）
       Button('账号注销')
         .width('100%')
         .height(48)
@@ -198,9 +241,7 @@ export struct SettingsPage {
         .backgroundColor('#FF453A')
         .fontColor('#FFFFFF')
         .fontSize(16)
-        .onClick(() => {
-          this.onDeactivateClick();
-        });
+        .onClick(() => { this.onDeactivateClick(); });
     }
     .width('100%')
     .height('100%')

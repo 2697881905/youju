@@ -1,5 +1,6 @@
 import { prisma } from '../prisma';
 import { DELETED_NICKNAME } from '../utils/userView';
+import { isNotificationAllowed } from './notificationPrefService';
 
 // 通知类型（与前端 NotificationType 单一来源对齐）
 export type NotificationType = 'comment' | 'up' | 'bookmark' | 'follow' | 'system';
@@ -30,8 +31,12 @@ export interface ListResult {
   pagination: { page: number; limit: number; total: number };
 }
 
-// 创建一条通知（内部/触发调用）
+// 创建一条通知（内部/触发调用），写入前检查通知偏好：用户关闭该类通知时静默跳过。
 export async function createNotification(input: CreateNotificationInput): Promise<void> {
+  // 检查用户是否允许此类通知（不存在记录时默认允许）
+  const allowed = await isNotificationAllowed(input.userId, input.type);
+  if (!allowed) return;
+
   await prisma.notification.create({
     data: {
       userId: input.userId,

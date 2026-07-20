@@ -65,12 +65,13 @@ function signToken(userId: number): string {
   } as jwt.SignOptions);
 }
 
-// 更新个人信息（昵称/头像/简介）；bio 仅在显式传入时更新（允许清空简介）
+// 更新个人信息（昵称/头像/简介/性别）；仅传入的字段才更新（允许清空简介、性别设为 null/保密）
 export async function updateProfile(
   userId: number,
   nickname?: string,
   avatar?: string,
   bio?: string,
+  gender?: number | null,
 ) {
   return prisma.user.update({
     where: { id: userId },
@@ -78,6 +79,7 @@ export async function updateProfile(
       ...(nickname ? { nickname } : {}),
       ...(avatar ? { avatar } : {}),
       ...(bio !== undefined ? { bio } : {}),
+      ...(gender !== undefined ? { gender } : {}),
     },
   });
 }

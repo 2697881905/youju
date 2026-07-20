@@ -196,3 +196,36 @@ model Report {
   @@index([targetType, targetId])               // 按内容查举报记录
   @@index([status, createdAt])                  // 审核队列按状态+时间排序
 }
+
+// 通知偏好开关表（用户可控的通知类别开关，默认全开）
+model NotificationPreference {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  comment   Boolean  @default(true)
+  up        Boolean  @default(true)
+  bookmark  Boolean  @default(true)
+  follow    Boolean  @default(true)
+  system    Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+}
+
+// 拉黑关系表（轻量表，仅标量外键，不建 @relation）
+model Blocklist {
+  id        Int      @id @default(autoincrement())
+  userId    Int      // 谁拉黑的
+  blockedId Int      // 被拉黑的人
+  createdAt DateTime @default(now())
+
+  @@unique([userId, blockedId])
+  @@index([userId])
+}
+
+// 隐私设置表（用户可控的可见性与互动开关，默认全公开）
+model PrivacySettings {
+  id             Int      @id @default(autoincrement())
+  userId         Int      @unique
+  postVisibility String   @default("public") @db.VarChar(20) // public | followers | private
+  allowFollow    Boolean  @default(true)
+  allowMessage   Boolean  @default(true)
+  updatedAt      DateTime @updatedAt
+}

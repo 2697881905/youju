@@ -1,5 +1,5 @@
 import { http } from '@kit.NetworkKit';
-import { Post, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody, PendingPost, ModerateAction } from '../models/types';
+import { Post, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody, PendingPost, ModerateAction, NotificationPrefs, BlockUser, PrivacySettingsData, UserExportData } from '../models/types';
 
 // 本地后端地址（按运行环境替换）：
 // - 模拟器/真机本地开发：用 hdc 反向端口转发，连 127.0.0.1:3000 即可，无需关心电脑 IP（IP 变了也不用改这里）
@@ -293,6 +293,7 @@ export interface UpdateMeBody {
   nickname?: string;
   avatar?: string;
   bio?: string;
+  gender?: number;
 }
 
 export function updateMe(body: UpdateMeBody): Promise<User> {
@@ -482,4 +483,49 @@ export interface ModerateBody {
 export async function moderatePost(id: number, action: ModerateAction, reason?: string): Promise<void> {
   const body: ModerateBody = { action, reason };
   await api.post<null>('/v1/admin/posts/' + id + '/moderate', body);
+}
+
+// ===== 通知偏好 =====
+// GET /v1/me/notification-prefs
+export function getNotificationPrefs(): Promise<NotificationPrefs> {
+  return api.get<NotificationPrefs>('/v1/me/notification-prefs');
+}
+
+// PUT /v1/me/notification-prefs
+export function updateNotificationPrefs(body: NotificationPrefs): Promise<NotificationPrefs> {
+  return api.put<NotificationPrefs>('/v1/me/notification-prefs', body);
+}
+
+// ===== 拉黑管理 =====
+// GET /v1/me/blocklist?page=&limit=
+export function listBlocked(page: number = 1, limit: number = 20): Promise<ListResult<BlockUser>> {
+  const path: string = '/v1/me/blocklist' + toQuery([['page', page], ['limit', limit]]);
+  return api.get<ListResult<BlockUser>>(path);
+}
+
+// POST /v1/me/block/:blockedId
+export async function blockUser(blockedId: number): Promise<void> {
+  await api.post<null>('/v1/me/block/' + blockedId);
+}
+
+// DELETE /v1/me/block/:blockedId
+export async function unblockUser(blockedId: number): Promise<void> {
+  await api.del<null>('/v1/me/block/' + blockedId);
+}
+
+// ===== 隐私设置 =====
+// GET /v1/me/privacy
+export function getPrivacySettings(): Promise<PrivacySettingsData> {
+  return api.get<PrivacySettingsData>('/v1/me/privacy');
+}
+
+// PUT /v1/me/privacy
+export function updatePrivacySettings(body: PrivacySettingsData): Promise<PrivacySettingsData> {
+  return api.put<PrivacySettingsData>('/v1/me/privacy', body);
+}
+
+// ===== 数据导出 =====
+// GET /v1/me/export
+export function exportUserData(): Promise<UserExportData> {
+  return api.get<UserExportData>('/v1/me/export');
 }

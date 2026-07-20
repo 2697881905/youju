@@ -11,6 +11,7 @@ import { User } from '../models/types';
 export struct EditProfilePage {
   @State nickname: string = '';
   @State bio: string = '';
+  @State selectedGender: string = '1'; // '1'=男 '2'=女 '0'=保密
   @State saving: boolean = false;
 
   aboutToAppear(): void {
@@ -18,6 +19,7 @@ export struct EditProfilePage {
     if (u) {
       this.nickname = u.nickname ?? '';
       this.bio = u.bio ?? '';
+      this.selectedGender = u.gender ? String(u.gender) : '0';
     }
   }
 
@@ -44,7 +46,11 @@ export struct EditProfilePage {
     }
     this.saving = true;
     try {
-      const updated: User = await updateMe({ nickname: this.nickname.trim(), bio: this.bio });
+      const updated: User = await updateMe({
+        nickname: this.nickname.trim(),
+        bio: this.bio,
+        gender: this.selectedGender === '0' ? undefined : parseInt(this.selectedGender),
+      });
       // 合并回写本地（token 不变，仅刷新昵称/简介等字段）
       const cur: User | null = getCurrentUser();
       const merged: User = {
@@ -142,6 +148,43 @@ export struct EditProfilePage {
       }
       .width('100%')
       .padding({ left: 16, right: 16, top: 16 });
+
+      // 性别选择
+      Column({ space: 8 }) {
+        Text('性别')
+          .fontSize(14)
+          .fontColor($r('app.color.text_secondary'))
+          .alignSelf(ItemAlign.Start);
+        Row({ space: 24 }) {
+          Row() {
+            Radio({ value: '1', group: 'genderGroup' })
+              .checked(this.selectedGender === '1')
+              .onChange((isChecked: boolean) => {
+                if (isChecked) this.selectedGender = '1';
+              });
+            Text('男').fontSize(15).fontColor($r('app.color.text_primary')).margin({ left: 4 });
+          }
+          Row() {
+            Radio({ value: '2', group: 'genderGroup' })
+              .checked(this.selectedGender === '2')
+              .onChange((isChecked: boolean) => {
+                if (isChecked) this.selectedGender = '2';
+              });
+            Text('女').fontSize(15).fontColor($r('app.color.text_primary')).margin({ left: 4 });
+          }
+          Row() {
+            Radio({ value: '0', group: 'genderGroup' })
+              .checked(this.selectedGender === '0')
+              .onChange((isChecked: boolean) => {
+                if (isChecked) this.selectedGender = '0';
+              });
+            Text('保密').fontSize(15).fontColor($r('app.color.text_primary')).margin({ left: 4 });
+          }
+        }
+        .padding({ top: 4 });
+      }
+      .width('100%')
+      .padding({ left: 16, right: 16, top: 12 });
 
       Blank();
     }

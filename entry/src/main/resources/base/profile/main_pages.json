@@ -9,6 +9,11 @@
     "pages/AccountBindingPage",
     "pages/UserProfilePage",
     "pages/MyFollowPage",
-    "pages/ModerationPage"
+    "pages/ModerationPage",
+    "pages/NotificationSettingsPage",
+    "pages/AboutPage",
+    "pages/PrivacyPage",
+    "pages/BlocklistPage",
+    "pages/PrivacySettingsPage"
   ]
 }

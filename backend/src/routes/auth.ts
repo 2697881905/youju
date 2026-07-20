@@ -44,11 +44,11 @@ router.get('/me', auth, async (req: AuthRequest, res: Response) => {
   return ok(res, { ...user, isAdmin: env.adminUserIds.includes(user.id) });
 });
 
-// 更新个人信息（昵称/头像/简介；bio 透传，预留编辑 UI）
+// 更新个人信息（昵称/头像/简介/性别；仅传入字段更新，性别可设 null/保密）
 // PUT /v1/auth/me  |  PUT /v1/users/me
 router.put('/me', auth, async (req: AuthRequest, res: Response) => {
-  const { nickname, avatar, bio } = req.body ?? {};
-  const user = await updateProfile(req.userId!, nickname, avatar, bio);
+  const { nickname, avatar, bio, gender } = req.body ?? {};
+  const user = await updateProfile(req.userId!, nickname, avatar, bio, gender);
   return ok(res, user);
 });
 

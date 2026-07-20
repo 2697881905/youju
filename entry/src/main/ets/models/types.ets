@@ -194,3 +194,42 @@ export interface PendingPost extends Post {
 
 // 审核动作
 export type ModerateAction = 'approve' | 'reject';
+
+// ===== 通知偏好 =====
+// 通知偏好（对应后端 GET/PUT /v1/me/notification-prefs）
+export interface NotificationPrefs {
+  comment: boolean;
+  up: boolean;
+  bookmark: boolean;
+  follow: boolean;
+  system: boolean;
+}
+
+// ===== 拉黑管理 =====
+// 拉黑列表项（对应后端 GET /v1/me/blocklist）
+export interface BlockUser {
+  id: number;
+  nickname: string;
+  avatar: string | null;
+  blockedAt: string;
+}
+
+// ===== 隐私设置 =====
+// 隐私设置（对应后端 GET/PUT /v1/me/privacy）
+export interface PrivacySettingsData {
+  postVisibility: string; // 'public' | 'followers' | 'private'
+  allowFollow: boolean;
+  allowMessage: boolean;
+}
+
+// ===== 数据导出 =====
+// 导出数据（对应后端 GET /v1/me/export），结构由后端定义
+export interface UserExportData {
+  exportedAt: string;
+  profile: Record<string, Object>;
+  postsCount: number;
+  commentsCount: number;
+  bookmarksCount: number;
+  followingsCount: number;
+  followersCount: number;
+}

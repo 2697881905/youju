@@ -11,6 +11,11 @@ import accountRouter from './routes/account';
 import notificationRouter from './routes/notifications';
 import userRouter from './routes/users';
 import adminRouter from './routes/admin';
+// 用户安全设置类路由（通知偏好 / 拉黑 / 隐私 / 数据导出），均挂 /v1 前缀
+import notificationPrefRouter from './routes/notificationPrefs';
+import blockRouter from './routes/block';
+import privacyRouter from './routes/privacy';
+import exportRouter from './routes/export';
 import { sensitiveWordService } from './services/sensitiveWordService';
 
 export const app = express();
@@ -45,3 +50,8 @@ app.use('/v1', commentRouter);
 app.use('/v1', interactRouter);
 // admin 审核 API（GET /v1/admin/posts/pending、POST /v1/admin/posts/:id/moderate、GET /v1/admin/reports）
 app.use('/v1/admin', adminRouter);
+// 用户安全设置（通知偏好 / 拉黑 / 隐私 / 数据导出），统一挂 /v1
+app.use('/v1', notificationPrefRouter);
+app.use('/v1', blockRouter);
+app.use('/v1', privacyRouter);
+app.use('/v1', exportRouter);
