@@ -29,19 +29,22 @@ export function toggleDarkMode(dark: boolean): void {
   if (_appContext === null) {
     return;
   }
+  const prev: boolean | undefined = AppStorage.get<boolean>('isDarkMode');
   AppStorage.setOrCreate('isDarkMode', dark);
-  // 延迟调用 setColorMode，避免在 UI 渲染回调中同步执行导致死锁
-  setTimeout(() => {
-    try {
-      if (dark) {
-        _appContext!.setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_DARK);
-      } else {
-        _appContext!.setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT);
-      }
-    } catch (e) {
-      // 忽略设置失败（模拟器可能不支持）
+  // 值未变化时跳过 setColorMode，避免 self-trigger loop：
+  //   setColorMode → onConfigurationUpdate → toggleDarkMode → setColorMode → ...
+  if (prev === dark) {
+    return;
+  }
+  try {
+    if (dark) {
+      _appContext.setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_DARK);
+    } else {
+      _appContext.setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT);
     }
-  }, 0);
+  } catch (e) {
+    // 忽略设置失败（模拟器可能不支持）
+  }
 }
 
 // 切换是否跟随系统（true: 跟随系统; false: 手动模式）

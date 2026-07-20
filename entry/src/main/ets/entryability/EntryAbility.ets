@@ -30,8 +30,12 @@ export default class EntryAbility extends UIAbility {
       return;
     }
     const sysDark: boolean = Number(newConfig.colorMode) === ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
+    const prev: boolean | undefined = AppStorage.get<boolean>('systemDark');
     AppStorage.setOrCreate('systemDark', sysDark);
-    toggleDarkMode(sysDark);
+    // 仅在新旧值不同时才调用 toggleDarkMode，避免 self-trigger loop
+    if (prev !== sysDark) {
+      toggleDarkMode(sysDark);
+    }
   }
 
   onDestroy(): void {
