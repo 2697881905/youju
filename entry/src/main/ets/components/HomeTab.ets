@@ -3,7 +3,7 @@
 // 数据来源：listPosts / listTags / recordSearchHistory（services/api.ets）
 
 import { Post, Tag } from '../models/types';
-import { listPosts, listFollowingPosts, listTags, recordSearchHistory, getUserProfile } from '../services/api';
+import { listPosts, listFollowingPosts, listHotPosts, listTags, recordSearchHistory, getUserProfile } from '../services/api';
 import { getUserId } from '../utils/auth';
 import { PostCard } from './PostCard';
 import { TagNav } from './TagNav';
@@ -117,7 +117,9 @@ export struct HomeTab {
       const res =
         this.feedMode === 'following'
           ? await listFollowingPosts({ page: this.page, limit: 20, sort, tag: this.currentTag() })
-          : await listPosts({ page: this.page, limit: 20, sort: this.feedMode === 'hotspot' ? 'hot' : sort, tag: this.currentTag() });
+          : this.feedMode === 'hotspot'
+            ? await listHotPosts({ page: this.page, limit: 20, tag: this.currentTag() })
+            : await listPosts({ page: this.page, limit: 20, sort, tag: this.currentTag() });
       if (reset) {
         this.posts = res.list;
         this.postSource.setData(res.list);

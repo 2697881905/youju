@@ -71,6 +71,22 @@ router.get('/following', auth, async (req: AuthRequest, res: Response) => {
   return ok(res, data);
 });
 
+// 热帖：GET /v1/posts/hotspot?windowHours=24&page=1&limit=20&tag=xxx
+// 时窗加权热帖（综合点赞/评论/收藏，按时效衰减排序）
+// 软鉴权：匿名可浏览；带合法 token 时按 viewerId 批量打标 myUp/myBookmark。
+// ⚠️ 必须注册在 GET /:id 之前。
+router.get('/hotspot', async (req: AuthRequest, res: Response) => {
+  const { windowHours, page, limit, tag } = req.query;
+  const data = await postService.listHotPosts({
+    windowHours: windowHours ? Number(windowHours) : 24,
+    page: page ? Number(page) : 1,
+    limit: limit ? Number(limit) : 20,
+    tag: tag as string | undefined,
+    viewerId: resolveViewerId(req),
+  });
+  return ok(res, data);
+});
+
 // 帖子详情：GET /v1/posts/:id
 // 软鉴权：匿名可访问；带合法 token 时返回该帖的 myUp/myBookmark。
 router.get('/:id', async (req: AuthRequest, res: Response) => {

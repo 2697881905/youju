@@ -174,6 +174,25 @@ export function listPosts(params: ListPostsParams = {}): Promise<ListResult<Post
   return api.get<ListResult<Post>>(path);
 }
 
+// GET /v1/posts/hotspot?windowHours=&page=&limit=&tag=
+// 时窗加权热帖（综合点赞/评论/收藏，按时效衰减）
+export interface HotPostsParams {
+  windowHours?: number;
+  page?: number;
+  limit?: number;
+  tag?: string;
+}
+
+export function listHotPosts(params: HotPostsParams = {}): Promise<ListResult<Post>> {
+  const path: string = '/v1/posts/hotspot' + toQuery([
+    ['windowHours', params.windowHours],
+    ['page', params.page],
+    ['limit', params.limit],
+    ['tag', params.tag],
+  ]);
+  return api.get<ListResult<Post>>(path);
+}
+
 // GET /v1/posts/:id（含 comments）
 export function getPost(id: number): Promise<PostWithComments> {
   return api.get<PostWithComments>('/v1/posts/' + id);

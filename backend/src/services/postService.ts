@@ -214,6 +214,90 @@ export async function updatePost(id: number, userId: number, input: UpdatePostIn
   return { ok: true, post: updated };
 }
 
+// ===== 热点（时窗加权热帖） =====
+// 综合 upCount / commentCount / bookmarkCount 加权，并按时窗衰减
+// 公式：rawScore = upCount*3 + commentCount*5 + bookmarkCount*2
+//       hoursAgo = max(0, 距现在的时差)
+//       decay = 1 / (1 + hoursAgo * 0.08)  （约每 12.5h 折半）
+//       heat = rawScore * decay
+export interface HotPostsParams {
+  windowHours?: number; // 时间窗口（小时），默认 24
+  page?: number;
+  limit?: number;
+  tag?: string;
+  viewerId?: number;
+}
+
+export async function listHotPosts(params: HotPostsParams) {
+  const windowHours = Math.max(1, Number(params.windowHours ?? 24));
+  const page = Math.max(1, Number(params.page ?? 1));
+  const limit = Math.min(50, Math.max(1, Number(params.limit ?? 20)));
+
+  const since = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+  const where: any = { status: 1, createdAt: { gte: since } };
+  if (params.tag) {
+    where.tags = { array_contains: params.tag };
+  }
+
+  // 取时窗内全部帖子（后续在内存中计算热度分 + 排序，再分页）
+  const rows = await prisma.post.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    include: { user: { select: USER_PUBLIC_SELECT } },
+  });
+
+  const now = Date.now();
+  const scored = rows.map((p) => {
+    const rawScore = (p.upCount ?? 0) * 3 + (p.commentCount ?? 0) * 5 + (p.bookmarkCount ?? 0) * 2;
+    const hoursAgo = Math.max(0, (now - new Date(p.createdAt).getTime()) / (1000 * 60 * 60));
+    const decay = 1 / (1 + hoursAgo * 0.08);
+    return { post: p, heat: rawScore * decay };
+  });
+
+  scored.sort((a, b) => b.heat - a.heat);
+
+  const total = scored.length;
+  const skip = (page - 1) * limit;
+  const list = scored.slice(skip, skip + limit).map((s) => s.post);
+
+  // 复用 viewerId 批量打标 myUp / myBookmark
+  if (params.viewerId && list.length > 0) {
+    const ids: number[] = list.map((p) => p.id);
+    const [ups, bms] = await Promise.all([
+      prisma.up.findMany({
+        where: { postId: { in: ids }, userId: params.viewerId },
+        select: { postId: true },
+      }),
+      prisma.bookmark.findMany({
+        where: { postId: { in: ids }, userId: params.viewerId },
+        select: { postId: true },
+      }),
+    ]);
+    const upSet = new Set<number>();
+    for (const u of ups) {
+      upSet.add(u.postId);
+    }
+    const bmSet = new Set<number>();
+    for (const b of bms) {
+      bmSet.add(b.postId);
+    }
+    const enriched = list.map((p) => ({
+      ...p,
+      myUp: upSet.has(p.id),
+      myBookmark: bmSet.has(p.id),
+    }));
+    return {
+      list: enriched.map((p) => ({ ...p, user: publicUserView(p.user) })),
+      pagination: { page, limit, total },
+    };
+  }
+
+  return {
+    list: list.map((p) => ({ ...p, user: publicUserView(p.user) })),
+    pagination: { page, limit, total },
+  };
+}
+
 // 个人主页：我发布的帖子
 export async function listByUser(userId: number) {
   const rows = await prisma.post.findMany({
