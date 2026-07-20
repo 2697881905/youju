@@ -6,16 +6,33 @@ import { deactivateAccount, clearSearchHistory, exportUserData } from '../servic
 import { safeShowToast } from '../utils/toast';
 import { toggleDarkMode, isDarkMode } from '../utils/theme';
 import { buildPageTransition } from '../utils/styles';
+import { window } from '@kit.ArkUI';
 
 @Entry
 @Component
 export struct SettingsPage {
   @State isAdmin: boolean = getIsAdmin();
   @State darkMode: boolean = isDarkMode();
+  @State statusBarHeight: number = 0;
 
   aboutToAppear(): void {
     this.isAdmin = getIsAdmin();
     this.darkMode = isDarkMode();
+    this.loadStatusBarHeight();
+  }
+
+  private async loadStatusBarHeight(): Promise<void> {
+    try {
+      const ctx = this.getUIContext().getHostContext();
+      if (!ctx) {
+        return;
+      }
+      const win = await window.getLastWindow(ctx);
+      const area = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
+      this.statusBarHeight = px2vp(area.topRect.height);
+    } catch (e) {
+      // 读取失败维持 0
+    }
   }
 
   // 退出登录：二次确认 → 清态 + 跳登录页 + toast
@@ -288,6 +305,7 @@ export struct SettingsPage {
     }
     .width('100%')
     .height('100%')
+    .padding({ top: this.statusBarHeight })
     .backgroundColor($r('app.color.bg_primary'))
     .transition(buildPageTransition());
   }
