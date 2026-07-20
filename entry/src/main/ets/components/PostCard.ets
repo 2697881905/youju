@@ -1,6 +1,6 @@
 import { Post, User } from '../models/types';
 import { formatCount } from '../utils/format';
-import { router } from '@kit.ArkUI';
+
 import { upPost, cancelUpPost } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 
@@ -46,7 +46,7 @@ export struct PostCard {
     }
     if (u !== undefined && u.id !== undefined) {
       AppStorage.setOrCreate('targetUserId', String(u.id));
-      router.pushUrl({ url: 'pages/UserProfilePage' });
+      this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage' });
     }
   }
 
@@ -162,8 +162,17 @@ export struct PostCard {
     .width('100%')
     .padding(12)
     .backgroundBlurStyle(BlurStyle.BACKGROUND_THIN)
-    .backgroundColor('rgba(255,255,255,0.04)')
-    .border({ width: 0.5, color: 'rgba(255,255,255,0.08)' })
-    .borderRadius(12);
+    .backgroundColor($r('app.color.glass_card_bg'))
+    .border({ width: 0.5, color: $r('app.color.glass_border') })
+    .borderRadius(12)
+    .stateStyles({
+      normal: {
+        .opacity(1)
+      },
+      pressed: {
+        .opacity(0.8)
+        .scale({ x: 0.97, y: 0.97 })
+      }
+    });
   }
 }

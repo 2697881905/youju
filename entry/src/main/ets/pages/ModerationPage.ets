@@ -1,9 +1,10 @@
 // 内容审核台（admin）：待审帖子列表 + 通过/驳回
 // 数据：GET /v1/admin/posts/pending（含举报记录）；操作：POST /v1/admin/posts/:id/moderate
-import { router } from '@kit.ArkUI';
+
 import { PendingPost, ReportItem, ReportReason, ModerateAction } from '../models/types';
 import { getPendingPosts, moderatePost } from '../services/api';
 import { safeShowToast } from '../utils/toast';
+import { buildPageTransition } from '../utils/styles';
 
 // 举报理由 → 中文标签
 function reasonLabel(reason: ReportReason): string {
@@ -53,7 +54,7 @@ struct RejectDialog {
           })
         Button('确认驳回')
           .layoutWeight(1)
-          .backgroundColor('#FF453A')
+          .backgroundColor($r('app.color.semantic_red'))
           .fontColor('#FFFFFF')
           .onClick(() => {
             const r: string = this.reason.trim();
@@ -147,7 +148,7 @@ struct ModerationPage {
     Column({ space: 2 }) {
       Text(reasonLabel(reason))
         .fontSize(12)
-        .fontColor('#FF453A')
+        .fontColor($r('app.color.semantic_red'))
         .backgroundColor('#FFE5E5')
         .padding({ left: 8, right: 8, top: 3, bottom: 3 })
         .borderRadius(10)
@@ -190,7 +191,7 @@ struct ModerationPage {
         Blank()
         Text('举报 ' + String(post.reportCount ?? post.reports?.length ?? 0))
           .fontSize(12)
-          .fontColor('#FF453A')
+          .fontColor($r('app.color.semantic_red'))
           .padding({ left: 8, right: 8, top: 2, bottom: 2 })
           .backgroundColor('#FFE5E5')
           .borderRadius(10)
@@ -259,7 +260,7 @@ struct ModerationPage {
           })
         Button('驳回')
           .layoutWeight(1)
-          .backgroundColor('#FF453A')
+          .backgroundColor($r('app.color.semantic_red'))
           .fontColor('#FFFFFF')
           .enabled(this.processingId === 0 || this.processingId === (post.id ?? 0))
           .onClick(() => {
@@ -295,7 +296,7 @@ struct ModerationPage {
           .height(44)
           .textAlign(TextAlign.Center)
           .onClick(() => {
-            router.back();
+            this.getUIContext().getRouter().back();
           })
         Text('内容审核')
           .fontSize(17)
@@ -389,9 +390,6 @@ struct ModerationPage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.bg_primary'))
-    .transition(TransitionEffect.OPACITY
-      .animation({ duration: 300, curve: Curve.EaseOut })
-      .combine(TransitionEffect.translate({ x: 50 })
-        .animation({ duration: 350, curve: Curve.EaseOut })))
+    .transition(buildPageTransition())
   }
 }

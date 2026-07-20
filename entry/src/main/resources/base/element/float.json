@@ -3,6 +3,46 @@
     {
       "name": "page_text_font_size",
       "value": "50fp"
+    },
+    {
+      "name": "font_caption",
+      "value": "11fp"
+    },
+    {
+      "name": "font_small",
+      "value": "13fp"
+    },
+    {
+      "name": "font_body",
+      "value": "15fp"
+    },
+    {
+      "name": "font_title_md",
+      "value": "17fp"
+    },
+    {
+      "name": "font_title_lg",
+      "value": "20fp"
+    },
+    {
+      "name": "space_xs",
+      "value": "4vp"
+    },
+    {
+      "name": "space_sm",
+      "value": "8vp"
+    },
+    {
+      "name": "space_md",
+      "value": "12vp"
+    },
+    {
+      "name": "space_lg",
+      "value": "16vp"
+    },
+    {
+      "name": "space_xl",
+      "value": "24vp"
     }
   ]
 }

@@ -1,7 +1,8 @@
-import { router } from '@kit.ArkUI';
+
 import { FollowUser } from '../models/types';
 import { listFollowing, listFollowers, followUser, unfollowUser } from '../services/api';
 import { safeShowToast } from '../utils/toast';
+import { buildPageTransition } from '../utils/styles';
 
 @Entry
 @Component
@@ -25,7 +26,7 @@ export struct MyFollowPage {
     let rawId: string | undefined = AppStorage.get<string>('targetUserId');
     let rawMode: string | undefined = AppStorage.get<string>('followMode');
     if (!rawId) {
-      const params: Object | undefined = router.getParams();
+      const params: Object | undefined = this.getUIContext().getRouter().getParams();
       if (params !== undefined && typeof params === 'object') {
         const p: Record<string, Object> = params as Record<string, Object>;
         const v: Object | undefined = p['userId'];
@@ -118,7 +119,7 @@ export struct MyFollowPage {
         primaryButton: { value: '取消', action: (): void => {} },
         secondaryButton: {
           value: '取消关注',
-          fontColor: '#FF453A',
+          fontColor: $r('app.color.semantic_red'),
           action: (): void => {
             this.doToggle(item);
           },
@@ -171,7 +172,7 @@ export struct MyFollowPage {
       return;
     }
     AppStorage.setOrCreate('targetUserId', String(item.id));
-    router.pushUrl({ url: 'pages/UserProfilePage', params: { userId: String(item.id) } });
+    this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage', params: { userId: String(item.id) } });
   }
 
   build() {
@@ -182,7 +183,7 @@ export struct MyFollowPage {
           .fontColor($r('app.color.text_primary'))
           .width(48)
           .onClick(() => {
-            router.back();
+            this.getUIContext().getRouter().back();
           });
         Text(this.mode === 'following' ? '我的关注' : '我的粉丝')
           .fontSize(17).fontWeight(600).layoutWeight(1).textAlign(TextAlign.Center);
@@ -242,9 +243,6 @@ export struct MyFollowPage {
       }
     }
     .width('100%').height('100%').backgroundColor($r('app.color.bg_primary'))
-    .transition(TransitionEffect.OPACITY
-      .animation({ duration: 300, curve: Curve.EaseOut })
-      .combine(TransitionEffect.translate({ x: 50 })
-        .animation({ duration: 350, curve: Curve.EaseOut })))
+    .transition(buildPageTransition())
   }
 }

@@ -17,7 +17,7 @@ export struct CommentList {
       title: '删除评论？',
       message: '删除后不可恢复，确定要删除吗？',
       primaryButton: { value: '取消', action: (): void => {} },
-      secondaryButton: { value: '确认删除', fontColor: '#FF453A', action: async (): Promise<void> => {
+      secondaryButton: { value: '确认删除', fontColor: $r('app.color.semantic_red'), action: async (): Promise<void> => {
         try {
           if (c.id !== undefined) {
             await deleteComment(c.id);
@@ -144,7 +144,7 @@ export struct CommentList {
                       primaryButton: { value: '取消', action: (): void => {} },
                       secondaryButton: {
                         value: '删除该评论',
-                        fontColor: '#FF453A',
+                        fontColor: $r('app.color.semantic_red'),
                         action: (): void => {
                           this.onDeleteComment(c);
                         },
@@ -156,7 +156,7 @@ export struct CommentList {
                       message: '',
                       primaryButton: {
                         value: '举报该评论',
-                        fontColor: '#FF453A',
+                        fontColor: $r('app.color.semantic_red'),
                         action: (): void => {
                           if (c.id !== undefined) {
                             this.reportCommentHandler(c.id);

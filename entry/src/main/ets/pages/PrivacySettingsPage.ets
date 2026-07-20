@@ -1,8 +1,9 @@
 // 隐私设置页：帖子可见性选择 + 允许关注/私信开关 + 保存按钮
-import { router } from '@kit.ArkUI';
+
 import { getPrivacySettings, updatePrivacySettings } from '../services/api';
 import { PrivacySettingsData } from '../models/types';
 import { safeShowToast } from '../utils/toast';
+import { buildPageTransition } from '../utils/styles';
 
 @Entry
 @Component
@@ -46,7 +47,7 @@ export struct PrivacySettingsPage {
     try {
       await updatePrivacySettings(this.settings);
       safeShowToast(this.getUIContext(), { message: '隐私设置已保存' });
-      router.back();
+      this.getUIContext().getRouter().back();
     } catch (e) {
       safeShowToast(this.getUIContext(), { message: '保存失败：' + (e as Error).message });
     }
@@ -63,7 +64,7 @@ export struct PrivacySettingsPage {
           .width(48)
           .height(44)
           .textAlign(TextAlign.Center)
-          .onClick(() => { router.back(); });
+          .onClick(() => { this.getUIContext().getRouter().back(); });
         Text('隐私设置')
           .fontSize(17)
           .fontWeight(FontWeight.Bold)
@@ -195,9 +196,6 @@ export struct PrivacySettingsPage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.bg_primary'))
-    .transition(TransitionEffect.OPACITY
-      .animation({ duration: 300, curve: Curve.EaseOut })
-      .combine(TransitionEffect.translate({ x: 50 })
-        .animation({ duration: 350, curve: Curve.EaseOut })))
+    .transition(buildPageTransition())
   }
 }

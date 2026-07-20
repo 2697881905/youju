@@ -1,8 +1,9 @@
 // 通知设置页：展示 5 类通知开关（评论/点赞/收藏/关注/系统），Toggle 实时保存
-import { router } from '@kit.ArkUI';
+
 import { getNotificationPrefs, updateNotificationPrefs } from '../services/api';
 import { NotificationPrefs } from '../models/types';
 import { safeShowToast } from '../utils/toast';
+import { buildPageTransition } from '../utils/styles';
 
 interface PrefRow {
   key: string;
@@ -74,7 +75,7 @@ export struct NotificationSettingsPage {
           .height(44)
           .textAlign(TextAlign.Center)
           .onClick(() => {
-            router.back();
+            this.getUIContext().getRouter().back();
           });
         Text('通知设置')
           .fontSize(17)
@@ -156,10 +157,7 @@ export struct NotificationSettingsPage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.bg_primary'))
-    .transition(TransitionEffect.OPACITY
-      .animation({ duration: 300, curve: Curve.EaseOut })
-      .combine(TransitionEffect.translate({ x: 50 })
-        .animation({ duration: 350, curve: Curve.EaseOut })))
+    .transition(buildPageTransition())
   }
 
   private getPrefValue(key: string): boolean {

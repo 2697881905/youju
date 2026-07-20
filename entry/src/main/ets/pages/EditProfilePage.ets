@@ -1,6 +1,6 @@
 // 编辑资料页：修改头像/昵称/简介/性别，复用 updateMe，成功后回写本地并返回。
 // 头像通过 PhotoViewPicker 选图 → 压缩 → COS 直传 → updateMe 回写 URL。
-import { router } from '@kit.ArkUI';
+
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { image } from '@kit.ImageKit';
 import { http } from '@kit.NetworkKit';
@@ -9,6 +9,7 @@ import { updateMe, getUploadSignature } from '../services/api';
 import { compressImage, CompressedImage } from '../utils/image';
 import { safeShowToast } from '../utils/toast';
 import { User } from '../models/types';
+import { buildPageTransition } from '../utils/styles';
 
 @Entry
 @Component
@@ -141,7 +142,7 @@ export struct EditProfilePage {
       const token: string = (AppStorage.get<string>('authToken') ?? '') as string;
       setSession(token, merged);
       safeShowToast(this.getUIContext(), { message: '已保存' });
-      router.back();
+      this.getUIContext().getRouter().back();
     } catch (e) {
       safeShowToast(this.getUIContext(), { message: (e as Error).message });
     } finally {
@@ -159,7 +160,7 @@ export struct EditProfilePage {
           .width(48)
           .height(44)
           .textAlign(TextAlign.Center)
-          .onClick(() => { router.back(); });
+          .onClick(() => { this.getUIContext().getRouter().back(); });
         Text('编辑资料')
           .fontSize(17)
           .fontWeight(FontWeight.Bold)
@@ -296,9 +297,6 @@ export struct EditProfilePage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.bg_primary'))
-    .transition(TransitionEffect.OPACITY
-      .animation({ duration: 300, curve: Curve.EaseOut })
-      .combine(TransitionEffect.translate({ x: 50 })
-        .animation({ duration: 350, curve: Curve.EaseOut })))
+    .transition(buildPageTransition())
   }
   }

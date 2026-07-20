@@ -1,9 +1,10 @@
-import { router } from '@kit.ArkUI';
+
 import { Post, UserProfile } from '../models/types';
 import { getUserProfile, followUser, unfollowUser, listPosts } from '../services/api';
 import { PostCard } from '../components/PostCard';
 import { safeShowToast } from '../utils/toast';
 import { setDetailPostId } from '../utils/nav';
+import { buildPageTransition } from '../utils/styles';
 
 // 关注态局部补丁（乐观更新时只传要改的字段）
 interface ProfileFollowPatch {
@@ -44,7 +45,7 @@ export struct UserProfilePage {
   private resolveTarget(): void {
     let raw: string | undefined = AppStorage.get<string>('targetUserId');
     if (!raw) {
-      const params: Object | undefined = router.getParams();
+      const params: Object | undefined = this.getUIContext().getRouter().getParams();
       if (params !== undefined && typeof params === 'object') {
         const p: Record<string, Object> = params as Record<string, Object>;
         const v: Object | undefined = p['userId'];
@@ -154,7 +155,7 @@ export struct UserProfilePage {
         },
         secondaryButton: {
           value: '取消关注',
-          fontColor: '#FF453A',
+          fontColor: $r('app.color.semantic_red'),
           action: (): void => {
             this.doUnfollow();
           },
@@ -177,7 +178,7 @@ export struct UserProfilePage {
   private goFollowList(mode: string): void {
     AppStorage.setOrCreate('targetUserId', String(this.targetId));
     AppStorage.setOrCreate('followMode', mode);
-    router.pushUrl({ url: 'pages/MyFollowPage', params: { userId: String(this.targetId), mode: mode } });
+    this.getUIContext().getRouter().pushUrl({ url: 'pages/MyFollowPage', params: { userId: String(this.targetId), mode: mode } });
   }
 
   private goDetail(post: Post): void {
@@ -185,7 +186,7 @@ export struct UserProfilePage {
       const pid: string = post.id.toString();
       AppStorage.setOrCreate('detailPostId', pid);
       setDetailPostId(pid);
-      router.pushUrl({ url: 'pages/DetailPage' });
+      this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
     }
   }
 
@@ -229,7 +230,7 @@ export struct UserProfilePage {
           .fontColor($r('app.color.text_primary'))
           .width(48)
           .onClick(() => {
-            router.back();
+            this.getUIContext().getRouter().back();
           });
         Text(this.profile.deleted ? '已注销用户' : (this.profile.nickname !== '' ? this.profile.nickname : '用户主页'))
           .fontSize(17).fontWeight(600).layoutWeight(1).textAlign(TextAlign.Center);
@@ -341,9 +342,6 @@ export struct UserProfilePage {
       }
     }
     .width('100%').height('100%').backgroundColor($r('app.color.bg_primary'))
-    .transition(TransitionEffect.OPACITY
-      .animation({ duration: 300, curve: Curve.EaseOut })
-      .combine(TransitionEffect.translate({ x: 50 })
-        .animation({ duration: 350, curve: Curve.EaseOut })))
+    .transition(buildPageTransition())
   }
 }

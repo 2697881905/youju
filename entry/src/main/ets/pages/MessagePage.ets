@@ -3,7 +3,7 @@
 // - 空态 / 错误态（重试）
 // - 顶部「全部已读」
 // - 回写 AppStorage['unreadMessageCount'] 供 Index 消息 Tab 红点
-import { router } from '@kit.ArkUI';
+
 import { NotificationItem, NotificationType } from '../models/types';
 import {
   listNotifications,
@@ -13,6 +13,7 @@ import {
 } from '../services/api';
 import { getToken } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
+import { buildPageTransition } from '../utils/styles';
 
 @Entry
 @Component
@@ -174,7 +175,7 @@ export struct MessagePage {
     }
     if (item.postId !== undefined && item.postId !== null) {
       AppStorage.setOrCreate('detailPostId', String(item.postId));
-      router.pushUrl({ url: 'pages/DetailPage' });
+      this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
     }
   }
 
@@ -269,7 +270,7 @@ export struct MessagePage {
       // 未读红点
       if (item.read !== true) {
         Circle({ width: 8, height: 8 })
-          .fill('#FF453A')
+          .fill($r('app.color.semantic_red'))
       }
     }
     .width('100%')
@@ -310,7 +311,7 @@ export struct MessagePage {
           .width(56)
           .height(56)
           .borderRadius(16)
-          .backgroundColor('rgba(255,255,255,0.08)')
+          .backgroundColor($r('app.color.glass_border'))
           .justifyContent(FlexAlign.Center)
           Text('赞和收藏')
             .fontSize(11)
@@ -327,7 +328,7 @@ export struct MessagePage {
           .width(56)
           .height(56)
           .borderRadius(16)
-          .backgroundColor('rgba(255,255,255,0.08)')
+          .backgroundColor($r('app.color.glass_border'))
           .justifyContent(FlexAlign.Center)
           Text('新增关注')
             .fontSize(11)
@@ -344,7 +345,7 @@ export struct MessagePage {
           .width(56)
           .height(56)
           .borderRadius(16)
-          .backgroundColor('rgba(255,255,255,0.08)')
+          .backgroundColor($r('app.color.glass_border'))
           .justifyContent(FlexAlign.Center)
           Text('评论')
             .fontSize(11)
@@ -420,5 +421,6 @@ export struct MessagePage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.bg_primary'))
+    .transition(buildPageTransition())
   }
 }

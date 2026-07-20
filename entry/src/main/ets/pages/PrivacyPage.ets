@@ -1,5 +1,6 @@
 // 隐私政策页：内置静态隐私政策文本，无后端调用
-import { router } from '@kit.ArkUI';
+
+import { buildPageTransition } from '../utils/styles';
 
 @Entry
 @Component
@@ -15,7 +16,7 @@ export struct PrivacyPage {
           .height(44)
           .textAlign(TextAlign.Center)
           .onClick(() => {
-            router.back();
+            this.getUIContext().getRouter().back();
           });
         Text('隐私政策')
           .fontSize(17)
@@ -89,10 +90,7 @@ export struct PrivacyPage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.bg_primary'))
-    .transition(TransitionEffect.OPACITY
-      .animation({ duration: 300, curve: Curve.EaseOut })
-      .combine(TransitionEffect.translate({ x: 50 })
-        .animation({ duration: 350, curve: Curve.EaseOut })))
+    .transition(buildPageTransition())
   }
 
   @Builder

@@ -1,5 +1,5 @@
 // 帖子详情页（真实内容）：标签 → 体裁 → 标题 → 九宫格图 → 结构化字段 → 正文 → 评论区 → 底部操作栏
-import { router } from '@kit.ArkUI';
+
 import {
   getPost,
   createComment,
@@ -20,6 +20,7 @@ import { ReportDialog } from '../components/ReportDialog';
 import { takeDetailPostId, emitTabSwitch } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 import { getUserId } from '../utils/auth';
+import { buildPageTransition } from '../utils/styles';
 
 // 字段定义：[结构化字段键, 中文标签]，按产品文档 2.4 各体裁字段表
 type FieldDef = [keyof StructuredData, string];
@@ -295,20 +296,12 @@ struct DetailPage {
       title: '删除帖子？',
       message: '删除后不可恢复，确定要删除吗？',
       primaryButton: { value: '取消', action: (): void => {} },
-      secondaryButton: { value: '确认删除', fontColor: '#FF453A', action: async (): Promise<void> => {
+      secondaryButton: { value: '确认删除', fontColor: $r('app.color.semantic_red'), action: async (): Promise<void> => {
         try {
           if (!this.post || this.post.id === undefined) return;
           await deletePost(this.post.id);
           safeShowToast(this.getUIContext(), { message: '帖子已删除' });
-          router.back();
-        } catch (e) {
-          safeShowToast(this.getUIContext(), { message: (e as Error).message });
-        }
-      } },
-    });
-  }
-
-  // 弹出帖子操作菜单：作者可见删除+编辑，他人可见举报+分享
+          this.getUIContext().getRouter().back();
   private showPostActions(): void {
     if (!this.post) return;
     const isOwner: boolean = this.post.userId === getUserId();
@@ -318,7 +311,7 @@ struct DetailPage {
         message: '',
         primaryButton: {
           value: '删除帖子',
-          fontColor: '#FF453A',
+          fontColor: $r('app.color.semantic_red'),
           action: (): void => { this.onDeletePost(); },
         },
         secondaryButton: {
@@ -326,17 +319,12 @@ struct DetailPage {
           action: (): void => {
             AppStorage.setOrCreate('editPostId', this.pid);
             emitTabSwitch(2);
-            router.back();
-          },
-        },
-      });
-    } else {
-      this.getUIContext().showAlertDialog({
+            this.getUIContext().getRouter().back();
         title: '操作',
         message: '',
         primaryButton: {
           value: '举报该帖子',
-          fontColor: '#FF453A',
+          fontColor: $r('app.color.semantic_red'),
           action: (): void => { this.reportController.open(); },
         },
         secondaryButton: {
@@ -444,7 +432,7 @@ struct DetailPage {
         Text('← 返回')
           .fontSize(16)
           .fontColor($r('app.color.brand_primary'))
-          .onClick(() => router.back())
+          .onClick(() => this.getUIContext().getRouter().back())
         Text('帖子详情')
           .fontSize(17)
           .fontWeight(600)
@@ -459,6 +447,8 @@ struct DetailPage {
       }
       .width('100%')
       .padding({ top: 12, bottom: 12 })
+      .backgroundBlurStyle(BlurStyle.BACKGROUND_THIN)
+      .backgroundColor($r('app.color.glass_bar_bg'))
 
       if (this.loading) {
         Column() {
@@ -721,7 +711,7 @@ struct DetailPage {
         .width('100%')
         .padding({ top: 8, bottom: 12 })
         .backgroundBlurStyle(BlurStyle.BACKGROUND_REGULAR)
-        .backgroundColor('rgba(28,28,30,0.65)')
+        .backgroundColor($r('app.color.glass_bar_bg'))
         .borderWidth({ top: 0.5 })
         .borderColor($r('app.color.divider'))
       }
@@ -729,9 +719,6 @@ struct DetailPage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.bg_primary'))
-    .transition(TransitionEffect.OPACITY
-      .animation({ duration: 300, curve: Curve.EaseOut })
-      .combine(TransitionEffect.translate({ x: 50 })
-        .animation({ duration: 350, curve: Curve.EaseOut })))
+    .transition(buildPageTransition())
   }
 }

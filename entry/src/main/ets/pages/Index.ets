@@ -7,7 +7,6 @@ import { MessagePage } from './MessagePage';
 import { ProfilePage } from './ProfilePage';
 import { initAuthStorage, getToken, setPrivacyAgreed, isPrivacyAgreed } from '../utils/auth';
 import { getUnreadCount } from '../services/api';
-import { router } from '@kit.ArkUI';
 import { common } from '@kit.AbilityKit';
 
 @Entry
@@ -31,7 +30,7 @@ struct Index {
   private startInit(): void {
     // 无登录态时跳到登录页；登录成功后 router.back() 回此页
     if (getToken() === '') {
-      router.pushUrl({ url: 'pages/LoginPage' });
+      this.getUIContext().getRouter().pushUrl({ url: 'pages/LoginPage' });
     } else {
       // 已登录则拉一次未读总数，驱动消息 Tab 红点
       this.refreshUnread();
@@ -53,9 +52,9 @@ struct Index {
       },
       secondaryButton: {
         value: '不同意',
-        fontColor: '#FF453A',
+        fontColor: $r('app.color.semantic_red'),
         action: (): void => {
-          const ctx = getContext(this) as common.UIAbilityContext;
+          const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
           ctx.terminateSelf();
         },
       },
@@ -92,7 +91,7 @@ struct Index {
         // 消息：纯文字 + 红点（有未读时显示，红点为功能提示非图标）
         Badge({
           count: this.unreadCount,
-          style: { badgeColor: '#FF453A' },
+          style: { badgeColor: $r('app.color.semantic_red') },
           position: BadgePosition.RightTop,
         }) {
           Text(title)
@@ -145,6 +144,7 @@ struct Index {
     .onChange((index: number) => {
       this.currentIndex = index;
     })
+    .animationDuration(250)
     .width('100%')
     .height('100%')
     .barBackgroundBlurStyle(BlurStyle.COMPONENT_ULTRA_THICK)

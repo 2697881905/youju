@@ -1,5 +1,6 @@
 // 关于页：纯静态信息展示，无后端调用
-import { router } from '@kit.ArkUI';
+
+import { buildPageTransition } from '../utils/styles';
 
 @Entry
 @Component
@@ -15,7 +16,7 @@ export struct AboutPage {
           .height(44)
           .textAlign(TextAlign.Center)
           .onClick(() => {
-            router.back();
+            this.getUIContext().getRouter().back();
           });
         Text('关于')
           .fontSize(17)
@@ -100,9 +101,6 @@ export struct AboutPage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.bg_primary'))
-    .transition(TransitionEffect.OPACITY
-      .animation({ duration: 300, curve: Curve.EaseOut })
-      .combine(TransitionEffect.translate({ x: 50 })
-        .animation({ duration: 350, curve: Curve.EaseOut })))
+    .transition(buildPageTransition())
   }
 }

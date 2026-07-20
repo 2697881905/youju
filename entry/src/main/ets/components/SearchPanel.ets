@@ -174,7 +174,7 @@ export struct SearchPanel {
                     Text('热')
                       .fontSize(10)
                       .fontColor('#FFFFFF')
-                      .backgroundColor('#FF453A')
+                      .backgroundColor($r('app.color.semantic_red'))
                       .borderRadius(4)
                       .padding({ left: 4, right: 4, top: 2, bottom: 2 })
                   }
@@ -198,6 +198,6 @@ export struct SearchPanel {
     .width('100%')
     .height('100%')
     .backgroundBlurStyle(BlurStyle.BACKGROUND_THICK, { colorMode: ThemeColorMode.SYSTEM })
-    .backgroundColor('rgba(0,0,0,0.7)')
+    .backgroundColor($r('app.color.glass_overlay_heavy'))
   }
 }

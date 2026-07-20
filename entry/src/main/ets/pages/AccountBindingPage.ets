@@ -1,11 +1,12 @@
 // 账号绑定管理页（核心）：列表（harmony 主账号置顶 + 第三方）+ 绑定/解绑 + 二次确认 + 空状态。
 // 入口：设置页 → 账号绑定。遵循现有深色主题与 safeShowToast 提示风格。
-import { router } from '@kit.ArkUI';
+
 import { BindingItem, Provider } from '../models/types';
 import { listBindings, bindAccount, unbindAccount } from '../services/api';
 import { HuaweiBindButton } from '../components/HuaweiBindButton';
 import { ensureLogin } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
+import { buildPageTransition } from '../utils/styles';
 
 @Entry
 @Component
@@ -146,7 +147,7 @@ struct AccountBindingPage {
             message: '解绑后你将无法使用华为账号登录大蓝书，但仍可用鸿蒙主账号登录。',
             primaryButton: {
               value: '确定解绑',
-              fontColor: '#FF453A',
+              fontColor: $r('app.color.semantic_red'),
               action: (): void => {
                 this.confirmUnbind();
               },
@@ -221,7 +222,7 @@ struct AccountBindingPage {
           .height(44)
           .textAlign(TextAlign.Center)
           .onClick(() => {
-            router.back();
+            this.getUIContext().getRouter().back();
           })
         Text('账号绑定')
           .fontSize(17)
@@ -281,9 +282,6 @@ struct AccountBindingPage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.bg_primary'))
-    .transition(TransitionEffect.OPACITY
-      .animation({ duration: 300, curve: Curve.EaseOut })
-      .combine(TransitionEffect.translate({ x: 50 })
-        .animation({ duration: 350, curve: Curve.EaseOut })))
+    .transition(buildPageTransition())
   }
 }

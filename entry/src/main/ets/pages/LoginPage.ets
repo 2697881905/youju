@@ -2,11 +2,12 @@
 // 提供两种登录方式：
 //   1) 华为账号一键登录（LoginWithHuaweiIDButton）：成功后用 code 换登录态，setSession 复用现有登录态
 //   2) 其他方式登录：走现有 openId 授权登录桩（ensureLogin），作为华为登录降级兜底
-import { router } from '@kit.ArkUI';
+
 import { exchangeHuaweiCode, LoginResult } from '../services/api';
 import { setSession, ensureLogin } from '../utils/auth';
 import { HuaweiLoginButton } from '../components/HuaweiLoginButton';
 import { safeShowToast } from '../utils/toast';
+import { buildPageTransition } from '../utils/styles';
 
 @Entry
 @Component
@@ -40,10 +41,7 @@ struct LoginPage {
     .height('100%')
     .justifyContent(FlexAlign.Start)
     .alignItems(HorizontalAlign.Center)
-    .transition(TransitionEffect.OPACITY
-      .animation({ duration: 300, curve: Curve.EaseOut })
-      .combine(TransitionEffect.translate({ x: 50 })
-        .animation({ duration: 350, curve: Curve.EaseOut })))
+    .transition(buildPageTransition())
   }
 
   // 华为登录成功：用 code 换登录态并落地 session
@@ -51,7 +49,7 @@ struct LoginPage {
     try {
       const result: LoginResult = await exchangeHuaweiCode({ code });
       setSession(result.token, result.user);
-      router.back();
+      this.getUIContext().getRouter().back();
     } catch (e) {
       const err: Error = e as Error;
       this.toast(err.message);
@@ -69,7 +67,7 @@ struct LoginPage {
     try {
       const user = await ensureLogin();
       if (user) {
-        router.back();
+        this.getUIContext().getRouter().back();
       }
     } catch (e) {
       const err: Error = e as Error;

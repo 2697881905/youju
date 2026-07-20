@@ -1,8 +1,9 @@
 // 拉黑管理页：查看/取消拉黑列表（分页加载）
-import { router } from '@kit.ArkUI';
+
 import { listBlocked, unblockUser } from '../services/api';
 import { BlockUser, Pagination } from '../models/types';
 import { safeShowToast } from '../utils/toast';
+import { buildPageTransition } from '../utils/styles';
 
 @Entry
 @Component
@@ -51,7 +52,7 @@ export struct BlocklistPage {
       title: '取消拉黑？',
       message: '取消后，' + user.nickname + ' 将可以正常与你互动。',
       primaryButton: { value: '取消', action: (): void => {} },
-      secondaryButton: { value: '确认取消', fontColor: '#FF453A', action: async (): Promise<void> => {
+      secondaryButton: { value: '确认取消', fontColor: $r('app.color.semantic_red'), action: async (): Promise<void> => {
         try {
           await unblockUser(user.id);
           const idx = this.users.indexOf(user);
@@ -76,7 +77,7 @@ export struct BlocklistPage {
           .width(48)
           .height(44)
           .textAlign(TextAlign.Center)
-          .onClick(() => { router.back(); });
+          .onClick(() => { this.getUIContext().getRouter().back(); });
         Text('拉黑管理')
           .fontSize(17)
           .fontWeight(FontWeight.Bold)
@@ -130,7 +131,7 @@ export struct BlocklistPage {
 
                 Button('取消拉黑')
                   .fontSize(13)
-                  .fontColor('#FF453A')
+                  .fontColor($r('app.color.semantic_red'))
                   .backgroundColor('#1AFF453A')
                   .borderRadius(6)
                   .padding({ left: 10, right: 10, top: 4, bottom: 4 })
@@ -166,9 +167,6 @@ export struct BlocklistPage {
     }
     .width('100%').height('100%')
     .backgroundColor($r('app.color.bg_primary'))
-    .transition(TransitionEffect.OPACITY
-      .animation({ duration: 300, curve: Curve.EaseOut })
-      .combine(TransitionEffect.translate({ x: 50 })
-        .animation({ duration: 350, curve: Curve.EaseOut })))
+    .transition(buildPageTransition())
   }
 }

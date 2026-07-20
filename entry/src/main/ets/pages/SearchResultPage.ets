@@ -1,12 +1,13 @@
 // 帖子关键词搜索结果页：顶栏(返回+可改搜索框+清除✕+结果计数) + 2列Grid(复用PostCard) + 三态(加载/空/失败)
 // 数据来源：searchPosts（services/api.ets，复用 /v1/posts 端点）
 // 点击跳转详情：照抄 HomeTab 父级 GridItem().onClick 包裹模式（PostCard 自身不处理点击）
-import { router } from '@kit.ArkUI';
+
 import { Post } from '../models/types';
 import { searchPosts } from '../services/api';
 import { PostCard } from '../components/PostCard';
 import { setDetailPostId } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
+import { buildPageTransition } from '../utils/styles';
 
 @Entry
 @Component
@@ -64,7 +65,7 @@ struct SearchResultPage {
       const id = post.id.toString();
       AppStorage.setOrCreate('detailPostId', id);
       setDetailPostId(id);
-      router.pushUrl({ url: 'pages/DetailPage' });
+      this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
     }
   }
 
@@ -112,7 +113,7 @@ struct SearchResultPage {
         Text('←')
           .fontSize(20)
           .fontColor($r('app.color.text_primary'))
-          .onClick(() => router.back())
+          .onClick(() => this.getUIContext().getRouter().back())
 
         TextInput({ placeholder: '搜索', text: this.keyword })
           .layoutWeight(1)
@@ -243,9 +244,6 @@ struct SearchResultPage {
     .height('100%')
     .alignItems(HorizontalAlign.Start)
     .backgroundColor($r('app.color.bg_primary'))
-    .transition(TransitionEffect.OPACITY
-      .animation({ duration: 300, curve: Curve.EaseOut })
-      .combine(TransitionEffect.translate({ x: 50 })
-        .animation({ duration: 350, curve: Curve.EaseOut })))
+    .transition(buildPageTransition())
   }
 }

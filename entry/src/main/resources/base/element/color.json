@@ -31,6 +31,30 @@
     {
       "name": "divider",
       "value": "#E5E5EA"
+    },
+    {
+      "name": "glass_card_bg",
+      "value": "rgba(0,0,0,0.04)"
+    },
+    {
+      "name": "glass_border",
+      "value": "rgba(0,0,0,0.08)"
+    },
+    {
+      "name": "glass_overlay_heavy",
+      "value": "rgba(0,0,0,0.60)"
+    },
+    {
+      "name": "glass_bar_bg",
+      "value": "rgba(255,255,255,0.65)"
+    },
+    {
+      "name": "semantic_red",
+      "value": "#FF3B30"
+    },
+    {
+      "name": "semantic_orange",
+      "value": "#FF9500"
     }
   ]
 }

@@ -1,7 +1,7 @@
 // 首页 feed（真实内容）：顶栏(三子Tab+搜索框同水平) + 标签筛选 + 帖子网格
 // 搜索框获焦时展示 SearchPanel（搜索历史+热搜词），提交或选中关键词后跳结果页
 // 数据来源：listPosts / listTags / recordSearchHistory（services/api.ets）
-import { router } from '@kit.ArkUI';
+
 import { Post, Tag } from '../models/types';
 import { listPosts, listFollowingPosts, listTags, recordSearchHistory, getUserProfile } from '../services/api';
 import { getUserId } from '../utils/auth';
@@ -10,6 +10,7 @@ import { TagNav } from './TagNav';
 import { SearchPanel } from './SearchPanel';
 import { setDetailPostId, emitTabSwitch } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
+import { BasicDataSource } from '../utils/data-source';
 
 type SortKey = 'hot' | 'latest' | 'recommend';
 type FeedMode = 'recommend' | 'following';
@@ -21,6 +22,7 @@ const ALL_TAG: Tag = { name: '全部', emoji: '🔥' };
 @Component
 export struct HomeTab {
   @State posts: Post[] = [];
+  private postSource: BasicDataSource<Post> = new BasicDataSource<Post>();
   @State displayTags: Tag[] = [];
   @State sortIndex: number = 0;
   @State @Watch('onTagChanged') tagIndex: number = 0;
@@ -101,6 +103,7 @@ export struct HomeTab {
     if (this.feedMode === 'following' && this.token === '') {
       this.needLogin = true;
       this.posts = []; // 清空上一流（推荐流）残留内容
+      this.postSource.clearData();
       return;
     }
     this.loading = true;
@@ -114,8 +117,10 @@ export struct HomeTab {
           : await listPosts({ page: this.page, limit: 20, sort, tag: this.currentTag() });
       if (reset) {
         this.posts = res.list;
+        this.postSource.setData(res.list);
       } else {
         this.posts = this.posts.concat(res.list);
+        this.postSource.appendData(res.list);
       }
       if (res.list.length < 20) {
         this.finished = true;
@@ -156,7 +161,7 @@ export struct HomeTab {
     }
     this.showPanel = false;
     AppStorage.setOrCreate('searchKeyword', kw);
-    router.pushUrl({ url: 'pages/SearchResultPage' });
+    this.getUIContext().getRouter().pushUrl({ url: 'pages/SearchResultPage' });
     // fire-and-forget：记录搜索历史，失败不阻断
     this.recordHistoryAsync(kw);
   }
@@ -195,6 +200,10 @@ export struct HomeTab {
             this.showPanel = false;
           }
         })
+          .transition(TransitionEffect.OPACITY
+            .animation({ duration: 250, curve: Curve.EaseOut })
+            .combine(TransitionEffect.translate({ x: '100%' })
+              .animation({ duration: 300, curve: Curve.EaseOut })))
       } else {
         // 顶部栏：左 推荐/关注 分段（信息源切换），右 搜索入口
         Row({ space: 12 }) {
@@ -267,7 +276,7 @@ export struct HomeTab {
             Button('登录')
               .margin({ top: 12 })
               .onClick(() => {
-                router.pushUrl({ url: 'pages/LoginPage' });
+                this.getUIContext().getRouter().pushUrl({ url: 'pages/LoginPage' });
               })
           }
           .layoutWeight(1)
@@ -348,22 +357,26 @@ export struct HomeTab {
         } else {
           Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
             Grid() {
-              ForEach(
-                this.posts,
-                (post: Post) => {
+              LazyForEach(
+                this.postSource,
+                (post: Post, idx: number) => {
                   GridItem() {
                     PostCard({ post: post })
+                      .transition(TransitionEffect.OPACITY
+                        .animation({ duration: 350, curve: Curve.EaseOut })
+                        .combine(TransitionEffect.translate({ y: 12 })
+                          .animation({ duration: 400, curve: Curve.EaseOut })))
                       .onClick(() => {
                         if (post.id !== undefined) {
                           const id = post.id.toString();
                           AppStorage.setOrCreate('detailPostId', id);
                           setDetailPostId(id);
-                          router.pushUrl({ url: 'pages/DetailPage' });
+                          this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
                         }
                       })
                   }
                 },
-                (post: Post) => post.id?.toString() ?? ''
+                (post: Post, idx: number) => (post.id ?? idx).toString()
               )
               if (this.finished) {
                 GridItem() {

@@ -1,5 +1,5 @@
 // 个人主页（我的）：头像/昵称 + 关注/粉丝入口 + 我发布/我收藏 双 Tab + 帖子网格
-import { router } from '@kit.ArkUI';
+
 import { Post, User, UserProfile } from '../models/types';
 import { listPosts, listMyBookmarks, getUserProfile, cancelBookmarkPost } from '../services/api';
 import { PostCard } from '../components/PostCard';
@@ -122,7 +122,7 @@ export struct ProfilePage {
     }
     AppStorage.setOrCreate('targetUserId', String(uid));
     AppStorage.setOrCreate('followMode', mode);
-    router.pushUrl({ url: 'pages/MyFollowPage', params: { userId: String(uid), mode: mode } });
+    this.getUIContext().getRouter().pushUrl({ url: 'pages/MyFollowPage', params: { userId: String(uid), mode: mode } });
   }
 
   onTabChange(idx: number): void {
@@ -162,7 +162,7 @@ export struct ProfilePage {
           .fontColor($r('app.color.text_secondary'))
           .width(48)
           .onClick(() => {
-            router.pushUrl({ url: 'pages/SettingsPage' });
+            this.getUIContext().getRouter().pushUrl({ url: 'pages/SettingsPage' });
           })
       }
       .width('100%')
@@ -276,7 +276,7 @@ export struct ProfilePage {
                       const id = post.id.toString();
                       AppStorage.setOrCreate('detailPostId', id);
                       setDetailPostId(id);
-                      router.pushUrl({ url: 'pages/DetailPage' });
+                      this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
                     }
                   })
               }

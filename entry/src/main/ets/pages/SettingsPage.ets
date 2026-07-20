@@ -1,10 +1,11 @@
 // 设置页：分区结构（账号与安全 / 隐私 / 通用 / 关于）+ 退出登录 + 账号注销。
 // 覆盖全部设置功能：编辑资料、账号绑定、内容审核台、拉黑管理、数据导出、隐私设置、通知设置、清除缓存、关于、隐私政策。
-import { router } from '@kit.ArkUI';
+
 import { getIsAdmin, clearSession } from '../utils/auth';
 import { deactivateAccount, clearSearchHistory, exportUserData } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 import { toggleDarkMode, isDarkMode } from '../utils/theme';
+import { buildPageTransition } from '../utils/styles';
 
 @Entry
 @Component
@@ -24,12 +25,12 @@ export struct SettingsPage {
       message: '退出后需重新登录才能使用大蓝书。',
       primaryButton: { value: '取消', action: (): void => {} },
       secondaryButton: {
-        value: '确定退出', fontColor: '#FF453A',
+        value: '确定退出', fontColor: $r('app.color.semantic_red'),
         action: (): void => {
           clearSession();
           AppStorage.setOrCreate('authIsAdmin', false);
           safeShowToast(this.getUIContext(), { message: '已退出登录' });
-          router.replaceUrl({ url: 'pages/LoginPage' });
+          this.getUIContext().getRouter().replaceUrl({ url: 'pages/LoginPage' });
         },
       },
     });
@@ -41,12 +42,12 @@ export struct SettingsPage {
       title: '注销账号？',
       message: '注销后你的账号将被永久关闭，昵称/头像将被匿名化且不可恢复；你的帖子/评论将保留（匿名归属）。请谨慎操作。',
       primaryButton: { value: '取消', action: (): void => {} },
-      secondaryButton: { value: '继续注销', fontColor: '#FF453A', action: (): void => {
+      secondaryButton: { value: '继续注销', fontColor: $r('app.color.semantic_red'), action: (): void => {
         this.getUIContext().showAlertDialog({
           title: '再次确认',
           message: '此操作不可恢复，确定要注销账号吗？',
           primaryButton: { value: '取消', action: (): void => {} },
-          secondaryButton: { value: '确认注销', fontColor: '#FF453A', action: (): void => { this.doDeactivate(); } },
+          secondaryButton: { value: '确认注销', fontColor: $r('app.color.semantic_red'), action: (): void => { this.doDeactivate(); } },
         });
       } },
     });
@@ -58,7 +59,7 @@ export struct SettingsPage {
       clearSession();
       AppStorage.setOrCreate('authIsAdmin', false);
       safeShowToast(this.getUIContext(), { message: '账号已注销' });
-      router.replaceUrl({ url: 'pages/LoginPage' });
+      this.getUIContext().getRouter().replaceUrl({ url: 'pages/LoginPage' });
     } catch (e) {
       safeShowToast(this.getUIContext(), { message: (e as Error).message });
     }
@@ -115,9 +116,18 @@ export struct SettingsPage {
     .width('100%')
     .padding({ left: 16, right: 16, top: 16, bottom: 16 })
     .backgroundBlurStyle(BlurStyle.BACKGROUND_THIN)
-    .backgroundColor('rgba(255,255,255,0.04)')
-    .border({ width: 0.5, color: 'rgba(255,255,255,0.08)' })
+    .backgroundColor($r('app.color.glass_card_bg'))
+    .border({ width: 0.5, color: $r('app.color.glass_border') })
     .borderRadius(12)
+    .stateStyles({
+      normal: {
+        .opacity(1)
+      },
+      pressed: {
+        .opacity(0.7)
+        .scale({ x: 0.97, y: 0.97 })
+      }
+    })
     .onClick(() => { onTap(); });
   }
 
@@ -143,8 +153,8 @@ export struct SettingsPage {
     .width('100%')
     .padding({ left: 16, right: 16, top: 14, bottom: 14 })
     .backgroundBlurStyle(BlurStyle.BACKGROUND_THIN)
-    .backgroundColor('rgba(255,255,255,0.04)')
-    .border({ width: 0.5, color: 'rgba(255,255,255,0.08)' })
+    .backgroundColor($r('app.color.glass_card_bg'))
+    .border({ width: 0.5, color: $r('app.color.glass_border') })
     .borderRadius(12)
   }
 
@@ -157,7 +167,7 @@ export struct SettingsPage {
           .fontColor($r('app.color.text_primary'))
           .width(48).height(44)
           .textAlign(TextAlign.Center)
-          .onClick(() => { router.back(); });
+          .onClick(() => { this.getUIContext().getRouter().back(); });
         Text('设置')
           .fontSize(17)
           .fontWeight(FontWeight.Bold)
@@ -179,18 +189,18 @@ export struct SettingsPage {
               .alignSelf(ItemAlign.Start)
               .padding({ left: 4 });
             this.sectionRow('编辑资料', (): void => {
-              router.pushUrl({ url: 'pages/EditProfilePage' });
+              this.getUIContext().getRouter().pushUrl({ url: 'pages/EditProfilePage' });
             });
             this.sectionRow('账号绑定', (): void => {
-              router.pushUrl({ url: 'pages/AccountBindingPage' });
+              this.getUIContext().getRouter().pushUrl({ url: 'pages/AccountBindingPage' });
             });
             if (this.isAdmin) {
               this.sectionRow('内容审核台', (): void => {
-                router.pushUrl({ url: 'pages/ModerationPage' });
+                this.getUIContext().getRouter().pushUrl({ url: 'pages/ModerationPage' });
               });
             }
             this.sectionRow('拉黑管理', (): void => {
-              router.pushUrl({ url: 'pages/BlocklistPage' });
+              this.getUIContext().getRouter().pushUrl({ url: 'pages/BlocklistPage' });
             });
             this.sectionRow('数据导出', (): void => {
               this.onExportDataClick();
@@ -206,10 +216,10 @@ export struct SettingsPage {
               .alignSelf(ItemAlign.Start)
               .padding({ left: 4 });
             this.sectionRow('隐私设置', (): void => {
-              router.pushUrl({ url: 'pages/PrivacySettingsPage' });
+              this.getUIContext().getRouter().pushUrl({ url: 'pages/PrivacySettingsPage' });
             });
             this.sectionRow('通知设置', (): void => {
-              router.pushUrl({ url: 'pages/NotificationSettingsPage' });
+              this.getUIContext().getRouter().pushUrl({ url: 'pages/NotificationSettingsPage' });
             });
           }
           .width('100%');
@@ -236,10 +246,10 @@ export struct SettingsPage {
               .alignSelf(ItemAlign.Start)
               .padding({ left: 4 });
             this.sectionRow('关于大蓝书 · 版本 1.0.0', (): void => {
-              router.pushUrl({ url: 'pages/AboutPage' });
+              this.getUIContext().getRouter().pushUrl({ url: 'pages/AboutPage' });
             });
             this.sectionRow('隐私政策', (): void => {
-              router.pushUrl({ url: 'pages/PrivacyPage' });
+              this.getUIContext().getRouter().pushUrl({ url: 'pages/PrivacyPage' });
             });
           }
           .width('100%');
@@ -248,7 +258,7 @@ export struct SettingsPage {
           Row() {
             Text('退出登录')
               .fontSize(16)
-              .fontColor('#FF453A')
+              .fontColor($r('app.color.semantic_red'))
               .layoutWeight(1);
             Text('›')
               .fontSize(18)
@@ -271,7 +281,7 @@ export struct SettingsPage {
         .width('100%')
         .height(48)
         .margin({ left: 16, right: 16, bottom: 16 })
-        .backgroundColor('#FF453A')
+        .backgroundColor($r('app.color.semantic_red'))
         .fontColor('#FFFFFF')
         .fontSize(16)
         .onClick(() => { this.onDeactivateClick(); });
@@ -279,9 +289,6 @@ export struct SettingsPage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.bg_primary'))
-    .transition(TransitionEffect.OPACITY
-      .animation({ duration: 300, curve: Curve.EaseOut })
-      .combine(TransitionEffect.translate({ x: 50 })
-        .animation({ duration: 350, curve: Curve.EaseOut })));
+    .transition(buildPageTransition());
   }
 }
