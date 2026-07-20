@@ -34,19 +34,19 @@
     },
     {
       "name": "glass_card_bg",
-      "value": "rgba(0,0,0,0.04)"
+      "value": "#0A000000"
     },
     {
       "name": "glass_border",
-      "value": "rgba(0,0,0,0.08)"
+      "value": "#14000000"
     },
     {
       "name": "glass_overlay_heavy",
-      "value": "rgba(0,0,0,0.60)"
+      "value": "#99000000"
     },
     {
       "name": "glass_bar_bg",
-      "value": "rgba(255,255,255,0.65)"
+      "value": "#A6FFFFFF"
     },
     {
       "name": "semantic_red",
