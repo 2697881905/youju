@@ -100,6 +100,7 @@ router.post('/', auth, async (req: AuthRequest, res: Response) => {
 // 删除帖子（仅本人）：DELETE /v1/posts/:id
 router.delete('/:id', auth, async (req: AuthRequest, res: Response) => {
   const id = Number(req.params.id);
+  if (!id || isNaN(id)) return fail(res, CODE.BAD_REQUEST, '无效帖子ID');
   const result = await postService.deletePost(id, req.userId!);
   if (!result.ok) {
     if (result.reason === 'not_found') return fail(res, CODE.NOT_FOUND, '帖子不存在', 404);
@@ -111,6 +112,7 @@ router.delete('/:id', auth, async (req: AuthRequest, res: Response) => {
 // 编辑帖子（仅本人）：PUT /v1/posts/:id
 router.put('/:id', auth, async (req: AuthRequest, res: Response) => {
   const id = Number(req.params.id);
+  if (!id || isNaN(id)) return fail(res, CODE.BAD_REQUEST, '无效帖子ID');
   const result = await postService.updatePost(id, req.userId!, req.body ?? {});
   if (!result.ok) {
     if (result.reason === 'not_found') return fail(res, CODE.NOT_FOUND, '帖子不存在', 404);
