@@ -1,5 +1,5 @@
 // 帖子详情页（真实内容）：标签 → 体裁 → 标题 → 九宫格图 → 结构化字段 → 正文 → 评论区 → 底部操作栏
-
+import { buildPageTransition } from '../utils/styles';
 import {
   getPost,
   createComment,
@@ -20,7 +20,6 @@ import { ReportDialog } from '../components/ReportDialog';
 import { takeDetailPostId, emitTabSwitch } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 import { getUserId } from '../utils/auth';
-import { buildPageTransition } from '../utils/styles';
 
 // 字段定义：[结构化字段键, 中文标签]，按产品文档 2.4 各体裁字段表
 type FieldDef = [keyof StructuredData, string];
@@ -302,6 +301,14 @@ struct DetailPage {
           await deletePost(this.post.id);
           safeShowToast(this.getUIContext(), { message: '帖子已删除' });
           this.getUIContext().getRouter().back();
+        } catch (e) {
+          safeShowToast(this.getUIContext(), { message: (e as Error).message });
+        }
+      } },
+    });
+  }
+
+  // 弹出帖子操作菜单：作者可见删除+编辑，他人可见举报+分享
   private showPostActions(): void {
     if (!this.post) return;
     const isOwner: boolean = this.post.userId === getUserId();
@@ -320,6 +327,11 @@ struct DetailPage {
             AppStorage.setOrCreate('editPostId', this.pid);
             emitTabSwitch(2);
             this.getUIContext().getRouter().back();
+          },
+        },
+      });
+    } else {
+      this.getUIContext().showAlertDialog({
         title: '操作',
         message: '',
         primaryButton: {
