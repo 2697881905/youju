@@ -4,14 +4,17 @@ import { router } from '@kit.ArkUI';
 import { getIsAdmin, clearSession } from '../utils/auth';
 import { deactivateAccount, clearSearchHistory, exportUserData } from '../services/api';
 import { safeShowToast } from '../utils/toast';
+import { toggleDarkMode, isDarkMode } from '../utils/theme';
 
 @Entry
 @Component
 export struct SettingsPage {
   @State isAdmin: boolean = getIsAdmin();
+  @State darkMode: boolean = isDarkMode();
 
   aboutToAppear(): void {
     this.isAdmin = getIsAdmin();
+    this.darkMode = isDarkMode();
   }
 
   // 退出登录：二次确认 → 清态 + 跳登录页 + toast
@@ -118,6 +121,33 @@ export struct SettingsPage {
     .onClick(() => { onTap(); });
   }
 
+  @Builder
+  toggleRow(title: string, desc: string): void {
+    Row() {
+      Column({ space: 2 }) {
+        Text(title)
+          .fontSize(16)
+          .fontColor($r('app.color.text_primary'))
+        Text(desc)
+          .fontSize(12)
+          .fontColor($r('app.color.text_secondary'))
+      }
+      .alignItems(HorizontalAlign.Start)
+      .layoutWeight(1)
+      Toggle({ type: ToggleType.Switch, isOn: this.darkMode })
+        .onChange((isOn: boolean) => {
+          this.darkMode = isOn;
+          toggleDarkMode(isOn);
+        })
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+    .backgroundBlurStyle(BlurStyle.BACKGROUND_THIN)
+    .backgroundColor('rgba(255,255,255,0.04)')
+    .border({ width: 0.5, color: 'rgba(255,255,255,0.08)' })
+    .borderRadius(12)
+  }
+
   build() {
     Column() {
       // 顶栏
@@ -191,6 +221,7 @@ export struct SettingsPage {
               .fontColor($r('app.color.text_secondary'))
               .alignSelf(ItemAlign.Start)
               .padding({ left: 4 });
+            this.toggleRow('深色模式', '关闭后使用浅色主题');
             this.sectionRow('清除缓存', (): void => {
               this.onClearCacheClick();
             });
