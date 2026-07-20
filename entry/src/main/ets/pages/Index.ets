@@ -16,6 +16,8 @@ struct Index {
   @State currentIndex: number = 0;
   @StorageLink('unreadMessageCount') unreadCount: number = 0;
   @StorageLink('tabSwitchSignal') @Watch('onTabSwitch') tabSwitchSignal: number = 0;
+  // 状态栏高度（全屏布局后顶部内容需下移避让）
+  @State statusBarHeight: number = 0;
 
   aboutToAppear(): void {
     initAuthStorage();
@@ -28,7 +30,7 @@ struct Index {
     this.startInit();
   }
 
-  // 窗口全屏布局：内容延伸到系统导航条/小横条之下，底部栏自然贴底
+  // 窗口全屏布局：内容延伸到系统导航条之下让底部栏贴底，同时读取状态栏高度用于顶部避让
   private async setupFullScreen(): Promise<void> {
     try {
       const ctx = this.getUIContext().getHostContext();
@@ -37,6 +39,8 @@ struct Index {
       }
       const win = await window.getLastWindow(ctx);
       await win.setWindowLayoutFullScreen(true);
+      const area = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
+      this.statusBarHeight = px2vp(area.topRect.height);
     } catch (e) {
       // 失败不阻断
     }
@@ -163,6 +167,7 @@ struct Index {
     .animationDuration(250)
     .width('100%')
     .height('100%')
+    .padding({ top: this.statusBarHeight })  // 全屏布局下顶部避让状态栏
     .barBackgroundBlurStyle(BlurStyle.COMPONENT_ULTRA_THICK)
     .barBackgroundColor('rgba(0,0,0,0.55)')
     .backgroundColor($r('app.color.bg_primary'))
