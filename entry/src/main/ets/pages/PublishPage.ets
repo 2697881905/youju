@@ -116,33 +116,12 @@ export struct PublishPage {
   @State isEditMode: boolean = false;
   @State showFields: boolean = false;
   @State showTagPanel: boolean = false;
+  // 标签分类数据（@State 驱动，ForEach 可靠刷新）
+  @State categoryList: string[] = [];
+  @State tagsByCategory: Record<string, Tag[]> = {};
 
   private get canPublish(): boolean {
     return !this.publishing && this.title.trim().length > 0;
-  }
-
-  // 标签按分类聚合
-  private get categorisedTags(): Map<string, Tag[]> {
-    const map: Map<string, Tag[]> = new Map();
-    for (const t of this.tags) {
-      const cat: string = t.category ?? '其他';
-      const arr: Tag[] | undefined = map.get(cat);
-      if (arr !== undefined) {
-        arr.push(t);
-      } else {
-        map.set(cat, [t]);
-      }
-    }
-    return map;
-  }
-
-  // 分类列表（用于 ForEach）
-  private get categoryList(): string[] {
-    const cats: string[] = [];
-    this.categorisedTags.forEach((value: Tag[], key: string) => {
-      cats.push(key);
-    });
-    return cats;
   }
 
   aboutToAppear(): void {
@@ -188,7 +167,33 @@ export struct PublishPage {
   }
 
   private async loadTags(): Promise<void> {
-    try { this.tags = await listTags(); } catch (e) { /* 不阻断 */ }
+    try {
+      this.tags = await listTags();
+      this.buildTagCategoryData();
+    } catch (e) { /* 不阻断 */ }
+  }
+
+  // 将标签按分类聚合到 @State 数据（供面板 ForEach 渲染）
+  private buildTagCategoryData(): void {
+    const map: Map<string, Tag[]> = new Map();
+    for (const t of this.tags) {
+      const cat: string = t.category ?? '其他';
+      const arr: Tag[] | undefined = map.get(cat);
+      if (arr !== undefined) {
+        arr.push(t);
+      } else {
+        map.set(cat, [t]);
+      }
+    }
+    // 转换为 Record + 分类列表
+    const rec: Record<string, Tag[]> = {};
+    const cats: string[] = [];
+    map.forEach((value: Tag[], key: string) => {
+      rec[key] = value;
+      cats.push(key);
+    });
+    this.tagsByCategory = rec;
+    this.categoryList = cats;
   }
 
   private async ensureToken(): Promise<boolean> {
@@ -278,12 +283,6 @@ export struct PublishPage {
 
   @Builder sectionTitle(text: string): void {
     Text(text).fontSize(13).fontColor($r('app.color.text_secondary')).fontWeight(FontWeight.Bold).width('100%')
-  }
-
-  // 获取某分类下的标签（供面板内 ForEach 使用，避免 Map.get 返回类型问题）
-  private tagsOfCategory(cat: string): Tag[] {
-    const result: Tag[] | undefined = this.categorisedTags.get(cat);
-    return result !== undefined ? result : [];
   }
 
   build() {
@@ -421,7 +420,7 @@ export struct PublishPage {
                 Column({ space: 8 }) {
                   Text(cat).fontSize(13).fontColor($r('app.color.text_secondary')).fontWeight(FontWeight.Bold).width('100%')
                   Flex({ wrap: FlexWrap.Wrap, space: { main: LengthMetrics.px(8), cross: LengthMetrics.px(8) } }) {
-                    ForEach(this.tagsOfCategory(cat), (t: Tag) => {
+                    ForEach(this.tagsByCategory[cat] ?? [], (t: Tag) => {
                       Row({ space: 4 }) {
                         if (t.emoji && t.emoji.length > 0) {
                           Text(t.emoji).fontSize(13).fontColor(this.selectedTags.indexOf(t.name ?? '') >= 0 ? '#FFFFFF' : $r('app.color.text_primary'))
