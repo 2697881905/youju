@@ -300,39 +300,61 @@ export struct MessagePage {
       .width('100%')
       .padding({ top: 12, bottom: 12 })
 
-      // 筛选栏：全部 | 赞和收藏 | 关注 | 评论
-      Row({ space: 8 }) {
-        Button('全部')
-          .fontSize(12)
-          .height(28)
-          .fontColor(this.activeFilter === 'all' ? '#FFFFFF' : $r('app.color.text_secondary'))
-          .backgroundColor(this.activeFilter === 'all' ? $r('app.color.brand_primary') : 'rgba(255,255,255,0.06)')
-          .borderRadius(14)
-          .onClick(() => { this.activeFilter = 'all'; })
-        Button('赞和收藏')
-          .fontSize(12)
-          .height(28)
-          .fontColor(this.activeFilter === 'up_bookmark' ? '#FFFFFF' : $r('app.color.text_secondary'))
-          .backgroundColor(this.activeFilter === 'up_bookmark' ? $r('app.color.brand_primary') : 'rgba(255,255,255,0.06)')
-          .borderRadius(14)
-          .onClick(() => { this.activeFilter = 'up_bookmark'; })
-        Button('关注')
-          .fontSize(12)
-          .height(28)
-          .fontColor(this.activeFilter === 'follow' ? '#FFFFFF' : $r('app.color.text_secondary'))
-          .backgroundColor(this.activeFilter === 'follow' ? $r('app.color.brand_primary') : 'rgba(255,255,255,0.06)')
-          .borderRadius(14)
-          .onClick(() => { this.activeFilter = 'follow'; })
-        Button('评论')
-          .fontSize(12)
-          .height(28)
-          .fontColor(this.activeFilter === 'comment' ? '#FFFFFF' : $r('app.color.text_secondary'))
-          .backgroundColor(this.activeFilter === 'comment' ? $r('app.color.brand_primary') : 'rgba(255,255,255,0.06)')
-          .borderRadius(14)
-          .onClick(() => { this.activeFilter = 'comment'; })
+      // 快捷入口：三大类通知大图标
+      Row({ space: 0 }) {
+        Column({ space: 6 }) {
+          Column() {
+            Text('👍')
+              .fontSize(28)
+          }
+          .width(56)
+          .height(56)
+          .borderRadius(16)
+          .backgroundColor('rgba(255,255,255,0.08)')
+          .justifyContent(FlexAlign.Center)
+          Text('赞和收藏')
+            .fontSize(11)
+            .fontColor($r('app.color.text_secondary'))
+        }
+        .layoutWeight(1)
+        .onClick(() => { this.activeFilter = this.activeFilter === 'up_bookmark' ? 'all' : 'up_bookmark'; })
+
+        Column({ space: 6 }) {
+          Column() {
+            Text('➕')
+              .fontSize(28)
+          }
+          .width(56)
+          .height(56)
+          .borderRadius(16)
+          .backgroundColor('rgba(255,255,255,0.08)')
+          .justifyContent(FlexAlign.Center)
+          Text('新增关注')
+            .fontSize(11)
+            .fontColor($r('app.color.text_secondary'))
+        }
+        .layoutWeight(1)
+        .onClick(() => { this.activeFilter = this.activeFilter === 'follow' ? 'all' : 'follow'; })
+
+        Column({ space: 6 }) {
+          Column() {
+            Text('💬')
+              .fontSize(28)
+          }
+          .width(56)
+          .height(56)
+          .borderRadius(16)
+          .backgroundColor('rgba(255,255,255,0.08)')
+          .justifyContent(FlexAlign.Center)
+          Text('评论')
+            .fontSize(11)
+            .fontColor($r('app.color.text_secondary'))
+        }
+        .layoutWeight(1)
+        .onClick(() => { this.activeFilter = this.activeFilter === 'comment' ? 'all' : 'comment'; })
       }
       .width('100%')
-      .padding({ left: 16, right: 16, bottom: 10 })
+      .padding({ left: 16, right: 16, top: 4, bottom: 12 })
 
       if (this.loading && this.list.length === 0) {
         Column() {
