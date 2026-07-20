@@ -56,8 +56,8 @@ export struct ProfilePage {
       this.user = {
         id: this.user.id,
         nickname: p.nickname,
-        avatar: p.avatar,
-        gender: p.gender,
+        avatar: p.avatar ?? undefined,
+        gender: p.gender ?? undefined,
         bio: p.bio ?? this.user.bio,
         followTags: this.user.followTags,
       };
