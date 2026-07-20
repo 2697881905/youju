@@ -109,6 +109,7 @@ struct Index {
     .alignItems(HorizontalAlign.Center)
     .height('100%')
     .width('100%')
+    .padding({ bottom: 22 })  // 向上抬升文字，留出底部安全区域（小横条）空间
   }
 
   build() {
@@ -139,7 +140,7 @@ struct Index {
       .tabBar(this.tabItem('我的', '👤', 4))
     }
     .scrollable(false)
-    .barHeight(56)
+    .barHeight(80)  // 56 + 24px 底部安全区域（home 小横条）
     .barMode(BarMode.Fixed)
     .onChange((index: number) => {
       this.currentIndex = index;
