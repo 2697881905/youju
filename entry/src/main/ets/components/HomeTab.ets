@@ -240,6 +240,9 @@ export struct HomeTab {
           SearchPanel({
             onKeywordSelect: (kw: string): void => {
               this.onKeywordSelect(kw);
+            },
+            onCancel: (): void => {
+              this.showPanel = false;
             }
           })
         }

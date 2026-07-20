@@ -8,6 +8,9 @@ export struct SearchPanel {
   // 关键词选中回调（父组件传入，点击历史/热搜词时触发）
   onKeywordSelect: (keyword: string) => void = (keyword: string) => {};
 
+  // 取消回调（父组件关闭面板、回到原页面）
+  onCancel: () => void = () => {};
+
   @State historyList: string[] = [];
   @State hotList: string[] = [];
   @State loadingState: boolean = true;
@@ -46,6 +49,19 @@ export struct SearchPanel {
 
   build() {
     Column() {
+      // 顶部取消栏：关闭搜索面板，回到原页面
+      Row() {
+        Blank()
+        Text('取消')
+          .fontSize(15)
+          .fontColor($r('app.color.brand_primary'))
+          .padding({ right: 16, top: 12, bottom: 12 })
+          .onClick(() => {
+            this.onCancel();
+          })
+      }
+      .width('100%')
+
       if (this.loadingState) {
         // 加载态
         Column() {
