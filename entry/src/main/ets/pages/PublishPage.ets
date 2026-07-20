@@ -1,5 +1,4 @@
-// 发布器 — Apple 风格（分组卡片 + 大标题 + 清晰信息层级）
-// 图片置顶 → 体裁 chip → 内容卡片(标题+正文) → 标签卡片 → 结构化字段卡片
+// 发布器 — Apple 风格（分组卡片 + 紧凑标签 + 全屏标签选择面板）
 import { LengthMetrics } from '@kit.ArkUI';
 import {
   createPost, updatePost, getPost, listTags,
@@ -87,23 +86,18 @@ function isLongField(key: keyof StructuredData): boolean {
     key === 'planA' || key === 'planB';
 }
 
-// ===== 复用样式：分组卡片容器 =====
+// 可复用分组卡片
 @Component
 struct SectionCard {
   @BuilderParam content: () => void = this.emptyContent;
-
-  @Builder
-  emptyContent(): void {}
-
+  @Builder emptyContent(): void {}
   build() {
-    Column() {
-      this.content()
-    }
-    .width('100%')
-    .backgroundColor($r('app.color.card_bg'))
-    .borderRadius(14)
-    .shadow({ radius: 12, color: '#0A000000', offsetY: 1 })
-    .padding(16)
+    Column() { this.content() }
+      .width('100%')
+      .backgroundColor($r('app.color.card_bg'))
+      .borderRadius(14)
+      .shadow({ radius: 12, color: '#0A000000', offsetY: 1 })
+      .padding(16)
   }
 }
 
@@ -121,9 +115,34 @@ export struct PublishPage {
   @State editPostId: number = 0;
   @State isEditMode: boolean = false;
   @State showFields: boolean = false;
+  @State showTagPanel: boolean = false;
 
   private get canPublish(): boolean {
     return !this.publishing && this.title.trim().length > 0;
+  }
+
+  // 标签按分类聚合
+  private get categorisedTags(): Map<string, Tag[]> {
+    const map: Map<string, Tag[]> = new Map();
+    for (const t of this.tags) {
+      const cat: string = t.category ?? '其他';
+      const arr: Tag[] | undefined = map.get(cat);
+      if (arr !== undefined) {
+        arr.push(t);
+      } else {
+        map.set(cat, [t]);
+      }
+    }
+    return map;
+  }
+
+  // 分类列表（用于 ForEach）
+  private get categoryList(): string[] {
+    const cats: string[] = [];
+    this.categorisedTags.forEach((value: Tag[], key: string) => {
+      cats.push(key);
+    });
+    return cats;
   }
 
   aboutToAppear(): void {
@@ -169,9 +188,7 @@ export struct PublishPage {
   }
 
   private async loadTags(): Promise<void> {
-    try {
-      this.tags = await listTags();
-    } catch (e) { /* 不阻断 */ }
+    try { this.tags = await listTags(); } catch (e) { /* 不阻断 */ }
   }
 
   private async ensureToken(): Promise<boolean> {
@@ -240,216 +257,192 @@ export struct PublishPage {
   private reset(): void {
     this.genre = 'review'; this.selectedTags = [];
     this.title = ''; this.content = ''; this.sd = {};
-    this.images = []; this.showFields = false;
+    this.images = []; this.showFields = false; this.showTagPanel = false;
     this.isEditMode = false; this.editPostId = 0;
   }
 
-  // ===== 体裁 Chip 行 (Apple 风格—选中态蓝底白字) =====
-  @Builder
-  genreChips(): void {
+  // 体裁 chip 行
+  @Builder genreChips(): void {
     Row({ space: 10 }) {
       ForEach(GENRE_LIST, (g: GenreItem) => {
         Row({ space: 4 }) {
-          Text(g.icon)
-            .fontSize(15)
-            .fontColor(this.genre === g.key ? '#FFFFFF' : $r('app.color.text_primary'))
-          Text(g.label)
-            .fontSize(14)
-            .fontWeight(FontWeight.Medium)
-            .fontColor(this.genre === g.key ? '#FFFFFF' : $r('app.color.text_primary'))
+          Text(g.icon).fontSize(15).fontColor(this.genre === g.key ? '#FFFFFF' : $r('app.color.text_primary'))
+          Text(g.label).fontSize(14).fontWeight(FontWeight.Medium).fontColor(this.genre === g.key ? '#FFFFFF' : $r('app.color.text_primary'))
         }
         .backgroundColor(this.genre === g.key ? $r('app.color.brand_primary') : $r('app.color.bg_secondary'))
-        .borderRadius(18)
-        .padding({ left: 14, right: 14, top: 8, bottom: 8 })
+        .borderRadius(18).padding({ left: 14, right: 14, top: 8, bottom: 8 })
         .onClick(() => { this.genre = g.key; })
       }, (g: GenreItem) => g.key)
     }
   }
 
-  // ===== 章节标题 (Apple SF 风格—13px 全大写灰色) =====
-  @Builder
-  sectionTitle(text: string): void {
-    Text(text)
-      .fontSize(13)
-      .fontColor($r('app.color.text_secondary'))
-      .fontWeight(FontWeight.Bold)
-      .width('100%')
+  @Builder sectionTitle(text: string): void {
+    Text(text).fontSize(13).fontColor($r('app.color.text_secondary')).fontWeight(FontWeight.Bold).width('100%')
+  }
+
+  // 获取某分类下的标签（供面板内 ForEach 使用，避免 Map.get 返回类型问题）
+  private tagsOfCategory(cat: string): Tag[] {
+    const result: Tag[] | undefined = this.categorisedTags.get(cat);
+    return result !== undefined ? result : [];
   }
 
   build() {
-    Column() {
-      // ===== 顶部导航栏 — SF 风格大标题 + 发布按钮 =====
-      Row() {
-        Button({ type: ButtonType.Normal }) {
-          Text('取消')
-            .fontSize(15)
-            .fontColor($r('app.color.text_secondary'))
+    Stack() {
+      // ===== 主发布页 =====
+      Column() {
+        // 顶部栏
+        Row() {
+          Button({ type: ButtonType.Normal }) {
+            Text('取消').fontSize(15).fontColor($r('app.color.text_secondary'))
+          }
+          .backgroundColor(Color.Transparent).onClick(() => { this.reset(); })
+          Blank()
+          Button(this.isEditMode ? '保存' : '发布')
+            .fontSize(14).fontWeight(600).height(34).padding({ left: 20, right: 20 })
+            .enabled(this.canPublish)
+            .backgroundColor(this.canPublish ? $r('app.color.brand_primary') : '#A0A0A8')
+            .fontColor('#FFFFFF').borderRadius(17)
+            .onClick(() => { this.publish(); })
         }
-        .backgroundColor(Color.Transparent)
-        .onClick(() => { this.reset(); })
+        .width('100%').padding({ left: 16, right: 16, top: 8, bottom: 6 })
 
-        Blank()
+        Scroll() {
+          Column({ space: 20 }) {
+            // ① 图片
+            ImagePicker({ selected: $images, maxCount: 9 })
 
-        Button(this.isEditMode ? '保存' : '发布')
-          .fontSize(14)
-          .fontWeight(600)
-          .height(34)
-          .padding({ left: 20, right: 20 })
-          .enabled(this.canPublish)
-          .backgroundColor(this.canPublish ? $r('app.color.brand_primary') : '#A0A0A8')
-          .fontColor('#FFFFFF')
-          .borderRadius(17)
-          .onClick(() => { this.publish(); })
-      }
-      .width('100%')
-      .padding({ left: 16, right: 16, top: 8, bottom: 6 })
+            // ② 体裁
+            Column({ space: 10 }) {
+              this.sectionTitle('体裁')
+              this.genreChips()
+            }.width('100%').padding({ left: 16, right: 16 })
 
-      // ===== 内容区 — 分组卡片 + 充足留白 =====
-      Scroll() {
-        Column({ space: 20 }) {
-          // ── 图片区（置顶，视觉主角）──
-          ImagePicker({ selected: $images, maxCount: 9 })
-
-          // ── 体裁选择 ──
-          Column({ space: 10 }) {
-            this.sectionTitle('体裁')
-            this.genreChips()
-          }
-          .width('100%')
-          .padding({ left: 16, right: 16 })
-
-          // ── 内容卡片 ──
-          Column({ space: 10 }) {
-            this.sectionTitle('内容')
-            SectionCard() {
-              Column({ space: 12 }) {
-                // 标题 — 无边框, 17px, Medium
-                TextInput({ text: this.title, placeholder: '标题' })
-                  .width('100%')
-                  .fontSize(17)
-                  .fontWeight(FontWeight.Medium)
-                  .fontColor($r('app.color.text_primary'))
-                  .placeholderColor($r('app.color.text_tertiary'))
-                  .backgroundColor(Color.Transparent)
-                  .onChange((v: string) => { this.title = v; })
-
-                Divider()
-                  .height(0.5)
-                  .color($r('app.color.divider'))
-
-                // 正文 — 无边框
-                TextArea({ text: this.content, placeholder: '展开讲讲背景、过程、结论…' })
-                  .width('100%')
-                  .height(100)
-                  .fontSize(15)
-                  .fontColor($r('app.color.text_primary'))
-                  .placeholderColor($r('app.color.text_tertiary'))
-                  .backgroundColor(Color.Transparent)
-                  .onChange((v: string) => { this.content = v; })
-              }
-            }
-          }
-          .width('100%')
-          .padding({ left: 16, right: 16 })
-
-          // ── 标签卡片 ──
-          Column({ space: 10 }) {
-            this.sectionTitle('标签 · 最多 3 个')
-            SectionCard() {
-              Flex({ wrap: FlexWrap.Wrap, space: { main: LengthMetrics.px(8), cross: LengthMetrics.px(8) } }) {
-                ForEach(this.tags, (t: Tag) => {
-                  Row({ space: 4 }) {
-                    if (t.emoji && t.emoji.length > 0) {
-                      Text(t.emoji).fontSize(13)
-                        .fontColor(this.selectedTags.indexOf(t.name ?? '') >= 0
-                          ? '#FFFFFF' : $r('app.color.text_primary'))
-                    }
-                    Text(t.name ?? '')
-                      .fontSize(13)
-                      .fontColor(this.selectedTags.indexOf(t.name ?? '') >= 0
-                        ? '#FFFFFF' : $r('app.color.text_primary'))
-                  }
-                  .backgroundColor(this.selectedTags.indexOf(t.name ?? '') >= 0
-                    ? $r('app.color.brand_primary')
-                    : $r('app.color.bg_secondary'))
-                  .borderRadius(14)
-                  .padding({ left: 12, right: 12, top: 6, bottom: 6 })
-                  .onClick(() => this.toggleTag(t.name ?? ''))
-                }, (t: Tag) => t.name ?? '')
-              }
-              .width('100%')
-            }
-          }
-          .width('100%')
-          .padding({ left: 16, right: 16 })
-
-          // ── 结构化字段卡片（可折叠）──
-          Column({ space: 10 }) {
-            Row() {
-              Text('结构化信息 · 选填')
-                .fontSize(13)
-                .fontColor($r('app.color.text_secondary'))
-                .fontWeight(FontWeight.Bold)
-                .layoutWeight(1)
-              Text(this.showFields ? '收起 ▲' : '展开 ▼')
-                .fontSize(12)
-                .fontColor($r('app.color.brand_primary'))
-            }
-            .width('100%')
-            .onClick(() => { this.showFields = !this.showFields; })
-
-            if (this.showFields) {
+            // ③ 内容
+            Column({ space: 10 }) {
+              this.sectionTitle('内容')
               SectionCard() {
                 Column({ space: 12 }) {
-                  ForEach(genreFieldDefs(this.genre), (item: FieldDef) => {
-                    Column({ space: 4 }) {
-                      Text(item[1])
-                        .fontSize(12)
-                        .fontColor($r('app.color.text_secondary'))
-                        .width('100%')
-                      if (isLongField(item[0])) {
-                        TextArea({ text: String(readField(this.sd, item[0]) ?? ''), placeholder: item[1] })
-                          .width('100%')
-                          .height(64)
-                          .fontSize(14)
-                          .placeholderColor($r('app.color.text_tertiary'))
-                          .backgroundColor($r('app.color.bg_secondary'))
-                          .borderRadius(10)
-                          .padding(10)
-                          .onChange((v: string) => this.onFieldChange(item[0], v))
-                      } else {
-                        TextInput({ text: String(readField(this.sd, item[0]) ?? ''), placeholder: item[1] })
-                          .width('100%')
-                          .fontSize(14)
-                          .placeholderColor($r('app.color.text_tertiary'))
-                          .backgroundColor($r('app.color.bg_secondary'))
-                          .borderRadius(10)
-                          .padding(10)
-                          .onChange((v: string) => this.onFieldChange(item[0], v))
-                      }
-                    }
-                    .width('100%')
-                    .alignItems(HorizontalAlign.Start)
-                  }, (item: FieldDef) => item[0] as string)
+                  TextInput({ text: this.title, placeholder: '标题' })
+                    .width('100%').fontSize(17).fontWeight(FontWeight.Medium)
+                    .fontColor($r('app.color.text_primary')).placeholderColor($r('app.color.text_tertiary'))
+                    .backgroundColor(Color.Transparent).onChange((v: string) => { this.title = v; })
+                  Divider().height(0.5).color($r('app.color.divider'))
+                  TextArea({ text: this.content, placeholder: '展开讲讲背景、过程、结论…' })
+                    .width('100%').height(100).fontSize(15)
+                    .fontColor($r('app.color.text_primary')).placeholderColor($r('app.color.text_tertiary'))
+                    .backgroundColor(Color.Transparent).onChange((v: string) => { this.content = v; })
                 }
               }
-            }
-          }
-          .width('100%')
-          .padding({ left: 16, right: 16 })
+            }.width('100%').padding({ left: 16, right: 16 })
 
-          // 底部留白 — 给 TabBar 让出空间
-          Row().height(32).width('100%')
+            // ④ 标签（紧凑行）
+            Column({ space: 10 }) {
+              this.sectionTitle('标签 · 最多 3 个')
+              SectionCard() {
+                Column({ space: 8 }) {
+                  if (this.selectedTags.length > 0) {
+                    Flex({ wrap: FlexWrap.Wrap, space: { main: LengthMetrics.px(8), cross: LengthMetrics.px(8) } }) {
+                      ForEach(this.selectedTags, (name: string) => {
+                        Row({ space: 4 }) {
+                          Text(name).fontSize(13).fontColor('#FFFFFF')
+                          Text('✕').fontSize(11).fontColor('#FFFFFF').onClick(() => this.toggleTag(name))
+                        }
+                        .backgroundColor($r('app.color.brand_primary')).borderRadius(14)
+                        .padding({ left: 10, right: 10, top: 6, bottom: 6 })
+                      }, (name: string) => 'st_' + name)
+                    }.width('100%')
+                  }
+                  Row({ space: 6 }) {
+                    Text('＋').fontSize(15).fontColor($r('app.color.brand_primary'))
+                    Text('添加标签').fontSize(13).fontColor($r('app.color.brand_primary'))
+                  }
+                  .width('100%').height(36).justifyContent(FlexAlign.Center)
+                  .backgroundColor($r('app.color.bg_secondary')).borderRadius(10)
+                  .onClick(() => { this.showTagPanel = true; })
+                }
+              }
+            }.width('100%').padding({ left: 16, right: 16 })
+
+            // ⑤ 结构化字段（可折叠）
+            Column({ space: 10 }) {
+              Row() {
+                Text('结构化信息 · 选填')
+                  .fontSize(13).fontColor($r('app.color.text_secondary')).fontWeight(FontWeight.Bold).layoutWeight(1)
+                Text(this.showFields ? '收起 ▲' : '展开 ▼').fontSize(12).fontColor($r('app.color.brand_primary'))
+              }.width('100%').padding({ left: 16, right: 16 }).onClick(() => { this.showFields = !this.showFields; })
+              if (this.showFields) {
+                SectionCard() {
+                  Column({ space: 12 }) {
+                    ForEach(genreFieldDefs(this.genre), (item: FieldDef) => {
+                      Column({ space: 4 }) {
+                        Text(item[1]).fontSize(12).fontColor($r('app.color.text_secondary')).width('100%')
+                        if (isLongField(item[0])) {
+                          TextArea({ text: String(readField(this.sd, item[0]) ?? ''), placeholder: item[1] })
+                            .width('100%').height(64).fontSize(14).placeholderColor($r('app.color.text_tertiary'))
+                            .backgroundColor($r('app.color.bg_secondary')).borderRadius(10).padding(10)
+                            .onChange((v: string) => this.onFieldChange(item[0], v))
+                        } else {
+                          TextInput({ text: String(readField(this.sd, item[0]) ?? ''), placeholder: item[1] })
+                            .width('100%').fontSize(14).placeholderColor($r('app.color.text_tertiary'))
+                            .backgroundColor($r('app.color.bg_secondary')).borderRadius(10).padding(10)
+                            .onChange((v: string) => this.onFieldChange(item[0], v))
+                        }
+                      }.width('100%').alignItems(HorizontalAlign.Start)
+                    }, (item: FieldDef) => item[0] as string)
+                  }
+                }
+              }
+            }.width('100%').padding({ left: 16, right: 16 })
+
+            Row().height(32).width('100%')
+          }.width('100%').alignItems(HorizontalAlign.Start)
         }
-        .width('100%')
-        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1).width('100%').scrollBar(BarState.Off)
       }
-      .layoutWeight(1)
-      .width('100%')
-      .scrollBar(BarState.Off)
+      .width('100%').height('100%').backgroundColor($r('app.color.bg_primary'))
+
+      // ===== 标签选择面板（全屏覆盖）=====
+      if (this.showTagPanel) {
+        Column() {
+          Row() {
+            Text('选择标签').fontSize(17).fontWeight(FontWeight.Bold).fontColor($r('app.color.text_primary'))
+            Blank()
+            Text('1-3个').fontSize(13).fontColor($r('app.color.text_secondary')).margin({ right: 16 })
+            Button('完成').fontSize(13).fontWeight(600).height(32).padding({ left: 16, right: 16 })
+              .backgroundColor($r('app.color.brand_primary')).fontColor('#FFFFFF').borderRadius(16)
+              .onClick(() => { this.showTagPanel = false; })
+          }
+          .width('100%').padding({ left: 16, right: 16, top: 10, bottom: 10 }).backgroundColor($r('app.color.bg_primary'))
+          Divider().height(0.5).color($r('app.color.divider')).width('100%')
+
+          Scroll() {
+            Column({ space: 20 }) {
+              ForEach(this.categoryList, (cat: string) => {
+                Column({ space: 8 }) {
+                  Text(cat).fontSize(13).fontColor($r('app.color.text_secondary')).fontWeight(FontWeight.Bold).width('100%')
+                  Flex({ wrap: FlexWrap.Wrap, space: { main: LengthMetrics.px(8), cross: LengthMetrics.px(8) } }) {
+                    ForEach(this.tagsOfCategory(cat), (t: Tag) => {
+                      Row({ space: 4 }) {
+                        if (t.emoji && t.emoji.length > 0) {
+                          Text(t.emoji).fontSize(13).fontColor(this.selectedTags.indexOf(t.name ?? '') >= 0 ? '#FFFFFF' : $r('app.color.text_primary'))
+                        }
+                        Text(t.name ?? '').fontSize(13).fontColor(this.selectedTags.indexOf(t.name ?? '') >= 0 ? '#FFFFFF' : $r('app.color.text_primary'))
+                      }
+                      .backgroundColor(this.selectedTags.indexOf(t.name ?? '') >= 0 ? $r('app.color.brand_primary') : $r('app.color.bg_secondary'))
+                      .borderRadius(14).padding({ left: 12, right: 12, top: 6, bottom: 6 })
+                      .onClick(() => this.toggleTag(t.name ?? ''))
+                    }, (t: Tag) => t.name ?? '')
+                  }.width('100%')
+                }
+              }, (cat: string) => cat)
+              Row().height(32).width('100%')
+            }.width('100%').padding({ left: 16, right: 16, top: 12, bottom: 16 }).alignItems(HorizontalAlign.Start)
+          }
+          .layoutWeight(1).width('100%').scrollBar(BarState.Off)
+        }
+        .width('100%').height('100%').backgroundColor($r('app.color.bg_primary'))
+      }
     }
-    .width('100%')
-    .height('100%')
-    .backgroundColor($r('app.color.bg_primary'))
+    .width('100%').height('100%').backgroundColor($r('app.color.bg_primary'))
   }
 }
