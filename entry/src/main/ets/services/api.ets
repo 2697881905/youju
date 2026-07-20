@@ -550,8 +550,13 @@ export function updatePrivacySettings(body: PrivacySettingsData): Promise<Privac
 
 // ===== 辩论投票 =====
 // POST /v1/posts/:id/vote { choice: 'A' | 'B' }
+interface VoteDebateBody {
+  choice: string;
+}
+
 export function voteDebate(postId: number, choice: string): Promise<DebateVoteResult> {
-  return api.post<DebateVoteResult>('/v1/posts/' + postId + '/vote', { choice });
+  const body: VoteDebateBody = { choice: choice };
+  return api.post<DebateVoteResult>('/v1/posts/' + postId + '/vote', body);
 }
 
 // ===== 数据导出 =====
