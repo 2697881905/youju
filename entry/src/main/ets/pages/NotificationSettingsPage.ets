@@ -42,12 +42,23 @@ export struct NotificationSettingsPage {
 
   private async onToggle(key: string): Promise<void> {
     // 乐观更新：先改 UI，再调后端
-    const newPrefs: NotificationPrefs = { ...this.prefs };
+    // 快照当前值（arkts-no-spread，逐字段拷贝）
+    const snapshot: NotificationPrefs = {
+      comment: this.prefs.comment,
+      up: this.prefs.up,
+      bookmark: this.prefs.bookmark,
+      follow: this.prefs.follow,
+      system: this.prefs.system,
+    };
     try {
-      await updateNotificationPrefs(newPrefs);
+      await updateNotificationPrefs(snapshot);
     } catch (e) {
-      // 回滚：恢复旧值
-      this.prefs = { ...this.prefs };
+      // 回滚：恢复快照值
+      this.prefs.comment = snapshot.comment;
+      this.prefs.up = snapshot.up;
+      this.prefs.bookmark = snapshot.bookmark;
+      this.prefs.follow = snapshot.follow;
+      this.prefs.system = snapshot.system;
       safeShowToast(this.getUIContext(), { message: '保存失败：' + (e as Error).message });
     }
   }
