@@ -262,7 +262,8 @@ struct DetailPage {
       primaryButton: { value: '取消', action: (): void => {} },
       secondaryButton: { value: '确认删除', fontColor: '#FF453A', action: async (): Promise<void> => {
         try {
-          await deletePost(this.pid);
+          if (!this.post || this.post.id === undefined) return;
+          await deletePost(this.post.id);
           safeShowToast(this.getUIContext(), { message: '帖子已删除' });
           router.back();
         } catch (e) {
