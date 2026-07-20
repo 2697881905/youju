@@ -1,103 +1,14 @@
 // 设置页：分区结构（账号与安全 / 通用 / 关于）+ 退出登录（二次确认）+ 账号注销（双重确认）。
 // 退出登录：clearSession + 跳登录页；账号注销：后端软删（POST /v1/auth/me/deactivate）+ 清态 + 跳登录页。
-import { router, CustomDialogController } from '@kit.ArkUI';
-import { getIsAdmin, getCurrentUser, clearSession } from '../utils/auth';
+import { router } from '@kit.ArkUI';
+import { getIsAdmin, clearSession } from '../utils/auth';
 import { deactivateAccount } from '../services/api';
 import { safeShowToast } from '../utils/toast';
-
-// 账号注销第二层确认弹窗（@CustomDialog 支持内嵌 TextInput/Checkbox，AlertDialog 无法内嵌输入）。
-@CustomDialog
-export struct DeactivateConfirmDialog {
-  controller: CustomDialogController;
-  currentNickname: string = '';
-  onConfirm: () => void = (): void => {};
-
-  @State inputNickname: string = '';
-  @State confirmed: boolean = false;
-
-  // 输入昵称与当前一致 或 勾选确认 → 启用「确认注销」
-  private canConfirm(): boolean {
-    if (this.confirmed) {
-      return true;
-    }
-    return this.inputNickname.trim() === this.currentNickname;
-  }
-
-  build() {
-    Column({ space: 16 }) {
-      Text('确认注销账号')
-        .fontSize(18)
-        .fontWeight(FontWeight.Bold)
-        .fontColor($r('app.color.text_primary'));
-
-      Text('请输入你的昵称「' + this.currentNickname + '」以确认注销，或勾选下方确认框。')
-        .fontSize(13)
-        .fontColor($r('app.color.text_secondary'));
-
-      TextInput({ placeholder: '请输入当前昵称', text: this.inputNickname })
-        .width('100%')
-        .height(44)
-        .backgroundColor($r('app.color.bg_primary'))
-        .borderRadius(10)
-        .onChange((v: string) => {
-          this.inputNickname = v;
-        });
-
-      Row({ space: 8 }) {
-        Checkbox({ name: 'deactivateConfirm', group: 'deactivate' })
-          .select(this.confirmed)
-          .onChange((isChecked: boolean) => {
-            this.confirmed = isChecked;
-          });
-        Text('我已阅读并理解注销后果，确认注销')
-          .fontSize(13)
-          .fontColor($r('app.color.text_primary'));
-      }
-      .width('100%');
-
-      Row({ space: 12 }) {
-        Button('取消')
-          .layoutWeight(1)
-          .backgroundColor($r('app.color.bg_primary'))
-          .fontColor($r('app.color.text_secondary'))
-          .onClick(() => {
-            this.controller.close();
-          });
-        Button('确认注销')
-          .layoutWeight(1)
-          .enabled(this.canConfirm())
-          .backgroundColor('#FF453A')
-          .fontColor('#FFFFFF')
-          .onClick(() => {
-            this.controller.close();
-            this.onConfirm();
-          });
-      }
-      .width('100%');
-    }
-    .padding(20)
-    .backgroundColor($r('app.color.card_bg'))
-    .borderRadius(16);
-  }
-}
 
 @Entry
 @Component
 export struct SettingsPage {
   @State isAdmin: boolean = getIsAdmin();
-  // 当前昵称（构造期从登录态读取，供注销二次确认比对；非 @State 避免重复触发渲染）
-  private currentNickname: string = getCurrentUser()?.nickname ?? '';
-
-  // 注销确认弹窗控制器（构造期捕获 currentNickname）
-  private deactivateController: CustomDialogController = new CustomDialogController({
-    builder: DeactivateConfirmDialog({
-      currentNickname: this.currentNickname,
-      onConfirm: (): void => {
-        this.doDeactivate();
-      },
-    }),
-    autoCancel: false,
-  });
 
   aboutToAppear(): void {
     this.isAdmin = getIsAdmin();
@@ -125,23 +36,20 @@ export struct SettingsPage {
     });
   }
 
-  // 账号注销：第一层意图确认 → 第二层输入/勾选确认（CustomDialog）
+  // 账号注销：第一层意图确认 → 第二层再次确认（两层 showAlertDialog 嵌套）
   private onDeactivateClick(): void {
     this.getUIContext().showAlertDialog({
       title: '注销账号？',
-      message: '注销后你的账号将被永久关闭，昵称/头像将被匿名化且不可恢复；' +
-        '你的帖子/评论将保留（匿名归属）。请谨慎操作。',
-      primaryButton: {
-        value: '取消',
-        action: (): void => {},
-      },
-      secondaryButton: {
-        value: '继续注销',
-        fontColor: '#FF453A',
-        action: (): void => {
-          this.deactivateController.open();
-        },
-      },
+      message: '注销后你的账号将被永久关闭，昵称/头像将被匿名化且不可恢复；你的帖子/评论将保留（匿名归属）。请谨慎操作。',
+      primaryButton: { value: '取消', action: (): void => {} },
+      secondaryButton: { value: '继续注销', fontColor: '#FF453A', action: (): void => {
+        this.getUIContext().showAlertDialog({
+          title: '再次确认',
+          message: '此操作不可恢复，确定要注销账号吗？',
+          primaryButton: { value: '取消', action: (): void => {} },
+          secondaryButton: { value: '确认注销', fontColor: '#FF453A', action: (): void => { this.doDeactivate(); } },
+        });
+      } },
     });
   }
 
@@ -210,7 +118,7 @@ export struct SettingsPage {
             Text('账号与安全')
               .fontSize(13)
               .fontColor($r('app.color.text_secondary'))
-              .alignSelf(HorizontalAlign.Start)
+              .alignSelf(ItemAlign.Start)
               .padding({ left: 4 });
             this.sectionRow('编辑资料', (): void => {
               router.pushUrl({ url: 'pages/EditProfilePage' });
@@ -231,7 +139,7 @@ export struct SettingsPage {
             Text('通用')
               .fontSize(13)
               .fontColor($r('app.color.text_secondary'))
-              .alignSelf(HorizontalAlign.Start)
+              .alignSelf(ItemAlign.Start)
               .padding({ left: 4 });
             this.sectionRow('通知设置', (): void => {
               safeShowToast(this.getUIContext(), { message: '敬请期待' });
@@ -247,7 +155,7 @@ export struct SettingsPage {
             Text('关于')
               .fontSize(13)
               .fontColor($r('app.color.text_secondary'))
-              .alignSelf(HorizontalAlign.Start)
+              .alignSelf(ItemAlign.Start)
               .padding({ left: 4 });
             this.sectionRow('关于大蓝书 · 版本 1.0.0', (): void => {
               safeShowToast(this.getUIContext(), { message: '大蓝书 1.0.0' });

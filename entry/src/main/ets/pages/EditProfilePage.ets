@@ -103,7 +103,7 @@ export struct EditProfilePage {
           Text('昵称')
             .fontSize(14)
             .fontColor($r('app.color.text_secondary'))
-            .alignSelf(HorizontalAlign.Start);
+            .alignSelf(ItemAlign.Start);
           TextInput({ placeholder: '请输入昵称', text: this.nickname })
             .width('100%')
             .height(44)
@@ -115,7 +115,7 @@ export struct EditProfilePage {
           Text(this.nickname.trim().length + '/20')
             .fontSize(12)
             .fontColor($r('app.color.text_secondary'))
-            .alignSelf(HorizontalAlign.End);
+            .alignSelf(ItemAlign.End);
         }
         .width('100%')
 
@@ -124,7 +124,7 @@ export struct EditProfilePage {
           Text('个人简介')
             .fontSize(14)
             .fontColor($r('app.color.text_secondary'))
-            .alignSelf(HorizontalAlign.Start);
+            .alignSelf(ItemAlign.Start);
           TextArea({ placeholder: '介绍一下自己吧（选填）', text: this.bio })
             .width('100%')
             .height(100)
@@ -136,7 +136,7 @@ export struct EditProfilePage {
           Text(this.bio.length + '/100')
             .fontSize(12)
             .fontColor($r('app.color.text_secondary'))
-            .alignSelf(HorizontalAlign.End);
+            .alignSelf(ItemAlign.End);
         }
         .width('100%');
       }

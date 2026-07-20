@@ -7,7 +7,7 @@ import { MessagePage } from './MessagePage';
 import { ProfilePage } from './ProfilePage';
 import { initAuthStorage, getToken, setPrivacyAgreed, isPrivacyAgreed } from '../utils/auth';
 import { getUnreadCount } from '../services/api';
-import { router, getContext } from '@kit.ArkUI';
+import { router } from '@kit.ArkUI';
 import { common } from '@kit.AbilityKit';
 
 @Entry
