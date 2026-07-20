@@ -150,5 +150,6 @@ struct Index {
     .barBackgroundBlurStyle(BlurStyle.COMPONENT_ULTRA_THICK)
     .barBackgroundColor('rgba(0,0,0,0.55)')
     .backgroundColor($r('app.color.bg_primary'))
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
   }
 }
