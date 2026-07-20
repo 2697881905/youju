@@ -386,8 +386,11 @@ export struct PublishPage {
           // ── 结构化字段卡片（可折叠）──
           Column({ space: 10 }) {
             Row() {
-              this.sectionTitle('结构化信息 · 选填')
-              Blank()
+              Text('结构化信息 · 选填')
+                .fontSize(13)
+                .fontColor($r('app.color.text_secondary'))
+                .fontWeight(FontWeight.Bold)
+                .layoutWeight(1)
               Text(this.showFields ? '收起 ▲' : '展开 ▼')
                 .fontSize(12)
                 .fontColor($r('app.color.brand_primary'))
