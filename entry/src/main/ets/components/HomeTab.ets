@@ -240,13 +240,10 @@ export struct HomeTab {
 
         Blank()
 
-        // 右侧搜索框
-        Row({ space: 4 }) {
-          Text('🔍')
-            .fontSize(15)
-            .fontColor($r('app.color.text_secondary'))
+        // 右侧搜索框（无前置图标）
+        Row() {
           TextInput({ placeholder: '搜索', text: this.searchKeyword })
-            .width(118)
+            .width(140)
             .height(34)
             .backgroundColor($r('app.color.bg_secondary'))
             .borderRadius(17)
