@@ -29,7 +29,6 @@ export struct HomeTab {
   @State finished: boolean = false;
   @State isRefreshing: boolean = false;
   @State error: string = '';
-  @State searchKeyword: string = '';
   @State showPanel: boolean = false;
   @State feedMode: FeedMode = 'recommend'; // 'recommend' | 'following'
   @State needLogin: boolean = false; // 关注流且未登录的引导态
@@ -171,9 +170,8 @@ export struct HomeTab {
     }
   }
 
-  // SearchPanel 关键词选中回调：填入搜索框 + 触发搜索
+  // SearchPanel 关键词选中回调：触发搜索
   private onKeywordSelect(kw: string): void {
-    this.searchKeyword = kw;
     this.doSearch(kw);
   }
 
@@ -212,43 +210,36 @@ export struct HomeTab {
 
         Blank()
 
-        // 右侧搜索框（无前置图标）
+        // 右侧搜索入口（点击打开全屏搜索面板）
         Row() {
-          TextInput({ placeholder: '搜索', text: this.searchKeyword })
-            .width(140)
-            .height(34)
-            .backgroundColor($r('app.color.bg_secondary'))
-            .borderRadius(17)
-            .onChange((v: string) => {
-              this.searchKeyword = v;
-            })
-            .onFocus(() => {
-              this.showPanel = true;
-            })
-            .onSubmit(() => {
-              this.doSearch(this.searchKeyword);
-            })
+          Text('搜索')
+            .fontSize(14)
+            .fontColor($r('app.color.text_secondary'))
         }
+        .width(140)
+        .height(34)
+        .backgroundColor($r('app.color.bg_secondary'))
+        .borderRadius(17)
+        .justifyContent(FlexAlign.Center)
+        .alignItems(VerticalAlign.Center)
+        .onClick(() => {
+          this.showPanel = true;
+        })
       }
       .alignItems(VerticalAlign.Center)
       .padding({ left: 16, right: 12, top: 8, bottom: 8 })
       .width('100%')
 
-      // 搜索面板（获焦时展示，替代标签栏+列表）
+      // 全屏搜索面板（覆盖整个首页）
       if (this.showPanel) {
-        Scroll() {
-          SearchPanel({
-            onKeywordSelect: (kw: string): void => {
-              this.onKeywordSelect(kw);
-            },
-            onCancel: (): void => {
-              this.showPanel = false;
-            }
-          })
-        }
-        .layoutWeight(1)
-        .width('100%')
-        .scrollBar(BarState.Off)
+        SearchPanel({
+          onKeywordSelect: (kw: string): void => {
+            this.onKeywordSelect(kw);
+          },
+          onCancel: (): void => {
+            this.showPanel = false;
+          }
+        })
       } else {
         // 标签筛选栏
         TagNav({
