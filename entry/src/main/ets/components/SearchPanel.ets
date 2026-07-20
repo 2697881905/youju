@@ -107,91 +107,86 @@ export struct SearchPanel {
         .justifyContent(FlexAlign.Center)
         .alignItems(HorizontalAlign.Center)
       } else {
-        Scroll() {
-          Column() {
-            // ----- 搜索历史（列表形式，可清除）-----
-            if (this.historyList.length > 0) {
-              Row() {
-                Text('搜索历史')
-                  .fontSize(14)
-                  .fontWeight(FontWeight.Bold)
-                  .fontColor($r('app.color.text_primary'))
-                Blank()
-                Text('清除')
-                  .fontSize(13)
-                  .fontColor($r('app.color.text_secondary'))
-                  .onClick(() => {
-                    this.clearHistory();
-                  })
-              }
-              .width('100%')
-              .padding({ left: 16, right: 16, top: 12, bottom: 6 })
-
-              ForEach(this.historyList, (kw: string, idx: number) => {
-                Text(kw)
-                  .width('100%')
-                  .fontSize(15)
-                  .fontColor($r('app.color.text_primary'))
-                  .padding({ left: 16, right: 16, top: 10, bottom: 10 })
-                  .onClick(() => {
-                    this.onKeywordSelect(kw);
-                  })
-              }, (kw: string, idx: number) => 'history_' + idx.toString() + '_' + kw)
-
-              Divider()
-                .width('100%')
-                .height(1)
-                .color($r('app.color.divider'))
-                .margin({ left: 16, right: 16, top: 2, bottom: 2 })
-            }
-
-            // ----- 猜你想搜 -----
+        Column() {
+          // ----- 搜索历史（列表形式，可清除）-----
+          if (this.historyList.length > 0) {
             Row() {
-              Text('猜你想搜')
+              Text('搜索历史')
                 .fontSize(14)
                 .fontWeight(FontWeight.Bold)
                 .fontColor($r('app.color.text_primary'))
               Blank()
+              Text('清除')
+                .fontSize(13)
+                .fontColor($r('app.color.text_secondary'))
+                .onClick(() => {
+                  this.clearHistory();
+                })
             }
             .width('100%')
-            .padding({ left: 16, right: 16, top: 8, bottom: 6 })
+            .padding({ left: 16, right: 16, top: 12, bottom: 6 })
 
-            if (this.hotList.length === 0) {
-              Text('暂无热搜词')
+            ForEach(this.historyList, (kw: string, idx: number) => {
+              Text(kw)
                 .width('100%')
-                .fontSize(14)
-                .fontColor($r('app.color.text_secondary'))
-                .padding({ left: 16, right: 16, top: 8, bottom: 12 })
-            } else {
-              ForEach(this.hotList, (kw: string, idx: number) => {
-                Row({ space: 8 }) {
-                  Text(kw)
-                    .fontSize(15)
-                    .fontColor($r('app.color.text_primary'))
-                    .layoutWeight(1)
-                  if (idx < 3) {
-                    Text('热')
-                      .fontSize(10)
-                      .fontColor('#FFFFFF')
-                      .backgroundColor($r('app.color.semantic_red'))
-                      .borderRadius(4)
-                      .padding({ left: 4, right: 4, top: 2, bottom: 2 })
-                  }
-                }
-                .width('100%')
+                .fontSize(15)
+                .fontColor($r('app.color.text_primary'))
                 .padding({ left: 16, right: 16, top: 10, bottom: 10 })
                 .onClick(() => {
                   this.onKeywordSelect(kw);
                 })
-              }, (kw: string, idx: number) => 'hot_' + idx.toString() + '_' + kw)
-            }
+            }, (kw: string, idx: number) => 'history_' + idx.toString() + '_' + kw)
+
+            Divider()
+              .width('100%')
+              .height(1)
+              .color($r('app.color.divider'))
+              .margin({ left: 16, right: 16, top: 2, bottom: 2 })
+          }
+
+          // ----- 猜你想搜 -----
+          Row() {
+            Text('猜你想搜')
+              .fontSize(14)
+              .fontWeight(FontWeight.Bold)
+              .fontColor($r('app.color.text_primary'))
+            Blank()
           }
           .width('100%')
-          .alignItems(HorizontalAlign.Start)
+          .padding({ left: 16, right: 16, top: 8, bottom: 6 })
+
+          if (this.hotList.length === 0) {
+            Text('暂无热搜词')
+              .width('100%')
+              .fontSize(14)
+              .fontColor($r('app.color.text_secondary'))
+              .padding({ left: 16, right: 16, top: 8, bottom: 12 })
+          } else {
+            ForEach(this.hotList, (kw: string, idx: number) => {
+              Row({ space: 8 }) {
+                Text(kw)
+                  .fontSize(15)
+                  .fontColor($r('app.color.text_primary'))
+                  .layoutWeight(1)
+                if (idx < 3) {
+                  Text('热')
+                    .fontSize(10)
+                    .fontColor('#FFFFFF')
+                    .backgroundColor($r('app.color.semantic_red'))
+                    .borderRadius(4)
+                    .padding({ left: 4, right: 4, top: 2, bottom: 2 })
+                }
+              }
+              .width('100%')
+              .padding({ left: 16, right: 16, top: 10, bottom: 10 })
+              .onClick(() => {
+                this.onKeywordSelect(kw);
+              })
+            }, (kw: string, idx: number) => 'hot_' + idx.toString() + '_' + kw)
+          }
         }
-        .layoutWeight(1)
         .width('100%')
-        .scrollBar(BarState.Off)
+        .layoutWeight(1)
       }
     }
     .width('100%')
