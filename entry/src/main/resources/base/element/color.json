@@ -29,24 +29,32 @@
       "value": "#8E8E93"
     },
     {
+      "name": "text_tertiary",
+      "value": "#C7C7CC"
+    },
+    {
       "name": "divider",
       "value": "#E5E5EA"
     },
     {
       "name": "glass_card_bg",
-      "value": "#0A000000"
+      "value": "#FFFFFF"
     },
     {
       "name": "glass_border",
-      "value": "#14000000"
+      "value": "#D1D1D6"
+    },
+    {
+      "name": "glass_overlay_light",
+      "value": "#E5F2F2F7"
     },
     {
       "name": "glass_overlay_heavy",
-      "value": "#99000000"
+      "value": "#D9F2F2F7"
     },
     {
       "name": "glass_bar_bg",
-      "value": "#A6FFFFFF"
+      "value": "#E5F2F2F7"
     },
     {
       "name": "semantic_red",
@@ -55,6 +63,14 @@
     {
       "name": "semantic_orange",
       "value": "#FF9500"
+    },
+    {
+      "name": "semantic_green",
+      "value": "#34C759"
+    },
+    {
+      "name": "surface_elevated",
+      "value": "#FFFFFF"
     }
   ]
 }

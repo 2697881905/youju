@@ -170,7 +170,7 @@ struct Index {
     .height('100%')
     .padding({ top: this.statusBarHeight })  // 全屏布局下顶部避让状态栏
     .barBackgroundBlurStyle(BlurStyle.COMPONENT_ULTRA_THICK)
-    .barBackgroundColor('rgba(0,0,0,0.55)')
+    .barBackgroundColor($r('app.color.glass_bar_bg'))
     .backgroundColor($r('app.color.bg_primary'))
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
   }

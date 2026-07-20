@@ -29,24 +29,32 @@
       "value": "#8E8E93"
     },
     {
+      "name": "text_tertiary",
+      "value": "#48484A"
+    },
+    {
       "name": "divider",
       "value": "#38383A"
     },
     {
       "name": "glass_card_bg",
-      "value": "#0AFFFFFF"
+      "value": "#1C1C1E"
     },
     {
       "name": "glass_border",
-      "value": "#14FFFFFF"
+      "value": "#38383A"
+    },
+    {
+      "name": "glass_overlay_light",
+      "value": "#A61C1C1E"
     },
     {
       "name": "glass_overlay_heavy",
-      "value": "#B3000000"
+      "value": "#CC000000"
     },
     {
       "name": "glass_bar_bg",
-      "value": "#A61C1C1E"
+      "value": "#B31C1C1E"
     },
     {
       "name": "semantic_red",
@@ -54,7 +62,15 @@
     },
     {
       "name": "semantic_orange",
-      "value": "#FF9500"
+      "value": "#FF9F0A"
+    },
+    {
+      "name": "semantic_green",
+      "value": "#30D158"
+    },
+    {
+      "name": "surface_elevated",
+      "value": "#2C2C2E"
     }
   ]
 }
