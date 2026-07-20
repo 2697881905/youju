@@ -1,6 +1,5 @@
-// 发布器（Tab 内容）— 小红书风格：一页到底，无需翻步骤
-// 图片置顶 → 体裁 chip 选 → 标题/正文 → 标签弹层 → 结构化字段可折叠
-// 图片在 ImagePicker 内选图即直传腾讯云 COS，selected 已是远端 URL
+// 发布器 — Apple 风格（分组卡片 + 大标题 + 清晰信息层级）
+// 图片置顶 → 体裁 chip → 内容卡片(标题+正文) → 标签卡片 → 结构化字段卡片
 import { LengthMetrics } from '@kit.ArkUI';
 import {
   createPost, updatePost, getPost, listTags,
@@ -11,28 +10,27 @@ import { Genre, StructuredData, Tag } from '../models/types';
 import { ImagePicker } from '../components/ImagePicker';
 import { safeShowToast } from '../utils/toast';
 
-// 体裁元数据
 interface GenreItem {
   key: Genre;
   label: string;
   icon: string;
 }
 const GENRE_LIST: GenreItem[] = [
-  { key: 'review', label: '📊 测评', icon: '📊' },
-  { key: 'pitfall', label: '⚠️ 避坑', icon: '⚠️' },
-  { key: 'tutorial', label: '🛠️ 教程', icon: '🛠️' },
-  { key: 'debate', label: '🗳️ 辩论', icon: '🗳️' },
+  { key: 'review', label: '测评', icon: '📊' },
+  { key: 'pitfall', label: '避坑', icon: '⚠️' },
+  { key: 'tutorial', label: '教程', icon: '🛠️' },
+  { key: 'debate', label: '辩论', icon: '🗳️' },
 ];
 
 type FieldDef = [keyof StructuredData, string];
 function genreFieldDefs(genre: Genre): FieldDef[] {
   switch (genre) {
     case 'review':
-      return [['pros', '优点'], ['cons', '缺点'], ['rating', '推荐指数(0-5)'], ['targetAudience', '适合人群']];
+      return [['pros', '优点'], ['cons', '缺点'], ['rating', '推荐指数'], ['targetAudience', '适合人群']];
     case 'pitfall':
       return [['pitfallExperience', '踩坑经历'], ['lossAmount', '损失金额'], ['correctApproach', '正确做法']];
     case 'tutorial':
-      return [['tools', '准备工具'], ['steps', '步骤拆解'], ['timeDifficulty', '耗时 / 难度']];
+      return [['tools', '准备工具'], ['steps', '步骤拆解'], ['timeDifficulty', '耗时/难度']];
     case 'debate':
       return [['planA', '方案A'], ['planB', '方案B']];
     default:
@@ -89,6 +87,26 @@ function isLongField(key: keyof StructuredData): boolean {
     key === 'planA' || key === 'planB';
 }
 
+// ===== 复用样式：分组卡片容器 =====
+@Component
+struct SectionCard {
+  @BuilderParam content: () => void = this.emptyContent;
+
+  @Builder
+  emptyContent(): void {}
+
+  build() {
+    Column() {
+      this.content()
+    }
+    .width('100%')
+    .backgroundColor($r('app.color.card_bg'))
+    .borderRadius(14)
+    .shadow({ radius: 12, color: '#0A000000', offsetY: 1 })
+    .padding(16)
+  }
+}
+
 @Component
 export struct PublishPage {
   @State genre: Genre = 'review';
@@ -102,7 +120,6 @@ export struct PublishPage {
   @State error: string = '';
   @State editPostId: number = 0;
   @State isEditMode: boolean = false;
-  // 小红书风格：结构化字段默认折叠
   @State showFields: boolean = false;
 
   private get canPublish(): boolean {
@@ -154,19 +171,12 @@ export struct PublishPage {
   private async loadTags(): Promise<void> {
     try {
       this.tags = await listTags();
-    } catch (e) {
-      // 标签加载失败不阻断
-    }
+    } catch (e) { /* 不阻断 */ }
   }
 
   private async ensureToken(): Promise<boolean> {
-    try {
-      await ensureLogin();
-      return true;
-    } catch (e) {
-      this.error = '登录失败：' + (e as Error).message;
-      return false;
-    }
+    try { await ensureLogin(); return true; }
+    catch (e) { this.error = '登录失败：' + (e as Error).message; return false; }
   }
 
   private onFieldChange(key: keyof StructuredData, value: string): void {
@@ -175,18 +185,11 @@ export struct PublishPage {
 
   private buildStructuredData(): StructuredData {
     const out: Record<string, string | number> = {};
-    const defs: FieldDef[] = genreFieldDefs(this.genre);
-    for (const item of defs) {
+    for (const item of genreFieldDefs(this.genre)) {
       const raw = readField(this.sd, item[0]);
       if (raw !== undefined && raw !== '') {
-        if (item[0] === 'rating') {
-          const n: number = Number(raw);
-          if (!isNaN(n)) {
-            out['rating'] = n;
-          }
-        } else {
-          out[item[0] as string] = String(raw);
-        }
+        if (item[0] === 'rating') { const n = Number(raw); if (!isNaN(n)) out['rating'] = n; }
+        else out[item[0] as string] = String(raw);
       }
     }
     return out as StructuredData;
@@ -206,221 +209,234 @@ export struct PublishPage {
 
   private async publish(): Promise<void> {
     if (this.publishing) return;
-    if (!this.title.trim()) {
-      safeShowToast(this.getUIContext(),{ message: '请填写标题' });
-      return;
-    }
-    const okTok: boolean = await this.ensureToken();
+    if (!this.title.trim()) { safeShowToast(this.getUIContext(),{ message: '请填写标题' }); return; }
+    const okTok = await this.ensureToken();
     if (!okTok) return;
     this.publishing = true;
-    this.error = '';
     try {
-      const images: string[] = this.images;
+      const images = this.images;
       if (this.isEditMode) {
-        const body: UpdatePostBody = {
+        await updatePost(this.editPostId, {
           title: this.title.trim(), content: this.content,
           tags: this.selectedTags, structuredData: this.buildStructuredData(), images: images,
-        };
-        await updatePost(this.editPostId, body);
+        });
         safeShowToast(this.getUIContext(),{ message: '编辑成功' });
       } else {
-        const body: CreatePostBody = {
+        const p = await createPost({
           title: this.title.trim(), content: this.content,
           genre: this.genre, tags: this.selectedTags,
           structuredData: this.buildStructuredData(), images: images,
-        };
-        const p = await createPost(body);
+        });
         safeShowToast(this.getUIContext(),{ message: '发布成功！帖子ID=' + (p.id ?? '') });
       }
       this.reset();
     } catch (e) {
-      this.error = (e as Error).message;
-      safeShowToast(this.getUIContext(),{ message: (this.isEditMode ? '编辑' : '发布') + '失败：' + this.error });
+      safeShowToast(this.getUIContext(),{ message: (this.isEditMode ? '编辑' : '发布') + '失败：' + (e as Error).message });
     } finally {
       this.publishing = false;
     }
   }
 
   private reset(): void {
-    this.genre = 'review';
-    this.selectedTags = [];
-    this.title = '';
-    this.content = '';
-    this.sd = {};
-    this.images = [];
-    this.showFields = false;
-    this.isEditMode = false;
-    this.editPostId = 0;
+    this.genre = 'review'; this.selectedTags = [];
+    this.title = ''; this.content = ''; this.sd = {};
+    this.images = []; this.showFields = false;
+    this.isEditMode = false; this.editPostId = 0;
   }
 
-  // ===== 体裁 Chip 行 =====
+  // ===== 体裁 Chip 行 (Apple 风格—选中态蓝底白字) =====
   @Builder
   genreChips(): void {
-    Row({ space: 8 }) {
+    Row({ space: 10 }) {
       ForEach(GENRE_LIST, (g: GenreItem) => {
-        Text(g.label)
-          .fontSize(13)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(this.genre === g.key ? '#FFFFFF' : $r('app.color.text_primary'))
-          .backgroundColor(this.genre === g.key ? $r('app.color.brand_primary') : $r('app.color.bg_secondary'))
-          .borderRadius(14)
-          .padding({ left: 12, right: 12, top: 6, bottom: 6 })
-          .onClick(() => { this.genre = g.key; })
+        Row({ space: 4 }) {
+          Text(g.icon)
+            .fontSize(15)
+            .fontColor(this.genre === g.key ? '#FFFFFF' : $r('app.color.text_primary'))
+          Text(g.label)
+            .fontSize(14)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(this.genre === g.key ? '#FFFFFF' : $r('app.color.text_primary'))
+        }
+        .backgroundColor(this.genre === g.key ? $r('app.color.brand_primary') : $r('app.color.bg_secondary'))
+        .borderRadius(18)
+        .padding({ left: 14, right: 14, top: 8, bottom: 8 })
+        .onClick(() => { this.genre = g.key; })
       }, (g: GenreItem) => g.key)
     }
-    .width('100%')
-    .padding({ left: 16, right: 16 })
   }
 
-  // ===== 标签 Chip 区（横向滚动 Flex 换行）=====
+  // ===== 章节标题 (Apple SF 风格—13px 全大写灰色) =====
   @Builder
-  tagChips(): void {
-    Column({ space: 8 }) {
-      Row({ space: 8 }) {
-        Text('添加标签')
-          .fontSize(13)
-          .fontColor($r('app.color.text_secondary'))
-        Text('(1-3个)')
-          .fontSize(12)
-          .fontColor($r('app.color.text_tertiary'))
-      }
+  sectionTitle(text: string): void {
+    Text(text)
+      .fontSize(13)
+      .fontColor($r('app.color.text_secondary'))
+      .fontWeight(FontWeight.Bold)
       .width('100%')
-      .padding({ left: 16, right: 16 })
-
-      Flex({ wrap: FlexWrap.Wrap, space: { main: LengthMetrics.px(8), cross: LengthMetrics.px(8) } }) {
-        ForEach(this.tags, (t: Tag) => {
-          Text((t.emoji ? t.emoji + ' ' : '') + (t.name ?? ''))
-            .fontSize(13)
-            .fontColor(this.selectedTags.indexOf(t.name ?? '') >= 0 ? '#FFFFFF' : $r('app.color.text_primary'))
-            .backgroundColor(this.selectedTags.indexOf(t.name ?? '') >= 0
-              ? $r('app.color.brand_primary')
-              : $r('app.color.bg_secondary'))
-            .borderRadius(14)
-            .padding({ left: 12, right: 12, top: 6, bottom: 6 })
-            .onClick(() => this.toggleTag(t.name ?? ''))
-        }, (t: Tag) => t.name ?? '')
-      }
-      .width('100%')
-      .padding({ left: 16, right: 16 })
-    }
-  }
-
-  // ===== 结构化字段区（可折叠）=====
-  @Builder
-  structuredFields(): void {
-    Column({ space: 10 }) {
-      Row() {
-        Text('结构化信息（选填）')
-          .fontSize(13)
-          .fontColor($r('app.color.text_secondary'))
-        Blank()
-        Text(this.showFields ? '收起 ▲' : '展开 ▼')
-          .fontSize(12)
-          .fontColor($r('app.color.brand_primary'))
-      }
-      .width('100%')
-      .padding({ left: 16, right: 16 })
-      .onClick(() => { this.showFields = !this.showFields; })
-
-      if (this.showFields) {
-        Column({ space: 10 }) {
-          ForEach(genreFieldDefs(this.genre), (item: FieldDef) => {
-            Column({ space: 4 }) {
-              Text(item[1])
-                .fontSize(12)
-                .fontColor($r('app.color.text_secondary'))
-                .width('100%')
-              if (isLongField(item[0])) {
-                TextArea({ text: String(readField(this.sd, item[0]) ?? ''), placeholder: item[1] })
-                  .width('100%')
-                  .height(72)
-                  .fontSize(14)
-                  .backgroundColor($r('app.color.bg_secondary'))
-                  .borderRadius(10)
-                  .padding(10)
-                  .onChange((v: string) => this.onFieldChange(item[0], v))
-              } else {
-                TextInput({ text: String(readField(this.sd, item[0]) ?? ''), placeholder: item[1] })
-                  .width('100%')
-                  .fontSize(14)
-                  .backgroundColor($r('app.color.bg_secondary'))
-                  .borderRadius(10)
-                  .padding(10)
-                  .onChange((v: string) => this.onFieldChange(item[0], v))
-              }
-            }
-            .width('100%')
-            .alignItems(HorizontalAlign.Start)
-          }, (item: FieldDef) => item[0] as string)
-        }
-        .width('100%')
-        .padding({ left: 16, right: 16 })
-      }
-    }
   }
 
   build() {
     Column() {
-      // ===== 顶部栏：取消 | 标题 | 发布 =====
+      // ===== 顶部导航栏 — SF 风格大标题 + 发布按钮 =====
       Row() {
-        Text('取消')
-          .fontSize(15)
-          .fontColor($r('app.color.text_secondary'))
-          .onClick(() => { this.reset(); })
+        Button({ type: ButtonType.Normal }) {
+          Text('取消')
+            .fontSize(15)
+            .fontColor($r('app.color.text_secondary'))
+        }
+        .backgroundColor(Color.Transparent)
+        .onClick(() => { this.reset(); })
+
         Blank()
-        Text(this.isEditMode ? '编辑帖子' : '发布帖子')
-          .fontSize(16)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.text_primary'))
-        Blank()
+
         Button(this.isEditMode ? '保存' : '发布')
-          .fontSize(13)
-          .fontWeight(FontWeight.Medium)
-          .height(32)
-          .padding({ left: 16, right: 16 })
+          .fontSize(14)
+          .fontWeight(600)
+          .height(34)
+          .padding({ left: 20, right: 20 })
           .enabled(this.canPublish)
-          .backgroundColor($r('app.color.brand_primary'))
+          .backgroundColor(this.canPublish ? $r('app.color.brand_primary') : '#A0A0A8')
           .fontColor('#FFFFFF')
-          .borderRadius(16)
+          .borderRadius(17)
           .onClick(() => { this.publish(); })
       }
       .width('100%')
-      .padding({ left: 16, right: 16, top: 8, bottom: 8 })
-      .backgroundColor($r('app.color.bg_primary'))
+      .padding({ left: 16, right: 16, top: 8, bottom: 6 })
 
-      // ===== 内容区：一页到底 =====
+      // ===== 内容区 — 分组卡片 + 充足留白 =====
       Scroll() {
-        Column({ space: 16 }) {
-          // ① 图片区（置顶，主角）
+        Column({ space: 20 }) {
+          // ── 图片区（置顶，视觉主角）──
           ImagePicker({ selected: $images, maxCount: 9 })
 
-          // ② 体裁 Chip 选
-          this.genreChips()
+          // ── 体裁选择 ──
+          Column({ space: 10 }) {
+            this.sectionTitle('体裁')
+            this.genreChips()
+          }
+          .width('100%')
+          .padding({ left: 16, right: 16 })
 
-          // ③ 标题
-          TextInput({ text: this.title, placeholder: '一句话说清你的经验…' })
+          // ── 内容卡片 ──
+          Column({ space: 10 }) {
+            this.sectionTitle('内容')
+            SectionCard() {
+              Column({ space: 12 }) {
+                // 标题 — 无边框, 17px, Medium
+                TextInput({ text: this.title, placeholder: '标题' })
+                  .width('100%')
+                  .fontSize(17)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor($r('app.color.text_primary'))
+                  .placeholderColor($r('app.color.text_tertiary'))
+                  .backgroundColor(Color.Transparent)
+                  .onChange((v: string) => { this.title = v; })
+
+                Divider()
+                  .height(0.5)
+                  .color($r('app.color.divider'))
+
+                // 正文 — 无边框
+                TextArea({ text: this.content, placeholder: '展开讲讲背景、过程、结论…' })
+                  .width('100%')
+                  .height(100)
+                  .fontSize(15)
+                  .fontColor($r('app.color.text_primary'))
+                  .placeholderColor($r('app.color.text_tertiary'))
+                  .backgroundColor(Color.Transparent)
+                  .onChange((v: string) => { this.content = v; })
+              }
+            }
+          }
+          .width('100%')
+          .padding({ left: 16, right: 16 })
+
+          // ── 标签卡片 ──
+          Column({ space: 10 }) {
+            this.sectionTitle('标签 · 最多 3 个')
+            SectionCard() {
+              Flex({ wrap: FlexWrap.Wrap, space: { main: LengthMetrics.px(8), cross: LengthMetrics.px(8) } }) {
+                ForEach(this.tags, (t: Tag) => {
+                  Row({ space: 4 }) {
+                    if (t.emoji && t.emoji.length > 0) {
+                      Text(t.emoji).fontSize(13)
+                        .fontColor(this.selectedTags.indexOf(t.name ?? '') >= 0
+                          ? '#FFFFFF' : $r('app.color.text_primary'))
+                    }
+                    Text(t.name ?? '')
+                      .fontSize(13)
+                      .fontColor(this.selectedTags.indexOf(t.name ?? '') >= 0
+                        ? '#FFFFFF' : $r('app.color.text_primary'))
+                  }
+                  .backgroundColor(this.selectedTags.indexOf(t.name ?? '') >= 0
+                    ? $r('app.color.brand_primary')
+                    : $r('app.color.bg_secondary'))
+                  .borderRadius(14)
+                  .padding({ left: 12, right: 12, top: 6, bottom: 6 })
+                  .onClick(() => this.toggleTag(t.name ?? ''))
+                }, (t: Tag) => t.name ?? '')
+              }
+              .width('100%')
+            }
+          }
+          .width('100%')
+          .padding({ left: 16, right: 16 })
+
+          // ── 结构化字段卡片（可折叠）──
+          Column({ space: 10 }) {
+            Row() {
+              this.sectionTitle('结构化信息 · 选填')
+              Blank()
+              Text(this.showFields ? '收起 ▲' : '展开 ▼')
+                .fontSize(12)
+                .fontColor($r('app.color.brand_primary'))
+            }
             .width('100%')
-            .fontSize(17)
-            .fontWeight(FontWeight.Medium)
-            .backgroundColor($r('app.color.bg_primary'))
-            .padding({ left: 16, right: 16 })
+            .onClick(() => { this.showFields = !this.showFields; })
 
-          // ④ 正文
-          TextArea({ text: this.content, placeholder: '展开讲讲背景、过程、结论…' })
-            .width('100%')
-            .height(120)
-            .fontSize(15)
-            .backgroundColor($r('app.color.bg_primary'))
-            .padding({ left: 16, right: 16 })
+            if (this.showFields) {
+              SectionCard() {
+                Column({ space: 12 }) {
+                  ForEach(genreFieldDefs(this.genre), (item: FieldDef) => {
+                    Column({ space: 4 }) {
+                      Text(item[1])
+                        .fontSize(12)
+                        .fontColor($r('app.color.text_secondary'))
+                        .width('100%')
+                      if (isLongField(item[0])) {
+                        TextArea({ text: String(readField(this.sd, item[0]) ?? ''), placeholder: item[1] })
+                          .width('100%')
+                          .height(64)
+                          .fontSize(14)
+                          .placeholderColor($r('app.color.text_tertiary'))
+                          .backgroundColor($r('app.color.bg_secondary'))
+                          .borderRadius(10)
+                          .padding(10)
+                          .onChange((v: string) => this.onFieldChange(item[0], v))
+                      } else {
+                        TextInput({ text: String(readField(this.sd, item[0]) ?? ''), placeholder: item[1] })
+                          .width('100%')
+                          .fontSize(14)
+                          .placeholderColor($r('app.color.text_tertiary'))
+                          .backgroundColor($r('app.color.bg_secondary'))
+                          .borderRadius(10)
+                          .padding(10)
+                          .onChange((v: string) => this.onFieldChange(item[0], v))
+                      }
+                    }
+                    .width('100%')
+                    .alignItems(HorizontalAlign.Start)
+                  }, (item: FieldDef) => item[0] as string)
+                }
+              }
+            }
+          }
+          .width('100%')
+          .padding({ left: 16, right: 16 })
 
-          // ⑤ 标签
-          this.tagChips()
-
-          // ⑥ 结构化字段（可折叠）
-          this.structuredFields()
-
-          // 底部留白
-          Row().height(40).width('100%')
+          // 底部留白 — 给 TabBar 让出空间
+          Row().height(32).width('100%')
         }
         .width('100%')
         .alignItems(HorizontalAlign.Start)
