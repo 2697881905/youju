@@ -161,7 +161,9 @@ export struct PostCard {
     }
     .width('100%')
     .padding(12)
-    .backgroundColor($r('app.color.card_bg'))
+    .backgroundBlurStyle(BlurStyle.BACKGROUND_THIN)
+    .backgroundColor('rgba(255,255,255,0.04)')
+    .border({ width: 0.5, color: 'rgba(255,255,255,0.08)' })
     .borderRadius(12);
   }
 }

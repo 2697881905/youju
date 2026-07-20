@@ -111,7 +111,9 @@ export struct SettingsPage {
     }
     .width('100%')
     .padding({ left: 16, right: 16, top: 16, bottom: 16 })
-    .backgroundColor($r('app.color.card_bg'))
+    .backgroundBlurStyle(BlurStyle.BACKGROUND_THIN)
+    .backgroundColor('rgba(255,255,255,0.04)')
+    .border({ width: 0.5, color: 'rgba(255,255,255,0.08)' })
     .borderRadius(12)
     .onClick(() => { onTap(); });
   }
