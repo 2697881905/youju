@@ -8,6 +8,7 @@ import { ProfilePage } from './ProfilePage';
 import { initAuthStorage, getToken, setPrivacyAgreed, isPrivacyAgreed } from '../utils/auth';
 import { getUnreadCount } from '../services/api';
 import { common } from '@kit.AbilityKit';
+import { window } from '@kit.ArkUI';
 
 @Entry
 @Component
@@ -15,15 +16,33 @@ struct Index {
   @State currentIndex: number = 0;
   @StorageLink('unreadMessageCount') unreadCount: number = 0;
   @StorageLink('tabSwitchSignal') @Watch('onTabSwitch') tabSwitchSignal: number = 0;
+  // 底部系统导航条/小横条实际高度（用于让 TabBar 贴底）
+  @State navBarHeight: number = 40;
 
   aboutToAppear(): void {
     initAuthStorage();
+    this.loadNavBarHeight();
     // 首启隐私协议弹窗：未同意则拦截初始化（同意后才继续登录态判断）
     if (!isPrivacyAgreed()) {
       this.showPrivacyDialog();
       return;
     }
     this.startInit();
+  }
+
+  // 读取系统底部导航条/小横条实际高度（异步兜底 40vp）
+  private async loadNavBarHeight(): Promise<void> {
+    try {
+      const ctx = this.getUIContext().getHostContext();
+      if (!ctx) {
+        return;
+      }
+      const win = await window.getLastWindow(ctx);
+      const area = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
+      this.navBarHeight = px2vp(area.bottomRect.height);
+    } catch (e) {
+      // 读取失败时维持兜底值 40vp
+    }
   }
 
   // 登录态判断 + 未读拉取（隐私同意后或已同意时执行）
@@ -109,7 +128,7 @@ struct Index {
     .alignItems(HorizontalAlign.Center)
     .height('100%')
     .width('100%')
-    .padding({ bottom: 22 })  // 向上抬升文字，留出底部安全区域（小横条）空间
+    .padding({ bottom: this.navBarHeight })  // 上抬文字，留出底部系统导航条/小横条空间
   }
 
   build() {
@@ -140,7 +159,7 @@ struct Index {
       .tabBar(this.tabItem('我的', '👤', 4))
     }
     .scrollable(false)
-    .barHeight(80)  // 56 + 24px 底部安全区域（home 小横条）
+    .barHeight(56 + this.navBarHeight)  // 56 按钮区 + 系统导航条/小横条实际高度，让 TabBar 贴底
     .barMode(BarMode.Fixed)
     .onChange((index: number) => {
       this.currentIndex = index;
