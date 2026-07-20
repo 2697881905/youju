@@ -12,6 +12,7 @@ export struct PrivacySettingsPage {
   @State loadFinished: boolean = false;
   @State loadError: string = '';
   @State saving: boolean = false;
+  @StorageLink('statusBarHeight') statusBarHeight: number = 0;
 
   private visibilityOptions: string[] = [
     'public',
@@ -194,6 +195,7 @@ export struct PrivacySettingsPage {
       }
     }
     .width('100%')
+    .padding({ top: this.statusBarHeight })
     .height('100%')
     .backgroundColor($r('app.color.bg_primary'))
     .transition(buildPageTransition())

@@ -20,6 +20,7 @@ export struct EditProfilePage {
   @State avatar: string = ''; // 当前头像 URL
   @State uploadingAvatar: boolean = false;
   @State saving: boolean = false;
+  @StorageLink('statusBarHeight') statusBarHeight: number = 0;
 
   aboutToAppear(): void {
     const u: User | null = getCurrentUser();
@@ -295,6 +296,7 @@ export struct EditProfilePage {
       .width('100%');
     }
     .width('100%')
+    .padding({ top: this.statusBarHeight })
     .height('100%')
     .backgroundColor($r('app.color.bg_primary'))
     .transition(buildPageTransition())

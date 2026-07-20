@@ -12,6 +12,7 @@ export struct BlocklistPage {
   @State loadFinished: boolean = false;
   @State loadError: string = '';
   @State loadingMore: boolean = false;
+  @StorageLink('statusBarHeight') statusBarHeight: number = 0;
   private pagination: Pagination = { page: 1, limit: 20, total: 0 };
 
   aboutToAppear(): void {
@@ -165,7 +166,7 @@ export struct BlocklistPage {
         .padding({ left: 16, right: 16, top: 8, bottom: 16 });
       }
     }
-    .width('100%').height('100%')
+    .width('100%').padding({ top: this.statusBarHeight }).height('100%')
     .backgroundColor($r('app.color.bg_primary'))
     .transition(buildPageTransition())
   }

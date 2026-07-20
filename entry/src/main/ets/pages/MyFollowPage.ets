@@ -16,6 +16,7 @@ export struct MyFollowPage {
   @State isRefreshing: boolean = false;
   @State error: string = '';
   @State ready: boolean = false;
+  @StorageLink('statusBarHeight') statusBarHeight: number = 0;
 
   aboutToAppear(): void {
     this.resolveParams();
@@ -242,7 +243,7 @@ export struct MyFollowPage {
         .layoutWeight(1).width('100%');
       }
     }
-    .width('100%').height('100%').backgroundColor($r('app.color.bg_primary'))
+    .width('100%').padding({ top: this.statusBarHeight }).height('100%').backgroundColor($r('app.color.bg_primary'))
     .transition(buildPageTransition())
   }
 }

@@ -14,6 +14,7 @@ struct AccountBindingPage {
   @State bindings: BindingItem[] = [];
   @State loading: boolean = false;
   @State pendingUnbindProvider: Provider = 'huawei';
+  @StorageLink('statusBarHeight') statusBarHeight: number = 0;
 
   aboutToAppear(): void {
     this.init();
@@ -280,6 +281,7 @@ struct AccountBindingPage {
         .padding(16)
     }
     .width('100%')
+    .padding({ top: this.statusBarHeight })
     .height('100%')
     .backgroundColor($r('app.color.bg_primary'))
     .transition(buildPageTransition())

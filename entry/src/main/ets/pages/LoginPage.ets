@@ -12,6 +12,7 @@ import { buildPageTransition } from '../utils/styles';
 @Entry
 @Component
 struct LoginPage {
+  @StorageLink('statusBarHeight') statusBarHeight: number = 0;
   build() {
     Column({ space: 24 }) {
       Text('登录大蓝书')
@@ -38,6 +39,7 @@ struct LoginPage {
         })
     }
     .width('100%')
+    .padding({ top: this.statusBarHeight })
     .height('100%')
     .justifyContent(FlexAlign.Start)
     .alignItems(HorizontalAlign.Center)

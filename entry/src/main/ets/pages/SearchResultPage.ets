@@ -20,6 +20,7 @@ struct SearchResultPage {
   @State loading: boolean = false;
   @State error: string = '';
   @State finished: boolean = false;
+  @StorageLink('statusBarHeight') statusBarHeight: number = 0;
   @State isRefreshing: boolean = false;
   @State pageNum: number = 1;
   private readonly limitNum: number = 10;
@@ -241,6 +242,7 @@ struct SearchResultPage {
       }
     }
     .width('100%')
+    .padding({ top: this.statusBarHeight })
     .height('100%')
     .alignItems(HorizontalAlign.Start)
     .backgroundColor($r('app.color.bg_primary'))

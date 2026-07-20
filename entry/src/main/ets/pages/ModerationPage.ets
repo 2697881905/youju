@@ -79,6 +79,7 @@ struct ModerationPage {
   @State forbidden: boolean = false;
   @State isRefreshing: boolean = false;
   @State processingId: number = 0;
+  @StorageLink('statusBarHeight') statusBarHeight: number = 0;
 
   // 当前待驳回的帖子 id（打开弹窗时写入，提交回调读取）
   private rejectId: number = 0;
@@ -388,6 +389,7 @@ struct ModerationPage {
       }
     }
     .width('100%')
+    .padding({ top: this.statusBarHeight })
     .height('100%')
     .backgroundColor($r('app.color.bg_primary'))
     .transition(buildPageTransition())

@@ -41,6 +41,7 @@ struct Index {
       await win.setWindowLayoutFullScreen(true);
       const area = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
       this.statusBarHeight = px2vp(area.topRect.height);
+      AppStorage.setOrCreate<number>('statusBarHeight', this.statusBarHeight);
     } catch (e) {
       // 失败不阻断
     }

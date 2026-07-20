@@ -17,6 +17,7 @@ export struct NotificationSettingsPage {
   @State prefs: NotificationPrefs = { comment: true, up: true, bookmark: true, follow: true, system: true };
   @State loadFinished: boolean = false;
   @State loadError: string = '';
+  @StorageLink('statusBarHeight') statusBarHeight: number = 0;
 
   private rows: PrefRow[] = [
     { key: 'comment', label: '评论通知', desc: '有人评论你的帖子时通知你' },
@@ -155,6 +156,7 @@ export struct NotificationSettingsPage {
       }
     }
     .width('100%')
+    .padding({ top: this.statusBarHeight })
     .height('100%')
     .backgroundColor($r('app.color.bg_primary'))
     .transition(buildPageTransition())

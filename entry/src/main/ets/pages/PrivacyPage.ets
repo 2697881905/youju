@@ -5,6 +5,7 @@ import { buildPageTransition } from '../utils/styles';
 @Entry
 @Component
 export struct PrivacyPage {
+  @StorageLink('statusBarHeight') statusBarHeight: number = 0;
   build() {
     Column() {
       // 顶栏
@@ -88,6 +89,7 @@ export struct PrivacyPage {
       .width('100%');
     }
     .width('100%')
+    .padding({ top: this.statusBarHeight })
     .height('100%')
     .backgroundColor($r('app.color.bg_primary'))
     .transition(buildPageTransition())
