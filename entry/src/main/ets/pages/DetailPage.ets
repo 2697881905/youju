@@ -17,7 +17,7 @@ import { Genre, Comment, StructuredData, ReportReason } from '../models/types';
 import { timeAgo, formatCount } from '../utils/format';
 import { CommentList } from '../components/CommentList';
 import { ReportDialog } from '../components/ReportDialog';
-import { takeDetailPostId } from '../utils/nav';
+import { takeDetailPostId, emitTabSwitch } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 import { getUserId } from '../utils/auth';
 
@@ -325,7 +325,8 @@ struct DetailPage {
           value: '编辑帖子',
           action: (): void => {
             AppStorage.setOrCreate('editPostId', this.pid);
-            router.pushUrl({ url: 'pages/PublishPage' });
+            emitTabSwitch(2);
+            router.back();
           },
         },
       });
