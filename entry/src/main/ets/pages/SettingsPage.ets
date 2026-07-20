@@ -4,7 +4,7 @@
 import { getIsAdmin, clearSession } from '../utils/auth';
 import { deactivateAccount, clearSearchHistory, exportUserData } from '../services/api';
 import { safeShowToast } from '../utils/toast';
-import { toggleDarkMode, isDarkMode, isFollowSystem, setFollowSystem, getSystemDark } from '../utils/theme';
+import { toggleDarkMode, isFollowSystem, setFollowSystem } from '../utils/theme';
 import { buildPageTransition } from '../utils/styles';
 import { window } from '@kit.ArkUI';
 
@@ -12,13 +12,12 @@ import { window } from '@kit.ArkUI';
 @Component
 export struct SettingsPage {
   @State isAdmin: boolean = getIsAdmin();
-  @State darkMode: boolean = isDarkMode();
+  @StorageLink('isDarkMode') darkMode: boolean = true; // 与系统/手动切换同步
   @State followSystem: boolean = isFollowSystem();
   @State statusBarHeight: number = 0;
 
   aboutToAppear(): void {
     this.isAdmin = getIsAdmin();
-    this.darkMode = isDarkMode();
     this.followSystem = isFollowSystem();
     this.loadStatusBarHeight();
   }
@@ -267,9 +266,6 @@ export struct SettingsPage {
                 .onChange((isOn: boolean) => {
                   this.followSystem = isOn;
                   setFollowSystem(isOn);
-                  if (isOn) {
-                    this.darkMode = getSystemDark();
-                  }
                 })
             }
             .width('100%')
@@ -294,7 +290,6 @@ export struct SettingsPage {
                 .layoutWeight(1)
                 Toggle({ type: ToggleType.Switch, isOn: this.darkMode })
                   .onChange((isOn: boolean) => {
-                    this.darkMode = isOn;
                     toggleDarkMode(isOn);
                   })
               }
