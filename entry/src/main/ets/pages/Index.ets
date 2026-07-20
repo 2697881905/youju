@@ -89,20 +89,20 @@ struct Index {
         Text(icon)
           .fontSize(28)
       } else if (index === 3) {
-        // 消息：图标 + 红点（有未读时显示）
+        // 消息：纯文字 + 红点（有未读时显示，红点为功能提示非图标）
         Badge({
           count: this.unreadCount,
           style: { badgeColor: '#FF453A' },
           position: BadgePosition.RightTop,
         }) {
-          Text(icon)
-            .fontSize(20)
+          Text(title)
+            .fontSize(14)
+            .fontColor(this.currentIndex === index ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
         }
       } else {
-        Text(icon)
-          .fontSize(20)
+        // 首页 / 圈子 / 我的：纯文字（去掉图标）
         Text(title)
-          .fontSize(10)
+          .fontSize(14)
           .fontColor(this.currentIndex === index ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
       }
     }
