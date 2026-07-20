@@ -1,5 +1,6 @@
 // 帖子详情页（真实内容）：标签 → 体裁 → 标题 → 九宫格图 → 结构化字段 → 正文 → 评论区 → 底部操作栏
 import { router } from '@kit.ArkUI';
+import { systemShare } from '@kit.SystemShare';
 import {
   getPost,
   createComment,
@@ -7,6 +8,7 @@ import {
   cancelUpPost,
   bookmarkPost,
   cancelBookmarkPost,
+  deletePost,
   reportPost,
   reportComment,
   PostWithComments,
@@ -249,29 +251,66 @@ struct DetailPage {
   }
 
   onShare(): void {
-    safeShowToast(this.getUIContext(),{ message: '分享功能开发中' });
+    try {
+      const data: systemShare.ShareData = new systemShare.ShareData({
+        title: this.post.title ?? '大蓝书帖子',
+        content: '查看这篇帖子：' + (this.post.title ?? ''),
+      });
+      const controller: systemShare.ShareController = new systemShare.ShareController(data);
+      controller.show();
+    } catch (e) {
+      safeShowToast(this.getUIContext(), { message: '分享失败：' + (e as Error).message });
+    }
   }
 
-  // 弹出帖子操作菜单（举报 / 分享）
-  // showActionMenu 不可用，降级为 showAlertDialog（双按钮）
-  private showPostActions(): void {
+  // 删除帖子：二次确认 → 调 deletePost API → toast + 返回
+  private onDeletePost(): void {
     this.getUIContext().showAlertDialog({
-      title: '操作',
-      message: '请选择操作',
-      primaryButton: {
-        value: '举报该帖子',
-        fontColor: '#FF453A',
-        action: (): void => {
-          this.reportController.open();
-        },
-      },
-      secondaryButton: {
-        value: '分享',
-        action: (): void => {
-          this.onShare();
-        },
-      },
+      title: '删除帖子？',
+      message: '删除后不可恢复，确定要删除吗？',
+      primaryButton: { value: '取消', action: (): void => {} },
+      secondaryButton: { value: '确认删除', fontColor: '#FF453A', action: async (): Promise<void> => {
+        try {
+          await deletePost(this.pid);
+          safeShowToast(this.getUIContext(), { message: '帖子已删除' });
+          router.back();
+        } catch (e) {
+          safeShowToast(this.getUIContext(), { message: (e as Error).message });
+        }
+      } },
     });
+  }
+
+  // 弹出帖子操作菜单：作者可见删除+分享，他人可见举报+分享
+  private showPostActions(): void {
+    const isOwner: boolean = this.post.userId === getUserId();
+    if (isOwner) {
+      this.getUIContext().showAlertDialog({
+        title: '操作',
+        primaryButton: {
+          value: '删除帖子',
+          fontColor: '#FF453A',
+          action: (): void => { this.onDeletePost(); },
+        },
+        secondaryButton: {
+          value: '分享',
+          action: (): void => { this.onShare(); },
+        },
+      });
+    } else {
+      this.getUIContext().showAlertDialog({
+        title: '操作',
+        primaryButton: {
+          value: '举报该帖子',
+          fontColor: '#FF453A',
+          action: (): void => { this.reportController.open(); },
+        },
+        secondaryButton: {
+          value: '分享',
+          action: (): void => { this.onShare(); },
+        },
+      });
+    }
   }
 
   // 提交帖子举报

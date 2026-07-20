@@ -1,12 +1,39 @@
-// 评论列表组件（盖楼式展示，含"事实补充"徽标 + 举报入口）
+// 评论列表组件（盖楼式展示，含"事实补充"徽标 + 举报入口 + 作者删除）
 import { Comment } from '../models/types';
 import { timeAgo, formatCount } from '../utils/format';
+import { getUserId } from '../utils/auth';
+import { deleteComment } from '../services/api';
+import { safeShowToast } from '../utils/toast';
 
 @Component
 export struct CommentList {
   @Prop comments: Comment[] = [];
   // 举报回调（由 DetailPage 传入，打开 ReportDialog）
   reportCommentHandler: (commentId: number) => void = (_id: number) => {};
+
+  // 删除评论：二次确认 → 调 API → 乐观移除
+  private onDeleteComment(c: Comment): void {
+    this.getUIContext().showAlertDialog({
+      title: '删除评论？',
+      message: '删除后不可恢复，确定要删除吗？',
+      primaryButton: { value: '取消', action: (): void => {} },
+      secondaryButton: { value: '确认删除', fontColor: '#FF453A', action: async (): Promise<void> => {
+        try {
+          if (c.id !== undefined) {
+            await deleteComment(c.id);
+          }
+          // 乐观移除：从列表中剔除该评论
+          const idx: number = this.comments.indexOf(c);
+          if (idx >= 0) {
+            this.comments.splice(idx, 1);
+          }
+          safeShowToast(this.getUIContext(), { message: '评论已删除' });
+        } catch (e) {
+          safeShowToast(this.getUIContext(), { message: (e as Error).message });
+        }
+      } },
+    });
+  }
 
   // 评论作者是否已注销（后端软删匿名化）
   private isDeletedCommentUser(c: Comment): boolean {
@@ -89,30 +116,41 @@ export struct CommentList {
               .layoutWeight(1)
               .alignItems(HorizontalAlign.Start)
 
-              // 举报入口
+              // 操作菜单（作者可删除，他人可举报）
               Text('⋯')
                 .fontSize(18)
                 .fontColor($r('app.color.text_secondary'))
                 .width(32)
                 .textAlign(TextAlign.Center)
                 .onClick(() => {
-                  this.getUIContext().showAlertDialog({
-                    title: '操作',
-                    message: '请选择操作',
-                    primaryButton: {
-                      value: '举报该评论',
-                      fontColor: '#FF453A',
-                      action: (): void => {
-                        if (c.id !== undefined) {
-                          this.reportCommentHandler(c.id);
-                        }
+                  const isOwner: boolean = c.userId === getUserId();
+                  if (isOwner) {
+                    this.getUIContext().showAlertDialog({
+                      title: '操作',
+                      primaryButton: { value: '取消', action: (): void => {} },
+                      secondaryButton: {
+                        value: '删除该评论',
+                        fontColor: '#FF453A',
+                        action: (): void => {
+                          this.onDeleteComment(c);
+                        },
                       },
-                    },
-                    secondaryButton: {
-                      value: '取消',
-                      action: (): void => {},
-                    },
-                  });
+                    });
+                  } else {
+                    this.getUIContext().showAlertDialog({
+                      title: '操作',
+                      primaryButton: {
+                        value: '举报该评论',
+                        fontColor: '#FF453A',
+                        action: (): void => {
+                          if (c.id !== undefined) {
+                            this.reportCommentHandler(c.id);
+                          }
+                        },
+                      },
+                      secondaryButton: { value: '取消', action: (): void => {} },
+                    });
+                  }
                 })
             }
             .width('100%')
