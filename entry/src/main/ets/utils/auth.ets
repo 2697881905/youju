@@ -8,10 +8,15 @@ PersistentStorage.persistProp('authToken', '');
 PersistentStorage.persistProp('authUserId', '');
 PersistentStorage.persistProp('authNickname', '');
 PersistentStorage.persistProp('authAvatar', '');
+PersistentStorage.persistProp('authIsAdmin', false); // 管理员标识（后端 env.adminUserIds 计算，登录时落地）
 PersistentStorage.persistProp('unreadMessageCount', 0); // 消息 Tab 未读红点
 
 export function getToken(): string {
   return (AppStorage.get<string>('authToken') ?? '') as string;
+}
+
+export function getIsAdmin(): boolean {
+  return (AppStorage.get<boolean>('authIsAdmin') ?? false) as boolean;
 }
 
 export function getUserId(): number {
@@ -27,7 +32,8 @@ export function getCurrentUser(): User | null {
   }
   const nickname: string = (AppStorage.get<string>('authNickname') ?? '') as string;
   const avatar: string = (AppStorage.get<string>('authAvatar') ?? '') as string;
-  return { id, nickname, avatar } as User;
+  const isAdmin: boolean = (AppStorage.get<boolean>('authIsAdmin') ?? false) as boolean;
+  return { id, nickname, avatar, isAdmin } as User;
 }
 
 export function setSession(token: string, user: User): void {
@@ -35,6 +41,7 @@ export function setSession(token: string, user: User): void {
   AppStorage.setOrCreate('authUserId', String(user.id ?? ''));
   AppStorage.setOrCreate('authNickname', user.nickname ?? '');
   AppStorage.setOrCreate('authAvatar', user.avatar ?? '');
+  AppStorage.setOrCreate('authIsAdmin', user.isAdmin ? true : false);
 }
 
 export function clearSession(): void {
@@ -62,6 +69,7 @@ export function initAuthStorage(): void {
   PersistentStorage.persistProp('authUserId', '');
   PersistentStorage.persistProp('authNickname', '');
   PersistentStorage.persistProp('authAvatar', '');
+  PersistentStorage.persistProp('authIsAdmin', false);
   PersistentStorage.persistProp('unreadMessageCount', 0);
 }
 

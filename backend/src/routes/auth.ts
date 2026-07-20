@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { ok, fail, CODE } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
 import { prisma } from '../prisma';
+import { env } from '../config/env';
 import { login, updateProfile, loginWithHuawei } from '../services/authService';
 import { exchangeCodeForToken, fetchHuaweiUserProfile } from '../services/huaweiAuth';
 import * as postService from '../services/postService';
@@ -39,7 +40,8 @@ router.post('/huawei/exchange', async (req: AuthRequest, res: Response) => {
 // GET /v1/auth/me  |  GET /v1/users/me
 router.get('/me', auth, async (req: AuthRequest, res: Response) => {
   const user = await prisma.user.findUnique({ where: { id: req.userId! } });
-  return ok(res, user);
+  if (!user) return fail(res, CODE.NOT_FOUND, '用户不存在', 404);
+  return ok(res, { ...user, isAdmin: env.adminUserIds.includes(user.id) });
 });
 
 // 更新个人信息（昵称/头像/简介；bio 透传，预留编辑 UI）

@@ -8,6 +8,7 @@ export interface User {
   gender?: number;
   bio?: string;
   followTags?: string[];
+  isAdmin?: boolean;
 }
 
 export interface Tag {
@@ -163,3 +164,30 @@ export interface ReportBody {
 
 // 举报目标类型
 export type ReportTargetType = 'post' | 'comment';
+
+// 举报人快照（GET /v1/admin/posts/pending 随 reports 返回）
+export interface ReportReporter {
+  nickname?: string;
+}
+
+// 举报记录项（GET /v1/admin/posts/pending 随待审帖子返回；reporter 昵称来自 include）
+export interface ReportItem {
+  id?: number;
+  reporterId?: number;
+  targetType?: ReportTargetType;
+  targetId?: number;
+  reason?: ReportReason;
+  description?: string;
+  status?: string;
+  createdAt?: string;
+  reporter?: ReportReporter;
+}
+
+// 待审帖子（继承 Post + 携带举报列表，供审核台决策）
+export interface PendingPost extends Post {
+  reports: ReportItem[];
+  reportCount?: number;
+}
+
+// 审核动作
+export type ModerateAction = 'approve' | 'reject';

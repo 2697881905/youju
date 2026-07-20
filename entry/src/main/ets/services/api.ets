@@ -1,5 +1,5 @@
 import { http } from '@kit.NetworkKit';
-import { Post, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody } from '../models/types';
+import { Post, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody, PendingPost, ModerateAction } from '../models/types';
 
 // 本地后端地址（按运行环境替换）：
 // - 模拟器/真机本地开发：用 hdc 反向端口转发，连 127.0.0.1:3000 即可，无需关心电脑 IP（IP 变了也不用改这里）
@@ -457,4 +457,23 @@ export async function reportPost(id: number, body: ReportBody): Promise<void> {
 // POST /v1/comments/:id/report（举报评论）
 export async function reportComment(id: number, body: ReportBody): Promise<void> {
   await api.post<null>('/v1/comments/' + id + '/report', body);
+}
+
+// ===== 内容审核（admin） =====
+// GET /v1/admin/posts/pending?page=&limit= 待审核帖子列表（含举报记录）
+export function getPendingPosts(page: number = 1, limit: number = 20): Promise<ListResult<PendingPost>> {
+  const path: string = '/v1/admin/posts/pending' + toQuery([['page', page], ['limit', limit]]);
+  return api.get<ListResult<PendingPost>>(path);
+}
+
+// POST /v1/admin/posts/:id/moderate 请求体
+export interface ModerateBody {
+  action: ModerateAction;
+  reason?: string;
+}
+
+// POST /v1/admin/posts/:id/moderate {action: approve|reject, reason?}
+export async function moderatePost(id: number, action: ModerateAction, reason?: string): Promise<void> {
+  const body: ModerateBody = { action, reason };
+  await api.post<null>('/v1/admin/posts/' + id + '/moderate', body);
 }

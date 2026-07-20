@@ -1,10 +1,13 @@
 // 设置页（极简）：顶栏返回按钮 + 「设置」标题；
 // 列表项「账号绑定」点击跳转到账号绑定管理页。
 import { router } from '@kit.ArkUI';
+import { getIsAdmin } from '../utils/auth';
 
 @Entry
 @Component
 struct SettingsPage {
+  @State isAdmin: boolean = getIsAdmin();
+
   build() {
     Column() {
       // 顶栏：返回 + 标题
@@ -48,6 +51,24 @@ struct SettingsPage {
         .onClick(() => {
           router.pushUrl({ url: 'pages/AccountBindingPage' });
         })
+      if (this.isAdmin) {
+        Row() {
+          Text('内容审核台')
+            .fontSize(16)
+            .fontColor($r('app.color.text_primary'))
+            .layoutWeight(1)
+          Text('›')
+            .fontSize(18)
+            .fontColor($r('app.color.text_secondary'))
+        }
+        .width('100%')
+        .padding({ left: 16, right: 16, top: 16, bottom: 16 })
+        .backgroundColor($r('app.color.card_bg'))
+        .borderRadius(12)
+        .onClick(() => {
+          router.pushUrl({ url: 'pages/ModerationPage' });
+        })
+      }
       }
       .width('100%')
       .padding({ left: 16, right: 16, top: 8 })

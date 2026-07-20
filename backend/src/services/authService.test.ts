@@ -32,7 +32,7 @@ describe('loginWithHuawei', () => {
     expect(mockedFindUnique).toHaveBeenCalledWith({ where: { unionID: 'U_EXIST' } });
     expect(mockedCreate).not.toHaveBeenCalled();
     // 命中既有用户时直接返回原对象，不应覆盖昵称/头像
-    expect(result.user).toBe(EXISTING_USER);
+    expect(result.user).toMatchObject(EXISTING_USER);
     expect(result.user.nickname).toBe('老用户');
     // 返回结构含 token（JWT 字符串）
     expect(typeof result.token).toBe('string');
@@ -50,7 +50,7 @@ describe('loginWithHuawei', () => {
     expect(mockedCreate).toHaveBeenCalledWith({
       data: { openId: null, unionID: 'U_NEW', nickname: '华为小王', avatar: 'b.png' },
     });
-    expect(result.user).toBe(NEW_USER);
+    expect(result.user).toMatchObject(NEW_USER);
     expect(typeof result.token).toBe('string');
   });
 

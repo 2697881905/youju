@@ -2,6 +2,11 @@ import { prisma } from '../prisma';
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env';
 
+// 附加 isAdmin 标记（运行时由 env.adminUserIds 计算，避免改动 DB schema）
+function withIsAdmin(user: any) {
+  return { ...user, isAdmin: env.adminUserIds.includes(user.id) };
+}
+
 // 鸿蒙账号授权登录（MVP：前端传 openId；后续接 Account Kit 真实鉴权）
 export async function login(openId: string, nickname?: string, avatar?: string) {
   const user = await prisma.user.upsert({
@@ -21,7 +26,7 @@ export async function login(openId: string, nickname?: string, avatar?: string) 
     expiresIn: env.jwtExpiresIn,
   } as jwt.SignOptions);
 
-  return { token, user };
+  return { token, user: withIsAdmin(user) };
 }
 
 // 华为账号登录（按 unionID 落地用户，与 openId 登录并存）
@@ -34,7 +39,7 @@ export async function loginWithHuawei(
   const existing = await prisma.user.findUnique({ where: { unionID } });
   if (existing) {
     const token = signToken(existing.id);
-    return { token, user: existing };
+    return { token, user: withIsAdmin(existing) };
   }
 
   // 新用户：openId 留空，unionID 必填；昵称缺失时生成默认名
@@ -51,7 +56,7 @@ export async function loginWithHuawei(
   });
 
   const token = signToken(created.id);
-  return { token, user: created };
+  return { token, user: withIsAdmin(created) };
 }
 
 function signToken(userId: number): string {

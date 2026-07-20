@@ -125,7 +125,17 @@ describe('GET /v1/admin/posts/pending', () => {
     (env as any).adminUserIds = [1];
 
     mockPrisma.post.findMany.mockResolvedValue([
-      { id: 1, title: '待审帖', status: 0, userId: 10, user: { id: 10, nickname: '作者', avatar: null } },
+      {
+        id: 1,
+        title: '待审帖',
+        status: 0,
+        userId: 10,
+        reportCount: 3,
+        user: { id: 10, nickname: '作者', avatar: null },
+        reports: [
+          { id: 100, targetType: 'post', targetId: 1, reason: 'spam', description: null, status: 'pending', reporter: { nickname: '举报人A' } },
+        ],
+      },
     ]);
     mockPrisma.post.count.mockResolvedValue(1);
 
@@ -137,8 +147,17 @@ describe('GET /v1/admin/posts/pending', () => {
       expect.objectContaining({
         where: { status: 0 },
         orderBy: { createdAt: 'desc' },
+        include: expect.objectContaining({
+          reports: expect.objectContaining({
+            include: { reporter: { select: { nickname: true } } },
+          }),
+        }),
       })
     );
+    // 待审帖子应携带举报列表，供前端展示举报理由
+    expect(Array.isArray(res.json.data.list[0].reports)).toBe(true);
+    expect(res.json.data.list[0].reports[0].reason).toBe('spam');
+    expect(res.json.data.list[0].reports[0].reporter.nickname).toBe('举报人A');
 
     (env as any).adminUserIds = originalAdminIds;
   });

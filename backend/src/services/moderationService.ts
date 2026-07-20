@@ -24,7 +24,13 @@ export async function listPendingPosts(
       orderBy: { createdAt: 'desc' },
       skip,
       take: l,
-      include: { user: { select: { id: true, nickname: true, avatar: true } } },
+      include: {
+        user: { select: { id: true, nickname: true, avatar: true } },
+        reports: {
+          orderBy: { createdAt: 'desc' },
+          include: { reporter: { select: { nickname: true } } },
+        },
+      },
     }),
     prisma.post.count({ where }),
   ]);
