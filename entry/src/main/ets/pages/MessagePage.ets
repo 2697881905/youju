@@ -32,6 +32,9 @@ export struct MessagePage {
 
   // 根据当前筛选条件过滤列表
   private get displayList(): NotificationItem[] {
+    if (!this.list) {
+      return [];
+    }
     if (this.activeFilter === 'all') {
       return this.list;
     }
