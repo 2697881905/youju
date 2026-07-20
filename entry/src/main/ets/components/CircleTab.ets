@@ -197,8 +197,6 @@ export struct CircleTab {
     .alignItems(HorizontalAlign.Start)
     .backgroundColor($r('app.color.bg_primary'))
     }
-    .width('100%')
-    .height('100%')
 
     // 下拉筛选面板（浮层）
     if (this.showDropdown) {
