@@ -195,7 +195,6 @@ export struct SearchPanel {
       }
     }
     .width('100%')
-    .height('100%')
     .backgroundBlurStyle(BlurStyle.BACKGROUND_THICK, { colorMode: ThemeColorMode.SYSTEM })
     .backgroundColor($r('app.color.glass_overlay_heavy'))
   }

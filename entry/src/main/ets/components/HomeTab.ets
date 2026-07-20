@@ -205,6 +205,7 @@ export struct HomeTab {
             this.showPanel = false;
           }
         })
+          .layoutWeight(1)
           .transition(TransitionEffect.OPACITY
             .animation({ duration: 250, curve: Curve.EaseOut })
             .combine(TransitionEffect.translate({ x: '100%' })
