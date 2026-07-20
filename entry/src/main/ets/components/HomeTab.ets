@@ -14,7 +14,6 @@ import { safeShowToast } from '../utils/toast';
 type SortKey = 'hot' | 'latest' | 'recommend';
 type FeedMode = 'recommend' | 'following';
 
-const SUB_TABS: string[] = ['热榜', '最新', '推荐'];
 const SORT_KEYS: SortKey[] = ['hot', 'latest', 'recommend'];
 const FEED_TABS: string[] = ['推荐', '关注'];
 const ALL_TAG: Tag = { name: '全部', emoji: '🔥' };
@@ -188,16 +187,17 @@ export struct HomeTab {
 
   build() {
     Column() {
-      // 顶部分段控件：推荐 / 关注（信息源切换，与下方三子Tab/标签正交叠加）
-      Row() {
+      // 顶部栏：左 推荐/关注 分段（信息源切换），右 搜索框
+      Row({ space: 12 }) {
+        // 推荐 / 关注（带下划线指示器）
         Row({ space: 0 }) {
           ForEach(FEED_TABS, (name: string, idx: number) => {
             Column() {
               Text(name)
-                .fontSize(14)
+                .fontSize(16)
                 .fontWeight(this.feedMode === (idx === 0 ? 'recommend' : 'following') ? FontWeight.Bold : FontWeight.Medium)
                 .fontColor(this.feedMode === (idx === 0 ? 'recommend' : 'following') ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
-                .padding({ left: 18, right: 18, top: 6, bottom: 6 })
+                .padding({ left: 14, right: 14, top: 6, bottom: 6 })
               if (this.feedMode === (idx === 0 ? 'recommend' : 'following')) {
                 Divider().width(24).height(2).color($r('app.color.brand_primary'))
               }
@@ -209,34 +209,6 @@ export struct HomeTab {
           }, (name: string) => name)
         }
         .alignItems(VerticalAlign.Center)
-      }
-      .justifyContent(FlexAlign.Center)
-      .width('100%')
-      .padding({ top: 6, bottom: 8 })
-
-      // 顶栏：左侧三子Tab（热榜/最新/推荐）+ 右侧搜索框（同一水平行）
-      Row({ space: 12 }) {
-        // 三子 Tab（下划线指示器）
-        Row({ space: 18 }) {
-          ForEach(SUB_TABS, (name: string, idx: number) => {
-            Column() {
-              Text(name)
-                .fontSize(16)
-                .fontWeight(this.sortIndex === idx ? FontWeight.Bold : FontWeight.Medium)
-                .fontColor(this.sortIndex === idx ? $r('app.color.text_primary') : $r('app.color.text_secondary'))
-                .padding({ bottom: 6 })
-              if (this.sortIndex === idx) {
-                Divider().width(20).height(2).color($r('app.color.brand_primary'))
-              }
-            }
-            .onClick(() => {
-              if (this.sortIndex !== idx) {
-                this.sortIndex = idx;
-                this.refresh();
-              }
-            })
-          }, (name: string) => name)
-        }
 
         Blank()
 
@@ -259,7 +231,7 @@ export struct HomeTab {
         }
       }
       .alignItems(VerticalAlign.Center)
-      .padding({ left: 16, right: 12, top: 12, bottom: 10 })
+      .padding({ left: 16, right: 12, top: 8, bottom: 8 })
       .width('100%')
 
       // 搜索面板（获焦时展示，替代标签栏+列表）
