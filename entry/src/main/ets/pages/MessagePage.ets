@@ -27,6 +27,26 @@ export struct MessagePage {
   @StorageLink('unreadMessageCount') unreadCount: number = 0;
   // 监听登录态：LoginPage 自动登录后 authToken 就绪，此页才加载（aboutToAppear 可能在登录前已跑过）
   @StorageLink('authToken') @Watch('onTokenReady') token: string = '';
+  @State activeFilter: string = 'all'; // 'all' | 'up_bookmark' | 'follow' | 'comment'
+
+  // 根据当前筛选条件过滤列表
+  private get displayList(): NotificationItem[] {
+    if (this.activeFilter === 'all') {
+      return this.list;
+    }
+    return this.list.filter((item: NotificationItem) => {
+      if (this.activeFilter === 'up_bookmark') {
+        return item.type === 'up' || item.type === 'bookmark';
+      }
+      if (this.activeFilter === 'follow') {
+        return item.type === 'follow';
+      }
+      if (this.activeFilter === 'comment') {
+        return item.type === 'comment';
+      }
+      return true;
+    });
+  }
 
   aboutToAppear(): void {
     // 已有登录态则直接加载；否则等 onTokenReady 在 token 就绪后补加载
@@ -280,6 +300,40 @@ export struct MessagePage {
       .width('100%')
       .padding({ top: 12, bottom: 12 })
 
+      // 筛选栏：全部 | 赞和收藏 | 关注 | 评论
+      Row({ space: 8 }) {
+        Button('全部')
+          .fontSize(12)
+          .height(28)
+          .fontColor(this.activeFilter === 'all' ? '#FFFFFF' : $r('app.color.text_secondary'))
+          .backgroundColor(this.activeFilter === 'all' ? $r('app.color.brand_primary') : 'rgba(255,255,255,0.06)')
+          .borderRadius(14)
+          .onClick(() => { this.activeFilter = 'all'; })
+        Button('赞和收藏')
+          .fontSize(12)
+          .height(28)
+          .fontColor(this.activeFilter === 'up_bookmark' ? '#FFFFFF' : $r('app.color.text_secondary'))
+          .backgroundColor(this.activeFilter === 'up_bookmark' ? $r('app.color.brand_primary') : 'rgba(255,255,255,0.06)')
+          .borderRadius(14)
+          .onClick(() => { this.activeFilter = 'up_bookmark'; })
+        Button('关注')
+          .fontSize(12)
+          .height(28)
+          .fontColor(this.activeFilter === 'follow' ? '#FFFFFF' : $r('app.color.text_secondary'))
+          .backgroundColor(this.activeFilter === 'follow' ? $r('app.color.brand_primary') : 'rgba(255,255,255,0.06)')
+          .borderRadius(14)
+          .onClick(() => { this.activeFilter = 'follow'; })
+        Button('评论')
+          .fontSize(12)
+          .height(28)
+          .fontColor(this.activeFilter === 'comment' ? '#FFFFFF' : $r('app.color.text_secondary'))
+          .backgroundColor(this.activeFilter === 'comment' ? $r('app.color.brand_primary') : 'rgba(255,255,255,0.06)')
+          .borderRadius(14)
+          .onClick(() => { this.activeFilter = 'comment'; })
+      }
+      .width('100%')
+      .padding({ left: 16, right: 16, bottom: 10 })
+
       if (this.loading && this.list.length === 0) {
         Column() {
           Text('加载中…')
@@ -306,10 +360,9 @@ export struct MessagePage {
         .layoutWeight(1)
         .width('100%')
         .justifyContent(FlexAlign.Center)
-      } else if (this.list.length === 0) {
-        // 空态
+      } else if (this.displayList.length === 0) {
         Column() {
-          Text('暂无新消息')
+          Text(this.activeFilter === 'all' ? '暂无新消息' : '暂无此类通知')
             .fontSize(14)
             .fontColor($r('app.color.text_secondary'))
         }
@@ -320,7 +373,7 @@ export struct MessagePage {
         Refresh({ refreshing: $$this.refreshing, offset: 80, friction: 48 }) {
           List({ space: 8 }) {
             ForEach(
-              this.list,
+              this.displayList,
               (item: NotificationItem) => {
                 ListItem() {
                   this.notificationRow(item)
