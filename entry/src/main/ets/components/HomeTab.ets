@@ -29,10 +29,8 @@ export struct HomeTab {
   @State finished: boolean = false;
   @State isRefreshing: boolean = false;
   @State error: string = '';
-  @State searchKeyword: string = '';
   @State showPanel: boolean = false;
   @State feedMode: FeedMode = 'recommend'; // 'recommend' | 'following'
-  private searchController: TextInputController = new TextInputController();
   @State needLogin: boolean = false; // 关注流且未登录的引导态
   @State followingCount: number = 0; // 关注流的关注数缓存（空态 A/B 区分）
   // 监听登录态：登录成功后 authToken 就绪，若处于关注流且列表空则自动补加载
@@ -187,65 +185,62 @@ export struct HomeTab {
 
   build() {
     Column() {
-      // 顶部栏：左 推荐/关注 分段（信息源切换），右 搜索框
-      Row({ space: 12 }) {
-        // 推荐 / 关注（带下划线指示器）
-        Row({ space: 0 }) {
-          ForEach(FEED_TABS, (name: string, idx: number) => {
-            Column() {
-              Text(name)
-                .fontSize(16)
-                .fontWeight(this.feedMode === (idx === 0 ? 'recommend' : 'following') ? FontWeight.Bold : FontWeight.Medium)
-                .fontColor(this.feedMode === (idx === 0 ? 'recommend' : 'following') ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
-                .padding({ left: 14, right: 14, top: 6, bottom: 6 })
-              if (this.feedMode === (idx === 0 ? 'recommend' : 'following')) {
-                Divider().width(24).height(2).color($r('app.color.brand_primary'))
-              }
-            }
-            .onClick(() => {
-              const mode: FeedMode = idx === 0 ? 'recommend' : 'following';
-              this.switchFeed(mode);
-            })
-          }, (name: string) => name)
-        }
-        .alignItems(VerticalAlign.Center)
-
-        Blank()
-
-        // 右侧搜索框（聚焦展开下拉面板）
-        TextInput({ placeholder: '搜索', text: this.searchKeyword, controller: this.searchController })
-          .width(140)
-          .height(34)
-          .backgroundColor($r('app.color.bg_secondary'))
-          .borderRadius(17)
-          .onChange((v: string) => {
-            this.searchKeyword = v;
-          })
-          .onFocus(() => {
-            this.showPanel = true;
-          })
-          .onSubmit(() => {
-            this.doSearch(this.searchKeyword);
-          })
-      }
-      .alignItems(VerticalAlign.Center)
-      .padding({ left: 16, right: 12, top: 8, bottom: 8 })
-      .width('100%')
-
-      // 搜索面板下拉（覆盖标签栏+列表区，顶栏常驻）
       if (this.showPanel) {
+        // 全屏搜索面板：自带 < 返回 + 输入框 + 搜索 头部栏，隐藏首页推荐/关注顶栏
         SearchPanel({
           onKeywordSelect: (kw: string): void => {
             this.onKeywordSelect(kw);
           },
           onCancel: (): void => {
             this.showPanel = false;
-            this.searchController.stopEditing();
           }
         })
-        .layoutWeight(1)
-        .width('100%')
       } else {
+        // 顶部栏：左 推荐/关注 分段（信息源切换），右 搜索入口
+        Row({ space: 12 }) {
+          // 推荐 / 关注（带下划线指示器）
+          Row({ space: 0 }) {
+            ForEach(FEED_TABS, (name: string, idx: number) => {
+              Column() {
+                Text(name)
+                  .fontSize(16)
+                  .fontWeight(this.feedMode === (idx === 0 ? 'recommend' : 'following') ? FontWeight.Bold : FontWeight.Medium)
+                  .fontColor(this.feedMode === (idx === 0 ? 'recommend' : 'following') ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
+                  .padding({ left: 14, right: 14, top: 6, bottom: 6 })
+                if (this.feedMode === (idx === 0 ? 'recommend' : 'following')) {
+                  Divider().width(24).height(2).color($r('app.color.brand_primary'))
+                }
+              }
+              .onClick(() => {
+                const mode: FeedMode = idx === 0 ? 'recommend' : 'following';
+                this.switchFeed(mode);
+              })
+            }, (name: string) => name)
+          }
+          .alignItems(VerticalAlign.Center)
+
+          Blank()
+
+          // 右侧搜索入口（点击打开全屏搜索面板）
+          Row() {
+            Text('搜索')
+              .fontSize(14)
+              .fontColor($r('app.color.text_secondary'))
+          }
+          .width(140)
+          .height(34)
+          .backgroundColor($r('app.color.bg_secondary'))
+          .borderRadius(17)
+          .justifyContent(FlexAlign.Center)
+          .alignItems(VerticalAlign.Center)
+          .onClick(() => {
+            this.showPanel = true;
+          })
+        }
+        .alignItems(VerticalAlign.Center)
+        .padding({ left: 16, right: 12, top: 8, bottom: 8 })
+        .width('100%')
+
         // 标签筛选栏
         TagNav({
           tags: this.displayTags,

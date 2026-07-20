@@ -1,16 +1,17 @@
-// 搜索面板：下拉式搜索建议（无独立头部，搜索框在首页顶栏）
+// 搜索面板：全屏搜索页（参考小红书布局），自带 < 返回 + 输入框 + 搜索 头部栏
 // 子传父：通过普通函数属性回调（ArkTS V1 函数型变量不用 @Prop）
 import { listSearchHistory, clearSearchHistory, listHotKeywords } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 
 @Component
 export struct SearchPanel {
-  // 关键词选中回调（父组件传入，点击历史/热搜词时触发）
+  // 关键词选中回调（父组件传入，点击搜索/历史/热搜词时触发）
   onKeywordSelect: (keyword: string) => void = (keyword: string) => {};
 
   // 取消/返回回调（父组件关闭面板、回到原页面）
   onCancel: () => void = () => {};
 
+  @State keyword: string = '';
   @State historyList: string[] = [];
   @State hotList: string[] = [];
   @State loadingState: boolean = true;
@@ -36,6 +37,16 @@ export struct SearchPanel {
     }
   }
 
+  // 提交搜索
+  private doSearch(): void {
+    const kw = this.keyword.trim();
+    if (!kw) {
+      safeShowToast(this.getUIContext(), { message: '请输入搜索内容' });
+      return;
+    }
+    this.onKeywordSelect(kw);
+  }
+
   // 清除搜索历史
   async clearHistory(): Promise<void> {
     try {
@@ -49,21 +60,46 @@ export struct SearchPanel {
 
   build() {
     Column() {
-      // 顶部取消（不搜索时返回，右对齐；非独立头部栏）
-      Row() {
-        Blank()
-        Text('取消')
-          .fontSize(15)
-          .fontColor($r('app.color.brand_primary'))
-          .padding({ right: 16, top: 12, bottom: 12 })
+      // ===== 顶部导航栏： < 返回 | 搜索输入框 | 搜索按钮 =====
+      Row({ space: 12 }) {
+        // 返回按钮
+        Text('<')
+          .fontSize(24)
+          .fontColor($r('app.color.text_primary'))
+          .padding({ left: 16, right: 8, top: 12, bottom: 12 })
           .onClick(() => {
             this.onCancel();
           })
+
+        // 搜索输入框
+        TextInput({ placeholder: '搜索', text: this.keyword })
+          .height(36)
+          .backgroundColor($r('app.color.bg_secondary'))
+          .borderRadius(18)
+          .layoutWeight(1)
+          .onChange((v: string) => {
+            this.keyword = v;
+          })
+          .onSubmit(() => {
+            this.doSearch();
+          })
+
+        // 搜索按钮
+        Text('搜索')
+          .fontSize(15)
+          .fontColor($r('app.color.brand_primary'))
+          .padding({ left: 8, right: 16, top: 12, bottom: 12 })
+          .onClick(() => {
+            this.doSearch();
+          })
       }
       .width('100%')
+      .height(56)
+      .alignItems(VerticalAlign.Center)
+      .backgroundColor($r('app.color.bg_primary'))
 
+      // ===== 内容区 =====
       if (this.loadingState) {
-        // 加载态
         Column() {
           LoadingProgress().width(28).height(28)
         }
@@ -90,7 +126,7 @@ export struct SearchPanel {
                   })
               }
               .width('100%')
-              .padding({ left: 16, right: 16, top: 4, bottom: 8 })
+              .padding({ left: 16, right: 16, top: 16, bottom: 8 })
 
               ForEach(this.historyList, (kw: string, idx: number) => {
                 Text(kw)
