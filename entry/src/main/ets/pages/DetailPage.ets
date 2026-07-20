@@ -720,7 +720,8 @@ struct DetailPage {
         }
         .width('100%')
         .padding({ top: 8, bottom: 12 })
-        .backgroundColor($r('app.color.card_bg'))
+        .backgroundBlurStyle(BlurStyle.BACKGROUND_REGULAR)
+        .backgroundColor('rgba(28,28,30,0.65)')
         .borderWidth({ top: 0.5 })
         .borderColor($r('app.color.divider'))
       }

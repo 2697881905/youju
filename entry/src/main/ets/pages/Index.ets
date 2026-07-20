@@ -147,6 +147,8 @@ struct Index {
     })
     .width('100%')
     .height('100%')
+    .barBackgroundBlurStyle(BlurStyle.COMPONENT_ULTRA_THICK)
+    .barBackgroundColor('rgba(0,0,0,0.55)')
     .backgroundColor($r('app.color.bg_primary'))
   }
 }
