@@ -43,7 +43,7 @@ struct Index {
     this.getUIContext().showAlertDialog({
       title: '隐私政策与用户协议',
       message: '欢迎使用大蓝书。请你仔细阅读并同意《隐私政策》与《用户协议》后再开始使用。' +
-        '我们仅在为你提供内容推荐、账号安全等必要服务时收集相关信息。\n（占位文案，后续替换为真实政策链接）',
+        '我们仅在为你提供内容推荐、账号安全等必要服务时收集相关信息。',
       primaryButton: {
         value: '同意并继续',
         action: (): void => {
