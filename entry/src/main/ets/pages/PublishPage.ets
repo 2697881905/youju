@@ -1,15 +1,10 @@
-// 发布器（Tab 内容）：四步流程
-// Step0 选体裁 → Step1 选标签(1~3) → Step2 填标题/正文/结构化表单/图片 → Step3 预览&发布
-// 发布前自动用 dev 账号 login 拿 token（Account Kit 未接，先用 dev 桩）。
-// 图片在 ImagePicker 内选图即直传腾讯云 COS，selected 已是远端 URL，本页直接提交。
+// 发布器（Tab 内容）— 小红书风格：一页到底，无需翻步骤
+// 图片置顶 → 体裁 chip 选 → 标题/正文 → 标签弹层 → 结构化字段可折叠
+// 图片在 ImagePicker 内选图即直传腾讯云 COS，selected 已是远端 URL
 import { LengthMetrics } from '@kit.ArkUI';
 import {
-  createPost,
-  updatePost,
-  getPost,
-  listTags,
-  CreatePostBody,
-  UpdatePostBody,
+  createPost, updatePost, getPost, listTags,
+  CreatePostBody, UpdatePostBody,
 } from '../services/api';
 import { ensureLogin } from '../utils/auth';
 import { Genre, StructuredData, Tag } from '../models/types';
@@ -21,16 +16,14 @@ interface GenreItem {
   key: Genre;
   label: string;
   icon: string;
-  desc: string;
 }
 const GENRE_LIST: GenreItem[] = [
-  { key: 'review', label: '测评报告', icon: '📊', desc: '深度体验某产品 / 服务' },
-  { key: 'pitfall', label: '避坑指南', icon: '⚠️', desc: '分享踩过的坑' },
-  { key: 'tutorial', label: '实操教程', icon: '🛠️', desc: '手把手教做一件事' },
-  { key: 'debate', label: '辩论投票', icon: '🗳️', desc: '抛出两难让大家选' },
+  { key: 'review', label: '📊 测评', icon: '📊' },
+  { key: 'pitfall', label: '⚠️ 避坑', icon: '⚠️' },
+  { key: 'tutorial', label: '🛠️ 教程', icon: '🛠️' },
+  { key: 'debate', label: '🗳️ 辩论', icon: '🗳️' },
 ];
 
-// 各体裁结构化字段：[字段键, 中文标签]
 type FieldDef = [keyof StructuredData, string];
 function genreFieldDefs(genre: Genre): FieldDef[] {
   switch (genre) {
@@ -65,21 +58,12 @@ function readField(sd: StructuredData, key: keyof StructuredData): string | numb
   }
 }
 
-// 显式复制结构化字段（ArkTS V1 禁止对象展开/计算键）
 function withField(sd: StructuredData, key: keyof StructuredData, value: string): StructuredData {
   const out: StructuredData = {
-    pros: sd.pros,
-    cons: sd.cons,
-    rating: sd.rating,
-    targetAudience: sd.targetAudience,
-    pitfallExperience: sd.pitfallExperience,
-    lossAmount: sd.lossAmount,
-    correctApproach: sd.correctApproach,
-    tools: sd.tools,
-    steps: sd.steps,
-    timeDifficulty: sd.timeDifficulty,
-    planA: sd.planA,
-    planB: sd.planB,
+    pros: sd.pros, cons: sd.cons, rating: sd.rating, targetAudience: sd.targetAudience,
+    pitfallExperience: sd.pitfallExperience, lossAmount: sd.lossAmount,
+    correctApproach: sd.correctApproach, tools: sd.tools, steps: sd.steps,
+    timeDifficulty: sd.timeDifficulty, planA: sd.planA, planB: sd.planB,
   };
   switch (key) {
     case 'pros': out.pros = value; break;
@@ -99,18 +83,14 @@ function withField(sd: StructuredData, key: keyof StructuredData, value: string)
   return out;
 }
 
-// 长文本字段用多行输入
 function isLongField(key: keyof StructuredData): boolean {
   return key === 'pros' || key === 'cons' || key === 'pitfallExperience' ||
     key === 'correctApproach' || key === 'steps' || key === 'tools' ||
     key === 'planA' || key === 'planB';
 }
 
-const STEP_LABELS: string[] = ['选体裁', '选标签', '填内容', '预览发布'];
-
 @Component
 export struct PublishPage {
-  @State step: number = 0;
   @State genre: Genre = 'review';
   @State selectedTags: string[] = [];
   @State title: string = '';
@@ -122,19 +102,24 @@ export struct PublishPage {
   @State error: string = '';
   @State editPostId: number = 0;
   @State isEditMode: boolean = false;
+  // 小红书风格：结构化字段默认折叠
+  @State showFields: boolean = false;
+
+  private get canPublish(): boolean {
+    return !this.publishing && this.title.trim().length > 0;
+  }
 
   aboutToAppear(): void {
     const editId: number = (AppStorage.get<number>('editPostId') ?? 0) as number;
     if (editId > 0) {
       this.isEditMode = true;
       this.editPostId = editId;
-      AppStorage.setOrCreate('editPostId', 0); // 消费掉，避免下次误读
+      AppStorage.setOrCreate('editPostId', 0);
       this.loadPostForEdit(editId);
     }
     this.loadTags();
   }
 
-  // 编辑模式：加载原帖数据预填充
   private async loadPostForEdit(id: number): Promise<void> {
     try {
       const post = await getPost(id);
@@ -143,7 +128,6 @@ export struct PublishPage {
       this.genre = post.genre as Genre ?? 'review';
       this.selectedTags = post.tags as string[] ?? [];
       this.images = post.images ?? [];
-      // 结构化字段回填
       const sd: StructuredData = {};
       if (post.structuredData) {
         const raw = post.structuredData as Record<string, Object>;
@@ -161,6 +145,7 @@ export struct PublishPage {
         if (typeof raw.planB === 'string') sd.planB = raw.planB as string;
       }
       this.sd = sd;
+      this.showFields = Object.keys(sd).some((k: string) => (sd as Record<string, Object>)[k] !== undefined);
     } catch (e) {
       this.error = '加载帖子失败：' + (e as Error).message;
     }
@@ -170,11 +155,10 @@ export struct PublishPage {
     try {
       this.tags = await listTags();
     } catch (e) {
-      // 标签加载失败不阻断，留空
+      // 标签加载失败不阻断
     }
   }
 
-  // 发布前确保有登录态（走统一 AuthManager）
   private async ensureToken(): Promise<boolean> {
     try {
       await ensureLogin();
@@ -189,7 +173,6 @@ export struct PublishPage {
     this.sd = withField(this.sd, key, value);
   }
 
-  // 把表单字符串组装成后端结构化对象（rating 转数字）
   private buildStructuredData(): StructuredData {
     const out: Record<string, string | number> = {};
     const defs: FieldDef[] = genreFieldDefs(this.genre);
@@ -222,39 +205,29 @@ export struct PublishPage {
   }
 
   private async publish(): Promise<void> {
-    if (this.publishing) {
-      return;
-    }
+    if (this.publishing) return;
     if (!this.title.trim()) {
       safeShowToast(this.getUIContext(),{ message: '请填写标题' });
       return;
     }
     const okTok: boolean = await this.ensureToken();
-    if (!okTok) {
-      return;
-    }
+    if (!okTok) return;
     this.publishing = true;
     this.error = '';
     try {
       const images: string[] = this.images;
       if (this.isEditMode) {
         const body: UpdatePostBody = {
-          title: this.title.trim(),
-          content: this.content,
-          tags: this.selectedTags,
-          structuredData: this.buildStructuredData(),
-          images: images,
+          title: this.title.trim(), content: this.content,
+          tags: this.selectedTags, structuredData: this.buildStructuredData(), images: images,
         };
         await updatePost(this.editPostId, body);
         safeShowToast(this.getUIContext(),{ message: '编辑成功' });
       } else {
         const body: CreatePostBody = {
-          title: this.title.trim(),
-          content: this.content,
-          genre: this.genre,
-          tags: this.selectedTags,
-          structuredData: this.buildStructuredData(),
-          images: images,
+          title: this.title.trim(), content: this.content,
+          genre: this.genre, tags: this.selectedTags,
+          structuredData: this.buildStructuredData(), images: images,
         };
         const p = await createPost(body);
         safeShowToast(this.getUIContext(),{ message: '发布成功！帖子ID=' + (p.id ?? '') });
@@ -275,272 +248,186 @@ export struct PublishPage {
     this.content = '';
     this.sd = {};
     this.images = [];
-    this.step = 0;
+    this.showFields = false;
     this.isEditMode = false;
     this.editPostId = 0;
   }
 
+  // ===== 体裁 Chip 行 =====
   @Builder
-  stepBar(): void {
-    Row() {
-      ForEach(STEP_LABELS, (label: string, idx: number) => {
-        Column({ space: 4 }) {
-          Text((idx + 1).toString())
-            .fontSize(13)
-            .fontColor(this.step === idx ? Color.White : $r('app.color.text_secondary'))
-            .backgroundColor(this.step === idx ? $r('app.color.brand_primary') : $r('app.color.bg_secondary'))
-            .width(22)
-            .height(22)
-            .borderRadius(11)
-            .textAlign(TextAlign.Center)
-          Text(label)
-            .fontSize(11)
-            .fontColor(this.step === idx ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
-        }
-        .alignItems(HorizontalAlign.Center)
-        if (idx < STEP_LABELS.length - 1) {
-          Row()
-            .width(18)
-            .height(1)
-            .backgroundColor($r('app.color.text_secondary'))
-        }
-      }, (label: string) => label)
-    }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 10, bottom: 10 })
-  }
-
-  @Builder
-  step0Genre(): void {
-    Column({ space: 12 }) {
+  genreChips(): void {
+    Row({ space: 8 }) {
       ForEach(GENRE_LIST, (g: GenreItem) => {
-        Row({ space: 12 }) {
-          Text(g.icon).fontSize(28)
-          Column({ space: 2 }) {
-            Text(g.label).fontSize(17).fontWeight(FontWeight.Medium).fontColor($r('app.color.text_primary'))
-            Text(g.desc).fontSize(12).fontColor($r('app.color.text_secondary'))
-          }
-          .layoutWeight(1)
-          .alignItems(HorizontalAlign.Start)
-        }
-        .width('100%')
-        .padding(16)
-        .backgroundColor($r('app.color.bg_secondary'))
-        .borderRadius(12)
-        .onClick(() => {
-          this.genre = g.key;
-          this.step = 1;
-        })
+        Text(g.label)
+          .fontSize(13)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(this.genre === g.key ? '#FFFFFF' : $r('app.color.text_primary'))
+          .backgroundColor(this.genre === g.key ? $r('app.color.brand_primary') : $r('app.color.bg_secondary'))
+          .borderRadius(14)
+          .padding({ left: 12, right: 12, top: 6, bottom: 6 })
+          .onClick(() => { this.genre = g.key; })
       }, (g: GenreItem) => g.key)
     }
     .width('100%')
-    .padding(16)
+    .padding({ left: 16, right: 16 })
   }
 
+  // ===== 标签 Chip 区（横向滚动 Flex 换行）=====
   @Builder
-  step1Tags(): void {
-    Column({ space: 12 }) {
-      Text('选择 1~3 个标签')
-        .fontSize(14)
-        .fontColor($r('app.color.text_secondary'))
-        .width('100%')
-      Flex({ wrap: FlexWrap.Wrap, space: { main: LengthMetrics.px(10), cross: LengthMetrics.px(10) } }) {
+  tagChips(): void {
+    Column({ space: 8 }) {
+      Row({ space: 8 }) {
+        Text('添加标签')
+          .fontSize(13)
+          .fontColor($r('app.color.text_secondary'))
+        Text('(1-3个)')
+          .fontSize(12)
+          .fontColor($r('app.color.text_tertiary'))
+      }
+      .width('100%')
+      .padding({ left: 16, right: 16 })
+
+      Flex({ wrap: FlexWrap.Wrap, space: { main: LengthMetrics.px(8), cross: LengthMetrics.px(8) } }) {
         ForEach(this.tags, (t: Tag) => {
           Text((t.emoji ? t.emoji + ' ' : '') + (t.name ?? ''))
-            .fontSize(14)
-            .fontColor(this.selectedTags.indexOf(t.name ?? '') >= 0 ? Color.White : $r('app.color.text_primary'))
-            .backgroundColor(this.selectedTags.indexOf(t.name ?? '') >= 0 ? $r('app.color.brand_primary') : $r('app.color.bg_secondary'))
-            .padding({ left: 14, right: 14, top: 8, bottom: 8 })
-            .borderRadius(16)
+            .fontSize(13)
+            .fontColor(this.selectedTags.indexOf(t.name ?? '') >= 0 ? '#FFFFFF' : $r('app.color.text_primary'))
+            .backgroundColor(this.selectedTags.indexOf(t.name ?? '') >= 0
+              ? $r('app.color.brand_primary')
+              : $r('app.color.bg_secondary'))
+            .borderRadius(14)
+            .padding({ left: 12, right: 12, top: 6, bottom: 6 })
             .onClick(() => this.toggleTag(t.name ?? ''))
         }, (t: Tag) => t.name ?? '')
       }
       .width('100%')
+      .padding({ left: 16, right: 16 })
     }
-    .width('100%')
-    .padding(16)
   }
 
+  // ===== 结构化字段区（可折叠）=====
   @Builder
-  step2Form(): void {
-    Scroll() {
-      Column({ space: 14 }) {
-        Text('标题')
-          .fontSize(14)
+  structuredFields(): void {
+    Column({ space: 10 }) {
+      Row() {
+        Text('结构化信息（选填）')
+          .fontSize(13)
           .fontColor($r('app.color.text_secondary'))
-          .width('100%')
-        TextInput({ text: this.title, placeholder: '一句话说清你的经验' })
-          .width('100%')
-          .onChange((v: string) => { this.title = v; })
-
-        Text('正文')
-          .fontSize(14)
-          .fontColor($r('app.color.text_secondary'))
-          .width('100%')
-        TextArea({ text: this.content, placeholder: '展开讲讲背景、过程、结论…' })
-          .width('100%')
-          .height(120)
-
-        ImagePicker({ selected: $images, maxCount: 9 })
-
-        Text('结构化信息')
-          .fontSize(14)
-          .fontColor($r('app.color.text_secondary'))
-          .width('100%')
-        ForEach(genreFieldDefs(this.genre), (item: FieldDef) => {
-          Column({ space: 4 }) {
-            Text(item[1])
-              .fontSize(13)
-              .fontColor($r('app.color.text_primary'))
-              .width('100%')
-            if (isLongField(item[0])) {
-              TextArea({ text: String(readField(this.sd, item[0]) ?? ''), placeholder: item[1] })
-                .width('100%')
-                .height(80)
-                .onChange((v: string) => this.onFieldChange(item[0], v))
-            } else {
-              TextInput({ text: String(readField(this.sd, item[0]) ?? ''), placeholder: item[1] })
-                .width('100%')
-                .onChange((v: string) => this.onFieldChange(item[0], v))
-            }
-          }
-          .width('100%')
-          .alignItems(HorizontalAlign.Start)
-        }, (item: FieldDef) => item[0] as string)
+        Blank()
+        Text(this.showFields ? '收起 ▲' : '展开 ▼')
+          .fontSize(12)
+          .fontColor($r('app.color.brand_primary'))
       }
       .width('100%')
-      .padding(16)
-    }
-    .width('100%')
-    .layoutWeight(1)
-  }
+      .padding({ left: 16, right: 16 })
+      .onClick(() => { this.showFields = !this.showFields; })
 
-  @Builder
-  step3Preview(): void {
-    Scroll() {
-      Column({ space: 14 }) {
-        Text('预览')
-          .fontSize(16)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.text_primary'))
-          .width('100%')
-        // 体裁 chip
-        Row() {
-          Text(GENRE_LIST.find((g: GenreItem) => g.key === this.genre)?.label ?? '')
-            .fontSize(12)
-            .fontColor($r('app.color.brand_primary'))
-            .backgroundColor($r('app.color.bg_secondary'))
-            .padding({ left: 10, right: 10, top: 4, bottom: 4 })
-            .borderRadius(10)
-        }
-        .width('100%')
-        // 标题
-        Text(this.title)
-          .fontSize(20)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.text_primary'))
-          .width('100%')
-        // 标签
-        if (this.selectedTags.length > 0) {
-          Row({ space: 8 }) {
-            ForEach(this.selectedTags, (n: string) => {
-              Text('#' + n)
-                .fontSize(12)
-                .fontColor($r('app.color.text_secondary'))
-            }, (n: string) => n)
-          }
-          .width('100%')
-        }
-        // 图片
-        if (this.images.length > 0) {
-          Flex({ wrap: FlexWrap.Wrap, space: { main: LengthMetrics.px(8), cross: LengthMetrics.px(8) } }) {
-            ForEach(this.images, (uri: string) => {
-              Image(uri)
-                .width('30%')
-                .aspectRatio(1)
-                .objectFit(ImageFit.Cover)
-                .borderRadius(8)
-            }, (uri: string) => uri)
-          }
-          .width('100%')
-        }
-        // 结构化字段
-        ForEach(genreFieldDefs(this.genre), (item: FieldDef) => {
-          if (readField(this.sd, item[0]) !== undefined && readField(this.sd, item[0]) !== '') {
-            Column({ space: 2 }) {
+      if (this.showFields) {
+        Column({ space: 10 }) {
+          ForEach(genreFieldDefs(this.genre), (item: FieldDef) => {
+            Column({ space: 4 }) {
               Text(item[1])
                 .fontSize(12)
                 .fontColor($r('app.color.text_secondary'))
-              Text(String(readField(this.sd, item[0])))
-                .fontSize(14)
-                .fontColor($r('app.color.text_primary'))
+                .width('100%')
+              if (isLongField(item[0])) {
+                TextArea({ text: String(readField(this.sd, item[0]) ?? ''), placeholder: item[1] })
+                  .width('100%')
+                  .height(72)
+                  .fontSize(14)
+                  .backgroundColor($r('app.color.bg_secondary'))
+                  .borderRadius(10)
+                  .padding(10)
+                  .onChange((v: string) => this.onFieldChange(item[0], v))
+              } else {
+                TextInput({ text: String(readField(this.sd, item[0]) ?? ''), placeholder: item[1] })
+                  .width('100%')
+                  .fontSize(14)
+                  .backgroundColor($r('app.color.bg_secondary'))
+                  .borderRadius(10)
+                  .padding(10)
+                  .onChange((v: string) => this.onFieldChange(item[0], v))
+              }
             }
             .width('100%')
             .alignItems(HorizontalAlign.Start)
-            .padding(10)
-            .backgroundColor($r('app.color.bg_secondary'))
-            .borderRadius(8)
-          }
-        }, (item: FieldDef) => item[0] as string)
-        // 正文
-        if (this.content) {
-          Text(this.content)
-            .fontSize(14)
-            .fontColor($r('app.color.text_primary'))
-            .width('100%')
+          }, (item: FieldDef) => item[0] as string)
         }
+        .width('100%')
+        .padding({ left: 16, right: 16 })
       }
-      .width('100%')
-      .padding(16)
     }
-    .width('100%')
-    .layoutWeight(1)
-  }
-
-  @Builder
-  footer(): void {
-    Row({ space: 12 }) {
-      if (this.step > 0) {
-        Button('上一步')
-          .layoutWeight(1)
-          .onClick(() => { this.step = this.step - 1; })
-      }
-      Button(this.step < 3 ? '下一步' : '发布')
-        .layoutWeight(1)
-        .enabled(!this.publishing)
-        .onClick(() => {
-          if (this.step < 3) {
-            if (this.step === 1 && this.selectedTags.length === 0) {
-              safeShowToast(this.getUIContext(),{ message: '至少选 1 个标签' });
-              return;
-            }
-            this.step = this.step + 1;
-          } else {
-            this.publish();
-          }
-        })
-    }
-    .width('100%')
-    .padding(16)
   }
 
   build() {
     Column() {
-      this.stepBar()
-      if (this.step === 0) {
-        this.step0Genre()
-      } else if (this.step === 1) {
-        this.step1Tags()
-      } else if (this.step === 2) {
-        this.step2Form()
-      } else {
-        this.step3Preview()
-      }
-      if (this.step === 0) {
-        // 体裁页占满剩余空间
+      // ===== 顶部栏：取消 | 标题 | 发布 =====
+      Row() {
+        Text('取消')
+          .fontSize(15)
+          .fontColor($r('app.color.text_secondary'))
+          .onClick(() => { this.reset(); })
         Blank()
+        Text(this.isEditMode ? '编辑帖子' : '发布帖子')
+          .fontSize(16)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.text_primary'))
+        Blank()
+        Button(this.isEditMode ? '保存' : '发布')
+          .fontSize(13)
+          .fontWeight(FontWeight.Medium)
+          .height(32)
+          .padding({ left: 16, right: 16 })
+          .enabled(this.canPublish)
+          .backgroundColor($r('app.color.brand_primary'))
+          .fontColor('#FFFFFF')
+          .borderRadius(16)
+          .onClick(() => { this.publish(); })
       }
-      this.footer()
+      .width('100%')
+      .padding({ left: 16, right: 16, top: 8, bottom: 8 })
+      .backgroundColor($r('app.color.bg_primary'))
+
+      // ===== 内容区：一页到底 =====
+      Scroll() {
+        Column({ space: 16 }) {
+          // ① 图片区（置顶，主角）
+          ImagePicker({ selected: $images, maxCount: 9 })
+
+          // ② 体裁 Chip 选
+          this.genreChips()
+
+          // ③ 标题
+          TextInput({ text: this.title, placeholder: '一句话说清你的经验…' })
+            .width('100%')
+            .fontSize(17)
+            .fontWeight(FontWeight.Medium)
+            .backgroundColor($r('app.color.bg_primary'))
+            .padding({ left: 16, right: 16 })
+
+          // ④ 正文
+          TextArea({ text: this.content, placeholder: '展开讲讲背景、过程、结论…' })
+            .width('100%')
+            .height(120)
+            .fontSize(15)
+            .backgroundColor($r('app.color.bg_primary'))
+            .padding({ left: 16, right: 16 })
+
+          // ⑤ 标签
+          this.tagChips()
+
+          // ⑥ 结构化字段（可折叠）
+          this.structuredFields()
+
+          // 底部留白
+          Row().height(40).width('100%')
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
+      }
+      .layoutWeight(1)
+      .width('100%')
+      .scrollBar(BarState.Off)
     }
     .width('100%')
     .height('100%')
