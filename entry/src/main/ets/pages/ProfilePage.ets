@@ -52,16 +52,15 @@ export struct ProfilePage {
       const p: UserProfile = await getUserProfile(uid);
       this.followingCount = p.followingCount;
       this.followerCount = p.followerCount;
-      if (p.bio) {
-        this.user = {
-          id: this.user.id,
-          nickname: this.user.nickname,
-          avatar: this.user.avatar,
-          gender: this.user.gender,
-          bio: p.bio,
-          followTags: this.user.followTags,
-        };
-      }
+      // 始终用后端最新数据覆盖本地缓存（昵称/头像/性别/简介）
+      this.user = {
+        id: this.user.id,
+        nickname: p.nickname,
+        avatar: p.avatar,
+        gender: p.gender,
+        bio: p.bio ?? this.user.bio,
+        followTags: this.user.followTags,
+      };
     } catch (e) {
       // 计数失败不影响主列表
     }
