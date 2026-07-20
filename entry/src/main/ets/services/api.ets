@@ -207,6 +207,20 @@ export function createPost(body: CreatePostBody): Promise<Post> {
   return api.post<Post>('/v1/posts', body);
 }
 
+// 编辑帖子（仅本人）：PUT /v1/posts/:id
+export interface UpdatePostBody {
+  title?: string;
+  content?: string;
+  coverImage?: string;
+  images?: string[];
+  tags?: string[];
+  structuredData?: Object;
+}
+
+export function updatePost(id: number, body: UpdatePostBody): Promise<Post> {
+  return api.put<Post>('/v1/posts/' + id, body);
+}
+
 // DELETE /v1/posts/:id（仅本人）
 export async function deletePost(id: number): Promise<void> {
   await api.del<null>('/v1/posts/' + id);
@@ -227,6 +241,16 @@ export function createComment(postId: number, body: CreateCommentBody): Promise<
 // DELETE /v1/comments/:id（仅本人）
 export async function deleteComment(id: number): Promise<void> {
   await api.del<null>('/v1/comments/' + id);
+}
+
+// POST /v1/comments/:id/up（评论点赞，幂等）
+export async function upComment(id: number): Promise<void> {
+  await api.post<null>('/v1/comments/' + id + '/up');
+}
+
+// DELETE /v1/comments/:id/up（取消评论点赞，幂等）
+export async function cancelUpComment(id: number): Promise<void> {
+  await api.del<null>('/v1/comments/' + id + '/up');
 }
 
 // ===== 互动 =====

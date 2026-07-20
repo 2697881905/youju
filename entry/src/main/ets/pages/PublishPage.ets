@@ -5,8 +5,11 @@
 import { LengthMetrics } from '@kit.ArkUI';
 import {
   createPost,
+  updatePost,
+  getPost,
   listTags,
   CreatePostBody,
+  UpdatePostBody,
 } from '../services/api';
 import { ensureLogin } from '../utils/auth';
 import { Genre, StructuredData, Tag } from '../models/types';
@@ -117,9 +120,50 @@ export struct PublishPage {
   @State tags: Tag[] = [];
   @State publishing: boolean = false;
   @State error: string = '';
+  @State editPostId: number = 0;
+  @State isEditMode: boolean = false;
 
   aboutToAppear(): void {
+    const editId: number = (AppStorage.get<number>('editPostId') ?? 0) as number;
+    if (editId > 0) {
+      this.isEditMode = true;
+      this.editPostId = editId;
+      AppStorage.setOrCreate('editPostId', 0); // 消费掉，避免下次误读
+      this.loadPostForEdit(editId);
+    }
     this.loadTags();
+  }
+
+  // 编辑模式：加载原帖数据预填充
+  private async loadPostForEdit(id: number): Promise<void> {
+    try {
+      const post = await getPost(id);
+      this.title = post.title ?? '';
+      this.content = post.content ?? '';
+      this.genre = post.genre as Genre ?? 'review';
+      this.selectedTags = post.tags as string[] ?? [];
+      this.images = post.images ?? [];
+      // 结构化字段回填
+      const sd: StructuredData = {};
+      if (post.structuredData) {
+        const raw = post.structuredData as Record<string, Object>;
+        if (typeof raw.pros === 'string') sd.pros = raw.pros as string;
+        if (typeof raw.cons === 'string') sd.cons = raw.cons as string;
+        if (typeof raw.rating === 'number' || typeof raw.rating === 'string') sd.rating = raw.rating as string;
+        if (typeof raw.targetAudience === 'string') sd.targetAudience = raw.targetAudience as string;
+        if (typeof raw.pitfallExperience === 'string') sd.pitfallExperience = raw.pitfallExperience as string;
+        if (typeof raw.lossAmount === 'string') sd.lossAmount = raw.lossAmount as string;
+        if (typeof raw.correctApproach === 'string') sd.correctApproach = raw.correctApproach as string;
+        if (typeof raw.tools === 'string') sd.tools = raw.tools as string;
+        if (typeof raw.steps === 'string') sd.steps = raw.steps as string;
+        if (typeof raw.timeDifficulty === 'string') sd.timeDifficulty = raw.timeDifficulty as string;
+        if (typeof raw.planA === 'string') sd.planA = raw.planA as string;
+        if (typeof raw.planB === 'string') sd.planB = raw.planB as string;
+      }
+      this.sd = sd;
+    } catch (e) {
+      this.error = '加载帖子失败：' + (e as Error).message;
+    }
   }
 
   private async loadTags(): Promise<void> {
@@ -192,22 +236,33 @@ export struct PublishPage {
     this.publishing = true;
     this.error = '';
     try {
-      // 图片已在 ImagePicker 内直传 COS，images 已是远端 URL
       const images: string[] = this.images;
-      const body: CreatePostBody = {
-        title: this.title.trim(),
-        content: this.content,
-        genre: this.genre,
-        tags: this.selectedTags,
-        structuredData: this.buildStructuredData(),
-        images: images,
-      };
-      const p = await createPost(body);
-      safeShowToast(this.getUIContext(),{ message: '发布成功！帖子ID=' + (p.id ?? '') });
+      if (this.isEditMode) {
+        const body: UpdatePostBody = {
+          title: this.title.trim(),
+          content: this.content,
+          tags: this.selectedTags,
+          structuredData: this.buildStructuredData(),
+          images: images,
+        };
+        await updatePost(this.editPostId, body);
+        safeShowToast(this.getUIContext(),{ message: '编辑成功' });
+      } else {
+        const body: CreatePostBody = {
+          title: this.title.trim(),
+          content: this.content,
+          genre: this.genre,
+          tags: this.selectedTags,
+          structuredData: this.buildStructuredData(),
+          images: images,
+        };
+        const p = await createPost(body);
+        safeShowToast(this.getUIContext(),{ message: '发布成功！帖子ID=' + (p.id ?? '') });
+      }
       this.reset();
     } catch (e) {
       this.error = (e as Error).message;
-      safeShowToast(this.getUIContext(),{ message: '发布失败：' + this.error });
+      safeShowToast(this.getUIContext(),{ message: (this.isEditMode ? '编辑' : '发布') + '失败：' + this.error });
     } finally {
       this.publishing = false;
     }
@@ -221,6 +276,8 @@ export struct PublishPage {
     this.sd = {};
     this.images = [];
     this.step = 0;
+    this.isEditMode = false;
+    this.editPostId = 0;
   }
 
   @Builder

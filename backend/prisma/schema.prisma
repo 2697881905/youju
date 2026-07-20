@@ -77,6 +77,15 @@ model Comment {
   updatedAt   DateTime @updatedAt
 }
 
+// 评论顶（点赞）记录表（与 Up 同构，防重复点赞）
+model CommentUp {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  commentId Int
+  createdAt DateTime @default(now())
+  @@unique([userId, commentId]) // 同一用户对同一评论只能顶一次
+}
+
 // 顶（点赞）记录表
 model Up {
   id        Int      @id @default(autoincrement())

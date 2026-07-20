@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { ok, fail, CODE } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
+import { prisma } from '../prisma';
 import * as commentService from '../services/commentService';
 import * as reportService from '../services/reportService';
 import { SensitiveWordError } from '../utils/errors';
@@ -59,6 +60,42 @@ router.delete('/comments/:id', auth, async (req: AuthRequest, res: Response) => 
     if (result.reason === 'forbidden') return fail(res, CODE.FORBIDDEN, '只能删除自己的评论', 403);
   }
   return ok(res, null, '已删除');
+});
+
+// 评论点赞（顶）：POST /v1/comments/:id/up（幂等）
+router.post('/comments/:id/up', auth, async (req: AuthRequest, res: Response) => {
+  const commentId = Number(req.params.id);
+  if (!commentId) return fail(res, CODE.BAD_REQUEST, '无效评论ID');
+  try {
+    // 幂等：已点赞则忽略
+    const existing = await prisma.commentUp.findUnique({
+      where: { userId_commentId: { userId: req.userId!, commentId } },
+    });
+    if (existing) return ok(res, { up: true });
+    // 写 CommentUp + increment upCount
+    await prisma.commentUp.create({ data: { userId: req.userId!, commentId } });
+    await prisma.comment.update({ where: { id: commentId }, data: { upCount: { increment: 1 } } });
+    return ok(res, { up: true });
+  } catch (e) {
+    return fail(res, CODE.SERVER_ERROR, (e as Error).message);
+  }
+});
+
+// 取消评论点赞：DELETE /v1/comments/:id/up（幂等）
+router.delete('/comments/:id/up', auth, async (req: AuthRequest, res: Response) => {
+  const commentId = Number(req.params.id);
+  if (!commentId) return fail(res, CODE.BAD_REQUEST, '无效评论ID');
+  try {
+    const existing = await prisma.commentUp.findUnique({
+      where: { userId_commentId: { userId: req.userId!, commentId } },
+    });
+    if (!existing) return ok(res, { up: false });
+    await prisma.commentUp.delete({ where: { id: existing.id } });
+    await prisma.comment.update({ where: { id: commentId }, data: { upCount: { increment: -1 } } });
+    return ok(res, { up: false });
+  } catch (e) {
+    return fail(res, CODE.SERVER_ERROR, (e as Error).message);
+  }
 });
 
 // 举报评论：POST /v1/comments/:id/report

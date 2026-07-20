@@ -187,6 +187,33 @@ export async function deletePost(id: number, userId: number) {
   return { ok: true };
 }
 
+// 编辑帖子（仅本人，仅更新传入字段；体裁不可改）
+export interface UpdatePostInput {
+  title?: string;
+  content?: string;
+  coverImage?: string | null;
+  images?: string[];
+  tags?: string[];
+  structuredData?: any;
+}
+
+export async function updatePost(id: number, userId: number, input: UpdatePostInput) {
+  const post = await prisma.post.findUnique({ where: { id } });
+  if (!post) return { ok: false, reason: 'not_found' };
+  if (post.userId !== userId) return { ok: false, reason: 'forbidden' };
+
+  const data: Record<string, any> = {};
+  if (input.title !== undefined) data.title = input.title;
+  if (input.content !== undefined) data.content = input.content;
+  if (input.coverImage !== undefined) data.coverImage = input.coverImage;
+  if (input.images !== undefined) data.images = input.images;
+  if (input.tags !== undefined) data.tags = input.tags;
+  if (input.structuredData !== undefined) data.structuredData = input.structuredData;
+
+  const updated = await prisma.post.update({ where: { id }, data });
+  return { ok: true, post: updated };
+}
+
 // 个人主页：我发布的帖子
 export async function listByUser(userId: number) {
   const rows = await prisma.post.findMany({

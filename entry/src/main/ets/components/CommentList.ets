@@ -2,7 +2,7 @@
 import { Comment } from '../models/types';
 import { timeAgo, formatCount } from '../utils/format';
 import { getUserId } from '../utils/auth';
-import { deleteComment } from '../services/api';
+import { deleteComment, upComment } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 
 @Component
@@ -109,9 +109,22 @@ export struct CommentList {
                 Text(c.content ?? '')
                   .fontSize(15)
                   .fontColor($r('app.color.text_primary'))
-                Text(timeAgo(c.createdAt) + ' · ' + formatCount(c.upCount) + ' 顶')
+                Text(timeAgo(c.createdAt) + ' · ')
                   .fontSize(12)
-                  .fontColor($r('app.color.text_secondary'))
+                  .fontColor($r('app.color.text_secondary'));
+                Text('👍 ' + formatCount(c.upCount))
+                  .fontSize(12)
+                  .fontColor($r('app.color.brand_primary'))
+                  .onClick(async () => {
+                    if (c.id !== undefined) {
+                      try {
+                        await upComment(c.id);
+                        c.upCount = (c.upCount ?? 0) + 1;
+                      } catch (_e) {
+                        // 幂等忽略
+                      }
+                    }
+                  })
               }
               .layoutWeight(1)
               .alignItems(HorizontalAlign.Start)

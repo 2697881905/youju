@@ -294,8 +294,11 @@ struct DetailPage {
           action: (): void => { this.onDeletePost(); },
         },
         secondaryButton: {
-          value: '分享',
-          action: (): void => { this.onShare(); },
+          value: '编辑帖子',
+          action: (): void => {
+            AppStorage.setOrCreate('editPostId', this.pid);
+            router.pushUrl({ url: 'pages/PublishPage' });
+          },
         },
       });
     } else {

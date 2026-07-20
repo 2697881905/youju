@@ -108,6 +108,17 @@ router.delete('/:id', auth, async (req: AuthRequest, res: Response) => {
   return ok(res, null, '已删除');
 });
 
+// 编辑帖子（仅本人）：PUT /v1/posts/:id
+router.put('/:id', auth, async (req: AuthRequest, res: Response) => {
+  const id = Number(req.params.id);
+  const result = await postService.updatePost(id, req.userId!, req.body ?? {});
+  if (!result.ok) {
+    if (result.reason === 'not_found') return fail(res, CODE.NOT_FOUND, '帖子不存在', 404);
+    if (result.reason === 'forbidden') return fail(res, CODE.FORBIDDEN, '只能编辑自己的帖子', 403);
+  }
+  return ok(res, result.post);
+});
+
 // 举报帖子：POST /v1/posts/:id/report
 router.post('/:id/report', auth, async (req: AuthRequest, res: Response) => {
   const postId = Number(req.params.id);
