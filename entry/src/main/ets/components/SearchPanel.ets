@@ -66,7 +66,7 @@ export struct SearchPanel {
         Text('<')
           .fontSize(24)
           .fontColor($r('app.color.text_primary'))
-          .padding({ left: 16, right: 8, top: 12, bottom: 12 })
+          .padding({ left: 16, right: 8, top: 8, bottom: 8 })
           .onClick(() => {
             this.onCancel();
           })
@@ -88,13 +88,12 @@ export struct SearchPanel {
         Text('搜索')
           .fontSize(15)
           .fontColor($r('app.color.brand_primary'))
-          .padding({ left: 8, right: 16, top: 12, bottom: 12 })
+          .padding({ left: 8, right: 16, top: 8, bottom: 8 })
           .onClick(() => {
             this.doSearch();
           })
       }
       .width('100%')
-      .height(56)
       .alignItems(VerticalAlign.Center)
       .backgroundColor($r('app.color.bg_primary'))
 
@@ -126,14 +125,14 @@ export struct SearchPanel {
                   })
               }
               .width('100%')
-              .padding({ left: 16, right: 16, top: 16, bottom: 8 })
+              .padding({ left: 16, right: 16, top: 12, bottom: 6 })
 
               ForEach(this.historyList, (kw: string, idx: number) => {
                 Text(kw)
                   .width('100%')
                   .fontSize(15)
                   .fontColor($r('app.color.text_primary'))
-                  .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+                  .padding({ left: 16, right: 16, top: 10, bottom: 10 })
                   .onClick(() => {
                     this.onKeywordSelect(kw);
                   })
@@ -143,7 +142,7 @@ export struct SearchPanel {
                 .width('100%')
                 .height(1)
                 .color($r('app.color.divider'))
-                .margin({ left: 16, right: 16, top: 4, bottom: 4 })
+                .margin({ left: 16, right: 16, top: 2, bottom: 2 })
             }
 
             // ----- 猜你想搜 -----
@@ -155,7 +154,7 @@ export struct SearchPanel {
               Blank()
             }
             .width('100%')
-            .padding({ left: 16, right: 16, top: 16, bottom: 8 })
+            .padding({ left: 16, right: 16, top: 8, bottom: 6 })
 
             if (this.hotList.length === 0) {
               Text('暂无热搜词')
@@ -180,7 +179,7 @@ export struct SearchPanel {
                   }
                 }
                 .width('100%')
-                .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+                .padding({ left: 16, right: 16, top: 10, bottom: 10 })
                 .onClick(() => {
                   this.onKeywordSelect(kw);
                 })
