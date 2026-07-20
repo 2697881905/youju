@@ -140,6 +140,7 @@ export struct CommentList {
                   if (isOwner) {
                     this.getUIContext().showAlertDialog({
                       title: '操作',
+                      message: '',
                       primaryButton: { value: '取消', action: (): void => {} },
                       secondaryButton: {
                         value: '删除该评论',
@@ -152,6 +153,7 @@ export struct CommentList {
                   } else {
                     this.getUIContext().showAlertDialog({
                       title: '操作',
+                      message: '',
                       primaryButton: {
                         value: '举报该评论',
                         fontColor: '#FF453A',

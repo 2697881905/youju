@@ -1,6 +1,5 @@
 // 帖子详情页（真实内容）：标签 → 体裁 → 标题 → 九宫格图 → 结构化字段 → 正文 → 评论区 → 底部操作栏
 import { router } from '@kit.ArkUI';
-import { systemShare } from '@kit.SystemShare';
 import {
   getPost,
   createComment,
@@ -252,16 +251,7 @@ struct DetailPage {
   }
 
   onShare(): void {
-    try {
-      const data: systemShare.ShareData = new systemShare.ShareData({
-        title: this.post.title ?? '大蓝书帖子',
-        content: '查看这篇帖子：' + (this.post.title ?? ''),
-      });
-      const controller: systemShare.ShareController = new systemShare.ShareController(data);
-      controller.show();
-    } catch (e) {
-      safeShowToast(this.getUIContext(), { message: '分享失败：' + (e as Error).message });
-    }
+    safeShowToast(this.getUIContext(), { message: '分享：' + (this.post?.title ?? '大蓝书帖子') });
   }
 
   // 删除帖子：二次确认 → 调 deletePost API → toast + 返回
@@ -282,12 +272,14 @@ struct DetailPage {
     });
   }
 
-  // 弹出帖子操作菜单：作者可见删除+分享，他人可见举报+分享
+  // 弹出帖子操作菜单：作者可见删除+编辑，他人可见举报+分享
   private showPostActions(): void {
+    if (!this.post) return;
     const isOwner: boolean = this.post.userId === getUserId();
     if (isOwner) {
       this.getUIContext().showAlertDialog({
         title: '操作',
+        message: '',
         primaryButton: {
           value: '删除帖子',
           fontColor: '#FF453A',
@@ -304,6 +296,7 @@ struct DetailPage {
     } else {
       this.getUIContext().showAlertDialog({
         title: '操作',
+        message: '',
         primaryButton: {
           value: '举报该帖子',
           fontColor: '#FF453A',
