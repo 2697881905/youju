@@ -243,5 +243,9 @@ struct SearchResultPage {
     .height('100%')
     .alignItems(HorizontalAlign.Start)
     .backgroundColor($r('app.color.bg_primary'))
+    .transition(TransitionEffect.OPACITY
+      .animation({ duration: 300, curve: Curve.EaseOut })
+      .combine(TransitionEffect.translate({ x: 50 })
+        .animation({ duration: 350, curve: Curve.EaseOut })))
   }
 }

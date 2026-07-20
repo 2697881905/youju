@@ -40,6 +40,10 @@ struct LoginPage {
     .height('100%')
     .justifyContent(FlexAlign.Start)
     .alignItems(HorizontalAlign.Center)
+    .transition(TransitionEffect.OPACITY
+      .animation({ duration: 300, curve: Curve.EaseOut })
+      .combine(TransitionEffect.translate({ x: 50 })
+        .animation({ duration: 350, curve: Curve.EaseOut })))
   }
 
   // 华为登录成功：用 code 换登录态并落地 session

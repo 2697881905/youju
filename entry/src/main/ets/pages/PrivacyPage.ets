@@ -89,6 +89,10 @@ export struct PrivacyPage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.bg_primary'));
+    .transition(TransitionEffect.OPACITY
+      .animation({ duration: 300, curve: Curve.EaseOut })
+      .combine(TransitionEffect.translate({ x: 50 })
+        .animation({ duration: 350, curve: Curve.EaseOut })))
   }
 
   @Builder
