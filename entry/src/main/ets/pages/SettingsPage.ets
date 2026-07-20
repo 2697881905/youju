@@ -4,7 +4,7 @@
 import { getIsAdmin, clearSession } from '../utils/auth';
 import { deactivateAccount, clearSearchHistory, exportUserData } from '../services/api';
 import { safeShowToast } from '../utils/toast';
-import { toggleDarkMode, isDarkMode } from '../utils/theme';
+import { toggleDarkMode, isDarkMode, isFollowSystem, setFollowSystem, getSystemDark } from '../utils/theme';
 import { buildPageTransition } from '../utils/styles';
 import { window } from '@kit.ArkUI';
 
@@ -13,11 +13,13 @@ import { window } from '@kit.ArkUI';
 export struct SettingsPage {
   @State isAdmin: boolean = getIsAdmin();
   @State darkMode: boolean = isDarkMode();
+  @State followSystem: boolean = isFollowSystem();
   @State statusBarHeight: number = 0;
 
   aboutToAppear(): void {
     this.isAdmin = getIsAdmin();
     this.darkMode = isDarkMode();
+    this.followSystem = isFollowSystem();
     this.loadStatusBarHeight();
   }
 
@@ -248,7 +250,62 @@ export struct SettingsPage {
               .fontColor($r('app.color.text_secondary'))
               .alignSelf(ItemAlign.Start)
               .padding({ left: 4 });
-            this.toggleRow('深色模式', '关闭后使用浅色主题');
+
+            // 跟随系统
+            Row() {
+              Column({ space: 2 }) {
+                Text('跟随系统')
+                  .fontSize(16)
+                  .fontColor($r('app.color.text_primary'))
+                Text('关闭后可手动选择深浅模式')
+                  .fontSize(12)
+                  .fontColor($r('app.color.text_secondary'))
+              }
+              .alignItems(HorizontalAlign.Start)
+              .layoutWeight(1)
+              Toggle({ type: ToggleType.Switch, isOn: this.followSystem })
+                .onChange((isOn: boolean) => {
+                  this.followSystem = isOn;
+                  setFollowSystem(isOn);
+                  if (isOn) {
+                    this.darkMode = getSystemDark();
+                  }
+                })
+            }
+            .width('100%')
+            .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+            .backgroundBlurStyle(BlurStyle.BACKGROUND_THIN)
+            .backgroundColor($r('app.color.glass_card_bg'))
+            .border({ width: 0.5, color: $r('app.color.glass_border') })
+            .borderRadius(12)
+
+            // 深色模式（仅在不跟随系统时可用）
+            if (!this.followSystem) {
+              Row() {
+                Column({ space: 2 }) {
+                  Text('深色模式')
+                    .fontSize(16)
+                    .fontColor($r('app.color.text_primary'))
+                  Text('关闭后使用浅色主题')
+                    .fontSize(12)
+                    .fontColor($r('app.color.text_secondary'))
+                }
+                .alignItems(HorizontalAlign.Start)
+                .layoutWeight(1)
+                Toggle({ type: ToggleType.Switch, isOn: this.darkMode })
+                  .onChange((isOn: boolean) => {
+                    this.darkMode = isOn;
+                    toggleDarkMode(isOn);
+                  })
+              }
+              .width('100%')
+              .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+              .backgroundBlurStyle(BlurStyle.BACKGROUND_THIN)
+              .backgroundColor($r('app.color.glass_card_bg'))
+              .border({ width: 0.5, color: $r('app.color.glass_border') })
+              .borderRadius(12)
+            }
+
             this.sectionRow('清除缓存', (): void => {
               this.onClearCacheClick();
             });
