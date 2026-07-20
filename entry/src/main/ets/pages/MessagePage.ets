@@ -30,15 +30,16 @@ export struct MessagePage {
   @StorageLink('authToken') @Watch('onTokenReady') token: string = '';
   @State activeFilter: string = 'all'; // 'all' | 'up_bookmark' | 'follow' | 'comment'
 
-  // 根据当前筛选条件过滤列表
-  private get displayList(): NotificationItem[] {
-    if (!this.list) {
+  // 根据当前筛选条件过滤列表（方法调用，避免 ArkTS getter 在 build() 中不稳定）
+  private getFilteredList(): NotificationItem[] {
+    const list: NotificationItem[] = this.list;
+    if (!list) {
       return [];
     }
     if (this.activeFilter === 'all') {
-      return this.list;
+      return list;
     }
-    return this.list.filter((item: NotificationItem) => {
+    return list.filter((item: NotificationItem) => {
       if (this.activeFilter === 'up_bookmark') {
         return item.type === 'up' || item.type === 'bookmark';
       }
@@ -386,7 +387,7 @@ export struct MessagePage {
         .layoutWeight(1)
         .width('100%')
         .justifyContent(FlexAlign.Center)
-      } else if (this.displayList.length === 0) {
+      } else if (this.list.length === 0) {
         Column() {
           Text(this.activeFilter === 'all' ? '暂无新消息' : '暂无此类通知')
             .fontSize(14)
@@ -399,7 +400,7 @@ export struct MessagePage {
         Refresh({ refreshing: $$this.refreshing, offset: 80, friction: 48 }) {
           List({ space: 8 }) {
             ForEach(
-              this.displayList,
+              this.getFilteredList(),
               (item: NotificationItem) => {
                 ListItem() {
                   this.notificationRow(item)
