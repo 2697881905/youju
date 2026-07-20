@@ -20,6 +20,7 @@ import { ReportDialog } from '../components/ReportDialog';
 import { takeDetailPostId, emitTabSwitch } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 import { getUserId } from '../utils/auth';
+import { window } from '@kit.ArkUI';
 
 // 字段定义：[结构化字段键, 中文标签]，按产品文档 2.4 各体裁字段表
 type FieldDef = [keyof StructuredData, string];
@@ -111,6 +112,7 @@ struct DetailPage {
   @State planAVotes: number = 0;
   @State planBVotes: number = 0;
   @State myVote: string = ''; // '' | 'A' | 'B'
+  @State statusBarHeight: number = 0; // 全屏布局下顶部避让状态栏
 
   private get pid(): number {
     return Number(this.postId);
@@ -143,11 +145,28 @@ struct DetailPage {
   });
 
   aboutToAppear(): void {
+    // 读取状态栏高度（全屏布局下顶部内容需避让）
+    this.loadStatusBarHeight();
     // API 24 router.getParams 失效；AppStorage 是框架级全局单例（主通道），模块单例作 fallback
     const fromApp: string | undefined = AppStorage.get<string>('detailPostId');
     const fromSingleton: string = takeDetailPostId();
     this.postId = (fromApp ?? fromSingleton ?? '').trim();
     this.load();
+  }
+
+  // 读取系统状态栏高度（全屏布局下顶部内容需避让）
+  private async loadStatusBarHeight(): Promise<void> {
+    try {
+      const ctx = this.getUIContext().getHostContext();
+      if (!ctx) {
+        return;
+      }
+      const win = await window.getLastWindow(ctx);
+      const area = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
+      this.statusBarHeight = px2vp(area.topRect.height);
+    } catch (e) {
+      // 读取失败维持 0（不阻塞页面渲染）
+    }
   }
 
   async load(): Promise<void> {
@@ -730,6 +749,7 @@ struct DetailPage {
     }
     .width('100%')
     .height('100%')
+    .padding({ top: this.statusBarHeight })
     .backgroundColor($r('app.color.bg_primary'))
     .transition(buildPageTransition())
   }
