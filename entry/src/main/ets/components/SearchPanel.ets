@@ -114,10 +114,11 @@ export struct SearchPanel {
         .justifyContent(FlexAlign.Center)
         .alignItems(HorizontalAlign.Center)
       } else {
-        Scroll() {
-          Column() {
-            // ----- 搜索历史（包进统一圆角卡片）-----
-            if (this.historyList.length > 0) {
+        // 用 List 承载内容：List 从顶部排列、可滚动，且不会像 Scroll+Column 那样把内容整体垂直居中
+        List() {
+          // ----- 搜索历史（包进统一圆角卡片）-----
+          if (this.historyList.length > 0) {
+            ListItem() {
               Column() {
                 Row() {
                   Text('搜索历史')
@@ -167,8 +168,10 @@ export struct SearchPanel {
               .shadow(CARD_SHADOW)
               .margin({ left: 16, right: 16, top: 0, bottom: 8 })
             }
+          }
 
-            // ----- 猜你想搜（包进统一圆角卡片）-----
+          // ----- 猜你想搜（包进统一圆角卡片）-----
+          ListItem() {
             Column() {
               Row() {
                 Text('猜你想搜')
@@ -228,10 +231,11 @@ export struct SearchPanel {
             .shadow(CARD_SHADOW)
             .margin({ left: 16, right: 16, top: 6, bottom: 12 })
           }
-          .width('100%')
         }
         .layoutWeight(1)
         .width('100%')
+        .divider({ strokeWidth: 0 })
+        .backgroundColor($r('app.color.bg_primary'))
       }
     }
     .width('100%')
