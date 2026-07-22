@@ -219,6 +219,18 @@ export struct ProfilePage {
         }
         .alignItems(HorizontalAlign.Start)
         .layoutWeight(1)
+
+        // 编辑资料入口（原设置页入口，移至此处头像/名称右侧）
+        Button('编辑资料')
+          .height(34)
+          .padding({ left: 16, right: 16 })
+          .borderRadius(17)
+          .fontSize(13)
+          .fontColor($r('app.color.brand_primary'))
+          .backgroundColor($r('app.color.bg_secondary'))
+          .onClick(() => {
+            this.getUIContext().getRouter().pushUrl({ url: 'pages/EditProfilePage' });
+          })
       }
       .width('100%')
       .padding({ left: 16, right: 16, top: 8, bottom: 8 })

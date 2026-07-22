@@ -217,9 +217,6 @@ export struct SettingsPage {
               .fontColor($r('app.color.text_secondary'))
               .alignSelf(ItemAlign.Start)
               .padding({ left: 4 });
-            this.sectionRow('edit', '编辑资料', (): void => {
-              this.getUIContext().getRouter().pushUrl({ url: 'pages/EditProfilePage' });
-            });
             this.sectionRow('phone', '账号绑定', (): void => {
               this.getUIContext().getRouter().pushUrl({ url: 'pages/AccountBindingPage' });
             });
