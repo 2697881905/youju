@@ -6,6 +6,8 @@ import { Router, Response } from 'express';
 import { ok, fail, CODE } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
 import { adminAuth } from '../middleware/adminAuth';
+import { prisma } from '../prisma';
+import { env } from '../config/env';
 import * as moderationService from '../services/moderationService';
 import * as reportService from '../services/reportService';
 
@@ -48,6 +50,29 @@ router.get('/reports', async (req: AuthRequest, res: Response) => {
   const status = req.query.status ? String(req.query.status) : undefined;
   const data = await reportService.listReports(page, limit, status);
   return ok(res, data);
+});
+
+// POST /v1/admin/users/:id/ban — 封禁用户（status=0）
+router.post('/users/:id/ban', async (req: AuthRequest, res: Response) => {
+  const id = Number(req.params.id);
+  if (!id || isNaN(id)) return fail(res, CODE.BAD_REQUEST, '无效用户ID');
+  if (env.adminUserIds.includes(id)) {
+    return fail(res, CODE.FORBIDDEN, '不能封禁管理员', 403);
+  }
+  const target = await prisma.user.findUnique({ where: { id } });
+  if (!target) return fail(res, CODE.NOT_FOUND, '用户不存在', 404);
+  await prisma.user.update({ where: { id }, data: { status: 0 } });
+  return ok(res, null, '已封禁');
+});
+
+// POST /v1/admin/users/:id/unban — 解封用户（status=1）
+router.post('/users/:id/unban', async (req: AuthRequest, res: Response) => {
+  const id = Number(req.params.id);
+  if (!id || isNaN(id)) return fail(res, CODE.BAD_REQUEST, '无效用户ID');
+  const target = await prisma.user.findUnique({ where: { id } });
+  if (!target) return fail(res, CODE.NOT_FOUND, '用户不存在', 404);
+  await prisma.user.update({ where: { id }, data: { status: 1 } });
+  return ok(res, null, '已解封');
 });
 
 export default router;

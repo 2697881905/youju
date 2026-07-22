@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import { env } from './config/env';
 import authRouter from './routes/auth';
 import postRouter from './routes/posts';
 import commentRouter from './routes/comments';
@@ -20,7 +21,12 @@ import { sensitiveWordService } from './services/sensitiveWordService';
 
 export const app = express();
 
-app.use(cors());
+// CORS：生产环境通过 CORS_ORIGIN 限定具体来源（逗号分隔）。
+// 留空时放开全部（开发期方便真机/模拟器联调），但启动时会在终端给出安全警示。
+const allowedOrigins = env.corsOrigin
+  ? env.corsOrigin.split(',').map((s) => s.trim()).filter(Boolean)
+  : undefined;
+app.use(cors(allowedOrigins ? { origin: allowedOrigins } : undefined));
 app.use(express.json());
 
 app.get('/health', (_req, res) => res.json({ ok: true }));

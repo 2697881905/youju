@@ -41,6 +41,11 @@ export async function followUser(viewerId: number, rawTargetId: string): Promise
   if (!target) {
     throw new FollowError('用户不存在', 404, 404);
   }
+  // 隐私：对方关闭「允许关注」则拒绝
+  const ps = await prisma.privacySettings.findUnique({ where: { userId: targetId } });
+  if (ps && ps.allowFollow === false) {
+    throw new FollowError('对方已关闭被关注', 403, 403);
+  }
   await prisma.follow.upsert({
     where: { followerId_followingId: { followerId: viewerId, followingId: targetId } },
     update: {},

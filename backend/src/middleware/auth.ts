@@ -24,11 +24,11 @@ export async function auth(req: AuthRequest, res: Response, next: NextFunction):
     fail(res, CODE.UNAUTHORIZED, '登录已过期', 401);
     return;
   }
-  let user: { deletedAt: Date | null } | null;
+  let user: { deletedAt: Date | null; status: number } | null;
   try {
     user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { deletedAt: true },
+      select: { deletedAt: true, status: true },
     });
   } catch {
     fail(res, CODE.SERVER_ERROR, '鉴权失败', 500);
@@ -36,6 +36,10 @@ export async function auth(req: AuthRequest, res: Response, next: NextFunction):
   }
   if (!user || user.deletedAt) {
     fail(res, CODE.UNAUTHORIZED, '账号已注销', 401);
+    return;
+  }
+  if (user.status === 0) {
+    fail(res, CODE.UNAUTHORIZED, '账号已被封禁', 401);
     return;
   }
   req.userId = userId;

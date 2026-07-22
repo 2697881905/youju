@@ -100,8 +100,21 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
 
 // 发布帖子（进入待审核）：POST /v1/posts
 router.post('/', auth, async (req: AuthRequest, res: Response) => {
-  const { title, genre } = req.body ?? {};
+  const { title, genre, content, tags, images } = req.body ?? {};
   if (!title || !genre) return fail(res, CODE.BAD_REQUEST, '标题和体裁必填');
+  // 输入长度 / 数量校验（防滥用）
+  if (typeof title !== 'string' || title.trim().length === 0 || title.length > 100) {
+    return fail(res, CODE.BAD_REQUEST, '标题长度需在 1-100 字');
+  }
+  if (content && typeof content === 'string' && content.length > 20000) {
+    return fail(res, CODE.BAD_REQUEST, '正文过长（≤20000 字）');
+  }
+  if (tags && Array.isArray(tags) && tags.length > 3) {
+    return fail(res, CODE.BAD_REQUEST, '标签最多 3 个');
+  }
+  if (images && Array.isArray(images) && images.length > 9) {
+    return fail(res, CODE.BAD_REQUEST, '图片最多 9 张');
+  }
   try {
     const post = await postService.createPost(req.body, req.userId!);
     return ok(res, post);

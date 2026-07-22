@@ -28,4 +28,6 @@ export const env = {
     .map((s) => parseInt(s.trim(), 10))
     .filter((n) => !isNaN(n) && n > 0),
   reportThreshold: Number(process.env.REPORT_THRESHOLD ?? 3),
+  // CORS 允许的源（逗号分隔）。留空 = 允许所有（仅开发期，生产务必配置具体域名）。
+  corsOrigin: process.env.CORS_ORIGIN ?? '',
 };

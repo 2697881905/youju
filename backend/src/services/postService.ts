@@ -2,6 +2,7 @@ import { prisma } from '../prisma';
 import { sensitiveWordService } from './sensitiveWordService';
 import { SensitiveWordError } from '../utils/errors';
 import { USER_PUBLIC_SELECT, publicUserView } from '../utils/userView';
+import { getExcludedAuthorIds, canViewerSeeAuthorPosts } from './accessControl';
 
 export type SortType = 'hot' | 'latest' | 'recommend';
 
@@ -54,17 +55,38 @@ export async function listPosts(params: ListParams) {
   // recommend（P1）初期用简单规则：回退到最新
 
   // 关注流：仅返回当前用户关注的人发布的帖子（公开流不进入此分支）
+  let followIds: number[] | undefined;
   if (params.following && params.viewerId) {
     const follows = await prisma.follow.findMany({
       where: { followerId: params.viewerId },
       select: { followingId: true },
     });
-    const ids: number[] = follows.map((f) => f.followingId);
-    if (ids.length === 0) {
+    followIds = follows.map((f) => f.followingId);
+    if (followIds.length === 0) {
       // 未关注任何人：直接返回空结果，不查 post 表（省一次 count）
       return { list: [], pagination: { page, limit, total: 0 } };
     }
-    where.userId = { in: ids };
+    where.userId = { in: followIds };
+  }
+
+  // 可见性 / 拉黑 / 隐私 过滤
+  if (params.author) {
+    // 单作者（个人主页）场景：无权限则直接返回空列表
+    const allowed = await canViewerSeeAuthorPosts(params.viewerId, params.author);
+    if (!allowed) {
+      return { list: [], pagination: { page, limit, total: 0 } };
+    }
+  } else {
+    // 全局信息流 / 关注流：隐藏被封禁作者的帖子 + 拉黑/隐私不可见作者
+    where.user = { status: 1 };
+    const excluded = await getExcludedAuthorIds(params.viewerId);
+    if (excluded.length > 0) {
+      if (params.following) {
+        where.userId = { in: followIds!, notIn: excluded };
+      } else {
+        where.userId = { notIn: excluded };
+      }
+    }
   }
 
   const [list, total] = await Promise.all([
@@ -135,6 +157,10 @@ export async function getPost(id: number, viewerId?: number) {
     },
   });
   if (!post) {
+    return null;
+  }
+  // 可见性 / 拉黑 / 隐私 校验：无权限则视为不存在（404）
+  if (!(await canViewerSeeAuthorPosts(viewerId, post.userId))) {
     return null;
   }
   if (!viewerId) {
@@ -244,6 +270,11 @@ export async function listHotPosts(params: HotPostsParams) {
     where.tags = { array_contains: params.tag };
   }
 
+  // 隐藏被封禁作者的帖子 + 拉黑/隐私不可见作者
+  where.user = { status: 1 };
+  const hotExcluded = await getExcludedAuthorIds(params.viewerId);
+  if (hotExcluded.length > 0) where.userId = { notIn: hotExcluded };
+
   // 取时窗内全部帖子（后续在内存中计算热度分 + 排序，再分页）
   const rows = await prisma.post.findMany({
     where,
@@ -304,7 +335,11 @@ export async function listHotPosts(params: HotPostsParams) {
 }
 
 // 个人主页：我发布的帖子
-export async function listByUser(userId: number) {
+export async function listByUser(userId: number, viewerId?: number) {
+  // 无权限查看该用户帖子（隐私/拉黑/封禁）时返回空列表
+  if (!(await canViewerSeeAuthorPosts(viewerId, userId))) {
+    return [];
+  }
   const rows = await prisma.post.findMany({
     where: { userId },
     orderBy: { createdAt: 'desc' },
