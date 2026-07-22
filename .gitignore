@@ -19,6 +19,9 @@ backend/.env
 *.keystore
 *.jks
 
+# 本地签名材料（含测试用 keystore/证书/描述文件，由 AGC 正式材料替换）
+entry/material/
+
 # WorkBuddy agent 记忆（非项目源码）
 .workbuddy/
 

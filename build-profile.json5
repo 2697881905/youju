@@ -1,10 +1,24 @@
 {
   "app": {
-    "signingConfigs": [],
+    "signingConfigs": [
+      {
+        "name": "release",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "bigbluebook.cer",
+          "keyAlias": "bigbluebook",
+          "keyPassword": "BbbRelease2026!HarmonyOS_Sign_Key_99",
+          "profile": "bigbluebook.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "bigbluebook.p12",
+          "storePassword": "BbbRelease2026!HarmonyOS_Sign_Key_99"
+        }
+      }
+    ],
     "products": [
       {
         "name": "default",
-        "signingConfig": "default",
+        "signingConfig": "release",
         "targetSdkVersion": "6.1.1(24)",
         "compatibleSdkVersion": "6.1.1(24)",
         "runtimeOS": "HarmonyOS",

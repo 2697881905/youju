@@ -1,23 +1,29 @@
-# Define project specific obfuscation rules here.
-# You can include the obfuscation configuration files in the current module's build-profile.json5.
+# 发布混淆规则（仅 release 构建生效，由 entry/build-profile.json5 的 obfuscation.ruleOptions.enable 控制）
 #
-# For more details, see
-#   https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/source-obfuscation
+# 安全策略：开启「顶层符号 + 导出符号 + 移除日志」混淆，关闭「属性名 + 文件名」混淆。
+# 原因：本项目存在两类字符串键依赖，开启属性名/文件名混淆会在运行时解析失败：
+#   1) JSON 字段映射：api.ets 把后端响应映射到 User/Post 等模型，属性名必须保持原样；
+#   2) 字符串路由：router.pushUrl({ url: 'pages/XXX' }) 以文件名作为路由，文件名混淆会找不到页面。
+# 如需更强保护，请在真机/模拟器完整回归后，再逐步取消下方高强度项的注释。
 
-# Obfuscation options:
-# -disable-obfuscation: disable all obfuscations
-# -enable-property-obfuscation: obfuscate the property names
-# -enable-toplevel-obfuscation: obfuscate the names in the global scope
-# -compact: remove unnecessary blank spaces and all line feeds
-# -remove-log: remove all console.* statements
-# -print-namecache: print the name cache that contains the mapping from the old names to new names
-# -apply-namecache: reuse the given cache file
+# 整体开关（默认开启；如需整体关闭混淆，取消下一行注释）
+# -disable-obfuscation
 
-# Keep options:
-# -keep-property-name: specifies property names that you want to keep
-# -keep-global-name: specifies names that you want to keep in the global scope
-
--enable-property-obfuscation
+# 顶层作用域符号混淆（顶层函数/类/变量名）——安全：跨模块 ES import 在编译期已解析
 -enable-toplevel-obfuscation
--enable-filename-obfuscation
+
+# 导出符号混淆——安全：ES import 在编译期解析，不影响 @Entry 组件发现
 -enable-export-obfuscation
+
+# 移除全部 console.* 日志（减小体积、避免敏感信息泄露）——安全
+-remove-log
+
+# 如需反解 release 崩溃堆栈，可取消下一行注释并先建好输出目录（混淆器不会自动建目录）：
+# -print-namecache ./build/obfuscation/namecache.txt
+
+# ===== 以下为高强度项，默认关闭（开启前必须在真机/模拟器做完整功能回归）=====
+# -enable-property-obfuscation
+# -enable-filename-obfuscation
+# 若开启 -enable-property-obfuscation，必须用 -keep-property-name 保留后端 JSON 模型字段
+# （User/Post 的 id、title、content、coverImage 等）以及 AppStorage/router 使用的所有字符串 key，
+# 否则会出现“编译通过但运行白屏/接口数据为空”的典型问题。
