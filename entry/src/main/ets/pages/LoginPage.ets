@@ -1,7 +1,8 @@
-// 登录页（P0 新增，无登录态时由 Index 跳转至此）
-// 提供两种登录方式：
-//   1) 华为账号一键登录（LoginWithHuaweiIDButton）：成功后用 code 换登录态，setSession 复用现有登录态
-//   2) 其他方式登录：走现有 openId 授权登录桩（ensureLogin），作为华为登录降级兜底
+// 登录页（P0 重构）
+// 布局：品牌头（图标+名称+副标题） → 华为账号登录（受限 Account Kit 系统组件）
+//   → 「其他方式登录」强调兜底（开发桩，目前唯一可用入口）→ 隐私协议尾巴
+// 华为登录失败（含 AGC 未配置的 Invalid clientId/profile）给出友好提示，
+// 但不阻塞——用户可继续走「其他方式登录」。
 
 import { exchangeHuaweiCode, LoginResult } from '../services/api';
 import { setSession, loginWithDevStub } from '../utils/auth';
@@ -13,59 +14,150 @@ import { buildPageTransition } from '../utils/styles';
 @Component
 struct LoginPage {
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
+  // 华为登录失败时的内联提示文本（空=不展示）
+  @State huaweiErrorTip: string = '';
+  // 「其他方式登录」提交中态
+  @State otherSubmitting: boolean = false;
+  // 华为登录进行中态（按钮不可重复点）
+  @State huaweiSubmitting: boolean = false;
+
   build() {
-    Column({ space: 24 }) {
-      Text('登录大蓝书')
-        .fontSize(24)
-        .fontWeight(FontWeight.Bold)
-        .margin({ top: 80, bottom: 40 })
+    Column() {
+      // 顶部状态栏留白
+      Blank().height(this.statusBarHeight)
 
-      // 方式一：华为账号一键登录
-      HuaweiLoginButton({
-        onHuaweiSuccess: (code: string): void => {
-          this.handleHuaweiSuccess(code);
-        },
-        onHuaweiFailure: (error: string | Error): void => {
-          this.handleHuaweiFailure(error);
-        },
-      })
+      // 品牌头
+      Column({ space: 12 }) {
+        // 应用图标（用 emoji 占位，正式上线换成 entry/src/main/resources/base/media/ 下的 png）
+        Text('📘')
+          .fontSize(72)
+          .margin({ top: 64 })
 
-      // 方式二：其他方式登录（openId 授权桩），华为登录降级兜底
-      Button('其他方式登录')
-        .width('80%')
-        .height(44)
-        .onClick((): void => {
-          this.handleOtherLogin();
+        Text('大蓝书')
+          .fontSize(28)
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#1F2329')
+
+        Text('男性生活经验社区')
+          .fontSize(14)
+          .fontColor('#86909C')
+          .margin({ bottom: 8 })
+      }
+      .width('100%')
+
+      // 登录按钮区
+      Column({ space: 16 }) {
+        // 华为登录失败时的内联提示（账号服务未配置 / 用户取消等场景）
+        if (this.huaweiErrorTip.length > 0) {
+          Text(this.huaweiErrorTip)
+            .fontSize(12)
+            .fontColor('#C77700')
+            .width('80%')
+            .textAlign(TextAlign.Center)
+        }
+
+        // 方式一：华为账号一键登录（系统组件，由 HuaweiLoginButton 内已限制尺寸）
+        HuaweiLoginButton({
+          onHuaweiSuccess: (code: string): void => {
+            this.handleHuaweiSuccess(code);
+          },
+          onHuaweiFailure: (error: string | Error): void => {
+            this.handleHuaweiFailure(error);
+          },
         })
+          .width('80%')
+          .enabled(!this.huaweiSubmitting)
+          .opacity(this.huaweiSubmitting ? 0.6 : 1)
+
+        // 方式二：其他方式登录（开发桩，预览/模拟器/AGC 未配置时唯一可用入口）
+        // 强调显示：白底 + 主题色描边 + 主色文字，避免与华为按钮撞色
+        Button(this.otherSubmitting ? '登录中…' : '其他方式登录')
+          .width('80%')
+          .height(48)
+          .fontSize(16)
+          .fontColor('#1F2329')
+          .backgroundColor('#FFFFFF')
+          .border({ width: 1, color: '#1F2329', style: BorderStyle.Solid })
+          .borderRadius(24)
+          .enabled(!this.otherSubmitting)
+          .opacity(this.otherSubmitting ? 0.6 : 1)
+          .onClick((): void => {
+            this.handleOtherLogin();
+          })
+      }
+      .width('100%')
+      .margin({ top: 40 })
+
+      Blank()  // 推底部到底
+
+      // 隐私协议尾巴
+      Row() {
+        Text('登录即表示同意')
+          .fontSize(12)
+          .fontColor('#86909C')
+        Text('《用户协议》')
+          .fontSize(12)
+          .fontColor('#1F2329')
+          .onClick((): void => {
+            this.toast('用户协议占位');
+          })
+        Text('与')
+          .fontSize(12)
+          .fontColor('#86909C')
+        Text('《隐私政策》')
+          .fontSize(12)
+          .fontColor('#1F2329')
+          .onClick((): void => {
+            this.toast('隐私政策占位');
+          })
+      }
+      .margin({ bottom: 32 })
     }
     .width('100%')
-    .padding({ top: this.statusBarHeight })
     .height('100%')
-    .justifyContent(FlexAlign.Start)
-    .alignItems(HorizontalAlign.Center)
+    .backgroundColor('#F7F8FA')
     .transition(buildPageTransition())
   }
 
   // 华为登录成功：用 code 换登录态并落地 session
   private async handleHuaweiSuccess(code: string): Promise<void> {
+    if (this.huaweiSubmitting) {
+      return;
+    }
+    this.huaweiSubmitting = true;
+    this.huaweiErrorTip = '';
     try {
       const result: LoginResult = await exchangeHuaweiCode({ code });
       setSession(result.token, result.user);
       this.getUIContext().getRouter().back();
     } catch (e) {
       const err: Error = e as Error;
-      this.toast(err.message);
+      this.huaweiErrorTip = '登录失败：' + err.message;
+    } finally {
+      this.huaweiSubmitting = false;
     }
   }
 
-  // 华为登录失败：toast 降级，不阻塞原入口（用户仍可点「其他方式登录」）
+  // 华为登录失败：内联提示（不让用户盲点），不阻塞原入口
   private handleHuaweiFailure(error: string | Error): void {
-    const msg: string = typeof error === 'string' ? error : error.message;
-    this.toast('华为登录未完成：' + msg);
+    const raw: string = typeof error === 'string' ? error : error.message;
+    // AGC 未配置 / 证书指纹不匹配时的特征串，提示用户走兜底
+    if (/clientId|client_id|profile|Invalid input parameter/i.test(raw)) {
+      this.huaweiErrorTip = '华为账号服务暂未配置，请使用「其他方式登录」';
+    } else if (/CANCEL|用户取消/i.test(raw)) {
+      // 用户主动取消，不展示错误
+      this.huaweiErrorTip = '';
+    } else {
+      this.huaweiErrorTip = '华为登录未完成：' + raw;
+    }
   }
 
-  // 其他方式登录：走开发桩（预览/模拟器用，真机走华为一键登录）
+  // 其他方式登录：走开发桩（目前唯一可用入口）
   private async handleOtherLogin(): Promise<void> {
+    if (this.otherSubmitting) {
+      return;
+    }
+    this.otherSubmitting = true;
     try {
       const user = await loginWithDevStub();
       if (user) {
@@ -73,11 +165,13 @@ struct LoginPage {
       }
     } catch (e) {
       const err: Error = e as Error;
-      this.toast(err.message);
+      this.toast('登录失败：' + err.message);
+    } finally {
+      this.otherSubmitting = false;
     }
   }
 
   private toast(message: string): void {
-    safeShowToast(this.getUIContext(),{ message: message, duration: 2000 });
+    safeShowToast(this.getUIContext(), { message: message, duration: 2000 });
   }
 }

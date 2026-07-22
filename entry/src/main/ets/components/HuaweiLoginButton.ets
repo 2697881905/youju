@@ -40,9 +40,14 @@ export struct HuaweiLoginButton {
   };
 
   build() {
+    // [API 24+] Account Kit 系统组件未设尺寸时会默认撑满父容器，必须显式约束，
+    // 否则在 Column 里会把整个页面变成一块大红板。width/height 只能链在组件上，
+    // 不能放进 params（会报 10505001）。
     LoginWithHuaweiIDButton({
       params: this.huaweiParams,
       controller: this.controller,
     })
+      .width('100%')
+      .height(48)
   }
 }
