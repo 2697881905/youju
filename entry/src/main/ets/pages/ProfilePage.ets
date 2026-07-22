@@ -1,20 +1,20 @@
 // 个人主页（我的）：头像/昵称 + 关注/粉丝入口 + 我发布/我收藏 双 Tab + 帖子网格
 
 import { Post, User, UserProfile } from '../models/types';
-import { listPosts, listMyBookmarks, getUserProfile, cancelBookmarkPost } from '../services/api';
+import { listPosts, listMyBookmarks, listMyLikedPosts, listMyCommentedPosts, getUserProfile, cancelBookmarkPost } from '../services/api';
 import { PostCard } from '../components/PostCard';
 import { ensureLogin, getCurrentUser } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
 import { setDetailPostId } from '../utils/nav';
 
-const SUB_TABS: string[] = ['我发布', '我收藏'];
+const SUB_TABS: string[] = ['我发布', '我收藏', '我赞过', '我评论'];
 
 @Component
 export struct ProfilePage {
   @State user: User = {};
   @State followingCount: number = 0;
   @State followerCount: number = 0;
-  @State tabIdx: number = 0; // 0 我发布, 1 我收藏
+  @State tabIdx: number = 0; // 0 我发布, 1 我收藏, 2 我赞过, 3 我评论
   @State posts: Post[] = [];
   @State page: number = 1;
   @State loading: boolean = false;
@@ -95,8 +95,14 @@ export struct ProfilePage {
       if (this.tabIdx === 0) {
         const res = await listPosts({ page: this.page, limit: 20, sort: 'latest', author: uid });
         list = res.list;
-      } else {
+      } else if (this.tabIdx === 1) {
         const res = await listMyBookmarks(this.page, 20);
+        list = res.list;
+      } else if (this.tabIdx === 2) {
+        const res = await listMyLikedPosts(this.page, 20);
+        list = res.list;
+      } else {
+        const res = await listMyCommentedPosts(this.page, 20);
         list = res.list;
       }
       if (reset) {
@@ -253,7 +259,15 @@ export struct ProfilePage {
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center)
       } else if (this.posts.length === 0) {
         Column() {
-          Text(this.error ? ('加载失败：' + this.error) : (this.tabIdx === 0 ? '还没有发布过帖子' : '还没有收藏过帖子'))
+          Text(this.error
+            ? ('加载失败：' + this.error)
+            : (this.tabIdx === 0
+              ? '还没有发布过帖子'
+              : this.tabIdx === 1
+                ? '还没有收藏过帖子'
+                : this.tabIdx === 2
+                  ? '还没有赞过的帖子'
+                  : '还没有评论过帖子'))
             .fontSize(14).fontColor($r('app.color.text_secondary'))
         }
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center)

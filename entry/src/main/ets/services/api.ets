@@ -355,6 +355,18 @@ export function listMyBookmarks(page: number = 1, limit: number = 20): Promise<L
   return api.get<ListResult<Post>>(path);
 }
 
+// GET /v1/auth/me/likes?page=&limit=（我赞过的帖子列表，分页）
+export function listMyLikedPosts(page: number = 1, limit: number = 20): Promise<ListResult<Post>> {
+  const path = '/v1/auth/me/likes' + toQuery([['page', page], ['limit', limit]]);
+  return api.get<ListResult<Post>>(path);
+}
+
+// GET /v1/auth/me/commented?page=&limit=（我评论过的帖子列表，分页）
+export function listMyCommentedPosts(page: number = 1, limit: number = 20): Promise<ListResult<Post>> {
+  const path = '/v1/auth/me/commented' + toQuery([['page', page], ['limit', limit]]);
+  return api.get<ListResult<Post>>(path);
+}
+
 // ===== 账号绑定管理 =====
 // GET /v1/account/bindings（当前用户全部绑定，harmony 主账号置顶）
 export function listBindings(): Promise<BindingItem[]> {

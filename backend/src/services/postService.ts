@@ -330,3 +330,63 @@ export async function listBookmarks(userId: number, page: number = 1, limit: num
   const list = rows.map((r) => ({ ...r.post, user: publicUserView(r.post.user) }));
   return { list, pagination: { page: p, limit: l, total } };
 }
+
+// 我赞过的帖子（分页，返回帖子）
+export async function listLikedPosts(userId: number, page: number = 1, limit: number = 20) {
+  const p = Math.max(1, Number(page));
+  const l = Math.min(50, Math.max(1, Number(limit)));
+  const skip = (p - 1) * l;
+  const [rows, total] = await Promise.all([
+    prisma.up.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: l,
+      include: {
+        post: {
+          include: { user: { select: USER_PUBLIC_SELECT } },
+        },
+      },
+    }),
+    prisma.up.count({ where: { userId } }),
+  ]);
+  const list = rows.map((r) => ({ ...r.post, user: publicUserView(r.post.user) }));
+  return { list, pagination: { page: p, limit: l, total } };
+}
+
+// 我评论过的帖子（按帖子去重，分页，返回帖子；同一帖子多次评论只出现一次）
+export async function listCommentedPosts(userId: number, page: number = 1, limit: number = 20) {
+  const p = Math.max(1, Number(page));
+  const l = Math.min(50, Math.max(1, Number(limit)));
+  const skip = (p - 1) * l;
+  // 先按 postId 分组聚合，取每组最新评论时间用于排序分页（同一帖多次评论只算一条）
+  const grouped = await prisma.comment.groupBy({
+    by: ['postId'],
+    where: { userId },
+    _max: { createdAt: true },
+    orderBy: { _max: { createdAt: 'desc' } },
+    skip,
+    take: l,
+  });
+  const postIds: number[] = grouped.map((g) => g.postId);
+  const [posts, total] = await Promise.all([
+    prisma.post.findMany({
+      where: { id: { in: postIds } },
+      include: { user: { select: USER_PUBLIC_SELECT } },
+    }),
+    // 去重后的帖子总数（不依赖分页，直接 groupBy 计数）
+    prisma.comment.groupBy({ by: ['postId'], where: { userId } }).then((r) => r.length),
+  ]);
+  // findMany 不保证 id 顺序，按分组顺序（最新评论时间倒序）重排
+  const orderMap: Record<number, number> = {};
+  for (let i = 0; i < postIds.length; i++) {
+    orderMap[postIds[i]] = i;
+  }
+  const sorted = posts.slice().sort((a, b) => {
+    const ai = orderMap[a.id] ?? Number.MAX_SAFE_INTEGER;
+    const bi = orderMap[b.id] ?? Number.MAX_SAFE_INTEGER;
+    return ai - bi;
+  });
+  const list = sorted.map((po) => ({ ...po, user: publicUserView(po.user) }));
+  return { list, pagination: { page: p, limit: l, total } };
+}

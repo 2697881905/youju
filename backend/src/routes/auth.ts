@@ -68,6 +68,24 @@ router.get('/me/bookmarks', auth, async (req: AuthRequest, res: Response) => {
   return ok(res, data);
 });
 
+// 我赞过的帖子列表（分页）
+// GET /v1/auth/me/likes?page=1&limit=20
+router.get('/me/likes', auth, async (req: AuthRequest, res: Response) => {
+  const page = req.query.page ? Number(req.query.page) : 1;
+  const limit = req.query.limit ? Number(req.query.limit) : 20;
+  const data = await postService.listLikedPosts(req.userId!, page, limit);
+  return ok(res, data);
+});
+
+// 我评论过的帖子列表（按帖子去重，分页）
+// GET /v1/auth/me/commented?page=1&limit=20
+router.get('/me/commented', auth, async (req: AuthRequest, res: Response) => {
+  const page = req.query.page ? Number(req.query.page) : 1;
+  const limit = req.query.limit ? Number(req.query.limit) : 20;
+  const data = await postService.listCommentedPosts(req.userId!, page, limit);
+  return ok(res, data);
+});
+
 // 我关注的标签列表（圈子已加入）
 // GET /v1/auth/me/followed-tags
 router.get('/me/followed-tags', auth, async (req: AuthRequest, res: Response) => {

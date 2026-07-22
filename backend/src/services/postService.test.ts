@@ -1,4 +1,4 @@
-import { listPosts, getPost } from './postService';
+import { listPosts, getPost, listLikedPosts, listCommentedPosts } from './postService';
 import { prisma } from '../prisma';
 
 // 用 jest 替掉真实的 Prisma client（沙箱无 MySQL，不需要真实 DB）
@@ -15,10 +15,14 @@ jest.mock('../prisma', () => ({
     up: {
       findFirst: jest.fn(),
       findMany: jest.fn(),
+      count: jest.fn(),
     },
     bookmark: {
       findFirst: jest.fn(),
       findMany: jest.fn(),
+    },
+    comment: {
+      groupBy: jest.fn(),
     },
     user: {
       findUnique: jest.fn(),
@@ -31,8 +35,10 @@ const mockedFindFirst = prisma.post.findFirst as jest.Mock;
 const mockedCount = prisma.post.count as jest.Mock;
 const mockedUpFindFirst = prisma.up.findFirst as jest.Mock;
 const mockedUpFindMany = prisma.up.findMany as jest.Mock;
+const mockedUpCount = prisma.up.count as jest.Mock;
 const mockedBmFindFirst = prisma.bookmark.findFirst as jest.Mock;
 const mockedBmFindMany = prisma.bookmark.findMany as jest.Mock;
+const mockedCommentGroupBy = prisma.comment.groupBy as jest.Mock;
 
 const DELETED_NICKNAME = '已注销用户';
 
@@ -274,5 +280,91 @@ describe('getPost - myUp/myBookmark + 作者匿名化', () => {
       avatar: null,
       deleted: true,
     });
+  });
+});
+
+describe('listLikedPosts - 我赞过的帖子', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('分页参数 + 返回结构为 { list, pagination }', async () => {
+    mockedUpFindMany.mockResolvedValue([
+      { postId: 3, post: { id: 3, user: { id: 3, nickname: 'C' } } },
+    ]);
+    mockedUpCount.mockResolvedValue(1);
+
+    const res = await listLikedPosts(7, 2, 10);
+
+    // up.findMany 分页参数正确
+    expect(mockedUpFindMany).toHaveBeenCalledTimes(1);
+    const fmArg = mockedUpFindMany.mock.calls[0][0];
+    expect(fmArg.where).toEqual({ userId: 7 });
+    expect(fmArg.orderBy).toEqual({ createdAt: 'desc' });
+    expect(fmArg.skip).toBe(10);
+    expect(fmArg.take).toBe(10);
+    expect(fmArg.include.post.include.user).toBeDefined();
+    // 结构
+    expect(res.pagination).toEqual({ page: 2, limit: 10, total: 1 });
+    expect(res.list).toHaveLength(1);
+    expect(res.list[0].id).toBe(3);
+    expect(res.list[0].user).toEqual({ id: 3, nickname: 'C' });
+  });
+
+  it('空列表返回空数组', async () => {
+    mockedUpFindMany.mockResolvedValue([]);
+    mockedUpCount.mockResolvedValue(0);
+    const res = await listLikedPosts(7);
+    expect(res.list).toEqual([]);
+    expect(res.pagination.total).toBe(0);
+  });
+});
+
+describe('listCommentedPosts - 我评论过的帖子（去重）', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('同一帖多次评论只出现一次，且按最新评论时间倒序保序', async () => {
+    // 用户 7 评论过：post 1(评论a/b) + post 2(评论c) + post 3(评论d)
+    // groupBy 返回 3 个去重 postId，按 _max.createdAt 倒序：3,1,2
+    mockedCommentGroupBy
+      .mockResolvedValueOnce([
+        { postId: 3, _max: { createdAt: new Date('2024-03-01') } },
+        { postId: 1, _max: { createdAt: new Date('2024-02-01') } },
+        { postId: 2, _max: { createdAt: new Date('2024-01-01') } },
+      ])
+      // 计数 groupBy（不依赖分页）
+      .mockResolvedValueOnce([
+        { postId: 3 },
+        { postId: 1 },
+        { postId: 2 },
+      ]);
+    mockedFindMany.mockResolvedValue([
+      { id: 1, user: { id: 1, nickname: 'A' } },
+      { id: 2, user: { id: 2, nickname: 'B' } },
+      { id: 3, user: { id: 3, nickname: 'C' } },
+    ]);
+
+    const res = await listCommentedPosts(7, 1, 20);
+
+    // findMany 用 in 查询三个去重 postId
+    expect(mockedFindMany).toHaveBeenCalledTimes(1);
+    expect(mockedFindMany.mock.calls[0][0].where.id).toEqual({ in: [3, 1, 2] });
+    // 返回顺序与 groupBy 顺序一致（3,1,2），而非 findMany 原始顺序
+    expect(res.list.map((p) => p.id)).toEqual([3, 1, 2]);
+    expect(res.list[0].user).toEqual({ id: 3, nickname: 'C' });
+    expect(res.pagination.total).toBe(3);
+  });
+
+  it('某页无评论时返回空数组', async () => {
+    mockedCommentGroupBy
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    mockedFindMany.mockResolvedValue([]);
+
+    const res = await listCommentedPosts(7, 99, 20);
+    expect(res.list).toEqual([]);
+    expect(res.pagination.total).toBe(0);
   });
 });
