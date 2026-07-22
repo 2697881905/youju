@@ -5,12 +5,12 @@
         "name": "release",
         "type": "HarmonyOS",
         "material": {
-          "certpath": "bigbluebook.cer",
+          "certpath": "entry/material/bigbluebook.cer",
           "keyAlias": "bigbluebook",
           "keyPassword": "BbbRelease2026!HarmonyOS_Sign_Key_99",
-          "profile": "bigbluebook.p7b",
+          "profile": "entry/material/bigbluebook.p7b",
           "signAlg": "SHA256withECDSA",
-          "storeFile": "bigbluebook.p12",
+          "storeFile": "entry/material/bigbluebook.p12",
           "storePassword": "BbbRelease2026!HarmonyOS_Sign_Key_99"
         }
       }
