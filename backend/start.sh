@@ -76,7 +76,33 @@ else
 fi
 
 # -------------------------------------------------------
-# 7. 模拟器联调提示
+# 7. 自动建立 hdc 反向端口转发（模拟器/真机本地联调）
+#    让设备侧的 127.0.0.1:3000 指向本机后端，避免“圈子栏只显示全部”
+#    等因连不上后端而触发降级（displayTags 回退为 [全部]）。
+#    设备/模拟器重启或重连后该转发会失效，故每次启动都尝试重建一次。
 # -------------------------------------------------------
 echo ""
-echo -e "${YELLOW}模拟器联调记得另开终端跑: hdc rport tcp:3000 tcp:3000${NC}"
+echo "建立 hdc 反向端口转发（设备 127.0.0.1:3000 -> 本机 3000）..."
+# 定位 hdc：优先 PATH，否则尝试 DevEco / OpenHarmony 自带 toolchains
+HDC_BIN=""
+if command -v hdc >/dev/null 2>&1; then
+  HDC_BIN="hdc"
+else
+  for p in \
+    "$DEVECO_SDK_HOME/HarmonyOS/toolchains/hdc" \
+    "/Applications/DevEco-Studio.app/Contents/sdk/HarmonyOS/toolchains/hdc" \
+    "$HOME/Library/OpenHarmony/Sdk/HarmonyOS/toolchains/hdc"; do
+    if [ -x "$p" ]; then HDC_BIN="$p"; break; fi
+  done
+fi
+
+if [ -z "$HDC_BIN" ]; then
+  echo -e "${YELLOW}⚠ 未找到 hdc，跳过端口转发。真机/模拟器联调请手动执行: hdc rport tcp:3000 tcp:3000${NC}"
+elif ! "$HDC_BIN" list targets 2>/dev/null | grep -q .; then
+  echo -e "${YELLOW}⚠ 未检测到已连接的设备/模拟器，跳过端口转发。连接后请手动执行: hdc rport tcp:3000 tcp:3000${NC}"
+else
+  # 已存在则忽略错误（避免 “already exist” 导致非零退出）
+  "$HDC_BIN" rport tcp:3000 tcp:3000 2>/dev/null || true
+  echo -e "${GREEN}✓ 已建立端口转发（设备 127.0.0.1:3000 -> 本机 3000）${NC}"
+  echo -e "${GREEN}  真机/模拟器现在可直接访问 127.0.0.1:3000 拉取后端数据${NC}"
+fi

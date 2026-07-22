@@ -75,21 +75,49 @@ export struct HomeTab {
     }
   }
 
+  // 判断是否为网络连接类失败（后端未起 / hdc rport 未建立 / 启动竞态）
+  private isConnError(msg: string): boolean {
+    const m: string = msg.toLowerCase();
+    return m.includes('connect') || m.includes('refused') || m.includes('econnrefused') ||
+      m.includes('unreachable') || m.includes('timed out') || m.includes('network') ||
+      m.includes('无法连接后端');
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise<void>((resolve: () => void): void => {
+      setTimeout(resolve, ms);
+    });
+  }
+
   async loadTags(): Promise<void> {
-    try {
-      const tags = await listTags();
-      if (!Array.isArray(tags)) {
-        throw new Error('标签接口返回格式异常（非数组）');
+    const MAX = 3;
+    let lastErr: Error | null = null;
+    for (let attempt = 1; attempt <= MAX; attempt++) {
+      try {
+        const tags = await listTags();
+        if (!Array.isArray(tags)) {
+          throw new Error('标签接口返回格式异常（非数组）');
+        }
+        this.displayTags = [ALL_TAG, ...tags];
+        hilog.info(0x0000, 'HomeTab', 'loadTags ok, 圈子数=%{public}d', (tags as Tag[]).length);
+        return;
+      } catch (e) {
+        lastErr = e as Error;
+        const msg: string = lastErr.message ?? '未知错误';
+        hilog.warn(0x0000, 'HomeTab', 'loadTags 第%{public}d次失败: %{public}s', attempt, msg);
+        // 仅网络类错误重试（后端/端口转发未就绪的启动竞态），其余错误直接放弃
+        if (attempt < MAX && this.isConnError(msg)) {
+          await this.delay(1000);
+          continue;
+        }
+        break;
       }
-      this.displayTags = [ALL_TAG, ...tags];
-      hilog.info(0x0000, 'HomeTab', 'loadTags ok, 圈子数=%{public}d', (tags as Tag[]).length);
-    } catch (e) {
-      // 标签加载失败不阻断列表；保留 "全部"，但把错误暴露出来便于排查
-      this.displayTags = [ALL_TAG];
-      const msg: string = (e as Error).message ?? '未知错误';
-      hilog.error(0x0000, 'HomeTab', 'loadTags 失败: %{public}s', msg);
-      safeShowToast(this.getUIContext(), { message: '圈子标签加载失败：' + msg });
     }
+    // 全部重试仍失败：保留 “全部”，但把错误暴露出来便于排查
+    this.displayTags = [ALL_TAG];
+    const msg: string = lastErr?.message ?? '未知错误';
+    hilog.error(0x0000, 'HomeTab', 'loadTags 最终失败: %{public}s', msg);
+    safeShowToast(this.getUIContext(), { message: '圈子标签加载失败：' + msg });
   }
 
   // 重置并加载第一页
