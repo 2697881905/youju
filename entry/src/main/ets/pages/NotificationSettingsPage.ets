@@ -4,6 +4,8 @@ import { getNotificationPrefs, updateNotificationPrefs } from '../services/api';
 import { NotificationPrefs } from '../models/types';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
+import { CARD_RADIUS, CARD_SHADOW } from '../utils/cardTokens';
+import { resolveSettingsIcon } from '../utils/settingsIcons';
 
 interface PrefRow {
   key: string;
@@ -69,15 +71,16 @@ export struct NotificationSettingsPage {
     Column() {
       // 顶栏
       Row() {
-        Text('‹')
-          .fontSize(28)
-          .fontColor($r('app.color.text_primary'))
-          .width(48)
-          .height(44)
-          .textAlign(TextAlign.Center)
-          .onClick(() => {
-            this.getUIContext().getRouter().back();
-          });
+        Row() {
+          Image(resolveSettingsIcon('back'))
+            .width(24).height(24)
+            .fillColor($r('app.color.text_primary'))
+        }
+        .width(48).height(44)
+        .justifyContent(FlexAlign.Center)
+        .onClick(() => {
+          this.getUIContext().getRouter().back();
+        });
         Text('通知设置')
           .fontSize(17)
           .fontWeight(FontWeight.Bold)
@@ -145,7 +148,8 @@ export struct NotificationSettingsPage {
               .width('100%')
               .padding({ left: 16, right: 16, top: 16, bottom: 16 })
               .backgroundColor($r('app.color.card_bg'))
-              .borderRadius(12);
+              .borderRadius(CARD_RADIUS)
+              .shadow(CARD_SHADOW);
             });
           }
           .width('100%')

@@ -8,6 +8,8 @@ import { ensureLogin } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { resolveActionIcon } from '../utils/actionIcons';
+import { CARD_RADIUS, CARD_SHADOW } from '../utils/cardTokens';
+import { resolveSettingsIcon } from '../utils/settingsIcons';
 
 @Entry
 @Component
@@ -120,7 +122,8 @@ struct AccountBindingPage {
     .width('100%')
     .padding(16)
     .backgroundColor($r('app.color.card_bg'))
-    .borderRadius(12)
+    .borderRadius(CARD_RADIUS)
+    .shadow(CARD_SHADOW)
   }
 
   @Builder
@@ -166,7 +169,8 @@ struct AccountBindingPage {
     .width('100%')
     .padding(16)
     .backgroundColor($r('app.color.card_bg'))
-    .borderRadius(12)
+    .borderRadius(CARD_RADIUS)
+    .shadow(CARD_SHADOW)
   }
 
   // 华为未绑定行（兼作「空状态」：引导文案 + 去绑定按钮）
@@ -191,7 +195,8 @@ struct AccountBindingPage {
       .width('100%')
       .padding(16)
       .backgroundColor($r('app.color.card_bg'))
-      .borderRadius(12)
+      .borderRadius(CARD_RADIUS)
+      .shadow(CARD_SHADOW)
 
       Column({ space: 10 }) {
         Text('暂未绑定第三方账号，绑定后可在其他设备用华为一键登录。')
@@ -216,15 +221,16 @@ struct AccountBindingPage {
     Column() {
       // 顶栏：返回 + 标题
       Row() {
-        Text('‹')
-          .fontSize(28)
-          .fontColor($r('app.color.text_primary'))
-          .width(48)
-          .height(44)
-          .textAlign(TextAlign.Center)
-          .onClick(() => {
-            this.getUIContext().getRouter().back();
-          })
+        Row() {
+          Image(resolveSettingsIcon('back'))
+            .width(24).height(24)
+            .fillColor($r('app.color.text_primary'))
+        }
+        .width(48).height(44)
+        .justifyContent(FlexAlign.Center)
+        .onClick(() => {
+          this.getUIContext().getRouter().back();
+        })
         Text('账号绑定')
           .fontSize(17)
           .fontWeight(FontWeight.Bold)

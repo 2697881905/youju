@@ -6,6 +6,8 @@ import { deactivateAccount, clearSearchHistory, exportUserData } from '../servic
 import { safeShowToast } from '../utils/toast';
 import { toggleDarkMode, isDarkMode, isFollowSystem, setFollowSystem, getSystemDark } from '../utils/theme';
 import { buildPageTransition } from '../utils/styles';
+import { CARD_RADIUS, CARD_SHADOW } from '../utils/cardTokens';
+import { resolveSettingsIcon } from '../utils/settingsIcons';
 import { window } from '@kit.ArkUI';
 
 @Entry
@@ -122,22 +124,26 @@ export struct SettingsPage {
   }
 
   @Builder
-  sectionRow(title: string, onTap: () => void): void {
-    Row() {
+  sectionRow(icon: string, title: string, onTap: () => void): void {
+    Row({ space: 12 }) {
+      Image(resolveSettingsIcon(icon))
+        .width(22).height(22)
+        .fillColor($r('app.color.text_secondary'))
+        .objectFit(ImageFit.Contain)
       Text(title)
         .fontSize(16)
         .fontColor($r('app.color.text_primary'))
         .layoutWeight(1);
-      Text('›')
-        .fontSize(18)
-        .fontColor($r('app.color.text_secondary'));
+      Image(resolveSettingsIcon('chevronRight'))
+        .width(18).height(18)
+        .fillColor($r('app.color.text_tertiary'))
+        .objectFit(ImageFit.Contain)
     }
     .width('100%')
-    .padding({ left: 16, right: 16, top: 16, bottom: 16 })
-    .backgroundBlurStyle(BlurStyle.BACKGROUND_THIN)
-    .backgroundColor($r('app.color.glass_card_bg'))
-    .border({ width: 0.5, color: $r('app.color.glass_border') })
-    .borderRadius(12)
+    .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+    .backgroundColor($r('app.color.card_bg'))
+    .borderRadius(CARD_RADIUS)
+    .shadow(CARD_SHADOW)
     .stateStyles({
       normal: {
         .opacity(1)
@@ -151,8 +157,12 @@ export struct SettingsPage {
   }
 
   @Builder
-  toggleRow(title: string, desc: string): void {
-    Row() {
+  toggleRow(icon: string, title: string, desc: string, isOn: boolean, onChange: (on: boolean) => void): void {
+    Row({ space: 12 }) {
+      Image(resolveSettingsIcon(icon))
+        .width(22).height(22)
+        .fillColor($r('app.color.text_secondary'))
+        .objectFit(ImageFit.Contain)
       Column({ space: 2 }) {
         Text(title)
           .fontSize(16)
@@ -163,30 +173,30 @@ export struct SettingsPage {
       }
       .alignItems(HorizontalAlign.Start)
       .layoutWeight(1)
-      Toggle({ type: ToggleType.Switch, isOn: this.darkMode })
-        .onChange((isOn: boolean) => {
-          this.darkMode = isOn;
-          toggleDarkMode(isOn);
+      Toggle({ type: ToggleType.Switch, isOn: isOn })
+        .onChange((on: boolean) => {
+          onChange(on);
         })
     }
     .width('100%')
     .padding({ left: 16, right: 16, top: 14, bottom: 14 })
-    .backgroundBlurStyle(BlurStyle.BACKGROUND_THIN)
-    .backgroundColor($r('app.color.glass_card_bg'))
-    .border({ width: 0.5, color: $r('app.color.glass_border') })
-    .borderRadius(12)
+    .backgroundColor($r('app.color.card_bg'))
+    .borderRadius(CARD_RADIUS)
+    .shadow(CARD_SHADOW)
   }
 
   build() {
     Column() {
       // 顶栏
       Row() {
-        Text('‹')
-          .fontSize(28)
-          .fontColor($r('app.color.text_primary'))
-          .width(48).height(44)
-          .textAlign(TextAlign.Center)
-          .onClick(() => { this.getUIContext().getRouter().back(); });
+        Row() {
+          Image(resolveSettingsIcon('back'))
+            .width(24).height(24)
+            .fillColor($r('app.color.text_primary'))
+        }
+        .width(48).height(44)
+        .justifyContent(FlexAlign.Center)
+        .onClick(() => { this.getUIContext().getRouter().back(); });
         Text('设置')
           .fontSize(17)
           .fontWeight(FontWeight.Bold)
@@ -207,21 +217,21 @@ export struct SettingsPage {
               .fontColor($r('app.color.text_secondary'))
               .alignSelf(ItemAlign.Start)
               .padding({ left: 4 });
-            this.sectionRow('编辑资料', (): void => {
+            this.sectionRow('edit', '编辑资料', (): void => {
               this.getUIContext().getRouter().pushUrl({ url: 'pages/EditProfilePage' });
             });
-            this.sectionRow('账号绑定', (): void => {
+            this.sectionRow('phone', '账号绑定', (): void => {
               this.getUIContext().getRouter().pushUrl({ url: 'pages/AccountBindingPage' });
             });
             if (this.isAdmin) {
-              this.sectionRow('内容审核台', (): void => {
+              this.sectionRow('shield', '内容审核台', (): void => {
                 this.getUIContext().getRouter().pushUrl({ url: 'pages/ModerationPage' });
               });
             }
-            this.sectionRow('拉黑管理', (): void => {
+            this.sectionRow('block', '拉黑管理', (): void => {
               this.getUIContext().getRouter().pushUrl({ url: 'pages/BlocklistPage' });
             });
-            this.sectionRow('数据导出', (): void => {
+            this.sectionRow('export', '数据导出', (): void => {
               this.onExportDataClick();
             });
           }
@@ -234,10 +244,10 @@ export struct SettingsPage {
               .fontColor($r('app.color.text_secondary'))
               .alignSelf(ItemAlign.Start)
               .padding({ left: 4 });
-            this.sectionRow('隐私设置', (): void => {
+            this.sectionRow('lock', '隐私设置', (): void => {
               this.getUIContext().getRouter().pushUrl({ url: 'pages/PrivacySettingsPage' });
             });
-            this.sectionRow('通知设置', (): void => {
+            this.sectionRow('bell', '通知设置', (): void => {
               this.getUIContext().getRouter().pushUrl({ url: 'pages/NotificationSettingsPage' });
             });
           }
@@ -252,61 +262,23 @@ export struct SettingsPage {
               .padding({ left: 4 });
 
             // 跟随系统
-            Row() {
-              Column({ space: 2 }) {
-                Text('跟随系统')
-                  .fontSize(16)
-                  .fontColor($r('app.color.text_primary'))
-                Text('关闭后可手动选择深浅模式')
-                  .fontSize(12)
-                  .fontColor($r('app.color.text_secondary'))
+            this.toggleRow('system', '跟随系统', '关闭后可手动选择深浅模式', this.followSystem, (on: boolean): void => {
+              this.followSystem = on;
+              setFollowSystem(on);
+              if (on) {
+                this.darkMode = getSystemDark();
               }
-              .alignItems(HorizontalAlign.Start)
-              .layoutWeight(1)
-              Toggle({ type: ToggleType.Switch, isOn: this.followSystem })
-                .onChange((isOn: boolean) => {
-                  this.followSystem = isOn;
-                  setFollowSystem(isOn);
-                  if (isOn) {
-                    this.darkMode = getSystemDark();
-                  }
-                })
-            }
-            .width('100%')
-            .padding({ left: 16, right: 16, top: 14, bottom: 14 })
-            .backgroundBlurStyle(BlurStyle.BACKGROUND_THIN)
-            .backgroundColor($r('app.color.glass_card_bg'))
-            .border({ width: 0.5, color: $r('app.color.glass_border') })
-            .borderRadius(12)
+            });
 
             // 深色模式（仅在不跟随系统时可用）
             if (!this.followSystem) {
-              Row() {
-                Column({ space: 2 }) {
-                  Text('深色模式')
-                    .fontSize(16)
-                    .fontColor($r('app.color.text_primary'))
-                  Text('关闭后使用浅色主题')
-                    .fontSize(12)
-                    .fontColor($r('app.color.text_secondary'))
-                }
-                .alignItems(HorizontalAlign.Start)
-                .layoutWeight(1)
-                Toggle({ type: ToggleType.Switch, isOn: this.darkMode })
-                  .onChange((isOn: boolean) => {
-                    this.darkMode = isOn;
-                    toggleDarkMode(isOn);
-                  })
-              }
-              .width('100%')
-              .padding({ left: 16, right: 16, top: 14, bottom: 14 })
-              .backgroundBlurStyle(BlurStyle.BACKGROUND_THIN)
-              .backgroundColor($r('app.color.glass_card_bg'))
-              .border({ width: 0.5, color: $r('app.color.glass_border') })
-              .borderRadius(12)
+              this.toggleRow('dark', '深色模式', '关闭后使用浅色主题', this.darkMode, (on: boolean): void => {
+                this.darkMode = on;
+                toggleDarkMode(on);
+              });
             }
 
-            this.sectionRow('清除缓存', (): void => {
+            this.sectionRow('trash', '清除缓存', (): void => {
               this.onClearCacheClick();
             });
           }
@@ -319,29 +291,35 @@ export struct SettingsPage {
               .fontColor($r('app.color.text_secondary'))
               .alignSelf(ItemAlign.Start)
               .padding({ left: 4 });
-            this.sectionRow('关于大蓝书 · 版本 1.0.0', (): void => {
+            this.sectionRow('book', '关于大蓝书 · 版本 1.0.0', (): void => {
               this.getUIContext().getRouter().pushUrl({ url: 'pages/AboutPage' });
             });
-            this.sectionRow('隐私政策', (): void => {
+            this.sectionRow('policy', '隐私政策', (): void => {
               this.getUIContext().getRouter().pushUrl({ url: 'pages/PrivacyPage' });
             });
           }
           .width('100%');
 
-          // 退出登录（红色文字行）
-          Row() {
+          // 退出登录（红色文字行，卡片风格）
+          Row({ space: 12 }) {
+            Image(resolveSettingsIcon('logout'))
+              .width(22).height(22)
+              .fillColor($r('app.color.semantic_red'))
+              .objectFit(ImageFit.Contain)
             Text('退出登录')
               .fontSize(16)
               .fontColor($r('app.color.semantic_red'))
               .layoutWeight(1);
-            Text('›')
-              .fontSize(18)
-              .fontColor($r('app.color.text_secondary'));
+            Image(resolveSettingsIcon('chevronRight'))
+              .width(18).height(18)
+              .fillColor($r('app.color.text_tertiary'))
+              .objectFit(ImageFit.Contain)
           }
           .width('100%')
-          .padding({ left: 16, right: 16, top: 16, bottom: 16 })
+          .padding({ left: 16, right: 16, top: 14, bottom: 14 })
           .backgroundColor($r('app.color.card_bg'))
-          .borderRadius(12)
+          .borderRadius(CARD_RADIUS)
+          .shadow(CARD_SHADOW)
           .onClick(() => { this.onLogoutClick(); });
         }
         .width('100%')
@@ -358,6 +336,7 @@ export struct SettingsPage {
         .backgroundColor($r('app.color.semantic_red'))
         .fontColor('#FFFFFF')
         .fontSize(16)
+        .borderRadius(CARD_RADIUS)
         .onClick(() => { this.onDeactivateClick(); });
     }
     .width('100%')
