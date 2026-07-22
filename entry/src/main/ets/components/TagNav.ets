@@ -27,7 +27,7 @@ export struct TagNav {
                 Row({ space: 4 }) {
                   TagIcon({
                     name: tag.name ?? '',
-                    size: 14,
+                    iconSize: 14,
                     tint: this.selectedIndex === index ? '#FFFFFF' : $r('app.color.text_primary'),
                   })
                   Text(tag.name ?? '')
@@ -75,7 +75,7 @@ export struct TagNav {
         Scroll() {
           Column({ space: 0 }) {
             Row({ space: 8 }) {
-              TagIcon({ name: '全部', size: 16, tint: $r('app.color.text_primary') })
+              TagIcon({ name: '全部', iconSize: 16, tint: $r('app.color.text_primary') })
               Text('全部圈子')
                 .fontSize(14)
                 .fontColor($r('app.color.text_primary'))
@@ -96,7 +96,7 @@ export struct TagNav {
                 Row({ space: 8 }) {
                   TagIcon({
                     name: t.name ?? '',
-                    size: 16,
+                    iconSize: 16,
                     tint: this.filterName === t.name ? $r('app.color.brand_primary') : $r('app.color.text_primary'),
                   })
                   Text(t.name ?? '')

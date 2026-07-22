@@ -6,13 +6,13 @@ import { resolveTagIcon } from '../utils/tagIcons';
 @Component
 export struct TagIcon {
   @Prop name: string = '';       // 标签名（与 tagIcons 映射一致）
-  @Prop size: number = 20;       // 图标边长 vp
+  @Prop iconSize: number = 20;   // 图标边长 vp
   @Prop tint: ResourceColor = $r('app.color.text_primary'); // 着色（选中反白/默认主文色）
 
   build() {
     Image(resolveTagIcon(this.name))
-      .width(this.size)
-      .height(this.size)
+      .width(this.iconSize)
+      .height(this.iconSize)
       .fillColor(this.tint)
       .objectFit(ImageFit.Contain)
   }

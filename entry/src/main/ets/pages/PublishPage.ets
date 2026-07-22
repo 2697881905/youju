@@ -425,7 +425,7 @@ export struct PublishPage {
                       Row({ space: 4 }) {
                         TagIcon({
                           name: t.name ?? '',
-                          size: 14,
+                          iconSize: 14,
                           tint: this.selectedTags.indexOf(t.name ?? '') >= 0 ? '#FFFFFF' : $r('app.color.text_primary'),
                         })
                         Text(t.name ?? '').fontSize(13).fontColor(this.selectedTags.indexOf(t.name ?? '') >= 0 ? '#FFFFFF' : $r('app.color.text_primary'))

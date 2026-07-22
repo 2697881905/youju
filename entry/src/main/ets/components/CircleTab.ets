@@ -72,7 +72,7 @@ export struct CircleTab {
     Column({ space: 10 }) {
       // 线条图标 + 圈子名
       Column({ space: 6 }) {
-        TagIcon({ name: c.name ?? '', size: 40, tint: $r('app.color.brand_primary') })
+        TagIcon({ name: c.name ?? '', iconSize: 40, tint: $r('app.color.brand_primary') })
         Text(c.name ?? '')
           .fontSize(15)
           .fontWeight(FontWeight.Medium)
