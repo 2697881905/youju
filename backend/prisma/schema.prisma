@@ -66,7 +66,7 @@ model Post {
 model Comment {
   id          Int      @id @default(autoincrement())
   postId      Int
-  post        Post     @relation(fields: [postId], references: [id])
+  post        Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
   userId      Int
   user        User     @relation(fields: [userId], references: [id])
   parentId    Int? // 0或null表示一级评论
@@ -94,7 +94,7 @@ model Up {
   userId    Int
   user      User     @relation(fields: [userId], references: [id])
   postId    Int
-  post      Post     @relation(fields: [postId], references: [id])
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
   @@unique([userId, postId]) // 同一用户对同一帖子只能顶一次
@@ -106,7 +106,7 @@ model Bookmark {
   userId    Int
   user      User     @relation(fields: [userId], references: [id])
   postId    Int
-  post      Post     @relation(fields: [postId], references: [id])
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
   @@unique([userId, postId])

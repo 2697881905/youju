@@ -183,6 +183,11 @@ export async function deletePost(id: number, userId: number) {
   const post = await prisma.post.findUnique({ where: { id } });
   if (!post) return { ok: false, reason: 'not_found' };
   if (post.userId !== userId) return { ok: false, reason: 'forbidden' };
+  // 先清理子表（评论/点赞/收藏）再删主表，避免外键约束导致删除失败。
+  // 兜底方案：规范做法是在 schema 给子关系配置 onDelete: Cascade（已加，prisma db push 后由数据库级联）。
+  await prisma.comment.deleteMany({ where: { postId: id } });
+  await prisma.up.deleteMany({ where: { postId: id } });
+  await prisma.bookmark.deleteMany({ where: { postId: id } });
   await prisma.post.delete({ where: { id } });
   return { ok: true };
 }
