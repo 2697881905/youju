@@ -4,6 +4,7 @@ import { formatCount } from '../utils/format';
 import { upPost, cancelUpPost } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 import { resolveActionIcon } from '../utils/actionIcons';
+import { CARD_RADIUS, CARD_PADDING, CARD_COVER_RADIUS, CARD_SHADOW, CARD_INNER_GAP } from '../utils/cardTokens';
 
 @Component
 export struct PostCard {
@@ -67,14 +68,14 @@ export struct PostCard {
 
   build() {
     Column() {
-      // 封面图 — Apple 风格大圆角
+      // 封面图 — Apple 风格大圆角；用 aspectRatio 替代固定高度，宽度自适应避免不同列数下溢出/比例失调
       if (this.post.coverImage) {
         Image(this.post.coverImage)
           .width('100%')
-          .height(180)
+          .aspectRatio(1.4)
           .objectFit(ImageFit.Cover)
-          .borderRadius(10)
-          .margin({ bottom: 12 })
+          .borderRadius(CARD_COVER_RADIUS)
+          .margin({ bottom: CARD_INNER_GAP })
       }
 
       // 标题 — iOS 17pt Medium 风格
@@ -109,7 +110,7 @@ export struct PostCard {
           Text(this.isDeletedUser() ? '已注销用户' : (this.post.user.nickname ?? '匿名'))
             .fontSize(13).fontColor($r('app.color.text_secondary'))
         }
-        .margin({ top: 10 })
+        .margin({ top: CARD_INNER_GAP })
         .onClick(() => {
           this.goUser();
         })
@@ -141,7 +142,7 @@ export struct PostCard {
         }
         .margin({ left: 16 });
       }
-      .margin({ top: 10 })
+      .margin({ top: CARD_INNER_GAP })
       .justifyContent(FlexAlign.Start);
 
       if (this.onCancelBookmark !== undefined) {
@@ -150,7 +151,7 @@ export struct PostCard {
             .fontSize(13)
             .fontColor($r('app.color.text_secondary'));
         }
-        .margin({ top: 10 })
+        .margin({ top: CARD_INNER_GAP })
         .onClick(() => {
           if (this.post.id !== undefined) {
             this.onCancelBookmark!(this.post.id);
@@ -159,11 +160,11 @@ export struct PostCard {
       }
     }
     .width('100%')
-    .padding(14)
+    .padding(CARD_PADDING)
     .backgroundColor($r('app.color.card_bg'))
-    .borderRadius(14)
-    // Apple 卡片阴影 — 浅色模式深灰投影，深色模式淡化
-    .shadow({ radius: 16, color: '#0D000000', offsetY: 2 })
+    .borderRadius(CARD_RADIUS)
+    // Apple 卡片阴影 — 浅色模式深灰投影，深色模式淡化（统一令牌）
+    .shadow(CARD_SHADOW)
     .stateStyles({
       normal: {
         .opacity(1)

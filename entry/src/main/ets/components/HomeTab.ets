@@ -11,7 +11,10 @@ import { SearchPanel } from './SearchPanel';
 import { setDetailPostId, emitTabSwitch } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 import { resolveActionIcon } from '../utils/actionIcons';
+import { common } from '@kit.AbilityKit';
 import { BasicDataSource } from '../utils/data-source';
+import { observeGridColumns, gridColumnTemplate } from '../utils/responsive';
+import { GRID_GAP, GRID_PADDING } from '../utils/cardTokens';
 
 type SortKey = 'hot' | 'latest' | 'recommend';
 type FeedMode = 'recommend' | 'following' | 'hotspot';
@@ -41,11 +44,27 @@ export struct HomeTab {
   @State followingCount: number = 0; // 关注流的关注数缓存（空态 A/B 区分）
   // 监听登录态：登录成功后 authToken 就绪，若处于关注流且列表空则自动补加载
   @StorageLink('authToken') @Watch('onTokenReady') token: string = '';
+  // 响应式列数（按屏幕宽度 2/3/4 列自适应）+ 对应的 columnsTemplate 字符串
+  @State gridColumns: number = 2;
+  @State gridTemplate: string = '1fr 1fr';
+  private unregisterColumns: () => void = () => {};
 
   aboutToAppear(): void {
     this.loadTags();
+    // 注册响应式列数监听（折叠屏/平板/旋转时实时调整卡片列数）
+    this.unregisterColumns = observeGridColumns(
+      this.getUIContext().getHostContext() as common.Context,
+      (cols: number): void => {
+        this.gridColumns = cols;
+        this.gridTemplate = gridColumnTemplate(cols);
+      }
+    );
     // 默认加载推荐公开流（无需登录）；若已登录也保持推荐流默认
     this.refresh();
+  }
+
+  aboutToDisappear(): void {
+    this.unregisterColumns();
   }
 
   // token 由空变为非空（登录完成）→ 关注流且列表空、无 error 时自动补加载
@@ -399,13 +418,13 @@ export struct HomeTab {
                     .padding(16)
                 }
                 .columnStart(0)
-                .columnEnd(1)
+                .columnEnd(this.gridColumns - 1)
               }
             }
-            .columnsTemplate('1fr 1fr')
-            .columnsGap(12)
-            .rowsGap(12)
-            .padding(12)
+            .columnsTemplate(this.gridTemplate)
+            .columnsGap(GRID_GAP)
+            .rowsGap(GRID_GAP)
+            .padding(GRID_PADDING)
             .onScrollIndex((_start: number, end: number) => {
               if (end >= this.posts.length - 1) {
                 this.loadMore();

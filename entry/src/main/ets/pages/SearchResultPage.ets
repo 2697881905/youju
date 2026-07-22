@@ -9,6 +9,9 @@ import { setDetailPostId } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { resolveActionIcon } from '../utils/actionIcons';
+import { observeGridColumns, gridColumnTemplate } from '../utils/responsive';
+import { GRID_GAP, GRID_PADDING } from '../utils/cardTokens';
+import { common } from '@kit.AbilityKit';
 
 @Entry
 @Component
@@ -25,12 +28,27 @@ struct SearchResultPage {
   @State isRefreshing: boolean = false;
   @State pageNum: number = 1;
   private readonly limitNum: number = 10;
+  // 响应式列数（按屏幕宽度 2/3/4 列自适应）
+  @State gridColumns: number = 2;
+  @State gridTemplate: string = '1fr 1fr';
+  private unregisterColumns: () => void = () => {};
 
   aboutToAppear(): void {
     // API 24 router.getParams 失效；keyword 跨页传递用 AppStorage（与 detailPostId 一致）
     const kw: string | undefined = AppStorage.get<string>('searchKeyword');
     this.keyword = kw ?? '';
+    this.unregisterColumns = observeGridColumns(
+      this.getUIContext().getHostContext() as common.Context,
+      (cols: number): void => {
+        this.gridColumns = cols;
+        this.gridTemplate = gridColumnTemplate(cols);
+      }
+    );
     this.refresh();
+  }
+
+  aboutToDisappear(): void {
+    this.unregisterColumns();
   }
 
   // 重置并加载第一页
@@ -223,13 +241,13 @@ struct SearchResultPage {
                   .padding(16)
               }
               .columnStart(0)
-              .columnEnd(1)
+              .columnEnd(this.gridColumns - 1)
             }
           }
-          .columnsTemplate('1fr 1fr')
-          .columnsGap(12)
-          .rowsGap(12)
-          .padding(12)
+          .columnsTemplate(this.gridTemplate)
+          .columnsGap(GRID_GAP)
+          .rowsGap(GRID_GAP)
+          .padding(GRID_PADDING)
           .onScrollIndex((_start: number, end: number) => {
             if (end >= this.searchList.length - 1) {
               this.loadMore();

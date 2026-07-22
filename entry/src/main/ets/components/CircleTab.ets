@@ -7,6 +7,9 @@ import { TagIcon } from './TagIcon';
 import { listTags, followTag, unfollowTag, listFollowedTags } from '../services/api';
 import { ensureLogin } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
+import { observeGridColumns, gridColumnTemplate } from '../utils/responsive';
+import { CARD_RADIUS, CARD_PADDING, CARD_SHADOW, GRID_GAP, GRID_PADDING } from '../utils/cardTokens';
+import { common } from '@kit.AbilityKit';
 
 @Component
 export struct CircleTab {
@@ -15,9 +18,24 @@ export struct CircleTab {
   @State loading: boolean = false;
   @State error: string = '';
   @State togglingName: string = '';
+  // 响应式列数（按屏幕宽度 2/3/4 列自适应）
+  @State gridColumns: number = 2;
+  @State gridTemplate: string = '1fr 1fr';
+  private unregisterColumns: () => void = () => {};
 
   aboutToAppear(): void {
+    this.unregisterColumns = observeGridColumns(
+      this.getUIContext().getHostContext() as common.Context,
+      (cols: number): void => {
+        this.gridColumns = cols;
+        this.gridTemplate = gridColumnTemplate(cols);
+      }
+    );
     this.initData();
+  }
+
+  aboutToDisappear(): void {
+    this.unregisterColumns();
   }
 
   private async initData(): Promise<void> {
@@ -106,10 +124,10 @@ export struct CircleTab {
         .onClick(() => { this.toggleJoin(c.name ?? ''); })
     }
     .width('100%')
-    .padding({ left: 12, right: 12, top: 16, bottom: 16 })
+    .padding(CARD_PADDING)
     .backgroundColor($r('app.color.card_bg'))
-    .borderRadius(14)
-    .shadow({ radius: 12, color: '#0A000000', offsetY: 1 })
+    .borderRadius(CARD_RADIUS)
+    .shadow(CARD_SHADOW)
   }
 
   build() {
@@ -173,10 +191,10 @@ export struct CircleTab {
               (c: Tag) => c.name ?? ''
             )
           }
-          .columnsTemplate('1fr 1fr')
-          .columnsGap(12)
-          .rowsGap(12)
-          .padding({ left: 16, right: 16, top: 4, bottom: 16 })
+          .columnsTemplate(this.gridTemplate)
+          .columnsGap(GRID_GAP)
+          .rowsGap(GRID_GAP)
+          .padding(GRID_PADDING)
           .width('100%')
         }
         .layoutWeight(1)

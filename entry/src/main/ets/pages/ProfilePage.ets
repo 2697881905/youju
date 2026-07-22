@@ -6,6 +6,9 @@ import { PostCard } from '../components/PostCard';
 import { ensureLogin, getCurrentUser } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
 import { setDetailPostId } from '../utils/nav';
+import { observeGridColumns, gridColumnTemplate } from '../utils/responsive';
+import { GRID_GAP, GRID_PADDING } from '../utils/cardTokens';
+import { common } from '@kit.AbilityKit';
 
 const SUB_TABS: string[] = ['我发布', '我收藏', '我赞过', '我评论'];
 
@@ -22,9 +25,24 @@ export struct ProfilePage {
   @State isRefreshing: boolean = false;
   @State error: string = '';
   @State ready: boolean = false;
+  // 响应式列数（按屏幕宽度 2/3/4 列自适应）
+  @State gridColumns: number = 2;
+  @State gridTemplate: string = '1fr 1fr';
+  private unregisterColumns: () => void = () => {};
 
   aboutToAppear(): void {
+    this.unregisterColumns = observeGridColumns(
+      this.getUIContext().getHostContext() as common.Context,
+      (cols: number): void => {
+        this.gridColumns = cols;
+        this.gridTemplate = gridColumnTemplate(cols);
+      }
+    );
     this.init();
+  }
+
+  aboutToDisappear(): void {
+    this.unregisterColumns();
   }
 
   async init(): Promise<void> {
@@ -301,11 +319,11 @@ export struct ProfilePage {
                   .fontSize(12).fontColor($r('app.color.text_secondary'))
                   .width('100%').textAlign(TextAlign.Center).padding(16)
               }
-              .columnStart(0).columnEnd(1)
+              .columnStart(0).columnEnd(this.gridColumns - 1)
             }
           }
-          .columnsTemplate('1fr 1fr')
-          .columnsGap(12).rowsGap(12).padding(12)
+          .columnsTemplate(this.gridTemplate)
+          .columnsGap(GRID_GAP).rowsGap(GRID_GAP).padding(GRID_PADDING)
           .onScrollIndex((_start: number, end: number) => {
             if (end >= this.posts.length - 1) {
               this.loadMore();
