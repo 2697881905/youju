@@ -100,6 +100,7 @@ export struct SearchPanel {
           })
       }
       .width('100%')
+      .height(52)
       .alignItems(VerticalAlign.Center)
       .backgroundColor($r('app.color.bg_primary'))
 
@@ -164,7 +165,7 @@ export struct SearchPanel {
               .backgroundColor($r('app.color.card_bg'))
               .borderRadius(CARD_RADIUS)
               .shadow(CARD_SHADOW)
-              .margin({ left: 16, right: 16, top: 8, bottom: 8 })
+              .margin({ left: 16, right: 16, top: 0, bottom: 8 })
             }
 
             // ----- 猜你想搜（包进统一圆角卡片）-----
