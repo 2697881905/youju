@@ -37,7 +37,11 @@ export struct EditProfilePage {
     if (this.uploadingAvatar) return;
     this.uploadingAvatar = true;
     try {
-      await ensureLogin();
+      const u: User | null = await ensureLogin();
+      if (!u) {
+        this.uploadingAvatar = false;
+        return;
+      }
     } catch (e) {
       safeShowToast(this.getUIContext(), { message: '请先登录' });
       this.uploadingAvatar = false;

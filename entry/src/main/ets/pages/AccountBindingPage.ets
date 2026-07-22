@@ -1,7 +1,7 @@
 // 账号绑定管理页（核心）：列表（harmony 主账号置顶 + 第三方）+ 绑定/解绑 + 二次确认 + 空状态。
 // 入口：设置页 → 账号绑定。遵循现有深色主题与 safeShowToast 提示风格。
 
-import { BindingItem, Provider } from '../models/types';
+import { BindingItem, Provider, User } from '../models/types';
 import { listBindings, bindAccount, unbindAccount } from '../services/api';
 import { HuaweiBindButton } from '../components/HuaweiBindButton';
 import { ensureLogin } from '../utils/auth';
@@ -26,7 +26,11 @@ struct AccountBindingPage {
   private async init(): Promise<void> {
     // 确保有登录态（沿用现有 ensureLogin），再拉取绑定列表
     try {
-      await ensureLogin();
+      const u: User | null = await ensureLogin();
+      if (!u) {
+        // 无登录态：ensureLogin 已跳 LoginPage，不再拉列表
+        return;
+      }
     } catch (e) {
       // 登录失败不阻断渲染；列表接口会因缺 token 返回 401，由 loadBindings 的 catch 提示
     }

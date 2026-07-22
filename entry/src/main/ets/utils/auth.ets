@@ -1,7 +1,9 @@
 // 统一登录态（横切地基）：持久化 token + 当前用户，供全应用复用。
-// MVP 先用 dev-seed-openid 桩自动登录；Account Kit 真实接入后替换 ensureLogin 内部实现。
+// 真登录已接入：无登录态时 ensureLogin 不再静默建号，而是跳到 LoginPage 由用户显式选择
+// 「华为一键登录」或「其他方式登录（开发桩）」。
 import { login, LoginResult } from '../services/api';
 import { User } from '../models/types';
+import { router } from '@kit.ArkUI';
 
 // 进程级持久化（基于 Preferences，重启/重进页面不丢）。必须在任何 AppStorage 读写前注册一次。
 PersistentStorage.persistProp('authToken', '');
@@ -54,13 +56,31 @@ export function clearSession(): void {
   AppStorage.setOrCreate('authIsAdmin', false);
 }
 
-// MVP 桩：无登录态时自动用 dev-seed-openid 登录（对应后端 seed 用户 科技老张 id=1）。
-// 接入 Account Kit 后，此函数内部改为调用华为账号登录换取 openId 再 login()。
-export async function ensureLogin(): Promise<User> {
+// 确保登录态：有登录态直接返回当前用户；无登录态则跳到 LoginPage 由用户显式登录，并返回 null。
+// 不再静默用 dev 桩建号（原 MVP 行为），避免真实登录入口被绕过。
+export async function ensureLogin(): Promise<User | null> {
   const existing: User | null = getCurrentUser();
   if (existing && getToken()) {
     return existing;
   }
+  // 防递归：LoginPage 自身（如「其他方式登录」）调用时不再重复 pushUrl
+  try {
+    const state = router.getState();
+    if (state && state.path !== 'pages/LoginPage') {
+      router.pushUrl({ url: 'pages/LoginPage' });
+    }
+  } catch (e) {
+    // router 未就绪等异常时直接尝试跳转，不阻断
+    try {
+      router.pushUrl({ url: 'pages/LoginPage' });
+    } catch (_) { /* ignore */ }
+  }
+  return null;
+}
+
+// 开发/预览兜底：仅由 LoginPage 的「其他方式登录」手动调用，静默桩逻辑集中在此处，
+// 不再由 ensureLogin 自动触发。真机走华为账号一键登录（exchangeHuaweiCode）。
+export async function loginWithDevStub(): Promise<User> {
   const res: LoginResult = await login({ openId: 'dev-seed-openid', nickname: '科技老张' });
   setSession(res.token, res.user);
   return res.user;

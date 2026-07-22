@@ -7,7 +7,7 @@ import {
   CreatePostBody, UpdatePostBody,
 } from '../services/api';
 import { ensureLogin } from '../utils/auth';
-import { Genre, StructuredData, Tag } from '../models/types';
+import { Genre, StructuredData, Tag, User } from '../models/types';
 import { ImagePicker } from '../components/ImagePicker';
 import { TagIcon } from '../components/TagIcon';
 import { safeShowToast } from '../utils/toast';
@@ -206,7 +206,7 @@ export struct PublishPage {
   }
 
   private async ensureToken(): Promise<boolean> {
-    try { await ensureLogin(); return true; }
+    try { const u: User | null = await ensureLogin(); return !!u; }
     catch (e) { this.error = '登录失败：' + (e as Error).message; return false; }
   }
 

@@ -9,6 +9,7 @@ import { compressImage, CompressedImage } from '../utils/image';
 import { getUploadSignature } from '../services/api';
 import { ensureLogin } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
+import { User } from '../models/types';
 
 interface PickedImage {
   id: string; // 稳定 key
@@ -69,7 +70,11 @@ export struct ImagePicker {
     this.picking = true;
     // 先确保登录（上传接口需 Bearer token），失败则提示并返回
     try {
-      await ensureLogin();
+      const u: User | null = await ensureLogin();
+      if (!u) {
+        this.picking = false;
+        return;
+      }
     } catch (e) {
       safeShowToast(this.getUIContext(),{ message: '登录失败，无法上传：' + (e as Error).message });
       this.picking = false;

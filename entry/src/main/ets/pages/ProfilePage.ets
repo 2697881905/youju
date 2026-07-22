@@ -47,7 +47,12 @@ export struct ProfilePage {
 
   async init(): Promise<void> {
     try {
-      const u: User = await ensureLogin();
+      const u: User | null = await ensureLogin();
+      if (!u) {
+        // 无登录态：ensureLogin 已跳 LoginPage，本页不再加载
+        this.ready = true;
+        return;
+      }
       this.user = u;
     } catch (e) {
       const cached: User | null = getCurrentUser();

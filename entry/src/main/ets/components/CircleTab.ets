@@ -2,7 +2,7 @@
 // 展示所有标签圈子，支持加入/退出（后端持久化）
 // 数据来源：listTags / followTag / unfollowTag / listFollowedTags
 
-import { Tag } from '../models/types';
+import { Tag, User } from '../models/types';
 import { TagIcon } from './TagIcon';
 import { listTags, followTag, unfollowTag, listFollowedTags } from '../services/api';
 import { ensureLogin } from '../utils/auth';
@@ -42,7 +42,12 @@ export struct CircleTab {
     this.loading = true;
     this.error = '';
     try {
-      await ensureLogin();
+      const u: User | null = await ensureLogin();
+      if (!u) {
+        // 无登录态：ensureLogin 已跳 LoginPage，本页不加载
+        this.loading = false;
+        return;
+      }
       const tagsPromise: Promise<Tag[]> = listTags();
       const followedPromise: Promise<string[]> = listFollowedTags();
       this.circles = await tagsPromise;

@@ -30,6 +30,13 @@ struct Index {
     this.startInit();
   }
 
+  // 从 LoginPage 返回后（aboutToAppear 不再重跑）刷新未读红点
+  onPageShow(): void {
+    if (getToken() !== '') {
+      this.refreshUnread();
+    }
+  }
+
   // 窗口全屏布局：内容延伸到系统导航条之下让底部栏贴底，同时读取状态栏高度用于顶部避让
   private async setupFullScreen(): Promise<void> {
     try {

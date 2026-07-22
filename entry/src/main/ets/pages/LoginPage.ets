@@ -4,7 +4,7 @@
 //   2) 其他方式登录：走现有 openId 授权登录桩（ensureLogin），作为华为登录降级兜底
 
 import { exchangeHuaweiCode, LoginResult } from '../services/api';
-import { setSession, ensureLogin } from '../utils/auth';
+import { setSession, loginWithDevStub } from '../utils/auth';
 import { HuaweiLoginButton } from '../components/HuaweiLoginButton';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
@@ -64,10 +64,10 @@ struct LoginPage {
     this.toast('华为登录未完成：' + msg);
   }
 
-  // 其他方式登录：走现有 openId 授权桩
+  // 其他方式登录：走开发桩（预览/模拟器用，真机走华为一键登录）
   private async handleOtherLogin(): Promise<void> {
     try {
-      const user = await ensureLogin();
+      const user = await loginWithDevStub();
       if (user) {
         this.getUIContext().getRouter().back();
       }
