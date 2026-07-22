@@ -1,6 +1,7 @@
 // 关于页：纯静态信息展示，无后端调用
 
 import { buildPageTransition } from '../utils/styles';
+import { resolveActionIcon } from '../utils/actionIcons';
 
 @Entry
 @Component
@@ -35,8 +36,10 @@ export struct AboutPage {
         Column({ space: 20 }) {
           // App 图标占位
           Column() {
-            Text('📘')
-              .fontSize(48);
+            Image(resolveActionIcon('book'))
+              .width(48)
+              .height(48)
+              .fillColor($r('app.color.brand_primary'));
             Text('大蓝书')
               .fontSize(22)
               .fontWeight(FontWeight.Bold)

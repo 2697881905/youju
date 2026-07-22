@@ -7,6 +7,7 @@ import { HuaweiBindButton } from '../components/HuaweiBindButton';
 import { ensureLogin } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
+import { resolveActionIcon } from '../utils/actionIcons';
 
 @Entry
 @Component
@@ -94,9 +95,10 @@ struct AccountBindingPage {
   @Builder
   harmonyRow(item: BindingItem) {
     Row() {
-      Text('📱')
-        .fontSize(28)
-        .width(40)
+      Image(resolveActionIcon('phone'))
+        .width(28)
+        .height(28)
+        .fillColor($r('app.color.text_primary'))
       Column({ space: 4 }) {
         Row() {
           Text(item.displayName)
@@ -124,9 +126,8 @@ struct AccountBindingPage {
   @Builder
   boundRow(item: BindingItem) {
     Row() {
-      Text(item.provider === 'huawei' ? '🔵' : '🟢')
-        .fontSize(28)
-        .width(40)
+      Circle({ width: 28, height: 28 })
+        .fill(item.provider === 'huawei' ? '#3C7BFF' : '#34C759')
       Column({ space: 4 }) {
         Text(item.displayName)
           .fontSize(17)
@@ -173,9 +174,8 @@ struct AccountBindingPage {
   huaweiUnboundRow() {
     Column({ space: 12 }) {
       Row() {
-        Text('🔵')
-          .fontSize(28)
-          .width(40)
+        Circle({ width: 28, height: 28 })
+          .fill('#3C7BFF')
         Column({ space: 4 }) {
           Text('华为账号')
             .fontSize(17)

@@ -10,6 +10,7 @@ import { TagNav } from './TagNav';
 import { SearchPanel } from './SearchPanel';
 import { setDetailPostId, emitTabSwitch } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
+import { resolveActionIcon } from '../utils/actionIcons';
 import { BasicDataSource } from '../utils/data-source';
 
 type SortKey = 'hot' | 'latest' | 'recommend';
@@ -267,9 +268,10 @@ export struct HomeTab {
         if (this.needLogin) {
           // 未登录引导态（关注流且未登录）：不发起请求，引导登录
           Column({ space: 12 }) {
-            Text('🔐')
-              .fontSize(40)
-              .fontColor($r('app.color.text_secondary'))
+            Image(resolveActionIcon('lock'))
+              .width(44)
+              .height(44)
+              .fillColor($r('app.color.text_secondary'))
               .margin({ bottom: 4 })
             Text('登录后查看你关注的人发布的帖子')
               .fontSize(15)
@@ -299,9 +301,10 @@ export struct HomeTab {
         } else if (this.posts.length === 0) {
           Column() {
             if (this.error) {
-              Text('⚠️')
-                .fontSize(36)
-                .fontColor($r('app.color.text_secondary'))
+              Image(resolveActionIcon('warning'))
+                .width(40)
+                .height(40)
+                .fillColor($r('app.color.text_secondary'))
                 .margin({ bottom: 8 })
               Text('加载失败：' + this.error)
                 .fontSize(14)
@@ -316,9 +319,10 @@ export struct HomeTab {
               // 关注流空态 A/B 区分：按 followingCount 判定
               if (this.followingCount === 0) {
                 // 空态 A：未关注任何人
-                Text('🧭')
-                  .fontSize(40)
-                  .fontColor($r('app.color.text_secondary'))
+                Image(resolveActionIcon('guide'))
+                  .width(44)
+                  .height(44)
+                  .fillColor($r('app.color.text_secondary'))
                   .margin({ bottom: 4 })
                 Text('你还没有关注任何人')
                   .fontSize(15)
@@ -337,9 +341,10 @@ export struct HomeTab {
                   })
               } else {
                 // 空态 B：关注了人但无人发帖
-                Text('📭')
-                  .fontSize(40)
-                  .fontColor($r('app.color.text_secondary'))
+                Image(resolveActionIcon('inbox'))
+                  .width(44)
+                  .height(44)
+                  .fillColor($r('app.color.text_secondary'))
                   .margin({ bottom: 4 })
                 Text('你关注的人还没有发布内容')
                   .fontSize(15)

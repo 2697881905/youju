@@ -4,6 +4,7 @@ import { timeAgo, formatCount } from '../utils/format';
 import { getUserId } from '../utils/auth';
 import { deleteComment, upComment } from '../services/api';
 import { safeShowToast } from '../utils/toast';
+import { resolveActionIcon } from '../utils/actionIcons';
 
 @Component
 export struct CommentList {
@@ -112,19 +113,25 @@ export struct CommentList {
                 Text(timeAgo(c.createdAt) + ' · ')
                   .fontSize(12)
                   .fontColor($r('app.color.text_secondary'));
-                Text('👍 ' + formatCount(c.upCount))
-                  .fontSize(12)
-                  .fontColor($r('app.color.brand_primary'))
-                  .onClick(async () => {
-                    if (c.id !== undefined) {
-                      try {
-                        await upComment(c.id);
-                        c.upCount = (c.upCount ?? 0) + 1;
-                      } catch (_e) {
-                        // 幂等忽略
-                      }
+                Row({ space: 2 }) {
+                  Image(resolveActionIcon('like'))
+                    .width(13)
+                    .height(13)
+                    .fillColor($r('app.color.brand_primary'))
+                  Text(formatCount(c.upCount))
+                    .fontSize(12)
+                    .fontColor($r('app.color.brand_primary'))
+                }
+                .onClick(async () => {
+                  if (c.id !== undefined) {
+                    try {
+                      await upComment(c.id);
+                      c.upCount = (c.upCount ?? 0) + 1;
+                    } catch (_e) {
+                      // 幂等忽略
                     }
-                  })
+                  }
+                })
               }
               .layoutWeight(1)
               .alignItems(HorizontalAlign.Start)

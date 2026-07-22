@@ -20,6 +20,7 @@ import { ReportDialog } from '../components/ReportDialog';
 import { takeDetailPostId, emitTabSwitch } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 import { getUserId } from '../utils/auth';
+import { resolveActionIcon } from '../utils/actionIcons';
 import { window } from '@kit.ArkUI';
 
 // 字段定义：[结构化字段键, 中文标签]，按产品文档 2.4 各体裁字段表
@@ -460,10 +461,16 @@ struct DetailPage {
 
       // 顶部导航
       Row() {
-        Text('← 返回')
-          .fontSize(16)
-          .fontColor($r('app.color.brand_primary'))
-          .onClick(() => this.getUIContext().getRouter().back())
+        Row({ space: 2 }) {
+          Image(resolveActionIcon('back'))
+            .width(18)
+            .height(18)
+            .fillColor($r('app.color.brand_primary'))
+          Text('返回')
+            .fontSize(16)
+            .fontColor($r('app.color.brand_primary'))
+        }
+        .onClick(() => this.getUIContext().getRouter().back())
         Text('帖子详情')
           .fontSize(17)
           .fontWeight(600)
@@ -510,7 +517,6 @@ struct DetailPage {
             // 待审核横幅（作者查看自己 status=0 帖子时显示）
             if (this.post.status === 0 && this.post.userId === getUserId()) {
               Row({ space: 8 }) {
-                Text('⏳').fontSize(14)
                 Text('该帖子正在审核中，仅你自己可见')
                   .fontSize(13)
                   .fontColor('#FF9500')
@@ -593,12 +599,20 @@ struct DetailPage {
                     .fontColor($r('app.color.text_secondary'))
                     .width(56);
                   this.voteBar(this.planAVotes, this.planAVotes + this.planBVotes);
-                  Text(this.myVote === 'A' ? '✓ 已投' : '投票')
-                    .fontSize(13)
-                    .fontColor(this.myVote === 'A' ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
-                    .width(52)
-                    .textAlign(TextAlign.Center)
-                    .onClick(() => { this.onDebateVote('A'); });
+                  Row({ space: 2 }) {
+                    if (this.myVote === 'A') {
+                      Image(resolveActionIcon('check'))
+                        .width(13)
+                        .height(13)
+                        .fillColor($r('app.color.brand_primary'))
+                    }
+                    Text(this.myVote === 'A' ? '已投' : '投票')
+                      .fontSize(13)
+                      .fontColor(this.myVote === 'A' ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
+                  }
+                  .width(52)
+                  .justifyContent(FlexAlign.Center)
+                  .onClick(() => { this.onDebateVote('A'); });
                 }
                 .width('100%');
 
@@ -609,12 +623,20 @@ struct DetailPage {
                     .fontColor($r('app.color.text_secondary'))
                     .width(56);
                   this.voteBar(this.planBVotes, this.planAVotes + this.planBVotes);
-                  Text(this.myVote === 'B' ? '✓ 已投' : '投票')
-                    .fontSize(13)
-                    .fontColor(this.myVote === 'B' ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
-                    .width(52)
-                    .textAlign(TextAlign.Center)
-                    .onClick(() => { this.onDebateVote('B'); });
+                  Row({ space: 2 }) {
+                    if (this.myVote === 'B') {
+                      Image(resolveActionIcon('check'))
+                        .width(13)
+                        .height(13)
+                        .fillColor($r('app.color.brand_primary'))
+                    }
+                    Text(this.myVote === 'B' ? '已投' : '投票')
+                      .fontSize(13)
+                      .fontColor(this.myVote === 'B' ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
+                  }
+                  .width(52)
+                  .justifyContent(FlexAlign.Center)
+                  .onClick(() => { this.onDebateVote('B'); });
                 }
                 .width('100%');
               }
@@ -706,7 +728,10 @@ struct DetailPage {
         // 底部操作栏
         Row() {
           Column({ space: 2 }) {
-            Text('👍').fontSize(20)
+            Image(resolveActionIcon('like'))
+              .width(22)
+              .height(22)
+              .fillColor(this.uped ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
             Text((this.uped ? '已' : '') + '顶 ' + formatCount(this.post.upCount))
               .fontSize(11)
               .fontColor(this.uped ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
@@ -715,7 +740,10 @@ struct DetailPage {
           .onClick(() => this.onUp())
 
           Column({ space: 2 }) {
-            Text('📥').fontSize(20)
+            Image(resolveActionIcon('bookmark'))
+              .width(22)
+              .height(22)
+              .fillColor(this.bookmarked ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
             Text((this.bookmarked ? '已' : '') + '抄作业 ' + formatCount(this.post.bookmarkCount))
               .fontSize(11)
               .fontColor(this.bookmarked ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
@@ -724,7 +752,10 @@ struct DetailPage {
           .onClick(() => this.onBookmark())
 
           Column({ space: 2 }) {
-            Text('💬').fontSize(20)
+            Image(resolveActionIcon('comment'))
+              .width(22)
+              .height(22)
+              .fillColor($r('app.color.text_secondary'))
             Text('评论 ' + formatCount(this.post.commentCount))
               .fontSize(11)
               .fontColor($r('app.color.text_secondary'))
@@ -735,7 +766,10 @@ struct DetailPage {
           })
 
           Column({ space: 2 }) {
-            Text('🔗').fontSize(20)
+            Image(resolveActionIcon('share'))
+              .width(22)
+              .height(22)
+              .fillColor($r('app.color.text_secondary'))
             Text('分享')
               .fontSize(11)
               .fontColor($r('app.color.text_secondary'))

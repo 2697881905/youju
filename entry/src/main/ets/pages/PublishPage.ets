@@ -9,6 +9,7 @@ import { Genre, StructuredData, Tag } from '../models/types';
 import { ImagePicker } from '../components/ImagePicker';
 import { TagIcon } from '../components/TagIcon';
 import { safeShowToast } from '../utils/toast';
+import { resolveActionIcon } from '../utils/actionIcons';
 
 interface GenreItem {
   key: Genre;
@@ -345,7 +346,11 @@ export struct PublishPage {
                       ForEach(this.selectedTags, (name: string) => {
                         Row({ space: 4 }) {
                           Text(name).fontSize(13).fontColor('#FFFFFF')
-                          Text('✕').fontSize(11).fontColor('#FFFFFF').onClick(() => this.toggleTag(name))
+                          Image(resolveActionIcon('close'))
+                            .width(11)
+                            .height(11)
+                            .fillColor('#FFFFFF')
+                            .onClick(() => this.toggleTag(name))
                         }
                         .backgroundColor($r('app.color.brand_primary')).borderRadius(14)
                         .padding({ left: 10, right: 10, top: 6, bottom: 6 })
@@ -368,7 +373,12 @@ export struct PublishPage {
               Row() {
                 Text('结构化信息 · 选填')
                   .fontSize(13).fontColor($r('app.color.text_secondary')).fontWeight(FontWeight.Bold).layoutWeight(1)
-                Text(this.showFields ? '收起 ▲' : '展开 ▼').fontSize(12).fontColor($r('app.color.brand_primary'))
+                Row({ space: 2 }) {
+                  Text('结构化信息 · 选填')
+                    .fontSize(13).fontColor($r('app.color.text_secondary')).fontWeight(FontWeight.Bold).layoutWeight(1)
+                  Image(this.showFields ? resolveActionIcon('chevronUp') : resolveActionIcon('chevronDown'))
+                    .width(14).height(14).fillColor($r('app.color.brand_primary'))
+                }.width('100%').padding({ left: 16, right: 16 }).onClick(() => { this.showFields = !this.showFields; })
               }.width('100%').padding({ left: 16, right: 16 }).onClick(() => { this.showFields = !this.showFields; })
               if (this.showFields) {
                 SectionCard() {

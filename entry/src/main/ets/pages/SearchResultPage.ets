@@ -8,6 +8,7 @@ import { PostCard } from '../components/PostCard';
 import { setDetailPostId } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
+import { resolveActionIcon } from '../utils/actionIcons';
 
 @Entry
 @Component
@@ -111,9 +112,10 @@ struct SearchResultPage {
     Column() {
       // 顶栏：返回 + 可改搜索框 + 清除✕
       Row({ space: 8 }) {
-        Text('←')
-          .fontSize(20)
-          .fontColor($r('app.color.text_primary'))
+        Image(resolveActionIcon('back'))
+          .width(22)
+          .height(22)
+          .fillColor($r('app.color.text_primary'))
           .onClick(() => this.getUIContext().getRouter().back())
 
         TextInput({ placeholder: '搜索', text: this.keyword })
@@ -129,9 +131,10 @@ struct SearchResultPage {
           })
 
         if (this.keyword !== '') {
-          Text('✕')
-            .fontSize(16)
-            .fontColor($r('app.color.text_secondary'))
+          Image(resolveActionIcon('close'))
+            .width(18)
+            .height(18)
+            .fillColor($r('app.color.text_secondary'))
             .onClick(() => {
               this.keyword = '';
             })
@@ -166,9 +169,10 @@ struct SearchResultPage {
       } else if (this.searchList.length === 0 && this.error !== '') {
         // 失败态
         Column() {
-          Text('⚠️')
-            .fontSize(36)
-            .fontColor($r('app.color.text_secondary'))
+          Image(resolveActionIcon('warning'))
+            .width(40)
+            .height(40)
+            .fillColor($r('app.color.text_secondary'))
           Text(this.error)
             .fontSize(14)
             .fontColor($r('app.color.text_secondary'))
@@ -183,9 +187,10 @@ struct SearchResultPage {
       } else if (this.searchList.length === 0) {
         // 空态
         Column() {
-          Text('🔍')
-            .fontSize(36)
-            .fontColor($r('app.color.text_secondary'))
+          Image(resolveActionIcon('search'))
+            .width(40)
+            .height(40)
+            .fillColor($r('app.color.text_secondary'))
           Text('未找到相关帖子，换个关键词试试')
             .fontSize(14)
             .fontColor($r('app.color.text_secondary'))

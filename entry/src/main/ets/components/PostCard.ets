@@ -3,6 +3,7 @@ import { formatCount } from '../utils/format';
 
 import { upPost, cancelUpPost } from '../services/api';
 import { safeShowToast } from '../utils/toast';
+import { resolveActionIcon } from '../utils/actionIcons';
 
 @Component
 export struct PostCard {
@@ -117,8 +118,10 @@ export struct PostCard {
       // 底部互动行
       Row() {
         Row({ space: 4 }) {
-          Text('👍')
-            .fontSize(13)
+          Image(resolveActionIcon('like'))
+            .width(15)
+            .height(15)
+            .fillColor(this.liked ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
           Text('顶 ' + formatCount(this.likeCount))
             .fontSize(13)
             .fontColor(this.liked ? $r('app.color.brand_primary') : $r('app.color.text_secondary'));
@@ -127,10 +130,16 @@ export struct PostCard {
           this.onLike();
         })
 
-        Text('💬 ' + formatCount(this.post.commentCount))
-          .fontSize(13)
-          .fontColor($r('app.color.text_secondary'))
-          .margin({ left: 16 });
+        Row({ space: 4 }) {
+          Image(resolveActionIcon('comment'))
+            .width(15)
+            .height(15)
+            .fillColor($r('app.color.text_secondary'))
+          Text(formatCount(this.post.commentCount))
+            .fontSize(13)
+            .fontColor($r('app.color.text_secondary'))
+        }
+        .margin({ left: 16 });
       }
       .margin({ top: 10 })
       .justifyContent(FlexAlign.Start);

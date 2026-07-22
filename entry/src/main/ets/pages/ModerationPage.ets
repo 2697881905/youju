@@ -5,6 +5,7 @@ import { PendingPost, ReportItem, ReportReason, ModerateAction } from '../models
 import { getPendingPosts, moderatePost } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
+import { resolveActionIcon } from '../utils/actionIcons';
 
 // 举报理由 → 中文标签
 function reasonLabel(reason: ReportReason): string {
@@ -338,8 +339,10 @@ struct ModerationPage {
         .justifyContent(FlexAlign.Center)
       } else if (this.forbidden) {
         Column() {
-          Text('🔒')
-            .fontSize(48)
+          Image(resolveActionIcon('lock'))
+            .width(48)
+            .height(48)
+            .fillColor($r('app.color.text_secondary'))
           Text('无管理员权限')
             .fontSize(16)
             .fontColor($r('app.color.text_secondary'))

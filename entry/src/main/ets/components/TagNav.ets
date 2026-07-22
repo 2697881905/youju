@@ -1,5 +1,6 @@
 import { Tag } from '../models/types';
 import { TagIcon } from './TagIcon';
+import { resolveActionIcon } from '../utils/actionIcons';
 
 @Component
 export struct TagNav {
@@ -55,9 +56,10 @@ export struct TagNav {
 
         // 下拉按钮
         Row({ space: 4 }) {
-          Text('▼')
-            .fontSize(10)
-            .fontColor($r('app.color.text_secondary'))
+          Image(resolveActionIcon('chevronDown'))
+            .width(12)
+            .height(12)
+            .fillColor($r('app.color.text_secondary'))
         }
         .width(32)
         .height(28)

@@ -14,6 +14,7 @@ import {
 import { getToken } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
+import { notifIconRes, resolveActionIcon } from '../utils/actionIcons';
 
 @Entry
 @Component
@@ -209,22 +210,9 @@ export struct MessagePage {
     }
   }
 
-  // 通知类型 → 图标（ArkTS V1 不支持 obj[key] 索引访问，用函数分发）
-  private typeIcon(type: NotificationType | undefined): string {
-    const t: NotificationType = type ?? 'system';
-    if (t === 'comment') {
-      return '💬';
-    }
-    if (t === 'up') {
-      return '👍';
-    }
-    if (t === 'bookmark') {
-      return '🔖';
-    }
-    if (t === 'follow') {
-      return '➕';
-    }
-    return '📢';
+  // 通知类型 → 图标资源（ArkTS V1 不支持 obj[key] 索引访问，用函数分发）
+  private typeIcon(type: NotificationType | undefined): Resource {
+    return notifIconRes(type);
   }
 
   @Builder
@@ -235,10 +223,11 @@ export struct MessagePage {
         // 系统通知：品牌色背景圆 + 系统图标
         Circle({ width: 40, height: 40 })
           .fill($r('app.color.brand_primary'))
-        Text('📢')
-          .fontSize(18)
-          .fontColor(Color.White)
-          .position({ x: 10, y: 9 })
+        Image($r('app.media.notification_system'))
+          .width(20)
+          .height(20)
+          .fillColor(Color.White)
+          .position({ x: 10, y: 10 })
       } else if (item.actor && item.actor.avatar) {
         // 普通通知：用户头像
         Image(item.actor.avatar)
@@ -247,14 +236,22 @@ export struct MessagePage {
           .borderRadius(20)
           .objectFit(ImageFit.Cover)
       } else {
-        // 普通通知：昵称首字兜底
+        // 普通通知：昵称首字兜底，无昵称时回退通知类型图标
         Circle({ width: 40, height: 40 })
           .fill($r('app.color.brand_primary'))
           .opacity(0.15)
-        Text(item.actor && item.actor.nickname ? item.actor.nickname.slice(0, 1) : this.typeIcon(item.type))
-          .fontSize(16)
-          .fontColor($r('app.color.brand_primary'))
-          .position({ x: 12, y: 10 })
+        if (item.actor && item.actor.nickname) {
+          Text(item.actor.nickname.slice(0, 1))
+            .fontSize(16)
+            .fontColor($r('app.color.brand_primary'))
+            .position({ x: 12, y: 10 })
+        } else {
+          Image(this.typeIcon(item.type))
+            .width(20)
+            .height(20)
+            .fillColor($r('app.color.brand_primary'))
+            .position({ x: 10, y: 10 })
+        }
       }
 
       // 文案 + 时间
@@ -309,8 +306,10 @@ export struct MessagePage {
       Row({ space: 0 }) {
         Column({ space: 6 }) {
           Column() {
-            Text('👍')
-              .fontSize(28)
+            Image(resolveActionIcon('like'))
+              .width(28)
+              .height(28)
+              .fillColor($r('app.color.brand_primary'))
           }
           .width(56)
           .height(56)
@@ -326,8 +325,10 @@ export struct MessagePage {
 
         Column({ space: 6 }) {
           Column() {
-            Text('➕')
-              .fontSize(28)
+            Image(resolveActionIcon('follow'))
+              .width(28)
+              .height(28)
+              .fillColor($r('app.color.brand_primary'))
           }
           .width(56)
           .height(56)
@@ -343,8 +344,10 @@ export struct MessagePage {
 
         Column({ space: 6 }) {
           Column() {
-            Text('💬')
-              .fontSize(28)
+            Image(resolveActionIcon('comment'))
+              .width(28)
+              .height(28)
+              .fillColor($r('app.color.brand_primary'))
           }
           .width(56)
           .height(56)
