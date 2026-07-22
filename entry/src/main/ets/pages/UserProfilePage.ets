@@ -237,7 +237,7 @@ export struct UserProfilePage {
           .fontSize(17).fontWeight(600).layoutWeight(1).textAlign(TextAlign.Center);
         Text('').width(48);
       }
-      .width('100%').padding({ top: 12, bottom: 8 });
+      .width('100%').padding({ left: 16, right: 16, top: 12, bottom: 8 });
 
       if (!this.ready) {
         Column() {
