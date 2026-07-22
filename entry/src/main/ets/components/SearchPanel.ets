@@ -166,7 +166,7 @@ export struct SearchPanel {
               .backgroundColor($r('app.color.card_bg'))
               .borderRadius(CARD_RADIUS)
               .shadow(CARD_SHADOW)
-              .margin({ left: 16, right: 16, top: 0, bottom: 8 })
+              .margin({ top: 0, bottom: 8 })
             }
           }
 
@@ -229,11 +229,12 @@ export struct SearchPanel {
             .backgroundColor($r('app.color.card_bg'))
             .borderRadius(CARD_RADIUS)
             .shadow(CARD_SHADOW)
-            .margin({ left: 16, right: 16, top: 6, bottom: 12 })
+            .margin({ top: 6, bottom: 12 })
           }
         }
         .layoutWeight(1)
         .width('100%')
+        .padding({ left: 16, right: 16 })
         .divider({ strokeWidth: 0 })
         .backgroundColor($r('app.color.bg_primary'))
       }
