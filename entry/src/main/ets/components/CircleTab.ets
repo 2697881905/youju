@@ -3,6 +3,7 @@
 // 数据来源：listTags / followTag / unfollowTag / listFollowedTags
 
 import { Tag } from '../models/types';
+import { TagIcon } from './TagIcon';
 import { listTags, followTag, unfollowTag, listFollowedTags } from '../services/api';
 import { ensureLogin } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
@@ -69,10 +70,9 @@ export struct CircleTab {
   @Builder
   circleCard(c: Tag): void {
     Column({ space: 10 }) {
-      // Emoji + 圈子名
+      // 线条图标 + 圈子名
       Column({ space: 6 }) {
-        Text(c.emoji ?? '📌')
-          .fontSize(36)
+        TagIcon({ name: c.name ?? '', size: 40, tint: $r('app.color.brand_primary') })
         Text(c.name ?? '')
           .fontSize(15)
           .fontWeight(FontWeight.Medium)

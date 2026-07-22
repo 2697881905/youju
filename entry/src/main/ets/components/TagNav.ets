@@ -1,4 +1,5 @@
 import { Tag } from '../models/types';
+import { TagIcon } from './TagIcon';
 
 @Component
 export struct TagNav {
@@ -23,18 +24,25 @@ export struct TagNav {
             ForEach(
               this.tags,
               (tag: Tag, index: number) => {
-                Text((tag.emoji ?? '') + ' ' + (tag.name ?? ''))
-                  .fontSize(12)
-                  .fontWeight(FontWeight.Medium)
-                  .padding({ left: 12, right: 12, top: 6, bottom: 6 })
-                  .backgroundColor(this.selectedIndex === index ? $r('app.color.brand_primary') : $r('app.color.card_bg'))
-                  .fontColor(this.selectedIndex === index ? '#FFFFFF' : $r('app.color.text_primary'))
-                  .borderRadius(16)
-                  .onClick(() => {
-                    if (this.selectedIndex !== index) {
-                      this.selectedIndex = index;
-                    }
-                  });
+                Row({ space: 4 }) {
+                  TagIcon({
+                    name: tag.name ?? '',
+                    size: 14,
+                    tint: this.selectedIndex === index ? '#FFFFFF' : $r('app.color.text_primary'),
+                  })
+                  Text(tag.name ?? '')
+                    .fontSize(12)
+                    .fontWeight(FontWeight.Medium)
+                    .fontColor(this.selectedIndex === index ? '#FFFFFF' : $r('app.color.text_primary'))
+                }
+                .padding({ left: 12, right: 12, top: 6, bottom: 6 })
+                .backgroundColor(this.selectedIndex === index ? $r('app.color.brand_primary') : $r('app.color.card_bg'))
+                .borderRadius(16)
+                .onClick(() => {
+                  if (this.selectedIndex !== index) {
+                    this.selectedIndex = index;
+                  }
+                })
               },
               (tag: Tag) => tag.id?.toString() ?? (tag.name ?? '')
             );
@@ -66,7 +74,8 @@ export struct TagNav {
       if (this.showDropdown) {
         Scroll() {
           Column({ space: 0 }) {
-            Row() {
+            Row({ space: 8 }) {
+              TagIcon({ name: '全部', size: 16, tint: $r('app.color.text_primary') })
               Text('全部圈子')
                 .fontSize(14)
                 .fontColor($r('app.color.text_primary'))
@@ -84,8 +93,12 @@ export struct TagNav {
             ForEach(
               this.tags,
               (t: Tag) => {
-                Row() {
-                  Text(t.emoji ?? '').fontSize(14).margin({ right: 8 })
+                Row({ space: 8 }) {
+                  TagIcon({
+                    name: t.name ?? '',
+                    size: 16,
+                    tint: this.filterName === t.name ? $r('app.color.brand_primary') : $r('app.color.text_primary'),
+                  })
                   Text(t.name ?? '')
                     .fontSize(14)
                     .fontColor(this.filterName === t.name ? $r('app.color.brand_primary') : $r('app.color.text_primary'))

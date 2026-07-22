@@ -101,30 +101,28 @@ struct Index {
     }
   }
 
+  // 底部导航线条图标资源（Apple 风格）
+  private navIconRes(index: number): Resource {
+    switch (index) {
+      case 0: return $r('app.media.nav_home');
+      case 1: return $r('app.media.nav_circle');
+      case 2: return $r('app.media.nav_publish');
+      case 3: return $r('app.media.nav_message');
+      default: return $r('app.media.nav_profile');
+    }
+  }
+
+  // 单个 Tab 内容：图标在上 + 文字在下（iOS 风格）
   @Builder
-  tabItem(title: string, icon: string, index: number) {
-    Column({ space: 2 }) {
-      if (index === 2) {
-        // 发布：纯图标，无文字，加大尺寸
-        Text(icon)
-          .fontSize(28)
-      } else if (index === 3) {
-        // 消息：纯文字 + 红点（有未读时显示，红点为功能提示非图标）
-        Badge({
-          count: this.unreadCount,
-          style: { badgeColor: $r('app.color.semantic_red') },
-          position: BadgePosition.RightTop,
-        }) {
-          Text(title)
-            .fontSize(14)
-            .fontColor(this.currentIndex === index ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
-        }
-      } else {
-        // 首页 / 圈子 / 我的：纯文字（去掉图标）
-        Text(title)
-          .fontSize(14)
-          .fontColor(this.currentIndex === index ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
-      }
+  tabContent(title: string, index: number) {
+    Column({ space: 3 }) {
+      Image(this.navIconRes(index))
+        .width(24)
+        .height(24)
+        .fillColor(this.currentIndex === index ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
+      Text(title)
+        .fontSize(10)
+        .fontColor(this.currentIndex === index ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
     }
     .justifyContent(FlexAlign.Center)
     .alignItems(HorizontalAlign.Center)
@@ -132,32 +130,48 @@ struct Index {
     .width('100%')
   }
 
+  // 底部 Tab：图标 + 文字；消息 Tab 带未读红点
+  @Builder
+  tabItem(title: string, index: number) {
+    if (index === 3) {
+      Badge({
+        count: this.unreadCount,
+        style: { badgeColor: $r('app.color.semantic_red') },
+        position: BadgePosition.RightTop,
+      }) {
+        this.tabContent(title, index)
+      }
+    } else {
+      this.tabContent(title, index)
+    }
+  }
+
   build() {
     Tabs({ barPosition: BarPosition.End, index: this.currentIndex }) {
       TabContent() {
         HomeTab()
       }
-      .tabBar(this.tabItem('首页', '🏠', 0))
+      .tabBar(this.tabItem('首页', 0))
 
       TabContent() {
         CircleTab()
       }
-      .tabBar(this.tabItem('圈子', '⭕', 1))
+      .tabBar(this.tabItem('圈子', 1))
 
       TabContent() {
         PublishPage()
       }
-      .tabBar(this.tabItem('发布', '➕', 2))
+      .tabBar(this.tabItem('发布', 2))
 
       TabContent() {
         MessagePage()
       }
-      .tabBar(this.tabItem('消息', '🔔', 3))
+      .tabBar(this.tabItem('消息', 3))
 
       TabContent() {
         ProfilePage()
       }
-      .tabBar(this.tabItem('我的', '👤', 4))
+      .tabBar(this.tabItem('我的', 4))
     }
     .scrollable(false)
     .barHeight(56)

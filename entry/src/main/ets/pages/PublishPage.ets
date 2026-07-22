@@ -7,18 +7,19 @@ import {
 import { ensureLogin } from '../utils/auth';
 import { Genre, StructuredData, Tag } from '../models/types';
 import { ImagePicker } from '../components/ImagePicker';
+import { TagIcon } from '../components/TagIcon';
 import { safeShowToast } from '../utils/toast';
 
 interface GenreItem {
   key: Genre;
   label: string;
-  icon: string;
+  iconRes: Resource;
 }
 const GENRE_LIST: GenreItem[] = [
-  { key: 'review', label: '测评', icon: '📊' },
-  { key: 'pitfall', label: '避坑', icon: '⚠️' },
-  { key: 'tutorial', label: '教程', icon: '🛠️' },
-  { key: 'debate', label: '辩论', icon: '🗳️' },
+  { key: 'review', label: '测评', iconRes: $r('app.media.genre_review') },
+  { key: 'pitfall', label: '避坑', iconRes: $r('app.media.genre_pitfall') },
+  { key: 'tutorial', label: '教程', iconRes: $r('app.media.genre_tutorial') },
+  { key: 'debate', label: '辩论', iconRes: $r('app.media.genre_debate') },
 ];
 
 type FieldDef = [keyof StructuredData, string];
@@ -271,7 +272,7 @@ export struct PublishPage {
     Row({ space: 10 }) {
       ForEach(GENRE_LIST, (g: GenreItem) => {
         Row({ space: 4 }) {
-          Text(g.icon).fontSize(15).fontColor(this.genre === g.key ? '#FFFFFF' : $r('app.color.text_primary'))
+          Image(g.iconRes).width(16).height(16).fillColor(this.genre === g.key ? '#FFFFFF' : $r('app.color.text_primary'))
           Text(g.label).fontSize(14).fontWeight(FontWeight.Medium).fontColor(this.genre === g.key ? '#FFFFFF' : $r('app.color.text_primary'))
         }
         .backgroundColor(this.genre === g.key ? $r('app.color.brand_primary') : $r('app.color.bg_secondary'))
@@ -422,9 +423,11 @@ export struct PublishPage {
                   Flex({ wrap: FlexWrap.Wrap, space: { main: LengthMetrics.px(8), cross: LengthMetrics.px(8) } }) {
                     ForEach(this.tagsByCategory[cat] ?? [], (t: Tag) => {
                       Row({ space: 4 }) {
-                        if (t.emoji && t.emoji.length > 0) {
-                          Text(t.emoji).fontSize(13).fontColor(this.selectedTags.indexOf(t.name ?? '') >= 0 ? '#FFFFFF' : $r('app.color.text_primary'))
-                        }
+                        TagIcon({
+                          name: t.name ?? '',
+                          size: 14,
+                          tint: this.selectedTags.indexOf(t.name ?? '') >= 0 ? '#FFFFFF' : $r('app.color.text_primary'),
+                        })
                         Text(t.name ?? '').fontSize(13).fontColor(this.selectedTags.indexOf(t.name ?? '') >= 0 ? '#FFFFFF' : $r('app.color.text_primary'))
                       }
                       .backgroundColor(this.selectedTags.indexOf(t.name ?? '') >= 0 ? $r('app.color.brand_primary') : $r('app.color.bg_secondary'))

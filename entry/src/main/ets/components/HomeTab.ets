@@ -20,7 +20,7 @@ const FEED_MODE_IDX_MAP: FeedMode[] = ['recommend', 'following', 'hotspot'];
 
 const SORT_KEYS: SortKey[] = ['hot', 'latest', 'recommend'];
 const FEED_TABS: string[] = ['推荐', '关注', '热点'];
-const ALL_TAG: Tag = { name: '全部', emoji: '🔥' };
+const ALL_TAG: Tag = { name: '全部' };
 
 @Component
 export struct HomeTab {

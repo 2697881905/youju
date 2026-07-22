@@ -61,21 +61,21 @@ function readField(sd: StructuredData, key: keyof StructuredData): string | numb
 
 interface GenreMeta {
   label: string;
-  icon: string;
+  iconRes: Resource;
 }
 
 function genreMeta(genre?: Genre): GenreMeta {
   switch (genre) {
     case 'review':
-      return { label: '测评报告', icon: '📊' };
+      return { label: '测评报告', iconRes: $r('app.media.genre_review') };
     case 'pitfall':
-      return { label: '避坑指南', icon: '⚠️' };
+      return { label: '避坑指南', iconRes: $r('app.media.genre_pitfall') };
     case 'tutorial':
-      return { label: '实操教程', icon: '🛠️' };
+      return { label: '实操教程', iconRes: $r('app.media.genre_tutorial') };
     case 'debate':
-      return { label: '辩论投票', icon: '🗳️' };
+      return { label: '辩论投票', iconRes: $r('app.media.genre_debate') };
     default:
-      return { label: '经验分享', icon: '📝' };
+      return { label: '经验分享', iconRes: $r('app.media.genre_share') };
   }
 }
 
@@ -536,14 +536,18 @@ struct DetailPage {
                   )
                 }
               }
-              Row() {
-                Text(genreMeta(this.post.genre).icon + ' ' + genreMeta(this.post.genre).label)
+              Row({ space: 4 }) {
+                Image(genreMeta(this.post.genre).iconRes)
+                  .width(14)
+                  .height(14)
+                  .fillColor($r('app.color.brand_primary'))
+                Text(genreMeta(this.post.genre).label)
                   .fontSize(12)
                   .fontColor($r('app.color.brand_primary'))
-                  .backgroundColor('#E8F1FF')
-                  .borderRadius(4)
-                  .padding({ left: 8, right: 8, top: 3, bottom: 3 })
               }
+              .backgroundColor('#E8F1FF')
+              .borderRadius(4)
+              .padding({ left: 8, right: 8, top: 3, bottom: 3 })
               Text(this.post.title ?? '')
                 .fontSize(20)
                 .fontWeight(700)
