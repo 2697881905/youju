@@ -15,6 +15,7 @@ import { common } from '@kit.AbilityKit';
 import { BasicDataSource } from '../utils/data-source';
 import { observeGridColumns, gridColumnTemplate } from '../utils/responsive';
 import { GRID_GAP, GRID_PADDING } from '../utils/cardTokens';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 
 type SortKey = 'hot' | 'latest' | 'recommend';
 type FeedMode = 'recommend' | 'following' | 'hotspot';
@@ -77,10 +78,17 @@ export struct HomeTab {
   async loadTags(): Promise<void> {
     try {
       const tags = await listTags();
+      if (!Array.isArray(tags)) {
+        throw new Error('标签接口返回格式异常（非数组）');
+      }
       this.displayTags = [ALL_TAG, ...tags];
+      hilog.info(0x0000, 'HomeTab', 'loadTags ok, 圈子数=%{public}d', (tags as Tag[]).length);
     } catch (e) {
-      // 标签加载失败不阻断列表；保留 "全部"
+      // 标签加载失败不阻断列表；保留 "全部"，但把错误暴露出来便于排查
       this.displayTags = [ALL_TAG];
+      const msg: string = (e as Error).message ?? '未知错误';
+      hilog.error(0x0000, 'HomeTab', 'loadTags 失败: %{public}s', msg);
+      safeShowToast(this.getUIContext(), { message: '圈子标签加载失败：' + msg });
     }
   }
 
