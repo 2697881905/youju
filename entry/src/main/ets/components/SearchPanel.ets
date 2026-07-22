@@ -132,7 +132,7 @@ export struct SearchPanel {
                     })
                 }
                 .width('100%')
-                .padding({ left: 16, right: 16, top: 14, bottom: 8 })
+                .padding({ left: 16, right: 16, top: 12, bottom: 8 })
 
                 ForEach(this.historyList, (kw: string, idx: number) => {
                   Column() {
@@ -164,7 +164,7 @@ export struct SearchPanel {
               .backgroundColor($r('app.color.card_bg'))
               .borderRadius(CARD_RADIUS)
               .shadow(CARD_SHADOW)
-              .margin({ left: 16, right: 16, top: 12, bottom: 8 })
+              .margin({ left: 16, right: 16, top: 8, bottom: 8 })
             }
 
             // ----- 猜你想搜（包进统一圆角卡片）-----
@@ -225,7 +225,7 @@ export struct SearchPanel {
             .backgroundColor($r('app.color.card_bg'))
             .borderRadius(CARD_RADIUS)
             .shadow(CARD_SHADOW)
-            .margin({ left: 16, right: 16, top: 8, bottom: 16 })
+            .margin({ left: 16, right: 16, top: 6, bottom: 12 })
           }
           .width('100%')
         }
