@@ -163,7 +163,7 @@ describe('listPosts - myUp/myBookmark 批量打标 + 作者匿名化', () => {
     mockedUpFindMany.mockResolvedValue([{ postId: 1 }, { postId: 3 }]);
     mockedBmFindMany.mockResolvedValue([{ postId: 2 }]);
 
-    const res = await listPosts({ viewerId: 5 });
+    const res = (await listPosts({ viewerId: 5 })) as any;
 
     // 整页仅 +2 次查询，与列表长度无关
     expect(mockedUpFindMany).toHaveBeenCalledTimes(1);
@@ -246,7 +246,7 @@ describe('getPost - myUp/myBookmark + 作者匿名化', () => {
     mockedUpFindFirst.mockResolvedValue({ id: 9, postId: 1, userId: 5 });
     mockedBmFindFirst.mockResolvedValue({ id: 7, postId: 1, userId: 5 });
 
-    const res = await getPost(1, 5);
+    const res = (await getPost(1, 5)) as any;
 
     expect(mockedUpFindFirst).toHaveBeenCalledTimes(1);
     expect(mockedBmFindFirst).toHaveBeenCalledTimes(1);
@@ -265,7 +265,7 @@ describe('getPost - myUp/myBookmark + 作者匿名化', () => {
     mockedUpFindFirst.mockResolvedValue(null);
     mockedBmFindFirst.mockResolvedValue(null);
 
-    const res = await getPost(2, 5);
+    const res = (await getPost(2, 5)) as any;
 
     expect(res?.myUp).toBe(false);
     expect(res?.myBookmark).toBe(false);

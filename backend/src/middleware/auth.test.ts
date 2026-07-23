@@ -29,7 +29,7 @@ interface MockRes {
   json(payload: any): MockRes;
 }
 
-function makeRes(): MockRes {
+function makeRes(): any {
   const res: MockRes = {
     statusCode: 0,
     body: undefined,
