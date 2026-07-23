@@ -5,7 +5,8 @@ import { getUploadSignature } from '../services/uploadService';
 
 // 获取上传签名：POST /v1/upload/token
 // body: { contentType?: string } 默认 image/jpeg
-// 返回 { url, key, cdnUrl, contentType } 供前端直传 COS
+// 返回 { url, key, cdnUrl, viewUrl, contentType } 供前端直传 COS
+// viewUrl 为 GET 预签名可读链接（私有桶也能加载），前端展示与存储一律用 viewUrl。
 import { asyncHandler } from '../middleware/asyncHandler';
 
 const router = Router();

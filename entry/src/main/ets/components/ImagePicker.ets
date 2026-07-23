@@ -99,10 +99,10 @@ export struct ImagePicker {
         try {
           const sig = await getUploadSignature('image/jpeg');
           await this.putBinary(sig.url, bytes, sig.contentType);
-          item.remoteUrl = sig.cdnUrl;
+          item.remoteUrl = sig.viewUrl;
           item.uploading = false;
           this.items = [...this.items];
-          this.selected = [...this.selected, sig.cdnUrl];
+          this.selected = [...this.selected, sig.viewUrl];
         } catch (e) {
           // 上传失败：移除该预览，提示用户
           this.items = this.items.filter((it) => it !== item);

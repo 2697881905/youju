@@ -145,7 +145,8 @@ export interface HuaweiExchangeBody {
 export interface UploadSignature {
   url: string; // 预签名 PUT URL（前端直传目标）
   key: string; // 对象 Key
-  cdnUrl: string; // 直传后可访问的 URL
+  cdnUrl: string; // 直传后公开可读时访问的 URL
+  viewUrl: string; // GET 预签名可读链接（私有桶也能加载，展示与存储一律用这个）
   contentType: string; // 前端 PUT 必须带上的 Content-Type（需与签名一致）
 }
 

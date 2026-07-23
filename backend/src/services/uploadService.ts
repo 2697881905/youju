@@ -7,7 +7,8 @@ import { env } from '../config/env';
 export interface UploadSignature {
   url: string; // 预签名 PUT URL（前端直传目标）
   key: string; // 对象 Key（存 DB 用）
-  cdnUrl: string; // 直传成功后可直接访问的 URL（有 CDN 则用 CDN，否则与 url 同）
+  cdnUrl: string; // 直传成功后「公开可读」时访问的 URL（有 CDN 则用 CDN，否则与 url 同）
+  viewUrl: string; // 直传后「始终可读」的 GET 预签名 URL（私有桶/未配 CDN 也能加载，前端展示与存储一律用这个）
   contentType: string; // 前端 PUT 时必须带上的 Content-Type（需与签名一致）
 }
 
@@ -33,8 +34,9 @@ export function getUploadSignature(contentType: string = 'image/jpeg'): Promise<
   const key = `uploads/${y}/${m}/${randomUUID()}`;
 
   return new Promise<UploadSignature>((resolve, reject) => {
+    // 1) 生成 PUT 预签名 URL（前端直传目标）
     // params 转 any：cos-nodejs-sdk-v5 的类型定义未必暴露 Headers，但运行时支持把 Content-Type 纳入签名
-    const params: any = {
+    const putParams: any = {
       Bucket: bucket,
       Region: region,
       Key: key,
@@ -44,15 +46,28 @@ export function getUploadSignature(contentType: string = 'image/jpeg'): Promise<
       // 把 Content-Type 纳入签名：前端 PUT 时务必带上完全相同的 Content-Type
       Headers: { 'Content-Type': contentType },
     };
-    cos.getObjectUrl(params, (err: any, data: any) => {
-      if (err) {
-        reject(err instanceof Error ? err : new Error(JSON.stringify(err)));
+    cos.getObjectUrl(putParams, (putErr: any, putData: any) => {
+      if (putErr) {
+        reject(putErr instanceof Error ? putErr : new Error(JSON.stringify(putErr)));
         return;
       }
-      const url: string = data.Url;
-      const base = cdnBase ? cdnBase.replace(/\/$/, '') : '';
-      const cdnUrl = base ? `${base}/${key}` : url;
-      resolve({ url, key, cdnUrl, contentType });
+      const url: string = putData.Url;
+      // 2) 额外生成 GET 预签名 URL（前端展示/存储用，私有桶也能加载）
+      const getParams: any = {
+        Bucket: bucket,
+        Region: region,
+        Key: key,
+        Method: 'GET',
+        Sign: true,
+        Expires: 31536000, // 1 年，作为用户头像/封面等长期可读链接
+      };
+      cos.getObjectUrl(getParams, (getErr: any, getData: any) => {
+        // GET 签名兜底：极端情况下失败则回退到 cdnUrl（公开可读时才生效）
+        const viewUrl: string = getErr ? url : getData.Url;
+        const base = cdnBase ? cdnBase.replace(/\/$/, '') : '';
+        const cdnUrl = base ? `${base}/${key}` : url;
+        resolve({ url, key, cdnUrl, viewUrl, contentType });
+      });
     });
   });
 }

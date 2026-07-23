@@ -46,6 +46,25 @@ export struct ProfilePage {
     this.unregisterColumns();
   }
 
+  // 从编辑资料/设置等子页返回时，重新拉取最新用户资料（昵称/头像/简介/计数），
+  // 否则 this.user 仍是进入子页前的旧快照，导致"改完名字头像主页不更新"。
+  onPageShow(): void {
+    const cached: User | null = getCurrentUser();
+    if (cached && cached.id) {
+      // 先用本机登录态立刻覆盖（避免闪烁），随后 fetchCounts 再用后端最新数据覆盖
+      this.user = {
+        id: cached.id,
+        nickname: cached.nickname,
+        avatar: cached.avatar,
+        isAdmin: cached.isAdmin,
+        gender: this.user.gender,
+        bio: this.user.bio,
+        followTags: this.user.followTags,
+      };
+    }
+    this.fetchCounts();
+  }
+
   async init(): Promise<void> {
     try {
       const u: User | null = await ensureLogin();

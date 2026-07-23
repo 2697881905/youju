@@ -275,7 +275,7 @@ export struct PublishPage {
       const compressed: CompressedImage = await compressImage(uris[0]);
       const sig = await getUploadSignature('image/jpeg');
       await this.putBinary(sig.url, compressed.bytes, sig.contentType);
-      this.coverImage = sig.cdnUrl;
+      this.coverImage = sig.viewUrl;
     } catch (e) {
       // 用户取消选择会抛错，忽略
     } finally {

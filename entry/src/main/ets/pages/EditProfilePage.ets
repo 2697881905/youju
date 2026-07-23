@@ -18,7 +18,8 @@ export struct EditProfilePage {
   @State nickname: string = '';
   @State bio: string = '';
   @State selectedGender: string = '1'; // '1'=男 '2'=女 '0'=保密
-  @State avatar: string = ''; // 当前头像 URL
+  @State avatar: string = ''; // 当前头像 URL（远程，来自 viewUrl）
+  @State avatarPreview: image.PixelMap | null = null; // 选图后的本地即时预览（不依赖网络/COS）
   @State uploadingAvatar: boolean = false;
   @State saving: boolean = false;
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
@@ -37,52 +38,59 @@ export struct EditProfilePage {
   private async onPickAvatar(): Promise<void> {
     if (this.uploadingAvatar) return;
     this.uploadingAvatar = true;
-    try {
-      const u: User | null = await ensureLogin();
-      if (!u) {
-        this.uploadingAvatar = false;
-        return;
-      }
-    } catch (e) {
-      safeShowToast(this.getUIContext(), { message: '请先登录' });
+    const u: User | null = await ensureLogin();
+    if (!u) {
       this.uploadingAvatar = false;
       return;
     }
+    // 1) 打开相册（用户取消选择会抛错，静默忽略即可）
+    let uris: string[] = [];
     try {
       const ph = new photoAccessHelper.PhotoViewPicker();
       const res = await ph.select({
         MIMEType: photoAccessHelper.PhotoViewMIMETypes.IMAGE_TYPE,
         maxSelectNumber: 1,
       });
-      const uris: string[] = res.photoUris ?? [];
-      if (uris.length === 0) {
-        this.uploadingAvatar = false;
-        return;
-      }
-      const compressed: CompressedImage = await compressImage(uris[0]);
+      uris = res.photoUris ?? [];
+    } catch (e) {
+      // 用户取消：不提示、不上传
+      this.uploadingAvatar = false;
+      return;
+    }
+    if (uris.length === 0) {
+      this.uploadingAvatar = false;
+      return;
+    }
+    // 2) 压缩并立即本地预览（选完图立刻在头像框显示，不依赖网络/COS）
+    let compressed: CompressedImage;
+    try {
+      compressed = await compressImage(uris[0]);
+    } catch (e) {
+      safeShowToast(this.getUIContext(), { message: '图片处理失败：' + (e as Error).message });
+      this.uploadingAvatar = false;
+      return;
+    }
+    this.avatarPreview = compressed.preview;
+    // 3) 上传到 COS 并保存（失败要明确提示，不再静默吞掉）
+    try {
       const sig = await getUploadSignature('image/jpeg');
       await this.putBinary(sig.url, compressed.bytes, sig.contentType);
-      this.avatar = sig.cdnUrl;
-      // 立即保存头像到后端
-      try {
-        const updated: User = await updateMe({ avatar: sig.cdnUrl });
-        const cur: User | null = getCurrentUser();
-        const merged: User = {
-          id: updated.id ?? cur?.id,
-          nickname: updated.nickname ?? cur?.nickname,
-          avatar: updated.avatar ?? sig.cdnUrl,
-          gender: updated.gender ?? cur?.gender,
-          bio: updated.bio ?? cur?.bio,
-          isAdmin: updated.isAdmin ?? cur?.isAdmin,
-        };
-        const token: string = (AppStorage.get<string>('authToken') ?? '') as string;
-        setSession(token, merged);
-        safeShowToast(this.getUIContext(), { message: '头像已更新' });
-      } catch (e) {
-        safeShowToast(this.getUIContext(), { message: '头像已上传，但保存失败：' + (e as Error).message });
-      }
+      this.avatar = sig.viewUrl; // 用 GET 预签名可读链接，私有桶也能加载
+      const updated: User = await updateMe({ avatar: sig.viewUrl });
+      const cur: User | null = getCurrentUser();
+      const merged: User = {
+        id: updated.id ?? cur?.id,
+        nickname: updated.nickname ?? cur?.nickname,
+        avatar: updated.avatar ?? sig.viewUrl,
+        gender: updated.gender ?? cur?.gender,
+        bio: updated.bio ?? cur?.bio,
+        isAdmin: updated.isAdmin ?? cur?.isAdmin,
+      };
+      const token: string = (AppStorage.get<string>('authToken') ?? '') as string;
+      setSession(token, merged);
+      safeShowToast(this.getUIContext(), { message: '头像已更新' });
     } catch (e) {
-      // 用户取消选择会抛错，忽略
+      safeShowToast(this.getUIContext(), { message: '头像保存失败：' + (e as Error).message });
     }
     this.uploadingAvatar = false;
   }
@@ -198,6 +206,14 @@ export struct EditProfilePage {
                   .width(36)
                   .height(36)
                   .color($r('app.color.text_secondary'));
+              } else if (this.avatarPreview) {
+                // 选图后的本地即时预览（PixelMap 直接渲染，无需等网络）
+                Image(this.avatarPreview)
+                  .width(80)
+                  .height(80)
+                  .borderRadius(40)
+                  .objectFit(ImageFit.Cover)
+                  .border({ width: 2, color: $r('app.color.brand_primary') });
               } else {
                 AvatarView({
                   avatar: this.avatar,
