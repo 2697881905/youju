@@ -97,8 +97,11 @@ export function toggleDarkMode(dark: boolean): void {
     } else {
       _appContext.setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT);
     }
+    // 兜底：setColorMode 可能清空 AppStorage，立即从磁盘恢复
+    loadThemeFromPrefs();
   } catch (e) {
     // 忽略设置失败
+    loadThemeFromPrefs();
   }
 }
 
