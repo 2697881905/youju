@@ -108,6 +108,8 @@ struct DetailPage {
   @State error: string = '';
   @State uped: boolean = false;
   @State bookmarked: boolean = false;
+  @State upCount: number = 0;
+  @State bookmarkCount: number = 0;
   @State commenting: boolean = false;
   @State commentText: string = '';
   @State commentReportId: number = 0;
@@ -216,6 +218,8 @@ struct DetailPage {
       // 高亮态正确（避免初始 false 导致再次点击「顶」重复 upPost 造成 upCount 膨胀）。
       this.uped = p.myUp ?? false;
       this.bookmarked = p.myBookmark ?? false;
+      this.upCount = p.upCount ?? 0;
+      this.bookmarkCount = p.bookmarkCount ?? 0;
       this.fields = this.buildFields(p);
       this.images = this.imagesOf(p);
       // 辩论投票数据初始化
@@ -263,7 +267,7 @@ struct DetailPage {
     const id = this.post.id;
     const willUp = !this.uped;
     this.uped = willUp;
-    this.post.upCount = (this.post.upCount ?? 0) + (willUp ? 1 : -1);
+    this.upCount = this.upCount + (willUp ? 1 : -1);
     try {
       if (willUp) {
         await upPost(id);
@@ -272,7 +276,7 @@ struct DetailPage {
       }
     } catch (e) {
       this.uped = !willUp;
-      this.post.upCount = (this.post.upCount ?? 0) + (willUp ? -1 : 1);
+      this.upCount = this.upCount + (willUp ? -1 : 1);
       safeShowToast(this.getUIContext(),{ message: '操作失败，请先登录' });
     }
   }
@@ -284,7 +288,7 @@ struct DetailPage {
     const id = this.post.id;
     const willMark = !this.bookmarked;
     this.bookmarked = willMark;
-    this.post.bookmarkCount = (this.post.bookmarkCount ?? 0) + (willMark ? 1 : -1);
+    this.bookmarkCount = this.bookmarkCount + (willMark ? 1 : -1);
     try {
       if (willMark) {
         await bookmarkPost(id);
@@ -293,7 +297,7 @@ struct DetailPage {
       }
     } catch (e) {
       this.bookmarked = !willMark;
-      this.post.bookmarkCount = (this.post.bookmarkCount ?? 0) + (willMark ? -1 : 1);
+      this.bookmarkCount = this.bookmarkCount + (willMark ? -1 : 1);
       safeShowToast(this.getUIContext(),{ message: '操作失败，请先登录' });
     }
   }
@@ -483,7 +487,6 @@ struct DetailPage {
     }
   }
 
-  @Builder
   @Builder
   voteBar(votes: number, total: number) {
     Row() {
@@ -801,7 +804,7 @@ struct DetailPage {
               .width(22)
               .height(22)
               .fillColor(this.uped ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
-            Text((this.uped ? '已' : '') + '顶 ' + formatCount(this.post.upCount))
+            Text((this.uped ? '已' : '') + '顶 ' + formatCount(this.upCount))
               .fontSize(11)
               .fontColor(this.uped ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
           }
@@ -813,7 +816,7 @@ struct DetailPage {
               .width(22)
               .height(22)
               .fillColor(this.bookmarked ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
-            Text((this.bookmarked ? '已' : '') + '抄作业 ' + formatCount(this.post.bookmarkCount))
+            Text((this.bookmarked ? '已' : '') + '抄作业 ' + formatCount(this.bookmarkCount))
               .fontSize(11)
               .fontColor(this.bookmarked ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
           }

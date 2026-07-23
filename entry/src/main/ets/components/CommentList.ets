@@ -2,7 +2,7 @@
 import { Comment } from '../models/types';
 import { timeAgo, formatCount } from '../utils/format';
 import { getUserId } from '../utils/auth';
-import { deleteComment, upComment } from '../services/api';
+import { deleteComment, upComment, cancelUpComment } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 import { resolveActionIcon } from '../utils/actionIcons';
 
@@ -11,6 +11,9 @@ export struct CommentList {
   @Prop comments: Comment[] = [];
   // 举报回调（由 DetailPage 传入，打开 ReportDialog）
   reportCommentHandler: (commentId: number) => void = (_id: number) => {};
+  // 评论点赞本地态：用 Map/Set 保存（@State 顶层替换触发重渲染），避免直接改 ForEach 项不刷新
+  @State likedIds: Set<number> = new Set<number>();
+  @State upCounts: Map<number, number> = new Map<number, number>();
 
   // 删除评论：二次确认 → 调 API → 乐观移除
   private onDeleteComment(c: Comment): void {
@@ -49,6 +52,63 @@ export struct CommentList {
       return true;
     }
     return false;
+  }
+
+  // 取评论当前展示点赞数（优先本地乐观态）
+  private commentUp(c: Comment): number {
+    if (c.id === undefined) {
+      return c.upCount ?? 0;
+    }
+    if (this.upCounts.has(c.id)) {
+      return this.upCounts.get(c.id) ?? 0;
+    }
+    return c.upCount ?? 0;
+  }
+
+  // 当前用户是否已赞该评论（本地态）
+  private isLiked(c: Comment): boolean {
+    if (c.id === undefined) {
+      return false;
+    }
+    return this.likedIds.has(c.id);
+  }
+
+  // 评论点赞：乐观更新 + 失败回滚；通过替换 @State 的 Map/Set 触发即时重渲染
+  private async onLike(c: Comment): Promise<void> {
+    if (c.id === undefined) {
+      return;
+    }
+    const id: number = c.id;
+    const base: number = this.commentUp(c);
+    const willLike: boolean = !this.isLiked(c);
+    const newLiked: Set<number> = new Set<number>(this.likedIds);
+    if (willLike) {
+      newLiked.add(id);
+    } else {
+      newLiked.delete(id);
+    }
+    const newCounts: Map<number, number> = new Map<number, number>(this.upCounts);
+    newCounts.set(id, base + (willLike ? 1 : -1));
+    this.likedIds = newLiked;
+    this.upCounts = newCounts;
+    try {
+      if (willLike) {
+        await upComment(id);
+      } else {
+        await cancelUpComment(id);
+      }
+    } catch (e) {
+      const rbLiked: Set<number> = new Set<number>(this.likedIds);
+      if (willLike) {
+        rbLiked.delete(id);
+      } else {
+        rbLiked.add(id);
+      }
+      const rbCounts: Map<number, number> = new Map<number, number>(this.upCounts);
+      rbCounts.set(id, base);
+      this.likedIds = rbLiked;
+      this.upCounts = rbCounts;
+    }
   }
 
   @Builder
@@ -117,20 +177,13 @@ export struct CommentList {
                   Image(resolveActionIcon('like'))
                     .width(13)
                     .height(13)
-                    .fillColor($r('app.color.brand_primary'))
-                  Text(formatCount(c.upCount))
+                    .fillColor(this.isLiked(c) ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
+                  Text(formatCount(this.commentUp(c)))
                     .fontSize(12)
-                    .fontColor($r('app.color.brand_primary'))
+                    .fontColor(this.isLiked(c) ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
                 }
-                .onClick(async () => {
-                  if (c.id !== undefined) {
-                    try {
-                      await upComment(c.id);
-                      c.upCount = (c.upCount ?? 0) + 1;
-                    } catch (_e) {
-                      // 幂等忽略
-                    }
-                  }
+                .onClick(() => {
+                  this.onLike(c);
                 })
               }
               .layoutWeight(1)
