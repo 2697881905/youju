@@ -65,8 +65,8 @@ export struct CircleTab {
     return this.joinedNames.indexOf(name) >= 0;
   }
 
-  // 乐观更新本地圈子加入人数（followCount），避免每次加入都重新拉全量列表
-  // 注意：ArkTS 禁止对象展开 {...x}，故显式构造新 Tag 对象（新引用触发 ForEach 重渲染）
+  // 乐观更新本地圈子加入人数（仅用于即时反馈，最终以服务端返回为准）
+  // 注意：ArkTS 禁止对象展开 {...x}，故显式构造新 Tag 对象
   private updateCircleCount(name: string, delta: number): void {
     const updated: Tag[] = [];
     for (const c of this.circles) {
@@ -87,27 +87,44 @@ export struct CircleTab {
     this.circles = updated;
   }
 
+  // 用服务端返回的最新 tag 替换本地圈子（保证数据与服务端一致，新引用触发 ForEach 重渲染）
+  private replaceCircle(updated: Tag): void {
+    const next: Tag[] = [];
+    for (const c of this.circles) {
+      if (c.name === updated.name) {
+        next.push(updated);
+      } else {
+        next.push(c);
+      }
+    }
+    this.circles = next;
+  }
+
   private async toggleJoin(name: string): Promise<void> {
     if (this.togglingName !== '') {
       return;
     }
     this.togglingName = name;
     const joined: boolean = this.isJoined(name);
+    // 乐观更新：先立即 ±1 反馈，避免等待网络
+    this.updateCircleCount(name, joined ? -1 : 1);
     try {
       if (joined) {
-        await unfollowTag(name);
-        this.updateCircleCount(name, -1);
+        const tag: Tag = await unfollowTag(name);
         this.joinedNames = this.joinedNames.filter((n: string) => n !== name);
+        this.replaceCircle(tag);
         safeShowToast(this.getUIContext(), { message: '已退出「' + name + '」' });
       } else {
-        await followTag(name);
-        this.updateCircleCount(name, 1);
+        const tag: Tag = await followTag(name);
         const next: string[] = this.joinedNames.slice();
         next.push(name);
         this.joinedNames = next;
+        this.replaceCircle(tag);
         safeShowToast(this.getUIContext(), { message: '已加入「' + name + '」' });
       }
     } catch (e) {
+      // 失败回滚乐观更新
+      this.updateCircleCount(name, joined ? 1 : -1);
       safeShowToast(this.getUIContext(), { message: '操作失败：' + (e as Error).message });
     } finally {
       this.togglingName = '';

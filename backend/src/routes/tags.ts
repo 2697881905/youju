@@ -20,8 +20,8 @@ router.post('/:name/follow', auth, asyncHandler(async (req: AuthRequest, res: Re
   if (!name) {
     return fail(res, CODE.BAD_REQUEST, '缺少标签名');
   }
-  await tagService.followTag(req.userId!, name);
-  return ok(res, null);
+  const tag = await tagService.followTag(req.userId!, name);
+  return ok(res, tag);
 }));
 
 // 取消关注标签：DELETE /v1/tags/:name/follow
@@ -30,8 +30,8 @@ router.delete('/:name/follow', auth, asyncHandler(async (req: AuthRequest, res: 
   if (!name) {
     return fail(res, CODE.BAD_REQUEST, '缺少标签名');
   }
-  await tagService.unfollowTag(req.userId!, name);
-  return ok(res, null);
+  const tag = await tagService.unfollowTag(req.userId!, name);
+  return ok(res, tag);
 }));
 
 export default router;

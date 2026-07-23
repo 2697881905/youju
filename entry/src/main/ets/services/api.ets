@@ -299,14 +299,14 @@ export function listTags(): Promise<Tag[]> {
 
 // 关注标签（加入圈子）
 // POST /v1/tags/:name/follow
-export async function followTag(name: string): Promise<void> {
-  await api.post<null>('/v1/tags/' + encodeURIComponent(name) + '/follow');
+export async function followTag(name: string): Promise<Tag> {
+  return api.post<Tag>('/v1/tags/' + encodeURIComponent(name) + '/follow');
 }
 
 // 取消关注标签（退出圈子）
 // DELETE /v1/tags/:name/follow
-export async function unfollowTag(name: string): Promise<void> {
-  await api.del<null>('/v1/tags/' + encodeURIComponent(name) + '/follow');
+export async function unfollowTag(name: string): Promise<Tag> {
+  return api.del<Tag>('/v1/tags/' + encodeURIComponent(name) + '/follow');
 }
 
 // 当前用户关注的标签名列表（圈子已加入）
