@@ -110,16 +110,20 @@ export struct CircleTab {
     this.updateCircleCount(name, joined ? -1 : 1);
     try {
       if (joined) {
-        const tag: Tag = await unfollowTag(name);
+        const tag: Tag | null = await unfollowTag(name);
         this.joinedNames = this.joinedNames.filter((n: string) => n !== name);
-        this.replaceCircle(tag);
+        if (tag !== null) {
+          this.replaceCircle(tag);
+        }
         safeShowToast(this.getUIContext(), { message: '已退出「' + name + '」' });
       } else {
-        const tag: Tag = await followTag(name);
+        const tag: Tag | null = await followTag(name);
         const next: string[] = this.joinedNames.slice();
         next.push(name);
         this.joinedNames = next;
-        this.replaceCircle(tag);
+        if (tag !== null) {
+          this.replaceCircle(tag);
+        }
         safeShowToast(this.getUIContext(), { message: '已加入「' + name + '」' });
       }
     } catch (e) {
