@@ -13,7 +13,7 @@ import {
   reportComment,
   PostWithComments,
 } from '../services/api';
-import { Genre, Comment, StructuredData, ReportReason } from '../models/types';
+import { Genre, Comment, StructuredData, ReportReason, DebateVoteResult } from '../models/types';
 import { timeAgo, formatCount } from '../utils/format';
 import { CommentList } from '../components/CommentList';
 import { ReportDialog } from '../components/ReportDialog';
@@ -352,7 +352,8 @@ struct DetailPage {
     else this.planBVotes += 1;
     this.myVote = choice;
     try {
-      const r = await voteDebate(this.post.id, choice);
+      // 投票请求失败自动重试一次（自愈模拟器 rport 偶发抖动），仍失败才回滚
+      const r: DebateVoteResult = await this.voteWithRetry(this.post.id, choice);
       this.planAVotes = r.planAVotes;
       this.planBVotes = r.planBVotes;
     } catch (e) {
@@ -361,6 +362,19 @@ struct DetailPage {
       this.planBVotes = prevB;
       safeShowToast(this.getUIContext(), { message: (e as Error).message });
     }
+  }
+
+  // 投票请求：最多尝试 2 次，任一次成功即返回最新票数；全部失败才抛出
+  private async voteWithRetry(postId: number, choice: string): Promise<DebateVoteResult> {
+    let lastErr: Error = new Error('投票失败，请重试');
+    for (let i = 0; i < 2; i++) {
+      try {
+        return await voteDebate(postId, choice);
+      } catch (e) {
+        lastErr = e as Error;
+      }
+    }
+    throw lastErr;
   }
 
   // 删除帖子：二次确认 → 调 deletePost API → toast + 返回
