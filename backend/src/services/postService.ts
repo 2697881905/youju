@@ -101,12 +101,12 @@ export async function listPosts(params: ListParams) {
     prisma.post.count({ where }),
   ]);
 
-  // 批量打标 myUp / myBookmark：仅当有 viewerId 且列表非空时执行，
-  // 整页只额外发 2 次查询（up / bookmark 各一次，与列表长度无关，杜绝 N+1）。
+  // 批量打标 myUp / myBookmark / myVote：仅当有 viewerId 且列表非空时执行，
+  // 整页只额外发 3 次查询（up / bookmark / debateVote 各一次，与列表长度无关，杜绝 N+1）。
   // 无 viewerId 时短路，直接返回原 list，保证匿名请求不打标、不触发多余查询。
   if (params.viewerId && list.length > 0) {
     const ids: number[] = list.map((p) => p.id);
-    const [ups, bms] = await Promise.all([
+    const [ups, bms, votes] = await Promise.all([
       prisma.up.findMany({
         where: { postId: { in: ids }, userId: params.viewerId },
         select: { postId: true },
@@ -114,6 +114,10 @@ export async function listPosts(params: ListParams) {
       prisma.bookmark.findMany({
         where: { postId: { in: ids }, userId: params.viewerId },
         select: { postId: true },
+      }),
+      prisma.debateVote.findMany({
+        where: { postId: { in: ids }, userId: params.viewerId },
+        select: { postId: true, choice: true },
       }),
     ]);
     const upSet = new Set<number>();
@@ -124,10 +128,15 @@ export async function listPosts(params: ListParams) {
     for (const b of bms) {
       bmSet.add(b.postId);
     }
+    const voteMap = new Map<number, string>();
+    for (const v of votes) {
+      voteMap.set(v.postId, v.choice);
+    }
     const enriched = list.map((p) => ({
       ...p,
       myUp: upSet.has(p.id),
       myBookmark: bmSet.has(p.id),
+      myVote: voteMap.get(p.id) ?? '',
     }));
     return {
       list: enriched.map((p) => ({ ...p, user: publicUserView(p.user) })),
@@ -177,9 +186,10 @@ export async function getPost(id: number, viewerId?: number) {
       comments: (post.comments ?? []).map((c) => ({ ...c, user: publicUserView(c.user) })),
     };
   }
-  const [up, bm] = await Promise.all([
+  const [up, bm, vote] = await Promise.all([
     prisma.up.findFirst({ where: { postId: id, userId: viewerId } }),
     prisma.bookmark.findFirst({ where: { postId: id, userId: viewerId } }),
+    prisma.debateVote.findFirst({ where: { postId: id, userId: viewerId } }),
   ]);
   return {
     ...post,
@@ -187,6 +197,7 @@ export async function getPost(id: number, viewerId?: number) {
     comments: (post.comments ?? []).map((c) => ({ ...c, user: publicUserView(c.user) })),
     myUp: !!up,
     myBookmark: !!bm,
+    myVote: vote?.choice ?? '',
   };
 }
 

@@ -221,7 +221,7 @@ struct DetailPage {
       // 辩论投票数据初始化
       this.planAVotes = (p as Record<string, Object>).planAVotes as number ?? 0;
       this.planBVotes = (p as Record<string, Object>).planBVotes as number ?? 0;
-      this.myVote = '';
+      this.myVote = (p as Record<string, Object>).myVote as string ?? '';
     } catch (e) {
       this.error = (e as Error).message;
     } finally {

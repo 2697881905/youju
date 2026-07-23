@@ -53,6 +53,7 @@ export interface Post {
   // —— 当前登录用户对帖子的互动态（后端按 viewerId 计算返回，纯增量字段）——
   myUp?: boolean; // 我是否点赞
   myBookmark?: boolean; // 我是否收藏
+  myVote?: string; // 我的辩论投票选项 'A' | 'B' | ''（后端按 viewerId 计算返回）
   status?: number;
   createdAt?: string;
   user?: User;
