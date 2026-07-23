@@ -1,6 +1,12 @@
 // 圈子 — Apple 风格卡片网格
 // 展示所有标签圈子，支持加入/退出（后端持久化）
 // 数据来源：listTags / followTag / unfollowTag / listFollowedTags
+//
+// 关键实现说明（ArkUI 更新机制）：
+//   之前用「@State 数组整体替换 + ForEach + @Prop 子组件」，
+//   在 ForEach 对 key 相同的项进行组件复用时不重新初始化 @Prop，导致 followCount 变化不刷新。
+//   现改为官方推荐的 @Observed + @ObjectLink：CircleTag 为 @Observed 类，
+//   点击时原地修改其属性（followCount/joined/toggling），@ObjectLink 必然触发子组件重渲染。
 
 import { Tag, User } from '../models/types';
 import { TagIcon } from './TagIcon';
@@ -11,42 +17,60 @@ import { observeGridColumns, gridColumnTemplate } from '../utils/responsive';
 import { CARD_RADIUS, CARD_PADDING, CARD_SHADOW, GRID_GAP, GRID_PADDING } from '../utils/cardTokens';
 import { common } from '@kit.AbilityKit';
 
+// 用 @Observed 包装：使「数组中对象属性变化」能驱动子组件重渲染
+@Observed
+class CircleTag {
+  id?: number;
+  name?: string;
+  emoji?: string;
+  category?: string;
+  useCount?: number;
+  followCount?: number;
+  joined: boolean = false;
+  toggling: boolean = false;
+
+  constructor(t: Tag) {
+    this.id = t.id;
+    this.name = t.name;
+    this.emoji = t.emoji;
+    this.category = t.category;
+    this.useCount = t.useCount;
+    this.followCount = t.followCount;
+  }
+}
+
 @Component
 struct CircleCard {
-  @Prop name: string = '';
-  @Prop emoji: string = '';
-  @Prop followCount: number = 0;
-  @Prop joined: boolean = false;
-  @Prop toggling: boolean = false;
+  @ObjectLink item: CircleTag;
   // 普通属性（回调）：由父组件在 ForEach 中传入，非 @Prop/@Link
   onToggle: () => void = () => {};
 
   build() {
     Column({ space: 10 }) {
       Column({ space: 6 }) {
-        TagIcon({ name: this.name, iconSize: 40, tint: $r('app.color.brand_primary') })
-        Text(this.name)
+        TagIcon({ name: this.item.name ?? '', iconSize: 40, tint: $r('app.color.brand_primary') })
+        Text(this.item.name ?? '')
           .fontSize(15)
           .fontWeight(FontWeight.Medium)
           .fontColor($r('app.color.text_primary'))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(this.followCount + ' 人加入')
+        Text((this.item.followCount ?? 0) + ' 人加入')
           .fontSize(12)
           .fontColor($r('app.color.text_secondary'))
       }
       .width('100%')
       .alignItems(HorizontalAlign.Center)
 
-      Button(this.joined ? '已加入' : '加入圈子')
+      Button(this.item.joined ? '已加入' : '加入圈子')
         .width('100%')
         .height(32)
         .fontSize(13)
         .fontWeight(FontWeight.Medium)
-        .enabled(!this.toggling)
-        .backgroundColor(this.joined ? $r('app.color.bg_secondary') : $r('app.color.brand_primary'))
-        .fontColor(this.joined ? $r('app.color.brand_primary') : '#FFFFFF')
-        .border(this.joined ? { width: 1, color: $r('app.color.brand_primary') } : { width: 0 })
+        .enabled(!this.item.toggling)
+        .backgroundColor(this.item.joined ? $r('app.color.bg_secondary') : $r('app.color.brand_primary'))
+        .fontColor(this.item.joined ? $r('app.color.brand_primary') : '#FFFFFF')
+        .border(this.item.joined ? { width: 1, color: $r('app.color.brand_primary') } : { width: 0 })
         .borderRadius(16)
         .onClick(() => { this.onToggle(); })
     }
@@ -60,11 +84,10 @@ struct CircleCard {
 
 @Component
 export struct CircleTab {
-  @State circles: Tag[] = [];
+  @State circles: CircleTag[] = [];
   @State joinedNames: string[] = [];
   @State loading: boolean = false;
   @State error: string = '';
-  @State togglingName: string = '';
   // 响应式列数（按屏幕宽度 2/3/4 列自适应）
   @State gridColumns: number = 2;
   @State gridTemplate: string = '1fr 1fr';
@@ -95,10 +118,14 @@ export struct CircleTab {
         this.loading = false;
         return;
       }
-      const tagsPromise: Promise<Tag[]> = listTags();
-      const followedPromise: Promise<string[]> = listFollowedTags();
-      this.circles = await tagsPromise;
-      this.joinedNames = await followedPromise;
+      const tags: Tag[] = await listTags();
+      const followed: string[] = await listFollowedTags();
+      this.circles = tags.map((t: Tag): CircleTag => {
+        const ct: CircleTag = new CircleTag(t);
+        ct.joined = followed.indexOf(t.name ?? '') >= 0;
+        return ct;
+      });
+      this.joinedNames = followed;
     } catch (e) {
       this.error = (e as Error).message;
       this.circles = [];
@@ -108,76 +135,61 @@ export struct CircleTab {
     }
   }
 
-  private isJoined(name: string): boolean {
-    return this.joinedNames.indexOf(name) >= 0;
-  }
-
-  // 乐观更新本地圈子加入人数（仅用于即时反馈，最终以服务端返回为准）
-  // 注意：ArkTS 禁止对象展开 {...x}，故显式构造新 Tag 对象
-  private updateCircleCount(name: string, delta: number): void {
-    const updated: Tag[] = [];
-    for (const c of this.circles) {
-      if (c.name === name) {
-        const next: Tag = {
-          id: c.id,
-          name: c.name,
-          emoji: c.emoji,
-          category: c.category,
-          useCount: c.useCount,
-          followCount: (c.followCount ?? 0) + delta,
-        };
-        updated.push(next);
-      } else {
-        updated.push(c);
-      }
-    }
-    this.circles = updated;
-  }
-
-  // 权威同步：从服务端重新拉全量列表覆盖本地，保证与服务端完全一致
-  // 复用「重进页面即正确」的同一机制（重新赋值 @State 数组触发重渲染）
+  // 把服务端最新数据同步到本地 @Observed 对象（原地改属性，触发 @ObjectLink 重渲染）
+  // 注意：不整体替换数组，以免断开 @ObjectLink 绑定
   private async refreshCircles(): Promise<void> {
     const tags: Tag[] = await listTags();
     const followed: string[] = await listFollowedTags();
-    this.circles = tags;
     this.joinedNames = followed;
+    for (const t of tags) {
+      const idx: number = this.circles.findIndex((c: CircleTag) => c.name === t.name);
+      if (idx >= 0) {
+        this.circles[idx].followCount = t.followCount ?? 0;
+        this.circles[idx].useCount = t.useCount;
+        this.circles[idx].joined = followed.indexOf(t.name ?? '') >= 0;
+      }
+    }
   }
 
   private async toggleJoin(name: string): Promise<void> {
-    if (this.togglingName !== '') {
+    const idx: number = this.circles.findIndex((c: CircleTag) => c.name === name);
+    if (idx < 0) {
       return;
     }
-    this.togglingName = name;
-    const joined: boolean = this.isJoined(name);
-    // 乐观更新：先立即 ±1 反馈，避免等待网络
-    this.updateCircleCount(name, joined ? -1 : 1);
+    if (this.circles[idx].toggling) {
+      return;
+    }
+    const wasJoined: boolean = this.circles[idx].joined;
+    const delta: number = wasJoined ? -1 : 1;
+
+    // 乐观更新：原地修改 @Observed 对象属性，@ObjectLink 立即刷新（无需等待网络）
+    this.circles[idx].toggling = true;
+    this.circles[idx].followCount = (this.circles[idx].followCount ?? 0) + delta;
+    this.circles[idx].joined = !wasJoined;
+    this.joinedNames = wasJoined
+      ? this.joinedNames.filter((n: string) => n !== name)
+      : this.joinedNames.concat([name]);
+
     try {
-      if (joined) {
+      if (wasJoined) {
         await unfollowTag(name);
-        this.joinedNames = this.joinedNames.filter((n: string) => n !== name);
         safeShowToast(this.getUIContext(), { message: '已退出「' + name + '」' });
       } else {
         await followTag(name);
-        this.joinedNames = this.joinedNames.concat([name]);
         safeShowToast(this.getUIContext(), { message: '已加入「' + name + '」' });
       }
+      // 权威同步：把服务端真值写回本地 @Observed 对象
+      await this.refreshCircles();
     } catch (e) {
-      // 失败回滚乐观更新与已加入集合
-      this.updateCircleCount(name, joined ? 1 : -1);
-      this.joinedNames = joined
+      // 失败回滚乐观更新
+      this.circles[idx].followCount = (this.circles[idx].followCount ?? 0) - delta;
+      this.circles[idx].joined = wasJoined;
+      this.joinedNames = wasJoined
         ? this.joinedNames.concat([name])
         : this.joinedNames.filter((n: string) => n !== name);
       safeShowToast(this.getUIContext(), { message: '操作失败：' + (e as Error).message });
-      this.togglingName = '';
-      return;
-    }
-    // 权威同步：操作成功后重新拉全量，覆盖本地（数字必定与服务端一致）
-    try {
-      await this.refreshCircles();
-    } catch (_e) {
-      // 刷新失败不影响已成功的操作，保留乐观值
     } finally {
-      this.togglingName = '';
+      this.circles[idx].toggling = false;
     }
   }
 
@@ -234,19 +246,15 @@ export struct CircleTab {
           Grid() {
             ForEach(
               this.circles,
-              (c: Tag) => {
+              (c: CircleTag) => {
                 GridItem() {
                   CircleCard({
-                    name: c.name ?? '',
-                    emoji: c.emoji ?? '',
-                    followCount: c.followCount ?? 0,
-                    joined: this.isJoined(c.name ?? ''),
-                    toggling: this.togglingName === (c.name ?? ''),
+                    item: c,
                     onToggle: () => { this.toggleJoin(c.name ?? ''); }
                   })
                 }
               },
-              (c: Tag) => c.name ?? ''
+              (c: CircleTag) => c.name ?? ''
             )
           }
           .columnsTemplate(this.gridTemplate)
