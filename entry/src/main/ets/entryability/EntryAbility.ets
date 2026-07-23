@@ -1,15 +1,17 @@
 import { AbilityConstant, UIAbility, Want, ConfigurationConstant, Configuration } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
-import { initThemeContext, toggleDarkMode } from '../utils/theme';
+import { initThemeContext, loadThemeFromPrefs, toggleDarkMode } from '../utils/theme';
 
 const DOMAIN = 0x0000;
 
 export default class EntryAbility extends UIAbility {
-  onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
+  async onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): Promise<void> {
     // 注入 ApplicationContext 到主题工具
     initThemeContext(this.context.getApplicationContext());
-    // 启动时读取系统当前颜色模式，默认跟随系统
+    // 从持久化存储恢复用户之前设置的 followSystem / isDarkMode
+    await loadThemeFromPrefs();
+    // 启动时读取系统当前颜色模式
     const sysDark: boolean = Number(this.context.config.colorMode) === ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
     const follow: boolean = AppStorage.get<boolean>('followSystem') ?? true;
     if (follow) {
@@ -18,7 +20,6 @@ export default class EntryAbility extends UIAbility {
       const dark: boolean = AppStorage.get<boolean>('isDarkMode') ?? true;
       toggleDarkMode(dark);
     }
-    AppStorage.setOrCreate('followSystem', follow);
     AppStorage.setOrCreate('systemDark', sysDark);
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onCreate');
   }
