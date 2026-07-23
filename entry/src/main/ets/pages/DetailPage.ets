@@ -21,6 +21,8 @@ import { takeDetailPostId, emitTabSwitch } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 import { getUserId } from '../utils/auth';
 import { resolveActionIcon } from '../utils/actionIcons';
+import { ShareSheet } from '../components/ShareSheet';
+import { buildPostShareUrl, copyToClipboard } from '../utils/share';
 import { window } from '@kit.ArkUI';
 
 // 字段定义：[结构化字段键, 中文标签]，按产品文档 2.4 各体裁字段表
@@ -143,6 +145,24 @@ struct DetailPage {
     }),
     alignment: DialogAlignment.Center,
     customStyle: false,
+  });
+
+  // 分享面板控制器（占位：复制链接/复制标题；系统分享待域名确定后接入）
+  private shareController: CustomDialogController = new CustomDialogController({
+    builder: ShareSheet({
+      onCopyLink: (): void => {
+        this.doShareLink();
+      },
+      onCopyTitle: (): void => {
+        this.doShareTitle();
+      },
+      onSystemShare: (): void => {
+        this.doSystemShare();
+      },
+    }),
+    alignment: DialogAlignment.Center,
+    customStyle: false,
+    autoCancel: true,
   });
 
   aboutToAppear(): void {
@@ -279,7 +299,41 @@ struct DetailPage {
   }
 
   onShare(): void {
-    safeShowToast(this.getUIContext(), { message: '分享：' + (this.post?.title ?? '大蓝书帖子') });
+    this.shareController.open();
+  }
+
+  // 复制帖子分享链接到剪贴板（占位域名，待真实域名确定后改 utils/share.ets 的 SHARE_BASE）
+  private doShareLink(): void {
+    if (!this.post || this.post.id === undefined) {
+      return;
+    }
+    try {
+      copyToClipboard(buildPostShareUrl(this.post.id));
+      safeShowToast(this.getUIContext(), { message: '链接已复制，去粘贴给好友吧' });
+    } catch (e) {
+      safeShowToast(this.getUIContext(), { message: '复制失败，请重试' });
+    }
+    this.shareController.close();
+  }
+
+  // 复制帖子标题到剪贴板
+  private doShareTitle(): void {
+    if (!this.post) {
+      return;
+    }
+    try {
+      copyToClipboard(this.post.title ?? '大蓝书帖子');
+      safeShowToast(this.getUIContext(), { message: '标题已复制' });
+    } catch (e) {
+      safeShowToast(this.getUIContext(), { message: '复制失败，请重试' });
+    }
+    this.shareController.close();
+  }
+
+  // 系统分享占位：真实域名确定后接入 @ohos.application.SystemShareKit 系统分享面板
+  private doSystemShare(): void {
+    safeShowToast(this.getUIContext(), { message: '系统分享即将上线' });
+    this.shareController.close();
   }
 
   // 辩论投票：乐观更新票数
