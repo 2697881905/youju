@@ -134,17 +134,13 @@ export struct CircleTab {
     this.circles = updated;
   }
 
-  // 用服务端返回的最新 tag 替换本地圈子（保证数据与服务端一致，新引用触发 ForEach 重渲染）
-  private replaceCircle(updated: Tag): void {
-    const next: Tag[] = [];
-    for (const c of this.circles) {
-      if (c.name === updated.name) {
-        next.push(updated);
-      } else {
-        next.push(c);
-      }
-    }
-    this.circles = next;
+  // 权威同步：从服务端重新拉全量列表覆盖本地，保证与服务端完全一致
+  // 复用「重进页面即正确」的同一机制（重新赋值 @State 数组触发重渲染）
+  private async refreshCircles(): Promise<void> {
+    const tags: Tag[] = await listTags();
+    const followed: string[] = await listFollowedTags();
+    this.circles = tags;
+    this.joinedNames = followed;
   }
 
   private async toggleJoin(name: string): Promise<void> {
@@ -157,26 +153,29 @@ export struct CircleTab {
     this.updateCircleCount(name, joined ? -1 : 1);
     try {
       if (joined) {
-        const tag: Tag | null = await unfollowTag(name);
+        await unfollowTag(name);
         this.joinedNames = this.joinedNames.filter((n: string) => n !== name);
-        if (tag !== null) {
-          this.replaceCircle(tag);
-        }
         safeShowToast(this.getUIContext(), { message: '已退出「' + name + '」' });
       } else {
-        const tag: Tag | null = await followTag(name);
-        const next: string[] = this.joinedNames.slice();
-        next.push(name);
-        this.joinedNames = next;
-        if (tag !== null) {
-          this.replaceCircle(tag);
-        }
+        await followTag(name);
+        this.joinedNames = this.joinedNames.concat([name]);
         safeShowToast(this.getUIContext(), { message: '已加入「' + name + '」' });
       }
     } catch (e) {
-      // 失败回滚乐观更新
+      // 失败回滚乐观更新与已加入集合
       this.updateCircleCount(name, joined ? 1 : -1);
+      this.joinedNames = joined
+        ? this.joinedNames.concat([name])
+        : this.joinedNames.filter((n: string) => n !== name);
       safeShowToast(this.getUIContext(), { message: '操作失败：' + (e as Error).message });
+      this.togglingName = '';
+      return;
+    }
+    // 权威同步：操作成功后重新拉全量，覆盖本地（数字必定与服务端一致）
+    try {
+      await this.refreshCircles();
+    } catch (_e) {
+      // 刷新失败不影响已成功的操作，保留乐观值
     } finally {
       this.togglingName = '';
     }
