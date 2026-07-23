@@ -484,7 +484,8 @@ struct DetailPage {
   }
 
   @Builder
-  voteBar(votes: number, total: number): void {
+  @Builder
+  voteBar(votes: number, total: number) {
     Row() {
       Column()
         .width(total > 0 ? (votes / total) * 100 + '%' : '0%')
