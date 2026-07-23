@@ -65,6 +65,28 @@ export struct CircleTab {
     return this.joinedNames.indexOf(name) >= 0;
   }
 
+  // 乐观更新本地圈子加入人数（followCount），避免每次加入都重新拉全量列表
+  // 注意：ArkTS 禁止对象展开 {...x}，故显式构造新 Tag 对象（新引用触发 ForEach 重渲染）
+  private updateCircleCount(name: string, delta: number): void {
+    const updated: Tag[] = [];
+    for (const c of this.circles) {
+      if (c.name === name) {
+        const next: Tag = {
+          id: c.id,
+          name: c.name,
+          emoji: c.emoji,
+          category: c.category,
+          useCount: c.useCount,
+          followCount: (c.followCount ?? 0) + delta,
+        };
+        updated.push(next);
+      } else {
+        updated.push(c);
+      }
+    }
+    this.circles = updated;
+  }
+
   private async toggleJoin(name: string): Promise<void> {
     if (this.togglingName !== '') {
       return;
@@ -74,10 +96,12 @@ export struct CircleTab {
     try {
       if (joined) {
         await unfollowTag(name);
+        this.updateCircleCount(name, -1);
         this.joinedNames = this.joinedNames.filter((n: string) => n !== name);
         safeShowToast(this.getUIContext(), { message: '已退出「' + name + '」' });
       } else {
         await followTag(name);
+        this.updateCircleCount(name, 1);
         const next: string[] = this.joinedNames.slice();
         next.push(name);
         this.joinedNames = next;
@@ -102,7 +126,7 @@ export struct CircleTab {
           .fontColor($r('app.color.text_primary'))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text((c.useCount ?? 0) + ' 人加入')
+        Text((c.followCount ?? 0) + ' 人加入')
           .fontSize(12)
           .fontColor($r('app.color.text_secondary'))
       }
