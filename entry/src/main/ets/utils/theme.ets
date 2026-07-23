@@ -82,6 +82,12 @@ export function isFollowSystem(): boolean {
 // ------ 操作 ------
 
 export function toggleDarkMode(dark: boolean): void {
+  // 在调 setColorMode 之前，把当前 AppStorage 全部值快照到局部变量
+  // 因为 setColorMode 可能清空 AppStorage，导致 @StorageLink 读到默认值
+  const savedFollow: boolean = (AppStorage.get<boolean>('followSystem') ?? true) as boolean;
+  const savedDark: boolean = (AppStorage.get<boolean>('isDarkMode') ?? true) as boolean;
+  const savedSysDark: boolean = (AppStorage.get<boolean>('systemDark') ?? false) as boolean;
+
   const prev: boolean | undefined = AppStorage.get<boolean>('isDarkMode');
   AppStorage.setOrCreate('isDarkMode', dark);
   saveIsDark(dark);
@@ -97,12 +103,13 @@ export function toggleDarkMode(dark: boolean): void {
     } else {
       _appContext.setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT);
     }
-    // 兜底：setColorMode 可能清空 AppStorage，立即从磁盘恢复
-    loadThemeFromPrefs();
   } catch (e) {
     // 忽略设置失败
-    loadThemeFromPrefs();
   }
+  // setColorMode 可能清空了 AppStorage — 用快照直接写回
+  AppStorage.setOrCreate('followSystem', savedFollow);
+  AppStorage.setOrCreate('isDarkMode', dark);
+  AppStorage.setOrCreate('systemDark', savedSysDark);
 }
 
 export function setFollowSystem(follow: boolean): void {
