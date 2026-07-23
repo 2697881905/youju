@@ -4,6 +4,7 @@ import { formatCount } from '../utils/format';
 import { upPost, cancelUpPost } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 import { resolveActionIcon } from '../utils/actionIcons';
+import { likeStore } from '../utils/likeStore';
 import { CARD_RADIUS, CARD_PADDING, CARD_COVER_RADIUS, CARD_SHADOW, CARD_INNER_GAP } from '../utils/cardTokens';
 
 @Component
@@ -14,10 +15,36 @@ export struct PostCard {
 
   @State liked: boolean = false;
   @State likeCount: number = 0;
+  private unsubLike: () => void = () => {};
 
   aboutToAppear(): void {
-    this.liked = this.post.myUp ?? false;
-    this.likeCount = this.post.upCount ?? 0;
+    const id: number | undefined = this.post.id;
+    if (id !== undefined) {
+      // 从全局点赞仓库注册并读取（保证与详情页/个人主页同帖一致）
+      likeStore.ensure(id, this.post.myUp ?? false, this.post.upCount ?? 0);
+      const info = likeStore.get(id);
+      if (info) {
+        this.liked = info.liked;
+        this.likeCount = info.count;
+      }
+      // 订阅该帖点赞态变化：首页点赞后，详情/个人主页的同帖会即时同步
+      this.unsubLike = likeStore.subscribe((changedId: number): void => {
+        if (changedId === id) {
+          const i = likeStore.get(changedId);
+          if (i) {
+            this.liked = i.liked;
+            this.likeCount = i.count;
+          }
+        }
+      });
+    } else {
+      this.liked = this.post.myUp ?? false;
+      this.likeCount = this.post.upCount ?? 0;
+    }
+  }
+
+  aboutToDisappear(): void {
+    this.unsubLike();
   }
 
   private isDeletedUser(): boolean {
@@ -51,8 +78,8 @@ export struct PostCard {
       return;
     }
     const willLike: boolean = !this.liked;
-    this.liked = willLike;
-    this.likeCount = this.likeCount + (willLike ? 1 : -1);
+    // 乐观更新写入全局仓库（同步广播到所有展示该帖的组件，含本卡片）
+    const prev = likeStore.applyOptimistic(id, willLike);
     try {
       if (willLike) {
         await upPost(id);
@@ -60,8 +87,7 @@ export struct PostCard {
         await cancelUpPost(id);
       }
     } catch (e) {
-      this.liked = !willLike;
-      this.likeCount = this.likeCount + (willLike ? -1 : 1);
+      likeStore.revert(id, prev);
       safeShowToast(this.getUIContext(), { message: '操作失败，请先登录' });
     }
   }

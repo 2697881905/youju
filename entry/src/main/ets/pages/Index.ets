@@ -105,6 +105,8 @@ struct Index {
     const target: number = AppStorage.get<number>('tabSwitchTarget') ?? 0;
     if (target >= 0 && target <= 4) {
       this.currentIndex = target;
+      // 广播当前激活 Tab，供各 Tab 页感知自己是否可见（如个人主页据此刷新列表）
+      AppStorage.setOrCreate<number>('activeTab', target);
     }
   }
 
@@ -183,9 +185,11 @@ struct Index {
     .scrollable(false)
     .barHeight(56)
     .barMode(BarMode.Fixed)
-    .onChange((index: number) => {
-      this.currentIndex = index;
-    })
+      .onChange((index: number) => {
+        this.currentIndex = index;
+        // 广播当前激活 Tab，供各 Tab 页感知自己是否可见
+        AppStorage.setOrCreate<number>('activeTab', index);
+      })
     .animationDuration(250)
     .width('100%')
     .height('100%')

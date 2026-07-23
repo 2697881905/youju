@@ -26,6 +26,9 @@ export struct ProfilePage {
   @State isRefreshing: boolean = false;
   @State error: string = '';
   @State ready: boolean = false;
+  // 当前激活的底部 Tab（由 Index 经 AppStorage 广播），用于感知「我的」页是否可见，
+  // 切到本页时重新拉取列表，使「我赞过/我收藏」在跨页点赞、取消收藏后即时刷新。
+  @StorageLink('activeTab') @Watch('onActiveTab') activeTab: number = 0;
   // 响应式列数（按屏幕宽度 2/3/4 列自适应）
   @State gridColumns: number = 2;
   @State gridTemplate: string = '1fr 1fr';
@@ -44,6 +47,14 @@ export struct ProfilePage {
 
   aboutToDisappear(): void {
     this.unregisterColumns();
+  }
+
+  // 切回「我的」Tab 时，重新拉取当前子 Tab 的帖子列表：
+  // 这样在首页/详情取消点赞后，进入「我赞过」会立即剔除该帖；收藏/评论计数也同步为最新。
+  onActiveTab(): void {
+    if (this.activeTab === 4 && this.ready) {
+      this.refresh();
+    }
   }
 
   // 从编辑资料/设置等子页返回时，重新拉取最新用户资料（昵称/头像/简介/计数），

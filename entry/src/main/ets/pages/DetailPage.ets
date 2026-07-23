@@ -21,6 +21,7 @@ import { takeDetailPostId, emitTabSwitch } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 import { getUserId } from '../utils/auth';
 import { resolveActionIcon } from '../utils/actionIcons';
+import { likeStore } from '../utils/likeStore';
 import { ShareSheet } from '../components/ShareSheet';
 import { buildPostShareUrl, copyToClipboard } from '../utils/share';
 import { window } from '@kit.ArkUI';
@@ -220,6 +221,10 @@ struct DetailPage {
       this.bookmarked = p.myBookmark ?? false;
       this.upCount = p.upCount ?? 0;
       this.bookmarkCount = p.bookmarkCount ?? 0;
+      // 校准全局点赞仓库：详情页打开时以服务器为准，回写后首页卡片也即时同步
+      if (p.id !== undefined) {
+        likeStore.syncFromServer(p.id, this.uped, this.upCount);
+      }
       this.fields = this.buildFields(p);
       this.images = this.imagesOf(p);
       // 辩论投票数据初始化
@@ -268,6 +273,8 @@ struct DetailPage {
     const willUp = !this.uped;
     this.uped = willUp;
     this.upCount = this.upCount + (willUp ? 1 : -1);
+    // 同步写入全局仓库：首页卡片随详情点赞即时变化
+    const prev = likeStore.applyOptimistic(id, willUp);
     try {
       if (willUp) {
         await upPost(id);
@@ -277,6 +284,7 @@ struct DetailPage {
     } catch (e) {
       this.uped = !willUp;
       this.upCount = this.upCount + (willUp ? -1 : 1);
+      likeStore.revert(id, prev);
       safeShowToast(this.getUIContext(),{ message: '操作失败，请先登录' });
     }
   }
