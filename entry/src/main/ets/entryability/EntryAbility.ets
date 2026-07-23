@@ -6,11 +6,11 @@ import { initThemeContext, loadThemeFromPrefs, toggleDarkMode } from '../utils/t
 const DOMAIN = 0x0000;
 
 export default class EntryAbility extends UIAbility {
-  async onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): Promise<void> {
-    // 注入 ApplicationContext 到主题工具
+  onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
+    // 注入 ApplicationContext 到主题工具（含 preferences 同步初始化）
     initThemeContext(this.context.getApplicationContext());
-    // 从持久化存储恢复用户之前设置的 followSystem / isDarkMode
-    await loadThemeFromPrefs();
+    // 从持久化存储同步恢复用户之前设置的 followSystem / isDarkMode
+    loadThemeFromPrefs();
     // 启动时读取系统当前颜色模式
     const sysDark: boolean = Number(this.context.config.colorMode) === ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
     const follow: boolean = AppStorage.get<boolean>('followSystem') ?? true;
