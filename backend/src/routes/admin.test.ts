@@ -23,7 +23,7 @@ jest.mock('../prisma', () => ({
     },
     report: {
       create: jest.fn(),
-      findMany: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
       count: jest.fn(),
       updateMany: jest.fn(),
     },
@@ -32,6 +32,7 @@ jest.mock('../prisma', () => ({
     },
     user: {
       findUnique: jest.fn().mockResolvedValue({ deletedAt: null }),
+      findMany: jest.fn().mockResolvedValue([]),
     },
     // notificationPrefService（notifySystem 链路）依赖：默认无偏好记录 → 全部允许
     notificationPreference: {
@@ -139,11 +140,13 @@ describe('GET /v1/admin/posts/pending', () => {
         userId: 10,
         reportCount: 3,
         user: { id: 10, nickname: '作者', avatar: null },
-        reports: [
-          { id: 100, targetType: 'post', targetId: 1, reason: 'spam', description: null, status: 'pending', reporter: { nickname: '举报人A' } },
-        ],
       },
     ]);
+    // Report 与 Post 无 Prisma 关系，审核列表改为按 targetType/targetId 单独查举报
+    mockPrisma.report.findMany.mockResolvedValue([
+      { id: 100, targetType: 'post', targetId: 1, reason: 'spam', description: null, status: 'pending', reporterId: 20 },
+    ]);
+    mockPrisma.user.findMany.mockResolvedValue([{ id: 20, nickname: '举报人A' }]);
     mockPrisma.post.count.mockResolvedValue(1);
 
     const res = await req('GET', '/v1/admin/posts/pending?page=1&limit=20', undefined, authHeader(1));
@@ -154,11 +157,7 @@ describe('GET /v1/admin/posts/pending', () => {
       expect.objectContaining({
         where: { status: 0 },
         orderBy: { createdAt: 'desc' },
-        include: expect.objectContaining({
-          reports: expect.objectContaining({
-            include: { reporter: { select: { nickname: true } } },
-          }),
-        }),
+        include: { user: { select: { id: true, nickname: true, avatar: true } } },
       })
     );
     // 待审帖子应携带举报列表，供前端展示举报理由

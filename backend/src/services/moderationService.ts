@@ -26,15 +26,41 @@ export async function listPendingPosts(
       take: l,
       include: {
         user: { select: { id: true, nickname: true, avatar: true } },
-        reports: {
-          orderBy: { createdAt: 'desc' },
-          include: { reporter: { select: { nickname: true } } },
-        },
       },
     }),
     prisma.post.count({ where }),
   ]);
-  return { list, pagination: { page: p, limit: l, total } };
+
+  // Report 与 Post 无 Prisma 关系（靠 targetType/targetId 标量关联），需单独批量查举报并挂回。
+  const postIds = list.map((post) => post.id);
+  const reports =
+    postIds.length > 0
+      ? await prisma.report.findMany({
+          where: { targetType: 'post', targetId: { in: postIds } },
+          orderBy: { createdAt: 'desc' },
+        })
+      : [];
+  const reporterIds = Array.from(new Set(reports.map((r) => r.reporterId)));
+  const reporters =
+    reporterIds.length > 0
+      ? await prisma.user.findMany({
+          where: { id: { in: reporterIds } },
+          select: { id: true, nickname: true },
+        })
+      : [];
+  const nicknameById = new Map(reporters.map((u) => [u.id, u.nickname]));
+  const reportsByPost = new Map<number, Array<Record<string, unknown>>>();
+  for (const r of reports) {
+    const arr = reportsByPost.get(r.targetId) ?? [];
+    arr.push({ ...r, reporter: { nickname: nicknameById.get(r.reporterId) ?? null } });
+    reportsByPost.set(r.targetId, arr);
+  }
+  const listWithReports = list.map((post) => ({
+    ...post,
+    reports: reportsByPost.get(post.id) ?? [],
+  }));
+
+  return { list: listWithReports, pagination: { page: p, limit: l, total } };
 }
 
 /**
