@@ -263,10 +263,34 @@ export struct SettingsPage {
               setFollowSystem(on);
             });
 
-            // 深色模式（跟随系统时禁用，不消失）
-            this.toggleRow('dark', '深色模式', '关闭后使用浅色主题', this.darkMode, (on: boolean): void => {
-              toggleDarkMode(on);
-            }, !this.followSystem);
+            // 深色模式（内联，不经过 @Builder——enabled 直接绑 this.followSystem 才能响应变化）
+            Row({ space: 12 }) {
+              Image(resolveSettingsIcon('dark'))
+                .width(22).height(22)
+                .fillColor($r('app.color.text_secondary'))
+                .objectFit(ImageFit.Contain)
+              Column({ space: 2 }) {
+                Text('深色模式')
+                  .fontSize(16)
+                  .fontColor($r('app.color.text_primary'))
+                Text('关闭后使用浅色主题')
+                  .fontSize(12)
+                  .fontColor($r('app.color.text_secondary'))
+              }
+              .alignItems(HorizontalAlign.Start)
+              .layoutWeight(1)
+              Toggle({ type: ToggleType.Switch, isOn: this.darkMode })
+                .enabled(!this.followSystem)
+                .opacity(!this.followSystem ? 1 : 0.4)
+                .onChange((on: boolean): void => {
+                  toggleDarkMode(on);
+                })
+            }
+            .width('100%')
+            .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+            .backgroundColor($r('app.color.card_bg'))
+            .borderRadius(CARD_RADIUS)
+            .shadow(CARD_SHADOW)
 
             this.sectionRow('trash', '清除缓存', (): void => {
               this.onClearCacheClick();
