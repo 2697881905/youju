@@ -3,10 +3,11 @@
 
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { image } from '@kit.ImageKit';
+import { util } from '@kit.ArkTS';
 import { http } from '@kit.NetworkKit';
 import { getCurrentUser, setSession, ensureLogin } from '../utils/auth';
 import { updateMe, getUploadSignature } from '../services/api';
-import { compressImage, CompressedImage } from '../utils/image';
+import { compressAvatar, CompressedImage } from '../utils/image';
 import { safeShowToast } from '../utils/toast';
 import { User } from '../models/types';
 import { buildPageTransition } from '../utils/styles';
@@ -18,7 +19,7 @@ export struct EditProfilePage {
   @State nickname: string = '';
   @State bio: string = '';
   @State selectedGender: string = '1'; // '1'=男 '2'=女 '0'=保密
-  @State avatar: string = ''; // 当前头像 URL（远程，来自 viewUrl）
+  @State avatar: string = ''; // 当前头像 URL 或 base64 data URI（COS 不可用时降级）
   @State avatarPreview: image.PixelMap | null = null; // 选图后的本地即时预览（不依赖网络/COS）
   @State uploadingAvatar: boolean = false;
   @State saving: boolean = false;
@@ -64,35 +65,49 @@ export struct EditProfilePage {
     // 2) 压缩并立即本地预览（选完图立刻在头像框显示，不依赖网络/COS）
     let compressed: CompressedImage;
     try {
-      compressed = await compressImage(uris[0]);
+      compressed = await compressAvatar(uris[0]);
     } catch (e) {
       safeShowToast(this.getUIContext(), { message: '图片处理失败：' + (e as Error).message });
       this.uploadingAvatar = false;
       return;
     }
     this.avatarPreview = compressed.preview;
-    // 3) 上传到 COS 并保存（失败要明确提示，不再静默吞掉）
+    // 3) 上传到 COS；COS 不可用时降级为 base64 data URI，保证头像能保存到后端并在主页渲染
+    let savedUrl: string = '';
     try {
       const sig = await getUploadSignature('image/jpeg');
       await this.putBinary(sig.url, compressed.bytes, sig.contentType);
-      this.avatar = sig.viewUrl; // 用 GET 预签名可读链接，私有桶也能加载
-      const updated: User = await updateMe({ avatar: sig.viewUrl });
+      savedUrl = sig.viewUrl; // 用 GET 预签名可读链接，私有桶也能加载
+    } catch (e) {
+      // COS 未配置/上传失败：本地兜底（仅开发/无对象存储环境；生产应配置真实 COS）
+      savedUrl = 'data:image/jpeg;base64,' + this.bytesToBase64(compressed.bytes);
+    }
+    // 4) 保存头像到后端（无论走 COS 还是本地 base64 都持久化）
+    try {
+      const updated: User = await updateMe({ avatar: savedUrl });
       const cur: User | null = getCurrentUser();
       const merged: User = {
         id: updated.id ?? cur?.id,
         nickname: updated.nickname ?? cur?.nickname,
-        avatar: updated.avatar ?? sig.viewUrl,
+        avatar: updated.avatar ?? savedUrl,
         gender: updated.gender ?? cur?.gender,
         bio: updated.bio ?? cur?.bio,
         isAdmin: updated.isAdmin ?? cur?.isAdmin,
       };
       const token: string = (AppStorage.get<string>('authToken') ?? '') as string;
       setSession(token, merged);
-      safeShowToast(this.getUIContext(), { message: '头像已更新' });
+      this.avatar = savedUrl; // 编辑页当前也同步（预览优先用 avatarPreview）
+      safeShowToast(this.getUIContext(), { message: savedUrl.startsWith('data:') ? '头像已更新（本地模式）' : '头像已更新' });
     } catch (e) {
       safeShowToast(this.getUIContext(), { message: '头像保存失败：' + (e as Error).message });
     }
     this.uploadingAvatar = false;
+  }
+
+  // ArrayBuffer → base64 字符串（COS 不可用时作为头像兜底存储）
+  private bytesToBase64(bytes: ArrayBuffer): string {
+    const helper = new util.Base64Helper();
+    return helper.encodeToStringSync(new Uint8Array(bytes));
   }
 
   // 直传二进制到预签名 URL（复制自 ImagePicker）
@@ -209,16 +224,16 @@ export struct EditProfilePage {
               } else if (this.avatarPreview) {
                 // 选图后的本地即时预览（PixelMap 直接渲染，无需等网络）
                 Image(this.avatarPreview)
-                  .width(80)
-                  .height(80)
-                  .borderRadius(40)
+                  .width(110)
+                  .height(110)
+                  .borderRadius(55)
                   .objectFit(ImageFit.Cover)
                   .border({ width: 2, color: $r('app.color.brand_primary') });
               } else {
                 AvatarView({
                   avatar: this.avatar,
                   name: this.nickname,
-                  avatarSize: 80,
+                  avatarSize: 110,
                   ringWidth: 2
                 })
               }

@@ -17,7 +17,7 @@ model User {
   openId     String?  @unique @db.VarChar(64) // 鸿蒙账号ID（openId 授权登录；华为 unionID 登录用户此字段为空）
   unionID    String?  @unique @db.VarChar(64) // 华为账号 UnionID（unionID 登录；openId 用户此字段为空）
   nickname   String   @db.VarChar(32)
-  avatar     String?  @db.VarChar(255)
+  avatar     String?  @db.LongText // 头像 URL；COS 不可用时降级为 base64 data URI，故用 LongText 容纳
   gender     Int?     @default(1) // 1-男 2-女
   bio        String?  @db.VarChar(120) // 个人简介（PRD P0-4）
   followTags Json?

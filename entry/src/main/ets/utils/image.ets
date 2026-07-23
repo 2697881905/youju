@@ -36,3 +36,38 @@ export async function compressImage(uri: string): Promise<CompressedImage> {
     fileIo.closeSync(file);
   }
 }
+
+// 头像专用压缩：限制最长边 maxEdge（默认 512px），避免本地 base64 兜底时体积过大，质量 80%。
+// 其余逻辑与 compressImage 一致（file descriptor 打开 photo:// URI）。
+export async function compressAvatar(uri: string, maxEdge: number = 512): Promise<CompressedImage> {
+  const file = fileIo.openSync(uri, fileIo.OpenMode.READ_ONLY);
+  let source: image.ImageSource;
+  try {
+    source = image.createImageSource(file.fd);
+  } catch (e) {
+    fileIo.closeSync(file);
+    throw new Error((e as Error).message);
+  }
+  try {
+    const pixelMap: image.PixelMap = await source.createPixelMap();
+    const info = pixelMap.getImageInfoSync();
+    const longEdge: number = Math.max(info.size.width, info.size.height);
+    if (longEdge > maxEdge) {
+      const ratio: number = maxEdge / longEdge;
+      await pixelMap.scale(ratio, ratio);
+    }
+    const packer: image.ImagePacker = image.createImagePacker();
+    try {
+      const bytes: ArrayBuffer = await packer.packToData(pixelMap, {
+        format: 'image/jpeg',
+        quality: 80,
+      });
+      return { preview: pixelMap, bytes };
+    } finally {
+      await packer.release();
+    }
+  } finally {
+    source.release();
+    fileIo.closeSync(file);
+  }
+}
