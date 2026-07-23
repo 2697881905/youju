@@ -87,6 +87,50 @@ export struct PostCard {
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         .lineHeight(22)
 
+      // 投票/对比内容预览 — 填充无图卡片空间，同时让用户一眼看到选项
+      if (this.post.structuredData !== undefined &&
+          (this.post.structuredData.planA !== undefined || this.post.structuredData.planB !== undefined)) {
+        Column({ space: 6 }) {
+          if (this.post.structuredData.planA !== undefined) {
+            Row({ space: 8 }) {
+              Text('A')
+                .width(20).height(20).borderRadius(10)
+                .fontSize(11).fontColor('#FFFFFF').fontWeight(FontWeight.Bold)
+                .backgroundColor($r('app.color.brand_primary'))
+                .textAlign(TextAlign.Center)
+              Text(this.post.structuredData.planA)
+                .fontSize(13)
+                .fontColor($r('app.color.text_primary'))
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+                .layoutWeight(1)
+            }
+            .width('100%')
+          }
+          if (this.post.structuredData.planB !== undefined) {
+            Row({ space: 8 }) {
+              Text('B')
+                .width(20).height(20).borderRadius(10)
+                .fontSize(11).fontColor('#FFFFFF').fontWeight(FontWeight.Bold)
+                .backgroundColor($r('app.color.semantic_orange'))
+                .textAlign(TextAlign.Center)
+              Text(this.post.structuredData.planB)
+                .fontSize(13)
+                .fontColor($r('app.color.text_primary'))
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+                .layoutWeight(1)
+            }
+            .width('100%')
+          }
+        }
+        .width('100%')
+        .padding(10)
+        .backgroundColor($r('app.color.bg_secondary'))
+        .borderRadius(8)
+        .margin({ top: 8 })
+      }
+
       // 作者区
       if (this.post.user !== undefined && this.post.user.id !== undefined) {
         Row({ space: 8 }) {
