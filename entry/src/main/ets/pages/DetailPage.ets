@@ -487,29 +487,6 @@ struct DetailPage {
     }
   }
 
-  @Builder
-  voteBar(votes: number, total: number) {
-    Row() {
-      Column()
-        .width(total > 0 ? (votes / total) * 100 + '%' : '0%')
-        .height(6)
-        .borderRadius(3)
-        .backgroundColor($r('app.color.brand_primary'));
-      Column()
-        .layoutWeight(1)
-        .height(6)
-        .borderRadius(3)
-        .backgroundColor($r('app.color.bg_secondary'));
-    }
-    .width('100%')
-    .height(6)
-    .layoutWeight(1);
-    Text(formatCount(votes) + '票')
-      .fontSize(12)
-      .fontColor($r('app.color.text_secondary'))
-      .margin({ left: 8 });
-  }
-
   build() {
     Column() {
       // 全屏图片查看器
@@ -670,7 +647,25 @@ struct DetailPage {
                     .fontSize(13)
                     .fontColor($r('app.color.text_secondary'))
                     .width(56);
-                  this.voteBar(this.planAVotes, this.planAVotes + this.planBVotes);
+                  Row() {
+                    Column()
+                      .width((this.planAVotes + this.planBVotes) > 0 ? (this.planAVotes / (this.planAVotes + this.planBVotes)) * 100 + '%' : '0%')
+                      .height(6)
+                      .borderRadius(3)
+                      .backgroundColor($r('app.color.brand_primary'));
+                    Column()
+                      .layoutWeight(1)
+                      .height(6)
+                      .borderRadius(3)
+                      .backgroundColor($r('app.color.bg_secondary'));
+                  }
+                  .width('100%')
+                  .height(6)
+                  .layoutWeight(1);
+                  Text(formatCount(this.planAVotes) + '票')
+                    .fontSize(12)
+                    .fontColor($r('app.color.text_secondary'))
+                    .margin({ left: 8 });
                   Row({ space: 2 }) {
                     if (this.myVote === 'A') {
                       Image(resolveActionIcon('check'))
@@ -694,7 +689,25 @@ struct DetailPage {
                     .fontSize(13)
                     .fontColor($r('app.color.text_secondary'))
                     .width(56);
-                  this.voteBar(this.planBVotes, this.planAVotes + this.planBVotes);
+                  Row() {
+                    Column()
+                      .width((this.planAVotes + this.planBVotes) > 0 ? (this.planBVotes / (this.planAVotes + this.planBVotes)) * 100 + '%' : '0%')
+                      .height(6)
+                      .borderRadius(3)
+                      .backgroundColor($r('app.color.brand_primary'));
+                    Column()
+                      .layoutWeight(1)
+                      .height(6)
+                      .borderRadius(3)
+                      .backgroundColor($r('app.color.bg_secondary'));
+                  }
+                  .width('100%')
+                  .height(6)
+                  .layoutWeight(1);
+                  Text(formatCount(this.planBVotes) + '票')
+                    .fontSize(12)
+                    .fontColor($r('app.color.text_secondary'))
+                    .margin({ left: 8 });
                   Row({ space: 2 }) {
                     if (this.myVote === 'B') {
                       Image(resolveActionIcon('check'))
