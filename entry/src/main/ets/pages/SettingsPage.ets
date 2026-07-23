@@ -4,7 +4,7 @@
 import { getIsAdmin, clearSession } from '../utils/auth';
 import { deactivateAccount, clearSearchHistory, exportUserData } from '../services/api';
 import { safeShowToast } from '../utils/toast';
-import { toggleDarkMode, setFollowSystem, getSystemDark } from '../utils/theme';
+import { toggleDarkMode, setFollowSystem } from '../utils/theme';
 import { buildPageTransition } from '../utils/styles';
 import { CARD_RADIUS, CARD_SHADOW } from '../utils/cardTokens';
 import { resolveSettingsIcon } from '../utils/settingsIcons';
@@ -258,17 +258,12 @@ export struct SettingsPage {
 
             // 跟随系统
             this.toggleRow('system', '跟随系统', '关闭后可手动选择深浅模式', this.followSystem, (on: boolean): void => {
-              this.followSystem = on;
               setFollowSystem(on);
-              if (on) {
-                this.darkMode = getSystemDark();
-              }
             });
 
             // 深色模式（仅在不跟随系统时可用）
             if (!this.followSystem) {
               this.toggleRow('dark', '深色模式', '关闭后使用浅色主题', this.darkMode, (on: boolean): void => {
-                this.darkMode = on;
                 toggleDarkMode(on);
               });
             }
