@@ -30,7 +30,20 @@ jest.mock('../prisma', () => ({
       findMany: jest.fn(),
     },
     user: {
-      findUnique: jest.fn().mockResolvedValue({ deletedAt: null }),
+      findUnique: jest.fn().mockResolvedValue({ status: 1, deletedAt: null }),
+    },
+    // accessControl 依赖：默认无隐私限制、无拉黑，全部公开可见
+    privacySettings: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
+    blocklist: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
+    follow: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findUnique: jest.fn().mockResolvedValue(null),
     },
   },
 }));
@@ -229,7 +242,7 @@ describe('GET /v1/posts（信息流，软鉴权）', () => {
 
 describe('GET /v1/posts/:id（详情，软鉴权）', () => {
   it('匿名（无 token）仍可访问详情，返回 200（不 401）', async () => {
-    mockedPostFindFirst.mockResolvedValue({ id: 1, user: {} });
+    mockedPostFindFirst.mockResolvedValue({ id: 1, status: 1, user: {} });
 
     const res = await req('GET', '/v1/posts/1');
 
@@ -241,7 +254,7 @@ describe('GET /v1/posts/:id（详情，软鉴权）', () => {
   });
 
   it('带 token 时返回 myUp/myBookmark', async () => {
-    mockedPostFindFirst.mockResolvedValue({ id: 1, user: {} });
+    mockedPostFindFirst.mockResolvedValue({ id: 1, status: 1, user: {} });
     mockedUpFindFirst.mockResolvedValue({ id: 9, postId: 1, userId: 1 });
     mockedBmFindFirst.mockResolvedValue(null);
 

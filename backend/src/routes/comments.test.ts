@@ -20,8 +20,13 @@ jest.mock('../prisma', () => ({
       create: jest.fn(),
     },
     user: {
-      findUnique: jest.fn().mockResolvedValue({ deletedAt: null }),
+      findUnique: jest.fn().mockResolvedValue({ status: 1, deletedAt: null }),
     },
+    post: {
+      update: jest.fn(),
+    },
+    // createComment/deleteComment 用 $transaction 包 comment.create/post.update
+    $transaction: jest.fn().mockImplementation((ops: any) => Promise.all(ops ?? [])),
   },
 }));
 

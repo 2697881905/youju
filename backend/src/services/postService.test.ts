@@ -25,7 +25,21 @@ jest.mock('../prisma', () => ({
       groupBy: jest.fn(),
     },
     user: {
-      findUnique: jest.fn(),
+      // 默认返回有效（已发布、未注销）作者，使 canViewerSeeAuthorPosts 通过
+      findUnique: jest.fn().mockResolvedValue({ status: 1, deletedAt: null }),
+    },
+    // accessControl 依赖：默认无隐私限制、无拉黑，全部公开可见
+    privacySettings: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
+    blocklist: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
+    follow: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findUnique: jest.fn().mockResolvedValue(null),
     },
   },
 }));
@@ -201,6 +215,7 @@ describe('getPost - myUp/myBookmark + 作者匿名化', () => {
   it('无 viewerId：不查 up/bookmark，返回原 post（含 user/comments 视图）', async () => {
     const raw = {
       id: 1,
+      status: 1,
       title: 't',
       user: { id: 1, nickname: 'A', avatar: 'a.png' },
       comments: [{ id: 9, content: 'c', user: { id: 2, nickname: 'B', avatar: null } }],
@@ -213,6 +228,7 @@ describe('getPost - myUp/myBookmark + 作者匿名化', () => {
     expect(mockedBmFindFirst).not.toHaveBeenCalled();
     expect(res).toEqual({
       id: 1,
+      status: 1,
       title: 't',
       user: { id: 1, nickname: 'A', avatar: 'a.png' },
       comments: [{ id: 9, content: 'c', user: { id: 2, nickname: 'B', avatar: null } }],
@@ -222,6 +238,7 @@ describe('getPost - myUp/myBookmark + 作者匿名化', () => {
   it('有 viewerId 且已顶已藏：返回 myUp/myBookmark 均为 true', async () => {
     mockedFindFirst.mockResolvedValue({
       id: 1,
+      status: 1,
       title: 't',
       user: { id: 1, nickname: 'A', avatar: 'a.png' },
       comments: [],
@@ -240,6 +257,7 @@ describe('getPost - myUp/myBookmark + 作者匿名化', () => {
   it('有 viewerId 但未顶未藏：myUp/myBookmark 均为 false', async () => {
     mockedFindFirst.mockResolvedValue({
       id: 2,
+      status: 1,
       title: 't2',
       user: { id: 1, nickname: 'A', avatar: 'a.png' },
       comments: [],
@@ -264,6 +282,7 @@ describe('getPost - myUp/myBookmark + 作者匿名化', () => {
   it('已注销作者 → user 被匿名化且评论作者同样匿名化', async () => {
     mockedFindFirst.mockResolvedValue({
       id: 1,
+      status: 1,
       title: 't',
       user: { id: 5, nickname: '旧用户', avatar: 'old.png', deletedAt: new Date('2024-01-01') },
       comments: [

@@ -4,26 +4,28 @@ import { ok, fail, CODE } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
 import * as prefService from '../services/notificationPrefService';
 
+import { asyncHandler } from '../middleware/asyncHandler';
+
 const router = Router();
 
 // GET /v1/me/notification-prefs
-router.get('/me/notification-prefs', auth, async (req: AuthRequest, res: Response) => {
+router.get('/me/notification-prefs', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   try {
     const prefs = await prefService.getPrefs(req.userId!);
     return ok(res, prefs);
   } catch (e) {
     return fail(res, CODE.SERVER_ERROR, (e as Error).message);
   }
-});
+}));
 
 // PUT /v1/me/notification-prefs
-router.put('/me/notification-prefs', auth, async (req: AuthRequest, res: Response) => {
+router.put('/me/notification-prefs', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   try {
     const prefs = await prefService.updatePrefs(req.userId!, req.body ?? {});
     return ok(res, prefs);
   } catch (e) {
     return fail(res, CODE.SERVER_ERROR, (e as Error).message);
   }
-});
+}));
 
 export default router;

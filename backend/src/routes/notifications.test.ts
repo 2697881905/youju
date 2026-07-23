@@ -31,6 +31,10 @@ jest.mock('../prisma', () => ({
       findUnique: jest.fn().mockResolvedValue({ deletedAt: null }),
       findMany: jest.fn(),
     },
+    // notificationPrefService（notifyOnComment/Interact 链路）依赖：默认无偏好记录 → 全部允许
+    notificationPreference: {
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
   },
 }));
 

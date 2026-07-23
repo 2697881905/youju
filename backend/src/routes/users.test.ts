@@ -30,8 +30,18 @@ jest.mock('../prisma', () => ({
     post: {
       count: jest.fn(),
     },
+    // followUser 隐私校验依赖：默认 allowFollow 未关闭（记录不存在 → 允许关注）
+    privacySettings: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
     notification: {
       create: jest.fn(),
+    },
+    // notificationPrefService（notifyOnFollow 链路）依赖：默认无偏好记录 → 全部允许
+    notificationPreference: {
+      findUnique: jest.fn().mockResolvedValue(null),
+      upsert: jest.fn().mockResolvedValue({}),
     },
   },
 }));

@@ -3,6 +3,7 @@ import { sensitiveWordService } from './sensitiveWordService';
 import { SensitiveWordError } from '../utils/errors';
 import { USER_PUBLIC_SELECT, publicUserView } from '../utils/userView';
 import { getExcludedAuthorIds, canViewerSeeAuthorPosts } from './accessControl';
+import { env } from '../config/env';
 
 export type SortType = 'hot' | 'latest' | 'recommend';
 
@@ -161,6 +162,12 @@ export async function getPost(id: number, viewerId?: number) {
   }
   // 可见性 / 拉黑 / 隐私 校验：无权限则视为不存在（404）
   if (!(await canViewerSeeAuthorPosts(viewerId, post.userId))) {
+    return null;
+  }
+  // 内容安全：非作者 & 非管理员，仅可见已发布(status=1)的帖。
+  // 被下架(status=0)/审核拒绝(status=2)的帖通过详情接口直接读取即绕过审核，故拦截。
+  const isAdmin = viewerId !== undefined && env.adminUserIds.includes(viewerId);
+  if (post.status !== 1 && viewerId !== post.userId && !isAdmin) {
     return null;
   }
   if (!viewerId) {

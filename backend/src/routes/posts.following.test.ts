@@ -15,7 +15,7 @@ import { CODE } from '../utils/response';
 jest.mock('../prisma', () => ({
   prisma: {
     follow: {
-      findMany: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
     },
     post: {
       findMany: jest.fn(),
@@ -29,7 +29,16 @@ jest.mock('../prisma', () => ({
       findMany: jest.fn(),
     },
     user: {
-      findUnique: jest.fn().mockResolvedValue({ deletedAt: null }),
+      findUnique: jest.fn().mockResolvedValue({ status: 1, deletedAt: null }),
+    },
+    // accessControl 依赖：默认无隐私限制、无拉黑，全部公开可见
+    privacySettings: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
+    blocklist: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findUnique: jest.fn().mockResolvedValue(null),
     },
   },
 }));

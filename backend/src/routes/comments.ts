@@ -7,6 +7,8 @@ import * as reportService from '../services/reportService';
 import { SensitiveWordError } from '../utils/errors';
 
 // 该路由挂在 /v1 下，因此路径为完整路径
+import { asyncHandler } from '../middleware/asyncHandler';
+
 const router = Router();
 
 // 举报理由枚举（与 reportService 对齐）
@@ -21,15 +23,15 @@ const VALID_REASONS = [
 ];
 
 // 评论列表：GET /v1/posts/:id/comments?page=1&limit=50
-router.get('/posts/:id/comments', async (req: AuthRequest, res: Response) => {
+router.get('/posts/:id/comments', asyncHandler(async (req: AuthRequest, res: Response) => {
   const postId = Number(req.params.id);
   const page = req.query.page ? Number(req.query.page) : 1;
   const data = await commentService.listComments(postId, page);
   return ok(res, data);
-});
+}));
 
 // 发布评论：POST /v1/posts/:id/comments
-router.post('/posts/:id/comments', auth, async (req: AuthRequest, res: Response) => {
+router.post('/posts/:id/comments', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const postId = Number(req.params.id);
   const { content, parentId, isFact } = req.body ?? {};
   if (!content) return fail(res, CODE.BAD_REQUEST, '评论内容必填');
@@ -49,10 +51,10 @@ router.post('/posts/:id/comments', auth, async (req: AuthRequest, res: Response)
     console.error('[comments.create] error:', e);
     return fail(res, CODE.SERVER_ERROR, '评论失败', 500);
   }
-});
+}));
 
 // 删除评论（仅本人）：DELETE /v1/comments/:id
-router.delete('/comments/:id', auth, async (req: AuthRequest, res: Response) => {
+router.delete('/comments/:id', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const id = Number(req.params.id);
   const result = await commentService.deleteComment(id, req.userId!);
   if (!result.ok) {
@@ -60,10 +62,10 @@ router.delete('/comments/:id', auth, async (req: AuthRequest, res: Response) => 
     if (result.reason === 'forbidden') return fail(res, CODE.FORBIDDEN, '只能删除自己的评论', 403);
   }
   return ok(res, null, '已删除');
-});
+}));
 
 // 评论点赞（顶）：POST /v1/comments/:id/up（幂等）
-router.post('/comments/:id/up', auth, async (req: AuthRequest, res: Response) => {
+router.post('/comments/:id/up', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const commentId = Number(req.params.id);
   if (!commentId) return fail(res, CODE.BAD_REQUEST, '无效评论ID');
   try {
@@ -79,10 +81,10 @@ router.post('/comments/:id/up', auth, async (req: AuthRequest, res: Response) =>
   } catch (e) {
     return fail(res, CODE.SERVER_ERROR, (e as Error).message);
   }
-});
+}));
 
 // 取消评论点赞：DELETE /v1/comments/:id/up（幂等）
-router.delete('/comments/:id/up', auth, async (req: AuthRequest, res: Response) => {
+router.delete('/comments/:id/up', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const commentId = Number(req.params.id);
   if (!commentId) return fail(res, CODE.BAD_REQUEST, '无效评论ID');
   try {
@@ -96,10 +98,10 @@ router.delete('/comments/:id/up', auth, async (req: AuthRequest, res: Response) 
   } catch (e) {
     return fail(res, CODE.SERVER_ERROR, (e as Error).message);
   }
-});
+}));
 
 // 举报评论：POST /v1/comments/:id/report
-router.post('/comments/:id/report', auth, async (req: AuthRequest, res: Response) => {
+router.post('/comments/:id/report', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const commentId = Number(req.params.id);
   if (!commentId) return fail(res, CODE.BAD_REQUEST, '无效评论ID');
   const { reason, description } = req.body ?? {};
@@ -129,6 +131,6 @@ router.post('/comments/:id/report', auth, async (req: AuthRequest, res: Response
       return fail(res, CODE.NOT_FOUND, '评论不存在', 404);
     return fail(res, CODE.SERVER_ERROR, '举报失败', 500);
   }
-});
+}));
 
 export default router;

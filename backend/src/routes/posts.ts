@@ -8,6 +8,8 @@ import * as postService from '../services/postService';
 import * as reportService from '../services/reportService';
 import { SensitiveWordError } from '../utils/errors';
 
+import { asyncHandler } from '../middleware/asyncHandler';
+
 const router = Router();
 
 // 软鉴权（仅用于公开浏览 GET 路由：信息流 / 详情）：
@@ -40,7 +42,7 @@ const VALID_REASONS = [
 
 // 帖子列表：GET /v1/posts?page=1&limit=20&sort=hot|latest|recommend&tag=数码选购&author=1
 // 软鉴权：匿名可浏览；带合法 token 时按 viewerId 批量打标 myUp/myBookmark。
-router.get('/', async (req: AuthRequest, res: Response) => {
+router.get('/', asyncHandler(async (req: AuthRequest, res: Response) => {
   const { page, limit, sort, tag, author, keyword } = req.query;
   const data = await postService.listPosts({
     page: page ? Number(page) : 1,
@@ -52,12 +54,12 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     viewerId: resolveViewerId(req),
   });
   return ok(res, data);
-});
+}));
 
 // 关注流：GET /v1/posts/following?page=&limit=&sort=&tag=&keyword=
 // 仅当前用户关注的人的公开帖（必须登录，由 auth 中间件保证）
 // ⚠️ 必须注册在 GET /:id 之前，否则 /following 会被当作 id='following' 命中详情路由。
-router.get('/following', auth, async (req: AuthRequest, res: Response) => {
+router.get('/following', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const { page, limit, sort, tag, keyword } = req.query;
   const data = await postService.listPosts({
     page: page ? Number(page) : 1,
@@ -69,13 +71,13 @@ router.get('/following', auth, async (req: AuthRequest, res: Response) => {
     viewerId: req.userId,
   });
   return ok(res, data);
-});
+}));
 
 // 热帖：GET /v1/posts/hotspot?windowHours=24&page=1&limit=20&tag=xxx
 // 时窗加权热帖（综合点赞/评论/收藏，按时效衰减排序）
 // 软鉴权：匿名可浏览；带合法 token 时按 viewerId 批量打标 myUp/myBookmark。
 // ⚠️ 必须注册在 GET /:id 之前。
-router.get('/hotspot', async (req: AuthRequest, res: Response) => {
+router.get('/hotspot', asyncHandler(async (req: AuthRequest, res: Response) => {
   const { windowHours, page, limit, tag } = req.query;
   const data = await postService.listHotPosts({
     windowHours: windowHours ? Number(windowHours) : 24,
@@ -85,21 +87,21 @@ router.get('/hotspot', async (req: AuthRequest, res: Response) => {
     viewerId: resolveViewerId(req),
   });
   return ok(res, data);
-});
+}));
 
 // 帖子详情：GET /v1/posts/:id
 // 软鉴权：匿名可访问；带合法 token 时返回该帖的 myUp/myBookmark。
-router.get('/:id', async (req: AuthRequest, res: Response) => {
+router.get('/:id', asyncHandler(async (req: AuthRequest, res: Response) => {
   const id = Number(req.params.id);
   if (!id) return fail(res, CODE.BAD_REQUEST, '无效帖子ID');
   const viewerId = resolveViewerId(req);
   const post = await postService.getPost(id, viewerId);
   if (!post) return fail(res, CODE.NOT_FOUND, '帖子不存在', 404);
   return ok(res, post);
-});
+}));
 
 // 发布帖子（进入待审核）：POST /v1/posts
-router.post('/', auth, async (req: AuthRequest, res: Response) => {
+router.post('/', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const { title, genre, content, tags, images } = req.body ?? {};
   if (!title || !genre) return fail(res, CODE.BAD_REQUEST, '标题和体裁必填');
   // 输入长度 / 数量校验（防滥用）
@@ -125,10 +127,10 @@ router.post('/', auth, async (req: AuthRequest, res: Response) => {
     console.error('[posts.create] error:', e);
     return fail(res, CODE.SERVER_ERROR, '发布失败', 500);
   }
-});
+}));
 
 // 删除帖子（仅本人）：DELETE /v1/posts/:id
-router.delete('/:id', auth, async (req: AuthRequest, res: Response) => {
+router.delete('/:id', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   try {
     const id = Number(req.params.id);
     if (!id || isNaN(id)) return fail(res, CODE.BAD_REQUEST, '无效帖子ID');
@@ -144,10 +146,10 @@ router.delete('/:id', auth, async (req: AuthRequest, res: Response) => {
     console.error('[deletePost] 失败:', msg);
     return fail(res, CODE.SERVER_ERROR, '删除失败：' + msg, 500);
   }
-});
+}));
 
 // 编辑帖子（仅本人）：PUT /v1/posts/:id
-router.put('/:id', auth, async (req: AuthRequest, res: Response) => {
+router.put('/:id', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const id = Number(req.params.id);
   if (!id || isNaN(id)) return fail(res, CODE.BAD_REQUEST, '无效帖子ID');
   const result = await postService.updatePost(id, req.userId!, req.body ?? {});
@@ -156,10 +158,10 @@ router.put('/:id', auth, async (req: AuthRequest, res: Response) => {
     if (result.reason === 'forbidden') return fail(res, CODE.FORBIDDEN, '只能编辑自己的帖子', 403);
   }
   return ok(res, result.post);
-});
+}));
 
 // 辩论投票：POST /v1/posts/:id/vote { choice: 'A' | 'B' }（幂等，同用户改票以最后一次为准）
-router.post('/:id/vote', auth, async (req: AuthRequest, res: Response) => {
+router.post('/:id/vote', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const postId = Number(req.params.id);
   const choice = req.body?.choice as string;
   if (!postId || isNaN(postId)) return fail(res, CODE.BAD_REQUEST, '无效帖子ID');
@@ -192,10 +194,10 @@ router.post('/:id/vote', auth, async (req: AuthRequest, res: Response) => {
   } catch (e) {
     return fail(res, CODE.SERVER_ERROR, (e as Error).message);
   }
-});
+}));
 
 // 举报帖子：POST /v1/posts/:id/report
-router.post('/:id/report', auth, async (req: AuthRequest, res: Response) => {
+router.post('/:id/report', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const postId = Number(req.params.id);
   if (!postId) return fail(res, CODE.BAD_REQUEST, '无效帖子ID');
   const { reason, description } = req.body ?? {};
@@ -225,6 +227,6 @@ router.post('/:id/report', auth, async (req: AuthRequest, res: Response) => {
       return fail(res, CODE.NOT_FOUND, '帖子不存在', 404);
     return fail(res, CODE.SERVER_ERROR, '举报失败', 500);
   }
-});
+}));
 
 export default router;

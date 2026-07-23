@@ -33,6 +33,10 @@ jest.mock('../prisma', () => ({
     user: {
       findUnique: jest.fn().mockResolvedValue({ deletedAt: null }),
     },
+    // notificationPrefService（notifySystem 链路）依赖：默认无偏好记录 → 全部允许
+    notificationPreference: {
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
   },
 }));
 
