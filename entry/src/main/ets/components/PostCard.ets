@@ -72,7 +72,7 @@ export struct PostCard {
       if (this.post.coverImage) {
         Image(this.post.coverImage)
           .width('100%')
-          .aspectRatio(1.4)
+          .aspectRatio(1.2)
           .objectFit(ImageFit.Cover)
           .borderRadius(CARD_COVER_RADIUS)
           .margin({ bottom: CARD_INNER_GAP })

@@ -626,7 +626,7 @@ struct DetailPage {
                   this.images,
                   (url: string) => {
                     Image(url)
-                      .width('32%')
+                      .width(this.images.length === 1 ? '100%' : '48%')
                       .aspectRatio(1)
                       .objectFit(ImageFit.Cover)
                       .borderRadius(8)
