@@ -249,6 +249,19 @@ export struct HomeTab {
     }
   }
 
+  // 瀑布流底部「没有更多了」footer：仅 finished 时渲染，否则占位 0 高度
+  @Builder
+  feedFooter(): void {
+    if (this.finished) {
+      Text('没有更多了')
+        .fontSize(12)
+        .fontColor($r('app.color.text_secondary'))
+        .width('100%')
+        .textAlign(TextAlign.Center)
+        .padding(16)
+    }
+  }
+
   build() {
     Column() {
       if (this.showPanel) {
@@ -422,11 +435,13 @@ export struct HomeTab {
           .justifyContent(FlexAlign.Center)
         } else {
           Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
-            Grid() {
+            // 瀑布流：每列独立流动，卡片仅以 rowsGap 与同列上下卡片贴靠，
+            // 彻底消除 Grid 等高行造成的「矮卡片底部留白」问题
+            WaterFlow({ footer: this.feedFooter }) {
               LazyForEach(
                 this.postSource,
                 (post: Post, idx: number) => {
-                  GridItem() {
+                  FlowItem() {
                     PostCard({ post: post })
                       .transition(TransitionEffect.OPACITY
                         .animation({ duration: 350, curve: Curve.EaseOut })
@@ -444,18 +459,6 @@ export struct HomeTab {
                 },
                 (post: Post, idx: number) => (post.id ?? idx).toString()
               )
-              if (this.finished) {
-                GridItem() {
-                  Text('没有更多了')
-                    .fontSize(12)
-                    .fontColor($r('app.color.text_secondary'))
-                    .width('100%')
-                    .textAlign(TextAlign.Center)
-                    .padding(16)
-                }
-                .columnStart(0)
-                .columnEnd(this.gridColumns - 1)
-              }
             }
             .columnsTemplate(this.gridTemplate)
             .columnsGap(GRID_GAP)
