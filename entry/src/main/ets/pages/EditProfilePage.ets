@@ -5,11 +5,11 @@ import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { image } from '@kit.ImageKit';
 import { util } from '@kit.ArkTS';
 import { http } from '@kit.NetworkKit';
-import { getCurrentUser, setSession, ensureLogin } from '../utils/auth';
-import { updateMe, getUploadSignature } from '../services/api';
+import { getCurrentUser, setSession, ensureLogin, getToken } from '../utils/auth';
+import { updateMe, getUploadSignature, getUserProfile } from '../services/api';
 import { compressAvatar, CompressedImage } from '../utils/image';
 import { safeShowToast } from '../utils/toast';
-import { User } from '../models/types';
+import { User, UserProfile } from '../models/types';
 import { buildPageTransition } from '../utils/styles';
 import { AvatarView } from '../components/AvatarView';
 
@@ -32,6 +32,37 @@ export struct EditProfilePage {
       this.bio = u.bio ?? '';
       this.selectedGender = u.gender ? String(u.gender) : '0';
       this.avatar = u.avatar ?? '';
+    }
+    // 旧安装包本地从未存过 bio/gender，打开时从后端补全，避免再次手动重填
+    this.syncFromServer();
+  }
+
+  // 从后端拉取最新资料补全 bio/gender（网络失败则保留本地缓存，不阻断编辑）
+  private async syncFromServer(): Promise<void> {
+    const u: User | null = getCurrentUser();
+    const id: number = u?.id ?? 0;
+    if (id === 0) {
+      return;
+    }
+    try {
+      const p: UserProfile = await getUserProfile(id);
+      this.bio = p.bio ?? this.bio;
+      this.selectedGender = p.gender ? String(p.gender) : '0';
+      // 同步回本地 session，避免下次再走网络
+      const cur: User | null = getCurrentUser();
+      if (cur) {
+        const next: User = {
+          id: cur.id,
+          nickname: cur.nickname,
+          avatar: cur.avatar,
+          bio: this.bio,
+          gender: p.gender ?? undefined,
+          isAdmin: cur.isAdmin,
+        };
+        setSession(getToken(), next);
+      }
+    } catch (e) {
+      // 网络失败：保留本地缓存值，不阻断编辑
     }
   }
 

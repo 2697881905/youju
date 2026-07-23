@@ -57,8 +57,8 @@ export struct ProfilePage {
         nickname: cached.nickname,
         avatar: cached.avatar,
         isAdmin: cached.isAdmin,
-        gender: this.user.gender,
-        bio: this.user.bio,
+        gender: cached.gender,
+        bio: cached.bio,
         followTags: this.user.followTags,
       };
     }
@@ -226,9 +226,19 @@ export struct ProfilePage {
           ringWidth: 2
         })
         Column({ space: 4 }) {
-          Text(this.user.nickname ?? '未登录')
-            .fontSize(18).fontWeight(FontWeight.Medium)
-            .fontColor($r('app.color.text_primary'))
+          Row({ space: 6 }) {
+            Text(this.user.nickname ?? '未登录')
+              .fontSize(18).fontWeight(FontWeight.Medium)
+              .fontColor($r('app.color.text_primary'))
+            if (this.user.gender === 1 || this.user.gender === 2) {
+              Text(this.user.gender === 1 ? '男' : '女')
+                .fontSize(11)
+                .fontColor($r('app.color.brand_primary'))
+                .padding({ left: 8, right: 8, top: 2, bottom: 2 })
+                .backgroundColor($r('app.color.bg_secondary'))
+                .borderRadius(10)
+            }
+          }
           if (this.user.bio) {
             Text(this.user.bio)
               .fontSize(12).fontColor($r('app.color.text_secondary'))
