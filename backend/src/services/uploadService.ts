@@ -8,23 +8,40 @@ export interface UploadSignature {
   url: string; // 预签名 PUT URL（前端直传目标）
   key: string; // 对象 Key（存 DB 用）
   cdnUrl: string; // 直传成功后「公开可读」时访问的 URL（有 CDN 则用 CDN，否则与 url 同）
-  viewUrl: string; // 直传后「始终可读」的 GET 预签名 URL（私有桶/未配 CDN 也能加载，前端展示与存储一律用这个）
+  viewUrl: string; // 直传后「始终可读」的 URL（COS=GET 预签名；本地=静态直链），前端展示与存储一律用这个
   contentType: string; // 前端 PUT 时必须带上的 Content-Type（需与签名一致）
 }
 
-function assertCosConfigured(): void {
+// 是否具备真实可用的 COS 凭据（secretId/secretKey/bucket/region 齐全）
+function isCosConfigured(): boolean {
   const { secretId, secretKey, bucket, region } = env.cos;
-  if (!secretId || !secretKey) {
-    throw new Error('COS 未配置：请在 backend/.env 填写 COS_SECRET_ID 与 COS_SECRET_KEY');
-  }
-  if (!bucket || !region) {
-    throw new Error('COS 未配置：请在 backend/.env 填写 COS_BUCKET 与 COS_REGION');
-  }
+  return Boolean(secretId && secretKey && bucket && region);
 }
 
-// 生成单张图片的预签名 PUT URL（默认按 jpeg 签名 Content-Type）
-export function getUploadSignature(contentType: string = 'image/jpeg'): Promise<UploadSignature> {
-  assertCosConfigured();
+// 本地文件存储模式（无真实 COS 时的开发期兜底）：
+// 前端直传二进制到后端 PUT /v1/upload/local，后端落盘到 uploads/，返回静态直链。
+function localUploadSignature(contentType: string): UploadSignature {
+  const ext = contentType.includes('png')
+    ? 'png'
+    : contentType.includes('webp')
+      ? 'webp'
+      : contentType.includes('gif')
+        ? 'gif'
+        : 'jpg';
+  const key = `avatars/${randomUUID()}.${ext}`;
+  const base = env.backendPublicUrl.replace(/\/$/, '');
+  const viewUrl = `${base}/uploads/${key}`;
+  return {
+    url: `${base}/v1/upload/local?key=${encodeURIComponent(key)}`,
+    key,
+    cdnUrl: viewUrl,
+    viewUrl,
+    contentType,
+  };
+}
+
+// COS 模式：生成 PUT + GET 预签名 URL
+function cosUploadSignature(contentType: string): Promise<UploadSignature> {
   const { secretId, secretKey, bucket, region, cdnBase } = env.cos;
   const cos = new COS({ SecretId: secretId, SecretKey: secretKey });
 
@@ -35,7 +52,6 @@ export function getUploadSignature(contentType: string = 'image/jpeg'): Promise<
 
   return new Promise<UploadSignature>((resolve, reject) => {
     // 1) 生成 PUT 预签名 URL（前端直传目标）
-    // params 转 any：cos-nodejs-sdk-v5 的类型定义未必暴露 Headers，但运行时支持把 Content-Type 纳入签名
     const putParams: any = {
       Bucket: bucket,
       Region: region,
@@ -43,7 +59,6 @@ export function getUploadSignature(contentType: string = 'image/jpeg'): Promise<
       Method: 'PUT',
       Sign: true,
       Expires: 600,
-      // 把 Content-Type 纳入签名：前端 PUT 时务必带上完全相同的 Content-Type
       Headers: { 'Content-Type': contentType },
     };
     cos.getObjectUrl(putParams, (putErr: any, putData: any) => {
@@ -59,10 +74,9 @@ export function getUploadSignature(contentType: string = 'image/jpeg'): Promise<
         Key: key,
         Method: 'GET',
         Sign: true,
-        Expires: 31536000, // 1 年，作为用户头像/封面等长期可读链接
+        Expires: 31536000,
       };
       cos.getObjectUrl(getParams, (getErr: any, getData: any) => {
-        // GET 签名兜底：极端情况下失败则回退到 cdnUrl（公开可读时才生效）
         const viewUrl: string = getErr ? url : getData.Url;
         const base = cdnBase ? cdnBase.replace(/\/$/, '') : '';
         const cdnUrl = base ? `${base}/${key}` : url;
@@ -70,4 +84,13 @@ export function getUploadSignature(contentType: string = 'image/jpeg'): Promise<
       });
     });
   });
+}
+
+// 生成单张图片的上传签名（默认 image/jpeg）。
+// 配置了真实 COS → 返回 COS 预签名 URL；未配置 → 返回本地文件直传签名。
+export function getUploadSignature(contentType: string = 'image/jpeg'): Promise<UploadSignature> {
+  if (isCosConfigured()) {
+    return cosUploadSignature(contentType);
+  }
+  return Promise.resolve(localUploadSignature(contentType));
 }

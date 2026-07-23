@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import path from 'path';
+import fs from 'fs';
 import { env } from './config/env';
 import authRouter from './routes/auth';
 import postRouter from './routes/posts';
@@ -24,6 +26,13 @@ import { globalLimiter, loginLimiter, uploadLimiter } from './middleware/rateLim
 
 export const app = express();
 
+// 本地文件上传目录（无真实对象存储的开发期兜底）：启动时确保存在
+try {
+  fs.mkdirSync(env.uploadsDir, { recursive: true });
+} catch (e) {
+  console.warn('[warn] 创建 uploads 目录失败：', (e as Error).message);
+}
+
 // 安全响应头（CSP / HSTS / X-Content-Type-Options 等）
 app.use(helmet());
 
@@ -39,6 +48,9 @@ app.use(cors(allowedOrigins ? { origin: allowedOrigins } : undefined));
 app.use(express.json());
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
+
+// 本地上传文件静态服务（仅开发期无 COS 时使用；生产应改用对象存储直链）
+app.use('/uploads', express.static(env.uploadsDir));
 
 // 启动时加载敏感词库（文件不存在时降级为空词库，不拦截）
 sensitiveWordService.loadFromFiles([

@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import path from 'path';
 
 dotenv.config();
 
@@ -32,4 +33,8 @@ export const env = {
   reportThreshold: Number(process.env.REPORT_THRESHOLD ?? 3),
   // CORS 允许的源（逗号分隔）。留空 = 允许所有（仅开发期，生产务必配置具体域名）。
   corsOrigin: process.env.CORS_ORIGIN ?? '',
+  // 本地文件上传（无真实对象存储时的开发期兜底）：对外可访问的基础地址 + 落盘目录
+  // 模拟器通过 BASE_URL（默认 http://127.0.0.1:3000）访问，故此处默认与之对齐。
+  backendPublicUrl: process.env.BACKEND_PUBLIC_URL ?? 'http://127.0.0.1:3000',
+  uploadsDir: process.env.UPLOADS_DIR ?? path.resolve(process.cwd(), 'uploads'),
 };
