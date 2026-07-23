@@ -18,11 +18,11 @@ export const CARD_SHADOW: ShadowOptions = {
   offsetY: 2
 };
 
-// 网格列间距 / 行间距（比旧值 12 收紧，让卡片排布更紧凑）
-export const GRID_GAP: number = 10;
+// 网格列间距 / 行间距（再收紧一档，让卡片排布更紧凑）
+export const GRID_GAP: number = 6;
 
-// 网格外边距（比旧值 12/16 收紧）
-export const GRID_PADDING: number = 10;
+// 网格外边距（再收紧一档）
+export const GRID_PADDING: number = 8;
 
 // 卡片内部元素纵向间距（标题↔作者↔互动行的间距，比旧值 10 收紧）
 export const CARD_INNER_GAP: number = 8;
