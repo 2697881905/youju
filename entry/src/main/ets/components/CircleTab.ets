@@ -12,6 +12,53 @@ import { CARD_RADIUS, CARD_PADDING, CARD_SHADOW, GRID_GAP, GRID_PADDING } from '
 import { common } from '@kit.AbilityKit';
 
 @Component
+struct CircleCard {
+  @Prop name: string = '';
+  @Prop emoji: string = '';
+  @Prop followCount: number = 0;
+  @Prop joined: boolean = false;
+  @Prop toggling: boolean = false;
+  // 普通属性（回调）：由父组件在 ForEach 中传入，非 @Prop/@Link
+  onToggle: () => void = () => {};
+
+  build() {
+    Column({ space: 10 }) {
+      Column({ space: 6 }) {
+        TagIcon({ name: this.name, iconSize: 40, tint: $r('app.color.brand_primary') })
+        Text(this.name)
+          .fontSize(15)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.text_primary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Text(this.followCount + ' 人加入')
+          .fontSize(12)
+          .fontColor($r('app.color.text_secondary'))
+      }
+      .width('100%')
+      .alignItems(HorizontalAlign.Center)
+
+      Button(this.joined ? '已加入' : '加入圈子')
+        .width('100%')
+        .height(32)
+        .fontSize(13)
+        .fontWeight(FontWeight.Medium)
+        .enabled(!this.toggling)
+        .backgroundColor(this.joined ? $r('app.color.bg_secondary') : $r('app.color.brand_primary'))
+        .fontColor(this.joined ? $r('app.color.brand_primary') : '#FFFFFF')
+        .border(this.joined ? { width: 1, color: $r('app.color.brand_primary') } : { width: 0 })
+        .borderRadius(16)
+        .onClick(() => { this.onToggle(); })
+    }
+    .width('100%')
+    .padding(CARD_PADDING)
+    .backgroundColor($r('app.color.card_bg'))
+    .borderRadius(CARD_RADIUS)
+    .shadow(CARD_SHADOW)
+  }
+}
+
+@Component
 export struct CircleTab {
   @State circles: Tag[] = [];
   @State joinedNames: string[] = [];
@@ -135,51 +182,6 @@ export struct CircleTab {
     }
   }
 
-  @Builder
-  circleCard(c: Tag): void {
-    Column({ space: 10 }) {
-      // 线条图标 + 圈子名
-      Column({ space: 6 }) {
-        TagIcon({ name: c.name ?? '', iconSize: 40, tint: $r('app.color.brand_primary') })
-        Text(c.name ?? '')
-          .fontSize(15)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.text_primary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text((c.followCount ?? 0) + ' 人加入')
-          .fontSize(12)
-          .fontColor($r('app.color.text_secondary'))
-      }
-      .width('100%')
-      .alignItems(HorizontalAlign.Center)
-
-      // 加入/已加入按钮
-      Button(this.isJoined(c.name ?? '') ? '已加入' : '加入圈子')
-        .width('100%')
-        .height(32)
-        .fontSize(13)
-        .fontWeight(FontWeight.Medium)
-        .enabled(this.togglingName !== (c.name ?? ''))
-        .backgroundColor(this.isJoined(c.name ?? '')
-          ? $r('app.color.bg_secondary')
-          : $r('app.color.brand_primary'))
-        .fontColor(this.isJoined(c.name ?? '')
-          ? $r('app.color.brand_primary')
-          : '#FFFFFF')
-        .border(this.isJoined(c.name ?? '')
-          ? { width: 1, color: $r('app.color.brand_primary') }
-          : { width: 0 })
-        .borderRadius(16)
-        .onClick(() => { this.toggleJoin(c.name ?? ''); })
-    }
-    .width('100%')
-    .padding(CARD_PADDING)
-    .backgroundColor($r('app.color.card_bg'))
-    .borderRadius(CARD_RADIUS)
-    .shadow(CARD_SHADOW)
-  }
-
   build() {
     Column() {
       // 标题
@@ -235,7 +237,14 @@ export struct CircleTab {
               this.circles,
               (c: Tag) => {
                 GridItem() {
-                  this.circleCard(c)
+                  CircleCard({
+                    name: c.name ?? '',
+                    emoji: c.emoji ?? '',
+                    followCount: c.followCount ?? 0,
+                    joined: this.isJoined(c.name ?? ''),
+                    toggling: this.togglingName === (c.name ?? ''),
+                    onToggle: () => { this.toggleJoin(c.name ?? ''); }
+                  })
                 }
               },
               (c: Tag) => c.name ?? ''
