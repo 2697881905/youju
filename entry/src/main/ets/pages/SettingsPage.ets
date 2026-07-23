@@ -155,7 +155,7 @@ export struct SettingsPage {
   }
 
   @Builder
-  toggleRow(icon: string, title: string, desc: string, isOn: boolean, onChange: (on: boolean) => void): void {
+  toggleRow(icon: string, title: string, desc: string, isOn: boolean, onChange: (on: boolean) => void, enabled: boolean = true): void {
     Row({ space: 12 }) {
       Image(resolveSettingsIcon(icon))
         .width(22).height(22)
@@ -172,6 +172,8 @@ export struct SettingsPage {
       .alignItems(HorizontalAlign.Start)
       .layoutWeight(1)
       Toggle({ type: ToggleType.Switch, isOn: isOn })
+        .enabled(enabled)
+        .opacity(enabled ? 1 : 0.4)
         .onChange((on: boolean) => {
           onChange(on);
         })
@@ -261,12 +263,10 @@ export struct SettingsPage {
               setFollowSystem(on);
             });
 
-            // 深色模式（仅在不跟随系统时可用）
-            if (!this.followSystem) {
-              this.toggleRow('dark', '深色模式', '关闭后使用浅色主题', this.darkMode, (on: boolean): void => {
-                toggleDarkMode(on);
-              });
-            }
+            // 深色模式（跟随系统时禁用，不消失）
+            this.toggleRow('dark', '深色模式', '关闭后使用浅色主题', this.darkMode, (on: boolean): void => {
+              toggleDarkMode(on);
+            }, !this.followSystem);
 
             this.sectionRow('trash', '清除缓存', (): void => {
               this.onClearCacheClick();

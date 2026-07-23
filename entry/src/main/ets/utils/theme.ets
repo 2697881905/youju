@@ -1,8 +1,9 @@
 // 主题工具：深色/浅色模式切换
-// 策略：
-// - 跟随系统时调 setColorMode(COLOR_MODE_NOT_SET)，系统自动管颜色，onConfigurationUpdate 只更新缓存不调 setColorMode
-// - 手动模式调 setColorMode(DARK/LIGHT) 强制指定
-// - preferences 持久化 followSystem/isDarkMode，AppStorage 供 @StorageLink 双向绑定
+// 策略（最保守版）：
+// - setFollowSystem 不调 setColorMode，只更新 AppStorage + preferences
+// - toggleDarkMode 调 setColorMode(DARK/LIGHT) 强制指定
+// - onConfigurationUpdate 只更新缓存，不调 setColorMode
+// - 消除所有 setColorMode 递归/异常路径
 
 import { ConfigurationConstant, common } from '@kit.AbilityKit';
 import { preferences } from '@kit.ArkData';
@@ -19,7 +20,6 @@ export function initThemeContext(ctx: common.ApplicationContext): void {
   try {
     _prefs = preferences.getPreferencesSync(ctx, { name: PREF_NAME });
   } catch (e) {
-    // 初始化失败静默
   }
 }
 
@@ -29,11 +29,10 @@ export function loadThemeFromPrefs(): void {
   }
   try {
     const follow: boolean = _prefs.getSync(KEY_FOLLOW_SYSTEM, true) as boolean;
-    const dark: boolean = _prefs.getSync(KEY_IS_DARK, true) as boolean;
+    const dark: boolean = _prefs.getSync(KEY_IS_DARK, false) as boolean;
     AppStorage.setOrCreate('followSystem', follow);
     AppStorage.setOrCreate('isDarkMode', dark);
   } catch (e) {
-    // 首次无缓存
   }
 }
 
@@ -71,7 +70,6 @@ export function isFollowSystem(): boolean {
   return (AppStorage.get<boolean>('followSystem') ?? true) as boolean;
 }
 
-// 手动切换深/浅色（仅在 !followSystem 时由用户操作触发）
 export function toggleDarkMode(dark: boolean): void {
   AppStorage.setOrCreate('isDarkMode', dark);
   saveIsDark(dark);
@@ -86,23 +84,14 @@ export function toggleDarkMode(dark: boolean): void {
   }
 }
 
-// 切换是否跟随系统
-// 开启跟随 → setColorMode(COLOR_MODE_NOT_SET) 交还系统控制，系统自动管颜色
-// 关闭跟随 → 不调 setColorMode，保持当前颜色，等用户手动选深色/浅色
 export function setFollowSystem(follow: boolean): void {
   AppStorage.setOrCreate('followSystem', follow);
   saveFollowSystem(follow);
+  // 不调 setColorMode — 避免任何副作用
+  // 跟随系统时系统自动管颜色（应用未调 setColorMode 即默认跟随）
+  // 手动模式时由 toggleDarkMode 调 setColorMode 强制指定
   if (follow) {
-    // 交还系统控制：系统自动按当前系统模式渲染资源
-    if (_appContext !== null) {
-      try {
-        _appContext.setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET);
-      } catch (e) {
-      }
-    }
-    // 同步 isDarkMode 缓存为系统当前值
     const sysDark: boolean = getSystemDark();
     AppStorage.setOrCreate('isDarkMode', sysDark);
   }
-  // follow=false 时不调 setColorMode，当前颜色保持不变
 }
