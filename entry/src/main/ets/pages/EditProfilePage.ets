@@ -10,6 +10,7 @@ import { compressImage, CompressedImage } from '../utils/image';
 import { safeShowToast } from '../utils/toast';
 import { User } from '../models/types';
 import { buildPageTransition } from '../utils/styles';
+import { AvatarView } from '../components/AvatarView';
 
 @Entry
 @Component
@@ -197,21 +198,13 @@ export struct EditProfilePage {
                   .width(36)
                   .height(36)
                   .color($r('app.color.text_secondary'));
-              } else if (this.avatar.length > 0) {
-                Image(this.avatar)
-                  .width(80)
-                  .height(80)
-                  .borderRadius(40)
-                  .objectFit(ImageFit.Cover);
               } else {
-                Text(this.nickname.trim().length > 0 ? this.nickname.trim().charAt(0) : '?')
-                  .width(80)
-                  .height(80)
-                  .borderRadius(40)
-                  .fontSize(28)
-                  .fontColor(Color.White)
-                  .backgroundColor($r('app.color.brand_primary'))
-                  .textAlign(TextAlign.Center);
+                AvatarView({
+                  avatar: this.avatar,
+                  name: this.nickname,
+                  avatarSize: 80,
+                  ringWidth: 2
+                })
               }
               Text('点击更换头像')
                 .fontSize(12)

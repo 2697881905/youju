@@ -8,6 +8,7 @@ import { safeShowToast } from '../utils/toast';
 import { setDetailPostId } from '../utils/nav';
 import { observeGridColumns, gridColumnTemplate } from '../utils/responsive';
 import { GRID_GAP, GRID_PADDING } from '../utils/cardTokens';
+import { AvatarView } from '../components/AvatarView';
 import { common } from '@kit.AbilityKit';
 
 const SUB_TABS: string[] = ['我发布', '我收藏', '我赞过', '我评论'];
@@ -199,17 +200,12 @@ export struct ProfilePage {
 
       // 用户信息卡
       Row({ space: 14 }) {
-        if (this.user.avatar) {
-          Image(this.user.avatar)
-            .width(64).height(64).borderRadius(32)
-            .objectFit(ImageFit.Cover)
-        } else {
-          Text((this.user.nickname ?? '我').charAt(0))
-            .width(64).height(64).borderRadius(32)
-            .fontSize(28).fontColor('#fff')
-            .backgroundColor($r('app.color.brand_primary'))
-            .textAlign(TextAlign.Center)
-        }
+        AvatarView({
+          avatar: this.user.avatar ?? '',
+          name: this.user.nickname ?? '我',
+          avatarSize: 64,
+          ringWidth: 2
+        })
         Column({ space: 4 }) {
           Text(this.user.nickname ?? '未登录')
             .fontSize(18).fontWeight(FontWeight.Medium)

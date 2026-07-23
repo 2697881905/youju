@@ -26,14 +26,14 @@ export function isFollowSystem(): boolean {
 }
 
 export function toggleDarkMode(dark: boolean): void {
-  if (_appContext === null) {
-    return;
-  }
   const prev: boolean | undefined = AppStorage.get<boolean>('isDarkMode');
   AppStorage.setOrCreate('isDarkMode', dark);
   // 值未变化时跳过 setColorMode，避免 self-trigger loop：
   //   setColorMode → onConfigurationUpdate → toggleDarkMode → setColorMode → ...
   if (prev === dark) {
+    return;
+  }
+  if (_appContext === null) {
     return;
   }
   try {

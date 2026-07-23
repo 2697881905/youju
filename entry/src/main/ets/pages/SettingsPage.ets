@@ -4,7 +4,7 @@
 import { getIsAdmin, clearSession } from '../utils/auth';
 import { deactivateAccount, clearSearchHistory, exportUserData } from '../services/api';
 import { safeShowToast } from '../utils/toast';
-import { toggleDarkMode, isDarkMode, isFollowSystem, setFollowSystem, getSystemDark } from '../utils/theme';
+import { toggleDarkMode, setFollowSystem, getSystemDark } from '../utils/theme';
 import { buildPageTransition } from '../utils/styles';
 import { CARD_RADIUS, CARD_SHADOW } from '../utils/cardTokens';
 import { resolveSettingsIcon } from '../utils/settingsIcons';
@@ -14,14 +14,12 @@ import { window } from '@kit.ArkUI';
 @Component
 export struct SettingsPage {
   @State isAdmin: boolean = getIsAdmin();
-  @State darkMode: boolean = isDarkMode();
-  @State followSystem: boolean = isFollowSystem();
+  @StorageLink('isDarkMode') darkMode: boolean = false;
+  @StorageLink('followSystem') followSystem: boolean = true;
   @State statusBarHeight: number = 0;
 
   aboutToAppear(): void {
     this.isAdmin = getIsAdmin();
-    this.darkMode = isDarkMode();
-    this.followSystem = isFollowSystem();
     this.loadStatusBarHeight();
   }
 

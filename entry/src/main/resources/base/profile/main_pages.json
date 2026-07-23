@@ -13,6 +13,7 @@
     "pages/NotificationSettingsPage",
     "pages/AboutPage",
     "pages/PrivacyPage",
+    "pages/UserAgreementPage",
     "pages/BlocklistPage",
     "pages/PrivacySettingsPage"
   ]

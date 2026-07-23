@@ -18,7 +18,7 @@ export default class EntryAbility extends UIAbility {
       const dark: boolean = AppStorage.get<boolean>('isDarkMode') ?? true;
       toggleDarkMode(dark);
     }
-    AppStorage.setOrCreate('followSystem', true);
+    AppStorage.setOrCreate('followSystem', follow);
     AppStorage.setOrCreate('systemDark', sysDark);
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onCreate');
   }

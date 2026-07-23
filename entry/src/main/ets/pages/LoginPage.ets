@@ -3,12 +3,14 @@
 //   → 「其他方式登录」强调兜底（开发桩，目前唯一可用入口）→ 隐私协议尾巴
 // 华为登录失败（含 AGC 未配置的 Invalid clientId/profile）给出友好提示，
 // 但不阻塞——用户可继续走「其他方式登录」。
+// 颜色全部使用资源色，跟随系统深色/浅色模式自动适配。
 
 import { exchangeHuaweiCode, LoginResult } from '../services/api';
 import { setSession, loginWithDevStub } from '../utils/auth';
 import { HuaweiLoginButton } from '../components/HuaweiLoginButton';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
+import { CARD_RADIUS } from '../utils/cardTokens';
 
 @Entry
 @Component
@@ -36,11 +38,11 @@ struct LoginPage {
         Text('大蓝书')
           .fontSize(28)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#1F2329')
+          .fontColor($r('app.color.text_primary'))
 
         Text('男性生活经验社区')
           .fontSize(14)
-          .fontColor('#86909C')
+          .fontColor($r('app.color.text_secondary'))
           .margin({ bottom: 8 })
       }
       .width('100%')
@@ -51,7 +53,7 @@ struct LoginPage {
         if (this.huaweiErrorTip.length > 0) {
           Text(this.huaweiErrorTip)
             .fontSize(12)
-            .fontColor('#C77700')
+            .fontColor($r('app.color.semantic_orange'))
             .width('80%')
             .textAlign(TextAlign.Center)
         }
@@ -70,15 +72,15 @@ struct LoginPage {
           .opacity(this.huaweiSubmitting ? 0.6 : 1)
 
         // 方式二：其他方式登录（开发桩，预览/模拟器/AGC 未配置时唯一可用入口）
-        // 强调显示：白底 + 主题色描边 + 主色文字，避免与华为按钮撞色
+        // 强调显示：卡片背景 + 主题色描边 + 主色文字，深浅模式自适应
         Button(this.otherSubmitting ? '登录中…' : '其他方式登录')
           .width('80%')
           .height(48)
           .fontSize(16)
-          .fontColor('#1F2329')
-          .backgroundColor('#FFFFFF')
-          .border({ width: 1, color: '#1F2329', style: BorderStyle.Solid })
-          .borderRadius(24)
+          .fontColor($r('app.color.text_primary'))
+          .backgroundColor($r('app.color.card_bg'))
+          .border({ width: 1, color: $r('app.color.text_primary'), style: BorderStyle.Solid })
+          .borderRadius(CARD_RADIUS)
           .enabled(!this.otherSubmitting)
           .opacity(this.otherSubmitting ? 0.6 : 1)
           .onClick((): void => {
@@ -90,32 +92,34 @@ struct LoginPage {
 
       Blank()  // 推底部到底
 
-      // 隐私协议尾巴
+      // 隐私协议尾巴：可点击文字跳转真实页面
       Row() {
         Text('登录即表示同意')
           .fontSize(12)
-          .fontColor('#86909C')
+          .fontColor($r('app.color.text_secondary'))
         Text('《用户协议》')
           .fontSize(12)
-          .fontColor('#1F2329')
+          .fontColor($r('app.color.brand_primary'))
           .onClick((): void => {
-            this.toast('用户协议占位');
+            const ctx = this.getUIContext();
+            ctx.getRouter().pushUrl({ url: 'pages/UserAgreementPage' });
           })
         Text('与')
           .fontSize(12)
-          .fontColor('#86909C')
+          .fontColor($r('app.color.text_secondary'))
         Text('《隐私政策》')
           .fontSize(12)
-          .fontColor('#1F2329')
+          .fontColor($r('app.color.brand_primary'))
           .onClick((): void => {
-            this.toast('隐私政策占位');
+            const ctx = this.getUIContext();
+            ctx.getRouter().pushUrl({ url: 'pages/PrivacyPage' });
           })
       }
       .margin({ bottom: 32 })
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#F7F8FA')
+    .backgroundColor($r('app.color.bg_primary'))
     .transition(buildPageTransition())
   }
 
