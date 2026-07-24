@@ -6,7 +6,7 @@ import { image } from '@kit.ImageKit';
 import { util } from '@kit.ArkTS';
 import { http } from '@kit.NetworkKit';
 import { getCurrentUser, setSession, ensureLogin, getToken } from '../utils/auth';
-import { updateMe, getUploadSignature, getUserProfile } from '../services/api';
+import { updateMe, getUploadSignature, getUserProfile, BASE_URL } from '../services/api';
 import { compressAvatar, CompressedImage } from '../utils/image';
 import { safeShowToast } from '../utils/toast';
 import { User, UserProfile } from '../models/types';
@@ -107,7 +107,13 @@ export struct EditProfilePage {
     let savedUrl: string = '';
     try {
       const sig = await getUploadSignature('image/jpeg');
-      await this.putBinary(sig.url, compressed.bytes, sig.contentType);
+      // 本地文件上传模式：直传目标改走 127.0.0.1（经 hdc rport，与 API 同一稳定路径），
+      // 避免直连 LAN IP（DHCP 变化/模拟器 http 栈不稳定）导致 30s 超时后才降级 base64。
+      // viewUrl 保留 LAN IP，供 Image 组件展示（Image 不走 rport，必须走 LAN IP 才能加载）。
+      const uploadUrl: string = sig.url.includes('myqcloud.com')
+        ? sig.url
+        : BASE_URL + sig.url.replace(/^https?:\/\/[^/]+/, '');
+      await this.putBinary(uploadUrl, compressed.bytes, sig.contentType);
       savedUrl = sig.viewUrl; // 用 GET 预签名可读链接，私有桶也能加载
     } catch (e) {
       // COS 未配置/上传失败：本地兜底（仅开发/无对象存储环境；生产应配置真实 COS）
@@ -150,8 +156,8 @@ export struct EditProfilePage {
         method: http.RequestMethod.PUT,
         header: header,
         extraData: data,
-        connectTimeout: 30000,
-        readTimeout: 30000,
+        connectTimeout: 10000,
+        readTimeout: 20000,
       }, (err: Error | null, resp: http.HttpResponse) => {
         req.destroy();
         if (err) { reject(err); return; }

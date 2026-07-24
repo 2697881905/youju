@@ -6,7 +6,7 @@ import { Post, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, Bin
 //   设置命令：hdc rport tcp:3000 tcp:3000  （模拟器每次重启后重跑一次即可）
 // - 真机/同局域网直连：'http://<你电脑局域网IP>:3000'
 // - 上架后：'https://api.bigbluebook.com'
-const BASE_URL = 'http://127.0.0.1:3000';
+export const BASE_URL = 'http://127.0.0.1:3000';
 
 // token 由 utils/auth.ts 统一管理（PersistentStorage 持久化），request 直接从 AppStorage 读取。
 
