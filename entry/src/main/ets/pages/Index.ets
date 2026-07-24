@@ -1,5 +1,5 @@
-// 大蓝书 主框架：底部 TabBar 壳
-// Tab：首页 / 发布 / 消息 / 我的；帖子详情经 router 单独跳转（pages/DetailPage）
+// 大蓝书 主框架：悬浮玻璃质感底部导航栏（Apple Music 风格）
+// Tab：首页 / 圈子 / 发布 / 消息 / 我的；帖子详情经 router 单独跳转（pages/DetailPage）
 import { HomeTab } from '../components/HomeTab';
 import { CircleTab } from '../components/CircleTab';
 import { PublishPage } from './PublishPage';
@@ -7,8 +7,22 @@ import { MessagePage } from './MessagePage';
 import { ProfilePage } from './ProfilePage';
 import { initAuthStorage, getToken, setPrivacyAgreed, isPrivacyAgreed } from '../utils/auth';
 import { getUnreadCount, getDmUnreadCount } from '../services/api';
+import { ensurePushRegistration } from '../utils/huaweiPush';
 import { common } from '@kit.AbilityKit';
 import { window } from '@kit.ArkUI';
+import { sensor } from '@kit.SensorServiceKit';
+
+// 悬浮栏尺寸令牌（Apple Music 风格大圆角胶囊）
+const BAR_HEIGHT: number = 64;
+const BAR_RADIUS: number = 26;
+const BAR_SIDE_MARGIN: number = 16;
+const BAR_BOTTOM_GAP: number = 16;
+
+// 单个 Tab 定义
+interface TabDef {
+  key: string;
+  title: string;
+}
 
 @Entry
 @Component
@@ -17,8 +31,37 @@ struct Index {
   @StorageLink('unreadMessageCount') unreadCount: number = 0;
   @StorageLink('unreadDmCount') dmUnread: number = 0;
   @StorageLink('tabSwitchSignal') @Watch('onTabSwitch') tabSwitchSignal: number = 0;
+  @StorageLink('isDarkMode') @Watch('onThemeChange') isDark: boolean = false;
   // 状态栏高度（全屏布局后顶部内容需下移避让）
   @State statusBarHeight: number = 0;
+  // 底部系统导航条高度（用于让悬浮栏避开手势条）
+  @State navBarHeight: number = 0;
+
+  // 玻璃质感 / 反射 / 流光 动态状态
+  @State glassBg: string = '#FFFFFFB3';
+  @State glassBorder: string = '#FFFFFFB3';
+  @State glassBlur: number = 28;
+  @State reflectionAlpha: number = 0.4;
+  @State shimmerAlpha: number = 0.35;
+  @State shimmerOffset: number = -300;
+  @State selectedBg: string = '#007AFF1A';
+  @State barShadow: ShadowOptions = { radius: 18, color: '#0000002E', offsetY: 8 };
+
+  // 环境光强度比例（0 暗 ~ 1 亮），默认偏亮
+  private ambientRatio: number = 0.6;
+  // 光带宽度与悬浮栏宽度（用于流光位移计算）
+  private shimmerWidth: number = 80;
+  private barWidth: number = 360;
+  // 组件存活标记，防止销毁后动画递归
+  private alive: boolean = true;
+
+  private tabs: TabDef[] = [
+    { key: 'home', title: '首页' },
+    { key: 'circle', title: '圈子' },
+    { key: 'publish', title: '发布' },
+    { key: 'message', title: '消息' },
+    { key: 'profile', title: '我的' }
+  ];
 
   aboutToAppear(): void {
     initAuthStorage();
@@ -31,28 +74,53 @@ struct Index {
     this.startInit();
   }
 
-  // 从 LoginPage 返回后（aboutToAppear 不再重跑）刷新未读红点
-  onPageShow(): void {
-    if (getToken() !== '') {
-      this.refreshUnread();
+  aboutToDisappear(): void {
+    this.alive = false;
+    try {
+      sensor.off(sensor.SensorId.AMBIENT_LIGHT);
+    } catch (e) {
+      // 忽略注销失败
     }
   }
 
-  // 窗口全屏布局：内容延伸到系统导航条之下让底部栏贴底，同时读取状态栏高度用于顶部避让
+  // 从 LoginPage 返回后（aboutToAppear 不再重跑）刷新未读红点 + 注册推送
+  onPageShow(): void {
+    if (getToken() !== '') {
+      this.refreshUnread();
+      ensurePushRegistration();
+    }
+  }
+
+  // 窗口全屏布局：内容延伸到系统导航条之下让悬浮栏贴底，同时读取状态栏 / 导航条高度用于避让
   private async setupFullScreen(): Promise<void> {
     try {
       const ctx = this.getUIContext().getHostContext();
       if (!ctx) {
+        this.initVisual();
         return;
       }
       const win = await window.getLastWindow(ctx);
       await win.setWindowLayoutFullScreen(true);
       const area = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
       this.statusBarHeight = px2vp(area.topRect.height);
+      this.navBarHeight = px2vp(area.bottomRect.height);
       AppStorage.setOrCreate<number>('statusBarHeight', this.statusBarHeight);
+      AppStorage.setOrCreate<number>('navBarHeight', this.navBarHeight);
+      const rect = win.getWindowProperties().windowRect;
+      const screenW = px2vp(rect.width);
+      this.barWidth = screenW - BAR_SIDE_MARGIN * 2;
+      this.initVisual();
     } catch (e) {
-      // 失败不阻断
+      // 失败不阻断，使用默认视觉
+      this.initVisual();
     }
+  }
+
+  // 视觉初始化：玻璃质感计算 + 流光动画 + 环境光订阅
+  private initVisual(): void {
+    this.recomputeGlass();
+    this.startShimmer();
+    this.subscribeAmbient();
   }
 
   // 登录态判断 + 未读拉取（隐私同意后或已同意时执行）
@@ -61,8 +129,9 @@ struct Index {
     if (getToken() === '') {
       this.getUIContext().getRouter().pushUrl({ url: 'pages/LoginPage' });
     } else {
-      // 已登录则拉一次未读总数，驱动消息 Tab 红点
+      // 已登录则拉一次未读总数，驱动消息 Tab 红点；并注册华为推送 Token
       this.refreshUnread();
+      ensurePushRegistration();
     }
   }
 
@@ -118,6 +187,88 @@ struct Index {
     }
   }
 
+  // 点击底部 Tab：切换并广播激活态
+  private selectTab(index: number): void {
+    if (this.currentIndex === index) {
+      return;
+    }
+    this.currentIndex = index;
+    AppStorage.setOrCreate<number>('activeTab', index);
+  }
+
+  onThemeChange(): void {
+    this.recomputeGlass();
+  }
+
+  // 将 0~1 的透明度转为两位十六进制（用于 8 位 hex 颜色）
+  private hexAlpha(a: number): string {
+    const v: number = Math.round(a * 255);
+    const s: string = v.toString(16);
+    return s.length === 1 ? '0' + s : s;
+  }
+
+  // 根据深色模式 + 环境光强度，重算玻璃材质 / 反射 / 流光参数
+  private recomputeGlass(): void {
+    const ratio: number = this.ambientRatio;
+    if (this.isDark) {
+      this.glassBg = '#1C1C1E' + this.hexAlpha(0.55 + 0.3 * ratio);
+      this.glassBorder = '#FFFFFF' + this.hexAlpha(0.16);
+      this.selectedBg = '#78AAFF' + this.hexAlpha(0.20);
+      this.barShadow = { radius: 16, color: '#0000008C', offsetY: 6 };
+      this.reflectionAlpha = 0.12 + 0.22 * ratio;
+      this.shimmerAlpha = 0.14 + 0.22 * ratio;
+    } else {
+      this.glassBg = '#FFFFFF' + this.hexAlpha(0.5 + 0.35 * ratio);
+      this.glassBorder = '#FFFFFF' + this.hexAlpha(0.70);
+      this.selectedBg = '#007AFF' + this.hexAlpha(0.10);
+      this.barShadow = { radius: 18, color: '#0000002E', offsetY: 8 };
+      this.reflectionAlpha = 0.22 + 0.4 * ratio;
+      this.shimmerAlpha = 0.2 + 0.32 * ratio;
+    }
+    this.glassBlur = 18 + 18 * ratio;
+  }
+
+  // 环境光强度（lux）→ 0~1 比例，驱动玻璃通透度与光效强度
+  private applyAmbient(lux: number): void {
+    const clamped: number = Math.max(10, Math.min(2000, lux));
+    this.ambientRatio = (clamped - 10) / (2000 - 10);
+    this.recomputeGlass();
+  }
+
+  // 订阅华为环境光传感器，实现「沉浸光感视效」：环境越亮，玻璃越实、反光越强
+  private subscribeAmbient(): void {
+    try {
+      sensor.on(sensor.SensorId.AMBIENT_LIGHT, (data: sensor.LightResponse): void => {
+        const lux: number = data.intensity;
+        this.applyAmbient(lux);
+      });
+    } catch (e) {
+      // 传感器不可用则保持默认玻璃质感
+    }
+  }
+
+  // 流光扫光动画：一条倾斜的白色光带在栏内循环横扫
+  private startShimmer(): void {
+    if (!this.alive) {
+      return;
+    }
+    const start: number = -(this.barWidth / 2 + this.shimmerWidth);
+    const end: number = this.barWidth / 2 + this.shimmerWidth;
+    this.shimmerOffset = start;
+    animateTo({ duration: 3400, curve: Curve.Linear, onFinish: (): void => {
+      if (this.alive) {
+        this.startShimmer();
+      }
+    } }, (): void => {
+      this.shimmerOffset = end;
+    });
+  }
+
+  // 底部内容需为悬浮栏预留的底部内边距
+  private contentBottomReserve(): number {
+    return BAR_HEIGHT + BAR_BOTTOM_GAP + this.navBarHeight;
+  }
+
   // 底部导航线条图标资源（Apple 风格）
   private navIconRes(index: number): Resource {
     switch (index) {
@@ -129,81 +280,163 @@ struct Index {
     }
   }
 
-  // 单个 Tab 内容：图标在上 + 文字在下（iOS 风格）
+  // 流光层：倾斜白色光带，循环横扫（被父级 clip 裁剪为圆角矩形）
   @Builder
-  tabContent(title: string, index: number) {
+  ShimmerLayer() {
+    Row() {
+    }
+    .width(this.shimmerWidth)
+    .height(BAR_HEIGHT * 2)
+    .linearGradient({
+      angle: 0,
+      colors: [
+        ['#FFFFFF00', 0.0],
+        ['#FFFFFF' + this.hexAlpha(this.shimmerAlpha), 0.5],
+        ['#FFFFFF00', 1.0]
+      ]
+    })
+    .rotate({ angle: -18 })
+    .align(Alignment.Center)
+    .translate({ x: this.shimmerOffset })
+    .opacity(this.shimmerAlpha > 0.02 ? 1 : 0)
+  }
+
+  // 顶部光线反射层：从上到下的白色高光渐隐，营造玻璃反光
+  @Builder
+  ReflectionLayer() {
+    Row() {
+    }
+    .width('100%')
+    .height('100%')
+    .linearGradient({
+      angle: 90,
+      colors: [
+        ['#FFFFFF' + this.hexAlpha(this.reflectionAlpha), 0.0],
+        ['#FFFFFF00', 0.5]
+      ]
+    })
+  }
+
+  // 顶部高光线：1.5px 的横向白色高光描边，强化玻璃边缘反光
+  @Builder
+  TopHighlightLine() {
+    Row() {
+    }
+    .width('100%')
+    .height(1.5)
+    .linearGradient({
+      angle: 0,
+      colors: [
+        ['#FFFFFF00', 0.0],
+        ['#FFFFFFBF', 0.5],
+        ['#FFFFFF00', 1.0]
+      ]
+    })
+    .align(Alignment.Top)
+  }
+
+  // 单个 Tab 内部：图标 + 文字，选中态带浅色胶囊高亮
+  @Builder
+  TabInner(tab: TabDef, index: number) {
     Column({ space: 3 }) {
       Image(this.navIconRes(index))
         .width(24)
         .height(24)
-        .fillColor(this.currentIndex === index ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
-      Text(title)
+        .fillColor(index === this.currentIndex ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
+        .animation({ duration: 200, curve: Curve.EaseOut })
+      Text(tab.title)
         .fontSize(10)
-        .fontColor(this.currentIndex === index ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
+        .fontColor(index === this.currentIndex ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
+        .animation({ duration: 200, curve: Curve.EaseOut })
     }
     .justifyContent(FlexAlign.Center)
     .alignItems(HorizontalAlign.Center)
+    .layoutWeight(1)
     .height('100%')
-    .width('100%')
+    .borderRadius(16)
+    .backgroundColor(index === this.currentIndex ? this.selectedBg : Color.Transparent)
+    .animation({ duration: 220, curve: Curve.EaseOut })
+    .onClick(() => {
+      this.selectTab(index);
+    })
   }
 
-  // 底部 Tab：图标 + 文字；消息 Tab 带未读红点
+  // 单个 Tab（消息 Tab 带未读红点）
   @Builder
-  tabItem(title: string, index: number) {
+  TabItem(tab: TabDef, index: number) {
     if (index === 3) {
       Badge({
         count: this.unreadCount + this.dmUnread,
         style: { badgeColor: $r('app.color.semantic_red') },
         position: BadgePosition.RightTop,
       }) {
-        this.tabContent(title, index)
+        this.TabInner(tab, index)
       }
     } else {
-      this.tabContent(title, index)
+      this.TabInner(tab, index)
     }
   }
 
-  build() {
-    Tabs({ barPosition: BarPosition.End, index: this.currentIndex }) {
-      TabContent() {
-        HomeTab()
+  // 悬浮玻璃底部栏主体
+  @Builder
+  FloatingTabBar() {
+    Stack({ alignContent: Alignment.Top }) {
+      // 流光层（位于最底，透出玻璃产生扫光）
+      this.ShimmerLayer()
+      // 顶部光线反射
+      this.ReflectionLayer()
+      // 顶部高光描边
+      this.TopHighlightLine()
+      // Tab 项行
+      Row() {
+        ForEach(this.tabs, (tab: TabDef, i: number) => {
+          this.TabItem(tab, i);
+        }, (tab: TabDef) => tab.key)
       }
-      .tabBar(this.tabItem('首页', 0))
-
-      TabContent() {
-        CircleTab()
-      }
-      .tabBar(this.tabItem('圈子', 1))
-
-      TabContent() {
-        PublishPage()
-      }
-      .tabBar(this.tabItem('发布', 2))
-
-      TabContent() {
-        MessagePage()
-      }
-      .tabBar(this.tabItem('消息', 3))
-
-      TabContent() {
-        ProfilePage()
-      }
-      .tabBar(this.tabItem('我的', 4))
+      .width('100%')
+      .height('100%')
+      .justifyContent(FlexAlign.SpaceEvenly)
+      .alignItems(VerticalAlign.Center)
     }
-    .scrollable(false)
-    .barHeight(56)
-    .barMode(BarMode.Fixed)
-      .onChange((index: number) => {
-        this.currentIndex = index;
-        // 广播当前激活 Tab，供各 Tab 页感知自己是否可见
-        AppStorage.setOrCreate<number>('activeTab', index);
-      })
-    .animationDuration(250)
+    .width('100%')
+    .height(BAR_HEIGHT)
+    .borderRadius(BAR_RADIUS)
+    .backdropBlur(this.glassBlur)
+    .backgroundColor(this.glassBg)
+    .border({ width: 1, color: this.glassBorder, style: BorderStyle.Solid })
+    .shadow(this.barShadow)
+    .clip(true)
+  }
+
+  build() {
+    Stack({ alignContent: Alignment.Bottom }) {
+      // 内容层：5 个页面全部挂载，靠 visibility 控制显示，保留各自状态
+      Stack() {
+        HomeTab()
+          .visibility(this.currentIndex === 0 ? Visibility.Visible : Visibility.None)
+        CircleTab()
+          .visibility(this.currentIndex === 1 ? Visibility.Visible : Visibility.None)
+        PublishPage()
+          .visibility(this.currentIndex === 2 ? Visibility.Visible : Visibility.None)
+        MessagePage()
+          .visibility(this.currentIndex === 3 ? Visibility.Visible : Visibility.None)
+        ProfilePage()
+          .visibility(this.currentIndex === 4 ? Visibility.Visible : Visibility.None)
+      }
+      .width('100%')
+      .height('100%')
+      .padding({ top: this.statusBarHeight, bottom: this.contentBottomReserve() })
+
+      // 悬浮玻璃底部栏（底部居中、左右留白，避开系统导航条）
+      Row() {
+        this.FloatingTabBar()
+      }
+      .width('100%')
+      .padding({ left: BAR_SIDE_MARGIN, right: BAR_SIDE_MARGIN })
+      .margin({ bottom: BAR_BOTTOM_GAP + this.navBarHeight })
+    }
     .width('100%')
     .height('100%')
-    .padding({ top: this.statusBarHeight })  // 全屏布局下顶部避让状态栏
-    .barBackgroundBlurStyle(BlurStyle.COMPONENT_ULTRA_THICK)
-    .barBackgroundColor($r('app.color.glass_bar_bg'))
     .backgroundColor($r('app.color.bg_primary'))
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
   }
