@@ -17,6 +17,14 @@ const SUB_TABS: string[] = ['我发布', '我收藏', '我赞过', '我评论'];
 @Component
 export struct ProfilePage {
   @State user: User = {};
+
+  // 订阅登录态资料字段：编辑资料页 setSession 会写回 authNickname/avatar/bio/gender，
+  // 此处 @Watch 即时触发把最新值同步到 this.user，规避 TabContent 内 router.back 不触发
+  // onPageShow 导致的「改完名字/头像/简介主页不更新」。与 likeStore 订阅思路一致。
+  @StorageLink('authNickname') @Watch('onProfileCacheChange') _syncNick: string = '';
+  @StorageLink('authAvatar') @Watch('onProfileCacheChange') _syncAvatar: string = '';
+  @StorageLink('authBio') @Watch('onProfileCacheChange') _syncBio: string = '';
+  @StorageLink('authGender') @Watch('onProfileCacheChange') _syncGender: number = 0;
   @State followingCount: number = 0;
   @State followerCount: number = 0;
   @State tabIdx: number = 0; // 0 我发布, 1 我收藏, 2 我赞过, 3 我评论
@@ -88,6 +96,23 @@ export struct ProfilePage {
       };
     }
     this.fetchCounts();
+  }
+
+  // 编辑资料返回：登录态资料字段变化即把最新昵称/头像/简介/性别同步到 this.user，
+  // 使个人主页信息卡立即刷新（不依赖 onPageShow——TabContent 内 router.back 不触发 onPageShow）。
+  private onProfileCacheChange(): void {
+    const cached: User | null = getCurrentUser();
+    if (cached && cached.id) {
+      this.user = {
+        id: this.user.id,
+        nickname: cached.nickname,
+        avatar: cached.avatar,
+        isAdmin: this.user.isAdmin,
+        gender: cached.gender,
+        bio: cached.bio,
+        followTags: this.user.followTags,
+      };
+    }
   }
 
   async init(): Promise<void> {
