@@ -140,8 +140,10 @@ export struct PrivacySettingsPage {
                 });
               }
               .width('100%')
+              .backgroundColor($r('app.color.card_bg'))
               .borderRadius(CARD_RADIUS)
-              .shadow(CARD_SHADOW);
+              .shadow(CARD_SHADOW)
+              .clip(true);
             }
             .width('100%');
 
@@ -209,8 +211,10 @@ export struct PrivacySettingsPage {
                 });
               }
               .width('100%')
+              .backgroundColor($r('app.color.card_bg'))
               .borderRadius(CARD_RADIUS)
-              .shadow(CARD_SHADOW);
+              .shadow(CARD_SHADOW)
+              .clip(true);
             }
             .width('100%');
           }
