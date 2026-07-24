@@ -3,7 +3,6 @@
 
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { image } from '@kit.ImageKit';
-import { util } from '@kit.ArkTS';
 import { http } from '@kit.NetworkKit';
 import { getCurrentUser, setSession, ensureLogin, getToken } from '../utils/auth';
 import { updateMe, getUploadSignature, getUserProfile, BASE_URL } from '../services/api';
@@ -103,12 +102,12 @@ export struct EditProfilePage {
       return;
     }
     this.avatarPreview = compressed.preview;
-    // 3) 上传到 COS；COS 不可用时降级为 base64 data URI，保证头像能保存到后端并在主页渲染
+    // 3) 上传头像（本地模式直传 /v1/upload/local，COS 配置后走预签名直传）
     let savedUrl: string = '';
     try {
       const sig = await getUploadSignature('image/jpeg');
       // 本地文件上传模式：直传目标改走 127.0.0.1（经 hdc rport，与 API 同一稳定路径），
-      // 避免直连 LAN IP（DHCP 变化/模拟器 http 栈不稳定）导致 30s 超时后才降级 base64。
+      // 避免直连 LAN IP（DHCP 变化/模拟器 http 栈不稳定）导致超时。
       // viewUrl 保留 LAN IP，供 Image 组件展示（Image 不走 rport，必须走 LAN IP 才能加载）。
       const uploadUrl: string = sig.url.includes('myqcloud.com')
         ? sig.url
@@ -116,8 +115,11 @@ export struct EditProfilePage {
       await this.putBinary(uploadUrl, compressed.bytes, sig.contentType);
       savedUrl = sig.viewUrl; // 用 GET 预签名可读链接，私有桶也能加载
     } catch (e) {
-      // COS 未配置/上传失败：本地兜底（仅开发/无对象存储环境；生产应配置真实 COS）
-      savedUrl = 'data:image/jpeg;base64,' + this.bytesToBase64(compressed.bytes);
+      // 上传失败：严禁降级存 base64（base64 头像会撑爆信息流、模拟器 expectDataType:OBJECT 解析失败 → "请求失败"）。
+      // 直接提示重试并保留原头像，避免污染数据库。
+      safeShowToast(this.getUIContext(), { message: '头像上传失败，请重试' });
+      this.uploadingAvatar = false;
+      return;
     }
     // 4) 保存头像到后端（无论走 COS 还是本地 base64 都持久化）
     try {
@@ -139,12 +141,6 @@ export struct EditProfilePage {
       safeShowToast(this.getUIContext(), { message: '头像保存失败：' + (e as Error).message });
     }
     this.uploadingAvatar = false;
-  }
-
-  // ArrayBuffer → base64 字符串（COS 不可用时作为头像兜底存储）
-  private bytesToBase64(bytes: ArrayBuffer): string {
-    const helper = new util.Base64Helper();
-    return helper.encodeToStringSync(new Uint8Array(bytes));
   }
 
   // 直传二进制到预签名 URL（复制自 ImagePicker）
