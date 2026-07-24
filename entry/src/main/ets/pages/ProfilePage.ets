@@ -10,6 +10,7 @@ import { observeGridColumns, gridColumnTemplate } from '../utils/responsive';
 import { GRID_GAP, GRID_PADDING } from '../utils/cardTokens';
 import { AvatarView } from '../components/AvatarView';
 import { common } from '@kit.AbilityKit';
+import { likeStore } from '../utils/likeStore';
 
 const SUB_TABS: string[] = ['我发布', '我收藏', '我赞过', '我评论'];
 
@@ -33,6 +34,8 @@ export struct ProfilePage {
   @State gridColumns: number = 2;
   @State gridTemplate: string = '1fr 1fr';
   private unregisterColumns: () => void = () => {};
+  // 订阅全局点赞仓库：任意位置取消点赞后，「我赞过」列表即时移除该帖（不依赖切 Tab / onPageShow）
+  private unsubLike: () => void = () => {};
 
   aboutToAppear(): void {
     this.unregisterColumns = observeGridColumns(
@@ -43,10 +46,21 @@ export struct ProfilePage {
       }
     );
     this.init();
+    // 订阅全局点赞仓库：首页/详情页取消点赞后，若当前停在「我赞过」Tab，列表立即移除该帖。
+    // 这覆盖了 router pop 返回（activeTab 不变、@Watch 不触发）与"期望立即同步"两类场景。
+    this.unsubLike = likeStore.subscribe((changedId: number): void => {
+      if (this.tabIdx === 2) {
+        const info = likeStore.get(changedId);
+        if (info && !info.liked) {
+          this.posts = this.posts.filter((p: Post) => p.id !== changedId);
+        }
+      }
+    });
   }
 
   aboutToDisappear(): void {
     this.unregisterColumns();
+    this.unsubLike();
   }
 
   // 切回「我的」Tab 时，重新拉取当前子 Tab 的帖子列表：
