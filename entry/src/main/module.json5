@@ -46,6 +46,12 @@
         ],
       }
     ],
+    "metadata": [
+      {
+        "name": "client_id",
+        "value": "YOUR_AGC_APP_ID"
+      }
+    ],
     "requestPermissions": [
       {
         "name": "ohos.permission.INTERNET"
