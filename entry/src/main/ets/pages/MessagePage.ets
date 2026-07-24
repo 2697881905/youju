@@ -4,14 +4,16 @@
 // - 顶部「全部已读」
 // - 回写 AppStorage['unreadMessageCount'] 供 Index 消息 Tab 红点
 
-import { NotificationItem, NotificationType } from '../models/types';
+import { NotificationItem, NotificationType, Conversation } from '../models/types';
 import {
   listNotifications,
   getUnreadCount,
   markNotificationRead,
   markAllRead,
+  getConversations,
+  getDmUnreadCount,
 } from '../services/api';
-import { getToken } from '../utils/auth';
+import { getToken, getUserId } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { notifIconRes, resolveActionIcon } from '../utils/actionIcons';
@@ -30,6 +32,15 @@ export struct MessagePage {
   // 监听登录态：LoginPage 自动登录后 authToken 就绪，此页才加载（aboutToAppear 可能在登录前已跑过）
   @StorageLink('authToken') @Watch('onTokenReady') token: string = '';
   @State activeFilter: string = 'all'; // 'all' | 'up_bookmark' | 'follow' | 'comment'
+  // ===== 私信 =====
+  @State dmTab: string = 'notif'; // 'notif' | 'dm'
+  @State conversations: Conversation[] = [];
+  @State dmLoading: boolean = true;
+  @State dmError: string = '';
+  // 私信未读（与通知红点分开存储，Index 合并显示）
+  @StorageLink('unreadDmCount') dmUnread: number = 0;
+  // 聊天页发送/已读后自增，触发本页刷新会话列表与未读
+  @StorageLink('dmRefreshSignal') @Watch('onDmRefreshSignal') dmRefreshSignal: number = 0;
 
   // 根据当前筛选条件过滤列表（方法调用，避免 ArkTS getter 在 build() 中不稳定）
   private getFilteredList(): NotificationItem[] {
@@ -65,6 +76,16 @@ export struct MessagePage {
   onTokenReady(): void {
     if (this.token !== '' && this.list.length === 0 && this.error === '') {
       this.loadFirst();
+    }
+  }
+
+  // 聊天页发送/已读后 dmRefreshSignal 自增 → 刷新会话列表与私信未读红点
+  onDmRefreshSignal(): void {
+    if (this.token !== '' && this.dmTab === 'dm') {
+      this.loadConversations();
+    }
+    if (this.token !== '') {
+      this.loadDmUnread();
     }
   }
 
@@ -106,6 +127,7 @@ export struct MessagePage {
     this.page = 1;
     this.hasMore = true;
     await this.refreshUnread();
+    await this.loadDmUnread();
     try {
       const res = await listNotifications(1, 20);
       this.list = res.list;
@@ -145,6 +167,121 @@ export struct MessagePage {
     } catch (e) {
       // 红点失败不阻断主列表
     }
+  }
+
+  // ===== 私信 =====
+  async loadDmUnread(): Promise<void> {
+    try {
+      const res = await getDmUnreadCount();
+      this.dmUnread = res.count;
+    } catch (e) {
+      // 私信红点失败不阻断
+    }
+  }
+
+  async loadConversations(): Promise<void> {
+    this.dmLoading = true;
+    this.dmError = '';
+    try {
+      const res = await getConversations();
+      this.conversations = res.list;
+      this.dmLoading = false;
+    } catch (e) {
+      this.dmError = (e as Error).message || '加载失败';
+      this.dmLoading = false;
+    }
+  }
+
+  // 点击会话 → 进入聊天页（peer 信息经 AppStorage 传递，规避 router.getParams 不可靠）
+  onConversationClick(c: Conversation): void {
+    AppStorage.setOrCreate('chatPeerId', c.peer.id);
+    AppStorage.setOrCreate('chatPeerName', c.peer.nickname);
+    AppStorage.setOrCreate('chatPeerAvatar', c.peer.avatar ?? '');
+    this.getUIContext().getRouter().pushUrl({ url: 'pages/ChatPage' });
+  }
+
+  // 相对时间（私信会话列表复用）
+  private formatDmTime(iso?: string): string {
+    if (!iso) {
+      return '';
+    }
+    const t: number = new Date(iso).getTime();
+    if (isNaN(t)) {
+      return '';
+    }
+    const diff: number = Date.now() - t;
+    const min: number = Math.floor(diff / 60000);
+    if (min < 1) return '刚刚';
+    if (min < 60) return min + '分钟前';
+    const hr: number = Math.floor(min / 60);
+    if (hr < 24) return hr + '小时前';
+    const day: number = Math.floor(hr / 24);
+    if (day < 30) return day + '天前';
+    const d: Date = new Date(t);
+    return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+  }
+
+  @Builder
+  conversationRow(c: Conversation) {
+    Row({ space: 12 }) {
+      if (c.peer.avatar) {
+        Image(c.peer.avatar)
+          .width(48)
+          .height(48)
+          .borderRadius(24)
+          .objectFit(ImageFit.Cover)
+      } else {
+        Circle({ width: 48, height: 48 })
+          .fill($r('app.color.brand_primary'))
+          .opacity(0.15)
+        Text(c.peer.nickname.slice(0, 1))
+          .fontSize(18)
+          .fontColor($r('app.color.brand_primary'))
+          .position({ x: 18, y: 14 })
+      }
+
+      Column({ space: 4 }) {
+        Text(c.peer.nickname)
+          .fontSize(15)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.text_primary'))
+        Text((c.lastSenderId === this.getSelfId() ? '我: ' : '') + (c.lastContent ?? ''))
+          .fontSize(13)
+          .fontColor($r('app.color.text_secondary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .alignItems(HorizontalAlign.Start)
+      .layoutWeight(1)
+
+      Column({ space: 6 }) {
+        Text(this.formatDmTime(c.lastAt))
+          .fontSize(11)
+          .fontColor($r('app.color.text_secondary'))
+        if (c.unreadCount > 0) {
+          Text(c.unreadCount > 99 ? '99+' : String(c.unreadCount))
+            .fontSize(11)
+            .fontColor(Color.White)
+            .backgroundColor($r('app.color.semantic_red'))
+            .borderRadius(10)
+            .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+            .minWidth(18)
+            .textAlign(TextAlign.Center)
+        }
+      }
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+    .backgroundColor($r('app.color.card_bg'))
+    .onClick(() => {
+      this.onConversationClick(c);
+    })
+  }
+
+  // 当前登录用户 id（用于会话列表区分「我:」前缀）。authUserId 在 AppStorage 中以字符串持久化，
+  // 用 getUserId() 统一解析为 number，避免与后端返回的数字 id 用 === 比较时因类型不一致永远不相等。
+  private getSelfId(): number {
+    return getUserId();
   }
 
   // 点击单条：标记已读 → 本地更新（重赋值数组触发刷新）→ 有 postId 则跳详情
@@ -213,6 +350,96 @@ export struct MessagePage {
   // 通知类型 → 图标资源（ArkTS V1 不支持 obj[key] 索引访问，用函数分发）
   private typeIcon(type: NotificationType | undefined): Resource {
     return notifIconRes(type);
+  }
+
+  // 分段控件单项（通知 / 私信）
+  @Builder
+  segmentItem(tab: string, label: string) {
+    Column({ space: 4 }) {
+      Text(label)
+        .fontSize(15)
+        .fontWeight(this.dmTab === tab ? FontWeight.Bold : FontWeight.Normal)
+        .fontColor(this.dmTab === tab ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
+      if (this.dmTab === tab) {
+        Divider()
+          .color($r('app.color.brand_primary'))
+          .strokeWidth(2)
+          .width(24)
+      }
+    }
+    .layoutWeight(1)
+    .padding({ top: 8, bottom: 8 })
+    .alignItems(HorizontalAlign.Center)
+    .onClick(() => {
+      if (this.dmTab !== tab) {
+        this.dmTab = tab;
+        if (tab === 'dm') {
+          this.loadConversations();
+        }
+      }
+    })
+  }
+
+  // 私信会话列表内容
+  @Builder
+  dmContent() {
+    if (this.dmLoading && this.conversations.length === 0) {
+      Column() {
+        Text('加载中…')
+          .fontSize(14)
+          .fontColor($r('app.color.text_secondary'))
+      }
+      .layoutWeight(1)
+      .width('100%')
+      .justifyContent(FlexAlign.Center)
+    } else if (this.dmError !== '' && this.conversations.length === 0) {
+      Column({ space: 12 }) {
+        Text(this.dmError)
+          .fontSize(14)
+          .fontColor($r('app.color.text_secondary'))
+          .textAlign(TextAlign.Center)
+        Text('点击重试')
+          .fontSize(14)
+          .fontColor($r('app.color.brand_primary'))
+          .onClick(() => {
+            this.loadConversations();
+          })
+      }
+      .layoutWeight(1)
+      .width('100%')
+      .justifyContent(FlexAlign.Center)
+    } else if (this.conversations.length === 0) {
+      Column() {
+        Text('还没有私信，去他人主页发起聊天吧')
+          .fontSize(14)
+          .fontColor($r('app.color.text_secondary'))
+          .textAlign(TextAlign.Center)
+      }
+      .layoutWeight(1)
+      .width('100%')
+      .justifyContent(FlexAlign.Center)
+    } else {
+      Refresh({ refreshing: $$this.refreshing, offset: 80, friction: 48 }) {
+        List({ space: 8 }) {
+          ForEach(
+            this.conversations,
+            (c: Conversation) => {
+              ListItem() {
+                this.conversationRow(c)
+              }
+            },
+            (c: Conversation) => String(c.peer.id),
+          )
+        }
+        .width('100%')
+        .layoutWeight(1)
+      }
+      .onRefreshing(() => {
+        this.loadConversations().finally(() => {
+          this.refreshing = false;
+        });
+      })
+    }
   }
 
   @Builder
@@ -291,17 +518,28 @@ export struct MessagePage {
           .fontWeight(600)
           .layoutWeight(1)
           .textAlign(TextAlign.Center)
-        Text('全部已读')
-          .fontSize(13)
-          .fontColor($r('app.color.brand_primary'))
-          .padding({ right: 16 })
-          .onClick(() => {
-            this.onMarkAll();
-          })
+        if (this.dmTab === 'notif') {
+          Text('全部已读')
+            .fontSize(13)
+            .fontColor($r('app.color.brand_primary'))
+            .padding({ right: 16 })
+            .onClick(() => {
+              this.onMarkAll();
+            })
+        }
       }
       .width('100%')
       .padding({ top: 12, bottom: 12 })
 
+      // 分段：通知 | 私信
+      Row({ space: 0 }) {
+        this.segmentItem('notif', '通知')
+        this.segmentItem('dm', '私信')
+      }
+      .width('100%')
+      .padding({ left: 16, right: 16, bottom: 8 })
+
+      if (this.dmTab === 'notif') {
       // 快捷入口：三大类通知大图标
       Row({ space: 0 }) {
         Column({ space: 6 }) {
@@ -423,6 +661,9 @@ export struct MessagePage {
             this.refreshing = false;
           });
         })
+      }
+      } else {
+        this.dmContent()
       }
     }
     .width('100%')

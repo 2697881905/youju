@@ -1,5 +1,5 @@
 import { http } from '@kit.NetworkKit';
-import { Post, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody, PendingPost, ModerateAction, NotificationPrefs, BlockUser, PrivacySettingsData, UserExportData, DebateVoteResult } from '../models/types';
+import { Post, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody, PendingPost, ModerateAction, NotificationPrefs, BlockUser, PrivacySettingsData, UserExportData, DebateVoteResult, Conversation, DmMessage } from '../models/types';
 
 // 本地后端地址（按运行环境替换）：
 // - 模拟器/真机本地开发：用 hdc 反向端口转发，连 127.0.0.1:3000 即可，无需关心电脑 IP（IP 变了也不用改这里）
@@ -578,6 +578,36 @@ export function getPrivacySettings(): Promise<PrivacySettingsData> {
 // PUT /v1/me/privacy
 export function updatePrivacySettings(body: PrivacySettingsData): Promise<PrivacySettingsData> {
   return api.put<PrivacySettingsData>('/v1/me/privacy', body);
+}
+
+// ===== 私信 =====
+// GET /v1/messages/conversations —— 会话列表
+export function getConversations(): Promise<{ list: Conversation[] }> {
+  return api.get<{ list: Conversation[] }>('/v1/messages/conversations');
+}
+
+// GET /v1/messages/unread —— 私信未读总数
+export function getDmUnreadCount(): Promise<{ count: number }> {
+  return api.get<{ count: number }>('/v1/messages/unread');
+}
+
+// GET /v1/messages/:userId?page= —— 与某用户私信历史（旧→新）
+export function getMessages(userId: number, page: number = 1): Promise<{ list: DmMessage[] }> {
+  return api.get<{ list: DmMessage[] }>('/v1/messages/' + userId + '?page=' + page);
+}
+
+// POST /v1/messages/:userId/read —— 标记与该用户私信已读
+export async function markMessagesRead(userId: number): Promise<void> {
+  await api.post<null>('/v1/messages/' + userId + '/read');
+}
+
+// POST /v1/messages { receiverId, content } —— 发送私信
+interface SendMessageBody {
+  receiverId: number;
+  content: string;
+}
+export async function sendMessage(receiverId: number, content: string): Promise<DmMessage> {
+  return api.post<DmMessage>('/v1/messages', { receiverId, content } as SendMessageBody);
 }
 
 // ===== 辩论投票 =====

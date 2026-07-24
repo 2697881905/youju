@@ -20,6 +20,7 @@ import notificationPrefRouter from './routes/notificationPrefs';
 import blockRouter from './routes/block';
 import privacyRouter from './routes/privacy';
 import exportRouter from './routes/export';
+import messageRouter from './routes/messages';
 import { sensitiveWordService } from './services/sensitiveWordService';
 import { errorHandler } from './middleware/errorHandler';
 import { globalLimiter, loginLimiter, uploadLimiter } from './middleware/rateLimit';
@@ -74,6 +75,8 @@ app.use('/v1/upload', uploadRouter);
 app.use('/v1/search', searchRouter);
 // 账号绑定管理（GET/POST/DELETE /v1/account/bindings），与 /v1/auth、/v1/posts 同级
 app.use('/v1/account', accountRouter);
+// 私信（会话列表/历史/发送/已读/未读），挂 /v1/messages，必须在 /v1 通配路由之前注册
+app.use('/v1/messages', messageRouter);
 // 消息通知（GET /v1/notifications、GET /v1/notifications/unread-count、
 // POST /v1/notifications/:id/read、POST /v1/notifications/read-all）
 app.use('/v1', notificationRouter);

@@ -46,9 +46,9 @@ describe('updateSettings', () => {
 
   it('全量更新', async () => {
     mockedUpsert.mockResolvedValue({
-      id: 1, userId: 1, postVisibility: 'followers', allowFollow: false, allowMessage: false, updatedAt: new Date(),
+      id: 1, userId: 1, postVisibility: 'followers', allowFollow: false, dmPolicy: 'followers', updatedAt: new Date(),
     });
-    const s = await updateSettings(1, { postVisibility: 'followers', allowFollow: false, allowMessage: false });
-    expect(s).toEqual({ postVisibility: 'followers', allowFollow: false, allowMessage: false });
+    const s = await updateSettings(1, { postVisibility: 'followers', allowFollow: false, dmPolicy: 'followers' });
+    expect(s).toEqual({ postVisibility: 'followers', allowFollow: false, dmPolicy: 'followers' });
   });
 });

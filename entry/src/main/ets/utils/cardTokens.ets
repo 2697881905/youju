@@ -2,14 +2,14 @@
 // 用途：消除 PostCard、圈子卡片等多处重复且不一致的样式数值，确保视觉一致
 // 接入页面：PostCard、CircleTab、HomeTab、ProfilePage、SearchResultPage
 
-// 卡片圆角（Apple 风格大圆角，较 16 略收紧一档）
+// 卡片圆角（Apple大圆角，较 16 略收紧一档）
 export const CARD_RADIUS: number = 14;
 
 // 卡片内边距（比旧值 12 再收紧，让封面图更贴近卡片左右边框，更紧凑）
-export const CARD_PADDING: number = 8;
+export const CARD_PADDING: number = 6;
 
 // 卡片内封面图圆角（内嵌于卡片，比卡片圆角略小）
-export const CARD_COVER_RADIUS: number = 10;
+export const CARD_COVER_RADIUS: number = 8;
 
 // 卡片统一投影：浅色模式淡灰、深色模式同样适用（颜色含透明度，深浅模式自动过渡）
 export const CARD_SHADOW: ShadowOptions = {

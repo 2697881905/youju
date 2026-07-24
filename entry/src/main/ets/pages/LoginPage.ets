@@ -30,9 +30,11 @@ struct LoginPage {
 
       // 品牌头
       Column({ space: 12 }) {
-        // 应用图标（用 emoji 占位，正式上线换成 entry/src/main/resources/base/media/ 下的 png）
-        Text('📘')
-          .fontSize(72)
+        // 应用图标（与启动图标 startIcon 同款，logo.png 是从 startIcon 导出的同源副本）
+        Image($r('app.media.logo'))
+          .width(72)
+          .height(72)
+          .borderRadius(16)
           .margin({ top: 64 })
 
         Text('大蓝书')
@@ -40,7 +42,7 @@ struct LoginPage {
           .fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.text_primary'))
 
-        Text('男性生活经验社区')
+        Text('理性选购 更好的生活')
           .fontSize(14)
           .fontColor($r('app.color.text_secondary'))
           .margin({ bottom: 8 })

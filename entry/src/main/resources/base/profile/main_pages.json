@@ -15,6 +15,7 @@
     "pages/PrivacyPage",
     "pages/UserAgreementPage",
     "pages/BlocklistPage",
-    "pages/PrivacySettingsPage"
+    "pages/PrivacySettingsPage",
+    "pages/ChatPage"
   ]
 }

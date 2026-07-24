@@ -14,6 +14,7 @@ PersistentStorage.persistProp('authBio', '');        // 个人简介（编辑资
 PersistentStorage.persistProp('authGender', 0);      // 性别：0=保密/未设 1=男 2=女
 PersistentStorage.persistProp('authIsAdmin', false); // 管理员标识（后端 env.adminUserIds 计算，登录时落地）
 PersistentStorage.persistProp('unreadMessageCount', 0); // 消息 Tab 未读红点
+PersistentStorage.persistProp('unreadDmCount', 0); // 私信未读红点（与通知红点合并显示）
 PersistentStorage.persistProp('privacyAgreed', '0'); // 首启隐私协议同意标记（'1'=已同意）
 
 export function getToken(): string {
@@ -104,6 +105,7 @@ export function initAuthStorage(): void {
   PersistentStorage.persistProp('authGender', 0);
   PersistentStorage.persistProp('authIsAdmin', false);
   PersistentStorage.persistProp('unreadMessageCount', 0);
+  PersistentStorage.persistProp('unreadDmCount', 0);
   PersistentStorage.persistProp('privacyAgreed', '0');
 }
 

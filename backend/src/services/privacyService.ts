@@ -1,19 +1,20 @@
-// 隐私设置管理：用户可控制帖子可见性/允许关注/允许私信。
+// 隐私设置管理：用户可控制帖子可见性/允许关注/谁可发私信。
 // MVP 仅实现 CRUD + UI 展示，可见性过滤 / follow 校验后续单独迭代。
 import { prisma } from '../prisma';
 
 export type PostVisibility = 'public' | 'followers' | 'private';
+export type DmPolicy = 'all' | 'mutual' | 'followers';
 
 export interface PrivacySettingsData {
   postVisibility: PostVisibility;
   allowFollow: boolean;
-  allowMessage: boolean;
+  dmPolicy: DmPolicy;
 }
 
 const DEFAULTS: PrivacySettingsData = {
   postVisibility: 'public',
   allowFollow: true,
-  allowMessage: true,
+  dmPolicy: 'all',
 };
 
 export async function getSettings(userId: number): Promise<PrivacySettingsData> {
@@ -22,7 +23,7 @@ export async function getSettings(userId: number): Promise<PrivacySettingsData> 
   return {
     postVisibility: row.postVisibility as PostVisibility,
     allowFollow: row.allowFollow,
-    allowMessage: row.allowMessage,
+    dmPolicy: (row.dmPolicy as DmPolicy) ?? 'all',
   };
 }
 
@@ -33,7 +34,7 @@ export async function updateSettings(
   const data: Record<string, string | boolean> = {};
   if (settings.postVisibility !== undefined) data.postVisibility = settings.postVisibility;
   if (settings.allowFollow !== undefined) data.allowFollow = settings.allowFollow;
-  if (settings.allowMessage !== undefined) data.allowMessage = settings.allowMessage;
+  if (settings.dmPolicy !== undefined) data.dmPolicy = settings.dmPolicy;
 
   const row = await prisma.privacySettings.upsert({
     where: { userId },
@@ -43,6 +44,6 @@ export async function updateSettings(
   return {
     postVisibility: row.postVisibility as PostVisibility,
     allowFollow: row.allowFollow,
-    allowMessage: row.allowMessage,
+    dmPolicy: (row.dmPolicy as DmPolicy) ?? 'all',
   };
 }

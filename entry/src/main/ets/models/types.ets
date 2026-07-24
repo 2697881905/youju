@@ -220,7 +220,35 @@ export interface BlockUser {
 export interface PrivacySettingsData {
   postVisibility: string; // 'public' | 'followers' | 'private'
   allowFollow: boolean;
-  allowMessage: boolean;
+  dmPolicy: string; // 'all' | 'mutual' | 'followers'（谁可给我发私信）
+}
+
+// ===== 私信 =====
+// 会话中的对端用户（对应后端 Conversation.peer）
+export interface DmPeer {
+  id: number;
+  nickname: string;
+  avatar: string | null;
+  deleted?: boolean;
+}
+
+// 会话列表项（对应后端 Conversation）
+export interface Conversation {
+  peer: DmPeer;
+  lastContent: string;
+  lastSenderId: number;
+  lastAt: string; // ISO
+  unreadCount: number;
+}
+
+// 单条私信（对应后端 DmMessage）
+export interface DmMessage {
+  id: number;
+  senderId: number;
+  receiverId: number;
+  content: string;
+  read: boolean;
+  createdAt: string; // ISO
 }
 
 // ===== 数据导出 =====

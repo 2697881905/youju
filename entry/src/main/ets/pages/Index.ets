@@ -6,7 +6,7 @@ import { PublishPage } from './PublishPage';
 import { MessagePage } from './MessagePage';
 import { ProfilePage } from './ProfilePage';
 import { initAuthStorage, getToken, setPrivacyAgreed, isPrivacyAgreed } from '../utils/auth';
-import { getUnreadCount } from '../services/api';
+import { getUnreadCount, getDmUnreadCount } from '../services/api';
 import { common } from '@kit.AbilityKit';
 import { window } from '@kit.ArkUI';
 
@@ -15,6 +15,7 @@ import { window } from '@kit.ArkUI';
 struct Index {
   @State currentIndex: number = 0;
   @StorageLink('unreadMessageCount') unreadCount: number = 0;
+  @StorageLink('unreadDmCount') dmUnread: number = 0;
   @StorageLink('tabSwitchSignal') @Watch('onTabSwitch') tabSwitchSignal: number = 0;
   // 状态栏高度（全屏布局后顶部内容需下移避让）
   @State statusBarHeight: number = 0;
@@ -89,11 +90,18 @@ struct Index {
     });
   }
 
-  // 拉取未读消息总数（写入 AppStorage，红点随之刷新）
+  // 拉取未读消息总数（通知 + 私信），写入 AppStorage，红点随之刷新
   private refreshUnread(): void {
     getUnreadCount()
       .then((res) => {
         this.unreadCount = res.count;
+      })
+      .catch(() => {
+        // 失败不阻断
+      });
+    getDmUnreadCount()
+      .then((res) => {
+        this.dmUnread = res.count;
       })
       .catch(() => {
         // 失败不阻断
@@ -144,7 +152,7 @@ struct Index {
   tabItem(title: string, index: number) {
     if (index === 3) {
       Badge({
-        count: this.unreadCount,
+        count: this.unreadCount + this.dmUnread,
         style: { badgeColor: $r('app.color.semantic_red') },
         position: BadgePosition.RightTop,
       }) {

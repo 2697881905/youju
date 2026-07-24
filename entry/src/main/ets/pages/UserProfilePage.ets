@@ -1,6 +1,7 @@
 
 import { Post, UserProfile } from '../models/types';
 import { getUserProfile, followUser, unfollowUser, listPosts } from '../services/api';
+import { getUserId } from '../utils/auth';
 import { PostCard } from '../components/PostCard';
 import { safeShowToast } from '../utils/toast';
 import { setDetailPostId } from '../utils/nav';
@@ -214,6 +215,23 @@ export struct UserProfilePage {
     return '已关注';
   }
 
+  // 是否本人的主页（本人不显示关注/私信按钮）
+  private isSelf(): boolean {
+    return this.targetId === getUserId();
+  }
+
+  // 发起私信：写入对端信息到 AppStorage（规避 router.getParams 不可靠），跳转聊天页
+  // 服务端会按对方 dmPolicy + 拉黑做权限校验，越权时聊天页发送阶段报错提示
+  private onMessageClick(): void {
+    if (this.targetId === 0) {
+      return;
+    }
+    AppStorage.setOrCreate('chatPeerId', this.targetId);
+    AppStorage.setOrCreate('chatPeerName', this.profile.nickname !== '' ? this.profile.nickname : '用户');
+    AppStorage.setOrCreate('chatPeerAvatar', this.profile.avatar ?? '');
+    this.getUIContext().getRouter().pushUrl({ url: 'pages/ChatPage' });
+  }
+
   @Builder
   refreshBuilder(): void {
     Row({ space: 8 }) {
@@ -278,15 +296,26 @@ export struct UserProfilePage {
           }
           .padding({ left: 16, bottom: 10 });
 
-          // 关注按钮（三态；已注销用户隐藏，避免误操作）
-          if (!this.profile.deleted) {
-            Button(this.followBtnText())
-              .width(140).height(36).borderRadius(18)
-              .backgroundColor(this.profile.isFollowing ? $r('app.color.card_bg') : $r('app.color.brand_primary'))
-              .fontColor(this.profile.isFollowing ? $r('app.color.text_primary') : '#fff')
-              .onClick(() => {
-                this.onFollowClick();
-              });
+          // 操作按钮（已注销/自己主页隐藏，避免误操作与自关/自聊）
+          if (!this.profile.deleted && !this.isSelf()) {
+            Row({ space: 12 }) {
+              Button(this.followBtnText())
+                .height(36).borderRadius(18).layoutWeight(1)
+                .backgroundColor(this.profile.isFollowing ? $r('app.color.card_bg') : $r('app.color.brand_primary'))
+                .fontColor(this.profile.isFollowing ? $r('app.color.text_primary') : '#fff')
+                .onClick(() => {
+                  this.onFollowClick();
+                });
+              Button('私信')
+                .height(36).borderRadius(18).layoutWeight(1)
+                .backgroundColor($r('app.color.card_bg'))
+                .fontColor($r('app.color.text_primary'))
+                .onClick(() => {
+                  this.onMessageClick();
+                });
+            }
+            .width('100%')
+            .padding({ left: 16, right: 16 });
           }
         }
         .alignItems(HorizontalAlign.Start);

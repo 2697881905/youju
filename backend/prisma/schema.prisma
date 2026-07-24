@@ -237,7 +237,7 @@ model PrivacySettings {
   userId         Int      @unique
   postVisibility String   @default("public") @db.VarChar(20) // public | followers | private
   allowFollow    Boolean  @default(true)
-  allowMessage   Boolean  @default(true)
+  dmPolicy       String   @default("all") @db.VarChar(20) // all | mutual | followers（谁可给我发私信）
   updatedAt      DateTime @updatedAt
 }
 
@@ -250,4 +250,19 @@ model DebateVote {
   createdAt DateTime @default(now())
 
   @@unique([userId, postId]) // 同一用户对同一辩论帖只能投一次
+}
+
+// 私信消息表（两人配对即一条会话，不单独建会话表）
+model Message {
+  id         Int      @id @default(autoincrement())
+  senderId   Int      // 发送方 userId
+  receiverId Int      // 接收方 userId
+  content    String   @db.Text // 文本消息内容（MVP 仅文字）
+  read       Boolean  @default(false) // 接收方是否已读
+  createdAt  DateTime @default(now())
+
+  @@index([receiverId, read])            // 未读统计
+  @@index([senderId, receiverId])        // 会话历史（A→B）
+  @@index([receiverId, senderId])        // 会话历史（B→A）
+  @@index([receiverId, createdAt])       // 会话列表按最近活动排序
 }

@@ -10,7 +10,7 @@ import { resolveSettingsIcon } from '../utils/settingsIcons';
 @Entry
 @Component
 export struct PrivacySettingsPage {
-  @State settings: PrivacySettingsData = { postVisibility: 'public', allowFollow: true, allowMessage: true };
+  @State settings: PrivacySettingsData = { postVisibility: 'public', allowFollow: true, dmPolicy: 'all' };
   @State loadFinished: boolean = false;
   @State loadError: string = '';
   @State saving: boolean = false;
@@ -26,6 +26,14 @@ export struct PrivacySettingsPage {
     '公开 — 所有人可见',
     '仅粉丝 — 仅关注你的人可见',
     '私密 — 仅自己可见',
+  ];
+
+  private dmPolicyOptions: string[] = ['all', 'mutual', 'followers'];
+  private dmPolicyLabels: string[] = ['所有人可发', '仅互关好友', '仅粉丝'];
+  private dmPolicyDesc: string[] = [
+    '所有用户都能给你发私信',
+    '只有互相关注的好友能给你发私信',
+    '只有你的粉丝能给你发私信',
   ];
 
   aboutToAppear(): void {
@@ -169,27 +177,38 @@ export struct PrivacySettingsPage {
               .borderRadius(CARD_RADIUS)
               .shadow(CARD_SHADOW);
 
-              Row() {
-                Column() {
-                  Text('允许私信')
-                    .fontSize(15)
-                    .fontColor($r('app.color.text_primary'));
-                  Text('关闭后其他用户将无法给你发私信')
-                    .fontSize(12)
-                    .fontColor($r('app.color.text_secondary'))
-                    .margin({ top: 2 });
-                }
-                .layoutWeight(1)
-                .alignItems(HorizontalAlign.Start);
+              Column({ space: 0 }) {
+                ForEach(this.dmPolicyOptions, (opt: string, idx: number) => {
+                  Row() {
+                    Column() {
+                      Text(this.dmPolicyLabels[idx])
+                        .fontSize(15)
+                        .fontColor($r('app.color.text_primary'))
+                      Text(this.dmPolicyDesc[idx])
+                        .fontSize(12)
+                        .fontColor($r('app.color.text_secondary'))
+                        .margin({ top: 2 })
+                    }
+                    .layoutWeight(1)
+                    .alignItems(HorizontalAlign.Start);
 
-                Toggle({ type: ToggleType.Switch, isOn: this.settings.allowMessage })
-                  .onChange((isOn: boolean) => {
-                    this.settings.allowMessage = isOn;
-                  });
+                    Radio({ value: opt, group: 'dmPolicyGroup' })
+                      .checked(this.settings.dmPolicy === opt)
+                      .onChange((isChecked: boolean) => {
+                        if (isChecked) {
+                          this.settings.dmPolicy = opt;
+                        }
+                      });
+                  }
+                  .width('100%')
+                  .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+                  .backgroundColor($r('app.color.card_bg'))
+                  if (idx < this.dmPolicyOptions.length - 1) {
+                    Divider().color('#1AFFFFFF').margin({ left: 16 });
+                  }
+                });
               }
               .width('100%')
-              .padding({ left: 16, right: 16, top: 16, bottom: 16 })
-              .backgroundColor($r('app.color.card_bg'))
               .borderRadius(CARD_RADIUS)
               .shadow(CARD_SHADOW);
             }
