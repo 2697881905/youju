@@ -1,4 +1,4 @@
-// 大蓝书 主框架：悬浮玻璃质感底部导航栏（Apple Music 风格）
+// 大蓝书 主框架：iOS 26 液态玻璃质感悬浮底部导航栏
 // Tab：首页 / 圈子 / 发布 / 消息 / 我的；帖子详情经 router 单独跳转（pages/DetailPage）
 import { HomeTab } from '../components/HomeTab';
 import { CircleTab } from '../components/CircleTab';
@@ -12,11 +12,13 @@ import { common } from '@kit.AbilityKit';
 import { window } from '@kit.ArkUI';
 import { sensor } from '@kit.SensorServiceKit';
 
-// 悬浮栏尺寸令牌（Apple Music 风格大圆角胶囊）
-const BAR_HEIGHT: number = 64;
-const BAR_RADIUS: number = 26;
-const BAR_SIDE_MARGIN: number = 16;
-const BAR_BOTTOM_GAP: number = 16;
+// 悬浮栏尺寸令牌（iOS 26 风格大圆角厚胶囊）
+const BAR_HEIGHT: number = 62;
+const BAR_RADIUS: number = 28;
+const BAR_SIDE_MARGIN: number = 18;
+const BAR_BOTTOM_GAP: number = 18;
+// 选中项玻璃凸起胶囊圆角
+const PILL_RADIUS: number = 18;
 
 // 单个 Tab 定义
 interface TabDef {
@@ -38,19 +40,19 @@ struct Index {
   @State navBarHeight: number = 0;
 
   // 玻璃质感 / 反射 / 流光 动态状态
-  @State glassBg: string = '#FFFFFFB3';
-  @State glassBorder: string = '#FFFFFFB3';
-  @State glassBlur: number = 28;
-  @State reflectionAlpha: number = 0.4;
-  @State shimmerAlpha: number = 0.35;
+  @State glassBg: string = '#FFFFFF80';
+  @State glassBorder: string = '#FFFFFFA6';
+  @State glassBlur: number = 30;
+  @State glossAlpha: number = 0.5;
+  @State shimmerAlpha: number = 0.3;
   @State shimmerOffset: number = -300;
-  @State selectedBg: string = '#007AFF1A';
-  @State barShadow: ShadowOptions = { radius: 18, color: '#0000002E', offsetY: 8 };
+  @State selectedBg: string = '#007AFF1F';
+  @State barShadow: ShadowOptions = { radius: 20, color: '#00000033', offsetY: 10 };
 
   // 环境光强度比例（0 暗 ~ 1 亮），默认偏亮
   private ambientRatio: number = 0.6;
   // 光带宽度与悬浮栏宽度（用于流光位移计算）
-  private shimmerWidth: number = 80;
+  private shimmerWidth: number = 90;
   private barWidth: number = 360;
   // 组件存活标记，防止销毁后动画递归
   private alive: boolean = true;
@@ -202,30 +204,32 @@ struct Index {
 
   // 将 0~1 的透明度转为两位十六进制（用于 8 位 hex 颜色）
   private hexAlpha(a: number): string {
-    const v: number = Math.round(a * 255);
+    const v: number = Math.max(0, Math.min(255, Math.round(a * 255)));
     const s: string = v.toString(16);
     return s.length === 1 ? '0' + s : s;
   }
 
-  // 根据深色模式 + 环境光强度，重算玻璃材质 / 反射 / 流光参数
+  // 根据深色模式 + 环境光强度，重算液态玻璃材质 / 光泽 / 流光参数
   private recomputeGlass(): void {
-    const ratio: number = this.ambientRatio;
+    const r: number = this.ambientRatio;
     if (this.isDark) {
-      this.glassBg = '#1C1C1E' + this.hexAlpha(0.55 + 0.3 * ratio);
-      this.glassBorder = '#FFFFFF' + this.hexAlpha(0.16);
-      this.selectedBg = '#78AAFF' + this.hexAlpha(0.20);
-      this.barShadow = { radius: 16, color: '#0000008C', offsetY: 6 };
-      this.reflectionAlpha = 0.12 + 0.22 * ratio;
-      this.shimmerAlpha = 0.14 + 0.22 * ratio;
+      // 深色：更实一点的暗玻璃，边缘微亮，选中项冷蓝凸起
+      this.glassBg = '#1C1C1E' + this.hexAlpha(0.5 + 0.25 * r);
+      this.glassBorder = '#FFFFFF' + this.hexAlpha(0.18);
+      this.selectedBg = '#78AAFF' + this.hexAlpha(0.22);
+      this.barShadow = { radius: 18, color: '#000000A6', offsetY: 8 };
+      this.glossAlpha = 0.14 + 0.18 * r;
+      this.shimmerAlpha = 0.1 + 0.16 * r;
     } else {
-      this.glassBg = '#FFFFFF' + this.hexAlpha(0.5 + 0.35 * ratio);
-      this.glassBorder = '#FFFFFF' + this.hexAlpha(0.70);
-      this.selectedBg = '#007AFF' + this.hexAlpha(0.10);
-      this.barShadow = { radius: 18, color: '#0000002E', offsetY: 8 };
-      this.reflectionAlpha = 0.22 + 0.4 * ratio;
-      this.shimmerAlpha = 0.2 + 0.32 * ratio;
+      // 浅色：低不透明度白玻璃，强高光描边，选中项品牌蓝凸起
+      this.glassBg = '#FFFFFF' + this.hexAlpha(0.3 + 0.28 * r);
+      this.glassBorder = '#FFFFFF' + this.hexAlpha(0.65);
+      this.selectedBg = '#007AFF' + this.hexAlpha(0.12);
+      this.barShadow = { radius: 20, color: '#00000033', offsetY: 10 };
+      this.glossAlpha = 0.32 + 0.34 * r;
+      this.shimmerAlpha = 0.16 + 0.24 * r;
     }
-    this.glassBlur = 18 + 18 * ratio;
+    this.glassBlur = 22 + 16 * r;
   }
 
   // 环境光强度（lux）→ 0~1 比例，驱动玻璃通透度与光效强度
@@ -255,7 +259,7 @@ struct Index {
     const start: number = -(this.barWidth / 2 + this.shimmerWidth);
     const end: number = this.barWidth / 2 + this.shimmerWidth;
     this.shimmerOffset = start;
-    animateTo({ duration: 3400, curve: Curve.Linear, onFinish: (): void => {
+    animateTo({ duration: 3600, curve: Curve.Linear, onFinish: (): void => {
       if (this.alive) {
         this.startShimmer();
       }
@@ -301,23 +305,24 @@ struct Index {
     .opacity(this.shimmerAlpha > 0.02 ? 1 : 0)
   }
 
-  // 顶部光线反射层：从上到下的白色高光渐隐，营造玻璃反光
+  // 顶部光泽层：上白下透明的柔和高光，模拟光线打在玻璃顶面
   @Builder
-  ReflectionLayer() {
+  GlossLayer() {
     Row() {
     }
     .width('100%')
-    .height('100%')
+    .height('58%')
     .linearGradient({
       angle: 90,
       colors: [
-        ['#FFFFFF' + this.hexAlpha(this.reflectionAlpha), 0.0],
-        ['#FFFFFF00', 0.5]
+        ['#FFFFFF' + this.hexAlpha(this.glossAlpha), 0.0],
+        ['#FFFFFF00', 1.0]
       ]
     })
+    .align(Alignment.Top)
   }
 
-  // 顶部高光线：1.5px 的横向白色高光描边，强化玻璃边缘反光
+  // 顶部高光描边（specular rim）：1.5px 横向高光，强化玻璃边缘反光
   @Builder
   TopHighlightLine() {
     Row() {
@@ -328,69 +333,69 @@ struct Index {
       angle: 0,
       colors: [
         ['#FFFFFF00', 0.0],
-        ['#FFFFFFBF', 0.5],
+        ['#FFFFFFFF', 0.5],
         ['#FFFFFF00', 1.0]
       ]
     })
     .align(Alignment.Top)
   }
 
-  // 单个 Tab 内部：图标 + 文字，选中态带浅色胶囊高亮
+  // 单个 Tab 内部：图标（仅图标带未读 Badge）+ 文字；选中态带玻璃凸起胶囊
+  // 外层 Column 保留 layoutWeight(1) → 5 个按钮等宽等距
   @Builder
   TabInner(tab: TabDef, index: number) {
     Column({ space: 3 }) {
-      Image(this.navIconRes(index))
-        .width(24)
-        .height(24)
-        .fillColor(index === this.currentIndex ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
-        .animation({ duration: 200, curve: Curve.EaseOut })
+      if (index === 3 && (this.unreadCount + this.dmUnread) > 0) {
+        Badge({
+          count: this.unreadCount + this.dmUnread,
+          position: BadgePosition.RightTop,
+          style: { badgeColor: $r('app.color.semantic_red'), badgeSize: 16 }
+        }) {
+          Image(this.navIconRes(index))
+            .width(26)
+            .height(26)
+            .fillColor(index === this.currentIndex ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
+        }
+      } else {
+        Image(this.navIconRes(index))
+          .width(26)
+          .height(26)
+          .fillColor(index === this.currentIndex ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
+      }
       Text(tab.title)
         .fontSize(10)
         .fontColor(index === this.currentIndex ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
-        .animation({ duration: 200, curve: Curve.EaseOut })
     }
-    .justifyContent(FlexAlign.Center)
-    .alignItems(HorizontalAlign.Center)
     .layoutWeight(1)
     .height('100%')
-    .borderRadius(16)
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
+    .borderRadius(PILL_RADIUS)
     .backgroundColor(index === this.currentIndex ? this.selectedBg : Color.Transparent)
+    .border(index === this.currentIndex ? { width: 1, color: '#FFFFFFA6', style: BorderStyle.Solid } : undefined)
+    .shadow(index === this.currentIndex
+      ? { radius: 8, color: '#00000014', offsetY: 1 }
+      : undefined)
     .animation({ duration: 220, curve: Curve.EaseOut })
     .onClick(() => {
       this.selectTab(index);
     })
   }
 
-  // 单个 Tab（消息 Tab 带未读红点）
-  @Builder
-  TabItem(tab: TabDef, index: number) {
-    if (index === 3) {
-      Badge({
-        count: this.unreadCount + this.dmUnread,
-        style: { badgeColor: $r('app.color.semantic_red') },
-        position: BadgePosition.RightTop,
-      }) {
-        this.TabInner(tab, index)
-      }
-    } else {
-      this.TabInner(tab, index)
-    }
-  }
-
-  // 悬浮玻璃底部栏主体
+  // 悬浮液态玻璃底部栏主体
   @Builder
   FloatingTabBar() {
-    Stack({ alignContent: Alignment.Top }) {
-      // 流光层（位于最底，透出玻璃产生扫光）
+    Stack({ alignContent: Alignment.Center }) {
+      // 顶部光泽
+      this.GlossLayer()
+      // 流光层（透出玻璃产生扫光）
       this.ShimmerLayer()
-      // 顶部光线反射
-      this.ReflectionLayer()
-      // 顶部高光描边
+      // 顶部高光描边（specular rim）
       this.TopHighlightLine()
-      // Tab 项行
+      // Tab 项行：等宽均分
       Row() {
         ForEach(this.tabs, (tab: TabDef, i: number) => {
-          this.TabItem(tab, i);
+          this.TabInner(tab, i);
         }, (tab: TabDef) => tab.key)
       }
       .width('100%')
@@ -403,7 +408,7 @@ struct Index {
     .borderRadius(BAR_RADIUS)
     .backdropBlur(this.glassBlur)
     .backgroundColor(this.glassBg)
-    .border({ width: 1, color: this.glassBorder, style: BorderStyle.Solid })
+    .border({ width: 1.5, color: this.glassBorder, style: BorderStyle.Solid })
     .shadow(this.barShadow)
     .clip(true)
   }
@@ -427,7 +432,7 @@ struct Index {
       .height('100%')
       .padding({ top: this.statusBarHeight, bottom: this.contentBottomReserve() })
 
-      // 悬浮玻璃底部栏（底部居中、左右留白，避开系统导航条）
+      // 悬浮液态玻璃底部栏（底部居中、左右留白，避开系统导航条）
       Row() {
         this.FloatingTabBar()
       }
