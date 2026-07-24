@@ -598,19 +598,30 @@ export function updatePrivacySettings(body: PrivacySettingsData): Promise<Privac
 }
 
 // ===== 私信 =====
+// ArkTS V1 严格模式：禁止内联对象字面量类型，须用具名 interface
+export interface ConversationsResult {
+  list: Conversation[];
+}
+export interface DmUnreadResult {
+  count: number;
+}
+export interface MessagesResult {
+  list: DmMessage[];
+}
+
 // GET /v1/messages/conversations —— 会话列表
-export function getConversations(): Promise<{ list: Conversation[] }> {
-  return api.get<{ list: Conversation[] }>('/v1/messages/conversations');
+export function getConversations(): Promise<ConversationsResult> {
+  return api.get<ConversationsResult>('/v1/messages/conversations');
 }
 
 // GET /v1/messages/unread —— 私信未读总数
-export function getDmUnreadCount(): Promise<{ count: number }> {
-  return api.get<{ count: number }>('/v1/messages/unread');
+export function getDmUnreadCount(): Promise<DmUnreadResult> {
+  return api.get<DmUnreadResult>('/v1/messages/unread');
 }
 
 // GET /v1/messages/:userId?page= —— 与某用户私信历史（旧→新）
-export function getMessages(userId: number, page: number = 1): Promise<{ list: DmMessage[] }> {
-  return api.get<{ list: DmMessage[] }>('/v1/messages/' + userId + '?page=' + page);
+export function getMessages(userId: number, page: number = 1): Promise<MessagesResult> {
+  return api.get<MessagesResult>('/v1/messages/' + userId + '?page=' + page);
 }
 
 // POST /v1/messages/:userId/read —— 标记与该用户私信已读

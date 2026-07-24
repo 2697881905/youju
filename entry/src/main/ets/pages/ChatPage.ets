@@ -9,7 +9,6 @@ import { getToken, getUserId } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { CARD_RADIUS } from '../utils/cardTokens';
-import { ListScroller, ImageFit, HorizontalAlign, FlexAlign } from '@kit.ArkUI';
 
 @Entry
 @Component
@@ -119,17 +118,21 @@ export struct ChatPage {
     return pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + hm;
   }
 
+  // 是否为当前用户发出的消息（@Builder 体内禁止声明 const，故抽为方法）
+  private isMine(senderId: number): boolean {
+    return senderId === getUserId();
+  }
+
   @Builder
   messageRow(m: DmMessage) {
-    const mine: boolean = m.senderId === getUserId();
     Row({ space: 8 }) {
-      if (!mine && this.peerAvatar !== '') {
+      if (!this.isMine(m.senderId) && this.peerAvatar !== '') {
         Image(this.peerAvatar)
           .width(36)
           .height(36)
           .borderRadius(18)
           .objectFit(ImageFit.Cover)
-      } else if (!mine) {
+      } else if (!this.isMine(m.senderId)) {
         Circle({ width: 36, height: 36 })
           .fill($r('app.color.brand_primary'))
           .opacity(0.15)
@@ -142,8 +145,8 @@ export struct ChatPage {
       Column({ space: 4 }) {
         Text(m.content)
           .fontSize(15)
-          .fontColor(mine ? Color.White : $r('app.color.text_primary'))
-          .backgroundColor(mine ? $r('app.color.brand_primary') : $r('app.color.card_bg'))
+          .fontColor(this.isMine(m.senderId) ? Color.White : $r('app.color.text_primary'))
+          .backgroundColor(this.isMine(m.senderId) ? $r('app.color.brand_primary') : $r('app.color.card_bg'))
           .padding({ left: 12, right: 12, top: 8, bottom: 8 })
           .borderRadius(CARD_RADIUS)
           .constraintSize({ maxWidth: 260 })
@@ -152,11 +155,11 @@ export struct ChatPage {
           .fontSize(10)
           .fontColor($r('app.color.text_secondary'))
       }
-      .alignItems(mine ? HorizontalAlign.End : HorizontalAlign.Start)
+      .alignItems(this.isMine(m.senderId) ? HorizontalAlign.End : HorizontalAlign.Start)
       .layoutWeight(1)
     }
     .width('100%')
-    .justifyContent(mine ? FlexAlign.End : FlexAlign.Start)
+    .justifyContent(this.isMine(m.senderId) ? FlexAlign.End : FlexAlign.Start)
   }
 
   build() {

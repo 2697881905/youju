@@ -265,7 +265,7 @@ export struct MessagePage {
             .backgroundColor($r('app.color.semantic_red'))
             .borderRadius(10)
             .padding({ left: 6, right: 6, top: 2, bottom: 2 })
-            .minWidth(18)
+            .constraintSize({ minWidth: 18 })
             .textAlign(TextAlign.Center)
         }
       }
