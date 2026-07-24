@@ -3,7 +3,7 @@ import { LengthMetrics } from '@kit.ArkUI';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { http } from '@kit.NetworkKit';
 import {
-  createPost, updatePost, getPost, listTags, getUploadSignature,
+  createPost, updatePost, getPost, listTags, getUploadSignature, resolveUploadPutUrl,
   CreatePostBody, UpdatePostBody,
 } from '../services/api';
 import { ensureLogin } from '../utils/auth';
@@ -258,26 +258,32 @@ export struct PublishPage {
     });
   }
 
-  // 选封面图 → 压缩 → COS 直传 → 写入 coverImage
+  // 选封面图 → 压缩 → 本地/直传 → 写入 coverImage
   private async pickCover(): Promise<void> {
     if (this.uploadingCover) return;
     const ok: boolean = await this.ensureToken();
     if (!ok) return;
-    this.uploadingCover = true;
+    // 先选图（用户取消会抛错，单独 try 忽略，不影响后续）
+    let uris: string[] = [];
     try {
       const ph = new photoAccessHelper.PhotoViewPicker();
       const res = await ph.select({
         MIMEType: photoAccessHelper.PhotoViewMIMETypes.IMAGE_TYPE,
         maxSelectNumber: 1,
       });
-      const uris: string[] = res.photoUris ?? [];
-      if (uris.length === 0) { return; }
+      uris = res.photoUris ?? [];
+    } catch (e) {
+      return; // 用户取消选择
+    }
+    if (uris.length === 0) { return; }
+    this.uploadingCover = true;
+    try {
       const compressed: CompressedImage = await compressImage(uris[0]);
       const sig = await getUploadSignature('image/jpeg');
-      await this.putBinary(sig.url, compressed.bytes, sig.contentType);
+      await this.putBinary(resolveUploadPutUrl(sig), compressed.bytes, sig.contentType);
       this.coverImage = sig.viewUrl;
     } catch (e) {
-      // 用户取消选择会抛错，忽略
+      safeShowToast(this.getUIContext(), { message: '封面图上传失败：' + (e as Error).message });
     } finally {
       this.uploadingCover = false;
     }

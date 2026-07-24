@@ -10,6 +10,7 @@ export interface UploadSignature {
   cdnUrl: string; // 直传成功后「公开可读」时访问的 URL（有 CDN 则用 CDN，否则与 url 同）
   viewUrl: string; // 直传后「始终可读」的 URL（COS=GET 预签名；本地=静态直链），前端展示与存储一律用这个
   contentType: string; // 前端 PUT 时必须带上的 Content-Type（需与签名一致）
+  mode: 'cos' | 'local'; // 上传模式：cos=直传腾讯云；local=直传后端 /v1/upload/local
 }
 
 // 是否具备真实可用的 COS 凭据（secretId/secretKey/bucket/region 齐全）
@@ -37,6 +38,7 @@ function localUploadSignature(contentType: string): UploadSignature {
     cdnUrl: viewUrl,
     viewUrl,
     contentType,
+    mode: 'local',
   };
 }
 
@@ -80,7 +82,7 @@ function cosUploadSignature(contentType: string): Promise<UploadSignature> {
         const viewUrl: string = getErr ? url : getData.Url;
         const base = cdnBase ? cdnBase.replace(/\/$/, '') : '';
         const cdnUrl = base ? `${base}/${key}` : url;
-        resolve({ url, key, cdnUrl, viewUrl, contentType });
+        resolve({ url, key, cdnUrl, viewUrl, contentType, mode: 'cos' });
       });
     });
   });

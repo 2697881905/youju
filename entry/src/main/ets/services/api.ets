@@ -148,6 +148,23 @@ export interface UploadSignature {
   cdnUrl: string; // 直传后公开可读时访问的 URL
   viewUrl: string; // GET 预签名可读链接（私有桶也能加载，展示与存储一律用这个）
   contentType: string; // 前端 PUT 必须带上的 Content-Type（需与签名一致）
+  mode?: 'cos' | 'local'; // 上传模式：cos=直传腾讯云(外网URL)；local=直传后端 /v1/upload/local
+}
+
+// 解析「前端 PUT 直传目标 URL」：
+// - cos 模式：直传后端下发的外部预签名 URL（如 myqcloud.com）。
+// - local 模式：上传必须走 rport(BASE_URL=127.0.0.1:3000)，与所有 API 调用一致；
+//   而展示用的 viewUrl 仍用 LAN IP(backendPublicUrl)——因为模拟器 Image/WebView 不走 rport。
+// 严禁在 local 模式直接用 sig.url（LAN IP），那会因模拟器 http 模块连不上而上传失败。
+export function resolveUploadPutUrl(sig: UploadSignature): string {
+  if (sig.mode === 'cos') {
+    return sig.url;
+  }
+  if (sig.mode === 'local' || !sig.url.includes('myqcloud.com')) {
+    const pathAndQuery: string = sig.url.replace(/^https?:\/\/[^/]+/, '');
+    return BASE_URL + pathAndQuery;
+  }
+  return sig.url;
 }
 
 // 拼接 query string（跳过 undefined/null/空串）

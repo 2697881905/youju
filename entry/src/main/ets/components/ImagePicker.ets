@@ -6,7 +6,7 @@ import { LengthMetrics } from '@kit.ArkUI';
 import { image } from '@kit.ImageKit';
 import { http } from '@kit.NetworkKit';
 import { compressImage, CompressedImage } from '../utils/image';
-import { getUploadSignature } from '../services/api';
+import { getUploadSignature, resolveUploadPutUrl } from '../services/api';
 import { ensureLogin } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
 import { User } from '../models/types';
@@ -98,7 +98,7 @@ export struct ImagePicker {
         this.items = [...this.items, item];
         try {
           const sig = await getUploadSignature('image/jpeg');
-          await this.putBinary(sig.url, bytes, sig.contentType);
+          await this.putBinary(resolveUploadPutUrl(sig), bytes, sig.contentType);
           item.remoteUrl = sig.viewUrl;
           item.uploading = false;
           this.items = [...this.items];

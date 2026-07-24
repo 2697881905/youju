@@ -5,7 +5,7 @@ import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { image } from '@kit.ImageKit';
 import { http } from '@kit.NetworkKit';
 import { getCurrentUser, setSession, ensureLogin, getToken } from '../utils/auth';
-import { updateMe, getUploadSignature, getUserProfile, BASE_URL } from '../services/api';
+import { updateMe, getUploadSignature, getUserProfile, resolveUploadPutUrl } from '../services/api';
 import { compressAvatar, CompressedImage } from '../utils/image';
 import { safeShowToast } from '../utils/toast';
 import { User, UserProfile } from '../models/types';
@@ -106,12 +106,10 @@ export struct EditProfilePage {
     let savedUrl: string = '';
     try {
       const sig = await getUploadSignature('image/jpeg');
-      // 本地文件上传模式：直传目标改走 127.0.0.1（经 hdc rport，与 API 同一稳定路径），
+      // 本地文件上传模式：直传目标改走 rport(BASE_URL=127.0.0.1)，与 API 同一稳定路径，
       // 避免直连 LAN IP（DHCP 变化/模拟器 http 栈不稳定）导致超时。
       // viewUrl 保留 LAN IP，供 Image 组件展示（Image 不走 rport，必须走 LAN IP 才能加载）。
-      const uploadUrl: string = sig.url.includes('myqcloud.com')
-        ? sig.url
-        : BASE_URL + sig.url.replace(/^https?:\/\/[^/]+/, '');
+      const uploadUrl: string = resolveUploadPutUrl(sig);
       await this.putBinary(uploadUrl, compressed.bytes, sig.contentType);
       savedUrl = sig.viewUrl; // 用 GET 预签名可读链接，私有桶也能加载
     } catch (e) {
