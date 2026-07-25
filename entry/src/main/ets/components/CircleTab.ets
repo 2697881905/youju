@@ -11,10 +11,11 @@
 import { Tag, User } from '../models/types';
 import { TagIcon } from './TagIcon';
 import { listTags, followTag, unfollowTag, listFollowedTags } from '../services/api';
-import { ensureLogin } from '../utils/auth';
+import { ensureLogin, getToken } from '../utils/auth';
+import { likeStore } from '../utils/likeStore';
 import { safeShowToast } from '../utils/toast';
 import { observeGridColumns, gridColumnTemplate } from '../utils/responsive';
-import { CARD_RADIUS, CARD_PADDING, CARD_SHADOW, GRID_GAP, GRID_PADDING } from '../utils/cardTokens';
+import { CARD_RADIUS, CARD_PADDING, CARD_SHADOW, GRID_GAP, GRID_PADDING, barBottomReserve } from '../utils/cardTokens';
 import { common } from '@kit.AbilityKit';
 
 // 用 @Observed 包装：使「数组中对象属性变化」能驱动子组件重渲染
@@ -92,6 +93,8 @@ export struct CircleTab {
   @State gridColumns: number = 2;
   @State gridTemplate: string = '1fr 1fr';
   private unregisterColumns: () => void = () => {};
+  // 监听登录账号：切换账号/登出时重建圈子列表，否则「已加入」状态残留上个账号的 joined 态
+  @StorageLink('authUserId') @Watch('onAccountSwitch') accountId: string = '';
 
   aboutToAppear(): void {
     this.unregisterColumns = observeGridColumns(
@@ -106,6 +109,20 @@ export struct CircleTab {
 
   aboutToDisappear(): void {
     this.unregisterColumns();
+  }
+
+  // 账号切换/登出：清空点赞缓存（圈子本身不展示点赞，但统一清理避免遗漏）；
+  // 已登录则重拉圈子（更新 joined 态），已登出则清空本地圈子态，避免 initData→ensureLogin 误跳登录页
+  onAccountSwitch(): void {
+    likeStore.clear();
+    if (getToken() !== '') {
+      this.initData();
+    } else {
+      this.circles = [];
+      this.joinedNames = [];
+      this.error = '';
+      this.loading = false;
+    }
   }
 
   private async initData(): Promise<void> {
@@ -260,7 +277,7 @@ export struct CircleTab {
           .columnsTemplate(this.gridTemplate)
           .columnsGap(GRID_GAP)
           .rowsGap(GRID_GAP)
-          .padding(GRID_PADDING)
+          .padding({ left: GRID_PADDING, right: GRID_PADDING, top: GRID_PADDING, bottom: GRID_PADDING + barBottomReserve() })
           .width('100%')
         }
         .layoutWeight(1)

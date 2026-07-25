@@ -7,7 +7,7 @@ import { ensureLogin, getCurrentUser } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
 import { setDetailPostId } from '../utils/nav';
 import { observeGridColumns, gridColumnTemplate } from '../utils/responsive';
-import { GRID_GAP, GRID_PADDING } from '../utils/cardTokens';
+import { GRID_GAP, GRID_PADDING, barBottomReserve } from '../utils/cardTokens';
 import { AvatarView } from '../components/AvatarView';
 import { common } from '@kit.AbilityKit';
 import { likeStore } from '../utils/likeStore';
@@ -25,6 +25,9 @@ export struct ProfilePage {
   @StorageLink('authAvatar') @Watch('onProfileCacheChange') _syncAvatar: string = '';
   @StorageLink('authBio') @Watch('onProfileCacheChange') _syncBio: string = '';
   @StorageLink('authGender') @Watch('onProfileCacheChange') _syncGender: number = 0;
+  // 订阅登录账号：切换账号（如老张↔小美互测）时重拉「我的」资料/计数/帖子，
+  // 否则 TabContent 内组件被保留，残留上一个账号的关注/粉丝数、帖子列表。
+  @StorageLink('authUserId') @Watch('onUserChange') uid: string = '';
   @State followingCount: number = 0;
   @State followerCount: number = 0;
   @State tabIdx: number = 0; // 0 我发布, 1 我收藏, 2 我赞过, 3 我评论
@@ -75,6 +78,30 @@ export struct ProfilePage {
   // 这样在首页/详情取消点赞后，进入「我赞过」会立即剔除该帖；收藏/评论计数也同步为最新。
   onActiveTab(): void {
     if (this.activeTab === 4 && this.ready) {
+      this.refresh();
+    }
+  }
+
+  // 切换登录账号（登出/切换虚拟账号）→ 立即用新账号身份重拉资料与计数/帖子，
+  // 避免 TabContent 内组件被保留导致「我的」页仍显示上一个账号的数据。
+  onUserChange(): void {
+    // 清空点赞缓存，避免切账号后「我赞过」/帖子点赞态残留上个账号
+    likeStore.clear();
+    const u: User | null = getCurrentUser();
+    if (!u || !u.id) {
+      return; // 登出态不拉取
+    }
+    this.user = {
+      id: u.id,
+      nickname: u.nickname,
+      avatar: u.avatar,
+      isAdmin: u.isAdmin,
+      gender: u.gender,
+      bio: u.bio,
+      followTags: this.user.followTags,
+    };
+    if (this.ready) {
+      this.fetchCounts();
       this.refresh();
     }
   }
@@ -415,7 +442,7 @@ export struct ProfilePage {
             }
           }
           .columnsTemplate(this.gridTemplate)
-          .columnsGap(GRID_GAP).rowsGap(GRID_GAP).padding(GRID_PADDING)
+          .columnsGap(GRID_GAP).rowsGap(GRID_GAP).padding({ left: GRID_PADDING, right: GRID_PADDING, top: GRID_PADDING, bottom: GRID_PADDING + barBottomReserve() })
           .onScrollIndex((_start: number, end: number) => {
             if (end >= this.posts.length - 1) {
               this.loadMore();

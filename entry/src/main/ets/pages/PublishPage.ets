@@ -3,8 +3,7 @@ import { LengthMetrics } from '@kit.ArkUI';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { http } from '@kit.NetworkKit';
 import {
-  createPost, updatePost, getPost, listTags, getUploadSignature, resolveUploadPutUrl,
-  CreatePostBody, UpdatePostBody,
+  createPost, listTags, getUploadSignature, resolveUploadPutUrl,
 } from '../services/api';
 import { ensureLogin } from '../utils/auth';
 import { Genre, StructuredData, Tag, User } from '../models/types';
@@ -13,6 +12,7 @@ import { TagIcon } from '../components/TagIcon';
 import { safeShowToast } from '../utils/toast';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { compressImage, CompressedImage } from '../utils/image';
+import { barBottomReserve } from '../utils/cardTokens';
 
 interface GenreItem {
   key: Genre;
@@ -117,13 +117,14 @@ export struct PublishPage {
   @State tags: Tag[] = [];
   @State publishing: boolean = false;
   @State error: string = '';
-  @State editPostId: number = 0;
-  @State isEditMode: boolean = false;
   @State showFields: boolean = false;
   @State showTagPanel: boolean = false;
   // 封面图（选填，单张，COS 直传）
   @State coverImage: string = '';
   @State uploadingCover: boolean = false;
+  // 订阅登录账号：切换账号（如老张↔小美互测）时清空表单，避免残留上一个账号填写的内容
+  // （发布页是 TabContent，组件被保留，不会因切账号而重建）。
+  @StorageLink('authUserId') @Watch('onUserChange') uid: string = '';
   // 标签分类数据（@State 驱动，ForEach 可靠刷新）
   @State categoryList: string[] = [];
   @State tagsByCategory: Record<string, Tag[]> = {};
@@ -133,46 +134,12 @@ export struct PublishPage {
   }
 
   aboutToAppear(): void {
-    const editId: number = (AppStorage.get<number>('editPostId') ?? 0) as number;
-    if (editId > 0) {
-      this.isEditMode = true;
-      this.editPostId = editId;
-      AppStorage.setOrCreate('editPostId', 0);
-      this.loadPostForEdit(editId);
-    }
     this.loadTags();
   }
 
-  private async loadPostForEdit(id: number): Promise<void> {
-    try {
-      const post = await getPost(id);
-      this.title = post.title ?? '';
-      this.content = post.content ?? '';
-      this.genre = post.genre as Genre ?? 'review';
-      this.selectedTags = post.tags as string[] ?? [];
-      this.images = post.images ?? [];
-      this.coverImage = (post.coverImage as string) ?? '';
-      const sd: StructuredData = {};
-      if (post.structuredData) {
-        const raw = post.structuredData as Record<string, Object>;
-        if (typeof raw.pros === 'string') sd.pros = raw.pros as string;
-        if (typeof raw.cons === 'string') sd.cons = raw.cons as string;
-        if (typeof raw.rating === 'number' || typeof raw.rating === 'string') sd.rating = raw.rating as string;
-        if (typeof raw.targetAudience === 'string') sd.targetAudience = raw.targetAudience as string;
-        if (typeof raw.pitfallExperience === 'string') sd.pitfallExperience = raw.pitfallExperience as string;
-        if (typeof raw.lossAmount === 'string') sd.lossAmount = raw.lossAmount as string;
-        if (typeof raw.correctApproach === 'string') sd.correctApproach = raw.correctApproach as string;
-        if (typeof raw.tools === 'string') sd.tools = raw.tools as string;
-        if (typeof raw.steps === 'string') sd.steps = raw.steps as string;
-        if (typeof raw.timeDifficulty === 'string') sd.timeDifficulty = raw.timeDifficulty as string;
-        if (typeof raw.planA === 'string') sd.planA = raw.planA as string;
-        if (typeof raw.planB === 'string') sd.planB = raw.planB as string;
-      }
-      this.sd = sd;
-      this.showFields = Object.keys(sd).some((k: string) => (sd as Record<string, Object>)[k] !== undefined);
-    } catch (e) {
-      this.error = '加载帖子失败：' + (e as Error).message;
-    }
+  // 登录账号变化（登出/切换虚拟账号）→ 清空发布表单，防止跨账号内容残留
+  private onUserChange(): void {
+    this.reset();
   }
 
   private async loadTags(): Promise<void> {
@@ -297,25 +264,16 @@ export struct PublishPage {
     this.publishing = true;
     try {
       const images = this.images;
-      if (this.isEditMode) {
-        await updatePost(this.editPostId, {
-          title: this.title.trim(), content: this.content,
-          tags: this.selectedTags, structuredData: this.buildStructuredData(), images: images,
-          coverImage: this.coverImage || undefined,
-        });
-        safeShowToast(this.getUIContext(),{ message: '编辑成功' });
-      } else {
-        const p = await createPost({
-          title: this.title.trim(), content: this.content,
-          genre: this.genre, tags: this.selectedTags,
-          structuredData: this.buildStructuredData(), images: images,
-          coverImage: this.coverImage || undefined,
-        });
-        safeShowToast(this.getUIContext(),{ message: '发布成功！帖子ID=' + (p.id ?? '') });
-      }
+      const p = await createPost({
+        title: this.title.trim(), content: this.content,
+        genre: this.genre, tags: this.selectedTags,
+        structuredData: this.buildStructuredData(), images: images,
+        coverImage: this.coverImage || undefined,
+      });
+      safeShowToast(this.getUIContext(),{ message: '发布成功！帖子ID=' + (p.id ?? '') });
       this.reset();
     } catch (e) {
-      safeShowToast(this.getUIContext(),{ message: (this.isEditMode ? '编辑' : '发布') + '失败：' + (e as Error).message });
+      safeShowToast(this.getUIContext(),{ message: '发布失败：' + (e as Error).message });
     } finally {
       this.publishing = false;
     }
@@ -326,7 +284,6 @@ export struct PublishPage {
     this.title = ''; this.content = ''; this.sd = {};
     this.images = []; this.showFields = false; this.showTagPanel = false;
     this.coverImage = ''; this.uploadingCover = false;
-    this.isEditMode = false; this.editPostId = 0;
   }
 
   // 体裁 chip 行
@@ -397,7 +354,7 @@ export struct PublishPage {
           }
           .backgroundColor(Color.Transparent).onClick(() => { this.reset(); })
           Blank()
-          Button(this.isEditMode ? '保存' : '发布')
+          Button('发布')
             .fontSize(14).fontWeight(600).height(34).padding({ left: 20, right: 20 })
             .enabled(this.canPublish)
             .backgroundColor(this.canPublish ? $r('app.color.brand_primary') : '#A0A0A8')
@@ -509,7 +466,7 @@ export struct PublishPage {
             Row().height(32).width('100%')
           }.width('100%').alignItems(HorizontalAlign.Start)
         }
-        .layoutWeight(1).width('100%').scrollBar(BarState.Off)
+        .layoutWeight(1).width('100%').scrollBar(BarState.Off).padding({ bottom: barBottomReserve() })
       }
       .width('100%').height('100%').backgroundColor($r('app.color.bg_primary'))
 
@@ -552,7 +509,7 @@ export struct PublishPage {
               Row().height(32).width('100%')
             }.width('100%').padding({ left: 16, right: 16, top: 12, bottom: 16 }).alignItems(HorizontalAlign.Start)
           }
-          .layoutWeight(1).width('100%').scrollBar(BarState.Off)
+          .layoutWeight(1).width('100%').scrollBar(BarState.Off).padding({ bottom: barBottomReserve() })
         }
         .width('100%').height('100%').backgroundColor($r('app.color.bg_primary'))
       }

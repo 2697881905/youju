@@ -13,7 +13,8 @@ import {
   getConversations,
   getDmUnreadCount,
 } from '../services/api';
-import { getToken, getUserId } from '../utils/auth';
+import { getToken, getUserId, getCurrentUser } from '../utils/auth';
+import { barBottomReserve } from '../utils/cardTokens';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { notifIconRes, resolveActionIcon } from '../utils/actionIcons';
@@ -41,6 +42,9 @@ export struct MessagePage {
   @StorageLink('unreadDmCount') dmUnread: number = 0;
   // 聊天页发送/已读后自增，触发本页刷新会话列表与未读
   @StorageLink('dmRefreshSignal') @Watch('onDmRefreshSignal') dmRefreshSignal: number = 0;
+  // 订阅登录账号：切换账号（如老张↔小美互测）时重拉通知与私信，
+  // 否则 TabContent 内组件被保留，残留上一个账号的通知/会话与红点。
+  @StorageLink('authUserId') @Watch('onUserChange') uid: string = '';
 
   // 根据当前筛选条件过滤列表（方法调用，避免 ArkTS getter 在 build() 中不稳定）
   private getFilteredList(): NotificationItem[] {
@@ -87,6 +91,31 @@ export struct MessagePage {
     if (this.token !== '') {
       this.loadDmUnread();
     }
+  }
+
+  // 切换登录账号（登出/切换虚拟账号）→ 立即重拉通知与私信，
+  // 避免 TabContent 内组件被保留导致消息页残留上一个账号的内容与红点。
+  onUserChange(): void {
+    const u = getCurrentUser();
+    if (!u || !u.id) {
+      return; // 登出态不拉取
+    }
+    if (this.token !== '') {
+      this.loadFirst();
+      this.loadConversations();
+      this.loadDmUnread();
+    }
+  }
+
+  // 按通知类型统计未读数（仅统计已加载列表中的未读项），用于各分区红点
+  private unreadCountOf(types: NotificationType[]): number {
+    let n: number = 0;
+    for (const it of this.list) {
+      if (!it.read && types.indexOf(it.type as NotificationType) >= 0) {
+        n++;
+      }
+    }
+    return n;
   }
 
   // 相对时间格式化
@@ -224,21 +253,28 @@ export struct MessagePage {
   @Builder
   conversationRow(c: Conversation) {
     Row({ space: 12 }) {
-      if (c.peer.avatar) {
-        Image(c.peer.avatar)
-          .width(48)
-          .height(48)
-          .borderRadius(24)
-          .objectFit(ImageFit.Cover)
-      } else {
-        Circle({ width: 48, height: 48 })
-          .fill($r('app.color.brand_primary'))
-          .opacity(0.15)
-        Text(c.peer.nickname.slice(0, 1))
-          .fontSize(18)
-          .fontColor($r('app.color.brand_primary'))
-          .position({ x: 18, y: 14 })
+      // 头像区域：点击跳转对端主页（整行点击仍进聊天，两者分开）
+      Stack({ alignContent: Alignment.Center }) {
+        if (c.peer.avatar) {
+          Image(c.peer.avatar)
+            .width(48)
+            .height(48)
+            .borderRadius(24)
+            .objectFit(ImageFit.Cover)
+        } else {
+          Circle({ width: 48, height: 48 })
+            .fill($r('app.color.brand_primary'))
+            .opacity(0.15)
+          Text(c.peer.nickname.slice(0, 1))
+            .fontSize(18)
+            .fontColor($r('app.color.brand_primary'))
+        }
       }
+      .width(48)
+      .height(48)
+      .onClick(() => {
+        this.goUser(c.peer.id);
+      })
 
       Column({ space: 4 }) {
         Text(c.peer.nickname)
@@ -282,6 +318,12 @@ export struct MessagePage {
   // 用 getUserId() 统一解析为 number，避免与后端返回的数字 id 用 === 比较时因类型不一致永远不相等。
   private getSelfId(): number {
     return getUserId();
+  }
+
+  // 点击会话头像 → 跳转对端主页（与评论/帖子头像跳转一致）
+  private goUser(id: number): void {
+    AppStorage.setOrCreate('targetUserId', String(id));
+    this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage' });
   }
 
   // 点击单条：标记已读 → 本地更新（重赋值数组触发刷新）→ 有 postId 则跳详情
@@ -433,6 +475,7 @@ export struct MessagePage {
         }
         .width('100%')
         .layoutWeight(1)
+        .padding({ bottom: barBottomReserve() })
       }
       .onRefreshing(() => {
         this.loadConversations().finally(() => {
@@ -543,17 +586,23 @@ export struct MessagePage {
       // 快捷入口：三大类通知大图标
       Row({ space: 0 }) {
         Column({ space: 6 }) {
-          Column() {
-            Image(resolveActionIcon('like'))
-              .width(28)
-              .height(28)
-              .fillColor($r('app.color.brand_primary'))
+          Badge({
+            count: this.unreadCountOf(['up', 'bookmark']),
+            position: BadgePosition.RightTop,
+            style: { badgeColor: $r('app.color.semantic_red') },
+          }) {
+            Column() {
+              Image(resolveActionIcon('like'))
+                .width(28)
+                .height(28)
+                .fillColor($r('app.color.brand_primary'))
+            }
+            .width(56)
+            .height(56)
+            .borderRadius(16)
+            .backgroundColor($r('app.color.glass_border'))
+            .justifyContent(FlexAlign.Center)
           }
-          .width(56)
-          .height(56)
-          .borderRadius(16)
-          .backgroundColor($r('app.color.glass_border'))
-          .justifyContent(FlexAlign.Center)
           Text('赞和收藏')
             .fontSize(11)
             .fontColor($r('app.color.text_secondary'))
@@ -562,17 +611,23 @@ export struct MessagePage {
         .onClick(() => { this.activeFilter = this.activeFilter === 'up_bookmark' ? 'all' : 'up_bookmark'; })
 
         Column({ space: 6 }) {
-          Column() {
-            Image(resolveActionIcon('follow'))
-              .width(28)
-              .height(28)
-              .fillColor($r('app.color.brand_primary'))
+          Badge({
+            count: this.unreadCountOf(['follow']),
+            position: BadgePosition.RightTop,
+            style: { badgeColor: $r('app.color.semantic_red') },
+          }) {
+            Column() {
+              Image(resolveActionIcon('follow'))
+                .width(28)
+                .height(28)
+                .fillColor($r('app.color.brand_primary'))
+            }
+            .width(56)
+            .height(56)
+            .borderRadius(16)
+            .backgroundColor($r('app.color.glass_border'))
+            .justifyContent(FlexAlign.Center)
           }
-          .width(56)
-          .height(56)
-          .borderRadius(16)
-          .backgroundColor($r('app.color.glass_border'))
-          .justifyContent(FlexAlign.Center)
           Text('新增关注')
             .fontSize(11)
             .fontColor($r('app.color.text_secondary'))
@@ -581,17 +636,23 @@ export struct MessagePage {
         .onClick(() => { this.activeFilter = this.activeFilter === 'follow' ? 'all' : 'follow'; })
 
         Column({ space: 6 }) {
-          Column() {
-            Image(resolveActionIcon('comment'))
-              .width(28)
-              .height(28)
-              .fillColor($r('app.color.brand_primary'))
+          Badge({
+            count: this.unreadCountOf(['comment']),
+            position: BadgePosition.RightTop,
+            style: { badgeColor: $r('app.color.semantic_red') },
+          }) {
+            Column() {
+              Image(resolveActionIcon('comment'))
+                .width(28)
+                .height(28)
+                .fillColor($r('app.color.brand_primary'))
+            }
+            .width(56)
+            .height(56)
+            .borderRadius(16)
+            .backgroundColor($r('app.color.glass_border'))
+            .justifyContent(FlexAlign.Center)
           }
-          .width(56)
-          .height(56)
-          .borderRadius(16)
-          .backgroundColor($r('app.color.glass_border'))
-          .justifyContent(FlexAlign.Center)
           Text('评论')
             .fontSize(11)
             .fontColor($r('app.color.text_secondary'))
@@ -652,6 +713,7 @@ export struct MessagePage {
           }
           .width('100%')
           .layoutWeight(1)
+          .padding({ bottom: barBottomReserve() })
           .onReachEnd(() => {
             this.loadMore();
           })

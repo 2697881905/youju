@@ -26,3 +26,10 @@ export const GRID_PADDING: number = 8;
 
 // 卡片内部元素纵向间距（标题↔作者↔互动行的间距，比旧值 10 收紧）
 export const CARD_INNER_GAP: number = 8;
+
+// 悬浮底栏占用的屏幕底部高度（BAR_HEIGHT 62 + BAR_BOTTOM_GAP 18 + 系统导航条高度）
+// 各滚动列表底部内边距用此值，末尾内容可滚动到底栏上方而不被遮挡
+export function barBottomReserve(): number {
+  const nav: number = AppStorage.get<number>('navBarHeight') ?? 0;
+  return 80 + nav;
+}

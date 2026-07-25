@@ -134,10 +134,6 @@ struct Index {
     AppStorage.setOrCreate<number>('activeTab', index);
   }
 
-  private contentBottomReserve(): number {
-    return BAR_HEIGHT + BAR_BOTTOM_GAP + this.navBarHeight;
-  }
-
   private navIconRes(index: number): Resource {
     switch (index) {
       case 0: return $r('app.media.nav_home');
@@ -231,7 +227,7 @@ struct Index {
       }
       .width('100%')
       .height('100%')
-      .padding({ top: this.statusBarHeight, bottom: this.contentBottomReserve() })
+      .padding({ top: this.statusBarHeight })
 
       Row() {
         this.FloatingTabBar()

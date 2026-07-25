@@ -5,6 +5,7 @@
 import { Post, Tag } from '../models/types';
 import { listPosts, listFollowingPosts, listHotPosts, listTags, recordSearchHistory, getUserProfile } from '../services/api';
 import { getUserId } from '../utils/auth';
+import { likeStore } from '../utils/likeStore';
 import { PostCard } from './PostCard';
 import { TagNav } from './TagNav';
 import { SearchPanel } from './SearchPanel';
@@ -14,7 +15,7 @@ import { resolveActionIcon } from '../utils/actionIcons';
 import { common } from '@kit.AbilityKit';
 import { BasicDataSource } from '../utils/data-source';
 import { observeGridColumns, gridColumnTemplate } from '../utils/responsive';
-import { GRID_GAP, GRID_PADDING } from '../utils/cardTokens';
+import { GRID_GAP, GRID_PADDING, barBottomReserve } from '../utils/cardTokens';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 
 type SortKey = 'hot' | 'latest' | 'recommend';
@@ -45,6 +46,9 @@ export struct HomeTab {
   @State followingCount: number = 0; // 关注流的关注数缓存（空态 A/B 区分）
   // 监听登录态：登录成功后 authToken 就绪，若处于关注流且列表空则自动补加载
   @StorageLink('authToken') @Watch('onTokenReady') token: string = '';
+  // 监听登录账号：切换账号（老张↔小美互测）或登出时，清空点赞缓存并重建首页 feed，
+  // 否则 PostCard 实例被 LazyForEach 复用不重建、likeStore 单例残留上个账号的 liked/upCount，点赞态串号。
+  @StorageLink('authUserId') @Watch('onAccountSwitch') accountId: string = '';
   // 响应式列数（按屏幕宽度 2/3/4 列自适应）+ 对应的 columnsTemplate 字符串
   @State gridColumns: number = 2;
   @State gridTemplate: string = '1fr 1fr';
@@ -73,6 +77,14 @@ export struct HomeTab {
     if (this.token !== '' && this.feedMode === 'following' && this.posts.length === 0 && this.error === '') {
       this.refresh();
     }
+  }
+
+  // 账号切换/登出：清空点赞缓存，先清空数据源（销毁旧 PostCard）→ 重拉（新账号的 myUp/upCount 重新灌入）
+  onAccountSwitch(): void {
+    likeStore.clear();
+    this.postSource.clearData();
+    this.posts = [];
+    this.refresh();
   }
 
   // 判断是否为网络连接类失败（后端未起 / hdc rport 未建立 / 启动竞态）
@@ -463,7 +475,7 @@ export struct HomeTab {
             .columnsTemplate(this.gridTemplate)
             .columnsGap(GRID_GAP)
             .rowsGap(GRID_GAP)
-            .padding(GRID_PADDING)
+            .padding({ left: GRID_PADDING, right: GRID_PADDING, top: GRID_PADDING, bottom: GRID_PADDING + barBottomReserve() })
             .onScrollIndex((_start: number, end: number) => {
               if (end >= this.posts.length - 1) {
                 this.loadMore();
