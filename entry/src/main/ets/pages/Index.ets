@@ -17,6 +17,8 @@ const BAR_RADIUS: number = 28;
 const BAR_SIDE_MARGIN: number = 18;
 const BAR_BOTTOM_GAP: number = 18;
 const PILL_RADIUS: number = 18;
+// 长按滑动高光尺寸（光斑直径 vp）
+const GLOW_SIZE: number = 150;
 
 interface TabDef {
   key: string;
@@ -33,6 +35,11 @@ struct Index {
   @StorageLink('isDarkMode') isDark: boolean = false;
   @State statusBarHeight: number = 0;
   @State navBarHeight: number = 0;
+  // 长按滑动高光状态
+  @State scrubbing: boolean = false;
+  @State glowX: number = 0;
+  @State glowStartX: number = 0;
+  @State barWidth: number = 0;
 
   private tabs: TabDef[] = [
     { key: 'home', title: '首页' },
@@ -206,6 +213,48 @@ struct Index {
     .border({ width: 1, color: this.isDark ? '#FFFFFF1F' : '#FFFFFF59', style: BorderStyle.Solid })
     .shadow({ radius: 16, color: this.isDark ? '#000000A6' : '#0000001F', offsetY: 8 })
     .clip(true)
+    .onAreaChange((_old: Area, _new: Area) => {
+      this.barWidth = _new.width as number;
+    })
+    .overlay(this.glowOverlay)
+    .gesture(
+      GestureGroup(GestureMode.Sequence,
+        LongPressGesture({ duration: 180 })
+          .onAction((e?: GestureEvent) => {
+            this.scrubbing = true;
+            if (e) { this.glowStartX = e.offsetX; this.glowX = e.offsetX; }
+          })
+          .onActionEnd(() => { this.scrubbing = false; })
+          .onActionCancel(() => { this.scrubbing = false; }),
+        PanGesture({ fingers: 1, direction: PanDirection.Horizontal })
+          .onActionUpdate((e?: GestureEvent) => {
+            if (e) { this.glowX = this.clampGlow(this.glowStartX + e.offsetX); }
+          })
+          .onActionEnd(() => { this.scrubbing = false; })
+          .onActionCancel(() => { this.scrubbing = false; })
+      )
+    )
+  }
+
+  // 长按滑动时跟随指尖的高光（关=透明，被 Row 的 clip 限制在栏内）
+  @Builder
+  glowOverlay(): void {
+    Column()
+      .width(GLOW_SIZE)
+      .height(BAR_HEIGHT)
+      .radialGradient({
+        center: [GLOW_SIZE / 2, BAR_HEIGHT / 2],
+        radius: GLOW_SIZE / 2,
+        colors: [['#80FFFFFF', 0.0], ['#00FFFFFF', 1.0]],
+      })
+      .position({ x: this.glowX - GLOW_SIZE / 2, y: 0 })
+      .opacity(this.scrubbing ? 1 : 0)
+      .animation({ duration: 140, curve: Curve.EaseOut })
+  }
+
+  private clampGlow(x: number): number {
+    if (this.barWidth <= 0) { return x; }
+    return Math.min(this.barWidth, Math.max(0, x));
   }
 
   build() {
