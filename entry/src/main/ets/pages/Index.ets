@@ -144,9 +144,9 @@ struct Index {
     }
   }
 
-  // 底栏玻璃填充：中性半透（浅=白雾/深=暗雾），alpha 足够压住身后内容颜色，避免透黄
+  // 底栏玻璃填充：中性磨砂雾面（浅=白雾/深=暗雾），alpha 拉到 ~90% 压住身后黄图，不透黄仍保留磨砂质感
   private glassFill(): string {
-    return this.isDark ? '#1C1C1ED9' : '#F2F2F7B8';
+    return this.isDark ? '#1C1C1EE6' : '#F2F2F7E6';
   }
   // 底栏描边（细高光边，强化玻璃边缘反光）
   private barBorderColor(): string {
