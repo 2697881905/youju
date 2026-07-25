@@ -144,13 +144,13 @@ struct Index {
     }
   }
 
-  // 底栏玻璃填充：中性磨砂雾面（浅=白雾/深=暗雾），alpha 拉到 ~90% 压住身后黄图，不透黄仍保留磨砂质感
+  // 底栏玻璃填充：真正通透（浅=淡白雾/深=淡黑雾），只留极淡中性+模糊，不加任何发黄色，背后内容如实透出
   private glassFill(): string {
-    return this.isDark ? '#1C1C1EE6' : '#F2F2F7E6';
+    return this.isDark ? '#00000033' : '#FFFFFF33';
   }
-  // 底栏描边（细高光边，强化玻璃边缘反光）
+  // 底栏描边（极细高光边，透明玻璃的轻边）
   private barBorderColor(): string {
-    return this.isDark ? '#FFFFFF26' : '#FFFFFF99';
+    return this.isDark ? '#FFFFFF1A' : '#FFFFFF40';
   }
   // 选中项胶囊背景（品牌蓝低透明）
   private pillBgColor(): string {
