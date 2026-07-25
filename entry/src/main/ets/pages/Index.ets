@@ -255,6 +255,7 @@ struct Index {
       .blendMode(BlendMode.SCREEN)
       .position({ x: this.glowX - GLOW_SIZE / 2, y: 0 })
       .opacity(this.scrubbing ? 1 : 0)
+      .hitTestBehavior(HitTestMode.None)
       .animation({ duration: 120, curve: Curve.EaseOut })
   }
 
