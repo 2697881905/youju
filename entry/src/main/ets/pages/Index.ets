@@ -1,4 +1,4 @@
-// 大蓝书 主框架：悬浮底部导航栏（毛玻璃：backdropBlur 模糊 + 高不透明中性奶白雾面，保留磨砂质感且不透黄）
+// 大蓝书 主框架：悬浮底部导航栏（透明玻璃：backdropBlur 模糊 + 极低 alpha 中性填充，如实透出背后内容）
 // Tab：首页 / 圈子 / 发布 / 消息 / 我的；帖子详情经 router 单独跳转（pages/DetailPage）
 import { HomeTab } from '../components/HomeTab';
 import { CircleTab } from '../components/CircleTab';
@@ -160,8 +160,9 @@ struct Index {
   // 底栏背景：毛玻璃雾面。
   // 浅色：~80% 中性白雾——透出页面内容才看得出磨砂（压在白页上若全白就看不见玻璃）。
   // 深色：~95% 中性深雾——略降透明度避免身后黄图在边缘透出形成"黄边"，blur 仍保留磨砂感。
+  // 底栏背景：真正透明的玻璃（浅=淡白雾 / 深=淡黑雾），只留 ~30% 中性雾 + 模糊，如实透出背后内容
   private barSurfaceColor(): string {
-    return this.isDark ? '#1C1C1EF2' : '#F2F2F7CC';
+    return this.isDark ? '#0000004D' : '#FFFFFF4D';
   }
   // 描边：中性色，明确玻璃边缘、不泛黄（深色拉成中性灰边而非低透明白边，避免叠在透出的黄上显黄）
   private barBorderColor(): string {
