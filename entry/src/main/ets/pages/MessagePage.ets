@@ -14,7 +14,7 @@ import {
   getDmUnreadCount,
 } from '../services/api';
 import { getToken, getUserId, getCurrentUser } from '../utils/auth';
-import { barBottomReserve } from '../utils/cardTokens';
+import { CARD_RADIUS, CARD_SHADOW, barBottomReserve } from '../utils/cardTokens';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { notifIconRes, resolveActionIcon } from '../utils/actionIcons';
@@ -309,6 +309,8 @@ export struct MessagePage {
     .width('100%')
     .padding({ left: 16, right: 16, top: 12, bottom: 12 })
     .backgroundColor($r('app.color.card_bg'))
+    .borderRadius(CARD_RADIUS)
+    .shadow(CARD_SHADOW)
     .onClick(() => {
       this.onConversationClick(c);
     })
@@ -475,7 +477,7 @@ export struct MessagePage {
         }
         .width('100%')
         .layoutWeight(1)
-        .padding({ bottom: barBottomReserve() })
+        .padding({ left: 12, right: 12, bottom: barBottomReserve() })
       }
       .onRefreshing(() => {
         this.loadConversations().finally(() => {
@@ -547,6 +549,8 @@ export struct MessagePage {
     .width('100%')
     .padding({ left: 16, right: 16, top: 12, bottom: 12 })
     .backgroundColor($r('app.color.card_bg'))
+    .borderRadius(CARD_RADIUS)
+    .shadow(CARD_SHADOW)
     .onClick(() => {
       this.onItemClick(item);
     })
@@ -599,8 +603,9 @@ export struct MessagePage {
             }
             .width(56)
             .height(56)
-            .borderRadius(16)
-            .backgroundColor($r('app.color.glass_border'))
+            .borderRadius(CARD_RADIUS)
+            .backgroundColor($r('app.color.card_bg'))
+            .shadow(CARD_SHADOW)
             .justifyContent(FlexAlign.Center)
           }
           Text('赞和收藏')
@@ -624,8 +629,9 @@ export struct MessagePage {
             }
             .width(56)
             .height(56)
-            .borderRadius(16)
-            .backgroundColor($r('app.color.glass_border'))
+            .borderRadius(CARD_RADIUS)
+            .backgroundColor($r('app.color.card_bg'))
+            .shadow(CARD_SHADOW)
             .justifyContent(FlexAlign.Center)
           }
           Text('新增关注')
@@ -649,8 +655,9 @@ export struct MessagePage {
             }
             .width(56)
             .height(56)
-            .borderRadius(16)
-            .backgroundColor($r('app.color.glass_border'))
+            .borderRadius(CARD_RADIUS)
+            .backgroundColor($r('app.color.card_bg'))
+            .shadow(CARD_SHADOW)
             .justifyContent(FlexAlign.Center)
           }
           Text('评论')
@@ -713,7 +720,7 @@ export struct MessagePage {
           }
           .width('100%')
           .layoutWeight(1)
-          .padding({ bottom: barBottomReserve() })
+          .padding({ left: 12, right: 12, bottom: barBottomReserve() })
           .onReachEnd(() => {
             this.loadMore();
           })
