@@ -406,7 +406,7 @@ struct Index {
     .width('100%')
     .height(BAR_HEIGHT)
     .borderRadius(BAR_RADIUS)
-    .backdropBlur(this.glassBlur)
+    .backdropBlur(this.glassBlur, { grayscale: [127, 127] })
     .backgroundColor(this.glassBg)
     .border({ width: 1.5, color: this.glassBorder, style: BorderStyle.Solid })
     .shadow(this.barShadow)
