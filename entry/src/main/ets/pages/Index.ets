@@ -1,4 +1,4 @@
-// 大蓝书 主框架：悬浮底部导航栏（单层磨砂玻璃：backdropBlur + 中性半透填充，无伪装分层/无环境光）
+// 大蓝书 主框架：悬浮底部导航栏（纯实色，无玻璃/无模糊/无透明）
 // Tab：首页 / 圈子 / 发布 / 消息 / 我的；帖子详情经 router 单独跳转（pages/DetailPage）
 import { HomeTab } from '../components/HomeTab';
 import { CircleTab } from '../components/CircleTab';
@@ -144,13 +144,9 @@ struct Index {
     }
   }
 
-  // 底栏玻璃填充：真正通透（浅=淡白雾/深=淡黑雾），只留极淡中性+模糊，不加任何发黄色，背后内容如实透出
-  private glassFill(): string {
-    return this.isDark ? '#00000033' : '#FFFFFF33';
-  }
-  // 底栏描边（极细高光边，透明玻璃的轻边）
-  private barBorderColor(): string {
-    return this.isDark ? '#FFFFFF1A' : '#FFFFFF40';
+  // 底栏背景：纯实色（无模糊/无透明），彻底无玻璃；浅=浅灰白 / 深=深灰
+  private barSolidColor(): string {
+    return this.isDark ? '#1C1C1E' : '#F2F2F7';
   }
   // 选中项胶囊背景（品牌蓝低透明）
   private pillBgColor(): string {
@@ -205,10 +201,8 @@ struct Index {
     .justifyContent(FlexAlign.SpaceEvenly)
     .alignItems(VerticalAlign.Center)
     .borderRadius(BAR_RADIUS)
-    .backdropBlur(22)
-    .backgroundColor(this.glassFill())
-    .border({ width: 1, color: this.barBorderColor(), style: BorderStyle.Solid })
-    .shadow({ radius: 20, color: this.isDark ? '#000000A6' : '#00000024', offsetY: 10 })
+    .backgroundColor(this.barSolidColor())
+    .shadow({ radius: 16, color: this.isDark ? '#000000A6' : '#0000001F', offsetY: 8 })
     .clip(true)
   }
 
