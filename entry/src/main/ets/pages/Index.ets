@@ -157,10 +157,10 @@ struct Index {
     }
   }
 
-  // 底栏背景：磨砂不透明（用户选定）。填充 ~99% 中性雾，背后内容完全被盖住、永不显黄；
-  // blur + 边缘高光 + 投影保留"干净玻璃面板"观感（填充几乎不透明，blur 主要起边缘柔化作用）。
+  // 底栏背景：磨砂不透明（用户选定）。浅色 ~99% 中性白雾；深色 100% 不透明（盖死背后内容，深色模式不再透出黄/绿）。
+  // blur + 边缘高光 + 投影保留"干净玻璃面板"观感。
   private barSurfaceColor(): string {
-    return this.isDark ? '#1C1C1EFC' : '#F2F2F7FC';
+    return this.isDark ? '#1C1C1E' : '#F2F2F7FC';
   }
   // 描边：中性色，明确玻璃边缘、不泛黄（深色拉成中性灰边而非低透明白边，避免叠在透出的黄上显黄）
   private barBorderColor(): string {
@@ -261,10 +261,10 @@ struct Index {
   // 触屏事件：长按+移动才进入滑动高亮（静止长按仍视为点按，立即走 onClick，不卡 180ms）
   // 滑动时高光跟手 + 悬停按钮高亮；松手触发悬停按钮
   private onBarTouch(e: TouchEvent): void {
-    const t = e.touches[0];
-    if (!t) { return; }
-    const x = this.clampGlow(t.x);
     if (e.type === TouchType.Down) {
+      const t = e.touches[0];
+      if (!t) { return; }
+      const x = this.clampGlow(t.x);
       this.pressDownX = x;
       this.glowX = x;
       if (this.longPressTimer !== 0) { clearTimeout(this.longPressTimer); }
@@ -272,6 +272,9 @@ struct Index {
         this.pressArmed = true;
       }, LONG_PRESS_MS) as number;
     } else if (e.type === TouchType.Move) {
+      const t = e.touches[0];
+      if (!t) { return; }
+      const x = this.clampGlow(t.x);
       this.glowX = x;
       // 长按已触发且手指移动超过阈值，才真正进入滑动模式
       if (this.pressArmed && !this.scrubbing && Math.abs(x - this.pressDownX) > 6) {
@@ -279,7 +282,7 @@ struct Index {
       }
       if (this.scrubbing) { this.hoverIndex = this.indexFromX(this.glowX); }
     } else {
-      // Up / Cancel
+      // Up / Cancel：Up 时 e.touches 常为空，切勿在此提前 return，必须无条件复位所有状态
       if (this.longPressTimer !== 0) { clearTimeout(this.longPressTimer); this.longPressTimer = 0; }
       if (this.scrubbing) {
         const target = this.indexFromX(this.glowX);
