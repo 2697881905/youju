@@ -10,13 +10,16 @@ export struct AvatarView {
   @Prop ringWidth: number = 2;
 
   build() {
-    Stack() {
+    // 头像框（品牌色描边圆环）尺寸 = 头像内容 + 两侧描边；内容居中且完全落在框内，
+    // 避免描边压在头像内容边缘导致「内容 / 框不重合」。
+    Stack({ alignContent: Alignment.Center }) {
       if (this.avatar.length > 0) {
         Image(this.avatar)
           .width(this.avatarSize)
           .height(this.avatarSize)
           .borderRadius(this.avatarSize / 2)
           .objectFit(ImageFit.Cover)
+          .clip(true)
       } else {
         Text(this.name.trim().length > 0 ? this.name.trim().charAt(0) : '?')
           .width(this.avatarSize)
@@ -28,9 +31,9 @@ export struct AvatarView {
           .textAlign(TextAlign.Center)
       }
     }
-    .width(this.avatarSize)
-    .height(this.avatarSize)
-    .borderRadius(this.avatarSize / 2)
+    .width(this.avatarSize + 2 * this.ringWidth)
+    .height(this.avatarSize + 2 * this.ringWidth)
+    .borderRadius((this.avatarSize + 2 * this.ringWidth) / 2)
     .border({ width: this.ringWidth, color: $r('app.color.brand_primary') })
   }
 }

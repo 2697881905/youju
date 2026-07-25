@@ -5,10 +5,12 @@
 // - 发送/已读后自增 dmRefreshSignal，驱动消息页会话列表与红点刷新
 import { DmMessage } from '../models/types';
 import { getMessages, sendMessage, markMessagesRead } from '../services/api';
-import { getToken, getUserId } from '../utils/auth';
+import { getToken, getUserId, getCurrentUser } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { CARD_RADIUS } from '../utils/cardTokens';
+import { AvatarView } from '../components/AvatarView';
+import { KeyboardAvoidMode } from '@kit.ArkUI';
 
 @Entry
 @Component
@@ -16,6 +18,8 @@ export struct ChatPage {
   @State peerId: number = 0;
   @State peerName: string = '';
   @State peerAvatar: string = '';
+  @State myAvatar: string = '';
+  @State myName: string = '';
   @State messages: DmMessage[] = [];
   @State loading: boolean = true;
   @State sending: boolean = false;
@@ -23,13 +27,42 @@ export struct ChatPage {
   @State error: string = '';
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
   private listScroller: ListScroller = new ListScroller();
+  private originalKeyboardMode: KeyboardAvoidMode | null = null;
 
   aboutToAppear(): void {
     this.peerId = (AppStorage.get<number>('chatPeerId') ?? 0) as number;
     this.peerName = (AppStorage.get<string>('chatPeerName') ?? '') as string;
     this.peerAvatar = (AppStorage.get<string>('chatPeerAvatar') ?? '') as string;
+    const me = getCurrentUser();
+    if (me) {
+      this.myAvatar = me.avatar ?? '';
+      this.myName = me.nickname ?? '';
+    }
+    this.captureKeyboardAvoidMode();
     if (getToken() !== '' && this.peerId > 0) {
       this.loadMessages();
+    }
+  }
+
+  // 记录进入前的键盘避让模式，切到 RESIZE（内容区缩放而非整体上移），离页还原，
+  // 避免点击输入框弹起键盘时整屏内容被顶上去。
+  private captureKeyboardAvoidMode(): void {
+    try {
+      const ui = this.getUIContext();
+      this.originalKeyboardMode = ui.getKeyboardAvoidMode();
+      ui.setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE);
+    } catch (e) {
+      // UIContext 未就绪时忽略，不影响消息收发
+    }
+  }
+
+  aboutToDisappear(): void {
+    if (this.originalKeyboardMode !== null) {
+      try {
+        this.getUIContext().setKeyboardAvoidMode(this.originalKeyboardMode);
+      } catch (e) {
+        // 忽略
+      }
     }
   }
 
@@ -123,23 +156,20 @@ export struct ChatPage {
     return senderId === getUserId();
   }
 
+  // 点击顶栏头像/昵称 → 跳转对端主页（与评论/帖子头像跳转一致）
+  private goPeer(): void {
+    if (this.peerId > 0) {
+      AppStorage.setOrCreate('targetUserId', String(this.peerId));
+      this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage' });
+    }
+  }
+
   @Builder
   messageRow(m: DmMessage) {
     Row({ space: 8 }) {
-      if (!this.isMine(m.senderId) && this.peerAvatar !== '') {
-        Image(this.peerAvatar)
-          .width(36)
-          .height(36)
-          .borderRadius(18)
-          .objectFit(ImageFit.Cover)
-      } else if (!this.isMine(m.senderId)) {
-        Circle({ width: 36, height: 36 })
-          .fill($r('app.color.brand_primary'))
-          .opacity(0.15)
-        Text(this.peerName.slice(0, 1))
-          .fontSize(15)
-          .fontColor($r('app.color.brand_primary'))
-          .position({ x: 12, y: 9 })
+      // 对方头像（左侧），用 AvatarView 保证头像内容完全落在品牌色圆环框内
+      if (!this.isMine(m.senderId)) {
+        AvatarView({ avatar: this.peerAvatar, name: this.peerName, avatarSize: 36, ringWidth: 2 })
       }
 
       Column({ space: 4 }) {
@@ -157,9 +187,15 @@ export struct ChatPage {
       }
       .alignItems(this.isMine(m.senderId) ? HorizontalAlign.End : HorizontalAlign.Start)
       .layoutWeight(1)
+
+      // 自己的头像（右侧），与对方对称
+      if (this.isMine(m.senderId)) {
+        AvatarView({ avatar: this.myAvatar, name: this.myName, avatarSize: 36, ringWidth: 2 })
+      }
     }
     .width('100%')
-    .justifyContent(this.isMine(m.senderId) ? FlexAlign.End : FlexAlign.Start)
+    .alignItems(VerticalAlign.Top)
+    .justifyContent(FlexAlign.Start)
   }
 
   build() {
@@ -174,28 +210,17 @@ export struct ChatPage {
             this.getUIContext().getRouter().back();
           });
         Row({ space: 8 }) {
-          if (this.peerAvatar !== '') {
-            Image(this.peerAvatar)
-              .width(32)
-              .height(32)
-              .borderRadius(16)
-              .objectFit(ImageFit.Cover)
-          } else {
-            Circle({ width: 32, height: 32 })
-              .fill($r('app.color.brand_primary'))
-              .opacity(0.15)
-            Text(this.peerName.slice(0, 1))
-              .fontSize(14)
-              .fontColor($r('app.color.brand_primary'))
-              .position({ x: 11, y: 8 })
-          }
+          AvatarView({ avatar: this.peerAvatar, name: this.peerName, avatarSize: 32, ringWidth: 2 })
           Text(this.peerName !== '' ? this.peerName : '用户')
             .fontSize(17)
             .fontWeight(600)
             .fontColor($r('app.color.text_primary'));
         }
         .layoutWeight(1)
-        .justifyContent(FlexAlign.Center);
+        .justifyContent(FlexAlign.Center)
+        .onClick(() => {
+          this.goPeer();
+        });
         Text('').width(48);
       }
       .width('100%')
