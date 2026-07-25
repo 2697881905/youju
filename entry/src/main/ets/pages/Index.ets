@@ -144,9 +144,9 @@ struct Index {
     }
   }
 
-  // 底栏背景：毛玻璃雾面（浅=奶白雾 / 深=暗雾），alpha ~94% 压住身后黄图，blur 保留磨砂质感
+  // 底栏背景：毛玻璃雾面（浅=奶白雾 / 深=暗雾），alpha ~98% 几乎压死身后黄图，blur 保留磨砂质感
   private barSurfaceColor(): string {
-    return this.isDark ? '#1C1C1EF0' : '#F2F2F7F0';
+    return this.isDark ? '#1C1C1EFA' : '#F2F2F7FA';
   }
   // 选中项胶囊背景（品牌蓝低透明）
   private pillBgColor(): string {
@@ -201,7 +201,7 @@ struct Index {
     .justifyContent(FlexAlign.SpaceEvenly)
     .alignItems(VerticalAlign.Center)
     .borderRadius(BAR_RADIUS)
-    .backdropBlur(30)
+    .backdropBlur(40)
     .backgroundColor(this.barSurfaceColor())
     .border({ width: 1, color: this.isDark ? '#FFFFFF1F' : '#FFFFFF59', style: BorderStyle.Solid })
     .shadow({ radius: 16, color: this.isDark ? '#000000A6' : '#0000001F', offsetY: 8 })
