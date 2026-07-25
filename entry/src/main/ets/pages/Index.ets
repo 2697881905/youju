@@ -18,7 +18,9 @@ const BAR_SIDE_MARGIN: number = 18;
 const BAR_BOTTOM_GAP: number = 18;
 const PILL_RADIUS: number = 18;
 // 长按滑动高光尺寸（光斑直径 vp）
-const GLOW_SIZE: number = 150;
+const GLOW_SIZE: number = 180;
+// 长按进入滑动高亮模式的时长（ms）
+const LONG_PRESS_MS: number = 180;
 
 interface TabDef {
   key: string;
@@ -36,10 +38,12 @@ struct Index {
   @State statusBarHeight: number = 0;
   @State navBarHeight: number = 0;
   // 长按滑动高光状态
-  @State scrubbing: boolean = false;
-  @State glowX: number = 0;
-  @State glowStartX: number = 0;
+  @State scrubbing: boolean = false;        // 是否处于长按滑动高亮模式
+  @State glowX: number = 0;                 // 高光中心 x（栏内局部坐标）
+  @State hoverIndex: number = -1;           // 滑动时悬停的按钮下标（用于高亮 + 松手触发）
   @State barWidth: number = 0;
+  private longPressTimer: number = 0;       // 长按计时器句柄
+  private suppressClickUntil: number = 0;   // 滑动结束后短暂屏蔽 tab 自身 onClick，避免重复触发
 
   private tabs: TabDef[] = [
     { key: 'home', title: '首页' },
@@ -172,28 +176,29 @@ struct Index {
           Image(this.navIconRes(index))
             .width(26)
             .height(26)
-            .fillColor(index === this.currentIndex ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
+            .fillColor(this.isActive(index) ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
         }
       } else {
         Image(this.navIconRes(index))
           .width(26)
           .height(26)
-          .fillColor(index === this.currentIndex ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
+          .fillColor(this.isActive(index) ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
       }
       Text(tab.title)
         .fontSize(10)
-        .fontColor(index === this.currentIndex ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
+        .fontColor(this.isActive(index) ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
     }
     .layoutWeight(1)
     .height('100%')
     .justifyContent(FlexAlign.Center)
     .alignItems(HorizontalAlign.Center)
-    .borderRadius(PILL_RADIUS)
-    .backgroundColor(index === this.currentIndex ? this.pillBgColor() : Color.Transparent)
-    .animation({ duration: 200, curve: Curve.EaseOut })
-    .onClick(() => {
-      this.selectTab(index);
-    })
+      .borderRadius(PILL_RADIUS)
+      .backgroundColor(this.isActive(index) ? this.pillBgColor() : Color.Transparent)
+      .animation({ duration: 200, curve: Curve.EaseOut })
+      .onClick(() => {
+        if (Date.now() < this.suppressClickUntil) { return; }
+        this.selectTab(index);
+      })
   }
 
   @Builder
@@ -216,24 +221,8 @@ struct Index {
     .onAreaChange((_old: Area, _new: Area) => {
       this.barWidth = _new.width as number;
     })
+    .onTouch((e: TouchEvent) => { this.onBarTouch(e); })
     .overlay(this.glowOverlay)
-    .gesture(
-      GestureGroup(GestureMode.Sequence,
-        LongPressGesture({ duration: 180 })
-          .onAction((e?: GestureEvent) => {
-            this.scrubbing = true;
-            if (e) { this.glowStartX = e.offsetX; this.glowX = e.offsetX; }
-          })
-          .onActionEnd(() => { this.scrubbing = false; })
-          .onActionCancel(() => { this.scrubbing = false; }),
-        PanGesture({ fingers: 1, direction: PanDirection.Horizontal })
-          .onActionUpdate((e?: GestureEvent) => {
-            if (e) { this.glowX = this.clampGlow(this.glowStartX + e.offsetX); }
-          })
-          .onActionEnd(() => { this.scrubbing = false; })
-          .onActionCancel(() => { this.scrubbing = false; })
-      )
-    )
   }
 
   // 长按滑动时跟随指尖的高光（关=透明，被 Row 的 clip 限制在栏内）
@@ -245,11 +234,57 @@ struct Index {
       .radialGradient({
         center: [GLOW_SIZE / 2, BAR_HEIGHT / 2],
         radius: GLOW_SIZE / 2,
-        colors: [['#80FFFFFF', 0.0], ['#00FFFFFF', 1.0]],
+        colors: [
+          ['#FFFFFF', 0.0],
+          ['#E6FFFFFF', 0.18],
+          ['#70FFFFFF', 0.5],
+          ['#00FFFFFF', 1.0],
+        ],
       })
+      .blendMode(BlendMode.SCREEN)
       .position({ x: this.glowX - GLOW_SIZE / 2, y: 0 })
       .opacity(this.scrubbing ? 1 : 0)
-      .animation({ duration: 140, curve: Curve.EaseOut })
+      .animation({ duration: 120, curve: Curve.EaseOut })
+  }
+
+  // 触屏事件：长按进入滑动高亮；滑动时高光跟手 + 悬停按钮高亮；松手触发悬停按钮
+  private onBarTouch(e: TouchEvent): void {
+    const t = e.touches[0];
+    if (!t) { return; }
+    const x = this.clampGlow(t.x);
+    if (e.type === TouchType.Down) {
+      this.glowX = x;
+      if (this.longPressTimer !== 0) { clearTimeout(this.longPressTimer); }
+      this.longPressTimer = setTimeout(() => {
+        this.scrubbing = true;
+        this.hoverIndex = this.indexFromX(this.glowX);
+      }, LONG_PRESS_MS) as number;
+    } else if (e.type === TouchType.Move) {
+      this.glowX = x;
+      if (this.scrubbing) { this.hoverIndex = this.indexFromX(this.glowX); }
+    } else {
+      // Up / Cancel
+      if (this.longPressTimer !== 0) { clearTimeout(this.longPressTimer); this.longPressTimer = 0; }
+      if (this.scrubbing) {
+        const target = this.indexFromX(this.glowX);
+        this.selectTab(target);
+        this.suppressClickUntil = Date.now() + 250;
+      }
+      this.scrubbing = false;
+      this.hoverIndex = -1;
+    }
+  }
+
+  // 根据栏内 x 推算落在第几个按钮
+  private indexFromX(x: number): number {
+    if (this.barWidth <= 0) { return this.currentIndex; }
+    const w = this.barWidth / this.tabs.length;
+    const idx = Math.floor(x / w);
+    return Math.min(this.tabs.length - 1, Math.max(0, idx));
+  }
+
+  private isActive(index: number): boolean {
+    return this.scrubbing ? this.hoverIndex === index : this.currentIndex === index;
   }
 
   private clampGlow(x: number): number {
