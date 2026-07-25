@@ -1,4 +1,4 @@
-// 大蓝书 主框架：悬浮底部导航栏（实色中性卡片，无模糊/渐变/动态状态）
+// 大蓝书 主框架：悬浮底部导航栏（透明玻璃质感：中性半透染色 + 背景模糊 + 顶部光泽/高光描边）
 // Tab：首页 / 圈子 / 发布 / 消息 / 我的；帖子详情经 router 单独跳转（pages/DetailPage）
 import { HomeTab } from '../components/HomeTab';
 import { CircleTab } from '../components/CircleTab';
@@ -144,13 +144,25 @@ struct Index {
     }
   }
 
-  // 底栏实色背景（中性灰，深浅色各一）
+  // 透明玻璃底栏：中性半透明染色（白/深），绝不纯透明，避免身后彩色内容透出成黄条
   private barBgColor(): string {
-    return this.isDark ? '#1C1C1E' : '#F2F2F7';
+    return this.isDark ? '#1C1C1E8C' : '#FFFFFF80';
   }
-  // 底栏描边（细分隔色）
+  // 玻璃描边（specular rim，顶部高光感）
   private barBorderColor(): string {
-    return this.isDark ? '#3A3A3C' : '#E5E5EA';
+    return this.isDark ? '#FFFFFF2E' : '#FFFFFF99';
+  }
+  // 背景模糊强度
+  private glassBlur(): number {
+    return this.isDark ? 30 : 26;
+  }
+  // 顶部光泽透明度（16进制，随深浅色变化）
+  private glossAlphaHex(): string {
+    return this.isDark ? '1A' : '47';
+  }
+  // 顶部高光描边透明度
+  private rimAlphaHex(): string {
+    return this.isDark ? '4D' : 'BF';
   }
   // 选中项胶囊背景（品牌蓝低透明）
   private pillBgColor(): string {
@@ -193,21 +205,72 @@ struct Index {
     })
   }
 
+  // 顶部光泽层：上白下透明柔光，模拟光线打在玻璃顶面
+  @Builder
+  GlossLayer() {
+    Row() {}
+      .width('100%')
+      .height(BAR_HEIGHT)
+      .borderRadius(BAR_RADIUS)
+      .linearGradient({
+        angle: 90,
+        colors: [
+          ['#FFFFFF' + this.glossAlphaHex(), 0.0],
+          ['#FFFFFF00', 0.55]
+        ]
+      })
+      .align(Alignment.Top)
+      .clip(true)
+  }
+
+  // 顶部高光描边（specular rim）：1.5px 横向白色高光，强化玻璃边缘反光
+  @Builder
+  TopHighlightLine() {
+    Row() {}
+      .width('100%')
+      .height(1.5)
+      .linearGradient({
+        angle: 0,
+        colors: [
+          ['#FFFFFF00', 0.0],
+          ['#FFFFFF' + this.rimAlphaHex(), 0.5],
+          ['#FFFFFF00', 1.0]
+        ]
+      })
+      .align(Alignment.Top)
+  }
+
   @Builder
   FloatingTabBar() {
-    Row() {
-      ForEach(this.tabs, (tab: TabDef, i: number) => {
-        this.TabInner(tab, i);
-      }, (tab: TabDef) => tab.key)
+    Stack({ alignContent: Alignment.Center }) {
+      // 玻璃层：圆角 + 中性半透染色 + 背景模糊(去饱和) + 描边 + 阴影
+      Row() {}
+        .width('100%')
+        .height(BAR_HEIGHT)
+        .borderRadius(BAR_RADIUS)
+        .backgroundColor(this.barBgColor())
+        .backdropBlur(this.glassBlur(), { grayscale: [127, 127] })
+        .border({ width: 1, color: this.barBorderColor(), style: BorderStyle.Solid })
+        .shadow({ radius: 18, color: this.isDark ? '#000000A6' : '#00000022', offsetY: 8 })
+        .clip(true)
+      // 顶部光泽
+      this.GlossLayer()
+      // 顶部高光描边
+      this.TopHighlightLine()
+      // 内容行（最上层）
+      Row() {
+        ForEach(this.tabs, (tab: TabDef, i: number) => {
+          this.TabInner(tab, i);
+        }, (tab: TabDef) => tab.key)
+      }
+      .width('100%')
+      .height(BAR_HEIGHT)
+      .justifyContent(FlexAlign.SpaceEvenly)
+      .alignItems(VerticalAlign.Center)
     }
     .width('100%')
     .height(BAR_HEIGHT)
-    .justifyContent(FlexAlign.SpaceEvenly)
-    .alignItems(VerticalAlign.Center)
     .borderRadius(BAR_RADIUS)
-    .backgroundColor(this.barBgColor())
-    .border({ width: 1, color: this.barBorderColor(), style: BorderStyle.Solid })
-    .shadow({ radius: 20, color: this.isDark ? '#000000A6' : '#00000024', offsetY: 10 })
     .clip(true)
   }
 
