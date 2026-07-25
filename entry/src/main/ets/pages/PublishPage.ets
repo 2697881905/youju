@@ -1,9 +1,7 @@
 // 发布器 — Apple 风格（分组卡片 + 紧凑标签 + 全屏标签选择面板）
 import { LengthMetrics } from '@kit.ArkUI';
-import { photoAccessHelper } from '@kit.MediaLibraryKit';
-import { http } from '@kit.NetworkKit';
 import {
-  createPost, listTags, getUploadSignature, resolveUploadPutUrl,
+  createPost, listTags,
 } from '../services/api';
 import { ensureLogin } from '../utils/auth';
 import { Genre, StructuredData, Tag, User } from '../models/types';
@@ -11,7 +9,6 @@ import { ImagePicker } from '../components/ImagePicker';
 import { TagIcon } from '../components/TagIcon';
 import { safeShowToast } from '../utils/toast';
 import { resolveActionIcon } from '../utils/actionIcons';
-import { compressImage, CompressedImage } from '../utils/image';
 import { barBottomReserve } from '../utils/cardTokens';
 
 interface GenreItem {
@@ -119,9 +116,6 @@ export struct PublishPage {
   @State error: string = '';
   @State showFields: boolean = false;
   @State showTagPanel: boolean = false;
-  // 封面图（选填，单张，COS 直传）
-  @State coverImage: string = '';
-  @State uploadingCover: boolean = false;
   // 订阅登录账号：切换账号（如老张↔小美互测）时清空表单，避免残留上一个账号填写的内容
   // （发布页是 TabContent，组件被保留，不会因切账号而重建）。
   @StorageLink('authUserId') @Watch('onUserChange') uid: string = '';
@@ -205,57 +199,6 @@ export struct PublishPage {
     }
   }
 
-  // 直传二进制到预签名 URL（与 ImagePicker 一致）
-  private putBinary(url: string, data: ArrayBuffer, contentType: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const req = http.createHttp();
-      const header: Record<string, string> = { 'Content-Type': contentType };
-      req.request(url, {
-        method: http.RequestMethod.PUT,
-        header: header,
-        extraData: data,
-        connectTimeout: 30000,
-        readTimeout: 30000,
-      }, (err: Error | null, resp: http.HttpResponse) => {
-        req.destroy();
-        if (err) { reject(err); return; }
-        if (resp.responseCode >= 200 && resp.responseCode < 300) { resolve(); }
-        else { reject(new Error('上传失败 HTTP ' + resp.responseCode)); }
-      });
-    });
-  }
-
-  // 选封面图 → 压缩 → 本地/直传 → 写入 coverImage
-  private async pickCover(): Promise<void> {
-    if (this.uploadingCover) return;
-    const ok: boolean = await this.ensureToken();
-    if (!ok) return;
-    // 先选图（用户取消会抛错，单独 try 忽略，不影响后续）
-    let uris: string[] = [];
-    try {
-      const ph = new photoAccessHelper.PhotoViewPicker();
-      const res = await ph.select({
-        MIMEType: photoAccessHelper.PhotoViewMIMETypes.IMAGE_TYPE,
-        maxSelectNumber: 1,
-      });
-      uris = res.photoUris ?? [];
-    } catch (e) {
-      return; // 用户取消选择
-    }
-    if (uris.length === 0) { return; }
-    this.uploadingCover = true;
-    try {
-      const compressed: CompressedImage = await compressImage(uris[0]);
-      const sig = await getUploadSignature('image/jpeg');
-      await this.putBinary(resolveUploadPutUrl(sig), compressed.bytes, sig.contentType);
-      this.coverImage = sig.viewUrl;
-    } catch (e) {
-      safeShowToast(this.getUIContext(), { message: '封面图上传失败：' + (e as Error).message });
-    } finally {
-      this.uploadingCover = false;
-    }
-  }
-
   private async publish(): Promise<void> {
     if (this.publishing) return;
     if (!this.title.trim()) { safeShowToast(this.getUIContext(),{ message: '请填写标题' }); return; }
@@ -268,7 +211,7 @@ export struct PublishPage {
         title: this.title.trim(), content: this.content,
         genre: this.genre, tags: this.selectedTags,
         structuredData: this.buildStructuredData(), images: images,
-        coverImage: this.coverImage || undefined,
+        coverImage: this.images.length > 0 ? this.images[0] : undefined,
       });
       safeShowToast(this.getUIContext(),{ message: '发布成功！帖子ID=' + (p.id ?? '') });
       this.reset();
@@ -283,7 +226,6 @@ export struct PublishPage {
     this.genre = 'review'; this.selectedTags = [];
     this.title = ''; this.content = ''; this.sd = {};
     this.images = []; this.showFields = false; this.showTagPanel = false;
-    this.coverImage = ''; this.uploadingCover = false;
   }
 
   // 体裁 chip 行
@@ -303,44 +245,6 @@ export struct PublishPage {
 
   @Builder sectionTitle(text: string): void {
     Text(text).fontSize(13).fontColor($r('app.color.text_secondary')).fontWeight(FontWeight.Bold).width('100%')
-  }
-
-  // 封面图区块（选填，单张，点选后自动 COS 直传）
-  @Builder coverSection(): void {
-    Column({ space: 10 }) {
-      this.sectionTitle('封面图 · 选填')
-      Stack() {
-        if (this.coverImage.length > 0) {
-          Image(this.coverImage)
-            .width('100%').height(160).objectFit(ImageFit.Cover).borderRadius(12)
-          Text('×')
-            .fontSize(16).fontColor(Color.White).backgroundColor('#00000066')
-            .width(22).height(22).borderRadius(11).textAlign(TextAlign.Center)
-            .position({ top: 8, right: 8 })
-            .onClick(() => { this.coverImage = ''; })
-        } else {
-          Column({ space: 6 }) {
-            if (this.uploadingCover) {
-              LoadingProgress().width(24).height(24).color($r('app.color.text_secondary'));
-            } else {
-              Text('＋').fontSize(24).fontColor($r('app.color.text_secondary'));
-            }
-            Text(this.uploadingCover ? '上传中…' : '添加封面图')
-              .fontSize(14).fontColor($r('app.color.text_secondary'))
-            if (!this.uploadingCover) {
-              Text('将在信息流与详情页展示')
-                .fontSize(12).fontColor($r('app.color.text_tertiary'))
-            }
-          }
-          .width('100%').height(160).justifyContent(FlexAlign.Center)
-          .border({ width: 1, color: $r('app.color.text_secondary'), style: BorderStyle.Dashed })
-          .borderRadius(12)
-          .onClick(() => { this.pickCover(); })
-        }
-      }
-      .width('100%')
-    }
-    .width('100%').padding(16).backgroundColor($r('app.color.card_bg')).borderRadius(14)
   }
 
   build() {
@@ -367,9 +271,6 @@ export struct PublishPage {
           Column({ space: 20 }) {
             // ① 图片
             ImagePicker({ selected: $images, maxCount: 9 })
-
-            // ①.5 封面图（选填）
-            this.coverSection()
 
             // ② 体裁
             Column({ space: 10 }) {
