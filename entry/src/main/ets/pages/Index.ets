@@ -40,10 +40,10 @@ struct Index {
   @State navBarHeight: number = 0;
 
   // 玻璃质感 / 反射 / 流光 动态状态
-  @State glassBg: string = '#FFFFFF80';
-  @State glassBorder: string = '#FFFFFFA6';
-  @State glassBlur: number = 30;
-  @State glossAlpha: number = 0.5;
+  @State glassBg: ResourceColor = Color.Transparent;
+  @State glassBorder: string = '#FFFFFF80';
+  @State glassBlur: number = 34;
+  @State glossAlpha: number = 0.16;
   @State shimmerAlpha: number = 0.3;
   @State shimmerOffset: number = -300;
   @State selectedBg: string = '#007AFF1F';
@@ -214,19 +214,19 @@ struct Index {
     const r: number = this.ambientRatio;
     if (this.isDark) {
       // 深色：更实一点的暗玻璃，边缘微亮，选中项冷蓝凸起
-      this.glassBg = '#1C1C1E' + this.hexAlpha(0.5 + 0.25 * r);
-      this.glassBorder = '#FFFFFF' + this.hexAlpha(0.18);
+      this.glassBg = Color.Transparent;
+      this.glassBorder = '#FFFFFF' + this.hexAlpha(0.16);
       this.selectedBg = '#78AAFF' + this.hexAlpha(0.22);
-      this.barShadow = { radius: 18, color: '#000000A6', offsetY: 8 };
-      this.glossAlpha = 0.14 + 0.18 * r;
+      this.barShadow = { radius: 20, color: '#000000A6', offsetY: 8 };
+      this.glossAlpha = 0.08 + 0.12 * r;
       this.shimmerAlpha = 0.1 + 0.16 * r;
     } else {
       // 浅色：低不透明度白玻璃，强高光描边，选中项品牌蓝凸起
-      this.glassBg = '#FFFFFF' + this.hexAlpha(0.3 + 0.28 * r);
-      this.glassBorder = '#FFFFFF' + this.hexAlpha(0.65);
+      this.glassBg = Color.Transparent;
+      this.glassBorder = '#FFFFFF' + this.hexAlpha(0.6);
       this.selectedBg = '#007AFF' + this.hexAlpha(0.12);
-      this.barShadow = { radius: 20, color: '#00000033', offsetY: 10 };
-      this.glossAlpha = 0.32 + 0.34 * r;
+      this.barShadow = { radius: 22, color: '#00000033', offsetY: 10 };
+      this.glossAlpha = 0.12 + 0.16 * r;
       this.shimmerAlpha = 0.16 + 0.24 * r;
     }
     this.glassBlur = 22 + 16 * r;
