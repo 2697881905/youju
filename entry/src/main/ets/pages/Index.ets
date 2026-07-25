@@ -39,23 +39,16 @@ struct Index {
   // 底部系统导航条高度（用于让悬浮栏避开手势条）
   @State navBarHeight: number = 0;
 
-  // 玻璃质感 / 反射 / 流光 动态状态
-  @State glassBg: ResourceColor = Color.Transparent;
+  // 玻璃质感动态状态（中性磨砂染色底，避免底部内容透传染色）
+  @State glassBg: string = '#F2F2F7D1';
   @State glassBorder: string = '#FFFFFF80';
-  @State glassBlur: number = 34;
+  @State glassBlur: number = 30;
   @State glossAlpha: number = 0.16;
-  @State shimmerAlpha: number = 0.3;
-  @State shimmerOffset: number = -300;
   @State selectedBg: string = '#007AFF1F';
   @State barShadow: ShadowOptions = { radius: 20, color: '#00000033', offsetY: 10 };
 
   // 环境光强度比例（0 暗 ~ 1 亮），默认偏亮
   private ambientRatio: number = 0.6;
-  // 光带宽度与悬浮栏宽度（用于流光位移计算）
-  private shimmerWidth: number = 90;
-  private barWidth: number = 360;
-  // 组件存活标记，防止销毁后动画递归
-  private alive: boolean = true;
 
   private tabs: TabDef[] = [
     { key: 'home', title: '首页' },
@@ -77,7 +70,6 @@ struct Index {
   }
 
   aboutToDisappear(): void {
-    this.alive = false;
     try {
       sensor.off(sensor.SensorId.AMBIENT_LIGHT);
     } catch (e) {
@@ -108,9 +100,6 @@ struct Index {
       this.navBarHeight = px2vp(area.bottomRect.height);
       AppStorage.setOrCreate<number>('statusBarHeight', this.statusBarHeight);
       AppStorage.setOrCreate<number>('navBarHeight', this.navBarHeight);
-      const rect = win.getWindowProperties().windowRect;
-      const screenW = px2vp(rect.width);
-      this.barWidth = screenW - BAR_SIDE_MARGIN * 2;
       this.initVisual();
     } catch (e) {
       // 失败不阻断，使用默认视觉
@@ -118,10 +107,9 @@ struct Index {
     }
   }
 
-  // 视觉初始化：玻璃质感计算 + 流光动画 + 环境光订阅
+  // 视觉初始化：玻璃材质计算 + 环境光订阅
   private initVisual(): void {
     this.recomputeGlass();
-    this.startShimmer();
     this.subscribeAmbient();
   }
 
@@ -214,20 +202,18 @@ struct Index {
     const r: number = this.ambientRatio;
     if (this.isDark) {
       // 深色：更实一点的暗玻璃，边缘微亮，选中项冷蓝凸起
-      this.glassBg = Color.Transparent;
+      this.glassBg = '#1C1C1E' + this.hexAlpha(0.74 + 0.14 * r);
       this.glassBorder = '#FFFFFF' + this.hexAlpha(0.16);
       this.selectedBg = '#78AAFF' + this.hexAlpha(0.22);
       this.barShadow = { radius: 20, color: '#000000A6', offsetY: 8 };
       this.glossAlpha = 0.08 + 0.12 * r;
-      this.shimmerAlpha = 0.1 + 0.16 * r;
     } else {
       // 浅色：低不透明度白玻璃，强高光描边，选中项品牌蓝凸起
-      this.glassBg = Color.Transparent;
+      this.glassBg = '#F2F2F7' + this.hexAlpha(0.72 + 0.12 * r);
       this.glassBorder = '#FFFFFF' + this.hexAlpha(0.6);
       this.selectedBg = '#007AFF' + this.hexAlpha(0.12);
       this.barShadow = { radius: 22, color: '#00000033', offsetY: 10 };
       this.glossAlpha = 0.12 + 0.16 * r;
-      this.shimmerAlpha = 0.16 + 0.24 * r;
     }
     this.glassBlur = 22 + 16 * r;
   }
@@ -251,23 +237,6 @@ struct Index {
     }
   }
 
-  // 流光扫光动画：一条倾斜的白色光带在栏内循环横扫
-  private startShimmer(): void {
-    if (!this.alive) {
-      return;
-    }
-    const start: number = -(this.barWidth / 2 + this.shimmerWidth);
-    const end: number = this.barWidth / 2 + this.shimmerWidth;
-    this.shimmerOffset = start;
-    animateTo({ duration: 3600, curve: Curve.Linear, onFinish: (): void => {
-      if (this.alive) {
-        this.startShimmer();
-      }
-    } }, (): void => {
-      this.shimmerOffset = end;
-    });
-  }
-
   // 底部内容需为悬浮栏预留的底部内边距
   private contentBottomReserve(): number {
     return BAR_HEIGHT + BAR_BOTTOM_GAP + this.navBarHeight;
@@ -282,27 +251,6 @@ struct Index {
       case 3: return $r('app.media.nav_message');
       default: return $r('app.media.nav_profile');
     }
-  }
-
-  // 流光层：倾斜白色光带，循环横扫（被父级 clip 裁剪为圆角矩形）
-  @Builder
-  ShimmerLayer() {
-    Row() {
-    }
-    .width(this.shimmerWidth)
-    .height(BAR_HEIGHT * 2)
-    .linearGradient({
-      angle: 0,
-      colors: [
-        ['#FFFFFF00', 0.0],
-        ['#FFFFFF' + this.hexAlpha(this.shimmerAlpha), 0.5],
-        ['#FFFFFF00', 1.0]
-      ]
-    })
-    .rotate({ angle: -18 })
-    .align(Alignment.Center)
-    .translate({ x: this.shimmerOffset })
-    .opacity(this.shimmerAlpha > 0.02 ? 1 : 0)
   }
 
   // 顶部光泽层：上白下透明的柔和高光，模拟光线打在玻璃顶面
@@ -388,8 +336,6 @@ struct Index {
     Stack({ alignContent: Alignment.Center }) {
       // 顶部光泽
       this.GlossLayer()
-      // 流光层（透出玻璃产生扫光）
-      this.ShimmerLayer()
       // 顶部高光描边（specular rim）
       this.TopHighlightLine()
       // Tab 项行：等宽均分
