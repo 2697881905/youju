@@ -44,6 +44,8 @@ struct Index {
   @State barWidth: number = 0;
   private longPressTimer: number = 0;       // 长按计时器句柄
   private suppressClickUntil: number = 0;   // 滑动结束后短暂屏蔽 tab 自身 onClick，避免重复触发
+  private pressArmed: boolean = false;      // 长按已触发，但需移动才进入滑动模式
+  private pressDownX: number = 0;           // 按下点的栏内 x，用于移动阈值判断
 
   private tabs: TabDef[] = [
     { key: 'home', title: '首页' },
@@ -155,9 +157,15 @@ struct Index {
     }
   }
 
-  // 底栏背景：毛玻璃雾面（浅=奶白雾 / 深=暗雾），alpha ~98% 几乎压死身后黄图，blur 保留磨砂质感
+  // 底栏背景：毛玻璃雾面。
+  // 浅色：~80% 中性白雾——透出页面内容才看得出磨砂（压在白页上若全白就看不见玻璃）。
+  // 深色：~95% 中性深雾——略降透明度避免身后黄图在边缘透出形成"黄边"，blur 仍保留磨砂感。
   private barSurfaceColor(): string {
-    return this.isDark ? '#1C1C1EFA' : '#F2F2F7FA';
+    return this.isDark ? '#1C1C1EF2' : '#F2F2F7CC';
+  }
+  // 描边：中性色，明确玻璃边缘、不泛黄（深色拉成中性灰边而非低透明白边，避免叠在透出的黄上显黄）
+  private barBorderColor(): string {
+    return this.isDark ? '#8E8E9347' : '#FFFFFF99';
   }
   // 选中项胶囊背景（品牌蓝低透明）
   private pillBgColor(): string {
@@ -167,38 +175,42 @@ struct Index {
   @Builder
   TabInner(tab: TabDef, index: number) {
     Column({ space: 3 }) {
-      if (index === 3 && (this.unreadCount + this.dmUnread) > 0) {
-        Badge({
-          count: this.unreadCount + this.dmUnread,
-          position: BadgePosition.RightTop,
-          style: { badgeColor: $r('app.color.semantic_red'), badgeSize: 16 }
-        }) {
+      // 内部芯片：选中/悬停时蓝底只包住图标+文字，不铺满整段
+      Column({ space: 3 }) {
+        if (index === 3 && (this.unreadCount + this.dmUnread) > 0) {
+          Badge({
+            count: this.unreadCount + this.dmUnread,
+            position: BadgePosition.RightTop,
+            style: { badgeColor: $r('app.color.semantic_red'), badgeSize: 16 }
+          }) {
+            Image(this.navIconRes(index))
+              .width(26)
+              .height(26)
+              .fillColor(this.isActive(index) ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
+          }
+        } else {
           Image(this.navIconRes(index))
             .width(26)
             .height(26)
             .fillColor(this.isActive(index) ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
         }
-      } else {
-        Image(this.navIconRes(index))
-          .width(26)
-          .height(26)
-          .fillColor(this.isActive(index) ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
+        Text(tab.title)
+          .fontSize(10)
+          .fontColor(this.isActive(index) ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
       }
-      Text(tab.title)
-        .fontSize(10)
-        .fontColor(this.isActive(index) ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
+      .padding({ left: 14, right: 14, top: 6, bottom: 6 })
+      .borderRadius(PILL_RADIUS)
+      .backgroundColor(this.isActive(index) ? this.pillBgColor() : Color.Transparent)
+      .animation({ duration: 200, curve: Curve.EaseOut })
     }
     .layoutWeight(1)
     .height('100%')
     .justifyContent(FlexAlign.Center)
     .alignItems(HorizontalAlign.Center)
-      .borderRadius(PILL_RADIUS)
-      .backgroundColor(this.isActive(index) ? this.pillBgColor() : Color.Transparent)
-      .animation({ duration: 200, curve: Curve.EaseOut })
-      .onClick(() => {
-        if (Date.now() < this.suppressClickUntil) { return; }
-        this.selectTab(index);
-      })
+    .onClick(() => {
+      if (Date.now() < this.suppressClickUntil) { return; }
+      this.selectTab(index);
+    })
   }
 
   @Builder
@@ -215,7 +227,7 @@ struct Index {
     .borderRadius(BAR_RADIUS)
     .backdropBlur(40)
     .backgroundColor(this.barSurfaceColor())
-    .border({ width: 1, color: this.isDark ? '#FFFFFF1F' : '#FFFFFF59', style: BorderStyle.Solid })
+    .border({ width: 1, color: this.barBorderColor(), style: BorderStyle.Solid })
     .shadow({ radius: 16, color: this.isDark ? '#000000A6' : '#0000001F', offsetY: 8 })
     .clip(true)
     .onAreaChange((_old: Area, _new: Area) => {
@@ -247,20 +259,25 @@ struct Index {
       .animation({ duration: 120, curve: Curve.EaseOut })
   }
 
-  // 触屏事件：长按进入滑动高亮；滑动时高光跟手 + 悬停按钮高亮；松手触发悬停按钮
+  // 触屏事件：长按+移动才进入滑动高亮（静止长按仍视为点按，立即走 onClick，不卡 180ms）
+  // 滑动时高光跟手 + 悬停按钮高亮；松手触发悬停按钮
   private onBarTouch(e: TouchEvent): void {
     const t = e.touches[0];
     if (!t) { return; }
     const x = this.clampGlow(t.x);
     if (e.type === TouchType.Down) {
+      this.pressDownX = x;
       this.glowX = x;
       if (this.longPressTimer !== 0) { clearTimeout(this.longPressTimer); }
       this.longPressTimer = setTimeout(() => {
-        this.scrubbing = true;
-        this.hoverIndex = this.indexFromX(this.glowX);
+        this.pressArmed = true;
       }, LONG_PRESS_MS) as number;
     } else if (e.type === TouchType.Move) {
       this.glowX = x;
+      // 长按已触发且手指移动超过阈值，才真正进入滑动模式
+      if (this.pressArmed && !this.scrubbing && Math.abs(x - this.pressDownX) > 6) {
+        this.scrubbing = true;
+      }
       if (this.scrubbing) { this.hoverIndex = this.indexFromX(this.glowX); }
     } else {
       // Up / Cancel
@@ -270,6 +287,7 @@ struct Index {
         this.selectTab(target);
         this.suppressClickUntil = Date.now() + 250;
       }
+      this.pressArmed = false;
       this.scrubbing = false;
       this.hoverIndex = -1;
     }
