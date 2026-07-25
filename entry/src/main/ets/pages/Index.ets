@@ -39,11 +39,10 @@ struct Index {
   // 底部系统导航条高度（用于让悬浮栏避开手势条）
   @State navBarHeight: number = 0;
 
-  // 玻璃质感动态状态（中性磨砂染色底，避免底部内容透传染色）
-  @State glassBg: string = '#F2F2F7D1';
+  // 底栏材质状态（实色中性卡片底：移除 backdropBlur，避免模拟器透出底部黄图）
+  @State glassBg: string = '#F2F2F7';
   @State glassBorder: string = '#FFFFFF80';
-  @State glassBlur: number = 30;
-  @State glossAlpha: number = 0.16;
+  @State glossAlpha: number = 0.18;
   @State selectedBg: string = '#007AFF1F';
   @State barShadow: ShadowOptions = { radius: 20, color: '#00000033', offsetY: 10 };
 
@@ -201,21 +200,20 @@ struct Index {
   private recomputeGlass(): void {
     const r: number = this.ambientRatio;
     if (this.isDark) {
-      // 深色：更实一点的暗玻璃，边缘微亮，选中项冷蓝凸起
-      this.glassBg = '#1C1C1E' + this.hexAlpha(0.74 + 0.14 * r);
+      // 深色：实色暗卡片底，边缘微亮，选中项冷蓝凸起
+      this.glassBg = '#1C1C1E';
       this.glassBorder = '#FFFFFF' + this.hexAlpha(0.16);
       this.selectedBg = '#78AAFF' + this.hexAlpha(0.22);
       this.barShadow = { radius: 20, color: '#000000A6', offsetY: 8 };
       this.glossAlpha = 0.08 + 0.12 * r;
     } else {
-      // 浅色：低不透明度白玻璃，强高光描边，选中项品牌蓝凸起
-      this.glassBg = '#F2F2F7' + this.hexAlpha(0.72 + 0.12 * r);
+      // 浅色：实色中性卡片底，强高光描边，选中项品牌蓝凸起
+      this.glassBg = '#F2F2F7';
       this.glassBorder = '#FFFFFF' + this.hexAlpha(0.6);
       this.selectedBg = '#007AFF' + this.hexAlpha(0.12);
       this.barShadow = { radius: 22, color: '#00000033', offsetY: 10 };
       this.glossAlpha = 0.12 + 0.16 * r;
     }
-    this.glassBlur = 22 + 16 * r;
   }
 
   // 环境光强度（lux）→ 0~1 比例，驱动玻璃通透度与光效强度
@@ -352,7 +350,6 @@ struct Index {
     .width('100%')
     .height(BAR_HEIGHT)
     .borderRadius(BAR_RADIUS)
-    .backdropBlur(this.glassBlur, { grayscale: [127, 127] })
     .backgroundColor(this.glassBg)
     .border({ width: 1.5, color: this.glassBorder, style: BorderStyle.Solid })
     .shadow(this.barShadow)
