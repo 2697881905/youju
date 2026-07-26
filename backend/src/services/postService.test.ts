@@ -21,6 +21,10 @@ jest.mock('../prisma', () => ({
       findFirst: jest.fn(),
       findMany: jest.fn(),
     },
+    debateVote: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
     comment: {
       groupBy: jest.fn(),
     },

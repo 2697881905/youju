@@ -28,6 +28,10 @@ jest.mock('../prisma', () => ({
     bookmark: {
       findMany: jest.fn(),
     },
+    debateVote: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
     user: {
       findUnique: jest.fn().mockResolvedValue({ status: 1, deletedAt: null }),
     },

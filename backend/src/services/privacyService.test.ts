@@ -22,22 +22,22 @@ describe('getSettings', () => {
   it('无记录 → 返回默认值（public / allowFollow / allowMessage）', async () => {
     mockedFindUnique.mockResolvedValue(null);
     const s = await getSettings(1);
-    expect(s).toEqual({ postVisibility: 'public', allowFollow: true, allowMessage: true });
+    expect(s).toEqual({ postVisibility: 'public', allowFollow: true, dmPolicy: 'all' });
   });
 
   it('有记录 → 返回数据库中值', async () => {
     mockedFindUnique.mockResolvedValue({
-      id: 1, userId: 1, postVisibility: 'followers', allowFollow: false, allowMessage: true, updatedAt: new Date(),
+      id: 1, userId: 1, postVisibility: 'followers', allowFollow: false, dmPolicy: 'all', updatedAt: new Date(),
     });
     const s = await getSettings(1);
-    expect(s).toEqual({ postVisibility: 'followers', allowFollow: false, allowMessage: true });
+    expect(s).toEqual({ postVisibility: 'followers', allowFollow: false, dmPolicy: 'all' });
   });
 });
 
 describe('updateSettings', () => {
   it('部分更新 — 仅改可见性', async () => {
     mockedUpsert.mockResolvedValue({
-      id: 1, userId: 1, postVisibility: 'private', allowFollow: true, allowMessage: true, updatedAt: new Date(),
+      id: 1, userId: 1, postVisibility: 'private', allowFollow: true, dmPolicy: 'all', updatedAt: new Date(),
     });
     const s = await updateSettings(1, { postVisibility: 'private' });
     expect(s.postVisibility).toBe('private');
