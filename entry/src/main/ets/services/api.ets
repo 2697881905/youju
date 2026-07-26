@@ -1,12 +1,14 @@
 import { http } from '@kit.NetworkKit';
+import { BUILD_MODE_NAME } from 'BuildProfile';
 import { Post, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody, PendingPost, ModerateAction, NotificationPrefs, BlockUser, PrivacySettingsData, UserExportData, DebateVoteResult, Conversation, DmMessage } from '../models/types';
 
-// 本地后端地址（按运行环境替换）：
-// - 模拟器/真机本地开发：用 hdc 反向端口转发，连 127.0.0.1:3000 即可，无需关心电脑 IP（IP 变了也不用改这里）
-//   设置命令：hdc rport tcp:3000 tcp:3000  （模拟器每次重启后重跑一次即可）
-// - 真机/同局域网直连：'http://<你电脑局域网IP>:3000'
-// - 上架后：'https://api.bigbluebook.com'
-export const BASE_URL = 'http://127.0.0.1:3000';
+// 后端地址：根据构建模式切换
+// - debug（模拟器/本地开发）：http://127.0.0.1:3000（配合 hdc rport tcp:3000 tcp:3000）
+// - release（上架包）：生产 HTTPS 域名
+export const BASE_URL: string =
+  BUILD_MODE_NAME === 'release'
+    ? 'https://api.bigbluebook.com'
+    : 'http://127.0.0.1:3000';
 
 // token 由 utils/auth.ts 统一管理（PersistentStorage 持久化），request 直接从 AppStorage 读取。
 
@@ -288,6 +290,19 @@ export async function upComment(id: number): Promise<void> {
 // DELETE /v1/comments/:id/up（取消评论点赞，幂等）
 export async function cancelUpComment(id: number): Promise<void> {
   await api.del<null>('/v1/comments/' + id + '/up');
+}
+
+// POST /v1/push/register（上报华为推送设备 Token；未登录时后端拒，但此处在调用前已判登录）
+interface PushRegisterBody {
+  token: string;
+  deviceId?: string;
+}
+export async function registerPushToken(token: string, deviceId?: string): Promise<void> {
+  const body: PushRegisterBody = { token };
+  if (deviceId) {
+    body.deviceId = deviceId;
+  }
+  await api.post<null>('/v1/push/register', body);
 }
 
 // ===== 互动 =====

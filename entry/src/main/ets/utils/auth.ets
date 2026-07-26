@@ -4,6 +4,7 @@
 import { login, LoginResult } from '../services/api';
 import { User } from '../models/types';
 import { router } from '@kit.ArkUI';
+import { BUILD_MODE_NAME } from 'BuildProfile';
 
 // 进程级持久化（基于 Preferences，重启/重进页面不丢）。必须在任何 AppStorage 读写前注册一次。
 PersistentStorage.persistProp('authToken', '');
@@ -90,7 +91,21 @@ export async function ensureLogin(): Promise<User | null> {
 // 开发/预览兜底：仅由 LoginPage 的「其他方式登录」手动调用，静默桩逻辑集中在此处，
 // 不再由 ensureLogin 自动触发。真机走华为账号一键登录（exchangeHuaweiCode）。
 export async function loginWithDevStub(): Promise<User> {
+  if (BUILD_MODE_NAME === 'release') {
+    throw new Error('开发桩登录已在发布包禁用');
+  }
   const res: LoginResult = await login({ openId: 'dev-seed-openid', nickname: '科技老张' });
+  setSession(res.token, res.user);
+  return res.user;
+}
+
+// 第二个虚拟测试账号（昵称「虚拟小美」），与「科技老张」区分，
+// 用于跨账号互测：评论 / 关注 / 私信 / 访问对方主页 / 投票等。
+export async function loginWithDevStub2(): Promise<User> {
+  if (BUILD_MODE_NAME === 'release') {
+    throw new Error('开发桩登录已在发布包禁用');
+  }
+  const res: LoginResult = await login({ openId: 'dev-seed-openid-2', nickname: '虚拟小美' });
   setSession(res.token, res.user);
   return res.user;
 }

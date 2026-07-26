@@ -6,11 +6,12 @@
 // 颜色全部使用资源色，跟随系统深色/浅色模式自动适配。
 
 import { exchangeHuaweiCode, LoginResult } from '../services/api';
-import { setSession, loginWithDevStub } from '../utils/auth';
+import { setSession, loginWithDevStub, loginWithDevStub2 } from '../utils/auth';
 import { HuaweiLoginButton } from '../components/HuaweiLoginButton';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { CARD_RADIUS } from '../utils/cardTokens';
+import { BUILD_MODE_NAME } from 'BuildProfile';
 
 @Entry
 @Component
@@ -20,8 +21,12 @@ struct LoginPage {
   @State huaweiErrorTip: string = '';
   // 「其他方式登录」提交中态
   @State otherSubmitting: boolean = false;
+  // 第二个虚拟账号登录中态
+  @State v2Submitting: boolean = false;
   // 华为登录进行中态（按钮不可重复点）
   @State huaweiSubmitting: boolean = false;
+  // 开发桩登录入口是否可见（发布包隐藏，避免开放登录被滥用）
+  @State devLoginVisible: boolean = BUILD_MODE_NAME !== 'release';
 
   build() {
     Column() {
@@ -73,22 +78,37 @@ struct LoginPage {
           .enabled(!this.huaweiSubmitting)
           .opacity(this.huaweiSubmitting ? 0.6 : 1)
 
-        // 方式二：其他方式登录（开发桩，预览/模拟器/AGC 未配置时唯一可用入口）
-        // 强调显示：卡片背景 + 主题色描边 + 主色文字，深浅模式自适应
-        Button(this.otherSubmitting ? '登录中…' : '其他方式登录')
-          .width('80%')
-          .height(48)
-          .fontSize(16)
-          .fontColor($r('app.color.text_primary'))
-          .backgroundColor($r('app.color.card_bg'))
-          .border({ width: 1, color: $r('app.color.text_primary'), style: BorderStyle.Solid })
-          .borderRadius(CARD_RADIUS)
-          .enabled(!this.otherSubmitting)
-          .opacity(this.otherSubmitting ? 0.6 : 1)
-          .onClick((): void => {
-            this.handleOtherLogin();
-          })
-      }
+        // 方式二：其他方式登录（开发桩，仅本地开发/测试可用；发布包隐藏，避免开放登录被滥用）
+        if (this.devLoginVisible) {
+          Button(this.otherSubmitting ? '登录中…' : '其他方式登录')
+            .width('80%')
+            .height(48)
+            .fontSize(16)
+            .fontColor($r('app.color.text_primary'))
+            .backgroundColor($r('app.color.card_bg'))
+            .border({ width: 1, color: $r('app.color.text_primary'), style: BorderStyle.Solid })
+            .borderRadius(CARD_RADIUS)
+            .enabled(!this.otherSubmitting)
+            .opacity(this.otherSubmitting ? 0.6 : 1)
+            .onClick((): void => {
+              this.handleOtherLogin();
+            })
+
+          // 第二个虚拟测试账号：与「科技老张」区分，用于跨账号互测（发布包同样隐藏）
+          Button(this.v2Submitting ? '登录中…' : '虚拟用户·小美 登录')
+            .width('80%')
+            .height(48)
+            .fontSize(16)
+            .fontColor($r('app.color.text_primary'))
+            .backgroundColor($r('app.color.card_bg'))
+            .border({ width: 1, color: $r('app.color.text_primary'), style: BorderStyle.Solid })
+            .borderRadius(CARD_RADIUS)
+            .enabled(!this.v2Submitting)
+            .opacity(this.v2Submitting ? 0.6 : 1)
+            .onClick((): void => {
+              this.handleVirtual2Login();
+            })
+        }
       .width('100%')
       .margin({ top: 40 })
 
@@ -174,6 +194,25 @@ struct LoginPage {
       this.toast('登录失败：' + err.message);
     } finally {
       this.otherSubmitting = false;
+    }
+  }
+
+  // 第二个虚拟账号登录：开发桩（与「科技老张」区分）
+  private async handleVirtual2Login(): Promise<void> {
+    if (this.v2Submitting) {
+      return;
+    }
+    this.v2Submitting = true;
+    try {
+      const user = await loginWithDevStub2();
+      if (user) {
+        this.getUIContext().getRouter().back();
+      }
+    } catch (e) {
+      const err: Error = e as Error;
+      this.toast('登录失败：' + err.message);
+    } finally {
+      this.v2Submitting = false;
     }
   }
 

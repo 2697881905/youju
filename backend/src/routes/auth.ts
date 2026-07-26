@@ -14,7 +14,12 @@ const router = Router();
 
 // 鸿蒙账号授权登录
 // POST /v1/auth/login  |  POST /v1/users/login
+// 开放 openId 登录：仅本地开发/测试允许。生产环境禁用（存在身份冒充风险，任何人可伪造 openId 获取任意用户令牌）。
+// 生产登录统一走 /huawei/exchange（服务端用 client_secret 换 token，无法伪造）。
 router.post('/login', asyncHandler(async (req: AuthRequest, res: Response) => {
+  if (env.isProduction) {
+    return fail(res, CODE.FORBIDDEN, '开放登录已禁用', 403);
+  }
   const { openId, nickname, avatar } = req.body ?? {};
   if (!openId) return fail(res, CODE.BAD_REQUEST, '缺少 openId');
   const result = await login(openId, nickname, avatar);
