@@ -7,6 +7,10 @@ import { router } from '@kit.ArkUI';
 import { BUILD_MODE_NAME } from 'BuildProfile';
 import { asset } from '@kit.AssetStoreKit';
 
+// 当前隐私政策版本（须与后端 env.privacyPolicyVersion 默认一致；后端可用 PRIVACY_POLICY_VERSION 环境变量覆盖）。
+// 前端弹窗"同意"时上报此版本，后端据其对齐并判断是否需要重新征求。
+export const PRIVACY_POLICY_VERSION: string = '1.0.0';
+
 // 进程级持久化（基于 Preferences，重启/重进页面不丢）。必须在任何 AppStorage 读写前注册一次。
 // 注意：authToken 不再走明文 Preferences，改存硬件加密 Asset Store（见文件末尾 saveTokenToAsset），
 // 仅在 AppStorage 保留内存态；其余非敏感用户态仍走 Preferences。

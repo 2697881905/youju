@@ -3,7 +3,7 @@ import { ok, fail, CODE } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
 import { prisma } from '../prisma';
 import { env } from '../config/env';
-import { login, updateProfile, loginWithHuawei, deactivateUser } from '../services/authService';
+import { login, updateProfile, loginWithHuawei, deactivateUser, recordPrivacyConsent } from '../services/authService';
 import { exchangeCodeForToken, fetchHuaweiUserProfile } from '../services/huaweiAuth';
 import * as postService from '../services/postService';
 import * as tagService from '../services/tagService';
@@ -48,7 +48,28 @@ router.post('/huawei/exchange', asyncHandler(async (req: AuthRequest, res: Respo
 router.get('/me', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const user = await prisma.user.findUnique({ where: { id: req.userId! } });
   if (!user) return fail(res, CODE.NOT_FOUND, '用户不存在', 404);
-  return ok(res, { ...user, isAdmin: env.adminUserIds.includes(user.id) });
+  const privacyRequired: boolean =
+    !user.privacyPolicyVersion || user.privacyPolicyVersion !== env.privacyPolicyVersion;
+  return ok(res, {
+    ...user,
+    isAdmin: env.adminUserIds.includes(user.id),
+    privacyPolicyVersion: user.privacyPolicyVersion,
+    privacyAgreedAt: user.privacyAgreedAt,
+    privacyRequired,
+  });
+}));
+
+// 记录隐私政策同意（PIPL 可追溯）：前端弹窗"同意"时上报当前版本。
+// 仅接受与当前生效版本一致的上报，防止旧前端用过期版本蒙混过关。
+// PATCH /v1/auth/privacy-consent
+router.patch('/privacy-consent', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const version: string = req.body?.version;
+  if (!version) return fail(res, CODE.BAD_REQUEST, '缺少 version');
+  if (version !== env.privacyPolicyVersion) {
+    return fail(res, CODE.BAD_REQUEST, '隐私政策版本不匹配，请更新应用后重新同意', 409);
+  }
+  await recordPrivacyConsent(req.userId!, version);
+  return ok(res, { success: true });
 }));
 
 // 更新个人信息（昵称/头像/简介/性别；仅传入字段更新，性别可设 null/保密）

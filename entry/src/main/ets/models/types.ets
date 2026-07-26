@@ -10,6 +10,9 @@ export interface User {
   followTags?: string[];
   isAdmin?: boolean;
   deleted?: boolean; // 已注销（后端软删匿名化标记）
+  privacyPolicyVersion?: string; // 已同意的隐私政策版本（服务端留存）
+  privacyAgreedAt?: string; // 同意时间（ISO 字符串）
+  privacyRequired?: boolean; // 当前版本高于已同意版本，需重新弹窗
 }
 
 export interface Tag {

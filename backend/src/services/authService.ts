@@ -98,3 +98,11 @@ export async function deactivateUser(userId: number) {
     },
   });
 }
+
+// 记录隐私政策同意（PIPL 可追溯）：落地同意版本与时间戳。
+export async function recordPrivacyConsent(userId: number, version: string) {
+  return prisma.user.update({
+    where: { id: userId },
+    data: { privacyPolicyVersion: version, privacyAgreedAt: new Date() },
+  });
+}

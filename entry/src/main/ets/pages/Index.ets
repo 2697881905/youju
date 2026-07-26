@@ -5,8 +5,8 @@ import { CircleTab } from '../components/CircleTab';
 import { PublishPage } from './PublishPage';
 import { MessagePage } from './MessagePage';
 import { ProfilePage } from './ProfilePage';
-import { initAuthStorage, getToken, setPrivacyAgreed, isPrivacyAgreed } from '../utils/auth';
-import { getUnreadCount, getDmUnreadCount } from '../services/api';
+import { initAuthStorage, getToken, setPrivacyAgreed, isPrivacyAgreed, recordPrivacyConsent, PRIVACY_POLICY_VERSION } from '../utils/auth';
+import { getUnreadCount, getDmUnreadCount, getMe } from '../services/api';
 import { ensurePushRegistration } from '../utils/huaweiPush';
 import { common } from '@kit.AbilityKit';
 import { window } from '@kit.ArkUI';
@@ -31,6 +31,7 @@ interface TabDef {
 @Component
 struct Index {
   @State currentIndex: number = 0;
+  @State privacyDialogShown: boolean = false; // 防隐私弹窗重复弹出
   @StorageLink('unreadMessageCount') unreadCount: number = 0;
   @StorageLink('unreadDmCount') dmUnread: number = 0;
   @StorageLink('tabSwitchSignal') @Watch('onTabSwitch') tabSwitchSignal: number = 0;
@@ -95,18 +96,40 @@ struct Index {
     } else {
       this.refreshUnread();
       ensurePushRegistration();
+      this.checkPrivacyUpdate(); // 已登录：若隐私政策已更新则重新弹窗
     }
   }
 
-  private showPrivacyDialog(): void {
+  // 登录态稳定后异步核对服务端隐私同意版本；过期则重新弹窗（版本更新场景）。
+  // 网络失败/未配置时不阻断使用，以本地 privacyAgreed 标记为准。
+  private checkPrivacyUpdate(): void {
+    if (this.privacyDialogShown) {
+      return;
+    }
+    getMe().then((me) => {
+      if (me.privacyRequired) {
+        this.privacyDialogShown = true;
+        this.showPrivacyDialog(true);
+      }
+    }).catch(() => {});
+  }
+
+  private showPrivacyDialog(isUpdate: boolean = false): void {
     this.getUIContext().showAlertDialog({
-      title: '隐私政策与用户协议',
-      message: '欢迎使用大蓝书。请你仔细阅读并同意《隐私政策》与《用户协议》后再开始使用。' +
-        '我们仅在为你提供内容推荐、账号安全等必要服务时收集相关信息。',
+      title: isUpdate ? '隐私政策更新' : '隐私政策与用户协议',
+      message: isUpdate
+        ? '我们的隐私政策已更新，请阅读并重新同意以继续使用。'
+        : '欢迎使用大蓝书。请你仔细阅读并同意《隐私政策》与《用户协议》后再开始使用。' +
+          '我们仅在为你提供内容推荐、账号安全等必要服务时收集相关信息。',
       primaryButton: {
         value: '同意并继续',
         action: (): void => {
-          setPrivacyAgreed();
+          setPrivacyAgreed(); // 本地兜底（离线也能拦截首启）
+          // 已登录则落地服务端（PIPL 可追溯）；失败不阻断（离线/后端未起）
+          if (getToken() !== '') {
+            recordPrivacyConsent(PRIVACY_POLICY_VERSION).catch(() => {});
+          }
+          this.privacyDialogShown = false;
           this.startInit();
         },
       },

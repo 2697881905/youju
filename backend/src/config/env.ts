@@ -47,6 +47,8 @@ export const env = {
       process.env.HUAWEI_PUSH_TOKEN_URL ?? 'https://oauth-login.cloud.huawei.com/oauth2/v3/token',
     apiUrl: process.env.HUAWEI_PUSH_API_URL ?? 'https://push-api.cloud.huawei.com',
   },
+  // 当前生效的隐私政策版本（前端弹窗同意时上报此版本；低于此版本视为需重新征求）
+  privacyPolicyVersion: process.env.PRIVACY_POLICY_VERSION ?? '1.0.0',
 };
 
 // 生产环境安全闸口：BACKEND_PUBLIC_URL 必须使用 https，避免下发明文 http 链接（F-005）。

@@ -25,6 +25,8 @@ model User {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   deletedAt  DateTime? // 软删时间，置位即视为「已注销」，旧 token 失效
+  privacyPolicyVersion String?  @db.VarChar(32) // 用户同意的隐私政策版本（PIPL 可追溯）
+  privacyAgreedAt      DateTime? // 同意时间（服务端留存，便于合规审计与重新征求）
 
   posts          Post[]
   comments       Comment[]

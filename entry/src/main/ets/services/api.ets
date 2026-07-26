@@ -74,6 +74,7 @@ interface ApiClient {
   post: <T>(path: string, body?: Object) => Promise<T>;
   put: <T>(path: string, body?: Object) => Promise<T>;
   del: <T>(path: string) => Promise<T>;
+  patch: <T>(path: string, body?: Object) => Promise<T>;
 }
 
 export const api: ApiClient = {
@@ -81,6 +82,7 @@ export const api: ApiClient = {
   post: <T>(path: string, body?: Object): Promise<T> => request<T>(http.RequestMethod.POST, path, body),
   put: <T>(path: string, body?: Object): Promise<T> => request<T>(http.RequestMethod.PUT, path, body),
   del: <T>(path: string): Promise<T> => request<T>(http.RequestMethod.DELETE, path),
+  patch: <T>(path: string, body?: Object): Promise<T> => request<T>(http.RequestMethod.PATCH, path, body),
 };
 
 // ===== 领域类型 =====
@@ -362,6 +364,11 @@ export function exchangeHuaweiCode(body: HuaweiExchangeBody): Promise<LoginResul
 // GET /v1/auth/me
 export function getMe(): Promise<User> {
   return api.get<User>('/v1/auth/me');
+}
+
+// PATCH /v1/auth/privacy-consent（隐私政策同意落地，PIPL 可追溯）
+export function recordPrivacyConsent(version: string): Promise<void> {
+  return api.patch<void>('/v1/auth/privacy-consent', { version });
 }
 
 // PUT /v1/auth/me
