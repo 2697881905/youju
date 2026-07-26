@@ -1,6 +1,7 @@
 import { prisma } from '../prisma';
 import { DELETED_NICKNAME } from '../utils/userView';
 import { isNotificationAllowed } from './notificationPrefService';
+import { pushToUser } from './huaweiPush';
 
 // 通知类型（与前端 NotificationType 单一来源对齐）
 export type NotificationType = 'comment' | 'up' | 'bookmark' | 'follow' | 'system';
@@ -47,6 +48,27 @@ export async function createNotification(input: CreateNotificationInput): Promis
       read: false,
     },
   });
+
+  // 华为推送：通知落库后下发系统推送（未配置凭证 / 无设备 token 时静默降级，绝不阻断）
+  pushToUser(input.userId, pushTitle(input.type), input.content).catch(() => {});
+}
+
+// 推送标题按通知类型本地化（正文复用预渲染 content）
+function pushTitle(type: string): string {
+  switch (type) {
+    case 'comment':
+      return '新评论';
+    case 'up':
+      return '新赞';
+    case 'bookmark':
+      return '新收藏';
+    case 'follow':
+      return '新粉丝';
+    case 'system':
+      return '系统通知';
+    default:
+      return '大蓝书';
+  }
 }
 
 // 用户通知列表（分页，按时间倒序，含触发者信息）
@@ -175,9 +197,29 @@ export async function notifyOnInteract(
   });
 }
 
+// 评论点赞（顶评论）：通知评论作者（自己顶自己评论不发；postId 带上以便跳转定位）
+export async function notifyOnCommentUp(commentId: number, actorId: number): Promise<void> {
+  const comment = await prisma.comment.findUnique({
+    where: { id: commentId },
+    select: { userId: true, postId: true },
+  });
+  if (!comment || comment.userId === actorId) return; // 评论不存在 / 自己顶自己评论不发
+  const actor = await prisma.user.findUnique({
+    where: { id: actorId },
+    select: { nickname: true },
+  });
+  const nickname = actor?.nickname ?? '有人';
+  await createNotification({
+    userId: comment.userId,
+    actorId,
+    type: 'up',
+    postId: comment.postId,
+    content: `${nickname} 赞了你的评论`,
+  });
+}
+
 // 关注：通知被关注者（自己关注自己不发通知；与 notifyOnComment 同构）
-export async function notifyOnFollow(receiverId: number, actorId: number): Promise<void> {
-  if (receiverId === actorId) return; // 自己关注自己不发通知
+export async function notifyOnFollow(receiverId: number, actorId: number): Promise<void> {  if (receiverId === actorId) return; // 自己关注自己不发通知
   const actor = await prisma.user.findUnique({
     where: { id: actorId },
     select: { nickname: true },

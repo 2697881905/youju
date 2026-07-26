@@ -111,6 +111,18 @@ export struct CommentList {
     }
   }
 
+  // 点击评论者头像跳转其主页（已注销用户不跳转，与 PostCard.goUser 一致）
+  private goUser(c: Comment): void {
+    if (this.isDeletedCommentUser(c)) {
+      return;
+    }
+    const uid: number | undefined = c.userId ?? c.user?.id;
+    if (uid !== undefined) {
+      AppStorage.setOrCreate('targetUserId', String(uid));
+      this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage' });
+    }
+  }
+
   @Builder
   avatar(c: Comment) {
     if (this.isDeletedCommentUser(c)) {
@@ -128,6 +140,9 @@ export struct CommentList {
         .height(36)
         .borderRadius(18)
         .objectFit(ImageFit.Cover)
+        .onClick(() => {
+          this.goUser(c);
+        })
     } else {
       Text((c.user?.nickname ?? '匿').slice(0, 1))
         .width(36)
@@ -137,6 +152,9 @@ export struct CommentList {
         .fontColor(Color.White)
         .fontSize(14)
         .textAlign(TextAlign.Center)
+        .onClick(() => {
+          this.goUser(c);
+        })
     }
   }
 

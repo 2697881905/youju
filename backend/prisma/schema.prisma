@@ -35,6 +35,7 @@ model User {
   userFollowTags UserFollowTag[]
   searchHistories SearchHistory[]
   bindings       UserBinding[] // 账号绑定关系（虚拟关系，FK 落在 UserBinding.userId，不新增列）
+  pushTokens     PushToken[]   // 华为推送 Token（同一用户可多设备）
 }
 
 // 帖子表
@@ -178,6 +179,20 @@ model Notification {
 
   @@index([userId, read])       // 查未读：where { userId, read: false }
   @@index([userId, createdAt])  // 列表按时间倒序
+}
+
+// 华为推送 Token 表（同一用户可多设备，各存一条；注销/换设备由客户端重新注册覆盖）
+model PushToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @db.VarChar(255) // 华为推送设备 Token（pushService.getToken 返回）
+  deviceId  String?  @db.VarChar(128) // 设备标识（可选，便于同设备更新替换）
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, token]) // 同一用户对同一 token 仅一条（幂等注册）
+  @@index([userId])
 }
 
 // 关注关系表（独立轻量表，沿 Notification 取向：仅用标量外键，不建 @relation）

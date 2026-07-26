@@ -4,6 +4,7 @@ import { auth, AuthRequest } from '../middleware/auth';
 import { prisma } from '../prisma';
 import * as commentService from '../services/commentService';
 import * as reportService from '../services/reportService';
+import { notifyOnCommentUp } from '../services/notificationService';
 import { SensitiveWordError } from '../utils/errors';
 
 // 该路由挂在 /v1 下，因此路径为完整路径
@@ -77,6 +78,8 @@ router.post('/comments/:id/up', auth, asyncHandler(async (req: AuthRequest, res:
     // 写 CommentUp + increment upCount
     await prisma.commentUp.create({ data: { userId: req.userId!, commentId } });
     await prisma.comment.update({ where: { id: commentId }, data: { upCount: { increment: 1 } } });
+    // 触发通知：顶了某条评论（自己顶自己评论不发；失败不影响主流程）
+    notifyOnCommentUp(commentId, req.userId!).catch(() => {});
     return ok(res, { up: true });
   } catch (e) {
     return fail(res, CODE.SERVER_ERROR, (e as Error).message);

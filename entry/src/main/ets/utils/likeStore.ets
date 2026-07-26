@@ -73,6 +73,12 @@ class LikeStoreImpl {
     this.emit(postId);
   }
 
+  // 账号切换/登出时清空全部点赞缓存（仅清数据，保留订阅者列表，避免组件泄漏）。
+  // 若不清理，单例会残留上一个账号的 liked/count，导致切账号后首页/详情页点赞态串号。
+  clear(): void {
+    this.map.clear();
+  }
+
   // 订阅某帖子点赞态变化；返回取消订阅函数（组件 aboutToDisappear 时调用，防泄漏）
   subscribe(cb: LikeListener): () => void {
     this.listeners.push(cb);

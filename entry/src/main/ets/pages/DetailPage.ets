@@ -17,14 +17,14 @@ import { Genre, Comment, StructuredData, ReportReason, DebateVoteResult } from '
 import { timeAgo, formatCount } from '../utils/format';
 import { CommentList } from '../components/CommentList';
 import { ReportDialog } from '../components/ReportDialog';
-import { takeDetailPostId, emitTabSwitch } from '../utils/nav';
+import { takeDetailPostId } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
-import { getUserId } from '../utils/auth';
+import { getUserId, getToken } from '../utils/auth';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { likeStore } from '../utils/likeStore';
 import { ShareSheet } from '../components/ShareSheet';
 import { buildPostShareUrl, copyToClipboard } from '../utils/share';
-import { window } from '@kit.ArkUI';
+import { window, LengthMetrics } from '@kit.ArkUI';
 
 // 字段定义：[结构化字段键, 中文标签]，按产品文档 2.4 各体裁字段表
 type FieldDef = [keyof StructuredData, string];
@@ -119,6 +119,8 @@ struct DetailPage {
   @State planBVotes: number = 0;
   @State myVote: string = ''; // '' | 'A' | 'B'
   @State statusBarHeight: number = 0; // 全屏布局下顶部避让状态栏
+  // 监听登录账号：切换账号/登出时重新加载本帖，以服务器为准校准点赞/收藏/投票态（避免 likeStore 单例残留串号）
+  @StorageLink('authUserId') @Watch('onAccountSwitch') accountId: string = '';
 
   private get pid(): number {
     return Number(this.postId);
@@ -238,6 +240,14 @@ struct DetailPage {
     }
   }
 
+  // 账号切换/登出：已登录则重新加载本帖，以服务器为准校准点赞/收藏/投票态；
+  // 避免 likeStore 单例残留上个账号的 liked/upCount 导致串号
+  onAccountSwitch(): void {
+    if (getToken() !== '') {
+      this.load();
+    }
+  }
+
   // 把后端自由结构的结构化字段，按体裁映射成 [中文标签, 值] 列表
   private buildFields(p: PostWithComments): FieldPair[] {
     const defs = structuredFieldDefs(p.genre);
@@ -257,12 +267,23 @@ struct DetailPage {
     return out;
   }
 
+  // 取某方案（方案A/方案B）的介绍文字，用于把方案介绍合并进投票卡片
+  private planTextOf(planLabel: string): string {
+    for (const f of this.fields) {
+      if (f[0] === planLabel) {
+        return f[1];
+      }
+    }
+    return '';
+  }
+
   private imagesOf(p: PostWithComments): string[] {
     const imgs = p.images ?? [];
     if (imgs.length === 0 && p.coverImage) {
       return [p.coverImage];
     }
-    return imgs;
+    // 最多 9 张，按 3×3 排列（超出部分截断）
+    return imgs.slice(0, 9);
   }
 
   async onUp(): Promise<void> {
@@ -416,18 +437,11 @@ struct DetailPage {
       this.getUIContext().showAlertDialog({
         title: '操作',
         message: '',
-        primaryButton: {
+        primaryButton: { value: '取消', action: (): void => {} },
+        secondaryButton: {
           value: '删除帖子',
           fontColor: $r('app.color.semantic_red'),
           action: (): void => { this.onDeletePost(); },
-        },
-        secondaryButton: {
-          value: '编辑帖子',
-          action: (): void => {
-            AppStorage.setOrCreate('editPostId', this.pid);
-            emitTabSwitch(2);
-            this.getUIContext().getRouter().back();
-          },
         },
       });
     } else {
@@ -495,21 +509,46 @@ struct DetailPage {
     }
   }
 
+  // 方案介绍（debate 体裁把方案A/方案B 描述合并进投票卡片）
+  @Builder
+  planIntro(planLabel: string) {
+    if (this.planTextOf(planLabel).length > 0) {
+      Text(this.planTextOf(planLabel))
+        .fontSize(14)
+        .fontColor($r('app.color.text_primary'))
+        .lineHeight(21)
+        .width('100%')
+        .padding({ left: 2, right: 2 });
+    }
+  }
+
   build() {
     Column() {
       // 全屏图片查看器
       if (this.viewingImage.length > 0) {
         Stack() {
+          // 黑色背景铺底，承载点击关闭（点任意空白处退出）
           Column()
             .width('100%')
             .height('100%')
             .backgroundColor('#000000')
             .onClick(() => { this.viewingImage = ''; });
 
+          // 图片本体也绑定关闭：Image 铺满全屏会拦截 tap，
+          // 若只绑在背景层上，点图片区域无法触发关闭（历史 Bug）
           Image(this.viewingImage)
             .objectFit(ImageFit.Contain)
             .width('100%')
-            .height('100%');
+            .height('100%')
+            .onClick(() => { this.viewingImage = ''; });
+
+          // 右上角关闭按钮，提升可发现性
+          Image(resolveActionIcon('close'))
+            .width(24)
+            .height(24)
+            .fillColor(Color.White)
+            .position({ top: 16, right: 16 })
+            .onClick(() => { this.viewingImage = ''; });
         }
         .width('100%')
         .height('100%')
@@ -627,14 +666,14 @@ struct DetailPage {
             .width('100%')
             .alignItems(HorizontalAlign.Start)
 
-            // 九宫格图
+            // 九宫格图（最多 3 列 × 3 行，纵横统一紧凑间距）
             if (this.images.length > 0) {
-              Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.SpaceBetween }) {
+              Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Start, space: { main: LengthMetrics.px(4), cross: LengthMetrics.px(4) } }) {
                 ForEach(
                   this.images,
                   (url: string) => {
                     Image(url)
-                      .width(this.images.length === 1 ? '100%' : '48%')
+                      .width(this.images.length === 1 ? '100%' : 'calc((100% - 8px) / 3)')
                       .aspectRatio(1)
                       .objectFit(ImageFit.Cover)
                       .borderRadius(8)
@@ -691,6 +730,9 @@ struct DetailPage {
                 }
                 .width('100%');
 
+                // 方案A 介绍（合并进投票卡片，原独立「方案介绍」卡片已移除）
+                this.planIntro('方案A');
+
                 // 方案B 投票栏
                 Row() {
                   Text('方案B')
@@ -732,6 +774,8 @@ struct DetailPage {
                   .onClick(() => { this.onDebateVote('B'); });
                 }
                 .width('100%');
+                // 方案B 介绍
+                this.planIntro('方案B');
               }
               .width('100%')
               .padding(14)
@@ -739,8 +783,8 @@ struct DetailPage {
               .borderRadius(12);
             }
 
-            // 结构化字段
-            if (this.fields.length > 0) {
+            // 结构化字段（debate 体裁的方案介绍已合并进投票卡片，此处跳过避免重复）
+            if (this.fields.length > 0 && this.post?.genre !== 'debate') {
               Column({ space: 10 }) {
                 ForEach(
                   this.fields,
