@@ -166,10 +166,6 @@ struct Index {
   private barBorderColor(): string {
     return this.isDark ? '#8E8E9347' : '#FFFFFF99';
   }
-  // 选中项胶囊背景（品牌蓝低透明）
-  private pillBgColor(): string {
-    return this.isDark ? '#78AAFF33' : '#007AFF1A';
-  }
 
   @Builder
   TabInner(tab: TabDef, index: number) {
@@ -199,7 +195,7 @@ struct Index {
       }
       .padding({ left: 14, right: 14, top: 6, bottom: 6 })
       .borderRadius(PILL_RADIUS)
-      .backgroundColor(this.isActive(index) ? this.pillBgColor() : Color.Transparent)
+      .backgroundColor(Color.Transparent)
       .animation({ duration: 200, curve: Curve.EaseOut })
     }
     .layoutWeight(1)
