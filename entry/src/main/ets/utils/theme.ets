@@ -87,11 +87,24 @@ export function toggleDarkMode(dark: boolean): void {
 export function setFollowSystem(follow: boolean): void {
   AppStorage.setOrCreate('followSystem', follow);
   saveFollowSystem(follow);
-  // 不调 setColorMode — 避免任何副作用
-  // 跟随系统时系统自动管颜色（应用未调 setColorMode 即默认跟随）
-  // 手动模式时由 toggleDarkMode 调 setColorMode 强制指定
-  if (follow) {
-    const sysDark: boolean = getSystemDark();
-    AppStorage.setOrCreate('isDarkMode', sysDark);
+  if (_appContext === null) {
+    return;
+  }
+  try {
+    if (follow) {
+      // 跟随系统：把 isDarkMode 标记同步成系统当前深浅，并交还系统接管颜色模式
+      // （COLOR_MODE_NOT_SET）。必须显式复位——否则会沿用历史上被 toggleDarkMode
+      // 强制过的模式，导致「app 浅色但底栏深色 / 反之」的错位。
+      const sysDark: boolean = getSystemDark();
+      AppStorage.setOrCreate('isDarkMode', sysDark);
+      _appContext.setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET);
+    } else {
+      // 退出跟随：锁定当前手动选择并强制应用到颜色模式，确保与 isDarkMode 一致。
+      const dark: boolean = isDarkMode();
+      _appContext.setColorMode(dark
+        ? ConfigurationConstant.ColorMode.COLOR_MODE_DARK
+        : ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT);
+    }
+  } catch (e) {
   }
 }
