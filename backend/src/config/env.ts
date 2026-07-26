@@ -37,4 +37,20 @@ export const env = {
   // 模拟器通过 BASE_URL（默认 http://127.0.0.1:3000）访问，故此处默认与之对齐。
   backendPublicUrl: process.env.BACKEND_PUBLIC_URL ?? 'http://127.0.0.1:3000',
   uploadsDir: process.env.UPLOADS_DIR ?? path.resolve(process.cwd(), 'uploads'),
+  // 华为推送服务（Push Kit）凭证。留空 = 未配置 → 所有推送静默降级（不阻断通知落库）。
+  // 真实设备推送需在 AGC 开启「推送服务」并填入对应应用的 APP ID 与 APP SECRET。
+  huaweiPush: {
+    appId: process.env.HUAWEI_PUSH_APP_ID ?? '',
+    appSecret: process.env.HUAWEI_PUSH_APP_SECRET ?? '',
+    // 鉴权与下发端点（默认华为官方，一般无需改动）
+    tokenUrl:
+      process.env.HUAWEI_PUSH_TOKEN_URL ?? 'https://oauth-login.cloud.huawei.com/oauth2/v3/token',
+    apiUrl: process.env.HUAWEI_PUSH_API_URL ?? 'https://push-api.cloud.huawei.com',
+  },
 };
+
+// 生产环境安全闸口：BACKEND_PUBLIC_URL 必须使用 https，避免下发明文 http 链接（F-005）。
+// 与 index.ts 的 fail-hard 风格一致：配置缺失/不安全时启动即崩溃，而非静默降级。
+if (env.isProduction && env.backendPublicUrl.startsWith('http://')) {
+  throw new Error('[env] 生产环境 BACKEND_PUBLIC_URL 必须使用 https，请配置 https 域名');
+}
