@@ -62,6 +62,30 @@ export function getSystemDark(): boolean {
   return (AppStorage.get<boolean>('systemDark') ?? false) as boolean;
 }
 
+// 启动/前后台重建时统一应用主题：
+// - 跟随系统：显式交还系统接管（COLOR_MODE_NOT_SET），并清除历史上被手动强制残留的
+//   setColorMode——否则会卡在旧模式、与同步后的 isDarkMode 标记错位（浅色 app + 深色底栏）。
+// - 手动模式：强制应用用户选择。
+// 全 app 的视觉（含底栏，底栏已改为读取 app.color.* 资源）都由 setColorMode 这一唯一真相源驱动。
+export function applyLaunchTheme(): void {
+  if (_appContext === null) {
+    return;
+  }
+  try {
+    const follow: boolean = isFollowSystem();
+    if (follow) {
+      _appContext.setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET);
+      AppStorage.setOrCreate('isDarkMode', getSystemDark());
+    } else {
+      const dark: boolean = isDarkMode();
+      _appContext.setColorMode(dark
+        ? ConfigurationConstant.ColorMode.COLOR_MODE_DARK
+        : ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT);
+    }
+  } catch (e) {
+  }
+}
+
 export function isDarkMode(): boolean {
   return (AppStorage.get<boolean>('isDarkMode') ?? false) as boolean;
 }

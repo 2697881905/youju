@@ -71,6 +71,18 @@
     {
       "name": "surface_elevated",
       "value": "#FFFFFF"
+    },
+    {
+      "name": "bar_surface",
+      "value": "#F2F2F7FC"
+    },
+    {
+      "name": "bar_border",
+      "value": "#FFFFFF99"
+    },
+    {
+      "name": "bar_shadow",
+      "value": "#0000001F"
     }
   ]
 }

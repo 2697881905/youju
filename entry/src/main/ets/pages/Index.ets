@@ -34,7 +34,6 @@ struct Index {
   @StorageLink('unreadMessageCount') unreadCount: number = 0;
   @StorageLink('unreadDmCount') dmUnread: number = 0;
   @StorageLink('tabSwitchSignal') @Watch('onTabSwitch') tabSwitchSignal: number = 0;
-  @StorageLink('isDarkMode') isDark: boolean = false;
   @State statusBarHeight: number = 0;
   @State navBarHeight: number = 0;
   // 长按滑动高光状态
@@ -157,15 +156,9 @@ struct Index {
     }
   }
 
-  // 底栏背景：磨砂不透明（用户选定）。浅色 ~99% 中性白雾；深色 100% 不透明（盖死背后内容，深色模式不再透出黄/绿）。
-  // blur + 边缘高光 + 投影保留"干净玻璃面板"观感。
-  private barSurfaceColor(): string {
-    return this.isDark ? '#1C1C1E' : '#F2F2F7FC';
-  }
-  // 描边：中性色，明确玻璃边缘、不泛黄（深色拉成中性灰边而非低透明白边，避免叠在透出的黄上显黄）
-  private barBorderColor(): string {
-    return this.isDark ? '#8E8E9347' : '#FFFFFF99';
-  }
+  // 底栏颜色全部走 app.color.* 资源（bar_surface / bar_border / bar_shadow），
+  // 与全 app 共用 setColorMode 这一唯一真相源，彻底避免「底栏与 app 深浅错位」。
+  // 色值沿用此前认可的磨砂玻璃方案：浅色 ~99% 白雾，深色 100% 不透明（盖死背后内容）。
 
   @Builder
   TabInner(tab: TabDef, index: number) {
@@ -221,9 +214,9 @@ struct Index {
     .alignItems(VerticalAlign.Center)
     .borderRadius(BAR_RADIUS)
     .backdropBlur(40)
-    .backgroundColor(this.barSurfaceColor())
-    .border({ width: 1, color: this.barBorderColor(), style: BorderStyle.Solid })
-    .shadow({ radius: 16, color: this.isDark ? '#000000A6' : '#0000001F', offsetY: 8 })
+    .backgroundColor($r('app.color.bar_surface'))
+    .border({ width: 1, color: $r('app.color.bar_border'), style: BorderStyle.Solid })
+    .shadow({ radius: 16, color: $r('app.color.bar_shadow'), offsetY: 8 })
     .clip(true)
     .onAreaChange((_old: Area, _new: Area) => {
       this.barWidth = _new.width as number;
