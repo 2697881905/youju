@@ -5,8 +5,11 @@ import { Post, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, Bin
 // 后端地址：根据构建模式切换
 // - debug（模拟器/本地开发）：http://127.0.0.1:3000（配合 hdc rport tcp:3000 tcp:3000）
 // - release（上架包）：生产 HTTPS 域名
+// BUILD_MODE_NAME 由构建期生成，类型为字面量（'debug'/'release'）。
+// 严格模式（assembleHap）下与字面量比较会触发 "no overlap" 报错，转成 string 再比较。
+const BUILD_MODE: string = BUILD_MODE_NAME;
 export const BASE_URL: string =
-  BUILD_MODE_NAME === 'release'
+  BUILD_MODE === 'release'
     ? 'https://api.bigbluebook.com'
     : 'http://127.0.0.1:3000';
 
@@ -25,7 +28,7 @@ function isNetworkConnectionError(message: string): boolean {
     m.includes('unreachable') || m.includes('timed out') || m.includes('network');
 }
 
-async function request<T>(method: http.RequestMethod, path: string, body?: Object): Promise<T> {
+async function request<T>(method: string, path: string, body?: Object): Promise<T> {
   const url = BASE_URL + path;
   const req = http.createHttp();
   const token: string = (AppStorage.get<string>('authToken') ?? '') as string;
@@ -35,7 +38,7 @@ async function request<T>(method: http.RequestMethod, path: string, body?: Objec
   }
   try {
     const resp = await req.request(url, {
-      method,
+      method: method as http.RequestMethod,
       header,
       extraData: body ? JSON.stringify(body) : undefined,
       expectDataType: http.HttpDataType.OBJECT,
@@ -82,7 +85,7 @@ export const api: ApiClient = {
   post: <T>(path: string, body?: Object): Promise<T> => request<T>(http.RequestMethod.POST, path, body),
   put: <T>(path: string, body?: Object): Promise<T> => request<T>(http.RequestMethod.PUT, path, body),
   del: <T>(path: string): Promise<T> => request<T>(http.RequestMethod.DELETE, path),
-  patch: <T>(path: string, body?: Object): Promise<T> => request<T>(http.RequestMethod.PATCH, path, body),
+  patch: <T>(path: string, body?: Object): Promise<T> => request<T>('PATCH', path, body),
 };
 
 // ===== 领域类型 =====
@@ -367,8 +370,12 @@ export function getMe(): Promise<User> {
 }
 
 // PATCH /v1/auth/privacy-consent（隐私政策同意落地，PIPL 可追溯）
+export interface PrivacyConsentBody {
+  version: string;
+}
 export function recordPrivacyConsent(version: string): Promise<void> {
-  return api.patch<void>('/v1/auth/privacy-consent', { version });
+  const body: PrivacyConsentBody = { version };
+  return api.patch<void>('/v1/auth/privacy-consent', body);
 }
 
 // PUT /v1/auth/me

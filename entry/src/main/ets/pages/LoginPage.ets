@@ -12,6 +12,7 @@ import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { CARD_RADIUS } from '../utils/cardTokens';
 import { BUILD_MODE_NAME } from 'BuildProfile';
+const BUILD_MODE: string = BUILD_MODE_NAME;
 
 @Entry
 @Component
@@ -26,7 +27,7 @@ struct LoginPage {
   // 华为登录进行中态（按钮不可重复点）
   @State huaweiSubmitting: boolean = false;
   // 开发桩登录入口是否可见（发布包隐藏，避免开放登录被滥用）
-  @State devLoginVisible: boolean = BUILD_MODE_NAME !== 'release';
+  @State devLoginVisible: boolean = BUILD_MODE !== 'release';
 
   build() {
     Column() {
@@ -109,6 +110,7 @@ struct LoginPage {
               this.handleVirtual2Login();
             })
         }
+      }
       .width('100%')
       .margin({ top: 40 })
 
