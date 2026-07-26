@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { CODE } from '../utils/response';
 import { SensitiveWordError } from '../utils/errors';
+import { env } from '../config/env';
 
 /**
  * 全局兜底错误处理中间件。
@@ -37,8 +38,13 @@ export function errorHandler(
     CODE.SERVER_ERROR;
 
   // 5xx 不向客户端泄露内部细节
+  // 4xx 在生产环境对含内部线索（prisma/sql/stack/jwt 等）的消息归一化，避免泄露实现细节；开发环境原样透传便于调试。
+  const INTERNAL_HINT = /prisma|sqlstate|sequelize|enoent|econnrefused|stack|jwt|raw query|aggregate/i;
+  const rawMessage = err?.message ?? '请求处理失败';
+  const dev = !env.isProduction;
   const message =
-    status >= 500 ? '服务器内部错误，请稍后重试' : (err?.message ?? '请求处理失败');
+    status >= 500 ? '服务器内部错误，请稍后重试'
+      : (dev || !INTERNAL_HINT.test(rawMessage) ? rawMessage : '请求处理失败');
 
   res.status(status).json({ code, data: null, message });
 

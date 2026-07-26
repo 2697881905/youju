@@ -70,13 +70,15 @@ function cosUploadSignature(contentType: string): Promise<UploadSignature> {
       }
       const url: string = putData.Url;
       // 2) 额外生成 GET 预签名 URL（前端展示/存储用，私有桶也能加载）
+      // 有效期从 1 年缩短为 30 天，缓解删除/注销后图片仍可达最长 1 年的撤回留痕风险。
+      // 根治需在删除/注销资源时主动调用 COS deleteObject。
       const getParams: any = {
         Bucket: bucket,
         Region: region,
         Key: key,
         Method: 'GET',
         Sign: true,
-        Expires: 31536000,
+        Expires: 2592000,
       };
       cos.getObjectUrl(getParams, (getErr: any, getData: any) => {
         const viewUrl: string = getErr ? url : getData.Url;

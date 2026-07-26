@@ -46,15 +46,25 @@ router.post('/huawei/exchange', asyncHandler(async (req: AuthRequest, res: Respo
 // 当前用户信息
 // GET /v1/auth/me  |  GET /v1/users/me
 router.get('/me', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const user = await prisma.user.findUnique({ where: { id: req.userId! } });
+  // 白名单字段返回，杜绝 openId/unionID 等华为账号标识（PII）与内部字段泄露给客户端。
+  const user = await prisma.user.findUnique({
+    where: { id: req.userId! },
+    select: {
+      id: true,
+      nickname: true,
+      avatar: true,
+      bio: true,
+      gender: true,
+      privacyPolicyVersion: true,
+      privacyAgreedAt: true,
+    },
+  });
   if (!user) return fail(res, CODE.NOT_FOUND, '用户不存在', 404);
   const privacyRequired: boolean =
     !user.privacyPolicyVersion || user.privacyPolicyVersion !== env.privacyPolicyVersion;
   return ok(res, {
     ...user,
     isAdmin: env.adminUserIds.includes(user.id),
-    privacyPolicyVersion: user.privacyPolicyVersion,
-    privacyAgreedAt: user.privacyAgreedAt,
     privacyRequired,
   });
 }));

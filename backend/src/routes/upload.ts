@@ -38,30 +38,34 @@ function isValidLocalKey(key: string): boolean {
 
 const ALLOWED_LOCAL_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
-router.put(
-  '/local',
-  express.raw({ type: () => true, limit: '10mb' }),
-  (req: Request, res: Response) => {
-    const key = typeof req.query.key === 'string' ? req.query.key : '';
-    if (!isValidLocalKey(key)) {
-      return fail(res, CODE.BAD_REQUEST, '非法的上传 key');
+// 本地文件直传落地仅用于「未配置真实对象存储」的开发期（前端 local 模式直传二进制）。
+// 生产环境匿名可达该路由存在存储滥用/DoS 风险，故生产不挂载此路由（生产走 COS 预签名直传）。
+if (!env.isProduction) {
+  router.put(
+    '/local',
+    express.raw({ type: () => true, limit: '10mb' }),
+    (req: Request, res: Response) => {
+      const key = typeof req.query.key === 'string' ? req.query.key : '';
+      if (!isValidLocalKey(key)) {
+        return fail(res, CODE.BAD_REQUEST, '非法的上传 key');
+      }
+      const ct = (req.headers['content-type'] ?? 'image/jpeg').toString();
+      if (!ALLOWED_LOCAL_TYPES.includes(ct)) {
+        return fail(res, CODE.BAD_REQUEST, '不支持的文件类型');
+      }
+      if (!Buffer.isBuffer(req.body) || (req.body as Buffer).length === 0) {
+        return fail(res, CODE.BAD_REQUEST, '空文件');
+      }
+      const dest = path.join(env.uploadsDir, key);
+      try {
+        fs.mkdirSync(path.dirname(dest), { recursive: true });
+        fs.writeFileSync(dest, req.body as Buffer);
+      } catch (e) {
+        return fail(res, CODE.SERVER_ERROR, '保存失败', 500);
+      }
+      return ok(res, { key, viewUrl: `${env.backendPublicUrl.replace(/\/$/, '')}/uploads/${key}` });
     }
-    const ct = (req.headers['content-type'] ?? 'image/jpeg').toString();
-    if (!ALLOWED_LOCAL_TYPES.includes(ct)) {
-      return fail(res, CODE.BAD_REQUEST, '不支持的文件类型');
-    }
-    if (!Buffer.isBuffer(req.body) || (req.body as Buffer).length === 0) {
-      return fail(res, CODE.BAD_REQUEST, '空文件');
-    }
-    const dest = path.join(env.uploadsDir, key);
-    try {
-      fs.mkdirSync(path.dirname(dest), { recursive: true });
-      fs.writeFileSync(dest, req.body as Buffer);
-    } catch (e) {
-      return fail(res, CODE.SERVER_ERROR, '保存失败', 500);
-    }
-    return ok(res, { key, viewUrl: `${env.backendPublicUrl.replace(/\/$/, '')}/uploads/${key}` });
-  }
-);
+  );
+}
 
 export default router;

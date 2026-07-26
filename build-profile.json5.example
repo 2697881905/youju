@@ -7,11 +7,11 @@
         "material": {
           "certpath": "entry/material/bigbluebook.cer",
           "keyAlias": "bigbluebook",
-          "keyPassword": "BbbRelease2026!HarmonyOS_Sign_Key_99",
+          "keyPassword": "${env.BBB_RELEASE_STORE_PASSWORD}",
           "profile": "entry/material/bigbluebook.p7b",
           "signAlg": "SHA256withECDSA",
           "storeFile": "entry/material/bigbluebook.p12",
-          "storePassword": "BbbRelease2026!HarmonyOS_Sign_Key_99"
+          "storePassword": "${env.BBB_RELEASE_STORE_PASSWORD}"
         }
       }
     ],
@@ -30,12 +30,8 @@
       }
     ],
     "buildModeSet": [
-      {
-        "name": "debug",
-      },
-      {
-        "name": "release"
-      }
+      { "name": "debug" },
+      { "name": "release" }
     ]
   },
   "modules": [
@@ -45,9 +41,7 @@
       "targets": [
         {
           "name": "default",
-          "applyToProducts": [
-            "default"
-          ]
+          "applyToProducts": ["default"]
         }
       ]
     }
