@@ -258,12 +258,35 @@ export struct SettingsPage {
               .alignSelf(ItemAlign.Start)
               .padding({ left: 4 });
 
-            // 跟随系统
-            this.toggleRow('system', '跟随系统', '关闭后可手动选择深浅模式', this.followSystem, (on: boolean): void => {
-              setFollowSystem(on);
-            });
+            // 跟随系统（内联，直接绑 this.followSystem 才能响应变化；
+            // 走 @Builder 的 isOn 是值快照不会刷新，会让开关卡在旧状态）
+            Row({ space: 12 }) {
+              Image(resolveSettingsIcon('system'))
+                .width(22).height(22)
+                .fillColor($r('app.color.text_secondary'))
+                .objectFit(ImageFit.Contain)
+              Column({ space: 2 }) {
+                Text('跟随系统')
+                  .fontSize(16)
+                  .fontColor($r('app.color.text_primary'))
+                Text('关闭后可手动选择深浅模式')
+                  .fontSize(12)
+                  .fontColor($r('app.color.text_secondary'))
+              }
+              .alignItems(HorizontalAlign.Start)
+              .layoutWeight(1)
+              Toggle({ type: ToggleType.Switch, isOn: this.followSystem })
+                .onChange((on: boolean): void => {
+                  setFollowSystem(on);
+                })
+            }
+            .width('100%')
+            .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+            .backgroundColor($r('app.color.card_bg'))
+            .borderRadius(CARD_RADIUS)
+            .shadow(CARD_SHADOW)
 
-            // 深色模式（内联，不经过 @Builder——enabled 直接绑 this.followSystem 才能响应变化）
+            // 深色模式（内联，直接绑 this.followSystem；跟随系统开时禁用）
             Row({ space: 12 }) {
               Image(resolveSettingsIcon('dark'))
                 .width(22).height(22)
