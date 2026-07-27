@@ -33,6 +33,7 @@ export struct HomeTab {
   @State posts: Post[] = [];
   private postSource: BasicDataSource<Post> = new BasicDataSource<Post>();
   @State displayTags: Tag[] = [];
+  @State tagsLoaded: boolean = false;
   @State sortIndex: number = 0;
   @State @Watch('onTagChanged') tagIndex: number = 0;
   @State page: number = 1;
@@ -49,10 +50,14 @@ export struct HomeTab {
   // 监听登录账号：切换账号（老张↔小美互测）或登出时，清空点赞缓存并重建首页 feed，
   // 否则 PostCard 实例被 LazyForEach 复用不重建、likeStore 单例残留上个账号的 liked/upCount，点赞态串号。
   @StorageLink('authUserId') @Watch('onAccountSwitch') accountId: string = '';
+  // 监听当前激活的 Tab：切回首页（index=0）时，若标签仍停留在失败兜底态，自动重试恢复
+  @StorageLink('activeTab') @Watch('onHomeActive') homeActive: number = 0;
   // 响应式列数（按屏幕宽度 2/3/4 列自适应）+ 对应的 columnsTemplate 字符串
   @State gridColumns: number = 2;
   @State gridTemplate: string = '1fr 1fr';
   private unregisterColumns: () => void = () => {};
+  // 标签自愈重试定时器句柄（0 表示未挂起）；避免一次性加载失败后标签栏永久卡在「全部」
+  private tagsRetryTimer: number = 0;
 
   aboutToAppear(): void {
     this.loadTags();
@@ -70,6 +75,10 @@ export struct HomeTab {
 
   aboutToDisappear(): void {
     this.unregisterColumns();
+    if (this.tagsRetryTimer !== 0) {
+      clearTimeout(this.tagsRetryTimer);
+      this.tagsRetryTimer = 0;
+    }
   }
 
   // token 由空变为非空（登录完成）→ 关注流且列表空、无 error 时自动补加载
@@ -87,6 +96,13 @@ export struct HomeTab {
     this.refresh();
   }
 
+  // 切回首页：若标签仍停留在失败兜底态（仅「全部」），自动重试，避免一次性加载失败后被卡死
+  onHomeActive(): void {
+    if (this.homeActive === 0 && !this.tagsLoaded) {
+      this.loadTags();
+    }
+  }
+
   // 判断是否为网络连接类失败（后端未起 / hdc rport 未建立 / 启动竞态）
   private isConnError(msg: string): boolean {
     const m: string = msg.toLowerCase();
@@ -101,7 +117,8 @@ export struct HomeTab {
     });
   }
 
-  async loadTags(): Promise<void> {
+  // 单次拉取标签：成功返回 true（已写入 displayTags），失败返回 false（兜底为 [ALL_TAG]）
+  private async fetchTagsOnce(): Promise<boolean> {
     const MAX = 3;
     let lastErr: Error | null = null;
     for (let attempt = 1; attempt <= MAX; attempt++) {
@@ -112,7 +129,7 @@ export struct HomeTab {
         }
         this.displayTags = [ALL_TAG, ...tags];
         hilog.info(0x0000, 'HomeTab', 'loadTags ok, 圈子数=%{public}d', (tags as Tag[]).length);
-        return;
+        return true;
       } catch (e) {
         lastErr = e as Error;
         const msg: string = lastErr.message ?? '未知错误';
@@ -130,6 +147,23 @@ export struct HomeTab {
     const msg: string = lastErr?.message ?? '未知错误';
     hilog.error(0x0000, 'HomeTab', 'loadTags 最终失败: %{public}s', msg);
     safeShowToast(this.getUIContext(), { message: '圈子标签加载失败：' + msg });
+    return false;
+  }
+
+  async loadTags(): Promise<void> {
+    const ok: boolean = await this.fetchTagsOnce();
+    if (ok) {
+      this.tagsLoaded = true;
+    } else {
+      this.tagsLoaded = false;
+      // 自愈：仅挂起一次延迟重试（约 4s），后端恢复后兜底态自动解除；用句柄防重入
+      if (this.tagsRetryTimer === 0) {
+        this.tagsRetryTimer = setTimeout((): void => {
+          this.tagsRetryTimer = 0;
+          this.loadTags();
+        }, 4000) as number;
+      }
+    }
   }
 
   // 重置并加载第一页
@@ -288,53 +322,67 @@ export struct HomeTab {
         })
           .layoutWeight(1)
           .transition(TransitionEffect.OPACITY
-            .animation({ duration: 250, curve: Curve.EaseOut })
+            .animation({ duration: 200, curve: Curve.EaseOut })
             .combine(TransitionEffect.translate({ x: '100%' })
-              .animation({ duration: 300, curve: Curve.EaseOut })))
+              .animation({ duration: 240, curve: Curve.EaseOut })))
       } else {
-        // 顶部栏：左 推荐/关注 分段（信息源切换），右 搜索入口
-        Row({ space: 12 }) {
-          // 推荐 / 关注（带下划线指示器）
+        // 品牌标题 + 信息源分段 + 搜索入口
+        Row({ space: 10 }) {
+          Text('大蓝书')
+            .fontSize(20)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('app.color.text_primary'))
+
           Row({ space: 0 }) {
             ForEach(FEED_TABS, (name: string, idx: number) => {
-              Column() {
-                Text(name)
-                  .fontSize(16)
-                  .fontWeight(this.feedMode === FEED_MODE_IDX_MAP[idx] ? FontWeight.Bold : FontWeight.Medium)
-                  .fontColor(this.feedMode === FEED_MODE_IDX_MAP[idx] ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
-                  .padding({ left: 14, right: 14, top: 6, bottom: 6 })
-                if (this.feedMode === FEED_MODE_IDX_MAP[idx]) {
-                  Divider().width(24).height(2).color($r('app.color.brand_primary'))
-                }
-              }
-              .onClick(() => {
+              Text(name)
+                .fontSize(13)
+                .fontWeight(this.feedMode === FEED_MODE_IDX_MAP[idx] ? FontWeight.Medium : FontWeight.Normal)
+                .fontColor(this.feedMode === FEED_MODE_IDX_MAP[idx] ? $r('app.color.text_primary') : $r('app.color.text_secondary'))
+                .width(48)
+                .height(30)
+                .textAlign(TextAlign.Center)
+                .backgroundColor(this.feedMode === FEED_MODE_IDX_MAP[idx] ? $r('app.color.card_bg') : Color.Transparent)
+                .borderRadius(7)
+                .shadow({
+                  radius: this.feedMode === FEED_MODE_IDX_MAP[idx] ? 3 : 0,
+                  color: '#10000000',
+                  offsetY: 1,
+                })
+                .animation({ duration: 180, curve: Curve.EaseOut })
+                .onClick(() => {
                 const mode: FeedMode = FEED_MODE_IDX_MAP[idx];
                 this.switchFeed(mode);
               })
             }, (name: string) => name)
           }
+          .height(34)
+          .padding(2)
+          .backgroundColor($r('app.color.control_bg'))
+          .borderRadius(9)
           .alignItems(VerticalAlign.Center)
 
           Blank()
 
-          // 右侧搜索入口（点击打开全屏搜索面板）
           Row() {
-            Text('搜索')
-              .fontSize(14)
-              .fontColor($r('app.color.text_secondary'))
+            Image(resolveActionIcon('search'))
+              .width(18)
+              .height(18)
+              .fillColor($r('app.color.text_secondary'))
           }
-          .width(140)
-          .height(34)
-          .backgroundColor($r('app.color.bg_secondary'))
-          .borderRadius(17)
+          .width(36)
+          .height(36)
+          .backgroundColor($r('app.color.control_bg'))
+          .borderRadius(8)
           .justifyContent(FlexAlign.Center)
           .alignItems(VerticalAlign.Center)
+          .accessibilityText('搜索')
           .onClick(() => {
             this.showPanel = true;
           })
         }
         .alignItems(VerticalAlign.Center)
-        .padding({ left: 16, right: 12, top: 8, bottom: 8 })
+        .padding({ left: 16, right: 16, top: 10, bottom: 8 })
         .width('100%')
 
         // 标签筛选栏
@@ -456,9 +504,9 @@ export struct HomeTab {
                   FlowItem() {
                     PostCard({ post: post })
                       .transition(TransitionEffect.OPACITY
-                        .animation({ duration: 350, curve: Curve.EaseOut })
-                        .combine(TransitionEffect.translate({ y: 12 })
-                          .animation({ duration: 400, curve: Curve.EaseOut })))
+                        .animation({ duration: 180, curve: Curve.EaseOut })
+                        .combine(TransitionEffect.translate({ y: 8 })
+                          .animation({ duration: 220, curve: Curve.EaseOut })))
                       .onClick(() => {
                         if (post.id !== undefined) {
                           const id = post.id.toString();
