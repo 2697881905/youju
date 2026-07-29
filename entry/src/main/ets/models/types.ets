@@ -137,6 +137,7 @@ export interface UserProfile {
   postCount: number;
   followingCount: number;
   followerCount: number;
+  totalLikes: number; // 获赞总数（该用户全部已发布帖的点赞计数之和）
   isFollowing: boolean;
   isMutual: boolean;
   deleted?: boolean; // 已注销（后端软删匿名化标记）

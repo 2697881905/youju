@@ -20,7 +20,7 @@ export struct UserProfilePage {
   @State targetId: number = 0;
   @State profile: UserProfile = {
     id: 0, nickname: '', avatar: null, bio: null, gender: null,
-    postCount: 0, followingCount: 0, followerCount: 0, isFollowing: false, isMutual: false,
+    postCount: 0, followingCount: 0, followerCount: 0, totalLikes: 0, isFollowing: false, isMutual: false,
   };
   @State posts: Post[] = [];
   @State page: number = 1;
@@ -288,11 +288,12 @@ export struct UserProfilePage {
           }
           .width('100%').padding({ left: 16, right: 16 });
 
-          // 三计数（关注/粉丝可点）
+          // 计数（关注/粉丝可点）
           Row({ space: 24 }) {
             this.statItem(String(this.profile.postCount), '帖子', '');
             this.statItem(String(this.profile.followingCount), '关注', 'following');
             this.statItem(String(this.profile.followerCount), '粉丝', 'followers');
+            this.statItem(String(this.profile.totalLikes), '获赞', '');
           }
           .padding({ left: 16, bottom: 10 });
 
@@ -338,10 +339,12 @@ export struct UserProfilePage {
             Grid() {
               ForEach(this.posts, (post: Post) => {
                 GridItem() {
-                  PostCard({ post: post })
-                    .onClick(() => {
+                  PostCard({
+                    post: post,
+                    onOpen: () => {
                       this.goDetail(post);
-                    });
+                    },
+                  });
                 }
               }, (post: Post) => post.id !== undefined ? post.id.toString() : '');
               if (this.finished) {

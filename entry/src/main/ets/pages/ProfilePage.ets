@@ -8,11 +8,27 @@ import { safeShowToast } from '../utils/toast';
 import { setDetailPostId } from '../utils/nav';
 import { observeGridColumns, gridColumnTemplate } from '../utils/responsive';
 import { GRID_GAP, GRID_PADDING, barBottomReserve } from '../utils/cardTokens';
-import { AvatarView } from '../components/AvatarView';
 import { common } from '@kit.AbilityKit';
 import { likeStore } from '../utils/likeStore';
+import { resolveSettingsIcon } from '../utils/settingsIcons';
+import { Avatar } from '../design/components/Avatar';
+import { DesignButton } from '../design/components/DesignButton';
+import { EmptyState } from '../design/components/EmptyState';
+import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
+import { Pressable } from '../design/motion/Pressable';
+import { Reveal } from '../design/motion/Reveal';
+import { ColorTokens } from '../design/tokens/color';
+import { IconTokens } from '../design/tokens/icon';
+import { RadiusTokens } from '../design/tokens/radius';
+import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
+import { TypeTokens } from '../design/tokens/type';
 
-const SUB_TABS: string[] = ['我发布', '我收藏', '我赞过', '我评论'];
+const PROFILE_SEGMENTS: SegmentedItem[] = [
+  { key: 'published', label: '我发布' },
+  { key: 'bookmarks', label: '我收藏' },
+  { key: 'liked', label: '我赞过' },
+  { key: 'commented', label: '我评论' },
+];
 
 @Component
 export struct ProfilePage {
@@ -30,6 +46,7 @@ export struct ProfilePage {
   @StorageLink('authUserId') @Watch('onUserChange') uid: string = '';
   @State followingCount: number = 0;
   @State followerCount: number = 0;
+  @State totalLikes: number = 0; // 获赞总数
   @State tabIdx: number = 0; // 0 我发布, 1 我收藏, 2 我赞过, 3 我评论
   @State posts: Post[] = [];
   @State page: number = 1;
@@ -45,6 +62,8 @@ export struct ProfilePage {
   @State gridColumns: number = 2;
   @State gridTemplate: string = '1fr 1fr';
   private unregisterColumns: () => void = () => {};
+  // 每次切换分段或刷新都推进版本号；延迟返回的旧请求不能覆盖当前分段的数据。
+  private listVersion: number = 0;
   // 订阅全局点赞仓库：任意位置取消点赞后，「我赞过」列表即时移除该帖（不依赖切 Tab / onPageShow）
   private unsubLike: () => void = () => {};
 
@@ -56,7 +75,10 @@ export struct ProfilePage {
         this.gridTemplate = gridColumnTemplate(cols);
       }
     );
-    this.init();
+    // TabContent 会提前创建隐藏页面，只在“我的”真正可见时校验登录和拉取数据。
+    if (this.activeTab === 4) {
+      this.init();
+    }
     // 订阅全局点赞仓库：首页/详情页取消点赞后，若当前停在「我赞过」Tab，列表立即移除该帖。
     // 这覆盖了 router pop 返回（activeTab 不变、@Watch 不触发）与"期望立即同步"两类场景。
     this.unsubLike = likeStore.subscribe((changedId: number): void => {
@@ -77,7 +99,12 @@ export struct ProfilePage {
   // 切回「我的」Tab 时，重新拉取当前子 Tab 的帖子列表：
   // 这样在首页/详情取消点赞后，进入「我赞过」会立即剔除该帖；收藏/评论计数也同步为最新。
   onActiveTab(): void {
-    if (this.activeTab === 4 && this.ready) {
+    if (this.activeTab !== 4) {
+      return;
+    }
+    if (!this.ready) {
+      this.init();
+    } else {
       this.refresh();
     }
   }
@@ -172,6 +199,7 @@ export struct ProfilePage {
       const p: UserProfile = await getUserProfile(uid);
       this.followingCount = p.followingCount;
       this.followerCount = p.followerCount;
+      this.totalLikes = p.totalLikes;
       // 始终用后端最新数据覆盖本地缓存（昵称/头像/性别/简介）
       this.user = {
         id: this.user.id,
@@ -187,9 +215,14 @@ export struct ProfilePage {
   }
 
   async refresh(): Promise<void> {
+    const version: number = this.listVersion + 1;
+    this.listVersion = version;
     this.page = 1;
     this.finished = false;
-    await this.fetch(true);
+    this.error = '';
+    // 先移除上一分段内容，避免请求期间显示错误的帖子集合。
+    this.posts = [];
+    await this.fetch(true, version);
   }
 
   async loadMore(): Promise<void> {
@@ -197,11 +230,11 @@ export struct ProfilePage {
       return;
     }
     this.page += 1;
-    await this.fetch(false);
+    await this.fetch(false, this.listVersion);
   }
 
-  private async fetch(reset: boolean): Promise<void> {
-    if (this.loading) {
+  private async fetch(reset: boolean, version: number): Promise<void> {
+    if (!reset && this.loading) {
       return;
     }
     const uid: number = this.user.id ?? 0;
@@ -225,6 +258,9 @@ export struct ProfilePage {
         const res = await listMyCommentedPosts(this.page, 20);
         list = res.list;
       }
+      if (version !== this.listVersion) {
+        return;
+      }
       if (reset) {
         this.posts = list;
       } else {
@@ -234,9 +270,13 @@ export struct ProfilePage {
         this.finished = true;
       }
     } catch (e) {
-      this.error = (e as Error).message;
+      if (version === this.listVersion) {
+        this.error = (e as Error).message;
+      }
     } finally {
-      this.loading = false;
+      if (version === this.listVersion) {
+        this.loading = false;
+      }
     }
   }
 
@@ -252,10 +292,11 @@ export struct ProfilePage {
   }
 
   onTabChange(idx: number): void {
-    if (this.tabIdx === idx) {
-      return;
+    // SegmentedControl 会先写入双向绑定的 tabIdx，再触发 onSelect。
+    // 因此不能把“索引相同”当作无需刷新，否则只会切换选中态而继续显示旧分段数据。
+    if (this.tabIdx !== idx) {
+      this.tabIdx = idx;
     }
-    this.tabIdx = idx;
     this.refresh();
   }
 
@@ -271,175 +312,284 @@ export struct ProfilePage {
 
   @Builder
   refreshBuilder(): void {
-    Row({ space: 8 }) {
-      LoadingProgress().width(20).height(20)
-      Text('刷新中…').fontSize(12).fontColor($r('app.color.text_secondary'))
+    Row({ space: SpaceTokens.inline }) {
+      LoadingProgress().width(IconTokens.compact).height(IconTokens.compact)
+      Text('刷新中…')
+        .fontSize(TypeTokens.caption.size)
+        .fontWeight(TypeTokens.caption.weight)
+        .lineHeight(TypeTokens.caption.lineHeight)
+        .letterSpacing(TypeTokens.caption.tracking)
+        .fontColor(ColorTokens.secondary)
+    }
+  }
+
+  // 瀑布流 footer 与内容列解耦，避免末尾提示占用某一列的卡片位置。
+  @Builder
+  postFooter(): void {
+    if (this.finished) {
+      Text('没有更多了')
+        .fontSize(TypeTokens.caption.size)
+        .fontWeight(TypeTokens.caption.weight)
+        .lineHeight(TypeTokens.caption.lineHeight)
+        .letterSpacing(TypeTokens.caption.tracking)
+        .fontColor(ColorTokens.tertiary)
+        .width('100%')
+        .textAlign(TextAlign.Center)
+        .padding(SpaceTokens.base)
     }
   }
 
   build() {
     Column() {
-      // 顶栏：设置 + 我的 + 占位
+      // 顶栏
       Row() {
-        Text('').width(48)
-        Text('我的').fontSize(17).fontWeight(600).layoutWeight(1).textAlign(TextAlign.Center)
-        Text('设置')
-          .fontSize(16)
-          .fontColor($r('app.color.text_secondary'))
-          .width(48)
-          .onClick(() => {
+        Text('我的')
+          .fontSize(TypeTokens.title.size)
+          .fontWeight(TypeTokens.title.weight)
+          .lineHeight(TypeTokens.title.lineHeight)
+          .letterSpacing(TypeTokens.title.tracking)
+          .fontColor(ColorTokens.primary)
+        Blank()
+        Pressable({
+          visualHeight: LayoutTokens.segmentedHeight,
+          touchTargetHeight: LayoutTokens.minTouchTarget,
+          action: (): void => {
             this.getUIContext().getRouter().pushUrl({ url: 'pages/SettingsPage' });
-          })
+          },
+        }) {
+          Row() {
+            Image(resolveSettingsIcon('system'))
+              .width(IconTokens.compact)
+              .height(IconTokens.compact)
+              .fillColor(ColorTokens.primary)
+          }
+          .width(LayoutTokens.segmentedHeight)
+          .height(LayoutTokens.segmentedHeight)
+          .justifyContent(FlexAlign.Center)
+          .backgroundColor(ColorTokens.sunken)
+          .borderRadius(RadiusTokens.sm)
+          .accessibilityText('设置')
+        }
       }
       .width('100%')
-      .padding({ top: 12, bottom: 8 })
+      .padding({
+        left: SpaceTokens.pageCompact,
+        right: SpaceTokens.pageCompact,
+        top: SpaceTokens.md,
+        bottom: SpaceTokens.sm,
+      })
 
       // 用户信息卡
-      Row({ space: 14 }) {
-        AvatarView({
+      Row({ space: SpaceTokens.item }) {
+        Avatar({
           avatar: this.user.avatar ?? '',
           name: this.user.nickname ?? '我',
-          avatarSize: 64,
-          ringWidth: 2
+          avatarSize: IconTokens.avatarProfile,
         })
-        Column({ space: 4 }) {
-          Row({ space: 6 }) {
+        Column({ space: SpaceTokens.inlineTight }) {
+          Row({ space: SpaceTokens.inline }) {
             Text(this.user.nickname ?? '未登录')
-              .fontSize(18).fontWeight(FontWeight.Medium)
-              .fontColor($r('app.color.text_primary'))
+              .fontSize(TypeTokens.headline.size)
+              .fontWeight(TypeTokens.headline.weight)
+              .lineHeight(TypeTokens.headline.lineHeight)
+              .letterSpacing(TypeTokens.headline.tracking)
+              .fontColor(ColorTokens.primary)
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
             if (this.user.gender === 1 || this.user.gender === 2) {
               Text(this.user.gender === 1 ? '男' : '女')
-                .fontSize(11)
-                .fontColor($r('app.color.brand_primary'))
-                .padding({ left: 8, right: 8, top: 2, bottom: 2 })
-                .backgroundColor($r('app.color.bg_secondary'))
-                .borderRadius(10)
+                .fontSize(TypeTokens.overline.size)
+                .fontWeight(TypeTokens.overline.weight)
+                .lineHeight(TypeTokens.overline.lineHeight)
+                .letterSpacing(TypeTokens.overline.tracking)
+                .fontColor(ColorTokens.brand)
+                .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.inlineTight, bottom: SpaceTokens.inlineTight })
+                .backgroundColor(ColorTokens.brandTint)
+                .borderRadius(RadiusTokens.pill)
             }
           }
           if (this.user.bio) {
             Text(this.user.bio)
-              .fontSize(12).fontColor($r('app.color.text_secondary'))
-              .maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
+              .fontSize(TypeTokens.caption.size)
+              .fontWeight(TypeTokens.caption.weight)
+              .lineHeight(TypeTokens.caption.lineHeight)
+              .letterSpacing(TypeTokens.caption.tracking)
+              .fontColor(ColorTokens.secondary)
+              .maxLines(2)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
           }
           Text('ID: ' + String(this.user.id ?? '-'))
-            .fontSize(12).fontColor($r('app.color.text_secondary'))
+            .fontSize(TypeTokens.caption.size)
+            .fontWeight(TypeTokens.caption.weight)
+            .lineHeight(TypeTokens.caption.lineHeight)
+            .letterSpacing(TypeTokens.caption.tracking)
+            .fontFeature(TypeTokens.tabularFeature)
+            .fontColor(ColorTokens.tertiary)
         }
         .alignItems(HorizontalAlign.Start)
         .layoutWeight(1)
 
         // 编辑资料入口（原设置页入口，移至此处头像/名称右侧）
-        Button('编辑资料')
-          .height(34)
-          .padding({ left: 16, right: 16 })
-          .borderRadius(17)
-          .fontSize(13)
-          .fontColor($r('app.color.brand_primary'))
-          .backgroundColor($r('app.color.bg_secondary'))
-          .onClick(() => {
+        DesignButton({
+          label: '编辑资料',
+          variant: 'ghost',
+          action: (): void => {
             this.getUIContext().getRouter().pushUrl({ url: 'pages/EditProfilePage' });
-          })
+          },
+        })
       }
       .width('100%')
-      .padding({ left: 16, right: 16, top: 8, bottom: 8 })
+      .padding({
+        left: SpaceTokens.pageCompact,
+        right: SpaceTokens.pageCompact,
+        top: SpaceTokens.sm,
+        bottom: SpaceTokens.sm,
+      })
 
       // 关注 / 粉丝入口
-      Row({ space: 28 }) {
-        Row({ space: 4 }) {
-          Text(String(this.followingCount))
-            .fontSize(15).fontWeight(FontWeight.Bold)
-            .fontColor($r('app.color.text_primary'));
-          Text('关注').fontSize(13).fontColor($r('app.color.text_secondary'));
+      Row({ space: SpaceTokens.lg }) {
+        Pressable({
+          visualHeight: LayoutTokens.segmentedHeight,
+          touchTargetHeight: LayoutTokens.minTouchTarget,
+          action: (): void => { this.goFollow('following'); },
+        }) {
+          Column({ space: SpaceTokens.inlineTight }) {
+            Text(String(this.followingCount))
+              .fontSize(TypeTokens.headline.size)
+              .fontWeight(TypeTokens.headline.weight)
+              .lineHeight(TypeTokens.headline.lineHeight)
+              .letterSpacing(TypeTokens.headline.tracking)
+              .fontFeature(TypeTokens.tabularFeature)
+              .fontColor(ColorTokens.primary)
+            Text('关注')
+              .fontSize(TypeTokens.caption.size)
+              .fontWeight(TypeTokens.caption.weight)
+              .lineHeight(TypeTokens.caption.lineHeight)
+              .letterSpacing(TypeTokens.caption.tracking)
+              .fontColor(ColorTokens.secondary)
+          }
+          .width(LayoutTokens.profileStatWidth)
+          .alignItems(HorizontalAlign.Start)
         }
-        .onClick(() => {
-          this.goFollow('following');
-        })
 
-        Row({ space: 4 }) {
-          Text(String(this.followerCount))
-            .fontSize(15).fontWeight(FontWeight.Bold)
-            .fontColor($r('app.color.text_primary'));
-          Text('粉丝').fontSize(13).fontColor($r('app.color.text_secondary'));
+        Pressable({
+          visualHeight: LayoutTokens.segmentedHeight,
+          touchTargetHeight: LayoutTokens.minTouchTarget,
+          action: (): void => { this.goFollow('followers'); },
+        }) {
+          Column({ space: SpaceTokens.inlineTight }) {
+            Text(String(this.followerCount))
+              .fontSize(TypeTokens.headline.size)
+              .fontWeight(TypeTokens.headline.weight)
+              .lineHeight(TypeTokens.headline.lineHeight)
+              .letterSpacing(TypeTokens.headline.tracking)
+              .fontFeature(TypeTokens.tabularFeature)
+              .fontColor(ColorTokens.primary)
+            Text('粉丝')
+              .fontSize(TypeTokens.caption.size)
+              .fontWeight(TypeTokens.caption.weight)
+              .lineHeight(TypeTokens.caption.lineHeight)
+              .letterSpacing(TypeTokens.caption.tracking)
+              .fontColor(ColorTokens.secondary)
+          }
+          .width(LayoutTokens.profileStatWidth)
+          .alignItems(HorizontalAlign.Start)
         }
-        .onClick(() => {
-          this.goFollow('followers');
-        })
+
+        // 获赞总数（非点击统计项，与关注/粉丝视觉对齐）
+        Column({ space: SpaceTokens.inlineTight }) {
+          Text(String(this.totalLikes))
+            .fontSize(TypeTokens.headline.size)
+            .fontWeight(TypeTokens.headline.weight)
+            .lineHeight(TypeTokens.headline.lineHeight)
+            .letterSpacing(TypeTokens.headline.tracking)
+            .fontFeature(TypeTokens.tabularFeature)
+            .fontColor(ColorTokens.primary)
+          Text('获赞')
+            .fontSize(TypeTokens.caption.size)
+            .fontWeight(TypeTokens.caption.weight)
+            .lineHeight(TypeTokens.caption.lineHeight)
+            .letterSpacing(TypeTokens.caption.tracking)
+            .fontColor(ColorTokens.secondary)
+        }
+        .width(LayoutTokens.profileStatWidth)
+        .alignItems(HorizontalAlign.Start)
       }
       .width('100%')
-      .padding({ left: 16, right: 16, bottom: 12 })
+      .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, bottom: SpaceTokens.item })
 
-      // 子 Tab（我发布 / 我收藏）
-      Row({ space: 24 }) {
-        ForEach(SUB_TABS, (name: string, idx: number) => {
-          Column() {
-            Text(name)
-              .fontSize(16)
-              .fontWeight(this.tabIdx === idx ? FontWeight.Bold : FontWeight.Medium)
-              .fontColor(this.tabIdx === idx ? $r('app.color.text_primary') : $r('app.color.text_secondary'))
-              .padding({ bottom: 6 })
-            if (this.tabIdx === idx) {
-              Divider().width(20).height(2).color($r('app.color.brand_primary'))
-            }
-          }
-          .onClick(() => {
-            this.onTabChange(idx);
-          })
-        }, (name: string) => name)
-      }
-      .padding({ left: 16, bottom: 10 })
+      // 内容分段
+      SegmentedControl({
+        items: PROFILE_SEGMENTS,
+        selectedIndex: $tabIdx,
+        itemWidth: 67,
+        onSelect: (idx: number): void => { this.onTabChange(idx); },
+      })
+      .margin({
+        left: SpaceTokens.pageCompact,
+        right: SpaceTokens.pageCompact,
+        bottom: SpaceTokens.sm,
+      })
 
       // 列表区
       if (!this.ready || (this.posts.length === 0 && this.loading)) {
         Column() {
-          LoadingProgress().width(28).height(28)
-          Text('加载中…').fontSize(13).fontColor($r('app.color.text_secondary')).margin({ top: 10 })
+          LoadingProgress().width(IconTokens.empty).height(IconTokens.empty)
+          Text('加载中…')
+            .fontSize(TypeTokens.callout.size)
+            .fontWeight(TypeTokens.callout.weight)
+            .lineHeight(TypeTokens.callout.lineHeight)
+            .letterSpacing(TypeTokens.callout.tracking)
+            .fontColor(ColorTokens.secondary)
+            .margin({ top: SpaceTokens.md })
         }
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center)
       } else if (this.posts.length === 0) {
         Column() {
-          Text(this.error
-            ? ('加载失败：' + this.error)
-            : (this.tabIdx === 0
-              ? '还没有发布过帖子'
-              : this.tabIdx === 1
-                ? '还没有收藏过帖子'
-                : this.tabIdx === 2
-                  ? '还没有赞过的帖子'
-                  : '还没有评论过帖子'))
-            .fontSize(14).fontColor($r('app.color.text_secondary'))
+          EmptyState({
+            title: this.error
+              ? '加载失败'
+              : (this.tabIdx === 0
+                ? '还没有发布过帖子'
+                : this.tabIdx === 1
+                  ? '还没有收藏过帖子'
+                  : this.tabIdx === 2
+                    ? '还没有赞过的帖子'
+                    : '还没有评论过帖子'),
+            message: this.error ? this.error : '内容出现后会显示在这里',
+            actionLabel: this.error ? '重试' : '',
+            onAction: (): void => { this.refresh(); },
+          })
         }
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center)
       } else {
         Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
-          Grid() {
-            ForEach(this.posts, (post: Post) => {
-              GridItem() {
-                PostCard({
-                  post: post,
-                  // 仅「我收藏」Tab 传取消收藏回调；「我发布」Tab 不传（不显示取消入口）
-                  onCancelBookmark: this.tabIdx === 1
-                    ? (id: number): void => {
-                        this.handleCancelBookmark(id);
+          // PostCard 高度随图文内容变化，使用瀑布流而非等高行 Grid，
+          // 让短卡片下方可立即续排下一张卡片。
+          WaterFlow({ footer: this.postFooter }) {
+            ForEach(this.posts, (post: Post, idx: number) => {
+              FlowItem() {
+                Reveal({ index: idx % 5 }) {
+                  PostCard({
+                    post: post,
+                    onOpen: () => {
+                      if (post.id !== undefined) {
+                        const id = post.id.toString();
+                        AppStorage.setOrCreate('detailPostId', id);
+                        setDetailPostId(id);
+                        this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
                       }
-                    : undefined,
-                })
-                  .onClick(() => {
-                    if (post.id !== undefined) {
-                      const id = post.id.toString();
-                      AppStorage.setOrCreate('detailPostId', id);
-                      setDetailPostId(id);
-                      this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
-                    }
+                    },
+                    // 仅「我收藏」Tab 传取消收藏回调；「我发布」Tab 不传（不显示取消入口）
+                    onCancelBookmark: this.tabIdx === 1
+                      ? (id: number): void => {
+                          this.handleCancelBookmark(id);
+                        }
+                      : undefined,
                   })
+                }
               }
-            }, (post: Post) => post.id?.toString() ?? '')
-            if (this.finished) {
-              GridItem() {
-                Text('没有更多了')
-                  .fontSize(12).fontColor($r('app.color.text_secondary'))
-                  .width('100%').textAlign(TextAlign.Center).padding(16)
-              }
-              .columnStart(0).columnEnd(this.gridColumns - 1)
-            }
+            }, (post: Post) => this.tabIdx + '-' + (post.id?.toString() ?? ''))
           }
           .columnsTemplate(this.gridTemplate)
           .columnsGap(GRID_GAP).rowsGap(GRID_GAP).padding({ left: GRID_PADDING, right: GRID_PADDING, top: GRID_PADDING, bottom: GRID_PADDING + barBottomReserve() })
@@ -459,6 +609,6 @@ export struct ProfilePage {
       }
     }
     .width('100%').height('100%')
-    .backgroundColor($r('app.color.bg_primary'))
+    .backgroundColor(ColorTokens.canvas)
   }
 }

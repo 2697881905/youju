@@ -31,7 +31,7 @@ export interface FollowListParams {
   limit?: number;
 }
 
-// 关注他人（校验目标存在、不可自关、upsert 幂等、末尾触发关注通知）
+// 关注他人（校验目标存在、不可自关；仅首次创建关系时发送通知）
 export async function followUser(viewerId: number, rawTargetId: string): Promise<void> {
   const targetId = resolveTargetId(rawTargetId, viewerId);
   if (targetId === viewerId) {
@@ -46,11 +46,19 @@ export async function followUser(viewerId: number, rawTargetId: string): Promise
   if (ps && ps.allowFollow === false) {
     throw new FollowError('对方已关闭被关注', 403, 403);
   }
-  await prisma.follow.upsert({
-    where: { followerId_followingId: { followerId: viewerId, followingId: targetId } },
-    update: {},
-    create: { followerId: viewerId, followingId: targetId },
-  });
+  const where = { followerId_followingId: { followerId: viewerId, followingId: targetId } };
+  const existing = await prisma.follow.findUnique({ where });
+  if (existing) {
+    return;
+  }
+  try {
+    await prisma.follow.create({ data: { followerId: viewerId, followingId: targetId } });
+  } catch (e: any) {
+    if (e?.code === 'P2002') {
+      return;
+    }
+    throw e;
+  }
   // 触发关注通知：自己关注他人，失败绝不阻断主流程（与 interactService 一致）
   notifyOnFollow(targetId, viewerId).catch(() => {});
 }
@@ -70,13 +78,16 @@ export async function getUserProfile(viewerId: number, rawTargetId: string) {
   if (!user) {
     throw new FollowError('用户不存在', 404, 404);
   }
-  const [followingCount, followerCount, postCount, isFollowing, isMutual] = await Promise.all([
+  const [followingCount, followerCount, postCount, isFollowing, isMutual, likesAgg] = await Promise.all([
     prisma.follow.count({ where: { followerId: targetId } }),
     prisma.follow.count({ where: { followingId: targetId } }),
     prisma.post.count({ where: { userId: targetId, status: 1 } }),
     prisma.follow.count({ where: { followerId: viewerId, followingId: targetId } }),
     prisma.follow.count({ where: { followerId: targetId, followingId: viewerId } }),
+    // 获赞总数：该用户全部已发布帖的点赞计数之和（排除软删/待审帖）
+    prisma.post.aggregate({ _sum: { upCount: true }, where: { userId: targetId, status: 1 } }),
   ]);
+  const totalLikes = Number(likesAgg._sum?.upCount ?? 0);
   // 已注销用户：匿名化昵称/头像/bio，并标记 deleted，前端据 deleted 降级展示。
   if (user.deletedAt) {
     return {
@@ -88,6 +99,7 @@ export async function getUserProfile(viewerId: number, rawTargetId: string) {
       postCount,
       followingCount,
       followerCount,
+      totalLikes,
       isFollowing: false,
       isMutual: false,
       deleted: true,
@@ -102,6 +114,7 @@ export async function getUserProfile(viewerId: number, rawTargetId: string) {
     postCount,
     followingCount,
     followerCount,
+    totalLikes,
     isFollowing: isFollowing > 0,
     isMutual: isMutual > 0,
     deleted: false,

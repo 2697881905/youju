@@ -22,13 +22,15 @@ jest.mock('../prisma', () => ({
       findMany: jest.fn(),
     },
     follow: {
-      upsert: jest.fn(),
+      findUnique: jest.fn(),
+      create: jest.fn(),
       deleteMany: jest.fn(),
       count: jest.fn(),
       findMany: jest.fn(),
     },
     post: {
       count: jest.fn(),
+      aggregate: jest.fn(),
     },
     // followUser 隐私校验依赖：默认 allowFollow 未关闭（记录不存在 → 允许关注）
     privacySettings: {
@@ -84,6 +86,7 @@ beforeEach(() => {
     const id = args?.where?.id;
     return Promise.resolve({ id, nickname: 'U' + id, avatar: null, bio: null, gender: 1 });
   });
+  mockPrisma.follow.findUnique.mockResolvedValue(null);
 });
 
 function req(
@@ -123,18 +126,15 @@ describe('POST /v1/users/:id/follow', () => {
     expect(res.json.code).toBe(CODE.UNAUTHORIZED);
   });
 
-  it('关注他人成功（upsert 幂等 + 触发关注通知）', async () => {
-    mockPrisma.follow.upsert.mockResolvedValue({});
+  it('关注他人成功（首次创建 + 触发关注通知）', async () => {
+    mockPrisma.follow.create.mockResolvedValue({});
     mockPrisma.notification.create.mockResolvedValue({});
     const res = await req('POST', `/v1/users/${TARGET_ID}/follow`, undefined, authHeader());
     expect(res.status).toBe(200);
     expect(res.json.code).toBe(0);
-    expect(mockPrisma.follow.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { followerId_followingId: { followerId: TEST_USER_ID, followingId: TARGET_ID } },
-        create: { followerId: TEST_USER_ID, followingId: TARGET_ID },
-      }),
-    );
+    expect(mockPrisma.follow.create).toHaveBeenCalledWith({
+      data: { followerId: TEST_USER_ID, followingId: TARGET_ID },
+    });
     // 关注通知发出
     expect(mockPrisma.notification.create).toHaveBeenCalledTimes(1);
     const arg = mockPrisma.notification.create.mock.calls[0][0];
@@ -143,11 +143,19 @@ describe('POST /v1/users/:id/follow', () => {
     expect(arg.data.type).toBe('follow');
   });
 
+  it('重复关注保持幂等且不重复通知', async () => {
+    mockPrisma.follow.findUnique.mockResolvedValue({ id: 10 });
+    const res = await req('POST', `/v1/users/${TARGET_ID}/follow`, undefined, authHeader());
+    expect(res.status).toBe(200);
+    expect(mockPrisma.follow.create).not.toHaveBeenCalled();
+    expect(mockPrisma.notification.create).not.toHaveBeenCalled();
+  });
+
   it('关注自己 → BAD_REQUEST(400)', async () => {
     const res = await req('POST', `/v1/users/${TEST_USER_ID}/follow`, undefined, authHeader());
     expect(res.status).toBe(400);
     expect(res.json.code).toBe(CODE.BAD_REQUEST);
-    expect(mockPrisma.follow.upsert).not.toHaveBeenCalled();
+    expect(mockPrisma.follow.create).not.toHaveBeenCalled();
   });
 
   it('关注不存在用户 → NOT_FOUND(404)', async () => {
@@ -160,7 +168,7 @@ describe('POST /v1/users/:id/follow', () => {
     const res = await req('POST', `/v1/users/999/follow`, undefined, authHeader());
     expect(res.status).toBe(404);
     expect(res.json.code).toBe(CODE.NOT_FOUND);
-    expect(mockPrisma.follow.upsert).not.toHaveBeenCalled();
+    expect(mockPrisma.follow.create).not.toHaveBeenCalled();
   });
 });
 
@@ -191,6 +199,7 @@ describe('GET /v1/users/:id', () => {
       return Promise.resolve(0);
     });
     mockPrisma.post.count.mockResolvedValue(7);
+    mockPrisma.post.aggregate.mockResolvedValue({ _sum: { upCount: 12 } });
 
     const res = await req('GET', `/v1/users/${TARGET_ID}`, undefined, authHeader());
     expect(res.status).toBe(200);
@@ -200,6 +209,7 @@ describe('GET /v1/users/:id', () => {
     expect(d.followingCount).toBe(5);
     expect(d.followerCount).toBe(3);
     expect(d.postCount).toBe(7);
+    expect(d.totalLikes).toBe(12);
     expect(d.isFollowing).toBe(true);
     expect(d.isMutual).toBe(false);
     expect(d.bio).toBe('hi');
