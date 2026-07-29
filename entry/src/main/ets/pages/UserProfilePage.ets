@@ -129,6 +129,7 @@ export struct UserProfilePage {
       postCount: this.profile.postCount,
       followingCount: this.profile.followingCount,
       followerCount: this.profile.followerCount,
+      totalLikes: this.profile.totalLikes,
       isFollowing: next.isFollowing !== undefined ? next.isFollowing : this.profile.isFollowing,
       isMutual: next.isMutual !== undefined ? next.isMutual : this.profile.isMutual,
     };
