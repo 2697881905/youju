@@ -1,5 +1,5 @@
 # ---- 构建阶段 ----
-FROM node:20-alpine AS build
+FROM node:20-alpine3.18 AS build
 WORKDIR /app
 COPY package*.json ./
 RUN npm config set registry https://registry.npmmirror.com
@@ -10,7 +10,7 @@ COPY . .
 RUN npm run build
 
 # ---- 运行阶段 ----
-FROM node:20-alpine AS runtime
+FROM node:20-alpine3.18 AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 COPY package*.json ./
