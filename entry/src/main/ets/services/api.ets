@@ -10,7 +10,7 @@ import { Post, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, Bin
 const BUILD_MODE: string = BUILD_MODE_NAME;
 export const BASE_URL: string =
   BUILD_MODE === 'release'
-    ? 'https://api.bigbluebook.com'
+    ? 'https://api.mindtype.cn'
     : 'http://127.0.0.1:3000';
 
 // token 由 utils/auth.ts 统一管理（PersistentStorage 持久化），request 直接从 AppStorage 读取。
