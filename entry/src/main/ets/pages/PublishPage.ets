@@ -148,10 +148,6 @@ export struct PublishPage {
   @State categoryList: string[] = [];
   @State tagsByCategory: Record<string, Tag[]> = {};
 
-  private get canPublish(): boolean {
-    return !this.publishing && this.title.trim().length > 0;
-  }
-
   private calcDraftProgress(): number {
     let done: number = 0;
     if (this.title.trim().length > 0) {
@@ -402,7 +398,7 @@ export struct PublishPage {
         .layoutWeight(1)
         DesignButton({
           label: this.publishing ? '发布中' : '发布',
-          disabled: !this.canPublish,
+          disabled: this.publishing || this.title.trim().length === 0,
           action: (): void => { this.publish(); },
         })
       }
