@@ -5,7 +5,8 @@
 > mysql 仅内部网络可达，3306 不对外开放。
 
 ## 一、前置（由你准备）
-- 腾讯云轻量服务器：Ubuntu 22.04 / 2C4G / 60GB SSD / 5Mbps；安全组放行 22/80/443，**拒绝 3306 入站**
+- 腾讯云轻量服务器：Ubuntu 22.04 / **2核2G 起（推荐 4G）** / 磁盘 ≥40GB / 带宽 ≥3Mbps；安全组放行 22/80/443，**拒绝 3306 入站**
+  > 已对 2G 小内存机器做好调优：`docker-compose.prod.yml` 中 mysql 限制 1g + `innodb-buffer-pool-size=384M`、backend 限制 1g + `NODE_OPTIONS=--max-old-space-size=512`、nginx 限制 256m。2G 可直接跑，4G 上这些只是兜底上限、不影响性能。
 - 域名 `api.mindtype.cn` 做 A 记录解析到服务器公网 IP
 - 华为 AGC：申请 Release 签名证书（.cer + .p7b），在 DevEco 配 Signing Config
 - 本机 Docker 可正常构建镜像

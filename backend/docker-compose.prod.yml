@@ -10,7 +10,11 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
       - mysql_data:/var/lib/mysql
-    command: --default-authentication-plugin=mysql_native_password
+    command: --default-authentication-plugin=mysql_native_password --innodb-buffer-pool-size=384M
+    deploy:
+      resources:
+        limits:
+          memory: 1g
 
   backend:
     build: .
@@ -22,6 +26,12 @@ services:
       - mysql
     expose:
       - "3000"
+    environment:
+      - NODE_OPTIONS=--max-old-space-size=512
+    deploy:
+      resources:
+        limits:
+          memory: 1g
 
   nginx:
     image: nginx:alpine
@@ -36,6 +46,10 @@ services:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - ./certbot/conf:/etc/letsencrypt:ro
       - ./certbot/web:/var/www/certbot:ro
+    deploy:
+      resources:
+        limits:
+          memory: 256m
 
 volumes:
   mysql_data:
