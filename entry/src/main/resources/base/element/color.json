@@ -73,16 +73,112 @@
       "value": "#FFFFFF"
     },
     {
+      "name": "control_bg",
+      "value": "#E9E9EE"
+    },
+    {
+      "name": "surface_selected",
+      "value": "#14007AFF"
+    },
+    {
+      "name": "warning_surface",
+      "value": "#1AFF9500"
+    },
+    {
       "name": "bar_surface",
-      "value": "#F2F2F7FC"
+      "value": "#70F8FAFF"
     },
     {
       "name": "bar_border",
-      "value": "#FFFFFF99"
+      "value": "#BFFFFFFF"
     },
     {
       "name": "bar_shadow",
-      "value": "#0000001F"
+      "value": "#26000000"
+    },
+    {
+      "name": "bar_selection_surface",
+      "value": "#99FFFFFF"
+    },
+    {
+      "name": "bar_selection_border",
+      "value": "#E6FFFFFF"
+    },
+    {
+      "name": "bar_selection_shadow",
+      "value": "#2E007AFF"
+    },
+    {
+      "name": "ds_canvas",
+      "value": "#F2F2F7"
+    },
+    {
+      "name": "ds_elevated",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "ds_subtle",
+      "value": "#F7F7F8"
+    },
+    {
+      "name": "ds_sunken",
+      "value": "#ECECEF"
+    },
+    {
+      "name": "ds_text_primary",
+      "value": "#1C1C1E"
+    },
+    {
+      "name": "ds_text_secondary",
+      "value": "#6E6E73"
+    },
+    {
+      "name": "ds_text_tertiary",
+      "value": "#AEAEB2"
+    },
+    {
+      "name": "ds_text_quaternary",
+      "value": "#C7C7CC"
+    },
+    {
+      "name": "ds_brand",
+      "value": "#0A84FF"
+    },
+    {
+      "name": "ds_brand_tint",
+      "value": "#1A0A84FF"
+    },
+    {
+      "name": "ds_brand_press",
+      "value": "#0066CC"
+    },
+    {
+      "name": "ds_on_brand",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "ds_warm",
+      "value": "#FF9F0A"
+    },
+    {
+      "name": "ds_success",
+      "value": "#34C759"
+    },
+    {
+      "name": "ds_danger",
+      "value": "#FF3B30"
+    },
+    {
+      "name": "ds_separator",
+      "value": "#1F3C3C43"
+    },
+    {
+      "name": "ds_skeleton_base",
+      "value": "#E5E5EA"
+    },
+    {
+      "name": "ds_skeleton_highlight",
+      "value": "#FFFFFF"
     }
   ]
 }

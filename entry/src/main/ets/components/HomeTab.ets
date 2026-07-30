@@ -12,6 +12,16 @@ import { SearchPanel } from './SearchPanel';
 import { setDetailPostId, emitTabSwitch } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 import { resolveActionIcon } from '../utils/actionIcons';
+import { EmptyState } from '../design/components/EmptyState';
+import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
+import { Pressable } from '../design/motion/Pressable';
+import { Reveal } from '../design/motion/Reveal';
+import { ColorTokens } from '../design/tokens/color';
+import { IconTokens } from '../design/tokens/icon';
+import { MotionCurves, MotionTokens } from '../design/tokens/motion';
+import { RadiusTokens } from '../design/tokens/radius';
+import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
+import { TypeTokens } from '../design/tokens/type';
 import { common } from '@kit.AbilityKit';
 import { BasicDataSource } from '../utils/data-source';
 import { observeGridColumns, gridColumnTemplate } from '../utils/responsive';
@@ -26,6 +36,11 @@ const FEED_MODE_IDX_MAP: FeedMode[] = ['recommend', 'following', 'hotspot'];
 
 const SORT_KEYS: SortKey[] = ['hot', 'latest', 'recommend'];
 const FEED_TABS: string[] = ['推荐', '关注', '热点'];
+const FEED_SEGMENTS: SegmentedItem[] = [
+  { key: 'recommend', label: '推荐' },
+  { key: 'following', label: '关注' },
+  { key: 'hotspot', label: '热点' },
+];
 const ALL_TAG: Tag = { name: '全部' };
 
 @Component
@@ -43,6 +58,7 @@ export struct HomeTab {
   @State error: string = '';
   @State showPanel: boolean = false;
   @State feedMode: FeedMode = 'recommend'; // 'recommend' | 'following'
+  @State feedIndex: number = 0;
   @State needLogin: boolean = false; // 关注流且未登录的引导态
   @State followingCount: number = 0; // 关注流的关注数缓存（空态 A/B 区分）
   // 监听登录态：登录成功后 authToken 就绪，若处于关注流且列表空则自动补加载
@@ -193,6 +209,10 @@ export struct HomeTab {
 
   // 切换信息源（推荐/关注）：重置并重新拉取
   private switchFeed(mode: FeedMode): void {
+    const nextIndex: number = FEED_MODE_IDX_MAP.indexOf(mode);
+    if (nextIndex >= 0) {
+      this.feedIndex = nextIndex;
+    }
     if (this.feedMode !== mode) {
       this.feedMode = mode;
       this.needLogin = (mode === 'following' && this.token === '');
@@ -289,9 +309,14 @@ export struct HomeTab {
 
   @Builder
   refreshBuilder(): void {
-    Row({ space: 8 }) {
-      LoadingProgress().width(20).height(20)
-      Text('刷新中…').fontSize(12).fontColor($r('app.color.text_secondary'))
+    Row({ space: SpaceTokens.inline }) {
+      LoadingProgress().width(IconTokens.compact).height(IconTokens.compact)
+      Text('刷新中…')
+        .fontSize(TypeTokens.caption.size)
+        .fontWeight(TypeTokens.caption.weight)
+        .lineHeight(TypeTokens.caption.lineHeight)
+        .letterSpacing(TypeTokens.caption.tracking)
+        .fontColor(ColorTokens.secondary)
     }
   }
 
@@ -300,11 +325,14 @@ export struct HomeTab {
   feedFooter(): void {
     if (this.finished) {
       Text('没有更多了')
-        .fontSize(12)
-        .fontColor($r('app.color.text_secondary'))
+        .fontSize(TypeTokens.caption.size)
+        .fontWeight(TypeTokens.caption.weight)
+        .lineHeight(TypeTokens.caption.lineHeight)
+        .letterSpacing(TypeTokens.caption.tracking)
+        .fontColor(ColorTokens.tertiary)
         .width('100%')
         .textAlign(TextAlign.Center)
-        .padding(16)
+        .padding(SpaceTokens.base)
     }
   }
 
@@ -322,67 +350,61 @@ export struct HomeTab {
         })
           .layoutWeight(1)
           .transition(TransitionEffect.OPACITY
-            .animation({ duration: 200, curve: Curve.EaseOut })
+            .animation({ duration: MotionTokens.base, curve: MotionCurves.decelerate })
             .combine(TransitionEffect.translate({ x: '100%' })
-              .animation({ duration: 240, curve: Curve.EaseOut })))
+              .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate })))
       } else {
         // 品牌标题 + 信息源分段 + 搜索入口
-        Row({ space: 10 }) {
+        Row({ space: SpaceTokens.item }) {
           Text('大蓝书')
-            .fontSize(20)
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('app.color.text_primary'))
+            .fontSize(TypeTokens.title.size)
+            .fontWeight(TypeTokens.title.weight)
+            .lineHeight(TypeTokens.title.lineHeight)
+            .letterSpacing(TypeTokens.title.tracking)
+            .fontColor(ColorTokens.primary)
 
-          Row({ space: 0 }) {
-            ForEach(FEED_TABS, (name: string, idx: number) => {
-              Text(name)
-                .fontSize(13)
-                .fontWeight(this.feedMode === FEED_MODE_IDX_MAP[idx] ? FontWeight.Medium : FontWeight.Normal)
-                .fontColor(this.feedMode === FEED_MODE_IDX_MAP[idx] ? $r('app.color.text_primary') : $r('app.color.text_secondary'))
-                .width(48)
-                .height(30)
-                .textAlign(TextAlign.Center)
-                .backgroundColor(this.feedMode === FEED_MODE_IDX_MAP[idx] ? $r('app.color.card_bg') : Color.Transparent)
-                .borderRadius(7)
-                .shadow({
-                  radius: this.feedMode === FEED_MODE_IDX_MAP[idx] ? 3 : 0,
-                  color: '#10000000',
-                  offsetY: 1,
-                })
-                .animation({ duration: 180, curve: Curve.EaseOut })
-                .onClick(() => {
-                const mode: FeedMode = FEED_MODE_IDX_MAP[idx];
-                this.switchFeed(mode);
-              })
-            }, (name: string) => name)
-          }
-          .height(34)
-          .padding(2)
-          .backgroundColor($r('app.color.control_bg'))
-          .borderRadius(9)
-          .alignItems(VerticalAlign.Center)
+          SegmentedControl({
+            items: FEED_SEGMENTS,
+            selectedIndex: $feedIndex,
+            itemWidth: 50,
+            fillWidth: false,
+            onSelect: (idx: number): void => {
+              const mode: FeedMode = FEED_MODE_IDX_MAP[idx];
+              this.switchFeed(mode);
+            },
+          })
 
           Blank()
 
-          Row() {
-            Image(resolveActionIcon('search'))
-              .width(18)
-              .height(18)
-              .fillColor($r('app.color.text_secondary'))
+          Pressable({
+            visualHeight: LayoutTokens.segmentedHeight,
+            touchTargetHeight: LayoutTokens.minTouchTarget,
+            action: (): void => {
+              this.showPanel = true;
+            },
+          }) {
+            Row() {
+              Image(resolveActionIcon('search'))
+                .width(IconTokens.compact)
+                .height(IconTokens.compact)
+                .fillColor(ColorTokens.secondary)
+            }
+            .width(LayoutTokens.segmentedHeight)
+            .height(LayoutTokens.segmentedHeight)
+            .backgroundColor(ColorTokens.sunken)
+            .borderRadius(RadiusTokens.sm)
+            .justifyContent(FlexAlign.Center)
+            .alignItems(VerticalAlign.Center)
+            .accessibilityText('搜索')
           }
-          .width(36)
-          .height(36)
-          .backgroundColor($r('app.color.control_bg'))
-          .borderRadius(8)
-          .justifyContent(FlexAlign.Center)
-          .alignItems(VerticalAlign.Center)
-          .accessibilityText('搜索')
-          .onClick(() => {
-            this.showPanel = true;
-          })
         }
         .alignItems(VerticalAlign.Center)
-        .padding({ left: 16, right: 16, top: 10, bottom: 8 })
+        .padding({
+          left: SpaceTokens.pageCompact,
+          right: SpaceTokens.pageCompact,
+          top: SpaceTokens.sm,
+          bottom: SpaceTokens.sm,
+        })
         .width('100%')
 
         // 标签筛选栏
@@ -395,33 +417,30 @@ export struct HomeTab {
         // 列表区
         if (this.needLogin) {
           // 未登录引导态（关注流且未登录）：不发起请求，引导登录
-          Column({ space: 12 }) {
-            Image(resolveActionIcon('lock'))
-              .width(44)
-              .height(44)
-              .fillColor($r('app.color.text_secondary'))
-              .margin({ bottom: 4 })
-            Text('登录后查看你关注的人发布的帖子')
-              .fontSize(15)
-              .fontColor($r('app.color.text_primary'))
-              .textAlign(TextAlign.Center)
-            Text('关注的人发了什么，这里第一时间看到')
-              .fontSize(13)
-              .fontColor($r('app.color.text_secondary'))
-              .textAlign(TextAlign.Center)
-            Button('登录')
-              .margin({ top: 12 })
-              .onClick(() => {
+          Column() {
+            EmptyState({
+              icon: resolveActionIcon('lock'),
+              title: '登录后查看你关注的人发布的帖子',
+              message: '关注的人发了什么，这里第一时间看到',
+              actionLabel: '登录',
+              onAction: (): void => {
                 this.getUIContext().getRouter().pushUrl({ url: 'pages/LoginPage' });
-              })
+              },
+            })
           }
           .layoutWeight(1)
           .width('100%')
           .justifyContent(FlexAlign.Center)
         } else if (this.posts.length === 0 && this.loading) {
           Column() {
-            LoadingProgress().width(28).height(28)
-            Text('加载中…').fontSize(13).fontColor($r('app.color.text_secondary')).margin({ top: 10 })
+            LoadingProgress().width(IconTokens.empty).height(IconTokens.empty)
+            Text('加载中…')
+              .fontSize(TypeTokens.callout.size)
+              .fontWeight(TypeTokens.callout.weight)
+              .lineHeight(TypeTokens.callout.lineHeight)
+              .letterSpacing(TypeTokens.callout.tracking)
+              .fontColor(ColorTokens.secondary)
+              .margin({ top: SpaceTokens.md })
           }
           .layoutWeight(1)
           .width('100%')
@@ -429,65 +448,40 @@ export struct HomeTab {
         } else if (this.posts.length === 0) {
           Column() {
             if (this.error) {
-              Image(resolveActionIcon('warning'))
-                .width(40)
-                .height(40)
-                .fillColor($r('app.color.text_secondary'))
-                .margin({ bottom: 8 })
-              Text('加载失败：' + this.error)
-                .fontSize(14)
-                .fontColor($r('app.color.text_secondary'))
-                .margin({ top: 8 })
-              Button('重试')
-                .margin({ top: 16 })
-                .onClick(() => {
-                  this.refresh();
-                })
+              EmptyState({
+                icon: resolveActionIcon('warning'),
+                title: '加载失败',
+                message: this.error,
+                actionLabel: '重试',
+                onAction: (): void => { this.refresh(); },
+              })
             } else if (this.feedMode === 'following') {
               // 关注流空态 A/B 区分：按 followingCount 判定
               if (this.followingCount === 0) {
                 // 空态 A：未关注任何人
-                Image(resolveActionIcon('guide'))
-                  .width(44)
-                  .height(44)
-                  .fillColor($r('app.color.text_secondary'))
-                  .margin({ bottom: 4 })
-                Text('你还没有关注任何人')
-                  .fontSize(15)
-                  .fontColor($r('app.color.text_primary'))
-                  .textAlign(TextAlign.Center)
-                Text('去发现有趣的人，关注后这里就有内容')
-                  .fontSize(13)
-                  .fontColor($r('app.color.text_secondary'))
-                  .textAlign(TextAlign.Center)
-                  .margin({ top: 4 })
-                Button('去发现')
-                  .margin({ top: 12 })
-                  .onClick(() => {
-                    // 跳转到底部「圈子」Tab（CircleTab），在此发现有趣的人/圈子
+                EmptyState({
+                  icon: resolveActionIcon('guide'),
+                  title: '你还没有关注任何人',
+                  message: '去发现有趣的人，关注后这里就有内容',
+                  actionLabel: '去发现',
+                  onAction: (): void => {
                     emitTabSwitch(1);
-                  })
+                  },
+                })
               } else {
                 // 空态 B：关注了人但无人发帖
-                Image(resolveActionIcon('inbox'))
-                  .width(44)
-                  .height(44)
-                  .fillColor($r('app.color.text_secondary'))
-                  .margin({ bottom: 4 })
-                Text('你关注的人还没有发布内容')
-                  .fontSize(15)
-                  .fontColor($r('app.color.text_primary'))
-                  .textAlign(TextAlign.Center)
-                Text('去他们的主页催更吧～')
-                  .fontSize(13)
-                  .fontColor($r('app.color.text_secondary'))
-                  .textAlign(TextAlign.Center)
-                  .margin({ top: 4 })
+                EmptyState({
+                  icon: resolveActionIcon('inbox'),
+                  title: '你关注的人还没有发布内容',
+                  message: '去他们的主页催更吧',
+                })
               }
             } else {
-              Text('暂无内容')
-                .fontSize(14)
-                .fontColor($r('app.color.text_secondary'))
+              EmptyState({
+                icon: resolveActionIcon('inbox'),
+                title: '暂无内容',
+                message: '内容出现后会显示在这里',
+              })
             }
           }
           .layoutWeight(1)
@@ -502,19 +496,19 @@ export struct HomeTab {
                 this.postSource,
                 (post: Post, idx: number) => {
                   FlowItem() {
-                    PostCard({ post: post })
-                      .transition(TransitionEffect.OPACITY
-                        .animation({ duration: 180, curve: Curve.EaseOut })
-                        .combine(TransitionEffect.translate({ y: 8 })
-                          .animation({ duration: 220, curve: Curve.EaseOut })))
-                      .onClick(() => {
-                        if (post.id !== undefined) {
-                          const id = post.id.toString();
-                          AppStorage.setOrCreate('detailPostId', id);
-                          setDetailPostId(id);
-                          this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
-                        }
+                    Reveal({ index: idx % 5 }) {
+                      PostCard({
+                        post: post,
+                        onOpen: () => {
+                          if (post.id !== undefined) {
+                            const id = post.id.toString();
+                            AppStorage.setOrCreate('detailPostId', id);
+                            setDetailPostId(id);
+                            this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
+                          }
+                        },
                       })
+                    }
                   }
                 },
                 (post: Post, idx: number) => (post.id ?? idx).toString()
@@ -544,6 +538,6 @@ export struct HomeTab {
     .width('100%')
     .height('100%')
     .alignItems(HorizontalAlign.Start)
-    .backgroundColor($r('app.color.bg_primary'))
+    .backgroundColor(ColorTokens.canvas)
   }
 }

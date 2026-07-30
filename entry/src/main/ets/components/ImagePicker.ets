@@ -123,7 +123,7 @@ export struct ImagePicker {
 
   build() {
     Column({ space: 8 }) {
-      Text('图片（最多 ' + this.maxCount + ' 张，选图后自动上传到腾讯云 COS）')
+      Text('图片 · 最多 ' + this.maxCount + ' 张')
         .fontSize(13)
         .fontColor($r('app.color.text_secondary'))
 
@@ -168,7 +168,8 @@ export struct ImagePicker {
           .width('30%')
           .aspectRatio(1)
           .justifyContent(FlexAlign.Center)
-          .border({ width: 1, color: $r('app.color.text_secondary'), style: BorderStyle.Dashed })
+          .backgroundColor($r('app.color.control_bg'))
+          .border({ width: 1, color: $r('app.color.divider'), style: BorderStyle.Dashed })
           .borderRadius(8)
           .onClick(() => this.pick())
         }

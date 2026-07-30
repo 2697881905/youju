@@ -24,4 +24,10 @@ if (!env.corsOrigin) {
 
 app.listen(env.port, () => {
   console.log(`BigBlueBook API listening on http://localhost:${env.port}`);
+  // 存储模式自检：云真机/真机只能加载公网图；local 模式图片为 LAN 直链，云侧必空白。
+  const cosReady = Boolean(env.cos.secretId && env.cos.secretKey && env.cos.bucket && env.cos.region);
+  console.log(`[存储] 上传模式 = ${cosReady ? 'COS（图片为公网 myqcloud 链接，云真机/真机可加载）' : 'local（图片为 LAN 直链，仅本机/模拟器可见，云真机将空白）'}`);
+  if (!cosReady) {
+    console.warn('[存储警示] 未检测到完整 COS 凭据，图片走 local 模式；在云手机/真机上图片将无法加载。请检查 backend/.env 的 COS_* 变量。');
+  }
 });

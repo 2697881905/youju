@@ -207,6 +207,8 @@ function loadTokenFromAsset(): string {
   try {
     const query: asset.AssetMap = new Map();
     query.set(asset.Tag.ALIAS, tokenToBytes(TOKEN_ALIAS));
+    // 默认查询只保证返回属性；恢复会话需要显式请求包含 SECRET 的完整结果。
+    query.set(asset.Tag.RETURN_TYPE, asset.ReturnType.ALL);
     const res: asset.AssetMap[] = asset.querySync(query);
     if (res.length > 0) {
       const secret: Object | undefined = res[0].get(asset.Tag.SECRET);

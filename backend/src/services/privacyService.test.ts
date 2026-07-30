@@ -51,4 +51,15 @@ describe('updateSettings', () => {
     const s = await updateSettings(1, { postVisibility: 'followers', allowFollow: false, dmPolicy: 'followers' });
     expect(s).toEqual({ postVisibility: 'followers', allowFollow: false, dmPolicy: 'followers' });
   });
+
+  it('拒绝未知可见性与私信策略', async () => {
+    await expect(updateSettings(1, { postVisibility: 'friends' as any })).rejects.toThrow('postVisibility');
+    await expect(updateSettings(1, { dmPolicy: 'nobody' as any })).rejects.toThrow('dmPolicy');
+    expect(mockedUpsert).not.toHaveBeenCalled();
+  });
+
+  it('拒绝非布尔 allowFollow', async () => {
+    await expect(updateSettings(1, { allowFollow: 'yes' as any })).rejects.toThrow('allowFollow');
+    expect(mockedUpsert).not.toHaveBeenCalled();
+  });
 });

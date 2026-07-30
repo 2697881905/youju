@@ -17,8 +17,10 @@ jest.mock('../prisma', () => ({
   prisma: {
     post: {
       create: jest.fn(),
+      update: jest.fn(),
       findMany: jest.fn(),
       findFirst: jest.fn(),
+      findUnique: jest.fn(),
       count: jest.fn(),
     },
     up: {
@@ -49,6 +51,7 @@ jest.mock('../prisma', () => ({
       findMany: jest.fn().mockResolvedValue([]),
       findUnique: jest.fn().mockResolvedValue(null),
     },
+    $transaction: jest.fn().mockImplementation((ops: any) => Promise.all(ops ?? [])),
   },
 }));
 
@@ -135,7 +138,7 @@ function req(
 
 describe('POST /v1/posts（发帖）', () => {
   it('缺 Authorization → UNAUTHORIZED(401)', async () => {
-    const res = await req('POST', '/v1/posts', { title: '标题', genre: '数码' });
+    const res = await req('POST', '/v1/posts', { title: '标题', genre: 'review' });
     expect(res.status).toBe(401);
     expect(res.json.code).toBe(CODE.UNAUTHORIZED);
   });
@@ -161,7 +164,7 @@ describe('POST /v1/posts（发帖）', () => {
     const res = await req(
       'POST',
       '/v1/posts',
-      { title: '含敏感词的标题', genre: '数码', content: '正文' },
+      { title: '含敏感词的标题', genre: 'review', content: '正文' },
       authHeader()
     );
 
@@ -181,7 +184,7 @@ describe('POST /v1/posts（发帖）', () => {
       userId: TEST_USER_ID,
       title: '正常标题',
       content: '正常正文',
-      genre: '数码',
+      genre: 'review',
       tags: [],
       images: [],
       status: 1,
@@ -191,7 +194,7 @@ describe('POST /v1/posts（发帖）', () => {
     const res = await req(
       'POST',
       '/v1/posts',
-      { title: '正常标题', genre: '数码', content: '正常正文' },
+      { title: '正常标题', genre: 'review', content: '正常正文' },
       authHeader()
     );
 
@@ -211,6 +214,29 @@ describe('POST /v1/posts（发帖）', () => {
         }),
       })
     );
+  });
+});
+
+describe('PUT /v1/posts/:id（编辑审核）', () => {
+  it('编辑为敏感内容 → 400 且不写数据库', async () => {
+    mockPrisma.post.findUnique.mockResolvedValue({
+      id: 42,
+      userId: TEST_USER_ID,
+      title: '正常标题',
+      content: '正常正文',
+    });
+    mockCheckText.mockReturnValue(true);
+
+    const res = await req(
+      'PUT',
+      '/v1/posts/42',
+      { content: '敏感内容' },
+      authHeader(),
+    );
+
+    expect(res.status).toBe(400);
+    expect(res.json.message).toContain('敏感词');
+    expect(mockPrisma.post.update).not.toHaveBeenCalled();
   });
 });
 

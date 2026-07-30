@@ -72,18 +72,45 @@ export async function createReport(
     targetUserId = comment.userId;
   }
 
-  // 3. 创建举报记录（unique 约束冲突 → 抛 conflict）
-  let report: any;
+  // 3. 创建举报、递增计数与自动下架必须原子完成，避免留下不可重试的半状态。
+  const threshold = env.reportThreshold > 0 ? env.reportThreshold : 3;
+  let transactionResult: { report: any; autoTakenDown: boolean };
   try {
-    report = await prisma.report.create({
-      data: {
-        reporterId: params.reporterId,
-        targetType: params.targetType,
-        targetId: params.targetId,
-        reason: params.reason,
-        description: params.description?.trim() || null,
-        status: 'pending',
-      },
+    transactionResult = await prisma.$transaction(async (tx) => {
+      const report = await tx.report.create({
+        data: {
+          reporterId: params.reporterId,
+          targetType: params.targetType,
+          targetId: params.targetId,
+          reason: params.reason,
+          description: params.description?.trim() || null,
+          status: 'pending',
+        },
+      });
+
+      let newReportCount = 0;
+      if (params.targetType === 'post') {
+        const updated = await tx.post.update({
+          where: { id: params.targetId },
+          data: { reportCount: { increment: 1 } },
+          select: { reportCount: true },
+        });
+        newReportCount = updated.reportCount;
+        if (newReportCount >= threshold) {
+          await tx.post.update({ where: { id: params.targetId }, data: { status: 0 } });
+        }
+      } else {
+        const updated = await tx.comment.update({
+          where: { id: params.targetId },
+          data: { reportCount: { increment: 1 } },
+          select: { reportCount: true },
+        });
+        newReportCount = updated.reportCount;
+        if (newReportCount >= threshold) {
+          await tx.comment.update({ where: { id: params.targetId }, data: { status: 0 } });
+        }
+      }
+      return { report, autoTakenDown: newReportCount >= threshold };
     });
   } catch (e: any) {
     if (e.code === PRISMA_UNIQUE_CONSTRAINT_CODE) {
@@ -94,52 +121,23 @@ export async function createReport(
     throw e;
   }
 
-  // 4. 递增目标 reportCount
-  let newReportCount = 0;
-  if (params.targetType === 'post') {
-    const updated = await prisma.post.update({
-      where: { id: params.targetId },
-      data: { reportCount: { increment: 1 } },
-      select: { reportCount: true, status: true },
-    });
-    newReportCount = updated.reportCount;
-  } else {
-    const updated = await prisma.comment.update({
-      where: { id: params.targetId },
-      data: { reportCount: { increment: 1 } },
-      select: { reportCount: true, status: true },
-    });
-    newReportCount = updated.reportCount;
-  }
-
-  // 5. 判断 reportCount >= 阈值 → 自动下架 status=0 + notifySystem 通知作者
-  const threshold = env.reportThreshold > 0 ? env.reportThreshold : 3;
-  if (newReportCount >= threshold) {
+  // 4. 通知属于事务后的外部副作用，失败不反向破坏已提交的举报状态。
+  if (transactionResult.autoTakenDown) {
     if (params.targetType === 'post') {
-      await prisma.post.update({
-        where: { id: params.targetId },
-        data: { status: 0 },
-      });
       await notifySystem(
         targetUserId,
         `你的帖子《${targetTitle}》因被举报正在审核中`,
         params.targetId
-      );
+      ).catch(() => {});
     } else {
-      await prisma.comment.update({
-        where: { id: params.targetId },
-        data: { status: 0 },
-      });
       await notifySystem(
         targetUserId,
         '你的评论因被举报正在审核中',
         null
-      );
+      ).catch(() => {});
     }
-    return { report, autoTakenDown: true };
   }
-
-  return { report, autoTakenDown: false };
+  return transactionResult;
 }
 
 /**

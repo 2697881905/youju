@@ -11,15 +11,18 @@ export struct AboutPage {
     Column() {
       // 顶栏
       Row() {
-        Text('‹')
-          .fontSize(28)
-          .fontColor($r('app.color.text_primary'))
-          .width(48)
-          .height(44)
-          .textAlign(TextAlign.Center)
-          .onClick(() => {
-            this.getUIContext().getRouter().back();
-          });
+        Row() {
+          Image(resolveActionIcon('back'))
+            .width(22)
+            .height(22)
+            .fillColor($r('app.color.text_primary'))
+        }
+        .width(48)
+        .height(44)
+        .justifyContent(FlexAlign.Center)
+        .onClick(() => {
+          this.getUIContext().getRouter().back();
+        });
         Text('关于')
           .fontSize(17)
           .fontWeight(FontWeight.Bold)
@@ -69,7 +72,7 @@ export struct AboutPage {
             }
             .width('100%')
             .backgroundColor($r('app.color.card_bg'))
-            .borderRadius(12);
+            .borderRadius(8);
           }
           .width('100%');
 
@@ -92,7 +95,7 @@ export struct AboutPage {
             }
             .width('100%')
             .backgroundColor($r('app.color.card_bg'))
-            .borderRadius(12);
+            .borderRadius(8);
           }
           .width('100%');
         }

@@ -14,10 +14,25 @@ import {
   getDmUnreadCount,
 } from '../services/api';
 import { getToken, getUserId, getCurrentUser } from '../utils/auth';
-import { CARD_RADIUS, CARD_SHADOW, barBottomReserve } from '../utils/cardTokens';
+import { barBottomReserve } from '../utils/cardTokens';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { notifIconRes, resolveActionIcon } from '../utils/actionIcons';
+import { EmptyState } from '../design/components/EmptyState';
+import { IconTile } from '../design/components/IconTile';
+import { MessageRow } from '../design/components/MessageRow';
+import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
+import { Pressable } from '../design/motion/Pressable';
+import { Reveal } from '../design/motion/Reveal';
+import { ColorTokens } from '../design/tokens/color';
+import { IconTokens } from '../design/tokens/icon';
+import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
+import { TypeTokens } from '../design/tokens/type';
+
+const MESSAGE_SEGMENTS: SegmentedItem[] = [
+  { key: 'notif', label: '通知' },
+  { key: 'dm', label: '私信' },
+];
 
 @Entry
 @Component
@@ -35,6 +50,7 @@ export struct MessagePage {
   @State activeFilter: string = 'all'; // 'all' | 'up_bookmark' | 'follow' | 'comment'
   // ===== 私信 =====
   @State dmTab: string = 'notif'; // 'notif' | 'dm'
+  @State dmTabIndex: number = 0;
   @State conversations: Conversation[] = [];
   @State dmLoading: boolean = true;
   @State dmError: string = '';
@@ -252,67 +268,21 @@ export struct MessagePage {
 
   @Builder
   conversationRow(c: Conversation) {
-    Row({ space: 12 }) {
-      // 头像区域：点击跳转对端主页（整行点击仍进聊天，两者分开）
-      Stack({ alignContent: Alignment.Center }) {
-        if (c.peer.avatar) {
-          Image(c.peer.avatar)
-            .width(48)
-            .height(48)
-            .borderRadius(24)
-            .objectFit(ImageFit.Cover)
-        } else {
-          Circle({ width: 48, height: 48 })
-            .fill($r('app.color.brand_primary'))
-            .opacity(0.15)
-          Text(c.peer.nickname.slice(0, 1))
-            .fontSize(18)
-            .fontColor($r('app.color.brand_primary'))
-        }
-      }
-      .width(48)
-      .height(48)
-      .onClick(() => {
+    MessageRow({
+      title: c.peer.nickname,
+      subtitle: (c.lastSenderId === this.getSelfId() ? '我: ' : '') + (c.lastContent ?? ''),
+      time: this.formatDmTime(c.lastAt),
+      avatar: c.peer.avatar ?? '',
+      name: c.peer.nickname,
+      unreadCount: c.unreadCount,
+      titleMaxLines: 1,
+      subtitleMaxLines: 1,
+      action: (): void => {
+        this.onConversationClick(c);
+      },
+      avatarAction: (): void => {
         this.goUser(c.peer.id);
-      })
-
-      Column({ space: 4 }) {
-        Text(c.peer.nickname)
-          .fontSize(15)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.text_primary'))
-        Text((c.lastSenderId === this.getSelfId() ? '我: ' : '') + (c.lastContent ?? ''))
-          .fontSize(13)
-          .fontColor($r('app.color.text_secondary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-      }
-      .alignItems(HorizontalAlign.Start)
-      .layoutWeight(1)
-
-      Column({ space: 6 }) {
-        Text(this.formatDmTime(c.lastAt))
-          .fontSize(11)
-          .fontColor($r('app.color.text_secondary'))
-        if (c.unreadCount > 0) {
-          Text(c.unreadCount > 99 ? '99+' : String(c.unreadCount))
-            .fontSize(11)
-            .fontColor(Color.White)
-            .backgroundColor($r('app.color.semantic_red'))
-            .borderRadius(10)
-            .padding({ left: 6, right: 6, top: 2, bottom: 2 })
-            .constraintSize({ minWidth: 18 })
-            .textAlign(TextAlign.Center)
-        }
-      }
-    }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 12, bottom: 12 })
-    .backgroundColor($r('app.color.card_bg'))
-    .borderRadius(CARD_RADIUS)
-    .shadow(CARD_SHADOW)
-    .onClick(() => {
-      this.onConversationClick(c);
+      },
     })
   }
 
@@ -396,32 +366,54 @@ export struct MessagePage {
     return notifIconRes(type);
   }
 
-  // 分段控件单项（通知 / 私信）
+  private switchDmTab(index: number): void {
+    const tab: string = index === 1 ? 'dm' : 'notif';
+    this.dmTabIndex = index;
+    if (this.dmTab !== tab) {
+      this.dmTab = tab;
+      if (tab === 'dm') {
+        this.loadConversations();
+      }
+    }
+  }
+
   @Builder
-  segmentItem(tab: string, label: string) {
-    Column({ space: 4 }) {
-      Text(label)
-        .fontSize(15)
-        .fontWeight(this.dmTab === tab ? FontWeight.Bold : FontWeight.Normal)
-        .fontColor(this.dmTab === tab ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
-      if (this.dmTab === tab) {
-        Divider()
-          .color($r('app.color.brand_primary'))
-          .strokeWidth(2)
-          .width(24)
+  notificationShortcut(filter: string, label: string, icon: Resource, unread: number) {
+    Column() {
+      Pressable({
+        visualHeight: IconTokens.shortcutTile + TypeTokens.callout.lineHeight + SpaceTokens.inline,
+        touchTargetHeight: LayoutTokens.minTouchTarget,
+        fillWidth: true,
+        action: (): void => {
+          this.activeFilter = this.activeFilter === filter ? 'all' : filter;
+        },
+      }) {
+        Column({ space: SpaceTokens.inline }) {
+          Badge({
+            count: unread,
+            position: BadgePosition.RightTop,
+            style: { badgeColor: ColorTokens.danger },
+          }) {
+            IconTile({
+              icon: icon,
+              tileSize: IconTokens.shortcutTile,
+              iconSize: IconTokens.standard,
+              selected: this.activeFilter === filter,
+            })
+          }
+          Text(label)
+            .fontSize(TypeTokens.overline.size)
+            .fontWeight(this.activeFilter === filter ? TypeTokens.headline.weight : TypeTokens.overline.weight)
+            .lineHeight(TypeTokens.overline.lineHeight)
+            .letterSpacing(TypeTokens.overline.tracking)
+            .fontColor(this.activeFilter === filter ? ColorTokens.brand : ColorTokens.secondary)
+            .maxLines(1)
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Center)
       }
     }
     .layoutWeight(1)
-    .padding({ top: 8, bottom: 8 })
-    .alignItems(HorizontalAlign.Center)
-    .onClick(() => {
-      if (this.dmTab !== tab) {
-        this.dmTab = tab;
-        if (tab === 'dm') {
-          this.loadConversations();
-        }
-      }
-    })
   }
 
   // 私信会话列表内容
@@ -429,47 +421,53 @@ export struct MessagePage {
   dmContent() {
     if (this.dmLoading && this.conversations.length === 0) {
       Column() {
+        LoadingProgress().width(IconTokens.empty).height(IconTokens.empty)
         Text('加载中…')
-          .fontSize(14)
-          .fontColor($r('app.color.text_secondary'))
+          .fontSize(TypeTokens.callout.size)
+          .fontWeight(TypeTokens.callout.weight)
+          .lineHeight(TypeTokens.callout.lineHeight)
+          .letterSpacing(TypeTokens.callout.tracking)
+          .fontColor(ColorTokens.secondary)
+          .margin({ top: SpaceTokens.md })
       }
       .layoutWeight(1)
       .width('100%')
       .justifyContent(FlexAlign.Center)
     } else if (this.dmError !== '' && this.conversations.length === 0) {
-      Column({ space: 12 }) {
-        Text(this.dmError)
-          .fontSize(14)
-          .fontColor($r('app.color.text_secondary'))
-          .textAlign(TextAlign.Center)
-        Text('点击重试')
-          .fontSize(14)
-          .fontColor($r('app.color.brand_primary'))
-          .onClick(() => {
+      Column() {
+        EmptyState({
+          title: '加载失败',
+          message: this.dmError,
+          actionLabel: '重试',
+          onAction: (): void => {
             this.loadConversations();
-          })
+          },
+        })
       }
       .layoutWeight(1)
       .width('100%')
       .justifyContent(FlexAlign.Center)
     } else if (this.conversations.length === 0) {
       Column() {
-        Text('还没有私信，去他人主页发起聊天吧')
-          .fontSize(14)
-          .fontColor($r('app.color.text_secondary'))
-          .textAlign(TextAlign.Center)
+        EmptyState({
+          icon: resolveActionIcon('send'),
+          title: '还没有私信',
+          message: '去他人主页发起聊天吧',
+        })
       }
       .layoutWeight(1)
       .width('100%')
       .justifyContent(FlexAlign.Center)
     } else {
       Refresh({ refreshing: $$this.refreshing, offset: 80, friction: 48 }) {
-        List({ space: 8 }) {
+        List({ space: SpaceTokens.none }) {
           ForEach(
             this.conversations,
-            (c: Conversation) => {
+            (c: Conversation, idx: number) => {
               ListItem() {
-                this.conversationRow(c)
+                Reveal({ index: idx % 5 }) {
+                  this.conversationRow(c)
+                }
               }
             },
             (c: Conversation) => String(c.peer.id),
@@ -477,7 +475,11 @@ export struct MessagePage {
         }
         .width('100%')
         .layoutWeight(1)
-        .padding({ left: 12, right: 12, bottom: barBottomReserve() })
+        .padding({
+          left: SpaceTokens.pageCompact,
+          right: SpaceTokens.pageCompact,
+          bottom: barBottomReserve(),
+        })
       }
       .onRefreshing(() => {
         this.loadConversations().finally(() => {
@@ -489,70 +491,19 @@ export struct MessagePage {
 
   @Builder
   notificationRow(item: NotificationItem) {
-    Row({ space: 12 }) {
-      // 头像区域：系统通知用品牌色圆+图标，普通通知用用户头像或昵称首字
-      if (item.type === 'system') {
-        // 系统通知：品牌色背景圆 + 系统图标
-        Circle({ width: 40, height: 40 })
-          .fill($r('app.color.brand_primary'))
-        Image($r('app.media.notification_system'))
-          .width(20)
-          .height(20)
-          .fillColor(Color.White)
-          .position({ x: 10, y: 10 })
-      } else if (item.actor && item.actor.avatar) {
-        // 普通通知：用户头像
-        Image(item.actor.avatar)
-          .width(40)
-          .height(40)
-          .borderRadius(20)
-          .objectFit(ImageFit.Cover)
-      } else {
-        // 普通通知：昵称首字兜底，无昵称时回退通知类型图标
-        Circle({ width: 40, height: 40 })
-          .fill($r('app.color.brand_primary'))
-          .opacity(0.15)
-        if (item.actor && item.actor.nickname) {
-          Text(item.actor.nickname.slice(0, 1))
-            .fontSize(16)
-            .fontColor($r('app.color.brand_primary'))
-            .position({ x: 12, y: 10 })
-        } else {
-          Image(this.typeIcon(item.type))
-            .width(20)
-            .height(20)
-            .fillColor($r('app.color.brand_primary'))
-            .position({ x: 10, y: 10 })
-        }
-      }
-
-      // 文案 + 时间
-      Column({ space: 4 }) {
-        Text(item.content ?? '')
-          .fontSize(14)
-          .fontColor($r('app.color.text_primary'))
-          .maxLines(2)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(this.formatTime(item.createdAt))
-          .fontSize(12)
-          .fontColor($r('app.color.text_secondary'))
-      }
-      .alignItems(HorizontalAlign.Start)
-      .layoutWeight(1)
-
-      // 未读红点
-      if (item.read !== true) {
-        Circle({ width: 8, height: 8 })
-          .fill($r('app.color.semantic_red'))
-      }
-    }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 12, bottom: 12 })
-    .backgroundColor($r('app.color.card_bg'))
-    .borderRadius(CARD_RADIUS)
-    .shadow(CARD_SHADOW)
-    .onClick(() => {
-      this.onItemClick(item);
+    MessageRow({
+      title: item.content ?? '',
+      subtitle: this.formatTime(item.createdAt),
+      avatar: item.actor?.avatar ?? '',
+      name: item.actor?.nickname ?? '',
+      useIcon: item.type === 'system' || item.actor === undefined || item.actor === null,
+      icon: this.typeIcon(item.type),
+      unread: item.read !== true,
+      titleMaxLines: 2,
+      subtitleMaxLines: 1,
+      action: (): void => {
+        this.onItemClick(item);
+      },
     })
   }
 
@@ -561,183 +512,141 @@ export struct MessagePage {
       // 顶栏
       Row() {
         Text('消息')
-          .fontSize(17)
-          .fontWeight(600)
+          .fontSize(TypeTokens.title.size)
+          .fontWeight(TypeTokens.title.weight)
+          .lineHeight(TypeTokens.title.lineHeight)
+          .letterSpacing(TypeTokens.title.tracking)
           .layoutWeight(1)
-          .textAlign(TextAlign.Center)
+          .fontColor(ColorTokens.primary)
         if (this.dmTab === 'notif') {
-          Text('全部已读')
-            .fontSize(13)
-            .fontColor($r('app.color.brand_primary'))
-            .padding({ right: 16 })
-            .onClick(() => {
+          Pressable({
+            visualHeight: LayoutTokens.segmentedHeight,
+            touchTargetHeight: LayoutTokens.minTouchTarget,
+            action: (): void => {
               this.onMarkAll();
-            })
+            },
+          }) {
+            Text('全部已读')
+              .fontSize(TypeTokens.callout.size)
+              .fontWeight(TypeTokens.headline.weight)
+              .lineHeight(TypeTokens.callout.lineHeight)
+              .letterSpacing(TypeTokens.callout.tracking)
+              .fontColor(ColorTokens.brand)
+              .height(LayoutTokens.segmentedHeight)
+              .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+              .textAlign(TextAlign.Center)
+              .accessibilityText('全部已读')
+          }
         }
       }
       .width('100%')
-      .padding({ top: 12, bottom: 12 })
+      .padding({
+        left: SpaceTokens.pageCompact,
+        right: SpaceTokens.pageCompact,
+        top: SpaceTokens.md,
+        bottom: SpaceTokens.sm,
+      })
 
       // 分段：通知 | 私信
-      Row({ space: 0 }) {
-        this.segmentItem('notif', '通知')
-        this.segmentItem('dm', '私信')
-      }
-      .width('100%')
-      .padding({ left: 16, right: 16, bottom: 8 })
+      SegmentedControl({
+        items: MESSAGE_SEGMENTS,
+        selectedIndex: $dmTabIndex,
+        itemWidth: 88,
+        onSelect: (idx: number): void => { this.switchDmTab(idx); },
+      })
+      .margin({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, bottom: SpaceTokens.sm })
 
       if (this.dmTab === 'notif') {
-      // 快捷入口：三大类通知大图标
-      Row({ space: 0 }) {
-        Column({ space: 6 }) {
-          Badge({
-            count: this.unreadCountOf(['up', 'bookmark']),
-            position: BadgePosition.RightTop,
-            style: { badgeColor: $r('app.color.semantic_red') },
-          }) {
-            Column() {
-              Image(resolveActionIcon('like'))
-                .width(28)
-                .height(28)
-                .fillColor($r('app.color.brand_primary'))
-            }
-            .width(56)
-            .height(56)
-            .borderRadius(CARD_RADIUS)
-            .backgroundColor($r('app.color.card_bg'))
-            .shadow(CARD_SHADOW)
-            .justifyContent(FlexAlign.Center)
-          }
-          Text('赞和收藏')
-            .fontSize(11)
-            .fontColor($r('app.color.text_secondary'))
+        // 快捷入口：三类通知共用可选中图标块。
+        Row({ space: SpaceTokens.none }) {
+          this.notificationShortcut('up_bookmark', '赞和收藏', resolveActionIcon('like'), this.unreadCountOf(['up', 'bookmark']))
+          this.notificationShortcut('follow', '新增关注', resolveActionIcon('follow'), this.unreadCountOf(['follow']))
+          this.notificationShortcut('comment', '评论', resolveActionIcon('comment'), this.unreadCountOf(['comment']))
         }
-        .layoutWeight(1)
-        .onClick(() => { this.activeFilter = this.activeFilter === 'up_bookmark' ? 'all' : 'up_bookmark'; })
-
-        Column({ space: 6 }) {
-          Badge({
-            count: this.unreadCountOf(['follow']),
-            position: BadgePosition.RightTop,
-            style: { badgeColor: $r('app.color.semantic_red') },
-          }) {
-            Column() {
-              Image(resolveActionIcon('follow'))
-                .width(28)
-                .height(28)
-                .fillColor($r('app.color.brand_primary'))
-            }
-            .width(56)
-            .height(56)
-            .borderRadius(CARD_RADIUS)
-            .backgroundColor($r('app.color.card_bg'))
-            .shadow(CARD_SHADOW)
-            .justifyContent(FlexAlign.Center)
-          }
-          Text('新增关注')
-            .fontSize(11)
-            .fontColor($r('app.color.text_secondary'))
-        }
-        .layoutWeight(1)
-        .onClick(() => { this.activeFilter = this.activeFilter === 'follow' ? 'all' : 'follow'; })
-
-        Column({ space: 6 }) {
-          Badge({
-            count: this.unreadCountOf(['comment']),
-            position: BadgePosition.RightTop,
-            style: { badgeColor: $r('app.color.semantic_red') },
-          }) {
-            Column() {
-              Image(resolveActionIcon('comment'))
-                .width(28)
-                .height(28)
-                .fillColor($r('app.color.brand_primary'))
-            }
-            .width(56)
-            .height(56)
-            .borderRadius(CARD_RADIUS)
-            .backgroundColor($r('app.color.card_bg'))
-            .shadow(CARD_SHADOW)
-            .justifyContent(FlexAlign.Center)
-          }
-          Text('评论')
-            .fontSize(11)
-            .fontColor($r('app.color.text_secondary'))
-        }
-        .layoutWeight(1)
-        .onClick(() => { this.activeFilter = this.activeFilter === 'comment' ? 'all' : 'comment'; })
-      }
-      .width('100%')
-      .padding({ left: 16, right: 16, top: 4, bottom: 12 })
-
-      if (this.loading && this.list.length === 0) {
-        Column() {
-          Text('加载中…')
-            .fontSize(14)
-            .fontColor($r('app.color.text_secondary'))
-        }
-        .layoutWeight(1)
         .width('100%')
-        .justifyContent(FlexAlign.Center)
-      } else if (this.error !== '' && this.list.length === 0) {
-        // 错误态（重试）
-        Column({ space: 12 }) {
-          Text(this.error)
-            .fontSize(14)
-            .fontColor($r('app.color.text_secondary'))
-            .textAlign(TextAlign.Center)
-          Text('点击重试')
-            .fontSize(14)
-            .fontColor($r('app.color.brand_primary'))
-            .onClick(() => {
-              this.loadFirst();
-            })
-        }
-        .layoutWeight(1)
-        .width('100%')
-        .justifyContent(FlexAlign.Center)
-      } else if (this.list.length === 0) {
-        Column() {
-          Text(this.activeFilter === 'all' ? '暂无新消息' : '暂无此类通知')
-            .fontSize(14)
-            .fontColor($r('app.color.text_secondary'))
-        }
-        .layoutWeight(1)
-        .width('100%')
-        .justifyContent(FlexAlign.Center)
-      } else {
-        Refresh({ refreshing: $$this.refreshing, offset: 80, friction: 48 }) {
-          List({ space: 8 }) {
-            ForEach(
-              this.getFilteredList(),
-              (item: NotificationItem) => {
-                ListItem() {
-                  this.notificationRow(item)
-                }
-              },
-              (item: NotificationItem) => String(item.id ?? 0),
-            )
+        .padding({
+          left: SpaceTokens.pageCompact,
+          right: SpaceTokens.pageCompact,
+          top: SpaceTokens.inlineTight,
+          bottom: SpaceTokens.item,
+        })
+
+        if (this.loading && this.list.length === 0) {
+          Column() {
+            LoadingProgress().width(IconTokens.empty).height(IconTokens.empty)
+            Text('加载中…')
+              .fontSize(TypeTokens.callout.size)
+              .fontWeight(TypeTokens.callout.weight)
+              .lineHeight(TypeTokens.callout.lineHeight)
+              .letterSpacing(TypeTokens.callout.tracking)
+              .fontColor(ColorTokens.secondary)
+              .margin({ top: SpaceTokens.md })
           }
-          .width('100%')
           .layoutWeight(1)
-          .padding({ left: 12, right: 12, bottom: barBottomReserve() })
-          .onReachEnd(() => {
-            this.loadMore();
+          .width('100%')
+          .justifyContent(FlexAlign.Center)
+        } else if (this.error !== '' && this.list.length === 0) {
+          // 错误态（重试）
+          Column() {
+            EmptyState({
+              title: '加载失败',
+              message: this.error,
+              actionLabel: '重试',
+              onAction: (): void => { this.loadFirst(); },
+            })
+          }
+          .layoutWeight(1)
+          .width('100%')
+          .justifyContent(FlexAlign.Center)
+        } else if (this.list.length === 0) {
+          Column() {
+            EmptyState({
+              title: this.activeFilter === 'all' ? '暂无新消息' : '暂无此类通知',
+              message: '新的互动会显示在这里',
+            })
+          }
+          .layoutWeight(1)
+          .width('100%')
+          .justifyContent(FlexAlign.Center)
+        } else {
+          Refresh({ refreshing: $$this.refreshing, offset: 80, friction: 48 }) {
+          List({ space: SpaceTokens.none }) {
+              ForEach(
+                this.getFilteredList(),
+                (item: NotificationItem, idx: number) => {
+                  ListItem() {
+                    Reveal({ index: idx % 5 }) {
+                      this.notificationRow(item)
+                    }
+                  }
+                },
+                (item: NotificationItem) => String(item.id ?? 0),
+              )
+            }
+            .width('100%')
+            .layoutWeight(1)
+            .padding({
+              left: SpaceTokens.pageCompact,
+              right: SpaceTokens.pageCompact,
+              bottom: barBottomReserve(),
+            })
+            .onReachEnd(() => {
+              this.loadMore();
+            })
+          }
+          .onRefreshing(() => {
+            this.loadFirst().finally(() => {
+              this.refreshing = false;
+            });
           })
         }
-        .onRefreshing(() => {
-          this.loadFirst().finally(() => {
-            this.refreshing = false;
-          });
-        })
-      }
       } else {
         this.dmContent()
       }
     }
     .width('100%')
     .height('100%')
-    .backgroundColor($r('app.color.bg_primary'))
+    .backgroundColor(ColorTokens.canvas)
     .transition(buildPageTransition())
   }
 }

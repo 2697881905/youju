@@ -1,6 +1,6 @@
 import { prisma } from '../prisma';
 import { sensitiveWordService } from './sensitiveWordService';
-import { SensitiveWordError } from '../utils/errors';
+import { SensitiveWordError, ValidationError } from '../utils/errors';
 import { USER_PUBLIC_SELECT, publicUserView } from '../utils/userView';
 import { getExcludedAuthorIds, canViewerSeeAuthorPosts } from './accessControl';
 import { env } from '../config/env';
@@ -227,12 +227,22 @@ export async function deletePost(id: number, userId: number) {
   const post = await prisma.post.findUnique({ where: { id } });
   if (!post) return { ok: false, reason: 'not_found' };
   if (post.userId !== userId) return { ok: false, reason: 'forbidden' };
-  // 先清理子表（评论/点赞/收藏）再删主表，避免外键约束导致删除失败。
-  // 兜底方案：规范做法是在 schema 给子关系配置 onDelete: Cascade（已加，prisma db push 后由数据库级联）。
-  await prisma.comment.deleteMany({ where: { postId: id } });
-  await prisma.up.deleteMany({ where: { postId: id } });
-  await prisma.bookmark.deleteMany({ where: { postId: id } });
-  await prisma.post.delete({ where: { id } });
+  const comments = await prisma.comment.findMany({ where: { postId: id }, select: { id: true } });
+  const commentIds = comments.map((comment) => comment.id);
+  await prisma.$transaction([
+    prisma.commentUp.deleteMany({ where: { commentId: { in: commentIds } } }),
+    prisma.report.deleteMany({
+      where: {
+        OR: [
+          { targetType: 'post', targetId: id },
+          { targetType: 'comment', targetId: { in: commentIds } },
+        ],
+      },
+    }),
+    prisma.debateVote.deleteMany({ where: { postId: id } }),
+    // Comment / Up / Bookmark 由数据库外键级联删除。
+    prisma.post.delete({ where: { id } }),
+  ]);
   return { ok: true };
 }
 
@@ -251,8 +261,32 @@ export async function updatePost(id: number, userId: number, input: UpdatePostIn
   if (!post) return { ok: false, reason: 'not_found' };
   if (post.userId !== userId) return { ok: false, reason: 'forbidden' };
 
+  const nextTitle = input.title !== undefined ? input.title : post.title;
+  const nextContent = input.content !== undefined ? input.content : post.content;
+  if (typeof nextTitle !== 'string' || nextTitle.trim().length === 0 || nextTitle.length > 100) {
+    throw new ValidationError('标题长度需在 1-100 字');
+  }
+  if (nextContent !== null && nextContent !== undefined && typeof nextContent !== 'string') {
+    throw new ValidationError('正文格式无效');
+  }
+  if (typeof nextContent === 'string' && nextContent.length > 20000) {
+    throw new ValidationError('正文过长（≤20000 字）');
+  }
+  if (input.tags !== undefined && (!Array.isArray(input.tags) || input.tags.length > 3 || input.tags.some((tag) => typeof tag !== 'string'))) {
+    throw new ValidationError('标签格式无效或超过 3 个');
+  }
+  if (input.images !== undefined && (!Array.isArray(input.images) || input.images.length > 9 || input.images.some((url) => typeof url !== 'string'))) {
+    throw new ValidationError('图片格式无效或超过 9 张');
+  }
+  if (input.coverImage !== undefined && input.coverImage !== null && typeof input.coverImage !== 'string') {
+    throw new ValidationError('封面图片格式无效');
+  }
+  if (sensitiveWordService.checkText(nextTitle + ' ' + (nextContent ?? ''))) {
+    throw new SensitiveWordError();
+  }
+
   const data: Record<string, any> = {};
-  if (input.title !== undefined) data.title = input.title;
+  if (input.title !== undefined) data.title = input.title.trim();
   if (input.content !== undefined) data.content = input.content;
   if (input.coverImage !== undefined) data.coverImage = input.coverImage;
   if (input.images !== undefined) data.images = input.images;

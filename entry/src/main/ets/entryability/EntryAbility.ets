@@ -1,6 +1,7 @@
 import { AbilityConstant, UIAbility, Want, ConfigurationConstant, Configuration } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
+import settings from '@ohos.settings';
 import { initThemeContext, loadThemeFromPrefs, applyLaunchTheme } from '../utils/theme';
 
 const DOMAIN = 0x0000;
@@ -14,7 +15,20 @@ export default class EntryAbility extends UIAbility {
     // 统一由 applyLaunchTheme 应用主题：跟随系统时显式交还系统接管，
     // 清除历史残留的强制模式，避免与 isDarkMode 标记错位（浅色 app + 深色底栏）。
     applyLaunchTheme();
+    this.syncSystemMotionPreference();
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onCreate');
+  }
+
+  // 系统动画缩放为 0 时，设计原语统一退化为瞬时/透明度反馈。
+  // 读取失败时保持用户在应用内设置的偏好，不阻断启动。
+  private syncSystemMotionPreference(): void {
+    AppStorage.setOrCreate('systemReduceMotion', false);
+    settings.getValue(this.context, settings.display.ANIMATOR_DURATION_SCALE)
+      .then((value: string): void => {
+        const scale: number = Number(value);
+        AppStorage.setOrCreate('systemReduceMotion', !isNaN(scale) && scale === 0);
+      })
+      .catch((): void => {});
   }
 
   onConfigurationUpdate(newConfig: Configuration): void {
@@ -47,6 +61,7 @@ export default class EntryAbility extends UIAbility {
   }
 
   onForeground(): void {
+    this.syncSystemMotionPreference();
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onForeground');
   }
 

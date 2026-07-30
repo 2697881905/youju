@@ -18,12 +18,25 @@ jest.mock('../prisma', () => ({
   prisma: {
     comment: {
       create: jest.fn(),
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+      count: jest.fn(),
     },
     user: {
       findUnique: jest.fn().mockResolvedValue({ status: 1, deletedAt: null }),
     },
     post: {
+      findUnique: jest.fn().mockResolvedValue({ id: 1, userId: 2, status: 1, genre: 'review' }),
       update: jest.fn(),
+    },
+    privacySettings: {
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
+    blocklist: {
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
+    follow: {
+      findUnique: jest.fn().mockResolvedValue(null),
     },
     // createComment/deleteComment 用 $transaction 包 comment.create/post.update
     $transaction: jest.fn().mockImplementation((ops: any) => Promise.all(ops ?? [])),
@@ -77,6 +90,10 @@ afterAll((done) => {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockPrisma.post.findUnique.mockResolvedValue({ id: 1, userId: 2, status: 1, genre: 'review' });
+  mockPrisma.privacySettings.findUnique.mockResolvedValue(null);
+  mockPrisma.blocklist.findUnique.mockResolvedValue(null);
+  mockPrisma.follow.findUnique.mockResolvedValue(null);
 });
 
 function req(
@@ -190,6 +207,7 @@ describe('POST /v1/posts/:id/comments（评论）', () => {
       parentId: 88,
       isFact: 0,
     });
+    mockPrisma.comment.findUnique.mockResolvedValue({ postId: 1, status: 1 });
 
     const res = await req(
       'POST',
@@ -207,5 +225,26 @@ describe('POST /v1/posts/:id/comments（评论）', () => {
         }),
       })
     );
+  });
+
+  it('私密帖子对其他用户不可评论', async () => {
+    mockPrisma.privacySettings.findUnique.mockResolvedValue({ postVisibility: 'private' });
+    const res = await req(
+      'POST',
+      '/v1/posts/1/comments',
+      { content: '越权评论' },
+      authHeader(),
+    );
+    expect(res.status).toBe(404);
+    expect(mockPrisma.comment.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('GET /v1/posts/:id/comments（评论可见性）', () => {
+  it('匿名用户无法读取私密帖评论', async () => {
+    mockPrisma.privacySettings.findUnique.mockResolvedValue({ postVisibility: 'private' });
+    const res = await req('GET', '/v1/posts/1/comments');
+    expect(res.status).toBe(404);
+    expect(mockPrisma.comment.findMany).not.toHaveBeenCalled();
   });
 });

@@ -18,3 +18,15 @@ export class SensitiveWordError extends Error {
     Object.setPrototypeOf(this, SensitiveWordError.prototype);
   }
 }
+
+/** 可安全返回给客户端的参数错误。 */
+export class ValidationError extends Error {
+  reason: string = 'validation';
+  status: number = 400;
+
+  constructor(message: string) {
+    super(message);
+    this.name = 'ValidationError';
+    Object.setPrototypeOf(this, ValidationError.prototype);
+  }
+}

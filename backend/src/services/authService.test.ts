@@ -11,6 +11,13 @@ jest.mock('../prisma', () => ({
       create: jest.fn(),
       update: jest.fn(),
     },
+    pushToken: {
+      deleteMany: jest.fn(),
+    },
+    userBinding: {
+      deleteMany: jest.fn(),
+    },
+    $transaction: jest.fn().mockImplementation((ops: any) => Promise.all(ops ?? [])),
   },
 }));
 
@@ -34,7 +41,9 @@ describe('loginWithHuawei', () => {
     expect(mockedFindUnique).toHaveBeenCalledWith({ where: { unionID: 'U_EXIST' } });
     expect(mockedCreate).not.toHaveBeenCalled();
     // 命中既有用户时直接返回原对象，不应覆盖昵称/头像
-    expect(result.user).toMatchObject(EXISTING_USER);
+    expect(result.user).toMatchObject({ id: 1, nickname: '老用户', avatar: 'a.png' });
+    expect(result.user).not.toHaveProperty('openId');
+    expect(result.user).not.toHaveProperty('unionID');
     expect(result.user.nickname).toBe('老用户');
     // 返回结构含 token（JWT 字符串）
     expect(typeof result.token).toBe('string');
@@ -52,7 +61,8 @@ describe('loginWithHuawei', () => {
     expect(mockedCreate).toHaveBeenCalledWith({
       data: { openId: null, unionID: 'U_NEW', nickname: '华为小王', avatar: 'b.png' },
     });
-    expect(result.user).toMatchObject(NEW_USER);
+    expect(result.user).toMatchObject({ id: 2, nickname: '华为用户abcd', avatar: 'b.png' });
+    expect(result.user).not.toHaveProperty('unionID');
     expect(typeof result.token).toBe('string');
   });
 
@@ -94,7 +104,15 @@ describe('deactivateUser', () => {
 
     expect(mockedUpdate).toHaveBeenCalledWith({
       where: { id: 5 },
-      data: { deletedAt: expect.any(Date), nickname: DELETED_NICKNAME, avatar: null },
+      data: {
+        deletedAt: expect.any(Date),
+        nickname: DELETED_NICKNAME,
+        avatar: null,
+        bio: null,
+        gender: null,
+        openId: null,
+        unionID: null,
+      },
     });
     expect(result.nickname).toBe(DELETED_NICKNAME);
     expect(result.avatar).toBeNull();

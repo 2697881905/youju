@@ -38,6 +38,7 @@ jest.mock('../prisma', () => ({
     notificationPreference: {
       findUnique: jest.fn().mockResolvedValue(null),
     },
+    $transaction: jest.fn(),
   },
 }));
 
@@ -78,6 +79,7 @@ afterAll((done) => {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockPrisma.$transaction.mockImplementation((callback: any) => callback(mockPrisma));
 });
 
 function req(

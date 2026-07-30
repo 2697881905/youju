@@ -15,7 +15,16 @@ import { ensureLogin, getToken } from '../utils/auth';
 import { likeStore } from '../utils/likeStore';
 import { safeShowToast } from '../utils/toast';
 import { observeGridColumns, gridColumnTemplate } from '../utils/responsive';
-import { CARD_RADIUS, CARD_PADDING, CARD_SHADOW, GRID_GAP, GRID_PADDING, barBottomReserve } from '../utils/cardTokens';
+import { GRID_GAP, GRID_PADDING, barBottomReserve } from '../utils/cardTokens';
+import { BaseCard } from '../design/components/BaseCard';
+import { DesignButton } from '../design/components/DesignButton';
+import { EmptyState } from '../design/components/EmptyState';
+import { Reveal } from '../design/motion/Reveal';
+import { ColorTokens } from '../design/tokens/color';
+import { IconTokens } from '../design/tokens/icon';
+import { RadiusTokens } from '../design/tokens/radius';
+import { SpaceTokens } from '../design/tokens/space';
+import { TypeTokens } from '../design/tokens/type';
 import { common } from '@kit.AbilityKit';
 
 // 用 @Observed 包装：使「数组中对象属性变化」能驱动子组件重渲染
@@ -45,41 +54,68 @@ struct CircleCard {
   @ObjectLink item: CircleTag;
   // 普通属性（回调）：由父组件在 ForEach 中传入，非 @Prop/@Link
   onToggle: () => void = () => {};
+  onOpen: () => void = () => {};
 
   build() {
-    Column({ space: 10 }) {
-      Column({ space: 6 }) {
-        TagIcon({ name: this.item.name ?? '', iconSize: 40, tint: $r('app.color.brand_primary') })
-        Text(this.item.name ?? '')
-          .fontSize(15)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.text_primary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text((this.item.followCount ?? 0) + ' 人加入')
-          .fontSize(12)
-          .fontColor($r('app.color.text_secondary'))
+    BaseCard({
+      cardPadding: SpaceTokens.base,
+      radius: RadiusTokens.lg,
+      elevation: 1,
+      pressable: true,
+      action: (): void => { this.onOpen(); },
+    }) {
+      Column({ space: SpaceTokens.item }) {
+        Column({ space: SpaceTokens.inline }) {
+          Row() {
+            TagIcon({
+              name: this.item.name ?? '',
+              iconSize: IconTokens.standard,
+              tint: ColorTokens.brand,
+            })
+          }
+          .width(IconTokens.empty)
+          .height(IconTokens.empty)
+          .justifyContent(FlexAlign.Center)
+          .alignItems(VerticalAlign.Center)
+          .backgroundColor(ColorTokens.brandTint)
+          .borderRadius(RadiusTokens.sm)
+
+          Text(this.item.name ?? '')
+            .fontSize(TypeTokens.headline.size)
+            .fontWeight(TypeTokens.headline.weight)
+            .lineHeight(TypeTokens.headline.lineHeight)
+            .letterSpacing(TypeTokens.headline.tracking)
+            .fontColor(ColorTokens.primary)
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+          Text((this.item.followCount ?? 0) + ' 人加入')
+            .fontSize(TypeTokens.caption.size)
+            .fontWeight(TypeTokens.caption.weight)
+            .lineHeight(TypeTokens.caption.lineHeight)
+            .letterSpacing(TypeTokens.caption.tracking)
+            .fontFeature(TypeTokens.tabularFeature)
+            .fontColor(ColorTokens.secondary)
+          Text('查看帖子')
+            .fontSize(TypeTokens.caption.size)
+            .fontWeight(TypeTokens.headline.weight)
+            .lineHeight(TypeTokens.caption.lineHeight)
+            .letterSpacing(TypeTokens.caption.tracking)
+            .fontColor(ColorTokens.brand)
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
+
+        DesignButton({
+          label: this.item.joined ? '已加入' : '加入圈子',
+          variant: this.item.joined ? 'ghost' : 'primary',
+          fillWidth: true,
+          disabled: this.item.toggling,
+          action: (): void => { this.onToggle(); },
+        })
       }
       .width('100%')
-      .alignItems(HorizontalAlign.Center)
-
-      Button(this.item.joined ? '已加入' : '加入圈子')
-        .width('100%')
-        .height(32)
-        .fontSize(13)
-        .fontWeight(FontWeight.Medium)
-        .enabled(!this.item.toggling)
-        .backgroundColor(this.item.joined ? $r('app.color.bg_secondary') : $r('app.color.brand_primary'))
-        .fontColor(this.item.joined ? $r('app.color.brand_primary') : '#FFFFFF')
-        .border(this.item.joined ? { width: 1, color: $r('app.color.brand_primary') } : { width: 0 })
-        .borderRadius(16)
-        .onClick(() => { this.onToggle(); })
+      .alignItems(HorizontalAlign.Start)
     }
-    .width('100%')
-    .padding(CARD_PADDING)
-    .backgroundColor($r('app.color.card_bg'))
-    .borderRadius(CARD_RADIUS)
-    .shadow(CARD_SHADOW)
   }
 }
 
@@ -95,6 +131,8 @@ export struct CircleTab {
   private unregisterColumns: () => void = () => {};
   // 监听登录账号：切换账号/登出时重建圈子列表，否则「已加入」状态残留上个账号的 joined 态
   @StorageLink('authUserId') @Watch('onAccountSwitch') accountId: string = '';
+  // TabContent 会提前创建隐藏页面；只在圈子 Tab 真正激活时加载需要登录的数据。
+  @StorageLink('activeTab') @Watch('onActiveTab') activeTab: number = 0;
 
   aboutToAppear(): void {
     this.unregisterColumns = observeGridColumns(
@@ -104,11 +142,19 @@ export struct CircleTab {
         this.gridTemplate = gridColumnTemplate(cols);
       }
     );
-    this.initData();
+    if (this.activeTab === 1) {
+      this.initData();
+    }
   }
 
   aboutToDisappear(): void {
     this.unregisterColumns();
+  }
+
+  onActiveTab(): void {
+    if (this.activeTab === 1) {
+      this.initData();
+    }
   }
 
   // 账号切换/登出：清空点赞缓存（圈子本身不展示点赞，但统一清理避免遗漏）；
@@ -210,50 +256,65 @@ export struct CircleTab {
     }
   }
 
+  private openCircle(name: string): void {
+    if (name.length === 0) {
+      return;
+    }
+    AppStorage.setOrCreate('circleDetailName', name);
+    this.getUIContext().getRouter().pushUrl({ url: 'pages/CircleDetailPage' });
+  }
+
   build() {
     Column() {
       // 标题
       Row() {
         Text('圈子')
-          .fontSize(24)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.text_primary'))
+          .fontSize(TypeTokens.title.size)
+          .fontWeight(TypeTokens.title.weight)
+          .lineHeight(TypeTokens.title.lineHeight)
+          .letterSpacing(TypeTokens.title.tracking)
+          .fontColor(ColorTokens.primary)
         Blank()
         Text(this.joinedNames.length > 0
           ? '已加入 ' + this.joinedNames.length + ' 个'
           : '发现感兴趣的话题')
-          .fontSize(13)
-          .fontColor($r('app.color.text_secondary'))
+          .fontSize(TypeTokens.callout.size)
+          .fontWeight(TypeTokens.callout.weight)
+          .lineHeight(TypeTokens.callout.lineHeight)
+          .letterSpacing(TypeTokens.callout.tracking)
+          .fontColor(ColorTokens.secondary)
       }
       .width('100%')
-      .padding({ left: 16, right: 16, top: 12, bottom: 10 })
+      .padding({
+        left: SpaceTokens.pageCompact,
+        right: SpaceTokens.pageCompact,
+        top: SpaceTokens.md,
+        bottom: SpaceTokens.sm,
+      })
 
       // 内容区
       if (this.circles.length === 0 && this.loading) {
         Column() {
-          LoadingProgress().width(28).height(28)
+          LoadingProgress().width(IconTokens.empty).height(IconTokens.empty)
           Text('加载中…')
-            .fontSize(13)
-            .fontColor($r('app.color.text_secondary'))
-            .margin({ top: 10 })
+            .fontSize(TypeTokens.callout.size)
+            .fontWeight(TypeTokens.callout.weight)
+            .lineHeight(TypeTokens.callout.lineHeight)
+            .letterSpacing(TypeTokens.callout.tracking)
+            .fontColor(ColorTokens.secondary)
+            .margin({ top: SpaceTokens.md })
         }
         .layoutWeight(1)
         .width('100%')
         .justifyContent(FlexAlign.Center)
       } else if (this.circles.length === 0) {
         Column() {
-          Text(this.error ? ('加载失败：' + this.error) : '暂无圈子')
-            .fontSize(14)
-            .fontColor($r('app.color.text_secondary'))
-          if (this.error) {
-            Button('重试')
-              .fontSize(13)
-              .height(32)
-              .margin({ top: 12 })
-              .backgroundColor($r('app.color.brand_primary'))
-              .fontColor('#FFFFFF')
-              .onClick(() => { this.initData(); })
-          }
+          EmptyState({
+            title: this.error ? '加载失败' : '暂无圈子',
+            message: this.error ? this.error : '发现并加入你感兴趣的话题',
+            actionLabel: this.error ? '重试' : '',
+            onAction: (): void => { this.initData(); },
+          })
         }
         .layoutWeight(1)
         .width('100%')
@@ -263,12 +324,15 @@ export struct CircleTab {
           Grid() {
             ForEach(
               this.circles,
-              (c: CircleTag) => {
+              (c: CircleTag, idx: number) => {
                 GridItem() {
-                  CircleCard({
-                    item: c,
-                    onToggle: () => { this.toggleJoin(c.name ?? ''); }
-                  })
+                  Reveal({ index: idx % 5 }) {
+                    CircleCard({
+                      item: c,
+                      onToggle: () => { this.toggleJoin(c.name ?? ''); },
+                      onOpen: () => { this.openCircle(c.name ?? ''); },
+                    })
+                  }
                 }
               },
               (c: CircleTag) => c.name ?? ''
@@ -287,7 +351,7 @@ export struct CircleTab {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor($r('app.color.bg_primary'))
+    .backgroundColor(ColorTokens.canvas)
     .alignItems(HorizontalAlign.Start)
   }
 }

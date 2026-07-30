@@ -32,6 +32,7 @@ jest.mock('../prisma', () => ({
       create: jest.fn(),
       delete: jest.fn(),
     },
+    $transaction: jest.fn().mockImplementation((ops: any) => Promise.all(ops ?? [])),
   },
 }));
 
@@ -198,5 +199,8 @@ describe('GET/POST/DELETE /v1/account/bindings', () => {
     expect(unbindRes.json.code).toBe(0);
     expect(unbindRes.json.data.unbound).toBe(true);
     expect(mockPrisma.userBinding.delete).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.user.update).toHaveBeenLastCalledWith(
+      expect.objectContaining({ where: { id: TEST_USER_ID }, data: { unionID: null } }),
+    );
   });
 });

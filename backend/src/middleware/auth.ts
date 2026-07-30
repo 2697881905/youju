@@ -8,6 +8,29 @@ export interface AuthRequest extends Request {
   userId?: number;
 }
 
+/**
+ * 公开读取接口的软鉴权：无效/缺失 token 按匿名处理，有效 token 仅在账号仍可用时返回 userId。
+ */
+export async function resolveOptionalUserId(req: AuthRequest): Promise<number | undefined> {
+  const header = req.headers.authorization;
+  if (!header || !header.startsWith('Bearer ')) {
+    return undefined;
+  }
+  try {
+    const payload = jwt.verify(header.slice(7), env.jwtSecret) as { userId?: number };
+    if (typeof payload.userId !== 'number') {
+      return undefined;
+    }
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      select: { deletedAt: true, status: true },
+    });
+    return user && !user.deletedAt && user.status === 1 ? payload.userId : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 // Bearer Token 鉴权中间件（async：解析出 userId 后多查一次 User，
 // 若 deletedAt 非空则视为已注销，使旧 token 全面失效——替代 token 黑名单）。
 export async function auth(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {

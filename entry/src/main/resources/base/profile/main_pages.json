@@ -1,6 +1,7 @@
 {
   "src": [
     "pages/Index",
+    "pages/CircleDetailPage",
     "pages/DetailPage",
     "pages/SearchResultPage",
     "pages/LoginPage",
@@ -16,6 +17,7 @@
     "pages/UserAgreementPage",
     "pages/BlocklistPage",
     "pages/PrivacySettingsPage",
-    "pages/ChatPage"
+    "pages/ChatPage",
+    "pages/FoundationPreviewPage"
   ]
 }

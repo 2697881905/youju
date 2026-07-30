@@ -135,7 +135,7 @@ export struct PrivacySettingsPage {
                   .padding({ left: 16, right: 16, top: 14, bottom: 14 })
                   .backgroundColor($r('app.color.card_bg'));
                   if (idx < this.visibilityOptions.length - 1) {
-                    Divider().color('#1AFFFFFF').margin({ left: 16 });
+                    Divider().color($r('app.color.divider')).margin({ left: 16 });
                   }
                 });
               }
@@ -206,7 +206,7 @@ export struct PrivacySettingsPage {
                   .padding({ left: 16, right: 16, top: 14, bottom: 14 })
                   .backgroundColor($r('app.color.card_bg'))
                   if (idx < this.dmPolicyOptions.length - 1) {
-                    Divider().color('#1AFFFFFF').margin({ left: 16 });
+                    Divider().color($r('app.color.divider')).margin({ left: 16 });
                   }
                 });
               }

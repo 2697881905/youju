@@ -11,6 +11,7 @@ import { buildPageTransition } from '../utils/styles';
 import { CARD_RADIUS } from '../utils/cardTokens';
 import { AvatarView } from '../components/AvatarView';
 import { KeyboardAvoidMode } from '@kit.ArkUI';
+import { resolveActionIcon } from '../utils/actionIcons';
 
 @Entry
 @Component
@@ -202,10 +203,16 @@ export struct ChatPage {
     Column() {
       // 顶栏
       Row() {
-        Text('返回')
-          .fontSize(16)
-          .fontColor($r('app.color.text_primary'))
+        Row() {
+          Image(resolveActionIcon('back'))
+            .width(22)
+            .height(22)
+            .fillColor($r('app.color.text_primary'))
+        }
           .width(48)
+          .height(44)
+          .justifyContent(FlexAlign.Center)
+          .accessibilityText('返回')
           .onClick(() => {
             this.getUIContext().getRouter().back();
           });
@@ -224,7 +231,9 @@ export struct ChatPage {
         Text('').width(48);
       }
       .width('100%')
-      .padding({ left: 16, right: 16, top: 12, bottom: 8 });
+      .padding({ left: 8, right: 8, top: 8, bottom: 8 })
+      .borderWidth({ bottom: 0.5 })
+      .borderColor($r('app.color.divider'));
 
       // 消息区
       if (this.loading && this.messages.length === 0) {
@@ -242,7 +251,7 @@ export struct ChatPage {
         }
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
       } else {
-        List({ scroller: this.listScroller }) {
+        List({ space: 8, scroller: this.listScroller }) {
           ForEach(
             this.messages,
             (m: DmMessage) => {
@@ -264,25 +273,37 @@ export struct ChatPage {
           .layoutWeight(1)
           .height(40)
           .backgroundColor($r('app.color.card_bg'))
-          .borderRadius(20)
-          .padding({ left: 16, right: 16 })
+          .borderRadius(8)
+          .border({ width: 0.5, color: $r('app.color.divider'), style: BorderStyle.Solid })
+          .padding({ left: 12, right: 12 })
           .onChange((v: string) => {
             this.inputText = v;
           })
           .onSubmit(() => {
             this.onSend();
           });
-        Button('发送')
+        Row() {
+          Image(resolveActionIcon('send'))
+            .width(20)
+            .height(20)
+            .fillColor(this.inputText.trim().length > 0 ? Color.White : $r('app.color.text_tertiary'))
+        }
+          .width(40)
           .height(40)
-          .borderRadius(20)
-          .enabled(!this.sending)
+          .justifyContent(FlexAlign.Center)
+          .borderRadius(8)
+          .backgroundColor(this.inputText.trim().length > 0 ? $r('app.color.brand_primary') : $r('app.color.control_bg'))
+          .enabled(!this.sending && this.inputText.trim().length > 0)
+          .accessibilityText('发送')
           .onClick(() => {
             this.onSend();
           });
       }
       .width('100%')
       .padding({ left: 12, right: 12, top: 8, bottom: 12 })
-      .backgroundColor($r('app.color.bg_primary'));
+      .backgroundColor($r('app.color.bg_primary'))
+      .borderWidth({ top: 0.5 })
+      .borderColor($r('app.color.divider'));
     }
     .width('100%')
     .padding({ top: this.statusBarHeight })

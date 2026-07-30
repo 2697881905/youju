@@ -4,7 +4,7 @@
 import { getIsAdmin, clearSession } from '../utils/auth';
 import { deactivateAccount, clearSearchHistory, exportUserData } from '../services/api';
 import { safeShowToast } from '../utils/toast';
-import { toggleDarkMode, setFollowSystem } from '../utils/theme';
+import { toggleDarkMode, setFollowSystem, setReduceMotion } from '../utils/theme';
 import { buildPageTransition } from '../utils/styles';
 import { CARD_RADIUS, CARD_SHADOW } from '../utils/cardTokens';
 import { resolveSettingsIcon } from '../utils/settingsIcons';
@@ -16,6 +16,7 @@ export struct SettingsPage {
   @State isAdmin: boolean = getIsAdmin();
   @StorageLink('isDarkMode') darkMode: boolean = false;
   @StorageLink('followSystem') followSystem: boolean = true;
+  @StorageLink('reduceMotion') reduceMotion: boolean = false;
   @State statusBarHeight: number = 0;
 
   aboutToAppear(): void {
@@ -315,6 +316,32 @@ export struct SettingsPage {
             .borderRadius(CARD_RADIUS)
             .shadow(CARD_SHADOW)
 
+            Row({ space: 12 }) {
+              Image(resolveSettingsIcon('system'))
+                .width(22).height(22)
+                .fillColor($r('app.color.text_secondary'))
+                .objectFit(ImageFit.Contain)
+              Column({ space: 2 }) {
+                Text('减少动态效果')
+                  .fontSize(16)
+                  .fontColor($r('app.color.text_primary'))
+                Text('使用更轻的界面过渡')
+                  .fontSize(12)
+                  .fontColor($r('app.color.text_secondary'))
+              }
+              .alignItems(HorizontalAlign.Start)
+              .layoutWeight(1)
+              Toggle({ type: ToggleType.Switch, isOn: this.reduceMotion })
+                .onChange((on: boolean): void => {
+                  setReduceMotion(on);
+                })
+            }
+            .width('100%')
+            .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+            .backgroundColor($r('app.color.card_bg'))
+            .borderRadius(CARD_RADIUS)
+            .shadow(CARD_SHADOW)
+
             this.sectionRow('trash', '清除缓存', (): void => {
               this.onClearCacheClick();
             });
@@ -358,23 +385,30 @@ export struct SettingsPage {
           .borderRadius(CARD_RADIUS)
           .shadow(CARD_SHADOW)
           .onClick(() => { this.onLogoutClick(); });
+
+          // 高风险操作保持次要层级，并随内容滚动，避免覆盖其它设置项。
+          Row({ space: 12 }) {
+            Image(resolveSettingsIcon('trash'))
+              .width(22).height(22)
+              .fillColor($r('app.color.semantic_red'))
+              .objectFit(ImageFit.Contain)
+            Text('账号注销')
+              .fontSize(16)
+              .fontColor($r('app.color.semantic_red'))
+              .layoutWeight(1)
+          }
+          .width('100%')
+          .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+          .backgroundColor($r('app.color.card_bg'))
+          .borderRadius(CARD_RADIUS)
+          .shadow(CARD_SHADOW)
+          .onClick(() => { this.onDeactivateClick(); });
         }
         .width('100%')
         .padding({ left: 16, right: 16, top: 8, bottom: 16 });
       }
       .layoutWeight(1)
       .width('100%');
-
-      // 底部：账号注销（红色全宽按钮）
-      Button('账号注销')
-        .width('100%')
-        .height(48)
-        .margin({ left: 16, right: 16, bottom: 16 })
-        .backgroundColor($r('app.color.semantic_red'))
-        .fontColor('#FFFFFF')
-        .fontSize(16)
-        .borderRadius(CARD_RADIUS)
-        .onClick(() => { this.onDeactivateClick(); });
     }
     .width('100%')
     .height('100%')

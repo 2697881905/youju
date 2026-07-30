@@ -20,6 +20,30 @@ export interface PublicUserView {
   deleted?: boolean;
 }
 
+export interface SessionUserView {
+  id: number;
+  nickname: string;
+  avatar: string | null;
+  bio: string | null;
+  gender: number | null;
+  isAdmin: boolean;
+}
+
+/** 登录态与资料更新响应，只暴露客户端真正需要的字段。 */
+export function sessionUserView(
+  user: { id: number; nickname: string; avatar: string | null; bio?: string | null; gender?: number | null },
+  isAdmin: boolean,
+): SessionUserView {
+  return {
+    id: user.id,
+    nickname: user.nickname,
+    avatar: user.avatar,
+    bio: user.bio ?? null,
+    gender: user.gender ?? null,
+    isAdmin,
+  };
+}
+
 // 将任意含 user 字段的返回体转为公开视图：已注销则匿名化（昵称固定、头像清空、deleted=true）。
 export function publicUserView(
   u: { id: number; nickname: string; avatar: string | null; deletedAt?: Date | null } | null | undefined,

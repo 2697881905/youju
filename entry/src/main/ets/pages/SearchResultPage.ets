@@ -225,8 +225,12 @@ struct SearchResultPage {
               this.searchList,
               (post: Post) => {
                 GridItem() {
-                  PostCard({ post: post })
-                    .onClick(() => this.goDetail(post))
+                  PostCard({
+                    post: post,
+                    onOpen: () => {
+                      this.goDetail(post);
+                    },
+                  })
                 }
               },
               (post: Post) => post.id?.toString() ?? ''

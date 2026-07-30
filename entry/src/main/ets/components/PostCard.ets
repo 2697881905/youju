@@ -1,16 +1,22 @@
 import { Post, User } from '../models/types';
-import { formatCount } from '../utils/format';
-
 import { upPost, cancelUpPost } from '../services/api';
 import { safeShowToast } from '../utils/toast';
-import { resolveActionIcon } from '../utils/actionIcons';
 import { likeStore } from '../utils/likeStore';
-import { CARD_RADIUS, CARD_PADDING, CARD_COVER_RADIUS, CARD_SHADOW, CARD_INNER_GAP } from '../utils/cardTokens';
+import { AuthorRow } from '../design/components/AuthorRow';
+import { BaseCard } from '../design/components/BaseCard';
+import { PollBlock } from '../design/components/PollBlock';
+import { StatRow } from '../design/components/StatRow';
+import { Pressable } from '../design/motion/Pressable';
+import { ColorTokens } from '../design/tokens/color';
+import { RadiusTokens } from '../design/tokens/radius';
+import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
+import { TypeTokens } from '../design/tokens/type';
 
 @Component
 export struct PostCard {
   @Prop post: Post = {};
 
+  onOpen?: () => void = undefined;
   onCancelBookmark?: (id: number) => void = undefined;
 
   @State liked: boolean = false;
@@ -18,7 +24,7 @@ export struct PostCard {
   private unsubLike: () => void = () => {};
 
   aboutToAppear(): void {
-    const id: number | undefined = this.post.id;
+    const id: number | undefined = this.postId();
     if (id !== undefined) {
       // 从全局点赞仓库注册并读取（保证与详情页/个人主页同帖一致）
       likeStore.ensure(id, this.post.myUp ?? false, this.post.upCount ?? 0);
@@ -66,14 +72,20 @@ export struct PostCard {
     if (this.isDeletedUser()) {
       return;
     }
-    if (u !== undefined && u.id !== undefined) {
+    if (u !== undefined && typeof u.id === 'number') {
       AppStorage.setOrCreate('targetUserId', String(u.id));
       this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage' });
     }
   }
 
+  private openCard(): void {
+    if (this.onOpen !== undefined) {
+      this.onOpen();
+    }
+  }
+
   async onLike(): Promise<void> {
-    const id: number | undefined = this.post.id;
+    const id: number | undefined = this.postId();
     if (id === undefined) {
       return;
     }
@@ -92,157 +104,153 @@ export struct PostCard {
     }
   }
 
-  build() {
-    Column() {
-      // 封面图 — Apple 风格大圆角；用 aspectRatio 替代固定高度，宽度自适应避免不同列数下溢出/比例失调
-      if (this.post.coverImage) {
-        Image(this.post.coverImage)
-          .width('100%')
-          .aspectRatio(1.2)
-          .objectFit(ImageFit.Cover)
-          .borderRadius(CARD_COVER_RADIUS)
-          .margin({ bottom: CARD_INNER_GAP })
-      }
+  private hasCover(): boolean {
+    return this.coverImage().length > 0;
+  }
 
-      // 标题 — iOS 17pt Medium 风格
-      Text(this.post.title ?? '')
-        .fontSize(17)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('app.color.text_primary'))
-        .maxLines(2)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .lineHeight(22)
+  private hasPoll(): boolean {
+    return this.pollPlanA().length > 0 || this.pollPlanB().length > 0;
+  }
 
-      // 投票/对比内容预览 — 填充无图卡片空间，同时让用户一眼看到选项
-      if (this.post.structuredData !== undefined &&
-          (this.post.structuredData.planA !== undefined || this.post.structuredData.planB !== undefined)) {
-        Column({ space: 6 }) {
-          if (this.post.structuredData.planA !== undefined) {
-            Row({ space: 8 }) {
-              Text('A')
-                .width(20).height(20).borderRadius(10)
-                .fontSize(11).fontColor('#FFFFFF').fontWeight(FontWeight.Bold)
-                .backgroundColor($r('app.color.brand_primary'))
-                .textAlign(TextAlign.Center)
-              Text(this.post.structuredData.planA)
-                .fontSize(13)
-                .fontColor($r('app.color.text_primary'))
-                .maxLines(1)
-                .textOverflow({ overflow: TextOverflow.Ellipsis })
-                .layoutWeight(1)
-            }
-            .width('100%')
-          }
-          if (this.post.structuredData.planB !== undefined) {
-            Row({ space: 8 }) {
-              Text('B')
-                .width(20).height(20).borderRadius(10)
-                .fontSize(11).fontColor('#FFFFFF').fontWeight(FontWeight.Bold)
-                .backgroundColor($r('app.color.semantic_orange'))
-                .textAlign(TextAlign.Center)
-              Text(this.post.structuredData.planB)
-                .fontSize(13)
-                .fontColor($r('app.color.text_primary'))
-                .maxLines(1)
-                .textOverflow({ overflow: TextOverflow.Ellipsis })
-                .layoutWeight(1)
-            }
-            .width('100%')
-          }
-        }
+  private pollPlanA(): string {
+    return this.post.structuredData?.planA ?? '';
+  }
+
+  private pollPlanB(): string {
+    return this.post.structuredData?.planB ?? '';
+  }
+
+  private hasAuthor(): boolean {
+    return this.post.user !== undefined && typeof this.post.user.id === 'number';
+  }
+
+  private authorName(): string {
+    if (this.isDeletedUser()) {
+      return '已注销用户';
+    }
+    return this.post.user?.nickname ?? '匿名';
+  }
+
+  private authorAvatar(): string {
+    if (this.isDeletedUser()) {
+      return '';
+    }
+    return this.post.user?.avatar ?? '';
+  }
+
+  private postId(): number | undefined {
+    return typeof this.post.id === 'number' ? this.post.id : undefined;
+  }
+
+  private coverImage(): string {
+    // 后端的无封面字段为 null；接口运行时值需在 UI 边界归一化。
+    return typeof this.post.coverImage === 'string' ? this.post.coverImage : '';
+  }
+
+  @Builder
+  mediaSlot(): void {
+    if (this.hasCover()) {
+      Image(this.coverImage())
         .width('100%')
-        .padding(10)
-        .backgroundColor($r('app.color.bg_secondary'))
-        .borderRadius(8)
-        .margin({ top: 8 })
-      }
+        .aspectRatio(LayoutTokens.cardMediaAspectRatio)
+        .objectFit(ImageFit.Cover)
+        .borderRadius(RadiusTokens.xs)
+        .clip(true)
+    }
+    // 无图状态按冻结后的卡片尺寸收紧媒体槽，不注入额外占位高度。
+  }
 
-      // 作者区
-      if (this.post.user !== undefined && this.post.user.id !== undefined) {
-        Row({ space: 8 }) {
-          if (this.isDeletedUser()) {
-            Text('?')
-              .width(22).height(22).borderRadius(11)
-              .fontSize(12).fontColor('#FFFFFF')
-              .backgroundColor('#3A3A3C')
-              .textAlign(TextAlign.Center)
-          } else if (this.post.user.avatar) {
-            Image(this.post.user.avatar)
-              .width(22).height(22).borderRadius(11)
-              .objectFit(ImageFit.Cover)
-          } else {
-            Text((this.post.user.nickname ?? '?').charAt(0))
-              .width(22).height(22).borderRadius(11)
-              .fontSize(12).fontColor('#FFFFFF')
-              .backgroundColor($r('app.color.brand_primary'))
-              .textAlign(TextAlign.Center)
-          }
-          Text(this.isDeletedUser() ? '已注销用户' : (this.post.user.nickname ?? '匿名'))
-            .fontSize(13).fontColor($r('app.color.text_secondary'))
-        }
-        .margin({ top: CARD_INNER_GAP })
-        .onClick(() => {
-          this.goUser();
+  @Builder
+  titleSlot(): void {
+    // design tokens: type.headline / color.primary。
+    Text(this.post.title ?? '')
+      .fontSize(TypeTokens.headline.size)
+      .fontWeight(TypeTokens.headline.weight)
+      .lineHeight(TypeTokens.headline.lineHeight)
+      .letterSpacing(TypeTokens.headline.tracking)
+      .fontColor(ColorTokens.primary)
+      .maxLines(2)
+      .textOverflow({ overflow: TextOverflow.Ellipsis })
+  }
+
+  @Builder
+  pollSlot(): void {
+    if (this.hasPoll()) {
+      PollBlock({
+        planA: this.pollPlanA(),
+        planB: this.pollPlanB(),
+      })
+    }
+  }
+
+  @Builder
+  authorSlot(): void {
+    if (this.hasAuthor()) {
+      Pressable({
+        action: () => { this.goUser(); },
+        fillWidth: true,
+      }) {
+        AuthorRow({
+          avatar: this.authorAvatar(),
+          name: this.authorName(),
+          compact: true,
         })
-      }
-
-      // 底部互动行
-      Row() {
-        Row({ space: 4 }) {
-          Image(resolveActionIcon('like'))
-            .width(15)
-            .height(15)
-            .fillColor(this.liked ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
-          Text('顶 ' + formatCount(this.likeCount))
-            .fontSize(13)
-            .fontColor(this.liked ? $r('app.color.brand_primary') : $r('app.color.text_secondary'));
-        }
-        .onClick(() => {
-          this.onLike();
-        })
-
-        Row({ space: 4 }) {
-          Image(resolveActionIcon('comment'))
-            .width(15)
-            .height(15)
-            .fillColor($r('app.color.text_secondary'))
-          Text(formatCount(this.post.commentCount))
-            .fontSize(13)
-            .fontColor($r('app.color.text_secondary'))
-        }
-        .margin({ left: 16 });
-      }
-      .margin({ top: CARD_INNER_GAP })
-      .justifyContent(FlexAlign.Start);
-
-      if (this.onCancelBookmark !== undefined) {
-        Row() {
-          Text('取消收藏')
-            .fontSize(13)
-            .fontColor($r('app.color.text_secondary'));
-        }
-        .margin({ top: CARD_INNER_GAP })
-        .onClick(() => {
-          if (this.post.id !== undefined) {
-            this.onCancelBookmark!(this.post.id);
-          }
-        });
       }
     }
-    .width('100%')
-    .padding(CARD_PADDING)
-    .backgroundColor($r('app.color.card_bg'))
-    .borderRadius(CARD_RADIUS)
-    // Apple 卡片阴影 — 浅色模式深灰投影，深色模式淡化（统一令牌）
-    .shadow(CARD_SHADOW)
-    .stateStyles({
-      normal: {
-        .opacity(1)
-      },
-      pressed: {
-        .opacity(0.92)
-        .scale({ x: 0.985, y: 0.985 })
+  }
+
+  @Builder
+  statSlot(): void {
+    StatRow({
+      liked: this.liked,
+      likeCount: this.likeCount,
+      commentCount: this.post.commentCount ?? 0,
+      onLike: () => { this.onLike(); },
+    })
+  }
+
+  @Builder
+  cancelBookmarkSlot(): void {
+    if (this.onCancelBookmark !== undefined) {
+      Pressable({
+        action: () => {
+          const id: number | undefined = this.postId();
+          if (id !== undefined) {
+            this.onCancelBookmark!(id);
+          }
+        },
+        visualHeight: TypeTokens.caption.lineHeight,
+      }) {
+        Row() {
+          Text('取消收藏')
+            .fontSize(TypeTokens.caption.size)
+            .fontWeight(TypeTokens.caption.weight)
+            .fontColor(ColorTokens.secondary)
+        }
+        .alignItems(VerticalAlign.Center)
       }
-    });
+    }
+  }
+
+  build() {
+    // design tokens: color.elevated / radius.lg / space.base / shadow.card。
+    BaseCard({
+      cardPadding: SpaceTokens.base,
+      radius: RadiusTokens.lg,
+      elevation: 1,
+      pressable: this.onOpen !== undefined,
+      action: () => { this.openCard(); },
+    }) {
+      Column({ space: SpaceTokens.item }) {
+        this.mediaSlot()
+        this.titleSlot()
+        this.pollSlot()
+        this.authorSlot()
+        this.statSlot()
+        this.cancelBookmarkSlot()
+      }
+      .width('100%')
+      .alignItems(HorizontalAlign.Start)
+    }
   }
 }

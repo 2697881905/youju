@@ -4,6 +4,34 @@
 // getExcludedAuthorIds（一次性算出不可见作者集合，配合 where.userId.notIn，分页计数准确）。
 import { prisma } from '../prisma';
 
+export interface AccessiblePost {
+  id: number;
+  userId: number;
+  status: number;
+  genre: string;
+}
+
+/**
+ * 返回当前查看者可访问的已发布帖子。所有评论与互动入口必须先经过此守卫。
+ * 不可见与不存在统一返回 null，避免泄露私密内容是否存在。
+ */
+export async function getAccessiblePublishedPost(
+  postId: number,
+  viewerId?: number,
+): Promise<AccessiblePost | null> {
+  if (!Number.isInteger(postId) || postId <= 0) {
+    return null;
+  }
+  const post = await prisma.post.findUnique({
+    where: { id: postId },
+    select: { id: true, userId: true, status: true, genre: true },
+  });
+  if (!post || post.status !== 1) {
+    return null;
+  }
+  return (await canViewerSeeAuthorPosts(viewerId, post.userId)) ? post : null;
+}
+
 // 计算 viewer 应当在信息流中「看不到」的作者 id 集合：
 //  - 拉黑（双向）：viewer 拉黑的人 + 拉黑 viewer 的人
 //  - 隐私：postVisibility='private' 的作者（除非是自己）；
@@ -90,5 +118,6 @@ export async function canViewerSeeAuthorPosts(
     });
     return !!f;
   }
-  return true;
+  // 非法枚举按最严格策略拒绝，避免脏数据导致默认放行。
+  return false;
 }

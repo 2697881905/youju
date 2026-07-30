@@ -137,18 +137,20 @@ export async function bind(userId: number, provider: Provider, code: string): Pr
   }
 
   // 写 UserBinding（isPrimary=false）+ 同步 User.unionID
-  const created = await prisma.userBinding.create({
-    data: {
-      userId,
-      provider,
-      externalId: unionID,
-      isPrimary: false,
-    },
-  });
-  await prisma.user.update({
-    where: { id: userId },
-    data: { unionID },
-  });
+  const [created] = await prisma.$transaction([
+    prisma.userBinding.create({
+      data: {
+        userId,
+        provider,
+        externalId: unionID,
+        isPrimary: false,
+      },
+    }),
+    prisma.user.update({
+      where: { id: userId },
+      data: { unionID },
+    }),
+  ]);
 
   return {
     provider,
@@ -177,9 +179,20 @@ export async function unbind(userId: number, provider: Provider): Promise<Unbind
   if (!existing) {
     throw new AccountError(CODE.NOT_FOUND, 404, '未找到该绑定关系');
   }
-  await prisma.userBinding.delete({
-    where: { userId_provider: { userId, provider } },
-  });
+  const operations = [
+    prisma.userBinding.delete({
+      where: { userId_provider: { userId, provider } },
+    }),
+  ];
+  if (provider === 'huawei') {
+    operations.push(
+      prisma.user.update({
+        where: { id: userId },
+        data: { unionID: null },
+      }) as any,
+    );
+  }
+  await prisma.$transaction(operations);
   return { provider, unbound: true };
 }
 

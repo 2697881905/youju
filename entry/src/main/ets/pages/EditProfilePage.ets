@@ -11,6 +11,7 @@ import { safeShowToast } from '../utils/toast';
 import { User, UserProfile } from '../models/types';
 import { buildPageTransition } from '../utils/styles';
 import { AvatarView } from '../components/AvatarView';
+import { resolveSettingsIcon } from '../utils/settingsIcons';
 
 @Entry
 @Component
@@ -214,13 +215,16 @@ export struct EditProfilePage {
     Column() {
       // 顶栏：返回 + 标题 + 保存
       Row() {
-        Text('‹')
-          .fontSize(28)
-          .fontColor($r('app.color.text_primary'))
-          .width(48)
-          .height(44)
-          .textAlign(TextAlign.Center)
-          .onClick(() => { this.getUIContext().getRouter().back(); });
+        Row() {
+          Image(resolveSettingsIcon('back'))
+            .width(22)
+            .height(22)
+            .fillColor($r('app.color.text_primary'))
+        }
+        .width(48)
+        .height(44)
+        .justifyContent(FlexAlign.Center)
+        .onClick(() => { this.getUIContext().getRouter().back(); });
         Text('编辑资料')
           .fontSize(17)
           .fontWeight(FontWeight.Bold)
@@ -290,7 +294,7 @@ export struct EditProfilePage {
               .width('100%')
               .height(44)
               .backgroundColor($r('app.color.card_bg'))
-              .borderRadius(10)
+              .borderRadius(8)
               .onChange((v: string) => { this.nickname = v; });
             Text(this.nickname.trim().length + '/20')
               .fontSize(12)
@@ -309,7 +313,7 @@ export struct EditProfilePage {
               .width('100%')
               .height(100)
               .backgroundColor($r('app.color.card_bg'))
-              .borderRadius(10)
+              .borderRadius(8)
               .onChange((v: string) => { this.bio = v; });
             Text(this.bio.length + '/100')
               .fontSize(12)
@@ -349,6 +353,7 @@ export struct EditProfilePage {
           .width('100%');
         }
         .width('100%')
+        .constraintSize({ minHeight: '100%' })
         .padding({ left: 16, right: 16, top: 16, bottom: 32 });
       }
       .layoutWeight(1)

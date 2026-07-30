@@ -1,35 +1,23 @@
-// 卡片设计令牌：统一全应用所有「卡片」场景的圆角 / 内边距 / 阴影 / 网格间距
-// 用途：消除 PostCard、圈子卡片等多处重复且不一致的样式数值，确保视觉一致
-// 接入页面：PostCard、CircleTab、HomeTab、ProfilePage、SearchResultPage
+// 旧页面兼容适配层：数值唯一来源已迁移到 design/tokens，Phase4 完成后删除这些别名。
+import { RadiusTokens } from '../design/tokens/radius';
+import { ShadowTokens } from '../design/tokens/shadow';
+import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 
-// 卡片圆角（Apple大圆角，较 16 略收紧一档）
-export const CARD_RADIUS: number = 14;
-
-// 卡片内边距（比旧值 12 再收紧，让封面图更贴近卡片左右边框，更紧凑）
-export const CARD_PADDING: number = 6;
-
-// 卡片内封面图圆角（内嵌于卡片，比卡片圆角略小）
-export const CARD_COVER_RADIUS: number = 8;
-
-// 卡片统一投影：浅色模式淡灰、深色模式同样适用（颜色含透明度，深浅模式自动过渡）
-export const CARD_SHADOW: ShadowOptions = {
-  radius: 12,
-  color: '#0D000000',
-  offsetY: 2
-};
-
-// 网格列间距 / 行间距（再收紧一档，让卡片排布更紧凑）
-export const GRID_GAP: number = 6;
-
-// 网格外边距（再收紧一档）
-export const GRID_PADDING: number = 8;
-
-// 卡片内部元素纵向间距（标题↔作者↔互动行的间距，比旧值 10 收紧）
-export const CARD_INNER_GAP: number = 8;
+export const CARD_RADIUS: number = RadiusTokens.lg;
+export const CARD_PADDING: number = SpaceTokens.base;
+export const CARD_COVER_RADIUS: number = RadiusTokens.xs;
+export const CARD_SHADOW: ShadowOptions = ShadowTokens.cardAmbient;
+export const GRID_GAP: number = LayoutTokens.gridGutter;
+export const GRID_PADDING: number = SpaceTokens.pageCompact;
+export const CARD_INNER_GAP: number = SpaceTokens.item;
+export const PAGE_HORIZONTAL_PADDING: number = SpaceTokens.pageCompact;
+export const SECTION_GAP: number = SpaceTokens.block;
+export const CONTROL_RADIUS: number = RadiusTokens.sm;
+export const CONTROL_HEIGHT: number = LayoutTokens.segmentedHeight;
 
 // 悬浮底栏占用的屏幕底部高度（BAR_HEIGHT 62 + BAR_BOTTOM_GAP 18 + 系统导航条高度）
 // 各滚动列表底部内边距用此值，末尾内容可滚动到底栏上方而不被遮挡
 export function barBottomReserve(): number {
   const nav: number = AppStorage.get<number>('navBarHeight') ?? 0;
-  return 80 + nav;
+  return LayoutTokens.floatingBarReserve + nav;
 }

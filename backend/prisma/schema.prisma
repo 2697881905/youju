@@ -186,12 +186,11 @@ model PushToken {
   id        Int      @id @default(autoincrement())
   userId    Int
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token     String   @db.VarChar(255) // 华为推送设备 Token（pushService.getToken 返回）
+  token     String   @unique @db.VarChar(255) // 同一设备 Token 全局唯一，换号注册时迁移归属
   deviceId  String?  @db.VarChar(128) // 设备标识（可选，便于同设备更新替换）
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([userId, token]) // 同一用户对同一 token 仅一条（幂等注册）
   @@index([userId])
 }
 

@@ -1,10 +1,6 @@
 // 审核服务：待审帖子列表 + 审核操作（approve/reject）
 // 审核通过/拒绝 → 通知作者具体结果；举报处理 → 举报人仅收"你的举报已处理"不透露结果
 import { prisma } from '../prisma';
-import {
-  resolveReportsByTarget,
-  getReporterIdsByTarget,
-} from './reportService';
 import { notifySystem } from './notificationService';
 
 /**
@@ -76,52 +72,53 @@ export async function moderatePost(
   action: 'approve' | 'reject',
   reason?: string
 ): Promise<void> {
-  // 1. 查帖子，校验 status===0
-  const post = await prisma.post.findUnique({
-    where: { id: postId },
-    select: { id: true, userId: true, title: true, status: true },
-  });
-  if (!post) {
-    const err = new Error('帖子不存在');
-    (err as any).reason = 'not_found';
-    throw err;
-  }
-  if (post.status !== 0) {
-    const err = new Error('该帖子不在待审核状态');
-    (err as any).reason = 'invalid_status';
-    throw err;
-  }
-
-  // 2. 更新帖子状态
   const newStatus = action === 'approve' ? 1 : 2;
-  await prisma.post.update({
-    where: { id: postId },
-    data: { status: newStatus },
+  const reportNewStatus = action === 'approve' ? 'dismissed' : 'resolved';
+  const { post, reporterIds } = await prisma.$transaction(async (tx) => {
+    const post = await tx.post.findUnique({
+      where: { id: postId },
+      select: { id: true, userId: true, title: true, status: true },
+    });
+    if (!post) {
+      const err = new Error('帖子不存在');
+      (err as any).reason = 'not_found';
+      throw err;
+    }
+    if (post.status !== 0) {
+      const err = new Error('该帖子不在待审核状态');
+      (err as any).reason = 'invalid_status';
+      throw err;
+    }
+
+    const reports = await tx.report.findMany({
+      where: { targetType: 'post', targetId: postId },
+      select: { reporterId: true },
+    });
+    await tx.post.update({ where: { id: postId }, data: { status: newStatus } });
+    await tx.report.updateMany({
+      where: { targetType: 'post', targetId: postId, status: 'pending' },
+      data: { status: reportNewStatus, resolvedAt: new Date() },
+    });
+    return { post, reporterIds: reports.map((report) => report.reporterId) };
   });
 
-  // 3. 批量处理举报记录
-  const reportNewStatus = action === 'approve' ? 'dismissed' : 'resolved';
-  await resolveReportsByTarget('post', postId, reportNewStatus);
-
-  // 4. 通知作者审核结果
+  // 通知是事务后的外部副作用，失败不回滚已完成的审核状态。
   if (action === 'approve') {
     await notifySystem(
       post.userId,
       `你的帖子《${post.title}》已通过审核`,
       postId
-    );
+    ).catch(() => {});
   } else {
     const content = reason
       ? `你的帖子《${post.title}》未通过审核，原因：${reason}`
       : `你的帖子《${post.title}》未通过审核`;
-    await notifySystem(post.userId, content, postId);
+    await notifySystem(post.userId, content, postId).catch(() => {});
   }
 
-  // 5. 通知所有举报人（不透露审核结果，统一告知"已处理"）
-  const reporterIds = await getReporterIdsByTarget('post', postId);
   for (const reporterId of reporterIds) {
     if (reporterId !== post.userId) {
-      await notifySystem(reporterId, '你的举报已处理', postId);
+      await notifySystem(reporterId, '你的举报已处理', postId).catch(() => {});
     }
   }
 }

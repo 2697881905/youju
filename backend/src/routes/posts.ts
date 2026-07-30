@@ -1,33 +1,15 @@
 import { Router, Response } from 'express';
-import jwt from 'jsonwebtoken';
 import { ok, fail, CODE } from '../utils/response';
-import { auth, AuthRequest } from '../middleware/auth';
-import { env } from '../config/env';
+import { auth, AuthRequest, resolveOptionalUserId } from '../middleware/auth';
 import { prisma } from '../prisma';
 import * as postService from '../services/postService';
 import * as reportService from '../services/reportService';
-import { SensitiveWordError } from '../utils/errors';
+import { SensitiveWordError, ValidationError } from '../utils/errors';
+import { getAccessiblePublishedPost } from '../services/accessControl';
 
 import { asyncHandler } from '../middleware/asyncHandler';
 
 const router = Router();
-
-// 软鉴权（仅用于公开浏览 GET 路由：信息流 / 详情）：
-// 手动从 Authorization 头解析 Bearer token；有合法 token 则取 viewerId，
-// 缺失 / 非法 token 不返回 401（保证匿名用户也能浏览推荐流与详情，不破坏公开浏览）。
-// 解析方式参考 middleware/auth.ts，但失败时降级为 undefined 而非 401。
-function resolveViewerId(req: AuthRequest): number | undefined {
-  const header = req.headers.authorization;
-  if (!header || !header.startsWith('Bearer ')) {
-    return undefined;
-  }
-  try {
-    const payload = jwt.verify(header.slice(7), env.jwtSecret) as { userId?: number };
-    return typeof payload.userId === 'number' ? payload.userId : undefined;
-  } catch {
-    return undefined;
-  }
-}
 
 // 举报理由枚举（与 reportService 对齐）
 const VALID_REASONS = [
@@ -44,6 +26,7 @@ const VALID_REASONS = [
 // 软鉴权：匿名可浏览；带合法 token 时按 viewerId 批量打标 myUp/myBookmark。
 router.get('/', asyncHandler(async (req: AuthRequest, res: Response) => {
   const { page, limit, sort, tag, author, keyword } = req.query;
+  const viewerId = await resolveOptionalUserId(req);
   const data = await postService.listPosts({
     page: page ? Number(page) : 1,
     limit: limit ? Number(limit) : 20,
@@ -51,7 +34,7 @@ router.get('/', asyncHandler(async (req: AuthRequest, res: Response) => {
     tag: tag as string | undefined,
     author: author ? Number(author) : undefined,
     keyword: keyword as string | undefined,
-    viewerId: resolveViewerId(req),
+    viewerId,
   });
   return ok(res, data);
 }));
@@ -79,12 +62,13 @@ router.get('/following', auth, asyncHandler(async (req: AuthRequest, res: Respon
 // ⚠️ 必须注册在 GET /:id 之前。
 router.get('/hotspot', asyncHandler(async (req: AuthRequest, res: Response) => {
   const { windowHours, page, limit, tag } = req.query;
+  const viewerId = await resolveOptionalUserId(req);
   const data = await postService.listHotPosts({
     windowHours: windowHours ? Number(windowHours) : 24,
     page: page ? Number(page) : 1,
     limit: limit ? Number(limit) : 20,
     tag: tag as string | undefined,
-    viewerId: resolveViewerId(req),
+    viewerId,
   });
   return ok(res, data);
 }));
@@ -94,7 +78,7 @@ router.get('/hotspot', asyncHandler(async (req: AuthRequest, res: Response) => {
 router.get('/:id', asyncHandler(async (req: AuthRequest, res: Response) => {
   const id = Number(req.params.id);
   if (!id) return fail(res, CODE.BAD_REQUEST, '无效帖子ID');
-  const viewerId = resolveViewerId(req);
+  const viewerId = await resolveOptionalUserId(req);
   const post = await postService.getPost(id, viewerId);
   if (!post) return fail(res, CODE.NOT_FOUND, '帖子不存在', 404);
   return ok(res, post);
@@ -111,11 +95,17 @@ router.post('/', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   if (content && typeof content === 'string' && content.length > 20000) {
     return fail(res, CODE.BAD_REQUEST, '正文过长（≤20000 字）');
   }
-  if (tags && Array.isArray(tags) && tags.length > 3) {
-    return fail(res, CODE.BAD_REQUEST, '标签最多 3 个');
+  if (content !== undefined && content !== null && typeof content !== 'string') {
+    return fail(res, CODE.BAD_REQUEST, '正文格式无效');
   }
-  if (images && Array.isArray(images) && images.length > 9) {
-    return fail(res, CODE.BAD_REQUEST, '图片最多 9 张');
+  if (!['review', 'pitfall', 'tutorial', 'debate'].includes(genre)) {
+    return fail(res, CODE.BAD_REQUEST, '体裁参数无效');
+  }
+  if (tags !== undefined && (!Array.isArray(tags) || tags.length > 3 || tags.some((tag: unknown) => typeof tag !== 'string'))) {
+    return fail(res, CODE.BAD_REQUEST, '标签格式无效或超过 3 个');
+  }
+  if (images !== undefined && (!Array.isArray(images) || images.length > 9 || images.some((url: unknown) => typeof url !== 'string'))) {
+    return fail(res, CODE.BAD_REQUEST, '图片格式无效或超过 9 张');
   }
   try {
     const post = await postService.createPost(req.body, req.userId!);
@@ -152,7 +142,15 @@ router.delete('/:id', auth, asyncHandler(async (req: AuthRequest, res: Response)
 router.put('/:id', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const id = Number(req.params.id);
   if (!id || isNaN(id)) return fail(res, CODE.BAD_REQUEST, '无效帖子ID');
-  const result = await postService.updatePost(id, req.userId!, req.body ?? {});
+  let result;
+  try {
+    result = await postService.updatePost(id, req.userId!, req.body ?? {});
+  } catch (e) {
+    if (e instanceof SensitiveWordError || e instanceof ValidationError) {
+      return fail(res, CODE.BAD_REQUEST, e.message, 400);
+    }
+    throw e;
+  }
   if (!result.ok) {
     if (result.reason === 'not_found') return fail(res, CODE.NOT_FOUND, '帖子不存在', 404);
     if (result.reason === 'forbidden') return fail(res, CODE.FORBIDDEN, '只能编辑自己的帖子', 403);
@@ -166,6 +164,9 @@ router.post('/:id/vote', auth, asyncHandler(async (req: AuthRequest, res: Respon
   const choice = req.body?.choice as string;
   if (!postId || isNaN(postId)) return fail(res, CODE.BAD_REQUEST, '无效帖子ID');
   if (choice !== 'A' && choice !== 'B') return fail(res, CODE.BAD_REQUEST, 'choice 必须为 A 或 B');
+  const accessiblePost = await getAccessiblePublishedPost(postId, req.userId!);
+  if (!accessiblePost) return fail(res, CODE.NOT_FOUND, '帖子不存在', 404);
+  if (accessiblePost.genre !== 'debate') return fail(res, CODE.BAD_REQUEST, '仅辩论帖可以投票');
   try {
     // 查现有投票记录
     const existing = await prisma.debateVote.findUnique({
@@ -179,14 +180,18 @@ router.post('/:id/vote', auth, asyncHandler(async (req: AuthRequest, res: Respon
       // 改票：减旧票 + 加新票
       const decField = existing.choice === 'A' ? 'planAVotes' : 'planBVotes';
       const incField = choice === 'A' ? 'planAVotes' : 'planBVotes';
-      await prisma.post.update({ where: { id: postId }, data: { [decField]: { decrement: 1 } } });
-      await prisma.post.update({ where: { id: postId }, data: { [incField]: { increment: 1 } } });
-      await prisma.debateVote.update({ where: { id: existing.id }, data: { choice } });
+      await prisma.$transaction([
+        prisma.post.update({ where: { id: postId }, data: { [decField]: { decrement: 1 } } }),
+        prisma.post.update({ where: { id: postId }, data: { [incField]: { increment: 1 } } }),
+        prisma.debateVote.update({ where: { id: existing.id }, data: { choice } }),
+      ]);
     } else {
       // 新投票
       const incField = choice === 'A' ? 'planAVotes' : 'planBVotes';
-      await prisma.post.update({ where: { id: postId }, data: { [incField]: { increment: 1 } } });
-      await prisma.debateVote.create({ data: { userId: req.userId!, postId, choice } });
+      await prisma.$transaction([
+        prisma.post.update({ where: { id: postId }, data: { [incField]: { increment: 1 } } }),
+        prisma.debateVote.create({ data: { userId: req.userId!, postId, choice } }),
+      ]);
     }
     // 返回最新票数
     const post = await prisma.post.findUnique({ where: { id: postId }, select: { planAVotes: true, planBVotes: true } });

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { CODE } from '../utils/response';
-import { SensitiveWordError } from '../utils/errors';
+import { SensitiveWordError, ValidationError } from '../utils/errors';
 import { env } from '../config/env';
 
 /**
@@ -21,6 +21,11 @@ export function errorHandler(
 
   // 敏感词命中：统一 400 友好提示
   if (err instanceof SensitiveWordError) {
+    res.status(400).json({ code: CODE.BAD_REQUEST, data: null, message: err.message });
+    return;
+  }
+
+  if (err instanceof ValidationError) {
     res.status(400).json({ code: CODE.BAD_REQUEST, data: null, message: err.message });
     return;
   }

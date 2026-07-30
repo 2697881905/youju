@@ -570,6 +570,7 @@ struct DetailPage {
         Text('帖子详情')
           .fontSize(17)
           .fontWeight(600)
+          .fontColor($r('app.color.text_primary'))
           .layoutWeight(1)
           .textAlign(TextAlign.Center)
         Text('⋯')
@@ -581,8 +582,9 @@ struct DetailPage {
       }
       .width('100%')
       .padding({ top: 12, bottom: 12 })
-      .backgroundBlurStyle(BlurStyle.BACKGROUND_THIN)
-      .backgroundColor($r('app.color.glass_bar_bg'))
+      .backgroundColor($r('app.color.bg_primary'))
+      .borderWidth({ bottom: 0.5 })
+      .borderColor($r('app.color.divider'))
 
       if (this.loading) {
         Column() {
@@ -619,7 +621,7 @@ struct DetailPage {
               }
               .width('100%')
               .padding({ left: 12, right: 12, top: 8, bottom: 8 })
-              .backgroundColor('#FFF8E1')
+              .backgroundColor($r('app.color.warning_surface'))
               .borderRadius(8)
             }
 
@@ -647,7 +649,7 @@ struct DetailPage {
                   .fontSize(12)
                   .fontColor($r('app.color.brand_primary'))
               }
-              .backgroundColor('#E8F1FF')
+              .backgroundColor($r('app.color.surface_selected'))
               .borderRadius(4)
               .padding({ left: 8, right: 8, top: 3, bottom: 3 })
               Text(this.post.title ?? '')
@@ -780,7 +782,8 @@ struct DetailPage {
               .width('100%')
               .padding(14)
               .backgroundColor($r('app.color.card_bg'))
-              .borderRadius(12);
+              .borderRadius(8)
+              .border({ width: 0.5, color: $r('app.color.divider'), style: BorderStyle.Solid });
             }
 
             // 结构化字段（debate 体裁的方案介绍已合并进投票卡片，此处跳过避免重复）
@@ -808,7 +811,8 @@ struct DetailPage {
               .width('100%')
               .padding(14)
               .backgroundColor($r('app.color.card_bg'))
-              .borderRadius(12)
+              .borderRadius(8)
+              .border({ width: 0.5, color: $r('app.color.divider'), style: BorderStyle.Solid })
             }
 
             // 正文
@@ -881,7 +885,7 @@ struct DetailPage {
               .width(22)
               .height(22)
               .fillColor(this.bookmarked ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
-            Text((this.bookmarked ? '已' : '') + '抄作业 ' + formatCount(this.bookmarkCount))
+            Text((this.bookmarked ? '已' : '') + '收藏 ' + formatCount(this.bookmarkCount))
               .fontSize(11)
               .fontColor(this.bookmarked ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
           }
@@ -916,8 +920,8 @@ struct DetailPage {
         }
         .width('100%')
         .padding({ top: 8, bottom: 12 })
-        .backgroundBlurStyle(BlurStyle.BACKGROUND_REGULAR)
-        .backgroundColor($r('app.color.glass_bar_bg'))
+        .backdropBlur(24)
+        .backgroundColor($r('app.color.bar_surface'))
         .borderWidth({ top: 0.5 })
         .borderColor($r('app.color.divider'))
       }

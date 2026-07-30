@@ -20,8 +20,10 @@ export async function upPost(postId: number, userId: number) {
 export async function cancelUp(postId: number, userId: number) {
   const existing = await prisma.up.findUnique({ where: { userId_postId: { userId, postId } } });
   if (existing) {
-    await prisma.up.delete({ where: { userId_postId: { userId, postId } } });
-    await prisma.post.update({ where: { id: postId }, data: { upCount: { decrement: 1 } } });
+    await prisma.$transaction([
+      prisma.up.delete({ where: { userId_postId: { userId, postId } } }),
+      prisma.post.update({ where: { id: postId }, data: { upCount: { decrement: 1 } } }),
+    ]);
   }
 }
 
@@ -44,7 +46,9 @@ export async function bookmarkPost(postId: number, userId: number) {
 export async function cancelBookmark(postId: number, userId: number) {
   const existing = await prisma.bookmark.findUnique({ where: { userId_postId: { userId, postId } } });
   if (existing) {
-    await prisma.bookmark.delete({ where: { userId_postId: { userId, postId } } });
-    await prisma.post.update({ where: { id: postId }, data: { bookmarkCount: { decrement: 1 } } });
+    await prisma.$transaction([
+      prisma.bookmark.delete({ where: { userId_postId: { userId, postId } } }),
+      prisma.post.update({ where: { id: postId }, data: { bookmarkCount: { decrement: 1 } } }),
+    ]);
   }
 }

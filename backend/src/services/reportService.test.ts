@@ -25,6 +25,7 @@ jest.mock('../prisma', () => ({
     notificationPreference: {
       findUnique: jest.fn().mockResolvedValue(null),
     },
+    $transaction: jest.fn(),
   },
 }));
 
@@ -53,6 +54,7 @@ describe('createReport - 帖子举报', () => {
     // 默认 post.update（increment reportCount）返回未达阈值
     mockPrisma.post.update.mockResolvedValue({ reportCount: 1, status: 1 });
     mockPrisma.notification.create.mockResolvedValue({});
+    mockPrisma.$transaction.mockImplementation((callback: any) => callback(mockPrisma));
   });
 
   it('正常创建举报，未达阈值不触发下架', async () => {
@@ -148,6 +150,7 @@ describe('createReport - 评论举报', () => {
     mockPrisma.report.create.mockResolvedValue({ id: 101, reporterId: 1, targetType: 'comment', targetId: 5 });
     mockPrisma.comment.update.mockResolvedValue({ reportCount: 1, status: 1 });
     mockPrisma.notification.create.mockResolvedValue({});
+    mockPrisma.$transaction.mockImplementation((callback: any) => callback(mockPrisma));
   });
 
   it('正常创建评论举报', async () => {

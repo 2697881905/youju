@@ -3,6 +3,7 @@ import { Router, Response } from 'express';
 import { ok, fail, CODE } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
 import * as privacyService from '../services/privacyService';
+import { ValidationError } from '../utils/errors';
 
 const router = Router();
 
@@ -22,6 +23,9 @@ router.put('/me/privacy', auth, async (req: AuthRequest, res: Response) => {
     const settings = await privacyService.updateSettings(req.userId!, req.body ?? {});
     return ok(res, settings);
   } catch (e) {
+    if (e instanceof ValidationError) {
+      return fail(res, CODE.BAD_REQUEST, e.message, 400);
+    }
     return fail(res, CODE.SERVER_ERROR, (e as Error).message);
   }
 });

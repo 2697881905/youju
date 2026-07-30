@@ -1,10 +1,11 @@
 import { prisma } from '../prisma';
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env';
+import { sessionUserView } from '../utils/userView';
 
 // 附加 isAdmin 标记（运行时由 env.adminUserIds 计算，避免改动 DB schema）
 function withIsAdmin(user: any) {
-  return { ...user, isAdmin: env.adminUserIds.includes(user.id) };
+  return sessionUserView(user, env.adminUserIds.includes(user.id));
 }
 
 // 鸿蒙账号授权登录（MVP：前端传 openId；后续接 Account Kit 真实鉴权）
@@ -73,7 +74,7 @@ export async function updateProfile(
   bio?: string,
   gender?: number | null,
 ) {
-  return prisma.user.update({
+  const user = await prisma.user.update({
     where: { id: userId },
     data: {
       ...(nickname ? { nickname } : {}),
@@ -82,6 +83,7 @@ export async function updateProfile(
       ...(gender !== undefined ? { gender } : {}),
     },
   });
+  return withIsAdmin(user);
 }
 
 // 注销（软删）：置 deletedAt + 匿名化昵称 + 清空头像。
@@ -89,14 +91,23 @@ export async function updateProfile(
 export const DELETED_NICKNAME = '已注销用户';
 
 export async function deactivateUser(userId: number) {
-  return prisma.user.update({
-    where: { id: userId },
-    data: {
-      deletedAt: new Date(),
-      nickname: DELETED_NICKNAME,
-      avatar: null,
-    },
-  });
+  const [, , user] = await prisma.$transaction([
+    prisma.pushToken.deleteMany({ where: { userId } }),
+    prisma.userBinding.deleteMany({ where: { userId } }),
+    prisma.user.update({
+      where: { id: userId },
+      data: {
+        deletedAt: new Date(),
+        nickname: DELETED_NICKNAME,
+        avatar: null,
+        bio: null,
+        gender: null,
+        openId: null,
+        unionID: null,
+      },
+    }),
+  ]);
+  return user;
 }
 
 // 记录隐私政策同意（PIPL 可追溯）：落地同意版本与时间戳。
