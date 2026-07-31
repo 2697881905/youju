@@ -123,10 +123,6 @@ export struct ImagePicker {
 
   build() {
     Column({ space: 8 }) {
-      Text('图片 · 最多 ' + this.maxCount + ' 张')
-        .fontSize(13)
-        .fontColor($r('app.color.text_secondary'))
-
       Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Start, space: { main: LengthMetrics.px(8), cross: LengthMetrics.px(8) } }) {
         ForEach(this.items, (item: PickedImage, idx: number) => {
           Stack() {
