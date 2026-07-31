@@ -261,8 +261,8 @@ export struct PostCard {
   build() {
     // design tokens: color.elevated / radius.lg / space.base / shadow.card。
     BaseCard({
-      cardPadding: this.compact ? SpaceTokens.sm : SpaceTokens.base,
-      radius: this.compact ? RadiusTokens.sm : RadiusTokens.lg,
+      cardPadding: this.compact ? SpaceTokens.xs : SpaceTokens.base,
+      radius: this.compact ? RadiusTokens.xs : RadiusTokens.lg,
       elevation: 1,
       pressable: this.onOpen !== undefined,
       action: () => { this.openCard(); },
