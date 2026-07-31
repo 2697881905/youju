@@ -236,6 +236,7 @@ export struct PostCard {
       }
       .alignItems(VerticalAlign.Center)
     }
+    .position({ right: -(this.compact ? SpaceTokens.xs : SpaceTokens.base), bottom: -(this.compact ? SpaceTokens.xs : SpaceTokens.base) })
   }
 
   @Builder
@@ -283,7 +284,6 @@ export struct PostCard {
 
         if (this.hasAuthor()) {
           this.authorCornerSlot()
-            .position({ right: -(this.compact ? SpaceTokens.xs : SpaceTokens.base), bottom: -(this.compact ? SpaceTokens.xs : SpaceTokens.base) })
         }
       }
       .width('100%')
