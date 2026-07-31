@@ -199,40 +199,43 @@ export struct PostCard {
     })
   }
 
-  // 卡片底部采用单行布局：互动数据靠左，作者信息靠右，避免作者独占一整行。
+  // 卡片底部采用单行布局：互动数据靠左，作者信息已移至卡片右下角（见 authorCornerSlot）。
   @Builder
   footerSlot(): void {
     Row() {
       this.statSlot()
       Blank().layoutWeight(1)
-      if (this.hasAuthor()) {
-        Pressable({
-          visualHeight: IconTokens.compact,
-          touchTargetHeight: LayoutTokens.minTouchTarget,
-          action: (): void => { this.goUser(); },
-        }) {
-          Row({ space: SpaceTokens.inlineTight }) {
-            Avatar({
-              avatar: this.authorAvatar(),
-              name: this.authorName(),
-              avatarSize: this.compact ? 20 : IconTokens.avatarCompact,
-            })
-            Text(this.authorName())
-              .fontSize(this.compact ? TypeTokens.overline.size : TypeTokens.caption.size)
-              .fontWeight(TypeTokens.caption.weight)
-              .lineHeight(TypeTokens.caption.lineHeight)
-              .letterSpacing(TypeTokens.caption.tracking)
-              .fontColor(ColorTokens.secondary)
-              .constraintSize({ maxWidth: this.compact ? 88 : 132 })
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-          }
-          .alignItems(VerticalAlign.Center)
-        }
-      }
     }
     .width('100%')
     .alignItems(VerticalAlign.Center)
+  }
+
+  // 作者头像+昵称钉在卡片右下角（绝对定位，抵消卡片内边距后正好落在卡片真实边角）。
+  @Builder
+  authorCornerSlot(): void {
+    Pressable({
+      visualHeight: IconTokens.compact,
+      touchTargetHeight: LayoutTokens.minTouchTarget,
+      action: (): void => { this.goUser(); },
+    }) {
+      Row({ space: SpaceTokens.inlineTight }) {
+        Avatar({
+          avatar: this.authorAvatar(),
+          name: this.authorName(),
+          avatarSize: this.compact ? 20 : IconTokens.avatarCompact,
+        })
+        Text(this.authorName())
+          .fontSize(this.compact ? TypeTokens.overline.size : TypeTokens.caption.size)
+          .fontWeight(TypeTokens.caption.weight)
+          .lineHeight(TypeTokens.caption.lineHeight)
+          .letterSpacing(TypeTokens.caption.tracking)
+          .fontColor(ColorTokens.secondary)
+          .constraintSize({ maxWidth: this.compact ? 88 : 132 })
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .alignItems(VerticalAlign.Center)
+    }
   }
 
   @Builder
@@ -267,15 +270,23 @@ export struct PostCard {
       pressable: this.onOpen !== undefined,
       action: () => { this.openCard(); },
     }) {
-      Column({ space: this.compact ? SpaceTokens.xs : SpaceTokens.item }) {
-        this.mediaSlot()
-        this.titleSlot()
-        this.pollSlot()
-        this.footerSlot()
-        this.cancelBookmarkSlot()
+      Stack({ alignContent: Alignment.TopStart }) {
+        Column({ space: this.compact ? SpaceTokens.xs : SpaceTokens.item }) {
+          this.mediaSlot()
+          this.titleSlot()
+          this.pollSlot()
+          this.footerSlot()
+          this.cancelBookmarkSlot()
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
+
+        if (this.hasAuthor()) {
+          this.authorCornerSlot()
+            .position({ right: -(this.compact ? SpaceTokens.xs : SpaceTokens.base), bottom: -(this.compact ? SpaceTokens.xs : SpaceTokens.base) })
+        }
       }
       .width('100%')
-      .alignItems(HorizontalAlign.Start)
     }
   }
 }
