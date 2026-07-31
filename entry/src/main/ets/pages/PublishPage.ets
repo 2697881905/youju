@@ -314,8 +314,8 @@ export struct PublishPage {
 
   @Builder
   sectionHeader(icon: Resource, titleText: string, caption: string): void {
-    Row({ space: SpaceTokens.item }) {
-      IconTile({ icon: icon, tileSize: IconTokens.empty, iconSize: IconTokens.standard })
+    Row({ space: SpaceTokens.sm }) {
+      IconTile({ icon: icon, tileSize: LayoutTokens.minTouchTarget, iconSize: IconTokens.standard, showBackground: false })
       Column({ space: SpaceTokens.xs }) {
         Text(titleText)
           .fontSize(TypeTokens.headline.size)
@@ -340,8 +340,8 @@ export struct PublishPage {
 
   @Builder
   genreSectionHeader(): void {
-    Row({ space: SpaceTokens.item }) {
-      IconTile({ icon: this.currentGenreIcon(), tileSize: IconTokens.empty, iconSize: IconTokens.standard })
+    Row({ space: SpaceTokens.sm }) {
+      IconTile({ icon: this.currentGenreIcon(), tileSize: LayoutTokens.minTouchTarget, iconSize: IconTokens.standard, showBackground: false })
       Column({ space: SpaceTokens.xs }) {
         Text('创作类型')
           .fontSize(TypeTokens.headline.size)
@@ -366,8 +366,8 @@ export struct PublishPage {
 
   @Builder
   topComposerBar(): void {
-    GlassPanel({ panelPadding: SpaceTokens.item, radius: RadiusTokens.xl }) {
-      Row({ space: SpaceTokens.item }) {
+    GlassPanel({ panelPadding: SpaceTokens.md, radius: RadiusTokens.lg }) {
+      Row({ space: SpaceTokens.sm }) {
         Pressable({
           visualHeight: LayoutTokens.minTouchTarget,
           action: () => { this.reset(); },
@@ -409,8 +409,8 @@ export struct PublishPage {
 
   @Builder
   genreSection(): void {
-    BaseCard({ cardPadding: SpaceTokens.base, radius: RadiusTokens.lg, elevation: 1 }) {
-      Column({ space: SpaceTokens.block }) {
+    BaseCard({ cardPadding: SpaceTokens.md, radius: RadiusTokens.md, elevation: 1 }) {
+      Column({ space: SpaceTokens.md }) {
         this.genreSectionHeader()
         ChipRow({
           items: GENRE_CHIPS,
@@ -418,6 +418,7 @@ export struct PublishPage {
           showIcon: false,
           sidePadding: SpaceTokens.none,
           itemGap: SpaceTokens.inline,
+          compact: true,
           onSelect: (index: number): void => {
             this.genre = GENRE_LIST[index].key;
           },
@@ -430,9 +431,9 @@ export struct PublishPage {
   }
 
   @Builder
-  editorSection(): void {
-    BaseCard({ cardPadding: SpaceTokens.base, radius: RadiusTokens.lg, elevation: 1 }) {
-      Column({ space: SpaceTokens.item }) {
+  compositionSection(): void {
+    BaseCard({ cardPadding: SpaceTokens.md, radius: RadiusTokens.md, elevation: 1 }) {
+      Column({ space: SpaceTokens.sm }) {
         this.sectionHeader($r('app.media.book_doc'), '正文', '先写清楚结论，再补充过程与证据')
         TextInput({ text: this.title, placeholder: '一句话标题' })
           .width('100%')
@@ -447,7 +448,8 @@ export struct PublishPage {
         Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
         TextArea({ text: this.content, placeholder: '展开讲讲背景、过程、结论。尽量给出你踩过的坑、判断标准和适用人群。' })
           .width('100%')
-          .height(LayoutTokens.composerBodyHeight)
+          // 默认正文区略短一些，让首屏能看到更多发布结构；输入时仍可继续滚动编辑。
+          .height(104)
           .fontSize(TypeTokens.body.size)
           .fontWeight(TypeTokens.body.weight)
           .lineHeight(TypeTokens.body.lineHeight)
@@ -456,34 +458,7 @@ export struct PublishPage {
           .placeholderColor(ColorTokens.quaternary)
           .backgroundColor(Color.Transparent)
           .onChange((value: string) => { this.content = value; })
-      }
-      .width('100%')
-      .alignItems(HorizontalAlign.Start)
-    }
-  }
-
-  @Builder
-  mediaSection(): void {
-    BaseCard({ cardPadding: SpaceTokens.xs, radius: RadiusTokens.lg, elevation: 1 }) {
-      Column({ space: SpaceTokens.item }) {
-        Row({ space: SpaceTokens.item }) {
-          IconTile({ icon: $r('app.media.layered_image'), tileSize: IconTokens.empty, iconSize: IconTokens.standard })
-          Column({ space: SpaceTokens.xs }) {
-            Text('图片')
-              .fontSize(TypeTokens.headline.size)
-              .fontWeight(TypeTokens.headline.weight)
-              .lineHeight(TypeTokens.headline.lineHeight)
-              .fontColor(ColorTokens.primary)
-            Text('最多 ' + MAX_PICKED_IMAGES + ' 张，第一张会作为封面')
-              .fontSize(TypeTokens.callout.size)
-              .fontWeight(TypeTokens.callout.weight)
-              .lineHeight(TypeTokens.callout.lineHeight)
-              .fontColor(ColorTokens.secondary)
-          }
-          .layoutWeight(1)
-          .alignItems(HorizontalAlign.Start)
-        }
-        .padding({ left: SpaceTokens.item, right: SpaceTokens.item, top: SpaceTokens.item })
+        Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator).margin({ top: SpaceTokens.sm })
         ImagePicker({ selected: $images, maxCount: MAX_PICKED_IMAGES })
       }
       .width('100%')
@@ -518,8 +493,8 @@ export struct PublishPage {
 
   @Builder
   tagSection(): void {
-    BaseCard({ cardPadding: SpaceTokens.base, radius: RadiusTokens.lg, elevation: 1 }) {
-      Column({ space: SpaceTokens.block }) {
+    BaseCard({ cardPadding: SpaceTokens.md, radius: RadiusTokens.md, elevation: 1 }) {
+      Column({ space: SpaceTokens.md }) {
         this.sectionHeader($r('app.media.tag_all'), '发布到圈子', '最多选择 ' + MAX_SELECTED_TAGS + ' 个，让帖子去对的地方')
         if (this.selectedTags.length > 0) {
           Flex({
@@ -586,15 +561,15 @@ export struct PublishPage {
 
   @Builder
   structuredSection(): void {
-    BaseCard({ cardPadding: SpaceTokens.base, radius: RadiusTokens.lg, elevation: 1 }) {
-      Column({ space: SpaceTokens.block }) {
+    BaseCard({ cardPadding: SpaceTokens.md, radius: RadiusTokens.md, elevation: 1 }) {
+      Column({ space: SpaceTokens.md }) {
         Pressable({
           fillWidth: true,
           visualHeight: LayoutTokens.minTouchTarget,
           action: () => { this.showFields = !this.showFields; },
         }) {
-          Row({ space: SpaceTokens.item }) {
-            IconTile({ icon: $r('app.media.set_edit'), tileSize: IconTokens.empty, iconSize: IconTokens.standard })
+          Row({ space: SpaceTokens.sm }) {
+            IconTile({ icon: $r('app.media.set_edit'), tileSize: LayoutTokens.minTouchTarget, iconSize: IconTokens.standard, showBackground: false })
             Column({ space: SpaceTokens.xs }) {
               Text('结构化补充')
                 .fontSize(TypeTokens.headline.size)
@@ -618,7 +593,7 @@ export struct PublishPage {
           .alignItems(VerticalAlign.Center)
         }
         Collapse({ expanded: this.showFields }) {
-          Column({ space: SpaceTokens.item }) {
+          Column({ space: SpaceTokens.sm }) {
             ForEach(genreFieldDefs(this.genre), (item: FieldDef) => {
               this.fieldInput(item)
             }, (item: FieldDef) => item[0] as string)
@@ -688,10 +663,10 @@ export struct PublishPage {
         }
       }
       .width('100%')
-      .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: SpaceTokens.item, bottom: SpaceTokens.item })
+      .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
 
       Scroll() {
-        Column({ space: SpaceTokens.section }) {
+        Column({ space: SpaceTokens.md }) {
           if (this.categoryList.length === 0) {
             BaseCard({ cardPadding: SpaceTokens.xl, radius: RadiusTokens.lg, elevation: 1 }) {
               Text('圈子加载中，稍后再试')
@@ -702,7 +677,7 @@ export struct PublishPage {
             }
           }
           ForEach(this.categoryList, (cat: string) => {
-            Column({ space: SpaceTokens.item }) {
+            Column({ space: SpaceTokens.sm }) {
               Text(cat)
                 .fontSize(TypeTokens.overline.size)
                 .fontWeight(TypeTokens.overline.weight)
@@ -726,7 +701,7 @@ export struct PublishPage {
           Row().height(SpaceTokens.x2l).width('100%')
         }
         .width('100%')
-        .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, bottom: SpaceTokens.base })
+        .padding({ left: SpaceTokens.md, right: SpaceTokens.md, bottom: SpaceTokens.md })
         .alignItems(HorizontalAlign.Start)
       }
       .layoutWeight(1)
@@ -746,17 +721,17 @@ export struct PublishPage {
   build() {
     Stack({ alignContent: Alignment.Top }) {
       Scroll() {
-        Column({ space: SpaceTokens.section }) {
-          Row().height(LayoutTokens.composerTopOverlayReserve).width('100%')
+        Column({ space: SpaceTokens.md }) {
+          // 顶部玻璃栏仍悬浮覆盖内容，但首张卡片不再被过大的预留空间推低。
+          Row().height(84).width('100%')
           this.genreSection()
-          this.editorSection()
-          this.mediaSection()
+          this.compositionSection()
           this.tagSection()
           this.structuredSection()
           Row().height(SpaceTokens.x2l).width('100%')
         }
         .width('100%')
-        .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, bottom: SpaceTokens.base })
+        .padding({ left: SpaceTokens.md, right: SpaceTokens.md, bottom: SpaceTokens.md })
         .alignItems(HorizontalAlign.Start)
       }
       .width('100%')
@@ -769,7 +744,7 @@ export struct PublishPage {
         this.topComposerBar()
       }
       .width('100%')
-      .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: SpaceTokens.sm, bottom: SpaceTokens.item })
+      .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.xs, bottom: SpaceTokens.sm })
 
       if (this.showTagPanel) {
         this.tagPanel()
