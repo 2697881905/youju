@@ -2,12 +2,13 @@ import { Post, User } from '../models/types';
 import { upPost, cancelUpPost } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 import { likeStore } from '../utils/likeStore';
-import { AuthorRow } from '../design/components/AuthorRow';
+import { Avatar } from '../design/components/Avatar';
 import { BaseCard } from '../design/components/BaseCard';
 import { PollBlock } from '../design/components/PollBlock';
 import { StatRow } from '../design/components/StatRow';
 import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
+import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
@@ -15,6 +16,8 @@ import { TypeTokens } from '../design/tokens/type';
 @Component
 export struct PostCard {
   @Prop post: Post = {};
+  // 首页信息流以更高的信息密度呈现；个人页等场景维持默认尺寸。
+  @Prop compact: boolean = false;
 
   onOpen?: () => void = undefined;
   onCancelBookmark?: (id: number) => void = undefined;
@@ -152,7 +155,7 @@ export struct PostCard {
     if (this.hasCover()) {
       Image(this.coverImage())
         .width('100%')
-        .aspectRatio(LayoutTokens.cardMediaAspectRatio)
+        .aspectRatio(this.compact ? 1.28 : LayoutTokens.cardMediaAspectRatio)
         .objectFit(ImageFit.Cover)
         .borderRadius(RadiusTokens.xs)
         .clip(true)
@@ -164,9 +167,9 @@ export struct PostCard {
   titleSlot(): void {
     // design tokens: type.headline / color.primary。
     Text(this.post.title ?? '')
-      .fontSize(TypeTokens.headline.size)
+      .fontSize(this.compact ? TypeTokens.body.size : TypeTokens.headline.size)
       .fontWeight(TypeTokens.headline.weight)
-      .lineHeight(TypeTokens.headline.lineHeight)
+      .lineHeight(this.compact ? 20 : TypeTokens.headline.lineHeight)
       .letterSpacing(TypeTokens.headline.tracking)
       .fontColor(ColorTokens.primary)
       .maxLines(2)
@@ -179,23 +182,8 @@ export struct PostCard {
       PollBlock({
         planA: this.pollPlanA(),
         planB: this.pollPlanB(),
+        compact: this.compact,
       })
-    }
-  }
-
-  @Builder
-  authorSlot(): void {
-    if (this.hasAuthor()) {
-      Pressable({
-        action: () => { this.goUser(); },
-        fillWidth: true,
-      }) {
-        AuthorRow({
-          avatar: this.authorAvatar(),
-          name: this.authorName(),
-          compact: true,
-        })
-      }
     }
   }
 
@@ -205,8 +193,46 @@ export struct PostCard {
       liked: this.liked,
       likeCount: this.likeCount,
       commentCount: this.post.commentCount ?? 0,
+      showComment: false,
+      compact: this.compact,
       onLike: () => { this.onLike(); },
     })
+  }
+
+  // 卡片底部采用单行布局：互动数据靠左，作者信息靠右，避免作者独占一整行。
+  @Builder
+  footerSlot(): void {
+    Row() {
+      this.statSlot()
+      Blank().layoutWeight(1)
+      if (this.hasAuthor()) {
+        Pressable({
+          visualHeight: IconTokens.compact,
+          touchTargetHeight: LayoutTokens.minTouchTarget,
+          action: (): void => { this.goUser(); },
+        }) {
+          Row({ space: SpaceTokens.inlineTight }) {
+            Avatar({
+              avatar: this.authorAvatar(),
+              name: this.authorName(),
+              avatarSize: this.compact ? 20 : IconTokens.avatarCompact,
+            })
+            Text(this.authorName())
+              .fontSize(this.compact ? TypeTokens.overline.size : TypeTokens.caption.size)
+              .fontWeight(TypeTokens.caption.weight)
+              .lineHeight(TypeTokens.caption.lineHeight)
+              .letterSpacing(TypeTokens.caption.tracking)
+              .fontColor(ColorTokens.secondary)
+              .constraintSize({ maxWidth: this.compact ? 88 : 132 })
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+          }
+          .alignItems(VerticalAlign.Center)
+        }
+      }
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Center)
   }
 
   @Builder
@@ -235,18 +261,17 @@ export struct PostCard {
   build() {
     // design tokens: color.elevated / radius.lg / space.base / shadow.card。
     BaseCard({
-      cardPadding: SpaceTokens.base,
-      radius: RadiusTokens.lg,
+      cardPadding: this.compact ? SpaceTokens.sm : SpaceTokens.base,
+      radius: this.compact ? RadiusTokens.sm : RadiusTokens.lg,
       elevation: 1,
       pressable: this.onOpen !== undefined,
       action: () => { this.openCard(); },
     }) {
-      Column({ space: SpaceTokens.item }) {
+      Column({ space: this.compact ? SpaceTokens.xs : SpaceTokens.item }) {
         this.mediaSlot()
         this.titleSlot()
         this.pollSlot()
-        this.authorSlot()
-        this.statSlot()
+        this.footerSlot()
         this.cancelBookmarkSlot()
       }
       .width('100%')
