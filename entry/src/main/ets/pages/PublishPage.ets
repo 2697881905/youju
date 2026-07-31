@@ -315,7 +315,7 @@ export struct PublishPage {
   @Builder
   sectionHeader(icon: Resource, titleText: string, caption: string): void {
     Row({ space: SpaceTokens.sm }) {
-      IconTile({ icon: icon, tileSize: LayoutTokens.minTouchTarget, iconSize: IconTokens.standard, showBackground: false })
+      IconTile({ icon: icon, tileSize: 58, iconSize: 32, showBackground: false })
       Column({ space: SpaceTokens.xs }) {
         Text(titleText)
           .fontSize(TypeTokens.headline.size)
@@ -341,7 +341,7 @@ export struct PublishPage {
   @Builder
   genreSectionHeader(): void {
     Row({ space: SpaceTokens.sm }) {
-      IconTile({ icon: this.currentGenreIcon(), tileSize: LayoutTokens.minTouchTarget, iconSize: IconTokens.standard, showBackground: false })
+      IconTile({ icon: this.currentGenreIcon(), tileSize: 58, iconSize: 32, showBackground: false })
       Column({ space: SpaceTokens.xs }) {
         Text('创作类型')
           .fontSize(TypeTokens.headline.size)
@@ -569,7 +569,7 @@ export struct PublishPage {
           action: () => { this.showFields = !this.showFields; },
         }) {
           Row({ space: SpaceTokens.sm }) {
-            IconTile({ icon: $r('app.media.set_edit'), tileSize: LayoutTokens.minTouchTarget, iconSize: IconTokens.standard, showBackground: false })
+            IconTile({ icon: $r('app.media.set_edit'), tileSize: 58, iconSize: 32, showBackground: false })
             Column({ space: SpaceTokens.xs }) {
               Text('结构化补充')
                 .fontSize(TypeTokens.headline.size)
