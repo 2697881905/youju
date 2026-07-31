@@ -7,7 +7,7 @@ import { ensureLogin, getCurrentUser } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
 import { setDetailPostId } from '../utils/nav';
 import { observeGridColumns, gridColumnTemplate } from '../utils/responsive';
-import { GRID_GAP, GRID_PADDING, barBottomReserve } from '../utils/cardTokens';
+import { barBottomReserve } from '../utils/cardTokens';
 import { common } from '@kit.AbilityKit';
 import { likeStore } from '../utils/likeStore';
 import { resolveSettingsIcon } from '../utils/settingsIcons';
@@ -16,7 +16,6 @@ import { DesignButton } from '../design/components/DesignButton';
 import { EmptyState } from '../design/components/EmptyState';
 import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
 import { Pressable } from '../design/motion/Pressable';
-import { Reveal } from '../design/motion/Reveal';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
@@ -58,12 +57,15 @@ export struct ProfilePage {
   // 当前激活的底部 Tab（由 Index 经 AppStorage 广播），用于感知「我的」页是否可见，
   // 切到本页时重新拉取列表，使「我赞过/我收藏」在跨页点赞、取消收藏后即时刷新。
   @StorageLink('activeTab') @Watch('onActiveTab') activeTab: number = 0;
+  @StorageLink('authToken') @Watch('onTokenReady') token: string = '';
   // 响应式列数（按屏幕宽度 2/3/4 列自适应）
   @State gridColumns: number = 2;
   @State gridTemplate: string = '1fr 1fr';
   private unregisterColumns: () => void = () => {};
   // 每次切换分段或刷新都推进版本号；延迟返回的旧请求不能覆盖当前分段的数据。
   private listVersion: number = 0;
+  // 模拟器启动时后端端口转发可能尚未就绪，个人页列表失败后自动补拉一次。
+  private retryTimer: number = 0;
   // 订阅全局点赞仓库：任意位置取消点赞后，「我赞过」列表即时移除该帖（不依赖切 Tab / onPageShow）
   private unsubLike: () => void = () => {};
 
@@ -94,6 +96,10 @@ export struct ProfilePage {
   aboutToDisappear(): void {
     this.unregisterColumns();
     this.unsubLike();
+    if (this.retryTimer !== 0) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = 0;
+    }
   }
 
   // 切回「我的」Tab 时，重新拉取当前子 Tab 的帖子列表：
@@ -105,6 +111,12 @@ export struct ProfilePage {
     if (!this.ready) {
       this.init();
     } else {
+      this.refresh();
+    }
+  }
+
+  onTokenReady(): void {
+    if (this.token !== '' && this.activeTab === 4 && this.ready && this.posts.length === 0) {
       this.refresh();
     }
   }
@@ -272,6 +284,13 @@ export struct ProfilePage {
     } catch (e) {
       if (version === this.listVersion) {
         this.error = (e as Error).message;
+        const msg: string = this.error.toLowerCase();
+        if ((msg.includes('connect') || msg.includes('refused') || msg.includes('network') || msg.includes('无法连接后端')) && this.retryTimer === 0) {
+          this.retryTimer = setTimeout((): void => {
+            this.retryTimer = 0;
+            this.refresh();
+          }, 1500) as number;
+        }
       }
     } finally {
       if (version === this.listVersion) {
@@ -337,6 +356,33 @@ export struct ProfilePage {
         .textAlign(TextAlign.Center)
         .padding(SpaceTokens.base)
     }
+    // 使用真实 footer 占位，而不是依赖 WaterFlow padding，确保 Refresh 嵌套时
+    // 最后一张卡片仍可滚动到悬浮底栏上方。
+    Column() {
+      Blank()
+        .width('100%')
+        .height(barBottomReserve())
+    }
+    .width('100%')
+  }
+
+  @Builder
+  profilePostCard(post: Post): void {
+    PostCard({
+      post: post,
+      compact: true,
+      onOpen: () => {
+        if (post.id !== undefined) {
+          const id = post.id.toString();
+          AppStorage.setOrCreate('detailPostId', id);
+          setDetailPostId(id);
+          this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
+        }
+      },
+      onCancelBookmark: this.tabIdx === 1
+        ? (id: number): void => { this.handleCancelBookmark(id); }
+        : undefined,
+    })
   }
 
   build() {
@@ -375,17 +421,53 @@ export struct ProfilePage {
       .padding({
         left: SpaceTokens.pageCompact,
         right: SpaceTokens.pageCompact,
-        top: SpaceTokens.md,
-        bottom: SpaceTokens.sm,
+        top: SpaceTokens.xs,
+        bottom: SpaceTokens.xs,
       })
 
       // 用户信息卡
-      Row({ space: SpaceTokens.item }) {
-        Avatar({
-          avatar: this.user.avatar ?? '',
-          name: this.user.nickname ?? '我',
-          avatarSize: IconTokens.avatarProfile,
-        })
+      Row({ space: SpaceTokens.sm }) {
+        // 头像前景叠在左上方扩散的粉色柔光色场上，不用硬边框或形状裁剪。
+        // 透明 PNG 会自然悬浮；普通照片仍由 Avatar 保持圆形，避免破坏识别度。
+        Stack() {
+          Column()
+            .width(224)
+            .height(224)
+            .position({ x: -50, y: -50 })
+            .radialGradient({
+              center: [104, 120],
+              radius: 134,
+              colors: [
+                ['#82FF84B4', 0.0],
+                ['#52FF9BC3', 0.34],
+                ['#1AFFC0D4', 0.66],
+                [ColorTokens.glassClear, 1.0],
+              ],
+            })
+            .hitTestBehavior(HitTestMode.None)
+          Column()
+            .width(150)
+            .height(150)
+            .position({ x: -9, y: -7 })
+            .radialGradient({
+              center: [70, 74],
+              radius: 74,
+              colors: [
+                ['#8CFFFFFF', 0.0],
+                [ColorTokens.glassClear, 1.0],
+              ],
+            })
+            .hitTestBehavior(HitTestMode.None)
+          Avatar({
+            avatar: this.user.avatar ?? '',
+            name: this.user.nickname ?? '我',
+            avatarSize: 76,
+          })
+            .position({ x: 22, y: 34 })
+        }
+        .width(132)
+        .height(126)
+
         Column({ space: SpaceTokens.inlineTight }) {
           Row({ space: SpaceTokens.inline }) {
             Text(this.user.nickname ?? '未登录')
@@ -396,17 +478,19 @@ export struct ProfilePage {
               .fontColor(ColorTokens.primary)
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
-            if (this.user.gender === 1 || this.user.gender === 2) {
-              Text(this.user.gender === 1 ? '男' : '女')
-                .fontSize(TypeTokens.overline.size)
-                .fontWeight(TypeTokens.overline.weight)
-                .lineHeight(TypeTokens.overline.lineHeight)
-                .letterSpacing(TypeTokens.overline.tracking)
-                .fontColor(ColorTokens.brand)
-                .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.inlineTight, bottom: SpaceTokens.inlineTight })
-                .backgroundColor(ColorTokens.brandTint)
-                .borderRadius(RadiusTokens.pill)
-            }
+            Text(this.user.gender === 1 ? '男' : this.user.gender === 2 ? '女' : '保密')
+              .fontSize(TypeTokens.overline.size)
+              .fontWeight(TypeTokens.overline.weight)
+              .lineHeight(TypeTokens.overline.lineHeight)
+              .letterSpacing(TypeTokens.overline.tracking)
+              .fontColor(this.user.gender === 1
+                ? ColorTokens.brand
+                : this.user.gender === 2 ? '#D94F87' : ColorTokens.secondary)
+              .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.inlineTight, bottom: SpaceTokens.inlineTight })
+              .backgroundColor(this.user.gender === 1
+                ? ColorTokens.brandTint
+                : this.user.gender === 2 ? '#FFF0F5' : ColorTokens.sunken)
+              .borderRadius(RadiusTokens.pill)
           }
           if (this.user.bio) {
             Text(this.user.bio)
@@ -426,28 +510,20 @@ export struct ProfilePage {
             .fontFeature(TypeTokens.tabularFeature)
             .fontColor(ColorTokens.tertiary)
         }
-        .alignItems(HorizontalAlign.Start)
+        .alignItems(HorizontalAlign.End)
         .layoutWeight(1)
 
-        // 编辑资料入口（原设置页入口，移至此处头像/名称右侧）
-        DesignButton({
-          label: '编辑资料',
-          variant: 'ghost',
-          action: (): void => {
-            this.getUIContext().getRouter().pushUrl({ url: 'pages/EditProfilePage' });
-          },
-        })
       }
       .width('100%')
       .padding({
         left: SpaceTokens.pageCompact,
         right: SpaceTokens.pageCompact,
-        top: SpaceTokens.sm,
-        bottom: SpaceTokens.sm,
+        top: SpaceTokens.xs,
+        bottom: SpaceTokens.xs,
       })
 
       // 关注 / 粉丝入口
-      Row({ space: SpaceTokens.lg }) {
+      Row({ space: SpaceTokens.sm }) {
         Pressable({
           visualHeight: LayoutTokens.segmentedHeight,
           touchTargetHeight: LayoutTokens.minTouchTarget,
@@ -514,21 +590,46 @@ export struct ProfilePage {
         }
         .width(LayoutTokens.profileStatWidth)
         .alignItems(HorizontalAlign.Start)
+
+        // 编辑资料入口与统计数据同一行，采用底部栏同款紧凑玻璃样式。
+        Blank().layoutWeight(1)
+        Pressable({
+          visualHeight: LayoutTokens.segmentedHeight,
+          touchTargetHeight: LayoutTokens.minTouchTarget,
+          action: (): void => {
+            this.getUIContext().getRouter().pushUrl({ url: 'pages/EditProfilePage' });
+          },
+        }) {
+          Text('编辑资料')
+            .fontSize(TypeTokens.caption.size)
+            .fontWeight(TypeTokens.headline.weight)
+            .lineHeight(TypeTokens.caption.lineHeight)
+            .fontColor(ColorTokens.primary)
+            .width(76)
+            .height(LayoutTokens.segmentedHeight)
+            .textAlign(TextAlign.Center)
+            .backgroundColor(ColorTokens.barSurface)
+            .backdropBlur(LayoutTokens.glassBlur)
+            .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+            .borderRadius(RadiusTokens.floatingBar)
+            .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
+        }
       }
       .width('100%')
-      .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, bottom: SpaceTokens.item })
+      .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, bottom: SpaceTokens.sm })
 
       // 内容分段
       SegmentedControl({
         items: PROFILE_SEGMENTS,
         selectedIndex: $tabIdx,
         itemWidth: 67,
+        glass: true,
         onSelect: (idx: number): void => { this.onTabChange(idx); },
       })
       .margin({
         left: SpaceTokens.pageCompact,
         right: SpaceTokens.pageCompact,
-        bottom: SpaceTokens.sm,
+        bottom: SpaceTokens.xs,
       })
 
       // 列表区
@@ -564,37 +665,37 @@ export struct ProfilePage {
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center)
       } else {
         Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
-          // PostCard 高度随图文内容变化，使用瀑布流而非等高行 Grid，
-          // 让短卡片下方可立即续排下一张卡片。
-          WaterFlow({ footer: this.postFooter }) {
-            ForEach(this.posts, (post: Post, idx: number) => {
-              FlowItem() {
-                Reveal({ index: idx % 5 }) {
-                  PostCard({
-                    post: post,
-                    onOpen: () => {
-                      if (post.id !== undefined) {
-                        const id = post.id.toString();
-                        AppStorage.setOrCreate('detailPostId', id);
-                        setDetailPostId(id);
-                        this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
-                      }
-                    },
-                    // 仅「我收藏」Tab 传取消收藏回调；「我发布」Tab 不传（不显示取消入口）
-                    onCancelBookmark: this.tabIdx === 1
-                      ? (id: number): void => {
-                          this.handleCancelBookmark(id);
-                        }
-                      : undefined,
-                  })
+          // 显式双列：偶数项固定左列、奇数项固定右列，首项始终位于左上角。
+          // 两列独立排列，保留瀑布流的紧凑效果且不受 WaterFlow 列测量顺序影响。
+          Scroll() {
+            Column() {
+              Row({ space: SpaceTokens.xs }) {
+                Column({ space: SpaceTokens.xs }) {
+                  ForEach(this.posts.filter((_post: Post, idx: number) => idx % 2 === 0), (post: Post) => {
+                    this.profilePostCard(post)
+                  }, (post: Post) => this.tabIdx + '-left-' + (post.id ?? ''))
                 }
+                .layoutWeight(1)
+                Column({ space: SpaceTokens.xs }) {
+                  ForEach(this.posts.filter((_post: Post, idx: number) => idx % 2 === 1), (post: Post) => {
+                    this.profilePostCard(post)
+                  }, (post: Post) => this.tabIdx + '-right-' + (post.id ?? ''))
+                }
+                .layoutWeight(1)
               }
-            }, (post: Post) => this.tabIdx + '-' + (post.id?.toString() ?? ''))
+              .width('100%')
+              .alignItems(VerticalAlign.Top)
+              Column() {
+                Blank().width('100%').height(barBottomReserve())
+              }
+              .width('100%')
+            }
+            .width('100%')
+            .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.xs, bottom: SpaceTokens.md })
           }
-          .columnsTemplate(this.gridTemplate)
-          .columnsGap(GRID_GAP).rowsGap(GRID_GAP).padding({ left: GRID_PADDING, right: GRID_PADDING, top: GRID_PADDING, bottom: GRID_PADDING + barBottomReserve() })
-          .onScrollIndex((_start: number, end: number) => {
-            if (end >= this.posts.length - 1) {
+          .scrollable(ScrollDirection.Vertical)
+          .onScrollEdge((edge: Edge) => {
+            if (edge === Edge.Bottom) {
               this.loadMore();
             }
           })

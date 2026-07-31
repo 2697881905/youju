@@ -25,7 +25,7 @@ import { TypeTokens } from '../design/tokens/type';
 import { common } from '@kit.AbilityKit';
 import { BasicDataSource } from '../utils/data-source';
 import { observeGridColumns, gridColumnTemplate } from '../utils/responsive';
-import { GRID_GAP, GRID_PADDING, barBottomReserve } from '../utils/cardTokens';
+import { barBottomReserve } from '../utils/cardTokens';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 
 type SortKey = 'hot' | 'latest' | 'recommend';
@@ -74,6 +74,8 @@ export struct HomeTab {
   private unregisterColumns: () => void = () => {};
   // 标签自愈重试定时器句柄（0 表示未挂起）；避免一次性加载失败后标签栏永久卡在「全部」
   private tagsRetryTimer: number = 0;
+  // 模拟器启动时后端端口转发可能尚未就绪，信息流失败后自动补拉一次。
+  private feedRetryTimer: number = 0;
 
   aboutToAppear(): void {
     this.loadTags();
@@ -95,11 +97,15 @@ export struct HomeTab {
       clearTimeout(this.tagsRetryTimer);
       this.tagsRetryTimer = 0;
     }
+    if (this.feedRetryTimer !== 0) {
+      clearTimeout(this.feedRetryTimer);
+      this.feedRetryTimer = 0;
+    }
   }
 
   // token 由空变为非空（登录完成）→ 关注流且列表空、无 error 时自动补加载
   onTokenReady(): void {
-    if (this.token !== '' && this.feedMode === 'following' && this.posts.length === 0 && this.error === '') {
+    if (this.token !== '' && this.posts.length === 0 && (this.feedMode === 'following' || this.error !== '')) {
       this.refresh();
     }
   }
@@ -143,6 +149,11 @@ export struct HomeTab {
         if (!Array.isArray(tags)) {
           throw new Error('标签接口返回格式异常（非数组）');
         }
+        // 后端启动/种子初始化期间可能暂时返回空数组；不要把它当成成功，
+        // 否则标签栏会永久停留在“全部”，错过后续自动重试。
+        if (tags.length === 0) {
+          throw new Error('标签列表为空');
+        }
         this.displayTags = [ALL_TAG, ...tags];
         hilog.info(0x0000, 'HomeTab', 'loadTags ok, 圈子数=%{public}d', (tags as Tag[]).length);
         return true;
@@ -151,7 +162,7 @@ export struct HomeTab {
         const msg: string = lastErr.message ?? '未知错误';
         hilog.warn(0x0000, 'HomeTab', 'loadTags 第%{public}d次失败: %{public}s', attempt, msg);
         // 仅网络类错误重试（后端/端口转发未就绪的启动竞态），其余错误直接放弃
-        if (attempt < MAX && this.isConnError(msg)) {
+        if (attempt < MAX && (this.isConnError(msg) || msg.includes('标签列表为空'))) {
           await this.delay(1000);
           continue;
         }
@@ -258,6 +269,12 @@ export struct HomeTab {
       }
     } catch (e) {
       this.error = (e as Error).message;
+      if (this.isConnError(this.error) && this.feedRetryTimer === 0) {
+        this.feedRetryTimer = setTimeout((): void => {
+          this.feedRetryTimer = 0;
+          this.refresh();
+        }, 1500) as number;
+      }
     } finally {
       this.loading = false;
     }
@@ -355,7 +372,7 @@ export struct HomeTab {
               .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate })))
       } else {
         // 品牌标题 + 信息源分段 + 搜索入口
-        Row({ space: SpaceTokens.item }) {
+        Row({ space: SpaceTokens.sm }) {
           Text('大蓝书')
             .fontSize(TypeTokens.title.size)
             .fontWeight(TypeTokens.title.weight)
@@ -402,17 +419,18 @@ export struct HomeTab {
         .padding({
           left: SpaceTokens.pageCompact,
           right: SpaceTokens.pageCompact,
-          top: SpaceTokens.sm,
-          bottom: SpaceTokens.sm,
+          top: SpaceTokens.xs,
+          bottom: SpaceTokens.xs,
         })
         .width('100%')
 
         // 标签筛选栏
         TagNav({
           tags: this.displayTags,
-          selectedIndex: $tagIndex
+          selectedIndex: $tagIndex,
+          compact: true,
         })
-        .padding({ bottom: 8 })
+        .padding({ bottom: SpaceTokens.xs })
 
         // 列表区
         if (this.needLogin) {
@@ -499,6 +517,7 @@ export struct HomeTab {
                     Reveal({ index: idx % 5 }) {
                       PostCard({
                         post: post,
+                        compact: true,
                         onOpen: () => {
                           if (post.id !== undefined) {
                             const id = post.id.toString();
@@ -515,9 +534,14 @@ export struct HomeTab {
               )
             }
             .columnsTemplate(this.gridTemplate)
-            .columnsGap(GRID_GAP)
-            .rowsGap(GRID_GAP)
-            .padding({ left: GRID_PADDING, right: GRID_PADDING, top: GRID_PADDING, bottom: GRID_PADDING + barBottomReserve() })
+            .columnsGap(SpaceTokens.xs)
+            .rowsGap(SpaceTokens.xs)
+            .padding({
+              left: SpaceTokens.md,
+              right: SpaceTokens.md,
+              top: SpaceTokens.xs,
+              bottom: SpaceTokens.md + barBottomReserve(),
+            })
             .onScrollIndex((_start: number, end: number) => {
               if (end >= this.posts.length - 1) {
                 this.loadMore();
