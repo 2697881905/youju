@@ -219,11 +219,6 @@ export struct PostCard {
       action: (): void => { this.goUser(); },
     }) {
       Row({ space: SpaceTokens.inlineTight }) {
-        Avatar({
-          avatar: this.authorAvatar(),
-          name: this.authorName(),
-          avatarSize: this.compact ? 20 : IconTokens.avatarCompact,
-        })
         Text(this.authorName())
           .fontSize(this.compact ? TypeTokens.overline.size : TypeTokens.caption.size)
           .fontWeight(TypeTokens.caption.weight)
@@ -233,6 +228,11 @@ export struct PostCard {
           .constraintSize({ maxWidth: this.compact ? 88 : 132 })
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Avatar({
+          avatar: this.authorAvatar(),
+          name: this.authorName(),
+          avatarSize: this.compact ? 20 : IconTokens.avatarCompact,
+        })
       }
       .alignItems(VerticalAlign.Center)
     }
