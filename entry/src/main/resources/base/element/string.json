@@ -10,7 +10,11 @@
     },
     {
       "name": "EntryAbility_label",
-      "value": "label"
+      "value": "大蓝书"
+    },
+    {
+      "name": "font_family",
+      "value": "HarmonyOS Sans"
     }
   ]
 }
