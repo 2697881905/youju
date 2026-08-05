@@ -34,6 +34,12 @@ export async function exchangeCodeForToken(code: string): Promise<string> {
   const clientSecret: string = process.env.HUAWEI_CLIENT_SECRET ?? '';
   const redirectUri: string = process.env.HUAWEI_REDIRECT_URI ?? '';
 
+  if (!clientId || !clientSecret) {
+    throw new Error(
+      '华为 OAuth 凭据未配置：HUAWEI_CLIENT_ID / HUAWEI_CLIENT_SECRET 缺失（请填 backend/.env 并从 AGC 复制 APP Secret）'
+    );
+  }
+
   const body = new URLSearchParams();
   body.set('grant_type', 'authorization_code');
   body.set('client_id', clientId);

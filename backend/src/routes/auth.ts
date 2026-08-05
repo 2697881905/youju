@@ -39,6 +39,8 @@ router.post('/huawei/exchange', asyncHandler(async (req: AuthRequest, res: Respo
     const result = await loginWithHuawei(profile.unionID, profile.nickName, profile.avatarUri);
     return ok(res, result);
   } catch (e) {
+    // 记录真实错误到后端日志，便于定位（secret 缺失 / AGC OAuth 客户端未配 / redirect_uri 不匹配 / 网络等）
+    console.error('[huawei exchange] 华为登录后端换 token 失败:', e instanceof Error ? e.message : e);
     return fail(res, CODE.HUAWEI_AUTH_FAILED, '华为登录失败，请稍后重试或切换其他登录方式', 200);
   }
 }));
@@ -53,6 +55,7 @@ router.get('/me', auth, asyncHandler(async (req: AuthRequest, res: Response) => 
       id: true,
       nickname: true,
       avatar: true,
+      profileBackground: true,
       bio: true,
       gender: true,
       privacyPolicyVersion: true,
@@ -82,11 +85,11 @@ router.patch('/privacy-consent', auth, asyncHandler(async (req: AuthRequest, res
   return ok(res, { success: true });
 }));
 
-// 更新个人信息（昵称/头像/简介/性别；仅传入字段更新，性别可设 null/保密）
+// 更新个人信息（昵称/头像/主页背景/简介/性别；仅传入字段更新，性别可设 null/保密）
 // PUT /v1/auth/me  |  PUT /v1/users/me
 router.put('/me', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const { nickname, avatar, bio, gender } = req.body ?? {};
-  const user = await updateProfile(req.userId!, nickname, avatar, bio, gender);
+  const { nickname, avatar, profileBackground, bio, gender } = req.body ?? {};
+  const user = await updateProfile(req.userId!, nickname, avatar, profileBackground, bio, gender);
   return ok(res, user);
 }));
 

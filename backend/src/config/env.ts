@@ -47,6 +47,12 @@ export const env = {
       process.env.HUAWEI_PUSH_TOKEN_URL ?? 'https://oauth-login.cloud.huawei.com/oauth2/v3/token',
     apiUrl: process.env.HUAWEI_PUSH_API_URL ?? 'https://push-api.cloud.huawei.com',
   },
+  // 华为账号登录（Account Kit）凭证。留空 = 真实华为登录不可用（前端授权后后端换 token 失败）。
+  huaweiAccount: {
+    clientId: process.env.HUAWEI_CLIENT_ID ?? '',
+    clientSecret: process.env.HUAWEI_CLIENT_SECRET ?? '',
+    redirectUri: process.env.HUAWEI_REDIRECT_URI ?? '',
+  },
   // 当前生效的隐私政策版本（前端弹窗同意时上报此版本；低于此版本视为需重新征求）
   privacyPolicyVersion: process.env.PRIVACY_POLICY_VERSION ?? '1.0.0',
 };
@@ -55,4 +61,9 @@ export const env = {
 // 与 index.ts 的 fail-hard 风格一致：配置缺失/不安全时启动即崩溃，而非静默降级。
 if (env.isProduction && env.backendPublicUrl.startsWith('http://')) {
   throw new Error('[env] 生产环境 BACKEND_PUBLIC_URL 必须使用 https，请配置 https 域名');
+}
+
+// 华为账号登录凭证自检：缺失则在启动日志告警，避免「前端授权成功、后端静默失败」。
+if (!env.huaweiAccount.clientId || !env.huaweiAccount.clientSecret) {
+  console.warn('[env] 警告：HUAWEI_CLIENT_ID / HUAWEI_CLIENT_SECRET 未配置，华为账号真实登录将不可用（仅开发桩可登录）。请从 AGC 复制填入 backend/.env 后重启后端。');
 }
