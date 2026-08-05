@@ -7,8 +7,9 @@ import { safeShowToast } from '../utils/toast';
 import { toggleDarkMode, setFollowSystem, setReduceMotion } from '../utils/theme';
 import { buildPageTransition } from '../utils/styles';
 import { CARD_RADIUS, CARD_SHADOW } from '../utils/cardTokens';
-import { resolveSettingsIcon } from '../utils/settingsIcons';
+import { resolveSettingsIcon, resolveSettingsIconColor } from '../utils/settingsIcons';
 import { window } from '@kit.ArkUI';
+import { BackButton } from '../design/components/BackButton';
 
 @Entry
 @Component
@@ -127,10 +128,10 @@ export struct SettingsPage {
     Row({ space: 12 }) {
       Image(resolveSettingsIcon(icon))
         .width(22).height(22)
-        .fillColor($r('app.color.text_secondary'))
+        .fillColor(resolveSettingsIconColor(icon))
         .objectFit(ImageFit.Contain)
       Text(title)
-        .fontSize(16)
+        .fontSize(16).fontFamily($r('app.string.font_family'))
         .fontColor($r('app.color.text_primary'))
         .layoutWeight(1);
       Image(resolveSettingsIcon('chevronRight'))
@@ -160,14 +161,14 @@ export struct SettingsPage {
     Row({ space: 12 }) {
       Image(resolveSettingsIcon(icon))
         .width(22).height(22)
-        .fillColor($r('app.color.text_secondary'))
+        .fillColor(resolveSettingsIconColor(icon))
         .objectFit(ImageFit.Contain)
       Column({ space: 2 }) {
         Text(title)
-          .fontSize(16)
+          .fontSize(16).fontFamily($r('app.string.font_family'))
           .fontColor($r('app.color.text_primary'))
         Text(desc)
-          .fontSize(12)
+          .fontSize(12).fontFamily($r('app.string.font_family'))
           .fontColor($r('app.color.text_secondary'))
       }
       .alignItems(HorizontalAlign.Start)
@@ -190,21 +191,14 @@ export struct SettingsPage {
     Column() {
       // 顶栏
       Row() {
-        Row() {
-          Image(resolveSettingsIcon('back'))
-            .width(24).height(24)
-            .fillColor($r('app.color.text_primary'))
-        }
-        .width(48).height(44)
-        .justifyContent(FlexAlign.Center)
-        .onClick(() => { this.getUIContext().getRouter().back(); });
+        BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
         Text('设置')
-          .fontSize(17)
+          .fontSize(17).fontFamily($r('app.string.font_family'))
           .fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.text_primary'))
           .layoutWeight(1)
           .textAlign(TextAlign.Center);
-        Text('').width(48);
+        Text('').width(44);
       }
       .width('100%')
       .padding({ top: 12, bottom: 8 });
@@ -214,7 +208,7 @@ export struct SettingsPage {
           // ===== 账号与安全 =====
           Column({ space: 10 }) {
             Text('账号与安全')
-              .fontSize(13)
+              .fontSize(13).fontFamily($r('app.string.font_family'))
               .fontColor($r('app.color.text_secondary'))
               .alignSelf(ItemAlign.Start)
               .padding({ left: 4 });
@@ -238,7 +232,7 @@ export struct SettingsPage {
           // ===== 隐私 =====
           Column({ space: 10 }) {
             Text('隐私')
-              .fontSize(13)
+              .fontSize(13).fontFamily($r('app.string.font_family'))
               .fontColor($r('app.color.text_secondary'))
               .alignSelf(ItemAlign.Start)
               .padding({ left: 4 });
@@ -254,7 +248,7 @@ export struct SettingsPage {
           // ===== 通用 =====
           Column({ space: 10 }) {
             Text('通用')
-              .fontSize(13)
+              .fontSize(13).fontFamily($r('app.string.font_family'))
               .fontColor($r('app.color.text_secondary'))
               .alignSelf(ItemAlign.Start)
               .padding({ left: 4 });
@@ -264,14 +258,14 @@ export struct SettingsPage {
             Row({ space: 12 }) {
               Image(resolveSettingsIcon('system'))
                 .width(22).height(22)
-                .fillColor($r('app.color.text_secondary'))
+                .fillColor(resolveSettingsIconColor('system'))
                 .objectFit(ImageFit.Contain)
               Column({ space: 2 }) {
                 Text('跟随系统')
-                  .fontSize(16)
+                  .fontSize(16).fontFamily($r('app.string.font_family'))
                   .fontColor($r('app.color.text_primary'))
                 Text('关闭后可手动选择深浅模式')
-                  .fontSize(12)
+                  .fontSize(12).fontFamily($r('app.string.font_family'))
                   .fontColor($r('app.color.text_secondary'))
               }
               .alignItems(HorizontalAlign.Start)
@@ -291,14 +285,14 @@ export struct SettingsPage {
             Row({ space: 12 }) {
               Image(resolveSettingsIcon('dark'))
                 .width(22).height(22)
-                .fillColor($r('app.color.text_secondary'))
+                .fillColor(resolveSettingsIconColor('dark'))
                 .objectFit(ImageFit.Contain)
               Column({ space: 2 }) {
                 Text('深色模式')
-                  .fontSize(16)
+                  .fontSize(16).fontFamily($r('app.string.font_family'))
                   .fontColor($r('app.color.text_primary'))
                 Text('关闭后使用浅色主题')
-                  .fontSize(12)
+                  .fontSize(12).fontFamily($r('app.string.font_family'))
                   .fontColor($r('app.color.text_secondary'))
               }
               .alignItems(HorizontalAlign.Start)
@@ -319,14 +313,14 @@ export struct SettingsPage {
             Row({ space: 12 }) {
               Image(resolveSettingsIcon('system'))
                 .width(22).height(22)
-                .fillColor($r('app.color.text_secondary'))
+                .fillColor(resolveSettingsIconColor('system'))
                 .objectFit(ImageFit.Contain)
               Column({ space: 2 }) {
                 Text('减少动态效果')
-                  .fontSize(16)
+                  .fontSize(16).fontFamily($r('app.string.font_family'))
                   .fontColor($r('app.color.text_primary'))
                 Text('使用更轻的界面过渡')
-                  .fontSize(12)
+                  .fontSize(12).fontFamily($r('app.string.font_family'))
                   .fontColor($r('app.color.text_secondary'))
               }
               .alignItems(HorizontalAlign.Start)
@@ -351,7 +345,7 @@ export struct SettingsPage {
           // ===== 关于 =====
           Column({ space: 10 }) {
             Text('关于')
-              .fontSize(13)
+              .fontSize(13).fontFamily($r('app.string.font_family'))
               .fontColor($r('app.color.text_secondary'))
               .alignSelf(ItemAlign.Start)
               .padding({ left: 4 });
@@ -371,7 +365,7 @@ export struct SettingsPage {
               .fillColor($r('app.color.semantic_red'))
               .objectFit(ImageFit.Contain)
             Text('退出登录')
-              .fontSize(16)
+              .fontSize(16).fontFamily($r('app.string.font_family'))
               .fontColor($r('app.color.semantic_red'))
               .layoutWeight(1);
             Image(resolveSettingsIcon('chevronRight'))
@@ -393,7 +387,7 @@ export struct SettingsPage {
               .fillColor($r('app.color.semantic_red'))
               .objectFit(ImageFit.Contain)
             Text('账号注销')
-              .fontSize(16)
+              .fontSize(16).fontFamily($r('app.string.font_family'))
               .fontColor($r('app.color.semantic_red'))
               .layoutWeight(1)
           }

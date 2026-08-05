@@ -3,13 +3,13 @@
 // 数据来源：listPosts / listTags / recordSearchHistory（services/api.ets）
 
 import { Post, Tag } from '../models/types';
-import { listPosts, listFollowingPosts, listHotPosts, listTags, recordSearchHistory, getUserProfile } from '../services/api';
+import { listPosts, listFollowingPosts, listTags, listFollowedTags, recordSearchHistory, getUserProfile } from '../services/api';
 import { getUserId } from '../utils/auth';
 import { likeStore } from '../utils/likeStore';
 import { PostCard } from './PostCard';
 import { TagNav } from './TagNav';
 import { SearchPanel } from './SearchPanel';
-import { setDetailPostId, emitTabSwitch } from '../utils/nav';
+import { emitTabSwitch, openPostDetail, openSearch } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { EmptyState } from '../design/components/EmptyState';
@@ -29,17 +29,16 @@ import { barBottomReserve } from '../utils/cardTokens';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 
 type SortKey = 'hot' | 'latest' | 'recommend';
-type FeedMode = 'recommend' | 'following' | 'hotspot';
+type FeedMode = 'recommend' | 'following' | 'daily';
 
 // FeedMode → 分段索引 的映射（用于顶栏 ForEach 选中态比较）
-const FEED_MODE_IDX_MAP: FeedMode[] = ['recommend', 'following', 'hotspot'];
+const FEED_MODE_IDX_MAP: FeedMode[] = ['recommend', 'following', 'daily'];
 
 const SORT_KEYS: SortKey[] = ['hot', 'latest', 'recommend'];
-const FEED_TABS: string[] = ['推荐', '关注', '热点'];
 const FEED_SEGMENTS: SegmentedItem[] = [
   { key: 'recommend', label: '推荐' },
   { key: 'following', label: '关注' },
-  { key: 'hotspot', label: '热点' },
+  { key: 'daily', label: '每日一帖' },
 ];
 const ALL_TAG: Tag = { name: '全部' };
 
@@ -57,7 +56,7 @@ export struct HomeTab {
   @State isRefreshing: boolean = false;
   @State error: string = '';
   @State showPanel: boolean = false;
-  @State feedMode: FeedMode = 'recommend'; // 'recommend' | 'following'
+  @State feedMode: FeedMode = 'recommend';
   @State feedIndex: number = 0;
   @State needLogin: boolean = false; // 关注流且未登录的引导态
   @State followingCount: number = 0; // 关注流的关注数缓存（空态 A/B 区分）
@@ -68,6 +67,8 @@ export struct HomeTab {
   @StorageLink('authUserId') @Watch('onAccountSwitch') accountId: string = '';
   // 监听当前激活的 Tab：切回首页（index=0）时，若标签仍停留在失败兜底态，自动重试恢复
   @StorageLink('activeTab') @Watch('onHomeActive') homeActive: number = 0;
+  // 圈子加入/退出后重排顶部标签栏，让已加入的圈子优先展示。
+  @StorageLink('circleMembershipVersion') @Watch('onCircleMembershipChanged') circleMembershipVersion: number = 0;
   // 响应式列数（按屏幕宽度 2/3/4 列自适应）+ 对应的 columnsTemplate 字符串
   @State gridColumns: number = 2;
   @State gridTemplate: string = '1fr 1fr';
@@ -139,6 +140,25 @@ export struct HomeTab {
     });
   }
 
+  private sortTagsByMembership(tags: Tag[], followedNames: string[]): Tag[] {
+    const followedOrder: Map<string, number> = new Map();
+    followedNames.forEach((name: string, index: number) => followedOrder.set(name, index));
+    return [...tags].sort((first: Tag, second: Tag): number => {
+      const firstOrder: number | undefined = followedOrder.get(first.name ?? '');
+      const secondOrder: number | undefined = followedOrder.get(second.name ?? '');
+      if (firstOrder !== undefined && secondOrder !== undefined) {
+        return firstOrder - secondOrder;
+      }
+      if (firstOrder !== undefined) {
+        return -1;
+      }
+      if (secondOrder !== undefined) {
+        return 1;
+      }
+      return 0;
+    });
+  }
+
   // 单次拉取标签：成功返回 true（已写入 displayTags），失败返回 false（兜底为 [ALL_TAG]）
   private async fetchTagsOnce(): Promise<boolean> {
     const MAX = 3;
@@ -154,7 +174,17 @@ export struct HomeTab {
         if (tags.length === 0) {
           throw new Error('标签列表为空');
         }
-        this.displayTags = [ALL_TAG, ...tags];
+        const previousSelectedName: string | undefined = this.currentTag();
+        let followedNames: string[] = [];
+        if (this.token !== '') {
+          followedNames = await listFollowedTags();
+        }
+        const orderedTags: Tag[] = this.sortTagsByMembership(tags, followedNames);
+        this.displayTags = [ALL_TAG, ...orderedTags];
+        if (previousSelectedName !== undefined) {
+          const selectedIndex: number = this.displayTags.findIndex((tag: Tag) => tag.name === previousSelectedName);
+          this.tagIndex = selectedIndex >= 0 ? selectedIndex : 0;
+        }
         hilog.info(0x0000, 'HomeTab', 'loadTags ok, 圈子数=%{public}d', (tags as Tag[]).length);
         return true;
       } catch (e) {
@@ -214,11 +244,35 @@ export struct HomeTab {
     this.refresh();
   }
 
+  onCircleMembershipChanged(): void {
+    if (this.token !== '') {
+      this.loadTags();
+    }
+  }
+
   private currentTag(): string | undefined {
     return this.tagIndex > 0 ? this.displayTags[this.tagIndex]?.name : undefined;
   }
 
-  // 切换信息源（推荐/关注）：重置并重新拉取
+  private useCircleBarOverlap(): boolean {
+    return this.feedMode !== 'daily';
+  }
+
+  private feedTopSpacerIndices(): number[] {
+    const indices: number[] = [];
+    if (this.useCircleBarOverlap()) {
+      for (let index: number = 0; index < this.gridColumns; index++) {
+        indices.push(index);
+      }
+    }
+    return indices;
+  }
+
+  private feedTopSpacerHeight(): number {
+    return LayoutTokens.segmentedHeight + SpaceTokens.xs;
+  }
+
+  // 切换信息源：推荐 / 关注 / 每日一帖
   private switchFeed(mode: FeedMode): void {
     const nextIndex: number = FEED_MODE_IDX_MAP.indexOf(mode);
     if (nextIndex >= 0) {
@@ -242,6 +296,16 @@ export struct HomeTab {
       this.postSource.clearData();
       return;
     }
+    if (this.feedMode === 'daily') {
+      if (reset) {
+        this.posts = [];
+        this.postSource.clearData();
+      }
+      this.finished = true;
+      this.error = '';
+      this.needLogin = false;
+      return;
+    }
     this.loading = true;
     this.error = '';
     this.needLogin = false; // 进入真正的拉取流程，复位登录引导态
@@ -250,9 +314,7 @@ export struct HomeTab {
       const res =
         this.feedMode === 'following'
           ? await listFollowingPosts({ page: this.page, limit: 20, sort, tag: this.currentTag() })
-          : this.feedMode === 'hotspot'
-            ? await listHotPosts({ page: this.page, limit: 20, tag: this.currentTag() })
-            : await listPosts({ page: this.page, limit: 20, sort, tag: this.currentTag() });
+          : await listPosts({ page: this.page, limit: 20, sort, tag: this.currentTag() });
       if (reset) {
         this.posts = res.list;
         this.postSource.setData(res.list);
@@ -304,7 +366,7 @@ export struct HomeTab {
       return;
     }
     this.showPanel = false;
-    AppStorage.setOrCreate('searchKeyword', kw);
+    openSearch(kw);
     this.getUIContext().getRouter().pushUrl({ url: 'pages/SearchResultPage' });
     // fire-and-forget：记录搜索历史，失败不阻断
     this.recordHistoryAsync(kw);
@@ -329,7 +391,7 @@ export struct HomeTab {
     Row({ space: SpaceTokens.inline }) {
       LoadingProgress().width(IconTokens.compact).height(IconTokens.compact)
       Text('刷新中…')
-        .fontSize(TypeTokens.caption.size)
+        .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
         .fontWeight(TypeTokens.caption.weight)
         .lineHeight(TypeTokens.caption.lineHeight)
         .letterSpacing(TypeTokens.caption.tracking)
@@ -337,20 +399,27 @@ export struct HomeTab {
     }
   }
 
-  // 瀑布流底部「没有更多了」footer：仅 finished 时渲染，否则占位 0 高度
+  // footer 是 WaterFlow 的真实滚动内容。不能只用 padding.bottom，Refresh 嵌套时会被裁切，
+  // 造成最后一张卡片无法滑到悬浮底栏下方。
   @Builder
   feedFooter(): void {
-    if (this.finished) {
-      Text('没有更多了')
-        .fontSize(TypeTokens.caption.size)
-        .fontWeight(TypeTokens.caption.weight)
-        .lineHeight(TypeTokens.caption.lineHeight)
-        .letterSpacing(TypeTokens.caption.tracking)
-        .fontColor(ColorTokens.tertiary)
+    Column() {
+      if (this.finished) {
+        Text('没有更多了')
+          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.caption.weight)
+          .lineHeight(TypeTokens.caption.lineHeight)
+          .letterSpacing(TypeTokens.caption.tracking)
+          .fontColor(ColorTokens.tertiary)
+          .width('100%')
+          .textAlign(TextAlign.Center)
+          .padding(SpaceTokens.base)
+      }
+      Blank()
         .width('100%')
-        .textAlign(TextAlign.Center)
-        .padding(SpaceTokens.base)
+        .height(barBottomReserve())
     }
+    .width('100%')
   }
 
   build() {
@@ -374,7 +443,7 @@ export struct HomeTab {
         // 品牌标题 + 信息源分段 + 搜索入口
         Row({ space: SpaceTokens.sm }) {
           Text('大蓝书')
-            .fontSize(TypeTokens.title.size)
+            .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamily)
             .fontWeight(TypeTokens.title.weight)
             .lineHeight(TypeTokens.title.lineHeight)
             .letterSpacing(TypeTokens.title.tracking)
@@ -383,8 +452,9 @@ export struct HomeTab {
           SegmentedControl({
             items: FEED_SEGMENTS,
             selectedIndex: $feedIndex,
-            itemWidth: 50,
+            itemWidth: 66,
             fillWidth: false,
+            glass: true,
             onSelect: (idx: number): void => {
               const mode: FeedMode = FEED_MODE_IDX_MAP[idx];
               this.switchFeed(mode);
@@ -408,8 +478,11 @@ export struct HomeTab {
             }
             .width(LayoutTokens.segmentedHeight)
             .height(LayoutTokens.segmentedHeight)
-            .backgroundColor(ColorTokens.sunken)
-            .borderRadius(RadiusTokens.sm)
+            .backgroundColor(ColorTokens.barSurface)
+            .backdropBlur(LayoutTokens.glassBlur)
+            .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+            .borderRadius(RadiusTokens.lg)
+            .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 4 })
             .justifyContent(FlexAlign.Center)
             .alignItems(VerticalAlign.Center)
             .accessibilityText('搜索')
@@ -417,22 +490,17 @@ export struct HomeTab {
         }
         .alignItems(VerticalAlign.Center)
         .padding({
-          left: SpaceTokens.pageCompact,
-          right: SpaceTokens.pageCompact,
+          left: SpaceTokens.sm,
+          right: SpaceTokens.sm,
           top: SpaceTokens.xs,
           bottom: SpaceTokens.xs,
         })
         .width('100%')
+        .backgroundColor(ColorTokens.canvas)
+        .zIndex(1000)
 
-        // 标签筛选栏
-        TagNav({
-          tags: this.displayTags,
-          selectedIndex: $tagIndex,
-          compact: true,
-        })
-        .padding({ bottom: SpaceTokens.xs })
-
-        // 列表区
+        // 列表区与圈子栏共用同一 Stack，圈子栏始终作为玻璃浮层而不参与列表排版。
+        Stack({ alignContent: Alignment.TopStart }) {
         if (this.needLogin) {
           // 未登录引导态（关注流且未登录）：不发起请求，引导登录
           Column() {
@@ -446,22 +514,22 @@ export struct HomeTab {
               },
             })
           }
-          .layoutWeight(1)
           .width('100%')
+          .height('100%')
           .justifyContent(FlexAlign.Center)
         } else if (this.posts.length === 0 && this.loading) {
           Column() {
             LoadingProgress().width(IconTokens.empty).height(IconTokens.empty)
             Text('加载中…')
-              .fontSize(TypeTokens.callout.size)
+              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
               .fontWeight(TypeTokens.callout.weight)
               .lineHeight(TypeTokens.callout.lineHeight)
               .letterSpacing(TypeTokens.callout.tracking)
               .fontColor(ColorTokens.secondary)
               .margin({ top: SpaceTokens.md })
           }
-          .layoutWeight(1)
           .width('100%')
+          .height('100%')
           .justifyContent(FlexAlign.Center)
         } else if (this.posts.length === 0) {
           Column() {
@@ -494,6 +562,12 @@ export struct HomeTab {
                   message: '去他们的主页催更吧',
                 })
               }
+            } else if (this.feedMode === 'daily') {
+              EmptyState({
+                icon: resolveActionIcon('book'),
+                title: '今日一帖正在准备',
+                message: '这里会精选每天最值得讨论的一条内容',
+              })
             } else {
               EmptyState({
                 icon: resolveActionIcon('inbox'),
@@ -502,61 +576,86 @@ export struct HomeTab {
               })
             }
           }
-          .layoutWeight(1)
           .width('100%')
+          .height('100%')
           .justifyContent(FlexAlign.Center)
         } else {
-          Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
-            // 瀑布流：每列独立流动，卡片仅以 rowsGap 与同列上下卡片贴靠，
-            // 彻底消除 Grid 等高行造成的「矮卡片底部留白」问题
-            WaterFlow({ footer: this.feedFooter }) {
-              LazyForEach(
-                this.postSource,
-                (post: Post, idx: number) => {
+          Stack({ alignContent: Alignment.TopStart }) {
+            Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
+              // 瀑布流：每列独立流动，卡片仅以 rowsGap 与同列上下卡片贴靠，
+              // 彻底消除 Grid 等高行造成的「矮卡片底部留白」问题
+              WaterFlow({ footer: this.feedFooter }) {
+                // 每列首位的可滚动占位项让首屏卡片从圈子栏下方开始；
+                // 它随内容一起上移，避免 WaterFlow 固定 padding 形成硬裁切带。
+                ForEach(this.feedTopSpacerIndices(), (_value: number, index: number) => {
                   FlowItem() {
-                    Reveal({ index: idx % 5 }) {
-                      PostCard({
-                        post: post,
-                        compact: true,
-                        onOpen: () => {
-                          if (post.id !== undefined) {
-                            const id = post.id.toString();
-                            AppStorage.setOrCreate('detailPostId', id);
-                            setDetailPostId(id);
-                            this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
-                          }
-                        },
-                      })
-                    }
+                    Column()
+                      .width('100%')
+                      .height(this.feedTopSpacerHeight())
                   }
-                },
-                (post: Post, idx: number) => (post.id ?? idx).toString()
-              )
-            }
-            .columnsTemplate(this.gridTemplate)
-            .columnsGap(SpaceTokens.xs)
-            .rowsGap(SpaceTokens.xs)
-            .padding({
-              left: SpaceTokens.md,
-              right: SpaceTokens.md,
-              top: SpaceTokens.xs,
-              bottom: SpaceTokens.md + barBottomReserve(),
-            })
-            .onScrollIndex((_start: number, end: number) => {
-              if (end >= this.posts.length - 1) {
-                this.loadMore();
+                }, (_value: number, index: number) => 'circle_bar_spacer_' + index)
+                LazyForEach(
+                  this.postSource,
+                  (post: Post, idx: number) => {
+                    FlowItem() {
+                      Reveal({ index: idx % 5 }) {
+                        PostCard({
+                          post: post,
+                          compact: true,
+                          onOpen: () => {
+                            if (post.id !== undefined) {
+                              const id = post.id.toString();
+                              openPostDetail(id);
+                              this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
+                            }
+                          },
+                        })
+                      }
+                    }
+                  },
+                  (post: Post, idx: number) => (post.id ?? idx).toString()
+                )
               }
+              .columnsTemplate(this.gridTemplate)
+              .columnsGap(SpaceTokens.xs)
+              .rowsGap(SpaceTokens.xs)
+              .padding({
+                left: SpaceTokens.sm,
+                right: SpaceTokens.sm,
+                bottom: SpaceTokens.md,
+              })
+              .onScrollIndex((_start: number, end: number) => {
+                if (end - this.feedTopSpacerIndices().length >= this.posts.length - 1) {
+                  this.loadMore();
+                }
+              })
+            }
+            .onRefreshing(() => {
+              this.isRefreshing = true;
+              this.refresh().finally(() => {
+                this.isRefreshing = false;
+              });
             })
+            .width('100%')
+            .height('100%')
           }
-          .onRefreshing(() => {
-            this.isRefreshing = true;
-            this.refresh().finally(() => {
-              this.isRefreshing = false;
-            });
-          })
-          .layoutWeight(1)
           .width('100%')
+          .height('100%')
+          .clip(true)
         }
+        if (this.useCircleBarOverlap()) {
+          TagNav({
+            tags: this.displayTags,
+            selectedIndex: $tagIndex,
+            compact: true,
+            glass: true,
+          })
+          .padding({ bottom: SpaceTokens.xs })
+          .zIndex(999)
+        }
+        }
+        .layoutWeight(1)
+        .width('100%')
       }
     }
     .width('100%')

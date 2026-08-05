@@ -18,6 +18,8 @@
     "pages/BlocklistPage",
     "pages/PrivacySettingsPage",
     "pages/ChatPage",
+    "pages/PublishPreviewPage",
+    "pages/DraftBoxPage",
     "pages/FoundationPreviewPage"
   ]
 }

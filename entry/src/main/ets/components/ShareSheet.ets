@@ -11,7 +11,7 @@ export struct ShareSheet {
   build() {
     Column({ space: 12 }) {
       Text('分享到')
-        .fontSize(18)
+        .fontSize(18).fontFamily($r('app.string.font_family'))
         .fontWeight(600)
         .fontColor($r('app.color.text_primary'))
         .width('100%')
@@ -25,7 +25,7 @@ export struct ShareSheet {
         .width('100%')
         .height(48)
         .textAlign(TextAlign.Center)
-        .fontSize(16)
+        .fontSize(16).fontFamily($r('app.string.font_family'))
         .fontColor($r('app.color.text_secondary'))
         .onClick(() => {
           this.controller.close();
@@ -41,7 +41,7 @@ export struct ShareSheet {
   option(label: string, action: () => void) {
     Row() {
       Text(label)
-        .fontSize(15)
+        .fontSize(15).fontFamily($r('app.string.font_family'))
         .fontColor($r('app.color.text_primary'))
         .layoutWeight(1)
     }

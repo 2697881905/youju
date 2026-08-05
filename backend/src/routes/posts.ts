@@ -56,23 +56,6 @@ router.get('/following', auth, asyncHandler(async (req: AuthRequest, res: Respon
   return ok(res, data);
 }));
 
-// 热帖：GET /v1/posts/hotspot?windowHours=24&page=1&limit=20&tag=xxx
-// 时窗加权热帖（综合点赞/评论/收藏，按时效衰减排序）
-// 软鉴权：匿名可浏览；带合法 token 时按 viewerId 批量打标 myUp/myBookmark。
-// ⚠️ 必须注册在 GET /:id 之前。
-router.get('/hotspot', asyncHandler(async (req: AuthRequest, res: Response) => {
-  const { windowHours, page, limit, tag } = req.query;
-  const viewerId = await resolveOptionalUserId(req);
-  const data = await postService.listHotPosts({
-    windowHours: windowHours ? Number(windowHours) : 24,
-    page: page ? Number(page) : 1,
-    limit: limit ? Number(limit) : 20,
-    tag: tag as string | undefined,
-    viewerId,
-  });
-  return ok(res, data);
-}));
-
 // 帖子详情：GET /v1/posts/:id
 // 软鉴权：匿名可访问；带合法 token 时返回该帖的 myUp/myBookmark。
 router.get('/:id', asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -86,7 +69,7 @@ router.get('/:id', asyncHandler(async (req: AuthRequest, res: Response) => {
 
 // 发布帖子（进入待审核）：POST /v1/posts
 router.post('/', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const { title, genre, content, tags, images } = req.body ?? {};
+  const { title, genre, content, tags, images, videoUrl, videoCover } = req.body ?? {};
   if (!title || !genre) return fail(res, CODE.BAD_REQUEST, '标题和体裁必填');
   // 输入长度 / 数量校验（防滥用）
   if (typeof title !== 'string' || title.trim().length === 0 || title.length > 100) {
@@ -106,6 +89,12 @@ router.post('/', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   }
   if (images !== undefined && (!Array.isArray(images) || images.length > 9 || images.some((url: unknown) => typeof url !== 'string'))) {
     return fail(res, CODE.BAD_REQUEST, '图片格式无效或超过 9 张');
+  }
+  if (videoUrl !== undefined && videoUrl !== null && typeof videoUrl !== 'string') {
+    return fail(res, CODE.BAD_REQUEST, '视频地址格式无效');
+  }
+  if (videoCover !== undefined && videoCover !== null && typeof videoCover !== 'string') {
+    return fail(res, CODE.BAD_REQUEST, '视频封面格式无效');
   }
   try {
     const post = await postService.createPost(req.body, req.userId!);

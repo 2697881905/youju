@@ -24,6 +24,7 @@ export interface SessionUserView {
   id: number;
   nickname: string;
   avatar: string | null;
+  profileBackground: string | null;
   bio: string | null;
   gender: number | null;
   isAdmin: boolean;
@@ -31,13 +32,14 @@ export interface SessionUserView {
 
 /** 登录态与资料更新响应，只暴露客户端真正需要的字段。 */
 export function sessionUserView(
-  user: { id: number; nickname: string; avatar: string | null; bio?: string | null; gender?: number | null },
+  user: { id: number; nickname: string; avatar: string | null; profileBackground?: string | null; bio?: string | null; gender?: number | null },
   isAdmin: boolean,
 ): SessionUserView {
   return {
     id: user.id,
     nickname: user.nickname,
     avatar: user.avatar,
+    profileBackground: user.profileBackground ?? null,
     bio: user.bio ?? null,
     gender: user.gender ?? null,
     isAdmin,

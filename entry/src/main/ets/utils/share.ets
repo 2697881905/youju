@@ -11,10 +11,20 @@ export function buildPostShareUrl(postId: number): string {
   return SHARE_BASE + '/post/' + String(postId);
 }
 
+// 个人主页分享链接：占位域名 + /user/{id}
+export function buildProfileShareUrl(userId: number): string {
+  return SHARE_BASE + '/user/' + String(userId);
+}
+
 // 分享文案（标题 + 链接），用于系统分享面板接入后使用
 export function buildShareText(title: string, postId: number): string {
   const t: string = title && title.length > 0 ? title : '大蓝书帖子';
   return t + ' ' + buildPostShareUrl(postId);
+}
+
+export function buildProfileShareText(nickname: string, userId: number): string {
+  const name: string = nickname && nickname.length > 0 ? nickname : '大蓝书用户';
+  return '来大蓝书看看 ' + name + ' 的个人主页 ' + buildProfileShareUrl(userId);
 }
 
 // 复制文本到系统剪贴板；失败抛出，由调用方 toast 兜底

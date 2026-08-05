@@ -11,25 +11,46 @@ import {
   voteDebate,
   reportPost,
   reportComment,
+  resolveDisplayImageUrl,
   PostWithComments,
 } from '../services/api';
-import { Genre, Comment, StructuredData, ReportReason, DebateVoteResult } from '../models/types';
-import { timeAgo, formatCount } from '../utils/format';
-import { CommentList } from '../components/CommentList';
+import { Genre, StructuredData, ReportReason, DebateVoteResult } from '../models/types';
 import { ReportDialog } from '../components/ReportDialog';
-import { takeDetailPostId } from '../utils/nav';
+import { openUserProfile, takePostDetailId } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 import { getUserId, getToken } from '../utils/auth';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { likeStore } from '../utils/likeStore';
 import { ShareSheet } from '../components/ShareSheet';
 import { buildPostShareUrl, copyToClipboard } from '../utils/share';
-import { window, LengthMetrics } from '@kit.ArkUI';
+import { window } from '@kit.ArkUI';
+import { DetailToolbar } from '../components/DetailToolbar';
+import { DetailMediaCarousel } from '../components/DetailMediaCarousel';
+import { VideoPlayer } from '../components/VideoPlayer';
+import { DetailPostHeader } from '../components/DetailPostHeader';
+import { DetailPostContent, DetailField } from '../components/DetailPostContent';
+import { DetailCommentsSection } from '../components/DetailCommentsSection';
+import { DetailActionBar } from '../components/DetailActionBar';
 
 // 字段定义：[结构化字段键, 中文标签]，按产品文档 2.4 各体裁字段表
 type FieldDef = [keyof StructuredData, string];
 // 渲染用：[中文标签, 值]
-type FieldPair = [string, string];
+type FieldPair = DetailField;
+
+// 底部互动使用不可变快照。每次替换顶层 @State，保证 ArkUI 当帧重新渲染计数和选中态。
+class DetailInteractionState {
+  uped: boolean;
+  upCount: number;
+  bookmarked: boolean;
+  bookmarkCount: number;
+
+  constructor(uped: boolean, upCount: number, bookmarked: boolean, bookmarkCount: number) {
+    this.uped = uped;
+    this.upCount = upCount;
+    this.bookmarked = bookmarked;
+    this.bookmarkCount = bookmarkCount;
+  }
+}
 
 // ArkTS V1 禁止按变量索引对象，这里用显式 switch 读取结构化字段
 function readField(sd: StructuredData, key: keyof StructuredData): string | number | undefined {
@@ -105,12 +126,16 @@ struct DetailPage {
   @State post: PostWithComments | null = null;
   @State fields: FieldPair[] = [];
   @State images: string[] = [];
+  @State videoUrl: string = '';
+  @State videoCover: string = '';
+  @State activeImageIndex: number = 0;
   @State loading: boolean = true;
   @State error: string = '';
-  @State uped: boolean = false;
-  @State bookmarked: boolean = false;
-  @State upCount: number = 0;
-  @State bookmarkCount: number = 0;
+  @State interaction: DetailInteractionState = new DetailInteractionState(false, 0, false, 0);
+  @State upPending: boolean = false;
+  @State bookmarkPending: boolean = false;
+  @State upFeedbackVersion: number = 0;
+  @State bookmarkFeedbackVersion: number = 0;
   @State commenting: boolean = false;
   @State commentText: string = '';
   @State commentReportId: number = 0;
@@ -124,6 +149,37 @@ struct DetailPage {
 
   private get pid(): number {
     return Number(this.postId);
+  }
+
+  private authorId(): number | undefined {
+    if (typeof this.post?.user?.id === 'number') {
+      return this.post.user.id;
+    }
+    return typeof this.post?.userId === 'number' ? this.post.userId : undefined;
+  }
+
+  private isDeletedAuthor(): boolean {
+    return this.post?.user?.deleted === true || this.post?.user?.nickname === '已注销用户';
+  }
+
+  private authorName(): string {
+    if (this.isDeletedAuthor()) {
+      return '已注销用户';
+    }
+    return this.post?.user?.nickname ?? (this.authorId() !== undefined ? '贴主' : '匿名用户');
+  }
+
+  private authorAvatar(): string {
+    return this.isDeletedAuthor() ? '' : (this.post?.user?.avatar ?? '');
+  }
+
+  private openAuthorProfile(): void {
+    const authorId: number | undefined = this.authorId();
+    if (authorId === undefined || this.isDeletedAuthor()) {
+      return;
+    }
+    openUserProfile(authorId);
+    this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage' });
   }
 
   // 帖子举报弹窗控制器
@@ -173,10 +229,7 @@ struct DetailPage {
   aboutToAppear(): void {
     // 读取状态栏高度（全屏布局下顶部内容需避让）
     this.loadStatusBarHeight();
-    // API 24 router.getParams 失效；AppStorage 是框架级全局单例（主通道），模块单例作 fallback
-    const fromApp: string | undefined = AppStorage.get<string>('detailPostId');
-    const fromSingleton: string = takeDetailPostId();
-    this.postId = (fromApp ?? fromSingleton ?? '').trim();
+    this.postId = takePostDetailId().trim();
     this.load();
   }
 
@@ -219,16 +272,21 @@ struct DetailPage {
       this.post = p;
       // 依据后端返回的 myUp/myBookmark 初始化互动态，确保已点赞/已收藏帖进入详情时
       // 高亮态正确（避免初始 false 导致再次点击「顶」重复 upPost 造成 upCount 膨胀）。
-      this.uped = p.myUp ?? false;
-      this.bookmarked = p.myBookmark ?? false;
-      this.upCount = p.upCount ?? 0;
-      this.bookmarkCount = p.bookmarkCount ?? 0;
+      this.interaction = new DetailInteractionState(
+        p.myUp ?? false,
+        p.upCount ?? 0,
+        p.myBookmark ?? false,
+        p.bookmarkCount ?? 0,
+      );
       // 校准全局点赞仓库：详情页打开时以服务器为准，回写后首页卡片也即时同步
       if (p.id !== undefined) {
-        likeStore.syncFromServer(p.id, this.uped, this.upCount);
+        likeStore.syncFromServer(p.id, this.interaction.uped, this.interaction.upCount);
       }
       this.fields = this.buildFields(p);
       this.images = this.imagesOf(p);
+      this.videoUrl = resolveDisplayImageUrl(p.videoUrl ?? '');
+      this.videoCover = resolveDisplayImageUrl(p.videoCover ?? '');
+      this.activeImageIndex = 0;
       // 辩论投票数据初始化
       this.planAVotes = (p as Record<string, Object>).planAVotes as number ?? 0;
       this.planBVotes = (p as Record<string, Object>).planBVotes as number ?? 0;
@@ -278,22 +336,39 @@ struct DetailPage {
   }
 
   private imagesOf(p: PostWithComments): string[] {
-    const imgs = p.images ?? [];
-    if (imgs.length === 0 && p.coverImage) {
-      return [p.coverImage];
+    const source: string[] = p.images ?? [];
+    const images: string[] = [];
+    for (let index = 0; index < source.length && index < 9; index++) {
+      const image: string = source[index];
+      if (image.length > 0) {
+        images.push(resolveDisplayImageUrl(image));
+      }
     }
-    // 最多 9 张，按 3×3 排列（超出部分截断）
-    return imgs.slice(0, 9);
+    if (images.length === 0 && typeof p.coverImage === 'string' && p.coverImage.length > 0) {
+      images.push(resolveDisplayImageUrl(p.coverImage));
+    }
+    return images;
+  }
+
+  private setInteraction(uped: boolean, upCount: number, bookmarked: boolean, bookmarkCount: number): void {
+    this.interaction = new DetailInteractionState(
+      uped,
+      Math.max(0, upCount),
+      bookmarked,
+      Math.max(0, bookmarkCount),
+    );
   }
 
   async onUp(): Promise<void> {
-    if (!this.post || this.post.id === undefined) {
+    if (this.upPending || !this.post || this.post.id === undefined) {
       return;
     }
     const id = this.post.id;
-    const willUp = !this.uped;
-    this.uped = willUp;
-    this.upCount = this.upCount + (willUp ? 1 : -1);
+    const previous: DetailInteractionState = this.interaction;
+    const willUp = !previous.uped;
+    this.upPending = true;
+    this.setInteraction(willUp, previous.upCount + (willUp ? 1 : -1), previous.bookmarked, previous.bookmarkCount);
+    this.upFeedbackVersion = this.upFeedbackVersion + 1;
     // 同步写入全局仓库：首页卡片随详情点赞即时变化
     const prev = likeStore.applyOptimistic(id, willUp);
     try {
@@ -303,21 +378,24 @@ struct DetailPage {
         await cancelUpPost(id);
       }
     } catch (e) {
-      this.uped = !willUp;
-      this.upCount = this.upCount + (willUp ? -1 : 1);
+      this.setInteraction(previous.uped, previous.upCount, previous.bookmarked, previous.bookmarkCount);
       likeStore.revert(id, prev);
       safeShowToast(this.getUIContext(),{ message: '操作失败，请先登录' });
+    } finally {
+      this.upPending = false;
     }
   }
 
   async onBookmark(): Promise<void> {
-    if (!this.post || this.post.id === undefined) {
+    if (this.bookmarkPending || !this.post || this.post.id === undefined) {
       return;
     }
     const id = this.post.id;
-    const willMark = !this.bookmarked;
-    this.bookmarked = willMark;
-    this.bookmarkCount = this.bookmarkCount + (willMark ? 1 : -1);
+    const previous: DetailInteractionState = this.interaction;
+    const willMark = !previous.bookmarked;
+    this.bookmarkPending = true;
+    this.setInteraction(previous.uped, previous.upCount, willMark, previous.bookmarkCount + (willMark ? 1 : -1));
+    this.bookmarkFeedbackVersion = this.bookmarkFeedbackVersion + 1;
     try {
       if (willMark) {
         await bookmarkPost(id);
@@ -325,9 +403,10 @@ struct DetailPage {
         await cancelBookmarkPost(id);
       }
     } catch (e) {
-      this.bookmarked = !willMark;
-      this.bookmarkCount = this.bookmarkCount + (willMark ? -1 : 1);
+      this.setInteraction(previous.uped, previous.upCount, previous.bookmarked, previous.bookmarkCount);
       safeShowToast(this.getUIContext(),{ message: '操作失败，请先登录' });
+    } finally {
+      this.bookmarkPending = false;
     }
   }
 
@@ -509,19 +588,6 @@ struct DetailPage {
     }
   }
 
-  // 方案介绍（debate 体裁把方案A/方案B 描述合并进投票卡片）
-  @Builder
-  planIntro(planLabel: string) {
-    if (this.planTextOf(planLabel).length > 0) {
-      Text(this.planTextOf(planLabel))
-        .fontSize(14)
-        .fontColor($r('app.color.text_primary'))
-        .lineHeight(21)
-        .width('100%')
-        .padding({ left: 2, right: 2 });
-    }
-  }
-
   build() {
     Column() {
       // 全屏图片查看器
@@ -555,42 +621,18 @@ struct DetailPage {
         .zIndex(999);
       }
 
-      // 顶部导航
-      Row() {
-        Row({ space: 2 }) {
-          Image(resolveActionIcon('back'))
-            .width(18)
-            .height(18)
-            .fillColor($r('app.color.brand_primary'))
-          Text('返回')
-            .fontSize(16)
-            .fontColor($r('app.color.brand_primary'))
-        }
-        .onClick(() => this.getUIContext().getRouter().back())
-        Text('帖子详情')
-          .fontSize(17)
-          .fontWeight(600)
-          .fontColor($r('app.color.text_primary'))
-          .layoutWeight(1)
-          .textAlign(TextAlign.Center)
-        Text('⋯')
-          .fontSize(22)
-          .fontColor($r('app.color.text_primary'))
-          .width(48)
-          .textAlign(TextAlign.Center)
-          .onClick(() => this.showPostActions())
-      }
-      .width('100%')
-      .padding({ top: 12, bottom: 12 })
-      .backgroundColor($r('app.color.bg_primary'))
-      .borderWidth({ bottom: 0.5 })
-      .borderColor($r('app.color.divider'))
+      DetailToolbar({
+        title: genreMeta(this.post?.genre).label,
+        onBack: (): void => { this.getUIContext().getRouter().back(); },
+        onMore: (): void => { this.showPostActions(); },
+      })
+        .zIndex(10)
 
       if (this.loading) {
         Column() {
           LoadingProgress().width(28).height(28)
           Text('加载中…')
-            .fontSize(13)
+            .fontSize(13).fontFamily($r('app.string.font_family'))
             .fontColor($r('app.color.text_secondary'))
             .margin({ top: 10 })
         }
@@ -600,7 +642,7 @@ struct DetailPage {
       } else if (this.error) {
         Column() {
           Text(this.error)
-            .fontSize(14)
+            .fontSize(14).fontFamily($r('app.string.font_family'))
             .fontColor($r('app.color.text_secondary'))
           Button('重试')
             .margin({ top: 16 })
@@ -616,7 +658,7 @@ struct DetailPage {
             if (this.post.status === 0 && this.post.userId === getUserId()) {
               Row({ space: 8 }) {
                 Text('该帖子正在审核中，仅你自己可见')
-                  .fontSize(13)
+                  .fontSize(13).fontFamily($r('app.string.font_family'))
                   .fontColor('#FF9500')
               }
               .width('100%')
@@ -625,220 +667,47 @@ struct DetailPage {
               .borderRadius(8)
             }
 
-            // 标签 + 体裁 + 标题 + 作者
-            Column({ space: 8 }) {
-              if (this.post.tags && this.post.tags.length > 0) {
-                Row({ space: 8 }) {
-                  ForEach(
-                    this.post.tags,
-                    (t: string) => {
-                      Text(t.startsWith('#') ? t : ('#' + t))
-                        .fontSize(13)
-                        .fontColor($r('app.color.brand_primary'))
-                    },
-                    (t: string) => t
-                  )
-                }
-              }
-              Row({ space: 4 }) {
-                Image(genreMeta(this.post.genre).iconRes)
-                  .width(14)
-                  .height(14)
-                  .fillColor($r('app.color.brand_primary'))
-                Text(genreMeta(this.post.genre).label)
-                  .fontSize(12)
-                  .fontColor($r('app.color.brand_primary'))
-              }
-              .backgroundColor($r('app.color.surface_selected'))
-              .borderRadius(4)
-              .padding({ left: 8, right: 8, top: 3, bottom: 3 })
-              Text(this.post.title ?? '')
-                .fontSize(20)
-                .fontWeight(700)
-                .fontColor($r('app.color.text_primary'))
-              Row({ space: 8 }) {
-                Text(this.post.user?.nickname ?? '匿名用户')
-                  .fontSize(13)
-                  .fontColor($r('app.color.text_secondary'))
-                Text(timeAgo(this.post.createdAt))
-                  .fontSize(13)
-                  .fontColor($r('app.color.text_secondary'))
-              }
-            }
-            .width('100%')
-            .alignItems(HorizontalAlign.Start)
+            DetailPostHeader({
+              title: this.post.title ?? '',
+              genreLabel: genreMeta(this.post.genre).label,
+              genreIcon: genreMeta(this.post.genre).iconRes,
+              tags: this.post.tags ?? [],
+              authorName: this.authorName(),
+              authorAvatar: this.authorAvatar(),
+              createdAt: this.post.createdAt,
+              onOpenAuthor: (): void => { this.openAuthorProfile(); },
+            })
 
-            // 九宫格图（最多 3 列 × 3 行，纵横统一紧凑间距）
-            if (this.images.length > 0) {
-              Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Start, space: { main: LengthMetrics.px(4), cross: LengthMetrics.px(4) } }) {
-                ForEach(
-                  this.images,
-                  (url: string) => {
-                    Image(url)
-                      .width(this.images.length === 1 ? '100%' : 'calc((100% - 8px) / 3)')
-                      .aspectRatio(1)
-                      .objectFit(ImageFit.Cover)
-                      .borderRadius(8)
-                      .onClick(() => { this.viewingImage = url; })
-                  },
-                  (url: string) => url
-                )
+            if (this.videoUrl.length > 0) {
+              Column() {
+                VideoPlayer({ src: this.videoUrl, poster: this.videoCover, videoHeight: 240 })
               }
               .width('100%')
-            }
-
-            // 辩论投票区（仅 debate 体裁）
-            if (this.post?.genre === 'debate') {
-              Column({ space: 12 }) {
-                // 方案A 投票栏
-                Row() {
-                  Text('方案A')
-                    .fontSize(13)
-                    .fontColor($r('app.color.text_secondary'))
-                    .width(56);
-                  Row() {
-                    Column()
-                      .width((this.planAVotes + this.planBVotes) > 0 ? (this.planAVotes / (this.planAVotes + this.planBVotes)) * 100 + '%' : '0%')
-                      .height(6)
-                      .borderRadius(3)
-                      .backgroundColor($r('app.color.brand_primary'));
-                    Column()
-                      .layoutWeight(1)
-                      .height(6)
-                      .borderRadius(3)
-                      .backgroundColor($r('app.color.bg_secondary'));
-                  }
-                  .width('100%')
-                  .height(6)
-                  .layoutWeight(1);
-                  Text(formatCount(this.planAVotes) + '票')
-                    .fontSize(12)
-                    .fontColor($r('app.color.text_secondary'))
-                    .margin({ left: 8 });
-                  Row({ space: 2 }) {
-                    if (this.myVote === 'A') {
-                      Image(resolveActionIcon('check'))
-                        .width(13)
-                        .height(13)
-                        .fillColor($r('app.color.brand_primary'))
-                    }
-                    Text(this.myVote === 'A' ? '已投' : '投票')
-                      .fontSize(13)
-                      .fontColor(this.myVote === 'A' ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
-                  }
-                  .width(52)
-                  .justifyContent(FlexAlign.Center)
-                  .onClick(() => { this.onDebateVote('A'); });
-                }
-                .width('100%');
-
-                // 方案A 介绍（合并进投票卡片，原独立「方案介绍」卡片已移除）
-                this.planIntro('方案A');
-
-                // 方案B 投票栏
-                Row() {
-                  Text('方案B')
-                    .fontSize(13)
-                    .fontColor($r('app.color.text_secondary'))
-                    .width(56);
-                  Row() {
-                    Column()
-                      .width((this.planAVotes + this.planBVotes) > 0 ? (this.planBVotes / (this.planAVotes + this.planBVotes)) * 100 + '%' : '0%')
-                      .height(6)
-                      .borderRadius(3)
-                      .backgroundColor($r('app.color.brand_primary'));
-                    Column()
-                      .layoutWeight(1)
-                      .height(6)
-                      .borderRadius(3)
-                      .backgroundColor($r('app.color.bg_secondary'));
-                  }
-                  .width('100%')
-                  .height(6)
-                  .layoutWeight(1);
-                  Text(formatCount(this.planBVotes) + '票')
-                    .fontSize(12)
-                    .fontColor($r('app.color.text_secondary'))
-                    .margin({ left: 8 });
-                  Row({ space: 2 }) {
-                    if (this.myVote === 'B') {
-                      Image(resolveActionIcon('check'))
-                        .width(13)
-                        .height(13)
-                        .fillColor($r('app.color.brand_primary'))
-                    }
-                    Text(this.myVote === 'B' ? '已投' : '投票')
-                      .fontSize(13)
-                      .fontColor(this.myVote === 'B' ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
-                  }
-                  .width(52)
-                  .justifyContent(FlexAlign.Center)
-                  .onClick(() => { this.onDebateVote('B'); });
-                }
-                .width('100%');
-                // 方案B 介绍
-                this.planIntro('方案B');
-              }
-              .width('100%')
-              .padding(14)
-              .backgroundColor($r('app.color.card_bg'))
-              .borderRadius(8)
-              .border({ width: 0.5, color: $r('app.color.divider'), style: BorderStyle.Solid });
-            }
-
-            // 结构化字段（debate 体裁的方案介绍已合并进投票卡片，此处跳过避免重复）
-            if (this.fields.length > 0 && this.post?.genre !== 'debate') {
-              Column({ space: 10 }) {
-                ForEach(
-                  this.fields,
-                  (f: FieldPair) => {
-                    Row({ space: 8 }) {
-                      Text(f[0])
-                        .fontSize(14)
-                        .fontColor($r('app.color.text_secondary'))
-                        .width(76)
-                      Text(f[1])
-                        .fontSize(14)
-                        .fontColor($r('app.color.text_primary'))
-                        .layoutWeight(1)
-                    }
-                    .width('100%')
-                    .alignItems(VerticalAlign.Top)
-                  },
-                  (f: FieldPair) => f[0]
-                )
-              }
-              .width('100%')
-              .padding(14)
-              .backgroundColor($r('app.color.card_bg'))
-              .borderRadius(8)
-              .border({ width: 0.5, color: $r('app.color.divider'), style: BorderStyle.Solid })
-            }
-
-            // 正文
-            if (this.post.content) {
-              Text(this.post.content)
-                .fontSize(15)
-                .fontColor($r('app.color.text_primary'))
-                .lineHeight(24)
-                .width('100%')
-            }
-
-            // 评论区
-            Column({ space: 10 }) {
-              Text('评论 ' + formatCount(this.post.commentCount))
-                .fontSize(16)
-                .fontWeight(600)
-                .fontColor($r('app.color.text_primary'))
-              CommentList({
-                comments: this.post.comments ?? [],
-                reportCommentHandler: (commentId: number) => {
-                  this.openCommentReport(commentId);
-                },
+            } else {
+              DetailMediaCarousel({
+                images: this.images,
+                activeIndex: $activeImageIndex,
+                onOpenImage: (url: string): void => { this.viewingImage = url; },
               })
             }
-            .width('100%')
-            .alignItems(HorizontalAlign.Start)
+
+            DetailPostContent({
+              fields: this.fields,
+              genre: this.post.genre ?? '',
+              content: this.post.content ?? '',
+              planA: this.planTextOf('方案A'),
+              planB: this.planTextOf('方案B'),
+              planAVotes: this.planAVotes,
+              planBVotes: this.planBVotes,
+              myVote: this.myVote,
+              onVote: (choice: string): void => { this.onDebateVote(choice); },
+            })
+
+            DetailCommentsSection({
+              comments: this.post.comments ?? [],
+              commentCount: this.post.commentCount ?? 0,
+              onReportComment: (commentId: number): void => { this.openCommentReport(commentId); },
+            })
           }
           .padding(16)
           .width('100%')
@@ -846,84 +715,23 @@ struct DetailPage {
         .layoutWeight(1)
         .width('100%')
 
-        // 评论输入框
-        if (this.commenting) {
-          Row({ space: 8 }) {
-            TextInput({ placeholder: '理性补充，有图有真相', text: this.commentText })
-              .layoutWeight(1)
-              .height(40)
-              .backgroundColor($r('app.color.bg_primary'))
-              .borderRadius(20)
-              .onChange((v: string) => {
-                this.commentText = v;
-              })
-            Button('发送')
-              .height(36)
-              .onClick(() => this.onSendComment())
-          }
-          .width('100%')
-          .padding({ left: 12, right: 12, top: 8, bottom: 8 })
-          .backgroundColor($r('app.color.card_bg'))
-        }
-
-        // 底部操作栏
-        Row() {
-          Column({ space: 2 }) {
-            Image(resolveActionIcon('like'))
-              .width(22)
-              .height(22)
-              .fillColor(this.uped ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
-            Text((this.uped ? '已' : '') + '顶 ' + formatCount(this.upCount))
-              .fontSize(11)
-              .fontColor(this.uped ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
-          }
-          .layoutWeight(1)
-          .onClick(() => this.onUp())
-
-          Column({ space: 2 }) {
-            Image(resolveActionIcon('bookmark'))
-              .width(22)
-              .height(22)
-              .fillColor(this.bookmarked ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
-            Text((this.bookmarked ? '已' : '') + '收藏 ' + formatCount(this.bookmarkCount))
-              .fontSize(11)
-              .fontColor(this.bookmarked ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
-          }
-          .layoutWeight(1)
-          .onClick(() => this.onBookmark())
-
-          Column({ space: 2 }) {
-            Image(resolveActionIcon('comment'))
-              .width(22)
-              .height(22)
-              .fillColor($r('app.color.text_secondary'))
-            Text('评论 ' + formatCount(this.post.commentCount))
-              .fontSize(11)
-              .fontColor($r('app.color.text_secondary'))
-          }
-          .layoutWeight(1)
-          .onClick(() => {
-            this.commenting = true;
-          })
-
-          Column({ space: 2 }) {
-            Image(resolveActionIcon('share'))
-              .width(22)
-              .height(22)
-              .fillColor($r('app.color.text_secondary'))
-            Text('分享')
-              .fontSize(11)
-              .fontColor($r('app.color.text_secondary'))
-          }
-          .layoutWeight(1)
-          .onClick(() => this.onShare())
-        }
-        .width('100%')
-        .padding({ top: 8, bottom: 12 })
-        .backdropBlur(24)
-        .backgroundColor($r('app.color.bar_surface'))
-        .borderWidth({ top: 0.5 })
-        .borderColor($r('app.color.divider'))
+        DetailActionBar({
+          commenting: $commenting,
+          commentText: $commentText,
+          upCount: this.interaction.upCount,
+          bookmarkCount: this.interaction.bookmarkCount,
+          commentCount: this.post.commentCount ?? 0,
+          uped: this.interaction.uped,
+          bookmarked: this.interaction.bookmarked,
+          upPending: this.upPending,
+          bookmarkPending: this.bookmarkPending,
+          upFeedbackVersion: this.upFeedbackVersion,
+          bookmarkFeedbackVersion: this.bookmarkFeedbackVersion,
+          onUp: (): void => { this.onUp(); },
+          onBookmark: (): void => { this.onBookmark(); },
+          onSendComment: (): void => { this.onSendComment(); },
+          onShare: (): void => { this.onShare(); },
+        })
       }
     }
     .width('100%')

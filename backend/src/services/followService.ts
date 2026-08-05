@@ -1,6 +1,8 @@
 import { prisma } from '../prisma';
 import { notifyOnFollow } from './notificationService';
 import { DELETED_NICKNAME } from '../utils/userView';
+import * as blockService from './blockService';
+import * as dislikeService from './dislikeService';
 
 // 关注领域自定义错误（与 accountBindingService 的 AccountError 同构）
 export class FollowError extends Error {
@@ -78,7 +80,7 @@ export async function getUserProfile(viewerId: number, rawTargetId: string) {
   if (!user) {
     throw new FollowError('用户不存在', 404, 404);
   }
-  const [followingCount, followerCount, postCount, isFollowing, isMutual, likesAgg] = await Promise.all([
+  const [followingCount, followerCount, postCount, isFollowing, isMutual, likesAgg, isBlocked, isDisliked] = await Promise.all([
     prisma.follow.count({ where: { followerId: targetId } }),
     prisma.follow.count({ where: { followingId: targetId } }),
     prisma.post.count({ where: { userId: targetId, status: 1 } }),
@@ -86,6 +88,9 @@ export async function getUserProfile(viewerId: number, rawTargetId: string) {
     prisma.follow.count({ where: { followerId: targetId, followingId: viewerId } }),
     // 获赞总数：该用户全部已发布帖的点赞计数之和（排除软删/待审帖）
     prisma.post.aggregate({ _sum: { upCount: true }, where: { userId: targetId, status: 1 } }),
+    // 拉黑/不喜欢状态（viewer → target，单向）
+    blockService.isBlocked(viewerId, targetId),
+    dislikeService.isDisliked(viewerId, targetId),
   ]);
   const totalLikes = Number(likesAgg._sum?.upCount ?? 0);
   // 已注销用户：匿名化昵称/头像/bio，并标记 deleted，前端据 deleted 降级展示。
@@ -94,6 +99,7 @@ export async function getUserProfile(viewerId: number, rawTargetId: string) {
       id: user.id,
       nickname: DELETED_NICKNAME,
       avatar: null,
+      profileBackground: null,
       bio: null,
       gender: null,
       postCount,
@@ -102,6 +108,8 @@ export async function getUserProfile(viewerId: number, rawTargetId: string) {
       totalLikes,
       isFollowing: false,
       isMutual: false,
+      isBlocked: false,
+      isDisliked: false,
       deleted: true,
     };
   }
@@ -109,6 +117,7 @@ export async function getUserProfile(viewerId: number, rawTargetId: string) {
     id: user.id,
     nickname: user.nickname,
     avatar: user.avatar,
+    profileBackground: user.profileBackground,
     bio: user.bio,
     gender: user.gender,
     postCount,
@@ -117,6 +126,8 @@ export async function getUserProfile(viewerId: number, rawTargetId: string) {
     totalLikes,
     isFollowing: isFollowing > 0,
     isMutual: isMutual > 0,
+    isBlocked,
+    isDisliked,
     deleted: false,
   };
 }

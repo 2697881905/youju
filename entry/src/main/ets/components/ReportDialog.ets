@@ -42,12 +42,12 @@ export struct ReportDialog {
   build() {
     Column({ space: 16 }) {
       Text('举报')
-        .fontSize(18)
+        .fontSize(18).fontFamily($r('app.string.font_family'))
         .fontWeight(600)
         .fontColor($r('app.color.text_primary'))
 
       Text('请选择举报理由：')
-        .fontSize(14)
+        .fontSize(14).fontFamily($r('app.string.font_family'))
         .fontColor($r('app.color.text_secondary'))
 
       // 单选理由列表
@@ -63,7 +63,7 @@ export struct ReportDialog {
                 }
               })
             Text(item.label)
-              .fontSize(15)
+              .fontSize(15).fontFamily($r('app.string.font_family'))
               .fontColor($r('app.color.text_primary'))
           }
           .width('100%')
@@ -73,12 +73,12 @@ export struct ReportDialog {
 
       // 补充说明
       Text('补充说明（选填）：')
-        .fontSize(14)
+        .fontSize(14).fontFamily($r('app.string.font_family'))
         .fontColor($r('app.color.text_secondary'))
       TextArea({ placeholder: '请输入补充说明（选填，最多200字）', text: this.description })
         .maxLength(200)
         .height(80)
-        .fontSize(14)
+        .fontSize(14).fontFamily($r('app.string.font_family'))
         .backgroundColor($r('app.color.bg_primary'))
         .borderRadius(8)
         .onChange((v: string) => {

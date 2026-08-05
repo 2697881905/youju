@@ -9,7 +9,7 @@ import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { CARD_RADIUS, CARD_SHADOW } from '../utils/cardTokens';
-import { resolveSettingsIcon } from '../utils/settingsIcons';
+import { BackButton } from '../design/components/BackButton';
 
 @Entry
 @Component
@@ -108,16 +108,16 @@ struct AccountBindingPage {
       Column({ space: 4 }) {
         Row() {
           Text(item.displayName)
-            .fontSize(17)
+            .fontSize(17).fontFamily($r('app.string.font_family'))
             .fontWeight(FontWeight.Medium)
             .fontColor($r('app.color.text_primary'))
           Text('主账号')
-            .fontSize(13)
+            .fontSize(13).fontFamily($r('app.string.font_family'))
             .fontColor($r('app.color.text_secondary'))
             .margin({ left: 8 })
         }
         Text(this.formatBoundAt(item.boundAt))
-          .fontSize(13)
+          .fontSize(13).fontFamily($r('app.string.font_family'))
           .fontColor($r('app.color.text_secondary'))
       }
       .layoutWeight(1)
@@ -137,17 +137,17 @@ struct AccountBindingPage {
         .fill(item.provider === 'huawei' ? '#3C7BFF' : '#34C759')
       Column({ space: 4 }) {
         Text(item.displayName)
-          .fontSize(17)
+          .fontSize(17).fontFamily($r('app.string.font_family'))
           .fontWeight(FontWeight.Medium)
           .fontColor($r('app.color.text_primary'))
         Text(this.formatBoundAt(item.boundAt))
-          .fontSize(13)
+          .fontSize(13).fontFamily($r('app.string.font_family'))
           .fontColor($r('app.color.text_secondary'))
       }
       .layoutWeight(1)
       .alignItems(HorizontalAlign.Start)
       Text('解绑')
-        .fontSize(15)
+        .fontSize(15).fontFamily($r('app.string.font_family'))
         .fontColor($r('app.color.text_secondary'))
         .onClick(() => {
           this.pendingUnbindProvider = item.provider;
@@ -186,11 +186,11 @@ struct AccountBindingPage {
           .fill('#3C7BFF')
         Column({ space: 4 }) {
           Text('华为账号')
-            .fontSize(17)
+            .fontSize(17).fontFamily($r('app.string.font_family'))
             .fontWeight(FontWeight.Medium)
             .fontColor($r('app.color.text_primary'))
           Text('绑定后可用华为账号快捷登录')
-            .fontSize(13)
+            .fontSize(13).fontFamily($r('app.string.font_family'))
             .fontColor($r('app.color.text_secondary'))
         }
         .layoutWeight(1)
@@ -204,7 +204,7 @@ struct AccountBindingPage {
 
       Column({ space: 10 }) {
         Text('暂未绑定第三方账号，绑定后可在其他设备用华为一键登录。')
-          .fontSize(13)
+          .fontSize(13).fontFamily($r('app.string.font_family'))
           .fontColor($r('app.color.text_secondary'))
         HuaweiBindButton({
           onHuaweiBindSuccess: (code: string): void => {
@@ -225,31 +225,22 @@ struct AccountBindingPage {
     Column() {
       // 顶栏：返回 + 标题
       Row() {
-        Row() {
-          Image(resolveSettingsIcon('back'))
-            .width(24).height(24)
-            .fillColor($r('app.color.text_primary'))
-        }
-        .width(48).height(44)
-        .justifyContent(FlexAlign.Center)
-        .onClick(() => {
-          this.getUIContext().getRouter().back();
-        })
+        BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
         Text('账号绑定')
-          .fontSize(17)
+          .fontSize(17).fontFamily($r('app.string.font_family'))
           .fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.text_primary'))
           .layoutWeight(1)
           .textAlign(TextAlign.Center)
         Text('')
-          .width(48)
+          .width(44)
       }
       .width('100%')
       .padding({ top: 12, bottom: 8 })
 
       // 说明
       Text('以下账号可用于登录大蓝书')
-        .fontSize(13)
+        .fontSize(13).fontFamily($r('app.string.font_family'))
         .fontColor($r('app.color.text_secondary'))
         .width('100%')
         .padding({ left: 16, right: 16, top: 4, bottom: 8 })
@@ -258,7 +249,7 @@ struct AccountBindingPage {
       if (this.loading) {
         Column() {
           LoadingProgress().width(28).height(28)
-          Text('加载中…').fontSize(13).fontColor($r('app.color.text_secondary')).margin({ top: 10 })
+          Text('加载中…').fontSize(13).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary')).margin({ top: 10 })
         }
         .layoutWeight(1)
         .width('100%')
@@ -285,7 +276,7 @@ struct AccountBindingPage {
 
       // 底部安全提示
       Text('解绑后将无法使用该方式登录；鸿蒙账号为主账号，不可解绑。')
-        .fontSize(13)
+        .fontSize(13).fontFamily($r('app.string.font_family'))
         .fontColor($r('app.color.text_secondary'))
         .width('100%')
         .padding(16)

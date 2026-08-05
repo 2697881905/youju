@@ -2,6 +2,7 @@
 
 import { buildPageTransition } from '../utils/styles';
 import { resolveActionIcon } from '../utils/actionIcons';
+import { BackButton } from '../design/components/BackButton';
 
 @Entry
 @Component
@@ -11,26 +12,15 @@ export struct AboutPage {
     Column() {
       // 顶栏
       Row() {
-        Row() {
-          Image(resolveActionIcon('back'))
-            .width(22)
-            .height(22)
-            .fillColor($r('app.color.text_primary'))
-        }
-        .width(48)
-        .height(44)
-        .justifyContent(FlexAlign.Center)
-        .onClick(() => {
-          this.getUIContext().getRouter().back();
-        });
+        BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
         Text('关于')
-          .fontSize(17)
+          .fontSize(17).fontFamily($r('app.string.font_family'))
           .fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.text_primary'))
           .layoutWeight(1)
           .textAlign(TextAlign.Center);
         Text('')
-          .width(48);
+          .width(44);
       }
       .width('100%')
       .padding({ top: 12, bottom: 8 });
@@ -44,12 +34,12 @@ export struct AboutPage {
               .height(48)
               .fillColor($r('app.color.brand_primary'));
             Text('大蓝书')
-              .fontSize(22)
+              .fontSize(22).fontFamily($r('app.string.font_family'))
               .fontWeight(FontWeight.Bold)
               .fontColor($r('app.color.text_primary'))
               .margin({ top: 8 });
             Text('版本 1.0.0')
-              .fontSize(14)
+              .fontSize(14).fontFamily($r('app.string.font_family'))
               .fontColor($r('app.color.text_secondary'))
               .margin({ top: 4 });
           }
@@ -59,13 +49,13 @@ export struct AboutPage {
           // 简介卡片
           Column() {
             Text('简介')
-              .fontSize(13)
+              .fontSize(13).fontFamily($r('app.string.font_family'))
               .fontColor($r('app.color.text_secondary'))
               .alignSelf(ItemAlign.Start)
               .padding({ left: 4, bottom: 8 });
             Column() {
               Text('大蓝书是一个男性生活经验分享社区。在这里，你可以分享购物测评、避坑指南、实用教程和生活心得，与志同道合的朋友互相学习、共同成长。')
-                .fontSize(15)
+                .fontSize(15).fontFamily($r('app.string.font_family'))
                 .fontColor($r('app.color.text_primary'))
                 .lineHeight(24)
                 .padding({ left: 16, right: 16, top: 16, bottom: 16 });
@@ -79,17 +69,17 @@ export struct AboutPage {
           // 开发者信息
           Column() {
             Text('开发者')
-              .fontSize(13)
+              .fontSize(13).fontFamily($r('app.string.font_family'))
               .fontColor($r('app.color.text_secondary'))
               .alignSelf(ItemAlign.Start)
               .padding({ left: 4, bottom: 8 });
             Column() {
               Text('大蓝书团队')
-                .fontSize(15)
+                .fontSize(15).fontFamily($r('app.string.font_family'))
                 .fontColor($r('app.color.text_primary'))
                 .padding({ left: 16, right: 16, top: 16, bottom: 8 });
               Text('© 2026 BigBlueBook. All rights reserved.')
-                .fontSize(12)
+                .fontSize(12).fontFamily($r('app.string.font_family'))
                 .fontColor($r('app.color.text_secondary'))
                 .padding({ left: 16, right: 16, bottom: 16 });
             }

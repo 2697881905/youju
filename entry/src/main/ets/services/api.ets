@@ -13,6 +13,16 @@ export const BASE_URL: string =
     ? 'https://api.mindtype.cn'
     : 'http://127.0.0.1:3000';
 
+// 本地上传服务会把宿主机 LAN 地址写入数据库；地址变动或模拟器无法直连 LAN 时，
+// 统一回落到已经可用的 hdc rport 地址，避免头像和背景图变成灰色占位。
+export function resolveDisplayImageUrl(url: string): string {
+  if (url.length === 0 || BUILD_MODE === 'release') {
+    return url;
+  }
+  const match: RegExpMatchArray | null = url.match(/^https?:\/\/[^/]+(\/uploads\/.*)$/);
+  return match === null ? url : BASE_URL + match[1];
+}
+
 // token 由 utils/auth.ts 统一管理（PersistentStorage 持久化），request 直接从 AppStorage 读取。
 
 export interface ApiResult<T> {
@@ -25,7 +35,9 @@ export interface ApiResult<T> {
 function isNetworkConnectionError(message: string): boolean {
   const m: string = message.toLowerCase();
   return m.includes('connect') || m.includes('refused') || m.includes('econnrefused') ||
-    m.includes('unreachable') || m.includes('timed out') || m.includes('network');
+    m.includes('failed to receive') || m.includes('failed to send') ||
+    m.includes('unreachable') || m.includes('timed out') || m.includes('timeout') ||
+    m.includes('network') || m.includes('socket') || m.includes('peer');
 }
 
 async function request<T>(method: string, path: string, body?: Object): Promise<T> {
@@ -120,6 +132,8 @@ export interface CreatePostBody {
   title: string;
   content?: string;
   coverImage?: string;
+  videoUrl?: string;
+  videoCover?: string;
   images?: string[];
   genre: Genre;
   tags: string[];
@@ -136,11 +150,13 @@ export interface LoginBody {
   openId: string;
   nickname?: string;
   avatar?: string;
+  profileBackground?: string;
 }
 
 export interface LoginResult {
   token: string;
   user: User;
+  isNewUser: boolean;
 }
 
 // 华为账号登录：用 Authorization Code 换取登录态
@@ -199,25 +215,6 @@ export function listPosts(params: ListPostsParams = {}): Promise<ListResult<Post
   return api.get<ListResult<Post>>(path);
 }
 
-// GET /v1/posts/hotspot?windowHours=&page=&limit=&tag=
-// 时窗加权热帖（综合点赞/评论/收藏，按时效衰减）
-export interface HotPostsParams {
-  windowHours?: number;
-  page?: number;
-  limit?: number;
-  tag?: string;
-}
-
-export function listHotPosts(params: HotPostsParams = {}): Promise<ListResult<Post>> {
-  const path: string = '/v1/posts/hotspot' + toQuery([
-    ['windowHours', params.windowHours],
-    ['page', params.page],
-    ['limit', params.limit],
-    ['tag', params.tag],
-  ]);
-  return api.get<ListResult<Post>>(path);
-}
-
 // GET /v1/posts/:id（含 comments）
 export function getPost(id: number): Promise<PostWithComments> {
   return api.get<PostWithComments>('/v1/posts/' + id);
@@ -256,6 +253,8 @@ export interface UpdatePostBody {
   title?: string;
   content?: string;
   coverImage?: string;
+  videoUrl?: string;
+  videoCover?: string;
   images?: string[];
   tags?: string[];
   structuredData?: Object;
@@ -382,8 +381,10 @@ export function recordPrivacyConsent(version: string): Promise<void> {
 export interface UpdateMeBody {
   nickname?: string;
   avatar?: string;
+  profileBackground?: string;
   bio?: string;
-  gender?: number;
+  // null explicitly clears gender and represents "保密"; undefined means leave unchanged.
+  gender?: number | null;
 }
 
 export function updateMe(body: UpdateMeBody): Promise<User> {
@@ -457,10 +458,24 @@ export async function markAllRead(): Promise<void> {
 // POST /v1/upload/token → 返回腾讯云 COS 预签名 PUT URL（前端直传）
 export interface UploadSignatureBody {
   contentType?: string;
+  folder?: 'avatars' | 'backgrounds' | 'posts' | 'video';
+  mode?: 'cos' | 'local';
+  size?: number; // 视频上传体积（字节），后端用于二次大小兜底
 }
 
-export function getUploadSignature(contentType: string = 'image/jpeg'): Promise<UploadSignature> {
-  const body: UploadSignatureBody = { contentType };
+export function getUploadSignature(
+  contentType: string = 'image/jpeg',
+  folder: 'avatars' | 'backgrounds' | 'posts' | 'video' = 'avatars',
+  size?: number,
+): Promise<UploadSignature> {
+  const body: UploadSignatureBody = {
+    contentType,
+    folder,
+    size,
+    // Debug builds use the local PUT endpoint over hdc rport; release keeps COS.
+    // 视频强制走 COS（uploadService 内部已对 folder==='video' 忽略 local 降级）。
+    mode: BUILD_MODE === 'release' ? 'cos' : 'local',
+  };
   return api.post<UploadSignature>('/v1/upload/token', body);
 }
 
@@ -613,6 +628,17 @@ export async function blockUser(blockedId: number): Promise<void> {
 // DELETE /v1/me/block/:blockedId
 export async function unblockUser(blockedId: number): Promise<void> {
   await api.del<null>('/v1/me/block/' + blockedId);
+}
+
+// ===== 不喜欢（减少推送）管理 =====
+// POST /v1/me/dislike/:dislikedId
+export async function dislikeUser(dislikedId: number): Promise<void> {
+  await api.post<null>('/v1/me/dislike/' + dislikedId);
+}
+
+// DELETE /v1/me/dislike/:dislikedId
+export async function undislikeUser(dislikedId: number): Promise<void> {
+  await api.del<null>('/v1/me/dislike/' + dislikedId);
 }
 
 // ===== 隐私设置 =====

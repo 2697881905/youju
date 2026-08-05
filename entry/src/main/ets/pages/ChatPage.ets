@@ -1,5 +1,5 @@
 // 私信聊天页（MVP 仅文字）：
-// - 从 AppStorage 读取对端信息（chatPeerId/Name/Avatar，规避 router.getParams 不可靠）
+// - 从进程内导航意图读取对端信息（规避 router.getParams 不可靠）
 // - 进入即拉历史并标记已读（清私信红点）
 // - 发送文字消息（服务端按接收方 dmPolicy + 拉黑做权限校验，越权回中文报错）
 // - 发送/已读后自增 dmRefreshSignal，驱动消息页会话列表与红点刷新
@@ -12,6 +12,8 @@ import { CARD_RADIUS } from '../utils/cardTokens';
 import { AvatarView } from '../components/AvatarView';
 import { KeyboardAvoidMode } from '@kit.ArkUI';
 import { resolveActionIcon } from '../utils/actionIcons';
+import { BackButton } from '../design/components/BackButton';
+import { openUserProfile, takeChatIntent } from '../utils/nav';
 
 @Entry
 @Component
@@ -31,9 +33,10 @@ export struct ChatPage {
   private originalKeyboardMode: KeyboardAvoidMode | null = null;
 
   aboutToAppear(): void {
-    this.peerId = (AppStorage.get<number>('chatPeerId') ?? 0) as number;
-    this.peerName = (AppStorage.get<string>('chatPeerName') ?? '') as string;
-    this.peerAvatar = (AppStorage.get<string>('chatPeerAvatar') ?? '') as string;
+    const intent = takeChatIntent();
+    this.peerId = intent?.peerId ?? 0;
+    this.peerName = intent?.peerName ?? '';
+    this.peerAvatar = intent?.peerAvatar ?? '';
     const me = getCurrentUser();
     if (me) {
       this.myAvatar = me.avatar ?? '';
@@ -160,7 +163,7 @@ export struct ChatPage {
   // 点击顶栏头像/昵称 → 跳转对端主页（与评论/帖子头像跳转一致）
   private goPeer(): void {
     if (this.peerId > 0) {
-      AppStorage.setOrCreate('targetUserId', String(this.peerId));
+      openUserProfile(this.peerId);
       this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage' });
     }
   }
@@ -175,7 +178,7 @@ export struct ChatPage {
 
       Column({ space: 4 }) {
         Text(m.content)
-          .fontSize(15)
+          .fontSize(15).fontFamily($r('app.string.font_family'))
           .fontColor(this.isMine(m.senderId) ? Color.White : $r('app.color.text_primary'))
           .backgroundColor(this.isMine(m.senderId) ? $r('app.color.brand_primary') : $r('app.color.card_bg'))
           .padding({ left: 12, right: 12, top: 8, bottom: 8 })
@@ -183,7 +186,7 @@ export struct ChatPage {
           .constraintSize({ maxWidth: 260 })
           .textAlign(TextAlign.Start)
         Text(this.formatChatTime(m.createdAt))
-          .fontSize(10)
+          .fontSize(10).fontFamily($r('app.string.font_family'))
           .fontColor($r('app.color.text_secondary'))
       }
       .alignItems(this.isMine(m.senderId) ? HorizontalAlign.End : HorizontalAlign.Start)
@@ -203,23 +206,11 @@ export struct ChatPage {
     Column() {
       // 顶栏
       Row() {
-        Row() {
-          Image(resolveActionIcon('back'))
-            .width(22)
-            .height(22)
-            .fillColor($r('app.color.text_primary'))
-        }
-          .width(48)
-          .height(44)
-          .justifyContent(FlexAlign.Center)
-          .accessibilityText('返回')
-          .onClick(() => {
-            this.getUIContext().getRouter().back();
-          });
+        BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
         Row({ space: 8 }) {
           AvatarView({ avatar: this.peerAvatar, name: this.peerName, avatarSize: 32, ringWidth: 2 })
           Text(this.peerName !== '' ? this.peerName : '用户')
-            .fontSize(17)
+            .fontSize(17).fontFamily($r('app.string.font_family'))
             .fontWeight(600)
             .fontColor($r('app.color.text_primary'));
         }
@@ -228,7 +219,7 @@ export struct ChatPage {
         .onClick(() => {
           this.goPeer();
         });
-        Text('').width(48);
+        Text('').width(44);
       }
       .width('100%')
       .padding({ left: 8, right: 8, top: 8, bottom: 8 })
@@ -239,13 +230,13 @@ export struct ChatPage {
       if (this.loading && this.messages.length === 0) {
         Column() {
           LoadingProgress().width(28).height(28);
-          Text('加载中…').fontSize(13).fontColor($r('app.color.text_secondary')).margin({ top: 10 });
+          Text('加载中…').fontSize(13).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary')).margin({ top: 10 });
         }
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
       } else if (this.error !== '' && this.messages.length === 0) {
         Column({ space: 12 }) {
-          Text(this.error).fontSize(14).fontColor($r('app.color.text_secondary')).textAlign(TextAlign.Center);
-          Text('点击重试').fontSize(14).fontColor($r('app.color.brand_primary')).onClick(() => {
+          Text(this.error).fontSize(14).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary')).textAlign(TextAlign.Center);
+          Text('点击重试').fontSize(14).fontFamily($r('app.string.font_family')).fontColor($r('app.color.brand_primary')).onClick(() => {
             this.loadMessages();
           });
         }
@@ -270,6 +261,7 @@ export struct ChatPage {
       // 输入栏
       Row({ space: 8 }) {
         TextInput({ text: this.inputText, placeholder: '发条消息…' })
+          .fontFamily($r('app.string.font_family'))
           .layoutWeight(1)
           .height(40)
           .backgroundColor($r('app.color.card_bg'))

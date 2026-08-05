@@ -6,6 +6,7 @@ import { getPendingPosts, moderatePost } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { resolveActionIcon } from '../utils/actionIcons';
+import { BackButton } from '../design/components/BackButton';
 
 // 举报理由 → 中文标签
 function reasonLabel(reason: ReportReason): string {
@@ -32,13 +33,13 @@ struct RejectDialog {
   build() {
     Column({ space: 16 }) {
       Text('驳回理由')
-        .fontSize(18)
+        .fontSize(18).fontFamily($r('app.string.font_family'))
         .fontWeight(600)
         .fontColor($r('app.color.text_primary'))
 
       TextArea({ placeholder: '请填写驳回理由（将通知作者，选填）', text: this.reason })
         .height(90)
-        .fontSize(14)
+        .fontSize(14).fontFamily($r('app.string.font_family'))
         .backgroundColor($r('app.color.bg_primary'))
         .borderRadius(8)
         .onChange((v: string) => {
@@ -149,14 +150,14 @@ struct ModerationPage {
   reportReasonChip(reason: ReportReason, desc?: string): void {
     Column({ space: 2 }) {
       Text(reasonLabel(reason))
-        .fontSize(12)
+        .fontSize(12).fontFamily($r('app.string.font_family'))
         .fontColor($r('app.color.semantic_red'))
         .backgroundColor('#FFE5E5')
         .padding({ left: 8, right: 8, top: 3, bottom: 3 })
         .borderRadius(10)
       if (desc && desc.length > 0) {
         Text('“' + desc + '”')
-          .fontSize(11)
+          .fontSize(11).fontFamily($r('app.string.font_family'))
           .fontColor($r('app.color.text_secondary'))
           .maxLines(2)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -182,17 +183,17 @@ struct ModerationPage {
             .width(28)
             .height(28)
             .borderRadius(14)
-            .fontSize(13)
+            .fontSize(13).fontFamily($r('app.string.font_family'))
             .fontColor('#fff')
             .backgroundColor($r('app.color.brand_primary'))
             .textAlign(TextAlign.Center)
         }
         Text(post.user?.nickname ?? '匿名')
-          .fontSize(13)
+          .fontSize(13).fontFamily($r('app.string.font_family'))
           .fontColor($r('app.color.text_primary'))
         Blank()
         Text('举报 ' + String(post.reportCount ?? post.reports?.length ?? 0))
-          .fontSize(12)
+          .fontSize(12).fontFamily($r('app.string.font_family'))
           .fontColor($r('app.color.semantic_red'))
           .padding({ left: 8, right: 8, top: 2, bottom: 2 })
           .backgroundColor('#FFE5E5')
@@ -202,12 +203,12 @@ struct ModerationPage {
 
       // 标题 + 正文
       Text(post.title ?? '')
-        .fontSize(16)
+        .fontSize(16).fontFamily($r('app.string.font_family'))
         .fontWeight(FontWeight.Medium)
         .fontColor($r('app.color.text_primary'))
       if (post.content) {
         Text(post.content)
-          .fontSize(13)
+          .fontSize(13).fontFamily($r('app.string.font_family'))
           .fontColor($r('app.color.text_secondary'))
           .maxLines(3)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -226,7 +227,7 @@ struct ModerationPage {
       if (post.reports && post.reports.length > 0) {
         Column({ space: 6 }) {
           Text('举报理由')
-            .fontSize(12)
+            .fontSize(12).fontFamily($r('app.string.font_family'))
             .fontColor($r('app.color.text_secondary'))
           ForEach(
             post.reports,
@@ -234,7 +235,7 @@ struct ModerationPage {
               Row({ space: 6 }) {
                 this.reportReasonChip(r.reason ?? 'other', r.description)
                 Text('— ' + (r.reporter?.nickname ?? '匿名'))
-                  .fontSize(11)
+                  .fontSize(11).fontFamily($r('app.string.font_family'))
                   .fontColor($r('app.color.text_secondary'))
               }
               .width('100%')
@@ -283,7 +284,7 @@ struct ModerationPage {
   loadingBuilder(): void {
     Row({ space: 8 }) {
       LoadingProgress().width(20).height(20)
-      Text('刷新中…').fontSize(12).fontColor($r('app.color.text_secondary'))
+      Text('刷新中…').fontSize(12).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary'))
     }
   }
 
@@ -291,25 +292,17 @@ struct ModerationPage {
     Column() {
       // 顶栏：返回 + 标题 + 刷新
       Row() {
-        Text('‹')
-          .fontSize(28)
-          .fontColor($r('app.color.text_primary'))
-          .width(48)
-          .height(44)
-          .textAlign(TextAlign.Center)
-          .onClick(() => {
-            this.getUIContext().getRouter().back();
-          })
+        BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
         Text('内容审核')
-          .fontSize(17)
+          .fontSize(17).fontFamily($r('app.string.font_family'))
           .fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.text_primary'))
           .layoutWeight(1)
           .textAlign(TextAlign.Center)
         Text('刷新')
-          .fontSize(15)
+          .fontSize(15).fontFamily($r('app.string.font_family'))
           .fontColor($r('app.color.brand_primary'))
-          .width(48)
+          .width(44)
           .height(44)
           .textAlign(TextAlign.Center)
           .onClick(() => {
@@ -330,7 +323,7 @@ struct ModerationPage {
         Column() {
           LoadingProgress().width(28).height(28)
           Text('加载中…')
-            .fontSize(13)
+            .fontSize(13).fontFamily($r('app.string.font_family'))
             .fontColor($r('app.color.text_secondary'))
             .margin({ top: 10 })
         }
@@ -344,11 +337,11 @@ struct ModerationPage {
             .height(48)
             .fillColor($r('app.color.text_secondary'))
           Text('无管理员权限')
-            .fontSize(16)
+            .fontSize(16).fontFamily($r('app.string.font_family'))
             .fontColor($r('app.color.text_secondary'))
             .margin({ top: 12 })
           Text('请联系管理员或检查登录账号')
-            .fontSize(12)
+            .fontSize(12).fontFamily($r('app.string.font_family'))
             .fontColor($r('app.color.text_secondary'))
             .margin({ top: 6 })
         }
@@ -358,7 +351,7 @@ struct ModerationPage {
       } else if (this.posts.length === 0) {
         Column() {
           Text(this.error ? ('加载失败：' + this.error) : '暂无待审核内容')
-            .fontSize(14)
+            .fontSize(14).fontFamily($r('app.string.font_family'))
             .fontColor($r('app.color.text_secondary'))
         }
         .layoutWeight(1)

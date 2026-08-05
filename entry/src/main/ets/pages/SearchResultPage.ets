@@ -5,13 +5,27 @@
 import { Post } from '../models/types';
 import { searchPosts } from '../services/api';
 import { PostCard } from '../components/PostCard';
-import { setDetailPostId } from '../utils/nav';
+import { openPostDetail, takeSearchKeyword } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { observeGridColumns, gridColumnTemplate } from '../utils/responsive';
 import { GRID_GAP, GRID_PADDING } from '../utils/cardTokens';
 import { common } from '@kit.AbilityKit';
+import { EmptyState } from '../design/components/EmptyState';
+import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
+import { BackButton } from '../design/components/BackButton';
+import { Skeleton } from '../design/motion/Skeleton';
+import { ColorTokens } from '../design/tokens/color';
+import { IconTokens } from '../design/tokens/icon';
+import { RadiusTokens } from '../design/tokens/radius';
+import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
+import { TypeTokens } from '../design/tokens/type';
+
+const SEARCH_SORTS: SegmentedItem[] = [
+  { key: 'latest', label: '最新' },
+  { key: 'hot', label: '热门' },
+];
 
 @Entry
 @Component
@@ -27,6 +41,7 @@ struct SearchResultPage {
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
   @State isRefreshing: boolean = false;
   @State pageNum: number = 1;
+  @State sortIndex: number = 0;
   private readonly limitNum: number = 10;
   // 响应式列数（按屏幕宽度 2/3/4 列自适应）
   @State gridColumns: number = 2;
@@ -34,9 +49,7 @@ struct SearchResultPage {
   private unregisterColumns: () => void = () => {};
 
   aboutToAppear(): void {
-    // API 24 router.getParams 失效；keyword 跨页传递用 AppStorage（与 detailPostId 一致）
-    const kw: string | undefined = AppStorage.get<string>('searchKeyword');
-    this.keyword = kw ?? '';
+    this.keyword = takeSearchKeyword();
     this.unregisterColumns = observeGridColumns(
       this.getUIContext().getHostContext() as common.Context,
       (cols: number): void => {
@@ -74,8 +87,15 @@ struct SearchResultPage {
       safeShowToast(this.getUIContext(),{ message: '请输入搜索内容' });
       return;
     }
-    AppStorage.setOrCreate('searchKeyword', kw);
     this.keyword = kw;
+    this.refresh();
+  }
+
+  private onSortChange(index: number): void {
+    if (this.sortIndex === index) {
+      return;
+    }
+    this.sortIndex = index;
     this.refresh();
   }
 
@@ -83,8 +103,7 @@ struct SearchResultPage {
   private goDetail(post: Post): void {
     if (post.id !== undefined) {
       const id = post.id.toString();
-      AppStorage.setOrCreate('detailPostId', id);
-      setDetailPostId(id);
+      openPostDetail(id);
       this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
     }
   }
@@ -100,7 +119,7 @@ struct SearchResultPage {
         keyword: this.keyword,
         page: this.pageNum,
         pageSize: this.limitNum,
-        sort: 'latest',
+        sort: this.sortIndex === 1 ? 'hot' : 'latest',
       });
       if (reset) {
         this.searchList = res.list;
@@ -122,25 +141,58 @@ struct SearchResultPage {
   refreshBuilder(): void {
     Row({ space: 8 }) {
       LoadingProgress().width(20).height(20)
-      Text('刷新中…').fontSize(12).fontColor($r('app.color.text_secondary'))
+      Text('刷新中…').fontSize(12).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary'))
     }
+  }
+
+  @Builder
+  private resultSkeleton(): void {
+    Column({ space: GRID_GAP }) {
+      Row({ space: GRID_GAP }) {
+        Column({ space: SpaceTokens.sm }) {
+          Skeleton({ skeletonHeight: 180, radius: RadiusTokens.md })
+          Skeleton({ skeletonWidth: '76%', skeletonHeight: 16 })
+          Skeleton({ skeletonWidth: '48%', skeletonHeight: 12 })
+        }
+        .layoutWeight(1)
+        Column({ space: SpaceTokens.sm }) {
+          Skeleton({ skeletonHeight: 220, radius: RadiusTokens.md })
+          Skeleton({ skeletonWidth: '70%', skeletonHeight: 16 })
+          Skeleton({ skeletonWidth: '52%', skeletonHeight: 12 })
+        }
+        .layoutWeight(1)
+      }
+      Row({ space: GRID_GAP }) {
+        Column({ space: SpaceTokens.sm }) {
+          Skeleton({ skeletonHeight: 210, radius: RadiusTokens.md })
+          Skeleton({ skeletonWidth: '68%', skeletonHeight: 16 })
+        }
+        .layoutWeight(1)
+        Column({ space: SpaceTokens.sm }) {
+          Skeleton({ skeletonHeight: 170, radius: RadiusTokens.md })
+          Skeleton({ skeletonWidth: '74%', skeletonHeight: 16 })
+        }
+        .layoutWeight(1)
+      }
+    }
+    .width('100%')
+    .padding({ left: GRID_PADDING, right: GRID_PADDING, top: SpaceTokens.item })
   }
 
   build() {
     Column() {
-      // 顶栏：返回 + 可改搜索框 + 清除✕
-      Row({ space: 8 }) {
-        Image(resolveActionIcon('back'))
-          .width(22)
-          .height(22)
-          .fillColor($r('app.color.text_primary'))
-          .onClick(() => this.getUIContext().getRouter().back())
+      // 与搜索探索页一致的玻璃搜索工具栏。
+      Row({ space: SpaceTokens.inline }) {
+        BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
 
         TextInput({ placeholder: '搜索', text: this.keyword })
+          .fontFamily(TypeTokens.fontFamily)
           .layoutWeight(1)
-          .height(36)
-          .backgroundColor($r('app.color.bg_secondary'))
-          .borderRadius(18)
+          .height(LayoutTokens.minTouchTarget)
+          .backgroundColor(ColorTokens.barSurface)
+          .backdropBlur(LayoutTokens.glassBlur)
+          .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+          .borderRadius(RadiusTokens.floatingBar)
           .onChange((v: string) => {
             this.keyword = v;
           })
@@ -149,55 +201,62 @@ struct SearchResultPage {
           })
 
         if (this.keyword !== '') {
-          Image(resolveActionIcon('close'))
-            .width(18)
-            .height(18)
-            .fillColor($r('app.color.text_secondary'))
+          Row() {
+            Image(resolveActionIcon('close'))
+              .width(IconTokens.compact)
+              .height(IconTokens.compact)
+              .fillColor(ColorTokens.secondary)
+          }
+          .width(LayoutTokens.minTouchTarget)
+          .height(LayoutTokens.minTouchTarget)
+          .justifyContent(FlexAlign.Center)
+          .backgroundColor(ColorTokens.barSurface)
+          .backdropBlur(LayoutTokens.glassBlur)
+          .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+          .borderRadius(RadiusTokens.lg)
             .onClick(() => {
               this.keyword = '';
             })
         }
       }
       .width('100%')
-      .padding({ left: 12, right: 12, top: 12, bottom: 10 })
+      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
       .alignItems(VerticalAlign.Center)
 
-      // 结果计数
       Row() {
-        Text('共找到 ' + this.total + ' 篇')
-          .fontSize(13)
-          .fontColor($r('app.color.text_secondary'))
+        Text(this.loading ? '正在查找相关帖子' : ('找到 ' + this.total + ' 篇内容'))
+          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+          .fontColor(ColorTokens.secondary)
+        Blank()
+        SegmentedControl({
+          items: SEARCH_SORTS,
+          selectedIndex: $sortIndex,
+          itemWidth: 54,
+          fillWidth: false,
+          glass: true,
+          onSelect: (index: number): void => { this.onSortChange(index); },
+        })
       }
       .width('100%')
-      .padding({ left: 16, right: 16, bottom: 8 })
+      .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.sm })
+      .alignItems(VerticalAlign.Center)
 
       // 三态主体
       if (this.searchList.length === 0 && this.loading) {
-        // 加载中
         Column() {
-          LoadingProgress().width(28).height(28)
-          Text('加载中…')
-            .fontSize(13)
-            .fontColor($r('app.color.text_secondary'))
-            .margin({ top: 10 })
+          this.resultSkeleton()
         }
         .layoutWeight(1)
         .width('100%')
-        .justifyContent(FlexAlign.Center)
       } else if (this.searchList.length === 0 && this.error !== '') {
-        // 失败态
         Column() {
-          Image(resolveActionIcon('warning'))
-            .width(40)
-            .height(40)
-            .fillColor($r('app.color.text_secondary'))
-          Text(this.error)
-            .fontSize(14)
-            .fontColor($r('app.color.text_secondary'))
-            .margin({ top: 8 })
-          Button('重试')
-            .margin({ top: 16 })
-            .onClick(() => this.refresh())
+          EmptyState({
+            icon: resolveActionIcon('warning'),
+            title: '搜索暂时不可用',
+            message: this.error,
+            actionLabel: '重试',
+            onAction: (): void => { this.refresh(); },
+          })
         }
         .layoutWeight(1)
         .width('100%')
@@ -205,14 +264,11 @@ struct SearchResultPage {
       } else if (this.searchList.length === 0) {
         // 空态
         Column() {
-          Image(resolveActionIcon('search'))
-            .width(40)
-            .height(40)
-            .fillColor($r('app.color.text_secondary'))
-          Text('未找到相关帖子，换个关键词试试')
-            .fontSize(14)
-            .fontColor($r('app.color.text_secondary'))
-            .margin({ top: 8 })
+          EmptyState({
+            icon: resolveActionIcon('search'),
+            title: '暂时没有相关内容',
+            message: '换个关键词，可能会有新发现',
+          })
         }
         .layoutWeight(1)
         .width('100%')
@@ -238,7 +294,7 @@ struct SearchResultPage {
             if (this.finished) {
               GridItem() {
                 Text('没有更多了')
-                  .fontSize(12)
+                  .fontSize(12).fontFamily($r('app.string.font_family'))
                   .fontColor($r('app.color.text_secondary'))
                   .width('100%')
                   .textAlign(TextAlign.Center)

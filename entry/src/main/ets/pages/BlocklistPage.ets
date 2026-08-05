@@ -4,6 +4,7 @@ import { listBlocked, unblockUser } from '../services/api';
 import { BlockUser, Pagination } from '../models/types';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
+import { BackButton } from '../design/components/BackButton';
 
 @Entry
 @Component
@@ -72,21 +73,15 @@ export struct BlocklistPage {
     Column() {
       // 顶栏
       Row() {
-        Text('‹')
-          .fontSize(28)
-          .fontColor($r('app.color.text_primary'))
-          .width(48)
-          .height(44)
-          .textAlign(TextAlign.Center)
-          .onClick(() => { this.getUIContext().getRouter().back(); });
+        BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
         Text('拉黑管理')
-          .fontSize(17)
+          .fontSize(17).fontFamily($r('app.string.font_family'))
           .fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.text_primary'))
           .layoutWeight(1)
           .textAlign(TextAlign.Center);
         Text('')
-          .width(48);
+          .width(44);
       }
       .width('100%')
       .padding({ top: 12, bottom: 8 });
@@ -98,14 +93,14 @@ export struct BlocklistPage {
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
       } else if (this.loadError) {
         Column() {
-          Text('加载失败').fontSize(15).fontColor($r('app.color.text_secondary'));
-          Text(this.loadError).fontSize(13).fontColor($r('app.color.text_secondary')).margin({ top: 4 });
+          Text('加载失败').fontSize(15).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary'));
+          Text(this.loadError).fontSize(13).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary')).margin({ top: 4 });
           Button('重试').margin({ top: 12 }).onClick(() => { this.loadFirst(); });
         }
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
       } else if (this.users.length === 0) {
         Column() {
-          Text('暂无拉黑用户').fontSize(15).fontColor($r('app.color.text_secondary'));
+          Text('暂无拉黑用户').fontSize(15).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary'));
         }
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
       } else {
@@ -116,7 +111,7 @@ export struct BlocklistPage {
                 // 头像占位
                 Column() {
                   Text(user.nickname.charAt(0))
-                    .fontSize(16)
+                    .fontSize(16).fontFamily($r('app.string.font_family'))
                     .fontColor('#FFFFFF');
                 }
                 .width(40).height(40)
@@ -125,13 +120,13 @@ export struct BlocklistPage {
                 .justifyContent(FlexAlign.Center);
 
                 Text(user.nickname)
-                  .fontSize(15)
+                  .fontSize(15).fontFamily($r('app.string.font_family'))
                   .fontColor($r('app.color.text_primary'))
                   .layoutWeight(1)
                   .margin({ left: 12 });
 
                 Button('取消拉黑')
-                  .fontSize(13)
+                  .fontSize(13).fontFamily($r('app.string.font_family'))
                   .fontColor($r('app.color.semantic_red'))
                   .backgroundColor('#1AFF453A')
                   .borderRadius(6)
@@ -148,12 +143,12 @@ export struct BlocklistPage {
             Row() {
               if (this.users.length < this.pagination.total) {
                 Text(this.loadingMore ? '加载中...' : '加载更多')
-                  .fontSize(14)
+                  .fontSize(14).fontFamily($r('app.string.font_family'))
                   .fontColor($r('app.color.text_secondary'))
                   .onClick(() => { this.loadMore(); });
               } else {
                 Text('已加载全部')
-                  .fontSize(14)
+                  .fontSize(14).fontFamily($r('app.string.font_family'))
                   .fontColor($r('app.color.text_secondary'));
               }
             }

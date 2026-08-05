@@ -5,6 +5,7 @@
 // - 回写 AppStorage['unreadMessageCount'] 供 Index 消息 Tab 红点
 
 import { NotificationItem, NotificationType, Conversation } from '../models/types';
+import { openChat, openPostDetail, openUserProfile } from '../utils/nav';
 import {
   listNotifications,
   getUnreadCount,
@@ -19,14 +20,15 @@ import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { notifIconRes, resolveActionIcon } from '../utils/actionIcons';
 import { EmptyState } from '../design/components/EmptyState';
-import { IconTile } from '../design/components/IconTile';
 import { MessageRow } from '../design/components/MessageRow';
 import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
 import { Pressable } from '../design/motion/Pressable';
 import { Reveal } from '../design/motion/Reveal';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
+import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
+import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { TypeTokens } from '../design/tokens/type';
 
 const MESSAGE_SEGMENTS: SegmentedItem[] = [
@@ -51,6 +53,7 @@ export struct MessagePage {
   // ===== 私信 =====
   @State dmTab: string = 'notif'; // 'notif' | 'dm'
   @State dmTabIndex: number = 0;
+  @State tabPulse: boolean = false;
   @State conversations: Conversation[] = [];
   @State dmLoading: boolean = true;
   @State dmError: string = '';
@@ -61,6 +64,9 @@ export struct MessagePage {
   // 订阅登录账号：切换账号（如老张↔小美互测）时重拉通知与私信，
   // 否则 TabContent 内组件被保留，残留上一个账号的通知/会话与红点。
   @StorageLink('authUserId') @Watch('onUserChange') uid: string = '';
+  @StorageLink('reduceMotion') reduceMotion: boolean = false;
+  @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
+  private tabPulseTimer: number = 0;
 
   // 根据当前筛选条件过滤列表（方法调用，避免 ArkTS getter 在 build() 中不稳定）
   private getFilteredList(): NotificationItem[] {
@@ -90,6 +96,31 @@ export struct MessagePage {
     if (getToken() !== '') {
       this.loadFirst();
     }
+  }
+
+  aboutToDisappear(): void {
+    if (this.tabPulseTimer !== 0) {
+      clearTimeout(this.tabPulseTimer);
+      this.tabPulseTimer = 0;
+    }
+  }
+
+  private shouldReduceMotion(): boolean {
+    return this.reduceMotion || this.systemReduceMotion;
+  }
+
+  private playTabFeedback(): void {
+    if (this.shouldReduceMotion()) {
+      return;
+    }
+    if (this.tabPulseTimer !== 0) {
+      clearTimeout(this.tabPulseTimer);
+    }
+    this.tabPulse = true;
+    this.tabPulseTimer = setTimeout((): void => {
+      this.tabPulse = false;
+      this.tabPulseTimer = 0;
+    }, MotionTokens.control) as number;
   }
 
   // token 由空变为非空（登录完成）→ 列表为空才拉取，避免重复加载
@@ -237,11 +268,9 @@ export struct MessagePage {
     }
   }
 
-  // 点击会话 → 进入聊天页（peer 信息经 AppStorage 传递，规避 router.getParams 不可靠）
+  // 点击会话 → 进入聊天页，peer 信息经短暂导航意图传递。
   onConversationClick(c: Conversation): void {
-    AppStorage.setOrCreate('chatPeerId', c.peer.id);
-    AppStorage.setOrCreate('chatPeerName', c.peer.nickname);
-    AppStorage.setOrCreate('chatPeerAvatar', c.peer.avatar ?? '');
+    openChat({ peerId: c.peer.id, peerName: c.peer.nickname, peerAvatar: c.peer.avatar ?? '' });
     this.getUIContext().getRouter().pushUrl({ url: 'pages/ChatPage' });
   }
 
@@ -294,7 +323,7 @@ export struct MessagePage {
 
   // 点击会话头像 → 跳转对端主页（与评论/帖子头像跳转一致）
   private goUser(id: number): void {
-    AppStorage.setOrCreate('targetUserId', String(id));
+    openUserProfile(id);
     this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage' });
   }
 
@@ -330,7 +359,7 @@ export struct MessagePage {
       }
     }
     if (item.postId !== undefined && item.postId !== null) {
-      AppStorage.setOrCreate('detailPostId', String(item.postId));
+      openPostDetail(String(item.postId));
       this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
     }
   }
@@ -371,6 +400,7 @@ export struct MessagePage {
     this.dmTabIndex = index;
     if (this.dmTab !== tab) {
       this.dmTab = tab;
+      this.playTabFeedback();
       if (tab === 'dm') {
         this.loadConversations();
       }
@@ -378,10 +408,10 @@ export struct MessagePage {
   }
 
   @Builder
-  notificationShortcut(filter: string, label: string, icon: Resource, unread: number) {
+  notificationShortcut(filter: string, label: string, icon: Resource, unread: number, iconColor: ResourceColor) {
     Column() {
       Pressable({
-        visualHeight: IconTokens.shortcutTile + TypeTokens.callout.lineHeight + SpaceTokens.inline,
+        visualHeight: 34 + TypeTokens.callout.lineHeight + SpaceTokens.inline,
         touchTargetHeight: LayoutTokens.minTouchTarget,
         fillWidth: true,
         action: (): void => {
@@ -394,15 +424,14 @@ export struct MessagePage {
             position: BadgePosition.RightTop,
             style: { badgeColor: ColorTokens.danger },
           }) {
-            IconTile({
-              icon: icon,
-              tileSize: IconTokens.shortcutTile,
-              iconSize: IconTokens.standard,
-              selected: this.activeFilter === filter,
-            })
+            Image(icon)
+              .width(34)
+              .height(34)
+              .fillColor(iconColor)
+              .objectFit(ImageFit.Contain)
           }
           Text(label)
-            .fontSize(TypeTokens.overline.size)
+            .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
             .fontWeight(this.activeFilter === filter ? TypeTokens.headline.weight : TypeTokens.overline.weight)
             .lineHeight(TypeTokens.overline.lineHeight)
             .letterSpacing(TypeTokens.overline.tracking)
@@ -411,6 +440,11 @@ export struct MessagePage {
         }
         .width('100%')
         .alignItems(HorizontalAlign.Center)
+        .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
+        .backgroundColor(this.activeFilter === filter ? ColorTokens.brandTint : Color.Transparent)
+        .borderRadius(RadiusTokens.md)
+        .scale({ x: this.activeFilter === filter && !this.shouldReduceMotion() ? 1.03 : 1, y: this.activeFilter === filter && !this.shouldReduceMotion() ? 1.03 : 1 })
+        .animation({ duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.control, curve: MotionCurves.springSoft })
       }
     }
     .layoutWeight(1)
@@ -423,7 +457,7 @@ export struct MessagePage {
       Column() {
         LoadingProgress().width(IconTokens.empty).height(IconTokens.empty)
         Text('加载中…')
-          .fontSize(TypeTokens.callout.size)
+          .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
           .fontWeight(TypeTokens.callout.weight)
           .lineHeight(TypeTokens.callout.lineHeight)
           .letterSpacing(TypeTokens.callout.tracking)
@@ -472,13 +506,20 @@ export struct MessagePage {
             },
             (c: Conversation) => String(c.peer.id),
           )
+          // 真实列表项会计入滚动范围，避免 Refresh + List 的 padding 被裁掉。
+          ListItem() {
+            Column() {
+              Blank().width('100%').height(barBottomReserve())
+            }
+            .width('100%')
+          }
         }
         .width('100%')
         .layoutWeight(1)
         .padding({
           left: SpaceTokens.pageCompact,
           right: SpaceTokens.pageCompact,
-          bottom: barBottomReserve(),
+          bottom: SpaceTokens.sm,
         })
       }
       .onRefreshing(() => {
@@ -486,6 +527,8 @@ export struct MessagePage {
           this.refreshing = false;
         });
       })
+      .layoutWeight(1)
+      .width('100%')
     }
   }
 
@@ -512,7 +555,7 @@ export struct MessagePage {
       // 顶栏
       Row() {
         Text('消息')
-          .fontSize(TypeTokens.title.size)
+          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamily)
           .fontWeight(TypeTokens.title.weight)
           .lineHeight(TypeTokens.title.lineHeight)
           .letterSpacing(TypeTokens.title.tracking)
@@ -527,7 +570,7 @@ export struct MessagePage {
             },
           }) {
             Text('全部已读')
-              .fontSize(TypeTokens.callout.size)
+              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
               .fontWeight(TypeTokens.headline.weight)
               .lineHeight(TypeTokens.callout.lineHeight)
               .letterSpacing(TypeTokens.callout.tracking)
@@ -552,16 +595,19 @@ export struct MessagePage {
         items: MESSAGE_SEGMENTS,
         selectedIndex: $dmTabIndex,
         itemWidth: 88,
+        glass: true,
         onSelect: (idx: number): void => { this.switchDmTab(idx); },
       })
       .margin({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, bottom: SpaceTokens.sm })
+      .scale({ x: this.tabPulse ? MotionTokens.successScale : 1, y: this.tabPulse ? MotionTokens.successScale : 1 })
+      .animation({ duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.control, curve: MotionCurves.springSoft })
 
       if (this.dmTab === 'notif') {
         // 快捷入口：三类通知共用可选中图标块。
         Row({ space: SpaceTokens.none }) {
-          this.notificationShortcut('up_bookmark', '赞和收藏', resolveActionIcon('like'), this.unreadCountOf(['up', 'bookmark']))
-          this.notificationShortcut('follow', '新增关注', resolveActionIcon('follow'), this.unreadCountOf(['follow']))
-          this.notificationShortcut('comment', '评论', resolveActionIcon('comment'), this.unreadCountOf(['comment']))
+          this.notificationShortcut('up_bookmark', '赞和收藏', resolveActionIcon('like'), this.unreadCountOf(['up', 'bookmark']), '#FF2D55')
+          this.notificationShortcut('follow', '新增关注', resolveActionIcon('follow'), this.unreadCountOf(['follow']), '#34C759')
+          this.notificationShortcut('comment', '评论', resolveActionIcon('comment'), this.unreadCountOf(['comment']), '#0A84FF')
         }
         .width('100%')
         .padding({
@@ -575,7 +621,7 @@ export struct MessagePage {
           Column() {
             LoadingProgress().width(IconTokens.empty).height(IconTokens.empty)
             Text('加载中…')
-              .fontSize(TypeTokens.callout.size)
+              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
               .fontWeight(TypeTokens.callout.weight)
               .lineHeight(TypeTokens.callout.lineHeight)
               .letterSpacing(TypeTokens.callout.tracking)
@@ -611,7 +657,7 @@ export struct MessagePage {
         } else {
           Refresh({ refreshing: $$this.refreshing, offset: 80, friction: 48 }) {
           List({ space: SpaceTokens.none }) {
-              ForEach(
+          ForEach(
                 this.getFilteredList(),
                 (item: NotificationItem, idx: number) => {
                   ListItem() {
@@ -622,13 +668,20 @@ export struct MessagePage {
                 },
                 (item: NotificationItem) => String(item.id ?? 0),
               )
+              // 真实列表项会计入滚动范围，避免最后一条通知被毛玻璃底栏遮住。
+              ListItem() {
+                Column() {
+                  Blank().width('100%').height(barBottomReserve())
+                }
+                .width('100%')
+              }
             }
             .width('100%')
             .layoutWeight(1)
             .padding({
               left: SpaceTokens.pageCompact,
               right: SpaceTokens.pageCompact,
-              bottom: barBottomReserve(),
+              bottom: SpaceTokens.sm,
             })
             .onReachEnd(() => {
               this.loadMore();
@@ -639,6 +692,8 @@ export struct MessagePage {
               this.refreshing = false;
             });
           })
+          .layoutWeight(1)
+          .width('100%')
         }
       } else {
         this.dmContent()

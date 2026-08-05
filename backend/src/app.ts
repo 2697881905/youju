@@ -18,6 +18,7 @@ import adminRouter from './routes/admin';
 // 用户安全设置类路由（通知偏好 / 拉黑 / 隐私 / 数据导出），均挂 /v1 前缀
 import notificationPrefRouter from './routes/notificationPrefs';
 import blockRouter from './routes/block';
+import dislikeRouter from './routes/dislike';
 import privacyRouter from './routes/privacy';
 import exportRouter from './routes/export';
 import messageRouter from './routes/messages';
@@ -89,6 +90,7 @@ app.use('/v1/admin', adminRouter);
 // 用户安全设置（通知偏好 / 拉黑 / 隐私 / 数据导出），统一挂 /v1
 app.use('/v1', notificationPrefRouter);
 app.use('/v1', blockRouter);
+app.use('/v1', dislikeRouter);
 app.use('/v1', privacyRouter);
 app.use('/v1', exportRouter);
 // 华为推送 Token 注册（POST /v1/push/register）

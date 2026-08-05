@@ -15,7 +15,7 @@ const tags = [
   { name: '汽车养护', emoji: '🔧', category: '动手实操' },
   { name: '数码维修', emoji: '💻', category: '动手实操' },
   { name: '家居维修', emoji: '🛠️', category: '动手实操' },
-  { name: '做饭教程', emoji: '🍳', category: '动手实操' },
+  { name: '美食分享', emoji: '🍳', category: '动手实操' },
   { name: '健身动作', emoji: '💪', category: '动手实操' },
   { name: '电脑装机', emoji: '🖥️', category: '动手实操' },
   { name: '摄影技巧', emoji: '📷', category: '动手实操' },
@@ -36,7 +36,35 @@ const tags = [
   { name: '情感经营', emoji: '❤️', category: '生活方式' },
 ];
 
+async function renameLegacyCookingTag(): Promise<void> {
+  const legacyName: string = '做饭教程';
+  const newName: string = '美食分享';
+  const legacyTag = await prisma.tag.findUnique({ where: { name: legacyName } });
+  if (!legacyTag) {
+    return;
+  }
+
+  const posts = await prisma.post.findMany({ select: { id: true, tags: true } });
+  await prisma.$transaction(async (tx) => {
+    await tx.tag.update({
+      where: { name: legacyName },
+      data: { name: newName, emoji: '🍳', category: '动手实操' },
+    });
+    await tx.userFollowTag.updateMany({ where: { tagName: legacyName }, data: { tagName: newName } });
+    for (const post of posts) {
+      if (!Array.isArray(post.tags) || !post.tags.includes(legacyName)) {
+        continue;
+      }
+      await tx.post.update({
+        where: { id: post.id },
+        data: { tags: post.tags.map((tag) => tag === legacyName ? newName : tag) },
+      });
+    }
+  });
+}
+
 async function main() {
+  await renameLegacyCookingTag();
   for (const t of tags) {
     await prisma.tag.upsert({
       where: { name: t.name },

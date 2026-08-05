@@ -5,7 +5,7 @@ import { NotificationPrefs } from '../models/types';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { CARD_RADIUS, CARD_SHADOW } from '../utils/cardTokens';
-import { resolveSettingsIcon } from '../utils/settingsIcons';
+import { BackButton } from '../design/components/BackButton';
 
 interface PrefRow {
   key: string;
@@ -71,24 +71,15 @@ export struct NotificationSettingsPage {
     Column() {
       // 顶栏
       Row() {
-        Row() {
-          Image(resolveSettingsIcon('back'))
-            .width(24).height(24)
-            .fillColor($r('app.color.text_primary'))
-        }
-        .width(48).height(44)
-        .justifyContent(FlexAlign.Center)
-        .onClick(() => {
-          this.getUIContext().getRouter().back();
-        });
+        BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
         Text('通知设置')
-          .fontSize(17)
+          .fontSize(17).fontFamily($r('app.string.font_family'))
           .fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.text_primary'))
           .layoutWeight(1)
           .textAlign(TextAlign.Center);
         Text('')
-          .width(48);
+          .width(44);
       }
       .width('100%')
       .padding({ top: 12, bottom: 8 });
@@ -106,10 +97,10 @@ export struct NotificationSettingsPage {
       } else if (this.loadError) {
         Column() {
           Text('加载失败')
-            .fontSize(15)
+            .fontSize(15).fontFamily($r('app.string.font_family'))
             .fontColor($r('app.color.text_secondary'));
           Text(this.loadError)
-            .fontSize(13)
+            .fontSize(13).fontFamily($r('app.string.font_family'))
             .fontColor($r('app.color.text_secondary'))
             .margin({ top: 4 });
           Button('重试')
@@ -129,10 +120,10 @@ export struct NotificationSettingsPage {
               Row() {
                 Column() {
                   Text(row.label)
-                    .fontSize(15)
+                    .fontSize(15).fontFamily($r('app.string.font_family'))
                     .fontColor($r('app.color.text_primary'));
                   Text(row.desc)
-                    .fontSize(12)
+                    .fontSize(12).fontFamily($r('app.string.font_family'))
                     .fontColor($r('app.color.text_secondary'))
                     .margin({ top: 2 });
                 }

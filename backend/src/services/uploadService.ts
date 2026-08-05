@@ -13,6 +13,8 @@ export interface UploadSignature {
   mode: 'cos' | 'local'; // 上传模式：cos=直传腾讯云；local=直传后端 /v1/upload/local
 }
 
+export type UploadFolder = 'avatars' | 'backgrounds' | 'posts' | 'video';
+
 // 是否具备真实可用的 COS 凭据（secretId/secretKey/bucket/region 齐全）
 function isCosConfigured(): boolean {
   const { secretId, secretKey, bucket, region } = env.cos;
@@ -21,7 +23,7 @@ function isCosConfigured(): boolean {
 
 // 本地文件存储模式（无真实 COS 时的开发期兜底）：
 // 前端直传二进制到后端 PUT /v1/upload/local，后端落盘到 uploads/，返回静态直链。
-function localUploadSignature(contentType: string): UploadSignature {
+function localUploadSignature(contentType: string, folder: UploadFolder): UploadSignature {
   const ext = contentType.includes('png')
     ? 'png'
     : contentType.includes('webp')
@@ -29,7 +31,7 @@ function localUploadSignature(contentType: string): UploadSignature {
       : contentType.includes('gif')
         ? 'gif'
         : 'jpg';
-  const key = `avatars/${randomUUID()}.${ext}`;
+  const key = `${folder}/${randomUUID()}.${ext}`;
   const base = env.backendPublicUrl.replace(/\/$/, '');
   const viewUrl = `${base}/uploads/${key}`;
   return {
@@ -43,14 +45,14 @@ function localUploadSignature(contentType: string): UploadSignature {
 }
 
 // COS 模式：生成 PUT + GET 预签名 URL
-function cosUploadSignature(contentType: string): Promise<UploadSignature> {
+function cosUploadSignature(contentType: string, folder: UploadFolder): Promise<UploadSignature> {
   const { secretId, secretKey, bucket, region, cdnBase } = env.cos;
   const cos = new COS({ SecretId: secretId, SecretKey: secretKey });
 
   const now = new Date();
   const y = now.getFullYear();
   const m = String(now.getMonth() + 1).padStart(2, '0');
-  const key = `uploads/${y}/${m}/${randomUUID()}`;
+    const key = `${folder}/${y}/${m}/${randomUUID()}`;
 
   return new Promise<UploadSignature>((resolve, reject) => {
     // 1) 生成 PUT 预签名 URL（前端直传目标）
@@ -92,9 +94,24 @@ function cosUploadSignature(contentType: string): Promise<UploadSignature> {
 
 // 生成单张图片的上传签名（默认 image/jpeg）。
 // 配置了真实 COS → 返回 COS 预签名 URL；未配置 → 返回本地文件直传签名。
-export function getUploadSignature(contentType: string = 'image/jpeg'): Promise<UploadSignature> {
-  if (isCosConfigured()) {
-    return cosUploadSignature(contentType);
+export function getUploadSignature(
+  contentType: string = 'image/jpeg',
+  folder: UploadFolder = 'avatars',
+  mode: 'auto' | 'local' = 'auto',
+): Promise<UploadSignature> {
+  // 视频体积大，本地模式 10MB 限制与本地写盘均不适用，强制走 COS 预签名（即便 debug 也如此）。
+  if (folder === 'video') {
+    if (!isCosConfigured()) {
+      return Promise.reject(new Error('视频上传需要配置真实 COS 存储（未检测到 COS 凭据）'));
+    }
+    return cosUploadSignature(contentType, folder);
   }
-  return Promise.resolve(localUploadSignature(contentType));
+  // 调试包通过 hdc rport 访问本机服务，不能依赖模拟器对外部 COS 的 IPv6/HTTPS 直连。
+  if (mode === 'local') {
+    return Promise.resolve(localUploadSignature(contentType, folder));
+  }
+  if (isCosConfigured()) {
+    return cosUploadSignature(contentType, folder);
+  }
+  return Promise.resolve(localUploadSignature(contentType, folder));
 }

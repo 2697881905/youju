@@ -37,6 +37,8 @@ export const env = {
   // 模拟器通过 BASE_URL（默认 http://127.0.0.1:3000）访问，故此处默认与之对齐。
   backendPublicUrl: process.env.BACKEND_PUBLIC_URL ?? 'http://127.0.0.1:3000',
   uploadsDir: process.env.UPLOADS_DIR ?? path.resolve(process.cwd(), 'uploads'),
+  // 视频上传体积上限（字节）。前端拦截 + 后端 token 接口二次兜底，防直传 COS 绕过客户端限制。
+  maxVideoSizeBytes: Number(process.env.MAX_VIDEO_SIZE_MB ?? 50) * 1024 * 1024,
   // 华为推送服务（Push Kit）凭证。留空 = 未配置 → 所有推送静默降级（不阻断通知落库）。
   // 真实设备推送需在 AGC 开启「推送服务」并填入对应应用的 APP ID 与 APP SECRET。
   huaweiPush: {

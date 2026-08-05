@@ -2,7 +2,7 @@ import { prisma } from '../prisma';
 import { sensitiveWordService } from './sensitiveWordService';
 import { SensitiveWordError, ValidationError } from '../utils/errors';
 import { USER_PUBLIC_SELECT, publicUserView } from '../utils/userView';
-import { getExcludedAuthorIds, canViewerSeeAuthorPosts } from './accessControl';
+import { getExcludedAuthorIds, canViewerSeeAuthorPosts, getDislikedAuthorIds } from './accessControl';
 import { env } from '../config/env';
 
 export type SortType = 'hot' | 'latest' | 'recommend';
@@ -81,6 +81,16 @@ export async function listPosts(params: ListParams) {
     // 全局信息流 / 关注流：隐藏被封禁作者的帖子 + 拉黑/隐私不可见作者
     where.user = { status: 1 };
     const excluded = await getExcludedAuthorIds(params.viewerId);
+    // recommend 流额外排除「不喜欢」的作者（减少推送）；latest/following 流仅排除拉黑
+    if (params.sort === 'recommend' && params.viewerId) {
+      const disliked = await getDislikedAuthorIds(params.viewerId);
+      const existingSet = new Set(excluded);
+      for (const id of disliked) {
+        if (!existingSet.has(id)) {
+          excluded.push(id);
+        }
+      }
+    }
     if (excluded.length > 0) {
       if (params.following) {
         where.userId = { in: followIds!, notIn: excluded };
@@ -214,6 +224,8 @@ export async function createPost(data: any, userId: number) {
       title: data.title,
       content: data.content ?? null,
       coverImage: data.coverImage ?? null,
+      videoUrl: data.videoUrl ?? null,
+      videoCover: data.videoCover ?? null,
       images: data.images ?? [],
       genre: data.genre,
       tags: data.tags ?? [],
@@ -251,6 +263,8 @@ export interface UpdatePostInput {
   title?: string;
   content?: string;
   coverImage?: string | null;
+  videoUrl?: string | null;
+  videoCover?: string | null;
   images?: string[];
   tags?: string[];
   structuredData?: any;
@@ -281,6 +295,12 @@ export async function updatePost(id: number, userId: number, input: UpdatePostIn
   if (input.coverImage !== undefined && input.coverImage !== null && typeof input.coverImage !== 'string') {
     throw new ValidationError('封面图片格式无效');
   }
+  if (input.videoUrl !== undefined && input.videoUrl !== null && typeof input.videoUrl !== 'string') {
+    throw new ValidationError('视频地址格式无效');
+  }
+  if (input.videoCover !== undefined && input.videoCover !== null && typeof input.videoCover !== 'string') {
+    throw new ValidationError('视频封面格式无效');
+  }
   if (sensitiveWordService.checkText(nextTitle + ' ' + (nextContent ?? ''))) {
     throw new SensitiveWordError();
   }
@@ -289,101 +309,14 @@ export async function updatePost(id: number, userId: number, input: UpdatePostIn
   if (input.title !== undefined) data.title = input.title.trim();
   if (input.content !== undefined) data.content = input.content;
   if (input.coverImage !== undefined) data.coverImage = input.coverImage;
+  if (input.videoUrl !== undefined) data.videoUrl = input.videoUrl;
+  if (input.videoCover !== undefined) data.videoCover = input.videoCover;
   if (input.images !== undefined) data.images = input.images;
   if (input.tags !== undefined) data.tags = input.tags;
   if (input.structuredData !== undefined) data.structuredData = input.structuredData;
 
   const updated = await prisma.post.update({ where: { id }, data });
   return { ok: true, post: updated };
-}
-
-// ===== 热点（时窗加权热帖） =====
-// 综合 upCount / commentCount / bookmarkCount 加权，并按时窗衰减
-// 公式：rawScore = upCount*3 + commentCount*5 + bookmarkCount*2
-//       hoursAgo = max(0, 距现在的时差)
-//       decay = 1 / (1 + hoursAgo * 0.08)  （约每 12.5h 折半）
-//       heat = rawScore * decay
-export interface HotPostsParams {
-  windowHours?: number; // 时间窗口（小时），默认 24
-  page?: number;
-  limit?: number;
-  tag?: string;
-  viewerId?: number;
-}
-
-export async function listHotPosts(params: HotPostsParams) {
-  const windowHours = Math.max(1, Number(params.windowHours ?? 24));
-  const page = Math.max(1, Number(params.page ?? 1));
-  const limit = Math.min(50, Math.max(1, Number(params.limit ?? 20)));
-
-  const since = new Date(Date.now() - windowHours * 60 * 60 * 1000);
-  const where: any = { status: 1, createdAt: { gte: since } };
-  if (params.tag) {
-    where.tags = { array_contains: params.tag };
-  }
-
-  // 隐藏被封禁作者的帖子 + 拉黑/隐私不可见作者
-  where.user = { status: 1 };
-  const hotExcluded = await getExcludedAuthorIds(params.viewerId);
-  if (hotExcluded.length > 0) where.userId = { notIn: hotExcluded };
-
-  // 取时窗内全部帖子（后续在内存中计算热度分 + 排序，再分页）
-  const rows = await prisma.post.findMany({
-    where,
-    orderBy: { createdAt: 'desc' },
-    include: { user: { select: USER_PUBLIC_SELECT } },
-  });
-
-  const now = Date.now();
-  const scored = rows.map((p) => {
-    const rawScore = (p.upCount ?? 0) * 3 + (p.commentCount ?? 0) * 5 + (p.bookmarkCount ?? 0) * 2;
-    const hoursAgo = Math.max(0, (now - new Date(p.createdAt).getTime()) / (1000 * 60 * 60));
-    const decay = 1 / (1 + hoursAgo * 0.08);
-    return { post: p, heat: rawScore * decay };
-  });
-
-  scored.sort((a, b) => b.heat - a.heat);
-
-  const total = scored.length;
-  const skip = (page - 1) * limit;
-  const list = scored.slice(skip, skip + limit).map((s) => s.post);
-
-  // 复用 viewerId 批量打标 myUp / myBookmark
-  if (params.viewerId && list.length > 0) {
-    const ids: number[] = list.map((p) => p.id);
-    const [ups, bms] = await Promise.all([
-      prisma.up.findMany({
-        where: { postId: { in: ids }, userId: params.viewerId },
-        select: { postId: true },
-      }),
-      prisma.bookmark.findMany({
-        where: { postId: { in: ids }, userId: params.viewerId },
-        select: { postId: true },
-      }),
-    ]);
-    const upSet = new Set<number>();
-    for (const u of ups) {
-      upSet.add(u.postId);
-    }
-    const bmSet = new Set<number>();
-    for (const b of bms) {
-      bmSet.add(b.postId);
-    }
-    const enriched = list.map((p) => ({
-      ...p,
-      myUp: upSet.has(p.id),
-      myBookmark: bmSet.has(p.id),
-    }));
-    return {
-      list: enriched.map((p) => ({ ...p, user: publicUserView(p.user) })),
-      pagination: { page, limit, total },
-    };
-  }
-
-  return {
-    list: list.map((p) => ({ ...p, user: publicUserView(p.user) })),
-    pagination: { page, limit, total },
-  };
 }
 
 // 个人主页：我发布的帖子

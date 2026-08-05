@@ -80,6 +80,20 @@ export async function getExcludedAuthorIds(viewerId?: number): Promise<number[]>
   return [...hidden];
 }
 
+/**
+ * 返回当前查看者「不喜欢」的作者 id 集合（单向，仅 viewer 侧）。
+ * 用于推荐流排除：dislike 的作者帖子在 recommend 流不再刷到，
+ * 但 latest/following 流保留、作者主页/搜索仍可见（区别于拉黑的双向互不可见）。
+ */
+export async function getDislikedAuthorIds(viewerId?: number): Promise<number[]> {
+  if (!viewerId) return [];
+  const rows = await prisma.dislike.findMany({
+    where: { userId: viewerId },
+    select: { dislikedId: true },
+  });
+  return rows.map(r => r.dislikedId);
+}
+
 // 判断 viewer 是否能查看 authorId 的帖子（单作者场景：详情 / 个人主页）。
 export async function canViewerSeeAuthorPosts(
   viewerId: number | undefined,

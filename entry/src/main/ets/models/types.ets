@@ -5,6 +5,7 @@ export interface User {
   id?: number;
   nickname?: string;
   avatar?: string;
+  profileBackground?: string;
   gender?: number;
   bio?: string;
   followTags?: string[];
@@ -36,7 +37,7 @@ export interface StructuredData {
   tools?: string;
   steps?: string;
   timeDifficulty?: string;
-  planA?: string;
+    planA?: string;
   planB?: string;
 }
 
@@ -46,6 +47,8 @@ export interface Post {
   title?: string;
   content?: string;
   coverImage?: string;
+  videoUrl?: string; // 视频地址（轻量单视频方案，最多一段）
+  videoCover?: string; // 视频封面（首帧抓取上传）
   images?: string[];
   genre?: Genre;
   tags?: string[];
@@ -132,6 +135,7 @@ export interface UserProfile {
   id: number;
   nickname: string;
   avatar: string | null;
+  profileBackground: string | null;
   bio: string | null;
   gender: number | null;
   postCount: number;
@@ -140,6 +144,8 @@ export interface UserProfile {
   totalLikes: number; // 获赞总数（该用户全部已发布帖的点赞计数之和）
   isFollowing: boolean;
   isMutual: boolean;
+  isBlocked?: boolean; // viewer 是否已拉黑该作者（用于他人主页"更多"菜单 toggle 态）
+  isDisliked?: boolean; // viewer 是否已"不喜欢"该作者（减少推送 toggle 态）
   deleted?: boolean; // 已注销（后端软删匿名化标记）
 }
 

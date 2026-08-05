@@ -3,6 +3,8 @@ import { FollowUser } from '../models/types';
 import { listFollowing, listFollowers, followUser, unfollowUser } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
+import { BackButton } from '../design/components/BackButton';
+import { openUserProfile, takeFollowListIntent } from '../utils/nav';
 
 @Entry
 @Component
@@ -24,28 +26,10 @@ export struct MyFollowPage {
   }
 
   private resolveParams(): void {
-    let rawId: string | undefined = AppStorage.get<string>('targetUserId');
-    let rawMode: string | undefined = AppStorage.get<string>('followMode');
-    if (!rawId) {
-      const params: Object | undefined = this.getUIContext().getRouter().getParams();
-      if (params !== undefined && typeof params === 'object') {
-        const p: Record<string, Object> = params as Record<string, Object>;
-        const v: Object | undefined = p['userId'];
-        if (typeof v === 'string') {
-          rawId = v;
-        }
-        const m: Object | undefined = p['mode'];
-        if (typeof m === 'string') {
-          rawMode = m;
-        }
-      }
-    }
-    const id: number = Number(rawId);
-    if (!Number.isNaN(id) && id > 0) {
-      this.targetId = id;
-    }
-    if (rawMode === 'followers') {
-      this.mode = 'followers';
+    const intent = takeFollowListIntent();
+    if (intent !== null) {
+      this.targetId = intent.userId;
+      this.mode = intent.mode;
     }
   }
 
@@ -172,36 +156,30 @@ export struct MyFollowPage {
     if (item.id === undefined) {
       return;
     }
-    AppStorage.setOrCreate('targetUserId', String(item.id));
+    openUserProfile(item.id);
     this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage', params: { userId: String(item.id) } });
   }
 
   build() {
     Column() {
       Row() {
-        Text('返回')
-          .fontSize(16)
-          .fontColor($r('app.color.text_primary'))
-          .width(48)
-          .onClick(() => {
-            this.getUIContext().getRouter().back();
-          });
+        BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
         Text(this.mode === 'following' ? '我的关注' : '我的粉丝')
-          .fontSize(17).fontWeight(600).layoutWeight(1).textAlign(TextAlign.Center);
-        Text('').width(48);
+          .fontSize(17).fontFamily($r('app.string.font_family')).fontWeight(600).layoutWeight(1).textAlign(TextAlign.Center);
+        Text('').width(44);
       }
       .width('100%').padding({ top: 12, bottom: 8 });
 
       if (!this.ready) {
         Column() {
           LoadingProgress().width(28).height(28);
-          Text('加载中…').fontSize(13).fontColor($r('app.color.text_secondary')).margin({ top: 10 });
+          Text('加载中…').fontSize(13).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary')).margin({ top: 10 });
         }
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
       } else if (this.list.length === 0) {
         Column() {
           Text(this.error ? ('加载失败：' + this.error) : '这里还什么都没有')
-            .fontSize(14).fontColor($r('app.color.text_secondary'));
+            .fontSize(14).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary'));
         }
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
       } else {
@@ -213,13 +191,13 @@ export struct MyFollowPage {
                   Image(item.avatar).width(44).height(44).borderRadius(22).objectFit(ImageFit.Cover);
                 } else {
                   Text((item.nickname !== '' ? item.nickname : '?').charAt(0))
-                    .width(44).height(44).borderRadius(22).fontSize(18).fontColor('#fff')
+                    .width(44).height(44).borderRadius(22).fontSize(18).fontFamily($r('app.string.font_family')).fontColor('#fff')
                     .backgroundColor($r('app.color.brand_primary')).textAlign(TextAlign.Center);
                 }
                 Column({ space: 4 }) {
-                  Text(item.nickname).fontSize(15).fontColor($r('app.color.text_primary'));
+                  Text(item.nickname).fontSize(15).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_primary'));
                   if (item.bio) {
-                    Text(item.bio).fontSize(12).fontColor($r('app.color.text_secondary')).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis });
+                    Text(item.bio).fontSize(12).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary')).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis });
                   }
                 }
                 .alignItems(HorizontalAlign.Start)

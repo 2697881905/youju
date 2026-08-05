@@ -1,15 +1,18 @@
-// 搜索面板：全屏搜索页（参考小红书布局），自带 < 返回 + 输入框 + 搜索 头部栏
-// 子传父：通过普通函数属性回调（ArkTS V1 函数型变量不用 @Prop）
 import { listSearchHistory, clearSearchHistory, listHotKeywords } from '../services/api';
 import { safeShowToast } from '../utils/toast';
-import { CARD_RADIUS, CARD_SHADOW } from '../utils/cardTokens';
+import { BackButton } from '../design/components/BackButton';
+import { GlassPanel } from '../design/components/GlassPanel';
+import { Pressable } from '../design/motion/Pressable';
+import { ColorTokens } from '../design/tokens/color';
+import { IconTokens } from '../design/tokens/icon';
+import { RadiusTokens } from '../design/tokens/radius';
+import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
+import { TypeTokens } from '../design/tokens/type';
 
+// 首页内的搜索探索页：玻璃工具栏 + 最近搜索 + 双列热搜。
 @Component
 export struct SearchPanel {
-  // 关键词选中回调（父组件传入，点击搜索/历史/热搜词时触发）
   onKeywordSelect: (keyword: string) => void = (keyword: string) => {};
-
-  // 取消/返回回调（父组件关闭面板、回到原页面）
   onCancel: () => void = () => {};
 
   @State keyword: string = '';
@@ -21,16 +24,12 @@ export struct SearchPanel {
     this.loadData();
   }
 
-  // 加载搜索历史 + 热搜词
   async loadData(): Promise<void> {
     this.loadingState = true;
     try {
-      const history: string[] = await listSearchHistory();
-      const hot: string[] = await listHotKeywords(10);
-      this.historyList = history;
-      this.hotList = hot;
+      this.historyList = await listSearchHistory();
+      this.hotList = await listHotKeywords(10);
     } catch (e) {
-      // 加载失败不阻断，显示空态
       this.historyList = [];
       this.hotList = [];
     } finally {
@@ -38,209 +37,221 @@ export struct SearchPanel {
     }
   }
 
-  // 提交搜索
   private doSearch(): void {
-    const kw = this.keyword.trim();
-    if (!kw) {
+    const kw: string = this.keyword.trim();
+    if (kw === '') {
       safeShowToast(this.getUIContext(), { message: '请输入搜索内容' });
       return;
     }
     this.onKeywordSelect(kw);
   }
 
-  // 清除搜索历史
   async clearHistory(): Promise<void> {
     try {
       await clearSearchHistory();
       this.historyList = [];
-      safeShowToast(this.getUIContext(), { message: '已清除搜索历史' });
     } catch (e) {
       safeShowToast(this.getUIContext(), { message: '清除失败，请重试' });
     }
   }
 
+  private rankColor(index: number): ResourceColor {
+    if (index === 0) return '#FF3B30';
+    if (index === 1) return '#FF9500';
+    if (index === 2) return '#34C759';
+    return ColorTokens.tertiary;
+  }
+
+  private visibleHotKeywords(): string[] {
+    return this.hotList.slice(0, 10);
+  }
+
+  private hotGridHeight(): number {
+    const rows: number = Math.ceil(this.visibleHotKeywords().length / 2);
+    if (rows === 0) {
+      return 0;
+    }
+    return rows * LayoutTokens.minTouchTarget + (rows - 1) * SpaceTokens.sm;
+  }
+
+  @Builder
+  private historyChip(keyword: string): void {
+    Pressable({
+      visualHeight: LayoutTokens.segmentedHeight,
+      touchTargetHeight: LayoutTokens.minTouchTarget,
+      action: (): void => { this.onKeywordSelect(keyword); },
+    }) {
+      Row({ space: SpaceTokens.inlineTight }) {
+        Image($r('app.media.history'))
+          .width(IconTokens.compact)
+          .height(IconTokens.compact)
+          .fillColor(ColorTokens.tertiary)
+        Text(keyword)
+          .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+          .fontColor(ColorTokens.primary)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .height(LayoutTokens.segmentedHeight)
+      .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+      .backgroundColor(ColorTokens.barSurface)
+      .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+      .backdropBlur(LayoutTokens.glassBlur)
+      .borderRadius(RadiusTokens.floatingBar)
+      .alignItems(VerticalAlign.Center)
+    }
+  }
+
   build() {
     Column() {
-      // ===== 顶部导航栏： < 返回 | 搜索输入框 | 搜索按钮 =====
-      Row({ space: 12 }) {
-        // 返回按钮：nav_back 线条图标（48x44 容器包裹 24x24 图标，避免 Image 重复设宽高）
-        Row() {
-          Image($r('app.media.nav_back'))
-            .width(22)
-            .height(22)
-            .fillColor($r('app.color.text_primary'))
-        }
-        .width(44)
-        .height(44)
-        .justifyContent(FlexAlign.Center)
-        .onClick(() => {
-          this.onCancel();
-        })
+      Row({ space: SpaceTokens.inline }) {
+        BackButton({ action: (): void => { this.onCancel(); } })
 
-        // 搜索输入框
-        TextInput({ placeholder: '搜索', text: this.keyword })
-          .height(36)
-          .backgroundColor($r('app.color.bg_secondary'))
-          .borderRadius(18)
+        TextInput({ placeholder: '搜索你关心的经验和问题', text: this.keyword })
+          .fontFamily(TypeTokens.fontFamily)
+          .fontColor(ColorTokens.primary)
+          .height(LayoutTokens.minTouchTarget)
+          .backgroundColor(ColorTokens.barSurface)
+          .backdropBlur(LayoutTokens.glassBlur)
+          .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+          .borderRadius(RadiusTokens.floatingBar)
           .layoutWeight(1)
-          .onChange((v: string) => {
-            this.keyword = v;
-          })
-          .onSubmit(() => {
-            this.doSearch();
-          })
+          .onChange((v: string): void => { this.keyword = v; })
+          .onSubmit((): void => { this.doSearch(); })
 
-        // 搜索按钮
-        Text('搜索')
-          .fontSize(15)
-          .fontColor($r('app.color.brand_primary'))
-          .padding({ left: 8, right: 16, top: 8, bottom: 8 })
-          .onClick(() => {
-            this.doSearch();
-          })
+        Row() {
+          Image($r('app.media.empty_search'))
+            .width(IconTokens.small)
+            .height(IconTokens.small)
+            .fillColor(ColorTokens.brand)
+        }
+        .width(LayoutTokens.minTouchTarget)
+        .height(LayoutTokens.minTouchTarget)
+        .justifyContent(FlexAlign.Center)
+        .backgroundColor(ColorTokens.barSurface)
+        .backdropBlur(LayoutTokens.glassBlur)
+        .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+        .borderRadius(RadiusTokens.lg)
+        .onClick((): void => { this.doSearch(); })
       }
       .width('100%')
-      .height(52)
-      .alignItems(VerticalAlign.Center)
-      .backgroundColor($r('app.color.bg_primary'))
+      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.sm, bottom: SpaceTokens.item })
 
-      // ===== 内容区 =====
       if (this.loadingState) {
         Column() {
-          LoadingProgress().width(28).height(28)
+          LoadingProgress().width(IconTokens.empty).height(IconTokens.empty)
         }
         .layoutWeight(1)
         .width('100%')
         .justifyContent(FlexAlign.Center)
-        .alignItems(HorizontalAlign.Center)
       } else {
-        // 用 List 承载内容：List 从顶部排列、可滚动，且不会像 Scroll+Column 那样把内容整体垂直居中
-        List() {
-          // ----- 搜索历史（包进统一圆角卡片）-----
-          if (this.historyList.length > 0) {
-            ListItem() {
-              Column() {
-                Row() {
-                  Text('搜索历史')
-                    .fontSize(14)
-                    .fontWeight(FontWeight.Bold)
-                    .fontColor($r('app.color.text_primary'))
-                  Blank()
-                  Text('清除')
-                    .fontSize(13)
-                    .fontColor($r('app.color.text_secondary'))
-                    .onClick(() => {
-                      this.clearHistory();
-                    })
+        Column() {
+          Column({ space: SpaceTokens.md }) {
+            if (this.historyList.length > 0) {
+              GlassPanel({ panelPadding: SpaceTokens.md, radius: RadiusTokens.lg }) {
+                Column({ space: SpaceTokens.md }) {
+                  Row() {
+                    Text('最近搜索')
+                      .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamily)
+                      .fontWeight(TypeTokens.headline.weight)
+                      .fontColor(ColorTokens.primary)
+                    Blank()
+                    Pressable({
+                      visualHeight: LayoutTokens.segmentedHeight,
+                      touchTargetHeight: LayoutTokens.minTouchTarget,
+                      action: (): void => { this.clearHistory(); },
+                    }) {
+                      Image($r('app.media.set_trash'))
+                        .width(IconTokens.compact)
+                        .height(IconTokens.compact)
+                        .fillColor(ColorTokens.secondary)
+                    }
+                  }
+                  .width('100%')
+                  Row({ space: SpaceTokens.inline }) {
+                    ForEach(this.historyList.slice(0, 3), (kw: string) => {
+                      this.historyChip(kw)
+                    }, (kw: string) => 'history-first-' + kw)
+                  }
+                  .width('100%')
+                  if (this.historyList.length > 3) {
+                    Row({ space: SpaceTokens.inline }) {
+                      ForEach(this.historyList.slice(3, 6), (kw: string) => {
+                        this.historyChip(kw)
+                      }, (kw: string) => 'history-second-' + kw)
+                    }
+                    .width('100%')
+                  }
                 }
                 .width('100%')
-                .padding({ left: 16, right: 16, top: 12, bottom: 8 })
-
-                ForEach(this.historyList, (kw: string, idx: number) => {
-                  Column() {
-                    Row({ space: 10 }) {
-                      Image($r('app.media.history'))
-                        .width(16)
-                        .height(16)
-                        .fillColor($r('app.color.text_secondary'))
-                      Text(kw)
-                        .fontSize(15)
-                        .fontColor($r('app.color.text_primary'))
-                        .layoutWeight(1)
-                    }
-                    .width('100%')
-                    .padding({ left: 16, right: 16, top: 12, bottom: 12 })
-                    .onClick(() => {
-                      this.onKeywordSelect(kw);
-                    })
-
-                    if (idx < this.historyList.length - 1) {
-                      Divider()
-                        .color($r('app.color.divider'))
-                        .margin({ left: 16, right: 16 })
-                    }
-                  }
-                }, (kw: string, idx: number) => 'history_' + idx.toString() + '_' + kw)
               }
-              .width('100%')
-              .backgroundColor($r('app.color.card_bg'))
-              .borderRadius(CARD_RADIUS)
-              .shadow(CARD_SHADOW)
-              .margin({ top: 0, bottom: 8 })
             }
-          }
 
-          // ----- 猜你想搜（包进统一圆角卡片）-----
-          ListItem() {
-            Column() {
-              Row() {
-                Text('猜你想搜')
-                  .fontSize(14)
-                  .fontWeight(FontWeight.Bold)
-                  .fontColor($r('app.color.text_primary'))
-                Blank()
-              }
-              .width('100%')
-              .padding({ left: 16, right: 16, top: 14, bottom: 8 })
-
-              if (this.hotList.length === 0) {
-                Text('暂无热搜词')
-                  .width('100%')
-                  .fontSize(14)
-                  .fontColor($r('app.color.text_secondary'))
-                  .padding({ left: 16, right: 16, top: 8, bottom: 14 })
-              } else {
-                ForEach(this.hotList, (kw: string, idx: number) => {
-                  Column() {
-                    Row({ space: 10 }) {
-                      Image($r('app.media.empty_search'))
-                        .width(16)
-                        .height(16)
-                        .fillColor($r('app.color.text_secondary'))
-                      Text(kw)
-                        .fontSize(15)
-                        .fontColor($r('app.color.text_primary'))
-                        .layoutWeight(1)
-                      if (idx < 3) {
-                        Text('热')
-                          .fontSize(10)
-                          .fontColor('#FFFFFF')
-                          .backgroundColor($r('app.color.semantic_red'))
-                          .borderRadius(4)
-                          .padding({ left: 4, right: 4, top: 2, bottom: 2 })
+            GlassPanel({ panelPadding: SpaceTokens.md, radius: RadiusTokens.lg }) {
+              Column({ space: SpaceTokens.md }) {
+                Text('大家都在搜')
+                  .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamily)
+                  .fontWeight(TypeTokens.headline.weight)
+                  .fontColor(ColorTokens.primary)
+                if (this.visibleHotKeywords().length === 0) {
+                  Text('暂时没有热门搜索')
+                    .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+                    .fontColor(ColorTokens.secondary)
+                } else {
+                  Grid() {
+                    ForEach(this.visibleHotKeywords(), (kw: string, idx: number) => {
+                      GridItem() {
+                        Pressable({
+                          fillWidth: true,
+                          visualHeight: LayoutTokens.minTouchTarget,
+                          touchTargetHeight: LayoutTokens.minTouchTarget,
+                          action: (): void => { this.onKeywordSelect(kw); },
+                        }) {
+                          Row({ space: SpaceTokens.sm }) {
+                            Text(String(idx + 1))
+                              .width(18)
+                              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+                              .fontWeight(TypeTokens.headline.weight)
+                              .fontColor(this.rankColor(idx))
+                            Text(kw)
+                              .layoutWeight(1)
+                              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+                              .fontColor(ColorTokens.primary)
+                              .maxLines(1)
+                              .textOverflow({ overflow: TextOverflow.Ellipsis })
+                          }
+                          .height(LayoutTokens.minTouchTarget)
+                          .padding({ left: SpaceTokens.md, right: SpaceTokens.sm })
+                          .backgroundColor(ColorTokens.barSurface)
+                          .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+                          .backdropBlur(LayoutTokens.glassBlur)
+                          .borderRadius(RadiusTokens.md)
+                          .alignItems(VerticalAlign.Center)
+                        }
                       }
-                    }
-                    .width('100%')
-                    .padding({ left: 16, right: 16, top: 12, bottom: 12 })
-                    .onClick(() => {
-                      this.onKeywordSelect(kw);
-                    })
-
-                    if (idx < this.hotList.length - 1) {
-                      Divider()
-                        .color($r('app.color.divider'))
-                        .margin({ left: 16, right: 16 })
-                    }
+                    }, (kw: string, idx: number) => 'hot-' + idx.toString() + '-' + kw)
                   }
-                }, (kw: string, idx: number) => 'hot_' + idx.toString() + '_' + kw)
+                  .columnsTemplate('1fr 1fr')
+                  .columnsGap(SpaceTokens.sm)
+                  .rowsGap(SpaceTokens.sm)
+                  .width('100%')
+                  .height(this.hotGridHeight())
+                }
               }
+              .width('100%')
             }
-            .width('100%')
-            .backgroundColor($r('app.color.card_bg'))
-            .borderRadius(CARD_RADIUS)
-            .shadow(CARD_SHADOW)
-            .margin({ top: 6, bottom: 12 })
           }
+          .width('100%')
+          .justifyContent(FlexAlign.Start)
+          .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: 0, bottom: SpaceTokens.x3l })
         }
         .layoutWeight(1)
         .width('100%')
-        .padding({ left: 16, right: 16 })
-        .divider({ strokeWidth: 0 })
-        .backgroundColor($r('app.color.bg_primary'))
+        .alignItems(HorizontalAlign.Start)
       }
     }
     .width('100%')
     .height('100%')
-    .backgroundColor($r('app.color.bg_primary'))
+    .backgroundColor(ColorTokens.canvas)
   }
 }

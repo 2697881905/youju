@@ -10,24 +10,29 @@ function withIsAdmin(user: any) {
 
 // 鸿蒙账号授权登录（MVP：前端传 openId；后续接 Account Kit 真实鉴权）
 export async function login(openId: string, nickname?: string, avatar?: string) {
-  const user = await prisma.user.upsert({
-    where: { openId },
-    update: {
-      ...(nickname ? { nickname } : {}),
-      ...(avatar ? { avatar } : {}),
-    },
-    create: {
-      openId,
-      nickname: nickname || '用户' + openId.slice(-4),
-      ...(avatar ? { avatar } : {}),
-    },
-  });
+  const existing = await prisma.user.findUnique({ where: { openId } });
+  const isNewUser: boolean = existing === null;
+  const user = existing === null
+    ? await prisma.user.create({
+      data: {
+        openId,
+        nickname: nickname || '用户' + openId.slice(-4),
+        ...(avatar ? { avatar } : {}),
+      },
+    })
+    : await prisma.user.update({
+      where: { id: existing.id },
+      data: {
+        ...(nickname ? { nickname } : {}),
+        ...(avatar ? { avatar } : {}),
+      },
+    });
 
   const token = jwt.sign({ userId: user.id }, env.jwtSecret, {
     expiresIn: env.jwtExpiresIn,
   } as jwt.SignOptions);
 
-  return { token, user: withIsAdmin(user) };
+  return { token, user: withIsAdmin(user), isNewUser };
 }
 
 // 华为账号登录（按 unionID 落地用户，与 openId 登录并存）
@@ -40,7 +45,7 @@ export async function loginWithHuawei(
   const existing = await prisma.user.findUnique({ where: { unionID } });
   if (existing) {
     const token = signToken(existing.id);
-    return { token, user: withIsAdmin(existing) };
+    return { token, user: withIsAdmin(existing), isNewUser: false };
   }
 
   // 新用户：openId 留空，unionID 必填；昵称缺失时生成默认名
@@ -57,7 +62,7 @@ export async function loginWithHuawei(
   });
 
   const token = signToken(created.id);
-  return { token, user: withIsAdmin(created) };
+  return { token, user: withIsAdmin(created), isNewUser: true };
 }
 
 function signToken(userId: number): string {
@@ -66,11 +71,12 @@ function signToken(userId: number): string {
   } as jwt.SignOptions);
 }
 
-// 更新个人信息（昵称/头像/简介/性别）；仅传入的字段才更新（允许清空简介、性别设为 null/保密）
+// 更新个人信息（昵称/头像/主页背景/简介/性别）；仅传入的字段才更新。
 export async function updateProfile(
   userId: number,
   nickname?: string,
   avatar?: string,
+  profileBackground?: string,
   bio?: string,
   gender?: number | null,
 ) {
@@ -79,6 +85,7 @@ export async function updateProfile(
     data: {
       ...(nickname ? { nickname } : {}),
       ...(avatar ? { avatar } : {}),
+      ...(profileBackground !== undefined ? { profileBackground } : {}),
       ...(bio !== undefined ? { bio } : {}),
       ...(gender !== undefined ? { gender } : {}),
     },
@@ -100,6 +107,7 @@ export async function deactivateUser(userId: number) {
         deletedAt: new Date(),
         nickname: DELETED_NICKNAME,
         avatar: null,
+        profileBackground: null,
         bio: null,
         gender: null,
         openId: null,

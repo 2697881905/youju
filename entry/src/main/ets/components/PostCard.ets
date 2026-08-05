@@ -1,23 +1,26 @@
-import { Post, User } from '../models/types';
+import { Post } from '../models/types';
 import { upPost, cancelUpPost } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 import { likeStore } from '../utils/likeStore';
-import { Avatar } from '../design/components/Avatar';
-import { BaseCard } from '../design/components/BaseCard';
-import { PollBlock } from '../design/components/PollBlock';
 import { StatRow } from '../design/components/StatRow';
+import { PostCardAuthor } from './PostCardAuthor';
+import { PostCardMedia } from './PostCardMedia';
+import { PostCardTitle } from './PostCardTitle';
 import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
+import { openUserProfile } from '../utils/nav';
 
 @Component
 export struct PostCard {
   @Prop post: Post = {};
   // 首页信息流以更高的信息密度呈现；个人页等场景维持默认尺寸。
   @Prop compact: boolean = false;
+  // 信息流卡片仅使用 feed 变体；草稿箱和发布预览各自有专用组件，避免隐藏互动 UI 的伪复用。
+  @Prop variant: 'feed' | 'draft' | 'preview' = 'feed';
 
   onOpen?: () => void = undefined;
   onCancelBookmark?: (id: number) => void = undefined;
@@ -71,12 +74,12 @@ export struct PostCard {
   }
 
   private goUser(): void {
-    const u: User | undefined = this.post.user;
+    const authorId: number | undefined = this.authorId();
     if (this.isDeletedUser()) {
       return;
     }
-    if (u !== undefined && typeof u.id === 'number') {
-      AppStorage.setOrCreate('targetUserId', String(u.id));
+    if (authorId !== undefined) {
+      openUserProfile(authorId);
       this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage' });
     }
   }
@@ -108,30 +111,25 @@ export struct PostCard {
   }
 
   private hasCover(): boolean {
-    return this.coverImage().length > 0;
-  }
-
-  private hasPoll(): boolean {
-    return this.pollPlanA().length > 0 || this.pollPlanB().length > 0;
-  }
-
-  private pollPlanA(): string {
-    return this.post.structuredData?.planA ?? '';
-  }
-
-  private pollPlanB(): string {
-    return this.post.structuredData?.planB ?? '';
+    return this.coverImage().length > 0 || (this.post.videoUrl ?? '').length > 0;
   }
 
   private hasAuthor(): boolean {
-    return this.post.user !== undefined && typeof this.post.user.id === 'number';
+    return this.authorId() !== undefined;
+  }
+
+  private authorId(): number | undefined {
+    if (typeof this.post.user?.id === 'number') {
+      return this.post.user.id;
+    }
+    return typeof this.post.userId === 'number' ? this.post.userId : undefined;
   }
 
   private authorName(): string {
     if (this.isDeletedUser()) {
       return '已注销用户';
     }
-    return this.post.user?.nickname ?? '匿名';
+    return this.post.user?.nickname ?? (this.authorId() !== undefined ? '贴主' : '匿名');
   }
 
   private authorAvatar(): string {
@@ -151,43 +149,6 @@ export struct PostCard {
   }
 
   @Builder
-  mediaSlot(): void {
-    if (this.hasCover()) {
-      Image(this.coverImage())
-        .width('100%')
-        .aspectRatio(this.compact ? 1.28 : LayoutTokens.cardMediaAspectRatio)
-        .objectFit(ImageFit.Cover)
-        .borderRadius(RadiusTokens.xs)
-        .clip(true)
-    }
-    // 无图状态按冻结后的卡片尺寸收紧媒体槽，不注入额外占位高度。
-  }
-
-  @Builder
-  titleSlot(): void {
-    // design tokens: type.headline / color.primary。
-    Text(this.post.title ?? '')
-      .fontSize(this.compact ? TypeTokens.body.size : TypeTokens.headline.size)
-      .fontWeight(TypeTokens.headline.weight)
-      .lineHeight(this.compact ? 20 : TypeTokens.headline.lineHeight)
-      .letterSpacing(TypeTokens.headline.tracking)
-      .fontColor(ColorTokens.primary)
-      .maxLines(2)
-      .textOverflow({ overflow: TextOverflow.Ellipsis })
-  }
-
-  @Builder
-  pollSlot(): void {
-    if (this.hasPoll()) {
-      PollBlock({
-        planA: this.pollPlanA(),
-        planB: this.pollPlanB(),
-        compact: this.compact,
-      })
-    }
-  }
-
-  @Builder
   statSlot(): void {
     StatRow({
       liked: this.liked,
@@ -199,43 +160,49 @@ export struct PostCard {
     })
   }
 
-  // 卡片底部采用单行布局：互动数据靠左，作者信息已移至卡片右下角（见 authorCornerSlot）。
+  // 互动面是与内容面紧贴拼接的独立区域，不再嵌套在正文卡片内。
   @Builder
   footerSlot(): void {
-    Row() {
-      this.statSlot()
-      Blank().layoutWeight(1)
+    Column({ space: SpaceTokens.inlineTight }) {
+      Row() {
+        this.statSlot()
+        Blank().layoutWeight(1)
+        if (this.hasAuthor()) {
+          PostCardAuthor({
+            name: this.authorName(),
+            avatar: this.authorAvatar(),
+            compact: this.compact,
+            onOpen: (): void => { this.goUser(); },
+          })
+        }
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      this.cancelBookmarkSlot()
     }
     .width('100%')
-    .alignItems(VerticalAlign.Center)
-  }
-
-  // 作者头像+昵称钉在卡片右下角（绝对定位，抵消卡片内边距后正好落在卡片真实边角）。
-  @Builder
-  authorCornerSlot(): void {
-    Pressable({
-      visualHeight: IconTokens.compact,
-      touchTargetHeight: LayoutTokens.minTouchTarget,
-      action: (): void => { this.goUser(); },
-    }) {
-      Row({ space: SpaceTokens.inlineTight }) {
-        Text(this.authorName())
-          .fontSize(this.compact ? TypeTokens.overline.size : TypeTokens.caption.size)
-          .fontWeight(TypeTokens.caption.weight)
-          .lineHeight(TypeTokens.caption.lineHeight)
-          .letterSpacing(TypeTokens.caption.tracking)
-          .fontColor(ColorTokens.secondary)
-          .constraintSize({ maxWidth: this.compact ? 88 : 132 })
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Avatar({
-          avatar: this.authorAvatar(),
-          name: this.authorName(),
-          avatarSize: this.compact ? 20 : IconTokens.avatarCompact,
-        })
-      }
-      .alignItems(VerticalAlign.Center)
-    }
+    .padding({
+      left: this.compact ? SpaceTokens.xs : SpaceTokens.sm,
+      right: this.compact ? SpaceTokens.xs : SpaceTokens.sm,
+      top: SpaceTokens.inlineTight,
+      bottom: SpaceTokens.inlineTight,
+    })
+    .backgroundColor(ColorTokens.barSurface)
+    .backdropBlur(LayoutTokens.glassBlur)
+    .border({
+      width: LayoutTokens.glassBorderWidth,
+      color: ColorTokens.barBorder,
+      style: BorderStyle.Solid,
+    })
+    .borderRadius({
+      topLeft: 0,
+      topRight: 0,
+      bottomLeft: this.compact ? RadiusTokens.xs : RadiusTokens.lg,
+      bottomRight: this.compact ? RadiusTokens.xs : RadiusTokens.lg,
+    })
+    .shadow({ radius: 14, color: ColorTokens.barShadow, offsetY: 6 })
+    .clip(true)
   }
 
   @Builder
@@ -252,7 +219,7 @@ export struct PostCard {
       }) {
         Row() {
           Text('取消收藏')
-            .fontSize(TypeTokens.caption.size)
+            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
             .fontWeight(TypeTokens.caption.weight)
             .fontColor(ColorTokens.secondary)
         }
@@ -262,33 +229,26 @@ export struct PostCard {
   }
 
   build() {
-    // design tokens: color.elevated / radius.lg / space.base / shadow.card。
-    BaseCard({
-      cardPadding: this.compact ? SpaceTokens.xs : SpaceTokens.base,
-      radius: this.compact ? RadiusTokens.xs : RadiusTokens.lg,
-      elevation: 1,
-      pressable: this.onOpen !== undefined,
+    // 三层结构：封面图（上传图或文字海报）→ 标题 → 玻璃互动/作者栏。
+    Pressable({
+      fillWidth: true,
+      fullResponseRegion: true,
       action: () => { this.openCard(); },
     }) {
-      Stack({ alignContent: Alignment.TopStart }) {
-        Column({ space: this.compact ? SpaceTokens.xs : SpaceTokens.item }) {
-          this.mediaSlot()
-          this.titleSlot()
-          this.pollSlot()
+      Column({ space: SpaceTokens.none }) {
+        PostCardMedia({
+          imageUrl: this.coverImage(),
+          videoUrl: this.post.videoUrl ?? '',
+          videoCover: this.post.videoCover ?? '',
+          compact: this.compact,
+        })
+        PostCardTitle({ title: this.post.title ?? '', hasMedia: this.hasCover(), compact: this.compact })
+        if (this.variant === 'feed') {
           this.footerSlot()
-          this.cancelBookmarkSlot()
-        }
-        .width('100%')
-        .alignItems(HorizontalAlign.Start)
-
-        if (this.hasAuthor()) {
-          Row() {
-            this.authorCornerSlot()
-          }
-          .position({ right: -(this.compact ? SpaceTokens.xs : SpaceTokens.base), bottom: -(this.compact ? SpaceTokens.xs : SpaceTokens.base) })
         }
       }
       .width('100%')
+      .shadow({ radius: 28, color: ColorTokens.barShadow, offsetY: 12 })
     }
   }
 }

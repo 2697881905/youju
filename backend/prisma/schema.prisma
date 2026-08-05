@@ -18,6 +18,7 @@ model User {
   unionID    String?  @unique @db.VarChar(64) // 华为账号 UnionID（unionID 登录；openId 用户此字段为空）
   nickname   String   @db.VarChar(32)
   avatar     String?  @db.LongText // 头像 URL；COS 不可用时降级为 base64 data URI，故用 LongText 容纳
+  profileBackground String? @db.LongText // 个人主页背景图 URL
   gender     Int?     @default(1) // 1-男 2-女
   bio        String?  @db.VarChar(120) // 个人简介（PRD P0-4）
   followTags Json?
@@ -46,6 +47,8 @@ model Post {
   title          String   @db.VarChar(100)
   content        String?  @db.Text
   coverImage     String?  @db.VarChar(255)
+  videoUrl       String?  @db.VarChar(512) // 视频地址（轻量单视频方案，最多一段）
+  videoCover     String?  @db.VarChar(255) // 视频封面（首帧抓取上传，复用 posts 目录）
   images         Json? // 图片URL列表，最多9张
   genre          String   @db.VarChar(20) // review | pitfall | tutorial | debate
   tags           Json // 标签列表，1~3个
@@ -244,6 +247,19 @@ model Blocklist {
   createdAt DateTime @default(now())
 
   @@unique([userId, blockedId])
+  @@index([userId])
+}
+
+// 不喜欢（减少推送）关系表（轻量表，仅标量外键，不建 @relation）
+// 与拉黑的区别：单向（仅 viewer 不再在推荐流刷到该作者），latest/following 流保留，
+// 作者主页/搜索仍可见。
+model Dislike {
+  id         Int      @id @default(autoincrement())
+  userId     Int      // 谁不喜欢
+  dislikedId Int      // 被不喜欢的作者
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, dislikedId])
   @@index([userId])
 }
 

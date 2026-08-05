@@ -6,7 +6,7 @@
 // 颜色全部使用资源色，跟随系统深色/浅色模式自动适配。
 
 import { exchangeHuaweiCode, LoginResult } from '../services/api';
-import { setSession, loginWithDevStub, loginWithDevStub2 } from '../utils/auth';
+import { setSession, loginWithDevStub, loginWithDevStub2, markCircleOnboardingPending } from '../utils/auth';
 import { HuaweiLoginButton } from '../components/HuaweiLoginButton';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
@@ -44,12 +44,12 @@ struct LoginPage {
           .margin({ top: 64 })
 
         Text('大蓝书')
-          .fontSize(28)
+          .fontSize(28).fontFamily($r('app.string.font_family'))
           .fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.text_primary'))
 
         Text('理性选购 更好的生活')
-          .fontSize(14)
+          .fontSize(14).fontFamily($r('app.string.font_family'))
           .fontColor($r('app.color.text_secondary'))
           .margin({ bottom: 8 })
       }
@@ -60,7 +60,7 @@ struct LoginPage {
         // 华为登录失败时的内联提示（账号服务未配置 / 用户取消等场景）
         if (this.huaweiErrorTip.length > 0) {
           Text(this.huaweiErrorTip)
-            .fontSize(12)
+            .fontSize(12).fontFamily($r('app.string.font_family'))
             .fontColor($r('app.color.semantic_orange'))
             .width('80%')
             .textAlign(TextAlign.Center)
@@ -84,7 +84,7 @@ struct LoginPage {
           Button(this.otherSubmitting ? '登录中…' : '其他方式登录')
             .width('80%')
             .height(48)
-            .fontSize(16)
+            .fontSize(16).fontFamily($r('app.string.font_family'))
             .fontColor($r('app.color.text_primary'))
             .backgroundColor($r('app.color.card_bg'))
             .border({ width: 1, color: $r('app.color.text_primary'), style: BorderStyle.Solid })
@@ -99,7 +99,7 @@ struct LoginPage {
           Button(this.v2Submitting ? '登录中…' : '虚拟用户·小美 登录')
             .width('80%')
             .height(48)
-            .fontSize(16)
+            .fontSize(16).fontFamily($r('app.string.font_family'))
             .fontColor($r('app.color.text_primary'))
             .backgroundColor($r('app.color.card_bg'))
             .border({ width: 1, color: $r('app.color.text_primary'), style: BorderStyle.Solid })
@@ -119,20 +119,20 @@ struct LoginPage {
       // 隐私协议尾巴：可点击文字跳转真实页面
       Row() {
         Text('登录即表示同意')
-          .fontSize(12)
+          .fontSize(12).fontFamily($r('app.string.font_family'))
           .fontColor($r('app.color.text_secondary'))
         Text('《用户协议》')
-          .fontSize(12)
+          .fontSize(12).fontFamily($r('app.string.font_family'))
           .fontColor($r('app.color.brand_primary'))
           .onClick((): void => {
             const ctx = this.getUIContext();
             ctx.getRouter().pushUrl({ url: 'pages/UserAgreementPage' });
           })
         Text('与')
-          .fontSize(12)
+          .fontSize(12).fontFamily($r('app.string.font_family'))
           .fontColor($r('app.color.text_secondary'))
         Text('《隐私政策》')
-          .fontSize(12)
+          .fontSize(12).fontFamily($r('app.string.font_family'))
           .fontColor($r('app.color.brand_primary'))
           .onClick((): void => {
             const ctx = this.getUIContext();
@@ -157,6 +157,9 @@ struct LoginPage {
     try {
       const result: LoginResult = await exchangeHuaweiCode({ code });
       setSession(result.token, result.user);
+      if (result.isNewUser) {
+        markCircleOnboardingPending(result.user.id);
+      }
       this.getUIContext().getRouter().back();
     } catch (e) {
       const err: Error = e as Error;
@@ -187,10 +190,11 @@ struct LoginPage {
     }
     this.otherSubmitting = true;
     try {
-      const user = await loginWithDevStub();
-      if (user) {
-        this.getUIContext().getRouter().back();
+      const result: LoginResult = await loginWithDevStub();
+      if (result.isNewUser) {
+        markCircleOnboardingPending(result.user.id);
       }
+      this.getUIContext().getRouter().back();
     } catch (e) {
       const err: Error = e as Error;
       this.toast('登录失败：' + err.message);
@@ -206,10 +210,11 @@ struct LoginPage {
     }
     this.v2Submitting = true;
     try {
-      const user = await loginWithDevStub2();
-      if (user) {
-        this.getUIContext().getRouter().back();
+      const result: LoginResult = await loginWithDevStub2();
+      if (result.isNewUser) {
+        markCircleOnboardingPending(result.user.id);
       }
+      this.getUIContext().getRouter().back();
     } catch (e) {
       const err: Error = e as Error;
       this.toast('登录失败：' + err.message);

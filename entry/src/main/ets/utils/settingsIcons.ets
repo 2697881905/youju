@@ -5,6 +5,7 @@
 const SETTINGS_ICONS: Map<string, Resource> = new Map<string, Resource>([
   // 导航 / 复用主界面线条图标
   ['back', $r('app.media.nav_back')],
+  ['gear', $r('app.media.set_gear')],
   ['phone', $r('app.media.device_phone')],
   ['lock', $r('app.media.status_lock')],
   ['book', $r('app.media.book_doc')],
@@ -29,4 +30,37 @@ export function resolveSettingsIcon(name: string): Resource {
     return found;
   }
   return $r('app.media.chevron_right');
+}
+
+// 设置项 Logo 使用语义化颜色；导航返回和箭头仍保持文字层级色。
+export function resolveSettingsIconColor(name: string): ResourceColor {
+  switch (name) {
+    case 'gear':
+    case 'phone':
+    case 'book':
+      return '#0A84FF';
+    case 'lock':
+    case 'policy':
+      return '#5E5CE6';
+    case 'bell':
+    case 'export':
+      return '#FF9500';
+    case 'system':
+      return '#34C759';
+    case 'dark':
+      return '#AF52DE';
+    case 'block':
+      return '#FF2D55';
+    case 'shield':
+      return '#64D2FF';
+    case 'edit':
+      return '#30D158';
+    case 'trash':
+    case 'logout':
+      return $r('app.color.semantic_red');
+    case 'back':
+      return $r('app.color.text_primary');
+    default:
+      return $r('app.color.text_tertiary');
+  }
 }

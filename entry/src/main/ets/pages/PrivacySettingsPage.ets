@@ -5,7 +5,7 @@ import { PrivacySettingsData } from '../models/types';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { CARD_RADIUS, CARD_SHADOW } from '../utils/cardTokens';
-import { resolveSettingsIcon } from '../utils/settingsIcons';
+import { BackButton } from '../design/components/BackButton';
 
 @Entry
 @Component
@@ -69,23 +69,16 @@ export struct PrivacySettingsPage {
     Column() {
       // 顶栏
       Row() {
-        Row() {
-          Image(resolveSettingsIcon('back'))
-            .width(24).height(24)
-            .fillColor($r('app.color.text_primary'))
-        }
-        .width(48).height(44)
-        .justifyContent(FlexAlign.Center)
-        .onClick(() => { this.getUIContext().getRouter().back(); });
+        BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
         Text('隐私设置')
-          .fontSize(17)
+          .fontSize(17).fontFamily($r('app.string.font_family'))
           .fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.text_primary'))
           .layoutWeight(1)
           .textAlign(TextAlign.Center);
         // 保存按钮放在右侧
         Text(this.saving ? '保存中' : '保存')
-          .fontSize(15)
+          .fontSize(15).fontFamily($r('app.string.font_family'))
           .fontColor(this.saving ? $r('app.color.text_secondary') : '#007AFF')
           .width(56)
           .textAlign(TextAlign.Center)
@@ -101,7 +94,7 @@ export struct PrivacySettingsPage {
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
       } else if (this.loadError) {
         Column() {
-          Text('加载失败').fontSize(15).fontColor($r('app.color.text_secondary'));
+          Text('加载失败').fontSize(15).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary'));
           Button('重试').margin({ top: 12 }).onClick(() => { this.loadSettings(); });
         }
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
@@ -111,7 +104,7 @@ export struct PrivacySettingsPage {
             // 帖子可见性
             Column({ space: 10 }) {
               Text('帖子可见性')
-                .fontSize(13)
+                .fontSize(13).fontFamily($r('app.string.font_family'))
                 .fontColor($r('app.color.text_secondary'))
                 .alignSelf(ItemAlign.Start)
                 .padding({ left: 4 });
@@ -120,7 +113,7 @@ export struct PrivacySettingsPage {
                 ForEach(this.visibilityOptions, (opt: string, idx: number) => {
                   Row() {
                     Text(this.visibilityLabels[idx])
-                      .fontSize(15)
+                      .fontSize(15).fontFamily($r('app.string.font_family'))
                       .fontColor($r('app.color.text_primary'))
                       .layoutWeight(1);
                     Radio({ value: opt, group: 'visibilityGroup' })
@@ -150,7 +143,7 @@ export struct PrivacySettingsPage {
             // 允许关注
             Column({ space: 10 }) {
               Text('互动权限')
-                .fontSize(13)
+                .fontSize(13).fontFamily($r('app.string.font_family'))
                 .fontColor($r('app.color.text_secondary'))
                 .alignSelf(ItemAlign.Start)
                 .padding({ left: 4 });
@@ -158,10 +151,10 @@ export struct PrivacySettingsPage {
               Row() {
                 Column() {
                   Text('允许他人关注')
-                    .fontSize(15)
+                    .fontSize(15).fontFamily($r('app.string.font_family'))
                     .fontColor($r('app.color.text_primary'));
                   Text('关闭后其他用户将无法关注你')
-                    .fontSize(12)
+                    .fontSize(12).fontFamily($r('app.string.font_family'))
                     .fontColor($r('app.color.text_secondary'))
                     .margin({ top: 2 });
                 }
@@ -184,10 +177,10 @@ export struct PrivacySettingsPage {
                   Row() {
                     Column() {
                       Text(this.dmPolicyLabels[idx])
-                        .fontSize(15)
+                        .fontSize(15).fontFamily($r('app.string.font_family'))
                         .fontColor($r('app.color.text_primary'))
                       Text(this.dmPolicyDesc[idx])
-                        .fontSize(12)
+                        .fontSize(12).fontFamily($r('app.string.font_family'))
                         .fontColor($r('app.color.text_secondary'))
                         .margin({ top: 2 })
                     }

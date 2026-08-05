@@ -1,0 +1,1559 @@
+—————————— 第 1 页 ——————————
+// ========== ./backend/prisma/seed-post.ts ==========
+// 种子：创建一条真实测评报告帖子 + 作者 + 评论，用于联调详情页渲染
+// 运行：node_modules/.bin/tsx prisma/seed-post.ts
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
+const SEED_TITLE = 'iPhone 17 Pro 深度使用30天报告';
+async function main() {
+  // 1. 作者
+  const user = await prisma.user.upsert({
+    where: { openId: 'dev-seed-openid' },
+    update: {},
+    create: {
+      openId: 'dev-seed-openid',
+      nickname: '科技老张',
+      avatar: 'https://i.pravatar.cc/150?img=12',
+      gender: 1,
+    },
+  });
+  // 2. 避免重复：已存在则跳过
+  const existed = await prisma.post.findFirst({ where: { title: SEED_TITLE } });
+  if (existed) {
+    console.log(`已存在种子帖 id=${existed.id}，跳过创建。`);
+    return;
+  }
+  // 3. 帖子（测评报告，已发布）
+  const post = await prisma.post.create({
+    data: {
+      userId: user.id,
+      title: SEED_TITLE,
+      content:
+        '用了整整 30 天，从续航、影像、系统流畅度到重量手感都踩了一遍。\n' +
+        '结论：重度手机用户值得上，但价格确实劝退一部分人。下面把优缺点和适合人群讲清楚。',
+      coverImage: 'https://picsum.photos/seed/bb-review-cover/800/800',
+      images: [
+        'https://picsum.photos/seed/bb-review-1/800/800',
+        'https://picsum.photos/seed/bb-review-2/800/800',
+        'https://picsum.photos/seed/bb-review-3/800/800',
+        'https://picsum.photos/seed/bb-review-4/800/800',
+      ],
+      genre: 'review',
+      tags: ['数码选购', '手机数码'],
+      structuredData: {
+        pros: '续航强、系统流畅、影像天花板',
+        cons: '重量偏重、价格高',
+        rating: 4.5,
+        targetAudience: '重度手机用户 / 摄影党',
+      },
+      upCount: 236,
+      bookmarkCount: 89,
+      commentCount: 0,
+
+—————————— 第 1 页 ——————————
+      status: 1,
+    },
+  });
+  // 4. 评论（一条普通、一条事实补充）
+  await prisma.comment.create({
+    data: {
+      postId: post.id,
+      userId: user.id,
+      content: '续航这块我实测一天一充没问题，重度使用也扛得住。',
+      isFact: 0,
+      upCount: 12,
+    },
+  });
+  await prisma.comment.create({
+    data: {
+      postId: post.id,
+      userId: user.id,
+      content: '补充一个缺点：充电头要单独买，包装里只有线。',
+      isFact: 1,
+      upCount: 31,
+    },
+  });
+  // 同步评论数
+  const commentCount = await prisma.comment.count({ where: { postId: post.id } });
+  await prisma.post.update({ where: { id: post.id }, data: { commentCount } });
+  console.log(`种子帖创建成功 id=${post.id}，作者 id=${user.id}，评论数=${commentCount}`);
+}
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
+
+// ========== ./backend/prisma/seed.ts ==========
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
+// 30 个话题标签种子数据（与产品文档 3.1 一致）
+const tags = [
+  { name: '数码选购', emoji: '📱', category: '消费决策' },
+  { name: '汽车买卖', emoji: '🚗', category: '消费决策' },
+  { name: '家电评测', emoji: '🏠', category: '消费决策' },
+  { name: '外设推荐', emoji: '⌨️', category: '消费决策' },
+  { name: '男装搭配', emoji: '👔', category: '消费决策' },
+  { name: '运动装备', emoji: '👟', category: '消费决策' },
+  { name: '手机数码', emoji: '📲', category: '消费决策' },
+  { name: '酒水品鉴', emoji: '🍷', category: '消费决策' },
+  { name: '汽车养护', emoji: '🔧', category: '动手实操' },
+
+—————————— 第 2 页 ——————————
+  { name: '数码维修', emoji: '💻', category: '动手实操' },
+  { name: '家居维修', emoji: '🛠️', category: '动手实操' },
+  { name: '做饭教程', emoji: '🍳', category: '动手实操' },
+  { name: '健身动作', emoji: '💪', category: '动手实操' },
+  { name: '电脑装机', emoji: '🖥️', category: '动手实操' },
+  { name: '摄影技巧', emoji: '📷', category: '动手实操' },
+  { name: '露营户外', emoji: '⛺', category: '动手实操' },
+  { name: '职场沟通', emoji: '💼', category: '个人成长' },
+  { name: '面试经验', emoji: '🎯', category: '个人成长' },
+  { name: '搞钱心得', emoji: '💰', category: '个人成长' },
+  { name: '理财规划', emoji: '📊', category: '个人成长' },
+  { name: '学习效率', emoji: '📚', category: '个人成长' },
+  { name: '人际处世', emoji: '🤝', category: '个人成长' },
+  { name: '自我提升', emoji: '🚀', category: '个人成长' },
+  { name: '旅行攻略', emoji: '✈️', category: '生活方式' },
+  { name: '探店打卡', emoji: '🍜', category: '生活方式' },
+  { name: '游戏攻略', emoji: '🎮', category: '生活方式' },
+  { name: '影视推荐', emoji: '🎬', category: '生活方式' },
+  { name: '书籍阅读', emoji: '📖', category: '生活方式' },
+  { name: '宠物日常', emoji: '🐕', category: '生活方式' },
+  { name: '情感经营', emoji: '❤️', category: '生活方式' },
+];
+async function main() {
+  for (const t of tags) {
+    await prisma.tag.upsert({
+      where: { name: t.name },
+      update: {},
+      create: t,
+    });
+  }
+  console.log(`Seeded ${tags.length} tags.`);
+}
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
+
+// ========== ./backend/src/app.ts ==========
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import path from 'path';
+import fs from 'fs';
+import { env } from './config/env';
+import authRouter from './routes/auth';
+import postRouter from './routes/posts';
+
+—————————— 第 3 页 ——————————
+import commentRouter from './routes/comments';
+import interactRouter from './routes/interact';
+import tagRouter from './routes/tags';
+import uploadRouter from './routes/upload';
+import searchRouter from './routes/search';
+import accountRouter from './routes/account';
+import notificationRouter from './routes/notifications';
+import userRouter from './routes/users';
+import adminRouter from './routes/admin';
+// 用户安全设置类路由（通知偏好 / 拉黑 / 隐私 / 数据导出），均挂 /v1 前缀
+import notificationPrefRouter from './routes/notificationPrefs';
+import blockRouter from './routes/block';
+import privacyRouter from './routes/privacy';
+import exportRouter from './routes/export';
+import messageRouter from './routes/messages';
+import { sensitiveWordService } from './services/sensitiveWordService';
+import { errorHandler } from './middleware/errorHandler';
+import { globalLimiter, loginLimiter, uploadLimiter } from './middleware/rateLimit';
+export const app = express();
+// 本地文件上传目录（无真实对象存储的开发期兜底）：启动时确保存在
+try {
+  fs.mkdirSync(env.uploadsDir, { recursive: true });
+} catch (e) {
+  console.warn('[warn] 创建 uploads 目录失败：', (e as Error).message);
+}
+// 安全响应头（CSP / HSTS / X-Content-Type-Options 等）
+app.use(helmet());
+// 全站基础限流：防爆破 / 刷接口
+app.use(globalLimiter);
+// CORS：生产环境通过 CORS_ORIGIN 限定具体来源（逗号分隔）。
+// 留空时放开全部（开发期方便真机/模拟器联调），但 index.ts 会在生产环境拒绝启动。
+const allowedOrigins = env.corsOrigin
+  ? env.corsOrigin.split(',').map((s) => s.trim()).filter(Boolean)
+  : undefined;
+app.use(cors(allowedOrigins ? { origin: allowedOrigins } : undefined));
+app.use(express.json());
+app.get('/health', (_req, res) => res.json({ ok: true }));
+// 本地上传文件静态服务（仅开发期无 COS 时使用；生产应改用对象存储直链）
+app.use('/uploads', express.static(env.uploadsDir));
+// 启动时加载敏感词库（文件不存在时降级为空词库，不拦截）
+sensitiveWordService.loadFromFiles([
+  'data/sensitive-words.txt',
+  'data/gender-war-words.txt',
+]);
+// 登录接口：防爆破 / 撞库（每 IP 15 分钟 20 次）
+app.use('/v1/auth/login', loginLimiter);
+// 上传预签名接口：防 COS 配额滥用（每 IP 每分钟 30 次）
+app.use('/v1/upload/token', uploadLimiter);
+// 同时挂 /v1/auth 与 /v1/users，覆盖文档两类路径
+app.use('/v1/auth', authRouter);
+
+—————————— 第 4 页 ——————————
+app.use('/v1/users', authRouter);
+// 用户资料 / 关注关系（挂在 /v1/users，authRouter 之后；GET /me 仍由 authRouter 命中）
+app.use('/v1/users', userRouter);
+app.use('/v1/posts', postRouter);
+app.use('/v1/tags', tagRouter);
+app.use('/v1/upload', uploadRouter);
+app.use('/v1/search', searchRouter);
+// 账号绑定管理（GET/POST/DELETE /v1/account/bindings），与 /v1/auth、/v1/posts 同级
+app.use('/v1/account', accountRouter);
+// 私信（会话列表/历史/发送/已读/未读），挂 /v1/messages，必须在 /v1 通配路由之前注册
+app.use('/v1/messages', messageRouter);
+// 消息通知（GET /v1/notifications、GET /v1/notifications/unread-count、
+// POST /v1/notifications/:id/read、POST /v1/notifications/read-all）
+app.use('/v1', notificationRouter);
+// 评论/互动使用完整路径（/v1/posts/:id/comments、/v1/posts/:id/up 等）
+app.use('/v1', commentRouter);
+app.use('/v1', interactRouter);
+// admin 审核 API（GET /v1/admin/posts/pending、POST /v1/admin/posts/:id/moderate、GET /v1/admin/reports）
+app.use('/v1/admin', adminRouter);
+// 用户安全设置（通知偏好 / 拉黑 / 隐私 / 数据导出），统一挂 /v1
+app.use('/v1', notificationPrefRouter);
+app.use('/v1', blockRouter);
+app.use('/v1', privacyRouter);
+app.use('/v1', exportRouter);
+// 全局错误处理（必须最后注册：捕获经 asyncHandler 转交的异步异常，避免连接挂起）
+app.use(errorHandler);
+
+// ========== ./backend/src/config/env.ts ==========
+import dotenv from 'dotenv';
+import path from 'path';
+dotenv.config();
+export const env = {
+  port: Number(process.env.PORT ?? 3000),
+  nodeEnv: process.env.NODE_ENV ?? 'development',
+  isProduction: (process.env.NODE_ENV ?? 'development') === 'production',
+  databaseUrl: process.env.DATABASE_URL ?? '',
+  jwtSecret: process.env.JWT_SECRET ?? '',
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '30d',
+  oss: {
+    region: process.env.OSS_REGION ?? '',
+    bucket: process.env.OSS_BUCKET ?? '',
+    accessKey: process.env.OSS_ACCESS_KEY ?? '',
+    secretKey: process.env.OSS_SECRET_KEY ?? '',
+    endpoint: process.env.OSS_ENDPOINT ?? '',
+    cdnBase: process.env.CDN_BASE ?? '',
+  },
+  cos: {
+    secretId: process.env.COS_SECRET_ID ?? '',
+    secretKey: process.env.COS_SECRET_KEY ?? '',
+    bucket: process.env.COS_BUCKET ?? '',
+
+—————————— 第 5 页 ——————————
+    region: process.env.COS_REGION ?? '',
+    cdnBase: process.env.COS_CDN_BASE ?? '',
+  },
+  // 内容审核 & 举报系统
+  adminUserIds: (process.env.ADMIN_USER_IDS ?? '')
+    .split(',')
+    .map((s) => parseInt(s.trim(), 10))
+    .filter((n) => !isNaN(n) && n > 0),
+  reportThreshold: Number(process.env.REPORT_THRESHOLD ?? 3),
+  // CORS 允许的源（逗号分隔）。留空 = 允许所有（仅开发期，生产务必配置具体域名）。
+  corsOrigin: process.env.CORS_ORIGIN ?? '',
+  // 本地文件上传（无真实对象存储时的开发期兜底）：对外可访问的基础地址 + 落盘目录
+  // 模拟器通过 BASE_URL（默认 http://127.0.0.1:3000）访问，故此处默认与之对齐。
+  backendPublicUrl: process.env.BACKEND_PUBLIC_URL ?? 'http://127.0.0.1:3000',
+  uploadsDir: process.env.UPLOADS_DIR ?? path.resolve(process.cwd(), 'uploads'),
+};
+
+// ========== ./backend/src/index.ts ==========
+import { app } from './app';
+import { env } from './config/env';
+function failHard(message: string): never {
+  console.error('[启动失败] ' + message);
+  process.exit(1);
+}
+// 安全启动校验：生产环境缺失关键安全配置时拒绝启动，
+// 避免带着默认/开放配置上线（token 可被伪造、任意站点可跨域调用）。
+if (!env.jwtSecret) {
+  if (env.isProduction) {
+    failHard('JWT_SECRET 未设置，生产环境拒绝启动（token 可被伪造）。请在环境变量中配置强随机密钥。');
+  }
+  console.warn('[安全警示] JWT_SECRET 未设置，当前使用空密钥（仅开发期，严禁用于生产）。');
+}
+if (!env.corsOrigin) {
+  if (env.isProduction) {
+    failHard('CORS_ORIGIN 未配置，生产环境拒绝启动（不允许开放跨域）。请配置具体允许的域名（逗号分隔）。');
+  }
+  console.warn('[安全警示] CORS_ORIGIN 未配置，当前允许所有来源跨域（仅开发期）。');
+}
+app.listen(env.port, () => {
+  console.log(`BigBlueBook API listening on http://localhost:${env.port}`);
+});
+
+// ========== ./backend/src/middleware/adminAuth.ts ==========
+// admin 鉴权中间件（必须在 auth 之后使用，依赖 req.userId）
+// 校验 req.userId 是否在 env.adminUserIds（来自 ADMIN_USER_IDS 环境变量）
+import { Response, NextFunction } from 'express';
+import { AuthRequest } from './auth';
+import { fail, CODE } from '../utils/response';
+import { env } from '../config/env';
+export function adminAuth(req: AuthRequest, res: Response, next: NextFunction) {
+
+—————————— 第 6 页 ——————————
+  if (!req.userId || !env.adminUserIds.includes(req.userId)) {
+    return fail(res, CODE.FORBIDDEN, '无管理员权限', 403);
+  }
+  return next();
+}
+
+// ========== ./backend/src/middleware/asyncHandler.ts ==========
+import { Request, Response, NextFunction, RequestHandler } from 'express';
+/**
+ * 包装 async 路由处理器，捕获未处理的 Promise rejection 并转交 Express 错误中间件。
+ * Express 4 不会自动捕获 async handler 抛出的异常，未处理时连接会挂起（客户端报
+ * "Failed to receive data"）。所有路由 handler 都应经此包装。
+ */
+export function asyncHandler(
+  fn: (req: any, res: Response, next: NextFunction) => Promise<unknown> | void
+): RequestHandler {
+  return (req: Request, res: Response, next: NextFunction) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+}
+
+// ========== ./backend/src/middleware/auth.test.ts ==========
+import jwt from 'jsonwebtoken';
+import { auth } from './auth';
+import { prisma } from '../prisma';
+// mock prisma（仅 user.findUnique 被 auth 中间件调用）
+jest.mock('../prisma', () => ({
+  prisma: {
+    user: {
+      findUnique: jest.fn(),
+    },
+  },
+}));
+// 固定密钥用于签发测试 token（覆盖 config/env 的真实 jwtSecret）
+jest.mock('../config/env', () => ({
+  env: {
+    jwtSecret: 'test-secret',
+    jwtExpiresIn: '1h',
+    adminUserIds: [],
+  },
+}));
+const mockedFindUnique = prisma.user.findUnique as jest.Mock;
+interface MockRes {
+  statusCode: number;
+  body: any;
+  status(code: number): MockRes;
+  json(payload: any): MockRes;
+}
+function makeRes(): any {
+  const res: MockRes = {
+
+—————————— 第 7 页 ——————————
+    statusCode: 0,
+    body: undefined,
+    status(code: number) {
+      this.statusCode = code;
+      return this;
+    },
+    json(payload: any) {
+      this.body = payload;
+      return this;
+    },
+  };
+  return res;
+}
+describe('auth middleware', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+  it('a) 缺失 Authorization → 401 未登录', async () => {
+    const req: any = { headers: {} };
+    const res = makeRes();
+    const next = jest.fn();
+    await auth(req, res, next);
+    expect(next).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(401);
+    expect(res.body.message).toBe('未登录');
+  });
+  it('b) token 过期/非法 → 401 登录已过期', async () => {
+    const req: any = { headers: { authorization: 'Bearer invalid.token.here' } };
+    const res = makeRes();
+    const next = jest.fn();
+    await auth(req, res, next);
+    expect(next).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(401);
+    expect(res.body.message).toBe('登录已过期');
+  });
+  it('c) 正常用户 → 放行 next 且写入 req.userId', async () => {
+    const token = jwt.sign({ userId: 2 }, 'test-secret');
+    mockedFindUnique.mockResolvedValue({ deletedAt: null });
+    const req: any = { headers: { authorization: 'Bearer ' + token } };
+    const res = makeRes();
+    const next = jest.fn();
+    await auth(req, res, next);
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(req.userId).toBe(2);
+  });
+  it('d) 已注销用户（deletedAt 非空）→ 401 账号已注销，next 不调用', async () => {
+    const token = jwt.sign({ userId: 3 }, 'test-secret');
+    mockedFindUnique.mockResolvedValue({ deletedAt: new Date() });
+    const req: any = { headers: { authorization: 'Bearer ' + token } };
+    const res = makeRes();
+
+—————————— 第 8 页 ——————————
+    const next = jest.fn();
+    await auth(req, res, next);
+    expect(next).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(401);
+    expect(res.body.message).toBe('账号已注销');
+  });
+  it('e) 用户不存在 → 401 账号已注销', async () => {
+    const token = jwt.sign({ userId: 99 }, 'test-secret');
+    mockedFindUnique.mockResolvedValue(null);
+    const req: any = { headers: { authorization: 'Bearer ' + token } };
+    const res = makeRes();
+    const next = jest.fn();
+    await auth(req, res, next);
+    expect(next).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(401);
+    expect(res.body.message).toBe('账号已注销');
+  });
+});
+
+// ========== ./backend/src/middleware/auth.ts ==========
+import { Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
+import { env } from '../config/env';
+import { fail, CODE } from '../utils/response';
+import { prisma } from '../prisma';
+export interface AuthRequest extends Request {
+  userId?: number;
+}
+// Bearer Token 鉴权中间件（async：解析出 userId 后多查一次 User，
+// 若 deletedAt 非空则视为已注销，使旧 token 全面失效——替代 token 黑名单）。
+export async function auth(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  const header = req.headers.authorization;
+  if (!header || !header.startsWith('Bearer ')) {
+    fail(res, CODE.UNAUTHORIZED, '未登录', 401);
+    return;
+  }
+  let userId: number;
+  try {
+    const payload = jwt.verify(header.slice(7), env.jwtSecret) as { userId: number };
+    userId = payload.userId;
+  } catch {
+    fail(res, CODE.UNAUTHORIZED, '登录已过期', 401);
+    return;
+  }
+  let user: { deletedAt: Date | null; status: number } | null;
+  try {
+    user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { deletedAt: true, status: true },
+    });
+
+—————————— 第 9 页 ——————————
+  } catch {
+    fail(res, CODE.SERVER_ERROR, '鉴权失败', 500);
+    return;
+  }
+  if (!user || user.deletedAt) {
+    fail(res, CODE.UNAUTHORIZED, '账号已注销', 401);
+    return;
+  }
+  if (user.status === 0) {
+    fail(res, CODE.UNAUTHORIZED, '账号已被封禁', 401);
+    return;
+  }
+  req.userId = userId;
+  next();
+}
+
+// ========== ./backend/src/middleware/errorHandler.ts ==========
+import { Request, Response, NextFunction } from 'express';
+import { CODE } from '../utils/response';
+import { SensitiveWordError } from '../utils/errors';
+/**
+ * 全局兜底错误处理中间件。
+ * 必须注册在路由之后，且仅声明 4 个参数（err, req, res, next）才会被 Express
+ * 识别为错误处理中间件。捕获经 asyncHandler 转交的异步异常，统一返回 JSON，
+ * 避免 DB/运行期异常导致连接挂起。
+ */
+export function errorHandler(
+  err: any,
+  _req: Request,
+  res: Response,
+  _next: NextFunction
+): void {
+  if (res.headersSent) {
+    return;
+  }
+  // 敏感词命中：统一 400 友好提示
+  if (err instanceof SensitiveWordError) {
+    res.status(400).json({ code: CODE.BAD_REQUEST, data: null, message: err.message });
+    return;
+  }
+  const rawStatus = typeof err?.status === 'number' ? err.status : undefined;
+  const status =
+    rawStatus && rawStatus >= 400 && rawStatus < 600 ? rawStatus : 500;
+  const code =
+    status === 401 ? CODE.UNAUTHORIZED :
+    status === 403 ? CODE.FORBIDDEN :
+    status === 404 ? CODE.NOT_FOUND :
+    status === 409 ? CODE.CONFLICT :
+    status === 400 ? CODE.BAD_REQUEST :
+    CODE.SERVER_ERROR;
+
+—————————— 第 10 页 ——————————
+  // 5xx 不向客户端泄露内部细节
+  const message =
+    status >= 500 ? '服务器内部错误，请稍后重试' : (err?.message ?? '请求处理失败');
+  res.status(status).json({ code, data: null, message });
+  if (status >= 500) {
+    console.error('[errorHandler]', err);
+  }
+}
+
+// ========== ./backend/src/middleware/rateLimit.ts ==========
+import rateLimit from 'express-rate-limit';
+import { Response } from 'express';
+const handler = (_req: any, res: Response) => {
+  res.status(429).json({ code: 429, data: null, message: '请求过于频繁，请稍后再试' });
+};
+// 全站基础限流：每 IP 15 分钟 300 次（防刷接口）
+export const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler,
+});
+// 登录接口：防爆破 / 撞库，每 IP 15 分钟 20 次
+export const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler,
+});
+// 上传预签名接口：防 COS 配额滥用，每 IP 每分钟 30 次
+export const uploadLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler,
+});
+
+// ========== ./backend/src/prisma.ts ==========
+import { PrismaClient } from '@prisma/client';
+export const prisma = new PrismaClient();
+
+// ========== ./backend/src/routes/account.test.ts ==========
+// 账号绑定路由集成测试（轻量 in-process HTTP，无需 supertest）。
+// mock 两个外部依赖：exchangeCodeForToken / fetchHuaweiUserProfile（复用现有 huaweiAuth），
+// 以及 prisma（避免真实 DB 连接）。覆盖：
+//   缺 token → 401；同 unionID 跨账号 → 409；
+//   DELETE harmony → 403；DELETE 不存在 provider → 404；
+
+—————————— 第 11 页 ——————————
+//   正常 bind → list → unbind 路径。
+import express from 'express';
+import * as http from 'http';
+import jwt from 'jsonwebtoken';
+import * as huaweiAuth from '../services/huaweiAuth';
+import router from './account';
+import { env } from '../config/env';
+import { CODE } from '../utils/response';
+jest.mock('../services/huaweiAuth', () => ({
+  exchangeCodeForToken: jest.fn(),
+  fetchHuaweiUserProfile: jest.fn(),
+}));
+// postService / tagService 等不在本路由被引用，仅占位 prisma 即可避免真实 DB 连接。
+jest.mock('../prisma', () => ({
+  prisma: {
+    user: {
+      findUnique: jest.fn().mockResolvedValue({ deletedAt: null }),
+      findFirst: jest.fn(),
+      update: jest.fn(),
+    },
+    userBinding: {
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      create: jest.fn(),
+      delete: jest.fn(),
+    },
+  },
+}));
+import { prisma } from '../prisma';
+const mockPrisma = prisma as any;
+const mockExchange = huaweiAuth.exchangeCodeForToken as jest.Mock;
+const mockFetchUser = huaweiAuth.fetchHuaweiUserProfile as jest.Mock;
+const TEST_USER_ID = 1;
+// 生成一个经 auth 中间件可验证的合法 Bearer Token
+function authHeader(userId: number = TEST_USER_ID): Record<string, string> {
+  const token: string = jwt.sign({ userId }, env.jwtSecret);
+  return { Authorization: 'Bearer ' + token };
+}
+let server: http.Server;
+let baseUrl: string;
+beforeAll((done) => {
+  const app = express();
+  app.use(express.json());
+  app.use('/v1/account', router);
+  server = app.listen(0, () => {
+    const addr = server.address();
+    const port = typeof addr === 'object' && addr ? addr.port : 0;
+    baseUrl = `http://127.0.0.1:${port}`;
+    done();
+
+—————————— 第 12 页 ——————————
+  });
+});
+afterAll((done) => {
+  server.close(() => done());
+});
+beforeEach(() => {
+  jest.clearAllMocks();
+});
+function req(
+  method: string,
+  path: string,
+  body?: unknown,
+  headers: Record<string, string> = {},
+): Promise<{ status: number; json: any }> {
+  return new Promise((resolve, reject) => {
+    const data = body ? JSON.stringify(body) : undefined;
+    const reqHeaders: Record<string, string> = { 'Content-Type': 'application/json', ...headers };
+    const r = http.request(
+      `${baseUrl}${path}`,
+      { method, headers: reqHeaders },
+      (res) => {
+        let raw = '';
+        res.on('data', (chunk) => (raw += chunk));
+        res.on('end', () => {
+          try {
+            resolve({ status: res.statusCode ?? 0, json: raw ? JSON.parse(raw) : null });
+          } catch {
+            resolve({ status: res.statusCode ?? 0, json: null });
+          }
+        });
+      },
+    );
+    r.on('error', reject);
+    if (data) r.write(data);
+    r.end();
+  });
+}
+describe('GET/POST/DELETE /v1/account/bindings', () => {
+  it('缺 Authorization → UNAUTHORIZED(401)', async () => {
+    const res = await req('GET', '/v1/account/bindings');
+    expect(res.status).toBe(401);
+    expect(res.json.code).toBe(CODE.UNAUTHORIZED);
+  });
+  it('POST 缺 code → BAD_REQUEST(400)', async () => {
+    const res = await req('POST', '/v1/account/bindings', { provider: 'huawei' }, authHeader());
+    expect(res.status).toBe(400);
+    expect(res.json.code).toBe(CODE.BAD_REQUEST);
+  });
+  it('POST harmony（不允许主动绑定）→ BAD_REQUEST(400)', async () => {
+    const res = await req('POST', '/v1/account/bindings', { provider: 'harmony', code: 'C' }, authHeader());
+
+—————————— 第 13 页 ——————————
+    expect(res.status).toBe(400);
+    expect(res.json.code).toBe(CODE.BAD_REQUEST);
+  });
+  it('同 unionID 已被其他账号占用 → CONFLICT(409)', async () => {
+    mockExchange.mockResolvedValue('ACCESS_TOKEN');
+    mockFetchUser.mockResolvedValue({ unionID: 'U_DUP' });
+    // UserBinding 中已被 userId=2 占用
+    mockPrisma.userBinding.findFirst.mockResolvedValue({ userId: 2, provider: 'huawei', externalId: 'U_DUP' });
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+    const res = await req('POST', '/v1/account/bindings', { provider: 'huawei', code: 'CODE' }, authHeader());
+    expect(res.status).toBe(409);
+    expect(res.json.code).toBe(CODE.CONFLICT);
+    expect(res.json.message).toContain('已关联其他');
+    // 占用则不应写表
+    expect(mockPrisma.userBinding.create).not.toHaveBeenCalled();
+  });
+  it('DELETE harmony → FORBIDDEN(403)', async () => {
+    const res = await req('DELETE', '/v1/account/bindings/harmony', undefined, authHeader());
+    expect(res.status).toBe(403);
+    expect(res.json.code).toBe(CODE.FORBIDDEN);
+  });
+  it('DELETE 不存在的 provider → NOT_FOUND(404)', async () => {
+    mockPrisma.userBinding.findUnique.mockResolvedValue(null);
+    const res = await req('DELETE', '/v1/account/bindings/wechat', undefined, authHeader());
+    expect(res.status).toBe(404);
+    expect(res.json.code).toBe(CODE.NOT_FOUND);
+  });
+  it('正常 bind → list → unbind 路径', async () => {
+    // ---- bind ----
+    mockExchange.mockResolvedValue('ACCESS_TOKEN');
+    mockFetchUser.mockResolvedValue({ unionID: 'U_1' });
+    // 占用校验：两处均无他人占用
+    mockPrisma.userBinding.findFirst.mockResolvedValue(null);
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+    mockPrisma.userBinding.create.mockResolvedValue({ boundAt: new Date('2026-07-18T08:00:00Z') });
+    mockPrisma.user.update.mockResolvedValue({});
+    const bindRes = await req('POST', '/v1/account/bindings', { provider: 'huawei', code: 'CODE' }, authHeader());
+    expect(bindRes.status).toBe(200);
+    expect(bindRes.json.code).toBe(0);
+    expect(bindRes.json.data.provider).toBe('huawei');
+    expect(bindRes.json.data.status).toBe('bound');
+    expect(bindRes.json.data.externalId).toBe('****' + 'U_1'.slice(-4)); // 脱敏
+    expect(mockPrisma.userBinding.create).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: TEST_USER_ID }, data: { unionID: 'U_1' } }),
+    );
+    // ---- list：harmony 置顶 + huawei 已绑定 ----
+    mockPrisma.user.findUnique.mockResolvedValue({
+      openId: 'openid1234',
+      createdAt: new Date('2026-07-09T08:00:00Z'),
+
+—————————— 第 14 页 ——————————
+    });
+    mockPrisma.userBinding.findMany.mockResolvedValue([
+      { provider: 'huawei', externalId: 'U_1', boundAt: new Date('2026-07-18T08:00:00Z'), isPrimary: false },
+    ]);
+    const listRes = await req('GET', '/v1/account/bindings', undefined, authHeader());
+    expect(listRes.status).toBe(200);
+    expect(listRes.json.code).toBe(0);
+    const items = listRes.json.data as any[];
+    expect(items.length).toBe(2);
+    expect(items[0].provider).toBe('harmony');
+    expect(items[0].isPrimary).toBe(true);
+    expect(items[0].status).toBe('primary');
+    expect(items[0].externalId).toBe('op****34'); // harmony 保留前2后2
+    expect(items[1].provider).toBe('huawei');
+    expect(items[1].status).toBe('bound');
+    // ---- unbind ----
+    mockPrisma.userBinding.findUnique.mockResolvedValue({ userId: TEST_USER_ID, provider: 'huawei' });
+    mockPrisma.userBinding.delete.mockResolvedValue({});
+    const unbindRes = await req('DELETE', '/v1/account/bindings/huawei', undefined, authHeader());
+    expect(unbindRes.status).toBe(200);
+    expect(unbindRes.json.code).toBe(0);
+    expect(unbindRes.json.data.unbound).toBe(true);
+    expect(mockPrisma.userBinding.delete).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ========== ./backend/src/routes/account.ts ==========
+import { Router, Response } from 'express';
+import { ok, fail, CODE } from '../utils/response';
+import { auth, AuthRequest } from '../middleware/auth';
+import {
+  listBindings,
+  bind,
+  unbind,
+  AccountError,
+  Provider,
+} from '../services/accountBindingService';
+// 账号绑定管理路由（挂在 /v1/account 下，故路径均为 /bindings*）
+// 三个接口全部经 auth 中间件保护；所有 DB 操作强制以 req.userId 为过滤条件防越权。
+const router = Router();
+// 列表：GET /v1/account/bindings
+router.get('/bindings', auth, async (req: AuthRequest, res: Response) => {
+  try {
+    const items = await listBindings(req.userId!);
+    return ok(res, items);
+  } catch (e) {
+    return handleError(res, e);
+  }
+});
+// 绑定：POST /v1/account/bindings  body { provider, code }
+
+—————————— 第 15 页 ——————————
+router.post('/bindings', auth, async (req: AuthRequest, res: Response) => {
+  const body = req.body ?? {};
+  const provider: unknown = body.provider;
+  const code: unknown = body.code;
+  if (typeof provider !== 'string' || !provider || typeof code !== 'string' || !code) {
+    return fail(res, CODE.BAD_REQUEST, '缺少 provider 或授权码', 400);
+  }
+  try {
+    const item = await bind(req.userId!, provider as Provider, code);
+    return ok(res, item);
+  } catch (e) {
+    return handleError(res, e);
+  }
+});
+// 解绑：DELETE /v1/account/bindings/:provider
+router.delete('/bindings/:provider', auth, async (req: AuthRequest, res: Response) => {
+  const provider: string = req.params.provider;
+  try {
+    const result = await unbind(req.userId!, provider as Provider);
+    return ok(res, result);
+  } catch (e) {
+    return handleError(res, e);
+  }
+});
+// 统一错误转换：已知 AccountError 用其携带的 code/httpStatus；其余归为 500
+function handleError(res: Response, e: unknown): Response {
+  if (e instanceof AccountError) {
+    return fail(res, e.code, e.message, e.httpStatus);
+  }
+  const err = e as Error;
+  return fail(res, CODE.SERVER_ERROR, err.message || '服务异常', 500);
+}
+export default router;
+
+// ========== ./backend/src/routes/admin.test.ts ==========
+// admin 路由集成测试：admin 鉴权 + moderatePost 审核流转
+// 覆盖：缺 token → 401；非 admin → 403；GET /posts/pending；POST /posts/:id/moderate（approve/reject）
+import express from 'express';
+import * as http from 'http';
+import jwt from 'jsonwebtoken';
+import adminRouter from './admin';
+import { env } from '../config/env';
+import { CODE } from '../utils/response';
+// mock prisma（reportService + moderationService 依赖）
+jest.mock('../prisma', () => ({
+  prisma: {
+    post: {
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+      count: jest.fn(),
+
+—————————— 第 16 页 ——————————
+      update: jest.fn(),
+    },
+    comment: {
+      findUnique: jest.fn(),
+      update: jest.fn(),
+    },
+    report: {
+      create: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
+      count: jest.fn(),
+      updateMany: jest.fn(),
+    },
+    notification: {
+      create: jest.fn(),
+    },
+    user: {
+      findUnique: jest.fn().mockResolvedValue({ deletedAt: null }),
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    // notificationPrefService（notifySystem 链路）依赖：默认无偏好记录 → 全部允许
+    notificationPreference: {
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
+  },
+}));
+// mock sensitiveWordService（避免依赖词库文件）
+jest.mock('../services/sensitiveWordService', () => ({
+  sensitiveWordService: {
+    checkText: jest.fn().mockReturnValue(false),
+    isLoaded: jest.fn().mockReturnValue(true),
+  },
+}));
+import { prisma } from '../prisma';
+const mockPrisma = prisma as any;
+function authHeader(userId: number): Record<string, string> {
+  const token: string = jwt.sign({ userId }, env.jwtSecret);
+  return { Authorization: 'Bearer ' + token };
+}
+let server: http.Server;
+let baseUrl: string;
+beforeAll((done) => {
+  const app = express();
+  app.use(express.json());
+  app.use('/v1/admin', adminRouter);
+  server = app.listen(0, () => {
+    const addr = server.address();
+    const port = typeof addr === 'object' && addr ? addr.port : 0;
+    baseUrl = `http://127.0.0.1:${port}`;
+    done();
+  });
+
+—————————— 第 17 页 ——————————
+});
+afterAll((done) => {
+  server.close(() => done());
+});
+beforeEach(() => {
+  jest.clearAllMocks();
+});
+function req(
+  method: string,
+  path: string,
+  body?: unknown,
+  headers: Record<string, string> = {}
+): Promise<{ status: number; json: any }> {
+  return new Promise((resolve, reject) => {
+    const data = body ? JSON.stringify(body) : undefined;
+    const reqHeaders: Record<string, string> = { 'Content-Type': 'application/json', ...headers };
+    const r = http.request(
+      `${baseUrl}${path}`,
+      { method, headers: reqHeaders },
+      (res) => {
+        let raw = '';
+        res.on('data', (chunk) => (raw += chunk));
+        res.on('end', () => {
+          try {
+            resolve({ status: res.statusCode ?? 0, json: raw ? JSON.parse(raw) : null });
+          } catch {
+            resolve({ status: res.statusCode ?? 0, json: null });
+          }
+        });
+      }
+    );
+    r.on('error', reject);
+    if (data) r.write(data);
+    r.end();
+  });
+}
+describe('admin 路由鉴权', () => {
+  it('缺 Authorization → UNAUTHORIZED(401)', async () => {
+    const res = await req('GET', '/v1/admin/posts/pending');
+    expect(res.status).toBe(401);
+    expect(res.json.code).toBe(CODE.UNAUTHORIZED);
+  });
+  it('非 admin 用户 → FORBIDDEN(403)', async () => {
+    // userId=999 不在 adminUserIds 中
+    const res = await req('GET', '/v1/admin/posts/pending', undefined, authHeader(999));
+    expect(res.status).toBe(403);
+    expect(res.json.code).toBe(CODE.FORBIDDEN);
+  });
+});
+describe('GET /v1/admin/posts/pending', () => {
+
+—————————— 第 18 页 ——————————
+  it('admin 用户获取待审核列表', async () => {
+    // 确保 env.adminUserIds 包含 userId=1（.env 或默认）
+    // 测试环境可能未配置 ADMIN_USER_IDS，动态注入
+    const originalAdminIds = env.adminUserIds;
+    (env as any).adminUserIds = [1];
+    mockPrisma.post.findMany.mockResolvedValue([
+      {
+        id: 1,
+        title: '待审帖',
+        status: 0,
+        userId: 10,
+        reportCount: 3,
+        user: { id: 10, nickname: '作者', avatar: null },
+      },
+    ]);
+    // Report 与 Post 无 Prisma 关系，审核列表改为按 targetType/targetId 单独查举报
+    mockPrisma.report.findMany.mockResolvedValue([
+      { id: 100, targetType: 'post', targetId: 1, reason: 'spam', description: null, status: 'pending', reporterId: 20 },
+    ]);
+    mockPrisma.user.findMany.mockResolvedValue([{ id: 20, nickname: '举报人A' }]);
+    mockPrisma.post.count.mockResolvedValue(1);
+    const res = await req('GET', '/v1/admin/posts/pending?page=1&limit=20', undefined, authHeader(1));
+    expect(res.status).toBe(200);
+    expect(res.json.code).toBe(0);
+    expect(res.json.data.list.length).toBe(1);
+    expect(mockPrisma.post.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { status: 0 },
+        orderBy: { createdAt: 'desc' },
+        include: { user: { select: { id: true, nickname: true, avatar: true } } },
+      })
+    );
+    // 待审帖子应携带举报列表，供前端展示举报理由
+    expect(Array.isArray(res.json.data.list[0].reports)).toBe(true);
+    expect(res.json.data.list[0].reports[0].reason).toBe('spam');
+    expect(res.json.data.list[0].reports[0].reporter.nickname).toBe('举报人A');
+    (env as any).adminUserIds = originalAdminIds;
+  });
+});
+describe('POST /v1/admin/posts/:id/moderate', () => {
+  beforeEach(() => {
+    (env as any).adminUserIds = [1];
+  });
+  it('action 无效 → 400', async () => {
+    const res = await req('POST', '/v1/admin/posts/1/moderate', { action: 'invalid' }, authHeader(1));
+    expect(res.status).toBe(400);
+    expect(res.json.code).toBe(CODE.BAD_REQUEST);
+  });
+  it('approve 帖子不存在 → 404', async () => {
+    mockPrisma.post.findUnique.mockResolvedValue(null);
+
+—————————— 第 19 页 ——————————
+    const res = await req('POST', '/v1/admin/posts/999/moderate', { action: 'approve' }, authHeader(1));
+    expect(res.status).toBe(404);
+    expect(res.json.code).toBe(CODE.NOT_FOUND);
+  });
+  it('approve 非待审状态 → 400', async () => {
+    mockPrisma.post.findUnique.mockResolvedValue({ id: 1, userId: 10, title: '已发布', status: 1 });
+    const res = await req('POST', '/v1/admin/posts/1/moderate', { action: 'approve' }, authHeader(1));
+    expect(res.status).toBe(400);
+    expect(res.json.code).toBe(CODE.BAD_REQUEST);
+    expect(res.json.message).toContain('不在待审核状态');
+  });
+  it('approve 成功：status→1 + reports→dismissed + 通知作者', async () => {
+    mockPrisma.post.findUnique.mockResolvedValue({ id: 1, userId: 10, title: '待审帖', status: 0 });
+    mockPrisma.post.update.mockResolvedValue({});
+    mockPrisma.report.updateMany.mockResolvedValue({ count: 2 });
+    mockPrisma.report.findMany.mockResolvedValue([{ reporterId: 2 }, { reporterId: 3 }]);
+    mockPrisma.notification.create.mockResolvedValue({});
+    const res = await req('POST', '/v1/admin/posts/1/moderate', { action: 'approve' }, authHeader(1));
+    expect(res.status).toBe(200);
+    expect(res.json.code).toBe(0);
+    expect(res.json.message).toBe('审核完成');
+    // 帖子 status → 1
+    const postUpdateCall = mockPrisma.post.update.mock.calls[0][0];
+    expect(postUpdateCall.data.status).toBe(1);
+    // 举报记录 → dismissed
+    expect(mockPrisma.report.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { status: 'dismissed', resolvedAt: expect.any(Date) },
+      })
+    );
+    // 通知作者"已通过审核" + 通知举报人"已处理"（2 个举报人）= 3 次
+    expect(mockPrisma.notification.create).toHaveBeenCalledTimes(3);
+    const authorNotif = mockPrisma.notification.create.mock.calls[0][0];
+    expect(authorNotif.data.userId).toBe(10);
+    expect(authorNotif.data.content).toContain('已通过审核');
+  });
+  it('reject 成功：status→2 + reports→resolved + 通知作者含原因', async () => {
+    mockPrisma.post.findUnique.mockResolvedValue({ id: 1, userId: 10, title: '待审帖', status: 0 });
+    mockPrisma.post.update.mockResolvedValue({});
+    mockPrisma.report.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.report.findMany.mockResolvedValue([{ reporterId: 2 }]);
+    mockPrisma.notification.create.mockResolvedValue({});
+    const res = await req(
+      'POST',
+      '/v1/admin/posts/1/moderate',
+      { action: 'reject', reason: '内容违规' },
+      authHeader(1)
+    );
+    expect(res.status).toBe(200);
+    const postUpdateCall = mockPrisma.post.update.mock.calls[0][0];
+
+—————————— 第 20 页 ——————————
+    expect(postUpdateCall.data.status).toBe(2);
+    // 举报记录 → resolved
+    expect(mockPrisma.report.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { status: 'resolved', resolvedAt: expect.any(Date) },
+      })
+    );
+    // 通知作者"未通过审核" + 原因
+    const authorNotif = mockPrisma.notification.create.mock.calls[0][0];
+    expect(authorNotif.data.content).toContain('未通过审核');
+    expect(authorNotif.data.content).toContain('内容违规');
+  });
+});
+
+// ========== ./backend/src/routes/admin.ts ==========
+// admin 审核 API 路由（统一 auth + adminAuth 前置中间件）
+// GET  /v1/admin/posts/pending      待审核帖子列表
+// POST /v1/admin/posts/:id/moderate 审核帖子（approve/reject）
+// GET  /v1/admin/reports            举报记录列表
+import { Router, Response } from 'express';
+import { ok, fail, CODE } from '../utils/response';
+import { auth, AuthRequest } from '../middleware/auth';
+import { adminAuth } from '../middleware/adminAuth';
+import { prisma } from '../prisma';
+import { env } from '../config/env';
+import * as moderationService from '../services/moderationService';
+import * as reportService from '../services/reportService';
+import { asyncHandler } from '../middleware/asyncHandler';
+const router = Router();
+// 所有 admin 路由统一使用 auth + adminAuth
+router.use(auth, adminAuth);
+// GET /v1/admin/posts/pending?page=&limit= — 待审核帖子列表
+router.get('/posts/pending', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const page = req.query.page ? Number(req.query.page) : 1;
+  const limit = req.query.limit ? Number(req.query.limit) : 20;
+  const data = await moderationService.listPendingPosts(page, limit);
+  return ok(res, data);
+}));
+// POST /v1/admin/posts/:id/moderate — 审核帖子
+router.post('/posts/:id/moderate', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const postId = Number(req.params.id);
+  if (!postId) return fail(res, CODE.BAD_REQUEST, '无效帖子ID');
+  const { action, reason } = req.body ?? {};
+  if (!action || !['approve', 'reject'].includes(action)) {
+    return fail(res, CODE.BAD_REQUEST, 'action 必须为 approve 或 reject');
+  }
+  try {
+    await moderationService.moderatePost(postId, action as 'approve' | 'reject', reason);
+    return ok(res, null, '审核完成');
+  } catch (e: any) {
+
+—————————— 第 21 页 ——————————
+    if (e.reason === 'not_found') return fail(res, CODE.NOT_FOUND, '帖子不存在', 404);
+    if (e.reason === 'invalid_status')
+      return fail(res, CODE.BAD_REQUEST, '该帖子不在待审核状态');
+    return fail(res, CODE.SERVER_ERROR, '审核失败', 500);
+  }
+}));
+// GET /v1/admin/reports?page=&limit=&status= — 举报记录列表
+router.get('/reports', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const page = req.query.page ? Number(req.query.page) : 1;
+  const limit = req.query.limit ? Number(req.query.limit) : 20;
+  const status = req.query.status ? String(req.query.status) : undefined;
+  const data = await reportService.listReports(page, limit, status);
+  return ok(res, data);
+}));
+// POST /v1/admin/users/:id/ban — 封禁用户（status=0）
+router.post('/users/:id/ban', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const id = Number(req.params.id);
+  if (!id || isNaN(id)) return fail(res, CODE.BAD_REQUEST, '无效用户ID');
+  if (env.adminUserIds.includes(id)) {
+    return fail(res, CODE.FORBIDDEN, '不能封禁管理员', 403);
+  }
+  const target = await prisma.user.findUnique({ where: { id } });
+  if (!target) return fail(res, CODE.NOT_FOUND, '用户不存在', 404);
+  await prisma.user.update({ where: { id }, data: { status: 0 } });
+  return ok(res, null, '已封禁');
+}));
+// POST /v1/admin/users/:id/unban — 解封用户（status=1）
+router.post('/users/:id/unban', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const id = Number(req.params.id);
+  if (!id || isNaN(id)) return fail(res, CODE.BAD_REQUEST, '无效用户ID');
+  const target = await prisma.user.findUnique({ where: { id } });
+  if (!target) return fail(res, CODE.NOT_FOUND, '用户不存在', 404);
+  await prisma.user.update({ where: { id }, data: { status: 1 } });
+  return ok(res, null, '已解封');
+}));
+export default router;
+
+// ========== ./backend/src/routes/auth.huawei.test.ts ==========
+// POST /huawei/exchange 路由集成测试（轻量 in-process HTTP，无需 supertest）。
+// mock 三个外部依赖：exchangeCodeForToken / fetchHuaweiUserProfile / loginWithHuawei，
+// 验证：缺 code → BAD_REQUEST；链路成功 → 200 + {token,user}；链路抛错 → HUAWEI_AUTH_FAILED(480) 且 httpStatus 200。
+import express from 'express';
+import * as http from 'http';
+import * as huaweiAuth from '../services/huaweiAuth';
+import * as authService from '../services/authService';
+import router from './auth';
+import { CODE } from '../utils/response';
+jest.mock('../services/huaweiAuth', () => ({
+  exchangeCodeForToken: jest.fn(),
+  fetchHuaweiUserProfile: jest.fn(),
+
+—————————— 第 22 页 ——————————
+}));
+jest.mock('../services/authService', () => ({
+  login: jest.fn(),
+  loginWithHuawei: jest.fn(),
+  updateProfile: jest.fn(),
+}));
+// postService / tagService 在路由模块内被 import，需要 prisma 占位，避免真实 DB 连接。
+jest.mock('../prisma', () => ({
+  prisma: {
+    user: { findUnique: jest.fn(), create: jest.fn() },
+    post: { findMany: jest.fn(), count: jest.fn() },
+    bookmark: { findMany: jest.fn(), count: jest.fn() },
+  },
+}));
+const mockExchange = huaweiAuth.exchangeCodeForToken as jest.Mock;
+const mockFetchUser = huaweiAuth.fetchHuaweiUserProfile as jest.Mock;
+const mockLoginWithHuawei = authService.loginWithHuawei as jest.Mock;
+let server: http.Server;
+let baseUrl: string;
+beforeAll((done) => {
+  const app = express();
+  app.use(express.json());
+  app.use('/v1/auth', router);
+  server = app.listen(0, () => {
+    const addr = server.address();
+    const port = typeof addr === 'object' && addr ? addr.port : 0;
+    baseUrl = `http://127.0.0.1:${port}`;
+    done();
+  });
+});
+afterAll((done) => {
+  server.close(() => done());
+});
+beforeEach(() => {
+  jest.clearAllMocks();
+});
+function post(path: string, body?: unknown): Promise<{ status: number; json: any }> {
+  return new Promise((resolve, reject) => {
+    const data = body ? JSON.stringify(body) : undefined;
+    const req = http.request(
+      `${baseUrl}${path}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' } },
+      (res) => {
+        let raw = '';
+        res.on('data', (chunk) => (raw += chunk));
+        res.on('end', () => {
+          try {
+            resolve({ status: res.statusCode ?? 0, json: raw ? JSON.parse(raw) : null });
+          } catch {
+            resolve({ status: res.statusCode ?? 0, json: null });
+
+—————————— 第 23 页 ——————————
+          }
+        });
+      },
+    );
+    req.on('error', reject);
+    if (data) req.write(data);
+    req.end();
+  });
+}
+describe('POST /v1/auth/huawei/exchange', () => {
+  it('缺 code → BAD_REQUEST(400)，httpStatus 400，不触发下游调用', async () => {
+    const res = await post('/v1/auth/huawei/exchange', {});
+    expect(res.status).toBe(400);
+    expect(res.json.code).toBe(CODE.BAD_REQUEST);
+    expect(res.json.data).toBeNull();
+    expect(mockExchange).not.toHaveBeenCalled();
+  });
+  it('链路成功 → 200 + {code:0, data:{token,user}}，下游调用参数正确', async () => {
+    mockExchange.mockResolvedValue('ACCESS_TOKEN');
+    mockFetchUser.mockResolvedValue({ unionID: 'U_1', nickName: '小华', avatarUri: 'a.png' });
+    mockLoginWithHuawei.mockResolvedValue({ token: 'JWT_TOKEN', user: { id: 10, nickname: '小华' } });
+    const res = await post('/v1/auth/huawei/exchange', { code: 'AUTH_CODE' });
+    expect(res.status).toBe(200);
+    expect(res.json.code).toBe(0);
+    expect(res.json.data.token).toBe('JWT_TOKEN');
+    expect(res.json.data.user.id).toBe(10);
+    expect(mockExchange).toHaveBeenCalledWith('AUTH_CODE');
+    expect(mockFetchUser).toHaveBeenCalledWith('ACCESS_TOKEN');
+    expect(mockLoginWithHuawei).toHaveBeenCalledWith('U_1', '小华', 'a.png');
+  });
+  it('链路抛错（exchange 失败） → HUAWEI_AUTH_FAILED(480)，httpStatus 200', async () => {
+    mockExchange.mockRejectedValue(new Error('华为 token 失败'));
+    const res = await post('/v1/auth/huawei/exchange', { code: 'AUTH_CODE' });
+    expect(res.status).toBe(200);
+    expect(res.json.code).toBe(CODE.HUAWEI_AUTH_FAILED); // 480
+    expect(res.json.data).toBeNull();
+  });
+});
+
+// ========== ./backend/src/routes/auth.ts ==========
+import { Router, Response } from 'express';
+import { ok, fail, CODE } from '../utils/response';
+import { auth, AuthRequest } from '../middleware/auth';
+import { prisma } from '../prisma';
+import { env } from '../config/env';
+import { login, updateProfile, loginWithHuawei, deactivateUser } from '../services/authService';
+import { exchangeCodeForToken, fetchHuaweiUserProfile } from '../services/huaweiAuth';
+import * as postService from '../services/postService';
+import * as tagService from '../services/tagService';
+import { asyncHandler } from '../middleware/asyncHandler';
+
+—————————— 第 24 页 ——————————
+const router = Router();
+// 鸿蒙账号授权登录
+// POST /v1/auth/login  |  POST /v1/users/login
+router.post('/login', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { openId, nickname, avatar } = req.body ?? {};
+  if (!openId) return fail(res, CODE.BAD_REQUEST, '缺少 openId');
+  const result = await login(openId, nickname, avatar);
+  return ok(res, result);
+}));
+// 华为账号登录（Account Kit）：用 Authorization Code 换取 UnionID 并落地用户
+// POST /v1/auth/huawei/exchange  |  POST /v1/users/huawei/exchange
+router.post('/huawei/exchange', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const code: string = req.body?.code;
+  if (!code) {
+    return fail(res, CODE.BAD_REQUEST, '缺少 code');
+  }
+  try {
+    const accessToken: string = await exchangeCodeForToken(code);
+    const profile = await fetchHuaweiUserProfile(accessToken);
+    const result = await loginWithHuawei(profile.unionID, profile.nickName, profile.avatarUri);
+    return ok(res, result);
+  } catch (e) {
+    return fail(res, CODE.HUAWEI_AUTH_FAILED, '华为登录失败，请稍后重试或切换其他登录方式', 200);
+  }
+}));
+// 当前用户信息
+// GET /v1/auth/me  |  GET /v1/users/me
+router.get('/me', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const user = await prisma.user.findUnique({ where: { id: req.userId! } });
+  if (!user) return fail(res, CODE.NOT_FOUND, '用户不存在', 404);
+  return ok(res, { ...user, isAdmin: env.adminUserIds.includes(user.id) });
+}));
+// 更新个人信息（昵称/头像/简介/性别；仅传入字段更新，性别可设 null/保密）
+// PUT /v1/auth/me  |  PUT /v1/users/me
+router.put('/me', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { nickname, avatar, bio, gender } = req.body ?? {};
+  const user = await updateProfile(req.userId!, nickname, avatar, bio, gender);
+  return ok(res, user);
+}));
+// 账号注销（软删）：POST /v1/auth/me/deactivate | POST /v1/users/me/deactivate
+// 仅操作当前登录用户自身（req.userId 来自 auth 中间件）；成功后旧 token 经 auth 中间件返回 401。
+router.post('/me/deactivate', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
+  await deactivateUser(req.userId!);
+  return ok(res, { success: true });
+}));
+// 我的收藏帖子列表（分页）
+// GET /v1/auth/me/bookmarks?page=1&limit=20
+router.get('/me/bookmarks', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const page = req.query.page ? Number(req.query.page) : 1;
+  const limit = req.query.limit ? Number(req.query.limit) : 20;
+
+—————————— 第 25 页 ——————————
+  const data = await postService.listBookmarks(req.userId!, page, limit);
+  return ok(res, data);
+}));
+// 我赞过的帖子列表（分页）
+// GET /v1/auth/me/likes?page=1&limit=20
+router.get('/me/likes', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const page = req.query.page ? Number(req.query.page) : 1;
+  const limit = req.query.limit ? Number(req.query.limit) : 20;
+  const data = await postService.listLikedPosts(req.userId!, page, limit);
+  return ok(res, data);
+}));
+// 我评论过的帖子列表（按帖子去重，分页）
+// GET /v1/auth/me/commented?page=1&limit=20
+router.get('/me/commented', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const page = req.query.page ? Number(req.query.page) : 1;
+  const limit = req.query.limit ? Number(req.query.limit) : 20;
+  const data = await postService.listCommentedPosts(req.userId!, page, limit);
+  return ok(res, data);
+}));
+// 我关注的标签列表（圈子已加入）
+// GET /v1/auth/me/followed-tags
+router.get('/me/followed-tags', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const tags = await tagService.listFollowedTags(req.userId!);
+  return ok(res, tags);
+}));
+export default router;
+
+// ========== ./backend/src/routes/block.ts ==========
+// 拉黑管理路由：列表 / 拉黑 / 取消拉黑
+import { Router, Response } from 'express';
+import { ok, fail, CODE } from '../utils/response';
+import { auth, AuthRequest } from '../middleware/auth';
+import * as blockService from '../services/blockService';
+import { asyncHandler } from '../middleware/asyncHandler';
+const router = Router();
+// GET /v1/me/blocklist?page=1&limit=20  拉黑列表（分页）
+router.get('/me/blocklist', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
+  try {
+    const page = req.query.page ? Number(req.query.page) : 1;
+    const limit = req.query.limit ? Number(req.query.limit) : 20;
+    const data = await blockService.listBlocked(req.userId!, page, limit);
+    return ok(res, data);
+  } catch (e) {
+    return fail(res, CODE.SERVER_ERROR, (e as Error).message);
+  }
+}));
+// POST /v1/me/block/:blockedId  拉黑某人
+router.post('/me/block/:blockedId', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
+  try {
+    const blockedId = Number(req.params.blockedId);
+
+—————————— 第 26 页 ——————————
+    if (!blockedId || isNaN(blockedId)) {
+      return fail(res, CODE.BAD_REQUEST, '无效的用户 ID');
+    }
+    await blockService.blockUser(req.userId!, blockedId);
+    return ok(res, { blocked: true });
+  } catch (e) {
+    if (e instanceof blockService.BlockError) {
+      return fail(res, CODE.BAD_REQUEST, e.message);
+    }
+    return fail(res, CODE.SERVER_ERROR, (e as Error).message);
+  }
+}));
+// DELETE /v1/me/block/:blockedId  取消拉黑
+router.delete('/me/block/:blockedId', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
+  try {
+    const blockedId = Number(req.params.blockedId);
+    if (!blockedId || isNaN(blockedId)) {
+      return fail(res, CODE.BAD_REQUEST, '无效的用户 ID');
+    }
+    await blockService.unblockUser(req.userId!, blockedId);
+    return ok(res, { unblocked: true });
+  } catch (e) {
+    return fail(res, CODE.SERVER_ERROR, (e as Error).message);
+  }
+}));
+export default router;
+
+// ========== ./backend/src/routes/comments.test.ts ==========
+// 评论路由集成测试：POST /v1/posts/:id/comments
+// 覆盖：
+//   缺 token → 401；
+//   缺 content → 400；
+//   命中敏感词 → 400 + 友好提示（P0 Bug 回归）；
+//   正常评论 → 200 + code 0（成功路径不回归）。
+// 参考 admin.test.ts 的 mock 风格（真实 HTTP + JWT + mock prisma/sensitiveWordService/notificationService）。
+import express from 'express';
+import * as http from 'http';
+import jwt from 'jsonwebtoken';
+import commentRouter from './comments';
+import { env } from '../config/env';
+import { CODE } from '../utils/response';
+// mock prisma（commentService.createComment 依赖 comment.create；auth 中间件依赖 user.findUnique）
+jest.mock('../prisma', () => ({
+  prisma: {
+    comment: {
+      create: jest.fn(),
+    },
+    user: {
+      findUnique: jest.fn().mockResolvedValue({ status: 1, deletedAt: null }),
+    },
+
+—————————— 第 27 页 ——————————
+    post: {
+      update: jest.fn(),
+    },
+    // createComment/deleteComment 用 $transaction 包 comment.create/post.update
+    $transaction: jest.fn().mockImplementation((ops: any) => Promise.all(ops ?? [])),
+  },
+}));
+// mock sensitiveWordService（避免依赖词库文件，可按用例动态控制 checkText 返回值）
+jest.mock('../services/sensitiveWordService', () => ({
+  sensitiveWordService: {
+    checkText: jest.fn(),
+    isLoaded: jest.fn().mockReturnValue(true),
+  },
+}));
+// mock notificationService（createComment 内部调用 notifyOnComment，需 mock 避免副作用）
+jest.mock('../services/notificationService', () => ({
+  notifyOnComment: jest.fn().mockResolvedValue(undefined),
+}));
+import { prisma } from '../prisma';
+import { sensitiveWordService } from '../services/sensitiveWordService';
+const mockPrisma = prisma as any;
+const mockCheckText = sensitiveWordService.checkText as jest.Mock;
+const TEST_USER_ID = 1;
+function authHeader(userId: number = TEST_USER_ID): Record<string, string> {
+  const token: string = jwt.sign({ userId }, env.jwtSecret);
+  return { Authorization: 'Bearer ' + token };
+}
+let server: http.Server;
+let baseUrl: string;
+beforeAll((done) => {
+  const app = express();
+  app.use(express.json());
+  // comments 路由使用完整路径（/v1/posts/:id/comments），挂在 /v1 下
+  app.use('/v1', commentRouter);
+  server = app.listen(0, () => {
+    const addr = server.address();
+    const port = typeof addr === 'object' && addr ? addr.port : 0;
+    baseUrl = `http://127.0.0.1:${port}`;
+    done();
+  });
+});
+afterAll((done) => {
+  server.close(() => done());
+});
+beforeEach(() => {
+  jest.clearAllMocks();
+});
+function req(
+  method: string,
+  path: string,
+
+—————————— 第 28 页 ——————————
+  body?: unknown,
+  headers: Record<string, string> = {}
+): Promise<{ status: number; json: any }> {
+  return new Promise((resolve, reject) => {
+    const data = body ? JSON.stringify(body) : undefined;
+    const reqHeaders: Record<string, string> = { 'Content-Type': 'application/json', ...headers };
+    const r = http.request(
+      `${baseUrl}${path}`,
+      { method, headers: reqHeaders },
+      (res) => {
+        let raw = '';
+        res.on('data', (chunk) => (raw += chunk));
+        res.on('end', () => {
+          try {
+            resolve({ status: res.statusCode ?? 0, json: raw ? JSON.parse(raw) : null });
+          } catch {
+            resolve({ status: res.statusCode ?? 0, json: null });
+          }
+        });
+      }
+    );
+    r.on('error', reject);
+    if (data) r.write(data);
+    r.end();
+  });
+}
+describe('POST /v1/posts/:id/comments（评论）', () => {
+  it('缺 Authorization → UNAUTHORIZED(401)', async () => {
+    const res = await req('POST', '/v1/posts/1/comments', { content: '评论内容' });
+    expect(res.status).toBe(401);
+    expect(res.json.code).toBe(CODE.UNAUTHORIZED);
+  });
+  it('缺 content → BAD_REQUEST(400)', async () => {
+    const res = await req('POST', '/v1/posts/1/comments', {}, authHeader());
+    expect(res.status).toBe(400);
+    expect(res.json.code).toBe(CODE.BAD_REQUEST);
+    expect(res.json.message).toContain('评论内容');
+  });
+  it('命中敏感词 → 400 + 友好提示（P0 Bug 回归）', async () => {
+    // 模拟敏感词命中
+    mockCheckText.mockReturnValue(true);
+    const res = await req(
+      'POST',
+      '/v1/posts/1/comments',
+      { content: '含敏感词的评论' },
+      authHeader()
+    );
+    // 关键断言：不再超时，立即返回 400
+    expect(res.status).toBe(400);
+    expect(res.json.code).toBe(CODE.BAD_REQUEST);
+
+—————————— 第 29 页 ——————————
+    expect(res.json.message).toContain('敏感词');
+    // 不应调用 prisma.comment.create（敏感词拦截在前）
+    expect(mockPrisma.comment.create).not.toHaveBeenCalled();
+  });
+  it('正常评论 → 200 + code 0（成功路径不回归）', async () => {
+    // 模拟敏感词未命中
+    mockCheckText.mockReturnValue(false);
+    const createdComment = {
+      id: 88,
+      postId: 1,
+      userId: TEST_USER_ID,
+      content: '正常评论',
+      parentId: null,
+      isFact: 0,
+    };
+    mockPrisma.comment.create.mockResolvedValue(createdComment);
+    const res = await req(
+      'POST',
+      '/v1/posts/1/comments',
+      { content: '正常评论' },
+      authHeader()
+    );
+    expect(res.status).toBe(200);
+    expect(res.json.code).toBe(0);
+    expect(res.json.data.id).toBe(88);
+    expect(res.json.data.content).toBe('正常评论');
+    // 确认敏感词检测被调用
+    expect(mockCheckText).toHaveBeenCalled();
+    // 确认 comment.create 被调用
+    expect(mockPrisma.comment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          postId: 1,
+          userId: TEST_USER_ID,
+          content: '正常评论',
+        }),
+      })
+    );
+  });
+  it('带 parentId 的楼中楼评论 → 200', async () => {
+    mockCheckText.mockReturnValue(false);
+    mockPrisma.comment.create.mockResolvedValue({
+      id: 89,
+      postId: 1,
+      userId: TEST_USER_ID,
+      content: '回复',
+      parentId: 88,
+      isFact: 0,
+    });
+    const res = await req(

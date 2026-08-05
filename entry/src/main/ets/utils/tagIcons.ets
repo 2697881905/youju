@@ -17,7 +17,7 @@ const TAG_ICON_MAP: Map<string, Resource> = new Map<string, Resource>([
   ['汽车养护', $r('app.media.tag_car_care')],
   ['数码维修', $r('app.media.tag_digital_repair')],
   ['家居维修', $r('app.media.tag_home_repair')],
-  ['做饭教程', $r('app.media.tag_cooking')],
+  ['美食分享', $r('app.media.tag_cooking')],
   ['健身动作', $r('app.media.tag_fitness')],
   ['电脑装机', $r('app.media.tag_pc_build')],
   ['摄影技巧', $r('app.media.tag_photography')],
@@ -41,6 +41,55 @@ const TAG_ICON_MAP: Map<string, Resource> = new Map<string, Resource>([
 ]);
 
 const TAG_ICON_ALL: Resource = $r('app.media.tag_all');
+
+// 标签 Logo 使用稳定的彩色调色板，避免所有入口都退化为同一套黑白线稿。
+// 颜色按主题分组而不是随机生成，保证同一标签在不同页面始终一致。
+export function resolveTagColor(name: string): ResourceColor {
+  switch (name) {
+    case '数码选购':
+    case '手机数码':
+    case '数码维修':
+    case '电脑装机':
+      return '#0A84FF';
+    case '汽车买卖':
+    case '汽车养护':
+      return '#FF9500';
+    case '家电评测':
+    case '家居维修':
+    case '美食分享':
+      return '#34C759';
+    case '外设推荐':
+    case '游戏攻略':
+    case '影视推荐':
+      return '#AF52DE';
+    case '男装搭配':
+    case '情感经营':
+    case '人际处世':
+      return '#FF2D55';
+    case '运动装备':
+    case '健身动作':
+    case '露营户外':
+      return '#30D158';
+    case '酒水品鉴':
+    case '探店打卡':
+    case '旅行攻略':
+      return '#FF9F0A';
+    case '职场沟通':
+    case '面试经验':
+    case '搞钱心得':
+    case '理财规划':
+      return '#5E5CE6';
+    case '学习效率':
+    case '自我提升':
+    case '书籍阅读':
+      return '#64D2FF';
+    case '摄影技巧':
+    case '宠物日常':
+      return '#BF5AF2';
+    default:
+      return '#0A84FF';
+  }
+}
 
 // 按标签名解析线条图标资源；未命中回退 tag_all
 export function resolveTagIcon(name: string): Resource {

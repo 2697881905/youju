@@ -1,6 +1,7 @@
 // 用户协议页：内置静态用户协议文本，无后端调用
 
 import { buildPageTransition } from '../utils/styles';
+import { BackButton } from '../design/components/BackButton';
 
 @Entry
 @Component
@@ -11,23 +12,15 @@ export struct UserAgreementPage {
     Column() {
       // 顶栏
       Row() {
-        Text('‹')
-          .fontSize(28)
-          .fontColor($r('app.color.text_primary'))
-          .width(48)
-          .height(44)
-          .textAlign(TextAlign.Center)
-          .onClick(() => {
-            this.getUIContext().getRouter().back();
-          });
+        BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
         Text('用户协议')
-          .fontSize(17)
+          .fontSize(17).fontFamily($r('app.string.font_family'))
           .fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.text_primary'))
           .layoutWeight(1)
           .textAlign(TextAlign.Center);
         Text('')
-          .width(48);
+          .width(44);
       }
       .width('100%')
       .padding({ top: 12, bottom: 8 });
@@ -35,13 +28,13 @@ export struct UserAgreementPage {
       Scroll() {
         Column({ space: 16 }) {
           Text('更新日期：2026 年 7 月 20 日\n生效日期：2026 年 7 月 20 日')
-            .fontSize(12)
+            .fontSize(12).fontFamily($r('app.string.font_family'))
             .fontColor($r('app.color.text_secondary'))
             .width('100%')
             .padding({ left: 16, right: 16 });
 
           Text('欢迎使用大蓝书（以下简称"本应用"）。在使用本应用前，请您仔细阅读并充分理解本《用户协议》（以下简称"本协议"）。一旦您注册、登录或使用本应用，即表示您已阅读、理解并同意接受本协议的全部内容。')
-            .fontSize(15)
+            .fontSize(15).fontFamily($r('app.string.font_family'))
             .fontColor($r('app.color.text_primary'))
             .lineHeight(24)
             .width('100%')
@@ -84,7 +77,7 @@ export struct UserAgreementPage {
           ]);
 
           Text('本协议的订立、效力、解释及争议解决均适用中华人民共和国法律。')
-            .fontSize(13)
+            .fontSize(13).fontFamily($r('app.string.font_family'))
             .fontColor($r('app.color.text_secondary'))
             .lineHeight(20)
             .width('100%')
@@ -107,7 +100,7 @@ export struct UserAgreementPage {
   section(title: string, items: string[]): void {
     Column() {
       Text(title)
-        .fontSize(16)
+        .fontSize(16).fontFamily($r('app.string.font_family'))
         .fontWeight(FontWeight.Bold)
         .fontColor($r('app.color.text_primary'))
         .alignSelf(ItemAlign.Start)
@@ -115,7 +108,7 @@ export struct UserAgreementPage {
 
       ForEach(items, (item: string) => {
         Text('• ' + item)
-          .fontSize(15)
+          .fontSize(15).fontFamily($r('app.string.font_family'))
           .fontColor($r('app.color.text_primary'))
           .lineHeight(24)
           .padding({ bottom: 4 })

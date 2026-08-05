@@ -10,8 +10,20 @@ import { compressAvatar, CompressedImage } from '../utils/image';
 import { safeShowToast } from '../utils/toast';
 import { User, UserProfile } from '../models/types';
 import { buildPageTransition } from '../utils/styles';
-import { AvatarView } from '../components/AvatarView';
-import { resolveSettingsIcon } from '../utils/settingsIcons';
+import { BackButton } from '../design/components/BackButton';
+import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
+import { ColorTokens } from '../design/tokens/color';
+import { MotionCurves, MotionTokens } from '../design/tokens/motion';
+import { RadiusTokens } from '../design/tokens/radius';
+import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
+import { TypeTokens } from '../design/tokens/type';
+import { EditableProfilePreview } from '../components/EditableProfilePreview';
+
+const GENDER_OPTIONS: SegmentedItem[] = [
+  { key: 'male', label: '男' },
+  { key: 'female', label: '女' },
+  { key: 'private', label: '保密' },
+];
 
 @Entry
 @Component
@@ -19,11 +31,33 @@ export struct EditProfilePage {
   @State nickname: string = '';
   @State bio: string = '';
   @State selectedGender: string = '1'; // '1'=男 '2'=女 '0'=保密
+  @State genderIndex: number = 2;
   @State avatar: string = ''; // 当前头像 URL 或 base64 data URI（COS 不可用时降级）
   @State avatarPreview: image.PixelMap | null = null; // 选图后的本地即时预览（不依赖网络/COS）
+  @State avatarPending: boolean = false;
   @State uploadingAvatar: boolean = false;
+  @State profileBackground: string = '';
+  @State profileBackgroundPreview: image.PixelMap | null = null;
+  @State profileBackgroundPending: boolean = false;
+  @State uploadingProfileBackground: boolean = false;
   @State saving: boolean = false;
+  @State saveSucceeded: boolean = false;
+  @State backgroundStatus: string = '';
+  @State contentPresented: boolean = false;
+  @State profileId: number = 0;
+  @State followingCount: number = 0;
+  @State followerCount: number = 0;
+  @State totalLikes: number = 0;
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
+  @StorageLink('reduceMotion') reduceMotion: boolean = false;
+  @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
+  private entranceTimer: number = 0;
+  private saveReturnTimer: number = 0;
+  private originalNickname: string = '';
+  private originalBio: string = '';
+  private originalGender: string = '0';
+  private pendingAvatarImage: CompressedImage | null = null;
+  private pendingProfileBackgroundImage: CompressedImage | null = null;
 
   aboutToAppear(): void {
     const u: User | null = getCurrentUser();
@@ -31,10 +65,76 @@ export struct EditProfilePage {
       this.nickname = u.nickname ?? '';
       this.bio = u.bio ?? '';
       this.selectedGender = u.gender ? String(u.gender) : '0';
+      this.genderIndex = this.selectedGender === '1' ? 0 : (this.selectedGender === '2' ? 1 : 2);
       this.avatar = u.avatar ?? '';
+      this.profileBackground = u.profileBackground ?? '';
+      this.profileId = u.id ?? 0;
     }
+    this.captureTextBaseline();
     // 旧安装包本地从未存过 bio/gender，打开时从后端补全，避免再次手动重填
     this.syncFromServer();
+    this.contentPresented = false;
+    if (this.shouldReduceMotion()) {
+      this.contentPresented = true;
+    } else {
+      this.entranceTimer = setTimeout((): void => {
+        this.getUIContext().animateTo({ duration: MotionTokens.container, curve: MotionCurves.emphasized }, () => {
+          this.contentPresented = true;
+        });
+        this.entranceTimer = 0;
+      }, MotionTokens.instant) as number;
+    }
+  }
+
+  aboutToDisappear(): void {
+    if (this.entranceTimer !== 0) {
+      clearTimeout(this.entranceTimer);
+      this.entranceTimer = 0;
+    }
+    if (this.saveReturnTimer !== 0) {
+      clearTimeout(this.saveReturnTimer);
+      this.saveReturnTimer = 0;
+    }
+  }
+
+  private shouldReduceMotion(): boolean {
+    return this.reduceMotion || this.systemReduceMotion;
+  }
+
+  private failureMessage(error: Error): string {
+    if (error.message.length > 0) {
+      return error.message;
+    }
+    return '请稍后重试';
+  }
+
+  private captureTextBaseline(): void {
+    this.originalNickname = this.nickname;
+    this.originalBio = this.bio;
+    this.originalGender = this.selectedGender;
+  }
+
+  private hasUnsavedChanges(): boolean {
+    return this.nickname !== this.originalNickname || this.bio !== this.originalBio || this.selectedGender !== this.originalGender ||
+      this.avatarPending || this.profileBackgroundPending;
+  }
+
+  private onBack(): void {
+    if (!this.hasUnsavedChanges()) {
+      this.getUIContext().getRouter().back();
+      return;
+    }
+    this.getUIContext().showAlertDialog({
+      title: '放弃未保存的修改？',
+      message: '资料和待保存的头像、背景图都不会保留。',
+      primaryButton: { value: '继续编辑', action: (): void => {} },
+      secondaryButton: { value: '放弃修改', action: (): void => { this.getUIContext().getRouter().back(); } },
+    });
+  }
+
+  private selectGender(index: number): void {
+    this.genderIndex = index;
+    this.selectedGender = index === 0 ? '1' : (index === 1 ? '2' : '0');
   }
 
   // 从后端拉取最新资料补全 bio/gender（网络失败则保留本地缓存，不阻断编辑）
@@ -48,6 +148,12 @@ export struct EditProfilePage {
       const p: UserProfile = await getUserProfile(id);
       this.bio = p.bio ?? this.bio;
       this.selectedGender = p.gender ? String(p.gender) : '0';
+      this.genderIndex = this.selectedGender === '1' ? 0 : (this.selectedGender === '2' ? 1 : 2);
+      this.profileBackground = p.profileBackground ?? this.profileBackground;
+      this.profileId = p.id;
+      this.followingCount = p.followingCount;
+      this.followerCount = p.followerCount;
+      this.totalLikes = p.totalLikes;
       // 同步回本地 session，避免下次再走网络
       const cur: User | null = getCurrentUser();
       if (cur) {
@@ -55,27 +161,26 @@ export struct EditProfilePage {
           id: cur.id,
           nickname: cur.nickname,
           avatar: cur.avatar,
+          profileBackground: this.profileBackground,
           bio: this.bio,
           gender: p.gender ?? undefined,
           isAdmin: cur.isAdmin,
         };
         setSession(getToken(), next);
       }
+      this.captureTextBaseline();
     } catch (e) {
       // 网络失败：保留本地缓存值，不阻断编辑
     }
   }
 
-  // 选择并上传头像
+  // 选择头像只更新本地预览，真正上传留给右上角的保存操作。
   private async onPickAvatar(): Promise<void> {
-    if (this.uploadingAvatar) return;
-    this.uploadingAvatar = true;
+    if (this.uploadingAvatar || this.saving) return;
     const u: User | null = await ensureLogin();
     if (!u) {
-      this.uploadingAvatar = false;
       return;
     }
-    // 1) 打开相册（用户取消选择会抛错，静默忽略即可）
     let uris: string[] = [];
     try {
       const ph = new photoAccessHelper.PhotoViewPicker();
@@ -85,61 +190,57 @@ export struct EditProfilePage {
       });
       uris = res.photoUris ?? [];
     } catch (e) {
-      // 用户取消：不提示、不上传
-      this.uploadingAvatar = false;
       return;
     }
     if (uris.length === 0) {
-      this.uploadingAvatar = false;
       return;
     }
-    // 2) 压缩并立即本地预览（选完图立刻在头像框显示，不依赖网络/COS）
-    let compressed: CompressedImage;
     try {
-      compressed = await compressAvatar(uris[0]);
+      this.pendingAvatarImage = await compressAvatar(uris[0]);
     } catch (e) {
       safeShowToast(this.getUIContext(), { message: '图片处理失败：' + (e as Error).message });
-      this.uploadingAvatar = false;
       return;
     }
-    this.avatarPreview = compressed.preview;
-    // 3) 上传头像（本地模式直传 /v1/upload/local，COS 配置后走预签名直传）
-    let savedUrl: string = '';
-    try {
-      const sig = await getUploadSignature('image/jpeg');
-      // 本地文件上传模式：直传目标改走 rport(BASE_URL=127.0.0.1)，与 API 同一稳定路径，
-      // 避免直连 LAN IP（DHCP 变化/模拟器 http 栈不稳定）导致超时。
-      // viewUrl 保留 LAN IP，供 Image 组件展示（Image 不走 rport，必须走 LAN IP 才能加载）。
-      const uploadUrl: string = resolveUploadPutUrl(sig);
-      await this.putBinary(uploadUrl, compressed.bytes, sig.contentType);
-      savedUrl = sig.viewUrl; // 用 GET 预签名可读链接，私有桶也能加载
-    } catch (e) {
-      // 上传失败：严禁降级存 base64（base64 头像会撑爆信息流、模拟器 expectDataType:OBJECT 解析失败 → "请求失败"）。
-      // 直接提示重试并保留原头像，避免污染数据库。
-      safeShowToast(this.getUIContext(), { message: '头像上传失败，请重试' });
-      this.uploadingAvatar = false;
+    this.avatarPreview = this.pendingAvatarImage.preview;
+    this.avatarPending = true;
+  }
+
+  // 背景图同样只暂存预览，防止用户在保存前就覆盖已发布的资料。
+  private async onPickProfileBackground(): Promise<void> {
+    if (this.uploadingProfileBackground || this.saving) return;
+    const u: User | null = await ensureLogin();
+    if (!u) {
       return;
     }
-    // 4) 保存头像到后端（无论走 COS 还是本地 base64 都持久化）
+    let uris: string[] = [];
     try {
-      const updated: User = await updateMe({ avatar: savedUrl });
-      const cur: User | null = getCurrentUser();
-      const merged: User = {
-        id: updated.id ?? cur?.id,
-        nickname: updated.nickname ?? cur?.nickname,
-        avatar: updated.avatar ?? savedUrl,
-        gender: updated.gender ?? cur?.gender,
-        bio: updated.bio ?? cur?.bio,
-        isAdmin: updated.isAdmin ?? cur?.isAdmin,
-      };
-      const token: string = (AppStorage.get<string>('authToken') ?? '') as string;
-      setSession(token, merged);
-      this.avatar = savedUrl; // 编辑页当前也同步（预览优先用 avatarPreview）
-      safeShowToast(this.getUIContext(), { message: savedUrl.startsWith('data:') ? '头像已更新（本地模式）' : '头像已更新' });
+      const ph = new photoAccessHelper.PhotoViewPicker();
+      const res = await ph.select({
+        MIMEType: photoAccessHelper.PhotoViewMIMETypes.IMAGE_TYPE,
+        maxSelectNumber: 1,
+      });
+      uris = res.photoUris ?? [];
     } catch (e) {
-      safeShowToast(this.getUIContext(), { message: '头像保存失败：' + (e as Error).message });
+      return;
     }
-    this.uploadingAvatar = false;
+    if (uris.length === 0) {
+      return;
+    }
+    try {
+      this.pendingProfileBackgroundImage = await compressAvatar(uris[0], 1440);
+    } catch (e) {
+      safeShowToast(this.getUIContext(), { message: '图片处理失败：' + (e as Error).message });
+      return;
+    }
+    this.profileBackgroundPreview = this.pendingProfileBackgroundImage.preview;
+    this.profileBackgroundPending = true;
+    this.backgroundStatus = '待保存';
+  }
+
+  private async uploadImage(compressed: CompressedImage, folder: 'avatars' | 'backgrounds'): Promise<string> {
+    const signature = await getUploadSignature('image/jpeg', folder);
+    await this.putBinary(resolveUploadPutUrl(signature), compressed.bytes, signature.contentType);
+    return signature.viewUrl;
   }
 
   // 直传二进制到预签名 URL（复制自 ImagePicker）
@@ -174,7 +275,7 @@ export struct EditProfilePage {
     return true;
   }
 
-  // 保存：调 updateMe → 回写本地登录态 → toast → 返回
+  // 保存时统一上传暂存的头像/背景图，再用一次 updateMe 提交所有资料。
   async onSave(): Promise<void> {
     if (this.saving) {
       return;
@@ -184,171 +285,176 @@ export struct EditProfilePage {
       return;
     }
     this.saving = true;
+    this.saveSucceeded = false;
     try {
+      let nextAvatar: string = this.avatar;
+      let nextProfileBackground: string = this.profileBackground;
+      if (this.pendingAvatarImage !== null) {
+        this.uploadingAvatar = true;
+        nextAvatar = await this.uploadImage(this.pendingAvatarImage, 'avatars');
+      }
+      if (this.pendingProfileBackgroundImage !== null) {
+        this.uploadingProfileBackground = true;
+        nextProfileBackground = await this.uploadImage(this.pendingProfileBackgroundImage, 'backgrounds');
+      }
       const updated: User = await updateMe({
         nickname: this.nickname.trim(),
         bio: this.bio,
-        gender: this.selectedGender === '0' ? undefined : parseInt(this.selectedGender),
+        // 保密必须显式发送 null；undefined 会被后端当作“不要更新”。
+        gender: this.selectedGender === '0' ? null : parseInt(this.selectedGender),
+        avatar: this.avatarPending ? nextAvatar : undefined,
+        profileBackground: this.profileBackgroundPending ? nextProfileBackground : undefined,
       });
       // 合并回写本地（token 不变，仅刷新昵称/简介等字段）
       const cur: User | null = getCurrentUser();
       const merged: User = {
         id: updated.id ?? cur?.id,
         nickname: updated.nickname ?? this.nickname.trim(),
-        avatar: updated.avatar ?? cur?.avatar ?? this.avatar,
-        gender: updated.gender ?? cur?.gender,
+        avatar: updated.avatar ?? nextAvatar,
+        profileBackground: updated.profileBackground ?? nextProfileBackground,
+        gender: this.selectedGender === '0' ? undefined : (updated.gender ?? cur?.gender),
         bio: updated.bio ?? this.bio,
         isAdmin: updated.isAdmin ?? cur?.isAdmin,
       };
       const token: string = (AppStorage.get<string>('authToken') ?? '') as string;
       setSession(token, merged);
-      safeShowToast(this.getUIContext(), { message: '已保存' });
-      this.getUIContext().getRouter().back();
+      this.nickname = merged.nickname ?? this.nickname.trim();
+      this.bio = merged.bio ?? this.bio;
+      this.avatar = merged.avatar ?? nextAvatar;
+      this.profileBackground = merged.profileBackground ?? nextProfileBackground;
+      this.avatarPreview = null;
+      this.profileBackgroundPreview = null;
+      this.pendingAvatarImage = null;
+      this.pendingProfileBackgroundImage = null;
+      this.avatarPending = false;
+      this.profileBackgroundPending = false;
+      this.backgroundStatus = '';
+      this.captureTextBaseline();
+      this.saveSucceeded = true;
+      // 让按钮自身完成一次可见确认后再返回，避免保存成功只剩瞬时 Toast。
+      this.saveReturnTimer = setTimeout((): void => {
+        this.getUIContext().getRouter().back();
+        this.saveReturnTimer = 0;
+      }, this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.container) as number;
     } catch (e) {
-      safeShowToast(this.getUIContext(), { message: (e as Error).message });
+      this.backgroundStatus = this.profileBackgroundPending ? '保存失败' : this.backgroundStatus;
+      safeShowToast(this.getUIContext(), { message: '保存失败：' + this.failureMessage(e) });
     } finally {
+      this.uploadingAvatar = false;
+      this.uploadingProfileBackground = false;
       this.saving = false;
     }
   }
 
   build() {
     Column() {
-      // 顶栏：返回 + 标题 + 保存
+      // 固定玻璃工具栏：保存仅在文本资料发生未保存变更时强调。
       Row() {
-        Row() {
-          Image(resolveSettingsIcon('back'))
-            .width(22)
-            .height(22)
-            .fillColor($r('app.color.text_primary'))
-        }
-        .width(48)
-        .height(44)
-        .justifyContent(FlexAlign.Center)
-        .onClick(() => { this.getUIContext().getRouter().back(); });
+        BackButton({ action: (): void => { this.onBack(); } })
         Text('编辑资料')
-          .fontSize(17)
+          .fontSize(17).fontFamily($r('app.string.font_family'))
           .fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.text_primary'))
           .layoutWeight(1)
           .textAlign(TextAlign.Center);
-        Text(this.saving ? '保存中' : '保存')
-          .fontSize(15)
-          .fontColor(this.saving ? $r('app.color.text_secondary') : $r('app.color.brand_primary'))
+        Text(this.saving ? '保存中' : (this.saveSucceeded ? '已保存' : '保存'))
+          .fontSize(15).fontFamily($r('app.string.font_family'))
+          .fontColor(this.saving ? ColorTokens.secondary : (this.saveSucceeded ? ColorTokens.success : (this.hasUnsavedChanges() ? ColorTokens.brand : ColorTokens.tertiary)))
           .width(56)
           .textAlign(TextAlign.Center)
-          .onClick(() => { this.onSave(); });
+          .scale({ x: this.saveSucceeded && !this.shouldReduceMotion() ? MotionTokens.successScale : 1, y: this.saveSucceeded && !this.shouldReduceMotion() ? MotionTokens.successScale : 1 })
+          .animation({ duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.emphasis, curve: MotionCurves.springSoft })
+          .opacity(this.saving || this.saveSucceeded || this.hasUnsavedChanges() ? 1 : 0.45)
+          .onClick(() => { if (this.hasUnsavedChanges()) { this.onSave(); } });
       }
       .width('100%')
-      .padding({ top: 12, bottom: 8 });
+      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+      .backgroundColor(ColorTokens.barSurface)
+      .backdropBlur(LayoutTokens.glassBlur)
+      .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+      .borderRadius(RadiusTokens.floatingBar)
+      .margin({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs });
 
       Scroll() {
         Column({ space: 20 }) {
-          // 头像区域
-          Column({ space: 10 }) {
-            Text('头像')
-              .fontSize(14)
-              .fontColor($r('app.color.text_secondary'))
-              .alignSelf(ItemAlign.Start);
-
-            Column() {
-              if (this.uploadingAvatar) {
-                LoadingProgress()
-                  .width(36)
-                  .height(36)
-                  .color($r('app.color.text_secondary'));
-              } else if (this.avatarPreview) {
-                // 选图后的本地即时预览（PixelMap 直接渲染，无需等网络）
-                Image(this.avatarPreview)
-                  .width(110)
-                  .height(110)
-                  .borderRadius(55)
-                  .objectFit(ImageFit.Cover)
-                  .border({ width: 2, color: $r('app.color.brand_primary') });
-              } else {
-                AvatarView({
-                  avatar: this.avatar,
-                  name: this.nickname,
-                  avatarSize: 110,
-                  ringWidth: 2
-                })
-              }
-              Text('点击更换头像')
-                .fontSize(12)
-                .fontColor($r('app.color.text_secondary'))
-                .margin({ top: 4 });
-            }
-            .width('100%')
-            .alignItems(HorizontalAlign.Center)
-            .padding({ top: 12, bottom: 12 })
-            .onClick(() => { this.onPickAvatar(); });
+          // 资料预览也是图片编辑面：背景和头像都在最终主页位置直接修改。
+          Column({ space: SpaceTokens.sm }) {
+            EditableProfilePreview({
+              avatar: this.avatar,
+              avatarPreview: this.avatarPreview,
+              nickname: this.nickname,
+              bio: this.bio,
+              selectedGender: this.selectedGender,
+              profileId: this.profileId,
+              followingCount: this.followingCount,
+              followerCount: this.followerCount,
+              totalLikes: this.totalLikes,
+              profileBackground: this.profileBackground,
+              profileBackgroundPreview: this.profileBackgroundPreview,
+              backgroundStatus: this.backgroundStatus,
+              uploadingBackground: this.uploadingProfileBackground,
+              onPickBackground: (): void => { this.onPickProfileBackground(); },
+              onPickAvatar: (): void => { this.onPickAvatar(); },
+            })
+            .scale({ x: this.uploadingProfileBackground && !this.shouldReduceMotion() ? MotionTokens.enterScale : 1, y: this.uploadingProfileBackground && !this.shouldReduceMotion() ? MotionTokens.enterScale : 1 })
+            .animation({ duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.control, curve: MotionCurves.standard });
           }
           .width('100%');
 
           // 昵称
-          Column({ space: 8 }) {
+          Column({ space: SpaceTokens.sm }) {
             Text('昵称')
-              .fontSize(14)
-              .fontColor($r('app.color.text_secondary'))
+              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+              .fontWeight(TypeTokens.callout.weight).fontColor(ColorTokens.primary)
               .alignSelf(ItemAlign.Start);
             TextInput({ placeholder: '请输入昵称', text: this.nickname })
+              .fontFamily(TypeTokens.fontFamily).fontColor(ColorTokens.primary)
               .width('100%')
-              .height(44)
-              .backgroundColor($r('app.color.card_bg'))
-              .borderRadius(8)
+              .height(LayoutTokens.minTouchTarget)
+              .backgroundColor(ColorTokens.elevated).backdropBlur(LayoutTokens.glassBlur)
+              .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+              .borderRadius(RadiusTokens.lg)
               .onChange((v: string) => { this.nickname = v; });
             Text(this.nickname.trim().length + '/20')
-              .fontSize(12)
-              .fontColor($r('app.color.text_secondary'))
+              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+              .fontColor(ColorTokens.tertiary)
               .alignSelf(ItemAlign.End);
           }
           .width('100%');
 
           // 个人简介
-          Column({ space: 8 }) {
+          Column({ space: SpaceTokens.sm }) {
             Text('个人简介')
-              .fontSize(14)
-              .fontColor($r('app.color.text_secondary'))
+              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+              .fontWeight(TypeTokens.callout.weight).fontColor(ColorTokens.primary)
               .alignSelf(ItemAlign.Start);
             TextArea({ placeholder: '介绍一下自己吧（选填）', text: this.bio })
+              .fontFamily(TypeTokens.fontFamily).fontColor(ColorTokens.primary)
               .width('100%')
-              .height(100)
-              .backgroundColor($r('app.color.card_bg'))
-              .borderRadius(8)
+              .height(104)
+              .backgroundColor(ColorTokens.elevated).backdropBlur(LayoutTokens.glassBlur)
+              .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+              .borderRadius(RadiusTokens.lg)
               .onChange((v: string) => { this.bio = v; });
             Text(this.bio.length + '/100')
-              .fontSize(12)
-              .fontColor($r('app.color.text_secondary'))
+              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+              .fontColor(ColorTokens.tertiary)
               .alignSelf(ItemAlign.End);
           }
           .width('100%');
 
           // 性别选择
-          Column({ space: 8 }) {
+          Column({ space: SpaceTokens.sm }) {
             Text('性别')
-              .fontSize(14)
-              .fontColor($r('app.color.text_secondary'))
+              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+              .fontWeight(TypeTokens.callout.weight).fontColor(ColorTokens.primary)
               .alignSelf(ItemAlign.Start);
-            Row({ space: 24 }) {
-              Row() {
-                Radio({ value: '1', group: 'genderGroup' })
-                  .checked(this.selectedGender === '1')
-                  .onChange((isChecked: boolean) => { if (isChecked) this.selectedGender = '1'; });
-                Text('男').fontSize(15).fontColor($r('app.color.text_primary')).margin({ left: 4 });
-              }
-              Row() {
-                Radio({ value: '2', group: 'genderGroup' })
-                  .checked(this.selectedGender === '2')
-                  .onChange((isChecked: boolean) => { if (isChecked) this.selectedGender = '2'; });
-                Text('女').fontSize(15).fontColor($r('app.color.text_primary')).margin({ left: 4 });
-              }
-              Row() {
-                Radio({ value: '0', group: 'genderGroup' })
-                  .checked(this.selectedGender === '0')
-                  .onChange((isChecked: boolean) => { if (isChecked) this.selectedGender = '0'; });
-                Text('保密').fontSize(15).fontColor($r('app.color.text_primary')).margin({ left: 4 });
-              }
-            }
-            .padding({ top: 4 });
+            SegmentedControl({
+              items: GENDER_OPTIONS,
+              selectedIndex: $genderIndex,
+              glass: true,
+              onSelect: (index: number): void => { this.selectGender(index); },
+            })
           }
           .width('100%');
         }
@@ -357,7 +463,10 @@ export struct EditProfilePage {
         .padding({ left: 16, right: 16, top: 16, bottom: 32 });
       }
       .layoutWeight(1)
-      .width('100%');
+      .width('100%')
+      .opacity(this.shouldReduceMotion() || this.contentPresented ? 1 : 0)
+      .translate({ y: this.shouldReduceMotion() || this.contentPresented ? 0 : 16 })
+      .animation({ duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.container, curve: MotionCurves.emphasized });
     }
     .width('100%')
     .padding({ top: this.statusBarHeight })

@@ -2,6 +2,8 @@
 // 用于个人主页 / 编辑资料等需要"头像框"的场景，自动跟随深色模式（品牌色在
 // base/dark 的 color.json 均有定义）。
 
+import { resolveDisplayImageUrl } from '../services/api';
+
 @Component
 export struct AvatarView {
   @Prop avatar: string = '';
@@ -14,7 +16,7 @@ export struct AvatarView {
     // 避免描边压在头像内容边缘导致「内容 / 框不重合」。
     Stack({ alignContent: Alignment.Center }) {
       if (this.avatar.length > 0) {
-        Image(this.avatar)
+        Image(resolveDisplayImageUrl(this.avatar))
           .width(this.avatarSize)
           .height(this.avatarSize)
           .borderRadius(this.avatarSize / 2)
@@ -25,7 +27,7 @@ export struct AvatarView {
           .width(this.avatarSize)
           .height(this.avatarSize)
           .borderRadius(this.avatarSize / 2)
-          .fontSize(this.avatarSize * 0.42)
+          .fontSize(this.avatarSize * 0.42).fontFamily($r('app.string.font_family'))
           .fontColor(Color.White)
           .backgroundColor($r('app.color.brand_primary'))
           .textAlign(TextAlign.Center)

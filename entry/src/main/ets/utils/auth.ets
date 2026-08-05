@@ -20,12 +20,14 @@ export const PRIVACY_POLICY_VERSION: string = '1.0.0';
 PersistentStorage.persistProp('authUserId', '');
 PersistentStorage.persistProp('authNickname', '');
 PersistentStorage.persistProp('authAvatar', '');
+PersistentStorage.persistProp('authProfileBackground', '');
 PersistentStorage.persistProp('authBio', '');        // 个人简介（编辑资料回写，避免再进需重填）
 PersistentStorage.persistProp('authGender', 0);      // 性别：0=保密/未设 1=男 2=女
 PersistentStorage.persistProp('authIsAdmin', false); // 管理员标识（后端 env.adminUserIds 计算，登录时落地）
 PersistentStorage.persistProp('unreadMessageCount', 0); // 消息 Tab 未读红点
 PersistentStorage.persistProp('unreadDmCount', 0); // 私信未读红点（与通知红点合并显示）
 PersistentStorage.persistProp('privacyAgreed', '0'); // 首启隐私协议同意标记（'1'=已同意）
+PersistentStorage.persistProp('circleOnboardingPendingUserId', '');
 
 export function getToken(): string {
   return (AppStorage.get<string>('authToken') ?? '') as string;
@@ -48,10 +50,11 @@ export function getCurrentUser(): User | null {
   }
   const nickname: string = (AppStorage.get<string>('authNickname') ?? '') as string;
   const avatar: string = (AppStorage.get<string>('authAvatar') ?? '') as string;
+  const profileBackground: string = (AppStorage.get<string>('authProfileBackground') ?? '') as string;
   const bio: string = (AppStorage.get<string>('authBio') ?? '') as string;
   const gender: number = (AppStorage.get<number>('authGender') ?? 0) as number;
   const isAdmin: boolean = (AppStorage.get<boolean>('authIsAdmin') ?? false) as boolean;
-  return { id, nickname, avatar, bio, gender, isAdmin } as User;
+  return { id, nickname, avatar, profileBackground, bio, gender, isAdmin } as User;
 }
 
 export function setSession(token: string, user: User): void {
@@ -59,11 +62,19 @@ export function setSession(token: string, user: User): void {
   AppStorage.setOrCreate('authUserId', String(user.id ?? ''));
   AppStorage.setOrCreate('authNickname', user.nickname ?? '');
   AppStorage.setOrCreate('authAvatar', user.avatar ?? '');
+  AppStorage.setOrCreate('authProfileBackground', user.profileBackground ?? '');
   AppStorage.setOrCreate('authBio', user.bio ?? '');
   AppStorage.setOrCreate('authGender', user.gender ?? 0);
   AppStorage.setOrCreate('authIsAdmin', user.isAdmin ? true : false);
   // token 落地到硬件加密 Asset Store（替代明文 Preferences），防沙箱/备份提取
   saveTokenToAsset(token);
+}
+
+// 新账号登录后先在 Tab 容器展示圈子选择；用户完成或跳过前保持该标记，避免中途退出后丢失流程。
+export function markCircleOnboardingPending(userId: number | undefined): void {
+  if (userId !== undefined && userId > 0) {
+    AppStorage.setOrCreate('circleOnboardingPendingUserId', String(userId));
+  }
 }
 
 // 清登录态：token / 用户信息 / 管理员态全部清空（登出、账号注销共用）。
@@ -72,6 +83,7 @@ export function clearSession(): void {
   AppStorage.setOrCreate('authUserId', '');
   AppStorage.setOrCreate('authNickname', '');
   AppStorage.setOrCreate('authAvatar', '');
+  AppStorage.setOrCreate('authProfileBackground', '');
   AppStorage.setOrCreate('authBio', '');
   AppStorage.setOrCreate('authGender', 0);
   AppStorage.setOrCreate('authIsAdmin', false);
@@ -102,24 +114,24 @@ export async function ensureLogin(): Promise<User | null> {
 
 // 开发/预览兜底：仅由 LoginPage 的「其他方式登录」手动调用，静默桩逻辑集中在此处，
 // 不再由 ensureLogin 自动触发。真机走华为账号一键登录（exchangeHuaweiCode）。
-export async function loginWithDevStub(): Promise<User> {
+export async function loginWithDevStub(): Promise<LoginResult> {
   if (BUILD_MODE === 'release') {
     throw new Error('开发桩登录已在发布包禁用');
   }
   const res: LoginResult = await login({ openId: 'dev-seed-openid', nickname: '科技老张' });
   setSession(res.token, res.user);
-  return res.user;
+  return res;
 }
 
 // 第二个虚拟测试账号（昵称「虚拟小美」），与「科技老张」区分，
 // 用于跨账号互测：评论 / 关注 / 私信 / 访问对方主页 / 投票等。
-export async function loginWithDevStub2(): Promise<User> {
+export async function loginWithDevStub2(): Promise<LoginResult> {
   if (BUILD_MODE === 'release') {
     throw new Error('开发桩登录已在发布包禁用');
   }
   const res: LoginResult = await login({ openId: 'dev-seed-openid-2', nickname: '虚拟小美' });
   setSession(res.token, res.user);
-  return res.user;
+  return res;
 }
 
 // 幂等兜底：确保在 AppStorage 读写前已注册持久化（Index aboutToAppear 调用一次）。
@@ -128,12 +140,14 @@ export function initAuthStorage(): void {
   PersistentStorage.persistProp('authUserId', '');
   PersistentStorage.persistProp('authNickname', '');
   PersistentStorage.persistProp('authAvatar', '');
+  PersistentStorage.persistProp('authProfileBackground', '');
   PersistentStorage.persistProp('authBio', '');
   PersistentStorage.persistProp('authGender', 0);
   PersistentStorage.persistProp('authIsAdmin', false);
   PersistentStorage.persistProp('unreadMessageCount', 0);
   PersistentStorage.persistProp('unreadDmCount', 0);
   PersistentStorage.persistProp('privacyAgreed', '0');
+  PersistentStorage.persistProp('circleOnboardingPendingUserId', '');
   // 冷启动从硬件加密 Asset Store 恢复登录态 token（替代明文 Preferences 读取）
   const restoredToken: string = loadTokenFromAsset();
   if (restoredToken) {

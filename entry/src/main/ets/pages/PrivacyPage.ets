@@ -1,6 +1,7 @@
 // 隐私政策页：内置静态隐私政策文本，无后端调用
 
 import { buildPageTransition } from '../utils/styles';
+import { BackButton } from '../design/components/BackButton';
 
 @Entry
 @Component
@@ -10,23 +11,15 @@ export struct PrivacyPage {
     Column() {
       // 顶栏
       Row() {
-        Text('‹')
-          .fontSize(28)
-          .fontColor($r('app.color.text_primary'))
-          .width(48)
-          .height(44)
-          .textAlign(TextAlign.Center)
-          .onClick(() => {
-            this.getUIContext().getRouter().back();
-          });
+        BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
         Text('隐私政策')
-          .fontSize(17)
+          .fontSize(17).fontFamily($r('app.string.font_family'))
           .fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.text_primary'))
           .layoutWeight(1)
           .textAlign(TextAlign.Center);
         Text('')
-          .width(48);
+          .width(44);
       }
       .width('100%')
       .padding({ top: 12, bottom: 8 });
@@ -34,13 +27,13 @@ export struct PrivacyPage {
       Scroll() {
         Column({ space: 16 }) {
           Text('更新日期：2026 年 7 月 20 日\n生效日期：2026 年 7 月 20 日')
-            .fontSize(12)
+            .fontSize(12).fontFamily($r('app.string.font_family'))
             .fontColor($r('app.color.text_secondary'))
             .width('100%')
             .padding({ left: 16, right: 16 });
 
           Text('大蓝书（以下简称"我们"）深知个人信息对你的重要性，并将按法律法规要求，采取相应的安全保护措施，尽力保护你的个人信息安全可控。')
-            .fontSize(15)
+            .fontSize(15).fontFamily($r('app.string.font_family'))
             .fontColor($r('app.color.text_primary'))
             .lineHeight(24)
             .width('100%')
@@ -76,7 +69,7 @@ export struct PrivacyPage {
           ]);
 
           Text('本隐私政策可能适时更新。如发生重大变更，我们将通过应用内通知的方式告知你。')
-            .fontSize(13)
+            .fontSize(13).fontFamily($r('app.string.font_family'))
             .fontColor($r('app.color.text_secondary'))
             .lineHeight(20)
             .width('100%')
@@ -99,7 +92,7 @@ export struct PrivacyPage {
   section(title: string, items: string[]): void {
     Column() {
       Text(title)
-        .fontSize(16)
+        .fontSize(16).fontFamily($r('app.string.font_family'))
         .fontWeight(FontWeight.Bold)
         .fontColor($r('app.color.text_primary'))
         .alignSelf(ItemAlign.Start)
@@ -107,7 +100,7 @@ export struct PrivacyPage {
 
       ForEach(items, (item: string) => {
         Text('• ' + item)
-          .fontSize(15)
+          .fontSize(15).fontFamily($r('app.string.font_family'))
           .fontColor($r('app.color.text_primary'))
           .lineHeight(24)
           .padding({ bottom: 4 })

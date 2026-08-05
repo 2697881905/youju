@@ -6,14 +6,14 @@ import { LengthMetrics } from '@kit.ArkUI';
 import { image } from '@kit.ImageKit';
 import { http } from '@kit.NetworkKit';
 import { compressImage, CompressedImage } from '../utils/image';
-import { getUploadSignature, resolveUploadPutUrl } from '../services/api';
+import { getUploadSignature, resolveDisplayImageUrl, resolveUploadPutUrl } from '../services/api';
 import { ensureLogin } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
 import { User } from '../models/types';
 
 interface PickedImage {
   id: string; // 稳定 key
-  preview: image.PixelMap; // 本地预览
+  preview?: image.PixelMap; // 当次选择的本地预览；恢复草稿时使用 remoteUrl
   remoteUrl?: string; // 直传成功后的可访问 URL
   uploading: boolean; // 是否上传中（用于显示 loading）
 }
@@ -22,14 +22,46 @@ interface PickedImage {
 export struct ImagePicker {
   @Link @Watch('onSelectedChange') selected: string[]; // 远端 URL 列表（发布用）
   @Prop maxCount: number = 9;
+  @Prop @Watch('onPickerRequestChanged') pickerRequest: number = 0;
+  @Prop autoOpen: boolean = false;
   @State items: PickedImage[] = []; // 本地预览 + 上传态（与 selected 同序）
   @State picking: boolean = false;
   private pickSeq: number = 0;
 
-  // 外部（发布器 reset）把 selected 清空时，同步清空本地预览
+  // 外部恢复草稿时，按已保存的 URL 补建远程预览项；避免编辑草稿时图片丢失。
   private onSelectedChange(): void {
-    if (this.selected.length === 0 && this.items.length > 0) {
+    if (this.selected.length === 0) {
       this.items = [];
+      return;
+    }
+    let next: PickedImage[] = this.items.filter((item: PickedImage): boolean => {
+      return item.remoteUrl === undefined || this.selected.indexOf(item.remoteUrl) >= 0;
+    });
+    for (const url of this.selected) {
+      let found: boolean = false;
+      for (const item of next) {
+        if (item.remoteUrl === url) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        next = [...next, { id: 'remote_' + url, remoteUrl: url, uploading: false }];
+      }
+    }
+    this.items = next;
+  }
+
+  aboutToAppear(): void {
+    this.onSelectedChange();
+    if (this.autoOpen && this.pickerRequest > 0) {
+      this.pick();
+    }
+  }
+
+  private onPickerRequestChanged(): void {
+    if (this.pickerRequest > 0) {
+      this.pick();
     }
   }
 
@@ -126,11 +158,19 @@ export struct ImagePicker {
       Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Start, space: { main: LengthMetrics.px(8), cross: LengthMetrics.px(8) } }) {
         ForEach(this.items, (item: PickedImage, idx: number) => {
           Stack() {
-            Image(item.preview)
-              .width('100%')
-              .height('100%')
-              .objectFit(ImageFit.Cover)
-              .borderRadius(8)
+            if (item.preview !== undefined) {
+              Image(item.preview)
+                .width('100%')
+                .height('100%')
+                .objectFit(ImageFit.Cover)
+                .borderRadius(8)
+            } else {
+              Image(resolveDisplayImageUrl(item.remoteUrl ?? ''))
+                .width('100%')
+                .height('100%')
+                .objectFit(ImageFit.Cover)
+                .borderRadius(8)
+            }
             if (item.uploading) {
               LoadingProgress()
                 .width(28)
@@ -138,7 +178,7 @@ export struct ImagePicker {
                 .color(Color.White)
             }
             Text('×')
-              .fontSize(16)
+              .fontSize(16).fontFamily($r('app.string.font_family'))
               .fontColor(Color.White)
               .backgroundColor('#00000066')
               .width(20)
@@ -155,10 +195,10 @@ export struct ImagePicker {
         if (this.items.length < this.maxCount) {
           Column() {
             Text('+')
-              .fontSize(28)
+              .fontSize(28).fontFamily($r('app.string.font_family'))
               .fontColor($r('app.color.text_secondary'))
             Text('添加')
-              .fontSize(12)
+              .fontSize(12).fontFamily($r('app.string.font_family'))
               .fontColor($r('app.color.text_secondary'))
           }
           .width('30%')

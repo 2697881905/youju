@@ -5,6 +5,7 @@ import { getUserId } from '../utils/auth';
 import { deleteComment, upComment, cancelUpComment } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 import { resolveActionIcon } from '../utils/actionIcons';
+import { openUserProfile } from '../utils/nav';
 
 @Component
 export struct CommentList {
@@ -118,7 +119,7 @@ export struct CommentList {
     }
     const uid: number | undefined = c.userId ?? c.user?.id;
     if (uid !== undefined) {
-      AppStorage.setOrCreate('targetUserId', String(uid));
+      openUserProfile(uid);
       this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage' });
     }
   }
@@ -132,7 +133,7 @@ export struct CommentList {
         .borderRadius(18)
         .backgroundColor('#3A3A3C')
         .fontColor(Color.White)
-        .fontSize(14)
+        .fontSize(14).fontFamily($r('app.string.font_family'))
         .textAlign(TextAlign.Center)
     } else if (c.user?.avatar) {
       Image(c.user.avatar)
@@ -150,7 +151,7 @@ export struct CommentList {
         .borderRadius(18)
         .backgroundColor($r('app.color.brand_primary'))
         .fontColor(Color.White)
-        .fontSize(14)
+        .fontSize(14).fontFamily($r('app.string.font_family'))
         .textAlign(TextAlign.Center)
         .onClick(() => {
           this.goUser(c);
@@ -162,7 +163,7 @@ export struct CommentList {
     Column({ space: 12 }) {
       if (this.comments.length === 0) {
         Text('还没有评论，来抢沙发')
-          .fontSize(13)
+          .fontSize(13).fontFamily($r('app.string.font_family'))
           .fontColor($r('app.color.text_secondary'))
       } else {
         ForEach(
@@ -173,12 +174,12 @@ export struct CommentList {
               Column({ space: 4 }) {
                 Row({ space: 6 }) {
                   Text(this.isDeletedCommentUser(c) ? '已注销用户' : (c.user?.nickname ?? '匿名用户'))
-                    .fontSize(14)
+                    .fontSize(14).fontFamily($r('app.string.font_family'))
                     .fontWeight(FontWeight.Medium)
                     .fontColor($r('app.color.text_secondary'))
                   if (c.isFact === 1) {
                     Text('事实补充')
-                      .fontSize(11)
+                      .fontSize(11).fontFamily($r('app.string.font_family'))
                       .fontColor($r('app.color.brand_primary'))
                       .border({ width: 0.5, color: $r('app.color.brand_primary') })
                       .borderRadius(4)
@@ -186,10 +187,10 @@ export struct CommentList {
                   }
                 }
                 Text(c.content ?? '')
-                  .fontSize(15)
+                  .fontSize(15).fontFamily($r('app.string.font_family'))
                   .fontColor($r('app.color.text_primary'))
                 Text(timeAgo(c.createdAt) + ' · ')
-                  .fontSize(12)
+                  .fontSize(12).fontFamily($r('app.string.font_family'))
                   .fontColor($r('app.color.text_secondary'));
                 Row({ space: 2 }) {
                   Image(resolveActionIcon('like'))
@@ -197,7 +198,7 @@ export struct CommentList {
                     .height(13)
                     .fillColor(this.isLiked(c) ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
                   Text(formatCount(this.commentUp(c)))
-                    .fontSize(12)
+                    .fontSize(12).fontFamily($r('app.string.font_family'))
                     .fontColor(this.isLiked(c) ? $r('app.color.brand_primary') : $r('app.color.text_secondary'))
                 }
                 .onClick(() => {
@@ -209,7 +210,7 @@ export struct CommentList {
 
               // 操作菜单（作者可删除，他人可举报）
               Text('⋯')
-                .fontSize(18)
+                .fontSize(18).fontFamily($r('app.string.font_family'))
                 .fontColor($r('app.color.text_secondary'))
                 .width(32)
                 .textAlign(TextAlign.Center)
