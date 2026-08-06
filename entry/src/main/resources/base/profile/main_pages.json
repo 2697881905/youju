@@ -19,6 +19,9 @@
     "pages/PrivacySettingsPage",
     "pages/ChatPage",
     "pages/PublishPreviewPage",
+    "pages/PhotoPublishPage",
+    "pages/VideoPublishPage",
+    "pages/TextPublishPage",
     "pages/DraftBoxPage",
     "pages/FoundationPreviewPage"
   ]

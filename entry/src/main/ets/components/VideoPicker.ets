@@ -85,10 +85,16 @@ export struct VideoPicker {
       this.uploading = true;
       this.errorTip = '';
       try {
-        // 1) 首帧封面
-        const coverBytes: ArrayBuffer = await captureVideoCoverBytes(uri);
-        const coverSig = await getUploadSignature('image/jpeg', 'posts');
-        await this.putBinary(resolveUploadPutUrl(coverSig), coverBytes, coverSig.contentType);
+        // 1) 首帧封面（失败不阻断视频上传，封面留空，展示层用黑底+角标兜底）
+        let coverViewUrl: string = '';
+        try {
+          const coverBytes: ArrayBuffer = await captureVideoCoverBytes(uri);
+          const coverSig = await getUploadSignature('image/jpeg', 'posts');
+          await this.putBinary(resolveUploadPutUrl(coverSig), coverBytes, coverSig.contentType);
+          coverViewUrl = coverSig.viewUrl;
+        } catch (_coverErr) {
+          // 封面抓取/上传失败，继续上传视频本体
+        }
         // 2) 视频本体
         const videoBytes: ArrayBuffer = await readFileBytes(uri);
         const videoSig = await getUploadSignature('video/mp4', 'video', size);
@@ -96,7 +102,7 @@ export struct VideoPicker {
         // 3) 落状态（本地预览优先用本地 uri）
         this.localUri = uri;
         this.videoUrl = videoSig.viewUrl;
-        this.videoCover = coverSig.viewUrl;
+        this.videoCover = coverViewUrl;
       } catch (e) {
         this.errorTip = '视频上传失败：' + (e as Error).message;
         safeShowToast(this.getUIContext(), { message: this.errorTip });
@@ -162,7 +168,7 @@ export struct VideoPicker {
       if (this.errorTip.length > 0) {
         Text(this.errorTip)
           .fontSize(12)
-          .fontColor($r('app.color.text_error'))
+          .fontColor($r('app.color.semantic_red'))
       }
     }
     .width('100%')

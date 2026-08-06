@@ -12,15 +12,6 @@ export struct PostCardMedia {
   @Prop videoCover: string = '';
   @Prop compact: boolean = false;
 
-  private mediaRadius(): object {
-    return {
-      topLeft: this.compact ? RadiusTokens.xs : RadiusTokens.lg,
-      topRight: this.compact ? RadiusTokens.xs : RadiusTokens.lg,
-      bottomLeft: 0,
-      bottomRight: 0,
-    };
-  }
-
   build() {
     if (this.videoUrl.length > 0) {
       Stack({ alignContent: Alignment.Center }) {
@@ -44,7 +35,7 @@ export struct PostCardMedia {
       }
       .width('100%')
       .aspectRatio(LayoutTokens.cardMediaAspectRatio)
-      .borderRadius(this.mediaRadius())
+      .borderRadius({ topLeft: this.compact ? RadiusTokens.xs : RadiusTokens.lg, topRight: this.compact ? RadiusTokens.xs : RadiusTokens.lg, bottomLeft: 0, bottomRight: 0 })
       .clip(true)
     } else if (this.imageUrl.length > 0) {
       Image(resolveDisplayImageUrl(this.imageUrl))
@@ -52,7 +43,7 @@ export struct PostCardMedia {
         .aspectRatio(LayoutTokens.cardMediaAspectRatio)
         .objectFit(ImageFit.Contain)
         .backgroundColor(ColorTokens.sunken)
-        .borderRadius(this.mediaRadius())
+        .borderRadius({ topLeft: this.compact ? RadiusTokens.xs : RadiusTokens.lg, topRight: this.compact ? RadiusTokens.xs : RadiusTokens.lg, bottomLeft: 0, bottomRight: 0 })
         .clip(true)
     }
   }

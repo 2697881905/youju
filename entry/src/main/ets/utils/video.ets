@@ -1,8 +1,8 @@
-// 视频上传工具：首帧封面抓取（AVPlayer）、文件大小与二进制读取。
+// 视频上传工具：首帧封面抓取（@kit.MediaKit AVImageGenerator）、文件大小与二进制读取。
 // 封面走现有图片上传链路（getUploadSignature('image/jpeg','posts') + putBinary），
 // 视频本身走 getUploadSignature('video/mp4','video', size) + putBinary。
-import { media } from '@kit.MediaKit';
 import { image } from '@kit.ImageKit';
+import { media } from '@kit.MediaKit';
 import { fileIo } from '@kit.CoreFileKit';
 
 const MAX_VIDEO_SIZE: number = 50 * 1024 * 1024; // 50MB 前端硬上限（与后端 token 校验一致）
@@ -28,8 +28,7 @@ export async function readFileBytes(uri: string): Promise<ArrayBuffer> {
   try {
     const stat: fileIo.Stat = fileIo.statSync(file.fd);
     const buffer: ArrayBuffer = new ArrayBuffer(stat.size);
-    const view: Uint8Array = new Uint8Array(buffer);
-    await fileIo.read(file.fd, view);
+    await fileIo.read(file.fd, buffer, { offset: 0, length: stat.size });
     return buffer;
   } finally {
     fileIo.closeSync(file);
@@ -37,43 +36,22 @@ export async function readFileBytes(uri: string): Promise<ArrayBuffer> {
 }
 
 // 抓取视频首帧并压缩为 jpeg（质量 80%）二进制，用于视频封面。
-// 内部用 AVPlayer 置为播放态后 snapshot，抓完即释放资源，不泄漏。
+// 视频不是图片，image.ImageSource 无法解码视频（报 realpath error / CreateImageSourceExec error），
+// 故改用 @kit.MediaKit 的 AVImageGenerator 从文件描述符抓取首帧 PixelMap 再打包为 jpeg。
+// 若平台对该 uri 不支持首帧解码，调用方应 catch 并降级为空封面继续上传视频本体。
 export async function captureVideoCoverBytes(uri: string): Promise<ArrayBuffer> {
   const file = fileIo.openSync(uri, fileIo.OpenMode.READ_ONLY);
-  const player: media.AVPlayer = await media.createAVPlayer();
-  let pixel: image.PixelMap | undefined = undefined;
+  let generator: media.AVImageGenerator | undefined = undefined;
   try {
-    pixel = await new Promise<image.PixelMap>((resolve, reject) => {
-      let settled: boolean = false;
-      player.on('stateChange', (state: string) => {
-        if (settled) {
-          return;
-        }
-        if (state === 'prepared') {
-          player.play();
-        } else if (state === 'playing') {
-          player.snapshot((err: Error | null, px: image.PixelMap) => {
-            if (settled) {
-              return;
-            }
-            if (err) {
-              settled = true;
-              reject(err);
-              return;
-            }
-            settled = true;
-            resolve(px);
-          });
-        } else if (state === 'error') {
-          if (!settled) {
-            settled = true;
-            reject(new Error('视频解码失败，无法提取封面'));
-          }
-        }
-      });
-      player.fd = file.fd;
-      player.prepare();
-    });
+    const stat: fileIo.Stat = fileIo.statSync(file.fd);
+    generator = await media.createAVImageGenerator();
+    generator.fdSrc = { fd: file.fd, offset: 0, length: stat.size };
+    const params: media.PixelMapParams = { width: 0, height: 0 };
+    const pixel: image.PixelMap = await generator.fetchFrameByTime(
+      0,
+      media.AVImageQueryOptions.AV_IMAGE_QUERY_NEXT_SYNC,
+      params
+    );
     const packer: image.ImagePacker = image.createImagePacker();
     try {
       const bytes: ArrayBuffer = await packer.packToData(pixel, {
@@ -85,10 +63,9 @@ export async function captureVideoCoverBytes(uri: string): Promise<ArrayBuffer> 
       await packer.release();
     }
   } finally {
-    if (pixel !== undefined) {
-      pixel.release();
+    if (generator !== undefined) {
+      generator.release();
     }
-    player.release();
     fileIo.closeSync(file);
   }
 }

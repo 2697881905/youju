@@ -11,7 +11,7 @@ import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { TEXT_POSTER_ASPECT_RATIO, resolveTextPosterStyle, TextPosterStyleOption } from '../utils/textPoster';
 import { publishFlowStore } from '../utils/publishFlowStore';
-import { emitTabSwitch } from '../utils/nav';
+import { PublishMode } from '../components/PublishModeSheet';
 
 @Entry
 @Component
@@ -37,8 +37,11 @@ struct DraftBoxPage {
 
   private continueEdit(draft: SavedPostDraft): void {
     publishFlowStore.editSavedDraft(draft.id, draft);
-    emitTabSwitch(2);
-    this.getUIContext().getRouter().back();
+    const mode: PublishMode = (draft.videoUrl !== undefined && draft.videoUrl.length > 0) ? 'video'
+      : (draft.images.length === 0 ? 'text' : 'photo');
+    const url: string = mode === 'video' ? 'pages/VideoPublishPage'
+      : (mode === 'text' ? 'pages/TextPublishPage' : 'pages/PhotoPublishPage');
+    this.getUIContext().getRouter().pushUrl({ url: url });
   }
 
   private remove(draft: SavedPostDraft): void {

@@ -10,7 +10,7 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 
-// 发布器的结构化补充区只呈现字段和回调输入，草稿/预览状态继续由 PublishPage 管理。
+// 发布器的结构化补充区只呈现字段和回调输入，草稿/预览状态继续由各发布页独立管理。
 @Component
 export struct PublishStructuredSupplement {
   @Prop genre: Genre = 'review';

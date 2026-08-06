@@ -3,7 +3,6 @@
 import { HomeTab } from '../components/HomeTab';
 import { CircleTab } from '../components/CircleTab';
 import { CircleOnboarding } from '../components/CircleOnboarding';
-import { PublishPage } from './PublishPage';
 import { MessagePage } from './MessagePage';
 import { ProfilePage } from './ProfilePage';
 import { initAuthStorage, getToken, getUserId, loginWithDevStub, setPrivacyAgreed, isPrivacyAgreed, PRIVACY_POLICY_VERSION } from '../utils/auth';
@@ -273,8 +272,9 @@ struct Index {
 
   private openPublish(mode: PublishMode): void {
     publishFlowStore.startNew(mode);
-    this.currentIndex = 2;
-    AppStorage.setOrCreate<number>('activeTab', 2);
+    const url: string = mode === 'video' ? 'pages/VideoPublishPage'
+      : (mode === 'text' ? 'pages/TextPublishPage' : 'pages/PhotoPublishPage');
+    this.getUIContext().getRouter().pushUrl({ url: url });
   }
 
   private showPublishModeDialog(): void {
@@ -288,8 +288,6 @@ struct Index {
           .visibility(this.currentIndex === 0 ? Visibility.Visible : Visibility.None)
         CircleTab()
           .visibility(this.currentIndex === 1 ? Visibility.Visible : Visibility.None)
-        PublishPage()
-          .visibility(this.currentIndex === 2 ? Visibility.Visible : Visibility.None)
         MessagePage()
           .visibility(this.currentIndex === 3 ? Visibility.Visible : Visibility.None)
         ProfilePage()
