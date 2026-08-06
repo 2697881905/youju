@@ -9,9 +9,17 @@ export struct PublishTopBar {
   @Prop previewDisabled: boolean = false;
   onClear: () => void = (): void => {};
   onPreview: () => void = (): void => {};
+  onBack: () => void = (): void => {};
 
   build() {
     Row({ space: SpaceTokens.sm }) {
+      Text('<')
+        .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamily)
+        .fontWeight(TypeTokens.title.weight)
+        .fontColor(ColorTokens.primary)
+        .lineHeight(TypeTokens.title.lineHeight)
+        .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs, bottom: SpaceTokens.xs })
+        .onClick((): void => { this.onBack(); })
       DesignButton({ label: '清空', variant: 'glass', action: (): void => { this.onClear(); } })
       Column({ space: SpaceTokens.xs }) {
         Text('发布内容')
