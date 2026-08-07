@@ -25,8 +25,11 @@ export default class EntryAbility extends UIAbility {
     AppStorage.setOrCreate('systemReduceMotion', false);
     settings.getValue(this.context, settings.display.ANIMATOR_DURATION_SCALE)
       .then((value: string): void => {
+        // 空字符串（设置项未配置）不能误判为缩放 0：Number('') === 0 会让全局动画被错误冻结。
+        // 仅当明确读到数值且等于 0 时才视为“减动”；其余（含空/NaN/正常缩放）保持默认 false（不冻结）。
         const scale: number = Number(value);
-        AppStorage.setOrCreate('systemReduceMotion', !isNaN(scale) && scale === 0);
+        const reduce: boolean = value !== '' && !isNaN(scale) && scale === 0;
+        AppStorage.setOrCreate('systemReduceMotion', reduce);
       })
       .catch((): void => {});
   }

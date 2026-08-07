@@ -267,6 +267,13 @@ export struct CircleTab {
     return circle === undefined ? 0 : this.normalizedAngle(TOP_ANGLE - this.baseAngle(circle));
   }
 
+  // 返回与 target 同模 360、但最接近 current 的等价角。
+  // setRingAngle 改为单调累积后，current 可能已累积到很大；直接把角度设成 angleToTop 的小值会让
+  // animateTo 走“从大数跳到小数”的最长路径而回甩。用本方法取最近等价角，吸附走最短路径、旋转连续。
+  private nearestEquivalentAngle(current: number, target: number): number {
+    return current + this.normalizedAngle(target - current);
+  }
+
   private angleForRing(ring: number): number {
     if (ring === 0) {
       return this.innerOrbitAngle;
@@ -278,13 +285,14 @@ export struct CircleTab {
   }
 
   private setRingAngle(ring: number, angle: number): void {
-    const normalized: number = this.normalizedAngle(angle);
+    // 运行角度单调累积，不归一化：避免每半圈 normalize 把 rotate 目标跳变 360° 引发回甩 glitch。
+    // 归一化仅在“转到顶端”的吸附目标计算中使用（见 nearestAngleTo / angleToTop）。
     if (ring === 0) {
-      this.innerOrbitAngle = normalized;
+      this.innerOrbitAngle = angle;
     } else if (ring === 1) {
-      this.middleOrbitAngle = normalized;
+      this.middleOrbitAngle = angle;
     } else {
-      this.outerOrbitAngle = normalized;
+      this.outerOrbitAngle = angle;
     }
   }
 
@@ -313,7 +321,7 @@ export struct CircleTab {
     this.stopInertia();
     this.activeRing = circle.ring;
     this.selectedName = circle.name;
-    const targetAngle: number = this.angleToTop(circle.name);
+    const targetAngle: number = this.nearestEquivalentAngle(this.angleForRing(circle.ring), this.angleToTop(circle.name));
     if (this.shouldReduceMotion()) {
       this.setRingAngle(circle.ring, targetAngle);
       return;
@@ -461,13 +469,15 @@ export struct CircleTab {
     return this.radiusForRing(circle.ring);
   }
 
+  // 行星坐标只按静态 baseAngle 计算：公转由 Canvas 行星层整层 rotate 驱动，
+  // 不再逐帧把 ringAngle 折进 x/y（ForEach key 复用不刷新 position，逐帧算坐标会卡死）。
   private planetLeft(circle: CircleTag): number {
-    const angle: number = (this.baseAngle(circle) + this.angleForRing(circle.ring)) * Math.PI / 180;
+    const angle: number = this.baseAngle(circle) * Math.PI / 180;
     return this.galaxySize / 2 + this.radiusFor(circle) * Math.cos(angle) - PLANET_BOX_WIDTH / 2;
   }
 
   private planetTop(circle: CircleTag): number {
-    const angle: number = (this.baseAngle(circle) + this.angleForRing(circle.ring)) * Math.PI / 180;
+    const angle: number = this.baseAngle(circle) * Math.PI / 180;
     // 不以整张标签盒居中，而是以可点击的 Logo 居中，保证图标真正落在环线上。
     return this.galaxySize / 2 + this.radiusFor(circle) * Math.sin(angle) - PLANET_ICON_HIT_SIZE / 2;
   }
@@ -483,6 +493,7 @@ export struct CircleTab {
       followCount: circle.followCount,
       size: circle.size,
       selected: this.isSelected(circle),
+      ring: circle.ring,
       x: this.planetLeft(circle),
       y: this.planetTop(circle),
     }));

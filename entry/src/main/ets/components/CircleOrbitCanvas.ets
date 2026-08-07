@@ -10,6 +10,7 @@ export interface OrbitCircleItem {
   followCount: number;
   size: number;
   selected: boolean;
+  ring: number;
   x: number;
   y: number;
 }
@@ -95,61 +96,33 @@ export struct CircleOrbitCanvas {
     .hitTestBehavior(HitTestMode.Transparent)
   }
 
+  // 行星层与轨道层同角度 rotate，保证 Logo 跟随圆环公转。
+  // 行星坐标只按静态 baseAngle 计算（不随角度逐帧刷新 position，
+  // 规避 ForEach key 复用导致子项 position 不更新的问题）；公转由整层 rotate 驱动。
+  // 各行星通过 counterAngle 抵消层旋转，图标与文字始终正立。
   @Builder
-  private planet(circle: OrbitCircleItem): void {
-    Stack({ alignContent: Alignment.TopStart }) {
-      Stack({ alignContent: Alignment.Center }) {
-        if (circle.selected) {
-          TagIcon({ name: circle.name, iconSize: Math.min(34, circle.size * 0.46 + 6), tint: ColorTokens.brandTint })
-        }
-        TagIcon({ name: circle.name, iconSize: Math.min(28, circle.size * 0.46), tint: ColorTokens.brand })
-      }
-      .width(PLANET_ICON_HIT_SIZE)
-      .height(PLANET_ICON_HIT_SIZE)
-      .position({ x: (PLANET_BOX_WIDTH - PLANET_ICON_HIT_SIZE) / 2, y: 0 })
-      .scale({ x: circle.selected ? 1.12 : 1, y: circle.selected ? 1.12 : 1 })
-      .animation({ duration: this.reduceMotion ? MotionTokens.instant : MotionTokens.base, curve: MotionCurves.standard })
-      .onClick((): void => { this.onPlanet(circle.name); })
-      Column({ space: SpaceTokens.inlineTight }) {
-        Text(circle.name)
-          .width(PLANET_BOX_WIDTH)
-          .fontSize(9).fontFamily(TypeTokens.fontFamily)
-          .fontWeight(TypeTokens.headline.weight)
-          .lineHeight(TypeTokens.overline.lineHeight)
-          .fontColor(circle.selected ? ColorTokens.brand : ColorTokens.primary)
-          .textAlign(TextAlign.Center)
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(String(circle.followCount) + ' 人加入')
-          .width(PLANET_BOX_WIDTH)
-          .fontSize(9).fontFamily(TypeTokens.fontFamily)
-          .fontWeight(TypeTokens.overline.weight)
-          .lineHeight(TypeTokens.overline.lineHeight)
-          .fontFeature(TypeTokens.tabularFeature)
-          .fontColor(ColorTokens.tertiary)
-          .textAlign(TextAlign.Center)
-      }
-      .width(PLANET_BOX_WIDTH)
-      .position({ x: 0, y: PLANET_ICON_HIT_SIZE + SpaceTokens.xs })
-      .hitTestBehavior(HitTestMode.None)
-    }
-    .width(PLANET_BOX_WIDTH)
-    .height(PLANET_BOX_HEIGHT)
-    .hitTestBehavior(HitTestMode.Transparent)
-    .opacity(circle.selected ? 1 : 0.76)
-    .animation({ duration: this.reduceMotion ? MotionTokens.instant : MotionTokens.base, curve: MotionCurves.standard })
-    .position({ x: circle.x, y: circle.y })
-  }
-
-  @Builder
-  private planetLayer(): void {
+  private planetRingLayer(ring: number): void {
     Stack() {
-      ForEach(this.circles, (circle: OrbitCircleItem) => {
-        this.planet(circle)
-      }, (circle: OrbitCircleItem) => circle.name)
+      ForEach(this.circles.filter((circle: OrbitCircleItem): boolean => circle.ring === ring),
+        (circle: OrbitCircleItem) => {
+          OrbitPlanet({
+            name: circle.name,
+            followCount: circle.followCount,
+            size: circle.size,
+            selected: circle.selected,
+            x: circle.x,
+            y: circle.y,
+            counterAngle: -this.angleFor(ring),
+            reduceMotion: this.reduceMotion,
+            onPlanet: (name: string): void => { this.onPlanet(name); },
+          })
+        },
+        (circle: OrbitCircleItem) => circle.name)
     }
     .width('100%')
     .height('100%')
+    .rotate({ angle: this.angleFor(ring) })
+    .animation({ duration: this.reduceMotion || this.ringDragging ? MotionTokens.instant : MotionTokens.fast, curve: MotionCurves.standard })
     .hitTestBehavior(HitTestMode.Transparent)
   }
 
@@ -198,7 +171,9 @@ export struct CircleOrbitCanvas {
       this.ringLayer(0)
       this.ringLayer(1)
       this.ringLayer(2)
-      this.planetLayer()
+      this.planetRingLayer(0)
+      this.planetRingLayer(1)
+      this.planetRingLayer(2)
       this.coreStar()
     }
     .width(this.galaxySize)
@@ -211,5 +186,69 @@ export struct CircleOrbitCanvas {
         .onActionEnd((): void => { this.onPanEnd(); })
         .onActionCancel((): void => { this.onPanEnd(); })
     )
+  }
+}
+
+// 独立行星组件：位置由静态 baseAngle 坐标给定，公转由行星层 rotate 驱动；
+// counterAngle 抵消层旋转保证图标与文字始终正立。
+// 抽成独立 @Component + 标量 @Prop，规避 ForEach key 复用不刷新（含选中态高亮）。
+@Component
+struct OrbitPlanet {
+  @Prop name: string = '';
+  @Prop followCount: number = 0;
+  @Prop size: number = 46;
+  @Prop selected: boolean = false;
+  @Prop x: number = 0;
+  @Prop y: number = 0;
+  @Prop counterAngle: number = 0;
+  @Prop reduceMotion: boolean = false;
+  onPlanet: (name: string) => void = (_name: string): void => {};
+
+  build() {
+    Stack({ alignContent: Alignment.TopStart }) {
+      Stack({ alignContent: Alignment.Center }) {
+        if (this.selected) {
+          TagIcon({ name: this.name, iconSize: Math.min(34, this.size * 0.46 + 6), tint: ColorTokens.brand })
+        }
+        TagIcon({ name: this.name, iconSize: Math.min(28, this.size * 0.46), tint: ColorTokens.brand })
+      }
+      .width(PLANET_ICON_HIT_SIZE)
+      .height(PLANET_ICON_HIT_SIZE)
+      .position({ x: (PLANET_BOX_WIDTH - PLANET_ICON_HIT_SIZE) / 2, y: 0 })
+      .scale({ x: this.selected ? 1.12 : 1, y: this.selected ? 1.12 : 1 })
+      .animation({ duration: this.reduceMotion ? MotionTokens.instant : MotionTokens.base, curve: MotionCurves.standard })
+      .onClick((): void => { this.onPlanet(this.name); })
+      Column({ space: SpaceTokens.inlineTight }) {
+        Text(this.name)
+          .width(PLANET_BOX_WIDTH)
+          .fontSize(9).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.headline.weight)
+          .lineHeight(TypeTokens.overline.lineHeight)
+          .fontColor(this.selected ? ColorTokens.brand : ColorTokens.primary)
+          .textAlign(TextAlign.Center)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Text(String(this.followCount) + ' 人加入')
+          .width(PLANET_BOX_WIDTH)
+          .fontSize(9).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.overline.weight)
+          .lineHeight(TypeTokens.overline.lineHeight)
+          .fontFeature(TypeTokens.tabularFeature)
+          .fontColor(ColorTokens.tertiary)
+          .textAlign(TextAlign.Center)
+      }
+      .width(PLANET_BOX_WIDTH)
+      .position({ x: 0, y: PLANET_ICON_HIT_SIZE + SpaceTokens.xs })
+      .hitTestBehavior(HitTestMode.None)
+    }
+    .width(PLANET_BOX_WIDTH)
+    .height(PLANET_BOX_HEIGHT)
+    // 抵消整层公转角度（与轨道层同 duration，避免相位滞后造成倾斜抖动）。
+    .rotate({ angle: this.counterAngle })
+    .animation({ duration: this.reduceMotion ? MotionTokens.instant : MotionTokens.fast, curve: MotionCurves.standard })
+    .hitTestBehavior(HitTestMode.Transparent)
+    .opacity(this.selected ? 1 : 0.76)
+    .animation({ duration: this.reduceMotion ? MotionTokens.instant : MotionTokens.base, curve: MotionCurves.standard })
+    .position({ x: this.x, y: this.y })
   }
 }
