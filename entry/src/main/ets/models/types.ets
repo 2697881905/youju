@@ -1,5 +1,5 @@
 // 前端数据模型（字段可选，适配后端响应可能缺省）
-export type Genre = 'review' | 'pitfall' | 'tutorial' | 'debate';
+export type Genre = 'review' | 'pitfall' | 'tutorial' | 'debate' | 'share';
 
 export interface User {
   id?: number;

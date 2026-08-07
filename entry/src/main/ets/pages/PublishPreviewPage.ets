@@ -26,6 +26,7 @@ function genreLabel(genre: Genre): string {
     case 'pitfall': return '避坑';
     case 'tutorial': return '教程';
     case 'debate': return '辩论';
+    case 'share': return '分享';
     default: return '测评';
   }
 }

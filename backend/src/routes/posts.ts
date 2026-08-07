@@ -81,7 +81,7 @@ router.post('/', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   if (content !== undefined && content !== null && typeof content !== 'string') {
     return fail(res, CODE.BAD_REQUEST, '正文格式无效');
   }
-  if (!['review', 'pitfall', 'tutorial', 'debate'].includes(genre)) {
+  if (!['review', 'pitfall', 'tutorial', 'debate', 'share'].includes(genre)) {
     return fail(res, CODE.BAD_REQUEST, '体裁参数无效');
   }
   if (tags !== undefined && (!Array.isArray(tags) || tags.length > 3 || tags.some((tag: unknown) => typeof tag !== 'string'))) {

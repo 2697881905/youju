@@ -12,6 +12,8 @@ export function genreStructuredFields(genre: Genre): StructuredFieldDef[] {
       return [['tools', '准备工具'], ['steps', '步骤拆解'], ['timeDifficulty', '耗时/难度']];
     case 'debate':
       return [['planA', '方案A'], ['planB', '方案B']];
+    case 'share':
+      return [];
     default:
       return [];
   }

@@ -19,13 +19,13 @@ import { ReportDialog } from '../components/ReportDialog';
 import { openUserProfile, takePostDetailId } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 import { getUserId, getToken } from '../utils/auth';
-import { resolveActionIcon } from '../utils/actionIcons';
 import { likeStore } from '../utils/likeStore';
 import { ShareSheet } from '../components/ShareSheet';
 import { buildPostShareUrl, copyToClipboard } from '../utils/share';
 import { window } from '@kit.ArkUI';
 import { DetailToolbar } from '../components/DetailToolbar';
 import { DetailMediaCarousel } from '../components/DetailMediaCarousel';
+import { ImageViewer } from '../components/ImageViewer';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { DetailPostHeader } from '../components/DetailPostHeader';
 import { DetailPostContent, DetailField } from '../components/DetailPostContent';
@@ -99,6 +99,8 @@ function genreMeta(genre?: Genre): GenreMeta {
       return { label: '实操教程', iconRes: $r('app.media.genre_tutorial') };
     case 'debate':
       return { label: '辩论投票', iconRes: $r('app.media.genre_debate') };
+    case 'share':
+      return { label: '经验分享', iconRes: $r('app.media.genre_share') };
     default:
       return { label: '经验分享', iconRes: $r('app.media.genre_share') };
   }
@@ -114,6 +116,8 @@ function structuredFieldDefs(genre?: Genre): FieldDef[] {
       return [['tools', '准备工具'], ['steps', '步骤拆解'], ['timeDifficulty', '耗时/难度']];
     case 'debate':
       return [['planA', '方案A'], ['planB', '方案B']];
+    case 'share':
+      return [];
     default:
       return [];
   }
@@ -590,35 +594,12 @@ struct DetailPage {
 
   build() {
     Column() {
-      // 全屏图片查看器
+      // 全屏图片查看器：支持双击/双指缩放、拖动平移、单击或按钮关闭
       if (this.viewingImage.length > 0) {
-        Stack() {
-          // 黑色背景铺底，承载点击关闭（点任意空白处退出）
-          Column()
-            .width('100%')
-            .height('100%')
-            .backgroundColor('#000000')
-            .onClick(() => { this.viewingImage = ''; });
-
-          // 图片本体也绑定关闭：Image 铺满全屏会拦截 tap，
-          // 若只绑在背景层上，点图片区域无法触发关闭（历史 Bug）
-          Image(this.viewingImage)
-            .objectFit(ImageFit.Contain)
-            .width('100%')
-            .height('100%')
-            .onClick(() => { this.viewingImage = ''; });
-
-          // 右上角关闭按钮，提升可发现性
-          Image(resolveActionIcon('close'))
-            .width(24)
-            .height(24)
-            .fillColor(Color.White)
-            .position({ top: 16, right: 16 })
-            .onClick(() => { this.viewingImage = ''; });
-        }
-        .width('100%')
-        .height('100%')
-        .zIndex(999);
+        ImageViewer({
+          url: this.viewingImage,
+          onClose: (): void => { this.viewingImage = ''; },
+        })
       }
 
       DetailToolbar({
