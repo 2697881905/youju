@@ -34,10 +34,10 @@ class SensitiveWordService {
         const content = fs.readFileSync(absPath, 'utf-8');
         const lines = content.split('\n');
         for (const line of lines) {
-          const word = line.trim().toLowerCase();
-          if (word.length > 0) {
-            wordSet.add(word);
-          }
+          const raw = line.trim();
+          // 跳过空行与 # 注释行，使词库文件可带说明注释
+          if (raw.length === 0 || raw.startsWith('#')) continue;
+          wordSet.add(raw.toLowerCase());
         }
       } catch (e) {
         console.warn(`[SensitiveWordService] 词库文件加载失败: ${fp}，降级为空词库`);

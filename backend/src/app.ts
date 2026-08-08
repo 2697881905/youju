@@ -30,9 +30,10 @@ import { globalLimiter, loginLimiter, uploadLimiter } from './middleware/rateLim
 export const app = express();
 
 // 信任前置代理（bbb-nginx 在 443 终止 TLS 并加 X-Forwarded-For）。
-// 不开启会导致 express-rate-limit 在带 XFF 的请求上抛
-// ERR_ERL_UNEXPECTED_X_FORWARDED_FOR，刷屏日志且限流按错误 IP 统计。
-app.set('trust proxy', true);
+// 设为 1：仅信任紧邻的一层反向代理，使 req.ip 取到真实客户端 IP。
+// 若设为 true（信任所有代理），express-rate-limit 会报 ERR_ERL_PERMISSIVE_TRUST_PROXY
+// 且限流 IP 可被 X-Forwarded-For 伪造绕过；设为 1 可消除该告警并让限流按真实 IP 生效。
+app.set('trust proxy', 1);
 
 // 本地文件上传目录（无真实对象存储的开发期兜底）：启动时确保存在
 try {
