@@ -30,8 +30,8 @@ const DRAFT_PROGRESS_TOTAL: number = 3;
 @Entry
 @Component
 struct VideoPublishPage {
-  @State genre: Genre = 'review';
-  @State genreIndex: number = 0;
+  @State genre: Genre = 'share';
+  @State genreIndex: number = 4; // share 位于 PUBLISH_GENRES 下标 4
   @State selectedTags: string[] = [];
   @State title: string = '';
   @State content: string = '';
@@ -215,8 +215,8 @@ struct VideoPublishPage {
   }
 
   private reset(): void {
-    this.genre = 'review';
-    this.genreIndex = 0;
+    this.genre = 'share';
+    this.genreIndex = 4; // share 位于 PUBLISH_GENRES 下标 4
     this.selectedTags = [];
     this.title = '';
     this.content = '';

@@ -81,7 +81,7 @@ struct PublishPreviewPage {
 
   private currentDraft(): PublishDraft {
     return this.draft ?? {
-      title: '', content: '', genre: 'review', tags: [], structuredData: {}, images: [], videoUrl: '', videoCover: '',
+      title: '', content: '', genre: 'share', tags: [], structuredData: {}, images: [], videoUrl: '', videoCover: '',
     };
   }
 

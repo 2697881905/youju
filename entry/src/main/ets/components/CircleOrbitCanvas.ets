@@ -108,7 +108,7 @@ export struct CircleOrbitCanvas {
           OrbitPlanet({
             name: circle.name,
             followCount: circle.followCount,
-            size: circle.size,
+            planetSize: circle.size,
             selected: circle.selected,
             x: circle.x,
             y: circle.y,
@@ -196,7 +196,7 @@ export struct CircleOrbitCanvas {
 struct OrbitPlanet {
   @Prop name: string = '';
   @Prop followCount: number = 0;
-  @Prop size: number = 46;
+  @Prop planetSize: number = 46;
   @Prop selected: boolean = false;
   @Prop x: number = 0;
   @Prop y: number = 0;
@@ -208,9 +208,9 @@ struct OrbitPlanet {
     Stack({ alignContent: Alignment.TopStart }) {
       Stack({ alignContent: Alignment.Center }) {
         if (this.selected) {
-          TagIcon({ name: this.name, iconSize: Math.min(34, this.size * 0.46 + 6), tint: ColorTokens.brand })
+          TagIcon({ name: this.name, iconSize: Math.min(34, this.planetSize * 0.46 + 6), tint: ColorTokens.brand })
         }
-        TagIcon({ name: this.name, iconSize: Math.min(28, this.size * 0.46), tint: ColorTokens.brand })
+        TagIcon({ name: this.name, iconSize: Math.min(28, this.planetSize * 0.46), tint: ColorTokens.brand })
       }
       .width(PLANET_ICON_HIT_SIZE)
       .height(PLANET_ICON_HIT_SIZE)

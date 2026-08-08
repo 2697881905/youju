@@ -60,52 +60,55 @@ export struct PublishStructuredSupplement {
   }
 
   build() {
-    Column({ space: SpaceTokens.sm }) {
-      Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
-      Pressable({
-        fillWidth: true,
-        visualHeight: LayoutTokens.minTouchTarget,
-        action: (): void => { this.expanded = !this.expanded; },
-      }) {
-        Row({ space: SpaceTokens.sm }) {
-          IconTile({ icon: $r('app.media.set_edit'), tileSize: 36, iconSize: IconTokens.compact, showBackground: false })
-          Column({ space: SpaceTokens.inlineTight }) {
-            Text('结构化补充')
-              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-              .fontWeight(TypeTokens.headline.weight)
-              .lineHeight(TypeTokens.callout.lineHeight)
-              .letterSpacing(TypeTokens.callout.tracking)
-              .fontColor(ColorTokens.primary)
-            Text(this.hint)
-              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-              .fontWeight(TypeTokens.caption.weight)
-              .lineHeight(TypeTokens.caption.lineHeight)
-              .letterSpacing(TypeTokens.caption.tracking)
-              .fontColor(ColorTokens.secondary)
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
+    // 无结构化字段的体裁（如分享）不渲染整个补充区，避免出现空标题栏。
+    if (genreStructuredFields(this.genre).length > 0) {
+      Column({ space: SpaceTokens.sm }) {
+        Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
+        Pressable({
+          fillWidth: true,
+          visualHeight: LayoutTokens.minTouchTarget,
+          action: (): void => { this.expanded = !this.expanded; },
+        }) {
+          Row({ space: SpaceTokens.sm }) {
+            IconTile({ icon: $r('app.media.set_edit'), tileSize: 36, iconSize: IconTokens.compact, showBackground: false })
+            Column({ space: SpaceTokens.inlineTight }) {
+              Text('结构化补充')
+                .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+                .fontWeight(TypeTokens.headline.weight)
+                .lineHeight(TypeTokens.callout.lineHeight)
+                .letterSpacing(TypeTokens.callout.tracking)
+                .fontColor(ColorTokens.primary)
+              Text(this.hint)
+                .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+                .fontWeight(TypeTokens.caption.weight)
+                .lineHeight(TypeTokens.caption.lineHeight)
+                .letterSpacing(TypeTokens.caption.tracking)
+                .fontColor(ColorTokens.secondary)
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+            }
+            .layoutWeight(1)
+            .alignItems(HorizontalAlign.Start)
+            Image(this.expanded ? resolveActionIcon('chevronUp') : resolveActionIcon('chevronDown'))
+              .width(IconTokens.compact)
+              .height(IconTokens.compact)
+              .fillColor(ColorTokens.brand)
           }
-          .layoutWeight(1)
-          .alignItems(HorizontalAlign.Start)
-          Image(this.expanded ? resolveActionIcon('chevronUp') : resolveActionIcon('chevronDown'))
-            .width(IconTokens.compact)
-            .height(IconTokens.compact)
-            .fillColor(ColorTokens.brand)
+          .width('100%')
+          .alignItems(VerticalAlign.Center)
         }
-        .width('100%')
-        .alignItems(VerticalAlign.Center)
-      }
-      Collapse({ expanded: this.expanded }) {
-        Column({ space: SpaceTokens.sm }) {
-          Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
-          ForEach(genreStructuredFields(this.genre), (item: StructuredFieldDef) => {
-            this.fieldInput(item)
-          }, (item: StructuredFieldDef) => item[0] as string)
+        Collapse({ expanded: this.expanded }) {
+          Column({ space: SpaceTokens.sm }) {
+            Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
+            ForEach(genreStructuredFields(this.genre), (item: StructuredFieldDef) => {
+              this.fieldInput(item)
+            }, (item: StructuredFieldDef) => item[0] as string)
+          }
+          .width('100%')
         }
-        .width('100%')
       }
+      .width('100%')
+      .alignItems(HorizontalAlign.Start)
     }
-    .width('100%')
-    .alignItems(HorizontalAlign.Start)
   }
 }

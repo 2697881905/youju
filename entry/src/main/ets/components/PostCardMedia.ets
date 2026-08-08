@@ -5,6 +5,8 @@ import { LayoutTokens } from '../design/tokens/space';
 
 // 信息流媒体只负责稳定的 3:4 展示；草稿和发布预览有各自的专用内容模型，不复用此组件。
 // 视频：信息流仅展示封面 + 播放角标（点击进详情播放，非自动播放）。
+// 图片：统一 3:4 Cover 裁切（长图不再失调）；图片本身不绑定点击，
+// 点击事件冒泡到卡片 Pressable 进入帖子详情，查看器仅在详情页内打开。
 @Component
 export struct PostCardMedia {
   @Prop imageUrl: string = '';
@@ -41,7 +43,8 @@ export struct PostCardMedia {
       Image(resolveDisplayImageUrl(this.imageUrl))
         .width('100%')
         .aspectRatio(LayoutTokens.cardMediaAspectRatio)
-        .objectFit(ImageFit.Contain)
+        // Cover 裁切填满 3:4 容器，长图不再缩小失调；完整内容在详情页查看器中查看。
+        .objectFit(ImageFit.Cover)
         .backgroundColor(ColorTokens.sunken)
         .borderRadius({ topLeft: this.compact ? RadiusTokens.xs : RadiusTokens.lg, topRight: this.compact ? RadiusTokens.xs : RadiusTokens.lg, bottomLeft: 0, bottomRight: 0 })
         .clip(true)

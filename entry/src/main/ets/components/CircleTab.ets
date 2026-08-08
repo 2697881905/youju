@@ -101,6 +101,9 @@ export struct CircleTab {
   @State middleOrbitAngle: number = 0;
   @State outerOrbitAngle: number = 0;
   @State galaxySize: number = 343;
+  // Scroll 视口实际高度（onAreaChange 测量）。Scroll 子组件百分比高度不按视口解析，
+  // Blank 弹性推底必须用显式数值 minHeight，否则卡片无法贴底。
+  @State scrollViewportHeight: number = 0;
   @State ringDragging: boolean = false;
   @StorageLink('reduceMotion') appReduceMotion: boolean = false;
   @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
@@ -599,22 +602,6 @@ export struct CircleTab {
     }, (circle: CircleTag) => circle.name)
   }
 
-  @Builder
-  ringContent(): void {
-    Column({ space: SpaceTokens.md }) {
-      Row() {
-        Blank()
-        this.galaxy()
-        Blank()
-      }
-      .width('100%')
-      .justifyContent(FlexAlign.Center)
-      this.detailCard()
-    }
-    .width('100%')
-    .alignItems(HorizontalAlign.Start)
-  }
-
   build() {
     Column() {
       this.topBar()
@@ -646,11 +633,36 @@ export struct CircleTab {
         Scroll() {
           // Scroll 只承载一个全宽子容器；否则 ArkUI 会按行星的固有宽度收缩视口，
           // 导致 onAreaChange 取到错误的宽度，三个环随之挤成一团。
-          Column({ space: SpaceTokens.none }) {
-            this.ringContent()
-            Row().height(SpaceTokens.xl + barBottomReserve()).width('100%')
+          // 星环固定在顶部（首项，位置与初始布局一致）；Blank 弹性把详情卡片
+          // 推到视口底部贴近 Tab 栏。内容超高（小屏/字体放大）时 Blank 收缩至
+          // x2l 保底间距，恢复正常滚动。
+          Column() {
+            // 星环居中区：占满“视口 - 卡片 - 底部占位”的剩余高度，
+            // 星环在其中垂直居中；卡片固定在底部占位上方，贴近底部栏。
+            Column() {
+              Row() {
+                Blank()
+                this.galaxy()
+                Blank()
+              }
+              .width('100%')
+              .justifyContent(FlexAlign.Center)
+            }
+            .width('100%')
+            .layoutWeight(1)
+            // 小屏保护：居中区至少放下星环高度 + 32vp 间距，避免与卡片重叠；
+            // 内容超高时外层 Column 按内容扩展，恢复正常滚动。
+            .constraintSize({ minHeight: this.galaxySize + SpaceTokens.x2l })
+            .justifyContent(FlexAlign.Center)
+            this.detailCard()
+            // 底部占位仅保留 Tab 栏+安全区高度，卡片在其上方即可贴近底部栏。
+            Row().height(barBottomReserve()).width('100%')
           }
           .width('100%')
+          // 用显式数值 minHeight（onAreaChange 实测的视口高度）撑满视口，
+          // 让 Blank 有剩余空间把详情卡片推到贴底；内容超高时 minHeight 被
+          // 内容高度撑破，恢复正常滚动。星环保持顶部原位，不额外下移。
+          .constraintSize({ minHeight: this.scrollViewportHeight })
           .alignItems(HorizontalAlign.Start)
         }
         .layoutWeight(1)
@@ -667,6 +679,9 @@ export struct CircleTab {
             // 不再强制 360vp 下限：375vp 手机扣除页边距后不足 360，旧逻辑会横向溢出。
             this.galaxySize = Math.max(300, Math.min(availableWidth, 420));
           }
+          // 记录视口高度，供内容 Column 的 minHeight 使用（弹性推底依赖显式数值）。
+          const rawHeight: number = area.height as number;
+          this.scrollViewportHeight = rawHeight > 1200 ? px2vp(rawHeight) : rawHeight;
         })
       }
     }
