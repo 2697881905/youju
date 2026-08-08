@@ -46,9 +46,9 @@ model Post {
   user           User     @relation(fields: [userId], references: [id])
   title          String   @db.VarChar(100)
   content        String?  @db.Text
-  coverImage     String?  @db.VarChar(255)
-  videoUrl       String?  @db.VarChar(512) // 视频地址（轻量单视频方案，最多一段）
-  videoCover     String?  @db.VarChar(255) // 视频封面（首帧抓取上传，复用 posts 目录）
+  coverImage     String?  @db.Text // COS 预签名 URL 较长，用 Text 避免超长
+  videoUrl       String?  @db.Text // 视频地址（轻量单视频方案，最多一段）
+  videoCover     String?  @db.Text // 视频封面（首帧抓取上传，复用 posts 目录）
   images         Json? // 图片URL列表，最多9张
   genre          String   @db.VarChar(20) // review | pitfall | tutorial | debate
   tags           Json // 标签列表，1~3个
