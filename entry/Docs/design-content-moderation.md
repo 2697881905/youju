@@ -1,6 +1,6 @@
 # 系统设计：内容审核 & 举报系统
 
-> 项目：大蓝书 HarmonyOS NEXT 应用（男性生活经验社区）
+> 项目：大蓝书 HarmonyOS NEXT 应用（面向大众的理性内容分享社区）
 > 版本：v1.0
 > 日期：2025-07
 > 关联文档：[PRD](./prd-content-moderation.md)
