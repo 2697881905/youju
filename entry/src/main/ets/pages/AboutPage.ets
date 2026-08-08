@@ -54,7 +54,7 @@ export struct AboutPage {
               .alignSelf(ItemAlign.Start)
               .padding({ left: 4, bottom: 8 });
             Column() {
-              Text('大蓝书是一个男性生活经验分享社区。在这里，你可以分享购物测评、避坑指南、实用教程和生活心得，与志同道合的朋友互相学习、共同成长。')
+              Text('大蓝书是一个面向大众的理性内容分享社区。在这里，你可以分享购物测评、避坑指南、实用教程和生活心得，与志同道合的朋友互相学习、共同成长。')
                 .fontSize(15).fontFamily($r('app.string.font_family'))
                 .fontColor($r('app.color.text_primary'))
                 .lineHeight(24)
