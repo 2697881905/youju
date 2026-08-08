@@ -1,4 +1,5 @@
 import { Router, Response } from 'express';
+import fs from 'fs';
 import { ok, fail, CODE } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
 import { prisma } from '../prisma';
@@ -40,7 +41,12 @@ router.post('/huawei/exchange', asyncHandler(async (req: AuthRequest, res: Respo
     return ok(res, result);
   } catch (e) {
     // 记录真实错误到后端日志，便于定位（secret 缺失 / AGC OAuth 客户端未配 / redirect_uri 不匹配 / 网络等）
-    console.error('[huawei exchange] 华为登录后端换 token 失败:', e instanceof Error ? e.message : e);
+    const realMsg: string = e instanceof Error ? e.message : String(e);
+    console.error('[huawei exchange] 华为登录后端换 token 失败:', realMsg);
+    // 容器 docker logs 仅保留少量行易被淹没，额外落盘便于排查
+    try {
+      fs.appendFileSync('/tmp/huawei_exchange_err.log', new Date().toISOString() + ' ' + realMsg + '\n');
+    } catch (_) { /* ignore */ }
     return fail(res, CODE.HUAWEI_AUTH_FAILED, '华为登录失败，请稍后重试或切换其他登录方式', 200);
   }
 }));

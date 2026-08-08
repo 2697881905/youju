@@ -29,6 +29,11 @@ import { globalLimiter, loginLimiter, uploadLimiter } from './middleware/rateLim
 
 export const app = express();
 
+// 信任前置代理（bbb-nginx 在 443 终止 TLS 并加 X-Forwarded-For）。
+// 不开启会导致 express-rate-limit 在带 XFF 的请求上抛
+// ERR_ERL_UNEXPECTED_X_FORWARDED_FOR，刷屏日志且限流按错误 IP 统计。
+app.set('trust proxy', true);
+
 // 本地文件上传目录（无真实对象存储的开发期兜底）：启动时确保存在
 try {
   fs.mkdirSync(env.uploadsDir, { recursive: true });
