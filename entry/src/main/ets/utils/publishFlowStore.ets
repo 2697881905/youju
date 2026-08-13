@@ -1,10 +1,13 @@
-import { PublishDraft, clonePublishDraft } from './publishDraft';
+import { PublishDraft, PublishDraftMode, clonePublishDraft } from './publishDraft';
 
-export type PublishMode = 'photo' | 'text' | 'video';
+export type PublishMode = PublishDraftMode;
 export type PublishIntent = 'idle' | 'new' | 'edit' | 'sync' | 'reset';
 
-// 互斥规则：video 优先，其次 photo（有图），否则 text（文字海报）
+// New drafts retain their entry type. Existing drafts without it use the old fallback.
 function modeOfDraft(draft: PublishDraft): PublishMode {
+  if (draft.mode === 'photo' || draft.mode === 'text' || draft.mode === 'video') {
+    return draft.mode;
+  }
   if (typeof draft.videoUrl === 'string' && draft.videoUrl.length > 0) {
     return 'video';
   }

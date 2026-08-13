@@ -1,6 +1,6 @@
 import { http } from '@kit.NetworkKit';
 import { BUILD_MODE_NAME } from 'BuildProfile';
-import { Post, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody, PendingPost, ModerateAction, NotificationPrefs, BlockUser, PrivacySettingsData, UserExportData, DebateVoteResult, Conversation, DmMessage } from '../models/types';
+import { Post, DailyPost, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody, PendingPost, ModerateAction, NotificationPrefs, BlockUser, PrivacySettingsData, UserExportData, DebateVoteResult, Conversation, DmMessage } from '../models/types';
 
 // 后端地址：根据构建模式切换
 // - debug（模拟器/本地开发）：http://127.0.0.1:3000（配合 hdc rport tcp:3000 tcp:3000）
@@ -108,6 +108,11 @@ export interface ListResult<T> {
   pagination: Pagination;
 }
 
+export interface DailyPostListResult extends ListResult<DailyPost> {
+  dateKey: string;
+  interestTags: string[];
+}
+
 // 详情接口返回的帖子自带 comments（后端 getPost include comments）
 export interface PostWithComments extends Post {
   comments?: Comment[];
@@ -130,6 +135,7 @@ export interface SearchPostsParams {
 
 export interface CreatePostBody {
   title: string;
+  publishMode?: 'photo' | 'text' | 'video';
   content?: string;
   coverImage?: string;
   videoUrl?: string;
@@ -230,6 +236,12 @@ export function listFollowingPosts(params: ListPostsParams = {}): Promise<ListRe
     ['tag', params.tag],
   ]);
   return api.get<ListResult<Post>>(path);
+}
+
+// GET /v1/posts/daily?page=&limit=（软鉴权：登录用户按关注标签推荐，访客按热门标签兜底）
+export function listDailyPosts(page: number = 1, limit: number = 10): Promise<DailyPostListResult> {
+  const path = '/v1/posts/daily' + toQuery([['page', page], ['limit', limit]]);
+  return api.get<DailyPostListResult>(path);
 }
 
 // GET /v1/posts?keyword=&page=&limit=&sort=  （复用 /v1/posts 端点，keyword 选填）

@@ -1,4 +1,4 @@
-// 大蓝书 数据模型（MySQL + Prisma）
+// 有据 数据模型（MySQL + Prisma）
 // 生成客户端：npx prisma generate
 // 建表迁移：npx prisma migrate dev --name init
 

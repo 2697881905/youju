@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <clipPath id="orb"><circle cx="512" cy="512" r="236"/></clipPath>
+  </defs>
+  <rect width="1024" height="1024" rx="192" fill="#FFFFFF"/>
+  <path d="M382 318h-60c-33 0-60 27-60 60v116" fill="none" stroke="#151B2B" stroke-width="52" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M642 706h60c33 0 60-27 60-60V530" fill="none" stroke="#151B2B" stroke-width="52" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="512" cy="512" r="236" fill="#146BFF"/>
+  <g clip-path="url(#orb)">
+    <rect x="286" y="304" width="72" height="72" rx="10" fill="#71A4FF"/>
+    <rect x="370" y="286" width="50" height="50" rx="8" fill="#4A8BFF"/>
+    <rect x="616" y="302" width="86" height="86" rx="12" fill="#0E58D8"/>
+    <rect x="692" y="400" width="64" height="64" rx="10" fill="#5A94FF"/>
+    <rect x="270" y="470" width="98" height="98" rx="14" fill="#0E58D8"/>
+    <rect x="326" y="588" width="54" height="54" rx="9" fill="#6FA3FF"/>
+    <rect x="624" y="614" width="92" height="92" rx="14" fill="#0E58D8"/>
+    <rect x="552" y="724" width="52" height="52" rx="9" fill="#6FA3FF"/>
+    <rect x="430" y="722" width="40" height="40" rx="7" fill="#4A8BFF"/>
+  </g>
+  <path d="M390 518 474 602 644 422" fill="none" stroke="#FFFFFF" stroke-width="56" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

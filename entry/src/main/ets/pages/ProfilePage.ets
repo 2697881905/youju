@@ -80,7 +80,7 @@ export struct ProfilePage {
     builder: ProfileShareSheet({
       getProfile: () => ({
         avatar: this.user.avatar ?? '',
-        nickname: this.user.nickname ?? '大蓝书用户',
+        nickname: this.user.nickname ?? '有据用户',
         bio: this.user.bio ?? '',
         followingCount: this.followingCount,
         followerCount: this.followerCount,

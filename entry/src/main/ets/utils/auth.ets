@@ -173,7 +173,7 @@ export function loginByHuaweiResult(result: LoginResult): void {
 
 // ===== Token 硬件加密持久化（F-004，替代明文 Preferences）=====
 // JWT 为 ASCII 文本，用 charCode 做 Uint8Array 互转即可，避免引入额外编码依赖。
-const TOKEN_ALIAS: string = 'bigbluebook_auth_token';
+const TOKEN_ALIAS: string = 'youju_auth_token';
 
 function tokenToBytes(s: string): Uint8Array {
   const arr: Uint8Array = new Uint8Array(s.length);

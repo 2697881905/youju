@@ -1,4 +1,4 @@
-// 文字发布页 — 独立 @Entry 页面，仅处理文字发布，不耦合图文/视频发布逻辑。
+// 长文发布页 — 独立 @Entry 页面，仅处理长文发布，不耦合图文/视频发布逻辑。
 // 媒体区渲染文字海报样式选择器，无图片/视频入口，无 mediaTypeSelector 切换行。
 import { LengthMetrics, router } from '@kit.ArkUI';
 import { listTags } from '../services/api';
@@ -25,6 +25,7 @@ import { PublishTopBar } from '../components/PublishTopBar';
 import { TEXT_POSTER_STYLES, TextPosterStyleOption } from '../utils/textPoster';
 
 const MAX_SELECTED_TAGS: number = 3;
+const MAX_LONG_FORM_CONTENT_LENGTH: number = 5000;
 const DRAFT_PROGRESS_TOTAL: number = 3;
 
 @Entry
@@ -150,6 +151,10 @@ struct TextPublishPage {
       safeShowToast(this.getUIContext(), { message: '请填写标题' });
       return;
     }
+    if (this.content.length > MAX_LONG_FORM_CONTENT_LENGTH) {
+      safeShowToast(this.getUIContext(), { message: '长文最多 ' + MAX_LONG_FORM_CONTENT_LENGTH + ' 字' });
+      return;
+    }
     const draft: PublishDraft = this.currentPublishDraft();
     publishFlowStore.beginPreview(draft, this.editingSavedDraftId);
     this.getUIContext().getRouter().pushUrl({ url: 'pages/PublishPreviewPage' });
@@ -157,6 +162,7 @@ struct TextPublishPage {
 
   private currentPublishDraft(): PublishDraft {
     return {
+      mode: 'text',
       title: this.title.trim(),
       content: this.content,
       genre: this.genre,
@@ -316,7 +322,7 @@ struct TextPublishPage {
           .backgroundColor(Color.Transparent)
           .onChange((value: string) => { this.title = value; })
         Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
-        TextArea({ text: this.content, placeholder: '展开讲讲背景、过程、结论。尽量给出你踩过的坑、判断标准和适用人群。' })
+        TextArea({ text: this.content, placeholder: '展开写下完整的背景、过程和结论。' })
           .width('100%')
           .height(104)
           .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
@@ -326,7 +332,13 @@ struct TextPublishPage {
           .fontColor(ColorTokens.primary)
           .placeholderColor(ColorTokens.quaternary)
           .backgroundColor(Color.Transparent)
+          .maxLength(MAX_LONG_FORM_CONTENT_LENGTH)
           .onChange((value: string) => { this.content = value; })
+        Text(this.content.length + '/' + MAX_LONG_FORM_CONTENT_LENGTH)
+          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+          .fontColor(ColorTokens.secondary)
+          .width('100%')
+          .textAlign(TextAlign.End)
         Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator).margin({ top: SpaceTokens.sm })
         this.textPosterStyleSelector()
         PublishStructuredSupplement({

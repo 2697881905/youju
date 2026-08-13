@@ -26,6 +26,7 @@ function isValidDraft(value: Object): boolean {
   return typeof draft.id === 'string' && typeof draft.ownerId === 'string' &&
     typeof draft.createdAt === 'number' && typeof draft.updatedAt === 'number' &&
     typeof draft.title === 'string' && typeof draft.content === 'string' &&
+    (draft.mode === undefined || draft.mode === 'photo' || draft.mode === 'text' || draft.mode === 'video') &&
     Array.isArray(draft.tags) && draft.tags.every((tag: string): boolean => typeof tag === 'string') &&
     Array.isArray(draft.images) && draft.images.every((image: string): boolean => typeof image === 'string') &&
     (draft.videoUrl === undefined || typeof draft.videoUrl === 'string') &&
@@ -108,6 +109,7 @@ export function savePostDraft(ownerId: number, draft: PublishDraft, existingId?:
     ownerId: owner,
     createdAt: previous?.createdAt ?? now,
     updatedAt: now,
+    mode: draft.mode,
     title: draft.title,
     content: draft.content,
     genre: draft.genre,

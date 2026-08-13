@@ -5,6 +5,7 @@ import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
 import { SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
+import { debateVoteStore } from '../utils/debateVoteStore';
 
 // 详情正文只负责体裁内容的展示；投票的请求和回滚仍由 DetailPage 持有。
 export type DetailField = [string, string];
@@ -16,10 +17,37 @@ export struct DetailPostContent {
   @Prop content: string = '';
   @Prop planA: string = '';
   @Prop planB: string = '';
-  @Prop planAVotes: number = 0;
-  @Prop planBVotes: number = 0;
-  @Prop myVote: string = '';
+  @Prop votePostId: number = 0;
   onVote: (choice: string) => void = (_choice: string): void => {};
+  @State planAVotes: number = 0;
+  @State planBVotes: number = 0;
+  @State myVote: string = '';
+  private unsubscribeVote: () => void = () => {};
+
+  aboutToAppear(): void {
+    this.refreshVoteState();
+    this.unsubscribeVote = debateVoteStore.subscribe((postId: number): void => {
+      if (postId === this.votePostId) {
+        this.refreshVoteState();
+      }
+    });
+  }
+
+  aboutToDisappear(): void {
+    this.unsubscribeVote();
+    this.unsubscribeVote = () => {};
+  }
+
+  private refreshVoteState(): void {
+    const vote = debateVoteStore.get(this.votePostId);
+    if (!vote) {
+      return;
+    }
+    // 给本组件的原始 @State 赋值，确保 ArkUI 重新计算票数文本和进度宽度。
+    this.planAVotes = vote.planAVotes;
+    this.planBVotes = vote.planBVotes;
+    this.myVote = vote.choice;
+  }
 
   private totalVotes(): number {
     return this.planAVotes + this.planBVotes;
@@ -30,16 +58,23 @@ export struct DetailPostContent {
     return total > 0 ? (votes / total) * 100 + '%' : '0%';
   }
 
+  private voteCount(choice: string): number {
+    return choice === 'A' ? this.planAVotes : this.planBVotes;
+  }
+
   @Builder
-  private voteRow(label: string, choice: string, votes: number): void {
+  private voteRow(planName: string, fallbackLabel: string, choice: string): void {
     Row() {
-      Text(label)
-        .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-        .fontColor(ColorTokens.secondary)
-        .width(56);
+      Text(planName.length > 0 ? planName : fallbackLabel)
+        .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+        .fontColor(ColorTokens.primary)
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .layoutWeight(1)
+        .margin({ right: SpaceTokens.sm });
       Row() {
         Column()
-          .width(this.voteWidth(votes))
+          .width(this.voteWidth(this.voteCount(choice)))
           .height(6)
           .borderRadius(3)
           .backgroundColor(ColorTokens.brand);
@@ -49,10 +84,10 @@ export struct DetailPostContent {
           .borderRadius(3)
           .backgroundColor(ColorTokens.sunken);
       }
-      .width('100%')
+      .width(72)
       .height(6)
-      .layoutWeight(1);
-      Text(formatCount(votes) + '票')
+      .margin({ right: SpaceTokens.sm });
+      Text(formatCount(this.voteCount(choice)) + '票')
         .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
         .fontColor(ColorTokens.secondary)
         .margin({ left: SpaceTokens.sm });
@@ -75,24 +110,10 @@ export struct DetailPostContent {
   }
 
   @Builder
-  private planIntro(value: string): void {
-    if (value.length > 0) {
-      Text(value)
-        .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-        .fontColor(ColorTokens.primary)
-        .lineHeight(21)
-        .width('100%')
-        .padding({ left: 2, right: 2 });
-    }
-  }
-
-  @Builder
   private debatePanel(): void {
     Column({ space: SpaceTokens.md }) {
-      this.voteRow('方案A', 'A', this.planAVotes);
-      this.planIntro(this.planA);
-      this.voteRow('方案B', 'B', this.planBVotes);
-      this.planIntro(this.planB);
+      this.voteRow(this.planA, '方案A', 'A');
+      this.voteRow(this.planB, '方案B', 'B');
     }
     .width('100%')
     .padding(14)

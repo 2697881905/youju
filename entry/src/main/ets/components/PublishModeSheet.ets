@@ -75,7 +75,7 @@ export struct PublishModeSheet {
 
         this.modeOption('photo', $r('app.media.nav_publish'), '图文发布')
         this.modeOption('video', $r('app.media.media_video'), '视频发布')
-        this.modeOption('text', $r('app.media.book_doc'), '文字发布')
+        this.modeOption('text', $r('app.media.book_doc'), '长文发布')
       }
       .width('100%')
     }

@@ -60,4 +60,4 @@ volumes:
   mysql_data:
   uploads_data:
   letsencrypt:
-    name: bigbluebook_letsencrypt
+    name: youju_letsencrypt

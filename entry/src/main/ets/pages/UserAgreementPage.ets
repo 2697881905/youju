@@ -33,7 +33,7 @@ export struct UserAgreementPage {
             .width('100%')
             .padding({ left: 16, right: 16 });
 
-          Text('欢迎使用大蓝书（以下简称"本应用"）。在使用本应用前，请您仔细阅读并充分理解本《用户协议》（以下简称"本协议"）。一旦您注册、登录或使用本应用，即表示您已阅读、理解并同意接受本协议的全部内容。')
+          Text('欢迎使用有据（以下简称"本应用"）。在使用本应用前，请您仔细阅读并充分理解本《用户协议》（以下简称"本协议"）。一旦您注册、登录或使用本应用，即表示您已阅读、理解并同意接受本协议的全部内容。')
             .fontSize(15).fontFamily($r('app.string.font_family'))
             .fontColor($r('app.color.text_primary'))
             .lineHeight(24)
@@ -73,7 +73,7 @@ export struct UserAgreementPage {
           this.section('6. 协议的变更与联系', [
             '我们可能适时修订本协议，重大变更将通过应用内通知等方式告知您。',
             '若您继续使用本应用，即视为接受修订后的协议。',
-            '如有任何疑问，请联系我们：邮箱 agreement@bigbluebook.com',
+            '如有任何疑问，请联系我们：邮箱 agreement@youju.com',
           ]);
 
           Text('本协议的订立、效力、解释及争议解决均适用中华人民共和国法律。')

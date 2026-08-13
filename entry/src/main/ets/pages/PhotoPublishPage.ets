@@ -1,4 +1,4 @@
-// 图文发布页 — 独立 @Entry 页面，仅处理图文发布，不耦合视频/文字发布逻辑。
+// 图文发布页 — 独立 @Entry 页面，仅处理短文图文，不耦合视频/长文发布逻辑。
 // 媒体区直接渲染 ImagePicker，无 mediaTypeSelector 切换行。
 import { LengthMetrics, router } from '@kit.ArkUI';
 import { listTags } from '../services/api';
@@ -26,6 +26,7 @@ import { PublishTopBar } from '../components/PublishTopBar';
 
 const MAX_SELECTED_TAGS: number = 3;
 const MAX_PICKED_IMAGES: number = 9;
+const MAX_PHOTO_CONTENT_LENGTH: number = 300;
 const DRAFT_PROGRESS_TOTAL: number = 3;
 
 @Entry
@@ -152,6 +153,10 @@ struct PhotoPublishPage {
       safeShowToast(this.getUIContext(), { message: '请填写标题' });
       return;
     }
+    if (this.content.length > MAX_PHOTO_CONTENT_LENGTH) {
+      safeShowToast(this.getUIContext(), { message: '图文说明最多 ' + MAX_PHOTO_CONTENT_LENGTH + ' 字' });
+      return;
+    }
     const draft: PublishDraft = this.currentPublishDraft();
     publishFlowStore.beginPreview(draft, this.editingSavedDraftId);
     this.getUIContext().getRouter().pushUrl({ url: 'pages/PublishPreviewPage' });
@@ -159,6 +164,7 @@ struct PhotoPublishPage {
 
   private currentPublishDraft(): PublishDraft {
     return {
+      mode: 'photo',
       title: this.title.trim(),
       content: this.content,
       genre: this.genre,
@@ -269,7 +275,7 @@ struct PhotoPublishPage {
           .backgroundColor(Color.Transparent)
           .onChange((value: string) => { this.title = value; })
         Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
-        TextArea({ text: this.content, placeholder: '展开讲讲背景、过程、结论。尽量给出你踩过的坑、判断标准和适用人群。' })
+        TextArea({ text: this.content, placeholder: '写下简短说明，无图时会生成文字封面。' })
           .width('100%')
           .height(104)
           .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
@@ -279,7 +285,13 @@ struct PhotoPublishPage {
           .fontColor(ColorTokens.primary)
           .placeholderColor(ColorTokens.quaternary)
           .backgroundColor(Color.Transparent)
+          .maxLength(MAX_PHOTO_CONTENT_LENGTH)
           .onChange((value: string) => { this.content = value; })
+        Text(this.content.length + '/' + MAX_PHOTO_CONTENT_LENGTH)
+          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+          .fontColor(ColorTokens.secondary)
+          .width('100%')
+          .textAlign(TextAlign.End)
         Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator).margin({ top: SpaceTokens.sm })
         ImagePicker({
           selected: $images,

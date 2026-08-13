@@ -20,7 +20,7 @@ sudo usermod -aG docker "$USER"
 newgrp docker
 ```
 
-将仓库部署到 `/opt/bigbluebook`，进入 `backend/deploy` 后创建生产变量文件：
+将仓库部署到 `/opt/youju`，进入 `backend/deploy` 后创建生产变量文件：
 
 ```bash
 cp .env.production.example .env.production
@@ -34,8 +34,8 @@ chmod 600 .env.production
 在 DNS 已指向当前服务器、80 端口已放行时执行。先签发证书，避免 Nginx 因证书文件不存在而无法启动：
 
 ```bash
-docker volume create bigbluebook_letsencrypt
-docker run --rm -p 80:80 -v bigbluebook_letsencrypt:/etc/letsencrypt certbot/certbot certonly --standalone -d api.<你的域名> --email <你的邮箱> --agree-tos --no-eff-email
+docker volume create youju_letsencrypt
+docker run --rm -p 80:80 -v youju_letsencrypt:/etc/letsencrypt certbot/certbot certonly --standalone -d api.<你的域名> --email <你的邮箱> --agree-tos --no-eff-email
 docker compose --env-file .env.production -f docker-compose.production.yml up -d --build
 docker compose --env-file .env.production -f docker-compose.production.yml run --rm api npx prisma db push --skip-generate
 docker compose --env-file .env.production -f docker-compose.production.yml run --rm api npm run seed:tags
@@ -61,7 +61,7 @@ bash scripts/backup-mysql.sh
 设置每天 03:30 备份（执行 `crontab -e`）：
 
 ```cron
-30 3 * * * cd /opt/bigbluebook/backend/deploy && /usr/bin/env bash scripts/backup-mysql.sh >> /var/log/bigbluebook-backup.log 2>&1
+30 3 * * * cd /opt/youju/backend/deploy && /usr/bin/env bash scripts/backup-mysql.sh >> /var/log/youju-backup.log 2>&1
 ```
 
 同时将备份同步到 COS、另一台机器或云备份盘；同一台服务器上的备份不能替代异地备份。
@@ -71,10 +71,10 @@ bash scripts/backup-mysql.sh
 每月执行一次，或放入 cron。续期后重载 Nginx：
 
 ```bash
-docker run --rm -v bigbluebook_letsencrypt:/etc/letsencrypt certbot/certbot renew
+docker run --rm -v youju_letsencrypt:/etc/letsencrypt certbot/certbot renew
 docker compose --env-file .env.production -f docker-compose.production.yml exec nginx nginx -s reload
 ```
 
 ## 6. App 上线前最后一步
 
-在 `entry/src/main/ets/services/api.ets` 中，将正式 `BASE_URL` 从当前占位 `https://api.bigbluebook.com` 改成你已经拥有、证书已生效的 `API_DOMAIN`，然后重新构建签名 Release 包并在真机上验证登录、COS 图片上传、发布、互动与推送。
+在 `entry/src/main/ets/services/api.ets` 中，将正式 `BASE_URL` 从当前占位 `https://api.youju.com` 改成你已经拥有、证书已生效的 `API_DOMAIN`，然后重新构建签名 Release 包并在真机上验证登录、COS 图片上传、发布、互动与推送。

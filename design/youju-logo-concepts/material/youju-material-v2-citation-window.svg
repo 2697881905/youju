@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <clipPath id="window"><rect x="246" y="246" width="532" height="532" rx="168"/></clipPath>
+  </defs>
+  <rect width="1024" height="1024" rx="192" fill="#FFFFFF"/>
+  <path d="M342 300h-72c-31 0-56 25-56 56v120" fill="none" stroke="#151B2B" stroke-width="48" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M682 724h72c31 0 56-25 56-56V548" fill="none" stroke="#151B2B" stroke-width="48" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="246" y="246" width="532" height="532" rx="168" fill="#146BFF"/>
+  <g clip-path="url(#window)">
+    <rect x="252" y="272" width="96" height="96" rx="16" fill="#72A6FF"/>
+    <rect x="362" y="246" width="68" height="68" rx="12" fill="#0E58D8"/>
+    <rect x="648" y="286" width="116" height="116" rx="18" fill="#0E58D8"/>
+    <rect x="704" y="432" width="92" height="92" rx="16" fill="#6EA2FF"/>
+    <rect x="232" y="516" width="104" height="104" rx="18" fill="#0E58D8"/>
+    <rect x="302" y="668" width="84" height="84" rx="14" fill="#6EA2FF"/>
+    <rect x="570" y="706" width="116" height="116" rx="18" fill="#0E58D8"/>
+  </g>
+  <path d="M426 402h58c31 0 56 25 56 56v164" fill="none" stroke="#FFFFFF" stroke-width="52" stroke-linecap="round"/>
+  <path d="M598 622v-90c0-31 25-56 56-56h20" fill="none" stroke="#FFFFFF" stroke-width="52" stroke-linecap="round"/>
+</svg>

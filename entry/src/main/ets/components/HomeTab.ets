@@ -2,8 +2,8 @@
 // 搜索框获焦时展示 SearchPanel（搜索历史+热搜词），提交或选中关键词后跳结果页
 // 数据来源：listPosts / listTags / recordSearchHistory（services/api.ets）
 
-import { Post, Tag } from '../models/types';
-import { listPosts, listFollowingPosts, listTags, listFollowedTags, recordSearchHistory, getUserProfile } from '../services/api';
+import { DailyPost, Post, Tag } from '../models/types';
+import { listDailyPosts, listPosts, listFollowingPosts, listTags, listFollowedTags, recordSearchHistory, getUserProfile } from '../services/api';
 import { getUserId } from '../utils/auth';
 import { likeStore } from '../utils/likeStore';
 import { PostCard } from './PostCard';
@@ -16,6 +16,7 @@ import { EmptyState } from '../design/components/EmptyState';
 import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
 import { Pressable } from '../design/motion/Pressable';
 import { Reveal } from '../design/motion/Reveal';
+import { DailyPostDeck } from './DailyPostDeck';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
@@ -44,7 +45,7 @@ const ALL_TAG: Tag = { name: '全部' };
 
 @Component
 export struct HomeTab {
-  @State posts: Post[] = [];
+  @State posts: DailyPost[] = [];
   private postSource: BasicDataSource<Post> = new BasicDataSource<Post>();
   @State displayTags: Tag[] = [];
   @State tagsLoaded: boolean = false;
@@ -60,6 +61,7 @@ export struct HomeTab {
   @State feedIndex: number = 0;
   @State needLogin: boolean = false; // 关注流且未登录的引导态
   @State followingCount: number = 0; // 关注流的关注数缓存（空态 A/B 区分）
+  @State dailyDeckVersion: number = 0;
   // 监听登录态：登录成功后 authToken 就绪，若处于关注流且列表空则自动补加载
   @StorageLink('authToken') @Watch('onTokenReady') token: string = '';
   // 监听登录账号：切换账号（老张↔小美互测）或登出时，清空点赞缓存并重建首页 feed，
@@ -296,21 +298,23 @@ export struct HomeTab {
       this.postSource.clearData();
       return;
     }
-    if (this.feedMode === 'daily') {
-      if (reset) {
-        this.posts = [];
-        this.postSource.clearData();
-      }
-      this.finished = true;
-      this.error = '';
-      this.needLogin = false;
-      return;
-    }
     this.loading = true;
     this.error = '';
     this.needLogin = false; // 进入真正的拉取流程，复位登录引导态
     const sort = SORT_KEYS[this.sortIndex];
     try {
+      if (this.feedMode === 'daily') {
+        const res = await listDailyPosts(this.page, 10);
+        if (reset) {
+          this.posts = res.list;
+          this.postSource.clearData();
+          this.dailyDeckVersion += 1;
+        } else {
+          this.posts = this.posts.concat(res.list);
+        }
+        this.finished = this.posts.length >= res.pagination.total;
+        return;
+      }
       const res =
         this.feedMode === 'following'
           ? await listFollowingPosts({ page: this.page, limit: 20, sort, tag: this.currentTag() })
@@ -440,14 +444,43 @@ export struct HomeTab {
             .combine(TransitionEffect.translate({ x: '100%' })
               .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate })))
       } else {
-        // 品牌标题 + 信息源分段 + 搜索入口
-        Row({ space: SpaceTokens.sm }) {
-          Text('大蓝书')
-            .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamily)
-            .fontWeight(TypeTokens.title.weight)
-            .lineHeight(TypeTokens.title.lineHeight)
-            .letterSpacing(TypeTokens.title.tracking)
-            .fontColor(ColorTokens.primary)
+        // 标题和搜索固定在两侧，信息源分段作为独立中心层，避免被两侧内容挤向左侧。
+        Stack({ alignContent: Alignment.Center }) {
+          Row() {
+            Text('有据')
+              .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamily)
+              .fontWeight(TypeTokens.title.weight)
+              .lineHeight(TypeTokens.title.lineHeight)
+              .letterSpacing(TypeTokens.title.tracking)
+              .fontColor(ColorTokens.primary)
+            Blank()
+            Pressable({
+              visualHeight: LayoutTokens.segmentedHeight,
+              touchTargetHeight: LayoutTokens.minTouchTarget,
+              action: (): void => {
+                this.showPanel = true;
+              },
+            }) {
+              Row() {
+                Image(resolveActionIcon('search'))
+                  .width(IconTokens.compact)
+                  .height(IconTokens.compact)
+                  .fillColor(ColorTokens.secondary)
+              }
+              .width(LayoutTokens.segmentedHeight)
+              .height(LayoutTokens.segmentedHeight)
+              .backgroundColor(ColorTokens.barSurface)
+              .backdropBlur(LayoutTokens.glassBlur)
+              .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+              .borderRadius(RadiusTokens.lg)
+              .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 4 })
+              .justifyContent(FlexAlign.Center)
+              .alignItems(VerticalAlign.Center)
+              .accessibilityText('搜索')
+            }
+          }
+          .width('100%')
+          .alignItems(VerticalAlign.Center)
 
           SegmentedControl({
             items: FEED_SEGMENTS,
@@ -460,35 +493,7 @@ export struct HomeTab {
               this.switchFeed(mode);
             },
           })
-
-          Blank()
-
-          Pressable({
-            visualHeight: LayoutTokens.segmentedHeight,
-            touchTargetHeight: LayoutTokens.minTouchTarget,
-            action: (): void => {
-              this.showPanel = true;
-            },
-          }) {
-            Row() {
-              Image(resolveActionIcon('search'))
-                .width(IconTokens.compact)
-                .height(IconTokens.compact)
-                .fillColor(ColorTokens.secondary)
-            }
-            .width(LayoutTokens.segmentedHeight)
-            .height(LayoutTokens.segmentedHeight)
-            .backgroundColor(ColorTokens.barSurface)
-            .backdropBlur(LayoutTokens.glassBlur)
-            .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-            .borderRadius(RadiusTokens.lg)
-            .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 4 })
-            .justifyContent(FlexAlign.Center)
-            .alignItems(VerticalAlign.Center)
-            .accessibilityText('搜索')
-          }
         }
-        .alignItems(VerticalAlign.Center)
         .padding({
           left: SpaceTokens.sm,
           right: SpaceTokens.sm,
@@ -580,6 +585,33 @@ export struct HomeTab {
           .height('100%')
           .justifyContent(FlexAlign.Center)
         } else {
+          if (this.feedMode === 'daily') {
+            Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
+              DailyPostDeck({
+                deckVersion: this.dailyDeckVersion,
+                posts: this.posts,
+                loading: this.loading,
+                finished: this.finished,
+                onLoadMore: (): void => { this.loadMore(); },
+                onOpen: (post: DailyPost): void => {
+                  if (post.id !== undefined) {
+                    openPostDetail(post.id.toString());
+                    this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
+                  }
+                },
+              })
+                .width('100%')
+                .height('100%')
+            }
+            .onRefreshing(() => {
+              this.isRefreshing = true;
+              this.refresh().finally(() => {
+                this.isRefreshing = false;
+              });
+            })
+            .width('100%')
+            .height('100%')
+          } else {
           Stack({ alignContent: Alignment.TopStart }) {
             Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
               // 瀑布流：每列独立流动，卡片仅以 rowsGap 与同列上下卡片贴靠，
@@ -642,6 +674,7 @@ export struct HomeTab {
           .width('100%')
           .height('100%')
           .clip(true)
+          }
         }
         if (this.useCircleBarOverlap()) {
           TagNav({

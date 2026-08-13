@@ -1,10 +1,12 @@
 # 系统设计：内容审核 & 举报系统
 
-> 项目：大蓝书 HarmonyOS NEXT 应用（面向大众的理性内容分享社区）
+> 项目：有据 HarmonyOS NEXT 应用（面向大众的理性内容分享社区）
 > 版本：v1.0
 > 日期：2025-07
 > 关联文档：[PRD](./prd-content-moderation.md)
 > 架构师：高见远
+>
+> 实现备注（2026-08-09）：敏感词服务已升级为 Aho-Corasick 自动机，并加入 Unicode/分隔符归一化；本文早期伪代码中的 Trie 命名仅作设计演进记录，实际代码以 `backend/src/services/sensitiveWordService.ts` 为准。
 
 ---
 
@@ -12,7 +14,7 @@
 
 ### 1.1 整体架构
 
-本系统在现有「大蓝书」架构（Node.js + Express + TS + Prisma + MySQL 后端 / HarmonyOS NEXT ArkTS V1 前端）基础上，新增三道内容安全防线：
+本系统在现有「有据」架构（Node.js + Express + TS + Prisma + MySQL 后端 / HarmonyOS NEXT ArkTS V1 前端）基础上，新增三道内容安全防线：
 
 1. **敏感词前置过滤**：发帖/评论前由后端 `SensitiveWordService` 单例检测，命中即返回 400，不写入数据库。
 2. **用户举报**：用户在帖子详情页/评论区通过「⋯」→ ActionSheet → 举报弹窗提交举报；举报累计达阈值（默认 3）自动下架（status=0）进入待审核队列。
@@ -24,8 +26,8 @@
 
 | 决策点 | 选型 | 理由 |
 |--------|------|------|
-| 敏感词检测 | **自实现 Trie 树**（非 Set、非外部包） | ToolGood.Words 是 C# 原生无 Node.js 版；Set+includes 在 5000+ 词时 O(n×m) 性能差；Trie 实现 O(n×L)（n=文本长度，L=最长词长度），代码量约 60 行，无外部依赖，性能与覆盖率均优于 Set |
-| 敏感词库 | **纯文本文件** `backend/data/sensitive-words.txt` + `backend/data/gender-war-words.txt` | 每行一个词，启动时 fs.readFileSync 加载到 Trie，无热更新需求（P1 再做） |
+| 敏感词检测 | **自实现 Aho-Corasick 自动机**（非 Set、非外部包） | 多模式匹配在归一化文本上 O(n)，共享前缀可复用节点；同时扫描去分隔符形式，覆盖全角、零宽和常见变形 |
+| 敏感词库 | **纯文本文件** `backend/data/sensitive-words.txt` + `backend/data/gender-war-words.txt` | 每行一个词，启动时 fs.readFileSync 加载并构建自动机；当前 498 条通用 + 97 条性别对立词，跨文件去重后 595 条 |
 | admin 鉴权 | **环境变量 `ADMIN_USER_IDS`** + `adminAuth` 中间件 | MVP 单人审核，校验 `req.userId` 是否在列表中，403 拒绝。复用现有 `auth` 中间件先解析 token |
 | 举报阈值 | **环境变量 `REPORT_THRESHOLD`**（默认 3） | `reportService.createReport` 中 increment reportCount 后判断是否 >= 阈值 |
 | 举报幂等 | **Prisma `@@unique([reporterId, targetType, targetId])`** | 数据库级保证同一用户对同一内容仅举报一次；冲突时捕获 Prisma error 返回 409 |
@@ -39,13 +41,13 @@
   → SensitiveWordService 单例初始化
   → fs.readFileSync('backend/data/sensitive-words.txt')  // 通用敏感词
   → fs.readFileSync('backend/data/gender-war-words.txt')  // 男女对立引战词
-  → 合并去重 → 逐词插入 Trie 树
+  → 合并去重、Unicode 归一化 → 插入自动机并构建 failure links
   → 全局单例就绪，后续请求直接调用 checkText()
 ```
 
 - 文件路径基于 `process.cwd()`（即 `backend/` 目录）
 - 若文件不存在，日志告警但不崩溃（降级为空词库，不拦截）
-- 词库预计 5000-20000 词，Trie 内存占用 < 2MB
+- 词库当前为 595 条高置信度种子词；后续扩容仍需运营/法务审核，静态词库不能替代人工审核
 
 ---
 
@@ -55,13 +57,13 @@
 
 | 文件 | 类型 | 说明 |
 |------|------|------|
-| `backend/src/services/sensitiveWordService.ts` | 新增 | 敏感词检测单例服务（Trie 树 + checkText） |
+| `backend/src/services/sensitiveWordService.ts` | 新增 | 敏感词检测单例服务（Aho-Corasick + 归一化 + checkText） |
 | `backend/src/services/reportService.ts` | 新增 | 举报 CRUD + 阈值触发自动下架 |
 | `backend/src/services/moderationService.ts` | 新增 | 待审帖子列表 + 审核操作（approve/reject） |
 | `backend/src/middleware/adminAuth.ts` | 新增 | admin 鉴权中间件 |
 | `backend/src/routes/admin.ts` | 新增 | admin 审核 API 路由 |
-| `backend/data/sensitive-words.txt` | 新增 | 通用敏感词库（种子文件，约 50 词） |
-| `backend/data/gender-war-words.txt` | 新增 | 男女对立引战词库（种子文件，约 20 词） |
+| `backend/data/sensitive-words.txt` | 新增 | 分组通用敏感词库（498 条） |
+| `backend/data/gender-war-words.txt` | 新增 | 男女对立引战词库（97 条） |
 | `backend/src/services/sensitiveWordService.test.ts` | 新增 | 敏感词服务单元测试 |
 | `backend/src/services/reportService.test.ts` | 新增 | 举报服务单元测试 |
 | `backend/src/routes/admin.test.ts` | 新增 | admin 路由集成测试 |
@@ -216,7 +218,7 @@ classDiagram
 
 ```bash
 cd backend
-npx prisma db push    # 禁止 prisma migrate dev（bigbluebook 用户无 CREATE DATABASE 权限）
+npx prisma db push    # 禁止 prisma migrate dev（youju 用户无 CREATE DATABASE 权限）
 npx prisma generate   # 重新生成 client
 # ⚠️ 改 schema 后必须重启后端进程（tsx watch 会自动重启），让新 PrismaClient 生效
 ```
@@ -1340,9 +1342,9 @@ graph TD
 
 **风险**：词库过大导致检测延迟。
 
-**分析**：Trie 树检测复杂度 O(n×L)，n=文本长度（帖子正文通常 < 5000 字），L=最长词长度（通常 < 10）。20000 词库 Trie 内存 < 2MB。单次检测 < 1ms。
+**分析**：Aho-Corasick 在归一化文本上单次扫描复杂度 O(n)，另一次去分隔符扫描仍为 O(n)，n=文本长度（帖子正文通常 < 5000 字）。自动机在启动时构建，单次请求不产生文件 IO；实际延迟仍应在目标设备和生产数据上持续监控。
 
-**缓解**：启动时加载到内存单例，无请求级 IO。若后续词库超 50000 词，可考虑 Aho-Corasick 自动机优化（当前不必要）。
+**缓解**：启动时加载到内存单例，无请求级 IO；词库扩容时继续使用自动机并通过基准测试监控构建时间和内存。
 
 ### 11.4 ArkTS V1 严格模式编译风险 — 🟡 中
 

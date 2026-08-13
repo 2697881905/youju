@@ -298,7 +298,7 @@ if (!env.corsOrigin) {
   console.warn('[安全警示] CORS_ORIGIN 未配置，当前允许所有来源跨域（仅开发期）。');
 }
 app.listen(env.port, () => {
-  console.log(`BigBlueBook API listening on http://localhost:${env.port}`);
+  console.log(`youju API listening on http://localhost:${env.port}`);
 });
 
 // ========== ./backend/src/middleware/adminAuth.ts ==========

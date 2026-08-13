@@ -67,7 +67,7 @@ import { Post, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, Bin
 // - 模拟器/真机本地开发：用 hdc 反向端口转发，连 127.0.0.1:3000 即可，无需关心电脑 IP（IP 变了也不用改这里）
 //   设置命令：hdc rport tcp:3000 tcp:3000  （模拟器每次重启后重跑一次即可）
 // - 真机/同局域网直连：'http://<你电脑局域网IP>:3000'
-// - 上架后：'https://api.bigbluebook.com'
+// - 上架后：'https://api.youju.com'
 export const BASE_URL = 'http://127.0.0.1:3000';
 // token 由 utils/auth.ts 统一管理（PersistentStorage 持久化），request 直接从 AppStorage 读取。
 export interface ApiResult<T> {
@@ -1280,14 +1280,14 @@ export function resolveSettingsIcon(name: string): Resource {
 // 待真实生产域名确定后，仅需修改 SHARE_BASE 一处即可全局生效，无需改调用点。
 import pasteboard from '@ohos.pasteboard';
 // TODO(上线): 替换为真实生产域名（域名确定后改这一行即可）
-const SHARE_BASE: string = 'https://bigbluebook.app';
+const SHARE_BASE: string = 'https://youju.app';
 // 帖子分享链接：占位域名 + /post/{id}
 export function buildPostShareUrl(postId: number): string {
   return SHARE_BASE + '/post/' + String(postId);
 }
 // 分享文案（标题 + 链接），用于系统分享面板接入后使用
 export function buildShareText(title: string, postId: number): string {
-  const t: string = title && title.length > 0 ? title : '大蓝书帖子';
+  const t: string = title && title.length > 0 ? title : '有据帖子';
   return t + ' ' + buildPostShareUrl(postId);
 }
 // 复制文本到系统剪贴板；失败抛出，由调用方 toast 兜底
@@ -1373,7 +1373,7 @@ export function resolveTagIcon(name: string): Resource {
 // - 消除所有 setColorMode 递归/异常路径
 import { ConfigurationConstant, common } from '@kit.AbilityKit';
 import { preferences } from '@kit.ArkData';
-const PREF_NAME = 'bigbluebook_theme';
+const PREF_NAME = 'youju_theme';
 const KEY_FOLLOW_SYSTEM = 'followSystem';
 const KEY_IS_DARK = 'isDarkMode';
 let _appContext: common.ApplicationContext | null = null;

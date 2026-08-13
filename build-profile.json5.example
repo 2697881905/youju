@@ -5,12 +5,12 @@
         "name": "release",
         "type": "HarmonyOS",
         "material": {
-          "certpath": "entry/material/bigbluebook.cer",
-          "keyAlias": "bigbluebook",
+          "certpath": "entry/material/youju.cer",
+          "keyAlias": "youju",
           "keyPassword": "${env.BBB_RELEASE_STORE_PASSWORD}",
-          "profile": "entry/material/bigbluebook.p7b",
+          "profile": "entry/material/youju.p7b",
           "signAlg": "SHA256withECDSA",
-          "storeFile": "entry/material/bigbluebook.p12",
+          "storeFile": "entry/material/youju.p12",
           "storePassword": "${env.BBB_RELEASE_STORE_PASSWORD}"
         }
       }

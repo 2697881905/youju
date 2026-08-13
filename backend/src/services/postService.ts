@@ -1,4 +1,5 @@
 import { prisma } from '../prisma';
+import { Prisma } from '@prisma/client';
 import { sensitiveWordService } from './sensitiveWordService';
 import { SensitiveWordError, ValidationError } from '../utils/errors';
 import { USER_PUBLIC_SELECT, publicUserView } from '../utils/userView';
@@ -16,6 +17,14 @@ export interface ListParams {
   keyword?: string;
   following?: boolean; // 关注流：仅返回当前用户关注的人发布的帖子
   viewerId?: number; // 当前登录用户 id（来自 auth 中间件 req.userId）
+}
+
+export interface DailyListParams {
+  page?: number;
+  limit?: number;
+  viewerId?: number;
+  // 仅供单元测试注入时间；路由调用始终使用当前时间。
+  now?: Date;
 }
 
 // 帖子列表（分页 + 标签筛选 + 排序 + 作者筛选）
@@ -158,6 +167,178 @@ export async function listPosts(params: ListParams) {
     list: list.map((p) => ({ ...p, user: publicUserView(p.user) })),
     pagination: { page, limit, total },
   };
+}
+
+function dailyKey(now: Date): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now);
+  const part = (type: string): string => parts.find((item) => item.type === type)?.value ?? '';
+  return part('year') + '-' + part('month') + '-' + part('day');
+}
+
+function stableOffset(seed: string, total: number): number {
+  if (total <= 0) {
+    return 0;
+  }
+  let hash = 2166136261;
+  for (let index = 0; index < seed.length; index++) {
+    hash = Math.imul(hash ^ seed.charCodeAt(index), 16777619);
+  }
+  return (hash >>> 0) % total;
+}
+
+function normalizePage(value: number | undefined, fallback: number): number {
+  const numberValue = Number(value ?? fallback);
+  if (!Number.isFinite(numberValue)) {
+    return fallback;
+  }
+  return numberValue;
+}
+
+async function dailyInterestTags(viewerId?: number): Promise<string[]> {
+  if (viewerId) {
+    const followed = await prisma.userFollowTag.findMany({
+      where: { userId: viewerId },
+      select: { tagName: true },
+      orderBy: { createdAt: 'desc' },
+      take: 6,
+    });
+    const names = followed.map((row) => row.tagName).filter((name) => name.length > 0);
+    if (names.length > 0) {
+      return names;
+    }
+  }
+  const popular = await prisma.tag.findMany({
+    select: { name: true },
+    orderBy: [{ followCount: 'desc' }, { useCount: 'desc' }],
+    take: 3,
+  });
+  return popular.map((tag) => tag.name).filter((name) => name.length > 0);
+}
+
+async function dailyVisibleWhere(viewerId?: number): Promise<any> {
+  const where: any = { status: 1, user: { status: 1 } };
+  const excluded = new Set(await getExcludedAuthorIds(viewerId));
+  if (viewerId) {
+    for (const id of await getDislikedAuthorIds(viewerId)) {
+      excluded.add(id);
+    }
+  }
+  if (excluded.size > 0) {
+    where.userId = { notIn: [...excluded] };
+  }
+  return where;
+}
+
+async function fetchRotatedDailyPosts(
+  where: any,
+  total: number,
+  offset: number,
+  start: number,
+  take: number,
+): Promise<any[]> {
+  if (total === 0 || take === 0) {
+    return [];
+  }
+  const firstIndex = (offset + start) % total;
+  const firstTake = Math.min(take, total - firstIndex);
+  const orderBy: Prisma.PostOrderByWithRelationInput[] = [
+    { upCount: 'desc' },
+    { createdAt: 'desc' },
+    { id: 'desc' },
+  ];
+  const first = await prisma.post.findMany({
+    where,
+    orderBy,
+    skip: firstIndex,
+    take: firstTake,
+    include: { user: { select: USER_PUBLIC_SELECT } },
+  });
+  if (firstTake === take) {
+    return first;
+  }
+  const second = await prisma.post.findMany({
+    where,
+    orderBy,
+    skip: 0,
+    take: take - firstTake,
+    include: { user: { select: USER_PUBLIC_SELECT } },
+  });
+  return first.concat(second);
+}
+
+async function decorateViewerPosts(list: any[], viewerId?: number): Promise<any[]> {
+  if (!viewerId || list.length === 0) {
+    return list.map((post) => ({ ...post, user: publicUserView(post.user) }));
+  }
+  const ids: number[] = list.map((post) => post.id);
+  const [ups, bookmarks, votes] = await Promise.all([
+    prisma.up.findMany({ where: { postId: { in: ids }, userId: viewerId }, select: { postId: true } }),
+    prisma.bookmark.findMany({ where: { postId: { in: ids }, userId: viewerId }, select: { postId: true } }),
+    prisma.debateVote.findMany({ where: { postId: { in: ids }, userId: viewerId }, select: { postId: true, choice: true } }),
+  ]);
+  const upIds = new Set(ups.map((item) => item.postId));
+  const bookmarkIds = new Set(bookmarks.map((item) => item.postId));
+  const voteMap = new Map(votes.map((item) => [item.postId, item.choice]));
+  return list.map((post) => ({
+    ...post,
+    user: publicUserView(post.user),
+    myUp: upIds.has(post.id),
+    myBookmark: bookmarkIds.has(post.id),
+    myVote: voteMap.get(post.id) ?? '',
+  }));
+}
+
+// 每日一帖：兴趣命中优先，热门/通用内容补齐。排序按上海日期稳定轮换，
+// 不写入推荐表，因此当日可分页到底、次日会自然更新。
+export async function listDailyPosts(params: DailyListParams = {}) {
+  const page = Math.max(1, Math.floor(normalizePage(params.page, 1)));
+  const limit = Math.min(50, Math.max(1, Math.floor(normalizePage(params.limit, 10))));
+  const dateKey = dailyKey(params.now ?? new Date());
+  const interestTags = await dailyInterestTags(params.viewerId);
+  const visibleWhere = await dailyVisibleWhere(params.viewerId);
+  const tagFilters = interestTags.map((tag) => ({ tags: { array_contains: tag } }));
+  const interestWhere: any = tagFilters.length > 0 ? { ...visibleWhere, OR: tagFilters } : null;
+  const fallbackWhere: any = tagFilters.length > 0
+    ? { ...visibleWhere, NOT: { OR: tagFilters } }
+    : visibleWhere;
+  const [interestTotal, fallbackTotal] = await Promise.all([
+    interestWhere ? prisma.post.count({ where: interestWhere }) : Promise.resolve(0),
+    prisma.post.count({ where: fallbackWhere }),
+  ]);
+  const total = interestTotal + fallbackTotal;
+  const globalStart = (page - 1) * limit;
+  if (globalStart >= total) {
+    return { list: [], pagination: { page, limit, total }, dateKey, interestTags };
+  }
+
+  const viewerKey = params.viewerId ? 'user:' + params.viewerId : 'guest';
+  const interestOffset = stableOffset(dateKey + ':' + viewerKey + ':interest', interestTotal);
+  const fallbackOffset = stableOffset(dateKey + ':' + viewerKey + ':fallback', fallbackTotal);
+  let rawList: any[] = [];
+  if (globalStart < interestTotal && interestWhere) {
+    const interestTake = Math.min(limit, interestTotal - globalStart);
+    rawList = await fetchRotatedDailyPosts(interestWhere, interestTotal, interestOffset, globalStart, interestTake);
+    if (interestTake < limit) {
+      rawList = rawList.concat(await fetchRotatedDailyPosts(
+        fallbackWhere, fallbackTotal, fallbackOffset, 0, limit - interestTake,
+      ));
+    }
+  } else {
+    rawList = await fetchRotatedDailyPosts(
+      fallbackWhere, fallbackTotal, fallbackOffset, globalStart - interestTotal, limit,
+    );
+  }
+
+  const list = (await decorateViewerPosts(rawList, params.viewerId)).map((post) => {
+    const postTags = Array.isArray(post.tags) ? post.tags.filter((tag: unknown): tag is string => typeof tag === 'string') : [];
+    return { ...post, matchedTags: postTags.filter((tag: string) => interestTags.includes(tag)) };
+  });
+  return { list, pagination: { page, limit, total }, dateKey, interestTags };
 }
 
 // 帖子详情（含评论，评论按顶数降序，仅返回 status=1 的正常评论）

@@ -19,7 +19,7 @@ sequenceDiagram
     alt 已被他人占用
         DB-->>SVC: 命中
         SVC-->>API: throw 409 CONFLICT
-        API-->>ABP: Error('该华为账号已关联其他大蓝书账号')
+        API-->>ABP: Error('该华为账号已关联其他有据账号')
         ABP->>ABP: safeShowToast(错误提示)
     else 通过
         SVC->>DB: 写 UserBinding + 同步 User.unionID

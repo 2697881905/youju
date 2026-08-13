@@ -153,7 +153,7 @@ struct AccountBindingPage {
           this.pendingUnbindProvider = item.provider;
           this.getUIContext().showAlertDialog({
             title: '解绑华为账号？',
-            message: '解绑后你将无法使用华为账号登录大蓝书，但仍可用鸿蒙主账号登录。',
+            message: '解绑后你将无法使用华为账号登录有据，但仍可用鸿蒙主账号登录。',
             primaryButton: {
               value: '确定解绑',
               fontColor: $r('app.color.semantic_red'),
@@ -239,7 +239,7 @@ struct AccountBindingPage {
       .padding({ top: 12, bottom: 8 })
 
       // 说明
-      Text('以下账号可用于登录大蓝书')
+      Text('以下账号可用于登录有据')
         .fontSize(13).fontFamily($r('app.string.font_family'))
         .fontColor($r('app.color.text_secondary'))
         .width('100%')

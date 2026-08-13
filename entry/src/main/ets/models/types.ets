@@ -27,6 +27,8 @@ export interface Tag {
 
 // 结构化字段（按体裁不同，字段不同；自由 JSON，前端按已知键渲染）
 export interface StructuredData {
+  // Image-free photo posts use the generated text poster as a cover only.
+  coverOnlyTextPoster?: boolean;
   pros?: string;
   cons?: string;
   rating?: number | string;
@@ -63,6 +65,11 @@ export interface Post {
   status?: number;
   createdAt?: string;
   user?: User;
+}
+
+// 每日一帖在普通帖子基础上补充与当前兴趣的命中标签。
+export interface DailyPost extends Post {
+  matchedTags?: string[];
 }
 
 export interface Comment {

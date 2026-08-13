@@ -15,6 +15,7 @@ import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
+import { withCoverOnlyTextPoster } from '../utils/structuredFields';
 
 const TEXT_POSTER_TIMEOUT: number = 20000;
 
@@ -81,7 +82,7 @@ struct PublishPreviewPage {
 
   private currentDraft(): PublishDraft {
     return this.draft ?? {
-      title: '', content: '', genre: 'share', tags: [], structuredData: {}, images: [], videoUrl: '', videoCover: '',
+      mode: 'photo', title: '', content: '', genre: 'share', tags: [], structuredData: {}, images: [], videoUrl: '', videoCover: '',
     };
   }
 
@@ -141,6 +142,8 @@ struct PublishPreviewPage {
     const draft: PublishDraft = this.currentDraft();
     try {
       let images: string[] = draft.images;
+      let coverImage: string | undefined = images.length > 0 ? images[0] : undefined;
+      const coverOnlyTextPoster: boolean = draft.mode === 'photo' && images.length === 0;
       let videoUrl: string | undefined;
       let videoCover: string | undefined;
       if (draft.videoUrl && draft.videoUrl.length > 0) {
@@ -155,7 +158,8 @@ struct PublishPreviewPage {
           if (posterUrl.length === 0) {
             throw new Error('文字海报地址为空');
           }
-          images = [posterUrl];
+          // The generated poster is an information-flow cover, not detail media.
+          coverImage = posterUrl;
         } catch (e) {
           const message: string = e instanceof Error && e.message.length > 0 ? e.message : '未知错误';
           safeShowToast(this.getUIContext(), { message: '文字海报失败，已按纯文字发布：' + message });
@@ -163,14 +167,15 @@ struct PublishPreviewPage {
       }
       const post = await createPost({
         title: draft.title,
+        publishMode: draft.mode,
         content: draft.content,
         genre: draft.genre,
         tags: draft.tags,
-        structuredData: draft.structuredData,
+        structuredData: withCoverOnlyTextPoster(draft.structuredData, coverOnlyTextPoster),
         images: images,
         videoUrl: videoUrl,
         videoCover: videoCover,
-        coverImage: videoCover && videoCover.length > 0 ? videoCover : (images.length > 0 ? images[0] : undefined),
+        coverImage: videoCover && videoCover.length > 0 ? videoCover : coverImage,
       });
       publishFlowStore.completePublish();
       safeShowToast(this.getUIContext(), { message: '发布成功！帖子ID=' + (post.id ?? '') });
@@ -212,6 +217,7 @@ struct PublishPreviewPage {
     const style: TextPosterStyleOption = TEXT_POSTER_STYLES[index];
     const current: PublishDraft = this.draft;
     const next: PublishDraft = {
+      mode: current.mode,
       title: current.title,
       content: current.content,
       genre: current.genre,
@@ -393,7 +399,7 @@ struct PublishPreviewPage {
           .fontWeight(TypeTokens.title.weight)
           .lineHeight(TypeTokens.title.lineHeight)
           .fontColor(ColorTokens.primary)
-        if (draft.images.length > 0 && draft.content.trim().length > 0) {
+        if (draft.content.trim().length > 0) {
           Text(draft.content)
             .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
             .fontWeight(TypeTokens.body.weight)

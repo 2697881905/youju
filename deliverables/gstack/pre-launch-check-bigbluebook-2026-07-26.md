@@ -1,4 +1,4 @@
-# 大蓝书 BigBlueBook 鸿蒙应用 — 上线前全检报告
+# 有据 youju 鸿蒙应用 — 上线前全检报告
 
 **日期**：2026-07-26
 **场景**：上线前检查（代码架构审查 + 安全审计 + QA 测试）
@@ -50,13 +50,13 @@
 | 1 | 🔴 | 认证绕过 | backend/src/routes/auth.ts:17-22, authService.ts:11-30; entry/.../utils/auth.ets:92-96; LoginPage.ets:179-195 | 开放 `openId` 登录，接受任意客户端 openId 即签发 JWT，可任意身份冒充/账户接管 | 生产禁用该入口；登录强制走华为 Account Kit（服务端 client_secret 换 token） | 安全卫士 |
 | 2 | 🔴 | 权限提升 | prisma/seed-post.ts:11-20; backend/.env:35; middleware/adminAuth.ts:9 | 种子管理员 `dev-seed-openid`=id 1，默认 `ADMIN_USER_IDS=1`，开发桩按钮一键拿管理员令牌 | 移除开发桩可达路径；取消默认 id=1 管理员，改显式开通流程 | 安全卫士/产品官 |
 | 3 | 🔴 | 密钥泄露 | backend/.env:13,26-27 | 含真实腾讯云 AK/SK 与静态 JWT_SECRET（明文落盘） | 立即轮换；生产用密钥管理服务/环境变量注入，禁止入库或镜像 | 安全卫士 |
-| 4 | 🔴 | 配置 | entry/src/main/ets/services/api.ets:9 | `BASE_URL='http://127.0.0.1:3000'` 编译期常量，release 指向 localhost | 改 `https://api.bigbluebook.com` 并支持 build-mode 注入 | 产品官/质量门神/安全卫士 |
+| 4 | 🔴 | 配置 | entry/src/main/ets/services/api.ets:9 | `BASE_URL='http://127.0.0.1:3000'` 编译期常量，release 指向 localhost | 改 `https://api.youju.com` 并支持 build-mode 注入 | 产品官/质量门神/安全卫士 |
 | 5 | 🔴 | 测试腐化 | routes/posts.test.ts, posts.following.test.ts, postService.test.ts, privacyService.test.ts | 后端 8/134 测试失败（mock 缺 prisma.debateVote；隐私断言仍用 allowMessage 应为 dmPolicy） | 补 debateVote mock + 隐私断言改 dmPolicy，使 npm test 全绿 | 质量门神 |
 | 6 | 🔴 | 认证绕过 | LoginPage.ets:179-195; auth.ets:92-104 | 生产路径保留"其他方式登录"按钮调 `loginWithDevStub()`，任何人可借此登录/批量建号 | 加 `NODE_ENV`/`buildMode` 开关，release 移除该按钮 | 产品官（重叠 #1/#2） |
 | 7 | 🟠 | 密钥存储 | entry/.../utils/auth.ets:9,47-55 | JWT 明文存 PersistentStorage（Preferences 不加密），30 天有效无吊销 | 改存 `@ohos.security.asset` Asset Store；缩短有效期+刷新令牌 | 安全卫士 |
 | 8 | 🟠 | 传输安全 | api.ets:9; backend/.env:7 | 全链路 HTTP，Token/PII 明文传输，无 HTTPS/证书固定 | 切 HTTPS；生产强制 HTTPS 重定向；评估证书固定 | 安全卫士 |
 | 9 | 🟠 | 鉴权缺失 | backend/src/routes/upload.ts:41-65; app.ts:55 | 本地上传 `/v1/upload/local` 无 auth，`/uploads` 静态暴露（开发兜底误用于生产风险） | 生产仅允许 COS 模式；移除 `/uploads` 静态挂载 | 安全卫士 |
-| 10 | 🟠 | 配置 | backend/docker-compose.yml:6-15 | MySQL root/bigbluebook 弱口令 + 3306 映射宿主机所有网卡 | 强随机密码；`127.0.0.1:3306` 仅绑本地；生产用托管库+安全组 | 安全卫士/质量门神 |
+| 10 | 🟠 | 配置 | backend/docker-compose.yml:6-15 | MySQL root/youju 弱口令 + 3306 映射宿主机所有网卡 | 强随机密码；`127.0.0.1:3306` 仅绑本地；生产用托管库+安全组 | 安全卫士/质量门神 |
 | 11 | 🟠 | 密钥卫生 | entry/build-profile.json5:10-14 | 签名 keyPassword/storePassword 明文入库（.p12 已被 gitignore 未泄露本体，但密码入库存放不当） | 密码移出仓库，用 AGC/环境变量注入 | 产品官/质量门神/安全卫士 |
 | 12 | 🟠 | 功能未完成 | utils/share.ets; DetailPage.ets:366-370; ShareSheet.ets | 分享仅复制占位域名链接，未接 SystemShareKit，"系统分享"仅 toast | 定域名后替换 `SHARE_BASE` 并接入系统分享面板 | 产品官 |
 | 13 | 🟠 | 功能未闭环 | app.ts:55; image.ets; api.ets:159-168 | 图片上传生产须 COS 直链+CDN，现仅本地静态兜底 | 配置 COS+CDN，生产替换本地兜底 | 产品官 |
@@ -112,7 +112,7 @@
 | # | 行动 | 负责方 | 紧急度 | 期望完成 |
 |---|------|--------|--------|---------|
 | 1 | 修复 8 个后端测试失败（补 `prisma.debateVote` mock + 隐私断言改 `dmPolicy`） | 后端 dev | P0 | 本周 |
-| 2 | `BASE_URL` 改 `https://api.bigbluebook.com` + 引入 build-mode 切换，release 不再硬编码 localhost | 前端 dev | P0 | 取域名后 |
+| 2 | `BASE_URL` 改 `https://api.youju.com` + 引入 build-mode 切换，release 不再硬编码 localhost | 前端 dev | P0 | 取域名后 |
 | 3 | 后端禁用 openId 登录入口 + 前端移除"其他方式登录"按钮（加 NODE_ENV 开关）；取消 `ADMIN_USER_IDS=1` 默认，改显式管理员开通 | 全栈 | P0 | 发布前 |
 | 4 | 轮换 JWT_SECRET 与腾讯云 AK/SK；密钥/签名密码移出仓库（环境变量/AGC 注入） | 运维+全栈 | P0 | 立即 |
 | 5 | 加 GitHub Actions CI：npm test + tsc；前端 lint 列入发布前人工清单 | devops | P1 | 本周 |
@@ -137,7 +137,7 @@
 
 - gstack-product-reviewer（产品官）原始产出：本会话 teammate 消息《架构审查 + 未完成逻辑报告》
 - gstack-security-officer（安全卫士）原始产出：本会话 teammate 消息《OWASP Top 10 + STRIDE 安全审计报告》
-- gstack-qa-lead（质量门神）原始产出：`/Users/itxiaobai/HarmonyProject1/deliverables/gstack/qa-release-readiness-bigbluebook-2026-07-26.md`
+- gstack-qa-lead（质量门神）原始产出：`/Users/itxiaobai/HarmonyProject1/deliverables/gstack/qa-release-readiness-youju-2026-07-26.md`
 
 ---
 

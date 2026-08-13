@@ -37,8 +37,8 @@ struct DraftBoxPage {
 
   private continueEdit(draft: SavedPostDraft): void {
     publishFlowStore.editSavedDraft(draft.id, draft);
-    const mode: PublishMode = (draft.videoUrl !== undefined && draft.videoUrl.length > 0) ? 'video'
-      : (draft.images.length === 0 ? 'text' : 'photo');
+    const mode: PublishMode = draft.mode ?? ((draft.videoUrl !== undefined && draft.videoUrl.length > 0) ? 'video'
+      : (draft.images.length === 0 ? 'text' : 'photo'));
     const url: string = mode === 'video' ? 'pages/VideoPublishPage'
       : (mode === 'text' ? 'pages/TextPublishPage' : 'pages/PhotoPublishPage');
     this.getUIContext().getRouter().pushUrl({ url: url });
@@ -61,7 +61,7 @@ struct DraftBoxPage {
   }
 
   private isTextDraft(draft: SavedPostDraft): boolean {
-    return draft.images.length === 0;
+    return (draft.mode ?? (draft.images.length === 0 ? 'text' : 'photo')) === 'text';
   }
 
   private textPosterStyle(draft: SavedPostDraft): TextPosterStyleOption {

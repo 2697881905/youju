@@ -1,4 +1,4 @@
-# BigBlueBook 生产部署 Runbook
+# youju 生产部署 Runbook
 
 > 部署形态：单台腾讯云轻量服务器（Ubuntu 22.04）+ docker-compose（mysql + backend + nginx）。
 > nginx 容器内终止 TLS（Let's Encrypt / certbot webroot 模式），反代 backend:3000。
@@ -22,8 +22,8 @@ ufw enable
 
 ## 三、上传代码
 ```bash
-git clone <你的仓库> ~/bigbluebook   # 或将本地 backend/ 打包 scp 上去
-cd ~/bigbluebook/backend
+git clone <你的仓库> ~/youju   # 或将本地 backend/ 打包 scp 上去
+cd ~/youju/backend
 ```
 
 ## 四、配置环境变量
@@ -70,7 +70,7 @@ docker compose -f docker-compose.prod.yml logs -f backend   # 确认无 fail-har
 ## 十、证书自动续期
 加入 crontab（`crontab -e`）：
 ```bash
-0 3 * * * cd ~/bigbluebook/backend && docker run --rm -v $PWD/certbot/conf:/etc/letsencrypt -v $PWD/certbot/web:/var/www/certbot certbot/certbot renew --quiet && docker compose -f docker-compose.prod.yml exec nginx nginx -s reload
+0 3 * * * cd ~/youju/backend && docker run --rm -v $PWD/certbot/conf:/etc/letsencrypt -v $PWD/certbot/web:/var/www/certbot certbot/certbot renew --quiet && docker compose -f docker-compose.prod.yml exec nginx nginx -s reload
 ```
 
 ## 十一、后续更新后端

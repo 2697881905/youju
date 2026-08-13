@@ -43,7 +43,7 @@ export struct SettingsPage {
   private onLogoutClick(): void {
     this.getUIContext().showAlertDialog({
       title: '退出登录？',
-      message: '退出后需重新登录才能使用大蓝书。',
+      message: '退出后需重新登录才能使用有据。',
       primaryButton: { value: '取消', action: (): void => {} },
       secondaryButton: {
         value: '确定退出', fontColor: $r('app.color.semantic_red'),
@@ -349,7 +349,7 @@ export struct SettingsPage {
               .fontColor($r('app.color.text_secondary'))
               .alignSelf(ItemAlign.Start)
               .padding({ left: 4 });
-            this.sectionRow('book', '关于大蓝书 · 版本 1.0.0', (): void => {
+            this.sectionRow('book', '关于有据 · 版本 1.0.0', (): void => {
               this.getUIContext().getRouter().pushUrl({ url: 'pages/AboutPage' });
             });
             this.sectionRow('policy', '隐私政策', (): void => {
