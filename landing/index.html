@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>大蓝书 · 理性生活经验社区</title>
-<meta name="description" content="大蓝书 —— 鸿蒙原生理性内容分享社区。面向大众的开放、理性、友善交流空间，从购物测评到实用教程，从生活心得到经验共享。">
+<title>有据 · 理性生活经验社区</title>
+<meta name="description" content="有据 —— 鸿蒙原生理性内容分享社区。面向大众的开放、理性、友善交流空间，从购物测评到实用教程，从生活心得到经验共享。">
 <script>/* 防闪烁：在 CSS 应用前确定主题 */
   (function(){try{var t=localStorage.getItem('bb-theme')||'light';document.documentElement.dataset.theme=t;}catch(e){}})();
 </script>
@@ -13,25 +13,25 @@
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
 <style>
   :root{
-    /* —— 浅色（默认）Apple 风暖色 —— */
-    --bg:#F4EEE3; --surface:#FFFFFF; --surface-2:#ECE2D2;
-    --text:#1C1815; --text-soft:#534A40;
-    --line:rgba(28,24,21,.10);
-    --accent:#7A5239; --accent-2:#9C6B43; --accent-soft:rgba(156,107,67,.13); --on-accent:#FBF8F2;
-    --dark-bg:#1C1815; --dark-text:#FBF8F2; --dark-text-soft:rgba(251,248,242,.66); --footer-bg:#0F0B08;
-    --shadow-sm:0 1px 2px rgba(28,24,21,.04),0 10px 30px rgba(28,24,21,.06);
-    --shadow-md:0 18px 50px rgba(92,61,40,.14);
-    --shadow-lg:0 36px 80px rgba(92,61,40,.20);
+    /* —— 浅色（默认）Apple 风 · 品牌蓝 #1677FF —— */
+    --bg:#F5F8FC; --surface:#FFFFFF; --surface-2:#EEF3FA;
+    --text:#15202E; --text-soft:#5A6678;
+    --line:rgba(21,32,46,.10);
+    --accent:#1677FF; --accent-2:#0E58D8; --accent-soft:rgba(22,119,255,.12); --on-accent:#FFFFFF;
+    --dark-bg:#0E1525; --dark-text:#EAF1FB; --dark-text-soft:rgba(234,241,251,.66); --footer-bg:#080D18;
+    --shadow-sm:0 1px 2px rgba(21,32,46,.04),0 10px 30px rgba(21,32,46,.06);
+    --shadow-md:0 18px 50px rgba(14,88,216,.14);
+    --shadow-lg:0 36px 80px rgba(14,88,216,.20);
     --font-display:'Outfit','Noto Sans SC',system-ui,sans-serif;
     --font-body:'Noto Sans SC','Outfit',system-ui,sans-serif;
     --ease-apple:cubic-bezier(.22,1,.36,1);
   }
   [data-theme="dark"]{
-    --bg:#15120D; --surface:#1F1A14; --surface-2:#272017;
-    --text:#F4EEE3; --text-soft:#B9A890;
-    --line:rgba(244,238,227,.10);
-    --accent:#B07C4E; --accent-2:#C98F5C; --accent-soft:rgba(176,124,78,.18); --on-accent:#15120D;
-    --dark-bg:#0C0A07; --dark-text:#F4EEE3; --dark-text-soft:rgba(244,238,227,.60); --footer-bg:#070604;
+    --bg:#0E1525; --surface:#16203A; --surface-2:#1E2A48;
+    --text:#EAF1FB; --text-soft:#9FB0CC;
+    --line:rgba(234,241,251,.10);
+    --accent:#4C9BFF; --accent-2:#6FB0FF; --accent-soft:rgba(76,155,255,.18); --on-accent:#0E1525;
+    --dark-bg:#080D18; --dark-text:#EAF1FB; --dark-text-soft:rgba(234,241,251,.60); --footer-bg:#04070F;
     --shadow-sm:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
     --shadow-md:0 18px 50px rgba(0,0,0,.45);
     --shadow-lg:0 36px 80px rgba(0,0,0,.55);
@@ -46,7 +46,7 @@
   section{position:relative}
   body,section,.card,.mcard,.stat,.scn,.visual,.device__screen,.chip,.eyebrow,.btn,.nav{transition:background-color .45s ease,color .45s ease,border-color .45s ease,box-shadow .3s ease}
 
-  .cursor-glow{position:fixed;top:0;left:0;width:460px;height:460px;margin:-230px 0 0 -230px;border-radius:50%;background:radial-gradient(circle,rgba(156,107,67,.16),rgba(156,107,67,0) 60%);pointer-events:none;z-index:60;opacity:0;transition:opacity .4s ease}
+  .cursor-glow{position:fixed;top:0;left:0;width:460px;height:460px;margin:-230px 0 0 -230px;border-radius:50%;background:radial-gradient(circle,rgba(22,119,255,.16),rgba(22,119,255,0) 60%);pointer-events:none;z-index:60;opacity:0;transition:opacity .4s ease}
 
   /* Loader */
   .loader{position:fixed;inset:0;z-index:100;background:var(--bg);display:flex;align-items:center;justify-content:center;transition:background-color .45s ease}
@@ -97,7 +97,7 @@
 
   /* device mockup */
   .device-wrap{margin:clamp(50px,7vw,84px) auto 0;perspective:1400px;width:min(320px,82vw)}
-  .device{position:relative;aspect-ratio:9/19;border-radius:42px;background:linear-gradient(160deg,#2a2018,#0f0b08);padding:12px;box-shadow:var(--shadow-lg);will-change:transform}
+  .device{position:relative;aspect-ratio:9/19;border-radius:42px;background:linear-gradient(160deg,#15202E,#080D18);padding:12px;box-shadow:var(--shadow-lg);will-change:transform}
   .device::after{content:"";position:absolute;top:14px;left:50%;transform:translateX(-50%);width:96px;height:7px;border-radius:99px;background:rgba(255,255,255,.18)}
   .device__screen{height:100%;border-radius:32px;background:linear-gradient(180deg,var(--surface),var(--surface-2));overflow:hidden;display:flex;flex-direction:column;padding:30px 22px;gap:14px}
   .device__bar{height:34px;border-radius:12px;background:linear-gradient(135deg,var(--accent-2),var(--accent))}
@@ -189,6 +189,45 @@
   .scn__tag{margin-top:24px;align-self:flex-start;font-size:12.5px;color:var(--accent);background:var(--accent-soft);padding:6px 14px;border-radius:99px;font-family:var(--font-display);font-weight:600}
   .scenarios__hint{padding:0 0 70px;text-align:center;color:var(--accent-2);font-size:13px;letter-spacing:.12em}
 
+  /* —— 辩论投票 mock —— */
+  .genre-chips{display:flex;flex-wrap:wrap;gap:7px;padding:14px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+  .gchip{font-size:11.5px;font-family:var(--font-display);font-weight:600;color:var(--accent);background:var(--accent-soft);padding:5px 11px;border-radius:99px}
+  .vote{display:flex;flex-direction:column;gap:12px;padding:16px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+  .vote__row{display:flex;flex-direction:column;gap:6px}
+  .vote__lab{display:flex;justify-content:space-between;font-size:12.5px;color:var(--text);font-family:var(--font-display);font-weight:600}
+  .vote__lab span{color:var(--text-soft);font-weight:500}
+  .vote__bar{height:9px;border-radius:99px;background:var(--surface-2);overflow:hidden}
+  .vote__fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent),var(--accent-2));width:0}
+  .vote__fill.b{background:linear-gradient(90deg,#34C759,#1FA847)}
+
+  /* —— 星环圈子 mock —— */
+  .orbit-stage{flex:1;position:relative;display:grid;place-items:center;overflow:hidden}
+  .orbit{position:relative;width:180px;height:180px}
+  .orbit__center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--accent-2),var(--accent));display:grid;place-items:center;color:var(--on-accent);font-family:var(--font-display);font-weight:800;font-size:14px;box-shadow:var(--shadow-sm);z-index:2}
+  .orbit__ring{position:absolute;top:50%;left:50%;border:1px solid var(--line);border-radius:50%;transform:translate(-50%,-50%)}
+  .orbit__ring.r1{width:84px;height:84px;animation:orbit-rotate 14s linear infinite}
+  .orbit__ring.r2{width:132px;height:132px;animation:orbit-rotate 22s linear infinite reverse}
+  .orbit__ring.r3{width:176px;height:176px;animation:orbit-rotate 30s linear infinite}
+  .planet{position:absolute;top:50%;left:0;transform:translate(-50%,-50%);width:30px;height:30px;border-radius:50%;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-sm);display:grid;place-items:center;font-size:10px;color:var(--text-soft);font-family:var(--font-display);font-weight:600}
+  .planet.a{background:var(--accent-soft);color:var(--accent)}
+  .planet.b{background:rgba(52,199,89,.16);color:#1FA847}
+  @keyframes orbit-rotate{to{transform:translate(-50%,-50%) rotate(360deg)}}
+  @media(prefers-reduced-motion:reduce){.orbit__ring{animation:none}}
+
+  /* —— 五大体裁 —— */
+  .genres-sec{padding:clamp(90px,13vw,150px) 0;background:var(--bg)}
+  .genres{display:grid;grid-template-columns:repeat(5,1fr);gap:18px;margin-top:8px}
+  @media(max-width:980px){.genres{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.genres{grid-template-columns:1fr}}
+  .genre{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:26px 22px;box-shadow:var(--shadow-sm);transition:box-shadow .3s,transform .3s,background-color .45s,color .45s;will-change:transform}
+  .genre:hover{box-shadow:var(--shadow-md);transform:translateY(-4px)}
+  .genre .gnum{font-family:var(--font-display);font-weight:800;font-size:14px;color:var(--accent);letter-spacing:.1em}
+  .genre h4{font-family:var(--font-display);font-size:19px;color:var(--text);margin:10px 0 6px}
+  .genre .ghint{font-size:12.5px;color:var(--accent-2);font-weight:600;margin-bottom:14px}
+  .genre ul{list-style:none;display:flex;flex-direction:column;gap:8px}
+  .genre li{font-size:13px;color:var(--text-soft);padding-left:16px;position:relative}
+  .genre li::before{content:"";position:absolute;left:0;top:7px;width:6px;height:6px;border-radius:50%;background:var(--accent-soft)}
+
   /* Stats */
   .stats-sec{padding:clamp(90px,13vw,150px) 0;background:var(--bg)}
   .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
@@ -198,7 +237,7 @@
   .stat__label{margin-top:12px;color:var(--text-soft);font-size:14px}
 
   /* CTA */
-  .cta{background:radial-gradient(120% 120% at 50% 0%,#2a2018,var(--dark-bg));color:var(--dark-text);padding:clamp(100px,14vw,170px) 0;text-align:center;overflow:hidden}
+  .cta{background:radial-gradient(120% 120% at 50% 0%,#15202E,var(--dark-bg));color:var(--dark-text);padding:clamp(100px,14vw,170px) 0;text-align:center;overflow:hidden}
   .cta h2{font-size:clamp(34px,7vw,72px);margin-bottom:20px;color:var(--dark-text)}
   .cta p{color:var(--dark-text-soft);max-width:560px;margin:0 auto 38px;font-size:clamp(15px,1.9vw,19px)}
   .cta__btns{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
@@ -212,18 +251,18 @@
 <body class="js">
 <div class="cursor-glow" aria-hidden="true"></div>
 
-<div class="loader" id="loader"><div class="loader__ring"></div><div class="loader__txt">BIGBLUEBOOK</div></div>
+<div class="loader" id="loader"><div class="loader__ring"></div><div class="loader__txt">有据 YOUJU</div></div>
 
 <nav class="nav" id="nav">
   <a class="nav__brand" href="#top">
-    <svg class="logo" viewBox="0 0 64 64" fill="none" aria-hidden="true"><rect x="6" y="10" width="52" height="44" rx="10" fill="var(--accent)"/><path d="M32 14v36" stroke="var(--on-accent)" stroke-width="2.4" opacity=".7"/><path d="M14 22h14M14 30h14M36 22h14M36 30h14" stroke="var(--on-accent)" stroke-width="2.4" stroke-linecap="round" opacity=".85"/></svg>
-    大蓝书
+    <svg class="logo" viewBox="0 0 1024 1024" fill="none" aria-hidden="true"><rect width="1024" height="1024" rx="192" fill="#FFFFFF"/><path fill="#131927" d="M208 272h256v96H336v112h128v160H208z"/><path fill="#131927" d="M816 752H560v-96h128V544H560V384h256z"/><path fill="#1677FF" d="M384 528h96v80h80v80h80v-80h80v-80h80v80h-80v80h-80v80h-80v-80h-80v-80h-96z"/></svg>
+    有据
   </a>
-  <div class="nav__title" id="navTitle">大蓝书</div>
+  <div class="nav__title" id="navTitle">有据</div>
   <div class="nav__right">
     <div class="nav__links">
       <a href="#features">核心功能</a>
-      <a href="#story">为什么是大蓝书</a>
+      <a href="#story">为什么是有据</a>
       <a href="#scenarios">使用场景</a>
       <a class="nav__cta" href="#download">下载</a>
     </div>
@@ -235,11 +274,11 @@
 </nav>
 
 <!-- HERO -->
-<header class="hero" id="top" data-nav-title="大蓝书">
+<header class="hero" id="top" data-nav-title="有据">
   <div class="container hero__inner">
-    <span class="eyebrow" id="heroEyebrow">鸿蒙原生 · 生活经验社区</span>
-    <h1 id="heroTitle" aria-label="大蓝书">大蓝<span class="accent">书</span></h1>
-    <p class="hero__sub" id="heroSub">真实生活的第一手经验库。从恋爱到职场，从装修到理财 —— 把走过的弯路，讲给正在走的你听。</p>
+    <span class="eyebrow" id="heroEyebrow">鸿蒙原生 · 理性内容社区</span>
+    <h1 id="heroTitle" aria-label="有据">有据</h1>
+    <p class="hero__sub" id="heroSub">真实经验，有据可循。一个面向大众的理性内容分享社区：测评、避坑、教程、辩论，让每一次决策都有参考。</p>
     <div class="hero__btns" id="heroBtns">
       <a class="btn btn--primary magnetic" href="#download">立即下载体验
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -250,8 +289,8 @@
       <div class="device" id="device">
         <div class="device__screen">
           <div class="device__bar"></div>
-          <svg class="device__logo" viewBox="0 0 64 64" fill="none" aria-hidden="true"><rect x="6" y="10" width="52" height="44" rx="10" fill="var(--accent)"/><path d="M32 14v36" stroke="var(--on-accent)" stroke-width="2.4" opacity=".7"/></svg>
-          <div class="device__title">大蓝书</div>
+          <svg class="device__logo" viewBox="0 0 1024 1024" fill="none" aria-hidden="true"><rect width="1024" height="1024" rx="192" fill="var(--accent)"/><path fill="#FFFFFF" d="M208 272h256v96H336v112h128v160H208z"/><path fill="#FFFFFF" d="M816 752H560v-96h128V544H560V384h256z"/><path fill="#FFFFFF" d="M384 528h96v80h80v80h80v-80h80v-80h80v80h-80v80h-80v80h-80v-80h-80v-80h-96z"/></svg>
+          <div class="device__title">有据</div>
           <div class="device__line"></div>
           <div class="device__line s"></div>
           <div class="device__card">
@@ -267,8 +306,8 @@
 <!-- MARQUEE -->
 <div class="marquee" aria-hidden="true">
   <div class="marquee__track" id="marquee">
-    <span>真实经验</span><span>匿名提问</span><span>兴趣圈子</span><span>经验沉淀</span><span>私密日记</span><span>同城联结</span>
-    <span>真实经验</span><span>匿名提问</span><span>兴趣圈子</span><span>经验沉淀</span><span>私密日记</span><span>同城联结</span>
+    <span>真实经验</span><span>测评避坑</span><span>结构化内容</span><span>理性辩论</span><span>星环圈子</span><span>鸿蒙原生</span><span>有据可循</span>
+    <span>真实经验</span><span>测评避坑</span><span>结构化内容</span><span>理性辩论</span><span>星环圈子</span><span>鸿蒙原生</span><span>有据可循</span>
   </div>
 </div>
 
@@ -283,68 +322,91 @@
 
     <div class="frow reveal">
       <div class="frow__media"><div class="visual"><div class="screen">
-        <div class="screen__bar"><span class="screen__logo">大蓝书</span><span class="screen__search"></span></div>
+        <div class="screen__bar"><span class="screen__logo">有据</span><span class="screen__search"></span></div>
         <div class="screen__feed">
-          <div class="post"><div class="post__av"></div><div class="post__body"><div class="post__meta"><b>老张</b><i>2小时前</i></div><div class="post__t">装修踩坑：这 3 个地方别省钱</div><div class="post__l"></div><div class="post__l s"></div><div class="post__acts"><span>♥ 128</span><span>💬 32</span></div></div></div>
-          <div class="post"><div class="post__av"></div><div class="post__body"><div class="post__meta"><b>阿哲</b><i>昨天</i></div><div class="post__t">被领导 PUA 了半年，我是怎么走出来的</div><div class="post__l"></div><div class="post__l s"></div><div class="post__acts"><span>♥ 356</span><span>💬 89</span></div></div></div>
+          <div class="post"><div class="post__av"></div><div class="post__body"><div class="post__meta"><b>数码选购</b><i>测评</i></div><div class="post__t">蓝牙耳机怎么选？附三轮实测对比</div><div class="post__l"></div><div class="post__l s"></div><div class="post__acts"><span>♥ 128</span><span>💬 32</span></div></div></div>
+          <div class="post"><div class="post__av"></div><div class="post__body"><div class="post__meta"><b>汽车养护</b><i>避坑</i></div><div class="post__t">首保别被忽悠，这 4 项根本不用做</div><div class="post__l"></div><div class="post__l s"></div><div class="post__acts"><span>♥ 356</span><span>💬 89</span></div></div></div>
         </div>
       </div></div></div>
       <div class="frow__text">
         <span class="eyebrow">真实经验帖</span>
-        <h3>普通人的第一手记录</h3>
-        <p>没有说教，只有「我当时是这么过来的」。一篇篇真实故事，是你深夜翻手机时最稳的那口气。</p>
-        <div class="mini"><span class="chip">情感</span><span class="chip">职场</span><span class="chip">理财</span></div>
+        <h3>首页信息流，三种看法</h3>
+        <p>推荐、关注、每日——双列瀑布流里，是普通人的第一手记录：测评、避坑、教程。没有说教，只有「我当时是这么过来的」。</p>
+        <div class="mini"><span class="chip">数码选购</span><span class="chip">汽车养护</span><span class="chip">职场沟通</span></div>
       </div>
     </div>
 
     <div class="frow reverse reveal">
       <div class="frow__media"><div class="visual"><div class="screen">
-        <div class="screen__bar"><span class="screen__logo">匿名提问</span></div>
+        <div class="screen__bar"><span class="screen__logo">发布</span></div>
         <div class="screen__feed">
-          <div class="qcard"><div class="qcard__tag">匿名</div><div class="qcard__q">表白前要不要先确认对方心意？</div><div class="qcard__a"><div class="ava"></div><p>先聊近况，看她会不会主动分享生活。愿意回你、主动找你，其实答案已经很明显了。</p></div></div>
-          <div class="qcard"><div class="qcard__tag">匿名</div><div class="qcard__q">工资不高，该不该跟朋友坦白？</div><div class="qcard__a"><div class="ava"></div><p>真话不一定说数字，但别硬撑。真正的关系，经得起真实。</p></div></div>
+          <div class="genre-chips"><span class="gchip">测评</span><span class="gchip">避坑</span><span class="gchip">教程</span><span class="gchip">辩论</span><span class="gchip">分享</span></div>
+          <div class="vote">
+            <div class="vote__row"><div class="vote__lab">方案 A：先租后买<span>62%</span></div><div class="vote__bar"><div class="vote__fill" data-fill="62"></div></div></div>
+            <div class="vote__row"><div class="vote__lab">方案 B：直接攒首付<span>38%</span></div><div class="vote__bar"><div class="vote__fill b" data-fill="38"></div></div></div>
+          </div>
         </div>
       </div></div></div>
       <div class="frow__text">
-        <span class="eyebrow">匿名提问</span>
-        <h3>不敢问身边人的，这里能问</h3>
-        <p>不用实名，先把心里的石头放下。一个问题发出去，接住你的是一群走过同样路的人。</p>
-        <div class="mini"><span class="chip">匿名</span><span class="chip">安全</span><span class="chip">真实回答</span></div>
+        <span class="eyebrow">结构化内容</span>
+        <h3>有依据，不灌水</h3>
+        <p>发帖先选体裁：测评要写优缺点与推荐指数，避坑要讲踩坑与正确做法，教程要列工具与步骤。把争论变成可投票的 A/B 方案，让经验可量化。</p>
+        <div class="mini"><span class="chip">五体裁</span><span class="chip">辩论投票</span><span class="chip">有图有真相</span></div>
       </div>
     </div>
 
     <div class="frow reveal">
       <div class="frow__media"><div class="visual"><div class="screen">
-        <div class="screen__bar"><span class="screen__logo">我的手册</span></div>
-        <div class="manual-grid">
-          <div class="mtopic"><b>装修</b><span>18 篇经验</span></div>
-          <div class="mtopic"><b>职场</b><span>24 篇经验</span></div>
-          <div class="mtopic"><b>理财</b><span>12 篇经验</span></div>
-          <div class="mtopic"><b>情感</b><span>31 篇经验</span></div>
+        <div class="screen__bar"><span class="screen__logo">圈子</span></div>
+        <div class="orbit-stage">
+          <div class="orbit">
+            <div class="orbit__center">有据</div>
+            <div class="orbit__ring r1"><div class="planet a">数码</div></div>
+            <div class="orbit__ring r2"><div class="planet b">汽车</div></div>
+            <div class="orbit__ring r3"><div class="planet a">职场</div></div>
+          </div>
         </div>
       </div></div></div>
       <div class="frow__text">
-        <span class="eyebrow">经验沉淀</span>
-        <h3>高赞内容，自动归档成生活手册</h3>
-        <p>下次遇到同样的事，一搜就有答案。经验不再是刷过去就忘的信息，而是真正属于你的资产。</p>
-        <div class="mini"><span class="chip">可检索</span><span class="chip">可收藏</span><span class="chip">长期沉淀</span></div>
+        <span class="eyebrow">星环圈子</span>
+        <h3>12 个圈子，像行星一样转</h3>
+        <p>数码选购、汽车养护、职场沟通、酒水品鉴……12 个真实圈子以星环轨道排布，点击即吸附展开。找到同好，也找到答案。</p>
+        <div class="mini"><span class="chip">12 圈子</span><span class="chip">轨道可视化</span><span class="chip">按话题分组</span></div>
       </div>
     </div>
 
     <div class="more-grid">
-      <div class="mcard reveal"><div class="ic"><svg viewBox="0 0 24 24" fill="none"><circle cx="9" cy="9" r="3" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="14" r="2.4" stroke="currentColor" stroke-width="2"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div><h4>兴趣圈子</h4><p>按话题分组，装修、数码、穿搭、情感，找到同好也找到答案。</p></div>
-      <div class="mcard reveal"><div class="ic"><svg viewBox="0 0 24 24" fill="none"><rect x="5" y="3" width="14" height="18" rx="3" stroke="currentColor" stroke-width="2"/><path d="M9 8h6M9 12h6M9 16h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div><h4>私密日记</h4><p>只属于自己的成长轨迹，写完翻看会感谢坚持记录的自己。</p></div>
-      <div class="mcard reveal"><div class="ic"><svg viewBox="0 0 24 24" fill="none"><path d="M12 21s7-5.5 7-11a7 7 0 10-14 0c0 5.5 7 11 7 11z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="10" r="2.5" stroke="currentColor" stroke-width="2"/></svg></div><h4>同城联结</h4><p>线下的真实关系，从一次同城活动开始，认识附近靠谱的人。</p></div>
+      <div class="mcard reveal"><div class="ic"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3l7 4v5c0 4-3 7-7 9-4-2-7-5-7-9V7l7-4z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><h4>鸿蒙原生登录</h4><p>华为账号一键登录（Account Kit），鸿蒙主账号还可绑定华为账号，安全且不阻塞。</p></div>
+      <div class="mcard reveal"><div class="ic"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="2"/><path d="M8 8l8 8M16 8l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div><h4>拉黑 vs 不喜欢</h4><p>不喜欢=少推点，拉黑=别再见。两档社交距离，把边界交还给你自己。</p></div>
+      <div class="mcard reveal"><div class="ic"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3l7 4v5c0 4-3 7-7 9-4-2-7-5-7-9V7l7-4z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 8v5M12 16v.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div><h4>内容安全</h4><p>三道内容安全防线、7 类举报理由、管理员审核台，数据存境内、支持导出与注销。</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- GENRES -->
+<section class="genres-sec" id="genres" data-nav-title="内容体裁">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">内容体裁</span>
+      <h2>每一篇，都有结构</h2>
+      <p>「有据」二字，落在内容上就是：有依据、有结构。五种体裁，让经验可复用、可查证。</p>
+    </div>
+    <div class="genres">
+      <div class="genre reveal"><div class="gnum">01</div><h4>测评</h4><div class="ghint">优缺点 · 推荐指数</div><ul><li>真实使用体验</li><li>优点 / 缺点对照</li><li>综合推荐指数</li></ul></div>
+      <div class="genre reveal"><div class="gnum">02</div><h4>避坑</h4><div class="ghint">踩坑 · 正确做法</div><ul><li>踩过的真实坑</li><li>正确做法示范</li><li>如何提前识别</li></ul></div>
+      <div class="genre reveal"><div class="gnum">03</div><h4>教程</h4><div class="ghint">工具 · 步骤</div><ul><li>所需工具清单</li><li>分步操作拆解</li><li>常见失败点</li></ul></div>
+      <div class="genre reveal"><div class="gnum">04</div><h4>辩论</h4><div class="ghint">A / B 方案投票</div><ul><li>抛出两个方案</li><li>集体实时投票</li><li>利弊摆清楚</li></ul></div>
+      <div class="genre reveal"><div class="gnum">05</div><h4>分享</h4><div class="ghint">经验 · 见闻</div><ul><li>亲身经历</li><li>心得与复盘</li><li>可借鉴的点</li></ul></div>
     </div>
   </div>
 </section>
 
 <!-- STORY -->
-<section class="story" id="story" data-nav-title="为什么是大蓝书">
+<section class="story" id="story" data-nav-title="为什么是有据">
   <div class="story__sticky">
-    <div class="story__step" data-step="0"><div class="num">01</div><h3>鸿蒙原生，流畅到底</h3><p>基于 HarmonyOS NEXT 打造，启动快、滑动顺、不卡顿。每一次触碰，都跟得上你的思路。</p></div>
-    <div class="story__step" data-step="1"><div class="num">02</div><h3>真实，不浮夸</h3><p>内容调性克制，拒绝标题党和爹味说教。这里只讲人话，只聊你真会遇到的问题。</p></div>
-    <div class="story__step" data-step="2"><div class="num">03</div><h3>隐私与安全优先</h3><p>严格的内容审核与隐私保护，匿名区域让你放心开口。你的心事，只属于你自己。</p></div>
+    <div class="story__step" data-step="0"><div class="num">01</div><h3>鸿蒙原生，流畅到底</h3><p>基于 HarmonyOS NEXT 打造，华为账号一键登录、玻璃拟态底栏、深色模式全适配。每一次触碰，都跟得上你的思路。</p></div>
+    <div class="story__step" data-step="1"><div class="num">02</div><h3>结构化，有图有真相</h3><p>内容不是情绪输出，而是测评、避坑、教程、辩论——有结构、有依据、有方法论。拒绝标题党与爹味说教。</p></div>
+    <div class="story__step" data-step="2"><div class="num">03</div><h3>体面的社区</h3><p>不喜欢就少推点，拉黑就别再见；内置反对性别对立的社区公约与三道内容安全防线。你的边界，由你掌控。</p></div>
     <div class="story__progress" id="storyProg"><i class="on"></i><i></i><i></i></div>
   </div>
 </section>
@@ -358,25 +420,25 @@
   </div>
   <div class="scenarios__pin" id="scnPin">
     <div class="scenarios__track" id="scnTrack">
-      <article class="scn"><div class="scn__no">01</div><div><h3>深夜 emo 时</h3><p>翻翻别人是怎么熬过来的。原来不是只有我这样，原来真的会好起来。</p><span class="scn__tag">情感 · 治愈</span></div></article>
-      <article class="scn"><div class="scn__no">02</div><div><h3>装修开工前</h3><p>先看一份避坑指南，省下的不只是钱，还有和工长吵架的力气。</p><span class="scn__tag">家居 · 实用</span></div></article>
-      <article class="scn"><div class="scn__no">03</div><div><h3>表白前一晚</h3><p>「这样说行吗？」发个帖问一句，收获一堆过来人的真实建议。</p><span class="scn__tag">恋爱 · 支招</span></div></article>
-      <article class="scn"><div class="scn__no">04</div><div><h3>职场被欺负</h3><p>来吐槽，也找对策。沉默不是唯一选项，先搞清楚自己有哪些牌。</p><span class="scn__tag">职场 · 成长</span></div></article>
-      <article class="scn"><div class="scn__no">05</div><div><h3>第一次理财</h3><p>从「钱该放哪」到「坑别踩」，看普通人怎么把日子过踏实。</p><span class="scn__tag">理财 · 启蒙</span></div></article>
+      <article class="scn"><div class="scn__no">01</div><div><h3>想买耳机时</h3><p>先上有据搜测评，看真实用户的三轮实测对比，再决定把钱花在哪。</p><span class="scn__tag">数码 · 测评</span></div></article>
+      <article class="scn"><div class="scn__no">02</div><div><h3>水龙头漏水时</h3><p>翻一篇教程，看清工具和步骤，自己动手省下上门费。</p><span class="scn__tag">家居 · 教程</span></div></article>
+      <article class="scn"><div class="scn__no">03</div><div><h3>新入职第一周</h3><p>看职场沟通与面试经验，少踩坑、少内耗，把力气用在刀刃上。</p><span class="scn__tag">职场 · 成长</span></div></article>
+      <article class="scn"><div class="scn__no">04</div><div><h3>买车前犹豫时</h3><p>读真实车主的避坑记录，弄清楚哪些配置是智商税、哪些真值得。</p><span class="scn__tag">汽车 · 避坑</span></div></article>
+      <article class="scn"><div class="scn__no">05</div><div><h3>两个方案纠结时</h3><p>发起一场辩论投票，让集体的判断帮你把利弊摆清楚。</p><span class="scn__tag">决策 · 辩论</span></div></article>
     </div>
   </div>
   <p class="scenarios__hint">→ 横向滑动浏览更多场景</p>
 </section>
 
 <!-- STATS -->
-<section class="stats-sec" data-nav-title="社区数据">
+<section class="stats-sec" data-nav-title="工程扎实">
   <div class="container">
-    <div class="section-head reveal"><span class="eyebrow">社区数据</span><h2>被真实使用着</h2><p>数字不大，但每一个都是真人真事。</p></div>
+    <div class="section-head reveal"><span class="eyebrow">工程扎实</span><h2>看得见的底气</h2><p>不是营销话术，是代码与基础设施的真实规模。</p></div>
     <div class="stats">
-      <div class="stat reveal"><div class="stat__num"><span class="count" data-target="10">0</span>万+</div><div class="stat__label">真实经验帖沉淀</div></div>
-      <div class="stat reveal"><div class="stat__num"><span class="count" data-target="50">0</span>+</div><div class="stat__label">活跃兴趣圈子</div></div>
-      <div class="stat reveal"><div class="stat__num"><span class="count" data-target="98">0</span>%</div><div class="stat__label">用户表示「被理解」</div></div>
-      <div class="stat reveal"><div class="stat__num"><span class="count" data-target="24">0</span>h</div><div class="stat__label">平均每日陪伴时长</div></div>
+      <div class="stat reveal"><div class="stat__num"><span class="count" data-target="71">0</span></div><div class="stat__label">个 API 接口（/v1 全量）</div></div>
+      <div class="stat reveal"><div class="stat__num"><span class="count" data-target="20">0</span></div><div class="stat__label">张数据表（Prisma 模型）</div></div>
+      <div class="stat reveal"><div class="stat__num"><span class="count" data-target="595">0</span></div><div class="stat__label">条敏感词库（含 97 性别对立）</div></div>
+      <div class="stat reveal"><div class="stat__num"><span class="count" data-target="85">0</span></div><div class="stat__label">项测试全绿（Jest 85/85）</div></div>
     </div>
   </div>
 </section>
@@ -385,14 +447,14 @@
 <section class="cta" id="download" data-nav-title="下载">
   <div class="container">
     <h2 class="reveal">把经验，装进口袋</h2>
-    <p class="reveal">大蓝书已在 HarmonyOS NEXT 上线。现在下载，加入一群愿意把真话讲给你听的朋友。</p>
+    <p class="reveal">有据正在内测开放中，即将登陆 HarmonyOS NEXT。现在加入，成为第一批把真话讲给彼此听的人。</p>
     <div class="cta__btns reveal">
-      <a class="btn btn--primary magnetic" href="#top">前往应用市场下载</a>
+      <a class="btn btn--primary magnetic" href="#top">申请加入内测</a>
       <a class="btn btn--ghost magnetic" href="#features" style="color:var(--dark-text);border-color:rgba(244,238,227,.3)">再看看功能</a>
     </div>
   </div>
 </section>
-<footer class="footer">© 2026 大蓝书 BigBlueBook · 真实生活经验社区 · <a href="#top">回到顶部</a></footer>
+<footer class="footer">© 2026 有据 · 真实生活经验社区 · <a href="#top">回到顶部</a></footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
@@ -424,7 +486,7 @@
   }
   function heroIntro(){
     const tl=gsap.timeline();
-    const title=document.getElementById('heroTitle');const text='大蓝书';title.innerHTML='';
+    const title=document.getElementById('heroTitle');const text='有据';title.innerHTML='';
     [...text].forEach((ch,i)=>{const s=document.createElement('span');s.className='char';s.textContent=ch;if(i===text.length-1)s.classList.add('accent');title.appendChild(s);});
     tl.from('#heroEyebrow',{y:20,autoAlpha:0,duration:.6,ease:'power3.out'})
       .from('.hero h1 .char',{yPercent:120,autoAlpha:0,rotation:10,stagger:.09,duration:.85,ease:'back.out(1.7)'},'-=.3')
@@ -435,7 +497,7 @@
   }
 
   function init(){
-    if(reduce){document.querySelectorAll('.reveal').forEach(e=>e.style.opacity=1);return;}
+    if(reduce){document.querySelectorAll('.reveal').forEach(e=>e.style.opacity=1);document.querySelectorAll('.vote__fill').forEach(f=>f.style.width=(f.dataset.fill||0)+'%');return;}
 
     ScrollTrigger.batch('.reveal',{start:'top 88%',onEnter:b=>gsap.fromTo(b,{autoAlpha:0,y:36},{autoAlpha:1,y:0,stagger:.08,duration:.8,ease:'power3.out'})});
 
@@ -451,6 +513,8 @@
       gsap.from(t.children,{autoAlpha:0,y:30,stagger:.1,duration:.7,ease:'power3.out',scrollTrigger:{trigger:t,start:'top 82%'}});
     });
     ScrollTrigger.batch('.mcard',{start:'top 90%',onEnter:b=>gsap.fromTo(b,{autoAlpha:0,y:40},{autoAlpha:1,y:0,stagger:.1,duration:.6,ease:'power3.out'})});
+    ScrollTrigger.batch('.genre',{start:'top 88%',onEnter:b=>gsap.fromTo(b,{autoAlpha:0,y:40},{autoAlpha:1,y:0,stagger:.08,duration:.6,ease:'power3.out'})});
+    document.querySelectorAll('.vote__fill').forEach(f=>{const w=f.dataset.fill||0;ScrollTrigger.create({trigger:f,start:'top 90%',once:true,onEnter:()=>gsap.to(f,{width:w+'%',duration:1.2,ease:'power2.out'})});});
 
     /* scrollytelling */
     const steps=gsap.utils.toArray('.story__step');

@@ -1,6 +1,10 @@
 import { Genre, StructuredData } from '../models/types';
 
+export type PublishDraftMode = 'photo' | 'text' | 'video';
+
 export interface PublishDraft {
+  // Preserve the chosen entry so an image-free photo post remains a photo post.
+  mode?: PublishDraftMode;
   title: string;
   content: string;
   genre: Genre;
@@ -14,6 +18,7 @@ export interface PublishDraft {
 
 export function clonePublishDraft(draft: PublishDraft): PublishDraft {
   return {
+    mode: draft.mode,
     title: draft.title,
     content: draft.content,
     genre: draft.genre,

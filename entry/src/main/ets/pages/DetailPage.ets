@@ -20,6 +20,7 @@ import { openUserProfile, takePostDetailId } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 import { getUserId, getToken } from '../utils/auth';
 import { likeStore } from '../utils/likeStore';
+import { debateVoteStore, DebateVoteInfo } from '../utils/debateVoteStore';
 import { ShareSheet } from '../components/ShareSheet';
 import { buildPostShareUrl, copyToClipboard } from '../utils/share';
 import { window } from '@kit.ArkUI';
@@ -31,6 +32,7 @@ import { DetailPostHeader } from '../components/DetailPostHeader';
 import { DetailPostContent, DetailField } from '../components/DetailPostContent';
 import { DetailCommentsSection } from '../components/DetailCommentsSection';
 import { DetailActionBar } from '../components/DetailActionBar';
+import { barBottomReserve } from '../utils/cardTokens';
 
 // 字段定义：[结构化字段键, 中文标签]，按产品文档 2.4 各体裁字段表
 type FieldDef = [keyof StructuredData, string];
@@ -144,9 +146,6 @@ struct DetailPage {
   @State commentText: string = '';
   @State commentReportId: number = 0;
   @State viewingImage: string = ''; // 全屏看图
-  @State planAVotes: number = 0;
-  @State planBVotes: number = 0;
-  @State myVote: string = ''; // '' | 'A' | 'B'
   @State statusBarHeight: number = 0; // 全屏布局下顶部避让状态栏
   // 监听登录账号：切换账号/登出时重新加载本帖，以服务器为准校准点赞/收藏/投票态（避免 likeStore 单例残留串号）
   @StorageLink('authUserId') @Watch('onAccountSwitch') accountId: string = '';
@@ -292,9 +291,12 @@ struct DetailPage {
       this.videoCover = resolveDisplayImageUrl(p.videoCover ?? '');
       this.activeImageIndex = 0;
       // 辩论投票数据初始化
-      this.planAVotes = (p as Record<string, Object>).planAVotes as number ?? 0;
-      this.planBVotes = (p as Record<string, Object>).planBVotes as number ?? 0;
-      this.myVote = (p as Record<string, Object>).myVote as string ?? '';
+      debateVoteStore.syncFromServer(
+        p.id ?? 0,
+        (p as Record<string, Object>).planAVotes as number ?? 0,
+        (p as Record<string, Object>).planBVotes as number ?? 0,
+        (p as Record<string, Object>).myVote as string ?? '',
+      );
     } catch (e) {
       this.error = (e as Error).message;
     } finally {
@@ -348,7 +350,9 @@ struct DetailPage {
         images.push(resolveDisplayImageUrl(image));
       }
     }
-    if (images.length === 0 && typeof p.coverImage === 'string' && p.coverImage.length > 0) {
+    const isCoverOnlyTextPoster: boolean = source.length === 0 &&
+      p.structuredData?.coverOnlyTextPoster === true;
+    if (images.length === 0 && !isCoverOnlyTextPoster && typeof p.coverImage === 'string' && p.coverImage.length > 0) {
       images.push(resolveDisplayImageUrl(p.coverImage));
     }
     return images;
@@ -438,7 +442,7 @@ struct DetailPage {
       return;
     }
     try {
-      copyToClipboard(this.post.title ?? '大蓝书帖子');
+      copyToClipboard(this.post.title ?? '有据帖子');
       safeShowToast(this.getUIContext(), { message: '标题已复制' });
     } catch (e) {
       safeShowToast(this.getUIContext(), { message: '复制失败，请重试' });
@@ -454,28 +458,23 @@ struct DetailPage {
 
   // 辩论投票：乐观更新票数
   private async onDebateVote(choice: string): Promise<void> {
-    if (this.myVote === choice) return; // 重复投同选项
-    if (!this.post || this.post.id === undefined) return;
-    const prevVote: string = this.myVote;
-    const prevA: number = this.planAVotes;
-    const prevB: number = this.planBVotes;
-    // 乐观更新
-    if (prevVote !== '') {
-      if (prevVote === 'A') this.planAVotes -= 1;
-      else this.planBVotes -= 1;
+    if (!this.post || this.post.id === undefined) {
+      return;
     }
-    if (choice === 'A') this.planAVotes += 1;
-    else this.planBVotes += 1;
-    this.myVote = choice;
+    const postId: number = this.post.id;
+    const current: DebateVoteInfo | undefined = debateVoteStore.get(postId);
+    if (current?.choice === choice) {
+      return;
+    }
+    // 广播后由正文组件写入自己的 @State，投票数字和进度会在请求返回前立即更新。
+    const previous: DebateVoteInfo = debateVoteStore.applyOptimistic(postId, choice);
     try {
       // 投票请求失败自动重试一次（自愈模拟器 rport 偶发抖动），仍失败才回滚
-      const r: DebateVoteResult = await this.voteWithRetry(this.post.id, choice);
-      this.planAVotes = r.planAVotes;
-      this.planBVotes = r.planBVotes;
+      await this.voteWithRetry(postId, choice);
+      // 该请求只作为提交确认。当前后端/连接组合可能返回事务提交前的聚合票数，
+      // 成功时回写它会把已显示的即时结果覆盖掉；下一次进入详情页再由 load() 校准。
     } catch (e) {
-      this.myVote = prevVote;
-      this.planAVotes = prevA;
-      this.planBVotes = prevB;
+      debateVoteStore.revert(postId, previous);
       safeShowToast(this.getUIContext(), { message: (e as Error).message });
     }
   }
@@ -633,86 +632,94 @@ struct DetailPage {
         .width('100%')
         .justifyContent(FlexAlign.Center)
       } else if (this.post) {
-        Scroll() {
-          Column({ space: 16 }) {
-            // 待审核横幅（作者查看自己 status=0 帖子时显示）
-            if (this.post.status === 0 && this.post.userId === getUserId()) {
-              Row({ space: 8 }) {
-                Text('该帖子正在审核中，仅你自己可见')
-                  .fontSize(13).fontFamily($r('app.string.font_family'))
-                  .fontColor('#FF9500')
+        Stack({ alignContent: Alignment.Bottom }) {
+          Scroll() {
+            Column({ space: 16 }) {
+              // 待审核横幅（作者查看自己 status=0 帖子时显示）
+              if (this.post.status === 0 && this.post.userId === getUserId()) {
+                Row({ space: 8 }) {
+                  Text('该帖子正在审核中，仅你自己可见')
+                    .fontSize(13).fontFamily($r('app.string.font_family'))
+                    .fontColor('#FF9500')
+                }
+                .width('100%')
+                .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+                .backgroundColor($r('app.color.warning_surface'))
+                .borderRadius(8)
               }
-              .width('100%')
-              .padding({ left: 12, right: 12, top: 8, bottom: 8 })
-              .backgroundColor($r('app.color.warning_surface'))
-              .borderRadius(8)
-            }
 
-            DetailPostHeader({
-              title: this.post.title ?? '',
-              genreLabel: genreMeta(this.post.genre).label,
-              genreIcon: genreMeta(this.post.genre).iconRes,
-              tags: this.post.tags ?? [],
-              authorName: this.authorName(),
-              authorAvatar: this.authorAvatar(),
-              createdAt: this.post.createdAt,
-              onOpenAuthor: (): void => { this.openAuthorProfile(); },
-            })
-
-            if (this.videoUrl.length > 0) {
-              Column() {
-                VideoPlayer({ src: this.videoUrl, poster: this.videoCover, videoHeight: 240 })
-              }
-              .width('100%')
-            } else {
-              DetailMediaCarousel({
-                images: this.images,
-                activeIndex: $activeImageIndex,
-                onOpenImage: (url: string): void => { this.viewingImage = url; },
+              DetailPostHeader({
+                title: this.post.title ?? '',
+                genreLabel: genreMeta(this.post.genre).label,
+                genreIcon: genreMeta(this.post.genre).iconRes,
+                tags: this.post.tags ?? [],
+                authorName: this.authorName(),
+                authorAvatar: this.authorAvatar(),
+                createdAt: this.post.createdAt,
+                onOpenAuthor: (): void => { this.openAuthorProfile(); },
               })
+
+              if (this.videoUrl.length > 0) {
+                Column() {
+                  VideoPlayer({ src: this.videoUrl, poster: this.videoCover, videoHeight: 240 })
+                }
+                .width('100%')
+              } else {
+                DetailMediaCarousel({
+                  images: this.images,
+                  activeIndex: $activeImageIndex,
+                  onOpenImage: (url: string): void => { this.viewingImage = url; },
+                })
+              }
+
+              DetailPostContent({
+                fields: this.fields,
+                genre: this.post.genre ?? '',
+                content: this.post.content ?? '',
+                planA: this.planTextOf('方案A'),
+                planB: this.planTextOf('方案B'),
+                votePostId: this.post.id ?? 0,
+                onVote: (choice: string): void => { this.onDebateVote(choice); },
+              })
+
+              DetailCommentsSection({
+                comments: this.post.comments ?? [],
+                commentCount: this.post.commentCount ?? 0,
+                onReportComment: (commentId: number): void => { this.openCommentReport(commentId); },
+              })
+
+              // 真实滚动内容占位，末尾评论可完整滑出悬浮互动栏下方。
+              Blank()
+                .width('100%')
+                .height(barBottomReserve())
             }
-
-            DetailPostContent({
-              fields: this.fields,
-              genre: this.post.genre ?? '',
-              content: this.post.content ?? '',
-              planA: this.planTextOf('方案A'),
-              planB: this.planTextOf('方案B'),
-              planAVotes: this.planAVotes,
-              planBVotes: this.planBVotes,
-              myVote: this.myVote,
-              onVote: (choice: string): void => { this.onDebateVote(choice); },
-            })
-
-            DetailCommentsSection({
-              comments: this.post.comments ?? [],
-              commentCount: this.post.commentCount ?? 0,
-              onReportComment: (commentId: number): void => { this.openCommentReport(commentId); },
-            })
+            .padding(16)
+            .width('100%')
           }
-          .padding(16)
           .width('100%')
+          .height('100%')
+
+          DetailActionBar({
+            commenting: $commenting,
+            commentText: $commentText,
+            upCount: this.interaction.upCount,
+            bookmarkCount: this.interaction.bookmarkCount,
+            commentCount: this.post.commentCount ?? 0,
+            uped: this.interaction.uped,
+            bookmarked: this.interaction.bookmarked,
+            upPending: this.upPending,
+            bookmarkPending: this.bookmarkPending,
+            upFeedbackVersion: this.upFeedbackVersion,
+            bookmarkFeedbackVersion: this.bookmarkFeedbackVersion,
+            onUp: (): void => { this.onUp(); },
+            onBookmark: (): void => { this.onBookmark(); },
+            onSendComment: (): void => { this.onSendComment(); },
+            onShare: (): void => { this.onShare(); },
+          })
+            .zIndex(1)
         }
         .layoutWeight(1)
         .width('100%')
-
-        DetailActionBar({
-          commenting: $commenting,
-          commentText: $commentText,
-          upCount: this.interaction.upCount,
-          bookmarkCount: this.interaction.bookmarkCount,
-          commentCount: this.post.commentCount ?? 0,
-          uped: this.interaction.uped,
-          bookmarked: this.interaction.bookmarked,
-          upPending: this.upPending,
-          bookmarkPending: this.bookmarkPending,
-          upFeedbackVersion: this.upFeedbackVersion,
-          bookmarkFeedbackVersion: this.bookmarkFeedbackVersion,
-          onUp: (): void => { this.onUp(); },
-          onBookmark: (): void => { this.onBookmark(); },
-          onSendComment: (): void => { this.onSendComment(); },
-          onShare: (): void => { this.onShare(); },
-        })
       }
     }
     .width('100%')

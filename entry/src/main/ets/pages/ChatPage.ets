@@ -8,11 +8,12 @@ import { getMessages, sendMessage, markMessagesRead } from '../services/api';
 import { getToken, getUserId, getCurrentUser } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
-import { CARD_RADIUS } from '../utils/cardTokens';
 import { AvatarView } from '../components/AvatarView';
 import { KeyboardAvoidMode } from '@kit.ArkUI';
-import { resolveActionIcon } from '../utils/actionIcons';
 import { BackButton } from '../design/components/BackButton';
+import { ColorTokens } from '../design/tokens/color';
+import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
+import { RadiusTokens } from '../design/tokens/radius';
 import { openUserProfile, takeChatIntent } from '../utils/nav';
 
 @Entry
@@ -27,10 +28,12 @@ export struct ChatPage {
   @State loading: boolean = true;
   @State sending: boolean = false;
   @State inputText: string = '';
+  @State showEmojiPanel: boolean = false;
   @State error: string = '';
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
   private listScroller: ListScroller = new ListScroller();
   private originalKeyboardMode: KeyboardAvoidMode | null = null;
+  private readonly emojiOptions: string[] = ['😀', '😄', '😂', '🥰', '😍', '👍', '🎉', '✨'];
 
   aboutToAppear(): void {
     const intent = takeChatIntent();
@@ -168,22 +171,59 @@ export struct ChatPage {
     }
   }
 
+  private appendEmoji(emoji: string): void {
+    this.inputText = this.inputText + emoji;
+    this.showEmojiPanel = false;
+  }
+
+  @Builder
+  emojiPanel() {
+    Row({ space: SpaceTokens.sm }) {
+      ForEach(
+        this.emojiOptions,
+        (emoji: string) => {
+          Text(emoji)
+            .fontSize(22)
+            .width(36)
+            .height(36)
+            .textAlign(TextAlign.Center)
+            .borderRadius(RadiusTokens.sm)
+            .onClick(() => {
+              this.appendEmoji(emoji);
+            });
+        },
+        (emoji: string) => emoji,
+      )
+    }
+    .width('100%')
+    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs, bottom: SpaceTokens.xs })
+    .justifyContent(FlexAlign.Start)
+    .backgroundColor(ColorTokens.barSurface)
+    .backdropBlur(LayoutTokens.glassBlur)
+    .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+    .borderRadius(RadiusTokens.md)
+    .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 3 });
+  }
+
   @Builder
   messageRow(m: DmMessage) {
     Row({ space: 8 }) {
-      // 对方头像（左侧），用 AvatarView 保证头像内容完全落在品牌色圆环框内
+      // 对方头像（左侧），聊天页保持纯头像，不叠加品牌色头像框。
       if (!this.isMine(m.senderId)) {
-        AvatarView({ avatar: this.peerAvatar, name: this.peerName, avatarSize: 36, ringWidth: 2 })
+        AvatarView({ avatar: this.peerAvatar, name: this.peerName, avatarSize: 36, ringWidth: 0 })
       }
 
       Column({ space: 4 }) {
         Text(m.content)
           .fontSize(15).fontFamily($r('app.string.font_family'))
-          .fontColor(this.isMine(m.senderId) ? Color.White : $r('app.color.text_primary'))
-          .backgroundColor(this.isMine(m.senderId) ? $r('app.color.brand_primary') : $r('app.color.card_bg'))
+          .fontColor(ColorTokens.primary)
+          .backgroundColor(this.isMine(m.senderId) ? ColorTokens.barSelectionSurface : ColorTokens.barSurface)
           .padding({ left: 12, right: 12, top: 8, bottom: 8 })
-          .borderRadius(CARD_RADIUS)
-          .constraintSize({ maxWidth: 260 })
+          .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+          .backdropBlur(LayoutTokens.glassBlur)
+          .borderRadius(RadiusTokens.md)
+          .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 3 })
+          .constraintSize({ maxWidth: 280, minHeight: 40 })
           .textAlign(TextAlign.Start)
         Text(this.formatChatTime(m.createdAt))
           .fontSize(10).fontFamily($r('app.string.font_family'))
@@ -192,9 +232,9 @@ export struct ChatPage {
       .alignItems(this.isMine(m.senderId) ? HorizontalAlign.End : HorizontalAlign.Start)
       .layoutWeight(1)
 
-      // 自己的头像（右侧），与对方对称
+      // 自己的头像（右侧），与对方保持同样的无边框样式。
       if (this.isMine(m.senderId)) {
-        AvatarView({ avatar: this.myAvatar, name: this.myName, avatarSize: 36, ringWidth: 2 })
+        AvatarView({ avatar: this.myAvatar, name: this.myName, avatarSize: 36, ringWidth: 0 })
       }
     }
     .width('100%')
@@ -208,7 +248,7 @@ export struct ChatPage {
       Row() {
         BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
         Row({ space: 8 }) {
-          AvatarView({ avatar: this.peerAvatar, name: this.peerName, avatarSize: 32, ringWidth: 2 })
+          AvatarView({ avatar: this.peerAvatar, name: this.peerName, avatarSize: 32, ringWidth: 0 })
           Text(this.peerName !== '' ? this.peerName : '用户')
             .fontSize(17).fontFamily($r('app.string.font_family'))
             .fontWeight(600)
@@ -258,44 +298,72 @@ export struct ChatPage {
         .padding({ left: 12, right: 12, top: 8, bottom: 8 });
       }
 
-      // 输入栏
-      Row({ space: 8 }) {
-        TextInput({ text: this.inputText, placeholder: '发条消息…' })
-          .fontFamily($r('app.string.font_family'))
-          .layoutWeight(1)
-          .height(40)
-          .backgroundColor($r('app.color.card_bg'))
-          .borderRadius(8)
-          .border({ width: 0.5, color: $r('app.color.divider'), style: BorderStyle.Solid })
-          .padding({ left: 12, right: 12 })
-          .onChange((v: string) => {
-            this.inputText = v;
-          })
-          .onSubmit(() => {
-            this.onSend();
-          });
-        Row() {
-          Image(resolveActionIcon('send'))
-            .width(20)
-            .height(20)
-            .fillColor(this.inputText.trim().length > 0 ? Color.White : $r('app.color.text_tertiary'))
+      // 输入栏：不设置整行背景，只保留输入框、表情和发送按钮各自的悬浮玻璃层。
+      Column({ space: SpaceTokens.sm }) {
+        if (this.showEmojiPanel) {
+          this.emojiPanel();
         }
-          .width(40)
-          .height(40)
-          .justifyContent(FlexAlign.Center)
-          .borderRadius(8)
-          .backgroundColor(this.inputText.trim().length > 0 ? $r('app.color.brand_primary') : $r('app.color.control_bg'))
-          .enabled(!this.sending && this.inputText.trim().length > 0)
-          .accessibilityText('发送')
-          .onClick(() => {
-            this.onSend();
-          });
+
+        Row({ space: 8 }) {
+          TextInput({ text: this.inputText, placeholder: '发条消息…' })
+            .fontFamily($r('app.string.font_family'))
+            .layoutWeight(1)
+            .height(LayoutTokens.minTouchTarget)
+            .backgroundColor(ColorTokens.barSurface)
+            .backdropBlur(LayoutTokens.glassBlur)
+            .borderRadius(RadiusTokens.md)
+            .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+            .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 3 })
+            .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+            .onChange((v: string) => {
+              this.inputText = v;
+            })
+            .onSubmit(() => {
+              this.onSend();
+            });
+          Row() {
+            Text('☺')
+              .fontSize(22)
+              .fontColor(ColorTokens.primary)
+          }
+            .width(40)
+            .height(LayoutTokens.minTouchTarget)
+            .justifyContent(FlexAlign.Center)
+            .backgroundColor(ColorTokens.barSurface)
+            .backdropBlur(LayoutTokens.glassBlur)
+            .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+            .borderRadius(RadiusTokens.md)
+            .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 3 })
+            .accessibilityText('表情')
+            .onClick(() => {
+              this.showEmojiPanel = !this.showEmojiPanel;
+            });
+          Row() {
+            Text('发送')
+              .fontSize(15)
+              .fontFamily($r('app.string.font_family'))
+              .fontWeight(600)
+              .fontColor(ColorTokens.primary)
+          }
+            .width(60)
+            .height(LayoutTokens.minTouchTarget)
+            .justifyContent(FlexAlign.Center)
+            .backgroundColor(ColorTokens.barSurface)
+            .backdropBlur(LayoutTokens.glassBlur)
+            .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+            .borderRadius(RadiusTokens.md)
+            .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 3 })
+            .enabled(!this.sending && this.inputText.trim().length > 0)
+            .opacity(this.sending || this.inputText.trim().length === 0 ? 0.45 : 1)
+            .accessibilityText('发送')
+            .onClick(() => {
+              this.onSend();
+            });
+        }
       }
       .width('100%')
-      .padding({ left: 12, right: 12, top: 8, bottom: 12 })
-      .backgroundColor($r('app.color.bg_primary'))
-      .borderWidth({ top: 0.5 })
-      .borderColor($r('app.color.divider'));
+      .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.sm, bottom: SpaceTokens.md })
+      .margin({ top: SpaceTokens.xs });
     }
     .width('100%')
     .padding({ top: this.statusBarHeight })

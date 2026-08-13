@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <clipPath id="front"><path d="M248 178h372l214 334-214 334H248c-108 0-196-88-196-196V374c0-108 88-196 196-196z"/></clipPath>
+  </defs>
+  <rect width="1024" height="1024" rx="192" fill="#FFFFFF"/>
+  <path d="M282 210h372l214 334-214 334H282c-108 0-196-88-196-196V406c0-108 88-196 196-196z" fill="#111827"/>
+  <path d="M248 178h372l214 334-214 334H248c-108 0-196-88-196-196V374c0-108 88-196 196-196z" fill="#146BFF"/>
+  <g clip-path="url(#front)">
+    <rect x="72" y="214" width="128" height="128" rx="22" fill="#78AAFF"/>
+    <rect x="218" y="168" width="86" height="86" rx="16" fill="#0D55CC"/>
+    <rect x="548" y="160" width="126" height="126" rx="22" fill="#0D55CC"/>
+    <rect x="702" y="286" width="118" height="118" rx="22" fill="#75A7FF"/>
+    <rect x="102" y="524" width="142" height="142" rx="24" fill="#0D55CC"/>
+    <rect x="290" y="686" width="96" height="96" rx="18" fill="#76A8FF"/>
+    <rect x="620" y="660" width="138" height="138" rx="24" fill="#0D55CC"/>
+  </g>
+  <circle cx="282" cy="500" r="74" fill="#111827"/>
+  <circle cx="282" cy="500" r="26" fill="#FFFFFF"/>
+  <path d="M430 378h92c46 0 84 38 84 84v92c0 46-38 84-84 84h-92" fill="none" stroke="#FFFFFF" stroke-width="54" stroke-linecap="round"/>
+</svg>

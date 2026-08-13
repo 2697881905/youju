@@ -5,8 +5,8 @@ services:
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: bigbluebook
-      MYSQL_USER: bigbluebook
+      MYSQL_DATABASE: youju
+      MYSQL_USER: youju
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
       - mysql_data:/var/lib/mysql

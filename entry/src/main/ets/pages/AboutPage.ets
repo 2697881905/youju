@@ -33,7 +33,7 @@ export struct AboutPage {
               .width(48)
               .height(48)
               .fillColor($r('app.color.brand_primary'));
-            Text('大蓝书')
+            Text('有据')
               .fontSize(22).fontFamily($r('app.string.font_family'))
               .fontWeight(FontWeight.Bold)
               .fontColor($r('app.color.text_primary'))
@@ -54,7 +54,7 @@ export struct AboutPage {
               .alignSelf(ItemAlign.Start)
               .padding({ left: 4, bottom: 8 });
             Column() {
-              Text('大蓝书是一个面向大众的理性内容分享社区。在这里，你可以分享购物测评、避坑指南、实用教程和生活心得，与志同道合的朋友互相学习、共同成长。')
+              Text('有据是一个面向大众的理性内容分享社区。在这里，你可以分享购物测评、避坑指南、实用教程和生活心得，与志同道合的朋友互相学习、共同成长。')
                 .fontSize(15).fontFamily($r('app.string.font_family'))
                 .fontColor($r('app.color.text_primary'))
                 .lineHeight(24)
@@ -74,11 +74,11 @@ export struct AboutPage {
               .alignSelf(ItemAlign.Start)
               .padding({ left: 4, bottom: 8 });
             Column() {
-              Text('大蓝书团队')
+              Text('有据团队')
                 .fontSize(15).fontFamily($r('app.string.font_family'))
                 .fontColor($r('app.color.text_primary'))
                 .padding({ left: 16, right: 16, top: 16, bottom: 8 });
-              Text('© 2026 BigBlueBook. All rights reserved.')
+              Text('© 2026 有据. All rights reserved.')
                 .fontSize(12).fontFamily($r('app.string.font_family'))
                 .fontColor($r('app.color.text_secondary'))
                 .padding({ left: 16, right: 16, bottom: 16 });

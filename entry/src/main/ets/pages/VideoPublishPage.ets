@@ -1,4 +1,4 @@
-// 视频发布页 — 独立 @Entry 页面，仅处理视频发布，不耦合图文/文字发布逻辑。
+// 视频发布页 — 独立 @Entry 页面，仅处理视频发布，不耦合图文/长文发布逻辑。
 // 媒体区直接渲染 VideoPicker，无 mediaTypeSelector 切换行。
 import { LengthMetrics, router } from '@kit.ArkUI';
 import { listTags } from '../services/api';
@@ -158,6 +158,7 @@ struct VideoPublishPage {
 
   private currentPublishDraft(): PublishDraft {
     return {
+      mode: 'video',
       title: this.title.trim(),
       content: this.content,
       genre: this.genre,
@@ -258,6 +259,8 @@ struct VideoPublishPage {
           this.circleSelector()
         }
         Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
+        VideoPicker({ videoUrl: $videoUrl, videoCover: $videoCover })
+        Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
         TextInput({ text: this.title, placeholder: '一句话标题' })
           .width('100%')
           .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamily)
@@ -281,7 +284,6 @@ struct VideoPublishPage {
           .backgroundColor(Color.Transparent)
           .onChange((value: string) => { this.content = value; })
         Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator).margin({ top: SpaceTokens.sm })
-        VideoPicker({ videoUrl: $videoUrl, videoCover: $videoCover })
         PublishStructuredSupplement({
           genre: this.genre,
           hint: this.currentGenreHint(),

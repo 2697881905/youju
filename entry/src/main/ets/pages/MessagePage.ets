@@ -563,7 +563,7 @@ export struct MessagePage {
           .fontColor(ColorTokens.primary)
         if (this.dmTab === 'notif') {
           Pressable({
-            visualHeight: LayoutTokens.segmentedHeight,
+            visualHeight: LayoutTokens.minTouchTarget,
             touchTargetHeight: LayoutTokens.minTouchTarget,
             action: (): void => {
               this.onMarkAll();
@@ -575,7 +575,7 @@ export struct MessagePage {
               .lineHeight(TypeTokens.callout.lineHeight)
               .letterSpacing(TypeTokens.callout.tracking)
               .fontColor(ColorTokens.brand)
-              .height(LayoutTokens.segmentedHeight)
+              .height(LayoutTokens.minTouchTarget)
               .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
               .textAlign(TextAlign.Center)
               .accessibilityText('全部已读')
@@ -599,7 +599,8 @@ export struct MessagePage {
         onSelect: (idx: number): void => { this.switchDmTab(idx); },
       })
       .margin({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, bottom: SpaceTokens.sm })
-      .scale({ x: this.tabPulse ? MotionTokens.successScale : 1, y: this.tabPulse ? MotionTokens.successScale : 1 })
+      // 分段控件保持固定尺寸；切换反馈只改变透明度，避免 Tab 状态切换时高度跳变。
+      .opacity(this.tabPulse ? 0.96 : 1)
       .animation({ duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.control, curve: MotionCurves.springSoft })
 
       if (this.dmTab === 'notif') {

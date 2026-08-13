@@ -4,7 +4,7 @@
 import pasteboard from '@ohos.pasteboard';
 
 // TODO(上线): 替换为真实生产域名（域名确定后改这一行即可）
-const SHARE_BASE: string = 'https://bigbluebook.app';
+const SHARE_BASE: string = 'https://youju.app';
 
 // 帖子分享链接：占位域名 + /post/{id}
 export function buildPostShareUrl(postId: number): string {
@@ -18,13 +18,13 @@ export function buildProfileShareUrl(userId: number): string {
 
 // 分享文案（标题 + 链接），用于系统分享面板接入后使用
 export function buildShareText(title: string, postId: number): string {
-  const t: string = title && title.length > 0 ? title : '大蓝书帖子';
+  const t: string = title && title.length > 0 ? title : '有据帖子';
   return t + ' ' + buildPostShareUrl(postId);
 }
 
 export function buildProfileShareText(nickname: string, userId: number): string {
-  const name: string = nickname && nickname.length > 0 ? nickname : '大蓝书用户';
-  return '来大蓝书看看 ' + name + ' 的个人主页 ' + buildProfileShareUrl(userId);
+  const name: string = nickname && nickname.length > 0 ? nickname : '有据用户';
+  return '来有据看看 ' + name + ' 的个人主页 ' + buildProfileShareUrl(userId);
 }
 
 // 复制文本到系统剪贴板；失败抛出，由调用方 toast 兜底

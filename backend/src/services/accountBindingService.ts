@@ -133,7 +133,7 @@ export async function bind(userId: number, provider: Provider, code: string): Pr
   // 占用校验：UserBinding(provider+externalId) 与 User.unionID 两处，均排除自身
   const occupied: boolean = await isExternalIdOccupiedByOther(provider, unionID, userId);
   if (occupied) {
-    throw new AccountError(CODE.CONFLICT, 409, '该华为账号已关联其他大蓝书账号');
+    throw new AccountError(CODE.CONFLICT, 409, '该华为账号已关联其他有据账号');
   }
 
   // 写 UserBinding（isPrimary=false）+ 同步 User.unionID

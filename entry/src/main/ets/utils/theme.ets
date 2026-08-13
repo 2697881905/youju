@@ -8,7 +8,7 @@
 import { ConfigurationConstant, common } from '@kit.AbilityKit';
 import { preferences } from '@kit.ArkData';
 
-const PREF_NAME = 'bigbluebook_theme';
+const PREF_NAME = 'youju_theme';
 const KEY_FOLLOW_SYSTEM = 'followSystem';
 const KEY_IS_DARK = 'isDarkMode';
 const KEY_REDUCE_MOTION = 'reduceMotion';

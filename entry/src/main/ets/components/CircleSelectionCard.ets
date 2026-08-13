@@ -46,16 +46,18 @@ export struct CircleSelectionCard {
             action: (): void => { this.onOpen(); },
           }) {
             Text('进入')
+              .width(64)
               .height(LayoutTokens.segmentedHeight)
-              .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
               .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
               .fontWeight(TypeTokens.headline.weight)
               .lineHeight(TypeTokens.caption.lineHeight)
-              .fontColor(ColorTokens.onBrand)
+              .fontColor(ColorTokens.primary)
               .textAlign(TextAlign.Center)
-              .backgroundColor(ColorTokens.brand)
-              .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.brand, style: BorderStyle.Solid })
-              .borderRadius(RadiusTokens.md)
+              .backgroundColor(ColorTokens.barSurface)
+              .backdropBlur(LayoutTokens.glassBlur)
+              .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+              .borderRadius(RadiusTokens.floatingBar)
+              .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
           }
         }
         Row({ space: SpaceTokens.sm }) {

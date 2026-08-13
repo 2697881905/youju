@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <clipPath id="weave-top"><rect x="190" y="210" width="600" height="216" rx="108" transform="rotate(-11 490 318)"/></clipPath>
+    <clipPath id="weave-mid"><rect x="198" y="402" width="584" height="220" rx="110" transform="rotate(4 490 512)"/></clipPath>
+    <clipPath id="weave-bottom"><rect x="190" y="594" width="600" height="216" rx="108" transform="rotate(-11 490 702)"/></clipPath>
+  </defs>
+  <rect width="1024" height="1024" rx="192" fill="#FFFFFF"/>
+
+  <rect x="232" y="244" width="600" height="216" rx="108" fill="#111827" transform="rotate(-11 532 352)"/>
+  <rect x="190" y="210" width="600" height="216" rx="108" fill="#146BFF" transform="rotate(-11 490 318)"/>
+  <g clip-path="url(#weave-top)">
+    <rect x="202" y="212" width="120" height="120" rx="24" fill="#7AA9F8"/>
+    <rect x="466" y="156" width="116" height="116" rx="22" fill="#0D55CC"/>
+    <rect x="678" y="290" width="128" height="128" rx="24" fill="#7AA9F8"/>
+  </g>
+
+  <rect x="234" y="436" width="584" height="220" rx="110" fill="#111827" transform="rotate(4 526 546)"/>
+  <rect x="198" y="402" width="584" height="220" rx="110" fill="#3588FF" transform="rotate(4 490 512)"/>
+  <g clip-path="url(#weave-mid)">
+    <rect x="204" y="388" width="132" height="132" rx="24" fill="#7EAEFA"/>
+    <rect x="548" y="414" width="98" height="98" rx="20" fill="#0D55CC"/>
+    <rect x="680" y="526" width="132" height="132" rx="24" fill="#7EAEFA"/>
+  </g>
+
+  <rect x="232" y="628" width="600" height="216" rx="108" fill="#111827" transform="rotate(-11 532 736)"/>
+  <rect x="190" y="594" width="600" height="216" rx="108" fill="#146BFF" transform="rotate(-11 490 702)"/>
+  <g clip-path="url(#weave-bottom)">
+    <rect x="206" y="590" width="114" height="114" rx="22" fill="#7AA9F8"/>
+    <rect x="444" y="684" width="128" height="128" rx="24" fill="#0D55CC"/>
+    <rect x="670" y="608" width="106" height="106" rx="20" fill="#7AA9F8"/>
+  </g>
+
+  <path d="M270 580C342 486 420 455 486 483C528 501 554 535 590 534C652 533 700 483 748 430" fill="none" stroke="#FFFFFF" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="445" y="449" width="134" height="134" rx="40" fill="#111827" transform="rotate(45 512 516)"/>
+  <rect x="490" y="494" width="44" height="44" rx="14" fill="#FFFFFF" transform="rotate(45 512 516)"/>
+  <circle cx="748" cy="430" r="42" fill="#111827"/>
+  <circle cx="748" cy="430" r="30" fill="#FFB21A"/>
+  <rect x="732" y="414" width="32" height="32" rx="10" fill="#FFE199"/>
+</svg>

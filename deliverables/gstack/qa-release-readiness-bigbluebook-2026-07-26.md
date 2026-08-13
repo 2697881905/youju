@@ -1,4 +1,4 @@
-# 大蓝书 BigBlueBook 鸿蒙应用 — QA 测试与发布就绪评估报告
+# 有据 youju 鸿蒙应用 — QA 测试与发布就绪评估报告
 
 - **评估日期**：2026-07-26
 - **评估人**：gstack-qa-lead（QA 测试与发布就绪）
@@ -45,7 +45,7 @@
   - 问题：测试与 lint 不被强制，P1 腐化累积未被拦截。
   - 建议：至少加 GitHub Actions 跑 `npm test` + `npm run build`；或本地 husky pre-commit。
 - **P3 前端 `BASE_URL` 硬编码 localhost**
-  - 位置：`entry/src/main/ets/services/api.ets:9` → `export const BASE_URL = 'http://127.0.0.1:3000'`；注释写明「上架后：https://api.bigbluebook.com」但代码未切换，且无 build-mode/资源注入机制。
+  - 位置：`entry/src/main/ets/services/api.ets:9` → `export const BASE_URL = 'http://127.0.0.1:3000'`；注释写明「上架后：https://api.youju.com」但代码未切换，且无 build-mode/资源注入机制。
   - 问题：上架后 App 仍指向本地，无法连生产后端；且当前无域名/服务器，属「约束 + 配置缺口」双重问题。
   - 建议：按 build mode 切换（debug=local，release=生产域名），或抽到 resource 配置；发布前务必改为生产域名。
 
@@ -61,7 +61,7 @@
 
 ### 🟡 一般
 - **P6 前端可测性低**：`api.ets` 直接依赖 `AppStorage` + `http` 全局单例，无 DI/接口抽象，难以在 hypium 中单测与 mock 后端。建议抽取请求层接口。
-- **P7 `docker-compose.yml` MySQL 弱口令 + 暴露 3306**：`MYSQL_ROOT_PASSWORD: root`、`MYSQL_PASSWORD: bigbluebook`、端口映射 `3306:3306`。本地开发可接受，生产必须改强口令且不暴露端口。
+- **P7 `docker-compose.yml` MySQL 弱口令 + 暴露 3306**：`MYSQL_ROOT_PASSWORD: root`、`MYSQL_PASSWORD: youju`、端口映射 `3306:3306`。本地开发可接受，生产必须改强口令且不暴露端口。
 - **P8 前端 lint 无法 CLI 执行**：需 DevEco 手动跑 code-linter；建议列入 IDE 发布前手动 Check 清单。
 
 ### 🟢 建议
@@ -109,7 +109,7 @@
 ## 6. 回滚预案（草案）
 
 ### 应用侧（鸿蒙 AppGallery）
-- **版本标识**：`bundleName=com.bigbluebook.app`，`versionName=1.0.0`，`versionCode=1000000`。
+- **版本标识**：`bundleName=com.youju.app`，`versionName=1.0.0`，`versionCode=1000000`。
 - **回滚手段**：
   1. AppGallery Console **暂停分阶段发布**（停止向新用户灰度推送）。
   2. 重新提交/发布**上一稳定版本包**（保留已通过审核的旧 HAP/APP）。
@@ -120,7 +120,7 @@
 ### 后端侧
 - 当前 `docker-compose.yml` **仅含 mysql**，无 app 容器；部署形态未定（本地 node / 云容器）。回滚思路：
   1. **代码回滚**：`git revert` 问题提交 → 重新构建/重启 node 进程（`start.sh`）。
-  2. **数据迁移回退**：Prisma migrate 前向-only；回退需 `prisma migrate resolve --rolled-back` 或准备 down migration；重大 schema 变更前务必备份 MySQL（`docker volume bigbluebook_mysql_data`）。
+  2. **数据迁移回退**：Prisma migrate 前向-only；回退需 `prisma migrate resolve --rolled-back` 或准备 down migration；重大 schema 变更前务必备份 MySQL（`docker volume youju_mysql_data`）。
   3. **配置回滚**：`.env`（JWT_SECRET/域名/对象存储）经环境变量管理，回退即改环境变量重启。
   4. **无蓝绿/金丝雀**：当前无多实例编排，建议至少保留「上一进程/镜像」以便快速重启。
 - 因「无服务器」约束，后端上线动作本身被阻塞；本预案为「能力就绪后」草案。

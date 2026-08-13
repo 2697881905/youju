@@ -1,6 +1,6 @@
 # 内容审核 & 举报系统 - 交付概览
 
-**项目**：大蓝书 HarmonyOS NEXT 应用
+**项目**：有据 HarmonyOS NEXT 应用
 **日期**：2026-07-19
 **团队**：software-content-moderation + software-bugfix-route-catch
 **commit**：`9020fca`（已推送 main）
@@ -24,9 +24,9 @@
 ## 核心功能
 
 ### 1. 敏感词前置过滤（第一道防线）
-- **Trie 树自实现**（`sensitiveWordService.ts`，~60 行，无外部依赖）
-- 启动时加载词库到内存单例（`backend/data/sensitive-words.txt` 50 词 + `gender-war-words.txt` 20 词）
-- `checkText(text): boolean` O(n×L) 检测，大小写不敏感
+- **Aho-Corasick 自动机自实现**（`sensitiveWordService.ts`，无外部依赖）
+- 启动时加载词库到内存单例（通用词 498 条 + 性别对立词 97 条，去重后 595 条）
+- `checkText(text): boolean` 双归一化 O(n) 检测，兼容全角、大小写、零宽字符和分隔符变形
 - 发帖（title + content）和评论（content）前置检测，命中返回 400 + "内容含敏感词，请修改后重试"
 
 ### 2. 用户举报（第三道防线）
@@ -53,7 +53,7 @@
 
 | 决策点 | 方案 |
 |--------|------|
-| 敏感词检测 | 自实现 Trie 树（~60 行），非外部包，O(n×L) |
+| 敏感词检测 | 自实现 Aho-Corasick 自动机，非外部包，归一化后 O(n) |
 | 错误类型 | SensitiveWordError class（extends Error + reason 字段 + Object.setPrototypeOf 修复 instanceof 原型链） |
 | 举报幂等 | Prisma `@@unique` DB 级保证 |
 | admin 鉴权 | env `ADMIN_USER_IDS` 环境变量 |
@@ -88,7 +88,7 @@
 ### 新增 17 个文件
 
 **后端服务层**：
-- `backend/src/services/sensitiveWordService.ts` — Trie 树敏感词检测单例
+- `backend/src/services/sensitiveWordService.ts` — Aho-Corasick 敏感词检测单例
 - `backend/src/services/reportService.ts` — 举报服务（含阈值触发自动下架）
 - `backend/src/services/moderationService.ts` — 审核服务（含通知触发）
 - `backend/src/utils/errors.ts` — SensitiveWordError 自定义错误类
@@ -98,11 +98,11 @@
 - `backend/src/routes/admin.ts` — admin 路由
 
 **后端数据**：
-- `backend/data/sensitive-words.txt` — 50 个通用敏感词
-- `backend/data/gender-war-words.txt` — 20 个男女对立引战词
+- `backend/data/sensitive-words.txt` — 498 条分组通用敏感词
+- `backend/data/gender-war-words.txt` — 97 条男女对立引战词
 
 **后端测试**：
-- `backend/src/services/sensitiveWordService.test.ts` — 5 测试
+- `backend/src/services/sensitiveWordService.test.ts` — 8 测试
 - `backend/src/services/reportService.test.ts` — 10 测试
 - `backend/src/routes/admin.test.ts` — 8 测试
 - `backend/src/routes/posts.test.ts` — 5 测试（含 P0 回归）
@@ -151,6 +151,6 @@
    - 详情页点 ⋯ → 举报该帖子 → 选理由 + 提交 → Toast "举报已提交"
    - 用 curl 调 `GET /v1/admin/posts/pending`（带 admin token）查看待审帖子
    - 用 curl 调 `POST /v1/admin/posts/:id/moderate {action:"approve"}` 审核帖子
-3. **词库扩充**：上线前需扩充 `backend/data/sensitive-words.txt` 至完整 ToolGood.Words 词库（约 5000-20000 词）
+3. **词库运营**：当前已提供 595 条高置信度种子词；上线前仍需结合法务/运营审核、举报样本和所在地法规持续扩展，不能把静态词库视为完整合规方案
 4. **审核流程演练**：模拟 3 个用户举报同一帖子 → 验证自动下架 + 通知 + 审核流转
 5. **后续迭代**（P1/P2）：发布器敏感词预览、前端审核界面、第三方 AI 内容识别、用户信用体系

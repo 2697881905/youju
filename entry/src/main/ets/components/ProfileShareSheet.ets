@@ -21,7 +21,7 @@ export struct ProfileShareSheet {
   controller: CustomDialogController;
   getProfile: () => ProfileShareData = (): ProfileShareData => ({
     avatar: '',
-    nickname: '大蓝书用户',
+    nickname: '有据用户',
     bio: '',
     followingCount: 0,
     followerCount: 0,
@@ -37,7 +37,7 @@ export struct ProfileShareSheet {
 
   private bio(): string {
     const value: string = this.data().bio.trim();
-    return value.length > 0 ? value : '在大蓝书分享真实经验与生活灵感';
+    return value.length > 0 ? value : '在有据分享真实经验与生活灵感';
   }
 
   build() {
@@ -65,7 +65,7 @@ export struct ProfileShareSheet {
       .width('100%')
 
       Column({ space: 12 }) {
-        Text('大蓝书 · 个人主页')
+        Text('有据 · 个人主页')
           .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
           .fontWeight(TypeTokens.headline.weight)
           .fontColor(ColorTokens.brand)

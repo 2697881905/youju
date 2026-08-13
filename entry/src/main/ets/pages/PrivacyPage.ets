@@ -32,7 +32,7 @@ export struct PrivacyPage {
             .width('100%')
             .padding({ left: 16, right: 16 });
 
-          Text('大蓝书（以下简称"我们"）深知个人信息对你的重要性，并将按法律法规要求，采取相应的安全保护措施，尽力保护你的个人信息安全可控。')
+          Text('有据（以下简称"我们"）深知个人信息对你的重要性，并将按法律法规要求，采取相应的安全保护措施，尽力保护你的个人信息安全可控。')
             .fontSize(15).fontFamily($r('app.string.font_family'))
             .fontColor($r('app.color.text_primary'))
             .lineHeight(24)
@@ -65,7 +65,7 @@ export struct PrivacyPage {
 
           this.section('5. 联系我们', [
             '如有任何隐私相关问题或建议，请联系我们：',
-            '邮箱：privacy@bigbluebook.com',
+            '邮箱：privacy@youju.com',
           ]);
 
           Text('本隐私政策可能适时更新。如发生重大变更，我们将通过应用内通知的方式告知你。')

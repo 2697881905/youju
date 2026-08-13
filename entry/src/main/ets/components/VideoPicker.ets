@@ -146,7 +146,9 @@ export struct VideoPicker {
             .onClick(() => this.reset())
         }
         .width('100%')
+        .aspectRatio(0.75)
         .borderRadius(8)
+        .clip(true)
         .backgroundColor('#0000000a')
       } else {
         Column() {
@@ -157,8 +159,8 @@ export struct VideoPicker {
             .fontSize(12).fontFamily($r('app.string.font_family'))
             .fontColor($r('app.color.text_secondary'))
         }
-        .width('40%')
-        .aspectRatio(2)
+        .width('100%')
+        .aspectRatio(0.75)
         .justifyContent(FlexAlign.Center)
         .backgroundColor($r('app.color.control_bg'))
         .border({ width: 1, color: $r('app.color.divider'), style: BorderStyle.Dashed })

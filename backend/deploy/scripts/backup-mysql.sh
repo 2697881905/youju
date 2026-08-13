@@ -18,11 +18,11 @@ set +a
 mkdir -p "$BACKUP_DIR"
 
 STAMP="$(date +%Y%m%d-%H%M%S)"
-OUTPUT="$BACKUP_DIR/bigbluebook-$STAMP.sql.gz"
+OUTPUT="$BACKUP_DIR/youju-$STAMP.sql.gz"
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" exec -T mysql \
   mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines --events "$MYSQL_DATABASE" \
   | gzip > "$OUTPUT"
 
 # Keep the most recent 14 days of local backups. Copy backups off-server as well.
-find "$BACKUP_DIR" -type f -name 'bigbluebook-*.sql.gz' -mtime +14 -delete
+find "$BACKUP_DIR" -type f -name 'youju-*.sql.gz' -mtime +14 -delete
 echo "Backup created: $OUTPUT"

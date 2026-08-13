@@ -43,7 +43,7 @@ struct LoginPage {
           .borderRadius(16)
           .margin({ top: 64 })
 
-        Text('大蓝书')
+        Text('有据')
           .fontSize(28).fontFamily($r('app.string.font_family'))
           .fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.text_primary'))

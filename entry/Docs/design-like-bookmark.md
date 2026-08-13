@@ -1,7 +1,7 @@
 # 「点赞 & 收藏闭环」轻量设计 + 任务分解（P0）
 
 > 文档主理人：架构师 高见远
-> 项目：大蓝书（HarmonyOS NEXT ArkTS + ArkUI API 24 / V1 严格模式）前端 + Node.js + Express + TS + Prisma + MySQL 后端
+> 项目：有据（HarmonyOS NEXT ArkTS + ArkUI API 24 / V1 严格模式）前端 + Node.js + Express + TS + Prisma + MySQL 后端
 > 根目录：`/Users/itxiaobai/HarmonyProject1`
 > 范围：仅填补已核验的真实缺口（P0-1 / P0-2 / P0-3），**不新建页面、不新建后端路由、不改动 Prisma schema**。
 

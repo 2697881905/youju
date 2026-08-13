@@ -1,4 +1,4 @@
-// 大蓝书 主框架：悬浮底部导航栏（系统背景模糊 + 半透明分层 + 动态高光透镜）
+// 有据 主框架：悬浮底部导航栏（系统背景模糊 + 半透明分层 + 动态高光透镜）
 // Tab：首页 / 圈子 / 发布 / 消息 / 我的；帖子详情经 router 单独跳转（pages/DetailPage）
 import { HomeTab } from '../components/HomeTab';
 import { CircleTab } from '../components/CircleTab';
@@ -228,7 +228,7 @@ struct Index {
       title: isUpdate ? '隐私政策更新' : '隐私政策与用户协议',
       message: isUpdate
         ? '我们的隐私政策已更新，请阅读并重新同意以继续使用。'
-        : '欢迎使用大蓝书。请你仔细阅读并同意《隐私政策》与《用户协议》后再开始使用。' +
+        : '欢迎使用有据。请你仔细阅读并同意《隐私政策》与《用户协议》后再开始使用。' +
           '我们仅在为你提供内容推荐、账号安全等必要服务时收集相关信息。',
       primaryButton: {
         value: '同意并继续',

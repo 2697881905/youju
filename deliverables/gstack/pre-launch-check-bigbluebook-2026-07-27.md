@@ -1,4 +1,4 @@
-# 大蓝书 上线前综合检查报告
+# 有据 上线前综合检查报告
 
 **日期**：2026-07-27
 **场景**：上线前检查（产品评审 + 安全审计 + QA测试与发布）
@@ -66,7 +66,7 @@
 | 14 | 🟡 | 发布文档 | 无 | 缺 VERSION / CHANGELOG.md | 补发布文档 | 质量门神 |
 | 15 | 🟡 | 体验 | DetailPage / SettingsPage | 系统分享仅占位 toast、数据导出仅 toast 数量（PIPL「数据副本」不完整） | 补全或明确降级说明 | 产品官 |
 | 16 | 🟡 | 推送 | backend/.env | HUAWEI_PUSH_APP_ID/SECRET 为空 → 真机推送降级 | 配真实凭据或明确降级 | 产品官+质量门神 |
-| 17 | 🟡 | 合规 | privacy/agreement 邮箱 | 联系邮箱需真实可收（privacy@/agreement@bigbluebook.com） | 配置真实邮箱 | 产品官 |
+| 17 | 🟡 | 合规 | privacy/agreement 邮箱 | 联系邮箱需真实可收（privacy@/agreement@youju.com） | 配置真实邮箱 | 产品官 |
 | 18 | 🟡 | 安全日志 | errorHandler.ts:41 | 4xx 透传 err.message，个别异常或泄露内部细节 | 统一脱敏 | 安全官 |
 | 19 | 🟡 | 依赖 | package.json | 未跑 npm audit（CVE 状态未知） | CI 加入 audit | 安全官 |
 
@@ -76,7 +76,7 @@
 
 1. **真实华为登录凭证缺失**（backend/.env）→ 真实用户无法登录。
 2. **缺对外托管隐私政策 URL** → 华为应用市场直接驳回。
-3. **AGC 签名材料为测试/自签占位（非 AGC 签发）** → 必须替换为 AGC 正式 .cer+.p7b 并核对包名 `com.bigbluebook.app` / 指纹一致，否则上架必被拒。
+3. **AGC 签名材料为测试/自签占位（非 AGC 签发）** → 必须替换为 AGC 正式 .cer+.p7b 并核对包名 `com.youju.app` / 指纹一致，否则上架必被拒。
 4. **真机端到端验证缺失**（无真机）→ 华为上架硬要求未满足。
 5. **生产后端环境未配置**（NODE_ENV/CORS/DATABASE_URL/ADMIN_USER_IDS/COS_CDN_BASE）→ 生产安全闸口不生效、图片异常、无审核管理员。
 6. **内容过滤敏感词库落地存疑** → 内容无过滤，合规风险。
@@ -89,7 +89,7 @@
 |---|------|--------|--------|---------|
 | 1 | 在 backend/.env 填真实 AGC Account Kit 凭证（CLIENT_ID/SECRET/REDIRECT_URI），并确认 module.json5 client_id 与 AGC 一致 | 后端 | P0 | 上架前 |
 | 2 | 托管对外隐私政策 + 用户协议 URL，填入 AppGallery 上架资料 | 产品+后端 | P0 | 上架前 |
-| 3 | 用 AGC 正式 .cer+.p7b **替换** entry/material/ 测试签名材料（勿入库），并核对包名 `com.bigbluebook.app` 与注册指纹一致、Account Kit 已开通 | DevOps/产品 | P0 | 上架前 |
+| 3 | 用 AGC 正式 .cer+.p7b **替换** entry/material/ 测试签名材料（勿入库），并核对包名 `com.youju.app` 与注册指纹一致、Account Kit 已开通 | DevOps/产品 | P0 | 上架前 |
 | 4 | 借/购真机，端到端走通：华为登录→发帖→图片上传→推送→核心 UI | 测试+产品 | P0 | 上架前 |
 | 5 | 配置 production 后端环境（NODE_ENV=production / CORS_ORIGIN / DATABASE_URL / ADMIN_USER_IDS / COS_CDN_BASE） | 后端 | P0 | 上架前 |
 | 6 | 确认 sensitive-words.txt 已落地，否则补充词库或显式降级 | 后端 | P0 | 上架前 |

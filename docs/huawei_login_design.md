@@ -1,4 +1,4 @@
-# 大蓝书 · 华为 Account Kit 一键登录 · 系统设计与任务分解
+# 有据 · 华为 Account Kit 一键登录 · 系统设计与任务分解
 
 > 角色：交付架构师 高见远（Bob）
 > 范围：P0 全量 + P1 ①④（首次昵称/头像初始化、深色适配）；P1 ②③（失败降级、unionID 冲突）已含在任务内；P2（账号绑定管理/手机号一键登录/埋点）不排期
@@ -250,7 +250,7 @@ graph LR
 
 1. **unionID 冲突策略（关键）**：当前方案「首次关联为准」——`unionID` 已存在则直接返回原账号（不合并数据）。PRD 建议「冲突提示换绑」。需 PM 确认 UX：
    - (a) 静默用原账号登录（当前默认，最简单）；
-   - (b) 弹窗提示「该华为账号已绑定其他大蓝书账号」，要求换绑/解绑（P2 再做换绑能力）。
+   - (b) 弹窗提示「该华为账号已绑定其他有据账号」，要求换绑/解绑（P2 再做换绑能力）。
 2. **「原方式」UI 范围**：实际代码中并无手机号/密码 UI（F1）。P0 的「两种方式并存」实现为「华为按钮 + 一个调 `ensureLogin()` 的『其他方式登录』入口」即可满足 US-5；是否要真正做手机号/账号密码表单，**不在本期 P0**，需 PM 确认是否单列需求。
 3. **登录页入口交互**：当前 `Index` 是 `@Entry` 启动页。建议 `Index.aboutToAppear` 判断无 session → `router.pushUrl('pages/LoginPage')`（Index 保留在栈底，登录后 `router.back()` 回 Index）。需主理人/PM 确认此入口是否符合预期，或改为独立 Splash/启动判断。
 4. **`HUAWEI_REDIRECT_URI` 是否必填**：`LoginWithHuaweiIDButton` 服务端换码通常不需要 `redirect_uri`；若 AGC 配置要求回填，则在 `.env` 补 `HUAWEI_REDIRECT_URI`。需用户在 AGC 操作后确认。

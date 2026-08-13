@@ -40,6 +40,7 @@ export function readStructuredField(data: StructuredData, key: keyof StructuredD
 
 export function withStructuredField(data: StructuredData, key: keyof StructuredData, value: string): StructuredData {
   const next: StructuredData = {
+    coverOnlyTextPoster: data.coverOnlyTextPoster,
     pros: data.pros,
     cons: data.cons,
     rating: data.rating,
@@ -69,6 +70,24 @@ export function withStructuredField(data: StructuredData, key: keyof StructuredD
     default: break;
   }
   return next;
+}
+
+export function withCoverOnlyTextPoster(data: StructuredData, enabled: boolean): StructuredData {
+  return {
+    coverOnlyTextPoster: enabled,
+    pros: data.pros,
+    cons: data.cons,
+    rating: data.rating,
+    targetAudience: data.targetAudience,
+    pitfallExperience: data.pitfallExperience,
+    lossAmount: data.lossAmount,
+    correctApproach: data.correctApproach,
+    tools: data.tools,
+    steps: data.steps,
+    timeDifficulty: data.timeDifficulty,
+    planA: data.planA,
+    planB: data.planB,
+  };
 }
 
 export function isLongStructuredField(key: keyof StructuredData): boolean {

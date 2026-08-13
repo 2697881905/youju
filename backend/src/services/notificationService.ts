@@ -67,7 +67,7 @@ function pushTitle(type: string): string {
     case 'system':
       return '系统通知';
     default:
-      return '大蓝书';
+      return '有据';
   }
 }
 

@@ -56,6 +56,18 @@ router.get('/following', auth, asyncHandler(async (req: AuthRequest, res: Respon
   return ok(res, data);
 }));
 
+// 每日一帖：软鉴权。登录用户按已关注标签优先，访客按热门标签兜底。
+// 必须注册在 /:id 之前，避免被详情路由误解析为帖子 id。
+router.get('/daily', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const viewerId = await resolveOptionalUserId(req);
+  const data = await postService.listDailyPosts({
+    page: req.query.page ? Number(req.query.page) : 1,
+    limit: req.query.limit ? Number(req.query.limit) : 10,
+    viewerId,
+  });
+  return ok(res, data);
+}));
+
 // 帖子详情：GET /v1/posts/:id
 // 软鉴权：匿名可访问；带合法 token 时返回该帖的 myUp/myBookmark。
 router.get('/:id', asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -69,7 +81,7 @@ router.get('/:id', asyncHandler(async (req: AuthRequest, res: Response) => {
 
 // 发布帖子（进入待审核）：POST /v1/posts
 router.post('/', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const { title, genre, content, tags, images, videoUrl, videoCover } = req.body ?? {};
+  const { title, genre, content, tags, images, videoUrl, videoCover, publishMode } = req.body ?? {};
   if (!title || !genre) return fail(res, CODE.BAD_REQUEST, '标题和体裁必填');
   // 输入长度 / 数量校验（防滥用）
   if (typeof title !== 'string' || title.trim().length === 0 || title.length > 100) {
@@ -80,6 +92,15 @@ router.post('/', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   }
   if (content !== undefined && content !== null && typeof content !== 'string') {
     return fail(res, CODE.BAD_REQUEST, '正文格式无效');
+  }
+  if (publishMode !== undefined && !['photo', 'text', 'video'].includes(publishMode)) {
+    return fail(res, CODE.BAD_REQUEST, '发布类型无效');
+  }
+  if (publishMode === 'photo' && typeof content === 'string' && content.length > 300) {
+    return fail(res, CODE.BAD_REQUEST, '图文说明最多 300 字');
+  }
+  if (publishMode === 'text' && typeof content === 'string' && content.length > 5000) {
+    return fail(res, CODE.BAD_REQUEST, '长文最多 5000 字');
   }
   if (!['review', 'pitfall', 'tutorial', 'debate', 'share'].includes(genre)) {
     return fail(res, CODE.BAD_REQUEST, '体裁参数无效');

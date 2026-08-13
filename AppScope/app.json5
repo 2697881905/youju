@@ -1,7 +1,7 @@
 {
   "app": {
-    "bundleName": "com.bigbluebook.app",
-    "vendor": "bigbluebook",
+    "bundleName": "com.youju.app",
+    "vendor": "youju",
     "versionCode": 1000000,
     "versionName": "1.0.0",
     "buildVersion": "1",
