@@ -265,13 +265,41 @@ struct PublishPreviewPage {
   @Builder
   textPosterPreview(draft: PublishDraft, style: TextPosterStyleOption): void {
     Stack({ alignContent: Alignment.Center }) {
+      // 预览与端侧绘制器保持同一层级：底色、材质、正文，而不是一个纯色占位卡片。
+      Column()
+        .width('100%')
+        .height('100%')
+        .backgroundColor(style.background)
       if (style.texture === 'film') {
-        Row({ space: 6 }) {
-          ForEach([0, 1, 2, 3, 4], (hole: number, holeIndex: number) => {
-            Circle().width(8).height(8).fill('#CC202832')
-          }, (key: number, keyIndex: number) => 'film-hole-' + keyIndex)
+        Row() {
+          Column({ space: 12 }) {
+            ForEach([0, 1, 2, 3, 4, 5, 6, 7], (leftHole: number, leftIndex: number) => {
+              Circle().width(10).height(10).fill('#CC202832')
+            }, (leftKey: number, leftKeyIndex: number) => 'film-left-' + leftKeyIndex)
+          }
+          Column({ space: 12 }) {
+            ForEach([0, 1, 2, 3, 4, 5, 6, 7], (rightHole: number, rightIndex: number) => {
+              Circle().width(10).height(10).fill('#CC202832')
+            }, (rightKey: number, rightKeyIndex: number) => 'film-right-' + rightKeyIndex)
+          }
         }
-        .position({ x: 16, y: 16 })
+        .width('88%')
+        .height('78%')
+        .justifyContent(FlexAlign.SpaceBetween)
+      }
+      if (style.texture === 'kraft') {
+        Column({ space: 10 }) {
+          ForEach([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], (grainRow: number, grainRowIndex: number) => {
+            Row({ space: 24 }) {
+              ForEach([0, 1, 2, 3, 4, 5], (grainDot: number, grainDotIndex: number) => {
+                Circle().width(3).height(3).fill('#552E1E')
+              }, (grainDotKey: number, grainDotKeyIndex: number) => 'kraft-dot-' + grainRowIndex + '-' + grainDotKeyIndex)
+            }
+          }, (grainKey: number, grainKeyIndex: number) => 'kraft-row-' + grainKeyIndex)
+        }
+        .width('74%')
+        .height('72%')
+        .opacity(0.28)
       }
       if (style.texture === 'sticky') {
         Column()
@@ -281,17 +309,27 @@ struct PublishPreviewPage {
           .position({ x: 150, y: 18 })
       }
       Column()
-        .width('88%')
-        .height('90%')
+        .width(style.texture === 'sticky' ? '88%' : '88%')
+        .height(style.texture === 'sticky' ? '86%' : '90%')
         .backgroundColor(style.surface)
-        .borderRadius(RadiusTokens.lg)
+        .borderRadius(style.texture === 'sticky' ? RadiusTokens.sm : RadiusTokens.lg)
         .shadow({ radius: 10, color: '#26000000', offsetY: 6 });
       Column()
-        .width('84%')
-        .height('84%')
+        .width(style.texture === 'film' ? '78%' : '84%')
+        .height(style.texture === 'sticky' ? '80%' : '84%')
         .backgroundColor(style.innerSurface)
         .borderRadius(RadiusTokens.md);
       Column({ space: SpaceTokens.sm }) {
+        Text(draft.title.trim().length > 0 ? draft.title.trim() : '有据 · 文字帖')
+          .fontSize(TypeTokens.caption.size)
+          .fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.headline.weight)
+          .fontColor(style.text)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .width('78%')
+          .textAlign(TextAlign.Center)
+          .opacity(0.72)
         Text('“')
           .fontSize(56).fontFamily(TypeTokens.fontFamily)
           .fontWeight(TypeTokens.display.weight)
@@ -320,14 +358,13 @@ struct PublishPreviewPage {
           .borderRadius(RadiusTokens.pill)
           .margin({ top: SpaceTokens.sm });
       }
-      .width('76%')
-      .height('100%')
+        .width('76%')
+      .height('86%')
       .justifyContent(FlexAlign.Center)
       .alignItems(HorizontalAlign.Center);
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(style.background)
     .borderRadius(style.texture === 'film' ? RadiusTokens.sm : RadiusTokens.md)
     .clip(true)
   }
