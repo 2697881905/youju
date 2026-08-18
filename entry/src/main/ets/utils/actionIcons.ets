@@ -27,6 +27,7 @@ const ACTION_ICONS: Map<string, Resource> = new Map<string, Resource>([
   ['chevronUp', $r('app.media.chevron_up')],
   ['phone', $r('app.media.device_phone')],
   ['book', $r('app.media.book_doc')],
+  ['draftBox', $r('app.media.draft_box')],
   ['check', $r('app.media.check_round')],
 ]);
 

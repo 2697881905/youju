@@ -25,6 +25,7 @@ export interface DmPeer {
 
 export interface Conversation {
   peer: DmPeer;
+  lastType: string;
   lastContent: string;
   lastSenderId: number;
   lastAt: string; // ISO
@@ -35,12 +36,64 @@ export interface DmMessage {
   id: number;
   senderId: number;
   receiverId: number;
+  type: string;
   content: string;
   read: boolean;
   createdAt: string; // ISO
 }
 
+// 私信分享卡片负载（前端序列化后存入 content）
+export interface DmSharePayload {
+  postId: number;
+  title: string;
+  summary?: string;
+  coverImage?: string;
+  authorName?: string;
+  authorId?: number;
+}
+
 const MAX_LEN = 2000;
+const MAX_MEDIA_LEN = 500; // image/video 消息存 viewUrl，长度上限放宽
+const SHARE_MAX = 4000; // 分享消息存帖子的 JSON 摘要（标题+正文片段+封面URL）
+// 允许的消息类型
+const MSG_TYPES: string[] = ['text', 'image', 'video', 'share'];
+
+// 解析并校验分享消息负载；非法返回 null（调用方抛 400）
+function parseShareContent(content: string): DmSharePayload | null {
+  try {
+    const obj: unknown = JSON.parse(content);
+    if (typeof obj !== 'object' || obj === null) {
+      return null;
+    }
+    const o = obj as Record<string, Object>;
+    const postId = Number(o['postId']);
+    if (!Number.isInteger(postId) || postId <= 0) {
+      return null;
+    }
+    if (typeof o['title'] !== 'string' || (o['title'] as string).trim().length === 0) {
+      return null;
+    }
+    return {
+      postId,
+      title: o['title'] as string,
+      summary: typeof o['summary'] === 'string' ? (o['summary'] as string) : '',
+      coverImage: typeof o['coverImage'] === 'string' ? (o['coverImage'] as string) : '',
+      authorName: typeof o['authorName'] === 'string' ? (o['authorName'] as string) : '',
+      authorId: typeof o['authorId'] === 'number' ? (o['authorId'] as number) : 0,
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+// 会话列表预览：分享消息显示为「[分享] 标题」，避免直接展示 JSON
+function sharePreview(content: string): string {
+  const p = parseShareContent(content);
+  if (!p) {
+    return '[分享的帖子]';
+  }
+  return '[分享] ' + p.title;
+}
 
 // 校验 sender 是否允许给 receiver 发私信（依据 receiver 的 dmPolicy + 拉黑）
 async function assertCanMessage(senderId: number, receiverId: number): Promise<void> {
@@ -98,22 +151,43 @@ export async function sendMessage(
   senderId: number,
   receiverId: number,
   content: string,
+  type: string = 'text',
 ): Promise<DmMessage> {
-  const text: string = (content ?? '').trim();
-  if (text.length === 0) {
-    throw new MessageError('私信内容不能为空', 400, 400);
-  }
-  if (text.length > MAX_LEN) {
-    throw new MessageError('私信内容过长', 400, 400);
+  const msgType: string = MSG_TYPES.indexOf(type) >= 0 ? type : 'text';
+  const raw: string = (content ?? '').trim();
+  if (msgType === 'text') {
+    if (raw.length === 0) {
+      throw new MessageError('私信内容不能为空', 400, 400);
+    }
+    if (raw.length > MAX_LEN) {
+      throw new MessageError('私信内容过长', 400, 400);
+    }
+  } else if (msgType === 'share') {
+    // 分享消息：content 必须是合法 JSON 摘要（含 postId + title）
+    if (parseShareContent(raw) === null) {
+      throw new MessageError('分享内容格式错误', 400, 400);
+    }
+    if (raw.length > SHARE_MAX) {
+      throw new MessageError('分享内容过长', 400, 400);
+    }
+  } else {
+    // image/video：content 必须是媒体 viewUrl（非空且不过长）
+    if (raw.length === 0) {
+      throw new MessageError('媒体消息缺少内容', 400, 400);
+    }
+    if (raw.length > MAX_MEDIA_LEN) {
+      throw new MessageError('媒体消息内容无效', 400, 400);
+    }
   }
   await assertCanMessage(senderId, receiverId);
   const msg = await prisma.message.create({
-    data: { senderId, receiverId, content: text },
+    data: { senderId, receiverId, type: msgType, content: raw },
   });
   return {
     id: msg.id,
     senderId: msg.senderId,
     receiverId: msg.receiverId,
+    type: msg.type,
     content: msg.content,
     read: msg.read,
     createdAt: msg.createdAt.toISOString(),
@@ -172,7 +246,8 @@ export async function listConversations(viewerId: number): Promise<Conversation[
         avatar: deleted ? null : (u?.avatar ?? null),
         deleted,
       },
-      lastContent: r.content,
+      lastType: (r.type ?? 'text'),
+      lastContent: r.type === 'share' ? sharePreview(r.content) : r.content,
       lastSenderId: r.senderId,
       lastAt: new Date(r.createdAt).toISOString(),
       unreadCount: unreadMap.get(peerId) ?? 0,
@@ -204,6 +279,7 @@ export async function getMessages(
     id: m.id,
     senderId: m.senderId,
     receiverId: m.receiverId,
+    type: m.type,
     content: m.content,
     read: m.read,
     createdAt: m.createdAt.toISOString(),

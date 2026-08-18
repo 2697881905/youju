@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { ok, fail, CODE } from '../utils/response';
+import { ok, fail, internalError, CODE } from '../utils/response';
 import { auth, AuthRequest, resolveOptionalUserId } from '../middleware/auth';
 import { prisma } from '../prisma';
 import * as postService from '../services/postService';
@@ -68,8 +68,15 @@ router.get('/daily', asyncHandler(async (req: AuthRequest, res: Response) => {
   return ok(res, data);
 }));
 
+// 我的废纸篓：必须在 /:id 之前注册，避免被解析成帖子 ID。
+router.get('/trash', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const page = req.query.page ? Number(req.query.page) : 1;
+  const limit = req.query.limit ? Number(req.query.limit) : 20;
+  return ok(res, await postService.listTrashedPosts(req.userId!, page, limit));
+}));
+
 // 帖子详情：GET /v1/posts/:id
-// 软鉴权：匿名可访问；带合法 token 时返回该帖的 myUp/myBookmark。
+// 软鉴权：匿名可访问公开帖；废纸篓中的软删除帖仅允许原作者带 token 查看。
 router.get('/:id', asyncHandler(async (req: AuthRequest, res: Response) => {
   const id = Number(req.params.id);
   if (!id) return fail(res, CODE.BAD_REQUEST, '无效帖子ID');
@@ -81,7 +88,7 @@ router.get('/:id', asyncHandler(async (req: AuthRequest, res: Response) => {
 
 // 发布帖子（进入待审核）：POST /v1/posts
 router.post('/', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const { title, genre, content, tags, images, videoUrl, videoCover, publishMode } = req.body ?? {};
+  const { title, genre, content, tags, images, videoUrl, videoCover, videoAspectRatio, publishMode } = req.body ?? {};
   if (!title || !genre) return fail(res, CODE.BAD_REQUEST, '标题和体裁必填');
   // 输入长度 / 数量校验（防滥用）
   if (typeof title !== 'string' || title.trim().length === 0 || title.length > 100) {
@@ -117,6 +124,10 @@ router.post('/', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   if (videoCover !== undefined && videoCover !== null && typeof videoCover !== 'string') {
     return fail(res, CODE.BAD_REQUEST, '视频封面格式无效');
   }
+  if (videoAspectRatio !== undefined && videoAspectRatio !== null &&
+    (typeof videoAspectRatio !== 'number' || !Number.isFinite(videoAspectRatio) || videoAspectRatio < 0.45 || videoAspectRatio > 2.2)) {
+    return fail(res, CODE.BAD_REQUEST, '视频比例格式无效');
+  }
   try {
     const post = await postService.createPost(req.body, req.userId!);
     return ok(res, post);
@@ -129,7 +140,7 @@ router.post('/', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   }
 }));
 
-// 删除帖子（仅本人）：DELETE /v1/posts/:id
+// 删除帖子（仅本人）：移入废纸篓。
 router.delete('/:id', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   try {
     const id = Number(req.params.id);
@@ -139,13 +150,32 @@ router.delete('/:id', auth, asyncHandler(async (req: AuthRequest, res: Response)
       if (result.reason === 'not_found') return fail(res, CODE.NOT_FOUND, '帖子不存在', 404);
       if (result.reason === 'forbidden') return fail(res, CODE.FORBIDDEN, '只能删除自己的帖子', 403);
     }
-    return ok(res, null, '已删除');
+    return ok(res, null, '已移入废纸篓');
   } catch (e) {
-    // 防止未捕获异常导致连接挂起（客户端报 "Failed to receive data from the peer"）
-    const msg: string = (e as Error).message ?? '删除失败';
-    console.error('[deletePost] 失败:', msg);
-    return fail(res, CODE.SERVER_ERROR, '删除失败：' + msg, 500);
+    return internalError(res, 'posts.delete', e);
   }
+}));
+
+router.post('/:id/restore', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const id = Number(req.params.id);
+  if (!id || isNaN(id)) return fail(res, CODE.BAD_REQUEST, '无效帖子ID');
+  const result = await postService.restorePost(id, req.userId!);
+  if (!result.ok) {
+    if (result.reason === 'forbidden') return fail(res, CODE.FORBIDDEN, '只能恢复自己的帖子', 403);
+    return fail(res, CODE.NOT_FOUND, '废纸篓中不存在该帖子', 404);
+  }
+  return ok(res, null, '已恢复');
+}));
+
+router.delete('/:id/permanent', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const id = Number(req.params.id);
+  if (!id || isNaN(id)) return fail(res, CODE.BAD_REQUEST, '无效帖子ID');
+  const result = await postService.permanentlyDeletePost(id, req.userId!);
+  if (!result.ok) {
+    if (result.reason === 'forbidden') return fail(res, CODE.FORBIDDEN, '只能彻底删除自己的帖子', 403);
+    return fail(res, CODE.NOT_FOUND, '废纸篓中不存在该帖子', 404);
+  }
+  return ok(res, null, '已彻底删除');
 }));
 
 // 编辑帖子（仅本人）：PUT /v1/posts/:id
@@ -207,7 +237,7 @@ router.post('/:id/vote', auth, asyncHandler(async (req: AuthRequest, res: Respon
     const post = await prisma.post.findUnique({ where: { id: postId }, select: { planAVotes: true, planBVotes: true } });
     return ok(res, { voted: true, choice, planAVotes: post?.planAVotes ?? 0, planBVotes: post?.planBVotes ?? 0 });
   } catch (e) {
-    return fail(res, CODE.SERVER_ERROR, (e as Error).message);
+    return internalError(res, 'posts.vote', e);
   }
 }));
 

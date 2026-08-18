@@ -71,6 +71,8 @@ export struct HomeTab {
   @StorageLink('activeTab') @Watch('onHomeActive') homeActive: number = 0;
   // 圈子加入/退出后重排顶部标签栏，让已加入的圈子优先展示。
   @StorageLink('circleMembershipVersion') @Watch('onCircleMembershipChanged') circleMembershipVersion: number = 0;
+  // 发布成功后刷新首页，确保从发布页返回时新帖立即进入信息流。
+  @StorageLink('postPublishVersion') @Watch('onPostPublished') postPublishVersion: number = 0;
   // 响应式列数（按屏幕宽度 2/3/4 列自适应）+ 对应的 columnsTemplate 字符串
   @State gridColumns: number = 2;
   @State gridTemplate: string = '1fr 1fr';
@@ -126,6 +128,12 @@ export struct HomeTab {
     if (this.homeActive === 0 && !this.tagsLoaded) {
       this.loadTags();
     }
+  }
+
+  onPostPublished(): void {
+    this.postSource.clearData();
+    this.posts = [];
+    this.refresh();
   }
 
   // 判断是否为网络连接类失败（后端未起 / hdc rport 未建立 / 启动竞态）

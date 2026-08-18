@@ -20,3 +20,8 @@ export function ok<T>(res: Response, data: T, message = 'success') {
 export function fail(res: Response, code: number, message: string, httpStatus = 400) {
   return res.status(httpStatus).json({ code, data: null, message });
 }
+
+export function internalError(res: Response, scope: string, error: unknown): Response {
+  console.error('[' + scope + ']', error);
+  return fail(res, CODE.SERVER_ERROR, '服务器开小差了，请稍后重试', 500);
+}

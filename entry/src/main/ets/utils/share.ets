@@ -1,10 +1,20 @@
-// 分享工具（占位实现）
-// 说明：当前线上域名尚未确定（上线阻塞项之一），SHARE_BASE 为占位值。
-// 待真实生产域名确定后，仅需修改 SHARE_BASE 一处即可全局生效，无需改调用点。
+// 分享工具：链接构建 / 剪贴板 / 系统分享面板（Share Kit）。
+// 当前生产环境没有 /post/{id}、/user/{id} 网页落地页，Release 不展示外部分享入口。
+// 落地页部署并通过 check:release-config 后再启用。
 import pasteboard from '@ohos.pasteboard';
+import { systemShare } from '@kit.ShareKit';
+import { common } from '@kit.AbilityKit';
+import { http } from '@kit.NetworkKit';
+import { fileIo } from '@kit.CoreFileKit';
+import { util } from '@kit.ArkTS';
 
 // TODO(上线): 替换为真实生产域名（域名确定后改这一行即可）
 const SHARE_BASE: string = 'https://youju.app';
+
+export const EXTERNAL_SHARE_ENABLED: boolean = false;
+
+// 站内「分享到私信」始终可用（不依赖外部分享落地页/系统分享面板），由分享面板单独展示。
+export const DM_SHARE_ENABLED: boolean = true;
 
 // 帖子分享链接：占位域名 + /post/{id}
 export function buildPostShareUrl(postId: number): string {
@@ -31,4 +41,84 @@ export function buildProfileShareText(nickname: string, userId: number): string 
 export function copyToClipboard(text: string): void {
   const pb = pasteboard.getSystemPasteboard();
   pb.setData(pasteboard.createPlainTextData(text));
+}
+
+// 下载网络图到应用沙箱（系统分享图片记录要求 file:// 沙箱 URI），返回 file:// URI；失败抛错
+export async function downloadToSandbox(context: common.UIAbilityContext, url: string): Promise<string> {
+  const client: http.HttpRequest = http.createHttp();
+  try {
+    const resp: http.HttpResponse = await client.request(url, {
+      method: http.RequestMethod.GET,
+      expectDataType: http.HttpDataType.ARRAY_BUFFER,
+      connectTimeout: 15000,
+      readTimeout: 15000,
+    });
+    if (resp.responseCode !== 200 || resp.result === undefined) {
+      throw new Error('下载封面失败 HTTP ' + String(resp.responseCode));
+    }
+    const buffer: ArrayBuffer = resp.result as ArrayBuffer;
+    const dir: string = context.filesDir + '/share';
+    // mkdirSync 在目录已存在时会抛 File exists，先探测再创建
+    let dirExists: boolean = false;
+    try {
+      fileIo.accessSync(dir);
+      dirExists = true;
+    } catch (e) {
+      dirExists = false;
+    }
+    if (!dirExists) {
+      fileIo.mkdirSync(dir, true);
+    }
+    const ext: string = url.indexOf('.png') >= 0 ? 'png' : 'jpg';
+    const filePath: string = dir + '/' + util.generateRandomUUID() + '.' + ext;
+    const file = fileIo.openSync(filePath, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE);
+    fileIo.writeSync(file.fd, buffer);
+    fileIo.closeSync(file);
+    return 'file://' + filePath;
+  } finally {
+    client.destroy();
+  }
+}
+
+// 帖子系统分享：文本（标题+链接）+ 封面图（封面下载失败时降级为纯文本）
+export async function sharePostToSystem(uiContext: UIContext, postId: number, title: string, coverUrl: string): Promise<void> {
+  const context: common.UIAbilityContext = uiContext.getHostContext() as common.UIAbilityContext;
+  const textRecord: systemShare.SharedRecord = {
+    utd: 'general.text',
+    content: buildShareText(title, postId),
+    title: title && title.length > 0 ? title : '有据帖子',
+    description: '来自有据',
+  };
+  const data: systemShare.SharedData = new systemShare.SharedData(textRecord);
+  if (coverUrl.length > 0) {
+    try {
+      const uri: string = await downloadToSandbox(context, coverUrl);
+      const imageRecord: systemShare.SharedRecord = { utd: 'general.image', uri: uri };
+      data.addRecord(imageRecord);
+    } catch (e) {
+      // 封面下载失败：降级为纯文本分享（不阻断分享面板）
+    }
+  }
+  const controller: systemShare.ShareController = new systemShare.ShareController(data);
+  await controller.show(context, {
+    selectionMode: systemShare.SelectionMode.SINGLE,
+    previewMode: systemShare.SharePreviewMode.DEFAULT,
+  });
+}
+
+// 个人主页系统分享：文本（昵称+链接）
+export async function shareProfileToSystem(uiContext: UIContext, nickname: string, userId: number): Promise<void> {
+  const context: common.UIAbilityContext = uiContext.getHostContext() as common.UIAbilityContext;
+  const textRecord: systemShare.SharedRecord = {
+    utd: 'general.text',
+    content: buildProfileShareText(nickname, userId),
+    title: '有据 · ' + (nickname && nickname.length > 0 ? nickname : '个人主页'),
+    description: '来自有据',
+  };
+  const data: systemShare.SharedData = new systemShare.SharedData(textRecord);
+  const controller: systemShare.ShareController = new systemShare.ShareController(data);
+  await controller.show(context, {
+    selectionMode: systemShare.SelectionMode.SINGLE,
+    previewMode: systemShare.SharePreviewMode.DEFAULT,
+  });
 }

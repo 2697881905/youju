@@ -9,6 +9,7 @@ export interface AccessiblePost {
   userId: number;
   status: number;
   genre: string;
+  deletedAt: Date | null;
 }
 
 /**
@@ -24,9 +25,9 @@ export async function getAccessiblePublishedPost(
   }
   const post = await prisma.post.findUnique({
     where: { id: postId },
-    select: { id: true, userId: true, status: true, genre: true },
+    select: { id: true, userId: true, status: true, genre: true, deletedAt: true },
   });
-  if (!post || post.status !== 1) {
+  if (!post || post.status !== 1 || post.deletedAt) {
     return null;
   }
   return (await canViewerSeeAuthorPosts(viewerId, post.userId)) ? post : null;

@@ -23,9 +23,16 @@ export struct PostCardTitle {
     .width('100%')
     .padding(this.compact ? SpaceTokens.xs : SpaceTokens.sm)
     .alignItems(HorizontalAlign.Start)
-    .backgroundColor(ColorTokens.barSurface)
+    .backgroundColor(ColorTokens.elevated)
+    .backdropBlur(LayoutTokens.glassBlur)
+    // 底部不画边框：与贴主信息区无缝衔接（信息区共用一个玻璃块）
     .border({
-      width: LayoutTokens.glassBorderWidth,
+      width: {
+        left: LayoutTokens.glassBorderWidth,
+        right: LayoutTokens.glassBorderWidth,
+        top: LayoutTokens.glassBorderWidth,
+        bottom: 0,
+      },
       color: ColorTokens.barBorder,
       style: BorderStyle.Solid,
     })

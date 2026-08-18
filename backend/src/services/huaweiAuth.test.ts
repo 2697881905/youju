@@ -8,6 +8,9 @@
 const mockFetch = jest.fn();
 (global as unknown as { fetch: jest.Mock }).fetch = mockFetch;
 
+const previousClientId = process.env.HUAWEI_CLIENT_ID;
+const previousClientSecret = process.env.HUAWEI_CLIENT_SECRET;
+
 import { exchangeCodeForToken, fetchHuaweiUserProfile } from './huaweiAuth';
 
 // 构造一个类 Response 的 mock 对象（被测代码只用 .ok / .status / .text()）。
@@ -25,6 +28,15 @@ function makeResponse(
 
 beforeEach(() => {
   mockFetch.mockReset();
+  process.env.HUAWEI_CLIENT_ID = 'test-client-id';
+  process.env.HUAWEI_CLIENT_SECRET = 'test-client-secret';
+});
+
+afterAll(() => {
+  if (previousClientId === undefined) delete process.env.HUAWEI_CLIENT_ID;
+  else process.env.HUAWEI_CLIENT_ID = previousClientId;
+  if (previousClientSecret === undefined) delete process.env.HUAWEI_CLIENT_SECRET;
+  else process.env.HUAWEI_CLIENT_SECRET = previousClientSecret;
 });
 
 describe('exchangeCodeForToken', () => {

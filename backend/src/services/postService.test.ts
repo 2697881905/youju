@@ -75,6 +75,7 @@ describe('listPosts - 关键词 OR 过滤逻辑', () => {
 
     // 基础过滤保持
     expect(where.status).toBe(1);
+    expect(where.deletedAt).toBeNull();
     // OR 必须存在且有 4 个条件
     expect(Array.isArray(where.OR)).toBe(true);
     expect(where.OR).toHaveLength(4);
@@ -94,6 +95,7 @@ describe('listPosts - 关键词 OR 过滤逻辑', () => {
 
     const where = mockedFindMany.mock.calls[0][0].where;
     expect(where.status).toBe(1);
+    expect(where.deletedAt).toBeNull();
     expect(where.OR).toBeUndefined();
   });
 
@@ -102,6 +104,7 @@ describe('listPosts - 关键词 OR 过滤逻辑', () => {
 
     const where = mockedFindMany.mock.calls[0][0].where;
     expect(where.status).toBe(1);
+    expect(where.deletedAt).toBeNull();
     expect(where.OR).toBeUndefined();
   });
 
@@ -279,6 +282,45 @@ describe('getPost - myUp/myBookmark + 作者匿名化', () => {
     mockedFindFirst.mockResolvedValue(null);
     const res = await getPost(999, 5);
     expect(res).toBeNull();
+    expect(mockedUpFindFirst).not.toHaveBeenCalled();
+    expect(mockedBmFindFirst).not.toHaveBeenCalled();
+  });
+
+  it('帖子作者可查看自己废纸篓中的软删除帖子详情', async () => {
+    mockedFindFirst.mockResolvedValue({
+      id: 8,
+      userId: 5,
+      status: 1,
+      deletedAt: new Date('2026-08-16'),
+      title: '已删除帖子',
+      user: { id: 5, nickname: '作者', avatar: null },
+      comments: [],
+    });
+    mockedUpFindFirst.mockResolvedValue(null);
+    mockedBmFindFirst.mockResolvedValue(null);
+
+    const res = await getPost(8, 5);
+
+    expect(res?.id).toBe(8);
+    expect(mockedFindFirst.mock.calls[0][0].where).toEqual({ id: 8 });
+  });
+
+  it('非作者和匿名用户不能读取废纸篓中的软删除帖子', async () => {
+    mockedFindFirst.mockResolvedValue({
+      id: 8,
+      userId: 5,
+      status: 1,
+      deletedAt: new Date('2026-08-16'),
+      title: '已删除帖子',
+      user: { id: 5, nickname: '作者', avatar: null },
+      comments: [],
+    });
+
+    const otherUser = await getPost(8, 6);
+    const anonymous = await getPost(8);
+
+    expect(otherUser).toBeNull();
+    expect(anonymous).toBeNull();
     expect(mockedUpFindFirst).not.toHaveBeenCalled();
     expect(mockedBmFindFirst).not.toHaveBeenCalled();
   });

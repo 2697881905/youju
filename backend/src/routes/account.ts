@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { ok, fail, CODE } from '../utils/response';
+import { ok, fail, internalError, CODE } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
 import {
   listBindings,
@@ -55,8 +55,7 @@ function handleError(res: Response, e: unknown): Response {
   if (e instanceof AccountError) {
     return fail(res, e.code, e.message, e.httpStatus);
   }
-  const err = e as Error;
-  return fail(res, CODE.SERVER_ERROR, err.message || '服务异常', 500);
+  return internalError(res, 'account.bindings', e);
 }
 
 export default router;

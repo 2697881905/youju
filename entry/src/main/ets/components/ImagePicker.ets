@@ -6,7 +6,7 @@ import { LengthMetrics } from '@kit.ArkUI';
 import { image } from '@kit.ImageKit';
 import { http } from '@kit.NetworkKit';
 import { compressImage, CompressedImage } from '../utils/image';
-import { getUploadSignature, resolveDisplayImageUrl, resolveUploadPutUrl } from '../services/api';
+import { getUploadSignature, resolveDisplayImageUrl, resolveUploadPutUrl, toStoredMediaRef } from '../services/api';
 import { ensureLogin } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
 import { User } from '../models/types';
@@ -129,12 +129,12 @@ export struct ImagePicker {
         const item: PickedImage = { id: 'img_' + this.pickSeq++, preview, uploading: true };
         this.items = [...this.items, item];
         try {
-          const sig = await getUploadSignature('image/jpeg');
+          const sig = await getUploadSignature('image/jpeg', 'posts');
           await this.putBinary(resolveUploadPutUrl(sig), bytes, sig.contentType);
           item.remoteUrl = sig.viewUrl;
           item.uploading = false;
           this.items = [...this.items];
-          this.selected = [...this.selected, sig.viewUrl];
+          this.selected = [...this.selected, toStoredMediaRef(sig)];
         } catch (e) {
           // 上传失败：移除该预览，提示用户
           this.items = this.items.filter((it) => it !== item);

@@ -10,6 +10,7 @@ import commentRouter from './routes/comments';
 import interactRouter from './routes/interact';
 import tagRouter from './routes/tags';
 import uploadRouter from './routes/upload';
+import mediaRouter from './routes/media';
 import searchRouter from './routes/search';
 import accountRouter from './routes/account';
 import notificationRouter from './routes/notifications';
@@ -69,6 +70,9 @@ sensitiveWordService.loadFromFiles([
 
 // 登录接口：防爆破 / 撞库（每 IP 15 分钟 20 次）
 app.use('/v1/auth/login', loginLimiter);
+app.use('/v1/users/login', loginLimiter);
+app.use('/v1/auth/huawei/exchange', loginLimiter);
+app.use('/v1/users/huawei/exchange', loginLimiter);
 // 上传预签名接口：防 COS 配额滥用（每 IP 每分钟 30 次）
 app.use('/v1/upload/token', uploadLimiter);
 
@@ -80,6 +84,7 @@ app.use('/v1/users', userRouter);
 app.use('/v1/posts', postRouter);
 app.use('/v1/tags', tagRouter);
 app.use('/v1/upload', uploadRouter);
+app.use('/v1/media', mediaRouter);
 app.use('/v1/search', searchRouter);
 // 账号绑定管理（GET/POST/DELETE /v1/account/bindings），与 /v1/auth、/v1/posts 同级
 app.use('/v1/account', accountRouter);

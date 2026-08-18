@@ -1,6 +1,6 @@
 import { http } from '@kit.NetworkKit';
 import { BUILD_MODE_NAME } from 'BuildProfile';
-import { Post, DailyPost, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody, PendingPost, ModerateAction, NotificationPrefs, BlockUser, PrivacySettingsData, UserExportData, DebateVoteResult, Conversation, DmMessage } from '../models/types';
+import { Post, DailyPost, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody, PendingPost, ModerateAction, NotificationPrefs, BlockUser, PrivacySettingsData, UserExportData, DebateVoteResult, Conversation, DmMessage, DmSharePayload } from '../models/types';
 
 // 后端地址：根据构建模式切换
 // - debug（模拟器/本地开发）：http://127.0.0.1:3000（配合 hdc rport tcp:3000 tcp:3000）
@@ -16,7 +16,14 @@ export const BASE_URL: string =
 // 本地上传服务会把宿主机 LAN 地址写入数据库；地址变动或模拟器无法直连 LAN 时，
 // 统一回落到已经可用的 hdc rport 地址，避免头像和背景图变成灰色占位。
 export function resolveDisplayImageUrl(url: string): string {
-  if (url.length === 0 || BUILD_MODE === 'release') {
+  if (url.length === 0) {
+    return url;
+  }
+  if (url.startsWith('cos://')) {
+    const key: string = url.slice('cos://'.length);
+    return BASE_URL + '/v1/media/' + encodeURIComponent(key);
+  }
+  if (BUILD_MODE === 'release') {
     return url;
   }
   const match: RegExpMatchArray | null = url.match(/^https?:\/\/[^/]+(\/uploads\/.*)$/);
@@ -140,6 +147,7 @@ export interface CreatePostBody {
   coverImage?: string;
   videoUrl?: string;
   videoCover?: string;
+  videoAspectRatio?: number;
   images?: string[];
   genre: Genre;
   tags: string[];
@@ -174,10 +182,15 @@ export interface HuaweiExchangeBody {
 export interface UploadSignature {
   url: string; // 预签名 PUT URL（前端直传目标）
   key: string; // 对象 Key
-  cdnUrl: string; // 直传后公开可读时访问的 URL
-  viewUrl: string; // GET 预签名可读链接（私有桶也能加载，展示与存储一律用这个）
+  mediaRef: string; // COS 持久化引用（cos://<key>）；local 模式为静态 URL
+  cdnUrl: string; // 兼容字段，不允许写入业务数据
+  viewUrl: string; // 上传后的短时预览链接；持久化必须使用 mediaRef
   contentType: string; // 前端 PUT 必须带上的 Content-Type（需与签名一致）
   mode?: 'cos' | 'local'; // 上传模式：cos=直传腾讯云(外网URL)；local=直传后端 /v1/upload/local
+}
+
+export function toStoredMediaRef(sig: UploadSignature): string {
+  return sig.mediaRef;
 }
 
 // 解析「前端 PUT 直传目标 URL」：
@@ -267,6 +280,7 @@ export interface UpdatePostBody {
   coverImage?: string;
   videoUrl?: string;
   videoCover?: string;
+  videoAspectRatio?: number;
   images?: string[];
   tags?: string[];
   structuredData?: Object;
@@ -276,9 +290,21 @@ export function updatePost(id: number, body: UpdatePostBody): Promise<Post> {
   return api.put<Post>('/v1/posts/' + id, body);
 }
 
-// DELETE /v1/posts/:id（仅本人）
+// DELETE /v1/posts/:id（仅本人，移入废纸篓）
 export async function deletePost(id: number): Promise<void> {
   await api.del<null>('/v1/posts/' + id);
+}
+
+export function listTrashedPosts(page: number = 1, limit: number = 20): Promise<ListResult<Post>> {
+  return api.get<ListResult<Post>>('/v1/posts/trash' + toQuery([['page', page], ['limit', limit]]));
+}
+
+export async function restorePost(id: number): Promise<void> {
+  await api.post<null>('/v1/posts/' + id + '/restore');
+}
+
+export async function permanentlyDeletePost(id: number): Promise<void> {
+  await api.del<null>('/v1/posts/' + id + '/permanent');
 }
 
 // ===== 评论 =====
@@ -700,9 +726,44 @@ export async function markMessagesRead(userId: number): Promise<void> {
 interface SendMessageBody {
   receiverId: number;
   content: string;
+  type: string;
 }
-export async function sendMessage(receiverId: number, content: string): Promise<DmMessage> {
-  return api.post<DmMessage>('/v1/messages', { receiverId, content } as SendMessageBody);
+// type: 'text' | 'image' | 'video'（image/video 时 content 传媒体 viewUrl）
+export async function sendMessage(receiverId: number, content: string, type: string = 'text'): Promise<DmMessage> {
+  const body: SendMessageBody = { receiverId, content, type };
+  return api.post<DmMessage>('/v1/messages', body);
+}
+
+// POST /v1/messages { receiverId, content } —— 把帖子分享为私信（type: 'share'）
+// content 为 DmSharePayload 的 JSON 序列化串；后端校验 postId/title 并持久化。
+// 权限校验（dmPolicy/拉黑/对方存在）由后端 sendMessage 统一处理，失败抛中文 MessageError 透传。
+export async function sendPostShare(receiverId: number, payload: DmSharePayload): Promise<DmMessage> {
+  return sendMessage(receiverId, JSON.stringify(payload), 'share');
+}
+
+// 上传媒体到 COS（私信发图/发视频用）：取预签名 → PUT 二进制 → 返回 viewUrl；失败抛错
+export async function uploadChatMedia(contentType: string, folder: 'avatars' | 'backgrounds' | 'posts' | 'video', data: ArrayBuffer): Promise<string> {
+  const sig: UploadSignature = await getUploadSignature(contentType, folder);
+  await new Promise<void>((resolve: () => void, reject: (err: Error) => void): void => {
+    const req = http.createHttp();
+    req.request(resolveUploadPutUrl(sig), {
+      method: http.RequestMethod.PUT,
+      header: { 'Content-Type': sig.contentType },
+      extraData: data,
+      connectTimeout: 30000,
+      readTimeout: 60000,
+    }, (err: Error | null, resp: http.HttpResponse): void => {
+      req.destroy();
+      if (err !== null) {
+        reject(err);
+      } else if (resp.responseCode >= 200 && resp.responseCode < 300) {
+        resolve();
+      } else {
+        reject(new Error('上传失败 HTTP ' + resp.responseCode));
+      }
+    });
+  });
+  return sig.viewUrl;
 }
 
 // ===== 辩论投票 =====

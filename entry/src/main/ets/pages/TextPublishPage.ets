@@ -22,7 +22,7 @@ import { PublishTagPanel } from '../components/PublishTagPanel';
 import { PUBLISH_GENRES, publishGenreMeta } from '../utils/publishGenres';
 import { PublishGenreSection } from '../components/PublishGenreSection';
 import { PublishTopBar } from '../components/PublishTopBar';
-import { TEXT_POSTER_STYLES, TextPosterStyleOption } from '../utils/textPoster';
+import { resolveTextPosterStyle, TEXT_POSTER_STYLES, TextPosterStyleOption } from '../utils/textPoster';
 
 const MAX_SELECTED_TAGS: number = 3;
 const MAX_LONG_FORM_CONTENT_LENGTH: number = 5000;
@@ -37,7 +37,7 @@ struct TextPublishPage {
   @State title: string = '';
   @State content: string = '';
   @State sd: StructuredData = {};
-  @State textPosterStyle: string = 'paper';
+  @State textPosterStyle: string = 'film';
   @State tags: Tag[] = [];
   @State showFields: boolean = false;
   @State showGenreMenu: boolean = false;
@@ -185,7 +185,7 @@ struct TextPublishPage {
     this.title = draft.title;
     this.content = draft.content;
     this.sd = draft.structuredData;
-    this.textPosterStyle = draft.textPosterStyle ?? 'paper';
+    this.textPosterStyle = resolveTextPosterStyle(draft.textPosterStyle).key;
     this.editingSavedDraftId = savedDraftId;
     this.showFields = false;
     this.showGenreMenu = false;
@@ -224,7 +224,7 @@ struct TextPublishPage {
     this.title = '';
     this.content = '';
     this.sd = {};
-    this.textPosterStyle = 'paper';
+    this.textPosterStyle = 'film';
     this.editingSavedDraftId = '';
     this.showFields = false;
     this.showGenreMenu = false;

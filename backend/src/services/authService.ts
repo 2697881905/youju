@@ -2,6 +2,7 @@ import { prisma } from '../prisma';
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env';
 import { sessionUserView } from '../utils/userView';
+import { enqueueMediaDeletion } from './mediaDeletionService';
 
 // 附加 isAdmin 标记（运行时由 env.adminUserIds 计算，避免改动 DB schema）
 function withIsAdmin(user: any) {
@@ -80,15 +81,30 @@ export async function updateProfile(
   bio?: string,
   gender?: number | null,
 ) {
-  const user = await prisma.user.update({
-    where: { id: userId },
-    data: {
-      ...(nickname ? { nickname } : {}),
-      ...(avatar ? { avatar } : {}),
-      ...(profileBackground !== undefined ? { profileBackground } : {}),
-      ...(bio !== undefined ? { bio } : {}),
-      ...(gender !== undefined ? { gender } : {}),
-    },
+  const user = await prisma.$transaction(async (tx) => {
+    const previous = await tx.user.findUnique({
+      where: { id: userId },
+      select: { avatar: true, profileBackground: true },
+    });
+    const updated = await tx.user.update({
+      where: { id: userId },
+      data: {
+        ...(nickname ? { nickname } : {}),
+        ...(avatar ? { avatar } : {}),
+        ...(profileBackground !== undefined ? { profileBackground } : {}),
+        ...(bio !== undefined ? { bio } : {}),
+        ...(gender !== undefined ? { gender } : {}),
+      },
+    });
+    const obsolete: Array<string | null | undefined> = [];
+    if (avatar !== undefined && avatar !== previous?.avatar) {
+      obsolete.push(previous?.avatar);
+    }
+    if (profileBackground !== undefined && profileBackground !== previous?.profileBackground) {
+      obsolete.push(previous?.profileBackground);
+    }
+    await enqueueMediaDeletion(tx, obsolete);
+    return updated;
   });
   return withIsAdmin(user);
 }
@@ -98,10 +114,22 @@ export async function updateProfile(
 export const DELETED_NICKNAME = '已注销用户';
 
 export async function deactivateUser(userId: number) {
-  const [, , user] = await prisma.$transaction([
-    prisma.pushToken.deleteMany({ where: { userId } }),
-    prisma.userBinding.deleteMany({ where: { userId } }),
-    prisma.user.update({
+  return prisma.$transaction(async (tx) => {
+    const [user, posts] = await Promise.all([
+      tx.user.findUnique({ where: { id: userId }, select: { avatar: true, profileBackground: true } }),
+      tx.post.findMany({
+        where: { userId },
+        select: { coverImage: true, videoUrl: true, videoCover: true, images: true },
+      }),
+    ]);
+    const mediaValues: Array<string | null | undefined | unknown> = [user?.avatar, user?.profileBackground];
+    for (const post of posts) {
+      mediaValues.push(post.coverImage, post.videoUrl, post.videoCover, post.images);
+    }
+    await enqueueMediaDeletion(tx, mediaValues);
+    await tx.pushToken.deleteMany({ where: { userId } });
+    await tx.userBinding.deleteMany({ where: { userId } });
+    return tx.user.update({
       where: { id: userId },
       data: {
         deletedAt: new Date(),
@@ -113,9 +141,8 @@ export async function deactivateUser(userId: number) {
         openId: null,
         unionID: null,
       },
-    }),
-  ]);
-  return user;
+    });
+  });
 }
 
 // 记录隐私政策同意（PIPL 可追溯）：落地同意版本与时间戳。

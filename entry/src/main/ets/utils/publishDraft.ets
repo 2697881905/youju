@@ -13,6 +13,7 @@ export interface PublishDraft {
   images: string[];
   videoUrl?: string;   // 视频地址（轻量单视频，与 images 互斥）
   videoCover?: string; // 视频封面（首帧抓取上传）
+  videoAspectRatio?: number; // 视频真实宽/高，供预览与详情按原比例展示
   textPosterStyle?: string;
 }
 
@@ -27,6 +28,7 @@ export function clonePublishDraft(draft: PublishDraft): PublishDraft {
     images: [...draft.images],
     videoUrl: draft.videoUrl,
     videoCover: draft.videoCover,
+    videoAspectRatio: draft.videoAspectRatio,
     textPosterStyle: draft.textPosterStyle,
   };
 }

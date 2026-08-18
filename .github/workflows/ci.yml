@@ -5,11 +5,15 @@ on:
     branches: [main]
     paths:
       - 'backend/**'
+      - 'entry/src/main/module.json5'
+      - 'entry/src/main/resources/rawfile/agconnect-services.json'
       - '.github/workflows/ci.yml'
   pull_request:
     branches: [main]
     paths:
       - 'backend/**'
+      - 'entry/src/main/module.json5'
+      - 'entry/src/main/resources/rawfile/agconnect-services.json'
       - '.github/workflows/ci.yml'
 
 jobs:
@@ -38,3 +42,15 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+      - name: Verify AGC release identity
+        env:
+          AGC_PACKAGE_NAME: ${{ vars.AGC_PACKAGE_NAME }}
+          AGC_APP_ID: ${{ vars.AGC_APP_ID }}
+          AGC_OAUTH_CLIENT_ID: ${{ vars.AGC_OAUTH_CLIENT_ID }}
+          AGC_CONFIG_CLIENT_ID: ${{ vars.AGC_CONFIG_CLIENT_ID }}
+          HUAWEI_CLIENT_ID: ${{ vars.HUAWEI_CLIENT_ID }}
+        run: npm run check:agc
+
+      - name: Verify release configuration
+        run: npm run check:release-config

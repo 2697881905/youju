@@ -83,11 +83,11 @@ export async function getUserProfile(viewerId: number, rawTargetId: string) {
   const [followingCount, followerCount, postCount, isFollowing, isMutual, likesAgg, isBlocked, isDisliked] = await Promise.all([
     prisma.follow.count({ where: { followerId: targetId } }),
     prisma.follow.count({ where: { followingId: targetId } }),
-    prisma.post.count({ where: { userId: targetId, status: 1 } }),
+    prisma.post.count({ where: { userId: targetId, status: 1, deletedAt: null } }),
     prisma.follow.count({ where: { followerId: viewerId, followingId: targetId } }),
     prisma.follow.count({ where: { followerId: targetId, followingId: viewerId } }),
     // 获赞总数：该用户全部已发布帖的点赞计数之和（排除软删/待审帖）
-    prisma.post.aggregate({ _sum: { upCount: true }, where: { userId: targetId, status: 1 } }),
+    prisma.post.aggregate({ _sum: { upCount: true }, where: { userId: targetId, status: 1, deletedAt: null } }),
     // 拉黑/不喜欢状态（viewer → target，单向）
     blockService.isBlocked(viewerId, targetId),
     dislikeService.isDisliked(viewerId, targetId),

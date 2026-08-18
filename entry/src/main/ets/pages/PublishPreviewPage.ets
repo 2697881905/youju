@@ -16,6 +16,7 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { withCoverOnlyTextPoster } from '../utils/structuredFields';
+import { FALLBACK_VIDEO_ASPECT_RATIO, normalizeVideoAspectRatio } from '../utils/video';
 
 const TEXT_POSTER_TIMEOUT: number = 20000;
 
@@ -82,8 +83,13 @@ struct PublishPreviewPage {
 
   private currentDraft(): PublishDraft {
     return this.draft ?? {
-      mode: 'photo', title: '', content: '', genre: 'share', tags: [], structuredData: {}, images: [], videoUrl: '', videoCover: '',
+      mode: 'photo', title: '', content: '', genre: 'share', tags: [], structuredData: {}, images: [], videoUrl: '', videoCover: '', videoAspectRatio: FALLBACK_VIDEO_ASPECT_RATIO,
     };
+  }
+
+  private hasPreviewVideo(): boolean {
+    const videoUrl: string = this.currentDraft().videoUrl ?? '';
+    return videoUrl.length > 0;
   }
 
   private previewFields(): PreviewField[] {
@@ -146,10 +152,12 @@ struct PublishPreviewPage {
       const coverOnlyTextPoster: boolean = draft.mode === 'photo' && images.length === 0;
       let videoUrl: string | undefined;
       let videoCover: string | undefined;
+      let videoAspectRatio: number | undefined;
       if (draft.videoUrl && draft.videoUrl.length > 0) {
         // 视频模式：不生成文字海报，封面取首帧抓图
         videoUrl = draft.videoUrl;
         videoCover = draft.videoCover;
+        videoAspectRatio = normalizeVideoAspectRatio(draft.videoAspectRatio ?? FALLBACK_VIDEO_ASPECT_RATIO);
         images = [];
       } else if (images.length === 0) {
         safeShowToast(this.getUIContext(), { message: '正在生成文字海报…' });
@@ -175,6 +183,7 @@ struct PublishPreviewPage {
         images: images,
         videoUrl: videoUrl,
         videoCover: videoCover,
+        videoAspectRatio: videoAspectRatio,
         coverImage: videoCover && videoCover.length > 0 ? videoCover : coverImage,
       });
       publishFlowStore.completePublish();
@@ -256,6 +265,21 @@ struct PublishPreviewPage {
   @Builder
   textPosterPreview(draft: PublishDraft, style: TextPosterStyleOption): void {
     Stack({ alignContent: Alignment.Center }) {
+      if (style.texture === 'film') {
+        Row({ space: 6 }) {
+          ForEach([0, 1, 2, 3, 4], (hole: number, holeIndex: number) => {
+            Circle().width(8).height(8).fill('#CC202832')
+          }, (key: number, keyIndex: number) => 'film-hole-' + keyIndex)
+        }
+        .position({ x: 16, y: 16 })
+      }
+      if (style.texture === 'sticky') {
+        Column()
+          .width('26%')
+          .height(12)
+          .backgroundColor('#A8FFFFFF')
+          .position({ x: 150, y: 18 })
+      }
       Column()
         .width('88%')
         .height('90%')
@@ -304,7 +328,7 @@ struct PublishPreviewPage {
     .width('100%')
     .height('100%')
     .backgroundColor(style.background)
-    .borderRadius(RadiusTokens.md)
+    .borderRadius(style.texture === 'film' ? RadiusTokens.sm : RadiusTokens.md)
     .clip(true)
   }
 
@@ -312,10 +336,10 @@ struct PublishPreviewPage {
   coverPreview(draft: PublishDraft): void {
     if (draft.videoUrl && draft.videoUrl.length > 0) {
       Stack({ alignContent: Alignment.Center }) {
-        VideoPlayer({ src: draft.videoUrl, poster: draft.videoCover, videoHeight: 220 })
+        VideoPlayer({ src: draft.videoUrl, poster: draft.videoCover })
       }
       .width('100%')
-      .aspectRatio(LayoutTokens.cardMediaAspectRatio)
+      .aspectRatio(normalizeVideoAspectRatio(draft.videoAspectRatio ?? FALLBACK_VIDEO_ASPECT_RATIO))
       .backgroundColor(ColorTokens.sunken)
       .borderRadius(RadiusTokens.md)
       .clip(true)
@@ -326,7 +350,8 @@ struct PublishPreviewPage {
             Image(resolveDisplayImageUrl(url))
               .width('100%')
               .height('100%')
-              .objectFit(ImageFit.Contain)
+              // 与信息流卡片封面一致：固定 3:4 容器 + Cover 裁切填满（长图不再缩小失调）
+              .objectFit(ImageFit.Cover)
               .backgroundColor(ColorTokens.sunken)
           }, (url: string) => url)
         }
@@ -370,10 +395,20 @@ struct PublishPreviewPage {
   }
 
   @Builder
+  videoPreview(draft: PublishDraft): void {
+    VideoPlayer({ src: draft.videoUrl ?? '', poster: draft.videoCover ?? '' })
+      .width('100%')
+      .aspectRatio(normalizeVideoAspectRatio(draft.videoAspectRatio ?? FALLBACK_VIDEO_ASPECT_RATIO))
+      .backgroundColor(Color.Black)
+  }
+
+  @Builder
   postPreview(draft: PublishDraft): void {
     GlassPanel({ panelPadding: SpaceTokens.md, radius: RadiusTokens.lg }) {
       Column({ space: SpaceTokens.md }) {
-        this.coverPreview(draft)
+        if (!draft.videoUrl || draft.videoUrl.length === 0) {
+          this.coverPreview(draft)
+        }
         Row({ space: SpaceTokens.sm }) {
           Text(genreLabel(draft.genre))
             .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
@@ -469,13 +504,24 @@ struct PublishPreviewPage {
 
   build() {
     Column({ space: SpaceTokens.md }) {
-      this.topBar()
+      Column() {
+        this.topBar()
+      }
+      .width('100%')
+      .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
       if (this.draft !== null) {
         Scroll() {
           Column({ space: SpaceTokens.md }) {
-            this.postPreview(this.currentDraft())
-            this.structuredPreview()
-            Row().height(LayoutTokens.minTouchTarget).width('100%')
+            if (this.hasPreviewVideo()) {
+              this.videoPreview(this.currentDraft())
+            }
+            Column({ space: SpaceTokens.md }) {
+              this.postPreview(this.currentDraft())
+              this.structuredPreview()
+              Row().height(LayoutTokens.minTouchTarget).width('100%')
+            }
+            .width('100%')
+            .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
           }
           .width('100%')
           .alignItems(HorizontalAlign.Start)
@@ -502,6 +548,7 @@ struct PublishPreviewPage {
           .layoutWeight(1)
         }
         .width('100%')
+        .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
         .alignItems(VerticalAlign.Center)
       } else {
         Column({ space: SpaceTokens.md }) {
@@ -518,7 +565,7 @@ struct PublishPreviewPage {
     }
     .width('100%')
     .height('100%')
-    .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: this.statusBarHeight + SpaceTokens.sm, bottom: SpaceTokens.md })
+    .padding({ top: this.statusBarHeight + SpaceTokens.sm, bottom: SpaceTokens.md })
     .backgroundColor(ColorTokens.canvas)
   }
 }

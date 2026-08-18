@@ -295,11 +295,22 @@ export struct MessagePage {
     return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
   }
 
+  // 会话列表最近消息摘要：图片/视频消息显示占位，避免直接展示 URL
+  private conversationPreview(c: Conversation): string {
+    if (c.lastType === 'image') {
+      return '[图片]';
+    }
+    if (c.lastType === 'video') {
+      return '[视频]';
+    }
+    return c.lastContent ?? '';
+  }
+
   @Builder
   conversationRow(c: Conversation) {
     MessageRow({
       title: c.peer.nickname,
-      subtitle: (c.lastSenderId === this.getSelfId() ? '我: ' : '') + (c.lastContent ?? ''),
+      subtitle: (c.lastSenderId === this.getSelfId() ? '我: ' : '') + this.conversationPreview(c),
       time: this.formatDmTime(c.lastAt),
       avatar: c.peer.avatar ?? '',
       name: c.peer.nickname,

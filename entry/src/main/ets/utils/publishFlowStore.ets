@@ -72,6 +72,8 @@ class PublishFlowStoreImpl {
   }
 
   completePublish(): void {
+    const version: number = AppStorage.get<number>('postPublishVersion') ?? 0;
+    AppStorage.setOrCreate<number>('postPublishVersion', version + 1);
     this.update('reset', this.session.mode, '', null, this.session.activeDraftId);
   }
 

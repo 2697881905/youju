@@ -2,7 +2,7 @@
 // 数据：GET /v1/admin/posts/pending（含举报记录）；操作：POST /v1/admin/posts/:id/moderate
 
 import { PendingPost, ReportItem, ReportReason, ModerateAction } from '../models/types';
-import { getPendingPosts, moderatePost } from '../services/api';
+import { getPendingPosts, moderatePost, resolveDisplayImageUrl } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { resolveActionIcon } from '../utils/actionIcons';
@@ -173,7 +173,7 @@ struct ModerationPage {
       // 头部：作者 + 举报数
       Row({ space: 8 }) {
         if (post.user?.avatar) {
-          Image(post.user.avatar)
+          Image(resolveDisplayImageUrl(post.user.avatar))
             .width(28)
             .height(28)
             .borderRadius(14)
@@ -216,7 +216,7 @@ struct ModerationPage {
 
       // 封面
       if (post.coverImage) {
-        Image(post.coverImage)
+        Image(resolveDisplayImageUrl(post.coverImage))
           .width('100%')
           .height(160)
           .objectFit(ImageFit.Cover)

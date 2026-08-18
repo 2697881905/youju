@@ -1,6 +1,6 @@
 // 拉黑管理路由：列表 / 拉黑 / 取消拉黑
 import { Router, Response } from 'express';
-import { ok, fail, CODE } from '../utils/response';
+import { ok, fail, internalError, CODE } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
 import * as blockService from '../services/blockService';
 
@@ -16,7 +16,7 @@ router.get('/me/blocklist', auth, asyncHandler(async (req: AuthRequest, res: Res
     const data = await blockService.listBlocked(req.userId!, page, limit);
     return ok(res, data);
   } catch (e) {
-    return fail(res, CODE.SERVER_ERROR, (e as Error).message);
+    return internalError(res, 'block.list', e);
   }
 }));
 
@@ -33,7 +33,7 @@ router.post('/me/block/:blockedId', auth, asyncHandler(async (req: AuthRequest, 
     if (e instanceof blockService.BlockError) {
       return fail(res, CODE.BAD_REQUEST, e.message);
     }
-    return fail(res, CODE.SERVER_ERROR, (e as Error).message);
+    return internalError(res, 'block.create', e);
   }
 }));
 
@@ -47,7 +47,7 @@ router.delete('/me/block/:blockedId', auth, asyncHandler(async (req: AuthRequest
     await blockService.unblockUser(req.userId!, blockedId);
     return ok(res, { unblocked: true });
   } catch (e) {
-    return fail(res, CODE.SERVER_ERROR, (e as Error).message);
+    return internalError(res, 'block.delete', e);
   }
 }));
 

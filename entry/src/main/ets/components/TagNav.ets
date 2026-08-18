@@ -128,6 +128,14 @@ export struct TagNav {
 
       // 展开态菜单位于圈子栏原位置，并向下覆盖帖子区域。
       if (this.showDropdown) {
+        // 点击菜单外部收回：透明遮罩从菜单底部延伸到屏幕下方（zIndex 低于菜单，不挡菜单点击）
+        Column()
+          .width('100%')
+          .height(2000)
+          .position({ x: 0, y: this.dropdownHeight() })
+          .backgroundColor(Color.Transparent)
+          .onClick((): void => { this.setDropdownVisible(false); })
+          .zIndex(0)
         Scroll() {
           Grid() {
             ForEach(
@@ -223,7 +231,6 @@ export struct TagNav {
     .margin({
       bottom: this.showDropdown ? LayoutTokens.segmentedHeight - this.dropdownHeight() : 0,
     })
-    .clip(true)
     .zIndex(10)
     .animation({
       duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.base,

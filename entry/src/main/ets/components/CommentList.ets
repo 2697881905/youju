@@ -2,7 +2,7 @@
 import { Comment } from '../models/types';
 import { timeAgo, formatCount } from '../utils/format';
 import { getUserId } from '../utils/auth';
-import { deleteComment, upComment, cancelUpComment } from '../services/api';
+import { deleteComment, upComment, cancelUpComment, resolveDisplayImageUrl } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { openUserProfile } from '../utils/nav';
@@ -136,7 +136,7 @@ export struct CommentList {
         .fontSize(14).fontFamily($r('app.string.font_family'))
         .textAlign(TextAlign.Center)
     } else if (c.user?.avatar) {
-      Image(c.user.avatar)
+      Image(resolveDisplayImageUrl(c.user.avatar))
         .width(36)
         .height(36)
         .borderRadius(18)

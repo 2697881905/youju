@@ -5,6 +5,7 @@ import { SensitiveWordError, ValidationError } from '../utils/errors';
 import { USER_PUBLIC_SELECT, publicUserView } from '../utils/userView';
 import { getExcludedAuthorIds, canViewerSeeAuthorPosts, getDislikedAuthorIds } from './accessControl';
 import { env } from '../config/env';
+import { enqueueMediaDeletion } from './mediaDeletionService';
 
 export type SortType = 'hot' | 'latest' | 'recommend';
 
@@ -33,7 +34,7 @@ export async function listPosts(params: ListParams) {
   const limit = Math.min(50, Math.max(1, Number(params.limit ?? 20)));
   const skip = (page - 1) * limit;
 
-  const where: any = { status: 1 }; // 仅已发布
+  const where: any = { status: 1, deletedAt: null }; // 仅已发布且未移入废纸篓
   if (params.tag) {
     where.tags = { array_contains: params.tag };
   }
@@ -221,7 +222,7 @@ async function dailyInterestTags(viewerId?: number): Promise<string[]> {
 }
 
 async function dailyVisibleWhere(viewerId?: number): Promise<any> {
-  const where: any = { status: 1, user: { status: 1 } };
+  const where: any = { status: 1, deletedAt: null, user: { status: 1 } };
   const excluded = new Set(await getExcludedAuthorIds(viewerId));
   if (viewerId) {
     for (const id of await getDislikedAuthorIds(viewerId)) {
@@ -341,7 +342,8 @@ export async function listDailyPosts(params: DailyListParams = {}) {
   return { list, pagination: { page, limit, total }, dateKey, interestTags };
 }
 
-// 帖子详情（含评论，评论按顶数降序，仅返回 status=1 的正常评论）
+// 帖子详情（含评论，评论按顶数降序，仅返回 status=1 的正常评论）。
+// 已移入废纸篓的帖子仅允许原作者通过带登录态的详情请求查看，其他访问仍返回不存在。
 // viewerId 可选：传入时并发查 Up/Bookmark 记录，给返回体附加 myUp / myBookmark
 // （当前登录用户对该帖的互动态，纯增量字段，不影响原有结构；缺失则不附加）。
 export async function getPost(id: number, viewerId?: number) {
@@ -360,8 +362,12 @@ export async function getPost(id: number, viewerId?: number) {
   if (!post) {
     return null;
   }
+  // 软删除不删除记录：仅帖子作者可从废纸篓继续查看详情，且必须携带本人登录态。
+  if (post.deletedAt && viewerId !== post.userId) {
+    return null;
+  }
   // 可见性 / 拉黑 / 隐私 校验：无权限则视为不存在（404）
-  if (!(await canViewerSeeAuthorPosts(viewerId, post.userId))) {
+  if (!post.deletedAt && !(await canViewerSeeAuthorPosts(viewerId, post.userId))) {
     return null;
   }
   // 内容安全：非作者 & 非管理员，仅可见已发布(status=1)的帖。
@@ -407,6 +413,7 @@ export async function createPost(data: any, userId: number) {
       coverImage: data.coverImage ?? null,
       videoUrl: data.videoUrl ?? null,
       videoCover: data.videoCover ?? null,
+      videoAspectRatio: data.videoAspectRatio ?? null,
       images: data.images ?? [],
       genre: data.genre,
       tags: data.tags ?? [],
@@ -420,22 +427,65 @@ export async function deletePost(id: number, userId: number) {
   const post = await prisma.post.findUnique({ where: { id } });
   if (!post) return { ok: false, reason: 'not_found' };
   if (post.userId !== userId) return { ok: false, reason: 'forbidden' };
+  if (post.deletedAt) return { ok: true };
+  await prisma.post.update({ where: { id }, data: { deletedAt: new Date() } });
+  return { ok: true };
+}
+
+// 废纸篓仅返回当前用户主动删除的帖子，按删除时间倒序。
+export async function listTrashedPosts(userId: number, page: number = 1, limit: number = 20) {
+  const p = Math.max(1, Number(page));
+  const l = Math.min(50, Math.max(1, Number(limit)));
+  const skip = (p - 1) * l;
+  const where = { userId, deletedAt: { not: null } };
+  const [list, total] = await Promise.all([
+    prisma.post.findMany({
+      where,
+      orderBy: { deletedAt: 'desc' },
+      skip,
+      take: l,
+      include: { user: { select: USER_PUBLIC_SELECT } },
+    }),
+    prisma.post.count({ where }),
+  ]);
+  return {
+    list: list.map((post) => ({ ...post, user: publicUserView(post.user) })),
+    pagination: { page: p, limit: l, total },
+  };
+}
+
+export async function restorePost(id: number, userId: number) {
+  const post = await prisma.post.findUnique({ where: { id } });
+  if (!post) return { ok: false, reason: 'not_found' };
+  if (post.userId !== userId) return { ok: false, reason: 'forbidden' };
+  if (!post.deletedAt) return { ok: false, reason: 'not_deleted' };
+  await prisma.post.update({ where: { id }, data: { deletedAt: null } });
+  return { ok: true };
+}
+
+// 彻底删除只允许处理已经移入当前用户废纸篓的帖子。
+export async function permanentlyDeletePost(id: number, userId: number) {
+  const post = await prisma.post.findUnique({ where: { id } });
+  if (!post) return { ok: false, reason: 'not_found' };
+  if (post.userId !== userId) return { ok: false, reason: 'forbidden' };
+  if (!post.deletedAt) return { ok: false, reason: 'not_deleted' };
   const comments = await prisma.comment.findMany({ where: { postId: id }, select: { id: true } });
   const commentIds = comments.map((comment) => comment.id);
-  await prisma.$transaction([
-    prisma.commentUp.deleteMany({ where: { commentId: { in: commentIds } } }),
-    prisma.report.deleteMany({
+  await prisma.$transaction(async (tx) => {
+    await enqueueMediaDeletion(tx, [post.coverImage, post.videoUrl, post.videoCover, post.images]);
+    await tx.commentUp.deleteMany({ where: { commentId: { in: commentIds } } });
+    await tx.report.deleteMany({
       where: {
         OR: [
           { targetType: 'post', targetId: id },
           { targetType: 'comment', targetId: { in: commentIds } },
         ],
       },
-    }),
-    prisma.debateVote.deleteMany({ where: { postId: id } }),
+    });
+    await tx.debateVote.deleteMany({ where: { postId: id } });
     // Comment / Up / Bookmark 由数据库外键级联删除。
-    prisma.post.delete({ where: { id } }),
-  ]);
+    await tx.post.delete({ where: { id } });
+  });
   return { ok: true };
 }
 
@@ -446,6 +496,7 @@ export interface UpdatePostInput {
   coverImage?: string | null;
   videoUrl?: string | null;
   videoCover?: string | null;
+  videoAspectRatio?: number | null;
   images?: string[];
   tags?: string[];
   structuredData?: any;
@@ -455,6 +506,7 @@ export async function updatePost(id: number, userId: number, input: UpdatePostIn
   const post = await prisma.post.findUnique({ where: { id } });
   if (!post) return { ok: false, reason: 'not_found' };
   if (post.userId !== userId) return { ok: false, reason: 'forbidden' };
+  if (post.deletedAt) return { ok: false, reason: 'not_found' };
 
   const nextTitle = input.title !== undefined ? input.title : post.title;
   const nextContent = input.content !== undefined ? input.content : post.content;
@@ -482,6 +534,10 @@ export async function updatePost(id: number, userId: number, input: UpdatePostIn
   if (input.videoCover !== undefined && input.videoCover !== null && typeof input.videoCover !== 'string') {
     throw new ValidationError('视频封面格式无效');
   }
+  if (input.videoAspectRatio !== undefined && input.videoAspectRatio !== null &&
+    (typeof input.videoAspectRatio !== 'number' || !Number.isFinite(input.videoAspectRatio) || input.videoAspectRatio < 0.45 || input.videoAspectRatio > 2.2)) {
+    throw new ValidationError('视频比例格式无效');
+  }
   if (sensitiveWordService.checkText(nextTitle + ' ' + (nextContent ?? ''))) {
     throw new SensitiveWordError();
   }
@@ -492,6 +548,7 @@ export async function updatePost(id: number, userId: number, input: UpdatePostIn
   if (input.coverImage !== undefined) data.coverImage = input.coverImage;
   if (input.videoUrl !== undefined) data.videoUrl = input.videoUrl;
   if (input.videoCover !== undefined) data.videoCover = input.videoCover;
+  if (input.videoAspectRatio !== undefined) data.videoAspectRatio = input.videoAspectRatio;
   if (input.images !== undefined) data.images = input.images;
   if (input.tags !== undefined) data.tags = input.tags;
   if (input.structuredData !== undefined) data.structuredData = input.structuredData;
@@ -507,7 +564,7 @@ export async function listByUser(userId: number, viewerId?: number) {
     return [];
   }
   const rows = await prisma.post.findMany({
-    where: { userId },
+    where: { userId, deletedAt: null },
     orderBy: { createdAt: 'desc' },
     include: { user: { select: USER_PUBLIC_SELECT } },
   });

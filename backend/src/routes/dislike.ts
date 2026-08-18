@@ -1,7 +1,7 @@
 // 不喜欢（减少推送）管理路由：列表 / 不喜欢 / 取消不喜欢
 // 仿 block.ts 结构，均需 auth 中间件
 import { Router, Response } from 'express';
-import { ok, fail, CODE } from '../utils/response';
+import { ok, fail, internalError, CODE } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
 import * as dislikeService from '../services/dislikeService';
 
@@ -17,7 +17,7 @@ router.get('/me/dislikelist', auth, asyncHandler(async (req: AuthRequest, res: R
     const data = await dislikeService.listDisliked(req.userId!, page, limit);
     return ok(res, data);
   } catch (e) {
-    return fail(res, CODE.SERVER_ERROR, (e as Error).message);
+    return internalError(res, 'dislike.list', e);
   }
 }));
 
@@ -34,7 +34,7 @@ router.post('/me/dislike/:dislikedId', auth, asyncHandler(async (req: AuthReques
     if (e instanceof dislikeService.DislikeError) {
       return fail(res, CODE.BAD_REQUEST, e.message);
     }
-    return fail(res, CODE.SERVER_ERROR, (e as Error).message);
+    return internalError(res, 'dislike.create', e);
   }
 }));
 
@@ -48,7 +48,7 @@ router.delete('/me/dislike/:dislikedId', auth, asyncHandler(async (req: AuthRequ
     await dislikeService.undislikeUser(req.userId!, dislikedId);
     return ok(res, { undisliked: true });
   } catch (e) {
-    return fail(res, CODE.SERVER_ERROR, (e as Error).message);
+    return internalError(res, 'dislike.delete', e);
   }
 }));
 

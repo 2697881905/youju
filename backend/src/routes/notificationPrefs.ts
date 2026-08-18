@@ -1,6 +1,6 @@
 // 通知偏好路由：GET 查询 / PUT 更新当前用户的通知类别开关
 import { Router, Response } from 'express';
-import { ok, fail, CODE } from '../utils/response';
+import { ok, fail, internalError, CODE } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
 import * as prefService from '../services/notificationPrefService';
 
@@ -14,7 +14,7 @@ router.get('/me/notification-prefs', auth, asyncHandler(async (req: AuthRequest,
     const prefs = await prefService.getPrefs(req.userId!);
     return ok(res, prefs);
   } catch (e) {
-    return fail(res, CODE.SERVER_ERROR, (e as Error).message);
+    return internalError(res, 'notificationPrefs.get', e);
   }
 }));
 
@@ -24,7 +24,7 @@ router.put('/me/notification-prefs', auth, asyncHandler(async (req: AuthRequest,
     const prefs = await prefService.updatePrefs(req.userId!, req.body ?? {});
     return ok(res, prefs);
   } catch (e) {
-    return fail(res, CODE.SERVER_ERROR, (e as Error).message);
+    return internalError(res, 'notificationPrefs.update', e);
   }
 }));
 
