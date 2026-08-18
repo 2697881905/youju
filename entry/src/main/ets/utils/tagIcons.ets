@@ -34,10 +34,19 @@ const TAG_ICON_MAP: Map<string, Resource> = new Map<string, Resource>([
   ['旅行攻略', $r('app.media.tag_travel')],
   ['探店打卡', $r('app.media.tag_foodie')],
   ['游戏攻略', $r('app.media.tag_gaming')],
+  ['情感经营', $r('app.media.tag_relationship')],
+  ['家庭相处', $r('app.media.tag_family')],
+  ['健康生活', $r('app.media.tag_health')],
+  ['兴趣爱好', $r('app.media.tag_hobby')],
+  // ===== 分享 =====
+  ['音乐分享', $r('app.media.tag_music')],
+  ['日常分享', $r('app.media.tag_daily')],
   ['影视推荐', $r('app.media.tag_movie')],
   ['书籍阅读', $r('app.media.tag_reading')],
   ['宠物日常', $r('app.media.tag_pet')],
-  ['情感经营', $r('app.media.tag_relationship')],
+  ['播客分享', $r('app.media.tag_podcast')],
+  ['展览活动', $r('app.media.tag_exhibition')],
+  ['摄影记录', $r('app.media.tag_photography')],
 ]);
 
 const TAG_ICON_ALL: Resource = $r('app.media.tag_all');
@@ -65,6 +74,7 @@ export function resolveTagColor(name: string): ResourceColor {
     case '男装搭配':
     case '情感经营':
     case '人际处世':
+    case '家庭相处':
       return '#FF2D55';
     case '运动装备':
     case '健身动作':
@@ -84,8 +94,21 @@ export function resolveTagColor(name: string): ResourceColor {
     case '书籍阅读':
       return '#64D2FF';
     case '摄影技巧':
+    case '摄影记录':
     case '宠物日常':
       return '#BF5AF2';
+    case '健康生活':
+      return '#30D158';
+    case '兴趣爱好':
+      return '#AF52DE';
+    case '播客分享':
+      return '#5E5CE6';
+    case '展览活动':
+      return '#FF9500';
+    case '音乐分享':
+      return '#FF2D55';
+    case '日常分享':
+      return '#FF9F0A';
     default:
       return '#0A84FF';
   }

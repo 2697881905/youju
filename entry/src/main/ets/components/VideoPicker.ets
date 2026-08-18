@@ -3,8 +3,9 @@
 // 与 ImagePicker 二选一（发布页 publishMode 控制），一条帖子仅一段视频。
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { http } from '@kit.NetworkKit';
-import { getUploadSignature, resolveUploadPutUrl } from '../services/api';
-import { getMediaFileSize, readFileBytes, captureVideoCoverBytes, getMaxVideoSize } from '../utils/video';
+import { image } from '@kit.ImageKit';
+import { getUploadSignature, resolveUploadPutUrl, toStoredMediaRef } from '../services/api';
+import { getMediaFileSize, readFileBytes, captureVideoCover, packVideoCoverBytes, getMaxVideoSize, getVideoAspectRatio, getVisiblePixelMapAspectRatio, FALLBACK_VIDEO_ASPECT_RATIO } from '../utils/video';
 import { ensureLogin } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
 import { VideoPlayer } from './VideoPlayer';
@@ -13,7 +14,9 @@ import { VideoPlayer } from './VideoPlayer';
 export struct VideoPicker {
   @Link videoUrl: string; // 远端视频 URL（发布用）
   @Link videoCover: string; // 远端封面 URL（发布用）
+  @Link videoAspectRatio: number; // 宽/高，驱动发布预览与详情展示
   @State localUri: string = ''; // 本地预览源（发布前用本地播放）
+  @State localCover: image.PixelMap | undefined = undefined; // 上传中的本地首帧，避免预览黑屏
   @State uploading: boolean = false;
   @State errorTip: string = '';
   private picking: boolean = false;
@@ -84,14 +87,24 @@ export struct VideoPicker {
       }
       this.uploading = true;
       this.errorTip = '';
+      let capturedCover: image.PixelMap | undefined = undefined;
       try {
-        // 1) 首帧封面（失败不阻断视频上传，封面留空，展示层用黑底+角标兜底）
-        let coverViewUrl: string = '';
+        let aspectRatio: number = FALLBACK_VIDEO_ASPECT_RATIO;
         try {
-          const coverBytes: ArrayBuffer = await captureVideoCoverBytes(uri);
+          aspectRatio = await getVideoAspectRatio(uri);
+        } catch (_metadataError) {
+          // 元数据读取失败时使用稳定的竖版兜底，不阻断上传。
+        }
+        // 1) 首帧封面（失败不阻断视频上传，封面留空，展示层用黑底+角标兜底）
+        let coverMediaRef: string = '';
+        try {
+          capturedCover = await captureVideoCover(uri);
+          // 以首帧实际可见画面计算容器宽高，排除内嵌在视频画布里的上下黑边。
+          aspectRatio = await getVisiblePixelMapAspectRatio(capturedCover);
+          const coverBytes: ArrayBuffer = await packVideoCoverBytes(capturedCover);
           const coverSig = await getUploadSignature('image/jpeg', 'posts');
           await this.putBinary(resolveUploadPutUrl(coverSig), coverBytes, coverSig.contentType);
-          coverViewUrl = coverSig.viewUrl;
+          coverMediaRef = toStoredMediaRef(coverSig);
         } catch (_coverErr) {
           // 封面抓取/上传失败，继续上传视频本体
         }
@@ -101,12 +114,18 @@ export struct VideoPicker {
         await this.putBinary(resolveUploadPutUrl(videoSig), videoBytes, videoSig.contentType);
         // 3) 落状态（本地预览优先用本地 uri）
         this.localUri = uri;
-        this.videoUrl = videoSig.viewUrl;
-        this.videoCover = coverViewUrl;
+        this.videoUrl = toStoredMediaRef(videoSig);
+        this.videoCover = coverMediaRef;
+        this.videoAspectRatio = aspectRatio;
+        this.localCover = capturedCover;
+        capturedCover = undefined;
       } catch (e) {
         this.errorTip = '视频上传失败：' + (e as Error).message;
         safeShowToast(this.getUIContext(), { message: this.errorTip });
       } finally {
+        if (capturedCover !== undefined) {
+          await capturedCover.release();
+        }
         this.uploading = false;
       }
     } catch (e) {
@@ -119,7 +138,12 @@ export struct VideoPicker {
   private reset(): void {
     this.videoUrl = '';
     this.videoCover = '';
+    this.videoAspectRatio = FALLBACK_VIDEO_ASPECT_RATIO;
     this.localUri = '';
+    if (this.localCover !== undefined) {
+      this.localCover.release();
+      this.localCover = undefined;
+    }
     this.errorTip = '';
   }
 
@@ -127,7 +151,7 @@ export struct VideoPicker {
     Column({ space: 8 }) {
       if (this.videoUrl.length > 0) {
         Stack() {
-          VideoPlayer({ src: this.localUri || this.videoUrl, poster: this.videoCover, videoHeight: 200 })
+          VideoPlayer({ src: this.localUri || this.videoUrl, poster: this.localCover ?? this.videoCover })
           if (this.uploading) {
             LoadingProgress()
               .width(32)
@@ -135,21 +159,22 @@ export struct VideoPicker {
               .color(Color.White)
           }
           Text('×')
-            .fontSize(16).fontFamily($r('app.string.font_family'))
+            .fontSize(26).fontFamily($r('app.string.font_family'))
             .fontColor(Color.White)
-            .backgroundColor('#00000066')
-            .width(20)
-            .height(20)
-            .borderRadius(10)
+            .fontWeight(FontWeight.Medium)
+            .backgroundColor('#80000000')
+            .width(40)
+            .height(40)
+            .borderRadius(20)
             .textAlign(TextAlign.Center)
-            .position({ top: 2, right: 2 })
+            .position({ top: 8, right: 8 })
             .onClick(() => this.reset())
         }
         .width('100%')
-        .aspectRatio(0.75)
-        .borderRadius(8)
+        .aspectRatio(this.videoAspectRatio)
+        .borderRadius(12)
         .clip(true)
-        .backgroundColor('#0000000a')
+        .backgroundColor(Color.Black)
       } else {
         Column() {
           Text('+')

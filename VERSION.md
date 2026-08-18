@@ -1,9 +1,8 @@
 # 有据版本
 
-当前版本：**0.1.0**（pre-release / 内测阶段）
+当前版本：**1.0.0**（Release 候选）
 
-- 阶段：功能开发已完成，处于上线前合规与配置收尾期
-  （上线前差距详见 `deliverables/gstack/pre-launch-check-youju-2026-07-27.md`）
+- 阶段：功能开发已完成，处于上线前合规、生产配置和真机回归收尾期
 - 后端 API 版本：`v1`
 - 前端：HarmonyOS NEXT（API 24, Stage 模型）
 - 包名：`com.youju.app`

@@ -4,32 +4,39 @@
 import { prisma } from '../prisma';
 import { loginWithHuawei, deactivateUser, DELETED_NICKNAME } from './authService';
 
-jest.mock('../prisma', () => ({
-  prisma: {
-    user: {
-      findUnique: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
+jest.mock('../prisma', () => {
+  const user = {
+    findUnique: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+  };
+  const client = {
+    user,
+    post: { findMany: jest.fn().mockResolvedValue([]) },
+    pushToken: { deleteMany: jest.fn() },
+    userBinding: { deleteMany: jest.fn() },
+    mediaDeletionTask: { createMany: jest.fn() },
+  };
+  return {
+    prisma: {
+      ...client,
+      $transaction: jest.fn().mockImplementation((input: any) =>
+        typeof input === 'function' ? input(client) : Promise.all(input ?? [])),
     },
-    pushToken: {
-      deleteMany: jest.fn(),
-    },
-    userBinding: {
-      deleteMany: jest.fn(),
-    },
-    $transaction: jest.fn().mockImplementation((ops: any) => Promise.all(ops ?? [])),
-  },
-}));
+  };
+});
 
 const mockedFindUnique = prisma.user.findUnique as jest.Mock;
 const mockedCreate = prisma.user.create as jest.Mock;
 const mockedUpdate = prisma.user.update as jest.Mock;
+const mockedPostFindMany = prisma.post.findMany as jest.Mock;
 
 const EXISTING_USER = { id: 1, openId: null, unionID: 'U_EXIST', nickname: '老用户', avatar: 'a.png' };
 const NEW_USER = { id: 2, openId: null, unionID: 'U_NEW', nickname: '华为用户abcd', avatar: 'b.png' };
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockedPostFindMany.mockResolvedValue([]);
 });
 
 describe('loginWithHuawei', () => {
@@ -99,6 +106,7 @@ describe('deactivateUser', () => {
       avatar: null,
       deletedAt,
     });
+    mockedFindUnique.mockResolvedValue({ avatar: null, profileBackground: null });
 
     const result = await deactivateUser(5);
 
@@ -108,6 +116,7 @@ describe('deactivateUser', () => {
         deletedAt: expect.any(Date),
         nickname: DELETED_NICKNAME,
         avatar: null,
+        profileBackground: null,
         bio: null,
         gender: null,
         openId: null,
@@ -122,6 +131,7 @@ describe('deactivateUser', () => {
   it('b) 旧 token 经 auth 中间件将被拒（软删后 deletedAt 非空）', async () => {
     // deactivateUser 仅负责写入软删标记；auth 中间件对 deletedAt 非空返回 401 的断言见 auth.test.ts
     mockedUpdate.mockResolvedValue({ id: 7, nickname: DELETED_NICKNAME, avatar: null, deletedAt: new Date() });
+    mockedFindUnique.mockResolvedValue({ avatar: null, profileBackground: null });
     const result = await deactivateUser(7);
     expect(result.deletedAt).not.toBeNull();
   });

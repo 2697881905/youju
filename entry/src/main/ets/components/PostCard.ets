@@ -19,8 +19,11 @@ export struct PostCard {
   @Prop post: Post = {};
   // 首页信息流以更高的信息密度呈现；个人页等场景维持默认尺寸。
   @Prop compact: boolean = false;
-  // 信息流卡片仅使用 feed 变体；草稿箱和发布预览各自有专用组件，避免隐藏互动 UI 的伪复用。
+  // 所有帖子列表共用同一张信息流卡片；管理页可保留统计展示但关闭点赞写操作。
   @Prop variant: 'feed' | 'draft' | 'preview' = 'feed';
+  @Prop allowLike: boolean = true;
+  @Prop showStats: boolean = true;
+  @Prop showAuthor: boolean = true;
 
   onOpen?: () => void = undefined;
   onCancelBookmark?: (id: number) => void = undefined;
@@ -118,6 +121,10 @@ export struct PostCard {
     return this.authorId() !== undefined;
   }
 
+  private hasFooter(): boolean {
+    return this.showStats || (this.showAuthor && this.hasAuthor()) || this.onCancelBookmark !== undefined;
+  }
+
   private authorId(): number | undefined {
     if (typeof this.post.user?.id === 'number') {
       return this.post.user.id;
@@ -156,7 +163,7 @@ export struct PostCard {
       commentCount: this.post.commentCount ?? 0,
       showComment: false,
       compact: this.compact,
-      onLike: () => { this.onLike(); },
+      onLike: this.allowLike ? (): void => { this.onLike(); } : undefined,
     })
   }
 
@@ -165,9 +172,11 @@ export struct PostCard {
   footerSlot(): void {
     Column({ space: SpaceTokens.inlineTight }) {
       Row() {
-        this.statSlot()
+        if (this.showStats) {
+          this.statSlot()
+        }
         Blank().layoutWeight(1)
-        if (this.hasAuthor()) {
+        if (this.showAuthor && this.hasAuthor()) {
           PostCardAuthor({
             name: this.authorName(),
             avatar: this.authorAvatar(),
@@ -188,10 +197,16 @@ export struct PostCard {
       top: SpaceTokens.inlineTight,
       bottom: SpaceTokens.inlineTight,
     })
-    .backgroundColor(ColorTokens.barSurface)
+    .backgroundColor(ColorTokens.elevated)
     .backdropBlur(LayoutTokens.glassBlur)
+    // 顶部不画边框：与标题区无缝衔接；不设内部阴影，避免与标题区之间产生悬浮分层（整卡投影由外层 Column 负责）
     .border({
-      width: LayoutTokens.glassBorderWidth,
+      width: {
+        left: LayoutTokens.glassBorderWidth,
+        right: LayoutTokens.glassBorderWidth,
+        bottom: LayoutTokens.glassBorderWidth,
+        top: 0,
+      },
       color: ColorTokens.barBorder,
       style: BorderStyle.Solid,
     })
@@ -201,7 +216,6 @@ export struct PostCard {
       bottomLeft: this.compact ? RadiusTokens.xs : RadiusTokens.lg,
       bottomRight: this.compact ? RadiusTokens.xs : RadiusTokens.lg,
     })
-    .shadow({ radius: 14, color: ColorTokens.barShadow, offsetY: 6 })
     .clip(true)
   }
 
@@ -243,7 +257,7 @@ export struct PostCard {
           compact: this.compact,
         })
         PostCardTitle({ title: this.post.title ?? '', hasMedia: this.hasCover(), compact: this.compact })
-        if (this.variant === 'feed') {
+        if (this.variant === 'feed' && this.hasFooter()) {
           this.footerSlot()
         }
       }

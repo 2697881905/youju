@@ -1,6 +1,6 @@
 
 import { FollowUser } from '../models/types';
-import { listFollowing, listFollowers, followUser, unfollowUser } from '../services/api';
+import { listFollowing, listFollowers, followUser, unfollowUser, resolveDisplayImageUrl } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { BackButton } from '../design/components/BackButton';
@@ -188,7 +188,7 @@ export struct MyFollowPage {
             ListItem() {
               Row({ space: 12 }) {
                 if (item.avatar) {
-                  Image(item.avatar).width(44).height(44).borderRadius(22).objectFit(ImageFit.Cover);
+                  Image(resolveDisplayImageUrl(item.avatar)).width(44).height(44).borderRadius(22).objectFit(ImageFit.Cover);
                 } else {
                   Text((item.nickname !== '' ? item.nickname : '?').charAt(0))
                     .width(44).height(44).borderRadius(22).fontSize(18).fontFamily($r('app.string.font_family')).fontColor('#fff')

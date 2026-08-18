@@ -10,6 +10,7 @@ import { CARD_RADIUS, CARD_SHADOW } from '../utils/cardTokens';
 import { resolveSettingsIcon, resolveSettingsIconColor } from '../utils/settingsIcons';
 import { window } from '@kit.ArkUI';
 import { BackButton } from '../design/components/BackButton';
+import { shareUserDataExport } from '../utils/dataExport';
 
 @Entry
 @Component
@@ -103,7 +104,7 @@ export struct SettingsPage {
     });
   }
 
-  // 数据导出：确认弹窗 → 调后端导出 → toast
+  // 数据导出：确认弹窗 → 获取已鉴权 JSON → 写缓存文件并交由系统保存/分享。
   private onExportDataClick(): void {
     this.getUIContext().showAlertDialog({
       title: '导出数据',
@@ -112,10 +113,8 @@ export struct SettingsPage {
       secondaryButton: { value: '确认导出', action: async (): Promise<void> => {
         try {
           const data = await exportUserData();
-          // MVP：toast 展示导出数量，文件写入后续实现
-          const msg = '数据已导出：帖子' + data.postsCount + '篇、评论' + data.commentsCount +
-            '条、收藏' + data.bookmarksCount + '个、关注' + data.followingsCount + '人';
-          safeShowToast(this.getUIContext(), { message: msg });
+          await shareUserDataExport(this.getUIContext(), data);
+          safeShowToast(this.getUIContext(), { message: '数据导出文件已生成' });
         } catch (e) {
           safeShowToast(this.getUIContext(), { message: '导出失败：' + (e as Error).message });
         }

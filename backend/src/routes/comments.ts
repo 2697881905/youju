@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { ok, fail, CODE } from '../utils/response';
+import { ok, fail, internalError, CODE } from '../utils/response';
 import { auth, AuthRequest, resolveOptionalUserId } from '../middleware/auth';
 import { prisma } from '../prisma';
 import * as commentService from '../services/commentService';
@@ -111,7 +111,7 @@ router.post('/comments/:id/up', auth, asyncHandler(async (req: AuthRequest, res:
     notifyOnCommentUp(commentId, req.userId!).catch(() => {});
     return ok(res, { up: true });
   } catch (e) {
-    return fail(res, CODE.SERVER_ERROR, (e as Error).message);
+    return internalError(res, 'comments.up', e);
   }
 }));
 
@@ -130,7 +130,7 @@ router.delete('/comments/:id/up', auth, asyncHandler(async (req: AuthRequest, re
     ]);
     return ok(res, { up: false });
   } catch (e) {
-    return fail(res, CODE.SERVER_ERROR, (e as Error).message);
+    return internalError(res, 'comments.cancelUp', e);
   }
 }));
 

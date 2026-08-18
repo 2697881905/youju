@@ -23,6 +23,6 @@
     "pages/VideoPublishPage",
     "pages/TextPublishPage",
     "pages/DraftBoxPage",
-    "pages/FoundationPreviewPage"
+    "pages/TrashBoxPage"
   ]
 }

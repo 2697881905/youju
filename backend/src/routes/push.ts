@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { ok, fail, CODE } from '../utils/response';
+import { ok, fail, internalError, CODE } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
 import { prisma } from '../prisma';
 import { asyncHandler } from '../middleware/asyncHandler';
@@ -28,7 +28,7 @@ router.post('/push/register', auth, asyncHandler(async (req: AuthRequest, res: R
     ]);
     return ok(res, null, '已注册');
   } catch (e) {
-    return fail(res, CODE.SERVER_ERROR, (e as Error).message);
+    return internalError(res, 'push.register', e);
   }
 }));
 

@@ -5,7 +5,7 @@ import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { image } from '@kit.ImageKit';
 import { http } from '@kit.NetworkKit';
 import { getCurrentUser, setSession, ensureLogin, getToken } from '../utils/auth';
-import { updateMe, getUploadSignature, getUserProfile, resolveUploadPutUrl } from '../services/api';
+import { updateMe, getUploadSignature, getUserProfile, resolveUploadPutUrl, toStoredMediaRef } from '../services/api';
 import { compressAvatar, CompressedImage } from '../utils/image';
 import { safeShowToast } from '../utils/toast';
 import { User, UserProfile } from '../models/types';
@@ -240,7 +240,7 @@ export struct EditProfilePage {
   private async uploadImage(compressed: CompressedImage, folder: 'avatars' | 'backgrounds'): Promise<string> {
     const signature = await getUploadSignature('image/jpeg', folder);
     await this.putBinary(resolveUploadPutUrl(signature), compressed.bytes, signature.contentType);
-    return signature.viewUrl;
+    return toStoredMediaRef(signature);
   }
 
   // 直传二进制到预签名 URL（复制自 ImagePicker）

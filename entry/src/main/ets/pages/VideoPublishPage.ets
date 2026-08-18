@@ -23,6 +23,7 @@ import { PublishTagPanel } from '../components/PublishTagPanel';
 import { PUBLISH_GENRES, publishGenreMeta } from '../utils/publishGenres';
 import { PublishGenreSection } from '../components/PublishGenreSection';
 import { PublishTopBar } from '../components/PublishTopBar';
+import { FALLBACK_VIDEO_ASPECT_RATIO } from '../utils/video';
 
 const MAX_SELECTED_TAGS: number = 3;
 const DRAFT_PROGRESS_TOTAL: number = 3;
@@ -38,6 +39,7 @@ struct VideoPublishPage {
   @State sd: StructuredData = {};
   @State videoUrl: string = '';
   @State videoCover: string = '';
+  @State videoAspectRatio: number = FALLBACK_VIDEO_ASPECT_RATIO;
   @State tags: Tag[] = [];
   @State showFields: boolean = false;
   @State showGenreMenu: boolean = false;
@@ -167,6 +169,7 @@ struct VideoPublishPage {
       images: [],
       videoUrl: this.videoUrl,
       videoCover: this.videoCover,
+      videoAspectRatio: this.videoAspectRatio,
     };
   }
 
@@ -184,6 +187,7 @@ struct VideoPublishPage {
     this.sd = draft.structuredData;
     this.videoUrl = draft.videoUrl ?? '';
     this.videoCover = draft.videoCover ?? '';
+    this.videoAspectRatio = draft.videoAspectRatio ?? FALLBACK_VIDEO_ASPECT_RATIO;
     this.editingSavedDraftId = savedDraftId;
     this.showFields = false;
     this.showGenreMenu = false;
@@ -224,6 +228,7 @@ struct VideoPublishPage {
     this.sd = {};
     this.videoUrl = '';
     this.videoCover = '';
+    this.videoAspectRatio = FALLBACK_VIDEO_ASPECT_RATIO;
     this.editingSavedDraftId = '';
     this.showFields = false;
     this.showGenreMenu = false;
@@ -259,7 +264,7 @@ struct VideoPublishPage {
           this.circleSelector()
         }
         Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
-        VideoPicker({ videoUrl: $videoUrl, videoCover: $videoCover })
+        VideoPicker({ videoUrl: $videoUrl, videoCover: $videoCover, videoAspectRatio: $videoAspectRatio })
         Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
         TextInput({ text: this.title, placeholder: '一句话标题' })
           .width('100%')

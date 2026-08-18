@@ -51,6 +51,7 @@ export interface Post {
   coverImage?: string;
   videoUrl?: string; // 视频地址（轻量单视频方案，最多一段）
   videoCover?: string; // 视频封面（首帧抓取上传）
+  videoAspectRatio?: number; // 视频真实宽/高
   images?: string[];
   genre?: Genre;
   tags?: string[];
@@ -63,6 +64,7 @@ export interface Post {
   myBookmark?: boolean; // 我是否收藏
   myVote?: string; // 我的辩论投票选项 'A' | 'B' | ''（后端按 viewerId 计算返回）
   status?: number;
+  deletedAt?: string;
   createdAt?: string;
   user?: User;
 }
@@ -252,6 +254,7 @@ export interface DmPeer {
 // 会话列表项（对应后端 Conversation）
 export interface Conversation {
   peer: DmPeer;
+  lastType: string;
   lastContent: string;
   lastSenderId: number;
   lastAt: string; // ISO
@@ -263,9 +266,20 @@ export interface DmMessage {
   id: number;
   senderId: number;
   receiverId: number;
-  content: string;
+  type: string; // text | image | video | share
+  content: string; // text 为文本；image/video 为媒体 viewUrl；share 为 DmSharePayload 的 JSON 串
   read: boolean;
   createdAt: string; // ISO
+}
+
+// 分享到私信的帖子摘要负载（序列化后存入 DmMessage.content，type='share'）
+export interface DmSharePayload {
+  postId: number; // 原帖 id（点击跳转详情用）
+  title: string; // 帖子标题
+  summary: string; // 正文片段（前端截断）
+  coverImage: string; // 封面/首图展示 URL（已 resolveDisplayImageUrl）；空串表示无封面
+  authorName: string; // 原帖作者昵称
+  authorId: number; // 原帖作者 id
 }
 
 // ===== 数据导出 =====

@@ -37,6 +37,12 @@ jest.mock('../prisma', () => ({
       findMany: jest.fn().mockResolvedValue([]),
       findUnique: jest.fn().mockResolvedValue(null),
     },
+    blocklist: {
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
+    dislike: {
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
     notification: {
       create: jest.fn(),
     },

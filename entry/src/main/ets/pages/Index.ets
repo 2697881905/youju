@@ -10,7 +10,6 @@ import { BUILD_MODE_NAME } from 'BuildProfile';
 import { getUnreadCount, getDmUnreadCount, getMe, recordPrivacyConsent, followTag, listTags } from '../services/api';
 import { Tag } from '../models/types';
 import { safeShowToast } from '../utils/toast';
-import { ensurePushRegistration } from '../utils/huaweiPush';
 import { BottomTabBar, BottomTabItem } from '../design/components/BottomTabBar';
 import { PublishMode, PublishModeSheet } from '../components/PublishModeSheet';
 import { LayoutTokens } from '../design/tokens/space';
@@ -19,11 +18,81 @@ import { window } from '@kit.ArkUI';
 import { publishFlowStore } from '../utils/publishFlowStore';
 import { AppTab, subscribeTabSwitch } from '../utils/nav';
 
+@CustomDialog
+struct PrivacyConsentDialog {
+  controller: CustomDialogController;
+  getIsUpdate: () => boolean = (): boolean => false;
+  onReadPrivacy: () => void = (): void => {};
+  onReadAgreement: () => void = (): void => {};
+  onAgree: () => void = (): void => {};
+  onDecline: () => void = (): void => {};
+
+  build() {
+    Column({ space: 16 }) {
+      Text(this.getIsUpdate() ? '隐私政策更新' : '隐私政策与用户协议')
+        .fontSize(19)
+        .fontWeight(600)
+        .fontColor($r('app.color.text_primary'))
+        .width('100%')
+        .textAlign(TextAlign.Center)
+      Text(this.getIsUpdate()
+        ? '我们的隐私政策已更新，请阅读并重新同意以继续使用。'
+        : '欢迎使用有据。我们仅在为你提供内容推荐、账号安全等必要服务时收集相关信息。')
+        .fontSize(14)
+        .fontColor($r('app.color.text_secondary'))
+        .lineHeight(21)
+        .width('100%')
+      Row({ space: 4 }) {
+        Text('点击查看')
+          .fontSize(14)
+          .fontColor($r('app.color.text_secondary'))
+        Text('《隐私政策》')
+          .fontSize(14)
+          .fontColor($r('app.color.brand_primary'))
+          .onClick((): void => { this.onReadPrivacy(); })
+        Text('和')
+          .fontSize(14)
+          .fontColor($r('app.color.text_secondary'))
+        Text('《用户协议》')
+          .fontSize(14)
+          .fontColor($r('app.color.brand_primary'))
+          .onClick((): void => { this.onReadAgreement(); })
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.Center)
+      Row({ space: 12 }) {
+        Button('不同意')
+          .layoutWeight(1)
+          .fontColor($r('app.color.semantic_red'))
+          .backgroundColor($r('app.color.bg_primary'))
+          .onClick((): void => {
+            this.controller.close();
+            this.onDecline();
+          })
+        Button('同意并继续')
+          .layoutWeight(1)
+          .fontColor($r('app.color.ds_on_brand'))
+          .backgroundColor($r('app.color.brand_primary'))
+          .onClick((): void => {
+            this.controller.close();
+            this.onAgree();
+          })
+      }
+      .width('100%')
+    }
+    .width('100%')
+    .padding(20)
+    .backgroundColor($r('app.color.card_bg'))
+    .borderRadius(16)
+  }
+}
+
 @Entry
 @Component
 struct Index {
   @State currentIndex: number = 0;
   @State privacyDialogShown: boolean = false; // 防隐私弹窗重复弹出
+  @State privacyDialogIsUpdate: boolean = false;
   @StorageLink('unreadMessageCount') unreadCount: number = 0;
   @StorageLink('unreadDmCount') dmUnread: number = 0;
   @StorageLink('circleOnboardingPendingUserId') @Watch('onCircleOnboardingPendingChanged') circleOnboardingPendingUserId: string = '';
@@ -34,6 +103,7 @@ struct Index {
   @State onboardingSubmitting: boolean = false;
   @State statusBarHeight: number = 0;
   @State navBarHeight: number = 0;
+  @State launchComplete: boolean = false;
   // 长按滑动高光状态
   @State scrubbing: boolean = false;        // 是否处于长按滑动高亮模式
   @State glowX: number = 0;                 // 高光中心 x（栏内局部坐标）
@@ -53,6 +123,21 @@ struct Index {
     alignment: DialogAlignment.Center,
     customStyle: true,
   });
+  private privacyConsentController: CustomDialogController = new CustomDialogController({
+    builder: PrivacyConsentDialog({
+      getIsUpdate: (): boolean => this.privacyDialogIsUpdate,
+      onReadPrivacy: (): void => {
+        this.getUIContext().getRouter().pushUrl({ url: 'pages/PrivacyPage' });
+      },
+      onReadAgreement: (): void => {
+        this.getUIContext().getRouter().pushUrl({ url: 'pages/UserAgreementPage' });
+      },
+      onAgree: (): void => { this.agreePrivacy(); },
+      onDecline: (): void => { this.declinePrivacy(); },
+    }),
+    alignment: DialogAlignment.Center,
+    customStyle: true,
+  });
 
   private bottomTabItems(): BottomTabItem[] {
     return [
@@ -66,6 +151,7 @@ struct Index {
 
   aboutToAppear(): void {
     initAuthStorage();
+    AppStorage.setOrCreate<number>('circleLogoDismissVersion', AppStorage.get<number>('circleLogoDismissVersion') ?? 0);
     this.unsubscribeTabSwitch();
     this.unsubscribeTabSwitch = subscribeTabSwitch((target: AppTab): void => {
       this.selectTab(target);
@@ -73,17 +159,12 @@ struct Index {
     // TabContent 会提前创建隐藏页面；先广播真实激活项，避免隐藏页误触发登录守卫。
     AppStorage.setOrCreate<number>('activeTab', this.currentIndex);
     this.setupFullScreen();
-    if (!isPrivacyAgreed()) {
-      this.showPrivacyDialog();
-      return;
-    }
-    this.startInit();
+    this.continueLaunchFlow();
   }
 
   onPageShow(): void {
-    if (getToken() !== '') {
+    if (this.launchComplete && getToken() !== '') {
       this.refreshUnread();
-      ensurePushRegistration();
       this.maybeShowCircleOnboarding();
     }
   }
@@ -117,14 +198,28 @@ struct Index {
     } else {
       this.validateStartupSession();
       this.refreshUnread();
-      ensurePushRegistration();
       this.checkPrivacyUpdate(); // 已登录：若隐私政策已更新则重新弹窗
       this.maybeShowCircleOnboarding();
     }
   }
 
   private onCircleOnboardingPendingChanged(): void {
+    if (!this.launchComplete) {
+      return;
+    }
     this.maybeShowCircleOnboarding();
+  }
+
+  private continueLaunchFlow(): void {
+    if (this.launchComplete) {
+      return;
+    }
+    this.launchComplete = true;
+    if (!isPrivacyAgreed()) {
+      this.showPrivacyDialog();
+      return;
+    }
+    this.startInit();
   }
 
   private maybeShowCircleOnboarding(): void {
@@ -224,33 +319,23 @@ struct Index {
   }
 
   private showPrivacyDialog(isUpdate: boolean = false): void {
-    this.getUIContext().showAlertDialog({
-      title: isUpdate ? '隐私政策更新' : '隐私政策与用户协议',
-      message: isUpdate
-        ? '我们的隐私政策已更新，请阅读并重新同意以继续使用。'
-        : '欢迎使用有据。请你仔细阅读并同意《隐私政策》与《用户协议》后再开始使用。' +
-          '我们仅在为你提供内容推荐、账号安全等必要服务时收集相关信息。',
-      primaryButton: {
-        value: '同意并继续',
-        action: (): void => {
-          setPrivacyAgreed(); // 本地兜底（离线也能拦截首启）
-          // 已登录则落地服务端（PIPL 可追溯）；失败不阻断（离线/后端未起）
-          if (getToken() !== '') {
-            recordPrivacyConsent(PRIVACY_POLICY_VERSION).catch(() => {});
-          }
-          this.privacyDialogShown = false;
-          this.startInit();
-        },
-      },
-      secondaryButton: {
-        value: '不同意',
-        fontColor: $r('app.color.semantic_red'),
-        action: (): void => {
-          const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
-          ctx.terminateSelf();
-        },
-      },
-    });
+    this.privacyDialogIsUpdate = isUpdate;
+    this.privacyConsentController.open();
+  }
+
+  private agreePrivacy(): void {
+    setPrivacyAgreed(); // 本地兜底（离线也能拦截首启）
+    // 已登录则落地服务端（PIPL 可追溯）；失败不阻断（离线/后端未起）
+    if (getToken() !== '') {
+      recordPrivacyConsent(PRIVACY_POLICY_VERSION).catch(() => {});
+    }
+    this.privacyDialogShown = false;
+    this.startInit();
+  }
+
+  private declinePrivacy(): void {
+    const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    ctx.terminateSelf();
   }
 
   private refreshUnread(): void {
@@ -279,6 +364,11 @@ struct Index {
 
   private showPublishModeDialog(): void {
     this.publishModeController.open();
+  }
+
+  private broadcastCircleLogoDismissal(): void {
+    const version: number = AppStorage.get<number>('circleLogoDismissVersion') ?? 0;
+    AppStorage.setOrCreate<number>('circleLogoDismissVersion', version + 1);
   }
 
   build() {
@@ -327,10 +417,13 @@ struct Index {
         })
         .zIndex(100)
       }
+
     }
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.bg_primary'))
+    // 所有页面点击统一通知圈子页；Logo 点击由 CircleTab 的时间戳保护过滤。
+    .onClick((): void => { this.broadcastCircleLogoDismissal(); })
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
   }
 }

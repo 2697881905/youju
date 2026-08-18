@@ -215,6 +215,31 @@ describe('POST /v1/posts（发帖）', () => {
       })
     );
   });
+
+  it('视频比例合法时落库，非法比例被拒绝', async () => {
+    mockCheckText.mockReturnValue(false);
+    mockPrisma.post.create.mockResolvedValue({ id: 43, title: '竖屏视频', videoAspectRatio: 0.5625 });
+
+    const accepted = await req(
+      'POST',
+      '/v1/posts',
+      { title: '竖屏视频', genre: 'share', publishMode: 'video', videoUrl: 'https://example.com/video.mp4', videoAspectRatio: 0.5625 },
+      authHeader()
+    );
+    expect(accepted.status).toBe(200);
+    expect(mockPrisma.post.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ videoAspectRatio: 0.5625 }) })
+    );
+
+    const rejected = await req(
+      'POST',
+      '/v1/posts',
+      { title: '比例错误', genre: 'share', publishMode: 'video', videoAspectRatio: 3 },
+      authHeader()
+    );
+    expect(rejected.status).toBe(400);
+    expect(rejected.json.message).toContain('视频比例');
+  });
 });
 
 describe('PUT /v1/posts/:id（编辑审核）', () => {
@@ -303,5 +328,65 @@ describe('GET /v1/posts/:id（详情，软鉴权）', () => {
 
     expect(res.status).toBe(404);
     expect(res.json.code).toBe(CODE.NOT_FOUND);
+  });
+
+  it('帖子作者可读取自己的废纸篓详情，其他访问返回 404', async () => {
+    mockedPostFindFirst.mockResolvedValue({
+      id: 9,
+      userId: TEST_USER_ID,
+      status: 1,
+      deletedAt: new Date('2026-08-16'),
+      user: {},
+      comments: [],
+    });
+
+    const ownerRes = await req('GET', '/v1/posts/9', undefined, authHeader());
+    const otherRes = await req('GET', '/v1/posts/9', undefined, authHeader(2));
+
+    expect(ownerRes.status).toBe(200);
+    expect(ownerRes.json.data.id).toBe(9);
+    expect(otherRes.status).toBe(404);
+    expect(otherRes.json.code).toBe(CODE.NOT_FOUND);
+  });
+});
+
+describe('废纸篓路由', () => {
+  it('删除帖子时仅移入废纸篓', async () => {
+    mockPrisma.post.findUnique.mockResolvedValue({ id: 9, userId: TEST_USER_ID, deletedAt: null });
+    mockPrisma.post.update.mockResolvedValue({ id: 9, deletedAt: new Date() });
+
+    const res = await req('DELETE', '/v1/posts/9', undefined, authHeader());
+
+    expect(res.status).toBe(200);
+    expect(res.json.message).toBe('已移入废纸篓');
+    expect(mockPrisma.post.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 9 },
+      data: { deletedAt: expect.any(Date) },
+    }));
+  });
+
+  it('登录用户可读取自己的废纸篓', async () => {
+    mockedPostFindMany.mockResolvedValue([{ id: 9, deletedAt: new Date(), user: {} }]);
+    mockedPostCount.mockResolvedValue(1);
+
+    const res = await req('GET', '/v1/posts/trash', undefined, authHeader());
+
+    expect(res.status).toBe(200);
+    expect(res.json.code).toBe(0);
+    expect(res.json.data.list[0].id).toBe(9);
+    const where = mockedPostFindMany.mock.calls[0][0].where;
+    expect(where.userId).toBe(TEST_USER_ID);
+    expect(where.deletedAt).toEqual({ not: null });
+  });
+
+  it('可恢复废纸篓中的本人帖子', async () => {
+    mockPrisma.post.findUnique.mockResolvedValue({ id: 9, userId: TEST_USER_ID, deletedAt: new Date() });
+    mockPrisma.post.update.mockResolvedValue({ id: 9, deletedAt: null });
+
+    const res = await req('POST', '/v1/posts/9/restore', undefined, authHeader());
+
+    expect(res.status).toBe(200);
+    expect(res.json.message).toBe('已恢复');
+    expect(mockPrisma.post.update).toHaveBeenCalledWith({ where: { id: 9 }, data: { deletedAt: null } });
   });
 });

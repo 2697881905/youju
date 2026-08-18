@@ -4,7 +4,7 @@ import { drawing, common2D } from '@kit.ArkGraphics2D';
 import { image } from '@kit.ImageKit';
 import { http } from '@kit.NetworkKit';
 import { Genre } from '../models/types';
-import { getUploadSignature, resolveUploadPutUrl, UploadSignature } from '../services/api';
+import { getUploadSignature, resolveUploadPutUrl, toStoredMediaRef, UploadSignature } from '../services/api';
 
 const POSTER_WIDTH: number = 1080;
 const POSTER_HEIGHT: number = 1440;
@@ -13,11 +13,13 @@ const POSTER_UPLOAD_TIMEOUT: number = 15000;
 
 export const TEXT_POSTER_ASPECT_RATIO: number = POSTER_WIDTH / POSTER_HEIGHT;
 
-export type TextPosterStyle = 'paper' | 'midnight' | 'mint' | 'coral';
+export type TextPosterStyle = 'film' | 'kraft' | 'sticky' | 'paper';
+export type TextPosterTexture = 'film' | 'kraft' | 'sticky' | 'paper';
 
 export interface TextPosterStyleOption {
   key: TextPosterStyle;
   label: string;
+  texture: TextPosterTexture;
   background: string;
   surface: string;
   innerSurface: string;
@@ -32,20 +34,20 @@ export interface TextPosterStyleOption {
 
 export const TEXT_POSTER_STYLES: TextPosterStyleOption[] = [
   {
-    key: 'paper', label: '纸感', background: '#E0EBF7', surface: '#F9FAF9', innerSurface: '#FFFFFF', accent: '#3067AE', text: '#1F2E46',
-    backgroundRgb: [224, 235, 247], surfaceRgb: [249, 250, 249], innerSurfaceRgb: [255, 255, 255], accentRgb: [48, 103, 174], textRgb: [31, 46, 70],
+    key: 'film', label: '胶片', texture: 'film', background: '#2A3038', surface: '#E6D5B8', innerSurface: '#F4E7CF', accent: '#B34835', text: '#302720',
+    backgroundRgb: [42, 48, 56], surfaceRgb: [230, 213, 184], innerSurfaceRgb: [244, 231, 207], accentRgb: [179, 72, 53], textRgb: [48, 39, 32],
   },
   {
-    key: 'midnight', label: '夜色', background: '#1C2330', surface: '#283142', innerSurface: '#303B4D', accent: '#8FB7FF', text: '#F7F9FF',
-    backgroundRgb: [28, 35, 48], surfaceRgb: [40, 49, 66], innerSurfaceRgb: [48, 59, 77], accentRgb: [143, 183, 255], textRgb: [247, 249, 255],
+    key: 'kraft', label: '牛皮纸', texture: 'kraft', background: '#B88F61', surface: '#D0A873', innerSurface: '#E5C18F', accent: '#704927', text: '#3D291B',
+    backgroundRgb: [184, 143, 97], surfaceRgb: [208, 168, 115], innerSurfaceRgb: [229, 193, 143], accentRgb: [112, 73, 39], textRgb: [61, 41, 27],
   },
   {
-    key: 'mint', label: '薄荷', background: '#E0F0EB', surface: '#F3FBF8', innerSurface: '#FFFFFF', accent: '#368770', text: '#1F4A40',
-    backgroundRgb: [224, 240, 235], surfaceRgb: [243, 251, 248], innerSurfaceRgb: [255, 255, 255], accentRgb: [54, 135, 112], textRgb: [31, 74, 64],
+    key: 'sticky', label: '便利贴', texture: 'sticky', background: '#D9E6DD', surface: '#FFE169', innerSurface: '#FFEE8F', accent: '#D46D35', text: '#46361C',
+    backgroundRgb: [217, 230, 221], surfaceRgb: [255, 225, 105], innerSurfaceRgb: [255, 238, 143], accentRgb: [212, 109, 53], textRgb: [70, 54, 28],
   },
   {
-    key: 'coral', label: '珊瑚', background: '#FAE8E4', surface: '#FFF7F4', innerSurface: '#FFFFFF', accent: '#BE5B4D', text: '#592B27',
-    backgroundRgb: [250, 232, 228], surfaceRgb: [255, 247, 244], innerSurfaceRgb: [255, 255, 255], accentRgb: [190, 91, 77], textRgb: [89, 43, 39],
+    key: 'paper', label: '素纸', texture: 'paper', background: '#E8E2D7', surface: '#FAF7EF', innerSurface: '#FFFDF6', accent: '#3067AE', text: '#1F2E46',
+    backgroundRgb: [232, 226, 215], surfaceRgb: [250, 247, 239], innerSurfaceRgb: [255, 253, 246], accentRgb: [48, 103, 174], textRgb: [31, 46, 70],
   },
 ];
 
@@ -58,7 +60,7 @@ export function resolveTextPosterStyle(value?: string): TextPosterStyleOption {
   return TEXT_POSTER_STYLES[0];
 }
 
-function splitLines(text: string, font: drawing.Font, maxWidth: number, maxLines: number): string[] {
+export function splitLines(text: string, font: drawing.Font, maxWidth: number, maxLines: number): string[] {
   const normalized: string = text.replace(/\r/g, '').trim();
   if (normalized.length === 0) {
     return ['写下你的观点，让更多人看见。'];
@@ -102,21 +104,111 @@ function splitLines(text: string, font: drawing.Font, maxWidth: number, maxLines
   return lines;
 }
 
-function makeColor(alpha: number, red: number, green: number, blue: number): common2D.Color {
+export function makeColor(alpha: number, red: number, green: number, blue: number): common2D.Color {
   return { alpha: alpha, red: red, green: green, blue: blue };
 }
 
-function drawText(canvas: drawing.Canvas, brush: drawing.Brush, font: drawing.Font, value: string, x: number, y: number, color: common2D.Color): void {
+export function drawText(canvas: drawing.Canvas, brush: drawing.Brush, font: drawing.Font, value: string, x: number, y: number, color: common2D.Color): void {
   brush.setColor(color);
   canvas.attachBrush(brush);
   const blob: drawing.TextBlob = drawing.TextBlob.makeFromString(value, font, drawing.TextEncoding.TEXT_ENCODING_UTF8);
   canvas.drawTextBlob(blob, x, y);
 }
 
-function fillRoundRect(canvas: drawing.Canvas, brush: drawing.Brush, left: number, top: number, right: number, bottom: number, radius: number, color: common2D.Color): void {
+export function fillRoundRect(canvas: drawing.Canvas, brush: drawing.Brush, left: number, top: number, right: number, bottom: number, radius: number, color: common2D.Color): void {
   brush.setColor(color);
   canvas.attachBrush(brush);
   canvas.drawRoundRect(new drawing.RoundRect({ left, top, right, bottom }, radius, radius));
+}
+
+function drawLine(canvas: drawing.Canvas, pen: drawing.Pen, x0: number, y0: number, x1: number, y1: number, width: number, color: common2D.Color): void {
+  pen.setColor(color);
+  pen.setStrokeWidth(width);
+  pen.setAntiAlias(true);
+  canvas.attachPen(pen);
+  canvas.drawLine(x0, y0, x1, y1);
+  canvas.detachPen();
+}
+
+function drawCircle(canvas: drawing.Canvas, brush: drawing.Brush, x: number, y: number, radius: number, color: common2D.Color): void {
+  brush.setColor(color);
+  canvas.attachBrush(brush);
+  canvas.drawCircle(x, y, radius);
+}
+
+function drawTriangle(canvas: drawing.Canvas, brush: drawing.Brush, x0: number, y0: number, x1: number, y1: number, x2: number, y2: number, color: common2D.Color): void {
+  const path: drawing.Path = new drawing.Path();
+  path.moveTo(x0, y0);
+  path.lineTo(x1, y1);
+  path.lineTo(x2, y2);
+  path.close();
+  brush.setColor(color);
+  canvas.attachBrush(brush);
+  canvas.drawPath(path);
+}
+
+function drawFilmSurface(canvas: drawing.Canvas, brush: drawing.Brush, pen: drawing.Pen, style: TextPosterStyleOption): void {
+  const accent: common2D.Color = makeColor(255, style.accentRgb[0], style.accentRgb[1], style.accentRgb[2]);
+  fillRoundRect(canvas, brush, 72, 88, 1028, POSTER_HEIGHT - 52, 34, makeColor(80, 0, 0, 0));
+  fillRoundRect(canvas, brush, 56, 64, 1012, POSTER_HEIGHT - 76, 28, makeColor(255, style.surfaceRgb[0], style.surfaceRgb[1], style.surfaceRgb[2]));
+  fillRoundRect(canvas, brush, 118, 102, 950, POSTER_HEIGHT - 114, 18, makeColor(255, style.innerSurfaceRgb[0], style.innerSurfaceRgb[1], style.innerSurfaceRgb[2]));
+  fillRoundRect(canvas, brush, 56, 64, 116, POSTER_HEIGHT - 76, 14, makeColor(220, 34, 39, 43));
+  fillRoundRect(canvas, brush, 952, 64, 1012, POSTER_HEIGHT - 76, 14, makeColor(220, 34, 39, 43));
+  for (let y = 116; y < POSTER_HEIGHT - 100; y += 112) {
+    drawCircle(canvas, brush, 86, y, 13, makeColor(230, 16, 20, 24));
+    drawCircle(canvas, brush, 982, y, 13, makeColor(230, 16, 20, 24));
+  }
+  drawLine(canvas, pen, 146, 150, 922, 150, 10, makeColor(190, accent.red, accent.green, accent.blue));
+  drawLine(canvas, pen, 146, POSTER_HEIGHT - 142, 922, POSTER_HEIGHT - 142, 10, makeColor(190, accent.red, accent.green, accent.blue));
+}
+
+function drawKraftSurface(canvas: drawing.Canvas, brush: drawing.Brush, pen: drawing.Pen, style: TextPosterStyleOption): void {
+  const accent: common2D.Color = makeColor(255, style.accentRgb[0], style.accentRgb[1], style.accentRgb[2]);
+  fillRoundRect(canvas, brush, 72, 88, 1028, POSTER_HEIGHT - 52, 30, makeColor(80, 44, 28, 18));
+  fillRoundRect(canvas, brush, 56, 64, 1012, POSTER_HEIGHT - 76, 30, makeColor(255, style.surfaceRgb[0], style.surfaceRgb[1], style.surfaceRgb[2]));
+  fillRoundRect(canvas, brush, 92, 100, 976, POSTER_HEIGHT - 112, 18, makeColor(255, style.innerSurfaceRgb[0], style.innerSurfaceRgb[1], style.innerSurfaceRgb[2]));
+  for (let i = 0; i < 16; i++) {
+    const y: number = 126 + i * 78;
+    drawLine(canvas, pen, 112 + (i % 3) * 19, y, 940 - (i % 4) * 17, y + ((i % 2) === 0 ? 4 : -3), 3, makeColor(28, 113, 75, 39));
+  }
+  for (let i = 0; i < 22; i++) {
+    const x: number = 124 + (i * 71) % 820;
+    const y: number = 128 + (i * 97) % 1080;
+    drawCircle(canvas, brush, x, y, 3 + (i % 3), makeColor(22, 95, 62, 34));
+  }
+  for (let x = 128; x < 940; x += 42) {
+    drawLine(canvas, pen, x, 140, x + 22, 140, 4, makeColor(180, accent.red, accent.green, accent.blue));
+    drawLine(canvas, pen, x, POSTER_HEIGHT - 150, x + 22, POSTER_HEIGHT - 150, 4, makeColor(180, accent.red, accent.green, accent.blue));
+  }
+}
+
+function drawStickySurface(canvas: drawing.Canvas, brush: drawing.Brush, style: TextPosterStyleOption): void {
+  fillRoundRect(canvas, brush, 98, 142, 1018, POSTER_HEIGHT - 28, 20, makeColor(82, 63, 25, 58));
+  fillRoundRect(canvas, brush, 74, 112, 994, POSTER_HEIGHT - 58, 10, makeColor(255, style.surfaceRgb[0], style.surfaceRgb[1], style.surfaceRgb[2]));
+  fillRoundRect(canvas, brush, 108, 146, 960, POSTER_HEIGHT - 94, 4, makeColor(255, style.innerSurfaceRgb[0], style.innerSurfaceRgb[1], style.innerSurfaceRgb[2]));
+  fillRoundRect(canvas, brush, 382, 92, 700, 148, 3, makeColor(110, 255, 255, 255));
+  drawTriangle(canvas, brush, 880, POSTER_HEIGHT - 94, 960, POSTER_HEIGHT - 94, 960, POSTER_HEIGHT - 174, makeColor(105, 210, 174, 82));
+  drawLine(canvas, new drawing.Pen(), 150, POSTER_HEIGHT - 168, 900, POSTER_HEIGHT - 168, 5, makeColor(120, style.accentRgb[0], style.accentRgb[1], style.accentRgb[2]));
+}
+
+function drawPaperSurface(canvas: drawing.Canvas, brush: drawing.Brush, style: TextPosterStyleOption): void {
+  fillRoundRect(canvas, brush, 72, 88, 1028, POSTER_HEIGHT - 52, 46, makeColor(52, 35, 54, 72));
+  fillRoundRect(canvas, brush, 56, 64, 1012, POSTER_HEIGHT - 76, 46, makeColor(255, style.surfaceRgb[0], style.surfaceRgb[1], style.surfaceRgb[2]));
+  fillRoundRect(canvas, brush, 78, 86, 990, POSTER_HEIGHT - 98, 34, makeColor(255, style.innerSurfaceRgb[0], style.innerSurfaceRgb[1], style.innerSurfaceRgb[2]));
+  fillRoundRect(canvas, brush, 108, 118, 960, POSTER_HEIGHT - 128, 26, makeColor(24, style.accentRgb[0], style.accentRgb[1], style.accentRgb[2]));
+  fillRoundRect(canvas, brush, 132, 154, 936, 166, 6, makeColor(112, style.accentRgb[0], style.accentRgb[1], style.accentRgb[2]));
+}
+
+function drawPosterSurface(canvas: drawing.Canvas, brush: drawing.Brush, pen: drawing.Pen, style: TextPosterStyleOption): void {
+  brush.setColor(makeColor(255, style.backgroundRgb[0], style.backgroundRgb[1], style.backgroundRgb[2]));
+  canvas.attachBrush(brush);
+  canvas.drawRect(0, 0, POSTER_WIDTH, POSTER_HEIGHT);
+  switch (style.texture) {
+    case 'film': drawFilmSurface(canvas, brush, pen, style); break;
+    case 'kraft': drawKraftSurface(canvas, brush, pen, style); break;
+    case 'sticky': drawStickySurface(canvas, brush, style); break;
+    default: drawPaperSurface(canvas, brush, style); break;
+  }
 }
 
 async function createPosterBytes(_title: string, content: string, _genre: Genre, styleKey?: string): Promise<ArrayBuffer> {
@@ -127,16 +219,8 @@ async function createPosterBytes(_title: string, content: string, _genre: Genre,
   });
   const canvas: drawing.Canvas = new drawing.Canvas(pixelMap);
   const brush: drawing.Brush = new drawing.Brush();
+  const pen: drawing.Pen = new drawing.Pen();
   const style: TextPosterStyleOption = resolveTextPosterStyle(styleKey);
-  const red: number = style.backgroundRgb[0];
-  const green: number = style.backgroundRgb[1];
-  const blue: number = style.backgroundRgb[2];
-  const surfaceRed: number = style.surfaceRgb[0];
-  const surfaceGreen: number = style.surfaceRgb[1];
-  const surfaceBlue: number = style.surfaceRgb[2];
-  const innerRed: number = style.innerSurfaceRgb[0];
-  const innerGreen: number = style.innerSurfaceRgb[1];
-  const innerBlue: number = style.innerSurfaceRgb[2];
   const accentRed: number = style.accentRgb[0];
   const accentGreen: number = style.accentRgb[1];
   const accentBlue: number = style.accentRgb[2];
@@ -145,17 +229,7 @@ async function createPosterBytes(_title: string, content: string, _genre: Genre,
   const textBlue: number = style.textRgb[2];
 
   try {
-    // 简约拟态底板：仅保留纸张层级、压边与凹槽，不叠加额外图形或文案。
-    brush.setColor(makeColor(255, red, green, blue));
-    canvas.attachBrush(brush);
-    canvas.drawRect(0, 0, POSTER_WIDTH, POSTER_HEIGHT);
-
-    // 纸张阴影、压边和内凹阅读区，保留克制的实体质感；纸面只承载正文内容。
-    fillRoundRect(canvas, brush, 72, 88, 1028, POSTER_HEIGHT - 52, 46, makeColor(52, 35, 54, 72));
-    fillRoundRect(canvas, brush, 56, 64, 1012, POSTER_HEIGHT - 76, 46, makeColor(255, surfaceRed, surfaceGreen, surfaceBlue));
-    fillRoundRect(canvas, brush, 78, 86, 990, POSTER_HEIGHT - 98, 34, makeColor(255, innerRed, innerGreen, innerBlue));
-    fillRoundRect(canvas, brush, 108, 118, 960, POSTER_HEIGHT - 128, 26, makeColor(24, accentRed, accentGreen, accentBlue));
-    fillRoundRect(canvas, brush, 132, 154, 936, 166, 6, makeColor(112, accentRed, accentGreen, accentBlue));
+    drawPosterSurface(canvas, brush, pen, style);
 
     const normalizedContent: string = content.trim();
     const displayContent: string = normalizedContent.length > 0 ? normalizedContent : '写下你的观点，让更多人看见。';
@@ -187,7 +261,7 @@ async function createPosterBytes(_title: string, content: string, _genre: Genre,
       cursorY += lineHeight;
     }
 
-    // 底部压纹只承担纸张材质，不添加标题或品牌。
+    // 底部细线保持正文收束，不添加标题或品牌。
     fillRoundRect(canvas, brush, 164, POSTER_HEIGHT - 176, 916, POSTER_HEIGHT - 166, 5, makeColor(70, accentRed, accentGreen, accentBlue));
 
     const packer: image.ImagePacker = image.createImagePacker();
@@ -262,5 +336,5 @@ export async function uploadTextPoster(title: string, content: string, genre: Ge
   } catch (e) {
     throw new Error('文字海报上传失败：' + ((e as Error).message ?? '未知错误'));
   }
-  return signature.viewUrl;
+  return toStoredMediaRef(signature);
 }

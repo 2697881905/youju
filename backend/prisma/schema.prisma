@@ -49,6 +49,7 @@ model Post {
   coverImage     String?  @db.Text // COS 预签名 URL 较长，用 Text 避免超长
   videoUrl       String?  @db.Text // 视频地址（轻量单视频方案，最多一段）
   videoCover     String?  @db.Text // 视频封面（首帧抓取上传，复用 posts 目录）
+  videoAspectRatio Float? // 视频真实宽/高，供客户端等比例渲染
   images         Json? // 图片URL列表，最多9张
   genre          String   @db.VarChar(20) // review | pitfall | tutorial | debate
   tags           Json // 标签列表，1~3个
@@ -60,6 +61,7 @@ model Post {
   reportCount    Int      @default(0) // 被举报累计次数（达阈值自动 status=0）
   planAVotes     Int      @default(0) // 辩论方案A投票数
   planBVotes     Int      @default(0) // 辩论方案B投票数
+  deletedAt      DateTime? // 用户删除后保留在废纸篓；null 表示正常可见
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -197,6 +199,20 @@ model PushToken {
   @@index([userId])
 }
 
+// 媒体删除任务：业务记录删除与 COS 外部副作用解耦，失败可重试。
+model MediaDeletionTask {
+  id            Int       @id @default(autoincrement())
+  key           String    @unique @db.VarChar(512)
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime  @default(now())
+  lastError     String?   @db.VarChar(1000)
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([completedAt, nextAttemptAt])
+}
+
 // 关注关系表（独立轻量表，沿 Notification 取向：仅用标量外键，不建 @relation）
 // 设计取舍：避免 User 反向数组与级联复杂度；列表/资料查询时像
 // notificationService.listForUser 那样用 prisma.user.findMany({where:{id:{in: ids}}}) 补 user 信息。
@@ -289,7 +305,8 @@ model Message {
   id         Int      @id @default(autoincrement())
   senderId   Int      // 发送方 userId
   receiverId Int      // 接收方 userId
-  content    String   @db.Text // 文本消息内容（MVP 仅文字）
+  type       String   @default("text") // text | image | video（image/video 时 content 存媒体 viewUrl）
+  content    String   @db.Text // 文本消息内容；image/video 消息存 COS viewUrl
   read       Boolean  @default(false) // 接收方是否已读
   createdAt  DateTime @default(now())
 

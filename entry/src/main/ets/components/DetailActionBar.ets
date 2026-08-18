@@ -92,6 +92,7 @@ export struct DetailActionBar {
   @Prop bookmarkPending: boolean = false;
   @Prop upFeedbackVersion: number = 0;
   @Prop bookmarkFeedbackVersion: number = 0;
+  @Prop showShare: boolean = true;
   onUp: () => void = (): void => {};
   onBookmark: () => void = (): void => {};
   onSendComment: () => void = (): void => {};
@@ -154,7 +155,9 @@ export struct DetailActionBar {
             DetailActionButton({ icon: resolveActionIcon('like'), label: formatCount(this.upCount), active: this.uped, disabled: this.upPending, feedbackVersion: this.upFeedbackVersion, onAction: (): void => { this.onUp(); } }).layoutWeight(1)
             DetailActionButton({ icon: resolveActionIcon('bookmark'), label: formatCount(this.bookmarkCount), active: this.bookmarked, disabled: this.bookmarkPending, feedbackVersion: this.bookmarkFeedbackVersion, onAction: (): void => { this.onBookmark(); } }).layoutWeight(1)
             DetailActionButton({ icon: resolveActionIcon('comment'), label: formatCount(this.commentCount), onAction: (): void => { this.commenting = true; } }).layoutWeight(1)
-            DetailActionButton({ icon: resolveActionIcon('share'), label: '分享', onAction: (): void => { this.onShare(); } }).layoutWeight(1)
+            if (this.showShare) {
+              DetailActionButton({ icon: resolveActionIcon('share'), label: '分享', onAction: (): void => { this.onShare(); } }).layoutWeight(1)
+            }
           }
           .width('100%')
           .height('100%')

@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// 30 个话题标签种子数据（与产品文档 3.1 一致）
+// 38 个话题标签种子数据（与产品文档 3.1 一致）
 const tags = [
   { name: '数码选购', emoji: '📱', category: '消费决策' },
   { name: '汽车买卖', emoji: '🚗', category: '消费决策' },
@@ -30,10 +30,18 @@ const tags = [
   { name: '旅行攻略', emoji: '✈️', category: '生活方式' },
   { name: '探店打卡', emoji: '🍜', category: '生活方式' },
   { name: '游戏攻略', emoji: '🎮', category: '生活方式' },
-  { name: '影视推荐', emoji: '🎬', category: '生活方式' },
-  { name: '书籍阅读', emoji: '📖', category: '生活方式' },
-  { name: '宠物日常', emoji: '🐕', category: '生活方式' },
+  { name: '家庭相处', emoji: '🏡', category: '生活方式' },
+  { name: '健康生活', emoji: '🌿', category: '生活方式' },
+  { name: '兴趣爱好', emoji: '🎨', category: '生活方式' },
+  { name: '影视推荐', emoji: '🎬', category: '分享' },
+  { name: '书籍阅读', emoji: '📖', category: '分享' },
+  { name: '宠物日常', emoji: '🐕', category: '分享' },
   { name: '情感经营', emoji: '❤️', category: '生活方式' },
+  { name: '音乐分享', emoji: '🎵', category: '分享' },
+  { name: '日常分享', emoji: '☀️', category: '分享' },
+  { name: '播客分享', emoji: '🎙️', category: '分享' },
+  { name: '展览活动', emoji: '🖼️', category: '分享' },
+  { name: '摄影记录', emoji: '📸', category: '分享' },
 ];
 
 async function renameLegacyCookingTag(): Promise<void> {
@@ -68,7 +76,8 @@ async function main() {
   for (const t of tags) {
     await prisma.tag.upsert({
       where: { name: t.name },
-      update: {},
+      // 分类调整需要同步到已有标签；使用数和关注数由线上业务维护，不能在种子中覆盖。
+      update: { emoji: t.emoji, category: t.category },
       create: t,
     });
   }

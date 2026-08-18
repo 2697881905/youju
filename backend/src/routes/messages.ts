@@ -1,6 +1,6 @@
 // 私信路由：会话列表 / 历史 / 发送 / 标记已读 / 未读总数
 import { Router, Response } from 'express';
-import { ok, fail, CODE } from '../utils/response';
+import { ok, fail, internalError, CODE } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
 import * as messageService from '../services/messageService';
 
@@ -22,7 +22,7 @@ router.get('/conversations', auth, async (req: AuthRequest, res: Response) => {
     const list = await messageService.listConversations(req.userId!);
     return ok(res, { list });
   } catch (e) {
-    return fail(res, CODE.SERVER_ERROR, (e as Error).message);
+    return internalError(res, 'messages.conversations', e);
   }
 });
 
@@ -32,7 +32,7 @@ router.get('/unread', auth, async (req: AuthRequest, res: Response) => {
     const count = await messageService.getUnreadCount(req.userId!);
     return ok(res, { count });
   } catch (e) {
-    return fail(res, CODE.SERVER_ERROR, (e as Error).message);
+    return internalError(res, 'messages.unread', e);
   }
 });
 
@@ -44,7 +44,7 @@ router.get('/:userId', auth, async (req: AuthRequest, res: Response) => {
     const list = await messageService.getMessages(req.userId!, peerId, page, 30);
     return ok(res, { list });
   } catch (e) {
-    return fail(res, CODE.SERVER_ERROR, (e as Error).message);
+    return internalError(res, 'messages.list', e);
   }
 });
 
@@ -55,25 +55,26 @@ router.post('/:userId/read', auth, async (req: AuthRequest, res: Response) => {
     const updated = await messageService.markRead(req.userId!, peerId);
     return ok(res, { updated });
   } catch (e) {
-    return fail(res, CODE.SERVER_ERROR, (e as Error).message);
+    return internalError(res, 'messages.markRead', e);
   }
 });
 
-// POST /v1/messages —— 发送私信（含权限校验）
+// POST /v1/messages —— 发送私信（含权限校验；type: text|image|video）
 router.post('/', auth, async (req: AuthRequest, res: Response) => {
   try {
     const receiverId = Number(req.body?.receiverId);
     const content = typeof req.body?.content === 'string' ? req.body.content : '';
+    const type = typeof req.body?.type === 'string' ? req.body.type : 'text';
     if (!Number.isInteger(receiverId) || receiverId <= 0) {
       return fail(res, CODE.BAD_REQUEST, '缺少有效的接收者', 400);
     }
-    const msg = await messageService.sendMessage(req.userId!, receiverId, content);
+    const msg = await messageService.sendMessage(req.userId!, receiverId, content, type);
     return ok(res, msg);
   } catch (e) {
     if (e instanceof messageService.MessageError) {
       return fail(res, e.code, e.message, e.httpStatus);
     }
-    return fail(res, CODE.SERVER_ERROR, (e as Error).message);
+    return internalError(res, 'messages.send', e);
   }
 });
 

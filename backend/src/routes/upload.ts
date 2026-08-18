@@ -1,5 +1,5 @@
 import express, { Router, Response, Request } from 'express';
-import { ok, fail, CODE } from '../utils/response';
+import { ok, fail, internalError, CODE } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
 import { getUploadSignature, UploadFolder } from '../services/uploadService';
 import { asyncHandler } from '../middleware/asyncHandler';
@@ -9,7 +9,7 @@ import { env } from '../config/env';
 
 // 获取上传签名：POST /v1/upload/token
 // body: { contentType?: string } 默认 image/jpeg
-// 返回 { url, key, cdnUrl, viewUrl, contentType } 供前端直传。
+// 返回 { url, key, mediaRef, viewUrl, contentType }；前端直传后持久化 mediaRef。
 // 已配置真实 COS → 返回 COS 预签名 URL；未配置 → 返回本地文件直传签名（PUT /v1/upload/local）。
 const router = Router();
 
@@ -26,6 +26,9 @@ router.post('/token', auth, asyncHandler(async (req: AuthRequest, res: Response)
     const mode: 'auto' | 'local' = req.body?.mode === 'local' ? 'local' : 'auto';
     const size: number | undefined =
       typeof req.body?.size === 'number' && req.body.size > 0 ? req.body.size : undefined;
+    if (!isAllowedUpload(contentType, folder)) {
+      return fail(res, CODE.BAD_REQUEST, '不支持的文件类型', 400);
+    }
     // 服务端兜底：视频体积强校验，防客户端 50MB 拦截被绕过（直传 COS 无法在传输层限制大小）
     if (contentType.startsWith('video/') && size !== undefined && size > env.maxVideoSizeBytes) {
       return fail(
@@ -38,8 +41,7 @@ router.post('/token', auth, asyncHandler(async (req: AuthRequest, res: Response)
     const sig = await getUploadSignature(contentType, folder, mode);
     return ok(res, sig);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return fail(res, CODE.BAD_REQUEST, msg, 400);
+    return internalError(res, 'upload.token', e);
   }
 }));
 
@@ -52,7 +54,13 @@ function isValidLocalKey(key: string): boolean {
   return /^[A-Za-z0-9_./-]+$/.test(key);
 }
 
-const ALLOWED_LOCAL_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4'];
+const ALLOWED_UPLOAD_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4'];
+
+export function isAllowedUpload(contentType: string, folder: UploadFolder): boolean {
+  return folder === 'video'
+    ? contentType === 'video/mp4'
+    : contentType !== 'video/mp4' && ALLOWED_UPLOAD_TYPES.includes(contentType);
+}
 
 // 本地文件直传落地仅用于「未配置真实对象存储」的开发期（前端 local 模式直传二进制）。
 // 生产环境匿名可达该路由存在存储滥用/DoS 风险，故生产不挂载此路由（生产走 COS 预签名直传）。
@@ -66,7 +74,8 @@ if (!env.isProduction) {
         return fail(res, CODE.BAD_REQUEST, '非法的上传 key');
       }
       const ct = (req.headers['content-type'] ?? 'image/jpeg').toString();
-      if (!ALLOWED_LOCAL_TYPES.includes(ct)) {
+      const folder: UploadFolder = key.startsWith('video/') || key.startsWith('videos/') ? 'video' : 'avatars';
+      if (!isAllowedUpload(ct, folder)) {
         return fail(res, CODE.BAD_REQUEST, '不支持的文件类型');
       }
       if (!Buffer.isBuffer(req.body) || (req.body as Buffer).length === 0) {

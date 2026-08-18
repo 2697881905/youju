@@ -7,16 +7,37 @@ import { env } from '../config/env';
 export interface UploadSignature {
   url: string; // 预签名 PUT URL（前端直传目标）
   key: string; // 对象 Key（存 DB 用）
-  cdnUrl: string; // 直传成功后「公开可读」时访问的 URL（有 CDN 则用 CDN，否则与 url 同）
-  viewUrl: string; // 直传后「始终可读」的 URL（COS=GET 预签名；本地=静态直链），前端展示与存储一律用这个
+  mediaRef: string; // COS 持久化引用（cos://<key>）；local 模式为静态 URL
+  cdnUrl: string; // 兼容字段：仅供直传调试，不允许写入业务表
+  viewUrl: string; // 上传完成后的短时预览 URL（COS=GET 预签名；local=静态直链）
   contentType: string; // 前端 PUT 时必须带上的 Content-Type（需与签名一致）
   mode: 'cos' | 'local'; // 上传模式：cos=直传腾讯云；local=直传后端 /v1/upload/local
 }
 
 export type UploadFolder = 'avatars' | 'backgrounds' | 'posts' | 'video';
 
+const COS_MEDIA_REF_PREFIX = 'cos://';
+const COS_VIEW_URL_EXPIRES_SECONDS = 300;
+
+export function toStoredMediaRef(signature: UploadSignature): string {
+  return signature.mediaRef;
+}
+
+export function isCosMediaRef(value: string): boolean {
+  return value.startsWith(COS_MEDIA_REF_PREFIX) && isValidMediaKey(value.slice(COS_MEDIA_REF_PREFIX.length));
+}
+
+export function mediaKeyFromRef(value: string): string | null {
+  return isCosMediaRef(value) ? value.slice(COS_MEDIA_REF_PREFIX.length) : null;
+}
+
+export function isValidMediaKey(key: string): boolean {
+  return /^(avatars|backgrounds|posts|video)\/[A-Za-z0-9_./-]+$/.test(key) &&
+    !key.includes('..') && !key.includes('\\');
+}
+
 // 是否具备真实可用的 COS 凭据（secretId/secretKey/bucket/region 齐全）
-function isCosConfigured(): boolean {
+export function isCosConfigured(): boolean {
   const { secretId, secretKey, bucket, region } = env.cos;
   return Boolean(secretId && secretKey && bucket && region);
 }
@@ -37,6 +58,7 @@ function localUploadSignature(contentType: string, folder: UploadFolder): Upload
   return {
     url: `${base}/v1/upload/local?key=${encodeURIComponent(key)}`,
     key,
+    mediaRef: viewUrl,
     cdnUrl: viewUrl,
     viewUrl,
     contentType,
@@ -44,10 +66,15 @@ function localUploadSignature(contentType: string, folder: UploadFolder): Upload
   };
 }
 
+function createCosClient(): COS {
+  const { secretId, secretKey } = env.cos;
+  return new COS({ SecretId: secretId, SecretKey: secretKey });
+}
+
 // COS 模式：生成 PUT + GET 预签名 URL
 function cosUploadSignature(contentType: string, folder: UploadFolder): Promise<UploadSignature> {
-  const { secretId, secretKey, bucket, region, cdnBase } = env.cos;
-  const cos = new COS({ SecretId: secretId, SecretKey: secretKey });
+  const { bucket, region, cdnBase } = env.cos;
+  const cos = createCosClient();
 
   const now = new Date();
   const y = now.getFullYear();
@@ -71,25 +98,63 @@ function cosUploadSignature(contentType: string, folder: UploadFolder): Promise<
         return;
       }
       const url: string = putData.Url;
-      // 2) 额外生成 GET 预签名 URL（前端展示/存储用，私有桶也能加载）
-      // 有效期从 1 年缩短为 30 天，缓解删除/注销后图片仍可达最长 1 年的撤回留痕风险。
-      // 根治需在删除/注销资源时主动调用 COS deleteObject。
+      // 2) 仅供上传完成后的即时预览使用的短时 GET URL。
+      // 业务表必须保存 mediaRef，后续展示经 /v1/media 动态签发。
       const getParams: any = {
         Bucket: bucket,
         Region: region,
         Key: key,
         Method: 'GET',
         Sign: true,
-        Expires: 2592000,
+        Expires: COS_VIEW_URL_EXPIRES_SECONDS,
       };
       cos.getObjectUrl(getParams, (getErr: any, getData: any) => {
         const viewUrl: string = getErr ? url : getData.Url;
         const base = cdnBase ? cdnBase.replace(/\/$/, '') : '';
         const cdnUrl = base ? `${base}/${key}` : url;
-        resolve({ url, key, cdnUrl, viewUrl, contentType, mode: 'cos' });
+        resolve({
+          url,
+          key,
+          mediaRef: COS_MEDIA_REF_PREFIX + key,
+          cdnUrl,
+          viewUrl,
+          contentType,
+          mode: 'cos',
+        });
       });
     });
   });
+}
+
+export function getCosViewUrl(key: string): string {
+  if (!isCosConfigured() || !isValidMediaKey(key)) {
+    throw new Error('COS 媒体读取配置无效');
+  }
+  const { bucket, region } = env.cos;
+  return createCosClient().getObjectUrl({
+    Bucket: bucket,
+    Region: region,
+    Key: key,
+    Method: 'GET',
+    Sign: true,
+    Expires: COS_VIEW_URL_EXPIRES_SECONDS,
+  });
+}
+
+export async function deleteCosObjects(keys: string[]): Promise<void> {
+  const uniqueKeys = Array.from(new Set(keys.filter((key) => isValidMediaKey(key))));
+  if (uniqueKeys.length === 0) {
+    return;
+  }
+  if (!isCosConfigured()) {
+    throw new Error('COS 未配置，无法清理媒体对象');
+  }
+  const { bucket, region } = env.cos;
+  const cos = createCosClient();
+  for (let start = 0; start < uniqueKeys.length; start += 1000) {
+    const objects = uniqueKeys.slice(start, start + 1000).map((Key) => ({ Key }));
+    await cos.deleteMultipleObject({ Bucket: bucket, Region: region, Objects: objects, Quiet: true });
+  }
 }
 
 // 生成单张图片的上传签名（默认 image/jpeg）。

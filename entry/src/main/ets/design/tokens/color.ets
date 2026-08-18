@@ -38,4 +38,5 @@ export class ColorTokens {
   static readonly barBorder: ResourceColor = $r('app.color.bar_border');
   static readonly barShadow: ResourceColor = $r('app.color.bar_shadow');
   static readonly barSelectionSurface: ResourceColor = $r('app.color.bar_selection_surface');
+  static readonly barSelectionBorder: ResourceColor = $r('app.color.bar_selection_border');
 }

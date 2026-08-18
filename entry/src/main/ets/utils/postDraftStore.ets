@@ -31,6 +31,7 @@ function isValidDraft(value: Object): boolean {
     Array.isArray(draft.images) && draft.images.every((image: string): boolean => typeof image === 'string') &&
     (draft.videoUrl === undefined || typeof draft.videoUrl === 'string') &&
     (draft.videoCover === undefined || typeof draft.videoCover === 'string') &&
+    (draft.videoAspectRatio === undefined || typeof draft.videoAspectRatio === 'number') &&
     typeof draft.structuredData === 'object' && draft.structuredData !== null &&
     (draft.textPosterStyle === undefined || typeof draft.textPosterStyle === 'string');
 }
@@ -118,6 +119,7 @@ export function savePostDraft(ownerId: number, draft: PublishDraft, existingId?:
     images: [...draft.images],
     videoUrl: draft.videoUrl,
     videoCover: draft.videoCover,
+    videoAspectRatio: draft.videoAspectRatio,
     textPosterStyle: draft.textPosterStyle,
   };
   if (insertAt >= 0) {

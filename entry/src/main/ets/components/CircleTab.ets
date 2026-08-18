@@ -1,9 +1,9 @@
 // 圈子页：服务端数据驱动的轻量星环视图。
 // 星环只负责布局与交互；颜色、阴影、字体和圆角全部复用应用 design token。
 
-import { Tag, User } from '../models/types';
+import { Tag } from '../models/types';
 import { listTags, listFollowedTags } from '../services/api';
-import { ensureLogin, getToken } from '../utils/auth';
+import { getToken } from '../utils/auth';
 import { likeStore } from '../utils/likeStore';
 import { barBottomReserve } from '../utils/cardTokens';
 import { CountRoll } from '../design/motion/CountRoll';
@@ -11,7 +11,7 @@ import { Pressable } from '../design/motion/Pressable';
 import { EmptyState } from '../design/components/EmptyState';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
-import { MotionCurves, MotionTokens } from '../design/tokens/motion';
+import { MotionTokens } from '../design/tokens/motion';
 import { RadiusTokens } from '../design/tokens/radius';
 import { ShadowTokens } from '../design/tokens/shadow';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
@@ -24,35 +24,42 @@ import { CircleOrbitCanvas, OrbitCircleItem } from './CircleOrbitCanvas';
 interface CircleMeta {
   id: string;
   name: string;
-  members: number;
   ring: number;
   size: number;
   color: string;
   description: string;
-  active: number;
   category: string;
 }
 
-// 12 个圈子的布局与展示元数据。人数会被服务端 followCount 覆盖，避免展示陈旧数据。
+// 圈子的布局与展示元数据。成员数只读取服务端 followCount，不能回退到演示值。
 const CIRCLE_META: CircleMeta[] = [
-  { id: 'digital-shopping', name: '数码选购', members: 1280, ring: 0, size: 64, color: '#2D7CFF', description: '把预算花在真正影响体验的地方。', active: 86, category: '消费决策' },
-  { id: 'phone-digital', name: '手机数码', members: 968, ring: 0, size: 58, color: '#2D7CFF', description: '手机、平板和智能设备的真实使用分享。', active: 64, category: '消费决策' },
-  { id: 'car-trade', name: '汽车买卖', members: 836, ring: 0, size: 56, color: '#2D7CFF', description: '选车、比价与交易流程的经验交换。', active: 52, category: '消费决策' },
-  { id: 'camping', name: '露营户外', members: 742, ring: 0, size: 54, color: '#2D7CFF', description: '装备清单、营地选择和出行记录。', active: 47, category: '动手实操' },
-  { id: 'relationship', name: '情感经营', members: 688, ring: 1, size: 52, color: '#2D7CFF', description: '真诚交流日常关系里的理解与边界。', active: 42, category: '生活方式' },
-  { id: 'sports-gear', name: '运动装备', members: 632, ring: 1, size: 50, color: '#2D7CFF', description: '把装备选择放回真实运动场景。', active: 39, category: '消费决策' },
-  { id: 'peripheral', name: '外设推荐', members: 578, ring: 1, size: 49, color: '#2D7CFF', description: '桌搭、键鼠与生产力外设的细节讨论。', active: 36, category: '消费决策' },
-  { id: 'wine', name: '酒水品鉴', members: 524, ring: 1, size: 48, color: '#2D7CFF', description: '从风味到场景，记录每次品鉴。', active: 33, category: '生活方式' },
-  { id: 'car-care', name: '汽车养护', members: 486, ring: 2, size: 47, color: '#2D7CFF', description: '保养、清洁与用车问题的实用答案。', active: 30, category: '动手实操' },
-  { id: 'digital-repair', name: '数码维修', members: 462, ring: 2, size: 46, color: '#2D7CFF', description: '拆解、维修和问题排查的可复用经验。', active: 29, category: '动手实操' },
-  { id: 'home-repair', name: '家居维修', members: 438, ring: 2, size: 44, color: '#2D7CFF', description: '把家的小问题拆成可完成的步骤。', active: 27, category: '动手实操' },
-  { id: 'food-sharing', name: '美食分享', members: 416, ring: 2, size: 42, color: '#2D7CFF', description: '从食材到火候，认真分享一顿饭。', active: 25, category: '动手实操' },
+  { id: 'digital-shopping', name: '数码选购', ring: 0, size: 64, color: '#2D7CFF', description: '把预算花在真正影响体验的地方。', category: '消费决策' },
+  { id: 'phone-digital', name: '手机数码', ring: 0, size: 58, color: '#2D7CFF', description: '手机、平板和智能设备的真实使用分享。', category: '消费决策' },
+  { id: 'car-trade', name: '汽车买卖', ring: 0, size: 56, color: '#2D7CFF', description: '选车、比价与交易流程的经验交换。', category: '消费决策' },
+  { id: 'camping', name: '露营户外', ring: 0, size: 54, color: '#2D7CFF', description: '装备清单、营地选择和出行记录。', category: '动手实操' },
+  { id: 'relationship', name: '情感经营', ring: 1, size: 52, color: '#2D7CFF', description: '真诚交流日常关系里的理解与边界。', category: '生活方式' },
+  { id: 'family-life', name: '家庭相处', ring: 1, size: 48, color: '#FF2D55', description: '分享家庭沟通、陪伴与相处中的真实经验。', category: '生活方式' },
+  { id: 'healthy-living', name: '健康生活', ring: 1, size: 48, color: '#30D158', description: '交流作息、饮食与让生活保持好状态的方法。', category: '生活方式' },
+  { id: 'hobbies', name: '兴趣爱好', ring: 1, size: 46, color: '#AF52DE', description: '找到愿意长期投入的兴趣，也认识同好。', category: '生活方式' },
+  { id: 'sports-gear', name: '运动装备', ring: 1, size: 50, color: '#2D7CFF', description: '把装备选择放回真实运动场景。', category: '消费决策' },
+  { id: 'peripheral', name: '外设推荐', ring: 1, size: 49, color: '#2D7CFF', description: '桌搭、键鼠与生产力外设的细节讨论。', category: '消费决策' },
+  { id: 'wine', name: '酒水品鉴', ring: 1, size: 48, color: '#2D7CFF', description: '从风味到场景，记录每次品鉴。', category: '生活方式' },
+  { id: 'car-care', name: '汽车养护', ring: 2, size: 47, color: '#2D7CFF', description: '保养、清洁与用车问题的实用答案。', category: '动手实操' },
+  { id: 'digital-repair', name: '数码维修', ring: 2, size: 46, color: '#2D7CFF', description: '拆解、维修和问题排查的可复用经验。', category: '动手实操' },
+  { id: 'home-repair', name: '家居维修', ring: 2, size: 44, color: '#2D7CFF', description: '把家的小问题拆成可完成的步骤。', category: '动手实操' },
+  { id: 'food-sharing', name: '美食分享', ring: 2, size: 42, color: '#2D7CFF', description: '从食材到火候，认真分享一顿饭。', category: '动手实操' },
+  { id: 'music-sharing', name: '音乐分享', ring: 2, size: 42, color: '#FF2D55', description: '分享正在循环的歌，也分享听歌时的心情。', category: '分享' },
+  { id: 'daily-sharing', name: '日常分享', ring: 2, size: 40, color: '#FF9F0A', description: '记录生活里值得留下的小事与片段。', category: '分享' },
+  { id: 'movie-recommendation', name: '影视推荐', ring: 2, size: 40, color: '#AF52DE', description: '分享值得看的电影、剧集和片段。', category: '分享' },
+  { id: 'book-reading', name: '书籍阅读', ring: 2, size: 40, color: '#64D2FF', description: '交换正在阅读的书和留下来的观点。', category: '分享' },
+  { id: 'pet-daily', name: '宠物日常', ring: 2, size: 40, color: '#BF5AF2', description: '记录和分享宠物陪伴生活的日常。', category: '分享' },
+  { id: 'podcast-sharing', name: '播客分享', ring: 2, size: 40, color: '#5E5CE6', description: '分享听过的节目，也分享值得回味的观点。', category: '分享' },
+  { id: 'exhibition-events', name: '展览活动', ring: 2, size: 40, color: '#FF9500', description: '交换展览、演出与城市活动的现场感受。', category: '分享' },
+  { id: 'photo-journal', name: '摄影记录', ring: 2, size: 40, color: '#0A84FF', description: '用照片记录看见的人、事与生活片段。', category: '分享' },
 ];
 
 // 标签宽度必须纳入最外轨道的安全边距计算；过大会在 375vp 视口的左右边缘被裁切。
 const PLANET_BOX_WIDTH: number = 64;
-// 圈名与人数向图标下方自然延展；只有 Logo 中心应与环线重合。
-const PLANET_ICON_HIT_SIZE: number = 40;
 const CENTER_AVATAR_SIZE: number = 64;
 const TOP_ANGLE: number = -90;
 
@@ -79,13 +86,13 @@ class CircleTag {
     this.emoji = tag?.emoji;
     this.category = tag?.category ?? meta.category;
     this.useCount = tag?.useCount;
-    this.followCount = tag?.followCount ?? meta.members;
+    this.followCount = tag?.followCount ?? 0;
     this.members = this.followCount;
     this.ring = meta.ring;
     this.size = meta.size;
     this.color = meta.color;
     this.description = meta.description;
-    this.active = meta.active;
+    this.active = 0;
   }
 }
 
@@ -96,6 +103,7 @@ export struct CircleTab {
   @State loading: boolean = false;
   @State error: string = '';
   @State selectedName: string = '';
+  @State centeredName: string = '';
   // 三条环各自保存角度。不能共用一个 orbitAngle，否则点击一颗行星会带动全部环线内容。
   @State innerOrbitAngle: number = 0;
   @State middleOrbitAngle: number = 0;
@@ -113,10 +121,12 @@ export struct CircleTab {
   @StorageLink('authToken') @Watch('onTokenReady') token: string = '';
   @StorageLink('activeTab') @Watch('onActiveTab') activeTab: number = 0;
   @StorageLink('circleMembershipVersion') @Watch('onCircleMembershipChanged') circleMembershipVersion: number = 0;
+  @StorageLink('circleLogoDismissVersion') @Watch('onCircleLogoDismissed') circleLogoDismissVersion: number = 0;
   private dragOffset: number = 0;
   private inertiaVelocity: number = 0;
   private inertiaTimer: number = 0;
   private autoOrbitTimer: number = 0;
+  private focusReturnTimer: number = 0;
   private autoOrbitRunning: boolean = false;
   // 三条环各自维护自动旋转开关；任意时刻仅当前选中的一层会暂停。
   private autoOrbitEnabled: boolean[] = [true, true, true];
@@ -141,6 +151,8 @@ export struct CircleTab {
   aboutToDisappear(): void {
     this.stopInertia();
     this.stopAutoOrbit();
+    this.clearFocusReturnTimer();
+    this.centeredName = '';
   }
 
   onActiveTab(): void {
@@ -149,6 +161,8 @@ export struct CircleTab {
     } else {
       // TabContent 可能保持挂载，切走时主动停止后台角度刷新。
       this.stopAutoOrbit();
+      this.clearFocusReturnTimer();
+      this.centeredName = '';
     }
   }
 
@@ -156,6 +170,10 @@ export struct CircleTab {
     if (this.activeTab === 1 && this.token !== '') {
       this.initData();
     }
+  }
+
+  private onCircleLogoDismissed(): void {
+    this.resumePausedOrbits();
   }
 
   onTokenReady(): void {
@@ -173,6 +191,7 @@ export struct CircleTab {
       this.circles = [];
       this.joinedNames = [];
       this.selectedName = '';
+      this.centeredName = '';
       this.error = '';
       this.loading = false;
     }
@@ -183,16 +202,13 @@ export struct CircleTab {
   }
 
   private async initData(): Promise<void> {
+    this.clearFocusReturnTimer();
+    this.centeredName = '';
     this.loading = true;
     this.error = '';
     try {
-      const user: User | null = await ensureLogin();
-      if (!user) {
-        this.loading = false;
-        return;
-      }
       const tags: Tag[] = await listTags();
-      const followed: string[] = await listFollowedTags();
+      const followed: string[] = getToken() === '' ? [] : await listFollowedTags();
       this.circles = CIRCLE_META.map((meta: CircleMeta): CircleTag => {
         const remote: Tag | undefined = tags.find((tag: Tag) => tag.name === meta.name);
         const circle: CircleTag = new CircleTag(meta, remote);
@@ -217,6 +233,7 @@ export struct CircleTab {
       this.circles = [];
       this.joinedNames = [];
       this.selectedName = '';
+      this.centeredName = '';
     } finally {
       this.loading = false;
     }
@@ -270,13 +287,6 @@ export struct CircleTab {
     return circle === undefined ? 0 : this.normalizedAngle(TOP_ANGLE - this.baseAngle(circle));
   }
 
-  // 返回与 target 同模 360、但最接近 current 的等价角。
-  // setRingAngle 改为单调累积后，current 可能已累积到很大；直接把角度设成 angleToTop 的小值会让
-  // animateTo 走“从大数跳到小数”的最长路径而回甩。用本方法取最近等价角，吸附走最短路径、旋转连续。
-  private nearestEquivalentAngle(current: number, target: number): number {
-    return current + this.normalizedAngle(target - current);
-  }
-
   private angleForRing(ring: number): number {
     if (ring === 0) {
       return this.innerOrbitAngle;
@@ -320,18 +330,12 @@ export struct CircleTab {
 
   private selectPlanet(circle: CircleTag): void {
     // 点击当前环时，先恢复之前暂停的环，确保始终只有当前环停住。
+    this.clearFocusReturnTimer();
     this.pauseOrbitExcept(circle.ring);
     this.stopInertia();
     this.activeRing = circle.ring;
     this.selectedName = circle.name;
-    const targetAngle: number = this.nearestEquivalentAngle(this.angleForRing(circle.ring), this.angleToTop(circle.name));
-    if (this.shouldReduceMotion()) {
-      this.setRingAngle(circle.ring, targetAngle);
-      return;
-    }
-    this.getUIContext().animateTo({ duration: MotionTokens.slow, curve: MotionCurves.decelerate }, () => {
-      this.setRingAngle(circle.ring, targetAngle);
-    });
+    this.centeredName = circle.name;
   }
 
   private stopInertia(): void {
@@ -380,6 +384,18 @@ export struct CircleTab {
     }
   }
 
+  private clearFocusReturnTimer(): void {
+    if (this.focusReturnTimer !== 0) {
+      clearTimeout(this.focusReturnTimer);
+      this.focusReturnTimer = 0;
+    }
+  }
+
+  private resumeAllOrbits(): void {
+    this.autoOrbitEnabled = [true, true, true];
+    this.startAutoOrbit();
+  }
+
   private pauseOrbitExcept(ring: number): void {
     this.autoOrbitEnabled = [true, true, true];
     if (ring >= 0 && ring < this.autoOrbitEnabled.length) {
@@ -392,14 +408,30 @@ export struct CircleTab {
     if (Date.now() - this.lastPlanetTapAt < 150) {
       return;
     }
-    if (this.shouldReduceMotion() || this.circles.length === 0) {
+    if (this.circles.length === 0) {
+      return;
+    }
+    if (this.centeredName.length > 0) {
+      this.centeredName = '';
+      this.clearFocusReturnTimer();
+      if (this.shouldReduceMotion()) {
+        this.resumeAllOrbits();
+      } else {
+        // 等 Logo 回到暂停时保存的圆环位置，再恢复三环旋转。
+        this.focusReturnTimer = setTimeout(() => {
+          this.focusReturnTimer = 0;
+          this.resumeAllOrbits();
+        }, MotionTokens.emphasis) as number;
+      }
+      return;
+    }
+    if (this.shouldReduceMotion()) {
       return;
     }
     if (this.autoOrbitEnabled[0] && this.autoOrbitEnabled[1] && this.autoOrbitEnabled[2]) {
       return;
     }
-    this.autoOrbitEnabled = [true, true, true];
-    this.startAutoOrbit();
+    this.resumeAllOrbits();
   }
 
   // ArkUI 没有浏览器 rAF；以 16ms 任务帧等价实现速度衰减，且仅更新 transform 所需的角度状态。
@@ -423,6 +455,9 @@ export struct CircleTab {
   }
 
   private onRingPanStart(): void {
+    if (this.centeredName.length > 0) {
+      return;
+    }
     this.stopInertia();
     this.pauseOrbitExcept(this.activeRing);
     this.dragOffset = 0;
@@ -431,6 +466,9 @@ export struct CircleTab {
   }
 
   private onRingPanUpdate(event: GestureEvent): void {
+    if (this.centeredName.length > 0 || !this.ringDragging) {
+      return;
+    }
     const delta: number = event.offsetX - this.dragOffset;
     this.dragOffset = event.offsetX;
     this.inertiaVelocity = delta * 0.22;
@@ -439,6 +477,9 @@ export struct CircleTab {
   }
 
   private onRingPanEnd(): void {
+    if (!this.ringDragging) {
+      return;
+    }
     this.ringDragging = false;
     this.startInertia();
   }
@@ -468,37 +509,14 @@ export struct CircleTab {
     return outerRadius;
   }
 
-  private radiusFor(circle: CircleTag): number {
-    return this.radiusForRing(circle.ring);
-  }
-
-  // 行星坐标只按静态 baseAngle 计算：公转由 Canvas 行星层整层 rotate 驱动，
-  // 不再逐帧把 ringAngle 折进 x/y（ForEach key 复用不刷新 position，逐帧算坐标会卡死）。
-  private planetLeft(circle: CircleTag): number {
-    const angle: number = this.baseAngle(circle) * Math.PI / 180;
-    return this.galaxySize / 2 + this.radiusFor(circle) * Math.cos(angle) - PLANET_BOX_WIDTH / 2;
-  }
-
-  private planetTop(circle: CircleTag): number {
-    const angle: number = this.baseAngle(circle) * Math.PI / 180;
-    // 不以整张标签盒居中，而是以可点击的 Logo 居中，保证图标真正落在环线上。
-    return this.galaxySize / 2 + this.radiusFor(circle) * Math.sin(angle) - PLANET_ICON_HIT_SIZE / 2;
-  }
-
-  private isSelected(circle: CircleTag): boolean {
-    return circle.name === this.selectedName;
-  }
-
-  // Canvas 只消费布局快照，所有角度和坐标仍在页面内计算，确保轨道与 Logo 同步。
+  // Canvas 用基础角度、所属圆环的实时角度和半径共同计算 Logo 位置。
   private orbitItems(): OrbitCircleItem[] {
     return this.circles.map((circle: CircleTag): OrbitCircleItem => ({
       name: circle.name,
       followCount: circle.followCount,
       size: circle.size,
-      selected: this.isSelected(circle),
       ring: circle.ring,
-      x: this.planetLeft(circle),
-      y: this.planetTop(circle),
+      baseAngle: this.baseAngle(circle),
     }));
   }
 
@@ -574,12 +592,13 @@ export struct CircleTab {
       ringAngles: this.orbitAngles(),
       radii: this.orbitRadii(),
       circles: this.orbitItems(),
+      selectedName: this.selectedName,
+      centeredName: this.centeredName,
       ringDragging: this.ringDragging,
       reduceMotion: this.shouldReduceMotion(),
       avatar: this.authAvatar,
       nickname: this.authNickname,
       onPlanet: (name: string): void => { this.onPlanetPressed(name); },
-      onBlank: (): void => { this.resumePausedOrbits(); },
       onPanStart: (): void => { this.onRingPanStart(); },
       onPanUpdate: (event: GestureEvent): void => { this.onRingPanUpdate(event); },
       onPanEnd: (): void => { this.onRingPanEnd(); },

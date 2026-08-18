@@ -12,7 +12,7 @@ import { common } from '@kit.AbilityKit';
 import { likeStore } from '../utils/likeStore';
 import { resolveSettingsIcon } from '../utils/settingsIcons';
 import { resolveActionIcon } from '../utils/actionIcons';
-import { buildProfileShareText, buildProfileShareUrl, copyToClipboard } from '../utils/share';
+import { buildProfileShareText, buildProfileShareUrl, copyToClipboard, EXTERNAL_SHARE_ENABLED, shareProfileToSystem } from '../utils/share';
 import { PostCollectionState } from '../components/PostCollectionState';
 import { ProfileShareSheet } from '../components/ProfileShareSheet';
 import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
@@ -89,6 +89,7 @@ export struct ProfilePage {
       }),
       onCopyLink: (): void => { this.copyProfileLink(); },
       onCopyCardText: (): void => { this.copyProfileShareText(); },
+      onSystemShare: (): void => { this.systemShareProfile(); },
     }),
     alignment: DialogAlignment.Bottom,
     customStyle: false,
@@ -368,6 +369,9 @@ export struct ProfilePage {
   }
 
   private shareProfile(): void {
+    if (!EXTERNAL_SHARE_ENABLED) {
+      return;
+    }
     if (!this.user.id) {
       safeShowToast(this.getUIContext(), { message: '主页信息加载中，请稍后重试' });
       return;
@@ -393,6 +397,16 @@ export struct ProfilePage {
       safeShowToast(this.getUIContext(), { message: '复制失败，请重试' });
     }
     this.profileShareController.close();
+  }
+
+  private async systemShareProfile(): Promise<void> {
+    this.profileShareController.close();
+    safeShowToast(this.getUIContext(), { message: '正在准备分享…' });
+    try {
+      await shareProfileToSystem(this.getUIContext(), this.user.nickname ?? '', this.user.id ?? 0);
+    } catch (e) {
+      safeShowToast(this.getUIContext(), { message: '分享失败，请重试' });
+    }
   }
 
   onTabChange(idx: number): void {
@@ -485,6 +499,7 @@ export struct ProfilePage {
       onOpenFollowers: (): void => { this.goFollow('followers'); },
       onEdit: (): void => { this.getUIContext().getRouter().pushUrl({ url: 'pages/EditProfilePage' }); },
       onOpenDrafts: (): void => { this.getUIContext().getRouter().pushUrl({ url: 'pages/DraftBoxPage' }); },
+      onOpenTrash: (): void => { this.getUIContext().getRouter().pushUrl({ url: 'pages/TrashBoxPage' }); },
     })
   }
 
@@ -499,25 +514,27 @@ export struct ProfilePage {
           .letterSpacing(TypeTokens.title.tracking)
           .fontColor(ColorTokens.primary)
         Blank()
-        Pressable({
-          visualHeight: LayoutTokens.segmentedHeight,
-          touchTargetHeight: LayoutTokens.minTouchTarget,
-          action: (): void => { this.shareProfile(); },
-        }) {
-          Row() {
-            Image(resolveActionIcon('share'))
-              .width(IconTokens.small)
-              .height(IconTokens.small)
+        if (EXTERNAL_SHARE_ENABLED) {
+          Pressable({
+            visualHeight: LayoutTokens.segmentedHeight,
+            touchTargetHeight: LayoutTokens.minTouchTarget,
+            action: (): void => { this.shareProfile(); },
+          }) {
+            Row() {
+              Image(resolveActionIcon('share'))
+                .width(IconTokens.small)
+                .height(IconTokens.small)
+            }
+            .width(LayoutTokens.segmentedHeight)
+            .height(LayoutTokens.segmentedHeight)
+            .justifyContent(FlexAlign.Center)
+            .backgroundColor(ColorTokens.barSurface)
+            .backdropBlur(LayoutTokens.glassBlur)
+            .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+            .borderRadius(RadiusTokens.lg)
+            .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 4 })
+            .accessibilityText('分享主页')
           }
-          .width(LayoutTokens.segmentedHeight)
-          .height(LayoutTokens.segmentedHeight)
-          .justifyContent(FlexAlign.Center)
-          .backgroundColor(ColorTokens.barSurface)
-          .backdropBlur(LayoutTokens.glassBlur)
-          .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-          .borderRadius(RadiusTokens.lg)
-          .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 4 })
-          .accessibilityText('分享主页')
         }
         Pressable({
           visualHeight: LayoutTokens.segmentedHeight,

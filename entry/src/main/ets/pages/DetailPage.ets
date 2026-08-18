@@ -14,7 +14,7 @@ import {
   resolveDisplayImageUrl,
   PostWithComments,
 } from '../services/api';
-import { Genre, StructuredData, ReportReason, DebateVoteResult } from '../models/types';
+import { Genre, StructuredData, ReportReason, DebateVoteResult, DmSharePayload } from '../models/types';
 import { ReportDialog } from '../components/ReportDialog';
 import { openUserProfile, takePostDetailId } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
@@ -22,7 +22,9 @@ import { getUserId, getToken } from '../utils/auth';
 import { likeStore } from '../utils/likeStore';
 import { debateVoteStore, DebateVoteInfo } from '../utils/debateVoteStore';
 import { ShareSheet } from '../components/ShareSheet';
-import { buildPostShareUrl, copyToClipboard } from '../utils/share';
+import { ShareToDmSheet } from '../components/ShareToDmSheet';
+import { buildPostShareUrl, copyToClipboard, EXTERNAL_SHARE_ENABLED, DM_SHARE_ENABLED, sharePostToSystem } from '../utils/share';
+import { sharePostCardToSystem } from '../utils/shareCard';
 import { window } from '@kit.ArkUI';
 import { DetailToolbar } from '../components/DetailToolbar';
 import { DetailMediaCarousel } from '../components/DetailMediaCarousel';
@@ -33,6 +35,7 @@ import { DetailPostContent, DetailField } from '../components/DetailPostContent'
 import { DetailCommentsSection } from '../components/DetailCommentsSection';
 import { DetailActionBar } from '../components/DetailActionBar';
 import { barBottomReserve } from '../utils/cardTokens';
+import { FALLBACK_VIDEO_ASPECT_RATIO, normalizeVideoAspectRatio } from '../utils/video';
 
 // 字段定义：[结构化字段键, 中文标签]，按产品文档 2.4 各体裁字段表
 type FieldDef = [keyof StructuredData, string];
@@ -134,6 +137,7 @@ struct DetailPage {
   @State images: string[] = [];
   @State videoUrl: string = '';
   @State videoCover: string = '';
+  @State videoAspectRatio: number = FALLBACK_VIDEO_ASPECT_RATIO;
   @State activeImageIndex: number = 0;
   @State loading: boolean = true;
   @State error: string = '';
@@ -211,9 +215,12 @@ struct DetailPage {
     customStyle: false,
   });
 
-  // 分享面板控制器（占位：复制链接/复制标题；系统分享待域名确定后接入）
+  // 分享面板控制器（复制链接/复制标题/系统分享/分享卡片）
   private shareController: CustomDialogController = new CustomDialogController({
     builder: ShareSheet({
+      onShareCard: (): void => {
+        this.doShareCard();
+      },
       onCopyLink: (): void => {
         this.doShareLink();
       },
@@ -223,11 +230,33 @@ struct DetailPage {
       onSystemShare: (): void => {
         this.doSystemShare();
       },
+      onShareToDm: (): void => {
+        this.onShareToDm();
+      },
     }),
     alignment: DialogAlignment.Center,
     customStyle: false,
     autoCancel: true,
   });
+
+  // 分享到私信：联系人选择弹窗（底部 bottom sheet）
+  private shareDmController: CustomDialogController = new CustomDialogController({
+    builder: ShareToDmSheet({
+      getPayload: (): DmSharePayload | null => this.buildSharePayload(),
+      onShared: (receiverId: number, nickname: string): void => {
+        this.bumpDmSignal();
+      },
+    }),
+    alignment: DialogAlignment.Bottom,
+    customStyle: true,
+    autoCancel: true,
+  });
+
+  // 分享私信成功后自增 dmRefreshSignal，驱动消息页会话列表与红点刷新
+  private bumpDmSignal(): void {
+    const cur: number = (AppStorage.get<number>('dmRefreshSignal') ?? 0) as number;
+    AppStorage.setOrCreate('dmRefreshSignal', cur + 1);
+  }
 
   aboutToAppear(): void {
     // 读取状态栏高度（全屏布局下顶部内容需避让）
@@ -289,6 +318,7 @@ struct DetailPage {
       this.images = this.imagesOf(p);
       this.videoUrl = resolveDisplayImageUrl(p.videoUrl ?? '');
       this.videoCover = resolveDisplayImageUrl(p.videoCover ?? '');
+      this.videoAspectRatio = normalizeVideoAspectRatio(p.videoAspectRatio ?? FALLBACK_VIDEO_ASPECT_RATIO);
       this.activeImageIndex = 0;
       // 辩论投票数据初始化
       debateVoteStore.syncFromServer(
@@ -350,9 +380,8 @@ struct DetailPage {
         images.push(resolveDisplayImageUrl(image));
       }
     }
-    const isCoverOnlyTextPoster: boolean = source.length === 0 &&
-      p.structuredData?.coverOnlyTextPoster === true;
-    if (images.length === 0 && !isCoverOnlyTextPoster && typeof p.coverImage === 'string' && p.coverImage.length > 0) {
+    // 无图时回退显示封面（含纯文字海报封面：coverOnlyTextPoster），保证详情页与卡片封面一致
+    if (images.length === 0 && typeof p.coverImage === 'string' && p.coverImage.length > 0) {
       images.push(resolveDisplayImageUrl(p.coverImage));
     }
     return images;
@@ -419,7 +448,41 @@ struct DetailPage {
   }
 
   onShare(): void {
+    if (!EXTERNAL_SHARE_ENABLED && !DM_SHARE_ENABLED) {
+      return;
+    }
     this.shareController.open();
+  }
+
+  // 分享到私信：先校验登录，再打开联系人选择弹窗
+  private onShareToDm(): void {
+    if (getToken() === '') {
+      safeShowToast(this.getUIContext(), { message: '请先登录后再分享' });
+      return;
+    }
+    this.shareController.close();
+    this.shareDmController.open();
+  }
+
+  // 构造分享到私信的帖子摘要负载（封面取详情页展示首图，正文截断为摘要）
+  private buildSharePayload(): DmSharePayload | null {
+    const post = this.post;
+    if (!post || post.id === undefined) {
+      return null;
+    }
+    const summaryRaw: string = post.content ?? '';
+    const summary: string = summaryRaw.length > 100 ? summaryRaw.substring(0, 100) + '…' : summaryRaw;
+    const cover: string = this.images.length > 0
+      ? this.images[0]
+      : (post.coverImage ? resolveDisplayImageUrl(post.coverImage) : '');
+    return {
+      postId: post.id,
+      title: post.title ?? '有据帖子',
+      summary: summary,
+      coverImage: cover,
+      authorName: this.authorName(),
+      authorId: this.authorId() ?? 0,
+    };
   }
 
   // 复制帖子分享链接到剪贴板（占位域名，待真实域名确定后改 utils/share.ets 的 SHARE_BASE）
@@ -451,9 +514,42 @@ struct DetailPage {
   }
 
   // 系统分享占位：真实域名确定后接入 @ohos.application.SystemShareKit 系统分享面板
-  private doSystemShare(): void {
-    safeShowToast(this.getUIContext(), { message: '系统分享即将上线' });
+  private async doSystemShare(): Promise<void> {
     this.shareController.close();
+    if (!this.post || this.post.id === undefined) {
+      return;
+    }
+    // 封面图取详情页展示的第一张图（封面或首图）；无图则纯文本分享
+    const cover: string = this.images.length > 0 ? this.images[0] : '';
+    safeShowToast(this.getUIContext(), { message: '正在准备分享…' });
+    try {
+      await sharePostToSystem(this.getUIContext(), this.post.id, this.post.title ?? '', cover);
+    } catch (e) {
+      safeShowToast(this.getUIContext(), { message: '分享失败，请重试' });
+    }
+  }
+
+  // 小红书式图文分享卡片：离屏绘制卡片图（封面+标题+正文+作者+品牌+链接）→ 系统分享
+  private async doShareCard(): Promise<void> {
+    this.shareController.close();
+    if (!this.post || this.post.id === undefined) {
+      return;
+    }
+    const cover: string = this.images.length > 0 ? this.images[0] : '';
+    safeShowToast(this.getUIContext(), { message: '正在生成分享卡片…' });
+    try {
+      await sharePostCardToSystem(
+        this.getUIContext(),
+        this.post.id,
+        this.post.title ?? '',
+        this.post.content ?? '',
+        this.authorName(),
+        cover,
+      );
+    } catch (e) {
+      console.error('[shareCard] DetailPage 分享卡片异常: ' + ((e as Error).message ?? JSON.stringify(e)));
+      safeShowToast(this.getUIContext(), { message: '卡片生成失败，请重试' });
+    }
   }
 
   // 辩论投票：乐观更新票数
@@ -492,17 +588,17 @@ struct DetailPage {
     throw lastErr;
   }
 
-  // 删除帖子：二次确认 → 调 deletePost API → toast + 返回
+  // 删除帖子：二次确认 → 移入废纸篓 → toast + 返回
   private onDeletePost(): void {
     this.getUIContext().showAlertDialog({
       title: '删除帖子？',
-      message: '删除后不可恢复，确定要删除吗？',
+      message: '帖子会先移入废纸篓，可在“我的”中恢复。',
       primaryButton: { value: '取消', action: (): void => {} },
       secondaryButton: { value: '确认删除', fontColor: $r('app.color.semantic_red'), action: async (): Promise<void> => {
         try {
           if (!this.post || this.post.id === undefined) return;
           await deletePost(this.post.id);
-          safeShowToast(this.getUIContext(), { message: '帖子已删除' });
+          safeShowToast(this.getUIContext(), { message: '已移入废纸篓' });
           this.getUIContext().getRouter().back();
         } catch (e) {
           safeShowToast(this.getUIContext(), { message: (e as Error).message });
@@ -526,7 +622,7 @@ struct DetailPage {
           action: (): void => { this.onDeletePost(); },
         },
       });
-    } else {
+    } else if (EXTERNAL_SHARE_ENABLED) {
       this.getUIContext().showAlertDialog({
         title: '操作',
         message: '',
@@ -538,6 +634,16 @@ struct DetailPage {
         secondaryButton: {
           value: '分享',
           action: (): void => { this.onShare(); },
+        },
+      });
+    } else {
+      this.getUIContext().showAlertDialog({
+        title: '操作',
+        message: '',
+        primaryButton: {
+          value: '举报该帖子',
+          fontColor: $r('app.color.semantic_red'),
+          action: (): void => { this.reportController.open(); },
         },
       });
     }
@@ -661,9 +767,13 @@ struct DetailPage {
 
               if (this.videoUrl.length > 0) {
                 Column() {
-                  VideoPlayer({ src: this.videoUrl, poster: this.videoCover, videoHeight: 240 })
+                  VideoPlayer({ src: this.videoUrl, poster: this.videoCover })
                 }
                 .width('100%')
+                .aspectRatio(this.videoAspectRatio)
+                .backgroundColor(Color.Black)
+                .borderRadius(12)
+                .clip(true)
               } else {
                 DetailMediaCarousel({
                   images: this.images,
@@ -711,6 +821,7 @@ struct DetailPage {
             bookmarkPending: this.bookmarkPending,
             upFeedbackVersion: this.upFeedbackVersion,
             bookmarkFeedbackVersion: this.bookmarkFeedbackVersion,
+            showShare: EXTERNAL_SHARE_ENABLED || DM_SHARE_ENABLED,
             onUp: (): void => { this.onUp(); },
             onBookmark: (): void => { this.onBookmark(); },
             onSendComment: (): void => { this.onSendComment(); },

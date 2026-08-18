@@ -24,6 +24,7 @@ export struct ProfileHeader {
   onOpenFollowers: () => void = (): void => {};
   onEdit: () => void = (): void => {};
   onOpenDrafts: () => void = (): void => {};
+  onOpenTrash: () => void = (): void => {};
 
   build() {
     Column() {
@@ -75,33 +76,67 @@ export struct ProfileHeader {
       .width('100%')
       .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, bottom: SpaceTokens.sm })
 
-      Row() {
-        Pressable({
-          visualHeight: LayoutTokens.segmentedHeight,
-          touchTargetHeight: LayoutTokens.minTouchTarget,
-          action: (): void => { this.onOpenDrafts(); },
-        }) {
-          Row({ space: SpaceTokens.inlineTight }) {
-            Image(resolveActionIcon('book'))
-              .width(IconTokens.compact)
-              .height(IconTokens.compact)
-              .fillColor(ColorTokens.primary)
-            Text('草稿箱')
-              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-              .fontWeight(TypeTokens.headline.weight)
-              .lineHeight(TypeTokens.caption.lineHeight)
-              .fontColor(ColorTokens.primary)
+      Row({ space: SpaceTokens.sm }) {
+        Column() {
+          Pressable({
+            fillWidth: true,
+            visualHeight: LayoutTokens.segmentedHeight,
+            touchTargetHeight: LayoutTokens.minTouchTarget,
+            action: (): void => { this.onOpenDrafts(); },
+          }) {
+            Row({ space: SpaceTokens.inlineTight }) {
+              Image(resolveActionIcon('draftBox'))
+                .width(IconTokens.compact)
+                .height(IconTokens.compact)
+              Text('草稿箱')
+                .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+                .fontWeight(TypeTokens.headline.weight)
+                .lineHeight(TypeTokens.caption.lineHeight)
+                .fontColor(ColorTokens.primary)
+            }
+            .width('100%')
+            .height(LayoutTokens.segmentedHeight)
+            .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+            .alignItems(VerticalAlign.Center)
+            .justifyContent(FlexAlign.Center)
+            .backgroundColor(ColorTokens.barSurface)
+            .backdropBlur(LayoutTokens.glassBlur)
+            .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+            .borderRadius(RadiusTokens.floatingBar)
+            .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
           }
-          .width(160)
-          .height(LayoutTokens.segmentedHeight)
-          .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-          .alignItems(VerticalAlign.Center)
-          .backgroundColor(ColorTokens.barSurface)
-          .backdropBlur(LayoutTokens.glassBlur)
-          .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-          .borderRadius(RadiusTokens.floatingBar)
-          .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
         }
+        .layoutWeight(1)
+        Column() {
+          Pressable({
+            fillWidth: true,
+            visualHeight: LayoutTokens.segmentedHeight,
+            touchTargetHeight: LayoutTokens.minTouchTarget,
+            action: (): void => { this.onOpenTrash(); },
+          }) {
+            Row({ space: SpaceTokens.inlineTight }) {
+              Image($r('app.media.set_trash'))
+                .width(IconTokens.compact)
+                .height(IconTokens.compact)
+              Text('废纸篓')
+                .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+                .fontWeight(TypeTokens.headline.weight)
+                .lineHeight(TypeTokens.caption.lineHeight)
+                .fontColor(ColorTokens.primary)
+            }
+            .width('100%')
+            .height(LayoutTokens.segmentedHeight)
+            .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+            .alignItems(VerticalAlign.Center)
+            .justifyContent(FlexAlign.Center)
+            .backgroundColor(ColorTokens.barSurface)
+            .backdropBlur(LayoutTokens.glassBlur)
+            .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+            .borderRadius(RadiusTokens.floatingBar)
+            .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
+          }
+        }
+        .layoutWeight(1)
       }
       .width('100%')
       .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, bottom: SpaceTokens.xs })

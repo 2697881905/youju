@@ -10,7 +10,10 @@
     "test": "jest",
     "prisma:generate": "prisma generate",
     "prisma:db-push": "prisma db push",
-    "seed:tags": "tsx prisma/seed.ts"
+    "seed:tags": "tsx prisma/seed.ts",
+    "media:migrate-refs": "tsx scripts/migrate-cos-media-refs.ts",
+    "check:agc": "node scripts/check-agc-identity.mjs",
+    "check:release-config": "node scripts/check-release-config.mjs"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

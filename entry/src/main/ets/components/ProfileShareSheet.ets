@@ -30,6 +30,7 @@ export struct ProfileShareSheet {
   });
   onCopyLink: () => void = (): void => {};
   onCopyCardText: () => void = (): void => {};
+  onSystemShare: () => void = (): void => {};
 
   private data(): ProfileShareData {
     return this.getProfile();
@@ -117,6 +118,7 @@ export struct ProfileShareSheet {
 
       this.option('复制主页链接', this.onCopyLink)
       this.option('复制分享文案', this.onCopyCardText)
+      this.option('系统分享', this.onSystemShare)
       }
       .width('100%')
     }

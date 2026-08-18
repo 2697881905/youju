@@ -264,6 +264,13 @@ struct PhotoPublishPage {
           this.circleSelector()
         }
         Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
+        ImagePicker({
+          selected: $images,
+          maxCount: MAX_PICKED_IMAGES,
+          pickerRequest: this.imagePickerRequest,
+          autoOpen: this.imagePickerRequest > 0,
+        })
+        Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
         TextInput({ text: this.title, placeholder: '一句话标题' })
           .width('100%')
           .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamily)
@@ -293,12 +300,6 @@ struct PhotoPublishPage {
           .width('100%')
           .textAlign(TextAlign.End)
         Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator).margin({ top: SpaceTokens.sm })
-        ImagePicker({
-          selected: $images,
-          maxCount: MAX_PICKED_IMAGES,
-          pickerRequest: this.imagePickerRequest,
-          autoOpen: this.imagePickerRequest > 0,
-        })
         PublishStructuredSupplement({
           genre: this.genre,
           hint: this.currentGenreHint(),
