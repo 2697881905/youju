@@ -147,6 +147,14 @@ function drawTriangle(canvas: drawing.Canvas, brush: drawing.Brush, x0: number, 
   canvas.drawPath(path);
 }
 
+function drawGrain(canvas: drawing.Canvas, brush: drawing.Brush, left: number, top: number, width: number, height: number, count: number, color: common2D.Color): void {
+  for (let i = 0; i < count; i++) {
+    const x: number = left + ((i * 53 + i * i * 7) % width);
+    const y: number = top + ((i * 97 + i * i * 3) % height);
+    drawCircle(canvas, brush, x, y, 1 + (i % 3), color);
+  }
+}
+
 function drawFilmSurface(canvas: drawing.Canvas, brush: drawing.Brush, pen: drawing.Pen, style: TextPosterStyleOption): void {
   const accent: common2D.Color = makeColor(255, style.accentRgb[0], style.accentRgb[1], style.accentRgb[2]);
   fillRoundRect(canvas, brush, 72, 88, 1028, POSTER_HEIGHT - 52, 34, makeColor(80, 0, 0, 0));
@@ -158,6 +166,7 @@ function drawFilmSurface(canvas: drawing.Canvas, brush: drawing.Brush, pen: draw
     drawCircle(canvas, brush, 86, y, 13, makeColor(230, 16, 20, 24));
     drawCircle(canvas, brush, 982, y, 13, makeColor(230, 16, 20, 24));
   }
+  drawGrain(canvas, brush, 124, 182, 820, 1020, 140, makeColor(18, 86, 56, 45));
   drawLine(canvas, pen, 146, 150, 922, 150, 10, makeColor(190, accent.red, accent.green, accent.blue));
   drawLine(canvas, pen, 146, POSTER_HEIGHT - 142, 922, POSTER_HEIGHT - 142, 10, makeColor(190, accent.red, accent.green, accent.blue));
 }
@@ -171,11 +180,7 @@ function drawKraftSurface(canvas: drawing.Canvas, brush: drawing.Brush, pen: dra
     const y: number = 126 + i * 78;
     drawLine(canvas, pen, 112 + (i % 3) * 19, y, 940 - (i % 4) * 17, y + ((i % 2) === 0 ? 4 : -3), 3, makeColor(28, 113, 75, 39));
   }
-  for (let i = 0; i < 22; i++) {
-    const x: number = 124 + (i * 71) % 820;
-    const y: number = 128 + (i * 97) % 1080;
-    drawCircle(canvas, brush, x, y, 3 + (i % 3), makeColor(22, 95, 62, 34));
-  }
+  drawGrain(canvas, brush, 112, 122, 840, 1070, 180, makeColor(22, 95, 62, 34));
   for (let x = 128; x < 940; x += 42) {
     drawLine(canvas, pen, x, 140, x + 22, 140, 4, makeColor(180, accent.red, accent.green, accent.blue));
     drawLine(canvas, pen, x, POSTER_HEIGHT - 150, x + 22, POSTER_HEIGHT - 150, 4, makeColor(180, accent.red, accent.green, accent.blue));
@@ -188,6 +193,7 @@ function drawStickySurface(canvas: drawing.Canvas, brush: drawing.Brush, style: 
   fillRoundRect(canvas, brush, 108, 146, 960, POSTER_HEIGHT - 94, 4, makeColor(255, style.innerSurfaceRgb[0], style.innerSurfaceRgb[1], style.innerSurfaceRgb[2]));
   fillRoundRect(canvas, brush, 382, 92, 700, 148, 3, makeColor(110, 255, 255, 255));
   drawTriangle(canvas, brush, 880, POSTER_HEIGHT - 94, 960, POSTER_HEIGHT - 94, 960, POSTER_HEIGHT - 174, makeColor(105, 210, 174, 82));
+  drawGrain(canvas, brush, 122, 172, 818, 1040, 90, makeColor(20, 142, 103, 32));
   drawLine(canvas, new drawing.Pen(), 150, POSTER_HEIGHT - 168, 900, POSTER_HEIGHT - 168, 5, makeColor(120, style.accentRgb[0], style.accentRgb[1], style.accentRgb[2]));
 }
 
@@ -197,6 +203,7 @@ function drawPaperSurface(canvas: drawing.Canvas, brush: drawing.Brush, style: T
   fillRoundRect(canvas, brush, 78, 86, 990, POSTER_HEIGHT - 98, 34, makeColor(255, style.innerSurfaceRgb[0], style.innerSurfaceRgb[1], style.innerSurfaceRgb[2]));
   fillRoundRect(canvas, brush, 108, 118, 960, POSTER_HEIGHT - 128, 26, makeColor(24, style.accentRgb[0], style.accentRgb[1], style.accentRgb[2]));
   fillRoundRect(canvas, brush, 132, 154, 936, 166, 6, makeColor(112, style.accentRgb[0], style.accentRgb[1], style.accentRgb[2]));
+  drawGrain(canvas, brush, 126, 178, 816, 1010, 74, makeColor(16, 90, 100, 24));
 }
 
 function drawPosterSurface(canvas: drawing.Canvas, brush: drawing.Brush, pen: drawing.Pen, style: TextPosterStyleOption): void {
@@ -211,7 +218,7 @@ function drawPosterSurface(canvas: drawing.Canvas, brush: drawing.Brush, pen: dr
   }
 }
 
-async function createPosterBytes(_title: string, content: string, _genre: Genre, styleKey?: string): Promise<ArrayBuffer> {
+async function createPosterBytes(title: string, content: string, _genre: Genre, styleKey?: string): Promise<ArrayBuffer> {
   const pixelMap: image.PixelMap = image.createPixelMapSync({
     size: { width: POSTER_WIDTH, height: POSTER_HEIGHT },
     pixelFormat: image.PixelMapFormat.RGBA_8888,
@@ -241,6 +248,14 @@ async function createPosterBytes(_title: string, content: string, _genre: Genre,
     const lineHeight: number = bodySize + 42;
     const textBlockHeight: number = bodyLines.length * lineHeight;
     let cursorY: number = (POSTER_HEIGHT - textBlockHeight) / 2 + bodySize;
+
+    const titleFont: drawing.Font = new drawing.Font();
+    titleFont.setSize(34);
+    titleFont.enableEmbolden(true);
+    const displayTitle: string = title.trim().length > 0 ? title.trim() : '有据 · 文字帖';
+    const titleLines: string[] = splitLines(displayTitle, titleFont, 720, 1);
+    const titleWidth: number = titleFont.measureText(titleLines[0], drawing.TextEncoding.TEXT_ENCODING_UTF8);
+    drawText(canvas, brush, titleFont, titleLines[0], (POSTER_WIDTH - titleWidth) / 2, 226, makeColor(210, textRed, textGreen, textBlue));
 
     // 双引号独立放置在对角，不占用正文排版宽度。
     const quoteFont: drawing.Font = new drawing.Font();
