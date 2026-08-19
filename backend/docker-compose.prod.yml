@@ -1,7 +1,7 @@
 services:
   mysql:
     image: mysql:8.0
-    container_name: bbb-mysql
+    container_name: youju-mysql
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
@@ -18,7 +18,7 @@ services:
 
   backend:
     build: .
-    container_name: bbb-backend
+    container_name: youju-backend
     restart: unless-stopped
     env_file:
       - .env
@@ -35,7 +35,7 @@ services:
 
   nginx:
     image: nginx:alpine
-    container_name: bbb-nginx
+    container_name: youju-nginx
     restart: unless-stopped
     depends_on:
       - backend

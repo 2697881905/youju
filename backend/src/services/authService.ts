@@ -52,7 +52,7 @@ export async function loginWithHuawei(
   // 新用户：openId 留空，unionID 必填；昵称缺失时生成默认名
   const defaultNickname: string = nickname && nickname.trim().length > 0
     ? nickname
-    : '华为用户' + Math.random().toString(36).slice(2, 6);
+    : '据友' + String(Math.floor(100000 + Math.random() * 900000));
   const created = await prisma.user.create({
     data: {
       openId: null,

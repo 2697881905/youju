@@ -2,7 +2,7 @@
 
 > 面向每一个人的理性内容分享社区 · HarmonyOS NEXT 原生应用
 > 技术栈：**ArkTS/ArkUI（API 24, Stage 模型）+ Node.js/Express/TypeScript + Prisma + MySQL + 腾讯云 COS**
-> 包名：`com.youju.app` ｜ 版本：1.0.0（1000000） ｜ Git 仓库：`github.com/2697881905/BigBlueBook`（待改名 YouJuApp）
+> 包名：`com.youju.app` ｜ 版本：1.0.0（1000000） ｜ Git 仓库：`github.com/2697881905/YouJuApp`
 
 ---
 

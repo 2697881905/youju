@@ -269,6 +269,7 @@ export interface DmMessage {
   type: string; // text | image | video | share
   content: string; // text 为文本；image/video 为媒体 viewUrl；share 为 DmSharePayload 的 JSON 串
   read: boolean;
+  recalled?: boolean; // 已撤回（双方均不可见正文，前端展示占位文案）
   createdAt: string; // ISO
 }
 

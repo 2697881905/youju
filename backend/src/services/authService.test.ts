@@ -32,7 +32,7 @@ const mockedUpdate = prisma.user.update as jest.Mock;
 const mockedPostFindMany = prisma.post.findMany as jest.Mock;
 
 const EXISTING_USER = { id: 1, openId: null, unionID: 'U_EXIST', nickname: '老用户', avatar: 'a.png' };
-const NEW_USER = { id: 2, openId: null, unionID: 'U_NEW', nickname: '华为用户abcd', avatar: 'b.png' };
+const NEW_USER = { id: 2, openId: null, unionID: 'U_NEW', nickname: '据友123456', avatar: 'b.png' };
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -68,22 +68,21 @@ describe('loginWithHuawei', () => {
     expect(mockedCreate).toHaveBeenCalledWith({
       data: { openId: null, unionID: 'U_NEW', nickname: '华为小王', avatar: 'b.png' },
     });
-    expect(result.user).toMatchObject({ id: 2, nickname: '华为用户abcd', avatar: 'b.png' });
+    expect(result.user).toMatchObject({ id: 2, nickname: '据友123456', avatar: 'b.png' });
     expect(result.user).not.toHaveProperty('unionID');
     expect(typeof result.token).toBe('string');
   });
 
   it('c) unionID 不存在且昵称缺省 → openId 仍 null、unionID 必填、默认昵称、无 avatar', async () => {
     mockedFindUnique.mockResolvedValue(null);
-    mockedCreate.mockResolvedValue({ ...NEW_USER, nickname: '华为用户wxyz' });
+    mockedCreate.mockResolvedValue({ ...NEW_USER, nickname: '据友654321' });
 
     await loginWithHuawei('U_NEW');
 
     const callData = mockedCreate.mock.calls[0][0].data;
     expect(callData.openId).toBeNull();
     expect(callData.unionID).toBe('U_NEW');
-    expect(typeof callData.nickname).toBe('string');
-    expect(callData.nickname.length).toBeGreaterThan(0);
+    expect(callData.nickname).toMatch(/^据友\d{6}$/);
     expect(callData.avatar).toBeUndefined();
   });
 

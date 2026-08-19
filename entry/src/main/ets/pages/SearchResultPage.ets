@@ -283,6 +283,8 @@ struct SearchResultPage {
                 GridItem() {
                   PostCard({
                     post: post,
+                    // 多列网格小卡用紧凑档（xs 圆角），避免默认大圆角与半宽卡片失调
+                    compact: true,
                     onOpen: () => {
                       this.goDetail(post);
                     },

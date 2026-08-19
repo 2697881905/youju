@@ -103,15 +103,14 @@ export struct CircleOrbitCanvas {
           .objectFit(ImageFit.Cover)
           .clip(true)
       } else {
-        Text(this.nickname.trim().length > 0 ? this.nickname.trim().charAt(0) : '?')
+        // 无头像时与全局 Avatar 组件一致：用品牌默认头像，而不是首字母占位，
+        // 保证星系中心看到的就是「我的」个人主页那个头像。
+        Image($r('app.media.default_avatar'))
           .width(CENTER_AVATAR_SIZE)
           .height(CENTER_AVATAR_SIZE)
           .borderRadius(CENTER_AVATAR_SIZE / 2)
-          .fontSize(CENTER_AVATAR_SIZE * 0.42).fontFamily(TypeTokens.fontFamily)
-          .fontWeight(TypeTokens.title.weight)
-          .fontColor(ColorTokens.onBrand)
-          .textAlign(TextAlign.Center)
-          .backgroundColor(ColorTokens.brand)
+          .objectFit(ImageFit.Cover)
+          .clip(true)
       }
     }
     .width(CENTER_AVATAR_SIZE)
