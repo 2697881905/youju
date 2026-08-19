@@ -35,6 +35,11 @@ type FeedMode = 'recommend' | 'following' | 'daily';
 // FeedMode → 分段索引 的映射（用于顶栏 ForEach 选中态比较）
 const FEED_MODE_IDX_MAP: FeedMode[] = ['recommend', 'following', 'daily'];
 
+// 自动重试上限：避免真机连不上后端时无限重试 → 首页永久「加载中…」转圈。
+// 超限后停止重试并展示明确「加载失败」错误态，由用户手动点重试。
+const FEED_MAX_RETRY: number = 3;
+const TAGS_MAX_RETRY: number = 3;
+
 const SORT_KEYS: SortKey[] = ['hot', 'latest', 'recommend'];
 const FEED_SEGMENTS: SegmentedItem[] = [
   { key: 'recommend', label: '推荐' },
@@ -81,6 +86,8 @@ export struct HomeTab {
   private tagsRetryTimer: number = 0;
   // 模拟器启动时后端端口转发可能尚未就绪，信息流失败后自动补拉一次。
   private feedRetryTimer: number = 0;
+  private feedRetryCount: number = 0; // 连接错误自动重试计数（防无限重试）
+  private tagsRetryCount: number = 0; // 标签加载自愈重试计数（防无限重试）
 
   aboutToAppear(): void {
     this.loadTags();
@@ -223,8 +230,9 @@ export struct HomeTab {
       this.tagsLoaded = true;
     } else {
       this.tagsLoaded = false;
-      // 自愈：仅挂起一次延迟重试（约 4s），后端恢复后兜底态自动解除；用句柄防重入
-      if (this.tagsRetryTimer === 0) {
+      // 自愈：挂起延迟重试（约 4s），后端恢复后兜底态自动解除；用句柄防重入 + 次数上限防无限重试
+      if (this.tagsRetryCount < TAGS_MAX_RETRY && this.tagsRetryTimer === 0) {
+        this.tagsRetryCount += 1;
         this.tagsRetryTimer = setTimeout((): void => {
           this.tagsRetryTimer = 0;
           this.loadTags();
@@ -238,6 +246,7 @@ export struct HomeTab {
     this.page = 1;
     this.finished = false;
     this.followingCount = 0; // 重置关注流空态缓存
+    this.feedRetryCount = 0; // 手动刷新/切换信息源时重置重试计数
     await this.fetch(true);
   }
 
@@ -343,7 +352,8 @@ export struct HomeTab {
       }
     } catch (e) {
       this.error = (e as Error).message;
-      if (this.isConnError(this.error) && this.feedRetryTimer === 0) {
+      if (this.isConnError(this.error) && this.feedRetryCount < FEED_MAX_RETRY && this.feedRetryTimer === 0) {
+        this.feedRetryCount += 1;
         this.feedRetryTimer = setTimeout((): void => {
           this.feedRetryTimer = 0;
           this.refresh();
