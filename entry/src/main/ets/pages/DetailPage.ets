@@ -215,9 +215,13 @@ struct DetailPage {
     customStyle: false,
   });
 
-  // 分享面板控制器（复制链接/复制标题/系统分享/分享卡片）
+  // 分享面板控制器（底部拉起式菜单：关注头像直发私信/更多/复制链接/复制标题/系统分享/分享卡片）
   private shareController: CustomDialogController = new CustomDialogController({
     builder: ShareSheet({
+      getPayload: (): DmSharePayload | null => this.buildSharePayload(),
+      onShared: (receiverId: number, nickname: string): void => {
+        this.bumpDmSignal();
+      },
       onShareCard: (): void => {
         this.doShareCard();
       },
@@ -234,8 +238,8 @@ struct DetailPage {
         this.onShareToDm();
       },
     }),
-    alignment: DialogAlignment.Center,
-    customStyle: false,
+    alignment: DialogAlignment.Bottom,
+    customStyle: true,
     autoCancel: true,
   });
 

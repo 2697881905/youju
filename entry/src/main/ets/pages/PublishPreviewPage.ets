@@ -270,6 +270,17 @@ struct PublishPreviewPage {
         .width('100%')
         .height('100%')
         .backgroundColor(style.background)
+      Column()
+        .width(style.texture === 'sticky' ? '88%' : '88%')
+        .height(style.texture === 'sticky' ? '86%' : '90%')
+        .backgroundColor(style.surface)
+        .borderRadius(style.texture === 'sticky' ? RadiusTokens.sm : RadiusTokens.lg)
+        .shadow({ radius: 10, color: '#26000000', offsetY: 6 });
+      Column()
+        .width(style.texture === 'film' ? '78%' : '84%')
+        .height(style.texture === 'sticky' ? '80%' : '84%')
+        .backgroundColor(style.innerSurface)
+        .borderRadius(RadiusTokens.md);
       if (style.texture === 'film') {
         Row() {
           Column({ space: 12 }) {
@@ -308,17 +319,6 @@ struct PublishPreviewPage {
           .backgroundColor('#A8FFFFFF')
           .position({ x: 150, y: 18 })
       }
-      Column()
-        .width(style.texture === 'sticky' ? '88%' : '88%')
-        .height(style.texture === 'sticky' ? '86%' : '90%')
-        .backgroundColor(style.surface)
-        .borderRadius(style.texture === 'sticky' ? RadiusTokens.sm : RadiusTokens.lg)
-        .shadow({ radius: 10, color: '#26000000', offsetY: 6 });
-      Column()
-        .width(style.texture === 'film' ? '78%' : '84%')
-        .height(style.texture === 'sticky' ? '80%' : '84%')
-        .backgroundColor(style.innerSurface)
-        .borderRadius(RadiusTokens.md);
       Column({ space: SpaceTokens.sm }) {
         Text(draft.title.trim().length > 0 ? draft.title.trim() : '有据 · 文字帖')
           .fontSize(TypeTokens.caption.size)

@@ -78,4 +78,41 @@ router.post('/', auth, async (req: AuthRequest, res: Response) => {
   }
 });
 
+// 解析路径中的 :id（消息 id，正整数）
+function parseMessageId(raw: string): number {
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n <= 0) {
+    throw new Error('无效的消息 id');
+  }
+  return n;
+}
+
+// DELETE /v1/messages/:id —— 删除消息（仅自己不可见，对方不受影响）
+router.delete('/:id', auth, async (req: AuthRequest, res: Response) => {
+  try {
+    const messageId = parseMessageId(req.params.id);
+    await messageService.deleteForMe(req.userId!, messageId);
+    return ok(res, { deleted: true });
+  } catch (e) {
+    if (e instanceof messageService.MessageError) {
+      return fail(res, e.code, e.message, e.httpStatus);
+    }
+    return internalError(res, 'messages.deleteForMe', e);
+  }
+});
+
+// POST /v1/messages/:id/recall —— 撤回消息（仅发送方本人、发送后 5 分钟内；双方均不可见）
+router.post('/:id/recall', auth, async (req: AuthRequest, res: Response) => {
+  try {
+    const messageId = parseMessageId(req.params.id);
+    const msg = await messageService.recallMessage(req.userId!, messageId);
+    return ok(res, msg);
+  } catch (e) {
+    if (e instanceof messageService.MessageError) {
+      return fail(res, e.code, e.message, e.httpStatus);
+    }
+    return internalError(res, 'messages.recall', e);
+  }
+});
+
 export default router;

@@ -28,7 +28,7 @@ export struct PublishModeSheet {
         Image(icon)
           .width(IconTokens.small)
           .height(IconTokens.small)
-          .fillColor(ColorTokens.primary)
+          .objectFit(ImageFit.Contain)
         Text(label)
           .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
           .fontWeight(TypeTokens.headline.weight)
@@ -73,9 +73,9 @@ export struct PublishModeSheet {
         .width('100%')
         .alignItems(VerticalAlign.Center)
 
-        this.modeOption('photo', $r('app.media.nav_publish'), '图文发布')
-        this.modeOption('video', $r('app.media.media_video'), '视频发布')
-        this.modeOption('text', $r('app.media.book_doc'), '长文发布')
+        this.modeOption('photo', $r('app.media.publish_photo_outline'), '图文发布')
+        this.modeOption('video', $r('app.media.publish_video_outline'), '视频发布')
+        this.modeOption('text', $r('app.media.publish_text_outline'), '长文发布')
       }
       .width('100%')
     }

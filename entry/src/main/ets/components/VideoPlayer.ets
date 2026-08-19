@@ -5,6 +5,8 @@ import { resolveDisplayImageUrl } from '../services/api';
 export struct VideoPlayer {
   @Prop @Watch('onSourceChanged') src: string = '';
   @Prop poster: string | PixelMap = '';
+  // 可选：传入后点击（视频/播放按钮）不再内联播放，而是回调由父级打开全屏查看器。
+  onOpen: (() => void) | null = null;
   private controller: VideoController = new VideoController();
   @State playing: boolean = false;
 
@@ -13,6 +15,10 @@ export struct VideoPlayer {
   }
 
   private togglePlayback(): void {
+    if (this.onOpen !== null) {
+      this.onOpen();
+      return;
+    }
     if (this.playing) {
       this.controller.pause();
     } else {

@@ -3,15 +3,18 @@ import { BUILD_MODE_NAME } from 'BuildProfile';
 import { Post, DailyPost, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody, PendingPost, ModerateAction, NotificationPrefs, BlockUser, PrivacySettingsData, UserExportData, DebateVoteResult, Conversation, DmMessage, DmSharePayload } from '../models/types';
 
 // 后端地址：根据构建模式切换
-// - debug（模拟器/本地开发）：http://127.0.0.1:3000（配合 hdc rport tcp:3000 tcp:3000）
 // - release（上架包）：生产 HTTPS 域名
+// - debug（模拟器/本地开发）：用 Mac 局域网 IP 直连，绕过 hdc rport 隧道（隧道延迟高、偶发 10s 挂死）。
+//   Mac IP 变动时只改 DEBUG_API_HOST 一处即可（终端 `ipconfig getifaddr en0` 查当前 IP）。
+//   若只能走 hdc 隧道，把它改回 'http://127.0.0.1:3000' 并执行 hdc -t <序列号> rport tcp:3000 tcp:3000。
 // BUILD_MODE_NAME 由构建期生成，类型为字面量（'debug'/'release'）。
 // 严格模式（assembleHap）下与字面量比较会触发 "no overlap" 报错，转成 string 再比较。
 const BUILD_MODE: string = BUILD_MODE_NAME;
+const DEBUG_API_HOST: string = 'http://192.168.1.32:3000';
 export const BASE_URL: string =
   BUILD_MODE === 'release'
     ? 'https://api.mindtype.cn'
-    : 'http://127.0.0.1:3000';
+    : DEBUG_API_HOST;
 
 // 本地上传服务会把宿主机 LAN 地址写入数据库；地址变动或模拟器无法直连 LAN 时，
 // 统一回落到已经可用的 hdc rport 地址，避免头像和背景图变成灰色占位。
@@ -734,6 +737,17 @@ export async function sendMessage(receiverId: number, content: string, type: str
   return api.post<DmMessage>('/v1/messages', body);
 }
 
+// DELETE /v1/messages/:id —— 删除消息（仅自己不可见，对方不受影响）
+export async function deleteMessageForMe(messageId: number): Promise<void> {
+  await api.del<null>('/v1/messages/' + String(messageId));
+}
+
+// POST /v1/messages/:id/recall —— 撤回消息（仅发送方本人、发送后 5 分钟内；双方均不可见）
+// 返回撤回后的消息（recalled=true 且 content 置空）。
+export function recallMessage(messageId: number): Promise<DmMessage> {
+  return api.post<DmMessage>('/v1/messages/' + String(messageId) + '/recall');
+}
+
 // POST /v1/messages { receiverId, content } —— 把帖子分享为私信（type: 'share'）
 // content 为 DmSharePayload 的 JSON 序列化串；后端校验 postId/title 并持久化。
 // 权限校验（dmPolicy/拉黑/对方存在）由后端 sendMessage 统一处理，失败抛中文 MessageError 透传。
@@ -741,29 +755,29 @@ export async function sendPostShare(receiverId: number, payload: DmSharePayload)
   return sendMessage(receiverId, JSON.stringify(payload), 'share');
 }
 
-// 上传媒体到 COS（私信发图/发视频用）：取预签名 → PUT 二进制 → 返回 viewUrl；失败抛错
+// 上传媒体到 COS（私信发图/发视频用）：取签名 → PUT 二进制 → 返回 mediaRef（持久化引用）；失败抛错
 export async function uploadChatMedia(contentType: string, folder: 'avatars' | 'backgrounds' | 'posts' | 'video', data: ArrayBuffer): Promise<string> {
   const sig: UploadSignature = await getUploadSignature(contentType, folder);
-  await new Promise<void>((resolve: () => void, reject: (err: Error) => void): void => {
-    const req = http.createHttp();
-    req.request(resolveUploadPutUrl(sig), {
+  // 用 Promise 式 request（与全项目 request()/putBinary 一致）：回调式在大 body 场景下
+  // 存在回调丢失导致 await 永久挂起的实测问题（PUT 已 200 但后续流程不再执行）。
+  const req = http.createHttp();
+  try {
+    const resp = await req.request(resolveUploadPutUrl(sig), {
       method: http.RequestMethod.PUT,
-      header: { 'Content-Type': sig.contentType },
+      header: { 'Content-Type': sig.contentType } as Record<string, string>,
       extraData: data,
       connectTimeout: 30000,
       readTimeout: 60000,
-    }, (err: Error | null, resp: http.HttpResponse): void => {
-      req.destroy();
-      if (err !== null) {
-        reject(err);
-      } else if (resp.responseCode >= 200 && resp.responseCode < 300) {
-        resolve();
-      } else {
-        reject(new Error('上传失败 HTTP ' + resp.responseCode));
-      }
     });
-  });
-  return sig.viewUrl;
+    if (resp.responseCode < 200 || resp.responseCode >= 300) {
+      throw new Error('上传失败 HTTP ' + resp.responseCode);
+    }
+  } finally {
+    req.destroy();
+  }
+  // 必须返回持久化引用 mediaRef（cos://<key> 或 local 静态 URL），而非短时预览 viewUrl；
+  // ChatPage 展示时经 resolveDisplayImageUrl → /v1/media 动态签发，避免预览链接过期失效。
+  return sig.mediaRef;
 }
 
 // ===== 辩论投票 =====

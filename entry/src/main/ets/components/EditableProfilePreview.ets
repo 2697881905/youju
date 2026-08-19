@@ -13,7 +13,11 @@ import { TypeTokens } from '../design/tokens/type';
 @Component
 export struct EditableProfilePreview {
   @Prop avatar: string = '';
-  @Prop avatarPreview: image.PixelMap | null = null;
+  // 像素图预览用 @Link（父子共享引用）而非 @Prop（单向拷贝）：
+  // @Prop 对 image.PixelMap 这类复杂对象只按引用比较，选图后父组件更新不一定驱动本组件重渲染，
+  // 导致「修改背景不即时显示、点保存才渲染」（保存后改走 URL 分支 + string 变化才触发）。
+  @Link avatarPreview: image.PixelMap | null;
+  @Link profileBackgroundPreview: image.PixelMap | null;
   @Prop nickname: string = '';
   @Prop bio: string = '';
   @Prop selectedGender: string = '0';
@@ -22,7 +26,6 @@ export struct EditableProfilePreview {
   @Prop followerCount: number = 0;
   @Prop totalLikes: number = 0;
   @Prop profileBackground: string = '';
-  @Prop profileBackgroundPreview: image.PixelMap | null = null;
   @Prop backgroundStatus: string = '';
   @Prop uploadingBackground: boolean = false;
   onPickBackground: () => void = (): void => {};

@@ -5,7 +5,7 @@ BACKUP_DIR=/home/ubuntu/youju/backups
 mkdir -p "$BACKUP_DIR"
 STAMP=$(date +%F)
 # 容器内 mysqldump，root 密码取容器环境变量；失败则退出并记录日志
-sudo docker exec bbb-mysql sh -c 'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" youju' > "$BACKUP_DIR/youju_$STAMP.sql"
+sudo docker exec youju-mysql sh -c 'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" youju' > "$BACKUP_DIR/youju_$STAMP.sql"
 if [ $? -ne 0 ]; then
   echo "$(date '+%F %T') mysqldump FAILED" >> "$BACKUP_DIR/backup.log"
   exit 1

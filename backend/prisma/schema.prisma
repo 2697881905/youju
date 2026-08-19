@@ -302,16 +302,28 @@ model DebateVote {
 
 // 私信消息表（两人配对即一条会话，不单独建会话表）
 model Message {
-  id         Int      @id @default(autoincrement())
-  senderId   Int      // 发送方 userId
-  receiverId Int      // 接收方 userId
-  type       String   @default("text") // text | image | video（image/video 时 content 存媒体 viewUrl）
-  content    String   @db.Text // 文本消息内容；image/video 消息存 COS viewUrl
-  read       Boolean  @default(false) // 接收方是否已读
-  createdAt  DateTime @default(now())
+  id         Int       @id @default(autoincrement())
+  senderId   Int       // 发送方 userId
+  receiverId Int       // 接收方 userId
+  type       String    @default("text") // text | image | video（image/video 时 content 存媒体 viewUrl）
+  content    String    @db.Text // 文本消息内容；image/video 消息存 COS viewUrl
+  read       Boolean   @default(false) // 接收方是否已读
+  recalledAt DateTime? // 撤回时间（双方均不可见正文，前端展示「已撤回」占位）
+  createdAt  DateTime  @default(now())
 
   @@index([receiverId, read])            // 未读统计
   @@index([senderId, receiverId])        // 会话历史（A→B）
   @@index([receiverId, senderId])        // 会话历史（B→A）
   @@index([receiverId, createdAt])       // 会话列表按最近活动排序
+}
+
+// 私信「仅自己删除」：用户维度的消息隐藏记录（删除后仅该用户不可见，对方不受影响）
+model MessageDeletion {
+  id        Int      @id @default(autoincrement())
+  userId    Int      // 执行删除的用户
+  messageId Int      // 被隐藏的消息
+  createdAt DateTime @default(now())
+
+  @@unique([userId, messageId])          // 幂等：同一用户对同一消息只记一次
+  @@index([messageId])                   // 会话历史按消息过滤
 }

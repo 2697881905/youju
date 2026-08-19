@@ -39,6 +39,7 @@ export interface DmMessage {
   type: string;
   content: string;
   read: boolean;
+  recalled: boolean; // 是否已撤回（撤回后 content 置空，双方均不可见正文）
   createdAt: string; // ISO
 }
 
@@ -57,6 +58,8 @@ const MAX_MEDIA_LEN = 500; // image/video 消息存 viewUrl，长度上限放宽
 const SHARE_MAX = 4000; // 分享消息存帖子的 JSON 摘要（标题+正文片段+封面URL）
 // 允许的消息类型
 const MSG_TYPES: string[] = ['text', 'image', 'video', 'share'];
+// 撤回窗口：发送后 5 分钟内可撤回（仅发送方本人）
+const RECALL_WINDOW_MS = 5 * 60 * 1000;
 
 // 解析并校验分享消息负载；非法返回 null（调用方抛 400）
 function parseShareContent(content: string): DmSharePayload | null {
@@ -190,6 +193,7 @@ export async function sendMessage(
     type: msg.type,
     content: msg.content,
     read: msg.read,
+    recalled: false,
     createdAt: msg.createdAt.toISOString(),
   };
 }
@@ -239,6 +243,15 @@ export async function listConversations(viewerId: number): Promise<Conversation[
     const peerId: number = r.senderId === viewerId ? r.receiverId : r.senderId;
     const u = userMap.get(peerId);
     const deleted: boolean = !!u?.deletedAt;
+    // 已撤回的消息：预览统一显示占位文案（不暴露原内容）
+    let lastContent: string;
+    if (r.recalledAt) {
+      lastContent = '[消息已撤回]';
+    } else if (r.type === 'share') {
+      lastContent = sharePreview(r.content);
+    } else {
+      lastContent = r.content;
+    }
     return {
       peer: {
         id: peerId,
@@ -247,7 +260,7 @@ export async function listConversations(viewerId: number): Promise<Conversation[
         deleted,
       },
       lastType: (r.type ?? 'text'),
-      lastContent: r.type === 'share' ? sharePreview(r.content) : r.content,
+      lastContent,
       lastSenderId: r.senderId,
       lastAt: new Date(r.createdAt).toISOString(),
       unreadCount: unreadMap.get(peerId) ?? 0,
@@ -256,6 +269,8 @@ export async function listConversations(viewerId: number): Promise<Conversation[
 }
 
 // 与某用户的私信历史（旧→新），分页；同时标记这些消息为已读由独立接口处理
+// - 过滤「仅自己删除」的消息（MessageDeletion，删除后仅本人不可见）
+// - 已撤回的消息保留占位（recalled=true 且 content 置空，双方均不可见正文）
 export async function getMessages(
   viewerId: number,
   peerId: number,
@@ -275,15 +290,74 @@ export async function getMessages(
     skip: (p - 1) * take,
     take,
   });
-  return rows.map((m) => ({
-    id: m.id,
-    senderId: m.senderId,
-    receiverId: m.receiverId,
-    type: m.type,
-    content: m.content,
-    read: m.read,
-    createdAt: m.createdAt.toISOString(),
-  }));
+  if (rows.length === 0) {
+    return [];
+  }
+  // 本人已删除的消息 id 集合（分页后过滤，保持与分页语义一致）
+  const deletions = await prisma.messageDeletion.findMany({
+    where: { userId: viewerId, messageId: { in: rows.map((r) => r.id) } },
+    select: { messageId: true },
+  });
+  const deletedIds = new Set<number>(deletions.map((d) => d.messageId));
+  return rows
+    .filter((m) => !deletedIds.has(m.id))
+    .map((m) => ({
+      id: m.id,
+      senderId: m.senderId,
+      receiverId: m.receiverId,
+      type: m.type,
+      content: m.recalledAt ? '' : m.content,
+      read: m.read,
+      recalled: !!m.recalledAt,
+      createdAt: m.createdAt.toISOString(),
+    }));
+}
+
+// 仅自己删除：对该消息记录一条「viewerId 已隐藏」，会话历史不再返回；对方不受影响
+export async function deleteForMe(viewerId: number, messageId: number): Promise<void> {
+  const msg = await prisma.message.findUnique({ where: { id: messageId } });
+  if (!msg) {
+    throw new MessageError('消息不存在', 404, 404);
+  }
+  if (msg.senderId !== viewerId && msg.receiverId !== viewerId) {
+    throw new MessageError('无权删除该消息', 403, 403);
+  }
+  await prisma.messageDeletion.upsert({
+    where: { userId_messageId: { userId: viewerId, messageId } },
+    update: {},
+    create: { userId: viewerId, messageId },
+  });
+}
+
+// 撤回：仅发送方本人、发送后 5 分钟内可撤回；撤回后双方均不可见正文
+export async function recallMessage(viewerId: number, messageId: number): Promise<DmMessage> {
+  const msg = await prisma.message.findUnique({ where: { id: messageId } });
+  if (!msg) {
+    throw new MessageError('消息不存在', 404, 404);
+  }
+  if (msg.senderId !== viewerId) {
+    throw new MessageError('只能撤回自己发送的消息', 403, 403);
+  }
+  if (msg.recalledAt) {
+    throw new MessageError('该消息已撤回', 400, 400);
+  }
+  if (Date.now() - msg.createdAt.getTime() > RECALL_WINDOW_MS) {
+    throw new MessageError('超过 5 分钟，无法撤回', 400, 400);
+  }
+  const updated = await prisma.message.update({
+    where: { id: messageId },
+    data: { recalledAt: new Date() },
+  });
+  return {
+    id: updated.id,
+    senderId: updated.senderId,
+    receiverId: updated.receiverId,
+    type: updated.type,
+    content: '',
+    read: updated.read,
+    recalled: true,
+    createdAt: updated.createdAt.toISOString(),
+  };
 }
 
 // 标记与某用户的私信为已读（接收方=viewerId），返回更新的条数
@@ -295,7 +369,7 @@ export async function markRead(viewerId: number, peerId: number): Promise<number
   return res.count;
 }
 
-// 当前用户私信未读总数
+// 当前用户私信未读总数（已撤回的消息不计入未读）
 export async function getUnreadCount(viewerId: number): Promise<number> {
-  return prisma.message.count({ where: { receiverId: viewerId, read: false } });
+  return prisma.message.count({ where: { receiverId: viewerId, read: false, recalledAt: null } });
 }

@@ -381,7 +381,7 @@ export struct EditProfilePage {
           Column({ space: SpaceTokens.sm }) {
             EditableProfilePreview({
               avatar: this.avatar,
-              avatarPreview: this.avatarPreview,
+              avatarPreview: $avatarPreview,
               nickname: this.nickname,
               bio: this.bio,
               selectedGender: this.selectedGender,
@@ -390,7 +390,7 @@ export struct EditProfilePage {
               followerCount: this.followerCount,
               totalLikes: this.totalLikes,
               profileBackground: this.profileBackground,
-              profileBackgroundPreview: this.profileBackgroundPreview,
+              profileBackgroundPreview: $profileBackgroundPreview,
               backgroundStatus: this.backgroundStatus,
               uploadingBackground: this.uploadingProfileBackground,
               onPickBackground: (): void => { this.onPickProfileBackground(); },

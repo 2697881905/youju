@@ -8,7 +8,7 @@ export interface CompressedImage {
   bytes: ArrayBuffer; // 上传二进制用（jpeg）
 }
 
-export async function compressImage(uri: string): Promise<CompressedImage> {
+export async function compressImage(uri: string, maxEdge: number = 1920): Promise<CompressedImage> {
   // 相册返回的 photo:// URI 是沙箱受限 URI，必须经由文件描述符打开，
   // 直接用 image.createImageSource(uri) 在某些 SDK 会返回 undefined（导致 createPixelMap 报错）。
   const file = fileIo.openSync(uri, fileIo.OpenMode.READ_ONLY);
@@ -21,6 +21,14 @@ export async function compressImage(uri: string): Promise<CompressedImage> {
   }
   try {
     const pixelMap: image.PixelMap = await source.createPixelMap();
+    // 长边超过 maxEdge 时等比缩小（与 compressAvatar 同模式），避免 4K 原图直传：
+    // 上传体积过大不仅拖慢传输，大流量 PUT 后模拟器 rport 通道也更容易出现后续请求异常。
+    const info = pixelMap.getImageInfoSync();
+    const longEdge: number = Math.max(info.size.width, info.size.height);
+    if (longEdge > maxEdge) {
+      const ratio: number = maxEdge / longEdge;
+      await pixelMap.scale(ratio, ratio);
+    }
     const packer: image.ImagePacker = image.createImagePacker();
     try {
       const bytes: ArrayBuffer = await packer.packToData(pixelMap, {

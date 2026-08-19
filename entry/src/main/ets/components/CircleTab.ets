@@ -2,8 +2,8 @@
 // 星环只负责布局与交互；颜色、阴影、字体和圆角全部复用应用 design token。
 
 import { Tag } from '../models/types';
-import { listTags, listFollowedTags } from '../services/api';
-import { getToken } from '../utils/auth';
+import { listTags, listFollowedTags, getUserProfile } from '../services/api';
+import { getToken, getUserId, getCurrentUser } from '../utils/auth';
 import { likeStore } from '../utils/likeStore';
 import { barBottomReserve } from '../utils/cardTokens';
 import { CountRoll } from '../design/motion/CountRoll';
@@ -117,6 +117,9 @@ export struct CircleTab {
   @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
   @StorageLink('authNickname') authNickname: string = '';
   @StorageLink('authAvatar') authAvatar: string = '';
+  // 星系中心头像：以 authAvatar（登录响应缓存，可能有缺）为初始值，
+  // 再从后端资料接口 getUserProfile 同步真实头像兜底，避免只显示首字母占位。
+  @State selfAvatar: string = '';
   @StorageLink('authUserId') @Watch('onAccountSwitch') accountId: string = '';
   @StorageLink('authToken') @Watch('onTokenReady') token: string = '';
   @StorageLink('activeTab') @Watch('onActiveTab') activeTab: number = 0;
@@ -201,11 +204,37 @@ export struct CircleTab {
     return this.appReduceMotion || this.systemReduceMotion;
   }
 
+  // 同步自己的头像到星系中心：优先用已就绪的 authAvatar，不足/为空时从后端资料接口兜底拉取，
+  // 并回写 authAvatar 让全 App 头像一致。authAvatar 为 @StorageLink，后端有头像时即时覆盖。
+  private async syncSelfAvatar(): Promise<void> {
+    const cached: string = (getCurrentUser()?.avatar ?? '') as string;
+    if (cached.length > 0) {
+      this.selfAvatar = cached;
+      return;
+    }
+    const uid: number = getUserId();
+    if (uid <= 0) {
+      this.selfAvatar = '';
+      return;
+    }
+    try {
+      const p = await getUserProfile(uid);
+      const avatar: string = p.avatar ?? '';
+      this.selfAvatar = avatar;
+      if (avatar.length > 0 && this.authAvatar.length === 0) {
+        AppStorage.setOrCreate<string>('authAvatar', avatar);
+      }
+    } catch (e) {
+      this.selfAvatar = this.authAvatar;
+    }
+  }
+
   private async initData(): Promise<void> {
     this.clearFocusReturnTimer();
     this.centeredName = '';
     this.loading = true;
     this.error = '';
+    this.syncSelfAvatar();
     try {
       const tags: Tag[] = await listTags();
       const followed: string[] = getToken() === '' ? [] : await listFollowedTags();
@@ -596,7 +625,7 @@ export struct CircleTab {
       centeredName: this.centeredName,
       ringDragging: this.ringDragging,
       reduceMotion: this.shouldReduceMotion(),
-      avatar: this.authAvatar,
+      avatar: this.selfAvatar,
       nickname: this.authNickname,
       onPlanet: (name: string): void => { this.onPlanetPressed(name); },
       onPanStart: (): void => { this.onRingPanStart(); },

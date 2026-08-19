@@ -338,16 +338,12 @@ export struct MessagePage {
     this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage' });
   }
 
-  // 点击单条：标记已读 → 本地更新（重赋值数组触发刷新）→ 有 postId 则跳详情
+  // 点击单条：本地乐观标记已读（立即驱动红点消失）→ 后台同步后端 → 按类型跳转
   async onItemClick(item: NotificationItem): Promise<void> {
     if (item.read !== true && item.id !== undefined) {
       const id: number = item.id;
-      try {
-        await markNotificationRead(id);
-      } catch (e) {
-        // 标记失败不影响跳转
-      }
-      // 重赋值数组（逐字段构造新对象，规避 ArkTS V1 禁用的对象展开 {...x}），确保 @State 触发 UI 刷新
+      // 先乐观更新本地（list + unreadMessageCount），立即隐藏红点，避免等待网络；
+      // 否则网络慢时红点迟迟不消失，切花 Tab 重建后才看到。
       const next: NotificationItem[] = this.list.slice();
       for (let i = 0; i < next.length; i++) {
         if (next[i].id === id) {
@@ -368,6 +364,20 @@ export struct MessagePage {
       if (this.unreadCount > 0) {
         this.unreadCount = this.unreadCount - 1;
       }
+      // 标记失败不影响已删除的红点与跳转
+      try {
+        await markNotificationRead(id);
+      } catch (e) {
+        // 忽略：下次进入消息页拉取会以服务器为准
+      }
+      // 用后端权威未读数校正（本地乐观可能与服务器有偏差）
+      this.refreshUnread();
+    }
+    // 点击单条跳转：新增关注 → 该用户（actor）主页；带 postId 的通知（赞/收藏/评论）→ 原帖详情
+    if (item.type === 'follow' && item.actor !== undefined && item.actor !== null && item.actor.id) {
+      openUserProfile(item.actor.id);
+      this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage' });
+      return;
     }
     if (item.postId !== undefined && item.postId !== null) {
       openPostDetail(String(item.postId));

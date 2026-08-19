@@ -275,7 +275,7 @@ struct CircleDetailPage {
             ForEach(this.posts, (post: Post, index: number) => {
               GridItem() {
                 Reveal({ index: index % 5 }) {
-                  PostCard({ post: post, onOpen: (): void => { this.openPost(post); } })
+                  PostCard({ post: post, compact: true, onOpen: (): void => { this.openPost(post); } })
                 }
               }
             }, (post: Post) => this.circleName + '-' + (post.id?.toString() ?? ''))
