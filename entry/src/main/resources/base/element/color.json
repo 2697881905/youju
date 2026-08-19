@@ -169,6 +169,14 @@
       "value": "#FF3B30"
     },
     {
+      "name": "ds_like",
+      "value": "#FF3B30"
+    },
+    {
+      "name": "ds_bookmark",
+      "value": "#FFB400"
+    },
+    {
       "name": "ds_separator",
       "value": "#1F3C3C43"
     },
