@@ -1,6 +1,4 @@
-import { ColorTokens } from '../tokens/color';
 import { RadiusTokens } from '../tokens/radius';
-import { TypeTokens } from '../tokens/type';
 import { resolveDisplayImageUrl } from '../../services/api';
 
 @Component
@@ -13,15 +11,6 @@ export struct Avatar {
     return this.avatar ?? '';
   }
 
-  private safeName(): string {
-    return this.name ?? '';
-  }
-
-  private initial(): string {
-    const trimmed = this.safeName().trim();
-    return trimmed.length > 0 ? trimmed.charAt(0) : '?';
-  }
-
   build() {
     if (this.safeAvatar().length > 0) {
       Image(resolveDisplayImageUrl(this.safeAvatar()))
@@ -31,15 +20,13 @@ export struct Avatar {
         .objectFit(ImageFit.Cover)
         .clip(true)
     } else {
-      Text(this.initial())
+      // 无头像兜底：品牌默认头像（据印·经验叠层），去蓝、中性、跨主题
+      Image($r('app.media.default_avatar'))
         .width(this.avatarSize)
         .height(this.avatarSize)
         .borderRadius(RadiusTokens.pill)
-        .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
-        .fontWeight(TypeTokens.headline.weight)
-        .fontColor(ColorTokens.brand)
-        .backgroundColor(ColorTokens.brandTint)
-        .textAlign(TextAlign.Center)
+        .objectFit(ImageFit.Cover)
+        .clip(true)
     }
   }
 }

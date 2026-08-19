@@ -1,6 +1,6 @@
-// 可复用头像组件：品牌色描边圆环 + 居中正圆头像 + 首字母占位兜底。
-// 用于个人主页 / 编辑资料等需要"头像框"的场景，自动跟随深色模式（品牌色在
-// base/dark 的 color.json 均有定义）。
+// 可复用头像组件：墨色描边圆环（随主题黑/白）+ 居中正圆头像 + 默认头像兜底。
+// 用于个人主页 / 编辑资料等需要"头像框"的场景；无头像时显示品牌默认头像
+// （据印·经验叠层，resources/base/media/default_avatar.svg），去蓝、中性、跨主题。
 
 import { resolveDisplayImageUrl } from '../services/api';
 
@@ -23,19 +23,18 @@ export struct AvatarView {
           .objectFit(ImageFit.Cover)
           .clip(true)
       } else {
-        Text(this.name.trim().length > 0 ? this.name.trim().charAt(0) : '?')
+        // 无头像兜底：品牌默认头像（据印·经验叠层），去蓝、中性、跨主题
+        Image($r('app.media.default_avatar'))
           .width(this.avatarSize)
           .height(this.avatarSize)
           .borderRadius(this.avatarSize / 2)
-          .fontSize(this.avatarSize * 0.42).fontFamily($r('app.string.font_family'))
-          .fontColor(Color.White)
-          .backgroundColor($r('app.color.brand_primary'))
-          .textAlign(TextAlign.Center)
+          .objectFit(ImageFit.Cover)
+          .clip(true)
       }
     }
     .width(this.avatarSize + 2 * this.ringWidth)
     .height(this.avatarSize + 2 * this.ringWidth)
     .borderRadius((this.avatarSize + 2 * this.ringWidth) / 2)
-    .border({ width: this.ringWidth, color: $r('app.color.brand_primary') })
+    .border({ width: this.ringWidth, color: $r('app.color.text_primary') })
   }
 }

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>有据 · 默认头像预览（据印·经验叠层）</title>
+<style>
+  :root{
+    --ink:#0B0F1A; --ink-2:#111827; --ink-3:#1F2937;
+    --amber:#FFB21A; --line:#E5E7EB; --muted:#6B7280;
+    --card:#FFFFFF; --bg:#F5F6F8;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);padding:32px 24px 64px;line-height:1.5}
+  h1{font-size:22px;font-weight:700;margin-bottom:4px}
+  h2{font-size:15px;font-weight:600;margin:36px 0 14px;padding-left:10px;border-left:3px solid var(--amber)}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:8px}
+  .wrap{max-width:920px;margin:0 auto}
+  .row{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-end}
+  .cell{display:flex;flex-direction:column;align-items:center;gap:8px}
+  .cell span{font-size:11px;color:var(--muted)}
+  .dark{background:var(--ink);border-radius:16px;padding:28px 24px}
+  .scene{display:flex;gap:14px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+  .scene.dark{background:#161B26;border-color:#2A3140}
+  .scene .meta{font-size:13px}
+  .scene .meta b{font-size:14px}
+  .scene .meta p{color:var(--muted);font-size:12px;margin-top:2px}
+  .scene.dark .meta{color:#E5E7EB}
+  .scene.dark .meta p{color:#9CA3AF}
+  .cmp{display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start}
+  .cmp .item{display:flex;flex-direction:column;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+  .cmp .item .tag{font-size:12px;font-weight:600}
+  .cmp .item .tag.on{color:var(--amber)}
+  .cmp .item .tag.off{color:var(--muted)}
+  .palette{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+  .palette .sw{display:flex;align-items:center;gap:8px;font-size:12px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+  .palette .dot{width:18px;height:18px;border-radius:5px;border:1px solid rgba(0,0,0,.08)}
+  svg{display:block}
+  .note{font-size:12px;color:var(--muted);margin-top:6px;max-width:560px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>有据 · 新用户默认头像</h1>
+  <p class="sub">方案：<b>据印 · 经验叠层</b> —— 白盘 + 深墨双线印框 + 形象化三层经验叠片（中层琥珀高亮）。去除 ✅，复刻定稿 Logo 的「经验叠层 + 高亮依据」母题。</p>
+
+  <!-- 主方案：多尺寸 × 浅/深双主题 -->
+  <h2>主方案 · 多尺寸适配</h2>
+  <div class="row">
+    <div class="cell"><svg width="24" height="24"><use href="#ava"/></svg><span>24px</span></div>
+    <div class="cell"><svg width="32" height="32"><use href="#ava"/></svg><span>32px</span></div>
+    <div class="cell"><svg width="40" height="40"><use href="#ava"/></svg><span>40px</span></div>
+    <div class="cell"><svg width="48" height="48"><use href="#ava"/></svg><span>48px</span></div>
+    <div class="cell"><svg width="64" height="64"><use href="#ava"/></svg><span>64px</span></div>
+    <div class="cell"><svg width="96" height="96"><use href="#ava"/></svg><span>96px</span></div>
+    <div class="cell"><svg width="120" height="120"><use href="#ava"/></svg><span>120px</span></div>
+  </div>
+
+  <h2>主方案 · 深色主题背景</h2>
+  <div class="dark">
+    <div class="row">
+      <div class="cell"><svg width="32" height="32"><use href="#ava"/></svg><span>32px</span></div>
+      <div class="cell"><svg width="48" height="48"><use href="#ava"/></svg><span>48px</span></div>
+      <div class="cell"><svg width="64" height="64"><use href="#ava"/></svg><span>64px</span></div>
+      <div class="cell"><svg width="96" height="96"><use href="#ava"/></svg><span>96px</span></div>
+    </div>
+  </div>
+
+  <!-- 三场景应用 -->
+  <h2>适用场景</h2>
+  <p class="sub">列表小图（评论 / 信息流）、个人主页大图。</p>
+  <div class="scene">
+    <svg width="40" height="40"><use href="#ava"/></svg>
+    <div class="meta"><b>知友小白</b><p>这条经验的依据很扎实，已收藏。</p></div>
+  </div>
+  <div class="scene" style="margin-top:12px">
+    <svg width="48" height="48"><use href="#ava"/></svg>
+    <div class="meta"><b>匿名用户</b><p>赞同了你的回答 · 真实经验分享</p></div>
+  </div>
+  <div class="scene dark" style="margin-top:12px">
+    <svg width="96" height="96"><use href="#ava"/></svg>
+    <div class="meta"><b>个人主页</b><p>未设置头像时的默认身份标识</p></div>
+  </div>
+
+  <!-- 对比 -->
+  <h2>方案对比</h2>
+  <div class="cmp">
+    <div class="item">
+      <svg width="96" height="96"><use href="#ava"/></svg>
+      <div class="tag on">采用 · 据印·经验叠层</div>
+    </div>
+    <div class="item">
+      <!-- 备选：品牌 mosaic 缩微（去蓝，深墨+琥珀） -->
+      <svg width="96" height="96" viewBox="0 0 1024 1024">
+        <circle cx="512" cy="512" r="512" fill="#FFFFFF"/>
+        <circle cx="512" cy="512" r="496" fill="none" stroke="#0B0F1A" stroke-opacity="0.10" stroke-width="16"/>
+        <g transform="rotate(-11 490 318)"><rect x="190" y="210" width="600" height="216" rx="108" fill="#1F2937"/>
+          <rect x="202" y="212" width="120" height="120" rx="24" fill="#374151"/><rect x="466" y="156" width="116" height="116" rx="22" fill="#111827"/><rect x="678" y="290" width="128" height="128" rx="24" fill="#374151"/></g>
+        <g transform="rotate(4 490 512)"><rect x="198" y="402" width="584" height="220" rx="110" fill="#1F2937"/>
+          <rect x="204" y="388" width="132" height="132" rx="24" fill="#374151"/><rect x="548" y="414" width="98" height="98" rx="20" fill="#111827"/><rect x="680" y="526" width="132" height="132" rx="24" fill="#374151"/><rect x="692" y="430" width="60" height="60" rx="18" fill="#FFB21A"/></g>
+        <g transform="rotate(-11 490 702)"><rect x="190" y="594" width="600" height="216" rx="108" fill="#1F2937"/>
+          <rect x="206" y="590" width="114" height="114" rx="22" fill="#374151"/><rect x="444" y="684" width="128" height="128" rx="24" fill="#111827"/><rect x="670" y="608" width="106" height="106" rx="20" fill="#374151"/></g>
+      </svg>
+      <div class="tag off">备选 · 品牌 mosaic 缩微</div>
+    </div>
+    <div class="item">
+      <!-- 旧版（已弃）：据印 + ✅ -->
+      <svg width="96" height="96" viewBox="0 0 1024 1024">
+        <circle cx="512" cy="512" r="512" fill="#FFFFFF"/>
+        <circle cx="512" cy="512" r="496" fill="none" stroke="#0B0F1A" stroke-opacity="0.10" stroke-width="16"/>
+        <rect x="296" y="296" width="432" height="432" rx="88" fill="none" stroke="#0B0F1A" stroke-width="44"/>
+        <rect x="400" y="400" width="224" height="224" rx="40" fill="#FFB21A"/>
+        <path d="M468 516 L504 552 L566 480" fill="none" stroke="#0B0F1A" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="tag off">已弃 · 据印+✅</div>
+    </div>
+  </div>
+  <p class="note">主方案保留你选定的「据印」外壳（公信识别），把中间呆板琥珀方块升级为形象化经验叠层，复刻定稿 Logo 母题；备选为直接缩微 Logo mosaic（舍去印框，更贴 Logo 本体）。二者均去蓝、中性无人物、跨双主题。</p>
+
+  <!-- 配色 -->
+  <h2>配色方案</h2>
+  <div class="palette">
+    <div class="sw"><span class="dot" style="background:#FFFFFF"></span>白底 #FFFFFF</div>
+    <div class="sw"><span class="dot" style="background:#0B0F1A"></span>深墨 #0B0F1A</div>
+    <div class="sw"><span class="dot" style="background:#111827"></span>墨主调 #111827</div>
+    <div class="sw"><span class="dot" style="background:#1F2937"></span>墨中调 #1F2937</div>
+    <div class="sw"><span class="dot" style="background:#FFB21A"></span>琥珀高亮 #FFB21A</div>
+  </div>
+</div>
+
+<!-- 主方案符号定义 -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="ava" viewBox="0 0 1024 1024">
+    <circle cx="512" cy="512" r="512" fill="#FFFFFF"/>
+    <circle cx="512" cy="512" r="496" fill="none" stroke="#0B0F1A" stroke-opacity="0.10" stroke-width="16"/>
+    <rect x="296" y="296" width="432" height="432" rx="88" fill="none" stroke="#0B0F1A" stroke-width="44"/>
+    <rect x="338" y="338" width="348" height="348" rx="60" fill="none" stroke="#0B0F1A" stroke-opacity="0.22" stroke-width="10"/>
+    <rect x="407" y="394" width="210" height="64" rx="20" fill="#1F2937" transform="rotate(-9 512 426)"/>
+    <rect x="407" y="480" width="210" height="64" rx="20" fill="#FFB21A" transform="rotate(5 512 512)"/>
+    <rect x="407" y="566" width="210" height="64" rx="20" fill="#111827" transform="rotate(-9 512 598)"/>
+  </symbol>
+</svg>
+</body>
+</html>

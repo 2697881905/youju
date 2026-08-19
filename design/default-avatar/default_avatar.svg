@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-label="有据 默认头像 · 据印经验叠层">
+  <!-- 亮色白底圆盘：与浅色背景呼应，复刻定稿 Logo 的白色圆角方底 -->
+  <circle cx="512" cy="512" r="512" fill="#FFFFFF"/>
+
+  <!-- 深墨细环：浅色背景下界定轮廓，深色背景上白底自然成界 -->
+  <circle cx="512" cy="512" r="496" fill="none" stroke="#0B0F1A" stroke-opacity="0.10" stroke-width="16"/>
+
+  <!-- 印章外框（粗）：深墨主结构，方印识别 = 公信认证 -->
+  <rect x="296" y="296" width="432" height="432" rx="88" fill="none" stroke="#0B0F1A" stroke-width="44"/>
+
+  <!-- 印章内细框：增强"印"的层级与公信任感 -->
+  <rect x="338" y="338" width="348" height="348" rx="60" fill="none" stroke="#0B0F1A" stroke-opacity="0.22" stroke-width="10"/>
+
+  <!-- 经验叠层（形象化）：三层真实经验汇聚为"有据"
+       上层 = 经验（深墨中调） -->
+  <g transform="rotate(-9 512 426)">
+    <rect x="407" y="394" width="210" height="64" rx="20" fill="#1F2937"/>
+  </g>
+
+  <!-- 中层 = 高亮依据（琥珀，唯一彩色焦点 = 有据可循） -->
+  <g transform="rotate(5 512 512)">
+    <rect x="407" y="480" width="210" height="64" rx="20" fill="#FFB21A"/>
+  </g>
+
+  <!-- 下层 = 经验基底（深墨主调） -->
+  <g transform="rotate(-9 512 598)">
+    <rect x="407" y="566" width="210" height="64" rx="20" fill="#111827"/>
+  </g>
+</svg>
