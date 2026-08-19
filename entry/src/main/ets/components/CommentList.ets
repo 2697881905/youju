@@ -1,11 +1,12 @@
 // 评论列表组件（盖楼式展示，含"事实补充"徽标 + 举报入口 + 作者删除）
 import { Comment } from '../models/types';
 import { timeAgo, formatCount } from '../utils/format';
-import { getUserId } from '../utils/auth';
-import { deleteComment, upComment, cancelUpComment, resolveDisplayImageUrl } from '../services/api';
+import { deleteComment, upComment, cancelUpComment } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { openUserProfile } from '../utils/nav';
+import { getUserId, getCurrentUser } from '../utils/auth';
+import { Avatar } from '../design/components/Avatar';
 
 @Component
 export struct CommentList {
@@ -124,6 +125,20 @@ export struct CommentList {
     }
   }
 
+  // 解析评论头像 URL：优先服务端头像；若该项属于当前登录用户且服务端未带出头像
+  // （如刚发完评论服务端尚未回填、或本账号头像仅存于本地登录态），用本地 authAvatar 兜底，
+  // 与个人主页（读 authAvatar）保持一致，避免「主页有头像、评论区却显示首字」。
+  private commentAvatarUrl(c: Comment): string {
+    const remote: string = c.user?.avatar ?? '';
+    if (remote.length > 0) {
+      return remote;
+    }
+    if (c.userId !== undefined && c.userId === getUserId()) {
+      return getCurrentUser()?.avatar ?? '';
+    }
+    return '';
+  }
+
   @Builder
   avatar(c: Comment) {
     if (this.isDeletedCommentUser(c)) {
@@ -135,27 +150,19 @@ export struct CommentList {
         .fontColor(Color.White)
         .fontSize(14).fontFamily($r('app.string.font_family'))
         .textAlign(TextAlign.Center)
-    } else if (c.user?.avatar) {
-      Image(resolveDisplayImageUrl(c.user.avatar))
-        .width(36)
-        .height(36)
-        .borderRadius(18)
-        .objectFit(ImageFit.Cover)
-        .onClick(() => {
-          this.goUser(c);
-        })
     } else {
-      Text((c.user?.nickname ?? '匿').slice(0, 1))
-        .width(36)
-        .height(36)
-        .borderRadius(18)
-        .backgroundColor($r('app.color.brand_primary'))
-        .fontColor(Color.White)
-        .fontSize(14).fontFamily($r('app.string.font_family'))
-        .textAlign(TextAlign.Center)
-        .onClick(() => {
-          this.goUser(c);
+      Column() {
+        Avatar({
+          avatar: this.commentAvatarUrl(c),
+          name: c.user?.nickname ?? '匿',
+          avatarSize: 36,
         })
+      }
+      .width(36)
+      .height(36)
+      .onClick(() => {
+        this.goUser(c);
+      })
     }
   }
 
