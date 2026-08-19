@@ -14,6 +14,7 @@ struct DetailActionButton {
   @Prop label: string = '';
   @Prop active: boolean = false;
   @Prop disabled: boolean = false;
+  @Prop activeColor: ResourceColor = ColorTokens.brand;
   @Prop @Watch('onFeedbackChanged') feedbackVersion: number = 0;
   @State confirmationScale: number = 1;
   @StorageLink('reduceMotion') appReduceMotion: boolean = false;
@@ -58,10 +59,10 @@ struct DetailActionButton {
         Image(this.icon)
           .width(IconTokens.small)
           .height(IconTokens.small)
-          .fillColor(this.active ? ColorTokens.brand : ColorTokens.secondary)
+          .fillColor(this.active ? this.activeColor : ColorTokens.secondary)
         Text(this.label)
           .fontSize(TypeTokens.navLabel.size).fontFamily(TypeTokens.fontFamily)
-          .fontColor(this.active ? ColorTokens.brand : ColorTokens.secondary)
+          .fontColor(this.active ? this.activeColor : ColorTokens.secondary)
           .maxLines(1)
       }
       .width('100%')
@@ -152,8 +153,8 @@ export struct DetailActionBar {
           .alignItems(VerticalAlign.Center)
         } else {
           Row() {
-            DetailActionButton({ icon: resolveActionIcon('like'), label: formatCount(this.upCount), active: this.uped, disabled: this.upPending, feedbackVersion: this.upFeedbackVersion, onAction: (): void => { this.onUp(); } }).layoutWeight(1)
-            DetailActionButton({ icon: resolveActionIcon('bookmark'), label: formatCount(this.bookmarkCount), active: this.bookmarked, disabled: this.bookmarkPending, feedbackVersion: this.bookmarkFeedbackVersion, onAction: (): void => { this.onBookmark(); } }).layoutWeight(1)
+            DetailActionButton({ icon: resolveActionIcon('like'), label: formatCount(this.upCount), active: this.uped, activeColor: ColorTokens.like, disabled: this.upPending, feedbackVersion: this.upFeedbackVersion, onAction: (): void => { this.onUp(); } }).layoutWeight(1)
+            DetailActionButton({ icon: resolveActionIcon('bookmark'), label: formatCount(this.bookmarkCount), active: this.bookmarked, activeColor: ColorTokens.bookmark, disabled: this.bookmarkPending, feedbackVersion: this.bookmarkFeedbackVersion, onAction: (): void => { this.onBookmark(); } }).layoutWeight(1)
             DetailActionButton({ icon: resolveActionIcon('comment'), label: formatCount(this.commentCount), onAction: (): void => { this.commenting = true; } }).layoutWeight(1)
             if (this.showShare) {
               DetailActionButton({ icon: resolveActionIcon('share'), label: '分享', onAction: (): void => { this.onShare(); } }).layoutWeight(1)

@@ -32,12 +32,12 @@ export struct StatRow {
           Image(resolveActionIcon('like'))
             .width(this.compact ? 14 : IconTokens.compact)
             .height(this.compact ? 14 : IconTokens.compact)
-            .fillColor(this.liked ? ColorTokens.brand : ColorTokens.tertiary)
+            .fillColor(this.liked ? ColorTokens.like : ColorTokens.tertiary)
           CountRoll({
             value: this.likeCount,
             prefix: '顶 ',
             textSize: this.compact ? TypeTokens.overline.size : TypeTokens.caption.size,
-            textColor: this.liked ? ColorTokens.brand : ColorTokens.tertiary,
+            textColor: this.liked ? ColorTokens.like : ColorTokens.tertiary,
           })
         }
         .borderRadius(RadiusTokens.xs)

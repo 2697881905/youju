@@ -18,6 +18,8 @@ export class ColorTokens {
   static readonly warm: ResourceColor = $r('app.color.ds_warm');
   static readonly success: ResourceColor = $r('app.color.ds_success');
   static readonly danger: ResourceColor = $r('app.color.ds_danger');
+  static readonly like: ResourceColor = $r('app.color.ds_like');
+  static readonly bookmark: ResourceColor = $r('app.color.ds_bookmark');
   static readonly separator: ResourceColor = $r('app.color.ds_separator');
 
   static readonly skeletonBase: ResourceColor = $r('app.color.ds_skeleton_base');
