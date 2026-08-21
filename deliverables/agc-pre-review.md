@@ -91,7 +91,7 @@
 | `versionCode` | `1000000` | ✅ 整数，首次发版合理 |
 | `versionName` | `1.0.0` | ✅ 语义化版本 |
 | `targetSdkVersion` | `6.1.1(24)` | ✅ API 24，HarmonyOS 6.1.1 |
-| `compatibleSdkVersion` | `6.1.1(24)` | ✅ 与 target 一致 |
+| `compatibleSdkVersion` | `5.0.0(12)`（Release） | ✅ 已下调最低适配版本；`targetSdkVersion` 保持 `6.1.1(24)` |
 | `runtimeOS` | `HarmonyOS` | ✅ |
 | `deviceTypes` | `["phone"]` | ✅ 仅声明手机（如需上架平板需补 `tablet`） |
 | release 混淆 | `enable: true`，开启顶层/导出符号混淆 + 移除日志 | ✅ |
