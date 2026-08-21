@@ -263,8 +263,6 @@ Post/User/Comment/Tag/Genre/StructuredData/Message 等全部接口类型。
 | 目录 | 内容 |
 |---|---|
 | `docs/` | `system_design.md`（帖子搜索）、`huawei_login_design.md`（Account Kit 登录）、`nav-migration-design.md`（跨 Tab 跳转）+ 4 个 mermaid |
-| `deliverables/gstack/` | 上线前全检 ×2、QA 发布就绪、API 设计审查报告 |
-| `deliverables/software-company/` | 视频上传、拉黑功能交付报告 |
 | `soft_output/` | 源代码导出快照（前/后 1500 行、30 页分页 txt + 60 页 PDF，供评审）|
 
 ---
