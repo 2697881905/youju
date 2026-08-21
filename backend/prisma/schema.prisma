@@ -4,6 +4,10 @@
 
 generator client {
   provider = "prisma-client-js"
+  // 显式指定输出到项目根 node_modules/.prisma/client（标准位置）。
+  // 否则 Prisma 5.x 在子目录 schema 下会默认生成到 prisma/node_modules，
+  // 导致 '@prisma/client' 顶层解析到 npm 原始包而找不到 model 类型（tsc 编译失败）。
+  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {

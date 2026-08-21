@@ -49,10 +49,10 @@ export async function loginWithHuawei(
     return { token, user: withIsAdmin(existing), isNewUser: false };
   }
 
-  // 新用户：openId 留空，unionID 必填；昵称缺失时生成默认名
-  const defaultNickname: string = nickname && nickname.trim().length > 0
-    ? nickname
-    : '据友' + String(Math.floor(100000 + Math.random() * 900000));
+  // 新用户：openId 留空，unionID 必填。
+  // 华为 profile.nickName 通常是“华为用户xxxx”等平台昵称，不作为有据的默认昵称；
+  // 用户后续仍可在编辑资料中主动修改，已有用户也在上方保持原昵称不变。
+  const defaultNickname: string = '据友' + String(Math.floor(100000 + Math.random() * 900000));
   const created = await prisma.user.create({
     data: {
       openId: null,

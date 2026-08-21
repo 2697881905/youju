@@ -1,7 +1,5 @@
 node_modules
 dist
 .env
-uploads
+.env.*
 *.log
-deploy/.env.production
-deploy/backups

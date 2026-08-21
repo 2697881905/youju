@@ -198,7 +198,6 @@ struct Index {
     } else {
       this.validateStartupSession();
       this.refreshUnread();
-      this.checkPrivacyUpdate(); // 已登录：若隐私政策已更新则重新弹窗
       this.maybeShowCircleOnboarding();
     }
   }
@@ -215,6 +214,8 @@ struct Index {
       return;
     }
     this.launchComplete = true;
+    // 隐私需「明示同意」：首启未同意时弹出自检同意弹窗（含「不同意」退出，满足审核红线）。
+    // 不再叠加 checkPrivacyUpdate 的版本更新二次弹窗，避免多个隐私弹窗。
     if (!isPrivacyAgreed()) {
       this.showPrivacyDialog();
       return;

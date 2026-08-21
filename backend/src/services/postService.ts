@@ -88,8 +88,9 @@ export async function listPosts(params: ListParams) {
       return { list: [], pagination: { page, limit, total: 0 } };
     }
   } else {
-    // 全局信息流 / 关注流：隐藏被封禁作者的帖子 + 拉黑/隐私不可见作者
-    where.user = { status: 1 };
+    // 全局信息流 / 关注流：隐藏被封禁(status≠1)或被注销(deletedAt≠null)作者的帖子 + 拉黑/隐私不可见作者
+    // （与详情接口 accessControl 一致：作者封禁或注销 → 帖子不可见）
+    where.user = { status: 1, deletedAt: null };
     const excluded = await getExcludedAuthorIds(params.viewerId);
     // recommend 流额外排除「不喜欢」的作者（减少推送）；latest/following 流仅排除拉黑
     if (params.sort === 'recommend' && params.viewerId) {
@@ -222,7 +223,7 @@ async function dailyInterestTags(viewerId?: number): Promise<string[]> {
 }
 
 async function dailyVisibleWhere(viewerId?: number): Promise<any> {
-  const where: any = { status: 1, deletedAt: null, user: { status: 1 } };
+  const where: any = { status: 1, deletedAt: null, user: { status: 1, deletedAt: null } };
   const excluded = new Set(await getExcludedAuthorIds(viewerId));
   if (viewerId) {
     for (const id of await getDislikedAuthorIds(viewerId)) {

@@ -66,7 +66,7 @@ describe('loginWithHuawei', () => {
     expect(mockedFindUnique).toHaveBeenCalledTimes(1);
     expect(mockedCreate).toHaveBeenCalledTimes(1);
     expect(mockedCreate).toHaveBeenCalledWith({
-      data: { openId: null, unionID: 'U_NEW', nickname: '华为小王', avatar: 'b.png' },
+      data: { openId: null, unionID: 'U_NEW', nickname: expect.stringMatching(/^据友\d{6}$/), avatar: 'b.png' },
     });
     expect(result.user).toMatchObject({ id: 2, nickname: '据友123456', avatar: 'b.png' });
     expect(result.user).not.toHaveProperty('unionID');
