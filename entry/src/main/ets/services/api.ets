@@ -13,7 +13,7 @@ const BUILD_MODE: string = BUILD_MODE_NAME;
 const DEBUG_API_HOST: string = 'http://192.168.1.32:3000';
 export const BASE_URL: string =
   BUILD_MODE === 'release'
-    ? 'https://api.mindtype.cn'
+    ? 'https://api.youju.chat'
     : DEBUG_API_HOST;
 
 // 本地上传服务会把宿主机 LAN 地址写入数据库；地址变动或模拟器无法直连 LAN 时，
