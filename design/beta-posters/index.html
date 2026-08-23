@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>有据 · 内测招募海报系列（P1–P4）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Noto+Serif+SC:wght@600;700;900&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  /* ============ 设计令牌（已锁定） ============ */
+  :root{
+    --paper:#FAFAFA;            /* 纸白浅底 */
+    --surface:#FFFFFF;          /* 卡片 */
+    --surface-2:#F2F2F5;        /* 灰阶浅块 */
+    --ink:#0D0F12;              /* 墨黑主文字 */
+    --gray:#6E6E73;             /* 次级文字 */
+    --gray-2:#AEAEB2;           /* 三级文字 */
+    --line:#E5E5EA;             /* 分隔线 */
+    --blue:#1677FF;             /* 品牌蓝 · 仅点缀 */
+    --blue-soft:rgba(22,119,255,.10);
+    --serif:"Songti SC","STSong","Noto Serif SC","Source Han Serif SC",serif;
+    --sans:"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;
+    --num:"Outfit","Helvetica Neue",Arial,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#EDEDF1;font-family:var(--sans);color:var(--ink);-webkit-font-smoothing:antialiased}
+  body.export{background:#FFF}
+
+  /* ============ 画廊（预览模式） ============ */
+  .gallery{display:flex;flex-direction:column;align-items:center;gap:36px;padding:48px 16px}
+  .poster-slot{display:flex;flex-direction:column;align-items:center;gap:14px}
+  .slot-label{font-family:var(--num);font-size:13px;letter-spacing:.22em;color:var(--gray);text-transform:uppercase}
+  .poster-wrap{width:540px;height:960px;overflow:hidden;border-radius:14px;box-shadow:0 24px 70px rgba(13,15,18,.18)}
+  .poster{transform:scale(.5);transform-origin:top left}
+
+  /* ============ 海报通用骨架 ============ */
+  .poster{position:relative;width:1080px;height:1920px;background:var(--paper);display:flex;flex-direction:column;overflow:hidden}
+  body.export .poster{transform:none}
+  /* 极淡的纸面质感：左上微光 */
+  .poster::before{content:"";position:absolute;inset:0;background:radial-gradient(90% 60% at 12% 0%,rgba(13,15,18,.035),transparent 60%);pointer-events:none}
+  .p-head{position:relative;display:flex;align-items:center;justify-content:space-between;padding:64px 76px 0}
+  .brand{display:flex;align-items:center;gap:18px}
+  .brand-mark{font-family:var(--serif);font-weight:900;font-size:44px;line-height:1;color:var(--ink);letter-spacing:-.02em}
+  .brand-mark .dot{display:inline-block;width:12px;height:12px;border-radius:50%;background:var(--blue);margin-left:10px;vertical-align:8px}
+  .brand-name{font-family:var(--serif);font-weight:700;font-size:34px;color:var(--ink)}
+  .p-tag{font-family:var(--num);font-size:24px;letter-spacing:.2em;color:var(--gray-2)}
+  .p-body{position:relative;flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 76px}
+  .eyebrow{display:inline-flex;align-items:center;gap:14px;font-family:var(--num);font-size:26px;letter-spacing:.3em;color:var(--gray);text-transform:uppercase}
+  .eyebrow::before{content:"";width:34px;height:2px;background:var(--ink)}
+  .headline{font-family:var(--serif);font-weight:900;color:var(--ink);line-height:1.16;letter-spacing:.01em;margin-top:34px}
+  .sub{font-family:var(--sans);font-weight:300;font-size:38px;color:var(--gray);line-height:1.5;margin-top:30px}
+  .sub b{font-weight:500;color:var(--ink)}
+  .sep{margin-top:52px;width:96px;height:2px;background:var(--ink)}
+
+  /* ============ P1 灰阶信息流卡片 ============ */
+  .feed{display:flex;flex-direction:column;gap:26px;margin-top:64px;width:860px}
+  .fcard{display:flex;gap:30px;background:var(--surface);border:1.5px solid var(--line);border-radius:26px;padding:38px 40px;box-shadow:0 20px 55px rgba(13,15,18,.05)}
+  .fav{width:76px;height:76px;border-radius:50%;background:var(--surface-2);flex:0 0 auto}
+  .fbody{flex:1;display:flex;flex-direction:column;gap:15px;min-width:0}
+  .ftag{font-size:25px;letter-spacing:.14em;color:var(--gray)}
+  .ftitle{font-family:var(--serif);font-size:46px;font-weight:700;color:var(--ink)}
+  .fline{height:14px;border-radius:8px;background:var(--surface-2)}
+  .fline.s{width:56%}
+  .fmeta{display:flex;gap:36px;font-family:var(--num);font-size:26px;color:var(--gray-2);margin-top:4px}
+  .chips{display:flex;gap:18px;margin-top:56px}
+  .chip{font-size:27px;color:var(--gray);border:1.5px solid var(--line);background:var(--surface);border-radius:99px;padding:14px 30px}
+
+  /* ============ P2 体裁 + 投票 ============ */
+  .genres{display:grid;grid-template-columns:repeat(5,1fr);gap:18px;margin-top:60px}
+  .gcard{background:var(--surface);border:1.5px solid var(--line);border-radius:20px;padding:28px 22px;display:flex;flex-direction:column;gap:10px}
+  .gno{font-family:var(--num);font-weight:700;font-size:26px;color:var(--gray-2)}
+  .gname{font-family:var(--serif);font-size:40px;font-weight:700;color:var(--ink)}
+  .ghint{font-size:22px;color:var(--gray)}
+  .vote{background:var(--surface);border:1.5px solid var(--line);border-radius:26px;padding:38px 42px;display:flex;flex-direction:column;gap:24px;margin-top:30px;box-shadow:0 20px 55px rgba(13,15,18,.05)}
+  .vhead{display:flex;justify-content:space-between;align-items:baseline}
+  .vhead .vt{font-family:var(--serif);font-size:34px;font-weight:700;color:var(--ink)}
+  .vhead .vs{font-size:24px;color:var(--gray-2);letter-spacing:.12em}
+  .vrow{display:flex;flex-direction:column;gap:12px}
+  .vlab{display:flex;justify-content:space-between;font-size:29px;color:var(--ink)}
+  .vlab span{font-family:var(--num);font-weight:700;color:var(--gray)}
+  .vbar{height:18px;border-radius:99px;background:var(--surface-2);overflow:hidden}
+  .vfill{height:100%;border-radius:99px;background:var(--ink);width:62%}
+  .vfill.blue{background:var(--blue);width:38%}
+
+  /* ============ P3 引号宣言 ============ */
+  .manifesto{position:relative;margin-top:70px;padding-left:24px}
+  .qmark{font-family:var(--serif);font-weight:900;font-size:300px;line-height:.8;color:#ECECEF;position:absolute;top:-150px;left:-8px;user-select:none}
+  .qmark .anchor{position:absolute;bottom:56px;right:-34px;width:22px;height:22px;border-radius:50%;background:var(--blue)}
+  .mani{display:flex;flex-direction:column;gap:34px;position:relative}
+  .mrow{display:flex;align-items:center;gap:26px;font-family:var(--serif);font-size:56px;font-weight:700;color:var(--ink);line-height:1.25}
+  .mdot{width:16px;height:16px;border-radius:50%;background:var(--ink);flex:0 0 auto}
+  .mrow .mdot{background:var(--gray-2)}
+  .mrow.hl .mdot{background:var(--blue)}
+  .mnote{margin-top:44px;font-size:26px;color:var(--gray-2);letter-spacing:.06em}
+
+  /* ============ P4 权益清单 ============ */
+  .perks{display:flex;flex-direction:column;gap:22px;margin-top:60px}
+  .perk{display:flex;align-items:center;gap:30px;background:var(--surface);border:1.5px solid var(--line);border-radius:22px;padding:30px 36px;box-shadow:0 14px 40px rgba(13,15,18,.04)}
+  .pno{font-family:var(--num);font-weight:800;font-size:32px;color:var(--gray-2);width:64px;flex:0 0 auto}
+  .pcheck{width:34px;height:34px;border-radius:50%;background:var(--ink);color:#FFF;display:grid;place-items:center;font-size:20px;flex:0 0 auto}
+  .ptext{font-size:34px;color:var(--ink)}
+  .ptext b{font-weight:600}
+
+  /* ============ 统一 CTA 区 ============ */
+  .p-cta{position:relative;padding:0 76px 60px}
+  .cta-row{display:flex;align-items:center;justify-content:space-between;gap:40px;padding:44px 0;border-top:1.5px solid var(--line)}
+  .cta-left{display:flex;flex-direction:column;align-items:flex-start;gap:26px}
+  .cta-btn{display:inline-flex;align-items:center;gap:16px;background:var(--blue);color:#FFF;font-family:var(--sans);font-size:38px;font-weight:500;border-radius:99px;padding:24px 54px;letter-spacing:.04em;box-shadow:0 16px 40px rgba(22,119,255,.28)}
+  .cta-btn .arr{font-family:var(--num);font-size:34px;font-weight:600}
+  .cta-note{font-size:27px;color:var(--gray)}
+  .cta-note b{font-family:var(--num);font-weight:800;color:var(--blue)}
+  .cta-note.gray b{color:var(--ink)}
+  .qr{width:178px;height:178px;border:2.5px dashed var(--gray-2);border-radius:22px;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--gray-2);font-size:23px;line-height:1.5;background:var(--surface)}
+  .p-foot{padding:26px 0 0;border-top:1.5px solid var(--line);display:flex;justify-content:space-between;font-size:24px;color:var(--gray-2);letter-spacing:.05em}
+  .p-foot .en{font-family:var(--num)}
+</style>
+</head>
+<body class="gallery">
+
+  <!-- ================= P1 招募主海报 ================= -->
+  <div class="poster-slot" data-p="1">
+    <div class="slot-label">P1 · 招募主海报 · 真实经验，有据可循</div>
+    <div class="poster-wrap"><div class="poster">
+      <div class="p-head">
+        <div class="brand"><span class="brand-mark">「」<span class="dot"></span></span><span class="brand-name">有据</span></div>
+        <span class="p-tag">P01 · BETA RECRUIT</span>
+      </div>
+      <div class="p-body">
+        <span class="eyebrow">首批内测招募 · HarmonyOS Next</span>
+        <h1 class="headline">真实经验，<br>有据可循。</h1>
+        <p class="sub">一个有据可查的<b>理性内容社区</b>，<br>等你来，把它变成想要的样子。</p>
+        <div class="feed">
+          <div class="fcard">
+            <div class="fav"></div>
+            <div class="fbody">
+              <span class="ftag">数码选购 · 测评</span>
+              <div class="ftitle">蓝牙耳机怎么选？附三轮实测对比</div>
+              <div class="fline"></div>
+              <div class="fline s"></div>
+              <div class="fmeta"><span>♥ 128</span><span>💬 32</span></div>
+            </div>
+          </div>
+          <div class="fcard">
+            <div class="fav"></div>
+            <div class="fbody">
+              <span class="ftag">汽车养护 · 避坑</span>
+              <div class="ftitle">首保别被忽悠，这 4 项根本不用做</div>
+              <div class="fline"></div>
+              <div class="fline s"></div>
+              <div class="fmeta"><span>♥ 356</span><span>💬 89</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="chips">
+          <span class="chip">测评</span><span class="chip">避坑</span><span class="chip">教程</span><span class="chip">辩论</span><span class="chip">分享</span>
+        </div>
+      </div>
+      <div class="p-cta">
+        <div class="cta-row">
+          <div class="cta-left">
+            <span class="cta-btn">申请加入内测 <span class="arr">→</span></span>
+            <span class="cta-note gray">首批限 <b>500</b> 名 · 报名截止 8 月 31 日</span>
+          </div>
+          <div class="qr">内测申请码<br>（二维码占位）</div>
+        </div>
+        <div class="p-foot"><span>© 2026 有据 · 鸿蒙原生理性内容社区</span><span class="en">YOUJU · REAL EXPERIENCE</span></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ================= P2 理性 ================= -->
+  <div class="poster-slot" data-p="2">
+    <div class="slot-label">P2 · 价值观 01 理性 · 拒绝标题党</div>
+    <div class="poster-wrap"><div class="poster">
+      <div class="p-head">
+        <div class="brand"><span class="brand-mark">「」<span class="dot"></span></span><span class="brand-name">有据</span></div>
+        <span class="p-tag">P02 · RATIONALITY</span>
+      </div>
+      <div class="p-body">
+        <span class="eyebrow">有据 · 价值观 01 —— 理性</span>
+        <h1 class="headline">拒绝标题党，<br>把经验讲清楚。</h1>
+        <p class="sub">有结构的<b>内容</b>，才配叫「有据」。</p>
+        <div class="genres">
+          <div class="gcard"><span class="gno">01</span><span class="gname">测评</span><span class="ghint">优缺点 · 推荐指数</span></div>
+          <div class="gcard"><span class="gno">02</span><span class="gname">避坑</span><span class="ghint">踩坑 · 正确做法</span></div>
+          <div class="gcard"><span class="gno">03</span><span class="gname">教程</span><span class="ghint">工具 · 步骤</span></div>
+          <div class="gcard"><span class="gno">04</span><span class="gname">辩论</span><span class="ghint">A/B 方案投票</span></div>
+          <div class="gcard"><span class="gno">05</span><span class="gname">分享</span><span class="ghint">经验 · 见闻</span></div>
+        </div>
+        <div class="vote">
+          <div class="vhead"><span class="vt">方案 A：先租后买</span><span class="vs">DEBATE · 62%</span></div>
+          <div class="vrow"><div class="vbar"><div class="vfill"></div></div></div>
+          <div class="vhead"><span class="vt">方案 B：直接攒首付</span><span class="vs">DEBATE · 38%</span></div>
+          <div class="vrow"><div class="vbar"><div class="vfill blue"></div></div></div>
+        </div>
+        <div class="chips">
+          <span class="chip">五体裁</span><span class="chip">结构化字段</span><span class="chip">有图有真相</span>
+        </div>
+      </div>
+      <div class="p-cta">
+        <div class="cta-row">
+          <div class="cta-left">
+            <span class="cta-btn">申请加入内测 <span class="arr">→</span></span>
+            <span class="cta-note gray">首批限 <b>500</b> 名 · 报名截止 8 月 31 日</span>
+          </div>
+          <div class="qr">内测申请码<br>（二维码占位）</div>
+        </div>
+        <div class="p-foot"><span>© 2026 有据 · 鸿蒙原生理性内容社区</span><span class="en">YOUJU · RATIONALITY</span></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ================= P3 友善 ================= -->
+  <div class="poster-slot" data-p="3">
+    <div class="slot-label">P3 · 价值观 02 友善 · 体面的社区</div>
+    <div class="poster-wrap"><div class="poster">
+      <div class="p-head">
+        <div class="brand"><span class="brand-mark">「」<span class="dot"></span></span><span class="brand-name">有据</span></div>
+        <span class="p-tag">P03 · KINDNESS</span>
+      </div>
+      <div class="p-body">
+        <span class="eyebrow">有据 · 价值观 02 —— 友善</span>
+        <h1 class="headline">不喜欢就少推点，<br>拉黑就别再见。</h1>
+        <p class="sub">体面的<b>社区</b>，边界由你掌控。</p>
+        <div class="manifesto">
+          <span class="qmark">「」<span class="anchor"></span></span>
+          <div class="mani">
+            <div class="mrow"><span class="mdot"></span>反对性别对立</div>
+            <div class="mrow"><span class="mdot"></span>拒绝标题党与爹味说教</div>
+            <div class="mrow hl"><span class="mdot"></span>三道内容安全防线</div>
+          </div>
+          <p class="mnote">两档社交距离 · 7 类举报理由 · 数据境内可导出可注销</p>
+        </div>
+      </div>
+      <div class="p-cta">
+        <div class="cta-row">
+          <div class="cta-left">
+            <span class="cta-btn">申请加入内测 <span class="arr">→</span></span>
+            <span class="cta-note gray">首批限 <b>500</b> 名 · 报名截止 8 月 31 日</span>
+          </div>
+          <div class="qr">内测申请码<br>（二维码占位）</div>
+        </div>
+        <div class="p-foot"><span>© 2026 有据 · 鸿蒙原生理性内容社区</span><span class="en">YOUJU · KINDNESS</span></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ================= P4 共创 ================= -->
+  <div class="poster-slot" data-p="4">
+    <div class="slot-label">P4 · 价值观 03 共创 · 内测福利</div>
+    <div class="poster-wrap"><div class="poster">
+      <div class="p-head">
+        <div class="brand"><span class="brand-mark">「」<span class="dot"></span></span><span class="brand-name">有据</span></div>
+        <span class="p-tag">P04 · CO-CREATION</span>
+      </div>
+      <div class="p-body">
+        <span class="eyebrow">有据 · 价值观 03 —— 共创</span>
+        <h1 class="headline">第一批，<br>值得被听见。</h1>
+        <p class="sub">内测，就是一起把它做成<b>想要的样子</b>。</p>
+        <div class="perks">
+          <div class="perk"><span class="pno">01</span><span class="pcheck">✓</span><span class="ptext">抢先体验鸿蒙原生<b>全功能</b></span></div>
+          <div class="perk"><span class="pno">02</span><span class="pcheck">✓</span><span class="ptext">专属「<b>内测先锋</b>」身份标识</span></div>
+          <div class="perk"><span class="pno">03</span><span class="pcheck">✓</span><span class="ptext">直通产品团队的<b>反馈通道</b></span></div>
+          <div class="perk"><span class="pno">04</span><span class="pcheck">✓</span><span class="ptext">内测专属<b>活动</b>与<b>内容</b></span></div>
+          <div class="perk"><span class="pno">05</span><span class="pcheck">✓</span><span class="ptext">限量<b>电子勋章</b>，见证从 0 到 1</span></div>
+        </div>
+      </div>
+      <div class="p-cta">
+        <div class="cta-row">
+          <div class="cta-left">
+            <span class="cta-btn">申请加入内测 <span class="arr">→</span></span>
+            <span class="cta-note">首批限 <b>500</b> 名 · 报名截止 8 月 31 日</span>
+          </div>
+          <div class="qr">内测申请码<br>（二维码占位）</div>
+        </div>
+        <div class="p-foot"><span>© 2026 有据 · 鸿蒙原生理性内容社区</span><span class="en">YOUJU · CO-CREATION</span></div>
+      </div>
+    </div></div>
+  </div>
+
+<script>
+  /* 导出模式：?single=1&export=1 → 仅显示第 1 张、全尺寸、无画廊样式 */
+  (function(){
+    var p = new URLSearchParams(location.search);
+    var s = p.get('single');
+    if(s){
+      document.body.classList.add('export');
+      document.body.classList.remove('gallery');
+      document.querySelectorAll('.poster-slot').forEach(function(slot){
+        slot.style.display = slot.dataset.p === s ? 'flex' : 'none';
+      });
+      var wrap = document.querySelector('.poster-slot .poster-wrap');
+      if(wrap){ wrap.style.width='1080px'; wrap.style.height='1920px'; wrap.style.overflow='visible'; wrap.style.borderRadius='0'; wrap.style.boxShadow='none'; }
+      if(p.get('export')==='1'){ document.body.style.margin='0'; }
+    }
+  })();
+</script>
+</body>
+</html>
