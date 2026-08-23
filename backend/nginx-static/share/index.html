@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>有据 · 分享</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; min-height: 100vh; background: linear-gradient(160deg, #f6f8fc 0%, #eef2fa 100%); display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .card { background: #fff; border-radius: 20px; box-shadow: 0 12px 40px rgba(20,40,90,.10); max-width: 420px; width: 100%; padding: 40px 32px 32px; text-align: center; }
+  .logo { width: 72px; height: 72px; border-radius: 18px; background: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 40px; margin-bottom: 16px; box-shadow: 0 4px 14px rgba(0,0,0,.08); }
+  h1 { font-size: 22px; color: #1a1a2e; margin-bottom: 8px; }
+  .desc { font-size: 14px; color: #5a6a85; line-height: 1.7; margin-bottom: 8px; }
+  .badge { display: inline-block; margin-top: 4px; padding: 4px 14px; border-radius: 999px; background: #eef3ff; color: #4369e2; font-size: 13px; font-weight: 500; }
+  .link { margin: 24px 0 8px; padding: 14px 20px; background: #f4f6fb; border-radius: 12px; font-size: 13px; color: #667290; word-break: break-all; }
+  .href { margin-top: 12px; }
+  .btn { display: inline-block; background: #4369e2; color: #fff; text-decoration: none; font-size: 15px; font-weight: 600; padding: 14px 32px; border-radius: 999px; transition: opacity .2s; }
+  .btn:active { opacity: .85; }
+  .foot { margin-top: 22px; font-size: 12px; color: #a0abc4; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">📖</div>
+    <h1 id="typeTitle">有据 · 分享</h1>
+    <p class="desc">真实经验，有理有据。<br>这份内容来自「有据」社区，打开 App 查看完整内容。</p>
+    <span class="badge" id="badge">#内容分享</span>
+    <div class="link" id="shareId">ID: --</div>
+    <div class="href"><a class="btn" href="https://youju.chat/privacy/" target="_blank">打开有据 App</a></div>
+    <div class="foot">有据 · 用理性连接彼此</div>
+  </div>
+<script>
+  (function () {
+    var path = location.pathname || '';
+    var idMatch = path.match(/^\/(post|user)\/(\d+)\/?$/i);
+    var typeEl = document.getElementById('typeTitle');
+    var badgeEl = document.getElementById('badge');
+    var idEl = document.getElementById('shareId');
+    if (idMatch) {
+      var kind = idMatch[1].toLowerCase();
+      var id = idMatch[2];
+      if (kind === 'post') {
+        typeEl.textContent = '有据 · 帖子分享';
+        badgeEl.textContent = '#单帖分享';
+      } else {
+        typeEl.textContent = '有据 · 个人主页';
+        badgeEl.textContent = '#作者主页';
+      }
+      idEl.textContent = (kind === 'post' ? '帖子 ID: ' : '用户 ID: ') + id;
+    }
+  })();
+</script>
+</body>
+</html>
