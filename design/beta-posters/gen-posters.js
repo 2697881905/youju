@@ -11,6 +11,7 @@ const PAPER = '#FAFAFA', SURFACE = '#FFFFFF', S2 = '#F2F2F5';
 const INK = '#0D0F12', GRAY = '#6E6E73', GRAY2 = '#AEAEB2', LINE = '#E5E5EA';
 const BLUE = '#1677FF';
 const W = 1080, H = 1920;
+const LOGO_DATA = 'data:image/png;base64,' + fs.readFileSync(path.join(__dirname,'有据logo.png')).toString('base64');
 
 function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function txt(x, y, s, size, opts={}){
@@ -32,9 +33,8 @@ function check(cx,cy,r,color){
 }
 function header(tag){
   return `<g>
-    ${txt(76,118,'「」',44,{fw:900,fam:SERIF})}
-    ${circle(148,86,6,BLUE)}
-    ${txt(196,118,'有据',34,{fw:700,fam:SERIF})}
+    <image href="${LOGO_DATA}" x="76" y="78" width="68" height="68"/>
+    ${txt(166,118,'有据',34,{fw:700,fam:SERIF})}
     ${txt(1004,116,tag,24,{fw:600,fam:NUM,fill:GRAY2,anchor:'end'})}
   </g>`;
 }
