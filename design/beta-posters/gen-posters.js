@@ -1,4 +1,4 @@
-/* 有据内测招募海报 · SVG 生成脚本（1080×1920 × 4）
+/* 有据上线预告海报 · SVG 生成脚本（1080×1920 × 4）
  * 运行：NODE_PATH=workspace/node_modules node gen-posters.js
  */
 const fs = require('fs');
@@ -44,21 +44,18 @@ function eyebrow(y,text){
     ${txt(126,y,text,26,{fw:600,fam:NUM,fill:GRAY})}
   </g>`;
 }
-function cta(posterNo, footEn, quotaBlue){
-  const noteColor = quotaBlue ? {b:BLUE} : {b:INK};
+function cta(posterNo, footEn){
   const btn = `<g>
     ${rect(76,1644,520,88,BLUE,{rx:44})}
-    ${txt(204,1703,'申请加入内测',38,{fw:500})}
-    ${txt(646,1705,'→',34,{fw:600,fam:NUM,fill:'#FFFFFF'})}
+    ${txt(192,1703,'预约上架提醒',38,{fw:500})}
+    ${txt(650,1705,'→',34,{fw:600,fam:NUM,fill:'#FFFFFF'})}
   </g>`;
   const note = `<g>
-    ${txt(76,1772,'首批限 ',27,{fill:GRAY})}
-    ${txt(176,1772,'500',27,{fw:800,fam:NUM,fill:noteColor.b})}
-    ${txt(252,1772,' 名 · 报名截止 8 月 31 日',27,{fill:GRAY})}
+    ${txt(76,1772,'上架第一时间通知 · 敬请期待',27,{fill:GRAY})}
   </g>`;
   const qr = `<g>
     ${rect(826,1620,178,178,'#FFFFFF',{rx:22,sw:2.5,sc:GRAY2,dash:'10 10'})}
-    ${txt(915,1694,'内测申请码',23,{fill:GRAY2,anchor:'middle'})}
+    ${txt(915,1694,'上架提醒登记',23,{fill:GRAY2,anchor:'middle'})}
     ${txt(915,1726,'二维码占位',23,{fill:GRAY2,anchor:'middle'})}
   </g>`;
   const foot = `<g>
@@ -92,19 +89,19 @@ function chipRow(y, items){
   return `<g>${g}</g>`;
 }
 
-/* ============ P1 招募主海报 ============ */
+/* ============ P1 预告主海报 ============ */
 function p1(){
   return `<g>
-    ${header('P01 · BETA RECRUIT')}
-    ${eyebrow(430,'首批内测招募 · HarmonyOS Next')}
+    ${header('P01 · COMING SOON')}
+    ${eyebrow(430,'即将上线 · HarmonyOS Next')}
     ${txt(76,560,'真实经验，',108,{fw:900,fam:SERIF})}
     ${txt(76,690,'有据可循。',108,{fw:900,fam:SERIF})}
     ${txt(76,790,'一个有据可查的理性内容社区，',38,{fw:300,fill:GRAY})}
-    ${txt(76,842,'等你来，把它变成想要的样子。',38,{fw:300,fill:GRAY})}
+    ${txt(76,842,'上架在即，敬请期待。',38,{fw:300,fill:GRAY})}
     ${feedCard(920,'数码选购 · 测评','蓝牙耳机怎么选？附三轮实测对比','128','32')}
     ${feedCard(1150,'汽车养护 · 避坑','首保别被忽悠，这 4 项根本不用做','356','89')}
     ${chipRow(1400,['测评','避坑','教程','辩论','分享'])}
-    ${cta('P1','YOUJU · REAL EXPERIENCE',false)}
+    ${cta('P1','YOUJU · COMING SOON')}
   </g>`;
 }
 
@@ -140,7 +137,7 @@ function p2(){
     <g>${g}</g>
     ${vote}
     ${chipRow(1490,['五体裁','结构化字段','有图有真相'])}
-    ${cta('P2','YOUJU · RATIONALITY',false)}
+    ${cta('P2','YOUJU · RATIONALITY')}
   </g>`;
 }
 
@@ -165,13 +162,13 @@ function p3(){
     ${txt(76,778,'体面的社区，边界由你掌控。',38,{fw:300,fill:GRAY})}
     ${q}
     ${rows}
-    ${cta('P3','YOUJU · KINDNESS',false)}
+    ${cta('P3','YOUJU · KINDNESS')}
   </g>`;
 }
 
 /* ============ P4 共创 ============ */
 function p4(){
-  const perks = [['01','抢先体验鸿蒙原生全功能'],['02','专属「内测先锋」身份标识'],['03','直通产品团队的反馈通道'],['04','内测专属活动与内容'],['05','限量电子勋章，见证从 0 到 1']];
+  const perks = [['01','上架第一时间通知'],['02','首发内容抢先看'],['03','你的建议，上线前被采纳'],['04','上线专属「首批用户」标识'],['05','见证社区从 0 到 1']];
   let g=''; let y=900;
   perks.forEach((p,i)=>{
     g += rect(76,y,928,96,SURFACE,{rx:22,sw:1.5,sc:LINE});
@@ -183,16 +180,16 @@ function p4(){
   return `<g>
     ${header('P04 · CO-CREATION')}
     ${eyebrow(430,'有据 · 价值观 03 —— 共创')}
-    ${txt(76,560,'第一批，',108,{fw:900,fam:SERIF})}
-    ${txt(76,690,'值得被听见。',108,{fw:900,fam:SERIF})}
-    ${txt(76,800,'内测，就是一起把它做成想要的样子。',38,{fw:300,fill:GRAY})}
+    ${txt(76,560,'把经验，',108,{fw:900,fam:SERIF})}
+    ${txt(76,690,'装进口袋。',108,{fw:900,fam:SERIF})}
+    ${txt(76,800,'上线在即，先占一个位置。',38,{fw:300,fill:GRAY})}
     <g>${g}</g>
-    ${cta('P4','YOUJU · CO-CREATION',true)}
+    ${cta('P4','YOUJU · CO-CREATION')}
   </g>`;
 }
 
 const posters = { p1, p2, p3, p4 };
-const names = { p1:'P1-招募主海报', p2:'P2-理性', p3:'P3-友善', p4:'P4-共创' };
+const names = { p1:'P1-预告主海报', p2:'P2-理性', p3:'P3-友善', p4:'P4-共创' };
 const OUT = path.join(__dirname, 'export');
 fs.mkdirSync(OUT, {recursive:true});
 
