@@ -33,7 +33,8 @@ function check(cx,cy,r,color){
 }
 function header(tag){
   return `<g>
-    <image href="${LOGO_DATA}" x="76" y="78" width="68" height="68"/>
+    <clipPath id="logoClip"><rect x="76" y="78" width="68" height="68" rx="15"/></clipPath>
+    <image href="${LOGO_DATA}" x="76" y="78" width="68" height="68" clip-path="url(#logoClip)"/>
     ${txt(166,118,'有据',34,{fw:700,fam:SERIF})}
     ${txt(1004,116,tag,24,{fw:600,fam:NUM,fill:GRAY2,anchor:'end'})}
   </g>`;
