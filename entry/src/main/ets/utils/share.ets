@@ -1,6 +1,5 @@
 // 分享工具：链接构建 / 剪贴板 / 系统分享面板（Share Kit）。
-// 当前生产环境没有 /post/{id}、/user/{id} 网页落地页，Release 不展示外部分享入口。
-// 落地页部署并通过 check:release-config 后再启用。
+// 生产分享落地页挂在主站根域 youju.chat（post/{id}、user/{id} 静态页由 nginx 提供）。
 import pasteboard from '@ohos.pasteboard';
 import { systemShare } from '@kit.ShareKit';
 import { common } from '@kit.AbilityKit';
@@ -8,10 +7,10 @@ import { http } from '@kit.NetworkKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { util } from '@kit.ArkTS';
 
-// TODO(上线): 替换为真实生产域名（域名确定后改这一行即可）
-const SHARE_BASE: string = 'https://youju.app';
+// 分享落地页主站根域（非 API 子域）。分享出去给好友点击即打开对应帖子/主页落地页。
+const SHARE_BASE: string = 'https://youju.chat';
 
-export const EXTERNAL_SHARE_ENABLED: boolean = false;
+export const EXTERNAL_SHARE_ENABLED: boolean = true;
 
 // 站内「分享到私信」始终可用（不依赖外部分享落地页/系统分享面板），由分享面板单独展示。
 export const DM_SHARE_ENABLED: boolean = true;
