@@ -45,26 +45,37 @@ function eyebrow(y,text){
     ${txt(126,y,text,26,{fw:600,fam:NUM,fill:GRAY})}
   </g>`;
 }
-function cta(posterNo, footEn){
-  const btn = `<g>
-    ${rect(76,1644,520,88,BLUE,{rx:44})}
-    ${txt(192,1703,'预约上架提醒',38,{fw:500})}
-    ${txt(650,1705,'→',34,{fw:600,fam:NUM,fill:'#FFFFFF'})}
-  </g>`;
-  const note = `<g>
-    ${txt(76,1772,'上架第一时间通知 · 敬请期待',27,{fill:GRAY})}
-  </g>`;
-  const qr = `<g>
-    ${rect(826,1620,178,178,'#FFFFFF',{rx:22,sw:2.5,sc:GRAY2,dash:'10 10'})}
-    ${txt(915,1694,'上架提醒登记',23,{fill:GRAY2,anchor:'middle'})}
-    ${txt(915,1726,'二维码占位',23,{fill:GRAY2,anchor:'middle'})}
-  </g>`;
+const ICON_HEART = 'M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z';
+const ICON_STAR = 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z';
+const ICON_REPEAT = 'M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3';
+
+function iconGlyph(cx, cy, d){
+  return `<g transform="translate(${cx-12},${cy-12})" fill="none" stroke="${INK}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></g>`;
+}
+
+/* 社交传播区（替代原 CTA）：卖点标语 + 点赞/收藏/转发三连，纯传播无入口 */
+function social(slogan, sub, footEn){
+  const acts = [['点赞',ICON_HEART],['收藏',ICON_STAR],['转发',ICON_REPEAT]];
+  let actG = '';
+  let y = 1696;
+  acts.forEach(([label,d])=>{
+    actG += `<circle cx="868" cy="${y}" r="22" fill="#FFFFFF" stroke="${LINE}" stroke-width="1.5"/>`;
+    actG += iconGlyph(868,y,d);
+    actG += txt(900,y+9,label,26,{fill:GRAY});
+    y += 70;
+  });
   const foot = `<g>
-    ${line(76,1840,1004,1840,LINE,1.5)}
-    ${txt(76,1876,'© 2026 有据 · 鸿蒙原生理性内容社区',24,{fill:GRAY2})}
-    ${txt(1004,1876,footEn,24,{fw:600,fam:NUM,fill:GRAY2,anchor:'end'})}
+    ${line(76,1860,1004,1860,LINE,1.5)}
+    ${txt(76,1896,'© 2026 有据 · 鸿蒙原生理性内容社区',24,{fill:GRAY2})}
+    ${txt(1004,1896,footEn,24,{fw:600,fam:NUM,fill:GRAY2,anchor:'end'})}
   </g>`;
-  return `<g>${btn}${note}${qr}${foot}</g>`;
+  return `<g>
+    ${line(76,1640,1004,1640,LINE,1.5)}
+    ${txt(76,1732,slogan,50,{fw:900,fam:SERIF})}
+    ${txt(76,1804,sub,26,{fw:300,fill:GRAY})}
+    ${actG}
+    ${foot}
+  </g>`;
 }
 function feedCard(y, tag, title, like, cmt){
   const h = 210;
@@ -102,7 +113,7 @@ function p1(){
     ${feedCard(920,'数码选购 · 测评','蓝牙耳机怎么选？附三轮实测对比','128','32')}
     ${feedCard(1150,'汽车养护 · 避坑','首保别被忽悠，这 4 项根本不用做','356','89')}
     ${chipRow(1400,['测评','避坑','教程','辩论','分享'])}
-    ${cta('P1','YOUJU · COMING SOON')}
+    ${social('把真话，讲给懂的人听','真实经验，有据可循 · 敬请期待','YOUJU · COMING SOON')}
   </g>`;
 }
 
@@ -138,7 +149,7 @@ function p2(){
     <g>${g}</g>
     ${vote}
     ${chipRow(1490,['五体裁','结构化字段','有图有真相'])}
-    ${cta('P2','YOUJU · RATIONALITY')}
+    ${social('少一点标题党，多一点真话','真实经验，有据可循 · 敬请期待','YOUJU · RATIONALITY')}
   </g>`;
 }
 
@@ -163,7 +174,7 @@ function p3(){
     ${txt(76,778,'体面的社区，边界由你掌控。',38,{fw:300,fill:GRAY})}
     ${q}
     ${rows}
-    ${cta('P3','YOUJU · KINDNESS')}
+    ${social('不喜欢就少推点，别吵架','真实经验，有据可循 · 敬请期待','YOUJU · KINDNESS')}
   </g>`;
 }
 
@@ -185,7 +196,7 @@ function p4(){
     ${txt(76,690,'装进口袋。',108,{fw:900,fam:SERIF})}
     ${txt(76,800,'上线在即，先占一个位置。',38,{fw:300,fill:GRAY})}
     <g>${g}</g>
-    ${cta('P4','YOUJU · CO-CREATION')}
+    ${social('好经验，值得被更多人看见','真实经验，有据可循 · 敬请期待','YOUJU · CO-CREATION')}
   </g>`;
 }
 

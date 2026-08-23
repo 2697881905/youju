@@ -103,15 +103,14 @@
 
   /* ============ 统一 CTA 区 ============ */
   .p-cta{position:relative;padding:0 76px 60px}
-  .cta-row{display:flex;align-items:center;justify-content:space-between;gap:40px;padding:44px 0;border-top:1.5px solid var(--line)}
-  .cta-left{display:flex;flex-direction:column;align-items:flex-start;gap:26px}
-  .cta-btn{display:inline-flex;align-items:center;gap:16px;background:var(--blue);color:#FFF;font-family:var(--sans);font-size:38px;font-weight:500;border-radius:99px;padding:24px 54px;letter-spacing:.04em;box-shadow:0 16px 40px rgba(22,119,255,.28)}
-  .cta-btn .arr{font-family:var(--num);font-size:34px;font-weight:600}
-  .cta-note{font-size:27px;color:var(--gray)}
-  .cta-note b{font-family:var(--num);font-weight:800;color:var(--blue)}
-  .cta-note.gray b{color:var(--ink)}
-  .qr{width:178px;height:178px;border:2.5px dashed var(--gray-2);border-radius:22px;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--gray-2);font-size:23px;line-height:1.5;background:var(--surface)}
-  .p-foot{padding:26px 0 0;border-top:1.5px solid var(--line);display:flex;justify-content:space-between;font-size:24px;color:var(--gray-2);letter-spacing:.05em}
+  .social-row{display:flex;align-items:center;justify-content:space-between;gap:40px;padding:46px 0 30px;border-top:1.5px solid var(--line)}
+  .slogan{font-family:var(--serif);font-weight:900;font-size:50px;color:var(--ink);line-height:1.2}
+  .slogan-sub{font-size:26px;font-weight:300;color:var(--gray);margin-top:16px}
+  .social-acts{display:flex;flex-direction:column;gap:16px}
+  .sact{display:flex;align-items:center;gap:16px;font-size:26px;color:var(--gray)}
+  .sact .ic{width:46px;height:46px;border-radius:50%;border:1.5px solid var(--line);background:var(--surface);display:grid;place-items:center;color:var(--ink);flex:0 0 auto}
+  .sact .ic svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  .p-foot{padding:24px 0 0;display:flex;justify-content:space-between;font-size:24px;color:var(--gray-2);letter-spacing:.05em}
   .p-foot .en{font-family:var(--num)}
 </style>
 </head>
@@ -156,12 +155,16 @@
         </div>
       </div>
       <div class="p-cta">
-        <div class="cta-row">
-          <div class="cta-left">
-            <span class="cta-btn">预约上架提醒 <span class="arr">→</span></span>
-            <span class="cta-note gray">上架第一时间通知 · 敬请期待</span>
+        <div class="social-row">
+          <div class="social-left">
+            <div class="slogan">把真话，讲给懂的人听</div>
+            <div class="slogan-sub">真实经验，有据可循 · 敬请期待</div>
           </div>
-          <div class="qr">上架提醒登记<br>（二维码占位）</div>
+          <div class="social-acts">
+            <div class="sact"><span class="ic"><svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></span><span>点赞</span></div>
+            <div class="sact"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></span><span>收藏</span></div>
+            <div class="sact"><span class="ic"><svg viewBox="0 0 24 24"><path d="M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3"/></svg></span><span>转发</span></div>
+          </div>
         </div>
         <div class="p-foot"><span>© 2026 有据 · 鸿蒙原生理性内容社区</span><span class="en">YOUJU · COMING SOON</span></div>
       </div>
@@ -198,12 +201,16 @@
         </div>
       </div>
       <div class="p-cta">
-        <div class="cta-row">
-          <div class="cta-left">
-            <span class="cta-btn">预约上架提醒 <span class="arr">→</span></span>
-            <span class="cta-note gray">上架第一时间通知 · 敬请期待</span>
+        <div class="social-row">
+          <div class="social-left">
+            <div class="slogan">少一点标题党，多一点真话</div>
+            <div class="slogan-sub">真实经验，有据可循 · 敬请期待</div>
           </div>
-          <div class="qr">上架提醒登记<br>（二维码占位）</div>
+          <div class="social-acts">
+            <div class="sact"><span class="ic"><svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></span><span>点赞</span></div>
+            <div class="sact"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></span><span>收藏</span></div>
+            <div class="sact"><span class="ic"><svg viewBox="0 0 24 24"><path d="M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3"/></svg></span><span>转发</span></div>
+          </div>
         </div>
         <div class="p-foot"><span>© 2026 有据 · 鸿蒙原生理性内容社区</span><span class="en">YOUJU · RATIONALITY</span></div>
       </div>
@@ -233,12 +240,16 @@
         </div>
       </div>
       <div class="p-cta">
-        <div class="cta-row">
-          <div class="cta-left">
-            <span class="cta-btn">预约上架提醒 <span class="arr">→</span></span>
-            <span class="cta-note gray">上架第一时间通知 · 敬请期待</span>
+        <div class="social-row">
+          <div class="social-left">
+            <div class="slogan">不喜欢就少推点，别吵架</div>
+            <div class="slogan-sub">真实经验，有据可循 · 敬请期待</div>
           </div>
-          <div class="qr">上架提醒登记<br>（二维码占位）</div>
+          <div class="social-acts">
+            <div class="sact"><span class="ic"><svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></span><span>点赞</span></div>
+            <div class="sact"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></span><span>收藏</span></div>
+            <div class="sact"><span class="ic"><svg viewBox="0 0 24 24"><path d="M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3"/></svg></span><span>转发</span></div>
+          </div>
         </div>
         <div class="p-foot"><span>© 2026 有据 · 鸿蒙原生理性内容社区</span><span class="en">YOUJU · KINDNESS</span></div>
       </div>
@@ -266,12 +277,16 @@
         </div>
       </div>
       <div class="p-cta">
-        <div class="cta-row">
-          <div class="cta-left">
-            <span class="cta-btn">预约上架提醒 <span class="arr">→</span></span>
-            <span class="cta-note">上架第一时间通知 · 敬请期待</span>
+        <div class="social-row">
+          <div class="social-left">
+            <div class="slogan">好经验，值得被更多人看见</div>
+            <div class="slogan-sub">真实经验，有据可循 · 敬请期待</div>
           </div>
-          <div class="qr">上架提醒登记<br>（二维码占位）</div>
+          <div class="social-acts">
+            <div class="sact"><span class="ic"><svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></span><span>点赞</span></div>
+            <div class="sact"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></span><span>收藏</span></div>
+            <div class="sact"><span class="ic"><svg viewBox="0 0 24 24"><path d="M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3"/></svg></span><span>转发</span></div>
+          </div>
         </div>
         <div class="p-foot"><span>© 2026 有据 · 鸿蒙原生理性内容社区</span><span class="en">YOUJU · CO-CREATION</span></div>
       </div>
