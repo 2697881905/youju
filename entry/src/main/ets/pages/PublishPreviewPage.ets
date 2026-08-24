@@ -5,7 +5,8 @@ import { Genre, StructuredData, User } from '../models/types';
 import { PublishDraft } from '../utils/publishDraft';
 import { savePostDraft, SavedPostDraft } from '../utils/postDraftStore';
 import { publishFlowStore } from '../utils/publishFlowStore';
-import { uploadTextPoster, TEXT_POSTER_ASPECT_RATIO, TEXT_POSTER_STYLES, TextPosterStyleOption } from '../utils/textPoster';
+import { uploadTextPoster, layoutPosterText, PosterTextItem, resolveTextPosterStyle, TEXT_POSTER_ASPECT_RATIO, TEXT_POSTER_STYLES, TextPosterStyleOption } from '../utils/textPoster';
+import { image } from '@kit.ImageKit';
 import { safeShowToast } from '../utils/toast';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { GlassPanel } from '../design/components/GlassPanel';
@@ -104,6 +105,50 @@ struct PublishPreviewPage {
     return rows;
   }
 
+  // 用「已注册的 UI 宋体 Text + 截图」生成文字覆盖层。
+  // 使用实心背景(#FAF7EF 素纸色)替代透明背景，确保 componentSnapshot 渲染后文字深黑不褪色。
+  // 采用三层渲染：阴影层 + 高光层 + 主文字层，增强立体感。
+  @Builder
+  posterOverlayBuilder(items: PosterTextItem[]) {
+    Stack() {
+      // 阴影层：向右下偏移 4vp 的半透明黑色(#8C000000)
+      ForEach(items, (it: PosterTextItem) => {
+        Text(it.text)
+          .fontSize(it.size)
+          .fontFamily(TypeTokens.fontFamilySerif)
+          .fontWeight(it.weight)
+          .fontColor('#8C000000')
+          .position({ x: it.x + 4, y: it.y + 6 })
+      }, (it: PosterTextItem) => 'shadow_' + it.text + '_' + it.x + '_' + it.y)
+      // 高光层：向左上偏移 2vp 的白色(#50FFFFFF)
+      ForEach(items, (it: PosterTextItem) => {
+        Text(it.text)
+          .fontSize(it.size)
+          .fontFamily(TypeTokens.fontFamilySerif)
+          .fontWeight(it.weight)
+          .fontColor('#50FFFFFF')
+          .position({ x: it.x - 2, y: it.y - 2 })
+      }, (it: PosterTextItem) => 'highlight_' + it.text + '_' + it.x + '_' + it.y)
+      // 主文字层：纯色文字
+      ForEach(items, (it: PosterTextItem) => {
+        Text(it.text)
+          .fontSize(it.size)
+          .fontFamily(TypeTokens.fontFamilySerif)
+          .fontWeight(it.weight)
+          .fontColor(it.color)
+          .position({ x: it.x, y: it.y })
+      }, (it: PosterTextItem) => 'main_' + it.text + '_' + it.x + '_' + it.y)
+    }
+    .width(1080)
+    .height(1440)
+    .backgroundColor('#FAF7EF') // 素纸色背景，保证文字清晰渲染
+  }
+
+  private async buildPosterOverlay(draft: PublishDraft): Promise<image.PixelMap | undefined> {
+    // componentSnapshot 会导致文字颜色失真，已改为 canvas 直接绘制
+    return undefined;
+  }
+
   private uploadTextPosterWithTimeout(draft: PublishDraft): Promise<string> {
     return new Promise<string>((resolve: (url: string) => void, reject: (reason: Error) => void): void => {
       let settled: boolean = false;
@@ -123,7 +168,8 @@ struct PublishPreviewPage {
       timer = setTimeout((): void => {
         finish(new Error('文字海报生成超时'));
       }, TEXT_POSTER_TIMEOUT) as number;
-      uploadTextPoster(draft.title, draft.content, draft.genre, draft.textPosterStyle)
+      this.buildPosterOverlay(draft)
+        .then((overlay: image.PixelMap | undefined) => uploadTextPoster(draft.title, draft.content, draft.genre, draft.textPosterStyle, overlay))
         .then((url: string): void => { finish(undefined, url); })
         .catch((e: Error): void => { finish(e); });
     });
@@ -245,7 +291,7 @@ struct PublishPreviewPage {
     Row({ space: SpaceTokens.sm }) {
       BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
       Text('发布预览')
-        .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamily)
+        .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
         .fontWeight(TypeTokens.headline.weight)
         .lineHeight(TypeTokens.headline.lineHeight)
         .fontColor(ColorTokens.primary)
@@ -337,7 +383,7 @@ struct PublishPreviewPage {
           .height(52)
           .alignSelf(ItemAlign.Start);
         Text(draft.content.trim().length > 0 ? draft.content.trim() : '写下你的观点，让更多人看见。')
-          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamily)
+          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
           .fontWeight(TypeTokens.title.weight)
           .lineHeight(TypeTokens.title.lineHeight)
           .fontColor(style.text)
@@ -467,7 +513,7 @@ struct PublishPreviewPage {
           }
         }
         Text(draft.title)
-          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamily)
+          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
           .fontWeight(TypeTokens.title.weight)
           .lineHeight(TypeTokens.title.lineHeight)
           .fontColor(ColorTokens.primary)

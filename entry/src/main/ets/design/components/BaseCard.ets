@@ -45,12 +45,13 @@ export struct BaseCard {
       .padding(this.cardPadding)
       .backgroundColor(ColorTokens.elevated)
       .borderRadius(this.radius)
+      .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
       .shadow(this.contactShadow())
     }
-    .width('100%')
-    .backgroundColor(ColorTokens.elevated)
-    .borderRadius(this.radius)
-    .shadow(this.ambientShadow())
+      .width('100%')
+      .backgroundColor(ColorTokens.elevated)
+      .borderRadius(this.radius)
+      .shadow(this.ambientShadow())
     .animation({
       duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.fast,
       curve: MotionCurves.standard,

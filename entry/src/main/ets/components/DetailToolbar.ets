@@ -21,7 +21,7 @@ export struct DetailToolbar {
         .layoutWeight(1)
         .textAlign(TextAlign.Center)
       Text('...')
-        .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamily)
+        .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
         .fontWeight(TypeTokens.headline.weight)
         .fontColor(ColorTokens.primary)
         .width(LayoutTokens.minTouchTarget)

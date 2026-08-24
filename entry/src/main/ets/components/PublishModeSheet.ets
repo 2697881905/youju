@@ -55,7 +55,7 @@ export struct PublishModeSheet {
       Column({ space: SpaceTokens.sm }) {
         Row() {
           Text('选择发布方式')
-            .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamily)
+            .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
             .fontWeight(TypeTokens.headline.weight)
             .lineHeight(TypeTokens.headline.lineHeight)
             .fontColor(ColorTokens.primary)

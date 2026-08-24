@@ -7,20 +7,20 @@ export class ShadowTokens {
   };
 
   static readonly cardContact: ShadowOptions = {
-    radius: 2,
-    color: '#0A000000',
-    offsetY: 1,
+    radius: 1,
+    color: '#08000000',
+    offsetY: 0,
   };
 
   static readonly cardAmbient: ShadowOptions = {
-    radius: 20,
-    color: '#0F000000',
-    offsetY: 6,
+    radius: 10,
+    color: '#12000000',
+    offsetY: 3,
   };
 
   static readonly floating: ShadowOptions = {
-    radius: 30,
-    color: '#1F000000',
-    offsetY: 8,
+    radius: 16,
+    color: '#18000000',
+    offsetY: 6,
   };
 }

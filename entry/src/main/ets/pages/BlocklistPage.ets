@@ -1,10 +1,23 @@
 // 拉黑管理页：查看/取消拉黑列表（分页加载）
+// 采用 design system 令牌（Color/Space/Type/Radius/Icon）+ 共享 Avatar/EmptyState/Pressable，与各二级页 UI 统一。
 
 import { listBlocked, unblockUser } from '../services/api';
 import { BlockUser, Pagination } from '../models/types';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
+import { openUserProfile } from '../utils/nav';
 import { BackButton } from '../design/components/BackButton';
+import { Avatar } from '../design/components/Avatar';
+import { EmptyState } from '../design/components/EmptyState';
+import { Pressable } from '../design/motion/Pressable';
+import { ColorTokens } from '../design/tokens/color';
+import { IconTokens } from '../design/tokens/icon';
+import { RadiusTokens } from '../design/tokens/radius';
+import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
+import { TypeTokens } from '../design/tokens/type';
+
+// 危险操作按钮底色：ds_danger(#FF3B30) 的 ~10% 透明度，与 ds_brand_tint 同 alpha 约定
+const DANGER_TINT: string = '#1AFF3B30';
 
 @Entry
 @Component
@@ -69,100 +82,136 @@ export struct BlocklistPage {
     });
   }
 
+  private goProfile(user: BlockUser): void {
+    openUserProfile(user.id);
+    this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage', params: { userId: String(user.id) } });
+  }
+
+  // 拉黑时间格式化：仅取日期部分（YYYY-MM-DD）
+  private blockDate(iso: string): string {
+    const s: string = iso ?? '';
+    return s.length >= 10 ? s.slice(0, 10) : s;
+  }
+
   build() {
     Column() {
-      // 顶栏
+      // 顶栏：BackButton + 居中标题（与其它二级页一致）
       Row() {
         BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
+        Blank()
         Text('拉黑管理')
-          .fontSize(17).fontFamily($r('app.string.font_family'))
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.text_primary'))
-          .layoutWeight(1)
-          .textAlign(TextAlign.Center);
+          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
+          .fontWeight(TypeTokens.title.weight)
+          .lineHeight(TypeTokens.title.lineHeight)
+          .fontColor(ColorTokens.primary)
+        Blank()
         Text('')
-          .width(44);
+          .width(LayoutTokens.minTouchTarget)
+          .height(LayoutTokens.minTouchTarget)
       }
       .width('100%')
-      .padding({ top: 12, bottom: 8 });
+      .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: SpaceTokens.md, bottom: SpaceTokens.sm })
+      .alignItems(VerticalAlign.Center)
 
       if (!this.loadFinished) {
-        Column() {
-          LoadingProgress().width(40).height(40).color($r('app.color.text_secondary'));
+        Column({ space: SpaceTokens.item }) {
+          LoadingProgress().width(IconTokens.empty).height(IconTokens.empty).color(ColorTokens.secondary)
+          Text('正在加载拉黑列表')
+            .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.callout.weight)
+            .fontColor(ColorTokens.secondary)
         }
-        .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
-      } else if (this.loadError) {
+        .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center)
+      } else if (this.loadError || this.users.length === 0) {
         Column() {
-          Text('加载失败').fontSize(15).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary'));
-          Text(this.loadError).fontSize(13).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary')).margin({ top: 4 });
-          Button('重试').margin({ top: 12 }).onClick(() => { this.loadFirst(); });
+          EmptyState({
+            icon: $r('app.media.empty_inbox'),
+            title: this.loadError ? '加载失败' : '暂无拉黑用户',
+            message: this.loadError ? this.loadError : '你还没有拉黑任何用户',
+            actionLabel: this.loadError ? '重试' : '',
+            onAction: (): void => { this.loadFirst(); },
+          })
         }
-        .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
-      } else if (this.users.length === 0) {
-        Column() {
-          Text('暂无拉黑用户').fontSize(15).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary'));
-        }
-        .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
+        .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center)
       } else {
-        List() {
+        List({ space: SpaceTokens.none }) {
           ForEach(this.users, (user: BlockUser) => {
             ListItem() {
-              Row() {
-                // 头像占位
-                Column() {
-                  Text(user.nickname.charAt(0))
-                    .fontSize(16).fontFamily($r('app.string.font_family'))
-                    .fontColor('#FFFFFF');
-                }
-                .width(40).height(40)
-                .borderRadius(20)
-                .backgroundColor($r('app.color.text_secondary'))
-                .justifyContent(FlexAlign.Center);
-
-                Text(user.nickname)
-                  .fontSize(15).fontFamily($r('app.string.font_family'))
-                  .fontColor($r('app.color.text_primary'))
+              Pressable({
+                fillWidth: true,
+                visualHeight: 64,
+                touchTargetHeight: LayoutTokens.minTouchTarget,
+                action: (): void => { this.goProfile(user); },
+              }) {
+                Row({ space: SpaceTokens.md }) {
+                  Avatar({ avatar: user.avatar ?? '', name: user.nickname, avatarSize: 44 })
+                  Column({ space: SpaceTokens.inlineTight }) {
+                    Text(user.nickname)
+                      .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
+                      .fontWeight(TypeTokens.body.weight)
+                      .lineHeight(TypeTokens.body.lineHeight)
+                      .fontColor(ColorTokens.primary)
+                      .maxLines(1)
+                      .textOverflow({ overflow: TextOverflow.Ellipsis })
+                    Text('拉黑于 ' + this.blockDate(user.blockedAt))
+                      .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+                      .fontWeight(TypeTokens.caption.weight)
+                      .lineHeight(TypeTokens.caption.lineHeight)
+                      .fontColor(ColorTokens.secondary)
+                  }
+                  .alignItems(HorizontalAlign.Start)
                   .layoutWeight(1)
-                  .margin({ left: 12 });
 
-                Button('取消拉黑')
-                  .fontSize(13).fontFamily($r('app.string.font_family'))
-                  .fontColor($r('app.color.semantic_red'))
-                  .backgroundColor('#1AFF453A')
-                  .borderRadius(6)
-                  .padding({ left: 10, right: 10, top: 4, bottom: 4 })
-                  .onClick(() => { this.onUnblock(user); });
+                  // 取消拉黑（危险操作，danger 药丸按钮）
+                  Pressable({
+                    visualHeight: 30,
+                    touchTargetHeight: LayoutTokens.minTouchTarget,
+                    action: (): void => { this.onUnblock(user); },
+                  }) {
+                    Text('取消拉黑')
+                      .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+                      .fontWeight(TypeTokens.callout.weight)
+                      .lineHeight(TypeTokens.caption.lineHeight)
+                      .fontColor(ColorTokens.danger)
+                      .height(30)
+                      .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
+                      .textAlign(TextAlign.Center)
+                      .backgroundColor(DANGER_TINT)
+                      .borderRadius(RadiusTokens.pill)
+                  }
+                }
+                .width('100%')
+                .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
               }
-              .width('100%')
-              .padding({ left: 16, right: 16, top: 14, bottom: 14 })
-              .backgroundColor($r('app.color.card_bg'));
             }
-          });
+          }, (user: BlockUser) => user.id.toString());
 
+          // 列表底部：加载更多 / 已加载全部
           ListItem() {
             Row() {
               if (this.users.length < this.pagination.total) {
-                Text(this.loadingMore ? '加载中...' : '加载更多')
-                  .fontSize(14).fontFamily($r('app.string.font_family'))
-                  .fontColor($r('app.color.text_secondary'))
-                  .onClick(() => { this.loadMore(); });
+                Text(this.loadingMore ? '加载中…' : '加载更多')
+                  .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+                  .fontWeight(TypeTokens.caption.weight)
+                  .fontColor(ColorTokens.secondary)
+                  .onClick((): void => { this.loadMore(); });
               } else {
                 Text('已加载全部')
-                  .fontSize(14).fontFamily($r('app.string.font_family'))
-                  .fontColor($r('app.color.text_secondary'));
+                  .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+                  .fontWeight(TypeTokens.caption.weight)
+                  .fontColor(ColorTokens.tertiary);
               }
             }
             .width('100%')
             .justifyContent(FlexAlign.Center)
-            .padding({ top: 12, bottom: 12 });
+            .padding({ top: SpaceTokens.base, bottom: SpaceTokens.base });
           }
         }
         .layoutWeight(1).width('100%')
-        .padding({ left: 16, right: 16, top: 8, bottom: 16 });
       }
     }
     .width('100%').padding({ top: this.statusBarHeight }).height('100%')
-    .backgroundColor($r('app.color.bg_primary'))
+    .backgroundColor(ColorTokens.canvas)
     .transition(buildPageTransition())
   }
 }

@@ -170,7 +170,7 @@ export struct DailyPostDeck {
   private textSurface(post: DailyPost): void {
     Column() {
       Text(post.content ?? post.title ?? '')
-        .fontSize(TypeTokens.display.size).fontFamily(TypeTokens.fontFamily)
+        .fontSize(TypeTokens.display.size).fontFamily(TypeTokens.fontFamilySerif)
         .fontWeight(TypeTokens.display.weight)
         .lineHeight(TypeTokens.display.lineHeight)
         .fontColor(ColorTokens.primary)
@@ -182,7 +182,8 @@ export struct DailyPostDeck {
     .width('100%')
     .height('100%')
     .justifyContent(FlexAlign.Center)
-    .backgroundColor(ColorTokens.brandTint)
+    .backgroundColor(ColorTokens.elevated)
+    .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
   }
 
   @Builder
@@ -200,7 +201,7 @@ export struct DailyPostDeck {
       Stack({ alignContent: Alignment.BottomEnd }) {
         Column({ space: SpaceTokens.xs }) {
           Text(post.title ?? '一条值得读的经验')
-            .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamily)
+            .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
             .fontWeight(TypeTokens.headline.weight)
             .lineHeight(TypeTokens.headline.lineHeight)
             .fontColor(ColorTokens.primary)
@@ -246,9 +247,8 @@ export struct DailyPostDeck {
       .width('100%')
       .height(92)
       .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.sm, bottom: SpaceTokens.md })
-      .backgroundColor(ColorTokens.barSurface)
-      .backdropBlur(LayoutTokens.glassBlur)
-      .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+      .backgroundColor(ColorTokens.elevated)
+      .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
       .borderRadius({ topLeft: RadiusTokens.lg, topRight: RadiusTokens.lg, bottomLeft: 0, bottomRight: 0 })
     }
     .width('100%')
@@ -256,7 +256,7 @@ export struct DailyPostDeck {
     .backgroundColor(ColorTokens.sunken)
     .borderRadius(RadiusTokens.xl)
     .clip(true)
-    .shadow({ radius: 18, color: ColorTokens.barShadow, offsetY: 9 })
+    .shadow({ radius: 16, color: ColorTokens.barShadow, offsetY: 7 })
   }
 
   @Builder

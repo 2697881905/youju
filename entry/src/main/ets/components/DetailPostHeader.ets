@@ -21,7 +21,7 @@ export struct DetailPostHeader {
     Row({ space: SpaceTokens.sm }) {
       Column({ space: SpaceTokens.sm }) {
         Text(this.title)
-          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamily)
+          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
           .fontWeight(700)
           .lineHeight(TypeTokens.title.lineHeight)
           .fontColor(ColorTokens.primary)

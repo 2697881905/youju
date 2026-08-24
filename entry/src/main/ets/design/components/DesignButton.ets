@@ -88,18 +88,17 @@ export struct DesignButton {
         .width(this.fillWidth ? '100%' : 'auto')
         .padding({ left: SpaceTokens.block, right: SpaceTokens.block })
         .textAlign(TextAlign.Center)
-        .backgroundColor(this.isPrimary() ? ColorTokens.brand : (this.isGlass() ? ColorTokens.barSurface : Color.Transparent))
+        .backgroundColor(this.isPrimary() ? ColorTokens.brand : (this.isGlass() ? ColorTokens.elevated : Color.Transparent))
         .border({
           width: this.isPrimary() ? 0 : LayoutTokens.glassBorderWidth,
-          color: this.isGlass() ? ColorTokens.barBorder : ColorTokens.brand,
+          color: this.isGlass() ? ColorTokens.separator : ColorTokens.brand,
           style: BorderStyle.Solid,
         })
-        .backdropBlur(this.isGlass() ? LayoutTokens.glassBlur : 0)
         .borderRadius(this.resolvedRadius())
         .shadow({
-          radius: this.isGlass() ? 10 : 0,
+          radius: this.isGlass() ? 6 : 0,
           color: this.isGlass() ? ColorTokens.barShadow : Color.Transparent,
-          offsetY: this.isGlass() ? 4 : 0,
+          offsetY: this.isGlass() ? 2 : 0,
         })
         .opacity(this.disabled ? 0.45 : 1)
         .scale({

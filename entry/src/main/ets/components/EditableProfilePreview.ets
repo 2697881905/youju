@@ -39,7 +39,7 @@ export struct EditableProfilePreview {
   private previewStat(value: number, label: string): void {
     Column({ space: SpaceTokens.inlineTight }) {
       Text(String(value))
-        .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamily)
+        .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
         .fontWeight(TypeTokens.headline.weight).fontColor(Color.White)
         .margin({ left: 5 })
       Text(label)
@@ -75,7 +75,7 @@ export struct EditableProfilePreview {
         Column({ space: SpaceTokens.inlineTight }) {
           Row({ space: SpaceTokens.inline }) {
             Text(this.nickname.length > 0 ? this.nickname : '你的昵称')
-              .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamily)
+              .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
               .fontWeight(TypeTokens.headline.weight).fontColor(Color.White).maxLines(1)
             Text(this.genderText())
               .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
@@ -130,7 +130,7 @@ export struct EditableProfilePreview {
       action: action,
     }) {
       Row({ space: SpaceTokens.inlineTight }) {
-        Image(resolveSettingsIcon('edit')).width(IconTokens.compact).height(IconTokens.compact).fillColor(ColorTokens.primary)
+        Image(resolveSettingsIcon('edit')).width(IconTokens.compact).height(IconTokens.compact)
         Text(label)
           .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
           .fontWeight(TypeTokens.headline.weight).fontColor(ColorTokens.primary)

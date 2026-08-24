@@ -136,6 +136,7 @@ export struct BottomTabBar {
             Image(item.icon)
               .width(IconTokens.tabBar)
               .height(IconTokens.tabBar)
+              .fillColor(this.isActive(index) ? ColorTokens.brand : ColorTokens.tertiary)
               .scale({
                 x: this.isActive(index) && !this.shouldReduceMotion() ? 1.08 : 1,
                 y: this.isActive(index) && !this.shouldReduceMotion() ? 1.08 : 1,
@@ -145,6 +146,7 @@ export struct BottomTabBar {
           Image(item.icon)
             .width(IconTokens.tabBar)
             .height(IconTokens.tabBar)
+            .fillColor(this.isActive(index) ? ColorTokens.brand : ColorTokens.tertiary)
             .scale({
               x: this.isActive(index) && !this.shouldReduceMotion() ? 1.08 : 1,
               y: this.isActive(index) && !this.shouldReduceMotion() ? 1.08 : 1,
@@ -152,7 +154,7 @@ export struct BottomTabBar {
         }
         Text(item.title)
           .fontSize(TypeTokens.navLabel.size).fontFamily(TypeTokens.fontFamily)
-          .fontColor(this.isActive(index) ? ColorTokens.primary : ColorTokens.secondary)
+          .fontColor(this.isActive(index) ? ColorTokens.brand : ColorTokens.secondary)
       }
       .width(LayoutTokens.tabBarItemWidth)
       .height(LayoutTokens.tabBarItemHeight)
@@ -190,7 +192,7 @@ export struct BottomTabBar {
         radius: LayoutTokens.tabBarGlowSize / 2,
         colors: [
           [ColorTokens.glassWhite, 0.0],
-          [ColorTokens.glassGlowHeavy, 0.18],
+          [ColorTokens.brandTint, 0.18],
           [ColorTokens.glassGlowMedium, 0.5],
           [ColorTokens.glassClear, 1.0],
         ],
@@ -207,20 +209,6 @@ export struct BottomTabBar {
 
   build() {
     Stack({ alignContent: Alignment.Center }) {
-      Column()
-        .width('100%')
-        .height('100%')
-        .linearGradient({
-          angle: 180,
-          colors: [
-            [ColorTokens.glassSheenTop, 0.0],
-            [ColorTokens.glassSheenUpper, 0.32],
-            [ColorTokens.glassSheenLower, 0.68],
-            [ColorTokens.glassSheenBottom, 1.0],
-          ],
-        })
-        .hitTestBehavior(HitTestMode.None)
-
       Row() {
         SharedSlide({
           selectedIndex: this.selectedIndex(),
@@ -246,16 +234,13 @@ export struct BottomTabBar {
       .height('100%')
       .justifyContent(FlexAlign.SpaceEvenly)
       .alignItems(VerticalAlign.Center)
-
-      this.glowOverlay()
     }
     .width('100%')
     .height(LayoutTokens.tabBarHeight)
     .borderRadius(RadiusTokens.floatingBar)
-    .backdropBlur(LayoutTokens.glassBlur)
-    .backgroundColor($r('app.color.bar_surface'))
-    .border({ width: 1, color: $r('app.color.bar_border'), style: BorderStyle.Solid })
-    .shadow({ radius: 22, color: $r('app.color.bar_shadow'), offsetY: 10 })
+    .backgroundColor(ColorTokens.elevated)
+    .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
+    .shadow({ radius: 16, color: ColorTokens.barShadow, offsetY: 7 })
     .clip(true)
     .scale({
       x: this.barPressed && !this.shouldReduceMotion() ? 0.994 : 1,

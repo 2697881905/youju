@@ -16,11 +16,15 @@ export class TypeStyleToken {
 export class TypeTokens {
   // 应用内的唯一字体入口。资源令牌同时供未接入 TypeTokens 的旧页面使用。
   static readonly fontFamily: Resource = $r('app.string.font_family');
-  static readonly display: TypeStyleToken = new TypeStyleToken(30, 700, 36, 0);
-  static readonly title: TypeStyleToken = new TypeStyleToken(20, 650, 26, 0);
-  static readonly headline: TypeStyleToken = new TypeStyleToken(17, 600, 22, 0);
-  static readonly body: TypeStyleToken = new TypeStyleToken(15, 400, 23, 0);
-  static readonly callout: TypeStyleToken = new TypeStyleToken(13, 400, 18, 0);
+  // 衬线（宋体感）入口：标题区文字用衬线压住"信服"，正文仍走无衬线。
+  static readonly fontFamilySerif: Resource = $r('app.string.font_family_serif');
+  static readonly display: TypeStyleToken = new TypeStyleToken(32, 700, 40, 0);
+  static readonly displaySerif: TypeStyleToken = new TypeStyleToken(32, 700, 44, 0);
+  static readonly title: TypeStyleToken = new TypeStyleToken(21, 650, 28, 0);
+  static readonly titleSerif: TypeStyleToken = new TypeStyleToken(21, 700, 32, 0);
+  static readonly headline: TypeStyleToken = new TypeStyleToken(18, 600, 24, 0);
+  static readonly body: TypeStyleToken = new TypeStyleToken(16, 400, 24, 0);
+  static readonly callout: TypeStyleToken = new TypeStyleToken(14, 400, 20, 0);
   static readonly caption: TypeStyleToken = new TypeStyleToken(12, 450, 16, 0);
   static readonly overline: TypeStyleToken = new TypeStyleToken(11, 600, 14, 0);
   static readonly navLabel: TypeStyleToken = new TypeStyleToken(10, 400, 14, 0);

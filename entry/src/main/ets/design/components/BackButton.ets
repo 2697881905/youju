@@ -20,16 +20,14 @@ export struct BackButton {
         Image(resolveActionIcon('back'))
           .width(IconTokens.small)
           .height(IconTokens.small)
-          .fillColor(ColorTokens.primary)
       }
       .width(LayoutTokens.minTouchTarget)
       .height(LayoutTokens.minTouchTarget)
       .justifyContent(FlexAlign.Center)
-      .backgroundColor(ColorTokens.barSurface)
-      .backdropBlur(LayoutTokens.glassBlur)
-      .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+      .backgroundColor(ColorTokens.elevated)
+      .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
       .borderRadius(RadiusTokens.lg)
-      .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
+      .shadow({ radius: 6, color: ColorTokens.barShadow, offsetY: 2 })
       .accessibilityText('返回')
     }
   }

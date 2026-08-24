@@ -1,6 +1,6 @@
 import { Post } from '../models/types';
 import { followTag, listFollowedTags, listPosts, unfollowTag } from '../services/api';
-import { ensureLogin } from '../utils/auth';
+import { getToken } from '../utils/auth';
 import { openPostDetail, takeCircleDetailName } from '../utils/nav';
 import { observeGridColumns, gridColumnTemplate } from '../utils/responsive';
 import { GRID_GAP, GRID_PADDING } from '../utils/cardTokens';
@@ -65,15 +65,17 @@ struct CircleDetailPage {
       this.error = '圈子信息已失效，请从圈子页重新进入';
       return;
     }
-    const user = await ensureLogin();
-    if (!user) {
-      return;
-    }
+    // 帖子流对访客公开可浏览，未登录不拦截；加入/退出圈子时再做登录引导。
     await this.loadJoined();
     await this.refresh();
   }
 
   private async loadJoined(): Promise<void> {
+    // 未登录不请求加入态（默认未加入），避免空 token 拉取关注列表。
+    if (getToken() === '') {
+      this.joined = false;
+      return;
+    }
     try {
       const names = await listFollowedTags();
       this.joined = names.indexOf(this.circleName) >= 0;
@@ -140,6 +142,11 @@ struct CircleDetailPage {
     if (this.joining || this.circleName.length === 0) {
       return;
     }
+    // 未登录先引导登录，避免空 token 调用 followTag 后 401 静默失败。
+    if (getToken() === '') {
+      this.getUIContext().getRouter().pushUrl({ url: 'pages/LoginPage' });
+      return;
+    }
     const wasJoined = this.joined;
     this.joining = true;
     this.joined = !wasJoined;
@@ -187,7 +194,7 @@ struct CircleDetailPage {
 
         Blank()
         Text('圈子')
-          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamily)
+          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
           .fontWeight(TypeTokens.title.weight)
           .lineHeight(TypeTokens.title.lineHeight)
           .fontColor(ColorTokens.primary)
@@ -207,7 +214,7 @@ struct CircleDetailPage {
 
         Column({ space: SpaceTokens.inlineTight }) {
           Text(this.circleName)
-            .fontSize(TypeTokens.display.size).fontFamily(TypeTokens.fontFamily)
+            .fontSize(TypeTokens.display.size).fontFamily(TypeTokens.fontFamilySerif)
             .fontWeight(TypeTokens.display.weight)
             .lineHeight(TypeTokens.display.lineHeight)
             .fontColor(ColorTokens.primary)

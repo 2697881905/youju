@@ -85,7 +85,6 @@ export struct SearchPanel {
         Image($r('app.media.history'))
           .width(IconTokens.compact)
           .height(IconTokens.compact)
-          .fillColor(ColorTokens.tertiary)
         Text(keyword)
           .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
           .fontColor(ColorTokens.primary)
@@ -123,13 +122,10 @@ export struct SearchPanel {
           Image($r('app.media.empty_search'))
             .width(IconTokens.small)
             .height(IconTokens.small)
-            .fillColor(ColorTokens.brand)
         }
         .width(LayoutTokens.minTouchTarget)
         .height(LayoutTokens.minTouchTarget)
         .justifyContent(FlexAlign.Center)
-        .backgroundColor(ColorTokens.barSurface)
-        .backdropBlur(LayoutTokens.glassBlur)
         .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
         .borderRadius(RadiusTokens.lg)
         .onClick((): void => { this.doSearch(); })
@@ -152,7 +148,7 @@ export struct SearchPanel {
                 Column({ space: SpaceTokens.md }) {
                   Row() {
                     Text('最近搜索')
-                      .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamily)
+                      .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
                       .fontWeight(TypeTokens.headline.weight)
                       .fontColor(ColorTokens.primary)
                     Blank()
@@ -164,7 +160,6 @@ export struct SearchPanel {
                       Image($r('app.media.set_trash'))
                         .width(IconTokens.compact)
                         .height(IconTokens.compact)
-                        .fillColor(ColorTokens.secondary)
                     }
                   }
                   .width('100%')
@@ -190,7 +185,7 @@ export struct SearchPanel {
             GlassPanel({ panelPadding: SpaceTokens.md, radius: RadiusTokens.lg }) {
               Column({ space: SpaceTokens.md }) {
                 Text('大家都在搜')
-                  .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamily)
+                  .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
                   .fontWeight(TypeTokens.headline.weight)
                   .fontColor(ColorTokens.primary)
                 if (this.visibleHotKeywords().length === 0) {

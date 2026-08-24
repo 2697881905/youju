@@ -2,59 +2,59 @@
   "color": [
     {
       "name": "start_window_background",
-      "value": "#000000"
+      "value": "#14120C"
     },
     {
       "name": "brand_primary",
-      "value": "#0A84FF"
+      "value": "#6FA8FF"
     },
     {
       "name": "bg_primary",
-      "value": "#000000"
+      "value": "#14120C"
     },
     {
       "name": "bg_secondary",
-      "value": "#1C1C1E"
+      "value": "#1C1912"
     },
     {
       "name": "card_bg",
-      "value": "#1C1C1E"
+      "value": "#1C1912"
     },
     {
       "name": "text_primary",
-      "value": "#FFFFFF"
+      "value": "#F3EEDF"
     },
     {
       "name": "text_secondary",
-      "value": "#8E8E93"
+      "value": "#B9B09A"
     },
     {
       "name": "text_tertiary",
-      "value": "#48484A"
+      "value": "#8C836F"
     },
     {
       "name": "divider",
-      "value": "#38383A"
+      "value": "#3A3120"
     },
     {
       "name": "glass_card_bg",
-      "value": "#1C1C1E"
+      "value": "#1C1912"
     },
     {
       "name": "glass_border",
-      "value": "#38383A"
+      "value": "#4A412C"
     },
     {
       "name": "glass_overlay_light",
-      "value": "#A61C1C1E"
+      "value": "#A614120C"
     },
     {
       "name": "glass_overlay_heavy",
-      "value": "#CC000000"
+      "value": "#CC14120C"
     },
     {
       "name": "glass_bar_bg",
-      "value": "#B31C1C1E"
+      "value": "#B314120C"
     },
     {
       "name": "semantic_red",
@@ -70,27 +70,27 @@
     },
     {
       "name": "surface_elevated",
-      "value": "#2C2C2E"
+      "value": "#221E15"
     },
     {
       "name": "control_bg",
-      "value": "#2C2C2E"
+      "value": "#2A251A"
     },
     {
       "name": "surface_selected",
-      "value": "#240A84FF"
+      "value": "#246FA8FF"
     },
     {
       "name": "warning_surface",
-      "value": "#33FF9F0A"
+      "value": "#33E8940B"
     },
     {
       "name": "bar_surface",
-      "value": "#591C1C1E"
+      "value": "#591C1912"
     },
     {
       "name": "bar_border",
-      "value": "#52FFFFFF"
+      "value": "#523A3120"
     },
     {
       "name": "bar_shadow",
@@ -98,63 +98,63 @@
     },
     {
       "name": "bar_selection_surface",
-      "value": "#33FFFFFF"
+      "value": "#332A251A"
     },
     {
       "name": "bar_selection_border",
-      "value": "#52FFFFFF"
+      "value": "#524A412C"
     },
     {
       "name": "bar_selection_shadow",
-      "value": "#5C0A84FF"
+      "value": "#5C6FA8FF"
     },
     {
       "name": "ds_canvas",
-      "value": "#000000"
+      "value": "#14120C"
     },
     {
       "name": "ds_elevated",
-      "value": "#1C1C1E"
+      "value": "#1C1912"
     },
     {
       "name": "ds_subtle",
-      "value": "#2C2C2E"
+      "value": "#221E15"
     },
     {
       "name": "ds_sunken",
-      "value": "#0C0C0D"
+      "value": "#0E0C08"
     },
     {
       "name": "ds_text_primary",
-      "value": "#F2F2F7"
+      "value": "#F3EEDF"
     },
     {
       "name": "ds_text_secondary",
-      "value": "#AEAEB2"
+      "value": "#B9B09A"
     },
     {
       "name": "ds_text_tertiary",
-      "value": "#8E8E93"
+      "value": "#8C836F"
     },
     {
       "name": "ds_text_quaternary",
-      "value": "#636366"
+      "value": "#5F5848"
     },
     {
       "name": "ds_brand",
-      "value": "#0A84FF"
+      "value": "#6FA8FF"
     },
     {
       "name": "ds_brand_tint",
-      "value": "#330A84FF"
+      "value": "#336FA8FF"
     },
     {
       "name": "ds_brand_press",
-      "value": "#409CFF"
+      "value": "#8FBBFF"
     },
     {
       "name": "ds_on_brand",
-      "value": "#FFFFFF"
+      "value": "#101010"
     },
     {
       "name": "ds_warm",
@@ -178,15 +178,15 @@
     },
     {
       "name": "ds_separator",
-      "value": "#3D545458"
+      "value": "#3D4A412C"
     },
     {
       "name": "ds_skeleton_base",
-      "value": "#2C2C2E"
+      "value": "#2A251A"
     },
     {
       "name": "ds_skeleton_highlight",
-      "value": "#3A3A3C"
+      "value": "#38301F"
     }
   ]
 }

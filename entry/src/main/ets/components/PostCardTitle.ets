@@ -1,6 +1,6 @@
 import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
-import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
+import { SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 
 @Component
@@ -12,9 +12,10 @@ export struct PostCardTitle {
   build() {
     Column({ space: this.compact ? SpaceTokens.inlineTight : SpaceTokens.sm }) {
       Text(this.title)
-        .fontSize(this.compact ? TypeTokens.body.size : TypeTokens.headline.size).fontFamily(TypeTokens.fontFamily)
+        .fontSize(this.compact ? TypeTokens.body.size + 2 : TypeTokens.headline.size)
+        .fontFamily(TypeTokens.fontFamilySerif)
         .fontWeight(TypeTokens.headline.weight)
-        .lineHeight(this.compact ? 20 : TypeTokens.headline.lineHeight)
+        .lineHeight(this.compact ? 24 : TypeTokens.headline.lineHeight)
         .letterSpacing(TypeTokens.headline.tracking)
         .fontColor(ColorTokens.primary)
         .maxLines(2)
@@ -24,16 +25,15 @@ export struct PostCardTitle {
     .padding(this.compact ? SpaceTokens.xs : SpaceTokens.sm)
     .alignItems(HorizontalAlign.Start)
     .backgroundColor(ColorTokens.elevated)
-    .backdropBlur(LayoutTokens.glassBlur)
-    // 底部不画边框：与贴主信息区无缝衔接（信息区共用一个玻璃块）
+    // 标题是纸面卡片的第一层，只保留极细的纸张分隔线。
     .border({
       width: {
-        left: LayoutTokens.glassBorderWidth,
-        right: LayoutTokens.glassBorderWidth,
-        top: LayoutTokens.glassBorderWidth,
+        left: 1,
+        right: 1,
+        top: 1,
         bottom: 0,
       },
-      color: ColorTokens.barBorder,
+      color: ColorTokens.separator,
       style: BorderStyle.Solid,
     })
     .borderRadius({

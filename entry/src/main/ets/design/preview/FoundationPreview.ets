@@ -56,7 +56,7 @@ export struct FoundationPreview {
           BaseCard({ pressable: true }) {
             Column({ space: SpaceTokens.item }) {
               Text('黄金卡片基座')
-                .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamily)
+                .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
                 .fontWeight(TypeTokens.headline.weight)
                 .lineHeight(TypeTokens.headline.lineHeight)
                 .fontColor(ColorTokens.primary)
@@ -85,7 +85,7 @@ export struct FoundationPreview {
               IconTile({ icon: $r('app.media.tag_digital_shopping') })
               Column({ space: SpaceTokens.xs }) {
                 Text('Phase 2 原子')
-                  .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamily)
+                  .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
                   .fontWeight(TypeTokens.headline.weight)
                   .fontColor(ColorTokens.primary)
                 AuthorRow({ name: '科技老张', meta: '12天前' })

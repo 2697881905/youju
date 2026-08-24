@@ -6,6 +6,8 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { debateVoteStore } from '../utils/debateVoteStore';
+import { doesTextFitInPoster } from '../utils/textPoster';
+import { ShadowTokens } from '../design/tokens/shadow';
 
 // 详情正文只负责体裁内容的展示；投票的请求和回滚仍由 DetailPage 持有。
 export type DetailField = [string, string];
@@ -15,6 +17,7 @@ export struct DetailPostContent {
   @Prop fields: DetailField[] = [];
   @Prop genre: string = '';
   @Prop content: string = '';
+  @Prop coverOnlyTextPoster: boolean = false;
   @Prop planA: string = '';
   @Prop planB: string = '';
   @Prop votePostId: number = 0;
@@ -111,15 +114,17 @@ export struct DetailPostContent {
 
   @Builder
   private debatePanel(): void {
-    Column({ space: SpaceTokens.md }) {
+    Column({ space: SpaceTokens.lg }) {
       this.voteRow(this.planA, '方案A', 'A');
       this.voteRow(this.planB, '方案B', 'B');
     }
     .width('100%')
-    .padding(14)
+    .padding(18)
     .backgroundColor(ColorTokens.elevated)
     .borderRadius(RadiusTokens.md)
-    .border({ width: 0.5, color: ColorTokens.separator, style: BorderStyle.Solid });
+    .border({ width: 0.5, color: ColorTokens.separator, style: BorderStyle.Solid })
+    .shadow(ShadowTokens.floating)
+    .clip(true);
   }
 
   @Builder
@@ -129,14 +134,15 @@ export struct DetailPostContent {
         ForEach(
           this.fields,
           (field: DetailField) => {
-            Row({ space: SpaceTokens.sm }) {
+            Row({ space: SpaceTokens.block }) {
               Text(field[0])
                 .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
                 .fontColor(ColorTokens.secondary)
-                .width(76)
+                .width(88)
               Text(field[1])
-                .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+                .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
                 .fontColor(ColorTokens.primary)
+                .lineHeight(TypeTokens.body.lineHeight)
                 .layoutWeight(1)
             }
             .width('100%')
@@ -146,7 +152,7 @@ export struct DetailPostContent {
         )
       }
       .width('100%')
-      .padding(14)
+      .padding(18)
       .backgroundColor(ColorTokens.elevated)
       .borderRadius(RadiusTokens.md)
       .border({ width: 0.5, color: ColorTokens.separator, style: BorderStyle.Solid })
@@ -154,17 +160,22 @@ export struct DetailPostContent {
   }
 
   build() {
-    Column({ space: SpaceTokens.base }) {
+    Column({ space: SpaceTokens.lg }) {
       if (this.genre === 'debate') {
         this.debatePanel();
       }
       this.structuredFields();
       if (this.content.length > 0) {
-        Text(this.content)
-          .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
-          .fontColor(ColorTokens.primary)
-          .lineHeight(27)
-          .width('100%')
+        // 文字海报已完整容纳正文时不再冗余展示纯文本；
+        // 海报截断（省略号）时仍显示完整正文，确保读者不丢信息。
+        if (!this.coverOnlyTextPoster || !doesTextFitInPoster(this.content)) {
+          Text(this.content)
+            .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
+            .fontColor(ColorTokens.primary)
+            .lineHeight(32)
+            .width('100%')
+            .textAlign(TextAlign.Start)
+        }
       }
     }
     .width('100%')

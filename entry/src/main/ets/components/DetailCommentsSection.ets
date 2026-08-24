@@ -15,7 +15,7 @@ export struct DetailCommentsSection {
     Column({ space: SpaceTokens.item }) {
       Divider().color(ColorTokens.separator)
       Text('评论 ' + formatCount(this.commentCount))
-        .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamily)
+        .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
         .fontWeight(TypeTokens.headline.weight)
         .fontColor(ColorTokens.primary)
       CommentList({

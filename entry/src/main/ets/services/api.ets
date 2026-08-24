@@ -1,20 +1,14 @@
 import { http } from '@kit.NetworkKit';
-import { BUILD_MODE_NAME } from 'BuildProfile';
+import { BUILD_MODE_NAME, DEBUG } from '../utils/buildMode';
 import { Post, DailyPost, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody, PendingPost, ModerateAction, NotificationPrefs, BlockUser, PrivacySettingsData, UserExportData, DebateVoteResult, Conversation, DmMessage, DmSharePayload } from '../models/types';
 
-// 后端地址：根据构建模式切换
-// - release（上架包）：生产 HTTPS 域名
-// - debug（模拟器/本地开发）：用 Mac 局域网 IP 直连，绕过 hdc rport 隧道（隧道延迟高、偶发 10s 挂死）。
-//   Mac IP 变动时只改 DEBUG_API_HOST 一处即可（终端 `ipconfig getifaddr en0` 查当前 IP）。
-//   若只能走 hdc 隧道，把它改回 'http://127.0.0.1:3000' 并执行 hdc -t <序列号> rport tcp:3000 tcp:3000。
-// BUILD_MODE_NAME 由构建期生成，类型为字面量（'debug'/'release'）。
-// 严格模式（assembleHap）下与字面量比较会触发 "no overlap" 报错，转成 string 再比较。
+// 以构建期布尔 DEBUG 为准选择后端地址（调试包 true → 本地，released → 生产）。
 const BUILD_MODE: string = BUILD_MODE_NAME;
-const DEBUG_API_HOST: string = 'http://192.168.1.32:3000';
+const DEBUG_API_HOST: string = 'http://10.0.2.2:3000';
 export const BASE_URL: string =
-  BUILD_MODE === 'release'
-    ? 'https://api.youju.chat'
-    : DEBUG_API_HOST;
+  DEBUG === true
+    ? DEBUG_API_HOST
+    : 'https://api.youju.chat';
 
 // 本地上传服务会把宿主机 LAN 地址写入数据库；地址变动或模拟器无法直连 LAN 时，
 // 统一回落到已经可用的 hdc rport 地址，避免头像和背景图变成灰色占位。
@@ -198,9 +192,9 @@ export function toStoredMediaRef(sig: UploadSignature): string {
 
 // 解析「前端 PUT 直传目标 URL」：
 // - cos 模式：直传后端下发的外部预签名 URL（如 myqcloud.com）。
-// - local 模式：上传必须走 rport(BASE_URL=127.0.0.1:3000)，与所有 API 调用一致；
-//   而展示用的 viewUrl 仍用 LAN IP(backendPublicUrl)——因为模拟器 Image/WebView 不走 rport。
-// 严禁在 local 模式直接用 sig.url（LAN IP），那会因模拟器 http 模块连不上而上传失败。
+// - local 模式：上传必须走 BASE_URL（debug=10.0.2.2:3000），与所有 API 调用一致；
+//   展示用的 viewUrl 由 resolveDisplayImageUrl 统一重写回 BASE_URL，避免直用后端下发的 LAN IP。
+// 严禁在 local 模式直接用 sig.url（LAN IP），那会因模拟器连不上而上传失败。
 export function resolveUploadPutUrl(sig: UploadSignature): string {
   if (sig.mode === 'cos') {
     return sig.url;

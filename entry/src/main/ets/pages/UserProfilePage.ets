@@ -1,6 +1,7 @@
 
 import { Post, UserProfile } from '../models/types';
 import { getUserProfile, followUser, unfollowUser, listPosts, resolveDisplayImageUrl, blockUser, unblockUser, dislikeUser, undislikeUser } from '../services/api';
+import { postDeletionStore } from '../utils/postDeletionStore';
 import { getUserId } from '../utils/auth';
 import { PostCard } from '../components/PostCard';
 import { ProfileIdentity } from '../components/ProfileIdentity';
@@ -50,15 +51,22 @@ export struct UserProfilePage {
   @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
   private profileEntranceTimer: number = 0;
   private followPulseTimer: number = 0;
+  // 订阅帖子删除事件：该作者帖子被删除后，本页网格即时移除（不依赖刷新/重进）
+  private unsubDeletion: () => void = () => {};
 
   aboutToAppear(): void {
     this.resolveTarget();
     if (this.token !== '') {
       this.loadAll();
     }
+    // 帖子删除广播：详情页删除成功后，本页 posts 数组即时剔除该帖
+    this.unsubDeletion = postDeletionStore.subscribe((deletedId: number): void => {
+      this.posts = this.posts.filter((p: Post) => p.id !== deletedId);
+    });
   }
 
   aboutToDisappear(): void {
+    this.unsubDeletion();
     if (this.profileEntranceTimer !== 0) {
       clearTimeout(this.profileEntranceTimer);
       this.profileEntranceTimer = 0;

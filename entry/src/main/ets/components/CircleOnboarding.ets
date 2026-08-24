@@ -73,7 +73,7 @@ export struct CircleOnboarding {
     Column({ space: SpaceTokens.md }) {
       Column({ space: SpaceTokens.xs }) {
         Text('选择感兴趣的圈子')
-          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamily)
+          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
           .fontWeight(TypeTokens.title.weight)
           .lineHeight(TypeTokens.title.lineHeight)
           .fontColor(ColorTokens.primary)

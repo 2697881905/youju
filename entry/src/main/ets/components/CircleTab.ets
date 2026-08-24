@@ -578,7 +578,7 @@ export struct CircleTab {
   topBar(): void {
     Row({ space: SpaceTokens.sm }) {
       Text('圈子')
-        .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamily)
+        .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
         .fontWeight(TypeTokens.title.weight)
         .lineHeight(TypeTokens.title.lineHeight)
         .letterSpacing(TypeTokens.title.tracking)

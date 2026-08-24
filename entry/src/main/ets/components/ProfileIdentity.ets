@@ -35,7 +35,7 @@ export struct ProfileIdentity {
             .width(this.onBackground ? 94 : 114)
             .height(this.onBackground ? 94 : 114)
             .borderRadius(RadiusTokens.pill)
-            .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamily)
+            .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
             .fontWeight(TypeTokens.headline.weight)
             .fontColor(ColorTokens.onBrand)
             .backgroundColor(ColorTokens.quaternary)
@@ -63,7 +63,7 @@ export struct ProfileIdentity {
       Column({ space: SpaceTokens.inlineTight }) {
         Row({ space: SpaceTokens.inline }) {
           Text(this.deleted ? '已注销用户' : this.name)
-            .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamily)
+            .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
             .fontWeight(TypeTokens.headline.weight)
             .lineHeight(TypeTokens.headline.lineHeight)
             .letterSpacing(TypeTokens.headline.tracking)

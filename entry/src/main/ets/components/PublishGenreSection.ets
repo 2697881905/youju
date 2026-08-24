@@ -64,7 +64,7 @@ export struct PublishGenreSection {
       IconTile({ icon: this.meta().iconRes, tileSize: 58, iconSize: 32, showBackground: false })
       Column({ space: SpaceTokens.xs }) {
         Text('开始创作!')
-          .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamily)
+          .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
           .fontWeight(TypeTokens.headline.weight)
           .lineHeight(TypeTokens.headline.lineHeight)
           .letterSpacing(TypeTokens.headline.tracking)
