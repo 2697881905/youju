@@ -6,6 +6,7 @@ import { DailyPost, Post, Tag } from '../models/types';
 import { listDailyPosts, listPosts, listFollowingPosts, listTags, listFollowedTags, recordSearchHistory, getUserProfile } from '../services/api';
 import { getUserId } from '../utils/auth';
 import { likeStore } from '../utils/likeStore';
+import { postDeletionStore } from '../utils/postDeletionStore';
 import { PostCard } from './PostCard';
 import { TagNav } from './TagNav';
 import { SearchPanel } from './SearchPanel';
@@ -82,6 +83,8 @@ export struct HomeTab {
   @State gridColumns: number = 2;
   @State gridTemplate: string = '1fr 1fr';
   private unregisterColumns: () => void = () => {};
+  // 订阅帖子删除事件：详情页删除后，首页 feed 即时移除该帖（不依赖刷新/切流）
+  private unsubDeletion: () => void = () => {};
   // 标签自愈重试定时器句柄（0 表示未挂起）；避免一次性加载失败后标签栏永久卡在「全部」
   private tagsRetryTimer: number = 0;
   // 模拟器启动时后端端口转发可能尚未就绪，信息流失败后自动补拉一次。
@@ -101,10 +104,15 @@ export struct HomeTab {
     );
     // 默认加载推荐公开流（无需登录）；若已登录也保持推荐流默认
     this.refresh();
+    // 订阅帖子删除事件：删除后即时从 feed 移除，避免已删帖子残留在内存列表
+    this.unsubDeletion = postDeletionStore.subscribe((deletedId: number): void => {
+      this.posts = this.posts.filter((p: DailyPost) => p.id !== deletedId);
+    });
   }
 
   aboutToDisappear(): void {
     this.unregisterColumns();
+    this.unsubDeletion();
     if (this.tagsRetryTimer !== 0) {
       clearTimeout(this.tagsRetryTimer);
       this.tagsRetryTimer = 0;
@@ -274,7 +282,8 @@ export struct HomeTab {
   }
 
   private useCircleBarOverlap(): boolean {
-    return this.feedMode !== 'daily';
+    // 圈子栏仅推荐流显示；关注流/每日一帖均不显示（关注页顶部保持干净）
+    return this.feedMode === 'recommend';
   }
 
   private feedTopSpacerIndices(): number[] {
@@ -466,7 +475,7 @@ export struct HomeTab {
         Stack({ alignContent: Alignment.Center }) {
           Row() {
             Text('有据')
-              .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamily)
+              .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
               .fontWeight(TypeTokens.title.weight)
               .lineHeight(TypeTokens.title.lineHeight)
               .letterSpacing(TypeTokens.title.tracking)
@@ -483,12 +492,9 @@ export struct HomeTab {
                 Image(resolveActionIcon('search'))
                   .width(IconTokens.compact)
                   .height(IconTokens.compact)
-                  .fillColor(ColorTokens.secondary)
               }
               .width(LayoutTokens.segmentedHeight)
               .height(LayoutTokens.segmentedHeight)
-              .backgroundColor(ColorTokens.barSurface)
-              .backdropBlur(LayoutTokens.glassBlur)
               .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
               .borderRadius(RadiusTokens.lg)
               .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 4 })

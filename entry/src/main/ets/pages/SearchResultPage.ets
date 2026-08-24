@@ -205,13 +205,10 @@ struct SearchResultPage {
             Image(resolveActionIcon('close'))
               .width(IconTokens.compact)
               .height(IconTokens.compact)
-              .fillColor(ColorTokens.secondary)
           }
           .width(LayoutTokens.minTouchTarget)
           .height(LayoutTokens.minTouchTarget)
           .justifyContent(FlexAlign.Center)
-          .backgroundColor(ColorTokens.barSurface)
-          .backdropBlur(LayoutTokens.glassBlur)
           .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
           .borderRadius(RadiusTokens.lg)
             .onClick(() => {

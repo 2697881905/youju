@@ -338,6 +338,13 @@ export struct MessagePage {
     this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage' });
   }
 
+  // 点击通知头像 → 跳转触发者（actor）主页；无 actor（系统/无来源）时忽略
+  private onActorAvatarClick(item: NotificationItem): void {
+    if (item.actor !== undefined && item.actor !== null && item.actor.id !== undefined) {
+      this.goUser(item.actor.id);
+    }
+  }
+
   // 点击单条：本地乐观标记已读（立即驱动红点消失）→ 后台同步后端 → 按类型跳转
   async onItemClick(item: NotificationItem): Promise<void> {
     if (item.read !== true && item.id !== undefined) {
@@ -568,6 +575,10 @@ export struct MessagePage {
       action: (): void => {
         this.onItemClick(item);
       },
+      // 点击通知头像 → 直接进入触发者主页
+      avatarAction: (): void => {
+        this.onActorAvatarClick(item);
+      },
     })
   }
 
@@ -576,7 +587,7 @@ export struct MessagePage {
       // 顶栏
       Row() {
         Text('消息')
-          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamily)
+          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
           .fontWeight(TypeTokens.title.weight)
           .lineHeight(TypeTokens.title.lineHeight)
           .letterSpacing(TypeTokens.title.tracking)
@@ -688,7 +699,9 @@ export struct MessagePage {
                     }
                   }
                 },
-                (item: NotificationItem) => String(item.id ?? 0),
+                // key 必须包含已读状态：ArkUI ForEach 复用相同 key 的行时不刷新子组件 @Prop，
+                // 若不带上 read，点击单条已读后红点不会消失（只有重进页面才恢复）。
+                (item: NotificationItem) => String(item.id ?? 0) + (item.read ? '-r' : '-u'),
               )
               // 真实列表项会计入滚动范围，避免最后一条通知被毛玻璃底栏遮住。
               ListItem() {

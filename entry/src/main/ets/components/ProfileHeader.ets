@@ -16,6 +16,7 @@ export struct ProfileHeader {
   @Prop gender: number = 0;
   @Prop bio: string = '';
   @Prop userId: number = 0;
+  @Prop isLoggedIn: boolean = false;
   @Prop followingCount: number = 0;
   @Prop followerCount: number = 0;
   @Prop totalLikes: number = 0;
@@ -25,6 +26,7 @@ export struct ProfileHeader {
   onEdit: () => void = (): void => {};
   onOpenDrafts: () => void = (): void => {};
   onOpenTrash: () => void = (): void => {};
+  onLogin: () => void = (): void => {};
 
   build() {
     Column() {
@@ -56,19 +58,19 @@ export struct ProfileHeader {
         Pressable({
           visualHeight: LayoutTokens.segmentedHeight,
           touchTargetHeight: LayoutTokens.minTouchTarget,
-          action: (): void => { this.onEdit(); },
+          action: (): void => { this.isLoggedIn ? this.onEdit() : this.onLogin(); },
         }) {
-          Text('编辑资料')
+          Text(this.isLoggedIn ? '编辑资料' : '去登录')
             .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
             .fontWeight(TypeTokens.headline.weight)
             .lineHeight(TypeTokens.caption.lineHeight)
-            .fontColor(ColorTokens.primary)
+            .fontColor(this.isLoggedIn ? ColorTokens.primary : ColorTokens.brand)
             .width(76)
             .height(LayoutTokens.segmentedHeight)
             .textAlign(TextAlign.Center)
-            .backgroundColor(ColorTokens.barSurface)
+            .backgroundColor(this.isLoggedIn ? ColorTokens.barSurface : ColorTokens.brandTint)
             .backdropBlur(LayoutTokens.glassBlur)
-            .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+            .border({ width: LayoutTokens.glassBorderWidth, color: this.isLoggedIn ? ColorTokens.barBorder : ColorTokens.brand, style: BorderStyle.Solid })
             .borderRadius(RadiusTokens.floatingBar)
             .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
         }
@@ -76,7 +78,8 @@ export struct ProfileHeader {
       .width('100%')
       .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, bottom: SpaceTokens.sm })
 
-      Row({ space: SpaceTokens.sm }) {
+      if (this.isLoggedIn) {
+        Row({ space: SpaceTokens.sm }) {
         Column() {
           Pressable({
             fillWidth: true,
@@ -140,6 +143,7 @@ export struct ProfileHeader {
       }
       .width('100%')
       .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, bottom: SpaceTokens.xs })
+      }
     }
     .width('100%')
   }

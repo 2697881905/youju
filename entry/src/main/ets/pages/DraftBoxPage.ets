@@ -171,7 +171,7 @@ struct DraftBoxPage {
       Row({ space: SpaceTokens.sm }) {
         BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
         Text('草稿箱')
-          .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamily)
+          .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
           .fontWeight(TypeTokens.headline.weight)
           .lineHeight(TypeTokens.headline.lineHeight)
           .fontColor(ColorTokens.primary)

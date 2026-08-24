@@ -68,7 +68,7 @@ export struct JoinedCirclesDialog {
         Row({ space: SpaceTokens.sm }) {
           Column({ space: 2 }) {
             Text('已加入的圈子')
-              .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamily)
+              .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
               .fontWeight(TypeTokens.headline.weight)
               .lineHeight(TypeTokens.headline.lineHeight)
               .fontColor(ColorTokens.primary)

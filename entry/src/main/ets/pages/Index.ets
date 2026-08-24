@@ -6,17 +6,22 @@ import { CircleOnboarding } from '../components/CircleOnboarding';
 import { MessagePage } from './MessagePage';
 import { ProfilePage } from './ProfilePage';
 import { initAuthStorage, getToken, getUserId, loginWithDevStub, setPrivacyAgreed, isPrivacyAgreed, PRIVACY_POLICY_VERSION } from '../utils/auth';
-import { BUILD_MODE_NAME } from 'BuildProfile';
+import { BUILD_MODE_NAME } from '../utils/buildMode';
 import { getUnreadCount, getDmUnreadCount, getMe, recordPrivacyConsent, followTag, listTags } from '../services/api';
 import { Tag } from '../models/types';
 import { safeShowToast } from '../utils/toast';
 import { BottomTabBar, BottomTabItem } from '../design/components/BottomTabBar';
 import { PublishMode, PublishModeSheet } from '../components/PublishModeSheet';
 import { LayoutTokens } from '../design/tokens/space';
+import { RadiusTokens } from '../design/tokens/radius';
 import { common } from '@kit.AbilityKit';
 import { window } from '@kit.ArkUI';
+import { hilog } from '@kit.PerformanceAnalysisKit';
+import font from '@ohos.font';
 import { publishFlowStore } from '../utils/publishFlowStore';
 import { AppTab, subscribeTabSwitch } from '../utils/nav';
+import { setSerifTypeface } from '../utils/textPoster';
+import { drawing } from '@kit.ArkGraphics2D';
 
 @CustomDialog
 struct PrivacyConsentDialog {
@@ -64,15 +69,25 @@ struct PrivacyConsentDialog {
         Button('不同意')
           .layoutWeight(1)
           .fontColor($r('app.color.semantic_red'))
-          .backgroundColor($r('app.color.bg_primary'))
+          .backgroundColor($r('app.color.bar_surface'))
+          .backdropBlur(LayoutTokens.glassBlur)
+          .border({ width: LayoutTokens.glassBorderWidth, color: $r('app.color.bar_border'), style: BorderStyle.Solid })
+          .borderRadius(RadiusTokens.md)
+          .shadow({ radius: 10, color: $r('app.color.bar_shadow'), offsetY: 3 })
+          .clip(true)
           .onClick((): void => {
             this.controller.close();
             this.onDecline();
           })
         Button('同意并继续')
           .layoutWeight(1)
-          .fontColor($r('app.color.ds_on_brand'))
-          .backgroundColor($r('app.color.brand_primary'))
+          .fontColor($r('app.color.ds_brand'))
+          .backgroundColor($r('app.color.bar_surface'))
+          .backdropBlur(LayoutTokens.glassBlur)
+          .border({ width: LayoutTokens.glassBorderWidth, color: $r('app.color.bar_border'), style: BorderStyle.Solid })
+          .borderRadius(RadiusTokens.md)
+          .shadow({ radius: 10, color: $r('app.color.bar_shadow'), offsetY: 3 })
+          .clip(true)
           .onClick((): void => {
             this.controller.close();
             this.onAgree();
@@ -137,6 +152,7 @@ struct Index {
     }),
     alignment: DialogAlignment.Center,
     customStyle: true,
+    width: 344,
   });
 
   private bottomTabItems(): BottomTabItem[] {
@@ -149,7 +165,24 @@ struct Index {
     ];
   }
 
+  // 内置开源宋体（Noto Serif SC），保证「全文科感」标题在无系统宋体的设备上也真实呈现。
+  private registerSerifFont(): void {
+    try {
+      font.registerFont({
+        familyName: 'Noto Serif SC',
+        familySrc: $rawfile('fonts/NotoSerifSC-Bold.otf'),
+      });
+      // 创建 drawing Typeface 并传递给 textPoster.ets，让 canvas 绘制也使用衬线字体
+      const typeface: drawing.Typeface = drawing.Typeface.makeFromRawFile($rawfile('fonts/NotoSerifSC-Bold.otf'));
+      setSerifTypeface(typeface);
+      hilog.info(0x0000, 'Index', 'serif font registered');
+    } catch (err) {
+      hilog.error(0x0000, 'Index', 'register serif font failed: %{public}s', JSON.stringify(err));
+    }
+  }
+
   aboutToAppear(): void {
+    this.registerSerifFont();
     initAuthStorage();
     AppStorage.setOrCreate<number>('circleLogoDismissVersion', AppStorage.get<number>('circleLogoDismissVersion') ?? 0);
     this.unsubscribeTabSwitch();
@@ -193,13 +226,14 @@ struct Index {
   }
 
   private startInit(): void {
+    // 访客可浏览首页/圈子等公开内容；登录仅用于发布/私信/个人中心等需鉴权操作。
+    // 未登录不再强制弹出登录页，避免“进首页即强制登录”的体验；登录态就绪时再补拉个人数据。
     if (getToken() === '') {
-      this.getUIContext().getRouter().pushUrl({ url: 'pages/LoginPage' });
-    } else {
-      this.validateStartupSession();
-      this.refreshUnread();
-      this.maybeShowCircleOnboarding();
+      return;
     }
+    this.validateStartupSession();
+    this.refreshUnread();
+    this.maybeShowCircleOnboarding();
   }
 
   private onCircleOnboardingPendingChanged(): void {

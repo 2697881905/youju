@@ -28,6 +28,13 @@ build-profile.json5
 # WorkBuddy agent 记忆（非项目源码）
 .workbuddy/
 
+# 软著材料产物（脱敏后 PDF 与生成脚本不入库；仅本地留档）
+/soft_output/源代码_完整60页_合规.pdf
+/soft_output/文档_完整60页_合规.pdf
+/soft_output/有据软件说明书.md
+/make_soft_pdf.py
+/make_doc_pdf.py
+
 # 操作系统垃圾文件
 .DS_Store
 **/.DS_Store

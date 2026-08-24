@@ -34,7 +34,7 @@ export struct EmptyState {
         .fillColor(ColorTokens.tertiary)
 
       Text(this.safeTitle())
-        .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamily)
+        .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
         .fontWeight(TypeTokens.headline.weight)
         .lineHeight(TypeTokens.headline.lineHeight)
         .letterSpacing(TypeTokens.headline.tracking)

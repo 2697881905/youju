@@ -20,6 +20,7 @@ import { openUserProfile, takePostDetailId } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 import { getUserId, getToken } from '../utils/auth';
 import { likeStore } from '../utils/likeStore';
+import { postDeletionStore } from '../utils/postDeletionStore';
 import { debateVoteStore, DebateVoteInfo } from '../utils/debateVoteStore';
 import { ShareSheet } from '../components/ShareSheet';
 import { ShareToDmSheet } from '../components/ShareToDmSheet';
@@ -602,6 +603,8 @@ struct DetailPage {
         try {
           if (!this.post || this.post.id === undefined) return;
           await deletePost(this.post.id);
+          // 广播删除事件：所有订阅的列表宿主（首页/我的/他人主页）立即移除该帖，无需刷新
+          postDeletionStore.notifyDeleted(this.post.id);
           safeShowToast(this.getUIContext(), { message: '已移入废纸篓' });
           this.getUIContext().getRouter().back();
         } catch (e) {
@@ -790,6 +793,7 @@ struct DetailPage {
                 fields: this.fields,
                 genre: this.post.genre ?? '',
                 content: this.post.content ?? '',
+                coverOnlyTextPoster: this.post.structuredData?.coverOnlyTextPoster ?? false,
                 planA: this.planTextOf('方案A'),
                 planB: this.planTextOf('方案B'),
                 votePostId: this.post.id ?? 0,

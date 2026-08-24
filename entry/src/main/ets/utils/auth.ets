@@ -4,7 +4,7 @@
 import { login, LoginResult } from '../services/api';
 import { User } from '../models/types';
 import { router } from '@kit.ArkUI';
-import { BUILD_MODE_NAME } from 'BuildProfile';
+import { BUILD_MODE_NAME } from './buildMode';
 import { asset } from '@kit.AssetStoreKit';
 // BUILD_MODE_NAME 由构建期生成，类型为字面量（'debug'/'release'）。
 // 严格模式（assembleHap）下与字面量比较会触发 "no overlap" 报错，转成 string 再比较。

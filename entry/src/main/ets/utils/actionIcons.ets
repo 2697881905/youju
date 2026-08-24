@@ -29,6 +29,10 @@ const ACTION_ICONS: Map<string, Resource> = new Map<string, Resource>([
   ['book', $r('app.media.book_doc')],
   ['draftBox', $r('app.media.draft_box')],
   ['check', $r('app.media.check_round')],
+  // 分享类型按钮
+  ['shareWechat', $r('app.media.share_wechat')],
+  ['shareLink', $r('app.media.share_link')],
+  ['shareCard', $r('app.media.share_card')],
 ]);
 
 // 按动作名解析线条图标资源；未命中回退 close（x）

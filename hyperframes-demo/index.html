@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, height=1080">
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #111114;
+      }
+      body {
+        font-family: "Inter", sans-serif;
+      }
+      code,
+      .mono {
+        font-family: "JetBrains Mono", monospace;
+      }
+
+      .scene {
+        position: absolute;
+        inset: 0;
+        width: 1920px;
+        height: 1080px;
+        background-color: #111114;
+      }
+      /* ---- layering for crossfade ---- */
+      #sceneA { z-index: 1; }
+      #sceneB { z-index: 2; opacity: 0; }
+      #sceneC { z-index: 3; opacity: 0; }
+
+      /* ---- shared background decor ---- */
+      .glow {
+        position: absolute;
+        border-radius: 999px;
+        filter: blur(60px);
+        pointer-events: none;
+      }
+      .glow-blue {
+        width: 1100px;
+        height: 1100px;
+        background: radial-gradient(circle, rgba(0, 102, 255, 0.28) 0%, rgba(0, 102, 255, 0) 62%);
+        top: -220px;
+        left: 55%;
+        margin-left: -550px;
+      }
+      .glow-amber {
+        width: 900px;
+        height: 900px;
+        background: radial-gradient(circle, rgba(255, 179, 0, 0.16) 0%, rgba(255, 179, 0, 0) 62%);
+        bottom: -260px;
+        left: -180px;
+      }
+      .gridlines {
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(242, 242, 240, 0.05) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(242, 242, 240, 0.05) 1px, transparent 1px);
+        background-size: 96px 96px;
+        pointer-events: none;
+      }
+      .ghost {
+        position: absolute;
+        font-family: "Inter", sans-serif;
+        font-weight: 800;
+        color: rgba(242, 242, 240, 0.05);
+        line-height: 1;
+        pointer-events: none;
+        white-space: nowrap;
+      }
+      .corner-mono {
+        position: absolute;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 16px;
+        letter-spacing: 0.12em;
+        color: #9a9aa4;
+      }
+
+      /* ---- scene A : title ---- */
+      .title-content {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 0 160px;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 14px;
+        width: max-content;
+        padding: 12px 22px;
+        border: 1px solid rgba(0, 102, 255, 0.5);
+        border-radius: 999px;
+        color: #7fb2ff;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 20px;
+        letter-spacing: 0.22em;
+        margin-bottom: 48px;
+      }
+      .chip-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: #0066ff;
+      }
+      .title-kicker {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 22px;
+        letter-spacing: 0.3em;
+        color: #9a9aa4;
+        margin-bottom: 26px;
+      }
+      .title-h1 {
+        font-size: 132px;
+        font-weight: 800;
+        color: #f2f2f0;
+        line-height: 0.98;
+        letter-spacing: -0.02em;
+      }
+      .title-accent {
+        color: #0066ff;
+      }
+      .title-sub {
+        font-size: 30px;
+        font-weight: 400;
+        color: #cfcfd6;
+        margin-top: 34px;
+        max-width: 980px;
+      }
+      .title-bar {
+        width: 120px;
+        height: 8px;
+        background-color: #0066ff;
+        margin-top: 52px;
+      }
+      .title-foot {
+        position: absolute;
+        left: 160px;
+        bottom: 72px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 18px;
+        letter-spacing: 0.14em;
+        color: #9a9aa4;
+      }
+
+      /* ---- scene B : capabilities ---- */
+      .caps-content {
+        position: absolute;
+        inset: 0;
+        padding: 130px 160px;
+        display: flex;
+        flex-direction: column;
+      }
+      .sec-head {
+        display: flex;
+        align-items: baseline;
+        gap: 28px;
+        margin-bottom: 74px;
+      }
+      .sec-label {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 22px;
+        letter-spacing: 0.28em;
+        color: #7fb2ff;
+      }
+      .sec-title {
+        font-size: 64px;
+        font-weight: 800;
+        color: #f2f2f0;
+        letter-spacing: -0.01em;
+      }
+      .cap-row {
+        display: grid;
+        grid-template-columns: 140px 1fr;
+        align-items: center;
+        padding: 30px 0;
+        border-top: 1px solid rgba(242, 242, 240, 0.12);
+        border-bottom: 1px solid rgba(242, 242, 240, 0.12);
+      }
+      .cap-row + .cap-row {
+        border-top: none;
+      }
+      .cap-num {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 26px;
+        color: #9a9aa4;
+      }
+      .cap-name {
+        font-size: 46px;
+        font-weight: 800;
+        color: #f2f2f0;
+        letter-spacing: -0.01em;
+      }
+      .cap-name em {
+        color: #0066ff;
+        font-style: normal;
+      }
+      .cap-desc {
+        font-size: 24px;
+        font-weight: 400;
+        color: #9a9aa4;
+        margin-top: 10px;
+      }
+
+      /* ---- scene C : data / outro ---- */
+      .data-content {
+        position: absolute;
+        inset: 0;
+        padding: 0 160px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+      .data-title {
+        font-size: 96px;
+        font-weight: 800;
+        color: #f2f2f0;
+        line-height: 1.02;
+        letter-spacing: -0.02em;
+        max-width: 1400px;
+      }
+      .data-title .accent {
+        color: #0066ff;
+      }
+      .digits {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 60px;
+        margin-top: 90px;
+      }
+      .digit {
+        border-left: 4px solid #0066ff;
+        padding-left: 32px;
+      }
+      .digit b {
+        display: block;
+        font-size: 108px;
+        font-weight: 800;
+        color: #f2f2f0;
+        font-variant-numeric: tabular-nums;
+        line-height: 1;
+        font-family: "Inter", sans-serif;
+      }
+      .digit b.amber { color: #ffb300; }
+      .digit span {
+        display: block;
+        margin-top: 18px;
+        font-size: 22px;
+        letter-spacing: 0.1em;
+        color: #9a9aa4;
+      }
+      .data-foot {
+        margin-top: 100px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 20px;
+        letter-spacing: 0.14em;
+        color: #9a9aa4;
+      }
+      .data-foot .cmd {
+        color: #7fb2ff;
+      }
+    </style>
+  </head>
+  <body>
+    <div data-hf-id="hf-84zm" id="root" data-composition-id="main" data-start="0" data-duration="13" data-width="1920" data-height="1080">
+      <!-- ============ SCENE A : title ============ -->
+      <div data-hf-id="hf-t3z6" id="sceneA" class="clip scene" data-start="0" data-duration="5.0" data-track-index="0">
+        <div data-hf-id="hf-20pn" class="glow glow-blue"></div>
+        <div data-hf-id="hf-1nto" class="glow glow-amber"></div>
+        <div data-hf-id="hf-xa1d" class="gridlines"></div>
+        <div data-hf-id="hf-v324" id="ghostA" class="ghost" data-layout-ignore="" data-layout-allow-overflow="" style="font-size: 520px; top: 560px; left: 240px">
+          HF
+        </div>
+
+        <div data-hf-id="hf-gx2y" class="title-content">
+          <div data-hf-id="hf-nkjf" id="a-chip" class="chip"><span data-hf-id="hf-530l" class="chip-dot"></span>HYPERFRAMES · v0.8</div>
+          <div data-hf-id="hf-xt7u" id="a-kicker" class="title-kicker">HTML = 视频的源代码</div>
+          <h1 data-hf-id="hf-trad" id="a-h1" class="title-h1">
+            HTML<span data-hf-id="hf-qka4" class="title-accent">，</span>就是视频
+          </h1>
+          <div data-hf-id="hf-3nn9" id="a-sub" class="title-sub">
+            用 GSAP 编排动效、Scene 转场、数据可视化 —— 一条命令渲染成 MP4。
+          </div>
+          <div data-hf-id="hf-m0gx" id="a-bar" class="title-bar"></div>
+        </div>
+        <div data-hf-id="hf-ak54" id="a-foot" class="title-foot">HEYGEN 驱动 · FPS 30 · 1920×1080</div>
+      </div>
+
+      <!-- ============ SCENE B : capabilities ============ -->
+      <div data-hf-id="hf-gi0x" id="sceneB" class="clip scene" data-start="4.5" data-duration="4.5" data-track-index="1">
+        <div data-hf-id="hf-najb" class="glow glow-amber" style="top: 60px; left: 65%"></div>
+        <div data-hf-id="hf-fk3p" class="gridlines"></div>
+        <div data-hf-id="hf-d2jk" id="ghostB" class="ghost" data-layout-ignore="" data-layout-allow-overflow="" style="font-size: 460px; top: 660px; left: -160px">
+          GSAP
+        </div>
+
+        <div data-hf-id="hf-9p6j" class="caps-content">
+          <div data-hf-id="hf-yuse" class="sec-head">
+            <div data-hf-id="hf-jgop" id="b-label" class="sec-label">CAPABILITIES</div>
+            <div data-hf-id="hf-wj2d" id="b-title" class="sec-title">是什么让 HTML 能动起来</div>
+          </div>
+
+          <div data-hf-id="hf-rb9r" id="b-row1" class="cap-row">
+            <div data-hf-id="hf-xeng" class="cap-num">01</div>
+            <div data-hf-id="hf-yeow">
+              <div data-hf-id="hf-wj78" class="cap-name">动效编排<span data-hf-id="hf-2mq4" class="mono" style="font-size: 24px"> (GSAP Timeline)</span></div>
+              <div data-hf-id="hf-fl2a" class="cap-desc">入场 / 出场 / 交错（stagger），每条动效可控到帧，easing 决定情绪。</div>
+            </div>
+          </div>
+
+          <div data-hf-id="hf-gfs4" id="b-row2" class="cap-row">
+            <div data-hf-id="hf-w7qd" class="cap-num">02</div>
+            <div data-hf-id="hf-y7yw">
+              <div data-hf-id="hf-825d" class="cap-name">场景转场<span data-hf-id="hf-5042" class="mono" style="font-size: 24px"> (Crossfade / Wipe)</span></div>
+              <div data-hf-id="hf-yviw" class="cap-desc">多个 Scene 无缝衔接，转场本身就是退场 —— 永不跳切。</div>
+            </div>
+          </div>
+
+          <div data-hf-id="hf-jf1p" id="b-row3" class="cap-row">
+            <div data-hf-id="hf-wm1e" class="cap-num">03</div>
+            <div data-hf-id="hf-x11t">
+              <div data-hf-id="hf-txm6" class="cap-name">数据动效<span data-hf-id="hf-sn1l" class="mono" style="font-size: 24px"> (Count-up)</span></div>
+              <div data-hf-id="hf-2fv7" class="cap-desc">数字跑数、字号自适应、字幕同步 —— 数据变成可交付的视频。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ SCENE C : data / outro ============ -->
+      <div data-hf-id="hf-cocz" id="sceneC" class="clip scene" data-start="8.5" data-duration="4.5" data-track-index="2">
+        <div data-hf-id="hf-n8gf" class="glow glow-blue" style="bottom: -260px; top: auto; left: 40%"></div>
+        <div data-hf-id="hf-gr0s" class="gridlines"></div>
+        <div data-hf-id="hf-t7ve" id="ghostC" class="ghost" data-layout-ignore="" data-layout-allow-overflow="" style="font-size: 500px; top: 60px; right: -200px">
+          MP4
+        </div>
+
+        <div data-hf-id="hf-f7z4" class="data-content">
+          <div data-hf-id="hf-l9td" id="c-title" class="data-title">
+            把 HTML 变成<span data-hf-id="hf-rnn8" class="accent">可交付</span>的视频
+          </div>
+
+          <div data-hf-id="hf-d44u" class="digits">
+            <div data-hf-id="hf-pce8" id="c-d1" class="digit">
+              <b data-hf-id="hf-fch1">1920</b><span data-hf-id="hf-ae7v">× 1080 · 分辨率 / 竖屏</span>
+            </div>
+            <div data-hf-id="hf-07vv" id="c-d2" class="digit">
+              <b data-hf-id="hf-pj7x" class="amber">30</b><span data-hf-id="hf-o3iv">FPS · 帧率可自由设定</span>
+            </div>
+            <div data-hf-id="hf-w9ru" id="c-d3" class="digit">
+              <b data-hf-id="hf-sqbz">0</b><span data-hf-id="hf-fywf">手工剪辑 · 全靠代码</span>
+            </div>
+          </div>
+
+          <div data-hf-id="hf-r6mj" id="c-foot" class="data-foot">
+            <span data-hf-id="hf-my1r">$ </span><span data-hf-id="hf-2qhz" class="cmd">hyperframes render</span><span data-hf-id="hf-pfl8"> --quality high</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+
+      /* ---------- ambient decor (finite) ---------- */
+      tl.from("#ghostA", { xPercent: -30, duration: 5, ease: "sine.inOut" }, 0);
+      tl.fromTo("#sceneA .glow-blue", { scale: 0.8, opacity: 0.5 }, { scale: 1, opacity: 1, duration: 4, ease: "sine.inOut" }, 0);
+      tl.fromTo("#sceneB .glow-amber", { scale: 0.8, opacity: 0.4 }, { scale: 1, opacity: 0.9, duration: 3.5, ease: "sine.inOut" }, 4.6);
+      tl.from("#ghostB", { xPercent: 40, duration: 4, ease: "sine.inOut" }, 4.6);
+      tl.from("#ghostC", { xPercent: 40, duration: 4, ease: "sine.inOut" }, 8.6);
+
+      /* ---------- Scene A entrance ---------- */
+      tl.from("#a-chip", { opacity: 0, y: 18, duration: 0.5, ease: "power3.out" }, 0.25);
+      tl.from("#a-kicker", { opacity: 0, x: -30, duration: 0.5, ease: "power3.out" }, 0.4);
+      tl.from("#a-h1", { opacity: 0, y: 40, xPercent: 2, duration: 0.7, ease: "expo.out" }, 0.55);
+      tl.from("#a-sub", { opacity: 0, y: 26, duration: 0.6, ease: "power2.out" }, 0.9);
+      tl.from("#a-bar", { scaleX: 0, transformOrigin: "left center", duration: 0.55, ease: "expo.out" }, 1.15);
+      tl.from("#a-foot", { opacity: 0, duration: 0.6, ease: "power2.out" }, 1.4);
+
+      /* ---------- Transition A→B (crossfade) ---------- */
+      tl.to("#sceneA", { opacity: 0, duration: 0.5, ease: "power2.inOut" }, 4.5);
+      tl.fromTo("#sceneB", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.inOut" }, 4.5);
+
+      /* ---------- Scene B entrance ---------- */
+      tl.from("#b-label", { opacity: 0, x: -24, duration: 0.45, ease: "power3.out" }, 4.75);
+      tl.from("#b-title", { opacity: 0, y: 30, duration: 0.55, ease: "expo.out" }, 4.9);
+      tl.from("#b-row1", { opacity: 0, x: 30, duration: 0.5, ease: "power3.out" }, 5.25);
+      tl.from("#b-row2", { opacity: 0, x: 30, duration: 0.5, ease: "power3.out" }, 5.45);
+      tl.from("#b-row3", { opacity: 0, x: 30, duration: 0.5, ease: "power3.out" }, 5.65);
+
+      /* ---------- Transition B→C (crossfade) ---------- */
+      tl.to("#sceneB", { opacity: 0, duration: 0.5, ease: "power2.inOut" }, 8.5);
+      tl.fromTo("#sceneC", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.inOut" }, 8.5);
+
+      /* ---------- Scene C entrance + count-up ---------- */
+      tl.from("#c-title", { opacity: 0, y: 40, duration: 0.7, ease: "expo.out" }, 8.75);
+
+      // deterministic count-up via object proxy
+      const countUp = (el, target, dur, at) => {
+        const state = { v: 0 };
+        tl.to(state, {
+          v: target,
+          duration: dur,
+          ease: "power2.out",
+          onUpdate: () => { el.innerText = Math.round(state.v); },
+          onStart: () => { el.innerText = 0; }
+        }, at);
+      };
+      countUp("#c-d1 b", 1920, 0.6, 9.1);
+      countUp("#c-d2 b", 30, 0.6, 9.2);
+      countUp("#c-d3 b", 0, 0.4, 9.3);
+      tl.from("#c-d1", { opacity: 0, y: 24, duration: 0.5, ease: "power2.out" }, 9.1);
+      tl.from("#c-d2", { opacity: 0, y: 24, duration: 0.5, ease: "power2.out" }, 9.2);
+      tl.from("#c-d3", { opacity: 0, y: 24, duration: 0.5, ease: "power2.out" }, 9.3);
+      tl.from("#c-foot", { opacity: 0, duration: 0.6, ease: "power2.out" }, 9.6);
+
+      /* ---------- Final scene fade out (allowed) ---------- */
+      tl.to("#sceneC", { opacity: 0, duration: 0.8, ease: "power2.in" }, 12.2);
+
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

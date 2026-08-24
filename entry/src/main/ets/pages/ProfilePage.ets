@@ -3,13 +3,14 @@
 import { Post, User, UserProfile } from '../models/types';
 import { listPosts, listMyBookmarks, listMyLikedPosts, listMyCommentedPosts, getUserProfile, cancelBookmarkPost, resolveDisplayImageUrl } from '../services/api';
 import { PostCard } from '../components/PostCard';
-import { ensureLogin, getCurrentUser } from '../utils/auth';
+import { getCurrentUser } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
 import { openFollowList, openPostDetail } from '../utils/nav';
 import { observeGridColumns, gridColumnTemplate } from '../utils/responsive';
 import { barBottomReserve } from '../utils/cardTokens';
 import { common } from '@kit.AbilityKit';
 import { likeStore } from '../utils/likeStore';
+import { postDeletionStore } from '../utils/postDeletionStore';
 import { resolveSettingsIcon } from '../utils/settingsIcons';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { buildProfileShareText, buildProfileShareUrl, copyToClipboard, EXTERNAL_SHARE_ENABLED, shareProfileToSystem } from '../utils/share';
@@ -76,6 +77,8 @@ export struct ProfilePage {
   private profileEntranceTimer: number = 0;
   // 订阅全局点赞仓库：任意位置取消点赞后，「我赞过」列表即时移除该帖（不依赖切 Tab / onPageShow）
   private unsubLike: () => void = () => {};
+  // 订阅帖子删除事件：详情页删除帖子后，当前子 Tab（发布/收藏/赞过/评论过）列表立即移除该帖
+  private unsubDeletion: () => void = () => {};
   private profileShareController: CustomDialogController = new CustomDialogController({
     builder: ProfileShareSheet({
       getProfile: () => ({
@@ -118,11 +121,16 @@ export struct ProfilePage {
         }
       }
     });
+    // 订阅帖子删除事件：无论当前停在哪个子 Tab，只要列表含该帖即即时移除
+    this.unsubDeletion = postDeletionStore.subscribe((deletedId: number): void => {
+      this.posts = this.posts.filter((p: Post) => p.id !== deletedId);
+    });
   }
 
   aboutToDisappear(): void {
     this.unregisterColumns();
     this.unsubLike();
+    this.unsubDeletion();
     if (this.retryTimer !== 0) {
       clearTimeout(this.retryTimer);
       this.retryTimer = 0;
@@ -153,6 +161,11 @@ export struct ProfilePage {
       });
       this.profileEntranceTimer = 0;
     }, MotionTokens.instant) as number;
+  }
+
+  // 是否已登录：userId 存在即视为已登录（未登录展示「去登录」入口，不自动跳转）
+  private isLoggedIn(): boolean {
+    return (this.user.id ?? 0) > 0;
   }
 
   // 切回「我的」Tab 时，重新拉取当前子 Tab 的帖子列表：
@@ -239,21 +252,33 @@ export struct ProfilePage {
   }
 
   async init(): Promise<void> {
+    this.ready = true;
+    // 未登录不自动跳转；主页渲染「去登录」入口，由用户主动进入登录页。
+    const u: User | null = getCurrentUser();
+    if (!u || !u.id) {
+      this.followingCount = 0;
+      this.followerCount = 0;
+      this.totalLikes = 0;
+      this.posts = [];
+      // 未登录也要呈现资料区（显示「去登录」按钮），否则主体被透明度动画隐藏。
+      this.presentProfile();
+      return;
+    }
+    this.user = u;
+    if (u.isAdmin) {
+      AppStorage.setOrCreate('authIsAdmin', true);
+    }
     try {
-      const u: User | null = await ensureLogin();
-      if (!u) {
-        // 无登录态：ensureLogin 已跳 LoginPage，本页不再加载
-        this.ready = true;
-        return;
+      const cached: User | null = getCurrentUser();
+      if (cached && cached.id) {
+        this.user = cached;
       }
-      this.user = u;
     } catch (e) {
       const cached: User | null = getCurrentUser();
       if (cached) {
         this.user = cached;
       }
     }
-    this.ready = true;
     this.presentProfile();
     await this.fetchCounts();
     await this.refresh();
@@ -487,19 +512,21 @@ export struct ProfilePage {
   profileHeader(onBackground: boolean): void {
     ProfileHeader({
       avatar: this.user.avatar ?? '',
-      name: this.user.nickname ?? '未登录',
+      name: this.isLoggedIn() ? (this.user.nickname ?? '有据用户') : '未登录',
       gender: this.user.gender ?? 0,
-      bio: this.user.bio ?? '',
+      bio: this.isLoggedIn() ? (this.user.bio ?? '') : '登录后查看与发布你的内容',
       userId: this.user.id ?? 0,
+      isLoggedIn: this.isLoggedIn(),
       followingCount: this.followingCount,
       followerCount: this.followerCount,
       totalLikes: this.totalLikes,
       onBackground: onBackground,
-      onOpenFollowing: (): void => { this.goFollow('following'); },
-      onOpenFollowers: (): void => { this.goFollow('followers'); },
+      onOpenFollowing: (): void => { if (this.isLoggedIn()) { this.goFollow('following'); } },
+      onOpenFollowers: (): void => { if (this.isLoggedIn()) { this.goFollow('followers'); } },
       onEdit: (): void => { this.getUIContext().getRouter().pushUrl({ url: 'pages/EditProfilePage' }); },
       onOpenDrafts: (): void => { this.getUIContext().getRouter().pushUrl({ url: 'pages/DraftBoxPage' }); },
       onOpenTrash: (): void => { this.getUIContext().getRouter().pushUrl({ url: 'pages/TrashBoxPage' }); },
+      onLogin: (): void => { this.getUIContext().getRouter().pushUrl({ url: 'pages/LoginPage' }); },
     })
   }
 
@@ -508,7 +535,7 @@ export struct ProfilePage {
       // 顶栏
       Row({ space: SpaceTokens.sm }) {
         Text('我的')
-          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamily)
+          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
           .fontWeight(TypeTokens.title.weight)
           .lineHeight(TypeTokens.title.lineHeight)
           .letterSpacing(TypeTokens.title.tracking)
@@ -528,8 +555,6 @@ export struct ProfilePage {
             .width(LayoutTokens.segmentedHeight)
             .height(LayoutTokens.segmentedHeight)
             .justifyContent(FlexAlign.Center)
-            .backgroundColor(ColorTokens.barSurface)
-            .backdropBlur(LayoutTokens.glassBlur)
             .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
             .borderRadius(RadiusTokens.lg)
             .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 4 })
@@ -551,8 +576,6 @@ export struct ProfilePage {
           .width(LayoutTokens.segmentedHeight)
           .height(LayoutTokens.segmentedHeight)
           .justifyContent(FlexAlign.Center)
-          .backgroundColor(ColorTokens.barSurface)
-          .backdropBlur(LayoutTokens.glassBlur)
           .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
           .borderRadius(RadiusTokens.lg)
           .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 4 })

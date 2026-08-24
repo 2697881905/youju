@@ -206,18 +206,17 @@ export struct SegmentedControl {
     .width(this.fillWidth ? '100%' : this.intrinsicWidth())
     .height(LayoutTokens.segmentedHeight)
     .padding(SpaceTokens.xs / 2)
-    .backdropBlur(this.glass ? LayoutTokens.glassBlur : 0)
-    .backgroundColor(this.glass ? ColorTokens.barSurface : ColorTokens.sunken)
-    .borderRadius(this.glass ? RadiusTokens.floatingBar : RadiusTokens.sm)
+    .backgroundColor(this.glass ? ColorTokens.elevated : ColorTokens.sunken)
+    .borderRadius(this.glass ? RadiusTokens.md : RadiusTokens.sm)
     .border({
-      width: this.glass ? LayoutTokens.glassBorderWidth : 0,
-      color: this.glass ? ColorTokens.barBorder : Color.Transparent,
+      width: this.glass ? 1 : 0,
+      color: this.glass ? ColorTokens.separator : Color.Transparent,
       style: BorderStyle.Solid,
     })
     .shadow({
-      radius: this.glass ? 18 : 0,
+      radius: this.glass ? 8 : 0,
       color: this.glass ? ColorTokens.barShadow : Color.Transparent,
-      offsetY: this.glass ? 6 : 0,
+      offsetY: this.glass ? 3 : 0,
     })
     .clip(true)
     .onAreaChange((_old: Area, area: Area) => {

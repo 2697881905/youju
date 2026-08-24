@@ -7,7 +7,7 @@ import { safeShowToast } from '../utils/toast';
 import { toggleDarkMode, setFollowSystem, setReduceMotion } from '../utils/theme';
 import { buildPageTransition } from '../utils/styles';
 import { CARD_RADIUS, CARD_SHADOW } from '../utils/cardTokens';
-import { resolveSettingsIcon, resolveSettingsIconColor } from '../utils/settingsIcons';
+import { resolveSettingsIcon } from '../utils/settingsIcons';
 import { window } from '@kit.ArkUI';
 import { BackButton } from '../design/components/BackButton';
 import { shareUserDataExport } from '../utils/dataExport';
@@ -127,7 +127,6 @@ export struct SettingsPage {
     Row({ space: 12 }) {
       Image(resolveSettingsIcon(icon))
         .width(22).height(22)
-        .fillColor(resolveSettingsIconColor(icon))
         .objectFit(ImageFit.Contain)
       Text(title)
         .fontSize(16).fontFamily($r('app.string.font_family'))
@@ -135,7 +134,6 @@ export struct SettingsPage {
         .layoutWeight(1);
       Image(resolveSettingsIcon('chevronRight'))
         .width(18).height(18)
-        .fillColor($r('app.color.text_tertiary'))
         .objectFit(ImageFit.Contain)
     }
     .width('100%')
@@ -160,7 +158,6 @@ export struct SettingsPage {
     Row({ space: 12 }) {
       Image(resolveSettingsIcon(icon))
         .width(22).height(22)
-        .fillColor(resolveSettingsIconColor(icon))
         .objectFit(ImageFit.Contain)
       Column({ space: 2 }) {
         Text(title)
@@ -257,7 +254,6 @@ export struct SettingsPage {
             Row({ space: 12 }) {
               Image(resolveSettingsIcon('system'))
                 .width(22).height(22)
-                .fillColor(resolveSettingsIconColor('system'))
                 .objectFit(ImageFit.Contain)
               Column({ space: 2 }) {
                 Text('跟随系统')
@@ -284,7 +280,6 @@ export struct SettingsPage {
             Row({ space: 12 }) {
               Image(resolveSettingsIcon('dark'))
                 .width(22).height(22)
-                .fillColor(resolveSettingsIconColor('dark'))
                 .objectFit(ImageFit.Contain)
               Column({ space: 2 }) {
                 Text('深色模式')
@@ -312,7 +307,6 @@ export struct SettingsPage {
             Row({ space: 12 }) {
               Image(resolveSettingsIcon('system'))
                 .width(22).height(22)
-                .fillColor(resolveSettingsIconColor('system'))
                 .objectFit(ImageFit.Contain)
               Column({ space: 2 }) {
                 Text('减少动态效果')
@@ -341,6 +335,19 @@ export struct SettingsPage {
           }
           .width('100%');
 
+          // ===== 设计 =====
+          Column({ space: 10 }) {
+            Text('设计')
+              .fontSize(13).fontFamily($r('app.string.font_family'))
+              .fontColor($r('app.color.text_secondary'))
+              .alignSelf(ItemAlign.Start)
+              .padding({ left: 4 });
+            this.sectionRow('book', '设计系统预览（羊皮纸）', (): void => {
+              this.getUIContext().getRouter().pushUrl({ url: 'pages/ParchmentPreviewPage' });
+            });
+          }
+          .width('100%');
+
           // ===== 关于 =====
           Column({ space: 10 }) {
             Text('关于')
@@ -361,7 +368,6 @@ export struct SettingsPage {
           Row({ space: 12 }) {
             Image(resolveSettingsIcon('logout'))
               .width(22).height(22)
-              .fillColor($r('app.color.semantic_red'))
               .objectFit(ImageFit.Contain)
             Text('退出登录')
               .fontSize(16).fontFamily($r('app.string.font_family'))
@@ -369,7 +375,6 @@ export struct SettingsPage {
               .layoutWeight(1);
             Image(resolveSettingsIcon('chevronRight'))
               .width(18).height(18)
-              .fillColor($r('app.color.text_tertiary'))
               .objectFit(ImageFit.Contain)
           }
           .width('100%')
@@ -383,7 +388,6 @@ export struct SettingsPage {
           Row({ space: 12 }) {
             Image(resolveSettingsIcon('trash'))
               .width(22).height(22)
-              .fillColor($r('app.color.semantic_red'))
               .objectFit(ImageFit.Contain)
             Text('账号注销')
               .fontSize(16).fontFamily($r('app.string.font_family'))

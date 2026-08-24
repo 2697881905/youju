@@ -1,6 +1,7 @@
 {
   "src": [
     "pages/Index",
+    "pages/HdsPocPage",
     "pages/CircleDetailPage",
     "pages/DetailPage",
     "pages/SearchResultPage",
@@ -23,6 +24,7 @@
     "pages/VideoPublishPage",
     "pages/TextPublishPage",
     "pages/DraftBoxPage",
-    "pages/TrashBoxPage"
+    "pages/TrashBoxPage",
+    "pages/ParchmentPreviewPage"
   ]
 }

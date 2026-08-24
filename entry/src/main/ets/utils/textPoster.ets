@@ -11,6 +11,17 @@ const POSTER_HEIGHT: number = 1440;
 const POSTER_MAX_BODY_LINES: number = 7;
 const POSTER_UPLOAD_TIMEOUT: number = 15000;
 
+// 衬线字体 Typeface，由 Index.ets 在启动时设置
+let serifTypeface: drawing.Typeface | null = null;
+
+export function setSerifTypeface(typeface: drawing.Typeface | null): void {
+  serifTypeface = typeface;
+}
+
+function loadSerifTypeface(): drawing.Typeface | null {
+  return serifTypeface;
+}
+
 export const TEXT_POSTER_ASPECT_RATIO: number = POSTER_WIDTH / POSTER_HEIGHT;
 
 export type TextPosterStyle = 'film' | 'kraft' | 'sticky' | 'paper';
@@ -34,20 +45,20 @@ export interface TextPosterStyleOption {
 
 export const TEXT_POSTER_STYLES: TextPosterStyleOption[] = [
   {
-    key: 'film', label: '胶片', texture: 'film', background: '#2A3038', surface: '#E6D5B8', innerSurface: '#F4E7CF', accent: '#B34835', text: '#302720',
-    backgroundRgb: [42, 48, 56], surfaceRgb: [230, 213, 184], innerSurfaceRgb: [244, 231, 207], accentRgb: [179, 72, 53], textRgb: [48, 39, 32],
+    key: 'film', label: '胶片', texture: 'film', background: '#2A3038', surface: '#E6D5B8', innerSurface: '#F4E7CF', accent: '#8B0000', text: '#000000',
+    backgroundRgb: [42, 48, 56], surfaceRgb: [230, 213, 184], innerSurfaceRgb: [244, 231, 207], accentRgb: [139, 0, 0], textRgb: [0, 0, 0],
   },
   {
-    key: 'kraft', label: '牛皮纸', texture: 'kraft', background: '#B88F61', surface: '#D0A873', innerSurface: '#E5C18F', accent: '#704927', text: '#3D291B',
-    backgroundRgb: [184, 143, 97], surfaceRgb: [208, 168, 115], innerSurfaceRgb: [229, 193, 143], accentRgb: [112, 73, 39], textRgb: [61, 41, 27],
+    key: 'kraft', label: '牛皮纸', texture: 'kraft', background: '#B88F61', surface: '#D0A873', innerSurface: '#E5C18F', accent: '#3A1A00', text: '#000000',
+    backgroundRgb: [184, 143, 97], surfaceRgb: [208, 168, 115], innerSurfaceRgb: [229, 193, 143], accentRgb: [58, 26, 0], textRgb: [0, 0, 0],
   },
   {
-    key: 'sticky', label: '便利贴', texture: 'sticky', background: '#D9E6DD', surface: '#FFE169', innerSurface: '#FFEE8F', accent: '#D46D35', text: '#46361C',
-    backgroundRgb: [217, 230, 221], surfaceRgb: [255, 225, 105], innerSurfaceRgb: [255, 238, 143], accentRgb: [212, 109, 53], textRgb: [70, 54, 28],
+    key: 'sticky', label: '便利贴', texture: 'sticky', background: '#D9E6DD', surface: '#FFE169', innerSurface: '#FFEE8F', accent: '#B22222', text: '#000000',
+    backgroundRgb: [217, 230, 221], surfaceRgb: [255, 225, 105], innerSurfaceRgb: [255, 238, 143], accentRgb: [178, 34, 34], textRgb: [0, 0, 0],
   },
   {
-    key: 'paper', label: '素纸', texture: 'paper', background: '#E8E2D7', surface: '#FAF7EF', innerSurface: '#FFFDF6', accent: '#3067AE', text: '#1F2E46',
-    backgroundRgb: [232, 226, 215], surfaceRgb: [250, 247, 239], innerSurfaceRgb: [255, 253, 246], accentRgb: [48, 103, 174], textRgb: [31, 46, 70],
+    key: 'paper', label: '素纸', texture: 'paper', background: '#E8E2D7', surface: '#FAF7EF', innerSurface: '#FFFDF6', accent: '#0D2F5F', text: '#000000',
+    backgroundRgb: [232, 226, 215], surfaceRgb: [250, 247, 239], innerSurfaceRgb: [255, 253, 246], accentRgb: [13, 47, 95], textRgb: [0, 0, 0],
   },
 ];
 
@@ -102,6 +113,44 @@ export function splitLines(text: string, font: drawing.Font, maxWidth: number, m
     lines[lastIndex] = last + '…';
   }
   return lines;
+}
+
+export interface PosterTextItem {
+  text: string;
+  x: number;
+  y: number;
+  size: number;
+  weight: number;
+  color: string;
+}
+
+// 供发布页用"已注册的 UI 宋体 Text + 截图"生成文字覆盖层：布局与画布文字保持同一套算法。
+export function layoutPosterText(title: string, content: string, style: TextPosterStyleOption): PosterTextItem[] {
+  const items: PosterTextItem[] = [];
+  const normalizedContent: string = content.trim();
+  const displayContent: string = normalizedContent.length > 0 ? normalizedContent : '写下你的观点，让更多人看见。';
+  const bodySize: number = normalizedContent.length > 150 ? 74 : normalizedContent.length > 80 ? 94 : 118;
+  const bodyFont: drawing.Font = new drawing.Font();
+  bodyFont.setSize(bodySize);
+  bodyFont.enableEmbolden(true);
+  const bodyLines: string[] = splitLines(displayContent, bodyFont, 720, POSTER_MAX_BODY_LINES);
+  const lineHeight: number = bodySize + 42;
+  let cursorY: number = (POSTER_HEIGHT - bodyLines.length * lineHeight) / 2 + bodySize;
+  for (const line of bodyLines) {
+    const w: number = bodyFont.measureText(line, drawing.TextEncoding.TEXT_ENCODING_UTF8);
+    items.push({ text: line, x: (POSTER_WIDTH - w) / 2, y: cursorY - bodySize, size: bodySize, weight: 700, color: style.text });
+    cursorY += lineHeight;
+  }
+  const titleFont: drawing.Font = new drawing.Font();
+  titleFont.setSize(34);
+  titleFont.enableEmbolden(true);
+  const displayTitle: string = title.trim().length > 0 ? title.trim() : '有据 · 文字帖';
+  const titleLines: string[] = splitLines(displayTitle, titleFont, 720, 1);
+  const tw: number = titleFont.measureText(titleLines[0], drawing.TextEncoding.TEXT_ENCODING_UTF8);
+  items.push({ text: titleLines[0], x: (POSTER_WIDTH - tw) / 2, y: 226 - 34, size: 34, weight: 700, color: style.text });
+  items.push({ text: '“', x: 140, y: 96, size: 246, weight: 700, color: style.accent });
+  items.push({ text: '”', x: 760, y: POSTER_HEIGHT - 132 - 246, size: 246, weight: 700, color: style.accent });
+  return items;
 }
 
 export function makeColor(alpha: number, red: number, green: number, blue: number): common2D.Color {
@@ -218,7 +267,54 @@ function drawPosterSurface(canvas: drawing.Canvas, brush: drawing.Brush, pen: dr
   }
 }
 
-async function createPosterBytes(title: string, content: string, _genre: Genre, styleKey?: string): Promise<ArrayBuffer> {
+// 在 overlay（实心背景+文字）之上重绘纸纹、边框、打孔和装饰元素，使文字清晰且保留质感。
+function drawTextureOnTop(canvas: drawing.Canvas, brush: drawing.Brush, pen: drawing.Pen, style: TextPosterStyleOption): void {
+  const accent: common2D.Color = makeColor(255, style.accentRgb[0], style.accentRgb[1], style.accentRgb[2]);
+  switch (style.texture) {
+    case 'film': {
+      // 外框：给 overlay 添加深色边框和打孔
+      fillRoundRect(canvas, brush, 56, 64, 1012, POSTER_HEIGHT - 76, 28, makeColor(30, style.surfaceRgb[0], style.surfaceRgb[1], style.surfaceRgb[2]));
+      fillRoundRect(canvas, brush, 56, 64, 116, POSTER_HEIGHT - 76, 14, makeColor(220, 34, 39, 43));
+      fillRoundRect(canvas, brush, 952, 64, 1012, POSTER_HEIGHT - 76, 14, makeColor(220, 34, 39, 43));
+      for (let y = 116; y < POSTER_HEIGHT - 100; y += 112) {
+        drawCircle(canvas, brush, 86, y, 13, makeColor(230, 16, 20, 24));
+        drawCircle(canvas, brush, 982, y, 13, makeColor(230, 16, 20, 24));
+      }
+      drawGrain(canvas, brush, 124, 182, 820, 1020, 140, makeColor(18, 86, 56, 45));
+      drawLine(canvas, pen, 146, 150, 922, 150, 10, makeColor(190, accent.red, accent.green, accent.blue));
+      drawLine(canvas, pen, 146, POSTER_HEIGHT - 142, 922, POSTER_HEIGHT - 142, 10, makeColor(190, accent.red, accent.green, accent.blue));
+      break;
+    }
+    case 'kraft': {
+      fillRoundRect(canvas, brush, 56, 64, 1012, POSTER_HEIGHT - 76, 30, makeColor(35, style.surfaceRgb[0], style.surfaceRgb[1], style.surfaceRgb[2]));
+      for (let i = 0; i < 16; i++) {
+        const y: number = 126 + i * 78;
+        drawLine(canvas, pen, 112 + (i % 3) * 19, y, 940 - (i % 4) * 17, y + ((i % 2) === 0 ? 4 : -3), 3, makeColor(28, 113, 75, 39));
+      }
+      drawGrain(canvas, brush, 112, 122, 840, 1070, 180, makeColor(22, 95, 62, 34));
+      for (let x = 128; x < 940; x += 42) {
+        drawLine(canvas, pen, x, 140, x + 22, 140, 4, makeColor(180, accent.red, accent.green, accent.blue));
+        drawLine(canvas, pen, x, POSTER_HEIGHT - 150, x + 22, POSTER_HEIGHT - 150, 4, makeColor(180, accent.red, accent.green, accent.blue));
+      }
+      break;
+    }
+    case 'sticky': {
+      fillRoundRect(canvas, brush, 74, 112, 994, POSTER_HEIGHT - 58, 10, makeColor(30, style.surfaceRgb[0], style.surfaceRgb[1], style.surfaceRgb[2]));
+      drawGrain(canvas, brush, 122, 172, 818, 1040, 90, makeColor(20, 142, 103, 32));
+      drawLine(canvas, pen, 150, POSTER_HEIGHT - 168, 900, POSTER_HEIGHT - 168, 5, makeColor(120, accent.red, accent.green, accent.blue));
+      break;
+    }
+    default: {
+      fillRoundRect(canvas, brush, 56, 64, 1012, POSTER_HEIGHT - 76, 46, makeColor(25, style.surfaceRgb[0], style.surfaceRgb[1], style.surfaceRgb[2]));
+      fillRoundRect(canvas, brush, 108, 118, 960, POSTER_HEIGHT - 128, 26, makeColor(24, style.accentRgb[0], style.accentRgb[1], style.accentRgb[2]));
+      fillRoundRect(canvas, brush, 132, 154, 936, 166, 6, makeColor(112, style.accentRgb[0], style.accentRgb[1], style.accentRgb[2]));
+      drawGrain(canvas, brush, 126, 178, 816, 1010, 74, makeColor(16, 90, 100, 24));
+      break;
+    }
+  }
+}
+
+async function createPosterBytes(title: string, content: string, _genre: Genre, styleKey?: string, overlay?: image.PixelMap): Promise<ArrayBuffer> {
   const pixelMap: image.PixelMap = image.createPixelMapSync({
     size: { width: POSTER_WIDTH, height: POSTER_HEIGHT },
     pixelFormat: image.PixelMapFormat.RGBA_8888,
@@ -235,45 +331,68 @@ async function createPosterBytes(title: string, content: string, _genre: Genre, 
   const textGreen: number = style.textRgb[1];
   const textBlue: number = style.textRgb[2];
 
+  // 加载衬线字体，让 canvas 绘制的文字也使用宋体
+  const serifTypeface: drawing.Typeface | null = loadSerifTypeface();
+
   try {
     drawPosterSurface(canvas, brush, pen, style);
 
-    const normalizedContent: string = content.trim();
-    const displayContent: string = normalizedContent.length > 0 ? normalizedContent : '写下你的观点，让更多人看见。';
-    const bodyFont: drawing.Font = new drawing.Font();
-    const bodySize: number = normalizedContent.length > 150 ? 74 : normalizedContent.length > 80 ? 94 : 118;
-    bodyFont.setSize(bodySize);
-    bodyFont.enableEmbolden(true);
-    const bodyLines: string[] = splitLines(displayContent, bodyFont, 720, POSTER_MAX_BODY_LINES);
-    const lineHeight: number = bodySize + 42;
-    const textBlockHeight: number = bodyLines.length * lineHeight;
-    let cursorY: number = (POSTER_HEIGHT - textBlockHeight) / 2 + bodySize;
+    // 强制使用 canvas 直接绘制文字，跳过 componentSnapshot 以避免颜色失真
+    const _unused = overlay; void _unused;
+    if (false) {
+      // 以下代码被跳过，因为 componentSnapshot 会导致文字颜色失真
+      const dst: common2D.Rect = { left: 0, top: 0, right: POSTER_WIDTH, bottom: POSTER_HEIGHT };
+      canvas.drawImageRect(overlay, dst);
+      // 在 overlay 之上重绘边框、打孔、纸纹等装饰元素
+      drawTextureOnTop(canvas, brush, pen, style);
+    } else {
+      const normalizedContent: string = content.trim();
+      const displayContent: string = normalizedContent.length > 0 ? normalizedContent : '写下你的观点，让更多人看见。';
+      const bodyFont: drawing.Font = new drawing.Font();
+      const bodySize: number = normalizedContent.length > 150 ? 74 : normalizedContent.length > 80 ? 94 : 118;
+      bodyFont.setSize(bodySize);
+      bodyFont.enableEmbolden(true);
+      if (serifTypeface !== null) {
+        bodyFont.setTypeface(serifTypeface);
+      }
+      const bodyLines: string[] = splitLines(displayContent, bodyFont, 720, POSTER_MAX_BODY_LINES);
+      const lineHeight: number = bodySize + 42;
+      const textBlockHeight: number = bodyLines.length * lineHeight;
+      let cursorY: number = (POSTER_HEIGHT - textBlockHeight) / 2 + bodySize;
 
-    const titleFont: drawing.Font = new drawing.Font();
-    titleFont.setSize(34);
-    titleFont.enableEmbolden(true);
-    const displayTitle: string = title.trim().length > 0 ? title.trim() : '有据 · 文字帖';
-    const titleLines: string[] = splitLines(displayTitle, titleFont, 720, 1);
-    const titleWidth: number = titleFont.measureText(titleLines[0], drawing.TextEncoding.TEXT_ENCODING_UTF8);
-    drawText(canvas, brush, titleFont, titleLines[0], (POSTER_WIDTH - titleWidth) / 2, 226, makeColor(210, textRed, textGreen, textBlue));
+      const titleFont: drawing.Font = new drawing.Font();
+      titleFont.setSize(34);
+      titleFont.enableEmbolden(true);
+      if (serifTypeface !== null) {
+        titleFont.setTypeface(serifTypeface);
+      }
+      const displayTitle: string = title.trim().length > 0 ? title.trim() : '有据 · 文字帖';
+      const titleLines: string[] = splitLines(displayTitle, titleFont, 720, 1);
+      const titleWidth: number = titleFont.measureText(titleLines[0], drawing.TextEncoding.TEXT_ENCODING_UTF8);
+      drawText(canvas, brush, titleFont, titleLines[0], (POSTER_WIDTH - titleWidth) / 2, 226, makeColor(255, textRed, textGreen, textBlue));
 
-    // 双引号独立放置在对角，不占用正文排版宽度。
-    const quoteFont: drawing.Font = new drawing.Font();
-    quoteFont.setSize(246);
-    quoteFont.enableEmbolden(true);
-    drawText(canvas, brush, quoteFont, '“', 140 + 7, 310 + 9, makeColor(28, 35, 54, 72));
-    drawText(canvas, brush, quoteFont, '“', 140, 310, makeColor(138, accentRed, accentGreen, accentBlue));
-    drawText(canvas, brush, quoteFont, '”', 760 + 7, POSTER_HEIGHT - 132 + 9, makeColor(28, 35, 54, 72));
-    drawText(canvas, brush, quoteFont, '”', 760, POSTER_HEIGHT - 132, makeColor(138, accentRed, accentGreen, accentBlue));
+      // 双引号独立放置在对角，不占用正文排版宽度。
+      const quoteFont: drawing.Font = new drawing.Font();
+      quoteFont.setSize(246);
+      quoteFont.enableEmbolden(true);
+      if (serifTypeface !== null) {
+        quoteFont.setTypeface(serifTypeface);
+      }
+      drawText(canvas, brush, quoteFont, '"', 140 + 7, 310 + 9, makeColor(28, 35, 54, 72));
+      drawText(canvas, brush, quoteFont, '“', 140, 310, makeColor(210, accentRed, accentGreen, accentBlue));
+      drawText(canvas, brush, quoteFont, '”', 760 + 7, POSTER_HEIGHT - 132 + 9, makeColor(28, 35, 54, 72));
+      drawText(canvas, brush, quoteFont, '”', 760, POSTER_HEIGHT - 132, makeColor(210, accentRed, accentGreen, accentBlue));
 
-    for (const line of bodyLines) {
-      const lineWidth: number = bodyFont.measureText(line, drawing.TextEncoding.TEXT_ENCODING_UTF8);
-      const textX: number = (POSTER_WIDTH - lineWidth) / 2;
-      // 三层字形：纸面反光、柔和阴影和更大字号的正文，形成清晰的艺术字浮雕感。
-      drawText(canvas, brush, bodyFont, line, textX - 2, cursorY - 2, makeColor(80, 255, 255, 255));
-      drawText(canvas, brush, bodyFont, line, textX + 8, cursorY + 10, makeColor(62, 35, 54, 72));
-      drawText(canvas, brush, bodyFont, line, textX, cursorY, makeColor(255, textRed, textGreen, textBlue));
-      cursorY += lineHeight;
+      // 正文：深黑纯文字 + 极淡投影，确保清晰可读
+      for (const line of bodyLines) {
+        const lineWidth: number = bodyFont.measureText(line, drawing.TextEncoding.TEXT_ENCODING_UTF8);
+        const textX: number = (POSTER_WIDTH - lineWidth) / 2;
+        // 第1层：右下偏移淡阴影（仅增加立体感，不影响清晰度）
+        drawText(canvas, brush, bodyFont, line, textX + 4, cursorY + 6, makeColor(35, 40, 25, 25));
+        // 第2层：主文字（纯黑）
+        drawText(canvas, brush, bodyFont, line, textX, cursorY, makeColor(255, textRed, textGreen, textBlue));
+        cursorY += lineHeight;
+      }
     }
 
     // 底部细线保持正文收束，不添加标题或品牌。
@@ -281,7 +400,7 @@ async function createPosterBytes(title: string, content: string, _genre: Genre, 
 
     const packer: image.ImagePacker = image.createImagePacker();
     try {
-      return await packer.packToData(pixelMap, { format: 'image/jpeg', quality: 90 });
+      return await packer.packToData(pixelMap, { format: 'image/jpeg', quality: 95 });
     } finally {
       await packer.release();
     }
@@ -333,10 +452,30 @@ function putBinary(url: string, data: ArrayBuffer, contentType: string): Promise
   });
 }
 
-export async function uploadTextPoster(title: string, content: string, genre: Genre, styleKey?: string): Promise<string> {
+/**
+ * 判断正文能否在文字海报中完整显示（不超过 POSTER_MAX_BODY_LINES 行、无截断省略号）。
+ * 复用与 createPosterBytes 完全相同的字号选择策略和 splitLines 排版算法，
+ * 供详情页决定是否在海报下方冗余展示正文纯文本。
+ */
+export function doesTextFitInPoster(content: string): boolean {
+  const normalized: string = content.replace(/\r/g, '').trim();
+  if (normalized.length === 0) {
+    return true;
+  }
+  const bodySize: number = normalized.length > 150 ? 74 : normalized.length > 80 ? 94 : 118;
+  const bodyFont: drawing.Font = new drawing.Font();
+  bodyFont.setSize(bodySize);
+  bodyFont.enableEmbolden(true);
+  const lines: string[] = splitLines(normalized, bodyFont, 720, POSTER_MAX_BODY_LINES);
+  // splitLines 在行数溢出时会在末行追加 '…' 并丢弃后续内容；
+  // 如果拼回所有行的字符数 < 原始正文字符数，说明有内容被截断。
+  return lines.join('').length >= normalized.length;
+}
+
+export async function uploadTextPoster(title: string, content: string, genre: Genre, styleKey?: string, overlay?: image.PixelMap): Promise<string> {
   let bytes: ArrayBuffer;
   try {
-    bytes = await createPosterBytes(title, content, genre, styleKey);
+    bytes = await createPosterBytes(title, content, genre, styleKey, overlay);
   } catch (e) {
     throw new Error('文字海报绘制失败：' + ((e as Error).message ?? '未知错误'));
   }

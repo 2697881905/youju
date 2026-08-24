@@ -49,8 +49,12 @@ export struct ShareSheet {
   }
 
   // 拉取关注列表（未登录不请求，头像区展示登录提示）；失败进入错误态可重试
+  private isLoggedIn(): boolean {
+    return getToken() !== '' && getUserId() > 0;
+  }
+
   private async loadContacts(): Promise<void> {
-    if (getToken() === '') {
+    if (!this.isLoggedIn()) {
       return;
     }
     this.loading = true;
@@ -75,7 +79,7 @@ export struct ShareSheet {
 
   // 点头像：登录校验 → 确认弹窗（分享给{昵称}？）
   private confirmSend(c: FollowUser): void {
-    if (getToken() === '') {
+    if (!this.isLoggedIn()) {
       safeShowToast(this.getUIContext(), { message: '请先登录后再分享' });
       return;
     }
@@ -126,30 +130,43 @@ export struct ShareSheet {
   }
 
   @Builder
-  option(label: string, action: () => void) {
-    Pressable({
-      fillWidth: true,
-      visualHeight: LayoutTokens.minTouchTarget,
-      touchTargetHeight: LayoutTokens.minTouchTarget,
-      action: (): void => {
-        action();
-      },
-    }) {
-      Text(label)
-        .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
-        .fontWeight(TypeTokens.headline.weight)
-        .fontColor(ColorTokens.primary)
-        .width('100%')
-        .height(LayoutTokens.minTouchTarget)
-        .textAlign(TextAlign.Start)
-    }
-  }
-
-  @Builder
   divider() {
     Divider()
       .color(ColorTokens.separator)
       .strokeWidth(LayoutTokens.hairlineWidth)
+  }
+
+  // 横向分享按钮：圆形浅底图标 + 下方文字（微信/卡牌/链接/标题等）
+  @Builder
+  shareActionButton(label: string, iconName: string, action: () => void) {
+    Pressable({
+      visualHeight: 64,
+      touchTargetHeight: 64,
+      action: (): void => {
+        action();
+      },
+    }) {
+      Column({ space: SpaceTokens.xs }) {
+        Column() {
+          Image(resolveActionIcon(iconName))
+            .width(24).height(24)
+            .fillColor(ColorTokens.primary)
+        }
+        .width(48).height(48)
+        .backgroundColor(ColorTokens.sunken)
+        .borderRadius(RadiusTokens.pill)
+        .justifyContent(FlexAlign.Center)
+        .alignItems(HorizontalAlign.Center)
+        Text(label)
+          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+          .fontColor(ColorTokens.secondary)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .constraintSize({ maxWidth: 72 })
+      }
+      .width(72)
+      .alignItems(HorizontalAlign.Center)
+    }
   }
 
   // 头像 chip：头像 + 昵称；发送中显示 loading，已分享叠加遮罩+对勾
@@ -210,7 +227,7 @@ export struct ShareSheet {
     }) {
       Column({ space: SpaceTokens.xs }) {
         Text('···')
-          .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamily)
+          .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
           .fontWeight(TypeTokens.headline.weight)
           .fontColor(ColorTokens.secondary)
           .textAlign(TextAlign.Center)
@@ -238,7 +255,7 @@ export struct ShareSheet {
         .width('100%')
         .textAlign(TextAlign.Start)
 
-      if (getToken() === '') {
+      if (!this.isLoggedIn()) {
         Text('登录后可分享给关注的人')
           .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
           .fontColor(ColorTokens.tertiary)
@@ -309,16 +326,18 @@ export struct ShareSheet {
         if (DM_SHARE_ENABLED) {
           this.dmSection()
         }
-        // 外部分享（卡片/链接/系统分享）受落地页就绪状态控制
+        // 外部分享：横向图标+文字按钮排（受落地页就绪状态控制）
         if (EXTERNAL_SHARE_ENABLED) {
           this.divider()
-          this.option('分享卡片', this.onShareCard)
-          this.divider()
-          this.option('复制链接', this.onCopyLink)
-          this.divider()
-          this.option('复制标题', this.onCopyTitle)
-          this.divider()
-          this.option('系统分享', this.onSystemShare)
+          Row({ space: SpaceTokens.sm }) {
+            this.shareActionButton('微信 / 更多', 'shareWechat', this.onSystemShare)
+            this.shareActionButton('分享卡片', 'shareCard', this.onShareCard)
+            this.shareActionButton('复制链接', 'shareLink', this.onCopyLink)
+            this.shareActionButton('复制标题', 'book', this.onCopyTitle)
+          }
+          .width('100%')
+          .justifyContent(FlexAlign.SpaceBetween)
+          .padding({ top: SpaceTokens.md, bottom: SpaceTokens.md })
         }
       }
       .width('100%')

@@ -268,7 +268,7 @@ struct VideoPublishPage {
         Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
         TextInput({ text: this.title, placeholder: '一句话标题' })
           .width('100%')
-          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamily)
+          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
           .fontWeight(TypeTokens.title.weight)
           .lineHeight(TypeTokens.title.lineHeight)
           .letterSpacing(TypeTokens.title.tracking)

@@ -64,7 +64,7 @@ export struct PublishTagPanel {
           Row({ space: SpaceTokens.item }) {
             Column({ space: SpaceTokens.xs }) {
               Text('选择圈子')
-                .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamily)
+                .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
                 .fontWeight(TypeTokens.headline.weight)
                 .lineHeight(TypeTokens.headline.lineHeight)
                 .fontColor(ColorTokens.primary)

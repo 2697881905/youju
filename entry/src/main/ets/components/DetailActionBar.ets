@@ -56,10 +56,17 @@ struct DetailActionButton {
       action: (): void => { this.onAction(); },
     }) {
       Column({ space: SpaceTokens.inlineTight }) {
-        Image(this.icon)
-          .width(IconTokens.small)
-          .height(IconTokens.small)
-          .fillColor(this.active ? this.activeColor : ColorTokens.secondary)
+        // 未激活=空心描边；激活=彩色填充（保留点赞/收藏的彩色动效与反馈缩放）
+        if (this.active) {
+          Image(this.icon)
+            .width(IconTokens.small)
+            .height(IconTokens.small)
+            .fillColor(this.activeColor)
+        } else {
+          Image(this.icon)
+            .width(IconTokens.small)
+            .height(IconTokens.small)
+        }
         Text(this.label)
           .fontSize(TypeTokens.navLabel.size).fontFamily(TypeTokens.fontFamily)
           .fontColor(this.active ? this.activeColor : ColorTokens.secondary)
@@ -123,7 +130,6 @@ export struct DetailActionBar {
               Image(resolveActionIcon('close'))
                 .width(IconTokens.compact)
                 .height(IconTokens.compact)
-                .fillColor(ColorTokens.secondary)
             }
             .width(LayoutTokens.minTouchTarget)
             .height(LayoutTokens.minTouchTarget)

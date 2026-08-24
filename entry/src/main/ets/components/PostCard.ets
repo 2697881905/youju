@@ -10,7 +10,7 @@ import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
-import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
+import { SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { openUserProfile } from '../utils/nav';
 
@@ -198,16 +198,15 @@ export struct PostCard {
       bottom: SpaceTokens.inlineTight,
     })
     .backgroundColor(ColorTokens.elevated)
-    .backdropBlur(LayoutTokens.glassBlur)
-    // 顶部不画边框：与标题区无缝衔接；不设内部阴影，避免与标题区之间产生悬浮分层（整卡投影由外层 Column 负责）
+    // 互动栏与标题区保持同一张纸，只用两侧和底部的细分隔线收口。
     .border({
       width: {
-        left: LayoutTokens.glassBorderWidth,
-        right: LayoutTokens.glassBorderWidth,
-        bottom: LayoutTokens.glassBorderWidth,
+        left: 1,
+        right: 1,
+        bottom: 1,
         top: 0,
       },
-      color: ColorTokens.barBorder,
+      color: ColorTokens.separator,
       style: BorderStyle.Solid,
     })
     .borderRadius({
@@ -262,7 +261,7 @@ export struct PostCard {
         }
       }
       .width('100%')
-      .shadow({ radius: 28, color: ColorTokens.barShadow, offsetY: 12 })
+      .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
     }
   }
 }
