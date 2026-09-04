@@ -140,7 +140,7 @@ export struct DetailPostContent {
                 .fontColor(ColorTokens.secondary)
                 .width(88)
               Text(field[1])
-                .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
+                .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamilySerifBody)
                 .fontColor(ColorTokens.primary)
                 .lineHeight(TypeTokens.body.lineHeight)
                 .layoutWeight(1)
@@ -170,7 +170,7 @@ export struct DetailPostContent {
         // 海报截断（省略号）时仍显示完整正文，确保读者不丢信息。
         if (!this.coverOnlyTextPoster || !doesTextFitInPoster(this.content)) {
           Text(this.content)
-            .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
+            .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamilySerifBody)
             .fontColor(ColorTokens.primary)
             .lineHeight(32)
             .width('100%')
