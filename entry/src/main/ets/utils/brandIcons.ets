@@ -19,13 +19,14 @@ export function brandIconRes(provider: Provider): Resource {
 }
 
 // 品牌 Logo 底块色（品牌色低透明度，适配浅/深色卡片背景）。
+// 深浅色走资源限定符：base = 浅色主题底，dark = 深色主题更亮一档的品牌底，配合 dark/media 白色版 Logo。
 export function brandTileTint(provider: Provider): ResourceColor {
   switch (provider) {
     case 'huawei':
-      return '#14E8112D';
+      return $r('app.color.account_tile_huawei');
     case 'wechat':
-      return '#1407C160';
+      return $r('app.color.account_tile_wechat');
     default:
-      return '#1A1677FF';
+      return $r('app.color.account_tile_harmony');
   }
 }
