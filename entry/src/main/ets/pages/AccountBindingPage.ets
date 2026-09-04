@@ -7,8 +7,8 @@ import { HuaweiBindButton } from '../components/HuaweiBindButton';
 import { ensureLogin } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
-import { resolveActionIcon } from '../utils/actionIcons';
 import { CARD_RADIUS, CARD_SHADOW } from '../utils/cardTokens';
+import { brandIconRes, brandTileTint } from '../utils/brandIcons';
 import { BackButton } from '../design/components/BackButton';
 
 @Entry
@@ -98,13 +98,26 @@ struct AccountBindingPage {
     return `${y}-${m}-${day} 绑定`;
   }
 
+  // 品牌 Logo 块：44 圆角方底（品牌色低透明）承载彩色品牌 Logo，替代纯色实心圆点/单色图标。
+  @Builder
+  providerTile(provider: Provider) {
+    Stack() {
+      Image(brandIconRes(provider))
+        .width(27)
+        .height(27)
+        .objectFit(ImageFit.Contain)
+    }
+    .width(44)
+    .height(44)
+    .borderRadius(12)
+    .backgroundColor(brandTileTint(provider))
+    .margin({ right: 13 })
+  }
+
   @Builder
   harmonyRow(item: BindingItem) {
     Row() {
-      Image(resolveActionIcon('phone'))
-        .width(28)
-        .height(28)
-        .fillColor($r('app.color.text_primary'))
+      this.providerTile('harmony')
       Column({ space: 4 }) {
         Row() {
           Text(item.displayName)
@@ -133,8 +146,7 @@ struct AccountBindingPage {
   @Builder
   boundRow(item: BindingItem) {
     Row() {
-      Circle({ width: 28, height: 28 })
-        .fill(item.provider === 'huawei' ? '#3C7BFF' : '#34C759')
+      this.providerTile(item.provider)
       Column({ space: 4 }) {
         Text(item.displayName)
           .fontSize(17).fontFamily($r('app.string.font_family'))
@@ -182,8 +194,7 @@ struct AccountBindingPage {
   huaweiUnboundRow() {
     Column({ space: 12 }) {
       Row() {
-        Circle({ width: 28, height: 28 })
-          .fill('#3C7BFF')
+        this.providerTile('huawei')
         Column({ space: 4 }) {
           Text('华为账号')
             .fontSize(17).fontFamily($r('app.string.font_family'))
