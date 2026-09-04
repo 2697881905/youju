@@ -187,6 +187,18 @@
     {
       "name": "ds_skeleton_highlight",
       "value": "#38301F"
+    },
+    {
+      "name": "account_tile_harmony",
+      "value": "#3D1677FF"
+    },
+    {
+      "name": "account_tile_huawei",
+      "value": "#3DE8112D"
+    },
+    {
+      "name": "account_tile_wechat",
+      "value": "#3D07C160"
     }
   ]
 }
