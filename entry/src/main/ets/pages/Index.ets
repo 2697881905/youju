@@ -20,7 +20,7 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import font from '@ohos.font';
 import { publishFlowStore } from '../utils/publishFlowStore';
 import { AppTab, subscribeTabSwitch } from '../utils/nav';
-import { setSerifTypeface } from '../utils/textPoster';
+import { setSerifTypeface, setSerifBodyTypeface } from '../utils/textPoster';
 import { drawing } from '@kit.ArkGraphics2D';
 
 @CustomDialog
@@ -142,9 +142,14 @@ struct Index {
     builder: PrivacyConsentDialog({
       getIsUpdate: (): boolean => this.privacyDialogIsUpdate,
       onReadPrivacy: (): void => {
+        // 审核修复：先关闭弹窗再打开政策页，避免内容被 Modal 遮挡无法阅读；返回后未同意则重弹
+        this.privacyDialogShown = true;
+        this.privacyConsentController.close();
         this.getUIContext().getRouter().pushUrl({ url: 'pages/PrivacyPage' });
       },
       onReadAgreement: (): void => {
+        this.privacyDialogShown = true;
+        this.privacyConsentController.close();
         this.getUIContext().getRouter().pushUrl({ url: 'pages/UserAgreementPage' });
       },
       onAgree: (): void => { this.agreePrivacy(); },
@@ -172,9 +177,18 @@ struct Index {
         familyName: 'Noto Serif SC',
         familySrc: $rawfile('fonts/NotoSerifSC-Bold.otf'),
       });
+      // 正文字重：Regular 单独注册一个 family（一个 familyName 只能绑一个字体文件），
+      // 正文用 Bold 字形会被整体拉粗，与标题失去层次。
+      font.registerFont({
+        familyName: 'Noto Serif SC Body',
+        familySrc: $rawfile('fonts/NotoSerifSC-Regular.otf'),
+      });
       // 创建 drawing Typeface 并传递给 textPoster.ets，让 canvas 绘制也使用衬线字体
       const typeface: drawing.Typeface = drawing.Typeface.makeFromRawFile($rawfile('fonts/NotoSerifSC-Bold.otf'));
       setSerifTypeface(typeface);
+      // 海报正文用 Regular 字重，标题仍用 Bold
+      const bodyTypeface: drawing.Typeface = drawing.Typeface.makeFromRawFile($rawfile('fonts/NotoSerifSC-Regular.otf'));
+      setSerifBodyTypeface(bodyTypeface);
       hilog.info(0x0000, 'Index', 'serif font registered');
     } catch (err) {
       hilog.error(0x0000, 'Index', 'register serif font failed: %{public}s', JSON.stringify(err));
@@ -196,6 +210,11 @@ struct Index {
   }
 
   onPageShow(): void {
+    // 从隐私政策/用户协议页返回时，若用户尚未同意，重新弹出同意弹窗（审核可用性修复）
+    if (this.privacyDialogShown && !isPrivacyAgreed()) {
+      this.showPrivacyDialog(this.privacyDialogIsUpdate);
+      return;
+    }
     if (this.launchComplete && getToken() !== '') {
       this.refreshUnread();
       this.maybeShowCircleOnboarding();

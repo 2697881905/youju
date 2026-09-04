@@ -19,6 +19,10 @@
     {
       "name": "font_family_serif",
       "value": "Noto Serif SC"
+    },
+    {
+      "name": "font_family_serif_body",
+      "value": "Noto Serif SC Body"
     }
   ]
 }

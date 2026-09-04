@@ -13,13 +13,23 @@ const POSTER_UPLOAD_TIMEOUT: number = 15000;
 
 // 衬线字体 Typeface，由 Index.ets 在启动时设置
 let serifTypeface: drawing.Typeface | null = null;
+// 衬线正文字重 Typeface（Regular）：海报正文用，避免被 Bold 字形 + 伪粗双重加粗
+let serifBodyTypeface: drawing.Typeface | null = null;
 
 export function setSerifTypeface(typeface: drawing.Typeface | null): void {
   serifTypeface = typeface;
 }
 
+export function setSerifBodyTypeface(typeface: drawing.Typeface | null): void {
+  serifBodyTypeface = typeface;
+}
+
 function loadSerifTypeface(): drawing.Typeface | null {
   return serifTypeface;
+}
+
+function loadSerifBodyTypeface(): drawing.Typeface | null {
+  return serifBodyTypeface;
 }
 
 export const TEXT_POSTER_ASPECT_RATIO: number = POSTER_WIDTH / POSTER_HEIGHT;
@@ -351,8 +361,12 @@ async function createPosterBytes(title: string, content: string, _genre: Genre, 
       const bodyFont: drawing.Font = new drawing.Font();
       const bodySize: number = normalizedContent.length > 150 ? 74 : normalizedContent.length > 80 ? 94 : 118;
       bodyFont.setSize(bodySize);
-      bodyFont.enableEmbolden(true);
-      if (serifTypeface !== null) {
+      // 正文走 Regular 字重且不伪粗：标题已是粗宋，正文保持细宋才有层次、更像书页。
+      bodyFont.enableEmbolden(false);
+      const bodyTypeface: drawing.Typeface | null = loadSerifBodyTypeface();
+      if (bodyTypeface !== null) {
+        bodyFont.setTypeface(bodyTypeface);
+      } else if (serifTypeface !== null) {
         bodyFont.setTypeface(serifTypeface);
       }
       const bodyLines: string[] = splitLines(displayContent, bodyFont, 720, POSTER_MAX_BODY_LINES);

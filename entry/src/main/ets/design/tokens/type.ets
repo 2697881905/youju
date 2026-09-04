@@ -18,6 +18,9 @@ export class TypeTokens {
   static readonly fontFamily: Resource = $r('app.string.font_family');
   // 衬线（宋体感）入口：标题区文字用衬线压住"信服"，正文仍走无衬线。
   static readonly fontFamilySerif: Resource = $r('app.string.font_family_serif');
+  // 衬线正文字重：标题用 Bold 字重文件，正文需 Regular（字重 400）才协调，
+  // ArkUI 一个 familyName 只能绑一个字体文件，故正文单独注册一个 family。
+  static readonly fontFamilySerifBody: Resource = $r('app.string.font_family_serif_body');
   static readonly display: TypeStyleToken = new TypeStyleToken(32, 700, 40, 0);
   static readonly displaySerif: TypeStyleToken = new TypeStyleToken(32, 700, 44, 0);
   static readonly title: TypeStyleToken = new TypeStyleToken(21, 650, 28, 0);
