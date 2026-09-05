@@ -124,6 +124,27 @@ export struct BottomTabBar {
   }
 
   @Builder
+  tabIcon(item: BottomTabItem, index: number) {
+    // 选中态填充品牌色；非选中态用次级色，深浅主题均可读（SVG 走 currentColor，勿改回固定黑）
+    if (this.isActive(index)) {
+      Image(item.icon)
+        .width(IconTokens.tabBar)
+        .height(IconTokens.tabBar)
+        .fillColor(ColorTokens.brand)
+        .scale({
+          x: this.shouldReduceMotion() ? 1 : 1.08,
+          y: this.shouldReduceMotion() ? 1 : 1.08,
+        })
+    } else {
+      Image(item.icon)
+        .width(IconTokens.tabBar)
+        .height(IconTokens.tabBar)
+        .fillColor(ColorTokens.secondary)
+        .scale({ x: 1, y: 1 })
+    }
+  }
+
+  @Builder
   tabInner(item: BottomTabItem, index: number): void {
     Column({ space: 3 }) {
       Column({ space: 3 }) {
@@ -133,24 +154,10 @@ export struct BottomTabBar {
             position: BadgePosition.RightTop,
             style: { badgeColor: $r('app.color.semantic_red'), badgeSize: IconTokens.compact },
           }) {
-            Image(item.icon)
-              .width(IconTokens.tabBar)
-              .height(IconTokens.tabBar)
-              .fillColor(this.isActive(index) ? ColorTokens.brand : ColorTokens.tertiary)
-              .scale({
-                x: this.isActive(index) && !this.shouldReduceMotion() ? 1.08 : 1,
-                y: this.isActive(index) && !this.shouldReduceMotion() ? 1.08 : 1,
-              })
+            this.tabIcon(item, index)
           }
         } else {
-          Image(item.icon)
-            .width(IconTokens.tabBar)
-            .height(IconTokens.tabBar)
-            .fillColor(this.isActive(index) ? ColorTokens.brand : ColorTokens.tertiary)
-            .scale({
-              x: this.isActive(index) && !this.shouldReduceMotion() ? 1.08 : 1,
-              y: this.isActive(index) && !this.shouldReduceMotion() ? 1.08 : 1,
-            })
+          this.tabIcon(item, index)
         }
         Text(item.title)
           .fontSize(TypeTokens.navLabel.size).fontFamily(TypeTokens.fontFamily)
@@ -217,6 +224,7 @@ export struct BottomTabBar {
           inset: SpaceTokens.none,
           itemWidth: LayoutTokens.tabBarItemWidth,
           radius: RadiusTokens.lg,
+          // 选中项是一层轻薄的纸面高亮，保留背景内容的透光感。
           fill: $r('app.color.bar_selection_surface'),
           reduceMotion: this.shouldReduceMotion(),
         })
@@ -238,9 +246,11 @@ export struct BottomTabBar {
     .width('100%')
     .height(LayoutTokens.tabBarHeight)
     .borderRadius(RadiusTokens.floatingBar)
-    .backgroundColor(ColorTokens.elevated)
-    .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
-    .shadow({ radius: 16, color: ColorTokens.barShadow, offsetY: 7 })
+    // 暖色半透明毛玻璃：下面的图片可以透出，但文字仍有足够对比度。
+    .backgroundColor(ColorTokens.barSurface)
+    .backdropBlur(LayoutTokens.glassBlur)
+    .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+    .shadow({ radius: 18, color: ColorTokens.barShadow, offsetY: 8 })
     .clip(true)
     .scale({
       x: this.barPressed && !this.shouldReduceMotion() ? 0.994 : 1,

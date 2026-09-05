@@ -128,6 +128,7 @@ export struct SettingsPage {
       Image(resolveSettingsIcon(icon))
         .width(22).height(22)
         .objectFit(ImageFit.Contain)
+        .fillColor($r('app.color.text_secondary'))
       Text(title)
         .fontSize(16).fontFamily($r('app.string.font_family'))
         .fontColor($r('app.color.text_primary'))
@@ -135,6 +136,7 @@ export struct SettingsPage {
       Image(resolveSettingsIcon('chevronRight'))
         .width(18).height(18)
         .objectFit(ImageFit.Contain)
+        .fillColor($r('app.color.text_secondary'))
     }
     .width('100%')
     .padding({ left: 16, right: 16, top: 14, bottom: 14 })
@@ -159,6 +161,7 @@ export struct SettingsPage {
       Image(resolveSettingsIcon(icon))
         .width(22).height(22)
         .objectFit(ImageFit.Contain)
+        .fillColor($r('app.color.text_secondary'))
       Column({ space: 2 }) {
         Text(title)
           .fontSize(16).fontFamily($r('app.string.font_family'))
@@ -331,19 +334,6 @@ export struct SettingsPage {
 
             this.sectionRow('trash', '清除缓存', (): void => {
               this.onClearCacheClick();
-            });
-          }
-          .width('100%');
-
-          // ===== 设计 =====
-          Column({ space: 10 }) {
-            Text('设计')
-              .fontSize(13).fontFamily($r('app.string.font_family'))
-              .fontColor($r('app.color.text_secondary'))
-              .alignSelf(ItemAlign.Start)
-              .padding({ left: 4 });
-            this.sectionRow('book', '设计系统预览（羊皮纸）', (): void => {
-              this.getUIContext().getRouter().pushUrl({ url: 'pages/ParchmentPreviewPage' });
             });
           }
           .width('100%');
