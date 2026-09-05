@@ -66,6 +66,7 @@ struct DetailActionButton {
           Image(this.icon)
             .width(IconTokens.small)
             .height(IconTokens.small)
+            .fillColor(ColorTokens.secondary)
         }
         Text(this.label)
           .fontSize(TypeTokens.navLabel.size).fontFamily(TypeTokens.fontFamily)
@@ -130,6 +131,7 @@ export struct DetailActionBar {
               Image(resolveActionIcon('close'))
                 .width(IconTokens.compact)
                 .height(IconTokens.compact)
+                .fillColor(ColorTokens.secondary)
             }
             .width(LayoutTokens.minTouchTarget)
             .height(LayoutTokens.minTouchTarget)

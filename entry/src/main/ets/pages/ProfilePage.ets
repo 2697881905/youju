@@ -551,6 +551,7 @@ export struct ProfilePage {
               Image(resolveActionIcon('share'))
                 .width(IconTokens.small)
                 .height(IconTokens.small)
+                .fillColor(ColorTokens.primary)
             }
             .width(LayoutTokens.segmentedHeight)
             .height(LayoutTokens.segmentedHeight)
@@ -572,6 +573,7 @@ export struct ProfilePage {
             Image(resolveSettingsIcon('gear'))
               .width(IconTokens.small)
               .height(IconTokens.small)
+              .fillColor(ColorTokens.primary)
           }
           .width(LayoutTokens.segmentedHeight)
           .height(LayoutTokens.segmentedHeight)
