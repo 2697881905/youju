@@ -1,6 +1,6 @@
 import { http } from '@kit.NetworkKit';
 import { BUILD_MODE_NAME, DEBUG } from '../utils/buildMode';
-import { Post, DailyPost, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody, PendingPost, ModerateAction, NotificationPrefs, BlockUser, PrivacySettingsData, UserExportData, DebateVoteResult, Conversation, DmMessage, DmSharePayload } from '../models/types';
+import { Post, DailyPost, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody, PendingPost, ModerateAction, NotificationPrefs, BlockUser, PrivacySettingsData, UserExportData, DebateVoteResult, Conversation, DmMessage, DmSharePayload, AdminReportItem, ReportTargetType } from '../models/types';
 
 // 以构建期布尔 DEBUG 为准选择后端地址（调试包 true → 本地，released → 生产）。
 const BUILD_MODE: string = BUILD_MODE_NAME;
@@ -640,6 +640,46 @@ export interface ModerateBody {
 export async function moderatePost(id: number, action: ModerateAction, reason?: string): Promise<void> {
   const body: ModerateBody = { action, reason };
   await api.post<null>('/v1/admin/posts/' + id + '/moderate', body);
+}
+
+// GET /v1/admin/reports?page=&limit=&status= 举报台账列表（举报账本页）
+export function listAdminReports(
+  page: number = 1,
+  limit: number = 20,
+  status?: 'pending' | 'resolved' | 'dismissed'
+): Promise<ListResult<AdminReportItem>> {
+  const fields: Array<[string, string | number | undefined]> = [['page', page], ['limit', limit]];
+  if (status !== undefined) {
+    fields.push(['status', status]);
+  }
+  const path: string = '/v1/admin/reports' + toQuery(fields);
+  return api.get<ListResult<AdminReportItem>>(path);
+}
+
+// POST /v1/admin/reports/resolve 处理某目标的全部 pending 举报（标记成立/驳回）
+export interface ResolveReportsBody {
+  targetType: ReportTargetType;
+  targetId: number;
+  action: 'resolved' | 'dismissed';
+}
+
+export async function resolveTargetReports(
+  targetType: ReportTargetType,
+  targetId: number,
+  action: 'resolved' | 'dismissed'
+): Promise<void> {
+  const body: ResolveReportsBody = { targetType, targetId, action };
+  await api.post<null>('/v1/admin/reports/resolve', body);
+}
+
+// POST /v1/admin/users/:id/ban 封禁用户
+export async function banUser(id: number): Promise<void> {
+  await api.post<null>('/v1/admin/users/' + id + '/ban');
+}
+
+// POST /v1/admin/users/:id/unban 解封用户
+export async function unbanUser(id: number): Promise<void> {
+  await api.post<null>('/v1/admin/users/' + id + '/unban');
 }
 
 // ===== 通知偏好 =====
