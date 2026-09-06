@@ -23,6 +23,9 @@ export const env = {
     .map((s) => parseInt(s.trim(), 10))
     .filter((n) => !isNaN(n) && n > 0),
   reportThreshold: Number(process.env.REPORT_THRESHOLD ?? 3),
+  // 运营通知 Webhook（如飞书群自定义机器人）：出现新举报时向运营推送。
+  // 留空 = 不推送（静默降级，不影响举报落库与自动下架）。
+  opsWebhookUrl: process.env.OPS_WEBHOOK_URL ?? '',
   // CORS 允许的源（逗号分隔）。留空 = 允许所有（仅开发期，生产务必配置具体域名）。
   corsOrigin: process.env.CORS_ORIGIN ?? '',
   // 本地文件上传（无真实对象存储时的开发期兜底）：对外可访问的基础地址 + 落盘目录
