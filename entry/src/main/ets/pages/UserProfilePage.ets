@@ -1,11 +1,12 @@
 
-import { Post, UserProfile } from '../models/types';
-import { getUserProfile, followUser, unfollowUser, listPosts, resolveDisplayImageUrl, blockUser, unblockUser, dislikeUser, undislikeUser } from '../services/api';
+import { Post, UserProfile, ReportReason } from '../models/types';
+import { getUserProfile, followUser, unfollowUser, listPosts, resolveDisplayImageUrl, blockUser, unblockUser, dislikeUser, undislikeUser, reportUser } from '../services/api';
 import { postDeletionStore } from '../utils/postDeletionStore';
-import { getUserId } from '../utils/auth';
+import { getUserId, getToken } from '../utils/auth';
 import { PostCard } from '../components/PostCard';
 import { ProfileIdentity } from '../components/ProfileIdentity';
 import { ProfileStatItem } from '../components/ProfileStatItem';
+import { ReportDialog } from '../components/ReportDialog';
 import { Pressable } from '../design/motion/Pressable';
 import { safeShowToast } from '../utils/toast';
 import { openChat, openFollowList, openPostDetail, takeUserProfileId } from '../utils/nav';
@@ -47,6 +48,19 @@ export struct UserProfilePage {
   @State profilePresented: boolean = false;
   @State followPending: boolean = false;
   @State followPulse: boolean = false;
+  // 举报用户（防骚扰/违规账号；targetType='user'，复用聊天举报链路）
+  private reportController: CustomDialogController = new CustomDialogController({
+    builder: ReportDialog({
+      targetType: 'user',
+      targetId: 0,
+      onSubmit: (reason: ReportReason, description: string): void => {
+        this.submitUserReport(reason, description);
+      },
+    }),
+    alignment: DialogAlignment.Center,
+    customStyle: true,
+    width: 344,
+  });
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
   @StorageLink('reduceMotion') reduceMotion: boolean = false;
   @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
@@ -311,6 +325,34 @@ export struct UserProfilePage {
     this.getUIContext().getRouter().pushUrl({ url: 'pages/ChatPage' });
   }
 
+  // 举报用户：未登录先提示登录；已登录拉起举报弹窗（同上「私信长按举报」责任链）
+  private onReportClick(): void {
+    if (this.targetId === 0 || this.isSelf()) {
+      return;
+    }
+    if (getToken() === '' || getUserId() <= 0) {
+      safeShowToast(this.getUIContext(), { message: '请先登录后再举报' });
+      return;
+    }
+    this.reportController.open();
+  }
+
+  // 提交用户举报（targetType='user'，复用后端 /v1/users/:id/report）
+  private async submitUserReport(reason: ReportReason, description: string): Promise<void> {
+    if (this.targetId <= 0) {
+      this.reportController.close();
+      return;
+    }
+    try {
+      await reportUser(this.targetId, { reason: reason, description: description });
+      this.reportController.close();
+      safeShowToast(this.getUIContext(), { message: '举报已提交，我们会尽快处理' });
+    } catch (e) {
+      const err: Error = e as Error;
+      safeShowToast(this.getUIContext(), { message: (err.message ?? '').length > 0 ? err.message : '举报失败，请稍后重试' });
+    }
+  }
+
   // ===== 拉黑 / 不喜欢（减少推送）=====
   // 拉黑 toggle：已拉黑 → 直接取消；未拉黑 → 二次确认后执行
   private onBlockClick(): void {
@@ -515,6 +557,7 @@ export struct UserProfilePage {
             .bindMenu([
               { value: this.profile.isBlocked === true ? '取消拉黑' : '拉黑该作者', action: (): void => { this.onBlockClick(); } },
               { value: this.profile.isDisliked === true ? '取消不喜欢' : '不喜欢该作者', action: (): void => { this.onDislikeClick(); } },
+              { value: '举报该用户', action: (): void => { this.onReportClick(); } },
             ])
         } else {
           Text('').width(44)
