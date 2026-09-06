@@ -1,11 +1,8 @@
 import { timeAgo } from '../utils/format';
 import { Avatar } from '../design/components/Avatar';
 import { ColorTokens } from '../design/tokens/color';
-import { RadiusTokens } from '../design/tokens/radius';
-import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
+import { SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
-import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
-import { ImmersiveSurface } from '../design/components/ImmersiveSurface';
 
 // 阅读头部只负责文章元信息和作者入口；帖子请求、删除态判断仍由详情页处理。
 @Component
@@ -51,33 +48,26 @@ export struct DetailPostHeader {
       .layoutWeight(1)
       .alignItems(HorizontalAlign.Start)
 
-      // 作者悬浮卡片头部：全宽毛玻璃头卡，沉浸光感覆盖头卡主体。
-      ImmersiveSurface({ radius: RadiusTokens.lg }) {
-        Row({ space: SpaceTokens.sm }) {
-          Avatar({ avatar: this.authorAvatar, name: this.authorName, avatarSize: 32 })
-          Column({ space: 1 }) {
-            Text(this.authorName)
-              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-              .fontWeight(TypeTokens.headline.weight)
-              .fontColor(ColorTokens.primary)
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-            Text(timeAgo(this.createdAt))
-              .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-              .fontColor(ColorTokens.tertiary)
-              .maxLines(1)
-          }
-          .alignItems(HorizontalAlign.Start)
-          .constraintSize({ maxWidth: 72 })
+      // 作者区：纯文字入口，无胶囊底（去掉毛玻璃头卡）
+      Row({ space: SpaceTokens.sm }) {
+        Avatar({ avatar: this.authorAvatar, name: this.authorName, avatarSize: 32 })
+        Column({ space: 1 }) {
+          Text(this.authorName)
+            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.headline.weight)
+            .fontColor(ColorTokens.primary)
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+          Text(timeAgo(this.createdAt))
+            .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
+            .fontColor(ColorTokens.tertiary)
+            .maxLines(1)
         }
-        .height(52)
-        .padding({ left: SpaceTokens.sm, right: SpaceTokens.md })
-        .backgroundBlurStyle(GlassBlurStyle.Floating)
-        .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
-        .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-        .borderRadius(RadiusTokens.lg)
-        .onClick((): void => { this.onOpenAuthor(); })
+        .alignItems(HorizontalAlign.Start)
+        .constraintSize({ maxWidth: 72 })
       }
+      .alignItems(VerticalAlign.Center)
+      .onClick((): void => { this.onOpenAuthor(); })
     }
     .width('100%')
     .alignItems(VerticalAlign.Top)
