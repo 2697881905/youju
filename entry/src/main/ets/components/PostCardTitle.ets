@@ -1,12 +1,11 @@
 import { ColorTokens } from '../design/tokens/color';
-import { RadiusTokens } from '../design/tokens/radius';
 import { SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 
+// 标题纯文字层：底色/边框/圆角由外层信息区统一提供（PostCard 中与点赞/作者合并为一块）。
 @Component
 export struct PostCardTitle {
   @Prop title: string = '';
-  @Prop hasMedia: boolean = false;
   @Prop compact: boolean = false;
 
   build() {
@@ -22,25 +21,6 @@ export struct PostCardTitle {
         .textOverflow({ overflow: TextOverflow.Ellipsis })
     }
     .width('100%')
-    .padding(this.compact ? SpaceTokens.xs : SpaceTokens.sm)
     .alignItems(HorizontalAlign.Start)
-    .backgroundColor(ColorTokens.elevated)
-    // 标题是纸面卡片的第一层，只保留极细的纸张分隔线。
-    .border({
-      width: {
-        left: 1,
-        right: 1,
-        top: 1,
-        bottom: 0,
-      },
-      color: ColorTokens.separator,
-      style: BorderStyle.Solid,
-    })
-    .borderRadius({
-      topLeft: this.hasMedia ? 0 : (this.compact ? RadiusTokens.xs : RadiusTokens.lg),
-      topRight: this.hasMedia ? 0 : (this.compact ? RadiusTokens.xs : RadiusTokens.lg),
-      bottomLeft: 0,
-      bottomRight: 0,
-    })
   }
 }
