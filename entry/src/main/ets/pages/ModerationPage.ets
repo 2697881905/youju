@@ -2,7 +2,7 @@
 // 数据：GET /v1/admin/posts/pending（含举报记录）；操作：POST /v1/admin/posts/:id/moderate
 
 import { PendingPost, ReportItem, ReportReason, ModerateAction } from '../models/types';
-import { getPendingPosts, moderatePost, resolveDisplayImageUrl } from '../services/api';
+import { getPendingPosts, moderatePost, banUser, resolveDisplayImageUrl } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { resolveActionIcon } from '../utils/actionIcons';
@@ -145,6 +145,45 @@ struct ModerationPage {
     this.rejectController.open();
   }
 
+  // 封禁帖子作者（对屡犯/严重违规账号直接处置）
+  private onBanAuthor(post: PendingPost): void {
+    const authorId: number = post.user?.id ?? 0;
+    if (authorId <= 0) {
+      safeShowToast(this.getUIContext(), { message: '无法获取作者信息' });
+      return;
+    }
+    this.getUIContext().showAlertDialog({
+      title: '封禁作者',
+      message: '封禁后该用户将无法登录与发布内容。确定封禁 ' + (post.user?.nickname ?? '该用户') + ' 吗？',
+      primaryButton: {
+        value: '取消',
+        action: (): void => {},
+      },
+      secondaryButton: {
+        value: '封禁',
+        fontColor: $r('app.color.semantic_red'),
+        action: (): void => {
+          this.doBan(authorId);
+        },
+      },
+    });
+  }
+
+  private async doBan(authorId: number): Promise<void> {
+    if (this.processingId !== 0) {
+      return;
+    }
+    this.processingId = authorId;
+    try {
+      await banUser(authorId);
+      safeShowToast(this.getUIContext(), { message: '已封禁该作者' });
+    } catch (e) {
+      safeShowToast(this.getUIContext(), { message: (e as Error).message });
+    } finally {
+      this.processingId = 0;
+    }
+  }
+
   // 单条举报理由 chip
   @Builder
   reportReasonChip(reason: ReportReason, desc?: string): void {
@@ -270,6 +309,21 @@ struct ModerationPage {
             if (post.id !== undefined) {
               this.openReject(post.id);
             }
+          })
+      }
+      .width('100%')
+
+      // 作者处置（屡犯/严重违规直接封禁）
+      Row() {
+        Blank()
+        Text('封禁作者')
+          .fontSize(13).fontFamily($r('app.string.font_family'))
+          .fontColor($r('app.color.semantic_red'))
+          .padding({ left: 12, right: 12, top: 6, bottom: 6 })
+          .border({ width: 1, color: '#FFD1D1', style: BorderStyle.Solid })
+          .borderRadius(8)
+          .onClick(() => {
+            this.onBanAuthor(post);
           })
       }
       .width('100%')

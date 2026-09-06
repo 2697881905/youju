@@ -186,7 +186,7 @@ export interface ReportBody {
 }
 
 // 举报目标类型
-export type ReportTargetType = 'post' | 'comment';
+export type ReportTargetType = 'post' | 'comment' | 'user';
 
 // 举报人快照（GET /v1/admin/posts/pending 随 reports 返回）
 export interface ReportReporter {
@@ -210,6 +210,29 @@ export interface ReportItem {
 export interface PendingPost extends Post {
   reports: ReportItem[];
   reportCount?: number;
+}
+
+// 举报人快照（admin 台账随举报记录返回，仅昵称）
+export interface AdminReporter {
+  nickname?: string | null;
+}
+
+// 举报台账项（GET /v1/admin/reports，供举报账本页渲染）
+// 后端附带：举报人昵称 + 目标摘要（帖子标题/评论内容/用户昵称）+ 用户封禁状态
+export interface AdminReportItem {
+  id: number;
+  reporterId: number;
+  targetType: ReportTargetType;
+  targetId: number;
+  reason: ReportReason;
+  description?: string | null;
+  status: 'pending' | 'resolved' | 'dismissed';
+  createdAt: string;
+  reporter?: AdminReporter | null;
+  postTitle?: string | null;
+  commentContent?: string | null;
+  targetNickname?: string | null;
+  targetBanned?: boolean | null;
 }
 
 // 审核动作

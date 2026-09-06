@@ -212,6 +212,8 @@ export async function getReporterIdsByTarget(
 
 /**
  * 举报记录分页列表（供 admin 审核队列查看）。
+ * 返回附带举报人昵称、目标摘要（帖子标题/评论内容/用户昵称）与用户封禁状态，
+ * 供前台举报账本直接渲染决策。
  */
 export async function listReports(
   page: number = 1,
@@ -231,5 +233,49 @@ export async function listReports(
     }),
     prisma.report.count({ where }),
   ]);
-  return { list, pagination: { page: p, limit: l, total } };
+  if (list.length === 0) {
+    return { list: [], pagination: { page: p, limit: l, total } };
+  }
+
+  // 举报人昵称
+  const reporterIds = Array.from(new Set(list.map((r) => r.reporterId)));
+  const reporters = await prisma.user.findMany({
+    where: { id: { in: reporterIds } },
+    select: { id: true, nickname: true },
+  });
+  const nicknameById = new Map(reporters.map((u) => [u.id, u.nickname]));
+
+  // 目标摘要（帖子标题 / 评论内容 / 用户昵称+封禁状态）
+  const postIds = list.filter((r) => r.targetType === 'post').map((r) => r.targetId);
+  const commentIds = list.filter((r) => r.targetType === 'comment').map((r) => r.targetId);
+  const userIds = list.filter((r) => r.targetType === 'user').map((r) => r.targetId);
+  const [posts, comments, users] = await Promise.all([
+    postIds.length > 0
+      ? prisma.post.findMany({ where: { id: { in: postIds } }, select: { id: true, title: true } })
+      : Promise.resolve([]),
+    commentIds.length > 0
+      ? prisma.comment.findMany({ where: { id: { in: commentIds } }, select: { id: true, content: true } })
+      : Promise.resolve([]),
+    userIds.length > 0
+      ? prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, nickname: true, status: true } })
+      : Promise.resolve([]),
+  ]);
+  const postTitleById = new Map(posts.map((post) => [post.id, post.title]));
+  const commentContentById = new Map(comments.map((c) => [c.id, c.content]));
+  const userById = new Map(users.map((u) => [u.id, u]));
+
+  return {
+    list: list.map((r) => {
+      const targetUser = r.targetType === 'user' ? userById.get(r.targetId) : undefined;
+      return {
+        ...r,
+        reporter: { nickname: nicknameById.get(r.reporterId) ?? null },
+        postTitle: r.targetType === 'post' ? postTitleById.get(r.targetId) ?? null : null,
+        commentContent: r.targetType === 'comment' ? commentContentById.get(r.targetId) ?? null : null,
+        targetNickname: targetUser ? targetUser.nickname : null,
+        targetBanned: targetUser ? targetUser.status === 0 : null,
+      };
+    }),
+    pagination: { page: p, limit: l, total },
+  };
 }

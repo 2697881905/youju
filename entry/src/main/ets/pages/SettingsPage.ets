@@ -215,6 +215,9 @@ export struct SettingsPage {
               this.sectionRow('shield', '内容审核台', (): void => {
                 this.getUIContext().getRouter().pushUrl({ url: 'pages/ModerationPage' });
               });
+              this.sectionRow('book', '举报账本', (): void => {
+                this.getUIContext().getRouter().pushUrl({ url: 'pages/ReportAdminPage' });
+              });
             }
             this.sectionRow('block', '拉黑管理', (): void => {
               this.getUIContext().getRouter().pushUrl({ url: 'pages/BlocklistPage' });

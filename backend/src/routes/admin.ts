@@ -10,6 +10,7 @@ import { prisma } from '../prisma';
 import { env } from '../config/env';
 import * as moderationService from '../services/moderationService';
 import * as reportService from '../services/reportService';
+import { notifySystem } from '../services/notificationService';
 
 import { asyncHandler } from '../middleware/asyncHandler';
 
@@ -75,6 +76,31 @@ router.post('/users/:id/unban', asyncHandler(async (req: AuthRequest, res: Respo
   if (!target) return fail(res, CODE.NOT_FOUND, '用户不存在', 404);
   await prisma.user.update({ where: { id }, data: { status: 1 } });
   return ok(res, null, '已解封');
+}));
+
+// POST /v1/admin/reports/resolve — 批量处理某目标的全部 pending 举报（台账处置台）
+// body: { targetType: 'post'|'comment'|'user', targetId, action: 'resolved'|'dismissed' }
+router.post('/reports/resolve', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { targetType, targetId, action } = req.body ?? {};
+  if (!['post', 'comment', 'user'].includes(targetType)) {
+    return fail(res, CODE.BAD_REQUEST, 'targetType 必须为 post/comment/user');
+  }
+  const id = Number(targetId);
+  if (!id || isNaN(id)) return fail(res, CODE.BAD_REQUEST, '无效目标ID');
+  if (!['resolved', 'dismissed'].includes(action)) {
+    return fail(res, CODE.BAD_REQUEST, 'action 必须为 resolved 或 dismissed');
+  }
+  try {
+    await reportService.resolveReportsByTarget(targetType, id, action as 'resolved' | 'dismissed');
+  } catch (e) {
+    return fail(res, CODE.SERVER_ERROR, '处理失败', 500);
+  }
+  // 事务后通知举报人（外部副作用，失败不阻断：台账状态已标记完成）
+  const reporterIds = await reportService.getReporterIdsByTarget(targetType, id);
+  for (const rid of reporterIds) {
+    await notifySystem(rid, '你的举报已处理', targetType === 'post' ? id : null).catch(() => {});
+  }
+  return ok(res, null, '已处理');
 }));
 
 export default router;
