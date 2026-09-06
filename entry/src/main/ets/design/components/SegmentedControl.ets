@@ -6,7 +6,6 @@ import { RadiusTokens } from '../tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../tokens/space';
 import { TypeTokens } from '../tokens/type';
 import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../../utils/immersiveMaterial';
-import { ImmersiveSurface } from './ImmersiveSurface';
 
 export interface SegmentedItem {
   key: string;
@@ -139,7 +138,7 @@ export struct SegmentedControl {
         radius: LayoutTokens.tabBarGlowSize / 2,
         colors: [
           [ColorTokens.glassWhite, 0.0],
-          [ColorTokens.glassGlowHeavy, 0.18],
+          [ColorTokens.brandTint, 0.18],
           [ColorTokens.glassGlowMedium, 0.5],
           [ColorTokens.glassClear, 1.0],
         ],
@@ -147,25 +146,50 @@ export struct SegmentedControl {
       .blendMode(BlendMode.SCREEN)
       .position({ x: this.glowX - LayoutTokens.tabBarGlowSize / 2, y: 0 })
       .opacity(this.barPressed ? (this.scrubbing ? 0.92 : 0.55) : 0)
+      // 按压光斑弹性放大：模拟底部栏的点光源响应
+      .scale({
+        x: this.barPressed && !this.shouldReduceMotion() ? 1.18 : 1,
+        y: this.barPressed && !this.shouldReduceMotion() ? 1.18 : 1,
+      })
       .hitTestBehavior(HitTestMode.None)
-      .animation({ duration: MotionTokens.instant, curve: MotionCurves.standard })
+      .animation({
+        duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.base,
+        curve: this.shouldReduceMotion() ? MotionCurves.standard : MotionCurves.spring,
+      })
   }
 
   private intrinsicWidth(): number {
     return Math.max(1, this.items.length) * this.itemWidth + SpaceTokens.xs;
   }
 
-  // 分段栏本体（含玻璃/普通两种底样式）：glass 时用系统玻璃材质，
-  // 由外层 ImmersiveSurface 叠加沉浸光感流光；非 glass 保持原纯色。
+  // 分段栏本体：glass 时采用与底部操作栏一致的玻璃悬浮样式（系统玻璃 + 半透明 + 细边框 + 柔和阴影），
+  // 不使用流光特效；非 glass 保持原纯色。
   @Builder
   controlBody(): void {
     Stack({ alignContent: Alignment.Center }) {
+      // 玻璃顶光层（底部栏 gradientMask 同思路）：自上而下的白色光晕，
+      // 让半透明面板在纯色页面上也能呈现玻璃光感，而非实色扁平
+      if (this.glass) {
+        Column()
+          .width('100%')
+          .height('100%')
+          .linearGradient({
+            angle: 180,
+            colors: [
+              ['#4AFFFFFF', 0.0],
+              ['#1AFFFFFF', 0.45],
+              ['#00000000', 1.0],
+            ],
+          })
+          .hitTestBehavior(HitTestMode.None)
+      }
+      // 分段滑块与底部栏同款：无缩进、大圆角纸面高亮（轻薄透光），与玻璃胶囊协调
       SharedSlide({
         selectedIndex: this.activeIndex(),
         itemCount: this.items.length,
         controlHeight: LayoutTokens.segmentedHeight,
-        inset: SpaceTokens.xs / 2,
-        radius: RadiusTokens.sm,
+        inset: SpaceTokens.none,
+        radius: RadiusTokens.lg,
         fill: this.glass ? ColorTokens.barSelectionSurface : ColorTokens.elevated,
         reduceMotion: this.shouldReduceMotion(),
       })
@@ -211,19 +235,31 @@ export struct SegmentedControl {
     .width(this.fillWidth ? '100%' : this.intrinsicWidth())
     .height(LayoutTokens.segmentedHeight)
     .padding(SpaceTokens.xs / 2)
-    .backgroundColor(this.glass ? (isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.elevated) : ColorTokens.sunken)
-    .borderRadius(this.glass ? RadiusTokens.md : RadiusTokens.sm)
+    .backgroundBlurStyle(this.glass ? GlassBlurStyle.Floating : BlurStyle.NONE)
+    // 玻璃底：直接用 44% 半透明 barSurface（真机 blur 渲染不透明，Transparent 会退化为实色面板，
+    // 半透明底才能透出内容、呈现与底部栏一致的玻璃感）
+    .backgroundColor(this.glass ? ColorTokens.barSurface : ColorTokens.sunken)
+    .borderRadius(this.glass ? RadiusTokens.floatingBar : RadiusTokens.sm)
     .border({
-      width: this.glass ? 1 : 0,
-      color: this.glass ? ColorTokens.separator : Color.Transparent,
+      width: this.glass ? LayoutTokens.glassBorderWidth : 0,
+      color: this.glass ? ColorTokens.barBorder : Color.Transparent,
       style: BorderStyle.Solid,
     })
     .shadow({
-      radius: this.glass ? 8 : 0,
+      radius: this.glass ? 18 : 0,
       color: this.glass ? ColorTokens.barShadow : Color.Transparent,
-      offsetY: this.glass ? 3 : 0,
+      offsetY: this.glass ? 8 : 0,
     })
     .clip(true)
+    // 按压反馈（底部栏同款灵动感）：弹性回弹曲线（spring 过冲）+ 更明显的整栏下沉
+    .scale({
+      x: this.barPressed && !this.shouldReduceMotion() ? 0.99 : 1,
+      y: this.barPressed && !this.shouldReduceMotion() ? 0.97 : 1,
+    })
+    .animation({
+      duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.base,
+      curve: this.shouldReduceMotion() ? MotionCurves.standard : MotionCurves.spring,
+    })
     .onAreaChange((_old: Area, area: Area) => {
       this.controlWidth = area.width as number;
     })
@@ -231,13 +267,6 @@ export struct SegmentedControl {
   }
 
   build() {
-    if (this.glass) {
-      // 沉浸光感分段栏：真机叠加双边流光 + 系统玻璃，模拟器/低端机回退为普通玻璃样式。
-      ImmersiveSurface({ radius: RadiusTokens.md }) {
-        this.controlBody()
-      }
-    } else {
-      this.controlBody()
-    }
+    this.controlBody()
   }
 }
