@@ -1,6 +1,7 @@
 // 举报服务：创建举报（幂等 + 阈值触发自动下架）+ 查询 + 批量处理
 import { prisma } from '../prisma';
 import { notifySystem } from './notificationService';
+import { notifyNewReport } from './opsNotifier';
 import { env } from '../config/env';
 
 export type TargetType = 'post' | 'comment' | 'user';
@@ -87,7 +88,7 @@ export async function createReport(
 
   // 3. 创建举报、递增计数与自动下架必须原子完成，避免留下不可重试的半状态。
   const threshold = env.reportThreshold > 0 ? env.reportThreshold : 3;
-  let transactionResult: { report: any; autoTakenDown: boolean };
+  let transactionResult: { report: any; autoTakenDown: boolean; reportCount: number };
   try {
     transactionResult = await prisma.$transaction(async (tx) => {
       const report = await tx.report.create({
@@ -124,7 +125,7 @@ export async function createReport(
         }
       }
       // targetType==='user'：仅上面已创建举报记录，无计数/下架逻辑
-      return { report, autoTakenDown: newReportCount >= threshold };
+      return { report, autoTakenDown: newReportCount >= threshold, reportCount: newReportCount };
     });
   } catch (e: any) {
     if (e.code === PRISMA_UNIQUE_CONSTRAINT_CODE) {
@@ -136,6 +137,19 @@ export async function createReport(
   }
 
   // 4. 通知属于事务后的外部副作用，失败不反向破坏已提交的举报状态。
+  // 4a. 运营侧：出现新举报（pending 记录）即推送飞书群机器人；不 await，绝不阻断主流程。
+  void notifyNewReport({
+    reportId: transactionResult.report.id,
+    targetType: params.targetType,
+    targetId: params.targetId,
+    reason: params.reason,
+    description: params.description,
+    targetTitle: params.targetType === 'post' ? targetTitle : undefined,
+    reportCount: transactionResult.reportCount > 0 ? transactionResult.reportCount : undefined,
+    autoTakenDown: transactionResult.autoTakenDown,
+  }).catch(() => {});
+
+  // 4b. 举报达到阈值自动下架 → 通知内容作者。
   if (transactionResult.autoTakenDown) {
     if (params.targetType === 'post') {
       await notifySystem(

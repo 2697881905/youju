@@ -12,6 +12,9 @@ jest.mock('../prisma', () => ({
       findUnique: jest.fn(),
       update: jest.fn(),
     },
+    user: {
+      findUnique: jest.fn(),
+    },
     report: {
       create: jest.fn(),
       findMany: jest.fn(),
@@ -37,8 +40,15 @@ jest.mock('./sensitiveWordService', () => ({
   },
 }));
 
+// mock opsNotifier：单测不真正请求飞书 Webhook
+jest.mock('./opsNotifier', () => ({
+  notifyNewReport: jest.fn().mockResolvedValue(undefined),
+}));
+
 import { prisma } from '../prisma';
+import { notifyNewReport } from './opsNotifier';
 const mockPrisma = prisma as any;
+const mockNotifyNewReport = notifyNewReport as jest.Mock;
 
 describe('createReport - 帖子举报', () => {
   beforeEach(() => {
@@ -72,6 +82,17 @@ describe('createReport - 帖子举报', () => {
     expect(updateCall.data.reportCount).toEqual({ increment: 1 });
     // 不应触发 notifySystem（notification.create 未被调用）
     expect(mockPrisma.notification.create).not.toHaveBeenCalled();
+    // 但每次新举报都应推送运营通知（不阻塞，fire-and-forget）
+    expect(mockNotifyNewReport).toHaveBeenCalledTimes(1);
+    expect(mockNotifyNewReport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reportId: 100,
+        targetType: 'post',
+        targetId: 1,
+        reportCount: 1,
+        autoTakenDown: false,
+      })
+    );
   });
 
   it('reportCount 达阈值（3）触发自动下架 status=0 + notifySystem', async () => {
@@ -95,6 +116,11 @@ describe('createReport - 帖子举报', () => {
     expect(notifArg.data.userId).toBe(10);
     expect(notifArg.data.type).toBe('system');
     expect(notifArg.data.content).toContain('正在审核中');
+    // 运营通知携带下架信息
+    expect(mockNotifyNewReport).toHaveBeenCalledTimes(1);
+    expect(mockNotifyNewReport).toHaveBeenCalledWith(
+      expect.objectContaining({ autoTakenDown: true, reportCount: 3 })
+    );
   });
 
   it('帖子不存在抛 not_found', async () => {
@@ -176,6 +202,40 @@ describe('createReport - 评论举报', () => {
     expect(mockPrisma.comment.update).toHaveBeenCalledTimes(2);
     const secondCall = mockPrisma.comment.update.mock.calls[1][0];
     expect(secondCall.data.status).toBe(0);
+  });
+});
+
+describe('createReport - 用户举报', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPrisma.user.findUnique.mockResolvedValue({ id: 30 });
+    mockPrisma.report.create.mockResolvedValue({ id: 200, reporterId: 1, targetType: 'user', targetId: 30 });
+    mockPrisma.$transaction.mockImplementation((callback: any) => callback(mockPrisma));
+  });
+
+  it('只落举报记录，不做自动下架，但仍推送运营通知', async () => {
+    const result = await createReport({
+      reporterId: 1,
+      targetType: 'user',
+      targetId: 30,
+      reason: 'spam',
+      description: '私信骚扰',
+    });
+    expect(result.autoTakenDown).toBe(false);
+    // 无计数逻辑：不触碰 post/comment.update
+    expect(mockPrisma.post.update).not.toHaveBeenCalled();
+    expect(mockPrisma.comment.update).not.toHaveBeenCalled();
+    // 不通知内容作者（notification.create 未被调用）
+    expect(mockPrisma.notification.create).not.toHaveBeenCalled();
+    // 运营通知照常推送
+    expect(mockNotifyNewReport).toHaveBeenCalledTimes(1);
+    expect(mockNotifyNewReport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        targetType: 'user',
+        targetId: 30,
+        description: '私信骚扰',
+      })
+    );
   });
 });
 
