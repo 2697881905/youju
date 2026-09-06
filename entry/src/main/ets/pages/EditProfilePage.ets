@@ -19,7 +19,6 @@ import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { EditableProfilePreview } from '../components/EditableProfilePreview';
 import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
-import { ImmersiveSurface } from '../design/components/ImmersiveSurface';
 
 const GENDER_OPTIONS: SegmentedItem[] = [
   { key: 'male', label: '男' },
@@ -350,34 +349,27 @@ export struct EditProfilePage {
 
   build() {
     Column() {
-      // 固定玻璃工具栏：保存仅在文本资料发生未保存变更时强调。
-      ImmersiveSurface({ radius: RadiusTokens.floatingBar }) {
-        Row() {
-          BackButton({ action: (): void => { this.onBack(); } })
-          Text('编辑资料')
-            .fontSize(17).fontFamily($r('app.string.font_family'))
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('app.color.text_primary'))
-            .layoutWeight(1)
-            .textAlign(TextAlign.Center);
-          Text(this.saving ? '保存中' : (this.saveSucceeded ? '已保存' : '保存'))
-            .fontSize(15).fontFamily($r('app.string.font_family'))
-            .fontColor(this.saving ? ColorTokens.secondary : (this.saveSucceeded ? ColorTokens.success : (this.hasUnsavedChanges() ? ColorTokens.brand : ColorTokens.tertiary)))
-            .width(56)
-            .textAlign(TextAlign.Center)
-            .scale({ x: this.saveSucceeded && !this.shouldReduceMotion() ? MotionTokens.successScale : 1, y: this.saveSucceeded && !this.shouldReduceMotion() ? MotionTokens.successScale : 1 })
-            .animation({ duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.emphasis, curve: MotionCurves.springSoft })
-            .opacity(this.saving || this.saveSucceeded || this.hasUnsavedChanges() ? 1 : 0.45)
-            .onClick(() => { if (this.hasUnsavedChanges()) { this.onSave(); } });
-        }
-        .width('100%')
-        .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
-        .backgroundBlurStyle(GlassBlurStyle.Floating)
-        .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
-        .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-        .borderRadius(RadiusTokens.floatingBar)
-        .margin({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs })
-      };
+      // 普通顶栏：不悬浮、无玻璃、无流光，与页面同底色（保存仅在文本资料未保存变更时强调）。
+      Row() {
+        BackButton({ action: (): void => { this.onBack(); } })
+        Text('编辑资料')
+          .fontSize(17).fontFamily($r('app.string.font_family'))
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.text_primary'))
+          .layoutWeight(1)
+          .textAlign(TextAlign.Center);
+        Text(this.saving ? '保存中' : (this.saveSucceeded ? '已保存' : '保存'))
+          .fontSize(15).fontFamily($r('app.string.font_family'))
+          .fontColor(this.saving ? ColorTokens.secondary : (this.saveSucceeded ? ColorTokens.success : (this.hasUnsavedChanges() ? ColorTokens.brand : ColorTokens.tertiary)))
+          .width(56)
+          .textAlign(TextAlign.Center)
+          .scale({ x: this.saveSucceeded && !this.shouldReduceMotion() ? MotionTokens.successScale : 1, y: this.saveSucceeded && !this.shouldReduceMotion() ? MotionTokens.successScale : 1 })
+          .animation({ duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.emphasis, curve: MotionCurves.springSoft })
+          .opacity(this.saving || this.saveSucceeded || this.hasUnsavedChanges() ? 1 : 0.45)
+          .onClick(() => { if (this.hasUnsavedChanges()) { this.onSave(); } });
+      }
+      .width('100%')
+      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.sm, bottom: SpaceTokens.sm });
 
       Scroll() {
         Column({ space: 20 }) {
