@@ -167,7 +167,7 @@ export struct PostCard {
     })
   }
 
-  // 互动面是与内容面紧贴拼接的独立区域，不再嵌套在正文卡片内。
+  // 互动面与标题合并为同一块信息区：统一底色/边框/圆角，不再分成颜色不一的上下两区。
   @Builder
   footerSlot(): void {
     Column({ space: SpaceTokens.inlineTight }) {
@@ -191,31 +191,6 @@ export struct PostCard {
       this.cancelBookmarkSlot()
     }
     .width('100%')
-    .padding({
-      left: this.compact ? SpaceTokens.xs : SpaceTokens.sm,
-      right: this.compact ? SpaceTokens.xs : SpaceTokens.sm,
-      top: SpaceTokens.inlineTight,
-      bottom: SpaceTokens.inlineTight,
-    })
-    .backgroundColor(ColorTokens.elevated)
-    // 互动栏与标题区保持同一张纸，只用两侧和底部的细分隔线收口。
-    .border({
-      width: {
-        left: 1,
-        right: 1,
-        bottom: 1,
-        top: 0,
-      },
-      color: ColorTokens.separator,
-      style: BorderStyle.Solid,
-    })
-    .borderRadius({
-      topLeft: 0,
-      topRight: 0,
-      bottomLeft: this.compact ? RadiusTokens.xs : RadiusTokens.lg,
-      bottomRight: this.compact ? RadiusTokens.xs : RadiusTokens.lg,
-    })
-    .clip(true)
   }
 
   @Builder
@@ -242,7 +217,7 @@ export struct PostCard {
   }
 
   build() {
-    // 三层结构：封面图（上传图或文字海报）→ 标题 → 玻璃互动/作者栏。
+    // 两层结构：封面图（上传图或文字海报）→ 统一信息区（标题 + 点赞/作者同一块底色）。
     Pressable({
       fillWidth: true,
       fullResponseRegion: true,
@@ -255,10 +230,28 @@ export struct PostCard {
           videoCover: this.post.videoCover ?? '',
           compact: this.compact,
         })
-        PostCardTitle({ title: this.post.title ?? '', hasMedia: this.hasCover(), compact: this.compact })
-        if (this.variant === 'feed' && this.hasFooter()) {
-          this.footerSlot()
+        // 信息区：标题 + 互动/作者 合并为一块（统一 elevated 底 + 细边框 + 圆角）
+        Column({ space: this.compact ? SpaceTokens.inlineTight : SpaceTokens.sm }) {
+          PostCardTitle({ title: this.post.title ?? '', compact: this.compact })
+          if (this.variant === 'feed' && this.hasFooter()) {
+            this.footerSlot()
+          }
         }
+        .width('100%')
+        .padding(this.compact ? SpaceTokens.xs : SpaceTokens.sm)
+        .alignItems(HorizontalAlign.Start)
+        .backgroundColor(ColorTokens.elevated)
+        .border({
+          width: 1,
+          color: ColorTokens.separator,
+          style: BorderStyle.Solid,
+        })
+        .borderRadius({
+          topLeft: this.hasCover() ? 0 : (this.compact ? RadiusTokens.xs : RadiusTokens.lg),
+          topRight: this.hasCover() ? 0 : (this.compact ? RadiusTokens.xs : RadiusTokens.lg),
+          bottomLeft: this.compact ? RadiusTokens.xs : RadiusTokens.lg,
+          bottomRight: this.compact ? RadiusTokens.xs : RadiusTokens.lg,
+        })
       }
       .width('100%')
       .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
