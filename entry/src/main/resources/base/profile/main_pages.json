@@ -1,6 +1,7 @@
 {
   "src": [
     "pages/Index",
+    "pages/SearchPanelPage",
     "pages/CircleDetailPage",
     "pages/DetailPage",
     "pages/SearchResultPage",

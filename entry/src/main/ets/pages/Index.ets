@@ -136,8 +136,6 @@ struct Index {
   @State currentIndex: number = 0;
   @State privacyDialogShown: boolean = false; // 防隐私弹窗重复弹出
   @State privacyDialogIsUpdate: boolean = false;
-  // 首页搜索面板展开时隐藏底部悬浮栏（HomeTab 通过同一 key 同步）
-  @StorageLink('homeSearchPanelOpen') homeSearchPanelOpen: boolean = false;
   @StorageLink('unreadMessageCount') unreadCount: number = 0;
   @StorageLink('unreadDmCount') dmUnread: number = 0;
   @StorageLink('circleOnboardingPendingUserId') @Watch('onCircleOnboardingPendingChanged') circleOnboardingPendingUserId: string = '';
@@ -520,8 +518,6 @@ struct Index {
             materialType: hdsMaterial.MaterialType.IMMERSIVE,
             materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE,
           },
-          // 搜索面板展开时整栏淡出（barOpacity=0 隐藏悬浮栏本体）
-          barOpacity: this.homeSearchPanelOpen ? 0 : 1,
         })
         .scrollable(false)                       // 禁止页面主体左右滑动切换 Tab，仅点击底部页签切换
         .onTabBarClick((index: number): void => { this.handleTabBarClick(index); })
@@ -537,15 +533,6 @@ struct Index {
       .width('100%')
       .height('100%')
       .padding({ top: this.statusBarHeight })
-
-      if (this.homeSearchPanelOpen) {
-        // 悬浮栏淡出后拦截其触摸区域，避免搜索时误触切页
-        Column()
-          .width('100%')
-          .height(LayoutTokens.tabBarHeight + 44)
-          .backgroundColor('#01000000')
-          .zIndex(50)
-      }
 
       if (this.showCircleOnboarding) {
         CircleOnboarding({
