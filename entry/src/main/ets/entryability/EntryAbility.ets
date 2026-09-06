@@ -2,7 +2,7 @@ import { AbilityConstant, UIAbility, Want, ConfigurationConstant, Configuration 
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 import settings from '@ohos.settings';
-import { initThemeContext, loadThemeFromPrefs, applyLaunchTheme } from '../utils/theme';
+import { initThemeContext, loadThemeFromPrefs, applyLaunchTheme, applySystemFollowMode } from '../utils/theme';
 
 const DOMAIN = 0x0000;
 
@@ -39,8 +39,9 @@ export default class EntryAbility extends UIAbility {
     AppStorage.setOrCreate('systemDark', sysDark);
     const follow: boolean = AppStorage.get<boolean>('followSystem') ?? true;
     if (follow) {
-      // 跟随系统：同步缓存，不调 setColorMode
-      AppStorage.setOrCreate('isDarkMode', sysDark);
+      // 跟随系统：强改窗口颜色模式后再交还系统接管，修复「切回浅色残留深色」（审核反馈问题2）。
+      // applySystemFollowMode 内部按系统深浅变化标记去重，setColorMode 回派的重入回调会跳过，不会递归。
+      applySystemFollowMode(sysDark);
     }
   }
 
@@ -65,6 +66,10 @@ export default class EntryAbility extends UIAbility {
 
   onForeground(): void {
     this.syncSystemMotionPreference();
+    // 前台恢复时统一重应用主题（跟随系统 → 交还系统接管）：修复系统深浅切换后
+    // 应用窗口偶发的视觉残留（切回浅色仍停留深色）。安全无递归——仅启动/前台调用，
+    // 不在配置变更回调内触发。
+    applyLaunchTheme();
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onForeground');
   }
 

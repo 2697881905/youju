@@ -335,7 +335,6 @@ struct ModerationPage {
           Image(resolveActionIcon('lock'))
             .width(48)
             .height(48)
-            .fillColor($r('app.color.text_secondary'))
           Text('无管理员权限')
             .fontSize(16).fontFamily($r('app.string.font_family'))
             .fontColor($r('app.color.text_secondary'))

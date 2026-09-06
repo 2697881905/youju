@@ -2,7 +2,7 @@
 // 视觉层次：品牌氛围光晕 → 图标+名称+标语 → 登录按钮 → 隐私协议勾选
 // 品牌标语「有据可依 更好的生活」传达产品核心价值与定位。
 // 隐私协议需用户主动勾选后方可点击登录按钮，未勾选时所有登录入口禁用。
-// 配色沿用设计系统 ds_brand 蓝色主色 + 暖色点缀，跟随深色/浅色模式自动适配。
+// 配色随主题：浅棕羊皮纸底色 + 暖金氛围光晕，与全站主色调一致。
 
 import { exchangeHuaweiCode, LoginResult } from '../services/api';
 import { setSession, loginWithDevStub, loginWithDevStub2, markCircleOnboardingPending } from '../utils/auth';
@@ -26,27 +26,27 @@ struct LoginPage {
 
   build() {
     Stack() {
-      // ── 品牌氛围光晕：两道柔和径向渐变叠加在底色上，营造品牌蓝+暖色的视觉基调 ──
+      // ── 品牌氛围光晕：两道柔和径向渐变叠加在浅棕底色上，营造暖金视觉基调 ──
       Column()
         .width('100%')
         .height('100%')
-        .backgroundColor($r('app.color.ds_brand_tint'))
-      // 右上方蓝色光晕
+        .backgroundColor($r('app.color.ds_canvas'))
+      // 右上方暖金光晕
       Column()
         .width(300)
         .height(300)
         .borderRadius(150)
-        .backgroundColor($r('app.color.ds_brand'))
-        .opacity(0.06)
+        .backgroundColor($r('app.color.ds_warm'))
+        .opacity(0.07)
         .position({ right: -80, top: -40 })
         .blur(80)
-      // 左下方暖色光晕（与 logo 中橙色点缀呼应）
+      // 左下方暖金色光晕（与 logo 中橙色点缀呼应）
       Column()
         .width(220)
         .height(220)
         .borderRadius(110)
         .backgroundColor($r('app.color.ds_warm'))
-        .opacity(0.05)
+        .opacity(0.04)
         .position({ left: -60, bottom: 120 })
         .blur(60)
 
@@ -157,7 +157,7 @@ struct LoginPage {
         Row({ space: 6 }) {
           Checkbox()
             .select(this.privacyAgreed)
-            .selectedColor($r('app.color.ds_brand'))
+            .selectedColor($r('app.color.ds_bookmark'))
             .width(18)
             .height(18)
             .onChange((value: boolean) => {
@@ -169,7 +169,7 @@ struct LoginPage {
               .fontColor($r('app.color.ds_text_tertiary'))
             Text('《用户协议》')
               .fontSize(12).fontFamily($r('app.string.font_family'))
-              .fontColor($r('app.color.ds_brand'))
+              .fontColor('#8A6930')
               .onClick((): void => {
                 const ctx = this.getUIContext();
                 ctx.getRouter().pushUrl({ url: 'pages/UserAgreementPage' });
@@ -179,7 +179,7 @@ struct LoginPage {
               .fontColor($r('app.color.ds_text_tertiary'))
             Text('《隐私政策》')
               .fontSize(12).fontFamily($r('app.string.font_family'))
-              .fontColor($r('app.color.ds_brand'))
+              .fontColor('#8A6930')
               .onClick((): void => {
                 const ctx = this.getUIContext();
                 ctx.getRouter().pushUrl({ url: 'pages/PrivacyPage' });

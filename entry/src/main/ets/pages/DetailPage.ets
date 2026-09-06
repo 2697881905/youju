@@ -487,6 +487,12 @@ struct DetailPage {
       coverImage: cover,
       authorName: this.authorName(),
       authorId: this.authorId() ?? 0,
+      authorAvatar: this.authorAvatar(),
+      categoryLabel: (post.tags ?? []).length > 0
+        ? (post.tags ?? [])[0] + ' · ' + genreMeta(post.genre).label.replace('报告', '')
+        : genreMeta(post.genre).label,
+      commentCount: post.commentCount ?? 0,
+      upCount: post.upCount ?? this.interaction.upCount,
     };
   }
 

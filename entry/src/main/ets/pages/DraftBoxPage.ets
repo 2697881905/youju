@@ -12,6 +12,7 @@ import { TypeTokens } from '../design/tokens/type';
 import { publishFlowStore } from '../utils/publishFlowStore';
 import { PublishMode } from '../components/PublishModeSheet';
 import { PostCard } from '../components/PostCard';
+import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
 
 @Entry
 @Component
@@ -98,13 +99,12 @@ struct DraftBoxPage {
             Image($r('app.media.set_trash'))
               .width(IconTokens.compact)
               .height(IconTokens.compact)
-              .fillColor(ColorTokens.secondary)
           }
           .width(28)
           .height(IconTokens.small)
           .justifyContent(FlexAlign.Center)
-          .backgroundColor(ColorTokens.barSelectionSurface)
-          .backdropBlur(LayoutTokens.glassBlur)
+          .backgroundBlurStyle(GlassBlurStyle.Floating)
+          .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSelectionSurface)
           .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barSelectionBorder, style: BorderStyle.Solid })
           .borderRadius(RadiusTokens.pill)
           .shadow({ radius: 6, color: ColorTokens.shadowSegmented, offsetY: 2 })
@@ -121,8 +121,8 @@ struct DraftBoxPage {
       top: SpaceTokens.inlineTight,
       bottom: SpaceTokens.inlineTight,
     })
-    .backgroundColor(ColorTokens.elevated)
-    .backdropBlur(LayoutTokens.glassBlur)
+    .backgroundBlurStyle(GlassBlurStyle.Floating)
+    .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.elevated)
     .border({
       width: {
         left: LayoutTokens.glassBorderWidth,
@@ -154,8 +154,8 @@ struct DraftBoxPage {
           .fontWeight(TypeTokens.headline.weight)
           .fontColor(ColorTokens.primary)
           .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.inlineTight, bottom: SpaceTokens.inlineTight })
-          .backgroundColor(ColorTokens.barSurface)
-          .backdropBlur(LayoutTokens.glassBlur)
+          .backgroundBlurStyle(GlassBlurStyle.Floating)
+          .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
           .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
           .borderRadius(RadiusTokens.floatingBar)
           .position({ top: SpaceTokens.sm, left: SpaceTokens.sm })

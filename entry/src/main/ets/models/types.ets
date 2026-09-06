@@ -281,6 +281,10 @@ export interface DmSharePayload {
   coverImage: string; // 封面/首图展示 URL（已 resolveDisplayImageUrl）；空串表示无封面
   authorName: string; // 原帖作者昵称
   authorId: number; // 原帖作者 id
+  authorAvatar?: string; // 原帖作者头像；旧分享消息缺省时使用中性占位圆
+  categoryLabel?: string; // 分享卡顶部的栏目/体裁标签
+  commentCount?: number; // 分享时快照的评论数
+  upCount?: number; // 分享时快照的点赞数
 }
 
 // ===== 数据导出 =====

@@ -4,7 +4,7 @@ import { Post, DailyPost, Comment, Tag, User, Pagination, Genre, Provider, Bindi
 
 // 以构建期布尔 DEBUG 为准选择后端地址（调试包 true → 本地，released → 生产）。
 const BUILD_MODE: string = BUILD_MODE_NAME;
-const DEBUG_API_HOST: string = 'http://10.0.2.2:3000';
+const DEBUG_API_HOST: string = 'http://10.181.227.205:3000';
 export const BASE_URL: string =
   DEBUG === true
     ? DEBUG_API_HOST
@@ -616,6 +616,11 @@ export async function reportPost(id: number, body: ReportBody): Promise<void> {
 // POST /v1/comments/:id/report（举报评论）
 export async function reportComment(id: number, body: ReportBody): Promise<void> {
   await api.post<null>('/v1/comments/' + id + '/report', body);
+}
+
+// POST /v1/users/:id/report（举报用户：私信骚扰等场景，聊天模块举报渠道）
+export async function reportUser(id: number, body: ReportBody): Promise<void> {
+  await api.post<null>('/v1/users/' + id + '/report', body);
 }
 
 // ===== 内容审核（admin） =====

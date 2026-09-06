@@ -8,6 +8,7 @@ import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
+import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
 
 // 编辑页预览复用主页资料区的层级，媒体仅在页面保存成功后由宿主提交。
 @Component
@@ -130,7 +131,7 @@ export struct EditableProfilePreview {
       action: action,
     }) {
       Row({ space: SpaceTokens.inlineTight }) {
-        Image(resolveSettingsIcon('edit')).width(IconTokens.compact).height(IconTokens.compact).fillColor(ColorTokens.primary)
+        Image(resolveSettingsIcon('edit')).width(IconTokens.compact).height(IconTokens.compact)
         Text(label)
           .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
           .fontWeight(TypeTokens.headline.weight).fontColor(ColorTokens.primary)
@@ -138,7 +139,8 @@ export struct EditableProfilePreview {
       .width(160).height(LayoutTokens.segmentedHeight)
       .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
       .justifyContent(FlexAlign.Center).alignItems(VerticalAlign.Center)
-      .backgroundColor(ColorTokens.barSurface).backdropBlur(LayoutTokens.glassBlur)
+      .backgroundBlurStyle(GlassBlurStyle.Floating)
+      .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
       .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
       .borderRadius(RadiusTokens.floatingBar)
     }
@@ -172,7 +174,8 @@ export struct EditableProfilePreview {
               .fontColor(Color.White)
           }
           .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
-          .backgroundColor('#AA000000').backdropBlur(LayoutTokens.glassBlur)
+          .backgroundBlurStyle(GlassBlurStyle.Card)
+          .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : '#AA000000')
           .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.glassWhite, style: BorderStyle.Solid })
           .borderRadius(RadiusTokens.floatingBar)
           .alignItems(VerticalAlign.Center)

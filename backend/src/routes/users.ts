@@ -72,4 +72,48 @@ function handleError(res: Response, e: unknown): Response {
   return internalError(res, 'users.follow', e);
 }
 
+// ===== 举报用户（聊天/私信骚扰等场景的举报渠道，审核要求） =====
+// POST /v1/users/:id/report
+import * as reportService from '../services/reportService';
+
+const USER_REPORT_REASONS = [
+  'political',
+  'pornographic',
+  'personal_attack',
+  'gender_war',
+  'advertisement',
+  'spam',
+  'other',
+];
+
+router.post('/:id/report', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const userId = Number(req.params.id);
+  if (!userId) return fail(res, CODE.BAD_REQUEST, '无效用户ID');
+  const { reason, description } = req.body ?? {};
+
+  if (!reason || !USER_REPORT_REASONS.includes(reason)) {
+    return fail(res, CODE.BAD_REQUEST, '请选择举报理由');
+  }
+  if (reason === 'other' && (!description || !description.trim())) {
+    return fail(res, CODE.BAD_REQUEST, '请填写补充说明');
+  }
+
+  try {
+    await reportService.createReport({
+      reporterId: req.userId!,
+      targetType: 'user',
+      targetId: userId,
+      reason: reason as reportService.ReportReason,
+      description: description?.trim() || undefined,
+    });
+    return ok(res, null, '举报已提交');
+  } catch (e: any) {
+    if (e.reason === 'conflict')
+      return fail(res, CODE.CONFLICT, '你已举报过该用户', 409);
+    if (e.reason === 'not_found')
+      return fail(res, CODE.NOT_FOUND, '用户不存在', 404);
+    return fail(res, CODE.SERVER_ERROR, '举报失败', 500);
+  }
+}));
+
 export default router;

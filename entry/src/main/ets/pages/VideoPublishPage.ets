@@ -314,10 +314,9 @@ struct VideoPublishPage {
           .fontWeight(TypeTokens.caption.weight)
           .lineHeight(TypeTokens.callout.lineHeight)
           .fontColor(ColorTokens.onBrand)
-        Image(resolveActionIcon('close'))
+        Image($r('app.media.close_x_white'))
           .width(IconTokens.compact)
           .height(IconTokens.compact)
-          .fillColor(ColorTokens.onBrand)
       }
       .height(LayoutTokens.segmentedHeight)
       .padding({ left: SpaceTokens.item, right: SpaceTokens.item })

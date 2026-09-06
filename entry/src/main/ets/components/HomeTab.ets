@@ -62,7 +62,7 @@ export struct HomeTab {
   @State finished: boolean = false;
   @State isRefreshing: boolean = false;
   @State error: string = '';
-  @State showPanel: boolean = false;
+  @StorageLink('homeSearchPanelOpen') showPanel: boolean = false;
   @State feedMode: FeedMode = 'recommend';
   @State feedIndex: number = 0;
   @State needLogin: boolean = false; // 关注流且未登录的引导态
@@ -287,13 +287,7 @@ export struct HomeTab {
   }
 
   private feedTopSpacerIndices(): number[] {
-    const indices: number[] = [];
-    if (this.useCircleBarOverlap()) {
-      for (let index: number = 0; index < this.gridColumns; index++) {
-        indices.push(index);
-      }
-    }
-    return indices;
+    return [];
   }
 
   private feedTopSpacerHeight(): number {
@@ -471,16 +465,32 @@ export struct HomeTab {
             .combine(TransitionEffect.translate({ x: '100%' })
               .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate })))
       } else {
-        // 标题和搜索固定在两侧，信息源分段作为独立中心层，避免被两侧内容挤向左侧。
-        Stack({ alignContent: Alignment.Center }) {
+        // 海报式编辑部头部：编号、品牌标题、主标语和栏目切换构成明确的阅读层级。
+        Column({ space: SpaceTokens.xs }) {
           Row() {
-            Text('有据')
-              .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
-              .fontWeight(TypeTokens.title.weight)
-              .lineHeight(TypeTokens.title.lineHeight)
-              .letterSpacing(TypeTokens.title.tracking)
-              .fontColor(ColorTokens.primary)
-            Blank()
+            Column({ space: SpaceTokens.xs }) {
+              Row({ space: SpaceTokens.sm }) {
+                Text('有据')
+                  .fontSize(TypeTokens.titleSerif.size)
+                  .fontFamily(TypeTokens.fontFamilySerif)
+                  .fontWeight(TypeTokens.titleSerif.weight)
+                  .lineHeight(TypeTokens.titleSerif.lineHeight)
+                  .fontColor(ColorTokens.primary)
+                Text('SUBSTANTIATE')
+                  .fontSize(TypeTokens.overline.size)
+                  .fontFamily(TypeTokens.fontFamily)
+                  .fontWeight(TypeTokens.overline.weight)
+                  .fontColor(ColorTokens.tertiary)
+              }
+              Text('真实经验，有据可循')
+                .fontSize(TypeTokens.headline.size)
+                .fontFamily(TypeTokens.fontFamilySerif)
+                .fontWeight(TypeTokens.headline.weight)
+                .lineHeight(TypeTokens.headline.lineHeight)
+                .fontColor(ColorTokens.primary)
+            }
+            .alignItems(HorizontalAlign.Start)
+            .layoutWeight(1)
             Pressable({
               visualHeight: LayoutTokens.segmentedHeight,
               touchTargetHeight: LayoutTokens.minTouchTarget,
@@ -495,9 +505,10 @@ export struct HomeTab {
               }
               .width(LayoutTokens.segmentedHeight)
               .height(LayoutTokens.segmentedHeight)
-              .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-              .borderRadius(RadiusTokens.lg)
-              .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 4 })
+              .backgroundColor(ColorTokens.elevated)
+              .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
+              .borderRadius(RadiusTokens.md)
+              .shadow({ radius: 6, color: ColorTokens.barShadow, offsetY: 2 })
               .justifyContent(FlexAlign.Center)
               .alignItems(VerticalAlign.Center)
               .accessibilityText('搜索')
@@ -506,17 +517,35 @@ export struct HomeTab {
           .width('100%')
           .alignItems(VerticalAlign.Center)
 
-          SegmentedControl({
-            items: FEED_SEGMENTS,
-            selectedIndex: $feedIndex,
-            itemWidth: 66,
-            fillWidth: false,
-            glass: true,
-            onSelect: (idx: number): void => {
-              const mode: FeedMode = FEED_MODE_IDX_MAP[idx];
-              this.switchFeed(mode);
-            },
-          })
+          Stack({ alignContent: Alignment.TopStart }) {
+            SegmentedControl({
+              items: FEED_SEGMENTS,
+              selectedIndex: $feedIndex,
+              itemWidth: 66,
+              fillWidth: false,
+              glass: true,
+              onSelect: (idx: number): void => {
+                const mode: FeedMode = FEED_MODE_IDX_MAP[idx];
+                this.switchFeed(mode);
+              },
+            })
+              .alignSelf(ItemAlign.Start)
+              // 置顶于全宽的 TagNav 圈子栏之上：TagNav 透明占位区不再拦截本控件的点击。
+              .zIndex(3)
+            if (this.useCircleBarOverlap()) {
+              TagNav({
+                tags: this.displayTags,
+                selectedIndex: $tagIndex,
+                compact: true,
+                glass: false,
+                dropdownOnly: true,
+              })
+                .width('100%')
+                .zIndex(2)
+            }
+          }
+          .width('100%')
+          .height(LayoutTokens.segmentedHeight)
         }
         .padding({
           left: SpaceTokens.sm,
@@ -678,6 +707,7 @@ export struct HomeTab {
               .padding({
                 left: SpaceTokens.sm,
                 right: SpaceTokens.sm,
+                top: 5,
                 bottom: SpaceTokens.md,
               })
               .onScrollIndex((_start: number, end: number) => {
@@ -699,16 +729,6 @@ export struct HomeTab {
           .height('100%')
           .clip(true)
           }
-        }
-        if (this.useCircleBarOverlap()) {
-          TagNav({
-            tags: this.displayTags,
-            selectedIndex: $tagIndex,
-            compact: true,
-            glass: true,
-          })
-          .padding({ bottom: SpaceTokens.xs })
-          .zIndex(999)
         }
         }
         .layoutWeight(1)

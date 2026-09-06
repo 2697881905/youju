@@ -123,9 +123,14 @@ export struct MessagePage {
     }, MotionTokens.control) as number;
   }
 
-  // token 由空变为非空（登录完成）→ 列表为空才拉取，避免重复加载
+  // token 由空变为非空（登录完成）→ 列表为空才拉取，避免重复加载；
+  // token 清空（登出）→ 清空残留通知/私信，避免未登录时消息中心展示上一账号的个人化数据。
   onTokenReady(): void {
-    if (this.token !== '' && this.list.length === 0 && this.error === '') {
+    if (this.token === '') {
+      this.resetData();
+      return;
+    }
+    if (this.list.length === 0 && this.error === '') {
       this.loadFirst();
     }
   }
@@ -140,18 +145,35 @@ export struct MessagePage {
     }
   }
 
-  // 切换登录账号（登出/切换虚拟账号）→ 立即重拉通知与私信，
-  // 避免 TabContent 内组件被保留导致消息页残留上一个账号的内容与红点。
+  // 切换登录账号（登出/切换虚拟账号）→ 立即重拉通知与私信，避免 TabContent 内组件残留；
+  // 登出（无有效用户）→ 清空所有消息数据，杜绝未登录时展示上一账号的通知/会话/红点。
   onUserChange(): void {
     const u = getCurrentUser();
     if (!u || !u.id) {
-      return; // 登出态不拉取
+      this.resetData();
+      return;
     }
     if (this.token !== '') {
       this.loadFirst();
       this.loadConversations();
       this.loadDmUnread();
     }
+  }
+
+  // 清空通知/私信/红点（登出或 token 失效时调用）；@StorageLink 写回同步清除底部栏红点。
+  private resetData(): void {
+    this.list = [];
+    this.conversations = [];
+    this.error = '';
+    this.dmError = '';
+    this.page = 1;
+    this.hasMore = true;
+    this.loading = false;
+    this.dmLoading = false;
+    this.refreshing = false;
+    this.activeFilter = 'all';
+    this.unreadCount = 0;
+    this.dmUnread = 0;
   }
 
   // 按通知类型统计未读数（仅统计已加载列表中的未读项），用于各分区红点
@@ -436,7 +458,7 @@ export struct MessagePage {
   }
 
   @Builder
-  notificationShortcut(filter: string, label: string, icon: Resource, unread: number, iconColor: ResourceColor) {
+  notificationShortcut(filter: string, label: string, icon: Resource, unread: number) {
     Column() {
       Pressable({
         visualHeight: 34 + TypeTokens.callout.lineHeight + SpaceTokens.inline,
@@ -455,7 +477,6 @@ export struct MessagePage {
             Image(icon)
               .width(34)
               .height(34)
-              .fillColor(iconColor)
               .objectFit(ImageFit.Contain)
           }
           Text(label)
@@ -476,6 +497,25 @@ export struct MessagePage {
       }
     }
     .layoutWeight(1)
+  }
+
+  // 未登录（游客）态：消息中心不展示任何个人化内容，仅提供手动登录入口
+  @Builder
+  guestState() {
+    Column() {
+      EmptyState({
+        icon: resolveActionIcon('lock'),
+        title: '未登录',
+        message: '登录后可查看赞与收藏、关注、评论和私信等消息',
+        actionLabel: '去登录',
+        onAction: (): void => {
+          this.getUIContext().getRouter().pushUrl({ url: 'pages/LoginPage' });
+        },
+      })
+    }
+    .layoutWeight(1)
+    .width('100%')
+    .justifyContent(FlexAlign.Center)
   }
 
   // 私信会话列表内容
@@ -615,6 +655,8 @@ export struct MessagePage {
         }
       }
       .width('100%')
+      // 顶栏最小高度 = 操作按钮(44) + 上下内边距，保证通知/私信两个 Tab 顶栏与标题高度一致、切换不跳动
+      .constraintSize({ minHeight: LayoutTokens.minTouchTarget + SpaceTokens.md + SpaceTokens.sm })
       .padding({
         left: SpaceTokens.pageCompact,
         right: SpaceTokens.pageCompact,
@@ -635,12 +677,15 @@ export struct MessagePage {
       .opacity(this.tabPulse ? 0.96 : 1)
       .animation({ duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.control, curve: MotionCurves.springSoft })
 
-      if (this.dmTab === 'notif') {
+      if (this.token === '') {
+        // 未登录（游客）：不展示任何个人化消息内容，提供手动登录入口（不做自动跳转）
+        this.guestState()
+      } else if (this.dmTab === 'notif') {
         // 快捷入口：三类通知共用可选中图标块。
         Row({ space: SpaceTokens.none }) {
-          this.notificationShortcut('up_bookmark', '赞和收藏', resolveActionIcon('like'), this.unreadCountOf(['up', 'bookmark']), '#FF2D55')
-          this.notificationShortcut('follow', '新增关注', resolveActionIcon('follow'), this.unreadCountOf(['follow']), '#34C759')
-          this.notificationShortcut('comment', '评论', resolveActionIcon('comment'), this.unreadCountOf(['comment']), '#0A84FF')
+          this.notificationShortcut('up_bookmark', '赞和收藏', resolveActionIcon('like'), this.unreadCountOf(['up', 'bookmark']))
+          this.notificationShortcut('follow', '新增关注', resolveActionIcon('follow'), this.unreadCountOf(['follow']))
+          this.notificationShortcut('comment', '评论', resolveActionIcon('comment'), this.unreadCountOf(['comment']))
         }
         .width('100%')
         .padding({

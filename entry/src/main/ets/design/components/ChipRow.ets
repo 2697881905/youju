@@ -55,7 +55,7 @@ export struct ChipRow {
                     name: item.iconName,
                     iconSize: IconTokens.compact,
                     tint: this.selectedIndex === index
-                      ? (this.glass ? ColorTokens.primary : ColorTokens.onBrand)
+                      ? (this.compact || this.glass ? ColorTokens.primary : ColorTokens.onBrand)
                       : (this.glass ? ColorTokens.secondary : ColorTokens.primary),
                     colorful: this.selectedIndex !== index,
                   })
@@ -66,7 +66,7 @@ export struct ChipRow {
                   .lineHeight(TypeTokens.callout.lineHeight)
                   .letterSpacing(TypeTokens.callout.tracking)
                   .fontColor(this.selectedIndex === index
-                    ? (this.glass ? ColorTokens.primary : ColorTokens.onBrand)
+                    ? (this.compact || this.glass ? ColorTokens.primary : ColorTokens.onBrand)
                     : (this.glass ? ColorTokens.secondary : ColorTokens.primary))
                   .maxLines(1)
                   .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -77,9 +77,14 @@ export struct ChipRow {
                 right: this.compact ? SpaceTokens.sm : SpaceTokens.item,
               })
               .backgroundColor(this.selectedIndex === index
-                ? (this.glass ? ColorTokens.barSelectionSurface : ColorTokens.brand)
-                : (this.glass ? Color.Transparent : ColorTokens.sunken))
-              .borderRadius(this.glass ? RadiusTokens.lg : RadiusTokens.sm)
+                ? (this.compact ? ColorTokens.elevated : (this.glass ? ColorTokens.brandTint : ColorTokens.brand))
+                : (this.compact ? Color.Transparent : (this.glass ? Color.Transparent : ColorTokens.sunken)))
+              .border({
+                width: this.compact || this.glass ? 1 : 0,
+                color: this.compact || this.glass ? ColorTokens.separator : Color.Transparent,
+                style: BorderStyle.Solid,
+              })
+              .borderRadius(this.compact || this.glass ? RadiusTokens.pill : RadiusTokens.sm)
               .alignItems(VerticalAlign.Center)
               .animation({ duration: MotionTokens.fast, curve: MotionCurves.standard })
             }

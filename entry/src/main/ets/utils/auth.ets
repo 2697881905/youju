@@ -151,7 +151,17 @@ export function initAuthStorage(): void {
   // 冷启动从硬件加密 Asset Store 恢复登录态 token（替代明文 Preferences 读取）
   const restoredToken: string = loadTokenFromAsset();
   if (restoredToken) {
-    AppStorage.setOrCreate('authToken', restoredToken);
+    // 登录态必须 token + userId 配套存在。若只恢复了 token 而没有 userId
+    // （如应用数据被清后 Asset Store 中的 token 幸存），会形成「幽灵会话」：
+    // 我的页显示未登录，但消息中心用残留 token 拉到上一个账号的通知。
+    // 遇到该不一致直接丢弃恢复，保持游客态。
+    const uid: string = (AppStorage.get<string>('authUserId') ?? '') as string;
+    if (uid !== '') {
+      AppStorage.setOrCreate('authToken', restoredToken);
+    } else {
+      AppStorage.setOrCreate('authToken', '');
+      clearTokenFromAsset();
+    }
   }
 }
 

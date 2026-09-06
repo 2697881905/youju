@@ -2,6 +2,9 @@
  * 每日一帖的 Apple-inspired light surface 版本。
  * 组件自带两条 mock 数据，可直接放入预览页；接入真实接口时传入 posts 即可。
  */
+import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
+import { ImmersiveSurface } from '../design/components/ImmersiveSurface';
+
 export type PostType = 'text' | 'image';
 
 export interface Post {
@@ -116,32 +119,34 @@ export struct DailyPostView {
         .borderRadius({ topLeft: 24, topRight: 24, bottomLeft: 24, bottomRight: 24 })
         .clip(true);
 
-      Row({ space: 12 }) {
-        this.avatar(post);
-        Column() {
-          Text(post.title)
-            .width('100%')
-            .fontSize(18)
-            .lineHeight(24)
-            .fontWeight(FontWeight.Medium)
-            .fontColor(this.primaryText)
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis });
-          Text(post.author)
-            .fontSize(14)
-            .lineHeight(20)
-            .fontColor(this.secondaryText)
-            .margin({ top: 4 });
+      ImmersiveSurface({ radius: 18 }) {
+        Row({ space: 12 }) {
+          this.avatar(post);
+          Column() {
+            Text(post.title)
+              .width('100%')
+              .fontSize(18)
+              .lineHeight(24)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(this.primaryText)
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis });
+            Text(post.author)
+              .fontSize(14)
+              .lineHeight(20)
+              .fontColor(this.secondaryText)
+              .margin({ top: 4 });
+          }
+          .layoutWeight(1)
+          .alignItems(HorizontalAlign.Start);
         }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start);
+        .width('calc(100% - 32vp)')
+        .padding({ left: 14, right: 14, top: 12, bottom: 12 })
+        .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : 'rgba(255,255,255,0.7)')
+        .backgroundBlurStyle(GlassBlurStyle.Card)
+        .borderRadius(18)
+        .margin({ left: 16, right: 16, bottom: 16 })
       }
-      .width('calc(100% - 32vp)')
-      .padding({ left: 14, right: 14, top: 12, bottom: 12 })
-      .backgroundColor('rgba(255,255,255,0.7)')
-      .backgroundBlurStyle(BlurStyle.Thin)
-      .borderRadius(18)
-      .margin({ left: 16, right: 16, bottom: 16 });
     }
     .width('100%')
     .height('100%')

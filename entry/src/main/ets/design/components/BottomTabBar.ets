@@ -5,6 +5,7 @@ import { RadiusTokens } from '../tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../tokens/space';
 import { TypeTokens } from '../tokens/type';
 import { SharedSlide } from '../motion/SharedSlide';
+import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../../utils/immersiveMaterial';
 
 export interface BottomTabItem {
   key: string;
@@ -125,12 +126,12 @@ export struct BottomTabBar {
 
   @Builder
   tabIcon(item: BottomTabItem, index: number) {
-    // 选中态填充品牌色；非选中态用次级色，深浅主题均可读（SVG 走 currentColor，勿改回固定黑）
+    // 功能图标为纯线条 SVG（资源内已按主题烤线色，勿 fillColor——会把 fill="none" 补成实心）。
+    // 选中态由纸面高亮（SharedSlide）+ 文字品牌色表达，图标保持主题线条不变色。
     if (this.isActive(index)) {
       Image(item.icon)
         .width(IconTokens.tabBar)
         .height(IconTokens.tabBar)
-        .fillColor(ColorTokens.brand)
         .scale({
           x: this.shouldReduceMotion() ? 1 : 1.08,
           y: this.shouldReduceMotion() ? 1 : 1.08,
@@ -139,7 +140,6 @@ export struct BottomTabBar {
       Image(item.icon)
         .width(IconTokens.tabBar)
         .height(IconTokens.tabBar)
-        .fillColor(ColorTokens.secondary)
         .scale({ x: 1, y: 1 })
     }
   }
@@ -246,9 +246,10 @@ export struct BottomTabBar {
     .width('100%')
     .height(LayoutTokens.tabBarHeight)
     .borderRadius(RadiusTokens.floatingBar)
-    // 暖色半透明毛玻璃：下面的图片可以透出，但文字仍有足够对比度。
-    .backgroundColor(ColorTokens.barSurface)
-    .backdropBlur(LayoutTokens.glassBlur)
+    // 沉浸光感材质：真机（HarmonyOS 6+）由 hdsMaterial 提供弹性反馈/点光源/流光；
+    // 模拟器/低端机自动降级为系统 backgroundBlurStyle 材质，仍保留通透玻璃感与文字可读性。
+    .backgroundBlurStyle(GlassBlurStyle.Floating)
+    .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
     .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
     .shadow({ radius: 18, color: ColorTokens.barShadow, offsetY: 8 })
     .clip(true)

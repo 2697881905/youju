@@ -29,7 +29,6 @@ export struct PublishModeSheet {
           .width(IconTokens.small)
           .height(IconTokens.small)
           .objectFit(ImageFit.Contain)
-          .fillColor(ColorTokens.primary)
         Text(label)
           .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
           .fontWeight(TypeTokens.headline.weight)
@@ -39,7 +38,6 @@ export struct PublishModeSheet {
         Image($r('app.media.chevron_right'))
           .width(IconTokens.compact)
           .height(IconTokens.compact)
-          .fillColor(ColorTokens.secondary)
       }
       .width('100%')
       .height(68)
@@ -69,7 +67,6 @@ export struct PublishModeSheet {
             Image($r('app.media.close_x'))
               .width(IconTokens.compact)
               .height(IconTokens.compact)
-              .fillColor(ColorTokens.secondary)
           }
         }
         .width('100%')

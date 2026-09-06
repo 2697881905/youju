@@ -9,6 +9,8 @@ import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
+import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
+import { ImmersiveSurface } from '../design/components/ImmersiveSurface';
 
 @Component
 export struct PublishGenreSection {
@@ -24,39 +26,40 @@ export struct PublishGenreSection {
 
   @Builder
   private genreMenu(): void {
-    Column({ space: SpaceTokens.none }) {
-      ForEach(PUBLISH_GENRES, (item: PublishGenreItem, index: number) => {
-        Pressable({
-          fillWidth: true,
-          visualHeight: LayoutTokens.minTouchTarget,
-          action: (): void => { this.onSelectGenre(index); },
-        }) {
-          Row({ space: SpaceTokens.sm }) {
-            Image(item.iconRes)
-              .width(IconTokens.small)
-              .height(IconTokens.small)
-              .fillColor(index === this.genreIndex ? ColorTokens.brand : ColorTokens.primary)
-            Text(item.label)
-              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-              .fontWeight(index === this.genreIndex ? TypeTokens.headline.weight : TypeTokens.callout.weight)
-              .lineHeight(TypeTokens.callout.lineHeight)
-              .fontColor(index === this.genreIndex ? ColorTokens.brand : ColorTokens.primary)
+    ImmersiveSurface({ radius: RadiusTokens.lg }) {
+      Column({ space: SpaceTokens.none }) {
+        ForEach(PUBLISH_GENRES, (item: PublishGenreItem, index: number) => {
+          Pressable({
+            fillWidth: true,
+            visualHeight: LayoutTokens.minTouchTarget,
+            action: (): void => { this.onSelectGenre(index); },
+          }) {
+            Row({ space: SpaceTokens.sm }) {
+              Image(item.iconRes)
+                .width(IconTokens.small)
+                .height(IconTokens.small)
+              Text(item.label)
+                .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+                .fontWeight(index === this.genreIndex ? TypeTokens.headline.weight : TypeTokens.callout.weight)
+                .lineHeight(TypeTokens.callout.lineHeight)
+                .fontColor(index === this.genreIndex ? ColorTokens.brand : ColorTokens.primary)
+            }
+            .width('100%')
+            .height(LayoutTokens.minTouchTarget)
+            .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+            .alignItems(VerticalAlign.Center)
+            .backgroundColor(index === this.genreIndex ? ColorTokens.brandTint : Color.Transparent)
           }
-          .width('100%')
-          .height(LayoutTokens.minTouchTarget)
-          .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-          .alignItems(VerticalAlign.Center)
-          .backgroundColor(index === this.genreIndex ? ColorTokens.brandTint : Color.Transparent)
-        }
-      }, (item: PublishGenreItem) => item.key)
+        }, (item: PublishGenreItem) => item.key)
+      }
+      .width(128)
+      .backgroundBlurStyle(GlassBlurStyle.Floating)
+      .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
+      .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+      .borderRadius(RadiusTokens.lg)
+      .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
+      .clip(true)
     }
-    .width(128)
-    .backgroundColor(ColorTokens.barSurface)
-    .backdropBlur(LayoutTokens.glassBlur)
-    .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-    .borderRadius(RadiusTokens.lg)
-    .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
-    .clip(true)
   }
 
   build() {
@@ -92,16 +95,14 @@ export struct PublishGenreSection {
             .fontColor(ColorTokens.primary)
           Image(resolveActionIcon('chevronDown'))
             .width(IconTokens.compact)
-            .height(IconTokens.compact)
-            .fillColor(ColorTokens.secondary)
-            .rotate({ angle: this.menuVisible ? 180 : 0 })
+            .height(IconTokens.compact)            .rotate({ angle: this.menuVisible ? 180 : 0 })
             .animation({ duration: MotionTokens.fast, curve: MotionCurves.standard })
         }
         .height(LayoutTokens.segmentedHeight)
         .padding({ left: SpaceTokens.md, right: SpaceTokens.sm })
         .alignItems(VerticalAlign.Center)
-        .backgroundColor(ColorTokens.barSurface)
-        .backdropBlur(LayoutTokens.glassBlur)
+        .backgroundBlurStyle(GlassBlurStyle.Press)
+        .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
         .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
         .borderRadius(RadiusTokens.floatingBar)
         .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
@@ -127,14 +128,12 @@ export struct PublishGenreSection {
             .fontColor(ColorTokens.primary)
           Image(resolveActionIcon('chevronDown'))
             .width(IconTokens.compact)
-            .height(IconTokens.compact)
-            .fillColor(ColorTokens.secondary)
-        }
+            .height(IconTokens.compact)        }
         .height(LayoutTokens.segmentedHeight)
         .padding({ left: SpaceTokens.md, right: SpaceTokens.sm })
         .alignItems(VerticalAlign.Center)
-        .backgroundColor(ColorTokens.barSurface)
-        .backdropBlur(LayoutTokens.glassBlur)
+        .backgroundBlurStyle(GlassBlurStyle.Press)
+        .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
         .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
         .borderRadius(RadiusTokens.floatingBar)
         .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
