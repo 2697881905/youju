@@ -8,8 +8,13 @@ import { getUploadSignature, resolveUploadPutUrl, toStoredMediaRef, UploadSignat
 
 const POSTER_WIDTH: number = 1080;
 const POSTER_HEIGHT: number = 1440;
-const POSTER_MAX_BODY_LINES: number = 7;
 const POSTER_UPLOAD_TIMEOUT: number = 15000;
+
+// 正文安全区（1080×1440 画布坐标）：顶部低于标题基线 226 与开引号（基线 310、字号 246）的字形范围，
+// 底部高于闭引号（基线 1308）与底部细线（1264）。正文块必须整体落在该区间内，
+// 否则行数多时垂直居中会把正文顶进标题/引号区域造成文字重合。
+const POSTER_BODY_SAFE_TOP: number = 360;
+const POSTER_BODY_SAFE_BOTTOM: number = 1090;
 
 // 衬线字体 Typeface，由 Index.ets 在启动时设置
 let serifTypeface: drawing.Typeface | null = null;
@@ -125,6 +130,35 @@ export function splitLines(text: string, font: drawing.Font, maxWidth: number, m
   return lines;
 }
 
+// 正文布局结果：字号 + 该字号在安全区内可容纳的最大行数
+interface BodyLayout {
+  size: number;
+  maxLines: number;
+}
+
+// 正文布局：按正文长度选择字号，并推导该字号在安全区内能容纳的最大行数。
+// 行数必须随字号收窄（行高=字号+42）：否则整块正文过高，垂直居中时会越过安全区
+// 顶部的标题/开引号，出现「正文与标题重合」的显示 Bug。
+function bodyLayoutFor(contentLength: number): BodyLayout {
+  const size: number = contentLength > 150 ? 74 : contentLength > 80 ? 94 : 118;
+  const lineHeight: number = size + 42;
+  // 可行性：首行基线下限 SAFE_TOP+size ≤ 末行基线上限 SAFE_BOTTOM-0.25*size-(n-1)*lineHeight，
+  // 解得 n-1 ≤ (SAFE_BOTTOM-SAFE_TOP-1.25*size)/lineHeight。
+  const maxLines: number = Math.max(1, Math.floor((POSTER_BODY_SAFE_BOTTOM - POSTER_BODY_SAFE_TOP - 1.25 * size) / lineHeight) + 1);
+  return { size, maxLines };
+}
+
+// 正文首行基线：在安全区内垂直居中，并夹紧上下边界（即使度量有偏差也不会越界）。
+function bodyStartBaseline(size: number, lineCount: number): number {
+  const lineHeight: number = size + 42;
+  const band: number = POSTER_BODY_SAFE_BOTTOM - POSTER_BODY_SAFE_TOP;
+  const blockHeight: number = lineCount * lineHeight;
+  const centered: number = POSTER_BODY_SAFE_TOP + (band - blockHeight) / 2 + size;
+  const minBaseline: number = POSTER_BODY_SAFE_TOP + size;
+  const maxBaseline: number = POSTER_BODY_SAFE_BOTTOM - size * 0.25 - (lineCount - 1) * lineHeight;
+  return Math.min(Math.max(centered, minBaseline), maxBaseline);
+}
+
 export interface PosterTextItem {
   text: string;
   x: number;
@@ -139,13 +173,14 @@ export function layoutPosterText(title: string, content: string, style: TextPost
   const items: PosterTextItem[] = [];
   const normalizedContent: string = content.trim();
   const displayContent: string = normalizedContent.length > 0 ? normalizedContent : '写下你的观点，让更多人看见。';
-  const bodySize: number = normalizedContent.length > 150 ? 74 : normalizedContent.length > 80 ? 94 : 118;
+  const layout: BodyLayout = bodyLayoutFor(normalizedContent.length);
+  const bodySize: number = layout.size;
   const bodyFont: drawing.Font = new drawing.Font();
   bodyFont.setSize(bodySize);
   bodyFont.enableEmbolden(true);
-  const bodyLines: string[] = splitLines(displayContent, bodyFont, 720, POSTER_MAX_BODY_LINES);
+  const bodyLines: string[] = splitLines(displayContent, bodyFont, 720, layout.maxLines);
   const lineHeight: number = bodySize + 42;
-  let cursorY: number = (POSTER_HEIGHT - bodyLines.length * lineHeight) / 2 + bodySize;
+  let cursorY: number = bodyStartBaseline(bodySize, bodyLines.length);
   for (const line of bodyLines) {
     const w: number = bodyFont.measureText(line, drawing.TextEncoding.TEXT_ENCODING_UTF8);
     items.push({ text: line, x: (POSTER_WIDTH - w) / 2, y: cursorY - bodySize, size: bodySize, weight: 700, color: style.text });
@@ -358,8 +393,9 @@ async function createPosterBytes(title: string, content: string, _genre: Genre, 
     } else {
       const normalizedContent: string = content.trim();
       const displayContent: string = normalizedContent.length > 0 ? normalizedContent : '写下你的观点，让更多人看见。';
+      const layout: BodyLayout = bodyLayoutFor(normalizedContent.length);
       const bodyFont: drawing.Font = new drawing.Font();
-      const bodySize: number = normalizedContent.length > 150 ? 74 : normalizedContent.length > 80 ? 94 : 118;
+      const bodySize: number = layout.size;
       bodyFont.setSize(bodySize);
       // 正文走 Regular 字重且不伪粗：标题已是粗宋，正文保持细宋才有层次、更像书页。
       bodyFont.enableEmbolden(false);
@@ -369,10 +405,10 @@ async function createPosterBytes(title: string, content: string, _genre: Genre, 
       } else if (serifTypeface !== null) {
         bodyFont.setTypeface(serifTypeface);
       }
-      const bodyLines: string[] = splitLines(displayContent, bodyFont, 720, POSTER_MAX_BODY_LINES);
+      const bodyLines: string[] = splitLines(displayContent, bodyFont, 720, layout.maxLines);
       const lineHeight: number = bodySize + 42;
-      const textBlockHeight: number = bodyLines.length * lineHeight;
-      let cursorY: number = (POSTER_HEIGHT - textBlockHeight) / 2 + bodySize;
+      // 正文块锚定在安全区内（垂直居中 + 上下夹紧），行数再多也不会顶到标题/引号
+      let cursorY: number = bodyStartBaseline(bodySize, bodyLines.length);
 
       const titleFont: drawing.Font = new drawing.Font();
       titleFont.setSize(34);
@@ -467,8 +503,8 @@ function putBinary(url: string, data: ArrayBuffer, contentType: string): Promise
 }
 
 /**
- * 判断正文能否在文字海报中完整显示（不超过 POSTER_MAX_BODY_LINES 行、无截断省略号）。
- * 复用与 createPosterBytes 完全相同的字号选择策略和 splitLines 排版算法，
+ * 判断正文能否在文字海报中完整显示（不超过该字号在安全区内的最大行数、无截断省略号）。
+ * 复用与 createPosterBytes 完全相同的字号选择、行数限制与 splitLines 排版算法，
  * 供详情页决定是否在海报下方冗余展示正文纯文本。
  */
 export function doesTextFitInPoster(content: string): boolean {
@@ -476,11 +512,11 @@ export function doesTextFitInPoster(content: string): boolean {
   if (normalized.length === 0) {
     return true;
   }
-  const bodySize: number = normalized.length > 150 ? 74 : normalized.length > 80 ? 94 : 118;
+  const layout: BodyLayout = bodyLayoutFor(normalized.length);
   const bodyFont: drawing.Font = new drawing.Font();
-  bodyFont.setSize(bodySize);
+  bodyFont.setSize(layout.size);
   bodyFont.enableEmbolden(true);
-  const lines: string[] = splitLines(normalized, bodyFont, 720, POSTER_MAX_BODY_LINES);
+  const lines: string[] = splitLines(normalized, bodyFont, 720, layout.maxLines);
   // splitLines 在行数溢出时会在末行追加 '…' 并丢弃后续内容；
   // 如果拼回所有行的字符数 < 原始正文字符数，说明有内容被截断。
   return lines.join('').length >= normalized.length;
