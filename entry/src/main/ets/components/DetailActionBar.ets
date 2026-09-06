@@ -7,8 +7,7 @@ import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { Pressable } from '../design/motion/Pressable';
-import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
-import { ImmersiveSurface } from '../design/components/ImmersiveSurface';
+import { isImmersiveLightSenseSupported } from '../utils/immersiveMaterial';
 
 @Component
 struct DetailActionButton {
@@ -102,83 +101,72 @@ export struct DetailActionBar {
   onShare: () => void = (): void => {};
 
   build() {
-    Row() {
-      ImmersiveSurface({ radius: RadiusTokens.floatingBar }) {
-        Stack({ alignContent: Alignment.Center }) {
-          // 与主页底部栏共用同一层玻璃高光，操作内容始终在同一块悬浮面板内切换。
-          Column()
-            .width('100%')
-            .height('100%')
-            .linearGradient({
-              angle: 180,
-              colors: [
-                [ColorTokens.glassSheenTop, 0.0],
-                [ColorTokens.glassSheenUpper, 0.32],
-                [ColorTokens.glassSheenLower, 0.68],
-                [ColorTokens.glassSheenBottom, 1.0],
-              ],
-            })
-            .hitTestBehavior(HitTestMode.None)
-
-          if (this.commenting) {
-            Row({ space: SpaceTokens.sm }) {
-              Row() {
-                Image(resolveActionIcon('close'))
-                  .width(IconTokens.compact)
-                  .height(IconTokens.compact)
-              }
-              .width(LayoutTokens.minTouchTarget)
-              .height(LayoutTokens.minTouchTarget)
-              .justifyContent(FlexAlign.Center)
-              .onClick((): void => { this.commenting = false; this.commentText = ''; })
-              TextInput({ placeholder: '理性补充，有图有真相', text: this.commentText })
-                .fontFamily(TypeTokens.fontFamily)
-                .layoutWeight(1)
-                .height(LayoutTokens.minTouchTarget)
+    // 无玻璃栏：仅保留点赞/收藏/评论/分享操作内容（评论输入态就地切换）
+    Stack({ alignContent: Alignment.Center }) {
+      if (this.commenting) {
+        Row({ space: SpaceTokens.sm }) {
+          Row() {
+            Image(resolveActionIcon('close'))
+              .width(IconTokens.compact)
+              .height(IconTokens.compact)
+          }
+          .width(LayoutTokens.minTouchTarget)
+          .height(LayoutTokens.minTouchTarget)
+          .justifyContent(FlexAlign.Center)
+          .onClick((): void => { this.commenting = false; this.commentText = ''; })
+          // 输入框本体：暖色描边 + 柔和阴影（去掉蓝色光晕，与发送按钮同区）
+          TextInput({ placeholder: '理性补充，有图有真相', text: this.commentText })
+            .fontFamily(TypeTokens.fontFamily)
+            .layoutWeight(1)
+            .height(LayoutTokens.minTouchTarget)
+            .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.elevated)
+            .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
+            .borderRadius(RadiusTokens.floatingBar)
+            .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 0 })
+            .onChange((value: string): void => { this.commentText = value; })
+          // 发送按钮：暖白玻璃胶囊 + 主文字色 + 柔和阴影（与输入框同区，非品牌蓝）
+          Text('发送')
+            .width(56)
+            .height(LayoutTokens.minTouchTarget)
+            .textAlign(TextAlign.Center)
+            .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.headline.weight)
+            .fontColor(ColorTokens.primary)
+            .backgroundColor(ColorTokens.elevated)
+            .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
+            .borderRadius(RadiusTokens.floatingBar)
+            .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 0 })
+            .stateStyles({
+              pressed: {
+                .scale({ x: 0.95, y: 0.95 })
+                .backgroundColor(ColorTokens.sunken)
+              },
+              normal: {
+                .scale({ x: 1, y: 1 })
                 .backgroundColor(ColorTokens.elevated)
-                .borderRadius(RadiusTokens.floatingBar)
-                .onChange((value: string): void => { this.commentText = value; })
-              Text('发送')
-                .width(56)
-                .height(LayoutTokens.minTouchTarget)
-                .textAlign(TextAlign.Center)
-                .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-                .fontWeight(TypeTokens.headline.weight)
-                .fontColor(ColorTokens.onBrand)
-                .backgroundColor(ColorTokens.brand)
-                .borderRadius(RadiusTokens.floatingBar)
-                .onClick((): void => { this.onSendComment(); })
-            }
-            .width('100%')
-            .height('100%')
-            .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
-            .alignItems(VerticalAlign.Center)
-          } else {
-            Row() {
-              DetailActionButton({ icon: resolveActionIcon('like'), label: formatCount(this.upCount), active: this.uped, activeColor: ColorTokens.like, disabled: this.upPending, feedbackVersion: this.upFeedbackVersion, onAction: (): void => { this.onUp(); } }).layoutWeight(1)
-              DetailActionButton({ icon: resolveActionIcon('bookmark'), label: formatCount(this.bookmarkCount), active: this.bookmarked, activeColor: ColorTokens.bookmark, disabled: this.bookmarkPending, feedbackVersion: this.bookmarkFeedbackVersion, onAction: (): void => { this.onBookmark(); } }).layoutWeight(1)
-              DetailActionButton({ icon: resolveActionIcon('comment'), label: formatCount(this.commentCount), onAction: (): void => { this.commenting = true; } }).layoutWeight(1)
-              if (this.showShare) {
-                DetailActionButton({ icon: resolveActionIcon('share'), label: '分享', onAction: (): void => { this.onShare(); } }).layoutWeight(1)
-              }
-            }
-            .width('100%')
-            .height('100%')
+              },
+            })
+            .animation({ duration: MotionTokens.fast, curve: MotionCurves.standard })
+            .onClick((): void => { this.onSendComment(); })
+        }
+        .width('100%')
+        .height('100%')
+        .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+        .alignItems(VerticalAlign.Center)
+      } else {
+        Row() {
+          DetailActionButton({ icon: resolveActionIcon('like'), label: formatCount(this.upCount), active: this.uped, activeColor: ColorTokens.like, disabled: this.upPending, feedbackVersion: this.upFeedbackVersion, onAction: (): void => { this.onUp(); } }).layoutWeight(1)
+          DetailActionButton({ icon: resolveActionIcon('bookmark'), label: formatCount(this.bookmarkCount), active: this.bookmarked, activeColor: ColorTokens.bookmark, disabled: this.bookmarkPending, feedbackVersion: this.bookmarkFeedbackVersion, onAction: (): void => { this.onBookmark(); } }).layoutWeight(1)
+          DetailActionButton({ icon: resolveActionIcon('comment'), label: formatCount(this.commentCount), onAction: (): void => { this.commenting = true; } }).layoutWeight(1)
+          if (this.showShare) {
+            DetailActionButton({ icon: resolveActionIcon('share'), label: '分享', onAction: (): void => { this.onShare(); } }).layoutWeight(1)
           }
         }
         .width('100%')
-        .height(LayoutTokens.tabBarHeight)
-        .backgroundBlurStyle(GlassBlurStyle.Floating)
-        .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
-        .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-        .borderRadius(RadiusTokens.floatingBar)
-        .shadow({ radius: 22, color: ColorTokens.barShadow, offsetY: 10 })
-        .clip(true)
+        .height('100%')
       }
     }
     .width('100%')
-    .height(LayoutTokens.tabBarHeight + LayoutTokens.tabBarBottomGap)
-    .padding({ left: LayoutTokens.tabBarSideMargin, right: LayoutTokens.tabBarSideMargin })
-    .alignItems(VerticalAlign.Top)
+    .height(LayoutTokens.tabBarHeight)
   }
 }
