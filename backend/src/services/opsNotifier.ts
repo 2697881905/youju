@@ -65,8 +65,8 @@ function buildFeishuCard(payload: ReportOpsPayload): string {
       ? `（累计 ${payload.reportCount} 次）`
       : '';
   const descLine = description
-    ? `\n- **补充说明**：${description.slice(0, 200)}`
-    : '\n- **补充说明**：无';
+    ? `- **补充说明**：${description.slice(0, 200)}`
+    : '- **补充说明**：无';
 
   const content = [
     `**有据 · 收到新举报**`,
