@@ -5,6 +5,8 @@ import { MotionCurves, MotionTokens } from '../tokens/motion';
 import { RadiusTokens } from '../tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../tokens/space';
 import { TypeTokens } from '../tokens/type';
+import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../../utils/immersiveMaterial';
+import { ImmersiveSurface } from './ImmersiveSurface';
 
 export interface SegmentedItem {
   key: string;
@@ -153,7 +155,10 @@ export struct SegmentedControl {
     return Math.max(1, this.items.length) * this.itemWidth + SpaceTokens.xs;
   }
 
-  build() {
+  // 分段栏本体（含玻璃/普通两种底样式）：glass 时用系统玻璃材质，
+  // 由外层 ImmersiveSurface 叠加沉浸光感流光；非 glass 保持原纯色。
+  @Builder
+  controlBody(): void {
     Stack({ alignContent: Alignment.Center }) {
       SharedSlide({
         selectedIndex: this.activeIndex(),
@@ -206,7 +211,7 @@ export struct SegmentedControl {
     .width(this.fillWidth ? '100%' : this.intrinsicWidth())
     .height(LayoutTokens.segmentedHeight)
     .padding(SpaceTokens.xs / 2)
-    .backgroundColor(this.glass ? ColorTokens.elevated : ColorTokens.sunken)
+    .backgroundColor(this.glass ? (isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.elevated) : ColorTokens.sunken)
     .borderRadius(this.glass ? RadiusTokens.md : RadiusTokens.sm)
     .border({
       width: this.glass ? 1 : 0,
@@ -223,5 +228,16 @@ export struct SegmentedControl {
       this.controlWidth = area.width as number;
     })
     .onTouch((e: TouchEvent) => { this.onControlTouch(e); })
-}
+  }
+
+  build() {
+    if (this.glass) {
+      // 沉浸光感分段栏：真机叠加双边流光 + 系统玻璃，模拟器/低端机回退为普通玻璃样式。
+      ImmersiveSurface({ radius: RadiusTokens.md }) {
+        this.controlBody()
+      }
+    } else {
+      this.controlBody()
+    }
+  }
 }
