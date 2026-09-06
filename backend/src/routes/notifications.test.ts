@@ -26,6 +26,7 @@ jest.mock('../prisma', () => ({
     },
     post: {
       findUnique: jest.fn(),
+      findMany: jest.fn(),
     },
     user: {
       findUnique: jest.fn().mockResolvedValue({ deletedAt: null }),
@@ -112,6 +113,8 @@ describe('GET/POST /v1/notifications', () => {
     mockPrisma.notification.findMany.mockResolvedValue([
       { id: 1, userId: 1, actorId: 2, type: 'comment', postId: 10, content: '张三 评论了你的帖子', read: false, createdAt: new Date() },
     ]);
+    // 帖子类通知需校验帖子仍有效：visiblePostIds 收集 postId=10 → post.findMany 返回有效帖子
+    mockPrisma.post.findMany.mockResolvedValue([{ id: 10 }]);
     mockPrisma.notification.count.mockResolvedValue(1);
     // listForUser 用 user.findMany 按需补全 actor 信息
     mockPrisma.user.findMany.mockResolvedValue([{ id: 2, nickname: '张三', avatar: null }]);
@@ -123,10 +126,16 @@ describe('GET/POST /v1/notifications', () => {
     expect(list.length).toBe(1);
     expect(list[0].content).toBe('张三 评论了你的帖子');
     expect(list[0].actor.nickname).toBe('张三');
-    // 校验 service 查询条件（重构后不再用 include，改单独 user.findMany 补全 actor）
+    // 帖子类通知仅在帖子仍有效时返回：where 含 OR（非帖子类通知 或 帖子仍有效）
     expect(mockPrisma.notification.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { userId: TEST_USER_ID },
+        where: {
+          userId: TEST_USER_ID,
+          OR: [
+            { type: { notIn: ['comment', 'up', 'bookmark'] } },
+            { postId: { in: [10] } },
+          ],
+        },
         orderBy: { createdAt: 'desc' },
       }),
     );
@@ -135,14 +144,45 @@ describe('GET/POST /v1/notifications', () => {
     );
   });
 
-  it('GET /unread-count → 返回未读数', async () => {
+  it('GET /notifications → 帖子已删除(软删除/彻底删除)的帖子类通知被过滤', async () => {
+    // 收集可见 postId 时返回两条帖子类通知；实际列表查询也返回同一批行（同一 mock）
+    mockPrisma.notification.findMany.mockResolvedValue([
+      { id: 1, userId: 1, actorId: 2, type: 'comment', postId: 10, content: '张三 评论了你的帖子', read: false, createdAt: new Date() },
+      { id: 2, userId: 1, actorId: 3, type: 'up', postId: 11, content: '李四 顶了你的帖子', read: false, createdAt: new Date() },
+    ]);
+    // 只有帖子 10 仍有效；帖子 11 已删除 → 通知 2 应被过滤
+    mockPrisma.post.findMany.mockResolvedValue([{ id: 10 }]);
+    mockPrisma.notification.count.mockResolvedValue(1);
+    mockPrisma.user.findMany.mockResolvedValue([{ id: 2, nickname: '张三', avatar: null }]);
+
+    const res = await req('GET', '/v1/notifications?page=1&limit=20', undefined, authHeader());
+    expect(res.status).toBe(200);
+    // 列表查询 where 的 OR 只放行「非帖子类」或「帖子仍有效(postId=10)」的通知
+    expect(mockPrisma.notification.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          userId: TEST_USER_ID,
+          OR: [
+            { type: { notIn: ['comment', 'up', 'bookmark'] } },
+            { postId: { in: [10] } },
+          ],
+        },
+      }),
+    );
+  });
+
+  it('GET /unread-count → 返回未读数（同样过滤已删除帖子的通知）', async () => {
+    // 无任何帖子类通知 → visiblePostIds 为空 → 仅保留非帖子类通知的未读数
+    mockPrisma.notification.findMany.mockResolvedValue([]);
     mockPrisma.notification.count.mockResolvedValue(3);
     const res = await req('GET', '/v1/notifications/unread-count', undefined, authHeader());
     expect(res.status).toBe(200);
     expect(res.json.code).toBe(0);
     expect(res.json.data.count).toBe(3);
     expect(mockPrisma.notification.count).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { userId: TEST_USER_ID, read: false } }),
+      expect.objectContaining({
+        where: { userId: TEST_USER_ID, read: false, type: { notIn: ['comment', 'up', 'bookmark'] } },
+      }),
     );
   });
 

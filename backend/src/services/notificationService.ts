@@ -6,6 +6,9 @@ import { pushToUser } from './huaweiPush';
 // 通知类型（与前端 NotificationType 单一来源对齐）
 export type NotificationType = 'comment' | 'up' | 'bookmark' | 'follow' | 'system';
 
+// 依赖帖子的通知类型：帖子被删除（软删除/彻底删除）后，这类通知不应再出现在通知中心
+const POST_RELATED_TYPES = ['comment', 'up', 'bookmark'];
+
 export interface CreateNotificationInput {
   userId: number; // 接收者
   actorId?: number | null; // 触发者（系统消息为 null）
@@ -71,6 +74,37 @@ function pushTitle(type: string): string {
   }
 }
 
+// 用户帖子类通知中，帖子仍有效（存在且未移入废纸篓）的 postId 集合
+// 用于列表/未读数过滤：帖子删除后其点赞/收藏/评论通知不应出现在通知中心
+async function visiblePostIds(userId: number): Promise<number[]> {
+  const rows = await prisma.notification.findMany({
+    where: { userId, type: { in: POST_RELATED_TYPES }, postId: { not: null } },
+    select: { postId: true },
+    distinct: ['postId'],
+  });
+  const postIds: number[] = rows.map((r) => r.postId as number);
+  if (postIds.length === 0) return [];
+  const posts = await prisma.post.findMany({
+    where: { id: { in: postIds }, deletedAt: null },
+    select: { id: true },
+  });
+  return posts.map((p) => p.id);
+}
+
+// 构建可展示通知的查询条件：帖子类通知仅在帖子仍有效时返回；follow/system 等无帖子依赖的通知始终返回
+async function visibleWhere(userId: number): Promise<any> {
+  const validPostIds = await visiblePostIds(userId);
+  return validPostIds.length > 0
+    ? {
+        userId,
+        OR: [
+          { type: { notIn: POST_RELATED_TYPES } },
+          { postId: { in: validPostIds } },
+        ],
+      }
+    : { userId, type: { notIn: POST_RELATED_TYPES } };
+}
+
 // 用户通知列表（分页，按时间倒序，含触发者信息）
 // 设计取舍：Notification 不建 @relation，actor 昵称/头像用单独查询按需补全，避免 Prisma include 推断为 never。
 export async function listForUser(
@@ -81,7 +115,7 @@ export async function listForUser(
   const limit = Math.min(50, Math.max(1, Number(params.limit ?? 20)));
   const skip = (page - 1) * limit;
 
-  const where = { userId };
+  const where = await visibleWhere(userId);
   const [rows, total] = await Promise.all([
     prisma.notification.findMany({
       where,
@@ -128,9 +162,10 @@ export async function listForUser(
   };
 }
 
-// 未读总数
+// 未读总数（与列表同源过滤：不存在的帖子相关通知不计入未读）
 export async function unreadCount(userId: number): Promise<number> {
-  return prisma.notification.count({ where: { userId, read: false } });
+  const where = await visibleWhere(userId);
+  return prisma.notification.count({ where: { ...where, read: false } });
 }
 
 // 标记单条已读（校验归属，否则抛错由路由转 403）

@@ -7,6 +7,7 @@ import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
+import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
 
 // 个人资料区只负责呈现与操作意图；页面决定跳转、分享和数据加载等领域行为。
 @Component
@@ -68,8 +69,8 @@ export struct ProfileHeader {
             .width(76)
             .height(LayoutTokens.segmentedHeight)
             .textAlign(TextAlign.Center)
-            .backgroundColor(this.isLoggedIn ? ColorTokens.barSurface : ColorTokens.brandTint)
-            .backdropBlur(LayoutTokens.glassBlur)
+            .backgroundBlurStyle(GlassBlurStyle.Press)
+            .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : (this.isLoggedIn ? ColorTokens.barSurface : ColorTokens.brandTint))
             .border({ width: LayoutTokens.glassBorderWidth, color: this.isLoggedIn ? ColorTokens.barBorder : ColorTokens.brand, style: BorderStyle.Solid })
             .borderRadius(RadiusTokens.floatingBar)
             .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
@@ -91,7 +92,6 @@ export struct ProfileHeader {
               Image(resolveActionIcon('draftBox'))
                 .width(IconTokens.compact)
                 .height(IconTokens.compact)
-                .fillColor(ColorTokens.secondary)
               Text('草稿箱')
                 .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
                 .fontWeight(TypeTokens.headline.weight)
@@ -103,8 +103,8 @@ export struct ProfileHeader {
             .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
             .alignItems(VerticalAlign.Center)
             .justifyContent(FlexAlign.Center)
-            .backgroundColor(ColorTokens.barSurface)
-            .backdropBlur(LayoutTokens.glassBlur)
+            .backgroundBlurStyle(GlassBlurStyle.Press)
+            .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
             .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
             .borderRadius(RadiusTokens.floatingBar)
             .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
@@ -122,7 +122,6 @@ export struct ProfileHeader {
               Image($r('app.media.set_trash'))
                 .width(IconTokens.compact)
                 .height(IconTokens.compact)
-                .fillColor(ColorTokens.secondary)
               Text('废纸篓')
                 .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
                 .fontWeight(TypeTokens.headline.weight)
@@ -134,8 +133,8 @@ export struct ProfileHeader {
             .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
             .alignItems(VerticalAlign.Center)
             .justifyContent(FlexAlign.Center)
-            .backgroundColor(ColorTokens.barSurface)
-            .backdropBlur(LayoutTokens.glassBlur)
+            .backgroundBlurStyle(GlassBlurStyle.Press)
+            .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
             .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
             .borderRadius(RadiusTokens.floatingBar)
             .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })

@@ -14,6 +14,8 @@ import { GRID_GAP, GRID_PADDING } from '../utils/cardTokens';
 import { common } from '@kit.AbilityKit';
 import { EmptyState } from '../design/components/EmptyState';
 import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
+import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
+import { ImmersiveSurface } from '../design/components/ImmersiveSurface';
 import { BackButton } from '../design/components/BackButton';
 import { Skeleton } from '../design/motion/Skeleton';
 import { ColorTokens } from '../design/tokens/color';
@@ -46,6 +48,9 @@ struct SearchResultPage {
   // 响应式列数（按屏幕宽度 2/3/4 列自适应）
   @State gridColumns: number = 2;
   @State gridTemplate: string = '1fr 1fr';
+  // 搜索框实测尺寸（layoutWeight 拉伸后的真实渲染宽高），驱动流光精确贴合
+  @State inputW: number = 0;
+  @State inputH: number = 0;
   private unregisterColumns: () => void = () => {};
 
   aboutToAppear(): void {
@@ -179,26 +184,50 @@ struct SearchResultPage {
     .padding({ left: GRID_PADDING, right: GRID_PADDING, top: SpaceTokens.item })
   }
 
+  // 搜索框独立承载沉浸光感：输入框本体带亮色描边与冷色光晕，流光线叠加其上。
+  @Builder
+  searchInput(): void {
+    TextInput({ placeholder: '搜索', text: this.keyword })
+      .width('100%')
+      .fontFamily(TypeTokens.fontFamily)
+      .height(LayoutTokens.minTouchTarget)
+      .backgroundBlurStyle(GlassBlurStyle.Floating)
+      .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
+      .border({ width: 1, color: '#C4E0FF', style: BorderStyle.Solid })
+      .borderRadius(RadiusTokens.floatingBar)
+      .shadow({ radius: 12, color: '#4D8AD8FF', offsetY: 0 })
+      .onChange((v: string) => {
+        this.keyword = v;
+      })
+      .onSubmit(() => {
+        this.doSearch(this.keyword);
+      })
+      .onAreaChange((_oldValue: Area, newValue: Area): void => {
+        const w: number = parseFloat(String(newValue.width));
+        const h: number = parseFloat(String(newValue.height));
+        if (w > 0 && h > 0 && (w !== this.inputW || h !== this.inputH)) {
+          this.inputW = w;
+          this.inputH = h;
+        }
+      })
+  }
+
   build() {
     Column() {
       // 与搜索探索页一致的玻璃搜索工具栏。
       Row({ space: SpaceTokens.inline }) {
         BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
 
-        TextInput({ placeholder: '搜索', text: this.keyword })
-          .fontFamily(TypeTokens.fontFamily)
-          .layoutWeight(1)
-          .height(LayoutTokens.minTouchTarget)
-          .backgroundColor(ColorTokens.barSurface)
-          .backdropBlur(LayoutTokens.glassBlur)
-          .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-          .borderRadius(RadiusTokens.floatingBar)
-          .onChange((v: string) => {
-            this.keyword = v;
-          })
-          .onSubmit(() => {
-            this.doSearch(this.keyword);
-          })
+        ImmersiveSurface({
+          radius: RadiusTokens.floatingBar,
+          explicitWidth: this.inputW,
+          explicitHeight: this.inputH,
+          maskColors: ['#2EFFFFFF', '#2E9CC8FF'],
+          edgeColor: '#D6FFFFFF',
+          edgeColor2: '#9FC8F0FF',
+          content: (): void => { this.searchInput() },
+        })
+        .layoutWeight(1)
 
         if (this.keyword !== '') {
           Row() {

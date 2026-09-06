@@ -8,6 +8,8 @@ import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
+import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
+import { ImmersiveSurface } from '../design/components/ImmersiveSurface';
 
 // 首页内的搜索探索页：玻璃工具栏 + 最近搜索 + 双列热搜。
 @Component
@@ -74,6 +76,24 @@ export struct SearchPanel {
     return rows * LayoutTokens.minTouchTarget + (rows - 1) * SpaceTokens.sm;
   }
 
+  // 搜索框本体发光（亮色描边 + 冷色光晕），作为外层 Row 的 flex 子项自适应宽度，
+  // 不套 ImmersiveSurface 包装，避免强制定尺寸覆盖 flex 拉伸导致“过长/失真”。
+  @Builder
+  searchInput(): void {
+    TextInput({ placeholder: '搜索你关心的经验和问题', text: this.keyword })
+      .fontFamily(TypeTokens.fontFamily)
+      .fontColor(ColorTokens.primary)
+      .layoutWeight(1)
+      .height(LayoutTokens.minTouchTarget)
+      .backgroundBlurStyle(GlassBlurStyle.Floating)
+      .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
+      .border({ width: 1, color: '#C4E0FF', style: BorderStyle.Solid })
+      .borderRadius(RadiusTokens.floatingBar)
+      .shadow({ radius: 12, color: '#4D8AD8FF', offsetY: 0 })
+      .onChange((v: string): void => { this.keyword = v; })
+      .onSubmit((): void => { this.doSearch(); })
+  }
+
   @Builder
   private historyChip(keyword: string): void {
     Pressable({
@@ -85,7 +105,6 @@ export struct SearchPanel {
         Image($r('app.media.history'))
           .width(IconTokens.compact)
           .height(IconTokens.compact)
-          .fillColor(ColorTokens.secondary)
         Text(keyword)
           .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
           .fontColor(ColorTokens.primary)
@@ -94,9 +113,9 @@ export struct SearchPanel {
       }
       .height(LayoutTokens.segmentedHeight)
       .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-      .backgroundColor(ColorTokens.barSurface)
+      .backgroundBlurStyle(GlassBlurStyle.Floating)
+      .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
       .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-      .backdropBlur(LayoutTokens.glassBlur)
       .borderRadius(RadiusTokens.floatingBar)
       .alignItems(VerticalAlign.Center)
     }
@@ -107,23 +126,21 @@ export struct SearchPanel {
       Row({ space: SpaceTokens.inline }) {
         BackButton({ action: (): void => { this.onCancel(); } })
 
-        TextInput({ placeholder: '搜索你关心的经验和问题', text: this.keyword })
-          .fontFamily(TypeTokens.fontFamily)
-          .fontColor(ColorTokens.primary)
-          .height(LayoutTokens.minTouchTarget)
-          .backgroundColor(ColorTokens.barSurface)
-          .backdropBlur(LayoutTokens.glassBlur)
-          .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-          .borderRadius(RadiusTokens.floatingBar)
-          .layoutWeight(1)
-          .onChange((v: string): void => { this.keyword = v; })
-          .onSubmit((): void => { this.doSearch(); })
+        ImmersiveSurface({
+          radius: RadiusTokens.floatingBar,
+          explicitWidth: this.inputW,
+          explicitHeight: this.inputH,
+          maskColors: ['#2EFFFFFF', '#2E9CC8FF'],
+          edgeColor: '#D6FFFFFF',
+          edgeColor2: '#9FC8F0FF',
+          content: (): void => { this.searchInput() },
+        })
+        .layoutWeight(1)
 
         Row() {
           Image($r('app.media.empty_search'))
             .width(IconTokens.small)
             .height(IconTokens.small)
-            .fillColor(ColorTokens.tertiary)
         }
         .width(LayoutTokens.minTouchTarget)
         .height(LayoutTokens.minTouchTarget)
@@ -162,7 +179,6 @@ export struct SearchPanel {
                       Image($r('app.media.set_trash'))
                         .width(IconTokens.compact)
                         .height(IconTokens.compact)
-                        .fillColor(ColorTokens.secondary)
                     }
                   }
                   .width('100%')
@@ -220,9 +236,9 @@ export struct SearchPanel {
                           }
                           .height(LayoutTokens.minTouchTarget)
                           .padding({ left: SpaceTokens.md, right: SpaceTokens.sm })
-                          .backgroundColor(ColorTokens.barSurface)
+                          .backgroundBlurStyle(GlassBlurStyle.Floating)
+                          .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
                           .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-                          .backdropBlur(LayoutTokens.glassBlur)
                           .borderRadius(RadiusTokens.md)
                           .alignItems(VerticalAlign.Center)
                         }

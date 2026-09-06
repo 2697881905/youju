@@ -99,7 +99,6 @@ export struct DetailPostContent {
           Image(resolveActionIcon('check'))
             .width(13)
             .height(13)
-            .fillColor(ColorTokens.brand)
         }
         Text(this.myVote === choice ? '已投' : '投票')
           .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)

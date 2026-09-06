@@ -10,7 +10,6 @@ import { BUILD_MODE_NAME } from '../utils/buildMode';
 import { getUnreadCount, getDmUnreadCount, getMe, recordPrivacyConsent, followTag, listTags } from '../services/api';
 import { Tag } from '../models/types';
 import { safeShowToast } from '../utils/toast';
-import { BottomTabBar, BottomTabItem } from '../design/components/BottomTabBar';
 import { PublishMode, PublishModeSheet } from '../components/PublishModeSheet';
 import { LayoutTokens } from '../design/tokens/space';
 import { RadiusTokens } from '../design/tokens/radius';
@@ -22,6 +21,17 @@ import { publishFlowStore } from '../utils/publishFlowStore';
 import { AppTab, subscribeTabSwitch } from '../utils/nav';
 import { setSerifTypeface, setSerifBodyTypeface } from '../utils/textPoster';
 import { drawing } from '@kit.ArkGraphics2D';
+import { HdsTabs, HdsTabsController, hdsMaterial } from '@kit.UIDesignKit';
+import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
+import { ImmersiveSurface } from '../design/components/ImmersiveSurface';
+
+// 底部页签数据项（含发布占位 tab）。发布 tab 也走同一 builder，展示 + 图标。
+interface IndexTabItem {
+  key: string;
+  title: string;
+  icon: Resource;
+  color?: ResourceColor;
+}
 
 @CustomDialog
 struct PrivacyConsentDialog {
@@ -33,44 +43,54 @@ struct PrivacyConsentDialog {
   onDecline: () => void = (): void => {};
 
   build() {
-    Column({ space: 16 }) {
+    // 沉浸光感面板：真机在弹窗下方叠加双边流光，模拟器自动降级为系统玻璃（视觉不变）。
+    ImmersiveSurface({ radius: 16 }) {
+      // 注意：customStyle 弹窗的最终尺寸由 builder 内容决定，controller.width 不约束内容层，
+      // 因此必须在顶层 Column 上显式给定宽度（320vp），否则子元素（长文本）会撑满全屏宽、两侧贴边。
+      Column({ space: 12 }) {
       Text(this.getIsUpdate() ? '隐私政策更新' : '隐私政策与用户协议')
-        .fontSize(19)
+        .fontSize(17)
         .fontWeight(600)
+        .fontFamily('Noto Serif SC')
         .fontColor($r('app.color.text_primary'))
-        .width('100%')
         .textAlign(TextAlign.Center)
       Text(this.getIsUpdate()
         ? '我们的隐私政策已更新，请阅读并重新同意以继续使用。'
         : '欢迎使用有据。我们仅在为你提供内容推荐、账号安全等必要服务时收集相关信息。')
-        .fontSize(14)
+        .fontSize(13)
+        .fontFamily('Noto Serif SC')
         .fontColor($r('app.color.text_secondary'))
-        .lineHeight(21)
-        .width('100%')
+        .lineHeight(19)
       Row({ space: 4 }) {
         Text('点击查看')
-          .fontSize(14)
+          .fontSize(13)
+          .fontFamily('Noto Serif SC')
           .fontColor($r('app.color.text_secondary'))
         Text('《隐私政策》')
-          .fontSize(14)
+          .fontSize(13)
+          .fontFamily('Noto Serif SC')
           .fontColor($r('app.color.brand_primary'))
           .onClick((): void => { this.onReadPrivacy(); })
         Text('和')
-          .fontSize(14)
+          .fontSize(13)
+          .fontFamily('Noto Serif SC')
           .fontColor($r('app.color.text_secondary'))
         Text('《用户协议》')
-          .fontSize(14)
+          .fontSize(13)
+          .fontFamily('Noto Serif SC')
           .fontColor($r('app.color.brand_primary'))
           .onClick((): void => { this.onReadAgreement(); })
       }
-      .width('100%')
       .justifyContent(FlexAlign.Center)
       Row({ space: 12 }) {
         Button('不同意')
           .layoutWeight(1)
+          .fontSize(14)
+          .height(40)
+          .fontFamily('Noto Serif SC')
           .fontColor($r('app.color.semantic_red'))
-          .backgroundColor($r('app.color.bar_surface'))
-          .backdropBlur(LayoutTokens.glassBlur)
+          .backgroundBlurStyle(GlassBlurStyle.Dialog)
+          .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : $r('app.color.bar_surface'))
           .border({ width: LayoutTokens.glassBorderWidth, color: $r('app.color.bar_border'), style: BorderStyle.Solid })
           .borderRadius(RadiusTokens.md)
           .shadow({ radius: 10, color: $r('app.color.bar_shadow'), offsetY: 3 })
@@ -81,9 +101,12 @@ struct PrivacyConsentDialog {
           })
         Button('同意并继续')
           .layoutWeight(1)
+          .fontSize(14)
+          .height(40)
+          .fontFamily('Noto Serif SC')
           .fontColor($r('app.color.ds_brand'))
-          .backgroundColor($r('app.color.bar_surface'))
-          .backdropBlur(LayoutTokens.glassBlur)
+          .backgroundBlurStyle(GlassBlurStyle.Dialog)
+          .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : $r('app.color.bar_surface'))
           .border({ width: LayoutTokens.glassBorderWidth, color: $r('app.color.bar_border'), style: BorderStyle.Solid })
           .borderRadius(RadiusTokens.md)
           .shadow({ radius: 10, color: $r('app.color.bar_shadow'), offsetY: 3 })
@@ -94,11 +117,16 @@ struct PrivacyConsentDialog {
           })
       }
       .width('100%')
-    }
-    .width('100%')
-    .padding(20)
-    .backgroundColor($r('app.color.card_bg'))
-    .borderRadius(16)
+      }
+      .width(320)
+      .padding(16)
+      // 玻璃拟态：半透明暖白 + 背景模糊，透出底下内容形成毛玻璃质感
+      .backgroundBlurStyle(GlassBlurStyle.Dialog)
+      .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : $r('app.color.glass_overlay_heavy'))
+      .border({ width: LayoutTokens.glassBorderWidth, color: $r('app.color.glass_border'), style: BorderStyle.Solid })
+      .borderRadius(16)
+      .shadow({ radius: 16, color: $r('app.color.bar_shadow'), offsetY: 4 })
+      }
   }
 }
 
@@ -108,6 +136,8 @@ struct Index {
   @State currentIndex: number = 0;
   @State privacyDialogShown: boolean = false; // 防隐私弹窗重复弹出
   @State privacyDialogIsUpdate: boolean = false;
+  // 首页搜索面板展开时隐藏底部悬浮栏（HomeTab 通过同一 key 同步）
+  @StorageLink('homeSearchPanelOpen') homeSearchPanelOpen: boolean = false;
   @StorageLink('unreadMessageCount') unreadCount: number = 0;
   @StorageLink('unreadDmCount') dmUnread: number = 0;
   @StorageLink('circleOnboardingPendingUserId') @Watch('onCircleOnboardingPendingChanged') circleOnboardingPendingUserId: string = '';
@@ -119,16 +149,8 @@ struct Index {
   @State statusBarHeight: number = 0;
   @State navBarHeight: number = 0;
   @State launchComplete: boolean = false;
-  // 长按滑动高光状态
-  @State scrubbing: boolean = false;        // 是否处于长按滑动高亮模式
-  @State glowX: number = 0;                 // 高光中心 x（栏内局部坐标）
-  @State hoverIndex: number = -1;           // 滑动时悬停的按钮下标（用于高亮 + 松手触发）
-  @State barPressed: boolean = false;        // 按下即显示局部折射高光
-  @State barWidth: number = 0;
-  private longPressTimer: number = 0;       // 长按计时器句柄
-  private suppressClickUntil: number = 0;   // 滑动结束后短暂屏蔽 tab 自身 onClick，避免重复触发
-  private pressArmed: boolean = false;      // 长按已触发，但需移动才进入滑动模式
-  private pressDownX: number = 0;           // 按下点的栏内 x，用于移动阈值判断
+  private hdsController: HdsTabsController = new HdsTabsController();
+  @State lastPageIndex: number = 0;   // 发布前的实际页面 tab，用于发布后回跳
   private sessionRecovering: boolean = false;
   private unsubscribeTabSwitch: () => void = () => {};
   private publishModeController: CustomDialogController = new CustomDialogController({
@@ -157,10 +179,10 @@ struct Index {
     }),
     alignment: DialogAlignment.Center,
     customStyle: true,
-    width: 344,
+    width: 320,
   });
 
-  private bottomTabItems(): BottomTabItem[] {
+  private bottomTabItems(): IndexTabItem[] {
     return [
       { key: 'home', title: '首页', icon: $r('app.media.nav_home'), color: '#0A84FF' },
       { key: 'circle', title: '圈子', icon: $r('app.media.nav_circle'), color: '#34C759' },
@@ -245,6 +267,8 @@ struct Index {
   }
 
   private startInit(): void {
+    // 冷启动即探测一次沉浸光感能力（真实日志输出），确保设备能力在首页构建期可用。
+    isImmersiveLightSenseSupported();
     // 访客可浏览首页/圈子等公开内容；登录仅用于发布/私信/个人中心等需鉴权操作。
     // 未登录不再强制弹出登录页，避免“进首页即强制登录”的体验；登录态就绪时再补拉个人数据。
     if (getToken() === '') {
@@ -425,39 +449,103 @@ struct Index {
     AppStorage.setOrCreate<number>('circleLogoDismissVersion', version + 1);
   }
 
+  // 发布占位 tab（index=2）点击拦截：只弹发布弹窗并回跳发布前的实际页面，
+  // 不把内容切到空的发布占位页，避免页面闪现或 activeTab 驻留发布态。
+  private handleTabBarClick(index: number): void {
+    if (index === 2) {
+      this.showPublishModeDialog();
+      this.hdsController.changeIndex(this.currentIndex === 2 ? this.lastPageIndex : this.currentIndex);
+      return;
+    }
+    this.lastPageIndex = index;
+    this.selectTab(index);
+  }
+
+  // 官方 HdsTabs 页签：图标 + 文字，选中态品牌色；消息 tab（index=3）叠加未读红点。
+  @Builder
+  tabBarBuilder(index: number) {
+    Column({ space: 3 }) {
+      Stack({ alignContent: Alignment.Center }) {
+        if (index === 3 && (this.unreadCount + this.dmUnread) > 0) {
+          Badge({
+            count: this.unreadCount + this.dmUnread,
+            position: BadgePosition.RightTop,
+            style: { badgeColor: $r('app.color.semantic_red'), badgeSize: 14 },
+          })           {
+            Image(this.bottomTabItems()[index].icon)
+              .width(24).height(24)
+              .objectFit(ImageFit.Contain)
+          }
+        } else {
+          Image(this.bottomTabItems()[index].icon)
+            .width(24).height(24)
+            .objectFit(ImageFit.Contain)
+        }
+      }
+      .width(28).height(28)
+      Text(this.bottomTabItems()[index].title)
+        .fontSize(10)
+        .fontColor(this.currentIndex === index ? $r('app.color.ds_brand') : $r('app.color.ds_text_secondary'))
+    }
+    .width(64).height(54)
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
+  }
+
   build() {
     Stack({ alignContent: Alignment.Bottom }) {
-      Stack() {
-        HomeTab()
-          .visibility(this.currentIndex === 0 ? Visibility.Visible : Visibility.None)
-        CircleTab()
-          .visibility(this.currentIndex === 1 ? Visibility.Visible : Visibility.None)
-        MessagePage()
-          .visibility(this.currentIndex === 3 ? Visibility.Visible : Visibility.None)
-        ProfilePage()
-          .visibility(this.currentIndex === 4 ? Visibility.Visible : Visibility.None)
+      Column() {
+        HdsTabs({ controller: this.hdsController }) {
+          TabContent() { HomeTab() }
+            .tabBar(this.tabBarBuilder(0))
+          TabContent() { CircleTab() }
+            .tabBar(this.tabBarBuilder(1))
+          // 发布占位：内容为空，点击由 handleTabBarClick 拦截弹窗，不展示任何内容。
+          TabContent() { Column() {} }
+            .tabBar(this.tabBarBuilder(2))
+          TabContent() { MessagePage() }
+            .tabBar(this.tabBarBuilder(3))
+          TabContent() { ProfilePage() }
+            .tabBar(this.tabBarBuilder(4))
+        }
+        .barOverlap(true)                        // 悬浮：页签覆盖内容
+        .barPosition(BarPosition.End)            // 底部
+        .vertical(false)                         // 水平
+        .barFloatingStyle({
+          barWidth: { smallWidth: 300, mediumWidth: 420, largeWidth: 560 },
+          barSideMargin: 16,
+          barBottomMargin: 28,
+          gradientMask: { maskColor: '#66F1F3F5', maskHeight: 92 },
+          systemMaterialEffect: {
+            materialType: hdsMaterial.MaterialType.IMMERSIVE,
+            materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE,
+          },
+          // 搜索面板展开时整栏淡出（barOpacity=0 隐藏悬浮栏本体）
+          barOpacity: this.homeSearchPanelOpen ? 0 : 1,
+        })
+        .scrollable(false)                       // 禁止页面主体左右滑动切换 Tab，仅点击底部页签切换
+        .onTabBarClick((index: number): void => { this.handleTabBarClick(index); })
+        .onChange((index: number): void => {
+          // 防发布占位页误切换：即使当前瞬时 index=2，也回跳并拒绝广播，确保 activeTab 不驻留 2。
+          if (index === 2) {
+            this.hdsController.changeIndex(this.currentIndex === 2 ? this.lastPageIndex : this.currentIndex);
+            return;
+          }
+          this.selectTab(index);
+        })
       }
       .width('100%')
       .height('100%')
       .padding({ top: this.statusBarHeight })
 
-      Row() {
-        BottomTabBar({
-          items: this.bottomTabItems(),
-          currentIndex: $currentIndex,
-          unreadCount: this.unreadCount + this.dmUnread,
-          onSelect: (index: number): void => {
-            if (index === 2) {
-              this.showPublishModeDialog();
-            } else {
-              this.selectTab(index);
-            }
-          },
-        })
+      if (this.homeSearchPanelOpen) {
+        // 悬浮栏淡出后拦截其触摸区域，避免搜索时误触切页
+        Column()
+          .width('100%')
+          .height(LayoutTokens.tabBarHeight + 44)
+          .backgroundColor('#01000000')
+          .zIndex(50)
       }
-      .width('100%')
-      .padding({ left: LayoutTokens.tabBarSideMargin, right: LayoutTokens.tabBarSideMargin })
-      .margin({ bottom: LayoutTokens.tabBarBottomGap + this.navBarHeight })
 
       if (this.showCircleOnboarding) {
         CircleOnboarding({

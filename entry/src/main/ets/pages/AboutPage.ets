@@ -1,5 +1,6 @@
 // 关于页：纯静态信息展示，无后端调用
 
+import { common } from '@kit.AbilityKit';
 import { buildPageTransition } from '../utils/styles';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { BackButton } from '../design/components/BackButton';
@@ -8,6 +9,12 @@ import { BackButton } from '../design/components/BackButton';
 @Component
 export struct AboutPage {
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
+
+  // 打开工信部 ICP 备案官网首页
+  private openIcpBeian(): void {
+    const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    ctx.openLink('https://beian.miit.gov.cn/');
+  }
   build() {
     Column() {
       // 顶栏
@@ -31,8 +38,7 @@ export struct AboutPage {
           Column() {
             Image(resolveActionIcon('book'))
               .width(48)
-              .height(48)
-              .fillColor($r('app.color.brand_primary'));
+              .height(48);
             Text('有据')
               .fontSize(22).fontFamily($r('app.string.font_family'))
               .fontWeight(FontWeight.Bold)
@@ -84,6 +90,70 @@ export struct AboutPage {
                 .padding({ left: 16, right: 16, bottom: 16 });
             }
             .width('100%')
+            .backgroundColor($r('app.color.card_bg'))
+            .borderRadius(8);
+          }
+          .width('100%');
+
+          // 备案信息（ICP）
+          Column() {
+            Text('备案信息')
+              .fontSize(13).fontFamily($r('app.string.font_family'))
+              .fontColor($r('app.color.text_secondary'))
+              .alignSelf(ItemAlign.Start)
+              .padding({ left: 4, bottom: 8 });
+            Column({ space: 8 }) {
+              Row() {
+                Text('ICP备案号')
+                  .fontSize(14).fontFamily($r('app.string.font_family'))
+                  .fontColor($r('app.color.text_secondary'))
+                Text('陕ICP备2026014636号-2A')
+                  .fontSize(14).fontFamily($r('app.string.font_family'))
+                  .fontColor($r('app.color.brand_primary'))
+                  // 链接至工信部备案官网首页
+                  .onClick((): void => {
+                    this.openIcpBeian();
+                  })
+                  .accessibilityText('陕ICP备2026014636号-2A，点击打开工信部备案官网')
+              }
+              .width('100%')
+              .justifyContent(FlexAlign.SpaceBetween)
+
+              Row() {
+                Text('服务名称')
+                  .fontSize(14).fontFamily($r('app.string.font_family'))
+                  .fontColor($r('app.color.text_secondary'))
+                Text('有据')
+                  .fontSize(14).fontFamily($r('app.string.font_family'))
+                  .fontColor($r('app.color.text_primary'))
+              }
+              .width('100%')
+              .justifyContent(FlexAlign.SpaceBetween)
+
+              Row() {
+                Text('域名')
+                  .fontSize(14).fontFamily($r('app.string.font_family'))
+                  .fontColor($r('app.color.text_secondary'))
+                Text('youju.chat')
+                  .fontSize(14).fontFamily($r('app.string.font_family'))
+                  .fontColor($r('app.color.text_primary'))
+              }
+              .width('100%')
+              .justifyContent(FlexAlign.SpaceBetween)
+
+              Row() {
+                Text('服务负责人')
+                  .fontSize(14).fontFamily($r('app.string.font_family'))
+                  .fontColor($r('app.color.text_secondary'))
+                Text('白逸飞')
+                  .fontSize(14).fontFamily($r('app.string.font_family'))
+                  .fontColor($r('app.color.text_primary'))
+              }
+              .width('100%')
+              .justifyContent(FlexAlign.SpaceBetween)
+            }
+            .width('100%')
+            .padding({ left: 16, right: 16, top: 16, bottom: 16 })
             .backgroundColor($r('app.color.card_bg'))
             .borderRadius(8);
           }

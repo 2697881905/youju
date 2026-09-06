@@ -203,7 +203,6 @@ export struct CommentList {
                   Image(resolveActionIcon('like'))
                     .width(13)
                     .height(13)
-                    .fillColor(this.isLiked(c) ? $r('app.color.ds_like') : $r('app.color.text_secondary'))
                   Text(formatCount(this.commentUp(c)))
                     .fontSize(12).fontFamily($r('app.string.font_family'))
                     .fontColor(this.isLiked(c) ? $r('app.color.ds_like') : $r('app.color.text_secondary'))

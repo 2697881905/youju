@@ -17,6 +17,7 @@ import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { TypeTokens } from '../design/tokens/type';
 import { BackButton } from '../design/components/BackButton';
 import { PostCollectionState } from '../components/PostCollectionState';
+import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
 
 // 关注态局部补丁（乐观更新时只传要改的字段）
 interface ProfileFollowPatch {
@@ -441,8 +442,8 @@ export struct UserProfilePage {
               .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
               .fontWeight(TypeTokens.headline.weight)
               .fontColor(this.profile.isFollowing ? ColorTokens.secondary : ColorTokens.primary)
-              .backgroundColor(ColorTokens.barSurface)
-              .backdropBlur(LayoutTokens.glassBlur)
+              .backgroundBlurStyle(GlassBlurStyle.Press)
+              .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
               .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
               .borderRadius(RadiusTokens.floatingBar)
               .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
@@ -465,8 +466,8 @@ export struct UserProfilePage {
               .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
               .fontWeight(TypeTokens.headline.weight)
               .fontColor(ColorTokens.primary)
-              .backgroundColor(ColorTokens.barSurface)
-              .backdropBlur(LayoutTokens.glassBlur)
+              .backgroundBlurStyle(GlassBlurStyle.Press)
+              .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
               .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
               .borderRadius(RadiusTokens.floatingBar)
               .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 });

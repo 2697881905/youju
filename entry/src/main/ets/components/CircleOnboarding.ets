@@ -7,6 +7,8 @@ import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
+import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
+import { ImmersiveSurface } from '../design/components/ImmersiveSurface';
 
 // 新账号首次进入 Tab 页时展示的圈子选择层；实际加入仍走既有的标签关注接口。
 @Component
@@ -58,8 +60,8 @@ export struct CircleOnboarding {
       .height(96)
       .padding(SpaceTokens.sm)
       .justifyContent(FlexAlign.Center)
-      .backgroundColor(this.isSelected(tag.name ?? '') ? ColorTokens.brand : ColorTokens.barSurface)
-      .backdropBlur(this.isSelected(tag.name ?? '') ? 0 : LayoutTokens.glassBlur)
+      .backgroundBlurStyle(GlassBlurStyle.Card)
+      .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : (this.isSelected(tag.name ?? '') ? ColorTokens.brand : ColorTokens.barSurface))
       .border({
         width: LayoutTokens.glassBorderWidth,
         color: this.isSelected(tag.name ?? '') ? ColorTokens.brand : ColorTokens.barBorder,

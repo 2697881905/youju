@@ -6,8 +6,8 @@
 // - 长按消息弹出小菜单：文字=复制/删除；图片视频=保存/删除；自己发送且 5 分钟内可撤回
 //   （删除仅自己不可见；撤回双方均不可见，展示「已撤回」占位）
 // - 发送/已读后自增 dmRefreshSignal，驱动消息页会话列表与红点刷新
-import { DmMessage, User, DmSharePayload } from '../models/types';
-import { getMessages, sendMessage, markMessagesRead, uploadChatMedia, resolveDisplayImageUrl, deleteMessageForMe, recallMessage } from '../services/api';
+import { DmMessage, User, DmSharePayload, ReportBody, ReportReason } from '../models/types';
+import { getMessages, sendMessage, markMessagesRead, uploadChatMedia, resolveDisplayImageUrl, deleteMessageForMe, recallMessage, reportUser } from '../services/api';
 import { getToken, getUserId, getCurrentUser, ensureLogin } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
@@ -15,6 +15,7 @@ import { copyToClipboard } from '../utils/share';
 import { saveChatMediaToGallery } from '../utils/mediaSave';
 import { compressImage, CompressedImage } from '../utils/image';
 import { AvatarView } from '../components/AvatarView';
+import { ReportDialog } from '../components/ReportDialog';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { ImageViewer } from '../components/ImageViewer';
 import { VideoViewer } from '../components/VideoViewer';
@@ -27,6 +28,8 @@ import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { RadiusTokens } from '../design/tokens/radius';
 import { TypeTokens } from '../design/tokens/type';
 import { MotionCurves } from '../design/tokens/motion';
+import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
+import { ImmersiveSurface } from '../design/components/ImmersiveSurface';
 import { openUserProfile, takeChatIntent, openPostDetail } from '../utils/nav';
 
 // 长按菜单哨兵消息：menuMsgId 无命中时返回（正常路径被外层 if 挡住，纯防御性兜底；
@@ -48,6 +51,19 @@ export struct ChatPage {
   @State peerName: string = '';
   @State peerAvatar: string = '';
   @State myAvatar: string = '';
+  // 举报对话框（举报对端用户：聊天骚扰等场景）
+  private reportController: CustomDialogController = new CustomDialogController({
+    builder: ReportDialog({
+      targetType: 'user',
+      targetId: 0,
+      onSubmit: (reason: ReportReason, description: string): void => {
+        this.submitUserReport(reason, description);
+      },
+    }),
+    alignment: DialogAlignment.Center,
+    customStyle: true,
+    width: 344,
+  });
   @State myName: string = '';
   @State messages: DmMessage[] = [];
   @State loading: boolean = true;
@@ -310,8 +326,12 @@ export struct ChatPage {
   }
 
   // 内容就绪后滚到底部（setTimeout 等待一帧布局，规避初始未渲染即滚动失效）
+  // 仅当消息内容超出消息区高度才滚动到底；内容不足一屏时保持顶部（避免贴底导致顶部大片留白）
   private scrollToBottom(): void {
-    if (this.messages.length === 0) {
+    if (this.messages.length === 0 || this.msgContentHeight <= 0) {
+      return;
+    }
+    if (this.msgContentHeight <= this.msgAreaHeight + 1) {
       return;
     }
     try {
@@ -378,81 +398,85 @@ export struct ChatPage {
 
   @Builder
   emojiPanel() {
-    Scroll() {
-      Row({ space: SpaceTokens.sm }) {
-        ForEach(
-          this.emojiOptions,
-          (emoji: string) => {
-            Text(emoji)
-              .fontSize(22)
-              .width(36)
-              .height(36)
-              .textAlign(TextAlign.Center)
-              .borderRadius(RadiusTokens.sm)
-              .onClick(() => {
-                this.appendEmoji(emoji);
-              });
-          },
-          (emoji: string) => emoji,
-        )
+    ImmersiveSurface({ radius: RadiusTokens.md }) {
+      Scroll() {
+        Row({ space: SpaceTokens.sm }) {
+          ForEach(
+            this.emojiOptions,
+            (emoji: string) => {
+              Text(emoji)
+                .fontSize(22)
+                .width(36)
+                .height(36)
+                .textAlign(TextAlign.Center)
+                .borderRadius(RadiusTokens.sm)
+                .onClick(() => {
+                  this.appendEmoji(emoji);
+                });
+            },
+            (emoji: string) => emoji,
+          )
+        }
+        .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs, bottom: SpaceTokens.xs })
       }
-      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs, bottom: SpaceTokens.xs })
+      .scrollable(ScrollDirection.Horizontal)
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
+      .backgroundBlurStyle(GlassBlurStyle.Floating)
+      .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
+      .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+      .borderRadius(RadiusTokens.md)
+      .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 3 });
     }
-    .scrollable(ScrollDirection.Horizontal)
-    .scrollBar(BarState.Off)
-    .edgeEffect(EdgeEffect.Spring)
-    .backgroundColor(ColorTokens.barSurface)
-    .backdropBlur(LayoutTokens.glassBlur)
-    .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-    .borderRadius(RadiusTokens.md)
-    .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 3 });
   }
 
   // 「+」媒体菜单：发送图片 / 发送视频（样式与表情面板一致）
   @Builder
   mediaMenu() {
-    Column({ space: SpaceTokens.xs }) {
-      Row({ space: SpaceTokens.sm }) {
-        Text('🖼️')
-          .fontSize(18)
-        Text('发送图片')
-          .fontSize(15).fontFamily($r('app.string.font_family'))
-          .fontColor(ColorTokens.primary)
-        Blank()
-      }
-      .width('100%')
-      .height(LayoutTokens.minTouchTarget)
-      .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-      .alignItems(VerticalAlign.Center)
-      .accessibilityText('发送图片')
-      .onClick(() => {
-        this.sendImage();
-      });
+    ImmersiveSurface({ radius: RadiusTokens.md }) {
+      Column({ space: SpaceTokens.xs }) {
+        Row({ space: SpaceTokens.sm }) {
+          Text('🖼️')
+            .fontSize(18)
+          Text('发送图片')
+            .fontSize(15).fontFamily($r('app.string.font_family'))
+            .fontColor(ColorTokens.primary)
+          Blank()
+        }
+        .width('100%')
+        .height(LayoutTokens.minTouchTarget)
+        .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+        .alignItems(VerticalAlign.Center)
+        .accessibilityText('发送图片')
+        .onClick(() => {
+          this.sendImage();
+        });
 
-      Row({ space: SpaceTokens.sm }) {
-        Text('🎬')
-          .fontSize(18)
-        Text('发送视频')
-          .fontSize(15).fontFamily($r('app.string.font_family'))
-          .fontColor(ColorTokens.primary)
-        Blank()
+        Row({ space: SpaceTokens.sm }) {
+          Text('🎬')
+            .fontSize(18)
+          Text('发送视频')
+            .fontSize(15).fontFamily($r('app.string.font_family'))
+            .fontColor(ColorTokens.primary)
+          Blank()
+        }
+        .width('100%')
+        .height(LayoutTokens.minTouchTarget)
+        .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+        .alignItems(VerticalAlign.Center)
+        .accessibilityText('发送视频')
+        .onClick(() => {
+          this.sendVideo();
+        });
       }
       .width('100%')
-      .height(LayoutTokens.minTouchTarget)
-      .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-      .alignItems(VerticalAlign.Center)
-      .accessibilityText('发送视频')
-      .onClick(() => {
-        this.sendVideo();
-      });
+      .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
+      .backgroundBlurStyle(GlassBlurStyle.Floating)
+      .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
+      .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+      .borderRadius(RadiusTokens.md)
+      .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 3 });
     }
-    .width('100%')
-    .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
-    .backgroundColor(ColorTokens.barSurface)
-    .backdropBlur(LayoutTokens.glassBlur)
-    .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-    .borderRadius(RadiusTokens.md)
-    .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 3 });
   }
 
   // ===== 长按消息小菜单：复制 / 保存 / 删除 / 撤回 =====
@@ -528,6 +552,8 @@ export struct ChatPage {
   private msgAreaGlobalY: number = 0;
   private msgAreaWidth: number = 0;
   private msgAreaHeight: number = 0;
+  // 消息内容实际高度：用于判断内容是否超出消息区（不足一屏时保持顶部，避免贴底留白）
+  private msgContentHeight: number = 0;
 
   // 当前弹菜单的消息；menuMsgId 有效时必命中，未命中返回哨兵（type='' 只显示删除项，安全降级）
   private menuMsg(): DmMessage {
@@ -689,15 +715,16 @@ export struct ChatPage {
           Text(m.content)
             .fontSize(15).fontFamily($r('app.string.font_family'))
             .fontColor(ColorTokens.primary)
-            .backgroundColor(this.isMine(m.senderId) ? ColorTokens.barSelectionSurface : ColorTokens.barSurface)
+            .backgroundBlurStyle(GlassBlurStyle.Card)
+            .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : (this.isMine(m.senderId) ? ColorTokens.barSelectionSurface : ColorTokens.barSurface))
             .padding({ left: 12, right: 12, top: 8, bottom: 8 })
             .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-            .backdropBlur(LayoutTokens.glassBlur)
             .borderRadius(RadiusTokens.md)
             .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 3 })
             .constraintSize({ maxWidth: 280, minHeight: 40 })
             .textAlign(TextAlign.Start)
         }
+        // 所有消息（含分享卡片）统一显示发送时间，与普通消息一致
         Text(this.formatChatTime(m.createdAt))
           .fontSize(10).fontFamily($r('app.string.font_family'))
           .fontColor($r('app.color.text_secondary'))
@@ -740,6 +767,10 @@ export struct ChatPage {
           coverImage: typeof o['coverImage'] === 'string' ? (o['coverImage'] as string) : '',
           authorName: typeof o['authorName'] === 'string' ? (o['authorName'] as string) : '',
           authorId: typeof o['authorId'] === 'number' ? (o['authorId'] as number) : 0,
+          authorAvatar: typeof o['authorAvatar'] === 'string' ? (o['authorAvatar'] as string) : '',
+          categoryLabel: typeof o['categoryLabel'] === 'string' ? (o['categoryLabel'] as string) : '',
+          commentCount: typeof o['commentCount'] === 'number' ? (o['commentCount'] as number) : 0,
+          upCount: typeof o['upCount'] === 'number' ? (o['upCount'] as number) : 0,
         };
       }
     } catch (e) {
@@ -748,24 +779,27 @@ export struct ChatPage {
     return null;
   }
 
-  private shareHasCover(m: DmMessage): boolean {
-    const p = this.parseShare(m);
-    return p !== null && p.coverImage.length > 0;
-  }
-
-  private shareCover(m: DmMessage): string {
-    const p = this.parseShare(m);
-    return p !== null ? p.coverImage : '';
-  }
-
   private shareTitle(m: DmMessage): string {
     const p = this.parseShare(m);
     return p !== null ? p.title : '分享的帖子';
   }
 
-  private shareSummary(m: DmMessage): string {
+  private shareCategory(m: DmMessage): string {
     const p = this.parseShare(m);
-    return p !== null ? p.summary : '';
+    if (p !== null && (p.categoryLabel ?? '').length > 0) {
+      return p.categoryLabel as string;
+    }
+    return '有据 · 帖子分享';
+  }
+
+  private shareCommentCount(m: DmMessage): number {
+    const p = this.parseShare(m);
+    return p !== null ? (p.commentCount ?? 0) : 0;
+  }
+
+  private shareUpCount(m: DmMessage): number {
+    const p = this.parseShare(m);
+    return p !== null ? (p.upCount ?? 0) : 0;
   }
 
   private sharePostId(m: DmMessage): number {
@@ -773,53 +807,64 @@ export struct ChatPage {
     return p !== null ? p.postId : 0;
   }
 
-  // 分享气泡：封面 + 标题 + 摘要 + 查看原帖入口（@Builder 体内不声明 const，改用私有方法取值）
+  // 分享卡片：横向文章摘要布局，视觉参考海报中的留白、宋体标题和细边框层级。
   @Builder
   shareBubble(m: DmMessage) {
-    Column({ space: 8 }) {
-      Row({ space: 10 }) {
-        if (this.shareHasCover(m)) {
-          Image(resolveDisplayImageUrl(this.shareCover(m)))
-            .width(64)
-            .height(64)
-            .objectFit(ImageFit.Cover)
-            .borderRadius(RadiusTokens.sm)
-            .clip(true)
-        }
-        Column({ space: 4 }) {
-          Text(this.shareTitle(m))
-            .fontSize(14).fontFamily($r('app.string.font_family'))
-            .fontWeight(TypeTokens.callout.weight)
-            .fontColor(ColorTokens.primary)
-            .maxLines(2)
-          if (this.shareSummary(m).length > 0) {
-            Text(this.shareSummary(m))
-              .fontSize(12).fontFamily($r('app.string.font_family'))
-              .fontColor($r('app.color.text_secondary'))
-              .maxLines(2)
+    Row({ space: SpaceTokens.md }) {
+      Column({ space: SpaceTokens.xs }) {
+        Text(this.shareCategory(m))
+          .fontSize(TypeTokens.caption.size)
+          .fontFamily(TypeTokens.fontFamily)
+          .fontColor(ColorTokens.tertiary)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+        Text(this.shareTitle(m))
+          .fontSize(TypeTokens.callout.size)
+          .fontFamily(TypeTokens.fontFamilySerif)
+          .fontWeight(TypeTokens.title.weight)
+          .lineHeight(TypeTokens.title.lineHeight)
+          .fontColor(ColorTokens.primary)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+        Row() {
+          Column({ space: 4 }) {
+            Blank()
+              .width(88)
+              .height(4)
+              .backgroundColor(ColorTokens.skeletonBase)
+              .borderRadius(RadiusTokens.pill)
+            Blank()
+              .width(58)
+              .height(4)
+              .backgroundColor(ColorTokens.skeletonBase)
+              .borderRadius(RadiusTokens.pill)
           }
-          Row({ space: 4 }) {
-            Text('查看原帖')
-              .fontSize(11).fontFamily($r('app.string.font_family'))
-              .fontColor(ColorTokens.brand)
-            Text('›')
-              .fontSize(11).fontFamily($r('app.string.font_family'))
-              .fontColor(ColorTokens.brand)
+          Blank().layoutWeight(1)
+          Row({ space: SpaceTokens.sm }) {
+            Text(String(this.shareCommentCount(m)) + ' 评')
+              .fontSize(TypeTokens.overline.size)
+              .fontFamily(TypeTokens.fontFamily)
+              .fontColor(ColorTokens.tertiary)
+            Text(String(this.shareUpCount(m)) + ' 赞')
+              .fontSize(TypeTokens.overline.size)
+              .fontFamily(TypeTokens.fontFamily)
+              .fontColor(ColorTokens.tertiary)
           }
-          .margin({ top: 2 })
         }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
+        .width('100%')
+        .alignItems(VerticalAlign.Bottom)
       }
-      .width('100%')
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
     }
-    .width(240)
-    .padding(10)
-    .backgroundColor(ColorTokens.barSurface)
-    .backdropBlur(LayoutTokens.glassBlur)
-    .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-    .borderRadius(RadiusTokens.md)
-    .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 3 })
+    .width('100%')
+    .constraintSize({ minHeight: 56 })
+    .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+    .backgroundColor(ColorTokens.elevated)
+    .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.separator, style: BorderStyle.Solid })
+    .borderRadius(RadiusTokens.lg)
     .onClick(() => {
       this.openSharedPost(this.sharePostId(m));
     })
@@ -830,6 +875,22 @@ export struct ChatPage {
     if (postId > 0) {
       openPostDetail(String(postId));
       this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
+    }
+  }
+
+  // 提交对端用户举报（聊天模块举报渠道）
+  private async submitUserReport(reason: ReportReason, description: string): Promise<void> {
+    if (this.peerId <= 0) {
+      this.reportController.close();
+      return;
+    }
+    try {
+      await reportUser(this.peerId, { reason: reason, description: description });
+      this.reportController.close();
+      safeShowToast(this.getUIContext(), { message: '举报已提交，我们会尽快处理' });
+    } catch (e) {
+      const err: Error = e as Error;
+      safeShowToast(this.getUIContext(), { message: (err.message ?? '').length > 0 ? err.message : '举报失败，请稍后重试' });
     }
   }
 
@@ -864,14 +925,30 @@ export struct ChatPage {
         .layoutWeight(1)
         .justifyContent(FlexAlign.Center)
         .onClick(() => {
-          this.goPeer();
+        this.goPeer();
+      });
+      // 举报入口（审核要求：聊天模块提供举报渠道）
+      Text('举报')
+        .fontSize(13).fontFamily($r('app.string.font_family'))
+        .fontColor($r('app.color.text_tertiary'))
+        .height(LayoutTokens.minTouchTarget)
+        .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+        .textAlign(TextAlign.Center)
+        .accessibilityText('举报该联系人或聊天内容')
+        .onClick(() => {
+          if (this.peerId > 0) {
+            this.reportController.open();
+          }
         });
-        Text('').width(44);
       }
       .width('100%')
-      .padding({ left: 8, right: 8, top: 8, bottom: 8 })
-      .borderWidth({ bottom: 0.5 })
-      .borderColor($r('app.color.divider'));
+      .padding({ left: 8, right: 8, top: 8, bottom: 8 });
+
+      // 顶栏名字下方的细分隔线
+      Divider()
+        .strokeWidth(0.5)
+        .color($r('app.color.divider'))
+        .margin(0);
 
       // 消息区（外包 Stack：媒体菜单展开时盖透明遮罩，点击消息区任意处收起菜单）
       Stack() {
@@ -904,10 +981,16 @@ export struct ChatPage {
             }
             .width('100%')
             .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+            .onAreaChange((_old: Area, area: Area) => {
+              // 记录消息内容高度，供 scrollToBottom 判断是否需要滚动（不足一屏保持顶部）
+              this.msgContentHeight = area.height as number;
+            })
           }
           .scrollBar(BarState.Auto)
           .width('100%')
-          .layoutWeight(1)
+          // 消息区外层是 Stack（默认子项居中），layoutWeight 在 Stack 中不生效，
+          // 必须显式 height('100%') 填满视口，Scroll 内容才会从消息区顶部开始。
+          .height('100%')
           .align(Alignment.TopStart);
         }
 
@@ -954,8 +1037,8 @@ export struct ChatPage {
             .width(40)
             .height(LayoutTokens.minTouchTarget)
             .justifyContent(FlexAlign.Center)
-            .backgroundColor(ColorTokens.barSurface)
-            .backdropBlur(LayoutTokens.glassBlur)
+            .backgroundBlurStyle(GlassBlurStyle.Floating)
+            .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
             .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
             .borderRadius(RadiusTokens.md)
             .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 3 })
@@ -968,8 +1051,8 @@ export struct ChatPage {
             .fontFamily($r('app.string.font_family'))
             .layoutWeight(1)
             .height(LayoutTokens.minTouchTarget)
-            .backgroundColor(ColorTokens.barSurface)
-            .backdropBlur(LayoutTokens.glassBlur)
+            .backgroundBlurStyle(GlassBlurStyle.Floating)
+            .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
             .borderRadius(RadiusTokens.md)
             .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
             .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 3 })
@@ -988,8 +1071,8 @@ export struct ChatPage {
             .width(40)
             .height(LayoutTokens.minTouchTarget)
             .justifyContent(FlexAlign.Center)
-            .backgroundColor(ColorTokens.barSurface)
-            .backdropBlur(LayoutTokens.glassBlur)
+            .backgroundBlurStyle(GlassBlurStyle.Floating)
+            .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
             .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
             .borderRadius(RadiusTokens.md)
             .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 3 })
@@ -1008,8 +1091,8 @@ export struct ChatPage {
             .width(60)
             .height(LayoutTokens.minTouchTarget)
             .justifyContent(FlexAlign.Center)
-            .backgroundColor(ColorTokens.barSurface)
-            .backdropBlur(LayoutTokens.glassBlur)
+            .backgroundBlurStyle(GlassBlurStyle.Floating)
+            .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
             .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
             .borderRadius(RadiusTokens.md)
             .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 3 })

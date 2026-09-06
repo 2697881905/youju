@@ -18,6 +18,8 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { EditableProfilePreview } from '../components/EditableProfilePreview';
+import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
+import { ImmersiveSurface } from '../design/components/ImmersiveSurface';
 
 const GENDER_OPTIONS: SegmentedItem[] = [
   { key: 'male', label: '男' },
@@ -349,31 +351,33 @@ export struct EditProfilePage {
   build() {
     Column() {
       // 固定玻璃工具栏：保存仅在文本资料发生未保存变更时强调。
-      Row() {
-        BackButton({ action: (): void => { this.onBack(); } })
-        Text('编辑资料')
-          .fontSize(17).fontFamily($r('app.string.font_family'))
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.text_primary'))
-          .layoutWeight(1)
-          .textAlign(TextAlign.Center);
-        Text(this.saving ? '保存中' : (this.saveSucceeded ? '已保存' : '保存'))
-          .fontSize(15).fontFamily($r('app.string.font_family'))
-          .fontColor(this.saving ? ColorTokens.secondary : (this.saveSucceeded ? ColorTokens.success : (this.hasUnsavedChanges() ? ColorTokens.brand : ColorTokens.tertiary)))
-          .width(56)
-          .textAlign(TextAlign.Center)
-          .scale({ x: this.saveSucceeded && !this.shouldReduceMotion() ? MotionTokens.successScale : 1, y: this.saveSucceeded && !this.shouldReduceMotion() ? MotionTokens.successScale : 1 })
-          .animation({ duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.emphasis, curve: MotionCurves.springSoft })
-          .opacity(this.saving || this.saveSucceeded || this.hasUnsavedChanges() ? 1 : 0.45)
-          .onClick(() => { if (this.hasUnsavedChanges()) { this.onSave(); } });
-      }
-      .width('100%')
-      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
-      .backgroundColor(ColorTokens.barSurface)
-      .backdropBlur(LayoutTokens.glassBlur)
-      .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-      .borderRadius(RadiusTokens.floatingBar)
-      .margin({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs });
+      ImmersiveSurface({ radius: RadiusTokens.floatingBar }) {
+        Row() {
+          BackButton({ action: (): void => { this.onBack(); } })
+          Text('编辑资料')
+            .fontSize(17).fontFamily($r('app.string.font_family'))
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('app.color.text_primary'))
+            .layoutWeight(1)
+            .textAlign(TextAlign.Center);
+          Text(this.saving ? '保存中' : (this.saveSucceeded ? '已保存' : '保存'))
+            .fontSize(15).fontFamily($r('app.string.font_family'))
+            .fontColor(this.saving ? ColorTokens.secondary : (this.saveSucceeded ? ColorTokens.success : (this.hasUnsavedChanges() ? ColorTokens.brand : ColorTokens.tertiary)))
+            .width(56)
+            .textAlign(TextAlign.Center)
+            .scale({ x: this.saveSucceeded && !this.shouldReduceMotion() ? MotionTokens.successScale : 1, y: this.saveSucceeded && !this.shouldReduceMotion() ? MotionTokens.successScale : 1 })
+            .animation({ duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.emphasis, curve: MotionCurves.springSoft })
+            .opacity(this.saving || this.saveSucceeded || this.hasUnsavedChanges() ? 1 : 0.45)
+            .onClick(() => { if (this.hasUnsavedChanges()) { this.onSave(); } });
+        }
+        .width('100%')
+        .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+        .backgroundBlurStyle(GlassBlurStyle.Floating)
+        .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
+        .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+        .borderRadius(RadiusTokens.floatingBar)
+        .margin({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs })
+      };
 
       Scroll() {
         Column({ space: 20 }) {
@@ -411,7 +415,8 @@ export struct EditProfilePage {
               .fontFamily(TypeTokens.fontFamily).fontColor(ColorTokens.primary)
               .width('100%')
               .height(LayoutTokens.minTouchTarget)
-              .backgroundColor(ColorTokens.elevated).backdropBlur(LayoutTokens.glassBlur)
+              .backgroundBlurStyle(GlassBlurStyle.Card)
+              .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.elevated)
               .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
               .borderRadius(RadiusTokens.lg)
               .onChange((v: string) => { this.nickname = v; });
@@ -432,7 +437,8 @@ export struct EditProfilePage {
               .fontFamily(TypeTokens.fontFamily).fontColor(ColorTokens.primary)
               .width('100%')
               .height(104)
-              .backgroundColor(ColorTokens.elevated).backdropBlur(LayoutTokens.glassBlur)
+              .backgroundBlurStyle(GlassBlurStyle.Card)
+              .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.elevated)
               .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
               .borderRadius(RadiusTokens.lg)
               .onChange((v: string) => { this.bio = v; });

@@ -1,5 +1,4 @@
 import { resolveDisplayImageUrl } from '../services/api';
-import { resolveActionIcon } from '../utils/actionIcons';
 import { MotionCurves } from '../design/tokens/motion';
 
 // 全屏图片查看器：黑色遮罩 + 原图宽度撑满屏幕、高度按比例自适应。
@@ -64,10 +63,9 @@ export struct ImageViewer {
           }
         })
       // 右上角关闭按钮
-      Image(resolveActionIcon('close'))
+      Image($r('app.media.close_x_white'))
         .width(24)
         .height(24)
-        .fillColor(Color.White)
         .position({ top: 16, right: 16 })
         .onClick((): void => { this.onClose(); })
       // 底部操作提示

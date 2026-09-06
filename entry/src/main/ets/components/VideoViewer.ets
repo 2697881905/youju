@@ -1,6 +1,7 @@
 import { resolveDisplayImageUrl } from '../services/api';
-import { resolveActionIcon } from '../utils/actionIcons';
 import { TypeTokens } from '../design/tokens/type';
+import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
+import { ImmersiveSurface } from '../design/components/ImmersiveSurface';
 
 // 全屏视频查看器（自绘现代播放条，替代系统 controls 旧样式）：
 // - 打开即自动播放，画面 Contain 完整展示；不用系统控制器（其样式老旧且带边框线）
@@ -80,67 +81,69 @@ export struct VideoViewer {
 
   @Builder
   bottomBar() {
-    Row({ space: 10 }) {
-      // 播放/暂停切换
-      Column() {
-        if (this.playing) {
-          this.pauseIcon()
-        } else {
-          Image($r('app.media.video_play'))
-            .width(18)
-            .height(18)
-            .fillColor(Color.White)
-            // 三角形视觉重心偏左，轻微右移光学居中
-            .translate({ x: 1 })
+    ImmersiveSurface({ radius: 999 }) {
+      Row({ space: 10 }) {
+        // 播放/暂停切换
+        Column() {
+          if (this.playing) {
+            this.pauseIcon()
+          } else {
+            Image($r('app.media.video_play'))
+              .width(18)
+              .height(18)
+              .fillColor(Color.White)
+              // 三角形视觉重心偏左，轻微右移光学居中
+              .translate({ x: 1 })
+          }
         }
-      }
-      .width(32)
-      .height(32)
-      .justifyContent(FlexAlign.Center)
-      .alignItems(HorizontalAlign.Center)
-      .onClick((): void => {
-        this.togglePlay();
-        this.showBar = true;
-        this.scheduleHide();
-      })
-
-      // 进度滑杆：拖动中不回写视频进度，松手才 seek
-      Slider({
-        value: this.currentSec,
-        min: 0,
-        max: this.durationSec > 0 ? this.durationSec : 1,
-        step: 1,
-      })
-        .layoutWeight(1)
-        .selectedColor(Color.White)
-        .trackColor('#40FFFFFF')
-        .blockColor(Color.White)
-        .blockSize({ width: 14, height: 14 })
-        .trackThickness(3)
-        .onChange((value: number, mode: SliderChangeMode) => {
-          if (mode === SliderChangeMode.Begin) {
-            this.dragging = true;
-          }
-          if (mode === SliderChangeMode.Begin || mode === SliderChangeMode.Moving) {
-            this.currentSec = value;
-          } else if (mode === SliderChangeMode.End) {
-            this.controller.setCurrentTime(value);
-            this.dragging = false;
-          } else if (mode === SliderChangeMode.Click) {
-            this.controller.setCurrentTime(value);
-          }
+        .width(32)
+        .height(32)
+        .justifyContent(FlexAlign.Center)
+        .alignItems(HorizontalAlign.Center)
+        .onClick((): void => {
+          this.togglePlay();
+          this.showBar = true;
+          this.scheduleHide();
         })
 
-      Text(this.fmt(this.currentSec) + ' / ' + this.fmt(this.durationSec))
-        .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-        .fontColor('#E6FFFFFF')
+        // 进度滑杆：拖动中不回写视频进度，松手才 seek
+        Slider({
+          value: this.currentSec,
+          min: 0,
+          max: this.durationSec > 0 ? this.durationSec : 1,
+          step: 1,
+        })
+          .layoutWeight(1)
+          .selectedColor(Color.White)
+          .trackColor('#40FFFFFF')
+          .blockColor(Color.White)
+          .blockSize({ width: 14, height: 14 })
+          .trackThickness(3)
+          .onChange((value: number, mode: SliderChangeMode) => {
+            if (mode === SliderChangeMode.Begin) {
+              this.dragging = true;
+            }
+            if (mode === SliderChangeMode.Begin || mode === SliderChangeMode.Moving) {
+              this.currentSec = value;
+            } else if (mode === SliderChangeMode.End) {
+              this.controller.setCurrentTime(value);
+              this.dragging = false;
+            } else if (mode === SliderChangeMode.Click) {
+              this.controller.setCurrentTime(value);
+            }
+          })
+
+        Text(this.fmt(this.currentSec) + ' / ' + this.fmt(this.durationSec))
+          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+          .fontColor('#E6FFFFFF')
+      }
+      .width('100%')
+      .padding({ left: 14, right: 14, top: 10, bottom: 10 })
+      .backgroundBlurStyle(GlassBlurStyle.Dialog)
+      .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : '#59000000')
+      .borderRadius(999)
+      .margin({ left: 16, right: 16, bottom: 34 })
     }
-    .width('100%')
-    .padding({ left: 14, right: 14, top: 10, bottom: 10 })
-    .backgroundColor('#59000000')
-    .backdropBlur(30)
-    .borderRadius(999)
-    .margin({ left: 16, right: 16, bottom: 34 })
   }
 
   build() {
@@ -183,10 +186,9 @@ export struct VideoViewer {
         .onClick((): void => { this.onScreenTap(); })
 
       // 右上角关闭按钮
-      Image(resolveActionIcon('close'))
+      Image($r('app.media.close_x_white'))
         .width(24)
         .height(24)
-        .fillColor(Color.White)
         .position({ top: 16, right: 16 })
         .onClick((): void => { this.onClose(); })
 

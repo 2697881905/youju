@@ -3,7 +3,7 @@ import { prisma } from '../prisma';
 import { notifySystem } from './notificationService';
 import { env } from '../config/env';
 
-export type TargetType = 'post' | 'comment';
+export type TargetType = 'post' | 'comment' | 'user';
 export type ReportReason =
   | 'political'
   | 'pornographic'
@@ -58,6 +58,19 @@ export async function createReport(
     targetExists = true;
     targetUserId = post.userId;
     targetTitle = post.title;
+  } else if (params.targetType === 'user') {
+    // 举报用户（聊天/私信骚扰等场景）：只落举报记录，不做自动下架
+    const user = await prisma.user.findUnique({
+      where: { id: params.targetId },
+      select: { id: true },
+    });
+    if (!user) {
+      const err = new Error('用户不存在');
+      (err as any).reason = 'not_found';
+      throw err;
+    }
+    targetExists = true;
+    targetUserId = user.id;
   } else {
     const comment = await prisma.comment.findUnique({
       where: { id: params.targetId },
@@ -99,7 +112,7 @@ export async function createReport(
         if (newReportCount >= threshold) {
           await tx.post.update({ where: { id: params.targetId }, data: { status: 0 } });
         }
-      } else {
+      } else if (params.targetType === 'comment') {
         const updated = await tx.comment.update({
           where: { id: params.targetId },
           data: { reportCount: { increment: 1 } },
@@ -110,6 +123,7 @@ export async function createReport(
           await tx.comment.update({ where: { id: params.targetId }, data: { status: 0 } });
         }
       }
+      // targetType==='user'：仅上面已创建举报记录，无计数/下架逻辑
       return { report, autoTakenDown: newReportCount >= threshold };
     });
   } catch (e: any) {
