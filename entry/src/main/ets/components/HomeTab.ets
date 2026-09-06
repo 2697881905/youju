@@ -1,16 +1,16 @@
 // 首页 feed（真实内容）：顶栏(三子Tab+搜索框同水平) + 标签筛选 + 帖子网格
-// 搜索框获焦时展示 SearchPanel（搜索历史+热搜词），提交或选中关键词后跳结果页
-// 数据来源：listPosts / listTags / recordSearchHistory（services/api.ets）
+// 首页 Tab：海报式编辑部头部 + 推荐/关注/每日一帖信息流。
+// 数据来源：listPosts / listTags / listDailyPosts（services/api.ets）
+// 搜索入口跳转独立搜索页 pages/SearchPanelPage（搜索面板已与首页解耦）。
 
 import { DailyPost, Post, Tag } from '../models/types';
-import { listDailyPosts, listPosts, listFollowingPosts, listTags, listFollowedTags, recordSearchHistory, getUserProfile } from '../services/api';
+import { listDailyPosts, listPosts, listFollowingPosts, listTags, listFollowedTags, getUserProfile } from '../services/api';
 import { getUserId } from '../utils/auth';
 import { likeStore } from '../utils/likeStore';
 import { postDeletionStore } from '../utils/postDeletionStore';
 import { PostCard } from './PostCard';
 import { TagNav } from './TagNav';
-import { SearchPanel } from './SearchPanel';
-import { emitTabSwitch, openPostDetail, openSearch } from '../utils/nav';
+import { emitTabSwitch, openPostDetail } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { EmptyState } from '../design/components/EmptyState';
@@ -20,7 +20,6 @@ import { Reveal } from '../design/motion/Reveal';
 import { DailyPostDeck } from './DailyPostDeck';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
-import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
@@ -62,7 +61,6 @@ export struct HomeTab {
   @State finished: boolean = false;
   @State isRefreshing: boolean = false;
   @State error: string = '';
-  @StorageLink('homeSearchPanelOpen') showPanel: boolean = false;
   @State feedMode: FeedMode = 'recommend';
   @State feedIndex: number = 0;
   @State needLogin: boolean = false; // 关注流且未登录的引导态
@@ -383,34 +381,6 @@ export struct HomeTab {
     }
   }
 
-  // 搜索：校验关键词 → 隐藏面板 → 跳结果页 → 记录历史（fire-and-forget）
-  private doSearch(raw: string): void {
-    const kw = raw.trim();
-    if (!kw) {
-      safeShowToast(this.getUIContext(),{ message: '请输入搜索内容' });
-      return;
-    }
-    this.showPanel = false;
-    openSearch(kw);
-    this.getUIContext().getRouter().pushUrl({ url: 'pages/SearchResultPage' });
-    // fire-and-forget：记录搜索历史，失败不阻断
-    this.recordHistoryAsync(kw);
-  }
-
-  // 异步记录搜索历史（独立方法，避免阻塞搜索跳转）
-  private async recordHistoryAsync(kw: string): Promise<void> {
-    try {
-      await recordSearchHistory(kw);
-    } catch (e) {
-      // 记录历史失败不影响搜索体验
-    }
-  }
-
-  // SearchPanel 关键词选中回调：触发搜索
-  private onKeywordSelect(kw: string): void {
-    this.doSearch(kw);
-  }
-
   @Builder
   refreshBuilder(): void {
     Row({ space: SpaceTokens.inline }) {
@@ -449,24 +419,8 @@ export struct HomeTab {
 
   build() {
     Column() {
-      if (this.showPanel) {
-        // 全屏搜索面板：自带 < 返回 + 输入框 + 搜索 头部栏，隐藏首页推荐/关注顶栏
-        SearchPanel({
-          onKeywordSelect: (kw: string): void => {
-            this.onKeywordSelect(kw);
-          },
-          onCancel: (): void => {
-            this.showPanel = false;
-          }
-        })
-          .layoutWeight(1)
-          .transition(TransitionEffect.OPACITY
-            .animation({ duration: MotionTokens.base, curve: MotionCurves.decelerate })
-            .combine(TransitionEffect.translate({ x: '100%' })
-              .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate })))
-      } else {
-        // 海报式编辑部头部：编号、品牌标题、主标语和栏目切换构成明确的阅读层级。
-        Column({ space: SpaceTokens.xs }) {
+      // 海报式编辑部头部：编号、品牌标题、主标语和栏目切换构成明确的阅读层级。
+      Column({ space: SpaceTokens.xs }) {
           Row() {
             Column({ space: SpaceTokens.xs }) {
               Row({ space: SpaceTokens.sm }) {
@@ -495,7 +449,8 @@ export struct HomeTab {
               visualHeight: LayoutTokens.segmentedHeight,
               touchTargetHeight: LayoutTokens.minTouchTarget,
               action: (): void => {
-                this.showPanel = true;
+                // 搜索入口跳转独立搜索页（与首页解耦）
+                this.getUIContext().getRouter().pushUrl({ url: 'pages/SearchPanelPage' });
               },
             }) {
               Row() {
@@ -559,7 +514,7 @@ export struct HomeTab {
 
         // 列表区与圈子栏共用同一 Stack，圈子栏始终作为玻璃浮层而不参与列表排版。
         Stack({ alignContent: Alignment.TopStart }) {
-        if (this.needLogin) {
+          if (this.needLogin) {
           // 未登录引导态（关注流且未登录）：不发起请求，引导登录
           Column() {
             EmptyState({
@@ -665,79 +620,81 @@ export struct HomeTab {
             .width('100%')
             .height('100%')
           } else {
-          Stack({ alignContent: Alignment.TopStart }) {
-            Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
-              // 瀑布流：每列独立流动，卡片仅以 rowsGap 与同列上下卡片贴靠，
-              // 彻底消除 Grid 等高行造成的「矮卡片底部留白」问题
-              WaterFlow({ footer: this.feedFooter }) {
-                // 每列首位的可滚动占位项让首屏卡片从圈子栏下方开始；
-                // 它随内容一起上移，避免 WaterFlow 固定 padding 形成硬裁切带。
-                ForEach(this.feedTopSpacerIndices(), (_value: number, index: number) => {
-                  FlowItem() {
-                    Column()
-                      .width('100%')
-                      .height(this.feedTopSpacerHeight())
-                  }
-                }, (_value: number, index: number) => 'circle_bar_spacer_' + index)
-                LazyForEach(
-                  this.postSource,
-                  (post: Post, idx: number) => {
+            // 推荐/关注流：瀑布流
+            Stack({ alignContent: Alignment.TopStart }) {
+              Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
+                // 瀑布流：每列独立流动，卡片仅以 rowsGap 与同列上下卡片贴靠，
+                // 彻底消除 Grid 等高行造成的「矮卡片底部留白」问题
+                WaterFlow({ footer: this.feedFooter }) {
+                  // 每列首位的可滚动占位项让首屏卡片从圈子栏下方开始；
+                  // 它随内容一起上移，避免 WaterFlow 固定 padding 形成硬裁切带。
+                  ForEach(this.feedTopSpacerIndices(), (_value: number, index: number) => {
                     FlowItem() {
-                      Reveal({ index: idx % 5 }) {
-                        PostCard({
-                          post: post,
-                          compact: true,
-                          onOpen: () => {
-                            if (post.id !== undefined) {
-                              const id = post.id.toString();
-                              openPostDetail(id);
-                              this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
-                            }
-                          },
-                        })
-                      }
+                      Column()
+                        .width('100%')
+                        .height(this.feedTopSpacerHeight())
                     }
-                  },
-                  (post: Post, idx: number) => (post.id ?? idx).toString()
-                )
-              }
-              .columnsTemplate(this.gridTemplate)
-              .columnsGap(SpaceTokens.xs)
-              .rowsGap(SpaceTokens.xs)
-              .padding({
-                left: SpaceTokens.sm,
-                right: SpaceTokens.sm,
-                top: 5,
-                bottom: SpaceTokens.md,
-              })
-              .onScrollIndex((_start: number, end: number) => {
-                if (end - this.feedTopSpacerIndices().length >= this.posts.length - 1) {
-                  this.loadMore();
+                  }, (_value: number, index: number) => 'circle_bar_spacer_' + index)
+                  LazyForEach(
+                    this.postSource,
+                    (post: Post, idx: number) => {
+                      FlowItem() {
+                        Reveal({ index: idx % 5 }) {
+                          PostCard({
+                            post: post,
+                            compact: true,
+                            onOpen: () => {
+                              if (post.id !== undefined) {
+                                const id = post.id.toString();
+                                openPostDetail(id);
+                                this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
+                              }
+                            },
+                          })
+                        }
+                      }
+                    },
+                    (post: Post, idx: number) => (post.id ?? idx).toString()
+                  )
                 }
+                .columnsTemplate(this.gridTemplate)
+                .columnsGap(SpaceTokens.xs)
+                .rowsGap(SpaceTokens.xs)
+                .padding({
+                  left: SpaceTokens.sm,
+                  right: SpaceTokens.sm,
+                  top: 5,
+                  bottom: SpaceTokens.md,
+                })
+                .onScrollIndex((_start: number, end: number) => {
+                  if (end - this.feedTopSpacerIndices().length >= this.posts.length - 1) {
+                    this.loadMore();
+                  }
+                })
+              }
+              .onRefreshing(() => {
+                this.isRefreshing = true;
+                this.refresh().finally(() => {
+                  this.isRefreshing = false;
+                });
               })
+              .width('100%')
+              .height('100%')
             }
-            .onRefreshing(() => {
-              this.isRefreshing = true;
-              this.refresh().finally(() => {
-                this.isRefreshing = false;
-              });
-            })
             .width('100%')
             .height('100%')
+            .clip(true)
           }
-          .width('100%')
-          .height('100%')
-          .clip(true)
           }
         }
-        }
-        .layoutWeight(1)
         .width('100%')
+        .height('100%')
+        .clip(true)
+        .layoutWeight(1)
       }
-    }
-    .width('100%')
-    .height('100%')
-    .alignItems(HorizontalAlign.Start)
-    .backgroundColor(ColorTokens.canvas)
+      .width('100%')
+      .height('100%')
+      .alignItems(HorizontalAlign.Start)
+      .backgroundColor(ColorTokens.canvas)
   }
 }

@@ -9,7 +9,6 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
-import { ImmersiveSurface } from '../design/components/ImmersiveSurface';
 
 // 首页内的搜索探索页：玻璃工具栏 + 最近搜索 + 双列热搜。
 @Component
@@ -126,16 +125,7 @@ export struct SearchPanel {
       Row({ space: SpaceTokens.inline }) {
         BackButton({ action: (): void => { this.onCancel(); } })
 
-        ImmersiveSurface({
-          radius: RadiusTokens.floatingBar,
-          explicitWidth: this.inputW,
-          explicitHeight: this.inputH,
-          maskColors: ['#2EFFFFFF', '#2E9CC8FF'],
-          edgeColor: '#D6FFFFFF',
-          edgeColor2: '#9FC8F0FF',
-          content: (): void => { this.searchInput() },
-        })
-        .layoutWeight(1)
+        this.searchInput()
 
         Row() {
           Image($r('app.media.empty_search'))
