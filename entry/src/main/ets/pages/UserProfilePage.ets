@@ -566,11 +566,48 @@ export struct UserProfilePage {
       .width('100%').padding({ left: 16, right: 16, top: 12, bottom: 8 });
 
       if (!this.ready) {
-        Column() {
-          LoadingProgress().width(28).height(28);
-          Text('加载中…').fontSize(13).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary')).margin({ top: 10 });
+        if (getToken() === '' || getUserId() <= 0) {
+          // 未登录：展示手动登录入口（不自动跳转，避免登录页返回死循环）；
+          // 登录成功后 onTokenReady 监听到 token 变化会自动触发 loadAll。
+          Column({ space: SpaceTokens.sm }) {
+            Text('登录后可查看用户主页、关注与私信')
+              .fontSize(TypeTokens.body.size)
+              .fontFamily(TypeTokens.fontFamily)
+              .fontColor($r('app.color.text_secondary'))
+              .textAlign(TextAlign.Center)
+              .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+            Pressable({
+              fillWidth: false,
+              visualHeight: LayoutTokens.segmentedHeight,
+              touchTargetHeight: LayoutTokens.minTouchTarget,
+              action: (): void => {
+                this.getUIContext().getRouter().pushUrl({ url: 'pages/LoginPage' });
+              },
+            }) {
+              Text('去登录')
+                .width(120)
+                .height(LayoutTokens.segmentedHeight)
+                .textAlign(TextAlign.Center)
+                .fontSize(TypeTokens.callout.size)
+                .fontFamily(TypeTokens.fontFamily)
+                .fontWeight(TypeTokens.headline.weight)
+                .fontColor(ColorTokens.primary)
+                .backgroundBlurStyle(GlassBlurStyle.Press)
+                .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
+                .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+                .borderRadius(RadiusTokens.floatingBar);
+            }
+          }
+          .layoutWeight(1)
+          .width('100%')
+          .justifyContent(FlexAlign.Center);
+        } else {
+          Column() {
+            LoadingProgress().width(28).height(28);
+            Text('加载中…').fontSize(13).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary')).margin({ top: 10 });
+          }
+          .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
         }
-        .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
       } else {
         // 背景图作为资料区底图；头像、资料、统计和操作在同一张资料卡上叠加显示。
         if (this.profile.profileBackground && !this.profile.deleted) {
