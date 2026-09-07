@@ -79,7 +79,11 @@ export async function downloadToSandbox(context: common.UIAbilityContext, url: s
   }
 }
 
-// 帖子系统分享：文本（标题+链接）+ 封面图（封面下载失败时降级为纯文本）
+// 帖子系统分享：文本（标题+链接）。
+// 设计：分享内容为纯链接文本——微信/其他平台收到链接会自动抓取
+// youju.chat/post/{id} 落地页的 OG 标签并渲染成「标题+摘要+封面」的
+// 富卡片（抖音/小红书式）；不再附带图片记录（避免微信以纯图片/引用
+// 形式呈现而丢弃卡片抓取）。
 export async function sharePostToSystem(uiContext: UIContext, postId: number, title: string, coverUrl: string): Promise<void> {
   const context: common.UIAbilityContext = uiContext.getHostContext() as common.UIAbilityContext;
   const textRecord: systemShare.SharedRecord = {
@@ -89,15 +93,6 @@ export async function sharePostToSystem(uiContext: UIContext, postId: number, ti
     description: '来自有据',
   };
   const data: systemShare.SharedData = new systemShare.SharedData(textRecord);
-  if (coverUrl.length > 0) {
-    try {
-      const uri: string = await downloadToSandbox(context, coverUrl);
-      const imageRecord: systemShare.SharedRecord = { utd: 'general.image', uri: uri };
-      data.addRecord(imageRecord);
-    } catch (e) {
-      // 封面下载失败：降级为纯文本分享（不阻断分享面板）
-    }
-  }
   const controller: systemShare.ShareController = new systemShare.ShareController(data);
   await controller.show(context, {
     selectionMode: systemShare.SelectionMode.SINGLE,
