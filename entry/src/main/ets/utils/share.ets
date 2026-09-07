@@ -79,16 +79,15 @@ export async function downloadToSandbox(context: common.UIAbilityContext, url: s
   }
 }
 
-// 帖子系统分享：文本（标题+链接）。
-// 设计：分享内容为纯链接文本——微信/其他平台收到链接会自动抓取
-// youju.chat/post/{id} 落地页的 OG 标签并渲染成「标题+摘要+封面」的
-// 富卡片（抖音/小红书式）；不再附带图片记录（避免微信以纯图片/引用
-// 形式呈现而丢弃卡片抓取）。
+// 帖子系统分享：仅发送独占一行的链接（buildPostShareUrl）。
+// 微信判定「消息体 = 单个链接」才会自动抓取落地页 OG 并渲染成
+// 标题+摘要+封面的富卡片（抖音/小红书式）。若混入标题文字则退化为
+// 普通文本（只显示「标题 链接」）。标题展示交给微信抓取的 og:title。
 export async function sharePostToSystem(uiContext: UIContext, postId: number, title: string, coverUrl: string): Promise<void> {
   const context: common.UIAbilityContext = uiContext.getHostContext() as common.UIAbilityContext;
   const textRecord: systemShare.SharedRecord = {
     utd: 'general.text',
-    content: buildShareText(title, postId),
+    content: buildPostShareUrl(postId),
     title: title && title.length > 0 ? title : '有据帖子',
     description: '来自有据',
   };
@@ -100,12 +99,13 @@ export async function sharePostToSystem(uiContext: UIContext, postId: number, ti
   });
 }
 
-// 个人主页系统分享：文本（昵称+链接）
+// 个人主页系统分享：仅发送独占一行的链接（buildProfileShareUrl），
+// 微信抓取 user/{id} 落地页 OG 渲染个人主页卡片。
 export async function shareProfileToSystem(uiContext: UIContext, nickname: string, userId: number): Promise<void> {
   const context: common.UIAbilityContext = uiContext.getHostContext() as common.UIAbilityContext;
   const textRecord: systemShare.SharedRecord = {
     utd: 'general.text',
-    content: buildProfileShareText(nickname, userId),
+    content: buildProfileShareUrl(userId),
     title: '有据 · ' + (nickname && nickname.length > 0 ? nickname : '个人主页'),
     description: '来自有据',
   };
