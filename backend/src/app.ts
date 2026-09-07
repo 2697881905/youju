@@ -24,6 +24,7 @@ import privacyRouter from './routes/privacy';
 import exportRouter from './routes/export';
 import messageRouter from './routes/messages';
 import pushRouter from './routes/push';
+import shareRouter from './routes/share';
 import { sensitiveWordService } from './services/sensitiveWordService';
 import { errorHandler } from './middleware/errorHandler';
 import { globalLimiter, loginLimiter, uploadLimiter } from './middleware/rateLimit';
@@ -106,6 +107,9 @@ app.use('/v1', privacyRouter);
 app.use('/v1', exportRouter);
 // 华为推送 Token 注册（POST /v1/push/register）
 app.use('/v1', pushRouter);
+// 分享落地页 SSR（GET /v1/share/post/:id、/v1/share/user/:id）：
+// 主域名 youju.chat 的 /post/*、/user/* 由 nginx 反代到此，输出带 OG 标签的 HTML。
+app.use('/v1/share', shareRouter);
 
 // 全局错误处理（必须最后注册：捕获经 asyncHandler 转交的异步异常，避免连接挂起）
 app.use(errorHandler);
