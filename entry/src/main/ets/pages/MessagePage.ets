@@ -403,6 +403,12 @@ export struct MessagePage {
       // 用后端权威未读数校正（本地乐观可能与服务器有偏差）
       this.refreshUnread();
     }
+    // 置顶的「管理员举报通知」→ 直达举报账本；作者收到的「审核中」置顶通知
+    // 仍走下方 postId 跳原帖详情（普通用户不会收到举报警报，故不会误入账本）。
+    if (item.pinned === true && (item.content ?? '').includes('收到新举报')) {
+      this.getUIContext().getRouter().pushUrl({ url: 'pages/ReportAdminPage' });
+      return;
+    }
     // 点击单条跳转：新增关注 → 该用户（actor）主页；带 postId 的通知（赞/收藏/评论）→ 原帖详情
     if (item.type === 'follow' && item.actor !== undefined && item.actor !== null && item.actor.id) {
       openUserProfile(item.actor.id);

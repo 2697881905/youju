@@ -25,6 +25,33 @@ export interface CreateReportParams {
 // Prisma unique 约束冲突错误码（P2002）
 const PRISMA_UNIQUE_CONSTRAINT_CODE = 'P2002';
 
+// 举报理由 → 运营通知中的中文标签（与前端举报弹窗文案对齐）
+const REASON_LABEL: Record<string, string> = {
+  political: '涉政敏感',
+  pornographic: '色情低俗',
+  personal_attack: '人身攻击',
+  gender_war: '男女对立引战',
+  advertisement: '广告推广',
+  spam: '垃圾信息',
+  other: '其他',
+};
+
+function reasonLabel(reason: ReportReason): string {
+  return REASON_LABEL[reason] ?? reason;
+}
+
+// 运营收到的新举报通知文案（按目标类型定制；标题过长时截断，正文 <255 字符限制）
+function adminAlertContent(targetType: TargetType, targetTitle: string, count: number): string {
+  const safeTitle: string = targetTitle.length > 24 ? targetTitle.slice(0, 24) + '…' : targetTitle;
+  if (targetType === 'post') {
+    return `收到新举报：帖子《${safeTitle}》（当前第 ${count} 次举报）`;
+  }
+  if (targetType === 'comment') {
+    return `收到新举报：某评论（当前第 ${count} 次举报）`;
+  }
+  return '收到新举报：某个用户（违规越界骚扰）';
+}
+
 /**
  * 创建举报（幂等：同一用户同一内容仅一次）。
  * 抛出错误：
@@ -149,15 +176,20 @@ export async function createReport(
     autoTakenDown: transactionResult.autoTakenDown,
   }).catch(() => {});
 
-  // 4b. 举报受理回执：通知举报人（置顶，消息中心恒在最前）。
-  await notifySystem(
-    params.reporterId,
-    '你的举报已受理，我们会尽快核实处理',
-    params.targetType === 'post' ? params.targetId : null,
-    true
-  ).catch(() => {});
+  // 4b. 举报通知推送管理员（运营处置入口，置顶显示）：普通举报人/作者不收到「受理回执」。
+  // 每位管理员各一条；通知带 postId 便于前端直达账本/原文，但置顶通知前端统一跳举报账本。
+  const alertCount: number =
+    params.targetType === 'user' ? 1 : (transactionResult.reportCount > 0 ? transactionResult.reportCount : 1);
+  for (const adminId of env.adminUserIds) {
+    await notifySystem(
+      adminId,
+      adminAlertContent(params.targetType, targetTitle, alertCount),
+      params.targetType === 'post' ? params.targetId : null,
+      true
+    ).catch(() => {});
+  }
 
-  // 4c. 举报达到阈值自动下架 → 通知内容作者（置顶）。
+  // 4c. 举报达到阈值自动下架 → 通知内容作者（置顶，告知审核状态）。
   if (transactionResult.autoTakenDown) {
     if (params.targetType === 'post') {
       await notifySystem(
