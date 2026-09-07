@@ -384,6 +384,7 @@ export struct MessagePage {
             postId: cur.postId,
             content: cur.content,
             read: true,
+            pinned: cur.pinned ?? false,
             createdAt: cur.createdAt,
           };
           break;
@@ -429,6 +430,7 @@ export struct MessagePage {
           postId: cur.postId,
           content: cur.content,
           read: true,
+          pinned: cur.pinned ?? false,
           createdAt: cur.createdAt,
         };
       }
@@ -603,7 +605,7 @@ export struct MessagePage {
   @Builder
   notificationRow(item: NotificationItem) {
     MessageRow({
-      title: item.content ?? '',
+      title: this.notificationTitle(item),
       subtitle: this.formatTime(item.createdAt),
       avatar: item.actor?.avatar ?? '',
       name: item.actor?.nickname ?? '',
@@ -620,6 +622,15 @@ export struct MessagePage {
         this.onActorAvatarClick(item);
       },
     })
+  }
+
+  // 置顶系统通知（举报受理/审核）在主标题前加「置顶」标识，与普通消息区分
+  private notificationTitle(item: NotificationItem): string {
+    const base: string = item.content ?? '';
+    if (item.pinned === true) {
+      return '置顶 · ' + base;
+    }
+    return base;
   }
 
   build() {

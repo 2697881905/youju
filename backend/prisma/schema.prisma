@@ -184,10 +184,12 @@ model Notification {
   postId    Int?     // 关联帖子（系统消息为 null）
   content   String   @db.VarChar(255)  // 服务端预渲染展示文案
   read      Boolean  @default(false)
+  pinned    Boolean  @default(false)   // 置顶（举报受理/审核通知等系统重要消息，列表恒在最前）
   createdAt DateTime @default(now())
 
   @@index([userId, read])       // 查未读：where { userId, read: false }
   @@index([userId, createdAt])  // 列表按时间倒序
+  @@index([userId, pinned])     // 置顶过滤/排序
 }
 
 // 华为推送 Token 表（同一用户可多设备，各存一条；注销/换设备由客户端重新注册覆盖）

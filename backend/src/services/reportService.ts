@@ -149,19 +149,29 @@ export async function createReport(
     autoTakenDown: transactionResult.autoTakenDown,
   }).catch(() => {});
 
-  // 4b. 举报达到阈值自动下架 → 通知内容作者。
+  // 4b. 举报受理回执：通知举报人（置顶，消息中心恒在最前）。
+  await notifySystem(
+    params.reporterId,
+    '你的举报已受理，我们会尽快核实处理',
+    params.targetType === 'post' ? params.targetId : null,
+    true
+  ).catch(() => {});
+
+  // 4c. 举报达到阈值自动下架 → 通知内容作者（置顶）。
   if (transactionResult.autoTakenDown) {
     if (params.targetType === 'post') {
       await notifySystem(
         targetUserId,
         `你的帖子《${targetTitle}》因被举报正在审核中`,
-        params.targetId
+        params.targetId,
+        true
       ).catch(() => {});
     } else {
       await notifySystem(
         targetUserId,
         '你的评论因被举报正在审核中',
-        null
+        null,
+        true
       ).catch(() => {});
     }
   }
