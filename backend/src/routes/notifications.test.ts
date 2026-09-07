@@ -136,7 +136,7 @@ describe('GET/POST /v1/notifications', () => {
             { postId: { in: [10] } },
           ],
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }],
       }),
     );
     expect(mockPrisma.user.findMany).toHaveBeenCalledWith(

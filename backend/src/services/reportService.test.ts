@@ -77,11 +77,17 @@ describe('createReport - 帖子举报', () => {
     expect(result.autoTakenDown).toBe(false);
     expect(mockPrisma.report.create).toHaveBeenCalledTimes(1);
     expect(mockPrisma.post.update).toHaveBeenCalledTimes(1);
-    // 仅 increment reportCount，不应再 update status=0
+    // 不应触发自动下架相关通知
     const updateCall = mockPrisma.post.update.mock.calls[0][0];
     expect(updateCall.data.reportCount).toEqual({ increment: 1 });
-    // 不应触发 notifySystem（notification.create 未被调用）
-    expect(mockPrisma.notification.create).not.toHaveBeenCalled();
+    // 举报受理回执：通知举报人（置顶系统消息）
+    expect(mockPrisma.notification.create).toHaveBeenCalledTimes(1);
+    const ackArg = mockPrisma.notification.create.mock.calls[0][0];
+    expect(ackArg.data.userId).toBe(1);
+    expect(ackArg.data.actorId).toBeNull();
+    expect(ackArg.data.type).toBe('system');
+    expect(ackArg.data.pinned).toBe(true);
+    expect(ackArg.data.content).toContain('已受理');
     // 但每次新举报都应推送运营通知（不阻塞，fire-and-forget）
     expect(mockNotifyNewReport).toHaveBeenCalledTimes(1);
     expect(mockNotifyNewReport).toHaveBeenCalledWith(
@@ -110,11 +116,16 @@ describe('createReport - 帖子举报', () => {
     expect(mockPrisma.post.update).toHaveBeenCalledTimes(2);
     const secondCall = mockPrisma.post.update.mock.calls[1][0];
     expect(secondCall.data.status).toBe(0);
-    // notifySystem 通知作者
-    expect(mockPrisma.notification.create).toHaveBeenCalledTimes(1);
-    const notifArg = mockPrisma.notification.create.mock.calls[0][0];
+    // 两次通知：举报受理（举报人 userId=2）→ 自动下架审核（作者 userId=10），均置顶
+    expect(mockPrisma.notification.create).toHaveBeenCalledTimes(2);
+    const ackArg = mockPrisma.notification.create.mock.calls[0][0];
+    expect(ackArg.data.userId).toBe(2);
+    expect(ackArg.data.pinned).toBe(true);
+    expect(ackArg.data.content).toContain('已受理');
+    const notifArg = mockPrisma.notification.create.mock.calls[1][0];
     expect(notifArg.data.userId).toBe(10);
     expect(notifArg.data.type).toBe('system');
+    expect(notifArg.data.pinned).toBe(true);
     expect(notifArg.data.content).toContain('正在审核中');
     // 运营通知携带下架信息
     expect(mockNotifyNewReport).toHaveBeenCalledTimes(1);
@@ -225,8 +236,12 @@ describe('createReport - 用户举报', () => {
     // 无计数逻辑：不触碰 post/comment.update
     expect(mockPrisma.post.update).not.toHaveBeenCalled();
     expect(mockPrisma.comment.update).not.toHaveBeenCalled();
-    // 不通知内容作者（notification.create 未被调用）
-    expect(mockPrisma.notification.create).not.toHaveBeenCalled();
+    // 举报受理回执：通知举报人（置顶系统消息），不通知内容作者
+    expect(mockPrisma.notification.create).toHaveBeenCalledTimes(1);
+    const ackArg = mockPrisma.notification.create.mock.calls[0][0];
+    expect(ackArg.data.userId).toBe(1);
+    expect(ackArg.data.pinned).toBe(true);
+    expect(ackArg.data.content).toContain('已受理');
     // 运营通知照常推送
     expect(mockNotifyNewReport).toHaveBeenCalledTimes(1);
     expect(mockNotifyNewReport).toHaveBeenCalledWith(

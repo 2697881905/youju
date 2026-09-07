@@ -130,6 +130,7 @@ export interface NotificationItem {
   postId?: number | null;
   content?: string;
   read?: boolean;
+  pinned?: boolean; // 置顶（举报受理/审核等系统消息恒在列表最前）
   createdAt?: string;
 }
 

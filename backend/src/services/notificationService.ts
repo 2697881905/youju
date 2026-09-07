@@ -15,6 +15,7 @@ export interface CreateNotificationInput {
   type: NotificationType;
   postId?: number | null;
   content: string;
+  pinned?: boolean; // 置顶（举报受理/审核等系统重要消息，列表恒在最前）
 }
 
 // 列表项（含触发者脱敏信息，便于前端直接渲染）
@@ -26,6 +27,7 @@ export interface NotificationItem {
   postId: number | null;
   content: string;
   read: boolean;
+  pinned: boolean;
   createdAt: Date;
   actor?: { id: number; nickname: string; avatar: string | null } | null;
 }
@@ -49,6 +51,7 @@ export async function createNotification(input: CreateNotificationInput): Promis
       postId: input.postId ?? null,
       content: input.content,
       read: false,
+      pinned: input.pinned ?? false,
     },
   });
 
@@ -119,7 +122,8 @@ export async function listForUser(
   const [rows, total] = await Promise.all([
     prisma.notification.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      // 置顶通知恒在最前（举报受理/审核等系统重要消息）；其余按时间倒序
+      orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }],
       skip,
       take: limit,
     }),
@@ -155,6 +159,7 @@ export async function listForUser(
       postId: n.postId,
       content: n.content,
       read: n.read,
+      pinned: n.pinned,
       createdAt: n.createdAt,
       actor: n.actorId !== null && n.actorId !== undefined ? (actorMap.get(n.actorId) ?? null) : null,
     })),
@@ -270,10 +275,12 @@ export async function notifyOnFollow(receiverId: number, actorId: number): Promi
 
 // 系统通知（actorId=null, type='system'）
 // 用于：帖子被举报下架 → 通知作者；审核通过/拒绝 → 通知作者；举报处理完成 → 通知举报人。
+// pinned 为 true 时该通知在消息中心恒置顶（举报受理/审核等重要系统消息）。
 export async function notifySystem(
   userId: number,
   content: string,
-  postId?: number | null
+  postId?: number | null,
+  pinned?: boolean
 ): Promise<void> {
   await createNotification({
     userId,
@@ -281,5 +288,6 @@ export async function notifySystem(
     type: 'system',
     content,
     postId: postId ?? null,
+    pinned: pinned ?? false,
   });
 }
