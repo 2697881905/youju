@@ -7,6 +7,7 @@ import { common } from '@kit.AbilityKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { util } from '@kit.ArkTS';
 import { buildPostShareUrl, downloadToSandbox } from './share';
+import { BASE_URL } from '../services/api';
 import { splitLines, makeColor, drawText } from './textPoster';
 
 const CARD_WIDTH: number = 1080;
@@ -52,6 +53,18 @@ function coverRectFor(pixelMap: image.PixelMap): common2D.Rect {
     srcY = Math.round((srcH - srcHeight) / 2);
   }
   return { left: srcX, top: srcY, right: srcX + srcWidth, bottom: srcY + srcHeight };
+}
+
+// 下载分享落地页二维码像素图；失败返回 null（卡片降级为无二维码样式）
+async function loadQrPixelMap(context: common.UIAbilityContext, postId: number): Promise<image.PixelMap | null> {
+  try {
+    const uri: string = await downloadToSandbox(context, BASE_URL + '/v1/share/qr/post/' + String(postId));
+    const source: image.ImageSource = image.createImageSource(uri);
+    return source.createPixelMapSync();
+  } catch (e) {
+    console.warn('[shareCard] 二维码加载失败:', e);
+    return null;
+  }
 }
 
 async function createCardBytes(
@@ -131,6 +144,21 @@ async function createCardBytes(
     const linkFont: drawing.Font = new drawing.Font();
     linkFont.setSize(32);
     drawText(canvas, brush, linkFont, buildPostShareUrl(postId), 72, CARD_HEIGHT - 84, makeColor(255, GRAY[0], GRAY[1], GRAY[2]));
+
+    // 右下角二维码：扫一扫直达落地页（卡图 + 扫码 = 微信发图也能跳转）
+    const qr: image.PixelMap | null = await loadQrPixelMap(context, postId);
+    if (qr !== null) {
+      const qrInfo: image.ImageInfo = qr.getImageInfoSync();
+      const qrSize: number = 224;
+      const qrX: number = CARD_WIDTH - 72 - qrSize;
+      const qrY: number = CARD_HEIGHT - 328;
+      canvas.drawImageRectWithSrc(
+        qr,
+        { left: 0, top: 0, right: qrInfo.size.width, bottom: qrInfo.size.height },
+        { left: qrX, top: qrY, right: qrX + qrSize, bottom: qrY + qrSize },
+      );
+      await qr.release();
+    }
 
     const packer: image.ImagePacker = image.createImagePacker();
     try {

@@ -2,6 +2,7 @@
 // 微信/其他平台抓取链接时读取 og:title / og:description / og:image 渲染富卡片；
 // 页面主体是纯内联 CSS 的极简预览卡（无 JS 依赖），浏览器打开同样体面。
 import { Router, Request, Response } from 'express';
+import QRCode from 'qrcode';
 import { prisma } from '../prisma';
 import { env } from '../config/env';
 
@@ -162,6 +163,30 @@ router.get('/user/:id', async (req: Request, res: Response) => {
       author: nickname,
     })
   );
+});
+
+// GET /v1/share/qr/:type/:id — 分享卡图二维码（匿名，仅允许生成 youju.chat 域下的落地页链接）。
+// 前端分享卡片绘制时拉取此图嵌入，扫一扫 → youju.chat/post/{id} 或 /user/{id}。
+router.get('/qr/:type/:id', async (req: Request, res: Response) => {
+  const type = req.params.type;
+  const id = Number(req.params.id);
+  if (!['post', 'user'].includes(type) || !id || isNaN(id)) {
+    res.status(400).json({ code: 400, message: 'bad request' });
+    return;
+  }
+  try {
+    const png = await QRCode.toBuffer(`${SHARE_HOST}/${type}/${id}`, {
+      errorCorrectionLevel: 'M',
+      width: 320,
+      margin: 1,
+      color: { dark: '#111827FF', light: '#FFFFFFFF' },
+    });
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // 同一帖子二维码 1 天缓存
+    res.status(200).send(png);
+  } catch (e) {
+    res.status(500).json({ code: 500, message: 'generate failed' });
+  }
 });
 
 export default router;

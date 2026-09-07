@@ -329,7 +329,7 @@ export struct ShareSheet {
         if (EXTERNAL_SHARE_ENABLED) {
           this.divider()
           Row({ space: SpaceTokens.sm }) {
-            this.shareActionButton('微信 / 更多', 'shareWechat', this.onSystemShare)
+            // 分享卡片：生成带封面/二维码的卡图走系统分享，微信收图后可长按扫码直达
             this.shareActionButton('分享卡片', 'shareCard', this.onShareCard)
             this.shareActionButton('复制链接', 'shareLink', this.onCopyLink)
             this.shareActionButton('复制标题', 'book', this.onCopyTitle)
