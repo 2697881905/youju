@@ -1,6 +1,7 @@
 import { prisma } from '../prisma';
 import { notifyOnComment, notifyOnCommentReply, notifyCommentMentions } from './notificationService';
 import { bumpHotScore } from './hotScoreService';
+import { MentionRef, resolveMentionRefs } from './mentionService';
 import { sensitiveWordService } from './sensitiveWordService';
 import { SensitiveWordError } from '../utils/errors';
 import { ValidationError } from '../utils/errors';
@@ -84,7 +85,8 @@ export async function createComment(
   userId: number,
   content: string,
   parentId?: number | null,
-  isFact = 0
+  isFact = 0,
+  explicitMentions?: unknown
 ) {
   const text = content.trim();
   if (text.length === 0 || text.length > 2000) {
@@ -118,8 +120,21 @@ export async function createComment(
   if (parentRef !== null) {
     notifyOnCommentReply(postId, userId, parentRef).catch(() => {});
   }
-  // 评论内容 @提及：命中真实用户则通知（排除自己/帖子作者/被回复人等已通知对象）
-  notifyCommentMentions(postId, userId, text, commentNotifyExcludes(userId, parentRef)).catch(() => {});
+  // 评论内容 @提及：显式选择（编辑器 @ 面板，精确 userId）优先，重名用户不会被误@；
+  // 未提供显式列表时通知回退按昵称解析（兼容老客户端/手输场景）。
+  // 排除自己/帖子作者/被回复人等已通知对象。
+  let explicitMentionRefs: MentionRef[] | undefined;
+  if (Array.isArray(explicitMentions) && explicitMentions.length > 0) {
+    try {
+      const resolved = await resolveMentionRefs(text, explicitMentions);
+      if (resolved.length > 0) {
+        explicitMentionRefs = resolved;
+      }
+    } catch (e) {
+      // 提及解析失败不阻断评论主流程（通知缺失可接受）
+    }
+  }
+  notifyCommentMentions(postId, userId, text, commentNotifyExcludes(userId, parentRef), explicitMentionRefs).catch(() => {});
   // 评论数变化 → 热度信号增量更新
   bumpHotScore(postId).catch(() => {});
   return comment;

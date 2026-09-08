@@ -2,6 +2,9 @@ import { prisma } from '../prisma';
 import { DELETED_NICKNAME } from '../utils/userView';
 import { isNotificationAllowed } from './notificationPrefService';
 import { pushToUser } from './huaweiPush';
+// @提及 昵称提取统一走 mentionService（与发帖正文同一口径/正则）
+import { MentionRef, extractMentionNames } from './mentionService';
+export { extractMentionNames };
 
 // 通知类型（与前端 NotificationType 单一来源对齐）
 export type NotificationType = 'comment' | 'up' | 'bookmark' | 'follow' | 'mention' | 'system';
@@ -198,47 +201,56 @@ export async function markAllRead(userId: number): Promise<number> {
 
 // ===== 安全触发辅助（供评论/互动服务调用，绝不阻断主流程） =====
 
-// 评论/正文 @提及 正则（与 postService.MENTION_RE 同口径：2-20 字，不含空白与常见标点）
-const MENTION_NAME_RE = /@([^@\s，。！？、；：""''《》（）【】]{2,20})/g;
-
-// 提取正文中全部 @提及 昵称（去重、保留顺序）
-export function extractMentionNames(content: string): string[] {
-  const names: string[] = [];
-  const seen = new Set<string>();
-  MENTION_NAME_RE.lastIndex = 0;
-  let m: RegExpExecArray | null;
-  while ((m = MENTION_NAME_RE.exec(content)) !== null) {
-    const name = m[1];
-    if (!seen.has(name)) {
-      seen.add(name);
-      names.push(name);
-    }
-  }
-  return names;
-}
-
 // 评论中 @提及：命中真实用户则发 mention 通知
 // excludeIds：自己/帖子作者/被回复的评论作者等已收过通知的对象，避免重复打扰
+// mentionRefs：编辑器显式选择（精确到 userId，调用方已用 resolveMentionRefs 校验）——
+//   提供时仅通知选择到的用户（重名用户不会被误@）；缺失时回退按昵称解析（兼容老客户端/手输场景）
 export async function notifyCommentMentions(
   postId: number,
   actorId: number,
   content: string,
-  excludeIds: ReadonlySet<number>
+  excludeIds: ReadonlySet<number>,
+  mentionRefs?: MentionRef[]
 ): Promise<void> {
-  const names = extractMentionNames(content);
-  if (names.length === 0) return;
-  const users = await prisma.user.findMany({
-    where: { nickname: { in: names }, deletedAt: null },
-    select: { id: true },
-  });
-  if (users.length === 0) return;
   const actor = await prisma.user.findUnique({
     where: { id: actorId },
     select: { nickname: true },
   });
   const nickname = actor?.nickname ?? '有人';
+
+  // 显式路径：只通知点选到的精确用户（重名用户不会被误扰）
+  if (mentionRefs !== undefined && mentionRefs.length > 0) {
+    for (const ref of mentionRefs) {
+      if (excludeIds.has(ref.userId)) {
+        continue;
+      }
+      await createNotification({
+        userId: ref.userId,
+        actorId,
+        type: 'mention',
+        postId,
+        content: `${nickname} 在评论中提到了你`,
+      });
+    }
+    return;
+  }
+
+  // 回退路径：按昵称命中全部真实同名用户（保证手输场景不遗漏）
+  const names = extractMentionNames(content);
+  if (names.length === 0) {
+    return;
+  }
+  const users = await prisma.user.findMany({
+    where: { nickname: { in: names }, deletedAt: null },
+    select: { id: true },
+  });
+  if (users.length === 0) {
+    return;
+  }
   for (const u of users) {
-    if (excludeIds.has(u.id)) continue;
+    if (excludeIds.has(u.id)) {
+      continue;
+    }
     await createNotification({
       userId: u.id,
       actorId,

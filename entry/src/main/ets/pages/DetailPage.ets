@@ -20,7 +20,7 @@ import {
   getPostStats,
   PostStats,
 } from '../services/api';
-import { Genre, StructuredData, ReportReason, DebateVoteResult, DmSharePayload, Comment, BookmarkFolderItem } from '../models/types';
+import { Genre, StructuredData, ReportReason, DebateVoteResult, DmSharePayload, Comment, BookmarkFolderItem, MentionRef, MentionCandidate } from '../models/types';
 import { ReportDialog } from '../components/ReportDialog';
 import { FolderPickDialog } from '../components/FolderPickDialog';
 import { FolderNameDialog } from '../components/FolderNameDialog';
@@ -45,6 +45,8 @@ import { DetailPostHeader } from '../components/DetailPostHeader';
 import { DetailPostContent, DetailField } from '../components/DetailPostContent';
 import { DetailCommentsSection } from '../components/DetailCommentsSection';
 import { DetailActionBar } from '../components/DetailActionBar';
+import { AtMentionSuggest } from '../components/AtMentionSuggest';
+import { findActiveAtMention, applyAtMention, AtMentionMatch } from '../utils/atMention';
 import { barBottomReserve } from '../utils/cardTokens';
 import { FALLBACK_VIDEO_ASPECT_RATIO, normalizeVideoAspectRatio } from '../utils/video';
 
@@ -163,6 +165,8 @@ struct DetailPage {
   // 楼中楼回复目标：replyTargetId>0 时当前输入处于「回复 @xxx」态（清零即退出）
   @State replyTargetId: number = 0;
   @State replyTargetName: string = '';
+  // 评论输入内显式选择的 @提及（精确 userId，随发送透传，后端防重名误通知）
+  private commentMentionRefs: MentionRef[] = [];
   @State commentReportId: number = 0;
   @State viewingImage: string = ''; // 全屏看图
   @State shareCardPreview: image.PixelMap | null = null; // 分享卡图 App 内预览
@@ -853,6 +857,54 @@ struct DetailPage {
     }
   }
 
+  // —— 评论输入 @提及 编辑辅助 ——
+  // 输入态且文尾正在输入「@昵称」时显示候选；无稳定光标 API，取全文词尾判定（与发帖页同策略）
+  private commentMentionMatch(): AtMentionMatch | null {
+    if (!this.commenting) {
+      return null;
+    }
+    return findActiveAtMention(this.commentText);
+  }
+
+  private commentMentionKeyword(): string {
+    const m = this.commentMentionMatch();
+    return m !== null ? m.keyword : '';
+  }
+
+  // 点选候选：回填「@昵称 」并记录精确 userId（随发送透传，后端按此发通知）
+  private pickCommentMention(c: MentionCandidate): void {
+    const m = this.commentMentionMatch();
+    if (m === null) {
+      return;
+    }
+    const nickname: string = c.nickname.trim();
+    if (nickname.length === 0) {
+      return;
+    }
+    const nextText: string = applyAtMention(this.commentText, m.atIndex, nickname);
+    if (nextText.length > 2000) {
+      safeShowToast(this.getUIContext(), { message: '评论最多 2000 字' });
+      return;
+    }
+    this.commentText = nextText;
+    let exists: boolean = false;
+    for (const r of this.commentMentionRefs) {
+      if (r.userId === c.id) {
+        exists = true;
+        break;
+      }
+    }
+    if (!exists) {
+      const next: MentionRef[] = this.commentMentionRefs.slice();
+      next.push({ name: nickname, userId: c.id });
+      this.commentMentionRefs = next;
+    }
+  }
+
+  private clearCommentMentions(): void {
+    this.commentMentionRefs = [];
+  }
+
   async onSendComment(): Promise<void> {
     const text = this.commentText.trim();
     if (!text || !this.post || this.post.id === undefined) {
@@ -861,11 +913,14 @@ struct DetailPage {
     try {
       // 楼中楼：处于回复态（replyTargetId>0）时携带 parentId，回复后清除回复目标回到普通评论态
       const parentId: number | undefined = this.replyTargetId > 0 ? this.replyTargetId : undefined;
-      await createComment(this.post.id, { content: text, parentId: parentId });
+      const mentionRefs: MentionRef[] | undefined =
+        this.commentMentionRefs.length > 0 ? this.commentMentionRefs : undefined;
+      await createComment(this.post.id, { content: text, parentId: parentId, mentions: mentionRefs });
       this.commentText = '';
       this.commenting = false;
       this.replyTargetId = 0;
       this.replyTargetName = '';
+      this.clearCommentMentions();
       await this.load();
     } catch (e) {
       // 透传后端错误 message（如"内容含敏感词，请修改后重试"）
@@ -885,6 +940,7 @@ struct DetailPage {
   private onCancelReply(): void {
     this.replyTargetId = 0;
     this.replyTargetName = '';
+    this.clearCommentMentions();
   }
 
   build() {
@@ -1061,27 +1117,42 @@ struct DetailPage {
           .width('100%')
           .height('100%')
 
-          DetailActionBar({
-            commenting: $commenting,
-            commentText: $commentText,
-            upCount: this.interaction.upCount,
-            bookmarkCount: this.interaction.bookmarkCount,
-            commentCount: this.post.commentCount ?? 0,
-            uped: this.interaction.uped,
-            bookmarked: this.interaction.bookmarked,
-            upPending: this.upPending,
-            bookmarkPending: this.bookmarkPending,
-            upFeedbackVersion: this.upFeedbackVersion,
-            bookmarkFeedbackVersion: this.bookmarkFeedbackVersion,
-            showShare: EXTERNAL_SHARE_ENABLED || DM_SHARE_ENABLED,
-            onUp: (): void => { this.onUp(); },
-            onBookmark: (): void => { this.onBookmark(); },
-            onSendComment: (): void => { this.onSendComment(); },
-            onShare: (): void => { this.onShare(); },
-            replyName: this.replyTargetName,
-            onCancelReply: (): void => { this.onCancelReply(); },
-          })
-            .zIndex(1)
+          // @提及候选 + 底部互动栏：评论输入态下输入「@昵称」时在栏上方弹候选，点选回填精确 userId
+          Column() {
+            if (this.commentMentionMatch() !== null) {
+              Column() {
+                AtMentionSuggest({
+                  keyword: this.commentMentionKeyword(),
+                  onPick: (c: MentionCandidate): void => { this.pickCommentMention(c); },
+                })
+                  .width('100%')
+              }
+              .width('100%')
+              .padding({ left: 12, right: 12, bottom: 8 })
+            }
+            DetailActionBar({
+              commenting: $commenting,
+              commentText: $commentText,
+              upCount: this.interaction.upCount,
+              bookmarkCount: this.interaction.bookmarkCount,
+              commentCount: this.post.commentCount ?? 0,
+              uped: this.interaction.uped,
+              bookmarked: this.interaction.bookmarked,
+              upPending: this.upPending,
+              bookmarkPending: this.bookmarkPending,
+              upFeedbackVersion: this.upFeedbackVersion,
+              bookmarkFeedbackVersion: this.bookmarkFeedbackVersion,
+              showShare: EXTERNAL_SHARE_ENABLED || DM_SHARE_ENABLED,
+              onUp: (): void => { this.onUp(); },
+              onBookmark: (): void => { this.onBookmark(); },
+              onSendComment: (): void => { this.onSendComment(); },
+              onShare: (): void => { this.onShare(); },
+              replyName: this.replyTargetName,
+              onCancelReply: (): void => { this.onCancelReply(); },
+            })
+          }
+          .width('100%')
+          .zIndex(1)
         }
         .layoutWeight(1)
         .width('100%')

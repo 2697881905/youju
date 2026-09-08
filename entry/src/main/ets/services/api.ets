@@ -164,6 +164,8 @@ export interface CreateCommentBody {
   content: string;
   parentId?: number;
   isFact?: boolean;
+  // 评论编辑器显式选择的 @提及（精确到 userId，防重名误通知）；后端校验后决定 mention 通知接收人
+  mentions?: MentionRef[];
 }
 
 export interface LoginBody {
