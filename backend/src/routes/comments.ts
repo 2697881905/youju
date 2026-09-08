@@ -39,7 +39,7 @@ router.get('/posts/:id/comments', asyncHandler(async (req: AuthRequest, res: Res
 // 发布评论：POST /v1/posts/:id/comments
 router.post('/posts/:id/comments', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const postId = Number(req.params.id);
-  const { content, parentId, isFact } = req.body ?? {};
+  const { content, parentId, isFact, mentions } = req.body ?? {};
   if (typeof content !== 'string' || content.trim().length === 0) {
     return fail(res, CODE.BAD_REQUEST, '评论内容必填');
   }
@@ -50,6 +50,19 @@ router.post('/posts/:id/comments', auth, asyncHandler(async (req: AuthRequest, r
   if (isFact !== undefined && typeof isFact !== 'boolean') {
     return fail(res, CODE.BAD_REQUEST, 'isFact 必须为布尔值');
   }
+  // 编辑器显式 @提及（精确 userId，防重名误通知）：可选，格式 [{name, userId}]
+  if (mentions !== undefined && mentions !== null) {
+    if (!Array.isArray(mentions) || mentions.length > 20) {
+      return fail(res, CODE.BAD_REQUEST, 'mentions 格式无效');
+    }
+    for (const item of mentions as Array<Record<string, unknown>>) {
+      if (typeof item !== 'object' || item === null ||
+        typeof item.name !== 'string' || item.name.length < 2 || item.name.length > 20 ||
+        typeof item.userId !== 'number' || !Number.isInteger(item.userId) || item.userId <= 0) {
+        return fail(res, CODE.BAD_REQUEST, 'mentions 格式无效');
+      }
+    }
+  }
   if (!(await getAccessiblePublishedPost(postId, req.userId!))) {
     return fail(res, CODE.NOT_FOUND, '帖子不存在', 404);
   }
@@ -59,7 +72,8 @@ router.post('/posts/:id/comments', auth, asyncHandler(async (req: AuthRequest, r
       req.userId!,
       content,
       parentId,
-      isFact ? 1 : 0
+      isFact ? 1 : 0,
+      mentions
     );
     return ok(res, comment);
   } catch (e: any) {

@@ -7,6 +7,7 @@ import { getExcludedAuthorIds, canViewerSeeAuthorPosts, getDislikedAuthorIds } f
 import { searchPosts } from './searchService';
 import { createNotification } from './notificationService';
 import { buildCommentTree } from './commentService';
+import { MentionRef, resolveMentionRefs } from './mentionService';
 import { env } from '../config/env';
 import { enqueueMediaDeletion } from './mediaDeletionService';
 
@@ -404,8 +405,6 @@ export async function getPost(id: number, viewerId?: number) {
   };
 }
 
-// 提取正文中的 @昵称（2-20 字，不含空白与常见标点）
-const MENTION_RE = /@([^@\s，。！？、；：""''《》（）【】]{2,20})/g;
 // 提取 #话题#（2-15 字）
 const TOPIC_RE = /#([^#\s，。！？、；：""''《》（）【】]{2,15})#/g;
 
@@ -449,111 +448,6 @@ async function mergeTopicTags(baseTags: string[], content: string): Promise<stri
   return merged;
 }
 
-// @提及解析：正文 @昵称 命中真实用户（状态正常、未注销），返回 [{name, userId}] 供入库与通知复用
-async function resolveMentions(content: string): Promise<Array<{ name: string; userId: number }>> {
-  if (!content) {
-    return [];
-  }
-  const names = uniqueMatches(content, MENTION_RE);
-  if (names.length === 0) {
-    return [];
-  }
-  const users = await prisma.user.findMany({
-    where: { nickname: { in: names }, status: 1, deletedAt: null },
-    select: { id: true, nickname: true },
-  });
-  const byName = new Map<string, number>();
-  for (const u of users) {
-    if (!byName.has(u.nickname) && u.id !== undefined) {
-      byName.set(u.nickname, u.id);
-    }
-  }
-  const result: Array<{ name: string; userId: number }> = [];
-  for (const name of names) {
-    const uid = byName.get(name);
-    if (uid !== undefined) {
-      result.push({ name, userId: uid });
-    }
-  }
-  return result;
-}
-
-type MentionRef = { name: string; userId: number };
-
-/**
- * 生成入库的 @提及映射：
- * - 编辑器显式选择（data.mentions，精确到 userId）时优先采用，规避重名昵称的歧义；
- *   服务端逐一校验：目标用户真实存在（status=1 未注销）、昵称与正文 @name 一致（防冒充）、
- *   正文确实出现对应 '@昵称'（防止编辑器残留的过期选择污染入库）。
- * - 显式列表缺失或全部无效时，回退为按昵称解析（兼容手工输入 @昵称 的老场景）。
- */
-async function buildMentionRefs(content: string | undefined | null, explicit: unknown): Promise<MentionRef[]> {
-  if (!content || content.trim().length === 0) {
-    return [];
-  }
-  if (!Array.isArray(explicit) || explicit.length === 0) {
-    return resolveMentions(content);
-  }
-  const picked: MentionRef[] = [];
-  const seenUserId = new Set<number>();
-  for (const item of explicit) {
-    if (typeof item !== 'object' || item === null) {
-      continue;
-    }
-    const rec = item as Record<string, unknown>;
-    const name = rec.name;
-    const userId = rec.userId;
-    if (typeof name !== 'string' || name.length < 2 || name.length > 20) {
-      continue;
-    }
-    if (typeof userId !== 'number' || !Number.isFinite(userId) || userId <= 0) {
-      continue;
-    }
-    if (seenUserId.has(userId)) {
-      continue;
-    }
-    if (content.indexOf('@' + name) < 0) {
-      continue; // 正文中已不再包含该 @，丢弃过期选择
-    }
-    seenUserId.add(userId);
-    picked.push({ name, userId });
-  }
-  if (picked.length === 0) {
-    return resolveMentions(content);
-  }
-  const rows = await prisma.user.findMany({
-    where: { id: { in: Array.from(seenUserId) }, status: 1, deletedAt: null },
-    select: { id: true, nickname: true },
-  });
-  const nickById = new Map<number, string>();
-  for (const u of rows) {
-    nickById.set(u.id, u.nickname);
-  }
-  const verified: MentionRef[] = [];
-  for (const p of picked) {
-    if (nickById.get(p.userId) === p.name) {
-      verified.push(p);
-    }
-  }
-  if (verified.length === 0) {
-    return resolveMentions(content);
-  }
-  // 显式选择未覆盖的手工输入 @昵称（未走选择器直接键入的）按昵称解析补全，避免入库映射丢失
-  const resolved = await resolveMentions(content);
-  const merged: MentionRef[] = verified.slice();
-  const haveIds = new Set<number>();
-  for (const v of verified) {
-    haveIds.add(v.userId);
-  }
-  for (const r of resolved) {
-    if (!haveIds.has(r.userId)) {
-      haveIds.add(r.userId);
-      merged.push(r);
-    }
-  }
-  return merged;
-}
-
 // @提及通知：按入库映射推送（排除发布者自己），通知内容与展示映射严格一致
 async function notifyMentions(
   mentionList: MentionRef[],
@@ -586,7 +480,7 @@ export async function createPost(data: any, userId: number) {
     throw new SensitiveWordError();
   }
   const mergedTags = await mergeTopicTags(data.tags ?? [], data.content ?? '');
-  const mentionRefs = await buildMentionRefs(data.content ?? '', data.mentions);
+  const mentionRefs = await resolveMentionRefs(data.content ?? '', data.mentions);
   return prisma.post.create({
     data: {
       userId,
@@ -600,7 +494,7 @@ export async function createPost(data: any, userId: number) {
       genre: data.genre,
       tags: mergedTags.slice(0, 3),
       structuredData: data.structuredData ?? {},
-      mentions: mentionRefs.length > 0 ? mentionRefs : Prisma.DbNull,
+      mentions: mentionRefs.length > 0 ? (mentionRefs as unknown as Prisma.InputJsonValue) : Prisma.DbNull,
       status: 1,
     },
   }).then(async (post) => {
@@ -751,7 +645,7 @@ export async function updatePost(id: number, userId: number, input: UpdatePostIn
   // 优先采用编辑器显式选择（精确到 userId，规避重名），缺失时按昵称回退解析
   let mentionRefs: MentionRef[] = [];
   if (input.content !== undefined) {
-    mentionRefs = await buildMentionRefs(input.content ?? '', input.mentions);
+    mentionRefs = await resolveMentionRefs(input.content ?? '', input.mentions);
     data.mentions = mentionRefs.length > 0 ? mentionRefs : null;
   }
   if (input.structuredData !== undefined) data.structuredData = input.structuredData;
