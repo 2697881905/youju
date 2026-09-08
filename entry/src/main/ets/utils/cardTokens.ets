@@ -15,10 +15,8 @@ export const SECTION_GAP: number = SpaceTokens.block;
 export const CONTROL_RADIUS: number = RadiusTokens.sm;
 export const CONTROL_HEIGHT: number = LayoutTokens.segmentedHeight;
 
-// 悬浮底栏（Index 底部 HdsTabs 药丸）占用的屏幕底部高度。
-// 几何 = barBottomMargin 28 + 药丸高 ~64 + 呼吸 ~28，已并入 LayoutTokens.floatingBarReserve(120)；
-// 另加系统导航条高度 nav（手势/三键导航区域），该值由 Index.setupFullScreen 写入 AppStorage。
-// 各滚动列表（含 WaterFlow footer / List 尾部占位）用此值，保证最后一张卡片能完整滑到药丸上方。
+// 悬浮底栏占用的屏幕底部高度（BAR_HEIGHT 62 + BAR_BOTTOM_GAP 18 + 系统导航条高度）
+// 各滚动列表底部内边距用此值，末尾内容可滚动到底栏上方而不被遮挡
 export function barBottomReserve(): number {
   const nav: number = AppStorage.get<number>('navBarHeight') ?? 0;
   return LayoutTokens.floatingBarReserve + nav;
