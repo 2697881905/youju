@@ -1,5 +1,6 @@
 // 收藏夹命名弹窗：新建/重命名共用一个输入弹窗，回调返回输入名
 import { SpringPanel } from '../design/motion/SpringPanel';
+import { GlowInput } from '../design/components/GlowInput';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
@@ -55,15 +56,13 @@ export struct FolderNameDialog {
         .width('100%')
         .alignItems(VerticalAlign.Center)
 
-        TextInput({ placeholder: this.placeholder, text: this.text })
-          .fontFamily(TypeTokens.fontFamily)
-          .fontSize(TypeTokens.body.size)
-          .maxLength(20)
-          .height(44)
-          .backgroundColor(ColorTokens.sunken)
-          .borderRadius(RadiusTokens.md)
-          .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
-          .onChange((value: string): void => { this.text = value; })
+        GlowInput({
+          placeholder: this.placeholder,
+          text: $text,
+          fillWidth: false,
+          inputHeight: 44,
+          maxLength: 20,
+        })
 
         Text('确定')
           .width('100%')

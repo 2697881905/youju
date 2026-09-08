@@ -1,6 +1,7 @@
 import { listSearchHistory, clearSearchHistory, listHotKeywords, listSearchSuggest } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 import { BackButton } from '../design/components/BackButton';
+import { GlowInput } from '../design/components/GlowInput';
 import { GlassPanel } from '../design/components/GlassPanel';
 import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
@@ -65,8 +66,12 @@ export struct SearchPanel {
     this.suggestTimer = setTimeout((): void => {
       this.suggestTimer = 0;
       listSearchSuggest(kw)
-        .then((list: string[]): void => { this.suggestions = list; })
-        .catch((): void => { this.suggestions = []; });
+        .then((list: string[]): void => {
+          this.suggestions = list;
+        })
+        .catch((e: Error): void => {
+          this.suggestions = [];
+        });
     }, 300) as number;
   }
 
@@ -106,24 +111,29 @@ export struct SearchPanel {
     return rows * LayoutTokens.minTouchTarget + (rows - 1) * SpaceTokens.sm;
   }
 
-  // 搜索框本体发光（亮色描边 + 冷色光晕），作为外层 Row 的 flex 子项自适应宽度，
-  // 不套 ImmersiveSurface 包装，避免强制定尺寸覆盖 flex 拉伸导致“过长/失真”。
+  // 聚焦流光输入框：键入（聚焦）点亮原生流光，失焦熄灭（历史/热词与联想词不同时出现）
   @Builder
   searchInput(): void {
-    TextInput({ placeholder: '搜索你关心的经验和问题', text: this.keyword })
-      .fontFamily(TypeTokens.fontFamily)
-      .fontColor(ColorTokens.primary)
-      .layoutWeight(1)
-      .height(LayoutTokens.minTouchTarget)
-      .backgroundBlurStyle(GlassBlurStyle.Floating)
-      .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
-      .border({ width: 1, color: '#C4E0FF', style: BorderStyle.Solid })
-      .borderRadius(RadiusTokens.floatingBar)
-      .shadow({ radius: 12, color: '#4D8AD8FF', offsetY: 0 })
-      .onChange((v: string): void => { this.keyword = v; this.debounceSuggest(v); })
-      .onSubmit((): void => { this.doSearch(); })
-      .onFocus((): void => { this.inputFocused = true; })
-      .onBlur((): void => { this.inputFocused = false; })
+    GlowInput({
+      placeholder: '搜索你关心的经验和问题',
+      text: $keyword,
+      fillWidth: true,
+      onChange: (v: string): void => { this.debounceSuggest(v); },
+      onEnter: (): void => { this.doSearch(); },
+      onFocusChanged: (focus: boolean): void => {
+        this.inputFocused = focus;
+        if (focus) {
+          // 再次聚焦时恢复联想：失焦清空了 suggestions，若有已输入关键词则重新拉取
+          const kw: string = this.keyword.trim();
+          if (kw.length > 0) {
+            this.debounceSuggest(kw);
+          }
+        } else {
+          // 失焦（返回键收起键盘等）恢复显示历史/热词，同时清空联想，避免两组卡片同时出现
+          this.clearSuggestions();
+        }
+      },
+    })
   }
 
   @Builder

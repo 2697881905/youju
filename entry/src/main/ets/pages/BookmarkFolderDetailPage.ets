@@ -11,6 +11,8 @@ import { FolderNameDialog } from '../components/FolderNameDialog';
 @Entry
 @Component
 export struct BookmarkFolderDetailPage {
+  // 独立 @Entry 页无主框架顶部安全区：读全局状态栏高度，标题栏避让不顶到屏幕外
+  @StorageLink('statusBarHeight') statusBarHeight: number = 0;
   @State folderId: number = 0;
   @State folderName: string = '';
   @State posts: Post[] = [];
@@ -227,7 +229,8 @@ export struct BookmarkFolderDetailPage {
           .fontSize(17).fontFamily($r('app.string.font_family')).fontWeight(600).layoutWeight(1).textAlign(TextAlign.Center).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis });
         Text('').width(44);
       }
-      .width('100%').padding({ top: 12, bottom: 8 });
+      .width('100%')
+      .padding({ top: this.statusBarHeight + 12, bottom: 8 });
 
       if (!this.ready) {
         Column() {
@@ -277,6 +280,8 @@ export struct BookmarkFolderDetailPage {
             .width('100%')
           }
           .width('100%')
+          // constraintSize minHeight 撑满视口：内容不足一屏时从顶部贴齐（规避 Scroll 内容垂直居中）
+          .constraintSize({ minHeight: '100%' })
           .padding({ left: 6, right: 6, top: 4, bottom: 8 })
         }
         .layoutWeight(1)

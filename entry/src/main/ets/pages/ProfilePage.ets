@@ -602,6 +602,8 @@ export struct ProfilePage {
         .width('100%')
       }
       .width('100%')
+      // constraintSize minHeight 撑满视口：内容不足一屏时从顶部贴齐（规避 Scroll 内容垂直居中）
+      .constraintSize({ minHeight: '100%' })
       .padding({
         left: SpaceTokens.sm,
         right: SpaceTokens.sm,
@@ -841,6 +843,8 @@ export struct ProfilePage {
               .width('100%')
             }
             .width('100%')
+            // constraintSize minHeight 撑满视口：内容不足一屏时从顶部贴齐（规避 Scroll 内容垂直居中）
+            .constraintSize({ minHeight: '100%' })
             .padding({
               left: SpaceTokens.sm,
               right: SpaceTokens.sm,

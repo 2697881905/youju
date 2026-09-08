@@ -11,6 +11,7 @@ import { safeShowToast } from '../utils/toast';
 import { User, UserProfile } from '../models/types';
 import { buildPageTransition } from '../utils/styles';
 import { BackButton } from '../design/components/BackButton';
+import { GlowInput } from '../design/components/GlowInput';
 import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
 import { ColorTokens } from '../design/tokens/color';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
@@ -403,15 +404,12 @@ export struct EditProfilePage {
               .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
               .fontWeight(TypeTokens.callout.weight).fontColor(ColorTokens.primary)
               .alignSelf(ItemAlign.Start);
-            TextInput({ placeholder: '请输入昵称', text: this.nickname })
-              .fontFamily(TypeTokens.fontFamily).fontColor(ColorTokens.primary)
-              .width('100%')
-              .height(LayoutTokens.minTouchTarget)
-              .backgroundBlurStyle(GlassBlurStyle.Card)
-              .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.elevated)
-              .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-              .borderRadius(RadiusTokens.lg)
-              .onChange((v: string) => { this.nickname = v; });
+            GlowInput({
+              placeholder: '请输入昵称',
+              text: $nickname,
+              fillWidth: false,
+              radius: RadiusTokens.lg,
+            });
             Text(this.nickname.trim().length + '/20')
               .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
               .fontColor(ColorTokens.tertiary)

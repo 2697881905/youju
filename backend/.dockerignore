@@ -3,3 +3,7 @@ dist
 .env
 .env.*
 *.log
+certbot
+nginx
+nginx-static
+backups
