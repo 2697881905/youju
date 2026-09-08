@@ -97,6 +97,10 @@
       "value": "#2E2A2010"
     },
     {
+      "name": "bar_gradient_mask",
+      "value": "#66F1F3F5"
+    },
+    {
       "name": "bar_selection_surface",
       "value": "#99FFFCF3"
     },

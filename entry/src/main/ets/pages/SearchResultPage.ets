@@ -16,6 +16,7 @@ import { EmptyState } from '../design/components/EmptyState';
 import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
 import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
 import { BackButton } from '../design/components/BackButton';
+import { GlowInput } from '../design/components/GlowInput';
 import { Skeleton } from '../design/motion/Skeleton';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
@@ -180,24 +181,17 @@ struct SearchResultPage {
     .padding({ left: GRID_PADDING, right: GRID_PADDING, top: SpaceTokens.item })
   }
 
-  // 搜索框本体发光（亮色描边 + 冷色光晕），作为工具栏 Row 的 flex 子项自适应宽度。
+  // 聚焦流光输入框：键入（聚焦）点亮原生流光，失焦熄灭
   @Builder
   searchInput(): void {
-    TextInput({ placeholder: '搜索', text: this.keyword })
-      .fontFamily(TypeTokens.fontFamily)
-      .layoutWeight(1)
-      .height(LayoutTokens.minTouchTarget)
-      .backgroundBlurStyle(GlassBlurStyle.Floating)
-      .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
-      .border({ width: 1, color: '#C4E0FF', style: BorderStyle.Solid })
-      .borderRadius(RadiusTokens.floatingBar)
-      .shadow({ radius: 12, color: '#4D8AD8FF', offsetY: 0 })
-      .onChange((v: string) => {
-        this.keyword = v;
-      })
-      .onSubmit(() => {
+    GlowInput({
+      placeholder: '搜索',
+      text: $keyword,
+      fillWidth: true,
+      onEnter: (): void => {
         this.doSearch(this.keyword);
-      })
+      },
+    })
   }
 
   build() {

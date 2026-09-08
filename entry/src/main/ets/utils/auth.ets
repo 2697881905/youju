@@ -15,8 +15,10 @@ const BUILD_MODE: string = BUILD_MODE_NAME;
 export const PRIVACY_POLICY_VERSION: string = '1.0.0';
 
 // 进程级持久化（基于 Preferences，重启/重进页面不丢）。必须在任何 AppStorage 读写前注册一次。
-// 注意：authToken 不再走明文 Preferences，改存硬件加密 Asset Store（见文件末尾 saveTokenToAsset），
-// 仅在 AppStorage 保留内存态；其余非敏感用户态仍走 Preferences。
+// 注意：authToken 走硬件加密 Asset Store（见文件末尾 saveTokenToAsset），但**同时双写 Preferences**
+// 作为重装兜底——HarmonyOS 覆盖安装会清空部分安全存储（Asset Store），只留 Preferences 时
+// 会导致「每次装新包都要重新登录」。Preferences 兜底可在 Asset Store 恢复失败时还原会话。
+PersistentStorage.persistProp('authToken', '');
 PersistentStorage.persistProp('authUserId', '');
 PersistentStorage.persistProp('authNickname', '');
 PersistentStorage.persistProp('authAvatar', '');
@@ -136,7 +138,8 @@ export async function loginWithDevStub2(): Promise<LoginResult> {
 
 // 幂等兜底：确保在 AppStorage 读写前已注册持久化（Index aboutToAppear 调用一次）。
 export function initAuthStorage(): void {
-  // 注意：authToken 不注册到明文 Preferences，改由下方从 Asset Store 恢复
+  // 注意：authToken 双写（Asset Store + Preferences），此处注册让 Preferences 兜底落地
+  PersistentStorage.persistProp('authToken', '');
   PersistentStorage.persistProp('authUserId', '');
   PersistentStorage.persistProp('authNickname', '');
   PersistentStorage.persistProp('authAvatar', '');
@@ -148,20 +151,30 @@ export function initAuthStorage(): void {
   PersistentStorage.persistProp('unreadDmCount', 0);
   PersistentStorage.persistProp('privacyAgreed', '0');
   PersistentStorage.persistProp('circleOnboardingPendingUserId', '');
-  // 冷启动从硬件加密 Asset Store 恢复登录态 token（替代明文 Preferences 读取）
-  const restoredToken: string = loadTokenFromAsset();
-  if (restoredToken) {
-    // 登录态必须 token + userId 配套存在。若只恢复了 token 而没有 userId
-    // （如应用数据被清后 Asset Store 中的 token 幸存），会形成「幽灵会话」：
-    // 我的页显示未登录，但消息中心用残留 token 拉到上一个账号的通知。
-    // 遇到该不一致直接丢弃恢复，保持游客态。
-    const uid: string = (AppStorage.get<string>('authUserId') ?? '') as string;
-    if (uid !== '') {
-      AppStorage.setOrCreate('authToken', restoredToken);
-    } else {
-      AppStorage.setOrCreate('authToken', '');
-      clearTokenFromAsset();
-    }
+  // 冷启动恢复登录态：Asset Store 优先，Preferences 兜底（重装后 Asset 可能被清）。
+  // 双写保证覆盖安装/进程重启后不丢会话，免除"每次部署都要重新登录"。
+  const restoredToken: string = loadTokenFromAsset() || ((AppStorage.get<string>('authToken') ?? '') as string);
+  const uid: string = (AppStorage.get<string>('authUserId') ?? '') as string;
+  if (restoredToken && uid !== '') {
+    // 完整会话：token + userId 配套
+    AppStorage.setOrCreate('authToken', restoredToken);
+    // 若本次实为 Preferences 兜底恢复（Asset 丢失），回写 Asset Store 恢复双写一致
+    saveTokenToAsset(restoredToken);
+  } else if (restoredToken && uid === '') {
+    // 幽灵会话：token 在但 userId 缺失（如应用数据被清后 token 幸存）→ 整体丢弃，保持游客态
+    AppStorage.setOrCreate('authToken', '');
+    clearTokenFromAsset();
+  } else if (!restoredToken && uid !== '') {
+    // 会话断裂：userId 残留但 token 恢复失败（重装后 Asset/Preferences 均清空）→ 清理残留用户态，
+    // 避免"未登录却显示个性化内容"的半登录态
+    AppStorage.setOrCreate('authToken', '');
+    AppStorage.setOrCreate('authUserId', '');
+    AppStorage.setOrCreate('authNickname', '');
+    AppStorage.setOrCreate('authAvatar', '');
+    AppStorage.setOrCreate('authProfileBackground', '');
+    AppStorage.setOrCreate('authBio', '');
+    AppStorage.setOrCreate('authGender', 0);
+    AppStorage.setOrCreate('authIsAdmin', false);
   }
 }
 

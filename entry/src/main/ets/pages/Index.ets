@@ -447,12 +447,11 @@ struct Index {
     AppStorage.setOrCreate<number>('circleLogoDismissVersion', version + 1);
   }
 
-  // 发布占位 tab（index=2）点击拦截：只弹发布弹窗并回跳发布前的实际页面，
-  // 不把内容切到空的发布占位页，避免页面闪现或 activeTab 驻留发布态。
+  // 发布占位 tab（index=2）点击拦截：只弹发布弹窗，通过 onContentWillChange 返回 false
+  // 阻止 HdsTabs 切换到发布占位页（不再"先切走再弹回"，消除横向闪烁动画）。
   private handleTabBarClick(index: number): void {
     if (index === 2) {
       this.showPublishModeDialog();
-      this.hdsController.changeIndex(this.currentIndex === 2 ? this.lastPageIndex : this.currentIndex);
       return;
     }
     this.lastPageIndex = index;
@@ -513,13 +512,21 @@ struct Index {
           barWidth: { smallWidth: 300, mediumWidth: 420, largeWidth: 560 },
           barSideMargin: 16,
           barBottomMargin: 28,
-          gradientMask: { maskColor: '#66F1F3F5', maskHeight: 92 },
+          gradientMask: { maskColor: $r('app.color.bar_gradient_mask'), maskHeight: 92 },
           systemMaterialEffect: {
             materialType: hdsMaterial.MaterialType.IMMERSIVE,
             materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE,
           },
         })
         .scrollable(false)                       // 禁止页面主体左右滑动切换 Tab，仅点击底部页签切换
+        .onContentWillChange((currentIndex: number, comingIndex: number): boolean => {
+          // 发布占位 tab 不可切换：点击发布 tab 时阻止内容切换（配合 onTabBarClick 弹窗），
+          // 从根上消除"先切走再弹回"的横向动画
+          if (comingIndex === 2) {
+            return false;
+          }
+          return true;
+        })
         .onTabBarClick((index: number): void => { this.handleTabBarClick(index); })
         .onChange((index: number): void => {
           // 防发布占位页误切换：即使当前瞬时 index=2，也回跳并拒绝广播，确保 activeTab 不驻留 2。

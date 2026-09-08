@@ -32,6 +32,7 @@ import { TypeTokens } from '../design/tokens/type';
 import { MotionCurves } from '../design/tokens/motion';
 import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
 import { ImmersiveSurface } from '../design/components/ImmersiveSurface';
+import { GlowInput } from '../design/components/GlowInput';
 import { openUserProfile, takeChatIntent, openPostDetail } from '../utils/nav';
 import { openExternalUrl } from '../utils/openExternal';
 
@@ -1115,21 +1116,13 @@ export struct ChatPage {
               this.showEmojiPanel = false;
               this.showMediaMenu = !this.showMediaMenu;
             });
-          TextInput({ text: this.inputText, placeholder: '发条消息…' })
-            .fontFamily($r('app.string.font_family'))
-            .layoutWeight(1)
-            .height(LayoutTokens.minTouchTarget)
-            .backgroundBlurStyle(GlassBlurStyle.Floating)
-            .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
-            .borderRadius(RadiusTokens.md)
-            .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-            .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 3 })
-            .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-            .onChange((v: string) => {
-              this.inputText = v;
-            })
-            .onSubmit(() => {
-              this.onSend();
+          GlowInput({
+              placeholder: '发条消息…',
+              text: $inputText,
+              fillWidth: true,
+              onEnter: (): void => {
+                this.onSend();
+              },
             });
           Row() {
             Text('☺')

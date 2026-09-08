@@ -199,6 +199,10 @@
     {
       "name": "account_tile_wechat",
       "value": "#3D07C160"
+    },
+    {
+      "name": "bar_gradient_mask",
+      "value": "#662A2F36"
     }
   ]
 }

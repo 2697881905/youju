@@ -7,6 +7,7 @@ import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { Pressable } from '../design/motion/Pressable';
+import { GlowInput } from '../design/components/GlowInput';
 import { isImmersiveLightSenseSupported } from '../utils/immersiveMaterial';
 
 @Component
@@ -128,19 +129,12 @@ export struct DetailActionBar {
             .height(LayoutTokens.minTouchTarget)
             .justifyContent(FlexAlign.Center)
             .onClick((): void => { this.commenting = false; this.commentText = ''; this.onCancelReply(); })
-            // 输入框本体：暖色描边 + 柔和阴影（去掉蓝色光晕，与发送按钮同区）
-            TextInput({
+            // 聚焦流光输入框：键入（聚焦）点亮原生流光，失焦熄灭
+            GlowInput({
               placeholder: this.replyName.length > 0 ? ('回复 @' + this.replyName) : '理性补充，有图有真相',
-              text: this.commentText,
+              text: $commentText,
+              fillWidth: true,
             })
-            .fontFamily(TypeTokens.fontFamily)
-            .layoutWeight(1)
-            .height(LayoutTokens.minTouchTarget)
-            .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.elevated)
-            .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
-            .borderRadius(RadiusTokens.floatingBar)
-            .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 0 })
-            .onChange((value: string): void => { this.commentText = value; })
           // 发送按钮：暖白玻璃胶囊 + 主文字色 + 柔和阴影（与输入框同区，非品牌蓝）
           Text('发送')
             .width(56)

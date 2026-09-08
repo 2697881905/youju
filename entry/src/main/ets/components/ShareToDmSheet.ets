@@ -9,6 +9,7 @@ import { getUserId } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
 import { AvatarView } from '../components/AvatarView';
 import { EmptyState } from '../design/components/EmptyState';
+import { GlowInput } from '../design/components/GlowInput';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
@@ -150,18 +151,14 @@ export struct ShareToDmSheet {
       .width('100%')
       .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.md, bottom: SpaceTokens.sm })
 
-      // 搜索框（昵称过滤）
-      TextInput({ text: this.keyword, placeholder: '搜索昵称' })
-        .fontFamily(TypeTokens.fontFamily)
-        .placeholderColor($r('app.color.text_secondary'))
-        .height(40)
-        .backgroundColor(ColorTokens.sunken)
-        .borderRadius(RadiusTokens.md)
-        .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-        .onChange((v: string) => {
-          this.keyword = v;
-        })
-        .margin({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: SpaceTokens.sm })
+      // 搜索框（昵称过滤）：聚焦流光，失焦熄灭
+      GlowInput({
+        placeholder: '搜索昵称',
+        text: $keyword,
+        fillWidth: false,
+        inputHeight: 40,
+      })
+      .margin({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: SpaceTokens.sm })
 
       // 列表区
       if (this.loading && this.contacts.length === 0) {
