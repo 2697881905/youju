@@ -16,16 +16,12 @@ import { resolveActionIcon } from '../utils/actionIcons';
 import { EmptyState } from '../design/components/EmptyState';
 import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
 import { Pressable } from '../design/motion/Pressable';
-import { Reveal } from '../design/motion/Reveal';
 import { DailyPostDeck } from './DailyPostDeck';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
-import { common } from '@kit.AbilityKit';
-import { BasicDataSource } from '../utils/data-source';
-import { observeGridColumns, gridColumnTemplate } from '../utils/responsive';
 import { barBottomReserve } from '../utils/cardTokens';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 
@@ -60,7 +56,6 @@ const ALL_TAG: Tag = { name: '全部' };
 @Component
 export struct HomeTab {
   @State posts: DailyPost[] = [];
-  private postSource: BasicDataSource<Post> = new BasicDataSource<Post>();
   @State displayTags: Tag[] = [];
   @State tagsLoaded: boolean = false;
   @State sortIndex: number = 0;
@@ -86,12 +81,8 @@ export struct HomeTab {
   @StorageLink('circleMembershipVersion') @Watch('onCircleMembershipChanged') circleMembershipVersion: number = 0;
   // 发布成功后刷新首页，确保从发布页返回时新帖立即进入信息流。
   @StorageLink('postPublishVersion') @Watch('onPostPublished') postPublishVersion: number = 0;
-  // 响应式列数（按屏幕宽度 2/3/4 列自适应）+ 对应的 columnsTemplate 字符串
-  @State gridColumns: number = 2;
-  @State gridTemplate: string = '1fr 1fr';
-  // 曝光埋点去重集合：同一帖子只上报一次 expose（避免 LazyForEach 复用重复计数）
+  // 曝光埋点去重集合：同一帖子只上报一次 expose（避免列表复用重复计数）
   private exposedIds: Set<number> = new Set<number>();
-  private unregisterColumns: () => void = () => {};
   // 订阅帖子删除事件：详情页删除后，首页 feed 即时移除该帖（不依赖刷新/切流）
   private unsubDeletion: () => void = () => {};
   // 标签自愈重试定时器句柄（0 表示未挂起）；避免一次性加载失败后标签栏永久卡在「全部」
@@ -103,14 +94,6 @@ export struct HomeTab {
 
   aboutToAppear(): void {
     this.loadTags();
-    // 注册响应式列数监听（折叠屏/平板/旋转时实时调整卡片列数）
-    this.unregisterColumns = observeGridColumns(
-      this.getUIContext().getHostContext() as common.Context,
-      (cols: number): void => {
-        this.gridColumns = cols;
-        this.gridTemplate = gridColumnTemplate(cols);
-      }
-    );
     // 默认加载推荐公开流（无需登录）；若已登录也保持推荐流默认
     this.refresh();
     // 订阅帖子删除事件：删除后即时从 feed 移除，避免已删帖子残留在内存列表
@@ -120,7 +103,6 @@ export struct HomeTab {
   }
 
   aboutToDisappear(): void {
-    this.unregisterColumns();
     this.unsubDeletion();
     if (this.tagsRetryTimer !== 0) {
       clearTimeout(this.tagsRetryTimer);
@@ -142,7 +124,6 @@ export struct HomeTab {
   // 账号切换/登出：清空点赞缓存，先清空数据源（销毁旧 PostCard）→ 重拉（新账号的 myUp/upCount 重新灌入）
   onAccountSwitch(): void {
     likeStore.clear();
-    this.postSource.clearData();
     this.posts = [];
     this.refresh();
   }
@@ -155,7 +136,6 @@ export struct HomeTab {
   }
 
   onPostPublished(): void {
-    this.postSource.clearData();
     this.posts = [];
     feedSessionCache.clear(); // 新帖发布后旧缓存失效
     this.refresh();
@@ -301,14 +281,6 @@ export struct HomeTab {
     return this.feedMode === 'recommend';
   }
 
-  private feedTopSpacerIndices(): number[] {
-    return [];
-  }
-
-  private feedTopSpacerHeight(): number {
-    return LayoutTokens.segmentedHeight + SpaceTokens.xs;
-  }
-
   // 切换信息源：推荐 / 关注 / 每日一帖
   private switchFeed(mode: FeedMode): void {
     const nextIndex: number = FEED_MODE_IDX_MAP.indexOf(mode);
@@ -330,7 +302,6 @@ export struct HomeTab {
     if (this.feedMode === 'following' && this.token === '') {
       this.needLogin = true;
       this.posts = []; // 清空上一流（推荐流）残留内容
-      this.postSource.clearData();
       return;
     }
     this.loading = true;
@@ -343,7 +314,6 @@ export struct HomeTab {
       const cached: FeedCacheEntry | undefined = feedSessionCache.get(cacheKey);
       if (cached !== undefined && Date.now() - cached.at < FEED_CACHE_TTL && cached.posts.length > 0) {
         this.posts = cached.posts;
-        this.postSource.setData(cached.posts);
       }
     }
     try {
@@ -351,7 +321,6 @@ export struct HomeTab {
         const res = await listDailyPosts(this.page, 10);
         if (reset) {
           this.posts = res.list;
-          this.postSource.clearData();
           this.dailyDeckVersion += 1;
         } else {
           this.posts = this.posts.concat(res.list);
@@ -365,12 +334,10 @@ export struct HomeTab {
           : await listPosts({ page: this.page, limit: 20, sort, tag: this.currentTag() });
       if (reset) {
         this.posts = res.list;
-        this.postSource.setData(res.list);
         // 写回会话缓存（仅首屏，供切 Tab 回来快速呈现）
         feedSessionCache.set(this.feedCacheKey(), { posts: res.list, at: Date.now() });
       } else {
         this.posts = this.posts.concat(res.list);
-        this.postSource.appendData(res.list);
       }
       if (res.list.length < 20) {
         this.finished = true;
@@ -422,27 +389,84 @@ export struct HomeTab {
     }
   }
 
-  // footer 是 WaterFlow 的真实滚动内容。不能只用 padding.bottom，Refresh 嵌套时会被裁切，
-  // 造成最后一张卡片无法滑到悬浮底栏下方。
+  // 推荐/关注流单卡：PostCard + 曝光埋点（卡片出现在屏幕上即上报，去重跳过）
   @Builder
-  feedFooter(): void {
-    Column() {
-      if (this.finished) {
-        Text('没有更多了')
-          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-          .fontWeight(TypeTokens.caption.weight)
-          .lineHeight(TypeTokens.caption.lineHeight)
-          .letterSpacing(TypeTokens.caption.tracking)
-          .fontColor(ColorTokens.tertiary)
-          .width('100%')
-          .textAlign(TextAlign.Center)
-          .padding(SpaceTokens.base)
-      }
-      Blank()
+  feedPost(post: Post): void {
+    PostCard({
+      post: post,
+      compact: true,
+      onOpen: () => {
+        if (post.id !== undefined) {
+          trackPostEvent(post.id, 'click');
+          openPostDetail(post.id.toString());
+          this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
+        }
+      },
+    })
+      .onAppear(() => {
+        if (post.id !== undefined && !this.exposedIds.has(post.id)) {
+          this.exposedIds.add(post.id);
+          trackPostEvent(post.id, 'expose');
+        }
+      })
+  }
+
+  // 推荐/关注流：Scroll 显式双列（偶数项固定左列、奇数项固定右列，首项始终位于左上角）。
+  // 两列独立排列保留瀑布流紧凑效果。必须用 Scroll：懒加载容器(WaterFlow/List)会把内容
+  // 滚动终点钳制在底部非安全区之上、露出窗口底色横带截断末卡（实测 expandSafeArea /
+  // ignoreLayoutSafeArea 挂容器自身均无效），Scroll 滚动范围天然到物理屏底。
+  @Builder
+  feedScroll(): void {
+    Scroll() {
+      Column({ space: SpaceTokens.sm }) {
+        Row({ space: SpaceTokens.xs }) {
+          Column({ space: SpaceTokens.xs }) {
+            ForEach(this.posts.filter((_p: Post, idx: number) => idx % 2 === 0),
+              (post: Post) => { this.feedPost(post) },
+              (post: Post) => 'feed-even-' + String(post.id ?? ''))
+          }
+          .layoutWeight(1)
+          Column({ space: SpaceTokens.xs }) {
+            ForEach(this.posts.filter((_p: Post, idx: number) => idx % 2 === 1),
+              (post: Post) => { this.feedPost(post) },
+              (post: Post) => 'feed-odd-' + String(post.id ?? ''))
+          }
+          .layoutWeight(1)
+        }
         .width('100%')
-        .height(barBottomReserve())
+        .alignItems(VerticalAlign.Top)
+        // 尾注 + 底部预留：既是悬浮底栏的让位，也是 Scroll 滚到物理底的滚动余量
+        Column() {
+          if (this.finished) {
+            Text('没有更多了')
+              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+              .fontWeight(TypeTokens.caption.weight)
+              .lineHeight(TypeTokens.caption.lineHeight)
+              .letterSpacing(TypeTokens.caption.tracking)
+              .fontColor(ColorTokens.tertiary)
+              .width('100%')
+              .textAlign(TextAlign.Center)
+              .padding(SpaceTokens.base)
+          }
+          Blank().width('100%').height(barBottomReserve())
+        }
+        .width('100%')
+      }
+      .width('100%')
+      .constraintSize({ minHeight: '100%' })
+      .padding({
+        left: SpaceTokens.sm,
+        right: SpaceTokens.sm,
+        top: 5,
+        bottom: SpaceTokens.md,
+      })
     }
-    .width('100%')
+    .scrollable(ScrollDirection.Vertical)
+    .onScrollEdge((edge: Edge) => {
+      if (edge === Edge.Bottom) {
+        this.loadMore();
+      }
+    })
   }
 
   build() {
@@ -649,80 +673,21 @@ export struct HomeTab {
             .width('100%')
             .height('100%')
           } else {
-            // 推荐/关注流：瀑布流
-            Stack({ alignContent: Alignment.TopStart }) {
-              Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
-                // 瀑布流：每列独立流动，卡片仅以 rowsGap 与同列上下卡片贴靠，
-                // 彻底消除 Grid 等高行造成的「矮卡片底部留白」问题
-                WaterFlow({ footer: this.feedFooter }) {
-                  // 每列首位的可滚动占位项让首屏卡片从圈子栏下方开始；
-                  // 它随内容一起上移，避免 WaterFlow 固定 padding 形成硬裁切带。
-                  ForEach(this.feedTopSpacerIndices(), (_value: number, index: number) => {
-                    FlowItem() {
-                      Column()
-                        .width('100%')
-                        .height(this.feedTopSpacerHeight())
-                    }
-                  }, (_value: number, index: number) => 'circle_bar_spacer_' + index)
-                  LazyForEach(
-                    this.postSource,
-                    (post: Post, idx: number) => {
-                      FlowItem() {
-                        Reveal({ index: idx % 5 }) {
-                          PostCard({
-                            post: post,
-                            compact: true,
-                            onOpen: () => {
-                              if (post.id !== undefined) {
-                                const id = post.id.toString();
-                                trackPostEvent(post.id, 'click');
-                                openPostDetail(id);
-                                this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
-                              }
-                            },
-                          })
-                            // 信息流曝光埋点：卡片出现在屏幕上即上报（如已上报过则跳过）
-                            .onAppear(() => {
-                              if (post.id !== undefined && !this.exposedIds.has(post.id)) {
-                                this.exposedIds.add(post.id);
-                                trackPostEvent(post.id, 'expose');
-                              }
-                            })
-                        }
-                      }
-                    },
-                    (post: Post, idx: number) => (post.id ?? idx).toString()
-                  )
-                }
-                .columnsTemplate(this.gridTemplate)
-                .columnsGap(SpaceTokens.xs)
-                .rowsGap(SpaceTokens.xs)
-                .padding({
-                  left: SpaceTokens.sm,
-                  right: SpaceTokens.sm,
-                  top: 5,
-                  bottom: SpaceTokens.md,
-                })
-                .onScrollIndex((_start: number, end: number) => {
-                  if (end - this.feedTopSpacerIndices().length >= this.posts.length - 1) {
-                    this.loadMore();
-                  }
-                })
-              }
-              .onRefreshing(() => {
-                this.isRefreshing = true;
-                this.refresh().finally(() => {
-                  this.isRefreshing = false;
-                });
-              })
-              .width('100%')
-              .height('100%')
+            // 推荐/关注流：Scroll 显式双列。懒加载容器(WaterFlow)实测把滚动终点钳制在
+            // 底部非安全区之上、露出窗口底色横带截断末卡，故统一走 Scroll（天然到物理屏底）
+            Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
+              this.feedScroll()
             }
+            .onRefreshing(() => {
+              this.isRefreshing = true;
+              this.refresh().finally(() => {
+                this.isRefreshing = false;
+              });
+            })
             .width('100%')
             .height('100%')
-            .clip(true)
           }
-          }
+        }
         }
         .width('100%')
         .height('100%')
