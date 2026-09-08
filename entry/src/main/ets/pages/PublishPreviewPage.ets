@@ -226,6 +226,7 @@ struct PublishPreviewPage {
         genre: draft.genre,
         tags: draft.tags,
         structuredData: withCoverOnlyTextPoster(draft.structuredData, coverOnlyTextPoster),
+        mentions: draft.mentions,
         images: images,
         videoUrl: videoUrl,
         videoCover: videoCover,

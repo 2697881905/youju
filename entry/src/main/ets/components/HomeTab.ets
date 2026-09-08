@@ -4,7 +4,7 @@
 // 搜索入口跳转独立搜索页 pages/SearchPanelPage（搜索面板已与首页解耦）。
 
 import { DailyPost, Post, Tag } from '../models/types';
-import { listDailyPosts, listPosts, listFollowingPosts, listTags, listFollowedTags, getUserProfile } from '../services/api';
+import { listDailyPosts, listPosts, listFollowingPosts, listTags, listFollowedTags, getUserProfile, trackPostEvent } from '../services/api';
 import { getUserId } from '../utils/auth';
 import { likeStore } from '../utils/likeStore';
 import { postDeletionStore } from '../utils/postDeletionStore';
@@ -46,6 +46,15 @@ const FEED_SEGMENTS: SegmentedItem[] = [
   { key: 'following', label: '关注' },
   { key: 'daily', label: '每日一帖' },
 ];
+
+// —— 会话级信息流缓存：切 Tab 回来先展示缓存再后台刷新，避免白屏重拉（P2 性能优化）——
+// key = feedMode|tag|sort；仅缓存首屏（page=1），TTL 120s；账号切换/发帖后整体失效
+interface FeedCacheEntry {
+  posts: DailyPost[];
+  at: number;
+}
+const FEED_CACHE_TTL: number = 120000;
+const feedSessionCache: Map<string, FeedCacheEntry> = new Map<string, FeedCacheEntry>();
 const ALL_TAG: Tag = { name: '全部' };
 
 @Component
@@ -80,6 +89,8 @@ export struct HomeTab {
   // 响应式列数（按屏幕宽度 2/3/4 列自适应）+ 对应的 columnsTemplate 字符串
   @State gridColumns: number = 2;
   @State gridTemplate: string = '1fr 1fr';
+  // 曝光埋点去重集合：同一帖子只上报一次 expose（避免 LazyForEach 复用重复计数）
+  private exposedIds: Set<number> = new Set<number>();
   private unregisterColumns: () => void = () => {};
   // 订阅帖子删除事件：详情页删除后，首页 feed 即时移除该帖（不依赖刷新/切流）
   private unsubDeletion: () => void = () => {};
@@ -146,6 +157,7 @@ export struct HomeTab {
   onPostPublished(): void {
     this.postSource.clearData();
     this.posts = [];
+    feedSessionCache.clear(); // 新帖发布后旧缓存失效
     this.refresh();
   }
 
@@ -279,6 +291,11 @@ export struct HomeTab {
     return this.tagIndex > 0 ? this.displayTags[this.tagIndex]?.name : undefined;
   }
 
+  // 信息流缓存 key：feedMode|tag|sort（每日一帖不缓存）
+  private feedCacheKey(): string {
+    return this.feedMode + '|' + (this.currentTag() ?? '') + '|' + SORT_KEYS[this.sortIndex];
+  }
+
   private useCircleBarOverlap(): boolean {
     // 圈子栏仅推荐流显示；关注流/每日一帖均不显示（关注页顶部保持干净）
     return this.feedMode === 'recommend';
@@ -320,6 +337,15 @@ export struct HomeTab {
     this.error = '';
     this.needLogin = false; // 进入真正的拉取流程，复位登录引导态
     const sort = SORT_KEYS[this.sortIndex];
+    // P2 会话缓存：recent 切回首屏时若缓存命中且未过期，先渲染缓存（不白屏），请求成功后再覆盖
+    if (reset && this.feedMode !== 'daily') {
+      const cacheKey: string = this.feedCacheKey();
+      const cached: FeedCacheEntry | undefined = feedSessionCache.get(cacheKey);
+      if (cached !== undefined && Date.now() - cached.at < FEED_CACHE_TTL && cached.posts.length > 0) {
+        this.posts = cached.posts;
+        this.postSource.setData(cached.posts);
+      }
+    }
     try {
       if (this.feedMode === 'daily') {
         const res = await listDailyPosts(this.page, 10);
@@ -340,6 +366,8 @@ export struct HomeTab {
       if (reset) {
         this.posts = res.list;
         this.postSource.setData(res.list);
+        // 写回会话缓存（仅首屏，供切 Tab 回来快速呈现）
+        feedSessionCache.set(this.feedCacheKey(), { posts: res.list, at: Date.now() });
       } else {
         this.posts = this.posts.concat(res.list);
         this.postSource.appendData(res.list);
@@ -603,6 +631,7 @@ export struct HomeTab {
                 onLoadMore: (): void => { this.loadMore(); },
                 onOpen: (post: DailyPost): void => {
                   if (post.id !== undefined) {
+                    trackPostEvent(post.id, 'click');
                     openPostDetail(post.id.toString());
                     this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
                   }
@@ -646,11 +675,19 @@ export struct HomeTab {
                             onOpen: () => {
                               if (post.id !== undefined) {
                                 const id = post.id.toString();
+                                trackPostEvent(post.id, 'click');
                                 openPostDetail(id);
                                 this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
                               }
                             },
                           })
+                            // 信息流曝光埋点：卡片出现在屏幕上即上报（如已上报过则跳过）
+                            .onAppear(() => {
+                              if (post.id !== undefined && !this.exposedIds.has(post.id)) {
+                                this.exposedIds.add(post.id);
+                                trackPostEvent(post.id, 'expose');
+                              }
+                            })
                         }
                       }
                     },

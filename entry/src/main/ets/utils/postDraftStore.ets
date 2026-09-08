@@ -1,4 +1,5 @@
 import { PublishDraft } from './publishDraft';
+import { MentionRef } from '../models/types';
 
 const SAVED_POST_DRAFTS_KEY: string = 'savedPostDrafts';
 const SAVED_POST_DRAFTS_VERSION: number = 1;
@@ -121,6 +122,10 @@ export function savePostDraft(ownerId: number, draft: PublishDraft, existingId?:
     videoCover: draft.videoCover,
     videoAspectRatio: draft.videoAspectRatio,
     textPosterStyle: draft.textPosterStyle,
+    mentions: draft.mentions !== undefined ? draft.mentions.map((m: MentionRef): MentionRef => ({
+      name: m.name,
+      userId: m.userId,
+    })) : undefined,
   };
   if (insertAt >= 0) {
     drafts[insertAt] = saved;

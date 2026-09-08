@@ -174,7 +174,7 @@ export async function sendMessage(
       throw new MessageError('分享内容过长', 400, 400);
     }
   } else {
-    // image/video：content 必须是媒体 viewUrl（非空且不过长）
+    // image/video/file：content 必须是媒体 viewUrl（非空且不过长）
     if (raw.length === 0) {
       throw new MessageError('媒体消息缺少内容', 400, 400);
     }

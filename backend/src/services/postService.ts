@@ -4,6 +4,9 @@ import { sensitiveWordService } from './sensitiveWordService';
 import { SensitiveWordError, ValidationError } from '../utils/errors';
 import { USER_PUBLIC_SELECT, publicUserView } from '../utils/userView';
 import { getExcludedAuthorIds, canViewerSeeAuthorPosts, getDislikedAuthorIds } from './accessControl';
+import { searchPosts } from './searchService';
+import { createNotification } from './notificationService';
+import { buildCommentTree } from './commentService';
 import { env } from '../config/env';
 import { enqueueMediaDeletion } from './mediaDeletionService';
 
@@ -35,35 +38,33 @@ export async function listPosts(params: ListParams) {
   const skip = (page - 1) * limit;
 
   const where: any = { status: 1, deletedAt: null }; // 仅已发布且未移入废纸篓
+  // 关键词搜索：升级为相关度排序（标题>标签>体裁>正文，权重见 searchService.scoreSearchPost）
+  if (params.keyword && params.keyword.trim().length > 0) {
+    const sort: 'relevance' | 'hot' | 'latest' =
+      params.sort === 'hot' || params.sort === 'latest' ? params.sort : 'relevance';
+    return searchPosts({
+      page: params.page,
+      limit: params.limit,
+      keyword: params.keyword,
+      tag: params.tag,
+      author: params.author,
+      sort,
+      following: params.following,
+      viewerId: params.viewerId,
+    });
+  }
   if (params.tag) {
     where.tags = { array_contains: params.tag };
   }
   if (params.author) {
     where.userId = params.author;
   }
-  // 关键词搜索：标题/正文/体裁/标签之间用 OR（任一命中即返回）
-  // - MySQL 不支持 Prisma 的 mode:'insensitive'（该选项仅 PostgreSQL/MongoDB 可用，
-  //   生成客户端里根本没有 QueryMode/mode 字段，传入会触发 PrismaClientValidationError）。
-  //   MySQL 默认排序规则 utf8mb4_*_ci 已是大小写不敏感，故 contains 即为大小写不敏感匹配。
-  // - tags 是 Json 数组列，用 array_contains（snake_case；整列即数组，无需 path）
-  //   做标签精确包含匹配；images 不参与搜索。
-  if (params.keyword) {
-    const kw = params.keyword.trim();
-    if (kw) {
-      where.OR = [
-        { title: { contains: kw } },
-        { content: { contains: kw } },
-        { genre: { contains: kw } },
-        { tags: { array_contains: kw } },
-      ];
-    }
-  }
 
   let orderBy: any = { createdAt: 'desc' };
-  if (params.sort === 'hot') {
-    orderBy = [{ upCount: 'desc' }, { createdAt: 'desc' }];
+  if (params.sort === 'hot' || params.sort === 'recommend') {
+    // 热榜与推荐流统一按热度分排序（互动对数加权 + 时效衰减，见 hotScoreService）
+    orderBy = [{ hotScore: 'desc' }, { createdAt: 'desc' }];
   }
-  // recommend（P1）初期用简单规则：回退到最新
 
   // 关注流：仅返回当前用户关注的人发布的帖子（公开流不进入此分支）
   let followIds: number[] | undefined;
@@ -343,7 +344,7 @@ export async function listDailyPosts(params: DailyListParams = {}) {
   return { list, pagination: { page, limit, total }, dateKey, interestTags };
 }
 
-// 帖子详情（含评论，评论按顶数降序，仅返回 status=1 的正常评论）。
+// 帖子详情（含楼中楼评论树：一级评论按顶数降序，子回复按时间升序，仅返回 status=1 的正常评论）。
 // 已移入废纸篓的帖子仅允许原作者通过带登录态的详情请求查看，其他访问仍返回不存在。
 // viewerId 可选：传入时并发查 Up/Bookmark 记录，给返回体附加 myUp / myBookmark
 // （当前登录用户对该帖的互动态，纯增量字段，不影响原有结构；缺失则不附加）。
@@ -352,12 +353,6 @@ export async function getPost(id: number, viewerId?: number) {
     where: { id },
     include: {
       user: { select: USER_PUBLIC_SELECT },
-      comments: {
-        where: { status: 1 },
-        orderBy: { upCount: 'desc' },
-        take: 50,
-        include: { user: { select: USER_PUBLIC_SELECT } },
-      },
     },
   });
   if (!post) {
@@ -377,11 +372,21 @@ export async function getPost(id: number, viewerId?: number) {
   if (post.status !== 1 && viewerId !== post.userId && !isAdmin) {
     return null;
   }
+  // 浏览计数（数据面板/热度信号）：异步自增，失败不阻断详情返回
+  prisma.post.update({ where: { id }, data: { viewCount: { increment: 1 } } }).catch(() => {});
+  // 楼中楼评论：一次取足量扁平评论（按顶数降序，混排一级/子回复），再组装成树
+  const rawComments = await prisma.comment.findMany({
+    where: { postId: id, status: 1 },
+    orderBy: { upCount: 'desc' },
+    take: 100,
+    include: { user: { select: USER_PUBLIC_SELECT } },
+  });
+  const comments = buildCommentTree(rawComments.map((c) => ({ ...c, user: publicUserView(c.user) })));
   if (!viewerId) {
     return {
       ...post,
       user: publicUserView(post.user),
-      comments: (post.comments ?? []).map((c) => ({ ...c, user: publicUserView(c.user) })),
+      comments,
     };
   }
   const [up, bm, vote] = await Promise.all([
@@ -392,11 +397,185 @@ export async function getPost(id: number, viewerId?: number) {
   return {
     ...post,
     user: publicUserView(post.user),
-    comments: (post.comments ?? []).map((c) => ({ ...c, user: publicUserView(c.user) })),
+    comments,
     myUp: !!up,
     myBookmark: !!bm,
     myVote: vote?.choice ?? '',
   };
+}
+
+// 提取正文中的 @昵称（2-20 字，不含空白与常见标点）
+const MENTION_RE = /@([^@\s，。！？、；：""''《》（）【】]{2,20})/g;
+// 提取 #话题#（2-15 字）
+const TOPIC_RE = /#([^#\s，。！？、；：""''《》（）【】]{2,15})#/g;
+
+function uniqueMatches(text: string, re: RegExp): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const name = m[1].trim();
+    if (name.length > 0 && !seen.has(name)) {
+      seen.add(name);
+      out.push(name);
+    }
+  }
+  return out;
+}
+
+// 话题归并：正文 #xx# 中已存在于 Tag 表的话题并入 tags（上限 3 个，避免噪音标签）
+async function mergeTopicTags(baseTags: string[], content: string): Promise<string[]> {
+  if (!content || content.length === 0) {
+    return baseTags ?? [];
+  }
+  const topics = uniqueMatches(content, TOPIC_RE);
+  if (topics.length === 0) {
+    return baseTags ?? [];
+  }
+  const existing = await prisma.tag.findMany({
+    where: { name: { in: topics } },
+    select: { name: true },
+  });
+  const known = existing.map((t) => t.name);
+  const merged = (baseTags ?? []).slice();
+  for (const name of known) {
+    if (merged.length >= 3) {
+      break;
+    }
+    if (merged.indexOf(name) < 0) {
+      merged.push(name);
+    }
+  }
+  return merged;
+}
+
+// @提及解析：正文 @昵称 命中真实用户（状态正常、未注销），返回 [{name, userId}] 供入库与通知复用
+async function resolveMentions(content: string): Promise<Array<{ name: string; userId: number }>> {
+  if (!content) {
+    return [];
+  }
+  const names = uniqueMatches(content, MENTION_RE);
+  if (names.length === 0) {
+    return [];
+  }
+  const users = await prisma.user.findMany({
+    where: { nickname: { in: names }, status: 1, deletedAt: null },
+    select: { id: true, nickname: true },
+  });
+  const byName = new Map<string, number>();
+  for (const u of users) {
+    if (!byName.has(u.nickname) && u.id !== undefined) {
+      byName.set(u.nickname, u.id);
+    }
+  }
+  const result: Array<{ name: string; userId: number }> = [];
+  for (const name of names) {
+    const uid = byName.get(name);
+    if (uid !== undefined) {
+      result.push({ name, userId: uid });
+    }
+  }
+  return result;
+}
+
+type MentionRef = { name: string; userId: number };
+
+/**
+ * 生成入库的 @提及映射：
+ * - 编辑器显式选择（data.mentions，精确到 userId）时优先采用，规避重名昵称的歧义；
+ *   服务端逐一校验：目标用户真实存在（status=1 未注销）、昵称与正文 @name 一致（防冒充）、
+ *   正文确实出现对应 '@昵称'（防止编辑器残留的过期选择污染入库）。
+ * - 显式列表缺失或全部无效时，回退为按昵称解析（兼容手工输入 @昵称 的老场景）。
+ */
+async function buildMentionRefs(content: string | undefined | null, explicit: unknown): Promise<MentionRef[]> {
+  if (!content || content.trim().length === 0) {
+    return [];
+  }
+  if (!Array.isArray(explicit) || explicit.length === 0) {
+    return resolveMentions(content);
+  }
+  const picked: MentionRef[] = [];
+  const seenUserId = new Set<number>();
+  for (const item of explicit) {
+    if (typeof item !== 'object' || item === null) {
+      continue;
+    }
+    const rec = item as Record<string, unknown>;
+    const name = rec.name;
+    const userId = rec.userId;
+    if (typeof name !== 'string' || name.length < 2 || name.length > 20) {
+      continue;
+    }
+    if (typeof userId !== 'number' || !Number.isFinite(userId) || userId <= 0) {
+      continue;
+    }
+    if (seenUserId.has(userId)) {
+      continue;
+    }
+    if (content.indexOf('@' + name) < 0) {
+      continue; // 正文中已不再包含该 @，丢弃过期选择
+    }
+    seenUserId.add(userId);
+    picked.push({ name, userId });
+  }
+  if (picked.length === 0) {
+    return resolveMentions(content);
+  }
+  const rows = await prisma.user.findMany({
+    where: { id: { in: Array.from(seenUserId) }, status: 1, deletedAt: null },
+    select: { id: true, nickname: true },
+  });
+  const nickById = new Map<number, string>();
+  for (const u of rows) {
+    nickById.set(u.id, u.nickname);
+  }
+  const verified: MentionRef[] = [];
+  for (const p of picked) {
+    if (nickById.get(p.userId) === p.name) {
+      verified.push(p);
+    }
+  }
+  if (verified.length === 0) {
+    return resolveMentions(content);
+  }
+  // 显式选择未覆盖的手工输入 @昵称（未走选择器直接键入的）按昵称解析补全，避免入库映射丢失
+  const resolved = await resolveMentions(content);
+  const merged: MentionRef[] = verified.slice();
+  const haveIds = new Set<number>();
+  for (const v of verified) {
+    haveIds.add(v.userId);
+  }
+  for (const r of resolved) {
+    if (!haveIds.has(r.userId)) {
+      haveIds.add(r.userId);
+      merged.push(r);
+    }
+  }
+  return merged;
+}
+
+// @提及通知：按入库映射推送（排除发布者自己），通知内容与展示映射严格一致
+async function notifyMentions(
+  mentionList: MentionRef[],
+  postId: number,
+  actorId: number,
+  title: string
+): Promise<void> {
+  if (mentionList.length === 0) {
+    return;
+  }
+  for (const m of mentionList) {
+    if (m.userId === actorId) {
+      continue;
+    }
+    await createNotification({
+      userId: m.userId,
+      actorId,
+      type: 'mention',
+      postId,
+      content: '有人在新帖《' + (title ?? '') + '》中提到了你',
+    }).catch(() => {});
+  }
 }
 
 // 发布帖子（敏感词前置检测，通过后 status=1 直接发布）
@@ -406,6 +585,8 @@ export async function createPost(data: any, userId: number) {
   if (sensitiveWordService.checkText(fullText)) {
     throw new SensitiveWordError();
   }
+  const mergedTags = await mergeTopicTags(data.tags ?? [], data.content ?? '');
+  const mentionRefs = await buildMentionRefs(data.content ?? '', data.mentions);
   return prisma.post.create({
     data: {
       userId,
@@ -417,10 +598,15 @@ export async function createPost(data: any, userId: number) {
       videoAspectRatio: data.videoAspectRatio ?? null,
       images: data.images ?? [],
       genre: data.genre,
-      tags: data.tags ?? [],
+      tags: mergedTags.slice(0, 3),
       structuredData: data.structuredData ?? {},
+      mentions: mentionRefs.length > 0 ? mentionRefs : Prisma.DbNull,
       status: 1,
     },
+  }).then(async (post) => {
+    // @提及 与 话题标记告一段落：提及通知失败不影响发布主流程
+    notifyMentions(mentionRefs, post.id, userId, post.title).catch(() => {});
+    return post;
   });
 }
 
@@ -501,6 +687,8 @@ export interface UpdatePostInput {
   images?: string[];
   tags?: string[];
   structuredData?: any;
+  // 编辑器显式选择的 @提及（精确到 userId，防重名歧义）；缺失时回退按昵称解析
+  mentions?: Array<{ name: string; userId: number }>;
 }
 
 export async function updatePost(id: number, userId: number, input: UpdatePostInput) {
@@ -551,10 +739,28 @@ export async function updatePost(id: number, userId: number, input: UpdatePostIn
   if (input.videoCover !== undefined) data.videoCover = input.videoCover;
   if (input.videoAspectRatio !== undefined) data.videoAspectRatio = input.videoAspectRatio;
   if (input.images !== undefined) data.images = input.images;
-  if (input.tags !== undefined) data.tags = input.tags;
+  // 话题归并：正文 #xx# 已存在的圈子话题并入 tags（上限 3）
+  if (input.tags !== undefined || input.content !== undefined) {
+    const baseTags: string[] = input.tags !== undefined
+      ? input.tags
+      : (Array.isArray(post.tags) ? (post.tags as string[]) : []);
+    const merged = await mergeTopicTags(baseTags, input.content ?? post.content ?? '');
+    data.tags = merged.slice(0, 3);
+  }
+  // @提及解析入库：正文变化时重算 [{name, userId}]，供前端点击跳转
+  // 优先采用编辑器显式选择（精确到 userId，规避重名），缺失时按昵称回退解析
+  let mentionRefs: MentionRef[] = [];
+  if (input.content !== undefined) {
+    mentionRefs = await buildMentionRefs(input.content ?? '', input.mentions);
+    data.mentions = mentionRefs.length > 0 ? mentionRefs : null;
+  }
   if (input.structuredData !== undefined) data.structuredData = input.structuredData;
 
   const updated = await prisma.post.update({ where: { id }, data });
+  // @提及通知（正文变化时）：按入库映射推送，失败不阻断编辑
+  if (input.content !== undefined) {
+    notifyMentions(mentionRefs, id, userId, updated.title).catch(() => {});
+  }
   return { ok: true, post: updated };
 }
 

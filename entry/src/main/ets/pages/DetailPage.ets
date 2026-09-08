@@ -1,5 +1,7 @@
 // 帖子详情页（真实内容）：标签 → 体裁 → 标题 → 九宫格图 → 结构化字段 → 正文 → 评论区 → 底部操作栏
 import { buildPageTransition } from '../utils/styles';
+import { TypeTokens } from '../design/tokens/type';
+import { ColorTokens } from '../design/tokens/color';
 import {
   getPost,
   createComment,
@@ -7,15 +9,22 @@ import {
   cancelUpPost,
   bookmarkPost,
   cancelBookmarkPost,
+  listBookmarkFolders,
+  createBookmarkFolder,
   deletePost,
   voteDebate,
   reportPost,
   reportComment,
   resolveDisplayImageUrl,
   PostWithComments,
+  getPostStats,
+  PostStats,
 } from '../services/api';
-import { Genre, StructuredData, ReportReason, DebateVoteResult, DmSharePayload } from '../models/types';
+import { Genre, StructuredData, ReportReason, DebateVoteResult, DmSharePayload, Comment, BookmarkFolderItem } from '../models/types';
 import { ReportDialog } from '../components/ReportDialog';
+import { FolderPickDialog } from '../components/FolderPickDialog';
+import { FolderNameDialog } from '../components/FolderNameDialog';
+import { PostStatsDialog } from '../components/PostStatsDialog';
 import { openUserProfile, takePostDetailId } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 import { getUserId, getToken } from '../utils/auth';
@@ -25,7 +34,8 @@ import { debateVoteStore, DebateVoteInfo } from '../utils/debateVoteStore';
 import { ShareSheet } from '../components/ShareSheet';
 import { ShareToDmSheet } from '../components/ShareToDmSheet';
 import { buildPostShareUrl, copyToClipboard, EXTERNAL_SHARE_ENABLED, DM_SHARE_ENABLED, sharePostToSystem } from '../utils/share';
-import { sharePostCardToSystem } from '../utils/shareCard';
+import { generateShareCardBytes } from '../utils/shareCard';
+import { image } from '@kit.ImageKit';
 import { window } from '@kit.ArkUI';
 import { DetailToolbar } from '../components/DetailToolbar';
 import { DetailMediaCarousel } from '../components/DetailMediaCarousel';
@@ -37,6 +47,7 @@ import { DetailCommentsSection } from '../components/DetailCommentsSection';
 import { DetailActionBar } from '../components/DetailActionBar';
 import { barBottomReserve } from '../utils/cardTokens';
 import { FALLBACK_VIDEO_ASPECT_RATIO, normalizeVideoAspectRatio } from '../utils/video';
+
 
 // 字段定义：[结构化字段键, 中文标签]，按产品文档 2.4 各体裁字段表
 type FieldDef = [keyof StructuredData, string];
@@ -149,9 +160,22 @@ struct DetailPage {
   @State bookmarkFeedbackVersion: number = 0;
   @State commenting: boolean = false;
   @State commentText: string = '';
+  // 楼中楼回复目标：replyTargetId>0 时当前输入处于「回复 @xxx」态（清零即退出）
+  @State replyTargetId: number = 0;
+  @State replyTargetName: string = '';
   @State commentReportId: number = 0;
   @State viewingImage: string = ''; // 全屏看图
+  @State shareCardPreview: image.PixelMap | null = null; // 分享卡图 App 内预览
   @State statusBarHeight: number = 0; // 全屏布局下顶部避让状态栏
+  // 收藏夹选择（收藏时归类）
+  @State folderPickFolders: BookmarkFolderItem[] = [];
+  private folderPickController: CustomDialogController | null = null;
+  private folderNameDialog: CustomDialogController | null = null;
+  // 帖子数据面板（作者本人）
+  @State postStats: PostStats | null = null;
+  @State statsLoading: boolean = false;
+  @State statsError: string = '';
+  private statsDialog: CustomDialogController | null = null;
   // 监听登录账号：切换账号/登出时重新加载本帖，以服务器为准校准点赞/收藏/投票态（避免 likeStore 单例残留串号）
   @StorageLink('authUserId') @Watch('onAccountSwitch') accountId: string = '';
 
@@ -435,21 +459,109 @@ struct DetailPage {
     const id = this.post.id;
     const previous: DetailInteractionState = this.interaction;
     const willMark = !previous.bookmarked;
-    this.bookmarkPending = true;
-    this.setInteraction(previous.uped, previous.upCount, willMark, previous.bookmarkCount + (willMark ? 1 : -1));
-    this.bookmarkFeedbackVersion = this.bookmarkFeedbackVersion + 1;
-    try {
-      if (willMark) {
-        await bookmarkPost(id);
-      } else {
+    if (!willMark) {
+      // 取消收藏：保持原逻辑
+      this.bookmarkPending = true;
+      this.setInteraction(previous.uped, previous.upCount, false, previous.bookmarkCount - 1);
+      this.bookmarkFeedbackVersion = this.bookmarkFeedbackVersion + 1;
+      try {
         await cancelBookmarkPost(id);
+      } catch (e) {
+        this.setInteraction(previous.uped, previous.upCount, previous.bookmarked, previous.bookmarkCount);
+        safeShowToast(this.getUIContext(), { message: '操作失败，请先登录' });
+      } finally {
+        this.bookmarkPending = false;
       }
+      return;
+    }
+    // 收藏：弹出收藏夹选择（加载收藏夹列表；加载失败时回退直接收藏到未分类）
+    this.bookmarkPending = true;
+    try {
+      const folders = await listBookmarkFolders();
+      this.folderPickFolders = folders;
+      this.openFolderPick();
     } catch (e) {
-      this.setInteraction(previous.uped, previous.upCount, previous.bookmarked, previous.bookmarkCount);
-      safeShowToast(this.getUIContext(),{ message: '操作失败，请先登录' });
+      // 加载收藏夹失败 → 直接收藏（未分类），保证收藏主流程可用
+      this.setInteraction(previous.uped, previous.upCount, true, previous.bookmarkCount + 1);
+      this.bookmarkFeedbackVersion = this.bookmarkFeedbackVersion + 1;
+      try {
+        await bookmarkPost(id);
+      } catch (err) {
+        this.setInteraction(previous.uped, previous.upCount, previous.bookmarked, previous.bookmarkCount);
+        safeShowToast(this.getUIContext(), { message: '操作失败，请先登录' });
+      }
     } finally {
       this.bookmarkPending = false;
     }
+  }
+
+  // 收藏夹选择结果：folderId=0 未分类；>0 归入指定收藏夹
+  private async onFolderPick(folderId: number): Promise<void> {
+    const id = this.post?.id;
+    if (id === undefined) {
+      return;
+    }
+    const previous: DetailInteractionState = this.interaction;
+    this.bookmarkPending = true;
+    this.setInteraction(previous.uped, previous.upCount, true, previous.bookmarkCount + 1);
+    this.bookmarkFeedbackVersion = this.bookmarkFeedbackVersion + 1;
+    try {
+      await bookmarkPost(id, folderId > 0 ? folderId : undefined);
+    } catch (e) {
+      this.setInteraction(previous.uped, previous.upCount, previous.bookmarked, previous.bookmarkCount);
+      safeShowToast(this.getUIContext(), { message: '操作失败，请先登录' });
+    } finally {
+      this.bookmarkPending = false;
+    }
+  }
+
+  // 新建收藏夹（从收藏夹选择弹窗进入）
+  private onNewFolderFromPick(): void {
+    this.folderNameDialog = new CustomDialogController({
+      builder: FolderNameDialog({
+        title: '新建收藏夹',
+        onSubmit: (name: string): void => {
+          this.onCreateFolderAndBookmark(name);
+        },
+      }),
+      autoCancel: true,
+      customStyle: true,
+    });
+    this.folderNameDialog.open();
+  }
+
+  // 新建收藏夹后直接收藏到该夹
+  private async onCreateFolderAndBookmark(name: string): Promise<void> {
+    const id = this.post?.id;
+    if (id === undefined) {
+      return;
+    }
+    const previous: DetailInteractionState = this.interaction;
+    this.bookmarkPending = true;
+    this.setInteraction(previous.uped, previous.upCount, true, previous.bookmarkCount + 1);
+    this.bookmarkFeedbackVersion = this.bookmarkFeedbackVersion + 1;
+    try {
+      const folder = await createBookmarkFolder(name);
+      await bookmarkPost(id, folder.id);
+    } catch (e) {
+      this.setInteraction(previous.uped, previous.upCount, previous.bookmarked, previous.bookmarkCount);
+      safeShowToast(this.getUIContext(), { message: (e as Error).message });
+    } finally {
+      this.bookmarkPending = false;
+    }
+  }
+
+  private openFolderPick(): void {
+    this.folderPickController = new CustomDialogController({
+      builder: FolderPickDialog({
+        folders: this.folderPickFolders,
+        onPick: (folderId: number): void => { this.onFolderPick(folderId); },
+        onNewFolder: (): void => { this.onNewFolderFromPick(); },
+      }),
+      autoCancel: true,
+      customStyle: true,
+    });
+    this.folderPickController.open();
   }
 
   onShare(): void {
@@ -540,7 +652,8 @@ struct DetailPage {
     }
   }
 
-  // 小红书式图文分享卡片：离屏绘制卡片图（封面+标题+正文+作者+品牌+链接）→ 系统分享
+  // 分享卡片：生成卡图并在 App 内全屏预览（不依赖系统分享/相册弹窗）。
+  // 带走方式：复制链接到微信（自动渲染落地卡片）或系统截图保存卡图。
   private async doShareCard(): Promise<void> {
     this.shareController.close();
     if (!this.post || this.post.id === undefined) {
@@ -549,7 +662,7 @@ struct DetailPage {
     const cover: string = this.images.length > 0 ? this.images[0] : '';
     safeShowToast(this.getUIContext(), { message: '正在生成分享卡片…' });
     try {
-      await sharePostCardToSystem(
+      const bytes: ArrayBuffer = await generateShareCardBytes(
         this.getUIContext(),
         this.post.id,
         this.post.title ?? '',
@@ -557,9 +670,19 @@ struct DetailPage {
         this.authorName(),
         cover,
       );
+      const source: image.ImageSource = image.createImageSource(bytes);
+      const pixelMap: image.PixelMap = source.createPixelMapSync();
+      this.shareCardPreview = pixelMap;
     } catch (e) {
       console.error('[shareCard] DetailPage 分享卡片异常: ' + ((e as Error).message ?? JSON.stringify(e)));
       safeShowToast(this.getUIContext(), { message: '卡片生成失败，请重试' });
+    }
+  }
+
+  private closeShareCardPreview(): void {
+    if (this.shareCardPreview !== null) {
+      this.shareCardPreview.release().catch((): void => {});
+      this.shareCardPreview = null;
     }
   }
 
@@ -628,7 +751,7 @@ struct DetailPage {
       this.getUIContext().showAlertDialog({
         title: '操作',
         message: '',
-        primaryButton: { value: '取消', action: (): void => {} },
+        primaryButton: { value: '数据面板', action: (): void => { this.showPostStats(); } },
         secondaryButton: {
           value: '删除帖子',
           fontColor: $r('app.color.semantic_red'),
@@ -662,10 +785,46 @@ struct DetailPage {
     }
   }
 
+  // 打开帖子数据面板（作者本人）：请求聚合数据并弹窗展示
+  private showPostStats(): void {
+    const postId: number = this.post?.id ?? this.pid;
+    if (isNaN(postId) || postId <= 0) {
+      safeShowToast(this.getUIContext(), { message: '无效帖子ID' });
+      return;
+    }
+    this.statsLoading = true;
+    this.statsError = '';
+    this.statsDialog = new CustomDialogController({
+      builder: PostStatsDialog({
+        stats: this.postStats,
+        loading: this.statsLoading,
+        error: this.statsError,
+      }),
+      autoCancel: true,
+      customStyle: true,
+    });
+    this.statsDialog.open();
+    getPostStats(postId).then((s: PostStats): void => {
+      this.postStats = s;
+      this.statsLoading = false;
+    }).catch((e: Error): void => {
+      this.statsLoading = false;
+      this.statsError = (e as Error).message;
+    });
+  }
+
   // 提交帖子举报
   private async submitReport(reason: ReportReason, description: string): Promise<void> {
+    // 优先用服务端已加载帖子的权威 id，兜底 URL 解析 id（pid）。
+    // 从分享/落地/通知等特殊入口进入时 URL id 可能解析失败，服务器端校验会报"无效帖子ID"。
+    const targetId: number = (typeof this.post?.id === 'number' && this.post.id > 0) ? this.post.id : this.pid;
+    if (isNaN(targetId) || targetId <= 0) {
+      this.reportController.close();
+      safeShowToast(this.getUIContext(), { message: '无效帖子ID' });
+      return;
+    }
     try {
-      await reportPost(this.pid, { reason, description: description || undefined });
+      await reportPost(targetId, { reason, description: description || undefined });
       this.reportController.close();
       safeShowToast(this.getUIContext(), { message: '举报已提交，我们会在48小时内处理' });
     } catch (e) {
@@ -700,9 +859,13 @@ struct DetailPage {
       return;
     }
     try {
-      await createComment(this.post.id, { content: text });
+      // 楼中楼：处于回复态（replyTargetId>0）时携带 parentId，回复后清除回复目标回到普通评论态
+      const parentId: number | undefined = this.replyTargetId > 0 ? this.replyTargetId : undefined;
+      await createComment(this.post.id, { content: text, parentId: parentId });
       this.commentText = '';
       this.commenting = false;
+      this.replyTargetId = 0;
+      this.replyTargetName = '';
       await this.load();
     } catch (e) {
       // 透传后端错误 message（如"内容含敏感词，请修改后重试"）
@@ -710,8 +873,79 @@ struct DetailPage {
     }
   }
 
+  // 楼中楼：点击评论下「回复」进入回复态（以目标评论为父评论）
+  private onReplyComment(comment: Comment): void {
+    const name: string = (comment.user?.nickname ?? '') || (comment.userId !== undefined ? String(comment.userId) : '');
+    this.replyTargetId = comment.id ?? 0;
+    this.replyTargetName = name;
+    this.commenting = true;
+  }
+
+  // 取消回复态（返回普通评论输入）
+  private onCancelReply(): void {
+    this.replyTargetId = 0;
+    this.replyTargetName = '';
+  }
+
   build() {
     Column() {
+      // 分享卡图全屏预览（无系统依赖，可截图/复制链接带走）
+      if (this.shareCardPreview !== null) {
+        Stack({ alignContent: Alignment.TopEnd }) {
+          Column() {
+            Text('分享卡片 · 生成好了')
+              .fontSize(16).fontFamily($r('app.string.font_family'))
+              .fontWeight(FontWeight.Bold)
+              .fontColor(Color.White)
+              .margin({ top: 8 })
+            Text('把它发给朋友：复制链接到微信，或截图保存这张卡片')
+              .fontSize(12).fontFamily($r('app.string.font_family'))
+              .fontColor('rgba(255,255,255,0.7)')
+              .margin({ top: 6 })
+            Image(this.shareCardPreview)
+              .width('88%')
+              .aspectRatio(3 / 4)
+              .objectFit(ImageFit.Contain)
+              .borderRadius(12)
+              .margin({ top: 12 })
+            Row({ space: 12 }) {
+              Button('关闭')
+                .layoutWeight(1)
+                .backgroundColor('rgba(255,255,255,0.14)')
+                .fontColor(Color.White)
+                .onClick(() => { this.closeShareCardPreview(); })
+              Button('复制链接')
+                .layoutWeight(1)
+                .backgroundColor('#34C759')
+                .fontColor(Color.White)
+                .onClick(() => {
+                  if (this.post?.id !== undefined) {
+                    copyToClipboard(buildPostShareUrl(this.post.id));
+                    safeShowToast(this.getUIContext(), { message: '链接已复制，去微信粘贴即可自动显示卡片' });
+                  }
+                })
+            }
+            .width('88%')
+            .margin({ top: 16, bottom: 32 })
+          }
+          .width('100%')
+          .justifyContent(FlexAlign.Start)
+          .padding({ top: 24 })
+
+          Text('X')
+            .fontSize(18).fontFamily($r('app.string.font_family'))
+            .fontColor(Color.White)
+            .width(40).height(40)
+            .textAlign(TextAlign.Center)
+            .margin({ top: 20, right: 12 })
+            .onClick(() => { this.closeShareCardPreview(); })
+        }
+        .width('100%')
+        .height('100%')
+        .backgroundColor('#E8000000')
+        .zIndex(200)
+      }
+
       // 全屏图片查看器：支持双击/双指缩放、拖动平移、单击或按钮关闭
       if (this.viewingImage.length > 0) {
         ImageViewer({
@@ -741,8 +975,10 @@ struct DetailPage {
       } else if (this.error) {
         Column() {
           Text(this.error)
-            .fontSize(14).fontFamily($r('app.string.font_family'))
-            .fontColor($r('app.color.text_secondary'))
+            .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.callout.weight)
+            .lineHeight(TypeTokens.callout.lineHeight)
+            .fontColor(ColorTokens.secondary)
           Button('重试')
             .margin({ top: 16 })
             .onClick(() => this.load())
@@ -803,6 +1039,7 @@ struct DetailPage {
                 planA: this.planTextOf('方案A'),
                 planB: this.planTextOf('方案B'),
                 votePostId: this.post.id ?? 0,
+                mentions: this.post.mentions ?? [],
                 onVote: (choice: string): void => { this.onDebateVote(choice); },
               })
 
@@ -810,6 +1047,7 @@ struct DetailPage {
                 comments: this.post.comments ?? [],
                 commentCount: this.post.commentCount ?? 0,
                 onReportComment: (commentId: number): void => { this.openCommentReport(commentId); },
+                onReplyComment: (comment: Comment): void => { this.onReplyComment(comment); },
               })
 
               // 真实滚动内容占位，末尾评论可完整滑出悬浮互动栏下方。
@@ -840,6 +1078,8 @@ struct DetailPage {
             onBookmark: (): void => { this.onBookmark(); },
             onSendComment: (): void => { this.onSendComment(); },
             onShare: (): void => { this.onShare(); },
+            replyName: this.replyTargetName,
+            onCancelReply: (): void => { this.onCancelReply(); },
           })
             .zIndex(1)
         }

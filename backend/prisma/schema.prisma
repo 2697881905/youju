@@ -58,9 +58,12 @@ model Post {
   genre          String   @db.VarChar(20) // review | pitfall | tutorial | debate
   tags           Json // 标签列表，1~3个
   structuredData Json? // 结构化字段（体裁不同，内容不同）
+  mentions       Json? // 正文 @提及 解析结果 [{name: 昵称, userId}]，供前端点击跳转用户主页
   upCount        Int      @default(0)
   bookmarkCount  Int      @default(0)
   commentCount   Int      @default(0)
+  viewCount      Int      @default(0) // 详情页浏览次数（数据面板/热度信号）
+  hotScore       Float    @default(0) // 热度综合分（推荐/热榜排序用，事件后增量重算）
   status         Int      @default(0) // 0-待审核 1-已发布 2-已拒绝
   reportCount    Int      @default(0) // 被举报累计次数（达阈值自动 status=0）
   planAVotes     Int      @default(0) // 辩论方案A投票数
@@ -72,6 +75,8 @@ model Post {
   comments Comment[]
   ups      Up[]
   bookmarks Bookmark[]
+
+  @@index([hotScore, status, deletedAt]) // 推荐/热榜按热度检索（未删+已发布过滤走 where，索引前缀含 hotScore）
 }
 
 // 评论表
@@ -119,9 +124,22 @@ model Bookmark {
   user      User     @relation(fields: [userId], references: [id])
   postId    Int
   post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  folderId  Int? // 所属收藏夹（null=未分类；收藏夹被删除时置回 null，收藏保留）
   createdAt DateTime @default(now())
 
   @@unique([userId, postId])
+  @@index([userId, folderId]) // 收藏夹内帖子列表按 userId+folderId 检索
+}
+
+// 收藏夹（专辑）：用户自建分类，收藏时可选择归类
+model BookmarkFolder {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  name      String   @db.VarChar(20)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 // 标签表
@@ -332,4 +350,32 @@ model MessageDeletion {
 
   @@unique([userId, messageId])          // 幂等：同一用户对同一消息只记一次
   @@index([messageId])                   // 会话历史按消息过滤
+}
+
+// 帖子行为埋点（最小曝光/点击信号，供推荐迭代与数据面板统计）
+model PostEvent {
+  id        Int      @id @default(autoincrement())
+  postId    Int
+  userId    Int? // 匿名访问为 null
+  action    String   @db.VarChar(20) // expose | click | up | comment | bookmark
+  createdAt DateTime @default(now())
+
+  @@index([postId]) // 按帖聚合统计
+  @@index([postId, action, createdAt]) // 按帖+动作+时间窗口统计
+}
+
+// 推送发送记录（HMS 真实通道未配置时仅落日志位，便于联调与审计）
+model PushLog {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  token      String   @db.VarChar(255)
+  title      String   @db.VarChar(100)
+  body       String?  @db.VarChar(500)
+  data       Json?
+  status     String   @default("queued") @db.VarChar(20) // queued | sent | failed | skipped
+  error      String?  @db.VarChar(500)
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([status, createdAt])
 }

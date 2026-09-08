@@ -17,7 +17,7 @@ jest.mock('../prisma', () => ({
   prisma: {
     post: {
       create: jest.fn(),
-      update: jest.fn(),
+      update: jest.fn().mockResolvedValue({}),
       findMany: jest.fn(),
       findFirst: jest.fn(),
       findUnique: jest.fn(),
@@ -34,6 +34,10 @@ jest.mock('../prisma', () => ({
     debateVote: {
       findMany: jest.fn().mockResolvedValue([]),
       findFirst: jest.fn().mockResolvedValue(null),
+    },
+    // getPost 楼中楼：评论改为独立查询后由 buildCommentTree 组装（测试用空列表即可）
+    comment: {
+      findMany: jest.fn().mockResolvedValue([]),
     },
     user: {
       findUnique: jest.fn().mockResolvedValue({ status: 1, deletedAt: null }),

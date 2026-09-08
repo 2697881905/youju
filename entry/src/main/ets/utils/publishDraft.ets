@@ -1,4 +1,4 @@
-import { Genre, StructuredData } from '../models/types';
+import { Genre, StructuredData, MentionRef } from '../models/types';
 
 export type PublishDraftMode = 'photo' | 'text' | 'video';
 
@@ -15,6 +15,7 @@ export interface PublishDraft {
   videoCover?: string; // 视频封面（首帧抓取上传）
   videoAspectRatio?: number; // 视频真实宽/高，供预览与详情按原比例展示
   textPosterStyle?: string;
+  mentions?: MentionRef[]; // 编辑器显式选择的 @提及（精确到 userId，随发布透传）
 }
 
 export function clonePublishDraft(draft: PublishDraft): PublishDraft {
@@ -30,5 +31,9 @@ export function clonePublishDraft(draft: PublishDraft): PublishDraft {
     videoCover: draft.videoCover,
     videoAspectRatio: draft.videoAspectRatio,
     textPosterStyle: draft.textPosterStyle,
+    mentions: draft.mentions !== undefined ? draft.mentions.map((m: MentionRef): MentionRef => ({
+      name: m.name,
+      userId: m.userId,
+    })) : undefined,
   };
 }

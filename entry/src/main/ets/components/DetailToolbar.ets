@@ -32,6 +32,7 @@ export struct DetailToolbar {
         .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
         .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
         .borderRadius(RadiusTokens.lg)
+        .accessibilityText('更多操作')
         .onClick((): void => { this.onMore(); })
     }
     .width('100%')

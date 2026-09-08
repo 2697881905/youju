@@ -30,3 +30,15 @@ export class ValidationError extends Error {
     Object.setPrototypeOf(this, ValidationError.prototype);
   }
 }
+
+/** 资源不存在（收藏夹/被回复的父评论等指向的对象不存在或越权时使用）。 */
+export class NotFoundError extends Error {
+  reason: string = 'not_found';
+  status: number = 404;
+
+  constructor(message: string) {
+    super(message);
+    this.name = 'NotFoundError';
+    Object.setPrototypeOf(this, NotFoundError.prototype);
+  }
+}

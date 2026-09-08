@@ -2,10 +2,12 @@
 // 媒体区直接渲染 VideoPicker，无 mediaTypeSelector 切换行。
 import { LengthMetrics, router } from '@kit.ArkUI';
 import { listTags } from '../services/api';
-import { Genre, StructuredData, Tag } from '../models/types';
+import { Genre, StructuredData, Tag, MentionRef, MentionCandidate } from '../models/types';
 import { VideoPicker } from '../components/VideoPicker';
 import { safeShowToast } from '../utils/toast';
 import { resolveActionIcon } from '../utils/actionIcons';
+import { findActiveAtMention, applyAtMention } from '../utils/atMention';
+import { AtMentionSuggest } from '../components/AtMentionSuggest';
 import { BaseCard } from '../design/components/BaseCard';
 import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
@@ -49,6 +51,11 @@ struct VideoPublishPage {
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
   @State categoryList: string[] = [];
   @State tagsByCategory: Record<string, Tag[]> = {};
+  // —— 视频说明 @提及 选择器 ——
+  @State mentionActive: boolean = false;
+  @State mentionKeyword: string = '';
+  private mentionAt: number = -1;
+  private mentionRefs: MentionRef[] = [];
   private unsubscribePublishFlow: () => void = () => {};
   private lastPublishFlowRevision: number = -1;
 
@@ -148,6 +155,61 @@ struct VideoPublishPage {
     }
   }
 
+  // —— 视频说明 @提及 编辑辅助 ——
+  private syncMention(text: string): void {
+    const m = findActiveAtMention(text);
+    if (m === null) {
+      if (this.mentionActive) {
+        this.mentionActive = false;
+      }
+      this.mentionKeyword = '';
+      this.mentionAt = -1;
+      return;
+    }
+    this.mentionAt = m.atIndex;
+    this.mentionKeyword = m.keyword;
+    if (!this.mentionActive) {
+      this.mentionActive = true;
+    }
+  }
+
+  private pickMention(c: MentionCandidate): void {
+    if (this.mentionAt < 0) {
+      return;
+    }
+    const nickname: string = c.nickname.trim();
+    if (nickname.length === 0) {
+      return;
+    }
+    const nextText: string = applyAtMention(this.content, this.mentionAt, nickname);
+    if (nextText.length > 20000) {
+      safeShowToast(this.getUIContext(), { message: '正文过长' });
+      return;
+    }
+    this.content = nextText;
+    let exists: boolean = false;
+    for (const m of this.mentionRefs) {
+      if (m.userId === c.id) {
+        exists = true;
+        break;
+      }
+    }
+    if (!exists) {
+      const next: MentionRef[] = this.mentionRefs.slice();
+      next.push({ name: nickname, userId: c.id });
+      this.mentionRefs = next;
+    }
+    this.mentionActive = false;
+    this.mentionKeyword = '';
+    this.mentionAt = -1;
+  }
+
+  private closeMention(): void {
+    this.mentionActive = false;
+    this.mentionKeyword = '';
+    this.mentionAt = -1;
+  }
+
   private openPreview(): void {
     if (!this.title.trim()) {
       safeShowToast(this.getUIContext(), { message: '请填写标题' });
@@ -170,6 +232,7 @@ struct VideoPublishPage {
       videoUrl: this.videoUrl,
       videoCover: this.videoCover,
       videoAspectRatio: this.videoAspectRatio,
+      mentions: this.mentionRefs.length > 0 ? this.mentionRefs : undefined,
     };
   }
 
@@ -192,6 +255,11 @@ struct VideoPublishPage {
     this.showFields = false;
     this.showGenreMenu = false;
     this.showTagPanel = false;
+    this.closeMention();
+    this.mentionRefs = draft.mentions !== undefined ? draft.mentions.map((m: MentionRef): MentionRef => ({
+      name: m.name,
+      userId: m.userId,
+    })) : [];
   }
 
   private applyPublishSession(session: PublishSession): void {
@@ -233,6 +301,8 @@ struct VideoPublishPage {
     this.showFields = false;
     this.showGenreMenu = false;
     this.showTagPanel = false;
+    this.mentionRefs = [];
+    this.closeMention();
   }
 
   private currentGenreHint(): string {
@@ -287,7 +357,18 @@ struct VideoPublishPage {
           .fontColor(ColorTokens.primary)
           .placeholderColor(ColorTokens.quaternary)
           .backgroundColor(Color.Transparent)
-          .onChange((value: string) => { this.content = value; })
+          .onChange((value: string) => {
+            this.content = value;
+            this.syncMention(value);
+          })
+        if (this.mentionActive) {
+          AtMentionSuggest({
+            keyword: this.mentionKeyword,
+            onPick: (c: MentionCandidate): void => { this.pickMention(c); },
+          })
+            .margin({ top: SpaceTokens.xs })
+            .width('100%')
+        }
         Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator).margin({ top: SpaceTokens.sm })
         PublishStructuredSupplement({
           genre: this.genre,

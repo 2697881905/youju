@@ -56,21 +56,18 @@ export async function downloadToSandbox(context: common.UIAbilityContext, url: s
       throw new Error('下载封面失败 HTTP ' + String(resp.responseCode));
     }
     const buffer: ArrayBuffer = resp.result as ArrayBuffer;
-    const dir: string = context.filesDir + '/share';
-    // mkdirSync 在目录已存在时会抛 File exists，先探测再创建
-    let dirExists: boolean = false;
-    try {
-      fileIo.accessSync(dir);
-      dirExists = true;
-    } catch (e) {
-      dirExists = false;
-    }
-    if (!dirExists) {
-      fileIo.mkdirSync(dir, true);
-    }
+    // 直接写 filesDir 根目录（不建子目录：某些 API 上子目录 accessSync 可通过但
+    // openSync 却报 ENOENT，写法上子目录不可靠）
+    const dir: string = context.filesDir;
     const ext: string = url.indexOf('.png') >= 0 ? 'png' : 'jpg';
     const filePath: string = dir + '/' + util.generateRandomUUID() + '.' + ext;
-    const file = fileIo.openSync(filePath, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE);
+    let file: fileIo.File | undefined;
+    try {
+      file = fileIo.openSync(filePath, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE | fileIo.OpenMode.TRUNC);
+    } catch (e) {
+      console.error('[share] openSync失败 path=' + filePath + ' msg=' + String((e as Error).message ?? e));
+      throw new Error('openSync ' + filePath + ' ' + String((e as Error).message ?? e));
+    }
     fileIo.writeSync(file.fd, buffer);
     fileIo.closeSync(file);
     return 'file://' + filePath;

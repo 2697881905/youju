@@ -2,9 +2,11 @@
 // 媒体区渲染文字海报样式选择器，无图片/视频入口，无 mediaTypeSelector 切换行。
 import { LengthMetrics, router } from '@kit.ArkUI';
 import { listTags } from '../services/api';
-import { Genre, StructuredData, Tag } from '../models/types';
+import { Genre, StructuredData, Tag, MentionRef, MentionCandidate } from '../models/types';
 import { safeShowToast } from '../utils/toast';
 import { resolveActionIcon } from '../utils/actionIcons';
+import { findActiveAtMention, applyAtMention } from '../utils/atMention';
+import { AtMentionSuggest } from '../components/AtMentionSuggest';
 import { BaseCard } from '../design/components/BaseCard';
 import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
@@ -47,6 +49,11 @@ struct TextPublishPage {
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
   @State categoryList: string[] = [];
   @State tagsByCategory: Record<string, Tag[]> = {};
+  // —— 正文 @提及 选择器 ——
+  @State mentionActive: boolean = false;
+  @State mentionKeyword: string = '';
+  private mentionAt: number = -1;
+  private mentionRefs: MentionRef[] = [];
   private unsubscribePublishFlow: () => void = () => {};
   private lastPublishFlowRevision: number = -1;
 
@@ -120,6 +127,63 @@ struct TextPublishPage {
     this.sd = withStructuredField(this.sd, key, value);
   }
 
+  // —— 正文 @提及 编辑辅助 ——
+  // 正文尾部正在输入「@昵称」时激活候选面板；键入空格/标点/@ 或删除 @ 后自动收起
+  private syncMention(text: string): void {
+    const m = findActiveAtMention(text);
+    if (m === null) {
+      if (this.mentionActive) {
+        this.mentionActive = false;
+      }
+      this.mentionKeyword = '';
+      this.mentionAt = -1;
+      return;
+    }
+    this.mentionAt = m.atIndex;
+    this.mentionKeyword = m.keyword;
+    if (!this.mentionActive) {
+      this.mentionActive = true;
+    }
+  }
+
+  // 点选候选：回填「@昵称 」并记录精确 userId（防重名歧义，随发布透传后端）
+  private pickMention(c: MentionCandidate): void {
+    if (this.mentionAt < 0) {
+      return;
+    }
+    const nickname: string = c.nickname.trim();
+    if (nickname.length === 0) {
+      return;
+    }
+    const nextText: string = applyAtMention(this.content, this.mentionAt, nickname);
+    if (nextText.length > MAX_LONG_FORM_CONTENT_LENGTH) {
+      safeShowToast(this.getUIContext(), { message: '长文最多 ' + MAX_LONG_FORM_CONTENT_LENGTH + ' 字' });
+      return;
+    }
+    this.content = nextText;
+    let exists: boolean = false;
+    for (const m of this.mentionRefs) {
+      if (m.userId === c.id) {
+        exists = true;
+        break;
+      }
+    }
+    if (!exists) {
+      const next: MentionRef[] = this.mentionRefs.slice();
+      next.push({ name: nickname, userId: c.id });
+      this.mentionRefs = next;
+    }
+    this.mentionActive = false;
+    this.mentionKeyword = '';
+    this.mentionAt = -1;
+  }
+
+  private closeMention(): void {
+    this.mentionActive = false;
+    this.mentionKeyword = '';
+    this.mentionAt = -1;
+  }
+
   private buildStructuredData(): StructuredData {
     let out: StructuredData = {};
     for (const item of genreStructuredFields(this.genre)) {
@@ -170,6 +234,7 @@ struct TextPublishPage {
       structuredData: this.buildStructuredData(),
       images: [],
       textPosterStyle: this.textPosterStyle,
+      mentions: this.mentionRefs.length > 0 ? this.mentionRefs : undefined,
     };
   }
 
@@ -190,6 +255,11 @@ struct TextPublishPage {
     this.showFields = false;
     this.showGenreMenu = false;
     this.showTagPanel = false;
+    this.closeMention();
+    this.mentionRefs = draft.mentions !== undefined ? draft.mentions.map((m: MentionRef): MentionRef => ({
+      name: m.name,
+      userId: m.userId,
+    })) : [];
   }
 
   private applyPublishSession(session: PublishSession): void {
@@ -229,6 +299,8 @@ struct TextPublishPage {
     this.showFields = false;
     this.showGenreMenu = false;
     this.showTagPanel = false;
+    this.mentionRefs = [];
+    this.closeMention();
   }
 
   private currentGenreHint(): string {
@@ -333,12 +405,23 @@ struct TextPublishPage {
           .placeholderColor(ColorTokens.quaternary)
           .backgroundColor(Color.Transparent)
           .maxLength(MAX_LONG_FORM_CONTENT_LENGTH)
-          .onChange((value: string) => { this.content = value; })
+          .onChange((value: string) => {
+            this.content = value;
+            this.syncMention(value);
+          })
         Text(this.content.length + '/' + MAX_LONG_FORM_CONTENT_LENGTH)
           .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
           .fontColor(ColorTokens.secondary)
           .width('100%')
           .textAlign(TextAlign.End)
+        if (this.mentionActive) {
+          AtMentionSuggest({
+            keyword: this.mentionKeyword,
+            onPick: (c: MentionCandidate): void => { this.pickMention(c); },
+          })
+            .margin({ top: SpaceTokens.xs })
+            .width('100%')
+        }
         Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator).margin({ top: SpaceTokens.sm })
         this.textPosterStyleSelector()
         PublishStructuredSupplement({

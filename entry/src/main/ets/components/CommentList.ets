@@ -1,4 +1,4 @@
-// 评论列表组件（盖楼式展示，含"事实补充"徽标 + 举报入口 + 作者删除）
+// 评论列表组件（楼中楼盖楼式展示：一级评论 + 子回复面板，含"事实补充"徽标 + 举报入口 + 作者删除 + 回复入口）
 import { Comment } from '../models/types';
 import { timeAgo, formatCount } from '../utils/format';
 import { deleteComment, upComment, cancelUpComment } from '../services/api';
@@ -13,11 +13,14 @@ export struct CommentList {
   @Prop comments: Comment[] = [];
   // 举报回调（由 DetailPage 传入，打开 ReportDialog）
   reportCommentHandler: (commentId: number) => void = (_id: number) => {};
+  // P1-1 楼中楼：点击评论下「回复」时上报该评论（上层构建回复目标）
+  // 参数命名为 cmt 避免与类型 Comment 在 Rollup 中冲突
+  onReplyComment: (cmt: Comment) => void = (_cmt: Comment): void => {};
   // 评论点赞本地态：用 Map/Set 保存（@State 顶层替换触发重渲染），避免直接改 ForEach 项不刷新
   @State likedIds: Set<number> = new Set<number>();
   @State upCounts: Map<number, number> = new Map<number, number>();
 
-  // 删除评论：二次确认 → 调 API → 乐观移除
+  // 删除评论：二次确认 → 调 API → 乐观移除（一级评论删整条，子回复从其父的 replies 中移除）
   private onDeleteComment(c: Comment): void {
     this.getUIContext().showAlertDialog({
       title: '删除评论？',
@@ -28,10 +31,19 @@ export struct CommentList {
           if (c.id !== undefined) {
             await deleteComment(c.id);
           }
-          // 乐观移除：从列表中剔除该评论
+          // 乐观移除：一级评论在整个列表中剔除（连带其 replies）；子回复从其父的 replies 中剔除
           const idx: number = this.comments.indexOf(c);
           if (idx >= 0) {
             this.comments.splice(idx, 1);
+          } else {
+            for (const root of this.comments) {
+              const rs = root.replies ?? [];
+              const ri: number = rs.indexOf(c);
+              if (ri >= 0) {
+                rs.splice(ri, 1);
+                break;
+              }
+            }
           }
           safeShowToast(this.getUIContext(), { message: '评论已删除' });
         } catch (e) {
@@ -139,6 +151,17 @@ export struct CommentList {
     return '';
   }
 
+  // 评论展示昵称（已注销用户统一展示"已注销用户"）
+  private displayName(c: Comment): string {
+    return this.isDeletedCommentUser(c) ? '已注销用户' : (c.user?.nickname ?? '匿名用户');
+  }
+
+  // 评论者昵称（未注销时取原始昵称，用于回复态「回复 @xxx」）
+  private rawName(c: Comment): string {
+    return this.isDeletedCommentUser(c) ? '已注销用户' : (c.user?.nickname ?? '匿名用户');
+  }
+
+  // 一级评论头像（36）
   @Builder
   avatar(c: Comment) {
     if (this.isDeletedCommentUser(c)) {
@@ -166,6 +189,141 @@ export struct CommentList {
     }
   }
 
+  // 子回复头像（28）
+  @Builder
+  subAvatar(c: Comment) {
+    if (this.isDeletedCommentUser(c)) {
+      Text('?')
+        .width(28)
+        .height(28)
+        .borderRadius(14)
+        .backgroundColor('#3A3A3C')
+        .fontColor(Color.White)
+        .fontSize(12).fontFamily($r('app.string.font_family'))
+        .textAlign(TextAlign.Center)
+    } else {
+      Column() {
+        Avatar({
+          avatar: this.commentAvatarUrl(c),
+          name: c.user?.nickname ?? '匿',
+          avatarSize: 28,
+        })
+      }
+      .width(28)
+      .height(28)
+      .onClick(() => {
+        this.goUser(c);
+      })
+    }
+  }
+
+  // 点赞 + 回复 操作条（一级/子回复共用）
+  @Builder
+  actionStrip(c: Comment, compact: boolean) {
+    Row({ space: 14 }) {
+      Row({ space: 2 }) {
+        Image(resolveActionIcon('like'))
+          .width(compact ? 12 : 13)
+          .height(compact ? 12 : 13)
+        Text(formatCount(this.commentUp(c)))
+          .fontSize(compact ? 11 : 12).fontFamily($r('app.string.font_family'))
+          .fontColor(this.isLiked(c) ? $r('app.color.ds_like') : $r('app.color.text_secondary'))
+      }
+      .onClick(() => {
+        this.onLike(c);
+      })
+      Text('回复')
+        .fontSize(compact ? 11 : 12).fontFamily($r('app.string.font_family'))
+        .fontColor($r('app.color.text_secondary'))
+        .onClick(() => {
+          this.onReplyComment(c);
+        })
+    }
+  }
+
+  // 评论操作菜单（作者可删除，他人可举报）
+  @Builder
+  menuButton(c: Comment) {
+    Text('⋯')
+      .fontSize(18).fontFamily($r('app.string.font_family'))
+      .fontColor($r('app.color.text_secondary'))
+      .width(32)
+      .textAlign(TextAlign.Center)
+      .onClick(() => {
+        const isOwner: boolean = c.userId === getUserId();
+        if (isOwner) {
+          this.getUIContext().showAlertDialog({
+            title: '操作',
+            message: '',
+            primaryButton: { value: '取消', action: (): void => {} },
+            secondaryButton: {
+              value: '删除该评论',
+              fontColor: $r('app.color.semantic_red'),
+              action: (): void => {
+                this.onDeleteComment(c);
+              },
+            },
+          });
+        } else {
+          this.getUIContext().showAlertDialog({
+            title: '操作',
+            message: '',
+            primaryButton: {
+              value: '举报该评论',
+              fontColor: $r('app.color.semantic_red'),
+              action: (): void => {
+                if (c.id !== undefined) {
+                  this.reportCommentHandler(c.id);
+                }
+              },
+            },
+            secondaryButton: { value: '取消', action: (): void => {} },
+          });
+        }
+      })
+  }
+
+  // 子回复行：回复 @xxx + 内容 + 操作条
+  @Builder
+  subRow(r: Comment, parentName: string) {
+    Row({ space: 8 }) {
+      this.subAvatar(r)
+      Column({ space: 3 }) {
+        Row({ space: 6 }) {
+          Text(this.displayName(r))
+            .fontSize(13).fontFamily($r('app.string.font_family'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('app.color.text_secondary'))
+          if (r.isFact === 1) {
+            Text('事实补充')
+              .fontSize(10).fontFamily($r('app.string.font_family'))
+              .fontColor($r('app.color.brand_primary'))
+              .border({ width: 0.5, color: $r('app.color.brand_primary') })
+              .borderRadius(3)
+              .padding({ left: 3, right: 3, top: 0, bottom: 0 })
+          }
+        }
+        Text('回复 @' + parentName + '：' + (r.content ?? ''))
+          .fontSize(14).fontFamily($r('app.string.font_family'))
+          .fontColor($r('app.color.text_primary'))
+          .maxLines(3)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Row({ space: 4 }) {
+          Text(timeAgo(r.createdAt))
+            .fontSize(11).fontFamily($r('app.string.font_family'))
+            .fontColor($r('app.color.text_secondary'))
+          this.actionStrip(r, true)
+        }
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+
+      this.menuButton(r)
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Top)
+  }
+
   build() {
     Column({ space: 12 }) {
       if (this.comments.length === 0) {
@@ -176,85 +334,64 @@ export struct CommentList {
         ForEach(
           this.comments,
           (c: Comment) => {
-            Row({ space: 10 }) {
-              this.avatar(c)
-              Column({ space: 4 }) {
-                Row({ space: 6 }) {
-                  Text(this.isDeletedCommentUser(c) ? '已注销用户' : (c.user?.nickname ?? '匿名用户'))
-                    .fontSize(14).fontFamily($r('app.string.font_family'))
-                    .fontWeight(FontWeight.Medium)
-                    .fontColor($r('app.color.text_secondary'))
-                  if (c.isFact === 1) {
-                    Text('事实补充')
-                      .fontSize(11).fontFamily($r('app.string.font_family'))
-                      .fontColor($r('app.color.brand_primary'))
-                      .border({ width: 0.5, color: $r('app.color.brand_primary') })
-                      .borderRadius(4)
-                      .padding({ left: 4, right: 4, top: 1, bottom: 1 })
+            Column({ space: 6 }) {
+              Row({ space: 10 }) {
+                this.avatar(c)
+                Column({ space: 4 }) {
+                  Row({ space: 6 }) {
+                    Text(this.displayName(c))
+                      .fontSize(14).fontFamily($r('app.string.font_family'))
+                      .fontWeight(FontWeight.Medium)
+                      .fontColor($r('app.color.text_secondary'))
+                    if (c.isFact === 1) {
+                      Text('事实补充')
+                        .fontSize(11).fontFamily($r('app.string.font_family'))
+                        .fontColor($r('app.color.brand_primary'))
+                        .border({ width: 0.5, color: $r('app.color.brand_primary') })
+                        .borderRadius(4)
+                        .padding({ left: 4, right: 4, top: 1, bottom: 1 })
+                    }
+                  }
+                  Text(c.content ?? '')
+                    .fontSize(15).fontFamily($r('app.string.font_family'))
+                    .fontColor($r('app.color.text_primary'))
+                  Row({ space: 4 }) {
+                    Text(timeAgo(c.createdAt))
+                      .fontSize(12).fontFamily($r('app.string.font_family'))
+                      .fontColor($r('app.color.text_secondary'))
+                    this.actionStrip(c, false)
                   }
                 }
-                Text(c.content ?? '')
-                  .fontSize(15).fontFamily($r('app.string.font_family'))
-                  .fontColor($r('app.color.text_primary'))
-                Text(timeAgo(c.createdAt) + ' · ')
-                  .fontSize(12).fontFamily($r('app.string.font_family'))
-                  .fontColor($r('app.color.text_secondary'));
-                Row({ space: 2 }) {
-                  Image(resolveActionIcon('like'))
-                    .width(13)
-                    .height(13)
-                  Text(formatCount(this.commentUp(c)))
-                    .fontSize(12).fontFamily($r('app.string.font_family'))
-                    .fontColor(this.isLiked(c) ? $r('app.color.ds_like') : $r('app.color.text_secondary'))
-                }
-                .onClick(() => {
-                  this.onLike(c);
-                })
-              }
-              .layoutWeight(1)
-              .alignItems(HorizontalAlign.Start)
+                .layoutWeight(1)
+                .alignItems(HorizontalAlign.Start)
 
-              // 操作菜单（作者可删除，他人可举报）
-              Text('⋯')
-                .fontSize(18).fontFamily($r('app.string.font_family'))
-                .fontColor($r('app.color.text_secondary'))
-                .width(32)
-                .textAlign(TextAlign.Center)
-                .onClick(() => {
-                  const isOwner: boolean = c.userId === getUserId();
-                  if (isOwner) {
-                    this.getUIContext().showAlertDialog({
-                      title: '操作',
-                      message: '',
-                      primaryButton: { value: '取消', action: (): void => {} },
-                      secondaryButton: {
-                        value: '删除该评论',
-                        fontColor: $r('app.color.semantic_red'),
-                        action: (): void => {
-                          this.onDeleteComment(c);
-                        },
-                      },
-                    });
-                  } else {
-                    this.getUIContext().showAlertDialog({
-                      title: '操作',
-                      message: '',
-                      primaryButton: {
-                        value: '举报该评论',
-                        fontColor: $r('app.color.semantic_red'),
-                        action: (): void => {
-                          if (c.id !== undefined) {
-                            this.reportCommentHandler(c.id);
-                          }
-                        },
-                      },
-                      secondaryButton: { value: '取消', action: (): void => {} },
-                    });
-                  }
-                })
+                this.menuButton(c)
+              }
+              .width('100%')
+              .alignItems(VerticalAlign.Top)
+
+              // 楼中楼：该一级评论下的全部回复（浅色面板 + 缩进对齐头像内侧）
+              // 宽度用 calc 扣除左缩进，避免 100%＋margin 导致右侧溢出、操作按钮丢出屏幕
+              if ((c.replies ?? []).length > 0) {
+                Column({ space: 8 }) {
+                  ForEach(
+                    c.replies ?? [],
+                    (r: Comment) => {
+                      this.subRow(r, c.user?.nickname ?? '该条评论')
+                    },
+                    (r: Comment) => 'r' + (r.id?.toString() ?? '')
+                  )
+                }
+                .width('calc(100% - 46vp)')
+                .alignItems(HorizontalAlign.Start)
+                .padding({ left: 8, right: 8, top: 8, bottom: 8 })
+                .backgroundColor($r('app.color.card_bg'))
+                .borderRadius(10)
+                .margin({ top: 4, left: 46 })
+              }
             }
             .width('100%')
-            .alignItems(VerticalAlign.Top)
+            .alignItems(HorizontalAlign.Start)
           },
           (c: Comment) => c.id?.toString() ?? ''
         )

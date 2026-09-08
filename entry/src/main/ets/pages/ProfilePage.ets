@@ -1,7 +1,7 @@
 // 个人主页（我的）：头像/昵称 + 关注/粉丝入口 + 我发布/我收藏 双 Tab + 帖子网格
 
-import { Post, User, UserProfile } from '../models/types';
-import { listPosts, listMyBookmarks, listMyLikedPosts, listMyCommentedPosts, getUserProfile, cancelBookmarkPost, resolveDisplayImageUrl } from '../services/api';
+import { Post, User, UserProfile, BookmarkFolderItem } from '../models/types';
+import { listPosts, listMyBookmarks, listMyLikedPosts, listMyCommentedPosts, getUserProfile, cancelBookmarkPost, resolveDisplayImageUrl, listBookmarkFolders } from '../services/api';
 import { PostCard } from '../components/PostCard';
 import { getCurrentUser } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
@@ -33,6 +33,12 @@ const PROFILE_SEGMENTS: SegmentedItem[] = [
   { key: 'commented', label: '我评论' },
 ];
 
+// 「我收藏」子分段：帖子（收藏列表） | 收藏夹（专辑管理）
+const BOOKMARK_SEGMENTS: SegmentedItem[] = [
+  { key: 'posts', label: '帖子' },
+  { key: 'folders', label: '收藏夹' },
+];
+
 @Component
 export struct ProfilePage {
   @State user: User = {};
@@ -52,6 +58,10 @@ export struct ProfilePage {
   @State followerCount: number = 0;
   @State totalLikes: number = 0; // 获赞总数
   @State tabIdx: number = 0; // 0 我发布, 1 我收藏, 2 我赞过, 3 我评论
+  // 「我收藏」子分段：0 帖子列表 / 1 收藏夹网格（切换时懒加载收藏夹）
+  @State @Watch('onBookmarkSubTabChange') bookmarkSubTab: number = 0;
+  @State folders: BookmarkFolderItem[] = [];
+  @State foldersReady: boolean = true;
   @State posts: Post[] = [];
   @State page: number = 1;
   @State loading: boolean = false;
@@ -333,6 +343,10 @@ export struct ProfilePage {
     if (!reset && this.loading) {
       return;
     }
+    // 「我收藏 → 收藏夹」视图：不请求帖子列表（由 loadFolders 管理）
+    if (this.tabIdx === 1 && this.bookmarkSubTab === 1) {
+      return;
+    }
     const uid: number = this.user.id ?? 0;
     if (uid === 0) {
       return;
@@ -453,6 +467,153 @@ export struct ProfilePage {
     }
   }
 
+  // 收藏子分段切换：切到「收藏夹」时懒加载收藏夹列表，回到「帖子」时刷新收藏列表
+  onBookmarkSubTabChange(): void {
+    if (this.bookmarkSubTab === 1) {
+      this.loadFolders();
+    } else {
+      this.refresh();
+    }
+  }
+
+  // 加载我的收藏夹（幂等：已加载且非空则跳过，保持滚动/编辑后状态）
+  private async loadFolders(): Promise<void> {
+    if (this.foldersReady && this.folders.length > 0) {
+      return;
+    }
+    this.foldersReady = false;
+    try {
+      this.folders = await listBookmarkFolders();
+    } catch (e) {
+      // 收藏夹加载失败：保留旧数据，不阻塞
+    } finally {
+      this.foldersReady = true;
+    }
+  }
+
+  // 打开收藏夹详情页（夹内帖子）
+  private openFolderDetail(item: BookmarkFolderItem): void {
+    this.getUIContext().getRouter().pushUrl({
+      url: 'pages/BookmarkFolderDetailPage',
+      params: { folderId: String(item.id), folderName: item.name },
+    });
+  }
+
+  // 「我收藏」子分段（帖子 | 收藏夹），右对齐、紧凑尺寸；外层由调用处补充左右留白与定位
+  @Builder
+  bookmarkSubSegment(): void {
+    Row() {
+      SegmentedControl({
+        items: BOOKMARK_SEGMENTS,
+        selectedIndex: $bookmarkSubTab,
+        itemWidth: 46,
+        glass: true,
+        onSelect: (): void => {
+          // 双向绑定已写回 bookmarkSubTab，@Watch 负责后续动作
+        },
+      })
+    }
+    .width('100%')
+    .justifyContent(FlexAlign.End)
+  }
+
+  // 收藏夹列表行：封面缩略 + 名称 + 条数 + 右箭头（收藏夹用列表展示，夹内帖子才是双列卡片流）
+  @Builder
+  folderListItem(item: BookmarkFolderItem) {
+    Pressable({
+      fillWidth: true,
+      fullResponseRegion: true,
+      action: (): void => { this.openFolderDetail(item); },
+    }) {
+      Row({ space: SpaceTokens.sm }) {
+        if (item.cover !== null && item.cover.image !== '') {
+          Image(resolveDisplayImageUrl(item.cover.image))
+            .width(48)
+            .height(48)
+            .borderRadius(RadiusTokens.xs)
+            .objectFit(ImageFit.Cover)
+            .backgroundColor(ColorTokens.sunken)
+        } else {
+          Column() {
+            Text('收藏夹')
+              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+              .fontColor(ColorTokens.tertiary)
+          }
+          .width(48)
+          .height(48)
+          .justifyContent(FlexAlign.Center)
+          .backgroundColor(ColorTokens.sunken)
+          .borderRadius(RadiusTokens.xs)
+        }
+        Column({ space: 2 }) {
+          Text(item.name)
+            .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.headline.weight)
+            .fontColor(ColorTokens.primary)
+            .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+          Text(item.count + ' 条收藏')
+            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+            .fontColor(ColorTokens.secondary)
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+        Image(resolveActionIcon('chevronRight'))
+          .width(IconTokens.small)
+          .height(IconTokens.small)
+          .opacity(0.55)
+      }
+      .width('100%')
+      .height(56)
+      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+      .backgroundColor(ColorTokens.elevated)
+      .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
+      .borderRadius(RadiusTokens.md)
+    }
+  }
+
+  // 「我收藏 → 收藏夹」列表视图（单列列表行：缩略图 + 名称 + 条数 + 箭头）
+  @Builder
+  foldersView(): void {
+    Scroll() {
+      Column({ space: SpaceTokens.sm }) {
+        if (!this.foldersReady) {
+          Row({ space: SpaceTokens.inline }) {
+            LoadingProgress().width(IconTokens.compact).height(IconTokens.compact)
+            Text('加载中…')
+              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+              .fontColor(ColorTokens.secondary)
+          }
+          .width('100%').justifyContent(FlexAlign.Center).padding({ top: SpaceTokens.xl })
+        } else if (this.folders.length === 0) {
+          Text('还没有收藏夹\n收藏帖子时可创建收藏夹')
+            .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+            .fontColor(ColorTokens.secondary)
+            .textAlign(TextAlign.Center)
+            .width('100%')
+            .padding({ top: SpaceTokens.xl })
+        } else {
+          ForEach(this.folders, (f: BookmarkFolderItem) => {
+            this.folderListItem(f)
+          }, (f: BookmarkFolderItem) => 'folder-list-' + String(f.id))
+        }
+        Column() {
+          Blank().width('100%').height(barBottomReserve())
+        }
+        .width('100%')
+      }
+      .width('100%')
+      .padding({
+        left: SpaceTokens.sm,
+        right: SpaceTokens.sm,
+        // 主分段 + 子分段均悬浮于顶部，内容需让出两层分段栏高度
+        top: 2 * LayoutTokens.segmentedHeight + 3 * SpaceTokens.xs,
+        bottom: SpaceTokens.md,
+      })
+    }
+    .scrollable(ScrollDirection.Vertical)
+    .width('100%').height('100%')
+  }
+
   @Builder
   refreshBuilder(): void {
     Row({ space: SpaceTokens.inline }) {
@@ -495,6 +656,8 @@ export struct ProfilePage {
     PostCard({
       post: post,
       compact: true,
+      // 创作者面板基础：「我发布」网格展示浏览数（其他列表保持原样）
+      showBrowses: this.tabIdx === 0,
       onOpen: () => {
         if (post.id !== undefined) {
           const id = post.id.toString();
@@ -635,7 +798,10 @@ export struct ProfilePage {
 
       // 列表区与分段栏共享同一滚动空间，帖子上滑时可进入分段栏下方。
       Stack({ alignContent: Alignment.TopStart }) {
-      if (!this.ready || (this.posts.length === 0 && this.loading)) {
+      // 「我收藏 → 收藏夹」子视图（子分段栏 + 双列卡片流），优先于帖子网格渲染
+      if (this.tabIdx === 1 && this.bookmarkSubTab === 1) {
+        this.foldersView()
+      } else if (!this.ready || (this.posts.length === 0 && this.loading)) {
         PostCollectionState({ loading: true })
       } else if (this.posts.length === 0) {
         PostCollectionState({
@@ -678,7 +844,8 @@ export struct ProfilePage {
             .padding({
               left: SpaceTokens.sm,
               right: SpaceTokens.sm,
-              top: LayoutTokens.segmentedHeight + SpaceTokens.md,
+              // 主分段悬浮于顶部；「我收藏」额外悬浮子分段，内容需让出两层分段栏高度
+              top: LayoutTokens.segmentedHeight + SpaceTokens.md + (this.tabIdx === 1 ? LayoutTokens.segmentedHeight + 2 * SpaceTokens.xs : 0),
               bottom: SpaceTokens.md,
             })
           }
@@ -705,11 +872,25 @@ export struct ProfilePage {
         onSelect: (idx: number): void => { this.onTabChange(idx); },
       })
       .margin({
-        left: SpaceTokens.sm,
-        right: SpaceTokens.sm,
+        left: SpaceTokens.sm,        right: SpaceTokens.sm,
         top: SpaceTokens.xs,
       })
       .zIndex(1)
+
+      // 「我收藏」子分段（帖子 | 收藏夹）：悬浮于主分段下方、恒常显示（列表为空也可见切换入口）
+      if (this.tabIdx === 1) {
+        Column() {
+          this.bookmarkSubSegment()
+        }
+        .width('100%')
+        .padding({
+          left: SpaceTokens.sm,
+          right: SpaceTokens.sm,
+          top: SpaceTokens.xs,
+        })
+        .margin({ top: SpaceTokens.xs + LayoutTokens.segmentedHeight + SpaceTokens.xs })
+        .zIndex(1)
+      }
       }
       .layoutWeight(1)
       .width('100%')

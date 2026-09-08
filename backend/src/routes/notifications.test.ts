@@ -132,7 +132,7 @@ describe('GET/POST /v1/notifications', () => {
         where: {
           userId: TEST_USER_ID,
           OR: [
-            { type: { notIn: ['comment', 'up', 'bookmark'] } },
+            { type: { notIn: ['comment', 'up', 'bookmark', 'mention'] } },
             { postId: { in: [10] } },
           ],
         },
@@ -163,7 +163,7 @@ describe('GET/POST /v1/notifications', () => {
         where: {
           userId: TEST_USER_ID,
           OR: [
-            { type: { notIn: ['comment', 'up', 'bookmark'] } },
+            { type: { notIn: ['comment', 'up', 'bookmark', 'mention'] } },
             { postId: { in: [10] } },
           ],
         },
@@ -181,7 +181,7 @@ describe('GET/POST /v1/notifications', () => {
     expect(res.json.data.count).toBe(3);
     expect(mockPrisma.notification.count).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { userId: TEST_USER_ID, read: false, type: { notIn: ['comment', 'up', 'bookmark'] } },
+        where: { userId: TEST_USER_ID, read: false, type: { notIn: ['comment', 'up', 'bookmark', 'mention'] } },
       }),
     );
   });

@@ -1,4 +1,4 @@
-import { listSearchHistory, clearSearchHistory, listHotKeywords } from '../services/api';
+import { listSearchHistory, clearSearchHistory, listHotKeywords, listSearchSuggest } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 import { BackButton } from '../design/components/BackButton';
 import { GlassPanel } from '../design/components/GlassPanel';
@@ -19,7 +19,10 @@ export struct SearchPanel {
   @State keyword: string = '';
   @State historyList: string[] = [];
   @State hotList: string[] = [];
+  @State suggestions: string[] = []; // 搜索联想（输入时防抖拉取）
   @State loadingState: boolean = true;
+  @State inputFocused: boolean = false; // 输入框聚焦（键盘弹出）时隐藏历史/热词，避免与联想卡粘连
+  private suggestTimer: number = 0; // 联想防抖句柄
 
   aboutToAppear(): void {
     this.loadData();
@@ -44,7 +47,35 @@ export struct SearchPanel {
       safeShowToast(this.getUIContext(), { message: '请输入搜索内容' });
       return;
     }
+    this.clearSuggestions();
     this.onKeywordSelect(kw);
+  }
+
+  // 输入防抖拉取联想（300ms；失败/无结果静默清空）
+  private debounceSuggest(value: string): void {
+    if (this.suggestTimer !== 0) {
+      clearTimeout(this.suggestTimer);
+      this.suggestTimer = 0;
+    }
+    const kw: string = value.trim();
+    if (kw.length === 0) {
+      this.suggestions = [];
+      return;
+    }
+    this.suggestTimer = setTimeout((): void => {
+      this.suggestTimer = 0;
+      listSearchSuggest(kw)
+        .then((list: string[]): void => { this.suggestions = list; })
+        .catch((): void => { this.suggestions = []; });
+    }, 300) as number;
+  }
+
+  private clearSuggestions(): void {
+    if (this.suggestTimer !== 0) {
+      clearTimeout(this.suggestTimer);
+      this.suggestTimer = 0;
+    }
+    this.suggestions = [];
   }
 
   async clearHistory(): Promise<void> {
@@ -89,8 +120,10 @@ export struct SearchPanel {
       .border({ width: 1, color: '#C4E0FF', style: BorderStyle.Solid })
       .borderRadius(RadiusTokens.floatingBar)
       .shadow({ radius: 12, color: '#4D8AD8FF', offsetY: 0 })
-      .onChange((v: string): void => { this.keyword = v; })
+      .onChange((v: string): void => { this.keyword = v; this.debounceSuggest(v); })
       .onSubmit((): void => { this.doSearch(); })
+      .onFocus((): void => { this.inputFocused = true; })
+      .onBlur((): void => { this.inputFocused = false; })
   }
 
   @Builder
@@ -151,6 +184,54 @@ export struct SearchPanel {
         .justifyContent(FlexAlign.Center)
       } else {
         Column() {
+          // 搜索联想（输入时展示，置顶于历史/热词之上）
+          if (this.suggestions.length > 0) {
+            Column() {
+              GlassPanel({ panelPadding: SpaceTokens.xs, radius: RadiusTokens.lg }) {
+                Column({ space: SpaceTokens.none }) {
+                  ForEach(this.suggestions, (kw: string, idx: number) => {
+                    Pressable({
+                      fillWidth: true,
+                      visualHeight: LayoutTokens.minTouchTarget,
+                      touchTargetHeight: LayoutTokens.minTouchTarget,
+                      action: (): void => { this.onKeywordSelect(kw); },
+                    }) {
+                      Row({ space: SpaceTokens.inline }) {
+                        Image($r('app.media.empty_search'))
+                          .width(IconTokens.compact)
+                          .height(IconTokens.compact)
+                          .opacity(0.75)
+                        Text(kw)
+                          .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+                          .fontColor(ColorTokens.primary)
+                          .maxLines(1)
+                          .textOverflow({ overflow: TextOverflow.Ellipsis })
+                        Blank()
+                        Text('搜索')
+                          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+                          .fontColor(ColorTokens.tertiary)
+                      }
+                      .width('100%')
+                      .height(LayoutTokens.minTouchTarget)
+                      .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+                    }
+                    if (idx < this.suggestions.length - 1) {
+                      Divider()
+                        .strokeWidth(LayoutTokens.hairlineWidth)
+                        .color(ColorTokens.separator)
+                        .margin({ left: SpaceTokens.md, right: SpaceTokens.md })
+                    }
+                  }, (kw: string, idx: number) => 'suggest-' + idx.toString() + '-' + kw)
+                }
+                .width('100%')
+              }
+            }
+            .width('100%')
+            .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.xs })
+          }
+
+          // 输入框聚焦（键盘弹出）时仅展示联想，隐藏最近搜索/大家都在搜，避免两张卡片粘连
+          if (!this.inputFocused) {
           Column({ space: SpaceTokens.md }) {
             if (this.historyList.length > 0) {
               GlassPanel({ panelPadding: SpaceTokens.md, radius: RadiusTokens.lg }) {
@@ -248,6 +329,7 @@ export struct SearchPanel {
           .width('100%')
           .justifyContent(FlexAlign.Start)
           .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: 0, bottom: SpaceTokens.x3l })
+          }
         }
         .layoutWeight(1)
         .width('100%')

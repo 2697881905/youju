@@ -79,7 +79,7 @@ export struct PrivacySettingsPage {
         // 保存按钮放在右侧
         Text(this.saving ? '保存中' : '保存')
           .fontSize(15).fontFamily($r('app.string.font_family'))
-          .fontColor(this.saving ? $r('app.color.text_secondary') : '#007AFF')
+          .fontColor(this.saving ? $r('app.color.text_secondary') : $r('app.color.ds_brand'))
           .width(56)
           .textAlign(TextAlign.Center)
           .onClick(() => { this.onSave(); });

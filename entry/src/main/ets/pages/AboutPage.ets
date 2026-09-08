@@ -80,11 +80,11 @@ export struct AboutPage {
               .alignSelf(ItemAlign.Start)
               .padding({ left: 4, bottom: 8 });
             Column() {
-              Text('有据团队')
+              Text('白逸飞')
                 .fontSize(15).fontFamily($r('app.string.font_family'))
                 .fontColor($r('app.color.text_primary'))
                 .padding({ left: 16, right: 16, top: 16, bottom: 8 });
-              Text('© 2026 有据. All rights reserved.')
+              Text('© 2026 白逸飞 · 有据. All rights reserved.')
                 .fontSize(12).fontFamily($r('app.string.font_family'))
                 .fontColor($r('app.color.text_secondary'))
                 .padding({ left: 16, right: 16, bottom: 16 });

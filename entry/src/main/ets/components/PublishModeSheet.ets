@@ -14,7 +14,7 @@ export struct PublishModeSheet {
   onSelect: (mode: PublishMode) => void = (_mode: PublishMode): void => {};
 
   @Builder
-  modeOption(mode: PublishMode, icon: Resource, label: string): void {
+  modeOption(mode: PublishMode, icon: Resource, label: string, subtitle: string): void {
     Pressable({
       fillWidth: true,
       visualHeight: 68,
@@ -26,15 +26,23 @@ export struct PublishModeSheet {
     }) {
       Row({ space: SpaceTokens.md }) {
         Image(icon)
-          .width(IconTokens.small)
-          .height(IconTokens.small)
+          .width(IconTokens.standard)
+          .height(IconTokens.standard)
           .objectFit(ImageFit.Contain)
-        Text(label)
-          .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
-          .fontWeight(TypeTokens.headline.weight)
-          .lineHeight(TypeTokens.body.lineHeight)
-          .fontColor(ColorTokens.primary)
-        Blank().layoutWeight(1)
+        Column({ space: SpaceTokens.inlineTight }) {
+          Text(label)
+            .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.headline.weight)
+            .lineHeight(TypeTokens.body.lineHeight)
+            .fontColor(ColorTokens.primary)
+          Text(subtitle)
+            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.caption.weight)
+            .lineHeight(TypeTokens.caption.lineHeight)
+            .fontColor(ColorTokens.tertiary)
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
         Image($r('app.media.chevron_right'))
           .width(IconTokens.compact)
           .height(IconTokens.compact)
@@ -72,9 +80,9 @@ export struct PublishModeSheet {
         .width('100%')
         .alignItems(VerticalAlign.Center)
 
-        this.modeOption('photo', $r('app.media.publish_photo_outline'), '图文发布')
-        this.modeOption('video', $r('app.media.publish_video_outline'), '视频发布')
-        this.modeOption('text', $r('app.media.publish_text_outline'), '长文发布')
+        this.modeOption('photo', $r('app.media.publish_photo_outline'), '图文发布', '图片 + 文字，记录此刻所见')
+        this.modeOption('video', $r('app.media.publish_video_outline'), '视频发布', '短片叙事，直观传递现场感')
+        this.modeOption('text', $r('app.media.publish_text_outline'), '长文发布', '深度经验，娓娓道来')
       }
       .width('100%')
     }

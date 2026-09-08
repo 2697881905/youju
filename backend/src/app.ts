@@ -8,6 +8,7 @@ import authRouter from './routes/auth';
 import postRouter from './routes/posts';
 import commentRouter from './routes/comments';
 import interactRouter from './routes/interact';
+import bookmarkFolderRouter from './routes/bookmarkFolders';
 import tagRouter from './routes/tags';
 import uploadRouter from './routes/upload';
 import mediaRouter from './routes/media';
@@ -24,6 +25,7 @@ import privacyRouter from './routes/privacy';
 import exportRouter from './routes/export';
 import messageRouter from './routes/messages';
 import pushRouter from './routes/push';
+import metricsRouter from './routes/metrics';
 import shareRouter from './routes/share';
 import { sensitiveWordService } from './services/sensitiveWordService';
 import { errorHandler } from './middleware/errorHandler';
@@ -97,6 +99,8 @@ app.use('/v1', notificationRouter);
 // 评论/互动使用完整路径（/v1/posts/:id/comments、/v1/posts/:id/up 等）
 app.use('/v1', commentRouter);
 app.use('/v1', interactRouter);
+// 收藏夹（专辑）：/v1/bookmark-folders（创建/列表/重命名/删除/夹内帖子）
+app.use('/v1/bookmark-folders', bookmarkFolderRouter);
 // admin 审核 API（GET /v1/admin/posts/pending、POST /v1/admin/posts/:id/moderate、GET /v1/admin/reports）
 app.use('/v1/admin', adminRouter);
 // 用户安全设置（通知偏好 / 拉黑 / 隐私 / 数据导出），统一挂 /v1
@@ -107,6 +111,8 @@ app.use('/v1', privacyRouter);
 app.use('/v1', exportRouter);
 // 华为推送 Token 注册（POST /v1/push/register）
 app.use('/v1', pushRouter);
+// 行为埋点（POST /v1/metrics/post-event）
+app.use('/v1/metrics', metricsRouter);
 // 分享落地页 SSR（GET /v1/share/post/:id、/v1/share/user/:id）：
 // 主域名 youju.chat 的 /post/*、/user/* 由 nginx 反代到此，输出带 OG 标签的 HTML。
 app.use('/v1/share', shareRouter);

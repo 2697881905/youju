@@ -1,6 +1,6 @@
 import { http } from '@kit.NetworkKit';
 import { BUILD_MODE_NAME, DEBUG } from '../utils/buildMode';
-import { Post, DailyPost, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody, PendingPost, ModerateAction, NotificationPrefs, BlockUser, PrivacySettingsData, UserExportData, DebateVoteResult, Conversation, DmMessage, DmSharePayload, AdminReportItem, ReportTargetType } from '../models/types';
+import { Post, DailyPost, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody, PendingPost, ModerateAction, NotificationPrefs, BlockUser, PrivacySettingsData, UserExportData, DebateVoteResult, Conversation, DmMessage, DmSharePayload, AdminReportItem, ReportTargetType, BookmarkFolderItem, MentionRef, MentionCandidate } from '../models/types';
 
 // 以构建期布尔 DEBUG 为准选择后端地址（调试包 true → 本地，released → 生产）。
 const BUILD_MODE: string = BUILD_MODE_NAME;
@@ -18,13 +18,20 @@ export function resolveDisplayImageUrl(url: string): string {
   }
   if (url.startsWith('cos://')) {
     const key: string = url.slice('cos://'.length);
-    return BASE_URL + '/v1/media/' + encodeURIComponent(key);
+    // 固定走生产 HTTPS media 代理：真机 Image 组件不发 http 明文/IP 请求（http module 不受限但 Image 受限），
+    // 且 COS 属同一桶，生产代理同样可读；本地联调数据/文字走本地后端，图片统一 HTTPS 直出。
+    return 'https://api.youju.chat/v1/media/' + key;
+  }
+  // 历史数据可能落库了已失效的宿主 LAN IP（如 192.168.1.100），一律按当前 BASE_URL 重写；
+  // 该改写优先于 release 判断（release 下 BASE_URL=生产；debug 下=本地联调后端）
+  const match: RegExpMatchArray | null = url.match(/^https?:\/\/[^/]+(\/uploads\/.*)$/);
+  if (match !== null) {
+    return BASE_URL + match[1];
   }
   if (BUILD_MODE === 'release') {
     return url;
   }
-  const match: RegExpMatchArray | null = url.match(/^https?:\/\/[^/]+(\/uploads\/.*)$/);
-  return match === null ? url : BASE_URL + match[1];
+  return url;
 }
 
 // token 由 utils/auth.ts 统一管理（PersistentStorage 持久化），request 直接从 AppStorage 读取。
@@ -149,6 +156,8 @@ export interface CreatePostBody {
   genre: Genre;
   tags: string[];
   structuredData?: Object;
+  // 编辑器显式选择的 @提及（精确到 userId，防重名歧义）；后端校验「正文含 @昵称 & 用户真实存在」后入库
+  mentions?: MentionRef[];
 }
 
 export interface CreateCommentBody {
@@ -265,6 +274,26 @@ export function searchPosts(params: SearchPostsParams): Promise<ListResult<Post>
   return api.get<ListResult<Post>>(path);
 }
 
+// 发帖 @提及候选：GET /v1/search/users?keyword=&scope=following|all&limit=
+// keyword 为空 & scope=following：返回我关注的人（默认列表）；
+// keyword 非空 & scope=all：全站昵称检索，规避重名昵称无法区分的问题。
+export interface MentionSearchResult {
+  list: MentionCandidate[];
+}
+
+export function searchMentionUsers(
+  keyword: string,
+  scope: 'following' | 'all' = 'following',
+  limit: number = 20
+): Promise<MentionSearchResult> {
+  const path: string = '/v1/search/users' + toQuery([
+    ['keyword', keyword],
+    ['scope', scope],
+    ['limit', limit],
+  ]);
+  return api.get<MentionSearchResult>(path);
+}
+
 // POST /v1/posts（MVP 直接发布）
 export function createPost(body: CreatePostBody): Promise<Post> {
   return api.post<Post>('/v1/posts', body);
@@ -281,6 +310,7 @@ export interface UpdatePostBody {
   images?: string[];
   tags?: string[];
   structuredData?: Object;
+  mentions?: MentionRef[];
 }
 
 export function updatePost(id: number, body: UpdatePostBody): Promise<Post> {
@@ -355,16 +385,101 @@ export async function cancelUpPost(id: number): Promise<void> {
 }
 
 // POST/DELETE /v1/posts/:id/bookmark
-export async function bookmarkPost(id: number): Promise<void> {
-  await api.post<null>('/v1/posts/' + id + '/bookmark');
+interface BookmarkBody {
+  folderId: number;
+}
+interface FolderNameBody {
+  name: string;
+}
+interface FolderPostsResult {
+  list: Post[];
+  pagination: Pagination;
+}
+
+export async function bookmarkPost(id: number, folderId?: number): Promise<void> {
+  if (folderId !== undefined) {
+    const body: BookmarkBody = { folderId: folderId };
+    await api.post<null>('/v1/posts/' + id + '/bookmark', body);
+  } else {
+    await api.post<null>('/v1/posts/' + id + '/bookmark');
+  }
 }
 
 export async function cancelBookmarkPost(id: number): Promise<void> {
   await api.del<null>('/v1/posts/' + id + '/bookmark');
 }
 
-// ===== 标签 =====
-// GET /v1/tags
+// 移动已收藏帖子的收藏夹（PATCH /v1/posts/:id/bookmark，folderId=0 移出收藏夹）
+export async function moveBookmarkFolder(id: number, folderId: number): Promise<void> {
+  const body: BookmarkBody = { folderId: folderId };
+  await api.patch<null>('/v1/posts/' + id + '/bookmark', body);
+}
+
+// ===== 收藏夹（专辑）=====
+// GET /v1/bookmark-folders
+export function listBookmarkFolders(): Promise<BookmarkFolderItem[]> {
+  return api.get<BookmarkFolderItem[]>('/v1/bookmark-folders');
+}
+
+// POST /v1/bookmark-folders { name }
+export function createBookmarkFolder(name: string): Promise<BookmarkFolderItem> {
+  const body: FolderNameBody = { name: name };
+  return api.post<BookmarkFolderItem>('/v1/bookmark-folders', body);
+}
+
+// PATCH /v1/bookmark-folders/:id { name }
+export function renameBookmarkFolder(id: number, name: string): Promise<BookmarkFolderItem> {
+  const body: FolderNameBody = { name: name };
+  return api.patch<BookmarkFolderItem>('/v1/bookmark-folders/' + id, body);
+}
+
+// DELETE /v1/bookmark-folders/:id
+export async function deleteBookmarkFolder(id: number): Promise<void> {
+  await api.del<null>('/v1/bookmark-folders/' + id);
+}
+
+// 夹内帖子列表（分页）：GET /v1/bookmark-folders/:id/posts?page=&limit=
+export function listFolderPosts(id: number, page: number, limit: number): Promise<FolderPostsResult> {
+  return api.get<FolderPostsResult>('/v1/bookmark-folders/' + id + '/posts' + toQuery([['page', page], ['limit', limit]]));
+}
+
+// ===== 行为埋点（最小曝光/点击信号；fire-and-forget，失败静默）=====
+// POST /v1/metrics/post-event
+interface PostEventBody {
+  postId: number;
+  action: string;
+}
+
+export function trackPostEvent(postId: number, action: 'expose' | 'click'): void {
+  const body: PostEventBody = { postId: postId, action: action };
+  api.post<null>('/v1/metrics/post-event', body).catch(() => {});
+}
+
+// 帖子创作数据（作者本人/管理员）：GET /v1/metrics/posts/:id/stats
+export interface PostStats {
+  viewCount: number;
+  upCount: number;
+  bookmarkCount: number;
+  commentCount: number;
+  expose: number; // 信息流曝光次数
+  click: number; // 信息流点击次数
+  clickRate: number; // 曝光→点击转化率（%）
+}
+
+export function getPostStats(postId: number): Promise<PostStats> {
+  return api.get<PostStats>('/v1/metrics/posts/' + postId + '/stats');
+}
+
+// ===== 搜索 =====
+interface SuggestResult {
+  list: string[];
+}
+
+// 搜索联想：GET /v1/search/suggest?keyword=（需登录态，失败返回空）
+export function listSearchSuggest(keyword: string): Promise<string[]> {
+  return api.get<SuggestResult>('/v1/search/suggest?keyword=' + encodeURIComponent(keyword))
+    .then((r: SuggestResult): string[] => r.list ?? []);
+}
 export function listTags(): Promise<Tag[]> {
   return api.get<Tag[]>('/v1/tags');
 }

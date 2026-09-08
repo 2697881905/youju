@@ -79,6 +79,14 @@ async function sendToTokens(tokens: string[], title: string, body: string): Prom
 }
 
 // 给某用户的所有设备下发推送（无 token / 未配置时静默返回，失败仅记录不抛出）
+// 成功/失败均落 PushLog 审计（token 脱敏存储）
+function maskToken(token: string): string {
+  if (token.length <= 16) {
+    return token.substring(0, 6) + '…';
+  }
+  return token.substring(0, 8) + '…' + token.substring(token.length - 8);
+}
+
 export async function pushToUser(userId: number, title: string, body: string): Promise<void> {
   if (!isPushConfigured()) return;
   try {
@@ -89,7 +97,17 @@ export async function pushToUser(userId: number, title: string, body: string): P
     if (rows.length === 0) return;
     const list = rows.map((r) => r.token);
     for (let i = 0; i < list.length; i += 1000) {
-      await sendToTokens(list.slice(i, i + 1000), title, body);
+      const batch = list.slice(i, i + 1000);
+      const logRows = batch.map((token) => ({ userId, token: maskToken(token), title, body: body ?? null, data: undefined, status: 'sent' as string, error: null as string | null }));
+      try {
+        await sendToTokens(batch, title, body);
+        await prisma.pushLog.createMany({ data: logRows }).catch(() => {});
+      } catch (e) {
+        const err = String((e as Error).message ?? e).slice(0, 500);
+        await prisma.pushLog.createMany({
+          data: logRows.map((r) => ({ ...r, status: 'failed', error: err })),
+        }).catch(() => {});
+      }
     }
   } catch (e) {
     console.warn('[huaweiPush] pushToUser 失败:', (e as Error).message);
