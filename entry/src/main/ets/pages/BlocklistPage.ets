@@ -6,6 +6,7 @@ import { BlockUser, Pagination } from '../models/types';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { openUserProfile } from '../utils/nav';
+import { barBottomReserve } from '../utils/cardTokens';
 import { BackButton } from '../design/components/BackButton';
 import { Avatar } from '../design/components/Avatar';
 import { EmptyState } from '../design/components/EmptyState';
@@ -134,9 +135,9 @@ export struct BlocklistPage {
         }
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center)
       } else {
-        List({ space: SpaceTokens.none }) {
-          ForEach(this.users, (user: BlockUser) => {
-            ListItem() {
+        Scroll() {
+          Column({ space: SpaceTokens.none }) {
+            ForEach(this.users, (user: BlockUser) => {
               Pressable({
                 fillWidth: true,
                 visualHeight: 64,
@@ -183,11 +184,9 @@ export struct BlocklistPage {
                 .width('100%')
                 .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
               }
-            }
-          }, (user: BlockUser) => user.id.toString());
+            }, (user: BlockUser) => user.id.toString());
 
-          // 列表底部：加载更多 / 已加载全部
-          ListItem() {
+            // 列表底部：加载更多 / 已加载全部
             Row() {
               if (this.users.length < this.pagination.total) {
                 Text(this.loadingMore ? '加载中…' : '加载更多')
@@ -205,7 +204,16 @@ export struct BlocklistPage {
             .width('100%')
             .justifyContent(FlexAlign.Center)
             .padding({ top: SpaceTokens.base, bottom: SpaceTokens.base });
+
+            // 底部预留：末行滚过系统导航区到达物理屏底的滚动余量
+            // （懒加载 List 会把滚动终点钳制在底部非安全区之上，Scroll 需要内容垫底）
+            Column() {
+              Blank().width('100%').height(barBottomReserve())
+            }
+            .width('100%')
           }
+          .width('100%')
+          .constraintSize({ minHeight: '100%' })
         }
         .layoutWeight(1).width('100%')
       }
