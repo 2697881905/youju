@@ -570,33 +570,36 @@ export struct MessagePage {
       .justifyContent(FlexAlign.Center)
     } else {
       Refresh({ refreshing: $$this.refreshing, offset: 80, friction: 48 }) {
-        List({ space: SpaceTokens.none }) {
-          ForEach(
-            this.conversations,
-            (c: Conversation, idx: number) => {
-              ListItem() {
+        // 私信会话列表：Scroll 单列（懒加载 List 实测把滚动终点钳制在底部非安全区之上、
+        // 露出窗口底色横带截断末行，Scroll 滚动范围天然到物理屏底）
+        Scroll() {
+          Column({ space: SpaceTokens.none }) {
+            ForEach(
+              this.conversations,
+              (c: Conversation, idx: number) => {
                 Reveal({ index: idx % 5 }) {
                   this.conversationRow(c)
                 }
-              }
-            },
-            (c: Conversation) => String(c.peer.id),
-          )
-          // 真实列表项会计入滚动范围，避免 Refresh + List 的 padding 被裁掉。
-          ListItem() {
+              },
+              (c: Conversation) => String(c.peer.id),
+            )
+            // 底部预留：为悬浮底栏与系统手势区让出滚动空间
             Column() {
               Blank().width('100%').height(barBottomReserve())
             }
             .width('100%')
           }
+          .width('100%')
+          .constraintSize({ minHeight: '100%' })
+          .padding({
+            left: SpaceTokens.pageCompact,
+            right: SpaceTokens.pageCompact,
+            bottom: SpaceTokens.sm,
+          })
         }
+        .scrollable(ScrollDirection.Vertical)
         .width('100%')
         .layoutWeight(1)
-        .padding({
-          left: SpaceTokens.pageCompact,
-          right: SpaceTokens.pageCompact,
-          bottom: SpaceTokens.sm,
-        })
       }
       .onRefreshing(() => {
         this.loadConversations().finally(() => {
@@ -751,38 +754,43 @@ export struct MessagePage {
           .justifyContent(FlexAlign.Center)
         } else {
           Refresh({ refreshing: $$this.refreshing, offset: 80, friction: 48 }) {
-          List({ space: SpaceTokens.none }) {
+          // 通知列表：Scroll 单列（懒加载 List 会把滚动终点钳制在底部非安全区之上，
+          // 露出窗口底色横带截断末行；Scroll 滚动范围天然到物理屏底）
+          Scroll() {
+          Column({ space: SpaceTokens.none }) {
           ForEach(
                 this.getFilteredList(),
                 (item: NotificationItem, idx: number) => {
-                  ListItem() {
                     Reveal({ index: idx % 5 }) {
                       this.notificationRow(item)
                     }
-                  }
                 },
                 // key 必须包含已读状态：ArkUI ForEach 复用相同 key 的行时不刷新子组件 @Prop，
                 // 若不带上 read，点击单条已读后红点不会消失（只有重进页面才恢复）。
                 (item: NotificationItem) => String(item.id ?? 0) + (item.read ? '-r' : '-u'),
               )
-              // 真实列表项会计入滚动范围，避免最后一条通知被毛玻璃底栏遮住。
-              ListItem() {
-                Column() {
-                  Blank().width('100%').height(barBottomReserve())
-                }
-                .width('100%')
+              // 底部预留：为悬浮底栏与系统手势区让出滚动空间
+              Column() {
+                Blank().width('100%').height(barBottomReserve())
               }
+              .width('100%')
             }
             .width('100%')
-            .layoutWeight(1)
+            .constraintSize({ minHeight: '100%' })
             .padding({
               left: SpaceTokens.pageCompact,
               right: SpaceTokens.pageCompact,
               bottom: SpaceTokens.sm,
             })
-            .onReachEnd(() => {
+          }
+          .scrollable(ScrollDirection.Vertical)
+          .onScrollEdge((edge: Edge) => {
+            if (edge === Edge.Bottom) {
               this.loadMore();
-            })
+            }
+          })
+          .width('100%')
+          .layoutWeight(1)
           }
           .onRefreshing(() => {
             this.loadFirst().finally(() => {
