@@ -39,7 +39,9 @@ export class LayoutTokens {
   static readonly tabBarBottomGap: number = 18;
   static readonly glassBlur: number = 24;
   static readonly glassBorderWidth: number = 1;
-  static readonly floatingBarReserve: number = 94;
+  // HdsTabs 悬浮药丸底栏预留：barBottomMargin 28 + 药丸高 ~64 + 呼吸 ~28，
+  // 兼容导航条高度误读为 0 的机型；数值过小会让最后一张卡片顶在药丸下缘无法上滑
+  static readonly floatingBarReserve: number = 120;
   static readonly composerGenreCardHeight: number = 112;
   static readonly composerBodyHeight: number = 124;
   static readonly composerFieldHeight: number = 72;
