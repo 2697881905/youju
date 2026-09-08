@@ -10,6 +10,7 @@ export struct DetailCommentsSection {
   @Prop comments: Comment[] = [];
   @Prop commentCount: number = 0;
   onReportComment: (commentId: number) => void = (_commentId: number): void => {};
+  onReplyComment: (comment: Comment) => void = (_comment: Comment): void => {};
 
   build() {
     Column({ space: SpaceTokens.item }) {
@@ -21,6 +22,7 @@ export struct DetailCommentsSection {
       CommentList({
         comments: this.comments,
         reportCommentHandler: (commentId: number): void => { this.onReportComment(commentId); },
+        onReplyComment: (cmt: Comment): void => { this.onReplyComment(cmt); },
       })
     }
     .width('100%')

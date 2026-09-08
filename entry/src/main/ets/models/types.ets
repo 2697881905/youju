@@ -43,6 +43,20 @@ export interface StructuredData {
   planB?: string;
 }
 
+// 正文 @提及 解析结果（后端入库，前端点击跳转用户主页）
+export interface MentionRef {
+  name: string;
+  userId: number;
+}
+
+// 发帖 @提及候选（发帖编辑器选择列表 / GET /v1/search/users 返回项）
+export interface MentionCandidate {
+  id: number;
+  nickname: string;
+  avatar?: string | null;
+  bio?: string | null;
+}
+
 export interface Post {
   id?: number;
   userId?: number;
@@ -56,9 +70,13 @@ export interface Post {
   genre?: Genre;
   tags?: string[];
   structuredData?: StructuredData;
+  // 正文 @提及 解析结果（后端入库，前端点击跳转用户主页）
+  mentions?: MentionRef[];
   upCount?: number;
   bookmarkCount?: number;
   commentCount?: number;
+  viewCount?: number; // 详情浏览次数（创作者数据面板基础）
+  hotScore?: number; // 热度综合分（推荐/热榜排序信号，只读展示用）
   // —— 当前登录用户对帖子的互动态（后端按 viewerId 计算返回，纯增量字段）——
   myUp?: boolean; // 我是否点赞
   myBookmark?: boolean; // 我是否收藏
@@ -84,12 +102,29 @@ export interface Comment {
   upCount?: number;
   createdAt?: string;
   user?: User;
+  // 楼中楼：该评论下的直接子回复（后端组装，一级评论携带）
+  replies?: Comment[];
 }
 
 export interface Pagination {
   page: number;
   limit: number;
   total: number;
+}
+
+// ===== 收藏夹（专辑）=====
+export interface BookmarkFolderCover {
+  postId: number;
+  title: string;
+  image: string;
+  genre: string;
+}
+
+export interface BookmarkFolderItem {
+  id: number;
+  name: string;
+  count: number;
+  cover: BookmarkFolderCover | null;
 }
 
 // ===== 账号绑定 =====
@@ -120,7 +155,7 @@ export interface UnbindResult {
 
 // ===== 消息通知 =====
 // 通知类型（与后端 notificationService 的 NotificationType 单一来源对齐）
-export type NotificationType = 'comment' | 'up' | 'bookmark' | 'follow' | 'system';
+export type NotificationType = 'comment' | 'up' | 'bookmark' | 'follow' | 'mention' | 'system';
 
 // 通知列表项（后端 Notification 返回；actor 可能为 null，如系统消息）
 export interface NotificationItem {
@@ -234,6 +269,7 @@ export interface AdminReportItem {
   commentContent?: string | null;
   targetNickname?: string | null;
   targetBanned?: boolean | null;
+  targetPostId?: number | null; // 目标所属帖子 id（post 目标=自身；comment 目标=所属帖；user 目标=null）
 }
 
 // 审核动作

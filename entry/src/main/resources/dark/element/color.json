@@ -6,7 +6,7 @@
     },
     {
       "name": "brand_primary",
-      "value": "#6FA8FF"
+      "value": "#C9A47A"
     },
     {
       "name": "bg_primary",
@@ -78,7 +78,7 @@
     },
     {
       "name": "surface_selected",
-      "value": "#246FA8FF"
+      "value": "#33C9A47A"
     },
     {
       "name": "warning_surface",
@@ -106,7 +106,7 @@
     },
     {
       "name": "bar_selection_shadow",
-      "value": "#5C6FA8FF"
+      "value": "#5CC9A47A"
     },
     {
       "name": "ds_canvas",
@@ -142,15 +142,15 @@
     },
     {
       "name": "ds_brand",
-      "value": "#6FA8FF"
+      "value": "#C9A47A"
     },
     {
       "name": "ds_brand_tint",
-      "value": "#336FA8FF"
+      "value": "#33C9A47A"
     },
     {
       "name": "ds_brand_press",
-      "value": "#8FBBFF"
+      "value": "#D6B88E"
     },
     {
       "name": "ds_on_brand",
@@ -190,7 +190,7 @@
     },
     {
       "name": "account_tile_harmony",
-      "value": "#3D1677FF"
+      "value": "#3D8A6548"
     },
     {
       "name": "account_tile_huawei",

@@ -28,7 +28,7 @@ const PREVIEW_SEGMENTS: SegmentedItem[] = [
 ];
 
 const PREVIEW_TABS: BottomTabItem[] = [
-  { key: 'home', title: '首页', icon: $r('app.media.nav_home'), color: '#1677FF' },
+  { key: 'home', title: '首页', icon: $r('app.media.nav_home'), color: '#8A6548' },
   { key: 'circle', title: '圈子', icon: $r('app.media.nav_circle'), color: '#E8940B' },
   { key: 'publish', title: '发布', icon: $r('app.media.nav_publish'), color: '#D6604E' },
   { key: 'message', title: '消息', icon: $r('app.media.nav_message'), color: '#8A6F3D' },

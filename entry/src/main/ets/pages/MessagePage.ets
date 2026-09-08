@@ -663,7 +663,7 @@ export struct MessagePage {
               .fontWeight(TypeTokens.headline.weight)
               .lineHeight(TypeTokens.callout.lineHeight)
               .letterSpacing(TypeTokens.callout.tracking)
-              .fontColor(Color.Black)
+              .fontColor(ColorTokens.brand)
               .height(LayoutTokens.minTouchTarget)
               .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
               .textAlign(TextAlign.Center)

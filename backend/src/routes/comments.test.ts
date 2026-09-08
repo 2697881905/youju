@@ -51,9 +51,11 @@ jest.mock('../services/sensitiveWordService', () => ({
   },
 }));
 
-// mock notificationService（createComment 内部调用 notifyOnComment，需 mock 避免副作用）
+// mock notificationService（createComment 内部调用 notifyOnComment/notifyOnCommentReply/notifyCommentMentions，需 mock 避免副作用）
 jest.mock('../services/notificationService', () => ({
   notifyOnComment: jest.fn().mockResolvedValue(undefined),
+  notifyOnCommentReply: jest.fn().mockResolvedValue(undefined),
+  notifyCommentMentions: jest.fn().mockResolvedValue(undefined),
 }));
 
 import { prisma } from '../prisma';
@@ -207,7 +209,7 @@ describe('POST /v1/posts/:id/comments（评论）', () => {
       parentId: 88,
       isFact: 0,
     });
-    mockPrisma.comment.findUnique.mockResolvedValue({ postId: 1, status: 1 });
+    mockPrisma.comment.findUnique.mockResolvedValue({ postId: 1, status: 1, userId: 2 });
 
     const res = await req(
       'POST',

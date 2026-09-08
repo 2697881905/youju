@@ -11,6 +11,7 @@ import { env } from '../config/env';
 import * as moderationService from '../services/moderationService';
 import * as reportService from '../services/reportService';
 import { notifySystem } from '../services/notificationService';
+import { recomputeAllHotScores } from '../services/hotScoreService';
 
 import { asyncHandler } from '../middleware/asyncHandler';
 
@@ -101,6 +102,12 @@ router.post('/reports/resolve', asyncHandler(async (req: AuthRequest, res: Respo
     await notifySystem(rid, '你的举报已处理', targetType === 'post' ? id : null).catch(() => {});
   }
   return ok(res, null, '已处理');
+}));
+
+// POST /v1/admin/recompute-hot —— 运营干预：全量重算热度分（调参/修正数据后手动触发）
+router.post('/recompute-hot', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const count = await recomputeAllHotScores();
+  return ok(res, { count }, '热榜已重算');
 }));
 
 export default router;

@@ -244,7 +244,7 @@ router.post('/:id/vote', auth, asyncHandler(async (req: AuthRequest, res: Respon
 // 举报帖子：POST /v1/posts/:id/report
 router.post('/:id/report', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const postId = Number(req.params.id);
-  if (!postId) return fail(res, CODE.BAD_REQUEST, '无效帖子ID');
+  if (isNaN(postId) || postId <= 0) return fail(res, CODE.BAD_REQUEST, '无效帖子ID');
   const { reason, description } = req.body ?? {};
 
   // 校验 reason 合法性

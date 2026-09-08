@@ -353,7 +353,7 @@ function drawTextureOnTop(canvas: drawing.Canvas, brush: drawing.Brush, pen: dra
       fillRoundRect(canvas, brush, 56, 64, 1012, POSTER_HEIGHT - 76, 46, makeColor(25, style.surfaceRgb[0], style.surfaceRgb[1], style.surfaceRgb[2]));
       fillRoundRect(canvas, brush, 108, 118, 960, POSTER_HEIGHT - 128, 26, makeColor(24, style.accentRgb[0], style.accentRgb[1], style.accentRgb[2]));
       fillRoundRect(canvas, brush, 132, 154, 936, 166, 6, makeColor(112, style.accentRgb[0], style.accentRgb[1], style.accentRgb[2]));
-      drawGrain(canvas, brush, 126, 178, 816, 1010, 74, makeColor(16, 90, 100, 24));
+      drawGrain(canvas, brush, 126, 178, 816, 1010, 110, makeColor(20, 90, 100, 24));
       break;
     }
   }

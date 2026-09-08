@@ -95,27 +95,44 @@ export struct DetailActionBar {
   @Prop upFeedbackVersion: number = 0;
   @Prop bookmarkFeedbackVersion: number = 0;
   @Prop showShare: boolean = true;
+  // P1-1 评论回复态：replyName 非空时输入框进入「回复 @xx」
+  @Prop replyName: string = '';
   onUp: () => void = (): void => {};
   onBookmark: () => void = (): void => {};
   onSendComment: () => void = (): void => {};
   onShare: () => void = (): void => {};
+  onCancelReply: () => void = (): void => {};
 
   build() {
     // 无玻璃栏：仅保留点赞/收藏/评论/分享操作内容（评论输入态就地切换）
     Stack({ alignContent: Alignment.Center }) {
       if (this.commenting) {
-        Row({ space: SpaceTokens.sm }) {
-          Row() {
-            Image(resolveActionIcon('close'))
-              .width(IconTokens.compact)
-              .height(IconTokens.compact)
+        Column({ space: 4 }) {
+          // 楼中楼回复态提示条：仅当回复目标非空时显示
+          if (this.replyName.length > 0) {
+            Row() {
+              Text('回复 @' + this.replyName)
+                .fontSize(12).fontFamily(TypeTokens.fontFamily)
+                .fontColor(ColorTokens.brand)
+            }
+            .width('100%')
+            .padding({ left: SpaceTokens.sm })
           }
-          .width(LayoutTokens.minTouchTarget)
-          .height(LayoutTokens.minTouchTarget)
-          .justifyContent(FlexAlign.Center)
-          .onClick((): void => { this.commenting = false; this.commentText = ''; })
-          // 输入框本体：暖色描边 + 柔和阴影（去掉蓝色光晕，与发送按钮同区）
-          TextInput({ placeholder: '理性补充，有图有真相', text: this.commentText })
+          Row({ space: SpaceTokens.sm }) {
+            Row() {
+              Image(resolveActionIcon('close'))
+                .width(IconTokens.compact)
+                .height(IconTokens.compact)
+            }
+            .width(LayoutTokens.minTouchTarget)
+            .height(LayoutTokens.minTouchTarget)
+            .justifyContent(FlexAlign.Center)
+            .onClick((): void => { this.commenting = false; this.commentText = ''; this.onCancelReply(); })
+            // 输入框本体：暖色描边 + 柔和阴影（去掉蓝色光晕，与发送按钮同区）
+            TextInput({
+              placeholder: this.replyName.length > 0 ? ('回复 @' + this.replyName) : '理性补充，有图有真相',
+              text: this.commentText,
+            })
             .fontFamily(TypeTokens.fontFamily)
             .layoutWeight(1)
             .height(LayoutTokens.minTouchTarget)
@@ -150,9 +167,12 @@ export struct DetailActionBar {
             .onClick((): void => { this.onSendComment(); })
         }
         .width('100%')
-        .height('100%')
         .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
         .alignItems(VerticalAlign.Center)
+      }
+      .width('100%')
+      .height('100%')
+      .justifyContent(FlexAlign.Center)
       } else {
         Row() {
           DetailActionButton({ icon: resolveActionIcon('like'), label: formatCount(this.upCount), active: this.uped, activeColor: ColorTokens.like, disabled: this.upPending, feedbackVersion: this.upFeedbackVersion, onAction: (): void => { this.onUp(); } }).layoutWeight(1)

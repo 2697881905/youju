@@ -24,6 +24,8 @@ export struct PostCard {
   @Prop allowLike: boolean = true;
   @Prop showStats: boolean = true;
   @Prop showAuthor: boolean = true;
+  // 创作者面板基础：个人主页「我发布」场景展示浏览数（其余列表默认不显示）
+  @Prop showBrowses: boolean = false;
 
   onOpen?: () => void = undefined;
   onCancelBookmark?: (id: number) => void = undefined;
@@ -176,6 +178,14 @@ export struct PostCard {
           this.statSlot()
         }
         Blank().layoutWeight(1)
+        if (this.showBrowses && (this.post.viewCount ?? 0) > 0) {
+          Text('浏览 ' + String(this.post.viewCount ?? 0))
+            .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.caption.weight)
+            .lineHeight(TypeTokens.overline.lineHeight)
+            .fontColor(ColorTokens.tertiary)
+            .margin({ right: SpaceTokens.sm })
+        }
         if (this.showAuthor && this.hasAuthor()) {
           PostCardAuthor({
             name: this.authorName(),

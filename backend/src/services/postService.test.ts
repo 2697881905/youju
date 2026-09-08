@@ -1,6 +1,13 @@
 import { listPosts, getPost, listLikedPosts, listCommentedPosts } from './postService';
 import { prisma } from '../prisma';
 
+// mock searchService：listPosts 收到 keyword 后转交相关度排序，无需真实检索逻辑
+jest.mock('./searchService', () => ({
+  searchPosts: jest.fn().mockResolvedValue({ list: [], pagination: { page: 1, limit: 20, total: 0 } }),
+}));
+import { searchPosts } from './searchService';
+import type { SearchPostsParams } from './searchService';
+
 // 用 jest 替掉真实的 Prisma client（沙箱无 MySQL，不需要真实 DB）
 // 注意：mock 只校验 where 对象的「形状」，不会触发 Prisma 真实的参数校验，
 // 因此 mode:'insensitive'(MySQL 不支持)、arrayContains(应为 array_contains) 这类
@@ -11,6 +18,7 @@ jest.mock('../prisma', () => ({
       findMany: jest.fn(),
       findFirst: jest.fn(),
       count: jest.fn(),
+      update: jest.fn().mockResolvedValue({}),
     },
     up: {
       findFirst: jest.fn(),
@@ -27,6 +35,7 @@ jest.mock('../prisma', () => ({
     },
     comment: {
       groupBy: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
     },
     user: {
       // 默认返回有效（已发布、未注销）作者，使 canViewerSeeAuthorPosts 通过
@@ -57,42 +66,44 @@ const mockedUpCount = prisma.up.count as jest.Mock;
 const mockedBmFindFirst = prisma.bookmark.findFirst as jest.Mock;
 const mockedBmFindMany = prisma.bookmark.findMany as jest.Mock;
 const mockedCommentGroupBy = prisma.comment.groupBy as jest.Mock;
+const mockedCommentFindMany = prisma.comment.findMany as jest.Mock;
+
+const mockedSearchPosts = searchPosts as jest.Mock;
 
 const DELETED_NICKNAME = '已注销用户';
 
-describe('listPosts - 关键词 OR 过滤逻辑', () => {
+describe('listPosts - 关键词转交 searchService（相关度排序）', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockedFindMany.mockResolvedValue([]);
     mockedCount.mockResolvedValue(0);
+    mockedSearchPosts.mockResolvedValue({ list: [], pagination: { page: 1, limit: 20, total: 0 } });
   });
 
-  it('keyword 非空时构造 where.OR 含 4 个条件', async () => {
+  it('keyword 非空时转交 searchService，不再走原生 findMany/count', async () => {
     await listPosts({ keyword: '科幻' });
 
-    expect(mockedFindMany).toHaveBeenCalledTimes(1);
-    const where = mockedFindMany.mock.calls[0][0].where;
-
-    // 基础过滤保持
-    expect(where.status).toBe(1);
-    expect(where.deletedAt).toBeNull();
-    // OR 必须存在且有 4 个条件
-    expect(Array.isArray(where.OR)).toBe(true);
-    expect(where.OR).toHaveLength(4);
-    // title / content / genre contains（MySQL 默认 ci 排序规则即大小写不敏感）+ tags array_contains
-    expect(where.OR[0]).toEqual({ title: { contains: '科幻' } });
-    expect(where.OR[1]).toEqual({ content: { contains: '科幻' } });
-    expect(where.OR[2]).toEqual({ genre: { contains: '科幻' } });
-    expect(where.OR[3]).toEqual({ tags: { array_contains: '科幻' } });
-
-    // count 与 findMany 使用同一个 where（OR 同样生效）
-    const countWhere = mockedCount.mock.calls[0][0].where;
-    expect(countWhere.OR).toHaveLength(4);
+    expect(mockedSearchPosts).toHaveBeenCalledTimes(1);
+    expect(mockedFindMany).not.toHaveBeenCalled();
+    expect(mockedCount).not.toHaveBeenCalled();
+    const arg: SearchPostsParams = mockedSearchPosts.mock.calls[0][0];
+    expect(arg.keyword).toBe('科幻');
+    // sort 缺省 → relevance
+    expect(arg.sort).toBe('relevance');
   });
 
-  it('keyword 为空字符串时 OR 不生效，仅保留 status:1', async () => {
+  it('keyword + sort=hot/latest 时保持对应排序透传', async () => {
+    await listPosts({ keyword: '数码', sort: 'hot' });
+    expect((mockedSearchPosts.mock.calls[0][0] as SearchPostsParams).sort).toBe('hot');
+
+    await listPosts({ keyword: '数码', sort: 'latest' });
+    expect((mockedSearchPosts.mock.calls[1][0] as SearchPostsParams).sort).toBe('latest');
+  });
+
+  it('keyword 为空字符串时走原生查询，OR 不生效，仅保留 status:1', async () => {
     await listPosts({ keyword: '' });
 
+    expect(mockedSearchPosts).not.toHaveBeenCalled();
     const where = mockedFindMany.mock.calls[0][0].where;
     expect(where.status).toBe(1);
     expect(where.deletedAt).toBeNull();
@@ -108,26 +119,24 @@ describe('listPosts - 关键词 OR 过滤逻辑', () => {
     expect(where.OR).toBeUndefined();
   });
 
-  it('keyword 带前后空格时按 trim 后生效', async () => {
+  it('keyword 带前后空格时按原样透传 searchService（内部再 trim）', async () => {
     await listPosts({ keyword: ' 科幻 ' });
 
-    const where = mockedFindMany.mock.calls[0][0].where;
-    expect(where.OR).toHaveLength(4);
-    expect(where.OR[0]).toEqual({ title: { contains: '科幻' } });
+    expect(mockedSearchPosts).toHaveBeenCalledTimes(1);
+    expect((mockedSearchPosts.mock.calls[0][0] as SearchPostsParams).keyword).toBe(' 科幻 ');
   });
 
-  it('keyword 与 tag 同时使用时 status / tag 与 OR 并存', async () => {
-    await listPosts({ keyword: 'a', tag: '数码' });
+  it('keyword 与 tag 同时使用时一并透传 searchService', async () => {
+    await listPosts({ keyword: '数字', tag: '数码' });
 
-    const where = mockedFindMany.mock.calls[0][0].where;
-    expect(where.status).toBe(1);
-    expect(where.tags).toEqual({ array_contains: '数码' });
-    expect(where.OR).toHaveLength(4);
+    expect(mockedSearchPosts).toHaveBeenCalledTimes(1);
+    const arg: SearchPostsParams = mockedSearchPosts.mock.calls[0][0];
+    expect(arg.keyword).toBe('数字');
+    expect(arg.tag).toBe('数码');
   });
 
   it('返回结构为 { list, pagination:{page,limit,total} }', async () => {
-    mockedFindMany.mockResolvedValue([{ id: 1 }]);
-    mockedCount.mockResolvedValue(1);
+    mockedSearchPosts.mockResolvedValue({ list: [{ id: 1 }], pagination: { page: 2, limit: 10, total: 1 } });
 
     const res = await listPosts({ keyword: 'x', page: 2, limit: 10 });
     expect(res).toHaveProperty('list');
@@ -225,20 +234,23 @@ describe('getPost - myUp/myBookmark + 作者匿名化', () => {
       status: 1,
       title: 't',
       user: { id: 1, nickname: 'A', avatar: 'a.png' },
-      comments: [{ id: 9, content: 'c', user: { id: 2, nickname: 'B', avatar: null } }],
     };
     mockedFindFirst.mockResolvedValue(raw);
+    mockedCommentFindMany.mockResolvedValue([
+      { id: 9, content: 'c', user: { id: 2, nickname: 'B', avatar: null } },
+    ]);
 
     const res = await getPost(1);
 
     expect(mockedUpFindFirst).not.toHaveBeenCalled();
     expect(mockedBmFindFirst).not.toHaveBeenCalled();
+    expect(mockedCommentFindMany).toHaveBeenCalledTimes(1);
     expect(res).toEqual({
       id: 1,
       status: 1,
       title: 't',
       user: { id: 1, nickname: 'A', avatar: 'a.png' },
-      comments: [{ id: 9, content: 'c', user: { id: 2, nickname: 'B', avatar: null } }],
+      comments: [{ id: 9, content: 'c', user: { id: 2, nickname: 'B', avatar: null }, replies: [] }],
     });
   });
 
@@ -331,10 +343,10 @@ describe('getPost - myUp/myBookmark + 作者匿名化', () => {
       status: 1,
       title: 't',
       user: { id: 5, nickname: '旧用户', avatar: 'old.png', deletedAt: new Date('2024-01-01') },
-      comments: [
-        { id: 9, content: 'c', user: { id: 5, nickname: '旧用户', avatar: 'old.png', deletedAt: new Date('2024-01-01') } },
-      ],
     });
+    mockedCommentFindMany.mockResolvedValue([
+      { id: 9, content: 'c', user: { id: 5, nickname: '旧用户', avatar: 'old.png', deletedAt: new Date('2024-01-01') } },
+    ]);
 
     const res = await getPost(1);
 

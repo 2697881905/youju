@@ -7,6 +7,7 @@ import { listAdminReports, resolveTargetReports, banUser, unbanUser } from '../s
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { resolveActionIcon } from '../utils/actionIcons';
+import { openPostDetail, openUserProfile } from '../utils/nav';
 import { BackButton } from '../design/components/BackButton';
 import { EmptyState } from '../design/components/EmptyState';
 import { ColorTokens } from '../design/tokens/color';
@@ -154,6 +155,40 @@ export struct ReportAdminPage {
     this.load(false);
   }
 
+  // 目标是否可直达（post/comment 需有所属帖 id；user 目标直达其主页）
+  private canOpenTarget(item: AdminReportItem): boolean {
+    if (item.targetType === 'user') {
+      return (item.targetId ?? 0) > 0;
+    }
+    return (item.targetPostId ?? 0) > 0;
+  }
+
+  private targetLinkLabel(item: AdminReportItem): string {
+    if (item.targetType === 'user') {
+      return '查看用户主页';
+    }
+    if (item.targetType === 'comment') {
+      return '在帖子中查看该评论';
+    }
+    return '查看原帖内容';
+  }
+
+  // 点击直达被举报内容，审核员可看到完整上下文后再做处置
+  private openTarget(item: AdminReportItem): void {
+    if (item.targetType === 'user') {
+      openUserProfile(item.targetId);
+      this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage' });
+      return;
+    }
+    const pid: number = item.targetPostId ?? 0;
+    if (pid <= 0) {
+      safeShowToast(this.getUIContext(), { message: '目标内容不存在或已被删除' });
+      return;
+    }
+    openPostDetail(String(pid));
+    this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
+  }
+
   // 标记成立 / 驳回
   private async onResolve(item: AdminReportItem, action: 'resolved' | 'dismissed'): Promise<void> {
     const key: string = 'r' + item.id + '-' + action;
@@ -226,6 +261,7 @@ export struct ReportAdminPage {
             commentContent: it.commentContent,
             targetNickname: it.targetNickname,
             targetBanned: ban,
+            targetPostId: it.targetPostId,
           };
           return copy;
         }
@@ -348,33 +384,54 @@ export struct ReportAdminPage {
       }
       .width('100%')
 
-      this.targetLine(item)
+      // 内容预览区：整块点击直达被举报对象（原帖 / 所属帖 / 用户主页），便于先看完整上下文再处置
+      Column({ space: 6 }) {
+        this.targetLine(item)
 
-      // 理由 + 补充说明 + 举报人
-      Column({ space: 4 }) {
-        Row({ space: 6 }) {
-          Text(reasonLabel(item.reason))
-            .fontSize(12).fontFamily(TypeTokens.fontFamily)
-            .fontColor($r('app.color.semantic_red'))
-            .padding({ left: 8, right: 8, top: 2, bottom: 2 })
-            .backgroundColor('#FFE5E5')
-            .borderRadius(10)
-          if (item.reporter) {
-            Text((item.reporter.nickname ?? '匿名') + ' 举报')
-              .fontSize(11).fontFamily(TypeTokens.fontFamily)
-              .fontColor($r('app.color.text_tertiary'))
+        // 理由 + 补充说明 + 举报人
+        Column({ space: 4 }) {
+          Row({ space: 6 }) {
+            Text(reasonLabel(item.reason))
+              .fontSize(12).fontFamily(TypeTokens.fontFamily)
+              .fontColor($r('app.color.semantic_red'))
+              .padding({ left: 8, right: 8, top: 2, bottom: 2 })
+              .backgroundColor('#FFE5E5')
+              .borderRadius(10)
+            if (item.reporter) {
+              Text((item.reporter.nickname ?? '匿名') + ' 举报')
+                .fontSize(11).fontFamily(TypeTokens.fontFamily)
+                .fontColor($r('app.color.text_tertiary'))
+            }
+          }
+          if (item.description) {
+            Text(item.description)
+              .fontSize(12).fontFamily(TypeTokens.fontFamily)
+              .fontColor($r('app.color.text_secondary'))
+              .maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
+              .width('100%')
           }
         }
-        if (item.description) {
-          Text(item.description)
-            .fontSize(12).fontFamily(TypeTokens.fontFamily)
-            .fontColor($r('app.color.text_secondary'))
-            .maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
-            .width('100%')
+        .alignItems(HorizontalAlign.Start)
+        .width('100%')
+
+        // 可直达引导（目标已删除时后端给不出 id，自然隐藏）
+        if (this.canOpenTarget(item)) {
+          Row() {
+            Blank()
+            Text(this.targetLinkLabel(item) + ' ›')
+              .fontSize(12).fontFamily(TypeTokens.fontFamily)
+              .fontColor($r('app.color.brand_primary'))
+          }
+          .width('100%')
         }
       }
-      .alignItems(HorizontalAlign.Start)
       .width('100%')
+      .alignItems(HorizontalAlign.Start)
+      .onClick(() => {
+        if (this.processingKey === '') {
+          this.openTarget(item);
+        }
+      })
 
       this.actions(item)
     }

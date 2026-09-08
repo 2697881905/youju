@@ -20,10 +20,12 @@ import { VideoPlayer } from '../components/VideoPlayer';
 import { ImageViewer } from '../components/ImageViewer';
 import { VideoViewer } from '../components/VideoViewer';
 import { KeyboardAvoidMode } from '@kit.ArkUI';
+import { common } from '@kit.AbilityKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { BackButton } from '../design/components/BackButton';
 import { ColorTokens } from '../design/tokens/color';
+import { IconTokens } from '../design/tokens/icon';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { RadiusTokens } from '../design/tokens/radius';
 import { TypeTokens } from '../design/tokens/type';
@@ -31,6 +33,7 @@ import { MotionCurves } from '../design/tokens/motion';
 import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
 import { ImmersiveSurface } from '../design/components/ImmersiveSurface';
 import { openUserProfile, takeChatIntent, openPostDetail } from '../utils/nav';
+import { openExternalUrl } from '../utils/openExternal';
 
 // 长按菜单哨兵消息：menuMsgId 无命中时返回（正常路径被外层 if 挡住，纯防御性兜底；
 // type='' 使菜单只显示「删除」，senderId=0 使撤回项不出现）
@@ -709,6 +712,31 @@ export struct ChatPage {
             .borderRadius(RadiusTokens.md)
             .clip(true)
             .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 3 })
+        } else if (m.type === 'file') {
+          // 文件消息（P0-3）：占位气泡展示文件名，预览/下载留待 P1
+          Row({ space: SpaceTokens.sm }) {
+            Image($r('app.media.action_send'))
+              .width(IconTokens.small)
+              .height(IconTokens.small)
+              .objectFit(ImageFit.Contain)
+              .opacity(0.9)
+            Text(this.fileNameOf(m.content))
+              .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
+              .fontWeight(TypeTokens.body.weight)
+              .fontColor(ColorTokens.primary)
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .constraintSize({ maxWidth: 200 })
+          }
+          .padding({ left: 12, right: 12, top: 10, bottom: 10 })
+          .backgroundBlurStyle(GlassBlurStyle.Card)
+          .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : (this.isMine(m.senderId) ? ColorTokens.barSelectionSurface : ColorTokens.barSurface))
+          .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+          .borderRadius(RadiusTokens.md)
+          .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 3 })
+          .onClick((): void => {
+            this.openFileMessage(m.content);
+          })
         } else if (m.type === 'share') {
           this.shareBubble(m)
         } else {
@@ -724,10 +752,17 @@ export struct ChatPage {
             .constraintSize({ maxWidth: 280, minHeight: 40 })
             .textAlign(TextAlign.Start)
         }
-        // 所有消息（含分享卡片）统一显示发送时间，与普通消息一致
-        Text(this.formatChatTime(m.createdAt))
-          .fontSize(10).fontFamily($r('app.string.font_family'))
-          .fontColor($r('app.color.text_secondary'))
+        // 所有消息统一显示发送时间；自己发出的消息在被对方已读后追加「已读」回执
+        Row({ space: 4 }) {
+          Text(this.formatChatTime(m.createdAt))
+            .fontSize(10).fontFamily($r('app.string.font_family'))
+            .fontColor($r('app.color.text_secondary'))
+          if (this.isMine(m.senderId) && m.read) {
+            Text('已读')
+              .fontSize(10).fontFamily($r('app.string.font_family'))
+              .fontColor(ColorTokens.tertiary)
+          }
+        }
       }
       .alignItems(this.isMine(m.senderId) ? HorizontalAlign.End : HorizontalAlign.Start)
       .layoutWeight(1)
@@ -751,6 +786,39 @@ export struct ChatPage {
           this.openMenu(m, event);
         })
     )
+    }
+  }
+
+  // 从媒体 URL 截取文件名（无则显示通用名）
+  private fileNameOf(url: string): string {
+    try {
+      const clean: string = decodeURIComponent(url);
+      const seg: string[] = clean.split('/');
+      const last: string = (seg[seg.length - 1] ?? '').split('?')[0];
+      if (last.length > 0 && last.length <= 40) {
+        return last;
+      }
+    } catch (e) {
+      // 解码失败走默认
+    }
+    return '文件';
+  }
+
+  // 点开文件消息：内容为 viewUrl，转成可访问地址后交给系统「查看」打开（浏览器/对应应用预览）
+  private async openFileMessage(url: string): Promise<void> {
+    if (url.length === 0) {
+      return;
+    }
+    const resolved: string = resolveDisplayImageUrl(url);
+    if (!/^https?:\/\//i.test(resolved)) {
+      safeShowToast(this.getUIContext(), { message: '文件地址无效，请重试' });
+      return;
+    }
+    try {
+      const hostCtx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      await openExternalUrl(hostCtx, resolved);
+    } catch (e) {
+      safeShowToast(this.getUIContext(), { message: '无法打开该文件，请稍后重试' });
     }
   }
 

@@ -25,6 +25,8 @@
     "pages/VideoPublishPage",
     "pages/TextPublishPage",
     "pages/DraftBoxPage",
-    "pages/TrashBoxPage"
+    "pages/TrashBoxPage",
+    "pages/BookmarkFolderPage",
+    "pages/BookmarkFolderDetailPage"
   ]
 }

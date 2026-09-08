@@ -180,7 +180,8 @@ describe('GET /v1/posts/following', () => {
           userId: { in: [5] },
           tags: { array_contains: '数码' },
         }),
-        orderBy: [{ upCount: 'desc' }, { createdAt: 'desc' }],
+        // 热榜/推荐统一按热度分排序（hotScore desc → createdAt desc，见 hotScoreService）
+        orderBy: [{ hotScore: 'desc' }, { createdAt: 'desc' }],
       }),
     );
   });

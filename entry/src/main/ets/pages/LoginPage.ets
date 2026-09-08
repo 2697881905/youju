@@ -10,6 +10,9 @@ import { HuaweiLoginButton } from '../components/HuaweiLoginButton';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { RadiusTokens } from '../design/tokens/radius';
+import { TypeTokens } from '../design/tokens/type';
+import { ColorTokens } from '../design/tokens/color';
+import { SpaceTokens } from '../design/tokens/space';
 import { BUILD_MODE_NAME } from '../utils/buildMode';
 const BUILD_MODE: string = BUILD_MODE_NAME;
 
@@ -63,18 +66,27 @@ struct LoginPage {
             .height(108)
             .borderRadius(RadiusTokens.lg)
 
-          // 品牌名称
+          // 品牌名称：衬线大字 + 英文小标的编辑部式字标
           Text('有据')
-            .fontSize(40).fontFamily($r('app.string.font_family'))
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('app.color.ds_text_primary'))
+            .fontSize(40).fontFamily(TypeTokens.fontFamilySerif)
+            .fontWeight(TypeTokens.display.weight)
+            .lineHeight(48)
+            .fontColor(ColorTokens.primary)
             .margin({ top: 16 })
+          Text('SUBSTANTIATE')
+            .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.overline.weight)
+            .letterSpacing(2)
+            .fontColor(ColorTokens.tertiary)
+            .margin({ top: SpaceTokens.xs })
 
           // 品牌标语
           Text('有据可依  更好的生活')
-            .fontSize(15).fontFamily($r('app.string.font_family'))
-            .fontColor($r('app.color.ds_text_secondary'))
-            .margin({ top: 12 })
+            .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.callout.weight)
+            .lineHeight(TypeTokens.callout.lineHeight)
+            .fontColor(ColorTokens.secondary)
+            .margin({ top: SpaceTokens.md })
         }
         .width('100%')
         .layoutWeight(1)
@@ -112,8 +124,10 @@ struct LoginPage {
             Row({ space: 12 }) {
               Divider().layoutWeight(1).color($r('app.color.ds_separator'))
               Text('或')
-                .fontSize(12).fontFamily($r('app.string.font_family'))
-                .fontColor($r('app.color.ds_text_tertiary'))
+                .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+                .fontWeight(TypeTokens.caption.weight)
+                .lineHeight(TypeTokens.caption.lineHeight)
+                .fontColor(ColorTokens.tertiary)
               Divider().layoutWeight(1).color($r('app.color.ds_separator'))
             }
             .width('85%')
@@ -138,10 +152,11 @@ struct LoginPage {
             Button(this.v2Submitting ? '登录中…' : '虚拟用户·小美 登录')
               .width('85%')
               .height(48)
-              .fontSize(16).fontFamily($r('app.string.font_family'))
-              .fontColor($r('app.color.ds_text_primary'))
-              .backgroundColor($r('app.color.ds_elevated'))
-              .border({ width: 1, color: $r('app.color.ds_separator'), style: BorderStyle.Solid })
+              .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
+              .fontWeight(TypeTokens.headline.weight)
+              .fontColor(ColorTokens.primary)
+              .backgroundColor(ColorTokens.elevated)
+              .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
               .borderRadius(RadiusTokens.md)
               .enabled(!this.v2Submitting && this.privacyAgreed)
               .opacity(this.v2Submitting || !this.privacyAgreed ? 0.6 : 1)
@@ -165,21 +180,29 @@ struct LoginPage {
             })
           Row() {
             Text('我已阅读并同意')
-              .fontSize(12).fontFamily($r('app.string.font_family'))
-              .fontColor($r('app.color.ds_text_tertiary'))
+              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+              .fontWeight(TypeTokens.caption.weight)
+              .lineHeight(TypeTokens.caption.lineHeight)
+              .fontColor(ColorTokens.tertiary)
             Text('《用户协议》')
-              .fontSize(12).fontFamily($r('app.string.font_family'))
-              .fontColor('#8A6930')
+              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+              .fontWeight(TypeTokens.caption.weight)
+              .lineHeight(TypeTokens.caption.lineHeight)
+              .fontColor(ColorTokens.brand)
               .onClick((): void => {
                 const ctx = this.getUIContext();
                 ctx.getRouter().pushUrl({ url: 'pages/UserAgreementPage' });
               })
             Text('与')
-              .fontSize(12).fontFamily($r('app.string.font_family'))
-              .fontColor($r('app.color.ds_text_tertiary'))
+              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+              .fontWeight(TypeTokens.caption.weight)
+              .lineHeight(TypeTokens.caption.lineHeight)
+              .fontColor(ColorTokens.tertiary)
             Text('《隐私政策》')
-              .fontSize(12).fontFamily($r('app.string.font_family'))
-              .fontColor('#8A6930')
+              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+              .fontWeight(TypeTokens.caption.weight)
+              .lineHeight(TypeTokens.caption.lineHeight)
+              .fontColor(ColorTokens.brand)
               .onClick((): void => {
                 const ctx = this.getUIContext();
                 ctx.getRouter().pushUrl({ url: 'pages/PrivacyPage' });

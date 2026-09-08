@@ -4,10 +4,10 @@ import { isNotificationAllowed } from './notificationPrefService';
 import { pushToUser } from './huaweiPush';
 
 // 通知类型（与前端 NotificationType 单一来源对齐）
-export type NotificationType = 'comment' | 'up' | 'bookmark' | 'follow' | 'system';
+export type NotificationType = 'comment' | 'up' | 'bookmark' | 'follow' | 'mention' | 'system';
 
 // 依赖帖子的通知类型：帖子被删除（软删除/彻底删除）后，这类通知不应再出现在通知中心
-const POST_RELATED_TYPES = ['comment', 'up', 'bookmark'];
+const POST_RELATED_TYPES = ['comment', 'up', 'bookmark', 'mention'];
 
 export interface CreateNotificationInput {
   userId: number; // 接收者
@@ -70,6 +70,8 @@ function pushTitle(type: string): string {
       return '新收藏';
     case 'follow':
       return '新粉丝';
+    case 'mention':
+      return '有人提到了你';
     case 'system':
       return '系统通知';
     default:
@@ -196,6 +198,57 @@ export async function markAllRead(userId: number): Promise<number> {
 
 // ===== 安全触发辅助（供评论/互动服务调用，绝不阻断主流程） =====
 
+// 评论/正文 @提及 正则（与 postService.MENTION_RE 同口径：2-20 字，不含空白与常见标点）
+const MENTION_NAME_RE = /@([^@\s，。！？、；：""''《》（）【】]{2,20})/g;
+
+// 提取正文中全部 @提及 昵称（去重、保留顺序）
+export function extractMentionNames(content: string): string[] {
+  const names: string[] = [];
+  const seen = new Set<string>();
+  MENTION_NAME_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = MENTION_NAME_RE.exec(content)) !== null) {
+    const name = m[1];
+    if (!seen.has(name)) {
+      seen.add(name);
+      names.push(name);
+    }
+  }
+  return names;
+}
+
+// 评论中 @提及：命中真实用户则发 mention 通知
+// excludeIds：自己/帖子作者/被回复的评论作者等已收过通知的对象，避免重复打扰
+export async function notifyCommentMentions(
+  postId: number,
+  actorId: number,
+  content: string,
+  excludeIds: ReadonlySet<number>
+): Promise<void> {
+  const names = extractMentionNames(content);
+  if (names.length === 0) return;
+  const users = await prisma.user.findMany({
+    where: { nickname: { in: names }, deletedAt: null },
+    select: { id: true },
+  });
+  if (users.length === 0) return;
+  const actor = await prisma.user.findUnique({
+    where: { id: actorId },
+    select: { nickname: true },
+  });
+  const nickname = actor?.nickname ?? '有人';
+  for (const u of users) {
+    if (excludeIds.has(u.id)) continue;
+    await createNotification({
+      userId: u.id,
+      actorId,
+      type: 'mention',
+      postId,
+      content: `${nickname} 在评论中提到了你`,
+    });
+  }
+}
+
 // 评论：通知帖子作者（自己评论自己不发通知）
 export async function notifyOnComment(postId: number, actorId: number): Promise<void> {
   const post = await prisma.post.findUnique({ where: { id: postId }, select: { userId: true } });
@@ -211,6 +264,28 @@ export async function notifyOnComment(postId: number, actorId: number): Promise<
     type: 'comment',
     postId,
     content: `${nickname} 评论了你的帖子`,
+  });
+}
+
+// 楼中楼回复：通知被回复的评论作者（自己回复自己不发；
+// 若被回复人恰为帖子作者，则已有「评论了你的帖子」通知，不重复打扰）
+export async function notifyOnCommentReply(
+  postId: number,
+  actorId: number,
+  parent: { userId: number | null; postUserId: number }
+): Promise<void> {
+  if (parent.userId === null || parent.userId === actorId || parent.userId === parent.postUserId) return;
+  const actor = await prisma.user.findUnique({
+    where: { id: actorId },
+    select: { nickname: true },
+  });
+  const nickname = actor?.nickname ?? '有人';
+  await createNotification({
+    userId: parent.userId,
+    actorId,
+    type: 'comment',
+    postId,
+    content: `${nickname} 回复了你的评论`,
   });
 }
 

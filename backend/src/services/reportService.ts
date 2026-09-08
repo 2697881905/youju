@@ -296,7 +296,7 @@ export async function listReports(
       ? prisma.post.findMany({ where: { id: { in: postIds } }, select: { id: true, title: true } })
       : Promise.resolve([]),
     commentIds.length > 0
-      ? prisma.comment.findMany({ where: { id: { in: commentIds } }, select: { id: true, content: true } })
+      ? prisma.comment.findMany({ where: { id: { in: commentIds } }, select: { id: true, content: true, postId: true } })
       : Promise.resolve([]),
     userIds.length > 0
       ? prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, nickname: true, status: true } })
@@ -304,11 +304,19 @@ export async function listReports(
   ]);
   const postTitleById = new Map(posts.map((post) => [post.id, post.title]));
   const commentContentById = new Map(comments.map((c) => [c.id, c.content]));
+  const commentPostIdById = new Map(comments.map((c) => [c.id, c.postId]));
   const userById = new Map(users.map((u) => [u.id, u]));
 
   return {
     list: list.map((r) => {
       const targetUser = r.targetType === 'user' ? userById.get(r.targetId) : undefined;
+      // 目标所属帖子（评论目标需要定位其所属帖才能跳转查看上下文）
+      let targetPostId: number | null = null;
+      if (r.targetType === 'post') {
+        targetPostId = r.targetId;
+      } else if (r.targetType === 'comment') {
+        targetPostId = commentPostIdById.get(r.targetId) ?? null;
+      }
       return {
         ...r,
         reporter: { nickname: nicknameById.get(r.reporterId) ?? null },
@@ -316,6 +324,7 @@ export async function listReports(
         commentContent: r.targetType === 'comment' ? commentContentById.get(r.targetId) ?? null : null,
         targetNickname: targetUser ? targetUser.nickname : null,
         targetBanned: targetUser ? targetUser.status === 0 : null,
+        targetPostId,
       };
     }),
     pagination: { page: p, limit: l, total },

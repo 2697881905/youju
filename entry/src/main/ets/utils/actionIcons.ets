@@ -25,6 +25,7 @@ const ACTION_ICONS: Map<string, Resource> = new Map<string, Resource>([
   ['close', $r('app.media.close_x')],
   ['chevronDown', $r('app.media.chevron_down')],
   ['chevronUp', $r('app.media.chevron_up')],
+  ['chevronRight', $r('app.media.chevron_right')],
   ['phone', $r('app.media.device_phone')],
   ['book', $r('app.media.book_doc')],
   ['draftBox', $r('app.media.draft_box')],
@@ -56,6 +57,8 @@ export function notifIconRes(type: NotificationType | undefined): Resource {
       return $r('app.media.action_bookmark');
     case 'follow':
       return $r('app.media.action_follow');
+    case 'mention':
+      return $r('app.media.action_send');
     default:
       return $r('app.media.notification_system');
   }

@@ -8,6 +8,9 @@ import { TypeTokens } from '../design/tokens/type';
 import { debateVoteStore } from '../utils/debateVoteStore';
 import { doesTextFitInPoster } from '../utils/textPoster';
 import { ShadowTokens } from '../design/tokens/shadow';
+import { HighlightSegment, parseHighlightSegments } from '../utils/textHighlight';
+import { openCircleDetail, openUserProfile } from '../utils/nav';
+import { MentionRef } from '../models/types';
 
 // 详情正文只负责体裁内容的展示；投票的请求和回滚仍由 DetailPage 持有。
 export type DetailField = [string, string];
@@ -21,6 +24,8 @@ export struct DetailPostContent {
   @Prop planA: string = '';
   @Prop planB: string = '';
   @Prop votePostId: number = 0;
+  // 正文 @提及 → 用户映射（后端按 userId 解析入库），命中时点击跳转用户主页
+  @Prop mentions: MentionRef[] = [];
   onVote: (choice: string) => void = (_choice: string): void => {};
   @State planAVotes: number = 0;
   @State planBVotes: number = 0;
@@ -50,6 +55,53 @@ export struct DetailPostContent {
     this.planAVotes = vote.planAVotes;
     this.planBVotes = vote.planBVotes;
     this.myVote = vote.choice;
+  }
+
+  // 正文高亮分段：@提及 与 #话题# 以品牌色加粗展示（解析代价小，正文通常 < 2K）
+  @Builder
+  private highlightBody(): void {
+    Text() {
+      ForEach(parseHighlightSegments(this.content), (seg: HighlightSegment) => {
+        Span(seg.raw)
+          .fontColor(seg.type === 'text' ? ColorTokens.primary : ColorTokens.brand)
+          .fontWeight(seg.type === 'text' ? FontWeight.Normal : FontWeight.Medium)
+          .onClick(() => {
+            if (seg.type === 'tag') {
+              this.goCircle(seg.name);
+            } else if (seg.type === 'mention') {
+              this.goMention(seg.name);
+            }
+          })
+      }, (seg: HighlightSegment) => seg.type + ':' + seg.raw + ':' + seg.name)
+    }
+    .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamilySerifBody)
+    .fontColor(ColorTokens.primary)
+    .lineHeight(32)
+    .width('100%')
+    .textAlign(TextAlign.Start)
+  }
+
+  // 点击 #话题# → 圈子详情
+  private goCircle(name: string): void {
+    openCircleDetail(name);
+    this.getUIContext().getRouter().pushUrl({ url: 'pages/CircleDetailPage' });
+  }
+
+  // 点击 @提及 → 命中后端解析的用户映射则跳转其主页，否则仅提示
+  private goMention(name: string): void {
+    let uid: number = 0;
+    for (const m of this.mentions) {
+      if (m.name === name && m.userId > 0) {
+        uid = m.userId;
+        break;
+      }
+    }
+    if (uid === 0) {
+      this.getUIContext().getPromptAction().showToast({ message: '@' + name, duration: 1000 });
+      return;
+    }
+    openUserProfile(uid);
+    this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage' });
   }
 
   private totalVotes(): number {
@@ -168,12 +220,7 @@ export struct DetailPostContent {
         // 文字海报已完整容纳正文时不再冗余展示纯文本；
         // 海报截断（省略号）时仍显示完整正文，确保读者不丢信息。
         if (!this.coverOnlyTextPoster || !doesTextFitInPoster(this.content)) {
-          Text(this.content)
-            .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamilySerifBody)
-            .fontColor(ColorTokens.primary)
-            .lineHeight(32)
-            .width('100%')
-            .textAlign(TextAlign.Start)
+          this.highlightBody()
         }
       }
     }
