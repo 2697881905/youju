@@ -265,11 +265,14 @@ async function fetchRotatedDailyPosts(
   if (firstTake === take) {
     return first;
   }
+  // 第二段：从 0 取回「第一段没覆盖的头部」。条数钳制为 firstIndex，
+  // 否则帖子总数 < take 时会越过 total 尾部再回头，把第一段元素重复取一遍。
+  const secondTake = Math.min(take - firstTake, firstIndex);
   const second = await prisma.post.findMany({
     where,
     orderBy,
     skip: 0,
-    take: take - firstTake,
+    take: secondTake,
     include: { user: { select: USER_PUBLIC_SELECT } },
   });
   return first.concat(second);

@@ -96,6 +96,19 @@ describe('listDailyPosts', () => {
     expect(first.dateKey).toBe('2026-08-11');
   });
 
+  it('总数小于 take 时轮换起始偏移不重复（回归：list 曾把首段元素重复取一遍）', async () => {
+    // 兴趣流只有 2 帖、take=10（大于总数）：offset 非 0 时曾出现 id 重复（如 [25,24,25]）
+    mockedFollowedTags.mockResolvedValue([{ tagName: '数码' }]);
+    installRows([post(1, ['数码']), post(2, ['数码'])], []);
+
+    const result = await listDailyPosts({ viewerId: 5, page: 1, limit: 10, now: DAY });
+
+    const ids = result.list.map((item) => item.id);
+    expect(ids.length).toBe(2);                 // 不能因 take=10 而被撑成 3
+    expect(new Set(ids).size).toBe(ids.length); // 无重复
+    expect(new Set(ids)).toEqual(new Set([1, 2]));
+  });
+
   it('跨上海日期会轮换同一兴趣流的起始位置', async () => {
     mockedFollowedTags.mockResolvedValue([{ tagName: '数码' }]);
     installRows([
