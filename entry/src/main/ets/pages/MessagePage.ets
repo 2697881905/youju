@@ -403,9 +403,10 @@ export struct MessagePage {
       // 用后端权威未读数校正（本地乐观可能与服务器有偏差）
       this.refreshUnread();
     }
-    // 置顶的「管理员举报通知」→ 直达举报账本；作者收到的「审核中」置顶通知
+    // 置顶的「举报中心」系统消息 → 直达举报账本（新文案「举报中心：有 N 条举报待处理」；
+    // 兼容早期文案「收到新举报…」的历史置顶通知）；作者收到的「审核中」置顶通知
     // 仍走下方 postId 跳原帖详情（普通用户不会收到举报警报，故不会误入账本）。
-    if (item.pinned === true && (item.content ?? '').includes('收到新举报')) {
+    if (item.pinned === true && ((item.content ?? '').startsWith('举报中心') || (item.content ?? '').includes('收到新举报'))) {
       this.getUIContext().getRouter().pushUrl({ url: 'pages/ReportAdminPage' });
       return;
     }
@@ -592,8 +593,8 @@ export struct MessagePage {
           .width('100%')
           .constraintSize({ minHeight: '100%' })
           .padding({
-            left: SpaceTokens.pageCompact,
-            right: SpaceTokens.pageCompact,
+            left: SpaceTokens.sm,
+            right: SpaceTokens.sm,
             bottom: SpaceTokens.sm,
           })
         }
@@ -647,10 +648,10 @@ export struct MessagePage {
       // 顶栏
       Row() {
         Text('消息')
-          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.title.weight)
-          .lineHeight(TypeTokens.title.lineHeight)
-          .letterSpacing(TypeTokens.title.tracking)
+          .fontSize(TypeTokens.titleSerif.size).fontFamily(TypeTokens.fontFamilySerif)
+          .fontWeight(TypeTokens.titleSerif.weight)
+          .lineHeight(TypeTokens.titleSerif.lineHeight)
+          .alignSelf(ItemAlign.Start)
           .layoutWeight(1)
           .fontColor(ColorTokens.primary)
         if (this.dmTab === 'notif') {
@@ -675,13 +676,12 @@ export struct MessagePage {
         }
       }
       .width('100%')
-      // 顶栏最小高度 = 操作按钮(44) + 上下内边距，保证通知/私信两个 Tab 顶栏与标题高度一致、切换不跳动
-      .constraintSize({ minHeight: LayoutTokens.minTouchTarget + SpaceTokens.md + SpaceTokens.sm })
+      // 标题贴顶（与首页有据同一水平线），左右留白与首页标题一致(sm)
       .padding({
-        left: SpaceTokens.pageCompact,
-        right: SpaceTokens.pageCompact,
-        top: SpaceTokens.md,
-        bottom: SpaceTokens.sm,
+        left: SpaceTokens.sm,
+        right: SpaceTokens.sm,
+        top: SpaceTokens.xs,
+        bottom: SpaceTokens.xs,
       })
 
       // 分段：通知 | 私信
@@ -689,10 +689,12 @@ export struct MessagePage {
         items: MESSAGE_SEGMENTS,
         selectedIndex: $dmTabIndex,
         itemWidth: 88,
-        glass: true,
+        // 描边风格：与首页搜索按钮/分段栏同款（透明底 + 细边框 + 大圆角）
+        glass: false,
+        outlined: true,
         onSelect: (idx: number): void => { this.switchDmTab(idx); },
       })
-      .margin({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, bottom: SpaceTokens.sm })
+      .margin({ left: SpaceTokens.sm, right: SpaceTokens.sm, bottom: SpaceTokens.sm })
       // 分段控件保持固定尺寸；切换反馈只改变透明度，避免 Tab 状态切换时高度跳变。
       .opacity(this.tabPulse ? 0.96 : 1)
       .animation({ duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.control, curve: MotionCurves.springSoft })
@@ -709,8 +711,8 @@ export struct MessagePage {
         }
         .width('100%')
         .padding({
-          left: SpaceTokens.pageCompact,
-          right: SpaceTokens.pageCompact,
+          left: SpaceTokens.sm,
+          right: SpaceTokens.sm,
           top: SpaceTokens.inlineTight,
           bottom: SpaceTokens.item,
         })
@@ -778,8 +780,8 @@ export struct MessagePage {
             .width('100%')
             .constraintSize({ minHeight: '100%' })
             .padding({
-              left: SpaceTokens.pageCompact,
-              right: SpaceTokens.pageCompact,
+              left: SpaceTokens.sm,
+              right: SpaceTokens.sm,
               bottom: SpaceTokens.sm,
             })
           }

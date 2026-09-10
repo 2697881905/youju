@@ -18,6 +18,8 @@ backend/.env
 *.pfx
 *.keystore
 *.jks
+# AGC 配置含 client_secret/api_key（明文密钥，由 AGC 后台重新下载，勿入库）
+**/agconnect-services.json
 
 # 本地签名材料（含测试用 keystore/证书/描述文件，由 AGC 正式材料替换）
 entry/material/

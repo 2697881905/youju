@@ -507,7 +507,9 @@ export struct ProfilePage {
         items: BOOKMARK_SEGMENTS,
         selectedIndex: $bookmarkSubTab,
         itemWidth: 46,
-        glass: true,
+        // 描边风格：与主分段栏/首页/消息页同款统一
+        glass: false,
+        outlined: true,
         onSelect: (): void => {
           // 双向绑定已写回 bookmarkSubTab，@Watch 负责后续动作
         },
@@ -700,10 +702,10 @@ export struct ProfilePage {
       // 顶栏
       Row({ space: SpaceTokens.sm }) {
         Text('我的')
-          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.title.weight)
-          .lineHeight(TypeTokens.title.lineHeight)
-          .letterSpacing(TypeTokens.title.tracking)
+          .fontSize(TypeTokens.titleSerif.size).fontFamily(TypeTokens.fontFamilySerif)
+          .fontWeight(TypeTokens.titleSerif.weight)
+          .lineHeight(TypeTokens.titleSerif.lineHeight)
+          .alignSelf(ItemAlign.Start)
           .fontColor(ColorTokens.primary)
         Blank()
         if (EXTERNAL_SHARE_ENABLED) {
@@ -741,10 +743,9 @@ export struct ProfilePage {
           .width(LayoutTokens.segmentedHeight)
           .height(LayoutTokens.segmentedHeight)
           .justifyContent(FlexAlign.Center)
+          .backgroundColor(Color.Transparent)
           .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
           .borderRadius(RadiusTokens.lg)
-          .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 4 })
-          .accessibilityText('设置')
         }
       }
       .width('100%')
@@ -872,7 +873,9 @@ export struct ProfilePage {
         items: PROFILE_SEGMENTS,
         selectedIndex: $tabIdx,
         itemWidth: 67,
-        glass: true,
+        // 描边风格：与首页/消息页顶部分段栏同款（透明底 + 细边框 + 大圆角）
+        glass: false,
+        outlined: true,
         onSelect: (idx: number): void => { this.onTabChange(idx); },
       })
       .margin({

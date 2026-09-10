@@ -57,11 +57,9 @@ export struct CircleSelectionCard {
             .lineHeight(TypeTokens.caption.lineHeight)
             .fontColor(ColorTokens.primary)
             .textAlign(TextAlign.Center)
-            .backgroundBlurStyle(GlassBlurStyle.Press)
-            .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
+            .backgroundColor(Color.Transparent)
             .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-            .borderRadius(RadiusTokens.floatingBar)
-            .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
+            .borderRadius(RadiusTokens.lg)
         }
       }
       Row({ space: SpaceTokens.sm }) {

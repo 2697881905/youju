@@ -578,10 +578,10 @@ export struct CircleTab {
   topBar(): void {
     Row({ space: SpaceTokens.sm }) {
       Text('圈子')
-        .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
-        .fontWeight(TypeTokens.title.weight)
-        .lineHeight(TypeTokens.title.lineHeight)
-        .letterSpacing(TypeTokens.title.tracking)
+        .fontSize(TypeTokens.titleSerif.size).fontFamily(TypeTokens.fontFamilySerif)
+        .fontWeight(TypeTokens.titleSerif.weight)
+        .lineHeight(TypeTokens.titleSerif.lineHeight)
+        .alignSelf(ItemAlign.Start)
         .fontColor(ColorTokens.primary)
       Blank()
       Pressable({
@@ -610,7 +610,7 @@ export struct CircleTab {
       }
     }
     .width('100%')
-    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs, bottom: SpaceTokens.sm })
+    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs, bottom: SpaceTokens.xs })
     .alignItems(VerticalAlign.Center)
   }
 

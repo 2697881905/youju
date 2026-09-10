@@ -498,30 +498,30 @@ export struct HomeTab {
             .alignItems(HorizontalAlign.Start)
             .layoutWeight(1)
             Pressable({
-              visualHeight: LayoutTokens.segmentedHeight,
+              visualHeight: LayoutTokens.minTouchTarget,
               touchTargetHeight: LayoutTokens.minTouchTarget,
               action: (): void => {
                 // 搜索入口跳转独立搜索页（与首页解耦）
                 this.getUIContext().getRouter().pushUrl({ url: 'pages/SearchPanelPage' });
               },
             }) {
+              // 与 SearchPanel 右上角搜索按钮完全同款：透明底 + 细边框 + 大圆角（无实色垫底/阴影）
               Row() {
                 Image(resolveActionIcon('search'))
-                  .width(IconTokens.compact)
-                  .height(IconTokens.compact)
+                  .width(IconTokens.small)
+                  .height(IconTokens.small)
               }
-              .width(LayoutTokens.segmentedHeight)
-              .height(LayoutTokens.segmentedHeight)
-              .backgroundColor(ColorTokens.elevated)
-              .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
-              .borderRadius(RadiusTokens.md)
-              .shadow({ radius: 6, color: ColorTokens.barShadow, offsetY: 2 })
+              .width(LayoutTokens.minTouchTarget)
+              .height(LayoutTokens.minTouchTarget)
+              .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+              .borderRadius(RadiusTokens.lg)
               .justifyContent(FlexAlign.Center)
               .alignItems(VerticalAlign.Center)
               .accessibilityText('搜索')
             }
           }
           .width('100%')
+          .height(LayoutTokens.titleBarHeight)
           .alignItems(VerticalAlign.Center)
 
           Stack({ alignContent: Alignment.TopStart }) {
@@ -530,7 +530,9 @@ export struct HomeTab {
               selectedIndex: $feedIndex,
               itemWidth: 66,
               fillWidth: false,
-              glass: true,
+              // 描边风格：与右上角搜索按钮同款（透明底 + 细边框 + 大圆角），顶栏视觉统一
+              glass: false,
+              outlined: true,
               onSelect: (idx: number): void => {
                 const mode: FeedMode = FEED_MODE_IDX_MAP[idx];
                 this.switchFeed(mode);

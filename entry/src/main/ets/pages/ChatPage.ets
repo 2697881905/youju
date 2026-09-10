@@ -700,7 +700,6 @@ export struct ChatPage {
             .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
             .borderRadius(RadiusTokens.md)
             .clip(true)
-            .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 3 })
             .onClick(() => {
               // 点开全屏看图（与详情页一致：双击/捏合缩放、单击关闭）
               this.viewingImage = m.content;
@@ -712,7 +711,7 @@ export struct ChatPage {
             .aspectRatio(1.2)
             .borderRadius(RadiusTokens.md)
             .clip(true)
-            .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 3 })
+            .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
         } else if (m.type === 'file') {
           // 文件消息（P0-3）：占位气泡展示文件名，预览/下载留待 P1
           Row({ space: SpaceTokens.sm }) {
@@ -730,11 +729,9 @@ export struct ChatPage {
               .constraintSize({ maxWidth: 200 })
           }
           .padding({ left: 12, right: 12, top: 10, bottom: 10 })
-          .backgroundBlurStyle(GlassBlurStyle.Card)
-          .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : (this.isMine(m.senderId) ? ColorTokens.barSelectionSurface : ColorTokens.barSurface))
+          .backgroundColor(Color.Transparent)
           .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
           .borderRadius(RadiusTokens.md)
-          .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 3 })
           .onClick((): void => {
             this.openFileMessage(m.content);
           })
@@ -744,12 +741,10 @@ export struct ChatPage {
           Text(m.content)
             .fontSize(15).fontFamily($r('app.string.font_family'))
             .fontColor(ColorTokens.primary)
-            .backgroundBlurStyle(GlassBlurStyle.Card)
-            .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : (this.isMine(m.senderId) ? ColorTokens.barSelectionSurface : ColorTokens.barSurface))
+            .backgroundColor(Color.Transparent)
             .padding({ left: 12, right: 12, top: 8, bottom: 8 })
             .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
             .borderRadius(RadiusTokens.md)
-            .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 3 })
             .constraintSize({ maxWidth: 280, minHeight: 40 })
             .textAlign(TextAlign.Start)
         }
@@ -1106,11 +1101,9 @@ export struct ChatPage {
             .width(40)
             .height(LayoutTokens.minTouchTarget)
             .justifyContent(FlexAlign.Center)
-            .backgroundBlurStyle(GlassBlurStyle.Floating)
-            .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
+            .backgroundColor(Color.Transparent)
             .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
             .borderRadius(RadiusTokens.md)
-            .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 3 })
             .accessibilityText('添加图片或视频')
             .onClick(() => {
               this.showEmojiPanel = false;
@@ -1132,11 +1125,9 @@ export struct ChatPage {
             .width(40)
             .height(LayoutTokens.minTouchTarget)
             .justifyContent(FlexAlign.Center)
-            .backgroundBlurStyle(GlassBlurStyle.Floating)
-            .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
+            .backgroundColor(Color.Transparent)
             .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
             .borderRadius(RadiusTokens.md)
-            .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 3 })
             .accessibilityText('表情')
             .onClick(() => {
               this.showMediaMenu = false;
@@ -1152,11 +1143,9 @@ export struct ChatPage {
             .width(60)
             .height(LayoutTokens.minTouchTarget)
             .justifyContent(FlexAlign.Center)
-            .backgroundBlurStyle(GlassBlurStyle.Floating)
-            .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
+            .backgroundColor(Color.Transparent)
             .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
             .borderRadius(RadiusTokens.md)
-            .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 3 })
             .enabled(!this.sending && !this.sendingMedia && this.inputText.trim().length > 0)
             .opacity(this.sending || this.sendingMedia || this.inputText.trim().length === 0 ? 0.45 : 1)
             .accessibilityText('发送')
