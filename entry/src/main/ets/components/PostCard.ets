@@ -29,6 +29,11 @@ export struct PostCard {
 
   onOpen?: () => void = undefined;
   onCancelBookmark?: (id: number) => void = undefined;
+  // 可选操作行（草稿箱/废纸篓等管理页注入）：渲染进卡片信息区内部，与卡片一体
+  @BuilderParam actions: () => void = this.emptyActions;
+
+  @Builder
+  emptyActions(): void {}
 
   @State liked: boolean = false;
   @State likeCount: number = 0;
@@ -243,6 +248,7 @@ export struct PostCard {
         // 信息区：标题 + 互动/作者 合并为一块（统一 elevated 底 + 细边框 + 圆角）
         Column({ space: this.compact ? SpaceTokens.inlineTight : SpaceTokens.sm }) {
           PostCardTitle({ title: this.post.title ?? '', compact: this.compact })
+          this.actions()
           if (this.variant === 'feed' && this.hasFooter()) {
             this.footerSlot()
           }

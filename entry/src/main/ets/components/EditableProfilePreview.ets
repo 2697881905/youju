@@ -139,10 +139,9 @@ export struct EditableProfilePreview {
       .width(160).height(LayoutTokens.segmentedHeight)
       .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
       .justifyContent(FlexAlign.Center).alignItems(VerticalAlign.Center)
-      .backgroundBlurStyle(GlassBlurStyle.Floating)
-      .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
+      .backgroundColor(Color.Transparent)
       .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-      .borderRadius(RadiusTokens.floatingBar)
+      .borderRadius(RadiusTokens.lg)
     }
   }
 

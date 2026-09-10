@@ -23,6 +23,8 @@ export struct SegmentedControl {
   @Prop itemWidth: number = 52;
   @Prop fillWidth: boolean = true;
   @Prop glass: boolean = false;
+  // 描边风格（搜索引擎顶栏同款）：透明底 + 细边框 + 大圆角 + 无阴影，与右侧搜索按钮视觉统一
+  @Prop outlined: boolean = false;
   @StorageLink('reduceMotion') appReduceMotion: boolean = false;
   @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
   onSelect?: (index: number) => void = undefined;
@@ -162,35 +164,21 @@ export struct SegmentedControl {
     return Math.max(1, this.items.length) * this.itemWidth + SpaceTokens.xs;
   }
 
-  // 分段栏本体：glass 时采用与底部操作栏一致的玻璃悬浮样式（系统玻璃 + 半透明 + 细边框 + 柔和阴影），
-  // 不使用流光特效；非 glass 保持原纯色。
+  // 分段栏本体：
+  // - glass：与底部悬浮导航栏材质完全一致（系统玻璃模糊 + 半透明底 + 细边框 + 柔和阴影）
+  // - outline：与右侧搜索按钮同款描边（透明底 + 细边框 + 大圆角 + 无阴影）
+  // - 默认：纯色 sunken 底
   @Builder
   controlBody(): void {
     Stack({ alignContent: Alignment.Center }) {
-      // 玻璃顶光层（底部栏 gradientMask 同思路）：自上而下的白色光晕，
-      // 让半透明面板在纯色页面上也能呈现玻璃光感，而非实色扁平
-      if (this.glass) {
-        Column()
-          .width('100%')
-          .height('100%')
-          .linearGradient({
-            angle: 180,
-            colors: [
-              ['#4AFFFFFF', 0.0],
-              ['#1AFFFFFF', 0.45],
-              ['#00000000', 1.0],
-            ],
-          })
-          .hitTestBehavior(HitTestMode.None)
-      }
-      // 分段滑块与底部栏同款：无缩进、大圆角纸面高亮（轻薄透光），与玻璃胶囊协调
+      // 分段滑块：outlined 用纸面高亮（同 glass）；默认 elevated
       SharedSlide({
         selectedIndex: this.activeIndex(),
         itemCount: this.items.length,
         controlHeight: LayoutTokens.segmentedHeight,
         inset: SpaceTokens.none,
         radius: RadiusTokens.lg,
-        fill: this.glass ? ColorTokens.barSelectionSurface : ColorTokens.elevated,
+        fill: this.outlined || this.glass ? ColorTokens.barSelectionSurface : ColorTokens.elevated,
         reduceMotion: this.shouldReduceMotion(),
       })
       Row({ space: SpaceTokens.none }) {
@@ -236,13 +224,17 @@ export struct SegmentedControl {
     .height(LayoutTokens.segmentedHeight)
     .padding(SpaceTokens.xs / 2)
     .backgroundBlurStyle(this.glass ? GlassBlurStyle.Floating : BlurStyle.NONE)
-    // 玻璃底：直接用 44% 半透明 barSurface（真机 blur 渲染不透明，Transparent 会退化为实色面板，
-    // 半透明底才能透出内容、呈现与底部栏一致的玻璃感）
-    .backgroundColor(this.glass ? ColorTokens.barSurface : ColorTokens.sunken)
-    .borderRadius(this.glass ? RadiusTokens.floatingBar : RadiusTokens.sm)
+    // 底/边框/阴影按风格分发：
+    // - outlined → 透明底 + 细边框 barBorder + lg 圆角 + 无阴影（与右侧搜索按钮一致）
+    // - glass   → 系统材质渲染透明底 / 低端机 barSurface + 细边框 + floatingBar 圆角 + 柔和阴影
+    // - 默认    → 纯色 sunken 底、无边框
+    .backgroundColor(this.outlined
+      ? Color.Transparent
+      : (this.glass ? (isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface) : ColorTokens.sunken))
+    .borderRadius(this.outlined ? RadiusTokens.lg : (this.glass ? RadiusTokens.floatingBar : RadiusTokens.sm))
     .border({
-      width: this.glass ? LayoutTokens.glassBorderWidth : 0,
-      color: this.glass ? ColorTokens.barBorder : Color.Transparent,
+      width: this.outlined || this.glass ? LayoutTokens.glassBorderWidth : 0,
+      color: this.outlined || this.glass ? ColorTokens.barBorder : Color.Transparent,
       style: BorderStyle.Solid,
     })
     .shadow({

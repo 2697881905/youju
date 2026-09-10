@@ -101,11 +101,9 @@ export struct PublishGenreSection {
         .height(LayoutTokens.segmentedHeight)
         .padding({ left: SpaceTokens.md, right: SpaceTokens.sm })
         .alignItems(VerticalAlign.Center)
-        .backgroundBlurStyle(GlassBlurStyle.Press)
-        .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
+        .backgroundColor(Color.Transparent)
         .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-        .borderRadius(RadiusTokens.floatingBar)
-        .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
+        .borderRadius(RadiusTokens.lg)
         .bindPopup(this.menuVisible, {
           builder: this.genreMenu,
           placement: Placement.BottomRight,
@@ -132,11 +130,9 @@ export struct PublishGenreSection {
         .height(LayoutTokens.segmentedHeight)
         .padding({ left: SpaceTokens.md, right: SpaceTokens.sm })
         .alignItems(VerticalAlign.Center)
-        .backgroundBlurStyle(GlassBlurStyle.Press)
-        .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
+        .backgroundColor(Color.Transparent)
         .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-        .borderRadius(RadiusTokens.floatingBar)
-        .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
+        .borderRadius(RadiusTokens.lg)
       }
     }
     .width('100%')

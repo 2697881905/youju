@@ -3,7 +3,6 @@ import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
-import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
 
 // 详情页固定操作层不读取帖子状态，避免工具栏和详情数据加载彼此耦合。
 @Component
@@ -28,8 +27,7 @@ export struct DetailToolbar {
         .width(LayoutTokens.minTouchTarget)
         .height(LayoutTokens.minTouchTarget)
         .textAlign(TextAlign.Center)
-        .backgroundBlurStyle(GlassBlurStyle.Press)
-        .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
+        .backgroundColor(Color.Transparent)
         .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
         .borderRadius(RadiusTokens.lg)
         .accessibilityText('更多操作')

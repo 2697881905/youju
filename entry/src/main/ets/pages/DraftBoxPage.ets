@@ -12,7 +12,6 @@ import { TypeTokens } from '../design/tokens/type';
 import { publishFlowStore } from '../utils/publishFlowStore';
 import { PublishMode } from '../components/PublishModeSheet';
 import { PostCard } from '../components/PostCard';
-import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
 
 @Entry
 @Component
@@ -85,83 +84,55 @@ struct DraftBoxPage {
   }
 
   @Builder
-  draftActionBar(draft: SavedPostDraft): void {
-    Row() {
-      Blank().layoutWeight(1)
-      Stack({ alignContent: Alignment.Center }) {
-        Pressable({
-          fillWidth: true,
-          visualHeight: IconTokens.small,
-          touchTargetHeight: LayoutTokens.minTouchTarget,
-          action: (): void => { this.remove(draft); },
-        }) {
-          Row() {
-            Image($r('app.media.set_trash'))
-              .width(IconTokens.compact)
-              .height(IconTokens.compact)
-          }
-          .width(28)
-          .height(IconTokens.small)
-          .justifyContent(FlexAlign.Center)
-          .backgroundBlurStyle(GlassBlurStyle.Floating)
-          .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSelectionSurface)
-          .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barSelectionBorder, style: BorderStyle.Solid })
-          .borderRadius(RadiusTokens.pill)
-          .shadow({ radius: 6, color: ColorTokens.shadowSegmented, offsetY: 2 })
-          .alignSelf(ItemAlign.Center)
-        }
-      }
-      .width(LayoutTokens.minTouchTarget)
-      .height(IconTokens.small)
-    }
-    .width('100%')
-    .padding({
-      left: SpaceTokens.xs,
-      right: SpaceTokens.xs,
-      top: SpaceTokens.inlineTight,
-      bottom: SpaceTokens.inlineTight,
-    })
-    .backgroundBlurStyle(GlassBlurStyle.Floating)
-    .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.elevated)
-    .border({
-      width: {
-        left: LayoutTokens.glassBorderWidth,
-        right: LayoutTokens.glassBorderWidth,
-        bottom: LayoutTokens.glassBorderWidth,
-        top: 0,
-      },
-      color: ColorTokens.barBorder,
-      style: BorderStyle.Solid,
-    })
-    .borderRadius({ topLeft: 0, topRight: 0, bottomLeft: RadiusTokens.xs, bottomRight: RadiusTokens.xs })
-    .clip(true)
-  }
-
-  @Builder
   draftItem(draft: SavedPostDraft): void {
-    Column({ space: SpaceTokens.none }) {
-      Stack() {
-        PostCard({
-          post: this.postForDraft(draft),
-          compact: true,
-          allowLike: false,
-          showStats: false,
-          showAuthor: false,
-          onOpen: (): void => { this.continueEdit(draft); },
-        })
-        Text('草稿')
-          .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-          .fontWeight(TypeTokens.headline.weight)
-          .fontColor(ColorTokens.primary)
-          .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.inlineTight, bottom: SpaceTokens.inlineTight })
-          .backgroundBlurStyle(GlassBlurStyle.Floating)
-          .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
-          .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-          .borderRadius(RadiusTokens.floatingBar)
-          .position({ top: SpaceTokens.sm, left: SpaceTokens.sm })
+    Stack() {
+      PostCard({
+        post: this.postForDraft(draft),
+        compact: true,
+        allowLike: false,
+        showStats: false,
+        showAuthor: false,
+        onOpen: (): void => { this.continueEdit(draft); },
+      }) {
+        // 操作行并入卡片信息区，与卡片一体（右对齐删除按钮）
+        Row() {
+          Blank().layoutWeight(1)
+          Stack({ alignContent: Alignment.Center }) {
+            Pressable({
+              fillWidth: true,
+              visualHeight: IconTokens.small,
+              touchTargetHeight: LayoutTokens.minTouchTarget,
+              action: (): void => { this.remove(draft); },
+            }) {
+              Row() {
+                Image($r('app.media.set_trash'))
+                  .width(IconTokens.compact)
+                  .height(IconTokens.compact)
+              }
+              .width(28)
+              .height(IconTokens.small)
+              .justifyContent(FlexAlign.Center)
+              .backgroundColor(Color.Transparent)
+              .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+              .borderRadius(RadiusTokens.lg)
+            }
+          }
+          .width(LayoutTokens.minTouchTarget)
+          .height(IconTokens.small)
+        }
+        .width('100%')
+        .padding({ top: SpaceTokens.xs })
+        .alignItems(VerticalAlign.Center)
       }
-      .width('100%')
-      this.draftActionBar(draft)
+      Text('草稿')
+        .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
+        .fontWeight(TypeTokens.headline.weight)
+        .fontColor(ColorTokens.primary)
+        .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.inlineTight, bottom: SpaceTokens.inlineTight })
+        .backgroundColor(Color.Transparent)
+        .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+        .borderRadius(RadiusTokens.lg)
+        .position({ top: SpaceTokens.sm, left: SpaceTokens.sm })
     }
     .width('100%')
   }

@@ -25,31 +25,30 @@ export interface CreateReportParams {
 // Prisma unique 约束冲突错误码（P2002）
 const PRISMA_UNIQUE_CONSTRAINT_CODE = 'P2002';
 
-// 举报理由 → 运营通知中的中文标签（与前端举报弹窗文案对齐）
-const REASON_LABEL: Record<string, string> = {
-  political: '涉政敏感',
-  pornographic: '色情低俗',
-  personal_attack: '人身攻击',
-  gender_war: '男女对立引战',
-  advertisement: '广告推广',
-  spam: '垃圾信息',
-  other: '其他',
-};
+// 「举报中心」固定置顶消息前缀：所有新举报收敛为管理员消息中心的一条固定置顶通知，
+// 已存在则更新内容（最新待处理数）并重置未读，避免每条举报都刷一条新消息。
+const ADMIN_REPORT_CENTER_PREFIX = '举报中心';
 
-function reasonLabel(reason: ReportReason): string {
-  return REASON_LABEL[reason] ?? reason;
-}
-
-// 运营收到的新举报通知文案（按目标类型定制；标题过长时截断，正文 <255 字符限制）
-function adminAlertContent(targetType: TargetType, targetTitle: string, count: number): string {
-  const safeTitle: string = targetTitle.length > 24 ? targetTitle.slice(0, 24) + '…' : targetTitle;
-  if (targetType === 'post') {
-    return `收到新举报：帖子《${safeTitle}》（当前第 ${count} 次举报）`;
+/**
+ * 幂等更新/创建管理员的「举报中心」置顶通知。
+ * - 已存在（content 以「举报中心」前缀开头的置顶系统消息）：更新内容 + 重置未读
+ * - 不存在：创建一条固定的置顶系统消息
+ * 调用方（createReport）在事务提交后执行，失败不阻断主流程。
+ */
+export async function upsertAdminReportCenter(adminId: number, pendingCount: number): Promise<void> {
+  const content = `${ADMIN_REPORT_CENTER_PREFIX}：有 ${pendingCount} 条举报待处理`;
+  const existing = await prisma.notification.findFirst({
+    where: { userId: adminId, type: 'system', pinned: true, content: { startsWith: ADMIN_REPORT_CENTER_PREFIX } },
+    orderBy: { createdAt: 'desc' },
+  });
+  if (existing) {
+    await prisma.notification.update({
+      where: { id: existing.id },
+      data: { content, read: false, pinned: true },
+    });
+    return;
   }
-  if (targetType === 'comment') {
-    return `收到新举报：某评论（当前第 ${count} 次举报）`;
-  }
-  return '收到新举报：某个用户（违规越界骚扰）';
+  await notifySystem(adminId, content, null, true);
 }
 
 /**
@@ -176,17 +175,12 @@ export async function createReport(
     autoTakenDown: transactionResult.autoTakenDown,
   }).catch(() => {});
 
-  // 4b. 举报通知推送管理员（运营处置入口，置顶显示）：普通举报人/作者不收到「受理回执」。
-  // 每位管理员各一条；通知带 postId 便于前端直达账本/原文，但置顶通知前端统一跳举报账本。
-  const alertCount: number =
-    params.targetType === 'user' ? 1 : (transactionResult.reportCount > 0 ? transactionResult.reportCount : 1);
+  // 4b. 举报通知推送管理员（运营处置入口）：统一收敛为每个管理员一条固定置顶的
+  // 「举报中心」消息（存在则更新内容+重置未读），不再每条举报逐条刷屏。普通举报人/作者
+  // 不收到「受理回执」。
+  const pendingReports: number = await prisma.report.count({ where: { status: 'pending' } });
   for (const adminId of env.adminUserIds) {
-    await notifySystem(
-      adminId,
-      adminAlertContent(params.targetType, targetTitle, alertCount),
-      params.targetType === 'post' ? params.targetId : null,
-      true
-    ).catch(() => {});
+    await upsertAdminReportCenter(adminId, pendingReports).catch(() => {});
   }
 
   // 4c. 举报达到阈值自动下架 → 通知内容作者（置顶，告知审核状态）。
@@ -226,15 +220,28 @@ export async function listReportsByTarget(
 /**
  * 批量更新某目标的所有 pending 举报状态（审核时调用）。
  * newStatus: 'resolved'（举报成立） | 'dismissed'（举报驳回）
+ *
+ * 举报成立（resolved）时，会在同一事务内立即下架目标内容（帖子/评论 status→0），
+ * 与 createReport 达到阈值自动下架保持一致，避免"已标记成立但内容仍公开展示"。
+ * 驳回（dismissed）仅还原举报状态，不动内容。
  */
 export async function resolveReportsByTarget(
   targetType: TargetType,
   targetId: number,
   newStatus: 'resolved' | 'dismissed'
 ): Promise<void> {
-  await prisma.report.updateMany({
-    where: { targetType, targetId, status: 'pending' },
-    data: { status: newStatus, resolvedAt: new Date() },
+  await prisma.$transaction(async (tx) => {
+    await tx.report.updateMany({
+      where: { targetType, targetId, status: 'pending' },
+      data: { status: newStatus, resolvedAt: new Date() },
+    });
+    if (newStatus === 'resolved') {
+      if (targetType === 'post') {
+        await tx.post.updateMany({ where: { id: targetId }, data: { status: 0 } });
+      } else if (targetType === 'comment') {
+        await tx.comment.updateMany({ where: { id: targetId }, data: { status: 0 } });
+      }
+    }
   });
 }
 

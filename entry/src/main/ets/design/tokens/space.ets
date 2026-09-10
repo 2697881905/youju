@@ -31,6 +31,8 @@ export class LayoutTokens {
   static readonly skeletonDefaultWidth: number = 160;
   static readonly skeletonHighlightWidth: number = 56;
   static readonly segmentedHeight: number = 36;
+  // 首页品牌标题行高度：容纳双行品牌块（有据 + 标语），触控目标(44) + 一个 base 步进(16)。
+  static readonly titleBarHeight: number = LayoutTokens.minTouchTarget + SpaceTokens.base;
   static readonly tabBarHeight: number = 64;
   static readonly tabBarItemWidth: number = 58;
   static readonly tabBarItemHeight: number = 50;

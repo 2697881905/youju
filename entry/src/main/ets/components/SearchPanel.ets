@@ -9,18 +9,18 @@ import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
-import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
 
 // 首页内的搜索探索页：玻璃工具栏 + 最近搜索 + 双列热搜。
+// 选项胶囊/格子复用首页「推荐/关注」分段栏的 outlined 风格：透明底 + 细边框 + 大圆角 + 无阴影。
 @Component
 export struct SearchPanel {
   onKeywordSelect: (keyword: string) => void = (keyword: string) => {};
   onCancel: () => void = () => {};
 
   @State keyword: string = '';
+  @State suggestions: string[] = []; // 搜索联想（输入时防抖拉取）
   @State historyList: string[] = [];
   @State hotList: string[] = [];
-  @State suggestions: string[] = []; // 搜索联想（输入时防抖拉取）
   @State loadingState: boolean = true;
   @State inputFocused: boolean = false; // 输入框聚焦（键盘弹出）时隐藏历史/热词，避免与联想卡粘连
   private suggestTimer: number = 0; // 联想防抖句柄
@@ -108,10 +108,10 @@ export struct SearchPanel {
     if (rows === 0) {
       return 0;
     }
-    return rows * LayoutTokens.minTouchTarget + (rows - 1) * SpaceTokens.sm;
+    return rows * LayoutTokens.segmentedHeight + (rows - 1) * SpaceTokens.sm;
   }
 
-  // 聚焦流光输入框：键入（聚焦）点亮原生流光，失焦熄灭（历史/热词与联想词不同时出现）
+  // 聚焦流光输入框：键入（聚焦）点亮原生流光，失焦熄灭
   @Builder
   searchInput(): void {
     GlowInput({
@@ -123,19 +123,20 @@ export struct SearchPanel {
       onFocusChanged: (focus: boolean): void => {
         this.inputFocused = focus;
         if (focus) {
-          // 再次聚焦时恢复联想：失焦清空了 suggestions，若有已输入关键词则重新拉取
+          // 聚焦时恢复联想：失焦清空了 suggestions，若有已输入关键词则重新拉取
           const kw: string = this.keyword.trim();
           if (kw.length > 0) {
             this.debounceSuggest(kw);
           }
         } else {
-          // 失焦（返回键收起键盘等）恢复显示历史/热词，同时清空联想，避免两组卡片同时出现
+          // 失焦（返回键收起键盘等）清空联想，避免与历史/热词卡片粘连
           this.clearSuggestions();
         }
       },
     })
   }
 
+  // 选项胶囊：首页分段栏 outlined 同款（透明底 + 细边框 + 大圆角 + 无阴影），高度与分段栏一致
   @Builder
   private historyChip(keyword: string): void {
     Pressable({
@@ -149,16 +150,16 @@ export struct SearchPanel {
           .height(IconTokens.compact)
         Text(keyword)
           .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.callout.weight)
           .fontColor(ColorTokens.primary)
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
       .height(LayoutTokens.segmentedHeight)
       .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-      .backgroundBlurStyle(GlassBlurStyle.Floating)
-      .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
+      .backgroundColor(Color.Transparent)
       .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-      .borderRadius(RadiusTokens.floatingBar)
+      .borderRadius(RadiusTokens.lg)
       .alignItems(VerticalAlign.Center)
     }
   }
@@ -298,10 +299,11 @@ export struct SearchPanel {
                       GridItem() {
                         Pressable({
                           fillWidth: true,
-                          visualHeight: LayoutTokens.minTouchTarget,
+                          visualHeight: LayoutTokens.segmentedHeight,
                           touchTargetHeight: LayoutTokens.minTouchTarget,
                           action: (): void => { this.onKeywordSelect(kw); },
                         }) {
+                          // 热搜格子：分段栏 outlined 同款（透明底 + 细边框 + 大圆角 + 无阴影）
                           Row({ space: SpaceTokens.sm }) {
                             Text(String(idx + 1))
                               .width(18)
@@ -311,16 +313,17 @@ export struct SearchPanel {
                             Text(kw)
                               .layoutWeight(1)
                               .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+                              .fontWeight(TypeTokens.callout.weight)
                               .fontColor(ColorTokens.primary)
                               .maxLines(1)
                               .textOverflow({ overflow: TextOverflow.Ellipsis })
                           }
-                          .height(LayoutTokens.minTouchTarget)
+                          .width('100%')
+                          .height(LayoutTokens.segmentedHeight)
                           .padding({ left: SpaceTokens.md, right: SpaceTokens.sm })
-                          .backgroundBlurStyle(GlassBlurStyle.Floating)
-                          .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
+                          .backgroundColor(Color.Transparent)
                           .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-                          .borderRadius(RadiusTokens.md)
+                          .borderRadius(RadiusTokens.lg)
                           .alignItems(VerticalAlign.Center)
                         }
                       }

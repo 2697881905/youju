@@ -126,11 +126,14 @@ export struct CircleOrbitCanvas {
       Column()
         .width('100%')
         .height('100%')
+        // 泛光渐变必须完整落在画布内：中心取画布中心、半径取 0.5 * galaxySize，
+        // 使四边中点恰好衰减至透明（glassClear），避免渐变被方形画布边界裁切成矩形。
         .radialGradient({
-          center: [this.galaxySize / 2, this.galaxySize * 0.44],
-          radius: this.galaxySize * 0.56,
+          center: [this.galaxySize / 2, this.galaxySize / 2],
+          radius: this.galaxySize * 0.5,
           colors: [[ColorTokens.brandTint, 0], [ColorTokens.glassClear, 1]],
         })
+        .borderRadius(this.galaxySize / 2)
       this.starDots()
       this.coreStar()
       this.orbitRing(0)

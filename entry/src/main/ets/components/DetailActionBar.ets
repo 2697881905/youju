@@ -8,7 +8,6 @@ import { TypeTokens } from '../design/tokens/type';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { Pressable } from '../design/motion/Pressable';
 import { GlowInput } from '../design/components/GlowInput';
-import { isImmersiveLightSenseSupported } from '../utils/immersiveMaterial';
 
 @Component
 struct DetailActionButton {
@@ -143,18 +142,17 @@ export struct DetailActionBar {
             .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
             .fontWeight(TypeTokens.headline.weight)
             .fontColor(ColorTokens.primary)
-            .backgroundColor(ColorTokens.elevated)
-            .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
-            .borderRadius(RadiusTokens.floatingBar)
-            .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 0 })
+            .backgroundColor(Color.Transparent)
+            .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+            .borderRadius(RadiusTokens.lg)
             .stateStyles({
               pressed: {
                 .scale({ x: 0.95, y: 0.95 })
-                .backgroundColor(ColorTokens.sunken)
+                .backgroundColor(ColorTokens.brandTint)
               },
               normal: {
                 .scale({ x: 1, y: 1 })
-                .backgroundColor(ColorTokens.elevated)
+                .backgroundColor(Color.Transparent)
               },
             })
             .animation({ duration: MotionTokens.fast, curve: MotionCurves.standard })
