@@ -310,6 +310,10 @@ model PrivacySettings {
   postVisibility String   @default("public") @db.VarChar(20) // public | followers | private
   allowFollow    Boolean  @default(true)
   dmPolicy       String   @default("all") @db.VarChar(20) // all | mutual | followers（谁可给我发私信）
+  // 是否接收个性化推荐。关闭后：不再构建用户画像，每日一贴降级为「热度 + 时间」排序。
+  // 合规依据：《互联网信息服务算法推荐管理规定》第 17 条（应提供便捷的关闭选项）、
+  // 《个人信息保护法》第 24 条（自动化决策的拒绝权）。
+  personalizedRecommendation Boolean @default(true)
   updatedAt      DateTime @updatedAt
 }
 

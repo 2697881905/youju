@@ -1,5 +1,6 @@
 import { listDailyPosts } from './postService';
 import { prisma } from '../prisma';
+import { env } from '../config/env';
 import { getExcludedAuthorIds, getDislikedAuthorIds } from './accessControl';
 
 jest.mock('../prisma', () => ({
@@ -16,6 +17,8 @@ jest.mock('../prisma', () => ({
     postEvent: { findMany: jest.fn() },
     follow: { findMany: jest.fn() },
     searchHistory: { findMany: jest.fn() },
+    // 合规开关（个性化推荐总开关）读取表
+    privacySettings: { findUnique: jest.fn() },
   },
 }));
 
@@ -58,6 +61,8 @@ describe('listDailyPosts', () => {
     (prisma.bookmark.findMany as jest.Mock).mockResolvedValue([]);
     (prisma.debateVote.findMany as jest.Mock).mockResolvedValue([]);
     (prisma.comment.findMany as jest.Mock).mockResolvedValue([]);
+    // 默认：未设置过 → 个性化开启
+    (prisma.privacySettings.findUnique as jest.Mock).mockResolvedValue(null);
   });
 
   it('优先返回已关注标签的帖子，并给出命中标签', async () => {
@@ -164,5 +169,42 @@ describe('listDailyPosts', () => {
     // 注：最终页序 = 个性化排序 + 按日轮转（轮转会打乱排序），故此处只断言集合完整、
     // 不丢条目；打分的相对顺序由 dailyScoreService.rankPostsByDailyScore 单测覆盖。
     expect(new Set(result.list.map((item) => item.id))).toEqual(new Set([1, 2]));
+  });
+
+  it('用户关闭个性化推荐后：忽略兴趣标签、不读取行为数据，降级为非个性化排序', async () => {
+    mockedFollowedTags.mockResolvedValue([{ tagName: '数码' }]);
+    // 隐私设置：用户显式关闭个性化推荐（合规开关，优先于实验分流）
+    (prisma.privacySettings.findUnique as jest.Mock).mockResolvedValue({ personalizedRecommendation: false });
+    installRows([], [post(1, ['数码']), post(2, ['旅行'])]);
+
+    const result = await listDailyPosts({ viewerId: 33, page: 1, limit: 2, now: DAY });
+
+    // 不返回兴趣标签，且完全不读取关注标签（不构建画像）
+    expect(result.interestTags).toEqual([]);
+    expect(mockedFollowedTags).not.toHaveBeenCalled();
+    // 不再做兴趣/非兴趣分区的双 count，只按非个性化单分区取数
+    expect(mockedPostCount).toHaveBeenCalledTimes(1);
+    expect(mockedPostCount.mock.calls[0][0].where.OR).toBeUndefined();
+    expect(new Set(result.list.map((item) => item.id))).toEqual(new Set([1, 2]));
+  });
+
+  it('灰度比例为 0 时全量走对照组：保留标签规则排序，但不构建画像', async () => {
+    const original = env.dailyPersonalizationRollout;
+    env.dailyPersonalizationRollout = 0;
+    try {
+      mockedFollowedTags.mockResolvedValue([{ tagName: '数码' }]);
+      installRows([post(1, ['数码'])], [post(2, ['旅行'])]);
+
+      const result = await listDailyPosts({ viewerId: 44, page: 1, limit: 2, now: DAY });
+
+      // 对照组与改造前一致：仍有兴趣分区与标签返回
+      expect(result.interestTags).toEqual(['数码']);
+      expect(mockedPostCount.mock.calls[0][0].where.OR).toEqual([{ tags: { array_contains: '数码' } }]);
+      expect(new Set(result.list.map((item) => item.id))).toEqual(new Set([1, 2]));
+      // 对照组不构建画像：comment.findMany 仅画像构建会调用（装饰列表走 up/bookmark/debateVote）
+      expect(prisma.comment.findMany).not.toHaveBeenCalled();
+    } finally {
+      env.dailyPersonalizationRollout = original;
+    }
   });
 });

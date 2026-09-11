@@ -12,10 +12,12 @@ import { env } from '../config/env';
 import { enqueueMediaDeletion } from './mediaDeletionService';
 import {
   buildViewerProfile,
+  emptyProfile,
   rankPostsByDailyScore,
   shanghaiDayStart,
   ViewerProfile,
 } from './dailyScoreService';
+import { isPersonalizationEnabled } from './privacyService';
 
 export type SortType = 'hot' | 'latest' | 'recommend';
 
@@ -275,6 +277,26 @@ function rotateSlice(rows: any[], total: number, offset: number, start: number, 
   return out;
 }
 
+/**
+ * 每日一贴个性化实验分流：按 userId 稳定 hash 落在 [0,100) 桶内，
+ * 桶号 < 灰度比例即进实验组（个性化）；否则走对照组（沿用改造前的规则排序）。
+ * 游客不入实验（返回 true 表示不强制进对照组；其画像恒为空，等价非个性化）。
+ * 同一 userId 的归属恒定，保证实验期内体验一致、指标可比。
+ */
+function isInDailyPersonalizationRollout(viewerId?: number): boolean {
+  if (!viewerId) {
+    return true;
+  }
+  const rollout = env.dailyPersonalizationRollout;
+  if (rollout >= 100) {
+    return true;
+  }
+  if (rollout <= 0) {
+    return false;
+  }
+  return stableOffset('daily-rollout:' + viewerId, 100) < rollout;
+}
+
 async function fetchDailyPartition(
   where: any,
   total: number,
@@ -283,6 +305,7 @@ async function fetchDailyPartition(
   take: number,
   profile: ViewerProfile,
   asOf: Date,
+  personalize: boolean,
 ): Promise<any[]> {
   if (total <= 0 || take <= 0) {
     return [];
@@ -290,11 +313,19 @@ async function fetchDailyPartition(
   const window = Math.min(total, DAILY_CANDIDATE_WINDOW);
   const rows = await prisma.post.findMany({
     where,
-    orderBy: [
-      { hotScore: 'desc' },
-      { createdAt: 'desc' },
-      { id: 'desc' },
-    ],
+    // personalize=true：按全局热度取候选池，再在内存按个性化分重排；
+    // personalize=false（用户关闭个性化 / 实验对照组）：沿用改造前的排序信号，行为保持一致。
+    orderBy: personalize
+      ? [
+          { hotScore: 'desc' },
+          { createdAt: 'desc' },
+          { id: 'desc' },
+        ]
+      : [
+          { upCount: 'desc' },
+          { createdAt: 'desc' },
+          { id: 'desc' },
+        ],
     skip: 0,
     take: window,
     include: { user: { select: USER_PUBLIC_SELECT } },
@@ -302,7 +333,8 @@ async function fetchDailyPartition(
   if (rows.length === 0) {
     return [];
   }
-  return rotateSlice(rankPostsByDailyScore(rows, profile, asOf), total, offset, start, take);
+  const ranked = personalize ? rankPostsByDailyScore(rows, profile, asOf) : rows;
+  return rotateSlice(ranked, total, offset, start, take);
 }
 
 async function decorateViewerPosts(list: any[], viewerId?: number): Promise<any[]> {
@@ -333,7 +365,12 @@ export async function listDailyPosts(params: DailyListParams = {}) {
   const page = Math.max(1, Math.floor(normalizePage(params.page, 1)));
   const limit = Math.min(50, Math.max(1, Math.floor(normalizePage(params.limit, 10))));
   const dateKey = dailyKey(params.now ?? new Date());
-  const interestTags = await dailyInterestTags(params.viewerId);
+  // 合规开关：用户主动关闭个性化推荐后，不再使用其兴趣标签与行为画像（降级为纯热度/时间排序）。
+  const personalizationOn = await isPersonalizationEnabled(params.viewerId);
+  // 实验分流：灰度比例之外的用户走对照组（沿用改造前的规则排序信号）。
+  const inRollout = isInDailyPersonalizationRollout(params.viewerId);
+  const personalize = personalizationOn && inRollout;
+  const interestTags = personalizationOn ? await dailyInterestTags(params.viewerId) : [];
   const visibleWhere = await dailyVisibleWhere(params.viewerId);
   const tagFilters = interestTags.map((tag) => ({ tags: { array_contains: tag } }));
   const interestWhere: any = tagFilters.length > 0 ? { ...visibleWhere, OR: tagFilters } : null;
@@ -353,7 +390,8 @@ export async function listDailyPosts(params: DailyListParams = {}) {
   // 日切快照：以「当日上海零点」为固定截止时刻构建画像，
   // 保证同一自然日内多次请求分数一致（分页稳定），跨日 asOf 变化自然轮换。
   const asOf = shanghaiDayStart(params.now ?? new Date());
-  const profile = await buildViewerProfile(params.viewerId, asOf);
+  // 关闭个性化时不构建画像（即不读取个人行为数据）——这是合规要求，而非性能优化。
+  const profile = personalize ? await buildViewerProfile(params.viewerId, asOf) : emptyProfile();
 
   const viewerKey = params.viewerId ? 'user:' + params.viewerId : 'guest';
   const interestOffset = stableOffset(dateKey + ':' + viewerKey + ':interest', interestTotal);
@@ -362,16 +400,16 @@ export async function listDailyPosts(params: DailyListParams = {}) {
   if (globalStart < interestTotal && interestWhere) {
     const interestTake = Math.min(limit, interestTotal - globalStart);
     rawList = await fetchDailyPartition(
-      interestWhere, interestTotal, interestOffset, globalStart, interestTake, profile, asOf,
+      interestWhere, interestTotal, interestOffset, globalStart, interestTake, profile, asOf, personalize,
     );
     if (interestTake < limit) {
       rawList = rawList.concat(await fetchDailyPartition(
-        fallbackWhere, fallbackTotal, fallbackOffset, 0, limit - interestTake, profile, asOf,
+        fallbackWhere, fallbackTotal, fallbackOffset, 0, limit - interestTake, profile, asOf, personalize,
       ));
     }
   } else {
     rawList = await fetchDailyPartition(
-      fallbackWhere, fallbackTotal, fallbackOffset, globalStart - interestTotal, limit, profile, asOf,
+      fallbackWhere, fallbackTotal, fallbackOffset, globalStart - interestTotal, limit, profile, asOf, personalize,
     );
   }
 

@@ -10,7 +10,7 @@ import { BackButton } from '../design/components/BackButton';
 @Entry
 @Component
 export struct PrivacySettingsPage {
-  @State settings: PrivacySettingsData = { postVisibility: 'public', allowFollow: true, dmPolicy: 'all' };
+  @State settings: PrivacySettingsData = { postVisibility: 'public', allowFollow: true, dmPolicy: 'all', personalizedRecommendation: true };
   @State loadFinished: boolean = false;
   @State loadError: string = '';
   @State saving: boolean = false;
@@ -208,6 +208,41 @@ export struct PrivacySettingsPage {
               .borderRadius(CARD_RADIUS)
               .shadow(CARD_SHADOW)
               .clip(true);
+            }
+            .width('100%');
+
+            // 个性化推荐（合规开关：《互联网信息服务算法推荐管理规定》第 17 条，
+            // 须向用户提供便捷的关闭个性化推荐选项；关闭后降级为热度/时间排序）
+            Column({ space: 10 }) {
+              Text('个性化推荐')
+                .fontSize(13).fontFamily($r('app.string.font_family'))
+                .fontColor($r('app.color.text_secondary'))
+                .alignSelf(ItemAlign.Start)
+                .padding({ left: 4 });
+
+              Row() {
+                Column() {
+                  Text('接收个性化推荐')
+                    .fontSize(15).fontFamily($r('app.string.font_family'))
+                    .fontColor($r('app.color.text_primary'));
+                  Text('关闭后「每日一贴」按热度与时间排序，不再依据你的浏览与互动记录')
+                    .fontSize(12).fontFamily($r('app.string.font_family'))
+                    .fontColor($r('app.color.text_secondary'))
+                    .margin({ top: 2 });
+                }
+                .layoutWeight(1)
+                .alignItems(HorizontalAlign.Start);
+
+                Toggle({ type: ToggleType.Switch, isOn: this.settings.personalizedRecommendation })
+                  .onChange((isOn: boolean) => {
+                    this.settings.personalizedRecommendation = isOn;
+                  });
+              }
+              .width('100%')
+              .padding({ left: 16, right: 16, top: 16, bottom: 16 })
+              .backgroundColor($r('app.color.card_bg'))
+              .borderRadius(CARD_RADIUS)
+              .shadow(CARD_SHADOW);
             }
             .width('100%');
           }
