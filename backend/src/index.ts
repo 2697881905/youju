@@ -1,6 +1,7 @@
 import { app } from './app';
 import { env } from './config/env';
 import { startMediaDeletionWorker } from './services/mediaDeletionService';
+import { startBehaviorRetentionWorker } from './services/retentionService';
 import { recomputeAllHotScores } from './services/hotScoreService';
 
 function failHard(message: string): never {
@@ -34,6 +35,8 @@ app.listen(env.port, '0.0.0.0', () => {
     console.warn('[存储警示] 未检测到完整 COS 凭据，图片走 local 模式；在云手机/真机上图片将无法加载。请检查 backend/.env 的 COS_* 变量。');
   }
   startMediaDeletionWorker();
+  // 行为明细数据到期清理（PIPL 第 19 条）：默认每 24 小时一次，留存窗口见 BEHAVIOR_RETENTION_DAYS
+  startBehaviorRetentionWorker();
   // 启动时回填历史帖热度分（此后由互动/评论事件增量更新）；失败仅告警不阻塞
   recomputeAllHotScores()
     .then((n) => console.log(`[hotScore] 初始化热度分完成，共 ${n} 帖`))

@@ -27,6 +27,7 @@
     "pages/DraftBoxPage",
     "pages/TrashBoxPage",
     "pages/BookmarkFolderPage",
-    "pages/BookmarkFolderDetailPage"
+    "pages/BookmarkFolderDetailPage",
+    "pages/InterestTagsPage"
   ]
 }
