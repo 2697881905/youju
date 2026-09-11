@@ -12,6 +12,15 @@ function clampPercent(raw: string | undefined): number {
   return Math.min(100, Math.max(0, value));
 }
 
+// 正整数配置的容错解析：非法或非正值回退默认值（用于留存天数等）。
+function clampPositiveInt(raw: string | undefined, fallback: number): number {
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0) {
+    return fallback;
+  }
+  return Math.floor(value);
+}
+
 export const env = {
   port: Number(process.env.PORT ?? 3000),
   nodeEnv: process.env.NODE_ENV ?? 'development',
@@ -60,11 +69,17 @@ export const env = {
     redirectUri: process.env.HUAWEI_REDIRECT_URI ?? '',
   },
   // 当前生效的隐私政策版本（前端弹窗同意时上报此版本；低于此版本视为需重新征求）
-  privacyPolicyVersion: process.env.PRIVACY_POLICY_VERSION ?? '1.0.0',
+  // 1.1.0：补充「个性化推荐与自动化决策」专节（算法原理/信息范围/应用内关闭路径）
+  privacyPolicyVersion: process.env.PRIVACY_POLICY_VERSION ?? '1.1.0',
   // 每日一贴个性化推荐灰度比例（0-100，按 userId 稳定 hash 分流）。
   // 100 = 全量个性化（默认，行为与历史一致）；0 = 全部走非个性化对照组；
   // 中间值 = A/B 实验。改配置 + 重启即可放量/回滚，无需发版。
   dailyPersonalizationRollout: clampPercent(process.env.DAILY_PERSONALIZATION_ROLLOUT),
+  // 行为明细数据（PostEvent 浏览/互动埋点、SearchHistory 搜索历史）的留存天数。
+  // 到期由后台任务自动清理明细（PIPL 第 19 条：保存期限应为实现目的所必需的最短时间）。
+  behaviorRetentionDays: clampPositiveInt(process.env.BEHAVIOR_RETENTION_DAYS, 180),
+  // 是否启用行为数据到期清理（默认启用；本地调试或需保留样本时可设为 false）
+  behaviorRetentionEnabled: (process.env.BEHAVIOR_RETENTION_ENABLED ?? 'true') !== 'false',
 };
 
 // 生产环境安全闸口：BACKEND_PUBLIC_URL 必须使用 https，避免下发明文 http 链接（F-005）。

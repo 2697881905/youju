@@ -12,7 +12,7 @@ const BUILD_MODE: string = BUILD_MODE_NAME;
 
 // 当前隐私政策版本（须与后端 env.privacyPolicyVersion 默认一致；后端可用 PRIVACY_POLICY_VERSION 环境变量覆盖）。
 // 前端弹窗"同意"时上报此版本，后端据其对齐并判断是否需要重新征求。
-export const PRIVACY_POLICY_VERSION: string = '1.0.0';
+export const PRIVACY_POLICY_VERSION: string = '1.1.0';
 
 // 进程级持久化（基于 Preferences，重启/重进页面不丢）。必须在任何 AppStorage 读写前注册一次。
 // 注意：authToken 走硬件加密 Asset Store（见文件末尾 saveTokenToAsset），但**同时双写 Preferences**
