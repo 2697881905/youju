@@ -74,3 +74,14 @@ export const uploadLimiter = rateLimit({
   handler,
 });
 
+// 行为埋点接口：高频但需防刷（伪造曝光/点击污染热度与个性化画像）。
+// 每 IP 每分钟 240 次：正常滑动信息流的曝光上报远低于此上限，但足以挡住脚本刷量。
+export const metricsLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 240,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipLocal,
+  handler,
+});
+

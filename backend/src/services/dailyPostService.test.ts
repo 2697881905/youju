@@ -10,6 +10,12 @@ jest.mock('../prisma', () => ({
     up: { findMany: jest.fn() },
     bookmark: { findMany: jest.fn() },
     debateVote: { findMany: jest.fn() },
+    // 个性化画像（buildViewerProfile）读取的表，必须补齐，
+    // 否则每日路径会因 prisma.xxx is undefined 而降级/报错。
+    comment: { findMany: jest.fn() },
+    postEvent: { findMany: jest.fn() },
+    follow: { findMany: jest.fn() },
+    searchHistory: { findMany: jest.fn() },
   },
 }));
 
@@ -51,6 +57,7 @@ describe('listDailyPosts', () => {
     (prisma.up.findMany as jest.Mock).mockResolvedValue([]);
     (prisma.bookmark.findMany as jest.Mock).mockResolvedValue([]);
     (prisma.debateVote.findMany as jest.Mock).mockResolvedValue([]);
+    (prisma.comment.findMany as jest.Mock).mockResolvedValue([]);
   });
 
   it('优先返回已关注标签的帖子，并给出命中标签', async () => {
@@ -140,5 +147,22 @@ describe('listDailyPosts', () => {
 
     const where = mockedPostCount.mock.calls[0][0].where;
     expect(where.userId).toEqual({ notIn: [41, 52] });
+  });
+
+  it('行为亲和路径可正常构建画像且不丢条目（排序与按日轮转解耦）', async () => {
+    // 无关注标签、无热门标签 → 不分区，全部进 fallback
+    mockedFollowedTags.mockResolvedValue([]);
+    mockedPopularTags.mockResolvedValue([]);
+    installRows([], [post(1, ['旅行']), post(2, ['职场'])]);
+    // 用户曾收藏过一篇「旅行」帖 → 画像对「旅行」与该作者产生亲和
+    (prisma.bookmark.findMany as jest.Mock).mockResolvedValue([
+      { createdAt: DAY, post: { tags: ['旅行'], userId: 101 } },
+    ]);
+
+    const result = await listDailyPosts({ viewerId: 21, page: 1, limit: 2, now: DAY });
+
+    // 注：最终页序 = 个性化排序 + 按日轮转（轮转会打乱排序），故此处只断言集合完整、
+    // 不丢条目；打分的相对顺序由 dailyScoreService.rankPostsByDailyScore 单测覆盖。
+    expect(new Set(result.list.map((item) => item.id))).toEqual(new Set([1, 2]));
   });
 });

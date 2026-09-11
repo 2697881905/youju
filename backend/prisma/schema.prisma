@@ -355,13 +355,15 @@ model MessageDeletion {
 // 帖子行为埋点（最小曝光/点击信号，供推荐迭代与数据面板统计）
 model PostEvent {
   id        Int      @id @default(autoincrement())
-  postId    Int
+  postId    Int? // 帖子级事件必填；页面级事件（daily_open）为 null
   userId    Int? // 匿名访问为 null
-  action    String   @db.VarChar(20) // expose | click | up | comment | bookmark
+  action    String   @db.VarChar(20) // expose | click | up | comment | bookmark | daily_open
+  scene     String?  @db.VarChar(20) // 来源场景：daily | feed | hot | search | profile；null 表示未标注
   createdAt DateTime @default(now())
 
   @@index([postId]) // 按帖聚合统计
   @@index([postId, action, createdAt]) // 按帖+动作+时间窗口统计
+  @@index([userId, createdAt]) // 按用户取行为序列（个性化画像 / 留存 / 人均指标）
 }
 
 // 推送发送记录（HMS 真实通道未配置时仅落日志位，便于联调与审计）

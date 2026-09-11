@@ -4,7 +4,7 @@
 // 搜索入口跳转独立搜索页 pages/SearchPanelPage（搜索面板已与首页解耦）。
 
 import { DailyPost, Post, Tag } from '../models/types';
-import { listDailyPosts, listPosts, listFollowingPosts, listTags, listFollowedTags, getUserProfile, trackPostEvent } from '../services/api';
+import { listDailyPosts, listPosts, listFollowingPosts, listTags, listFollowedTags, getUserProfile, trackPostEvent, trackDailyOpen } from '../services/api';
 import { getUserId } from '../utils/auth';
 import { likeStore } from '../utils/likeStore';
 import { postDeletionStore } from '../utils/postDeletionStore';
@@ -299,6 +299,10 @@ export struct HomeTab {
     if (this.feedMode !== mode) {
       this.feedMode = mode;
       this.needLogin = (mode === 'following' && this.token === '');
+      // 进入「每日一贴」即上报一次页面级事件，用于计算每日一贴打开率/渗透率。
+      if (mode === 'daily') {
+        trackDailyOpen();
+      }
       this.refresh();
     }
   }
@@ -481,7 +485,7 @@ export struct HomeTab {
       compact: true,
       onOpen: () => {
         if (post.id !== undefined) {
-          trackPostEvent(post.id, 'click');
+          trackPostEvent(post.id, 'click', 'feed');
           openPostDetail(post.id.toString());
           this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
         }
@@ -496,7 +500,7 @@ export struct HomeTab {
       .onAppear(() => {
         if (post.id !== undefined && !this.exposedIds.has(post.id)) {
           this.exposedIds.add(post.id);
-          trackPostEvent(post.id, 'expose');
+          trackPostEvent(post.id, 'expose', 'feed');
         }
       })
   }
@@ -750,7 +754,7 @@ export struct HomeTab {
                   onLoadMore: (): void => { this.loadMore(); },
                   onOpen: (post: DailyPost): void => {
                     if (post.id !== undefined) {
-                      trackPostEvent(post.id, 'click');
+                      trackPostEvent(post.id, 'click', 'daily');
                       openPostDetail(post.id.toString());
                       this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
                     }
