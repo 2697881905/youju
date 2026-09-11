@@ -71,15 +71,7 @@ export struct ParchmentPreview {
   }
 
   build() {
-    Column()
-      .width('100%')
-      .height('100%')
-      .linearGradient({
-        angle: 135,
-        colors: [[ColorTokens.canvas, 0], [ColorTokens.sunken, 1]],
-      })
-      .borderRadius(0)
-    {
+    Column() {
       Scroll() {
         Column({ space: SpaceTokens.xl }) {
           // ===== 主视觉 =====
@@ -125,7 +117,7 @@ export struct ParchmentPreview {
                       .fontColor(ColorTokens.secondary)
                   }
                   .layoutWeight(1)
-                })
+                }, (item: SwatchItem) => item.label)
               }
               .width('100%')
             }
@@ -237,5 +229,12 @@ export struct ParchmentPreview {
       .width('100%')
       .height('100%')
     }
+    .width('100%')
+    .height('100%')
+    .linearGradient({
+      angle: 135,
+      colors: [[ColorTokens.canvas, 0], [ColorTokens.sunken, 1]],
+    })
+    .borderRadius(0)
   }
 }
