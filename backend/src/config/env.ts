@@ -3,6 +3,15 @@ import path from 'path';
 
 dotenv.config();
 
+// 百分比配置的容错解析：非法值回退 100（全量），并钳制到 [0, 100]。
+function clampPercent(raw: string | undefined): number {
+  const value = Number(raw);
+  if (!Number.isFinite(value)) {
+    return 100;
+  }
+  return Math.min(100, Math.max(0, value));
+}
+
 export const env = {
   port: Number(process.env.PORT ?? 3000),
   nodeEnv: process.env.NODE_ENV ?? 'development',
@@ -52,6 +61,10 @@ export const env = {
   },
   // 当前生效的隐私政策版本（前端弹窗同意时上报此版本；低于此版本视为需重新征求）
   privacyPolicyVersion: process.env.PRIVACY_POLICY_VERSION ?? '1.0.0',
+  // 每日一贴个性化推荐灰度比例（0-100，按 userId 稳定 hash 分流）。
+  // 100 = 全量个性化（默认，行为与历史一致）；0 = 全部走非个性化对照组；
+  // 中间值 = A/B 实验。改配置 + 重启即可放量/回滚，无需发版。
+  dailyPersonalizationRollout: clampPercent(process.env.DAILY_PERSONALIZATION_ROLLOUT),
 };
 
 // 生产环境安全闸口：BACKEND_PUBLIC_URL 必须使用 https，避免下发明文 http 链接（F-005）。

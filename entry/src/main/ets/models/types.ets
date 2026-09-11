@@ -300,6 +300,8 @@ export interface PrivacySettingsData {
   postVisibility: string; // 'public' | 'followers' | 'private'
   allowFollow: boolean;
   dmPolicy: string; // 'all' | 'mutual' | 'followers'（谁可给我发私信）
+  // 是否接收个性化推荐：关闭后「每日一贴」按热度/时间排序，不再依据浏览与互动记录
+  personalizedRecommendation: boolean;
 }
 
 // ===== 私信 =====

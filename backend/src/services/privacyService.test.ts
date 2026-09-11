@@ -1,6 +1,6 @@
 // 隐私设置服务单元测试
 import { prisma } from '../prisma';
-import { getSettings, updateSettings } from './privacyService';
+import { getSettings, updateSettings, isPersonalizationEnabled } from './privacyService';
 
 jest.mock('../prisma', () => ({
   prisma: {
@@ -19,25 +19,37 @@ beforeEach(() => {
 });
 
 describe('getSettings', () => {
-  it('无记录 → 返回默认值（public / allowFollow / allowMessage）', async () => {
+  it('无记录 → 返回默认值（public / allowFollow / 个性化默认开启）', async () => {
     mockedFindUnique.mockResolvedValue(null);
     const s = await getSettings(1);
-    expect(s).toEqual({ postVisibility: 'public', allowFollow: true, dmPolicy: 'all' });
+    expect(s).toEqual({
+      postVisibility: 'public',
+      allowFollow: true,
+      dmPolicy: 'all',
+      personalizedRecommendation: true,
+    });
   });
 
-  it('有记录 → 返回数据库中值', async () => {
+  it('有记录 → 返回数据库中值（含个性化开关）', async () => {
     mockedFindUnique.mockResolvedValue({
-      id: 1, userId: 1, postVisibility: 'followers', allowFollow: false, dmPolicy: 'all', updatedAt: new Date(),
+      id: 1, userId: 1, postVisibility: 'followers', allowFollow: false, dmPolicy: 'all',
+      personalizedRecommendation: false, updatedAt: new Date(),
     });
     const s = await getSettings(1);
-    expect(s).toEqual({ postVisibility: 'followers', allowFollow: false, dmPolicy: 'all' });
+    expect(s).toEqual({
+      postVisibility: 'followers',
+      allowFollow: false,
+      dmPolicy: 'all',
+      personalizedRecommendation: false,
+    });
   });
 });
 
 describe('updateSettings', () => {
   it('部分更新 — 仅改可见性', async () => {
     mockedUpsert.mockResolvedValue({
-      id: 1, userId: 1, postVisibility: 'private', allowFollow: true, dmPolicy: 'all', updatedAt: new Date(),
+      id: 1, userId: 1, postVisibility: 'private', allowFollow: true, dmPolicy: 'all',
+      personalizedRecommendation: true, updatedAt: new Date(),
     });
     const s = await updateSettings(1, { postVisibility: 'private' });
     expect(s.postVisibility).toBe('private');
@@ -46,10 +58,26 @@ describe('updateSettings', () => {
 
   it('全量更新', async () => {
     mockedUpsert.mockResolvedValue({
-      id: 1, userId: 1, postVisibility: 'followers', allowFollow: false, dmPolicy: 'followers', updatedAt: new Date(),
+      id: 1, userId: 1, postVisibility: 'followers', allowFollow: false, dmPolicy: 'followers',
+      personalizedRecommendation: true, updatedAt: new Date(),
     });
     const s = await updateSettings(1, { postVisibility: 'followers', allowFollow: false, dmPolicy: 'followers' });
-    expect(s).toEqual({ postVisibility: 'followers', allowFollow: false, dmPolicy: 'followers' });
+    expect(s).toEqual({
+      postVisibility: 'followers',
+      allowFollow: false,
+      dmPolicy: 'followers',
+      personalizedRecommendation: true,
+    });
+  });
+
+  it('支持关闭个性化推荐（写入 upsert）', async () => {
+    mockedUpsert.mockResolvedValue({
+      id: 1, userId: 1, postVisibility: 'public', allowFollow: true, dmPolicy: 'all',
+      personalizedRecommendation: false, updatedAt: new Date(),
+    });
+    const s = await updateSettings(1, { personalizedRecommendation: false });
+    expect(s.personalizedRecommendation).toBe(false);
+    expect(mockedUpsert.mock.calls[0][0].update).toEqual({ personalizedRecommendation: false });
   });
 
   it('拒绝未知可见性与私信策略', async () => {
@@ -61,5 +89,33 @@ describe('updateSettings', () => {
   it('拒绝非布尔 allowFollow', async () => {
     await expect(updateSettings(1, { allowFollow: 'yes' as any })).rejects.toThrow('allowFollow');
     expect(mockedUpsert).not.toHaveBeenCalled();
+  });
+
+  it('拒绝非布尔 personalizedRecommendation', async () => {
+    await expect(updateSettings(1, { personalizedRecommendation: 'off' as any }))
+      .rejects.toThrow('personalizedRecommendation');
+    expect(mockedUpsert).not.toHaveBeenCalled();
+  });
+});
+
+describe('isPersonalizationEnabled', () => {
+  it('游客（无 userId）视为不适用，返回 true（其画像恒为空，等价非个性化）', async () => {
+    await expect(isPersonalizationEnabled(undefined)).resolves.toBe(true);
+    expect(mockedFindUnique).not.toHaveBeenCalled();
+  });
+
+  it('无记录 → 默认开启', async () => {
+    mockedFindUnique.mockResolvedValue(null);
+    await expect(isPersonalizationEnabled(7)).resolves.toBe(true);
+  });
+
+  it('记录为关闭 → 返回 false', async () => {
+    mockedFindUnique.mockResolvedValue({ personalizedRecommendation: false });
+    await expect(isPersonalizationEnabled(7)).resolves.toBe(false);
+  });
+
+  it('读取异常 → 降级为开启（列表不可因设置表异常而失败）', async () => {
+    mockedFindUnique.mockRejectedValue(new Error('db down'));
+    await expect(isPersonalizationEnabled(7)).resolves.toBe(true);
   });
 });

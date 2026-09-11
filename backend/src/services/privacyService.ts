@@ -10,12 +10,15 @@ export interface PrivacySettingsData {
   postVisibility: PostVisibility;
   allowFollow: boolean;
   dmPolicy: DmPolicy;
+  // 是否接收个性化推荐：关闭后不再构建画像，每日一贴降级为「热度 + 时间」排序。
+  personalizedRecommendation: boolean;
 }
 
 const DEFAULTS: PrivacySettingsData = {
   postVisibility: 'public',
   allowFollow: true,
   dmPolicy: 'all',
+  personalizedRecommendation: true,
 };
 
 export async function getSettings(userId: number): Promise<PrivacySettingsData> {
@@ -25,7 +28,29 @@ export async function getSettings(userId: number): Promise<PrivacySettingsData> 
     postVisibility: row.postVisibility as PostVisibility,
     allowFollow: row.allowFollow,
     dmPolicy: (row.dmPolicy as DmPolicy) ?? 'all',
+    personalizedRecommendation: row.personalizedRecommendation,
   };
+}
+
+/**
+ * 用户是否接收个性化推荐（默认开启）。
+ * 读取失败按「开启」处理并告警：列表接口不应因设置表异常而不可用；
+ * 且失败时保持与历史行为一致（历史上无此开关，等同开启）。
+ */
+export async function isPersonalizationEnabled(userId?: number): Promise<boolean> {
+  if (!userId) {
+    return true; // 游客无个人画像可言，走既有的非个性化路径
+  }
+  try {
+    const row = await prisma.privacySettings.findUnique({
+      where: { userId },
+      select: { personalizedRecommendation: true },
+    });
+    return row ? row.personalizedRecommendation : true;
+  } catch (e) {
+    console.warn('[privacy] 读取个性化推荐开关失败，按开启处理：', (e as Error).message);
+    return true;
+  }
 }
 
 export async function updateSettings(
@@ -51,6 +76,12 @@ export async function updateSettings(
     }
     data.dmPolicy = settings.dmPolicy;
   }
+  if (settings.personalizedRecommendation !== undefined) {
+    if (typeof settings.personalizedRecommendation !== 'boolean') {
+      throw new ValidationError('personalizedRecommendation 必须为布尔值');
+    }
+    data.personalizedRecommendation = settings.personalizedRecommendation;
+  }
 
   const row = await prisma.privacySettings.upsert({
     where: { userId },
@@ -61,5 +92,6 @@ export async function updateSettings(
     postVisibility: row.postVisibility as PostVisibility,
     allowFollow: row.allowFollow,
     dmPolicy: (row.dmPolicy as DmPolicy) ?? 'all',
+    personalizedRecommendation: row.personalizedRecommendation,
   };
 }

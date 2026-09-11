@@ -1,5 +1,5 @@
 import { DailyPost } from '../models/types';
-import { resolveDisplayImageUrl } from '../services/api';
+import { resolveDisplayImageUrl, trackPostEvent } from '../services/api';
 import { ColorTokens } from '../design/tokens/color';
 import { MotionCurves, MotionTokens, MotionFrameRates } from '../design/tokens/motion';
 import { RadiusTokens } from '../design/tokens/radius';
@@ -310,13 +310,14 @@ struct DeckSlotCard {
 @Component
 export struct DailyPostDeck {
   @Prop @Watch('resetDeck') deckVersion: number = 0;
-  @Prop posts: DailyPost[] = [];
+  // posts / activeIndex 变化都意味着「顶卡换人」，两者都触发曝光上报
+  @Prop @Watch('onExposureSourceChanged') posts: DailyPost[] = [];
   @Prop loading: boolean = false;
   @Prop finished: boolean = false;
   onLoadMore?: () => void = undefined;
   onOpen?: (post: DailyPost) => void = undefined;
 
-  @State activeIndex: number = 0;
+  @State @Watch('onExposureSourceChanged') activeIndex: number = 0;
   @State dragOffsetX: number = 0;    // 跟手位移（双向：向右为正、向左为负）
   @State dragDir: number = 1;        // 拖拽方向：+1 右 / -1 左（决定飞出朝向）
   @State advancing: boolean = false;
@@ -331,6 +332,8 @@ export struct DailyPostDeck {
   @State countdownText: string = '--:--:--';
   // 距明日 0 点上新的倒计时计时器句柄（aboutToDisappear 时清理）
   private cdTimer: number = 0;
+  // 已上报曝光的帖子 id：同会话内按 id 去重，避免回滑/重建时重复上报
+  private exposedIds: Set<number> = new Set<number>();
 
   // 每日上新时刻：北京时间（UTC+8）0 点整 = 次日 00:00，即每日切换点
   // （与后端 dailyKey 的 Asia/Shanghai 日切口径一致）
@@ -360,6 +363,28 @@ export struct DailyPostDeck {
     }
   }
 
+  // ===== 逐卡曝光埋点 =====
+  // 此前「每日一贴」只有点击与「进入每日页」两类上报，缺逐卡曝光 → 场景化曝光-点击率无法计算。
+  // 语义：某卡成为顶卡（滑入）即计一次曝光；按 postId 去重，回滑不重复上报。
+  private onExposureSourceChanged(): void {
+    this.trackActiveExpose();
+  }
+
+  private trackActiveExpose(): void {
+    const list: DailyPost[] = this.posts;
+    const idx: number = this.activeIndex;
+    if (idx < 0 || idx >= list.length) {
+      return;
+    }
+    const post: DailyPost = list[idx];
+    const id: number | undefined = post.id;
+    if (id === undefined || this.exposedIds.has(id)) {
+      return;
+    }
+    this.exposedIds.add(id);
+    trackPostEvent(id, 'expose', 'daily');
+  }
+
   resetDeck(): void {
     this.activeIndex = 0;
     this.dragOffsetX = 0;
@@ -386,6 +411,8 @@ export struct DailyPostDeck {
     }, () => {
       this.animRise = 1;
     });
+    // 仪式开始时顶卡即为可见状态 → 补报一次曝光（posts 为空时内部自动跳过）
+    this.trackActiveExpose();
   }
 
   private visiblePosts(): DailyPost[] {
