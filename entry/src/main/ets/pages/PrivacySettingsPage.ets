@@ -268,6 +268,33 @@ export struct PrivacySettingsPage {
                 .onClick(() => {
                   this.getUIContext().getRouter().pushUrl({ url: 'pages/InterestTagsPage' });
                 });
+
+                Divider().color($r('app.color.divider')).margin({ left: 16 });
+
+                // 算法申诉入口（PIPL 第 24 条：自动化决策的说明请求与拒绝权）
+                Row() {
+                  Column() {
+                    Text('对推荐结果有疑问？')
+                      .fontSize(15).fontFamily($r('app.string.font_family'))
+                      .fontColor($r('app.color.text_primary'));
+                    Text('了解推荐原理，或按隐私政策第 8 节向我们申诉与反馈')
+                      .fontSize(12).fontFamily($r('app.string.font_family'))
+                      .fontColor($r('app.color.text_secondary'))
+                      .margin({ top: 2 });
+                  }
+                  .layoutWeight(1)
+                  .alignItems(HorizontalAlign.Start);
+
+                  Text('›')
+                    .fontSize(18).fontFamily($r('app.string.font_family'))
+                    .fontColor($r('app.color.text_secondary'));
+                }
+                .width('100%')
+                .padding({ left: 16, right: 16, top: 16, bottom: 16 })
+                .backgroundColor($r('app.color.card_bg'))
+                .onClick(() => {
+                  this.getUIContext().getRouter().pushUrl({ url: 'pages/PrivacyPage' });
+                });
               }
               .width('100%')
               .backgroundColor($r('app.color.card_bg'))
