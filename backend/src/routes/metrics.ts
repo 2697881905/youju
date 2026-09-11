@@ -1,31 +1,52 @@
 import { Router, Response } from 'express';
 import { ok, fail, CODE } from '../utils/response';
 import { prisma } from '../prisma';
-import { auth, AuthRequest } from '../middleware/auth';
+import { auth, AuthRequest, resolveOptionalUserId } from '../middleware/auth';
 import { asyncHandler } from '../middleware/asyncHandler';
+import { metricsLimiter } from '../middleware/rateLimit';
 import { env } from '../config/env';
 
-// 帖子行为埋点（最小曝光/点击信号）：POST /v1/metrics/post-event
-// - action 白名单：expose（信息流曝光）/ click（信息流点击进入详情）
-// - 匿名（游客）上报时 userId 为 null；登录用户由 auth 中间件填充
-// - 服务端不校验帖子是否存在（埋点不允许引入读放大），仅校验参数形态
-const ACTIONS = ['expose', 'click'];
+// 帖子行为埋点：POST /v1/metrics/post-event
+// - action 白名单：expose（曝光）/ click（点击进详情）/ up / comment / bookmark / daily_open（进入每日一贴）
+// - 帖子级动作（expose/click/up/comment/bookmark）必须带有效 postId，并校验帖子存在，
+//   防止伪造 postId 刷量、污染热度分与个性化画像。
+// - 页面级动作（daily_open）无帖子，postId 允许为空。
+// - 鉴权：软鉴权（resolveOptionalUserId）。带有效 token 回填真实 userId；无/失效 token 按匿名（null）处理，
+//   不因未登录而 401 —— 埋点不能阻断客户端。
+// - scene：来源场景（daily | feed | hot | search | profile），用于区分「每日一贴」与其它信息流的曝光/点击。
+const ACTIONS = ['expose', 'click', 'up', 'comment', 'bookmark', 'daily_open'];
+const POST_LEVEL_ACTIONS = ['expose', 'click', 'up', 'comment', 'bookmark'];
+const SCENES = ['daily', 'feed', 'hot', 'search', 'profile'];
 
 const router = Router();
 
-router.post('/post-event', asyncHandler(async (req: any, res: Response) => {
-  const postId = Number(req.body?.postId);
+router.post('/post-event', metricsLimiter, asyncHandler(async (req: any, res: Response) => {
   const action = typeof req.body?.action === 'string' ? req.body.action : '';
-  if (!Number.isInteger(postId) || postId <= 0) {
-    return fail(res, CODE.BAD_REQUEST, 'postId 无效');
-  }
   if (ACTIONS.indexOf(action) < 0) {
     return fail(res, CODE.BAD_REQUEST, 'action 无效');
   }
-  const userId: number | null = (req as any).userId != null ? Number((req as any).userId) : null;
-  console.log('[metrics] post-event postId=' + postId + ' action=' + action + ' userId=' + userId);
+  const sceneRaw = typeof req.body?.scene === 'string' ? req.body.scene : '';
+  const scene: string | null = SCENES.indexOf(sceneRaw) >= 0 ? sceneRaw : null;
+
+  // 软鉴权：有效 token → 真实 userId；否则匿名。游客数据不进个人画像，仅计入全局热度。
+  const resolvedUserId = await resolveOptionalUserId(req as AuthRequest);
+  const userId: number | null = resolvedUserId != null ? resolvedUserId : null;
+
+  let postId: number | null = null;
+  if (POST_LEVEL_ACTIONS.indexOf(action) >= 0) {
+    postId = Number(req.body?.postId);
+    if (!Number.isInteger(postId) || postId <= 0) {
+      return fail(res, CODE.BAD_REQUEST, 'postId 无效');
+    }
+    // 存在性校验：伪造 postId 会让热度分与画像被脏数据污染，故拒绝不存在的帖子。
+    const exists = await prisma.post.findUnique({ where: { id: postId }, select: { id: true } });
+    if (!exists) {
+      return fail(res, CODE.NOT_FOUND, '帖子不存在', 404);
+    }
+  }
+
   await prisma.postEvent.create({
-    data: { postId, userId, action },
+    data: { postId, userId, action, scene },
   });
   return ok(res, null, 'ok');
 }));

@@ -10,6 +10,12 @@ import { buildCommentTree } from './commentService';
 import { MentionRef, resolveMentionRefs } from './mentionService';
 import { env } from '../config/env';
 import { enqueueMediaDeletion } from './mediaDeletionService';
+import {
+  buildViewerProfile,
+  rankPostsByDailyScore,
+  shanghaiDayStart,
+  ViewerProfile,
+} from './dailyScoreService';
 
 export type SortType = 'hot' | 'latest' | 'recommend';
 
@@ -238,44 +244,65 @@ async function dailyVisibleWhere(viewerId?: number): Promise<any> {
   return where;
 }
 
-async function fetchRotatedDailyPosts(
+// 每日一贴候选窗口上限：按热度一次性取回候选池，再在内存中按个性化分重排。
+// 上限只为约束内存排序规模；窗口内仍按「日切打分 + 稳定轮转」保证同日分页一致。
+const DAILY_CANDIDATE_WINDOW = 500;
+
+/**
+ * 候选池内「偏移轮转 + 切片」。与原 fetchRotatedDailyPosts 语义一致：
+ * 以 offset+start 取模为起点，取到尾部后从头部补足；
+ * 因而同日多次请求顺序稳定、跨页不重复，跨日因 offset（dateKey 播种）变化自然轮换。
+ */
+function rotateSlice(rows: any[], total: number, offset: number, start: number, take: number): any[] {
+  const pool = rows.length;
+  if (total <= 0 || pool <= 0 || take <= 0) {
+    return [];
+  }
+  const firstIndex = (offset + start) % pool;
+  const firstTake = Math.max(0, Math.min(take, pool - firstIndex));
+  const out: any[] = [];
+  for (let i = 0; i < firstTake; i += 1) {
+    out.push(rows[firstIndex + i]);
+  }
+  if (firstTake < take) {
+    // 第二段：从头部补足。条数钳制为 firstIndex，
+    // 否则总数 < take 时会越过尾部再回头，把第一段元素重复取一遍。
+    const secondTake = Math.min(take - firstTake, firstIndex);
+    for (let i = 0; i < secondTake; i += 1) {
+      out.push(rows[i]);
+    }
+  }
+  return out;
+}
+
+async function fetchDailyPartition(
   where: any,
   total: number,
   offset: number,
   start: number,
   take: number,
+  profile: ViewerProfile,
+  asOf: Date,
 ): Promise<any[]> {
-  if (total === 0 || take === 0) {
+  if (total <= 0 || take <= 0) {
     return [];
   }
-  const firstIndex = (offset + start) % total;
-  const firstTake = Math.min(take, total - firstIndex);
-  const orderBy: Prisma.PostOrderByWithRelationInput[] = [
-    { upCount: 'desc' },
-    { createdAt: 'desc' },
-    { id: 'desc' },
-  ];
-  const first = await prisma.post.findMany({
+  const window = Math.min(total, DAILY_CANDIDATE_WINDOW);
+  const rows = await prisma.post.findMany({
     where,
-    orderBy,
-    skip: firstIndex,
-    take: firstTake,
-    include: { user: { select: USER_PUBLIC_SELECT } },
-  });
-  if (firstTake === take) {
-    return first;
-  }
-  // 第二段：从 0 取回「第一段没覆盖的头部」。条数钳制为 firstIndex，
-  // 否则帖子总数 < take 时会越过 total 尾部再回头，把第一段元素重复取一遍。
-  const secondTake = Math.min(take - firstTake, firstIndex);
-  const second = await prisma.post.findMany({
-    where,
-    orderBy,
+    orderBy: [
+      { hotScore: 'desc' },
+      { createdAt: 'desc' },
+      { id: 'desc' },
+    ],
     skip: 0,
-    take: secondTake,
+    take: window,
     include: { user: { select: USER_PUBLIC_SELECT } },
   });
-  return first.concat(second);
+  if (rows.length === 0) {
+    return [];
+  }
+  return rotateSlice(rankPostsByDailyScore(rows, profile, asOf), total, offset, start, take);
 }
 
 async function decorateViewerPosts(list: any[], viewerId?: number): Promise<any[]> {
@@ -323,21 +350,28 @@ export async function listDailyPosts(params: DailyListParams = {}) {
     return { list: [], pagination: { page, limit, total }, dateKey, interestTags };
   }
 
+  // 日切快照：以「当日上海零点」为固定截止时刻构建画像，
+  // 保证同一自然日内多次请求分数一致（分页稳定），跨日 asOf 变化自然轮换。
+  const asOf = shanghaiDayStart(params.now ?? new Date());
+  const profile = await buildViewerProfile(params.viewerId, asOf);
+
   const viewerKey = params.viewerId ? 'user:' + params.viewerId : 'guest';
   const interestOffset = stableOffset(dateKey + ':' + viewerKey + ':interest', interestTotal);
   const fallbackOffset = stableOffset(dateKey + ':' + viewerKey + ':fallback', fallbackTotal);
   let rawList: any[] = [];
   if (globalStart < interestTotal && interestWhere) {
     const interestTake = Math.min(limit, interestTotal - globalStart);
-    rawList = await fetchRotatedDailyPosts(interestWhere, interestTotal, interestOffset, globalStart, interestTake);
+    rawList = await fetchDailyPartition(
+      interestWhere, interestTotal, interestOffset, globalStart, interestTake, profile, asOf,
+    );
     if (interestTake < limit) {
-      rawList = rawList.concat(await fetchRotatedDailyPosts(
-        fallbackWhere, fallbackTotal, fallbackOffset, 0, limit - interestTake,
+      rawList = rawList.concat(await fetchDailyPartition(
+        fallbackWhere, fallbackTotal, fallbackOffset, 0, limit - interestTake, profile, asOf,
       ));
     }
   } else {
-    rawList = await fetchRotatedDailyPosts(
-      fallbackWhere, fallbackTotal, fallbackOffset, globalStart - interestTotal, limit,
+    rawList = await fetchDailyPartition(
+      fallbackWhere, fallbackTotal, fallbackOffset, globalStart - interestTotal, limit, profile, asOf,
     );
   }
 

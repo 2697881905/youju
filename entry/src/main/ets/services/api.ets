@@ -445,15 +445,34 @@ export function listFolderPosts(id: number, page: number, limit: number): Promis
   return api.get<FolderPostsResult>('/v1/bookmark-folders/' + id + '/posts' + toQuery([['page', page], ['limit', limit]]));
 }
 
-// ===== 行为埋点（最小曝光/点击信号；fire-and-forget，失败静默）=====
+// ===== 行为埋点（曝光/点击/打开信号；fire-and-forget，失败静默）=====
 // POST /v1/metrics/post-event
+// scene 用于区分来源场景（daily=每日一贴 / feed=推荐关注流），
+// 否则各信息流的曝光与点击会混在一起，无法归因到具体场景。
+export type TrackScene = 'daily' | 'feed' | 'hot' | 'search' | 'profile';
+
 interface PostEventBody {
   postId: number;
   action: string;
+  scene?: string;
 }
 
-export function trackPostEvent(postId: number, action: 'expose' | 'click'): void {
+interface PageEventBody {
+  action: string;
+  scene: string;
+}
+
+export function trackPostEvent(postId: number, action: 'expose' | 'click', scene?: TrackScene): void {
   const body: PostEventBody = { postId: postId, action: action };
+  if (scene !== undefined && scene.length > 0) {
+    body.scene = scene;
+  }
+  api.post<null>('/v1/metrics/post-event', body).catch(() => {});
+}
+
+// 页面级事件：进入「每日一贴」。无帖子维度，故不携带 postId。
+export function trackDailyOpen(): void {
+  const body: PageEventBody = { action: 'daily_open', scene: 'daily' };
   api.post<null>('/v1/metrics/post-event', body).catch(() => {});
 }
 
