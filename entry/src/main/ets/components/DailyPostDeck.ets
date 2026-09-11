@@ -7,6 +7,7 @@ import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { formatCount } from '../utils/format';
 import { barBottomReserve } from '../utils/cardTokens';
+import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
 import { Pressable } from '../design/motion/Pressable';
 import { curves } from '@kit.ArkUI';
 
@@ -608,21 +609,33 @@ export struct DailyPostDeck {
         .fontWeight(TypeTokens.caption.weight)
         .letterSpacing(3)
         .fontColor(ColorTokens.tertiary)
+      // 上新倒计时：与顶部「推荐/关注」分段栏同款玻璃胶囊
+      // （segmentedHeight 等高 + Floating 模糊 + barSurface 底 + barBorder 细边框
+      //   + floatingBar 圆角 + barShadow 柔和阴影 + clip，文字走 callout 令牌层级）
       Row({ space: SpaceTokens.sm }) {
-        // 明确刷新时刻（每日 00:00 整），右侧为距该时刻的剩余时长（非刷新钟点，避免歧义）
         Text('距明日 00:00 上新')
-          .fontSize(11).fontFamily(TypeTokens.fontFamily)
-          .letterSpacing(2)
-          .fontColor(ColorTokens.tertiary)
+          .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.callout.weight)
+          .lineHeight(TypeTokens.callout.lineHeight)
+          .letterSpacing(TypeTokens.callout.tracking)
+          .fontColor(ColorTokens.secondary)
         Text(this.countdownText)
-          .fontSize(17).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.titleSerif.weight)
-          .fontColor(ColorTokens.brand)
+          .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.headline.weight)
+          .lineHeight(TypeTokens.callout.lineHeight)
+          .letterSpacing(TypeTokens.callout.tracking)
+          .fontColor(ColorTokens.primary)
           .fontFeature(TypeTokens.tabularFeature)
       }
-      .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
-      .borderRadius(RadiusTokens.pill)
-      .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+      .height(LayoutTokens.segmentedHeight)
+      .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+      .alignItems(VerticalAlign.Center)
+      .backgroundBlurStyle(GlassBlurStyle.Floating)
+      .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
+      .borderRadius(RadiusTokens.floatingBar)
+      .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+      .shadow({ radius: 18, color: ColorTokens.barShadow, offsetY: 8 })
+      .clip(true)
 
       Pressable({
         visualHeight: TypeTokens.caption.lineHeight,
