@@ -19,6 +19,7 @@ import { Pressable } from '../design/motion/Pressable';
 import { DailyPostDeck } from './DailyPostDeck';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
+import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
@@ -35,6 +36,8 @@ const FEED_MODE_IDX_MAP: FeedMode[] = ['recommend', 'following', 'daily'];
 // 超限后停止重试并展示明确「加载失败」错误态，由用户手动点重试。
 const FEED_MAX_RETRY: number = 3;
 const TAGS_MAX_RETRY: number = 3;
+// 今日一帖每日精选篇数固定为 10 条（一次拉齐，读完即完成态）
+const DAILY_PICK_LIMIT: number = 10;
 
 const SORT_KEYS: SortKey[] = ['hot', 'latest', 'recommend'];
 const FEED_SEGMENTS: SegmentedItem[] = [
@@ -42,6 +45,12 @@ const FEED_SEGMENTS: SegmentedItem[] = [
   { key: 'following', label: '关注' },
   { key: 'daily', label: '每日一帖' },
 ];
+
+// —— 每日一帖刊期 ——
+// 首期日（Asia/Shanghai）：2026-09-11 即 No.001；之后每个自然日 +1 期，跨年不重置。
+// 计日统一按北京时间（UTC+8），与后端 dailyKey 的 Asia/Shanghai 口径一致，设备处于任意时区均不偏移。
+const DAILY_ISSUE_ORIGIN: string = '2026-09-11';
+const DAILY_TZ_OFFSET_MS: number = 8 * 60 * 60 * 1000;
 
 // —— 会话级信息流缓存：切 Tab 回来先展示缓存再后台刷新，避免白屏重拉（P2 性能优化）——
 // key = feedMode|tag|sort；仅缓存首屏（page=1），TTL 120s；账号切换/发帖后整体失效
@@ -318,14 +327,17 @@ export struct HomeTab {
     }
     try {
       if (this.feedMode === 'daily') {
-        const res = await listDailyPosts(this.page, 10);
+        // 今日一帖：每日精选固定 10 条一次拉齐，不随滚动追加。
+        // 读完精选即进入完成态（对齐原型「每日唯一内容」的仪式感）。
+        const res = await listDailyPosts(1, DAILY_PICK_LIMIT);
+        this.posts = res.list;
+        this.finished = true;
         if (reset) {
-          this.posts = res.list;
           this.dailyDeckVersion += 1;
-        } else {
-          this.posts = this.posts.concat(res.list);
         }
-        this.finished = this.posts.length >= res.pagination.total;
+        // 后端若不足 10 条（数据库文章少），按实际条数展示，避免出现「只有 3 张卡却显示 01/10」
+        hilog.info(0x0000, 'HomeTab', 'daily posts fetched, list=%{public}d, total=%{public}d',
+          res.list.length, res.pagination.total);
         return;
       }
       const res =
@@ -389,9 +401,81 @@ export struct HomeTab {
     }
   }
 
-  // 推荐/关注流单卡：PostCard + 曝光埋点（卡片出现在屏幕上即上报，去重跳过）
+  // 每日一帖报头：日期/星期/期数 + 发丝分隔线（品牌标题已被顶部栏承担，不再重复）
+  // 对应原型 masthead 的 date-row / rule；期数 = 真实刊期（首期日 2026-09-11 为 No.001）。
   @Builder
-  feedPost(post: Post): void {
+  dailyMasthead(): void {
+    Column({ space: SpaceTokens.md }) {
+      Row() {
+        Row({ space: SpaceTokens.sm }) {
+          Text(this.dailyDateStr())
+            .fontSize(21).fontFamily(TypeTokens.fontFamilySerif)
+            .fontWeight(TypeTokens.titleSerif.weight)
+            .letterSpacing(1)
+            .fontColor(ColorTokens.primary)
+          Text(this.dailyWeekStr())
+            .fontSize(12).fontFamily(TypeTokens.fontFamily)
+            .letterSpacing(2)
+            .fontColor(ColorTokens.tertiary)
+        }
+        .alignItems(VerticalAlign.Bottom)
+        Blank()
+        Text('No.' + this.dailyIssueStr())
+          .fontSize(12).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.overline.weight)
+          .letterSpacing(2)
+          .fontColor(ColorTokens.brand)
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Bottom)
+
+      // 发丝分隔线（与报头文字拉开间距，形成明确的编辑部头版层次）
+      Row()
+        .width('100%')
+        .height(1)
+        .backgroundColor(ColorTokens.separator)
+    }
+    .width('100%')
+    .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+    // 切换进每日一帖时整块入场（减速淡入 + 轻微下落）
+    .transition(TransitionEffect.OPACITY
+      .animation({ duration: 450, curve: MotionCurves.decelerate })
+      .combine(TransitionEffect.translate({ y: -8 })
+        .animation({ duration: 450, curve: MotionCurves.decelerate })))
+  }
+
+  // 报头「当日」口径 = 北京时间（UTC+8）：与刊期同源，避免设备时区非 +8 时日期栏与期号跨天。
+  // 实现：时间戳加 8 小时后取 UTC 字段，等价于北京时间本地字段。
+  private shanghaiNow(): Date {
+    return new Date(Date.now() + DAILY_TZ_OFFSET_MS);
+  }
+
+  private dailyDateStr(): string {
+    const d: Date = this.shanghaiNow();
+    return d.getUTCFullYear() + '年' + (d.getUTCMonth() + 1) + '月' + d.getUTCDate() + '日';
+  }
+
+  private dailyWeekStr(): string {
+    const d: Date = this.shanghaiNow();
+    return '星期' + ['日', '一', '二', '三', '四', '五', '六'][d.getUTCDay()];
+  }
+
+  // 真实刊期：首期日（DAILY_ISSUE_ORIGIN）为 No.001，此后按北京时间自然日连续递增，跨年不重置。
+  // 天数差用「日序数」相减（不受时分秒/夏令时影响）；早于首期日（理论不会发生）兜底 No.001。
+  private dailyIssueStr(): string {
+    const parts: string[] = DAILY_ISSUE_ORIGIN.split('-');
+    const originDay: number = Math.floor(
+      Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])) / 86400000
+    );
+    const todayDay: number = Math.floor((Date.now() + DAILY_TZ_OFFSET_MS) / 86400000);
+    const issue: number = Math.max(1, todayDay - originDay + 1);
+    return String(issue).padStart(3, '0');
+  }
+
+  // 推荐/关注流单卡：PostCard + 曝光埋点（卡片出现在屏幕上即上报，去重跳过）。
+  // idx 为该卡在其分列内的下标：入场错位延迟按分列索引阶梯递增（错峰 Stagger），上限截断避免末项累积延迟。
+  @Builder
+  feedPost(post: Post, idx: number): void {
     PostCard({
       post: post,
       compact: true,
@@ -403,6 +487,12 @@ export struct HomeTab {
         }
       },
     })
+      .transition(
+        TransitionEffect.OPACITY
+          .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate, delay: Math.min(idx, 6) * MotionTokens.stagger })
+          .combine(TransitionEffect.translate({ y: 14 })
+            .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate, delay: Math.min(idx, 6) * MotionTokens.stagger }))
+      )
       .onAppear(() => {
         if (post.id !== undefined && !this.exposedIds.has(post.id)) {
           this.exposedIds.add(post.id);
@@ -422,13 +512,13 @@ export struct HomeTab {
         Row({ space: SpaceTokens.xs }) {
           Column({ space: SpaceTokens.xs }) {
             ForEach(this.posts.filter((_p: Post, idx: number) => idx % 2 === 0),
-              (post: Post) => { this.feedPost(post) },
+              (post: Post, idx: number) => { this.feedPost(post, idx) },
               (post: Post) => 'feed-even-' + String(post.id ?? ''))
           }
           .layoutWeight(1)
           Column({ space: SpaceTokens.xs }) {
             ForEach(this.posts.filter((_p: Post, idx: number) => idx % 2 === 1),
-              (post: Post) => { this.feedPost(post) },
+              (post: Post, idx: number) => { this.feedPost(post, idx) },
               (post: Post) => 'feed-odd-' + String(post.id ?? ''))
           }
           .layoutWeight(1)
@@ -649,22 +739,28 @@ export struct HomeTab {
         } else {
           if (this.feedMode === 'daily') {
             Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
-              DailyPostDeck({
-                deckVersion: this.dailyDeckVersion,
-                posts: this.posts,
-                loading: this.loading,
-                finished: this.finished,
-                onLoadMore: (): void => { this.loadMore(); },
-                onOpen: (post: DailyPost): void => {
-                  if (post.id !== undefined) {
-                    trackPostEvent(post.id, 'click');
-                    openPostDetail(post.id.toString());
-                    this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
-                  }
-                },
-              })
-                .width('100%')
-                .height('100%')
+              Column({ space: SpaceTokens.xs }) {
+                // 每日一帖：编辑部头版报头（日期/期数/EDITOR'S PICK）
+                this.dailyMasthead()
+                DailyPostDeck({
+                  deckVersion: this.dailyDeckVersion,
+                  posts: this.posts,
+                  loading: this.loading,
+                  finished: this.finished,
+                  onLoadMore: (): void => { this.loadMore(); },
+                  onOpen: (post: DailyPost): void => {
+                    if (post.id !== undefined) {
+                      trackPostEvent(post.id, 'click');
+                      openPostDetail(post.id.toString());
+                      this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
+                    }
+                  },
+                })
+                  .width('100%')
+                  .layoutWeight(1)
+              }
+              .width('100%')
+              .height('100%')
             }
             .onRefreshing(() => {
               this.isRefreshing = true;
