@@ -3,7 +3,7 @@
 // 点击跳转详情：照抄 HomeTab 父级 GridItem().onClick 包裹模式（PostCard 自身不处理点击）
 
 import { Post } from '../models/types';
-import { searchPosts } from '../services/api';
+import { searchPosts, trackPostEvent } from '../services/api';
 import { PostCard } from '../components/PostCard';
 import { openPostDetail, takeSearchKeyword } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
@@ -104,6 +104,8 @@ struct SearchResultPage {
   // 跳详情：照抄 HomeTab 父级包裹模式
   private goDetail(post: Post): void {
     if (post.id !== undefined) {
+      // 搜索结果点击带 search 场景：用于区分搜索与信息流的点击归因
+      trackPostEvent(post.id, 'click', 'search');
       const id = post.id.toString();
       openPostDetail(id);
       this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });

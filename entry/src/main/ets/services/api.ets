@@ -449,7 +449,7 @@ export function listFolderPosts(id: number, page: number, limit: number): Promis
 // POST /v1/metrics/post-event
 // scene 用于区分来源场景（daily=每日一贴 / feed=推荐关注流），
 // 否则各信息流的曝光与点击会混在一起，无法归因到具体场景。
-export type TrackScene = 'daily' | 'feed' | 'hot' | 'search' | 'profile';
+export type TrackScene = 'daily' | 'feed' | 'hot' | 'search' | 'circle' | 'profile';
 
 interface PostEventBody {
   postId: number;

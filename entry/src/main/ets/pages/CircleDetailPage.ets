@@ -1,5 +1,5 @@
 import { Post } from '../models/types';
-import { followTag, listFollowedTags, listPosts, unfollowTag } from '../services/api';
+import { followTag, listFollowedTags, listPosts, unfollowTag, trackPostEvent } from '../services/api';
 import { getToken } from '../utils/auth';
 import { openPostDetail, takeCircleDetailName } from '../utils/nav';
 import { observeGridColumns, gridColumnTemplate } from '../utils/responsive';
@@ -171,6 +171,8 @@ struct CircleDetailPage {
     if (post.id === undefined) {
       return;
     }
+    // 圈子（标签页）点击带 circle 场景：圈层内容点击是标签亲和的重要信号
+    trackPostEvent(post.id, 'click', 'circle');
     const id = String(post.id);
     openPostDetail(id);
     this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });

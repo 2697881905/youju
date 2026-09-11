@@ -16,7 +16,7 @@ import { env } from '../config/env';
 // - scene：来源场景（daily | feed | hot | search | profile），用于区分「每日一贴」与其它信息流的曝光/点击。
 const ACTIONS = ['expose', 'click', 'up', 'comment', 'bookmark', 'daily_open'];
 const POST_LEVEL_ACTIONS = ['expose', 'click', 'up', 'comment', 'bookmark'];
-const SCENES = ['daily', 'feed', 'hot', 'search', 'profile'];
+const SCENES = ['daily', 'feed', 'hot', 'search', 'circle', 'profile'];
 
 const router = Router();
 
