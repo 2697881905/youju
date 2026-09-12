@@ -14,6 +14,8 @@ export struct SpringPanel {
   @Prop panelPadding: number = SpaceTokens.lg;
   @Prop radius: number = RadiusTokens.lg;
   @Prop reduceMotion: boolean = false;
+  // 沉浸光感开关：true 时包 HdsVisualComponent 双边流光；false 仅使用系统玻璃（无流光）。
+  @Prop immersive: boolean = true;
   @StorageLink('reduceMotion') appReduceMotion: boolean = false;
   @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
   @State presented: boolean = false;
@@ -25,38 +27,48 @@ export struct SpringPanel {
     return this.reduceMotion || this.appReduceMotion || this.systemReduceMotion;
   }
 
+  @Builder
+  panelBody(): void {
+    Column() {
+      this.content();
+    }
+    .width(this.panelWidth)
+    .padding(this.panelPadding)
+    .backgroundBlurStyle(GlassBlurStyle.Floating)
+    .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
+    .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+    .borderRadius(this.radius)
+    .shadow(ShadowTokens.floating)
+    .clip(true)
+    .opacity(this.shouldReduceMotion() || this.presented ? 1 : 0)
+    .translate({ y: this.shouldReduceMotion() || this.presented ? 0 : SpaceTokens.xl })
+    .scale({
+      x: this.shouldReduceMotion() || this.presented ? 1 : MotionTokens.enterScale,
+      y: this.shouldReduceMotion() || this.presented ? 1 : MotionTokens.enterScale,
+    })
+    .animation({
+      duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.container,
+      curve: MotionCurves.springSoft,
+    })
+    .onAppear((): void => {
+      this.presented = true;
+    })
+    .onDisAppear((): void => {
+      // CustomDialog 控制器会复用 builder；关闭后复位，下一次打开仍有进入编舞。
+      this.presented = false;
+    })
+  }
+
   build() {
     // 沉浸光感材质（浮层面板）：真机由 HdsVisualComponent 提供双边流光，模拟器降级为系统玻璃。
     // 入场编舞（opacity/translate/scale）作用于玻璃表面；流光层同步生成，视觉上像光晕先行透出。
-    ImmersiveSurface({ radius: this.radius }) {
-      Column() {
-        this.content();
+    // immersive=false 时跳过流光层，仅保留系统玻璃面板（同款尺寸/编舞/材质）。
+    if (this.immersive) {
+      ImmersiveSurface({ radius: this.radius }) {
+        this.panelBody()
       }
-      .width(this.panelWidth)
-      .padding(this.panelPadding)
-      .backgroundBlurStyle(GlassBlurStyle.Floating)
-      .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
-      .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-      .borderRadius(this.radius)
-      .shadow(ShadowTokens.floating)
-      .clip(true)
-      .opacity(this.shouldReduceMotion() || this.presented ? 1 : 0)
-      .translate({ y: this.shouldReduceMotion() || this.presented ? 0 : SpaceTokens.xl })
-      .scale({
-        x: this.shouldReduceMotion() || this.presented ? 1 : MotionTokens.enterScale,
-        y: this.shouldReduceMotion() || this.presented ? 1 : MotionTokens.enterScale,
-      })
-      .animation({
-        duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.container,
-        curve: MotionCurves.springSoft,
-      })
-      .onAppear((): void => {
-        this.presented = true;
-      })
-      .onDisAppear((): void => {
-        // CustomDialog 控制器会复用 builder；关闭后复位，下一次打开仍有进入编舞。
-        this.presented = false;
-      });
+    } else {
+      this.panelBody()
     }
   }
 }

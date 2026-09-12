@@ -14,6 +14,8 @@ import { PublishMode, PublishModeSheet } from '../components/PublishModeSheet';
 import { LayoutTokens } from '../design/tokens/space';
 import { bottomNavInset } from '../utils/cardTokens';
 import { RadiusTokens } from '../design/tokens/radius';
+import { ColorTokens } from '../design/tokens/color';
+import { ShadowTokens } from '../design/tokens/shadow';
 import { common } from '@kit.AbilityKit';
 import { window } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
@@ -24,7 +26,6 @@ import { setSerifTypeface, setSerifBodyTypeface } from '../utils/textPoster';
 import { drawing } from '@kit.ArkGraphics2D';
 import { HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
 import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
-import { ImmersiveSurface } from '../design/components/ImmersiveSurface';
 import { BottomTabBar } from '../design/components/BottomTabBar';
 
 // 底部页签数据项（含发布占位 tab）。发布 tab 也走同一 builder，展示 + 图标。
@@ -45,11 +46,10 @@ struct PrivacyConsentDialog {
   onDecline: () => void = (): void => {};
 
   build() {
-    // 沉浸光感面板：真机在弹窗下方叠加双边流光，模拟器自动降级为系统玻璃（视觉不变）。
-    ImmersiveSurface({ radius: 16 }) {
-      // 注意：customStyle 弹窗的最终尺寸由 builder 内容决定，controller.width 不约束内容层，
-      // 因此必须在顶层 Column 上显式给定宽度（320vp），否则子元素（长文本）会撑满全屏宽、两侧贴边。
-      Column({ space: 12 }) {
+    // 已去掉 ImmersiveSurface 流光层，仅保留系统玻璃拟态面板。
+    // 注意：customStyle 弹窗的最终尺寸由 builder 内容决定，controller.width 不约束内容层，
+    // 因此必须在顶层 Column 上显式给定宽度（320vp），否则子元素（长文本）会撑满全屏宽、两侧贴边。
+    Column({ space: 12 }) {
       Text(this.getIsUpdate() ? '隐私政策更新' : '隐私政策与用户协议')
         .fontSize(17)
         .fontWeight(600)
@@ -91,11 +91,10 @@ struct PrivacyConsentDialog {
           .height(40)
           .fontFamily('Noto Serif SC')
           .fontColor($r('app.color.semantic_red'))
-          .backgroundBlurStyle(GlassBlurStyle.Dialog)
-          .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : $r('app.color.bar_surface'))
+          // 与首页分段栏「容器」完全一致：恒透明底 + 细描边 + 大圆角 + 无阴影
+          .backgroundColor(Color.Transparent)
           .border({ width: LayoutTokens.glassBorderWidth, color: $r('app.color.bar_border'), style: BorderStyle.Solid })
-          .borderRadius(RadiusTokens.md)
-          .shadow({ radius: 10, color: $r('app.color.bar_shadow'), offsetY: 3 })
+          .borderRadius(RadiusTokens.lg)
           .clip(true)
           .onClick((): void => {
             this.controller.close();
@@ -107,11 +106,10 @@ struct PrivacyConsentDialog {
           .height(40)
           .fontFamily('Noto Serif SC')
           .fontColor($r('app.color.ds_brand'))
-          .backgroundBlurStyle(GlassBlurStyle.Dialog)
-          .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : $r('app.color.bar_surface'))
-          .border({ width: LayoutTokens.glassBorderWidth, color: $r('app.color.bar_border'), style: BorderStyle.Solid })
-          .borderRadius(RadiusTokens.md)
-          .shadow({ radius: 10, color: $r('app.color.bar_shadow'), offsetY: 3 })
+          // 与首页分段栏「选中滑块」完全一致：纸面高亮 + 大圆角 + 无边框 + 细接触阴影
+          .backgroundColor(ColorTokens.barSelectionSurface)
+          .borderRadius(RadiusTokens.lg)
+          .shadow(ShadowTokens.cardContact)
           .clip(true)
           .onClick((): void => {
             this.controller.close();
@@ -128,7 +126,6 @@ struct PrivacyConsentDialog {
       .border({ width: LayoutTokens.glassBorderWidth, color: $r('app.color.glass_border'), style: BorderStyle.Solid })
       .borderRadius(16)
       .shadow({ radius: 16, color: $r('app.color.bar_shadow'), offsetY: 4 })
-      }
   }
 }
 
