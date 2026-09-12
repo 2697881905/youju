@@ -13,11 +13,11 @@
 
 | 项 | 状态 | 实测依据 |
 |---|---|---|
-| 隐私政策 URL | ✅ 已部署生效 | `https://api.mindtype.cn/privacy` 公网 HTTP 200，运营主体/邮箱/日期已填 |
+| 隐私政策 URL | ✅ 已部署生效 | `https://api.youju.chat/privacy` 公网 HTTP 200，运营主体/邮箱/日期已填 |
 | 用户协议 | ✅ App 内置 | LoginPage 入口 + Index 首启弹窗（`Index.ets:76/228`），未同意拦截 |
 | 华为登录 | ✅ 真链路 | client_id=6917613566723435312 与 .env 配对；真机全链路打通 |
 | 开发桩登录 | ✅ 双重保险 | `LoginPage.ets:30` release 隐藏按钮；`auth.ets:118/129` release 抛错；`Index.ets:202` 有 `BUILD_MODE==='debug'` 保护 |
-| API 地址分支 | ✅ | `api.ets:13` release→`https://api.mindtype.cn`，debug→127.0.0.1:3000 |
+| API 地址分支 | ✅ | `api.ets:13` release→`https://api.youju.chat`，debug→127.0.0.1:3000 |
 | 权限最小化 | ✅ | module.json5 仅 INTERNET + STORE_PERSISTENT_DATA，无敏感权限 |
 | release 签名 | ✅ 已配置 | `build-profile.json5` signingConfigs 含 release（.cer/.p7b/.p12），default 挂 debug |
 | 后端安全基线 | ✅ 已修 | JWT/CORS/helmet/限流(trust proxy=1)/幂等/内容过滤；敏感词库 595 条（通用 498 + 性别对立 97，去重后）已加载 |
@@ -62,7 +62,7 @@
 
 ### 7. landing 落地页未部署公网
 - 本地 `landing/index.html` 已更新为"理性内容分享社区"定位，但无公网地址。
-- 建议：如需要官网展示，可挂到 `mindtype.cn` 根域或子路径（需 DNS + nginx 静态托管，基础设施现成）。
+- 建议：如需要官网展示，可挂到 `youju.chat` 根域或子路径（需 DNS + nginx 静态托管，基础设施现成）。
 
 ### 8. git 通路被 GFW 阻断
 - 现状：服务器无法 `git pull`（github 被墙），依赖 tar+scp 同步。

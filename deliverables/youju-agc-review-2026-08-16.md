@@ -1,5 +1,7 @@
 # 「有据」AGC 上架前全面工程审查报告
 
+> **品牌过渡说明**：本报告中的 `api.mindtype.cn` 为当时的过渡域名（项目曾用名 MindType），现已统一迁移至 `api.youju.chat`。其他结论依然有效。
+
 - 应用：有据 youju · com.youju.app · HarmonyOS NEXT（API 24，ArkTS V1 严格模式）
 - 审查方式：静态代码审查 + 生产只读探测（curl/openssl，未改动任何环境）
 - 审查时间：2026-08-16 · 审查范围：前端 entry/ · 后端 backend/ · MySQL · COS · 华为 AGC 集成

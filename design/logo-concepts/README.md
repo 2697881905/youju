@@ -20,10 +20,10 @@
 
 ## 历史归档结构
 
-- `archive-early-mark/`：最初非字形草图（bbb-mark-v1 ~ v3）。
+- `archive-early-mark/`：最初非字形草图（early-mark-v1 ~ v3）。
 - `archive-focus-b/`：中间聚焦 B 字母形的位图预览。
-- `archive-letter-b/`：早期像素 B 字母形探索（bbb-pixel-*）。
-- 根目录的 `bbb-mark-v4-v6.svg` + `png/`：上述书本造型的最终概念稿。
+- `archive-letter-b/`：早期像素 B 字母形探索（early-pixel-*）。
+- 根目录的 `early-mark-v4-v6.svg` + `png/`：上述书本造型的最终概念稿。
 
 ## 当前品牌方向
 
