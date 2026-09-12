@@ -264,7 +264,12 @@ struct Index {
       await win.setWindowLayoutFullScreen(true);
       const area = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
       this.statusBarHeight = px2vp(area.topRect.height);
-      this.navBarHeight = px2vp(area.bottomRect.height);
+      // 底部导航高度（审核问题③）：三键导航条区域在 NEXT 上由 TYPE_NAVIGATION_INDICATOR 报告
+      //（TYPE_SYSTEM bottomRect 实测为 0），手势指示条也在该类型。取两者最大值——
+      // 三键 ≈28-40vp 抬升避让，手势 ≈16vp 顺带避开指示条。
+      const sysBottom = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
+      const navIndicator = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
+      this.navBarHeight = Math.max(px2vp(sysBottom.bottomRect.height), px2vp(navIndicator.bottomRect.height));
       AppStorage.setOrCreate<number>('statusBarHeight', this.statusBarHeight);
       AppStorage.setOrCreate<number>('navBarHeight', this.navBarHeight);
     } catch (e) {

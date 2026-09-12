@@ -116,7 +116,9 @@ export struct SettingsPage {
           await shareUserDataExport(this.getUIContext(), data);
           safeShowToast(this.getUIContext(), { message: '数据导出文件已生成' });
         } catch (e) {
-          safeShowToast(this.getUIContext(), { message: '导出失败：' + (e as Error).message });
+          // shareUserDataExport 已带阶段标记（[导出-文件]/[导出-分享面板]）；其余按网络阶段标注
+          const msg: string = (e as Error).message ?? '';
+          safeShowToast(this.getUIContext(), { message: msg.startsWith('[导出-') ? msg : '[导出-网络] ' + msg });
         }
       } },
     });
