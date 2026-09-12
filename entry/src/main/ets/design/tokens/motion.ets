@@ -32,4 +32,17 @@ export class MotionCurves {
   static readonly springSoft: ICurve = curves.cubicBezierCurve(0.22, 1.22, 0.36, 1);
   static readonly emphasized: ICurve = curves.cubicBezierCurve(0.16, 1, 0.3, 1);
   static readonly linear: ICurve = curves.cubicBezierCurve(0, 0, 1, 1);
+  // GSAP 级弹性预设（springMotion 系列）：duration 由曲线自算，response 越大越迟、dampingFraction 越大越不弹。
+  static readonly springInteract: ICurve = curves.springMotion(0.6, 0.85); // 柔和弹性（点赞按钮通用）
+  static readonly springBounce: ICurve = curves.springMotion(0.4, 0.7);   // 明显回弹（成功脉冲）
+  static readonly springRelease: ICurve = curves.springMotion(0.5, 0.75); // 离手回稳/飞出
+  // 卡堆专用复位：更快 + 轻微回弹（对应网页 return 弹簧 K=210/C=13 的“油润”手感）
+  static readonly springSettle: ICurve = curves.springMotion(0.3, 0.62);
+  // 卡堆拖拽追踪：质量弹簧追随手指（对应网页 drag K=300/C=19），快甩带轻微弹性滞后与速度量
+  static readonly springTrack: ICurve = curves.springMotion(0.25, 0.72);
+}
+
+// 60/120Hz 帧率适配：交给 animateTo / .animation 使用，避免高刷设备上动画时长不一致。
+export class MotionFrameRates {
+  static readonly default: ExpectedFrameRateRange = { min: 30, max: 120, expected: 60 };
 }

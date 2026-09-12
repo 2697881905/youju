@@ -27,6 +27,7 @@ import { BackButton } from '../design/components/BackButton';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
+import { bottomNavInset } from '../utils/cardTokens';
 import { RadiusTokens } from '../design/tokens/radius';
 import { TypeTokens } from '../design/tokens/type';
 import { MotionCurves } from '../design/tokens/motion';
@@ -1155,7 +1156,8 @@ export struct ChatPage {
         }
       }
       .width('100%')
-      .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.sm, bottom: SpaceTokens.md })
+      // 输入栏抬升避让三键导航条（审核问题③）；手势导航 navInset=0 不影响。
+      .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.sm, bottom: SpaceTokens.md + bottomNavInset() })
       .margin({ top: SpaceTokens.xs });
     }
     .width('100%')

@@ -15,6 +15,7 @@ import { DesignButton } from '../design/components/DesignButton';
 import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
+import { bottomNavInset } from '../utils/cardTokens';
 import { TypeTokens } from '../design/tokens/type';
 import { withCoverOnlyTextPoster } from '../utils/structuredFields';
 import { FALLBACK_VIDEO_ASPECT_RATIO, normalizeVideoAspectRatio } from '../utils/video';
@@ -649,7 +650,8 @@ struct PublishPreviewPage {
     }
     .width('100%')
     .height('100%')
-    .padding({ top: this.statusBarHeight + SpaceTokens.sm, bottom: SpaceTokens.md })
+    // 底部操作区抬升避让三键导航条（审核问题③）；手势导航 navInset=0 不影响。
+    .padding({ top: this.statusBarHeight + SpaceTokens.sm, bottom: SpaceTokens.md + bottomNavInset() })
     .backgroundColor(ColorTokens.canvas)
   }
 }

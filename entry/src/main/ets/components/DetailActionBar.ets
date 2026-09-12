@@ -5,7 +5,7 @@ import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
-import { MotionCurves, MotionTokens } from '../design/tokens/motion';
+import { MotionCurves, MotionTokens, MotionFrameRates } from '../design/tokens/motion';
 import { Pressable } from '../design/motion/Pressable';
 import { GlowInput } from '../design/components/GlowInput';
 
@@ -74,7 +74,8 @@ struct DetailActionButton {
       .scale({ x: this.confirmationScale, y: this.confirmationScale })
       .animation({
         duration: this.reduceMotion() ? MotionTokens.instant : MotionTokens.control,
-        curve: MotionCurves.spring,
+        curve: MotionCurves.springBounce,
+        expectedFrameRateRange: MotionFrameRates.default,
       })
     }
   }

@@ -1,5 +1,6 @@
 import { common } from '@kit.AbilityKit';
 import { fileIo } from '@kit.CoreFileKit';
+import { fileUri } from '@kit.CoreFileKit';
 import { systemShare } from '@kit.ShareKit';
 import { util } from '@kit.ArkTS';
 import { UserExportData } from '../models/types';
@@ -33,9 +34,12 @@ export async function shareUserDataExport(uiContext: UIContext, data: UserExport
     fileIo.closeSync(file);
   }
 
+  // 审核问题②修复：文件 URI 必须经 fileUri.getUriFromPath 生成（自带 file://<bundleName> authority）。
+  // 手拼 'file://' + path 缺少 bundle authority，是非法 URI，系统分享面板会直接抛错导致「导出失败」。
+  const shareableUri: string = fileUri.getUriFromPath(path);
   const record: systemShare.SharedRecord = {
     utd: 'general.file',
-    uri: 'file://' + path,
+    uri: shareableUri,
     title: '有据个人数据导出',
     description: 'JSON 数据导出文件',
   };

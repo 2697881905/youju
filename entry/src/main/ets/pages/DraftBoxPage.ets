@@ -6,6 +6,7 @@ import { BackButton } from '../design/components/BackButton';
 import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
+import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
@@ -135,6 +136,13 @@ struct DraftBoxPage {
         .position({ top: SpaceTokens.sm, left: SpaceTokens.sm })
     }
     .width('100%')
+    // 列表项出现/消失过渡：ForEach key 稳定，仅被删项单独退场，其余项不重播
+    .transition(
+      TransitionEffect.OPACITY
+        .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate })
+        .combine(TransitionEffect.translate({ y: 16 })
+          .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate }))
+    )
   }
 
   build() {

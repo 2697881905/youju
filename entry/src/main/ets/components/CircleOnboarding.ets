@@ -6,6 +6,7 @@ import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
+import { bottomNavInset } from '../utils/cardTokens';
 import { TypeTokens } from '../design/tokens/type';
 import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
 import { ImmersiveSurface } from '../design/components/ImmersiveSurface';
@@ -132,7 +133,8 @@ export struct CircleOnboarding {
     }
     .width('100%')
     .height('100%')
-    .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.x2l, bottom: SpaceTokens.x2l })
+    // 底部按钮抬升避让三键导航条（审核问题③）；手势导航 navInset=0 不影响。
+    .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.x2l, bottom: SpaceTokens.x2l + bottomNavInset() })
     .backgroundColor(ColorTokens.canvas)
     .alignItems(HorizontalAlign.Start)
   }

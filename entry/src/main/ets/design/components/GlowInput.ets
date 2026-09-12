@@ -49,11 +49,21 @@ export struct GlowInput {
   @State inputW: number = 0;
   @State inputH: number = 0;
 
-  private glowController: HdsSceneController = new HdsSceneController();
+  // HdsSceneController @since 6.0.2(22)：API 20/21 上构造函数不存在。
+  // 惰性创建，且仅在 isImmersiveLightSenseSupported()（API 23+）分支内使用。
+  private glowController: HdsSceneController | null = null;
+
+  // 惰性获取控制器：只在 API 23+ 路径下触发 new，低版本设备不会执行。
+  private getGlowController(): HdsSceneController {
+    if (this.glowController === null) {
+      this.glowController = new HdsSceneController();
+    }
+    return this.glowController;
+  }
 
   aboutToAppear(): void {
     if (isImmersiveLightSenseSupported()) {
-      this.glowController.setSceneParams({
+      this.getGlowController().setSceneParams({
         backgroundMaskColors: ['#1EFFFFFF', '#1E86CFFF'],
         firstEdgeFlowLight: { startPos: 0, endPos: 0.5, color: '#C4FFFFFF' },
         secondEdgeFlowLight: { startPos: 0, endPos: -0.5, color: '#8FC8EFFF' },
@@ -73,7 +83,7 @@ export struct GlowInput {
       // 原生流光层：仅聚焦时点亮；置顶 + 触摸透传，不遮挡输入交互
       if (isImmersiveLightSenseSupported() && this.focused && this.inputW > 0 && this.inputH > 0) {
         HdsVisualComponent()
-          .scene(HdsSceneType.DUAL_EDGE_FLOW_LIGHT_WITH_BACKGROUND_MASK, this.glowController)
+          .scene(HdsSceneType.DUAL_EDGE_FLOW_LIGHT_WITH_BACKGROUND_MASK, this.getGlowController())
           .width(this.inputW)
           .height(this.inputH)
           .borderRadius(this.radius)

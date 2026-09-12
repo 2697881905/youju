@@ -47,8 +47,9 @@ import { DetailCommentsSection } from '../components/DetailCommentsSection';
 import { DetailActionBar } from '../components/DetailActionBar';
 import { AtMentionSuggest } from '../components/AtMentionSuggest';
 import { findActiveAtMention, applyAtMention, AtMentionMatch } from '../utils/atMention';
-import { barBottomReserve } from '../utils/cardTokens';
+import { barBottomReserve, bottomNavInset } from '../utils/cardTokens';
 import { FALLBACK_VIDEO_ASPECT_RATIO, normalizeVideoAspectRatio } from '../utils/video';
+import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 
 
 // 字段定义：[结构化字段键, 中文标签]，按产品文档 2.4 各体裁字段表
@@ -943,6 +944,23 @@ struct DetailPage {
     this.clearCommentMentions();
   }
 
+  // 详情页「分层进入」转场：媒体区先到（无延迟的缩放淡入），标题/正文/评论区按
+  // delay 错峰进入（共享动势 + 错峰）。仅动 transform/opacity，不参与布局属性动画。
+  private animLayerEnter(delay: number): TransitionEffect {
+    return TransitionEffect.OPACITY
+      .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate, delay: delay })
+      .combine(TransitionEffect.translate({ y: 10 })
+        .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate, delay: delay }));
+  }
+
+  // 详情页媒体区：以缩放起步（与列表卡片视觉动量一致的共享动势），无延迟先到
+  private animMediaEnter(): TransitionEffect {
+    return TransitionEffect.OPACITY
+      .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate })
+      .combine(TransitionEffect.scale({ x: MotionTokens.enterScale, y: MotionTokens.enterScale })
+        .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate }));
+  }
+
   build() {
     Column() {
       // 分享卡图全屏预览（无系统依赖，可截图/复制链接带走）
@@ -1069,6 +1087,7 @@ struct DetailPage {
                 createdAt: this.post.createdAt,
                 onOpenAuthor: (): void => { this.openAuthorProfile(); },
               })
+                .transition(this.animLayerEnter(100))
 
               if (this.videoUrl.length > 0) {
                 Column() {
@@ -1079,12 +1098,14 @@ struct DetailPage {
                 .backgroundColor(Color.Black)
                 .borderRadius(12)
                 .clip(true)
+                .transition(this.animMediaEnter())
               } else {
                 DetailMediaCarousel({
                   images: this.images,
                   activeIndex: $activeImageIndex,
                   onOpenImage: (url: string): void => { this.viewingImage = url; },
                 })
+                  .transition(this.animMediaEnter())
               }
 
               DetailPostContent({
@@ -1098,6 +1119,7 @@ struct DetailPage {
                 mentions: this.post.mentions ?? [],
                 onVote: (choice: string): void => { this.onDebateVote(choice); },
               })
+                .transition(this.animLayerEnter(100))
 
               DetailCommentsSection({
                 comments: this.post.comments ?? [],
@@ -1105,6 +1127,7 @@ struct DetailPage {
                 onReportComment: (commentId: number): void => { this.openCommentReport(commentId); },
                 onReplyComment: (comment: Comment): void => { this.onReplyComment(comment); },
               })
+                .transition(this.animLayerEnter(160))
 
               // 真实滚动内容占位，末尾评论可完整滑出悬浮互动栏下方。
               Blank()
@@ -1150,8 +1173,11 @@ struct DetailPage {
               replyName: this.replyTargetName,
               onCancelReply: (): void => { this.onCancelReply(); },
             })
+              .transition(this.animLayerEnter(100))
           }
           .width('100%')
+          // 底部互动栏抬升避让三键导航条（审核问题③）；手势导航 navInset=0 不影响。
+          .margin({ bottom: bottomNavInset() })
           .zIndex(1)
         }
         .layoutWeight(1)
