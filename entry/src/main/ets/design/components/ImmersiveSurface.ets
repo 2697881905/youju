@@ -40,7 +40,10 @@ export struct ImmersiveSurface {
   @Prop explicitWidth: number = 0;
   @Prop explicitHeight: number = 0;
 
-  private sceneController: HdsSceneController = new HdsSceneController();
+  // HdsSceneController @since 6.0.2(22)：API 20/21 上构造函数不存在。
+  // 惰性创建，且仅在 isImmersiveLightSenseSupported()（API 23+）分支内使用——
+  // 低版本设备永远不会触碰构造，避免字段初始化即崩。
+  private sceneController: HdsSceneController | null = null;
   // 流光层实际像素尺寸：由内容 onAreaChange 实测驱动。
   // 不用 width/height('100%')——百分比会在自动尺寸 Stack 中按父约束解析，
   // 在对话框场景会撑满整屏（发布弹窗全屏发光的根因）。
@@ -59,9 +62,18 @@ export struct ImmersiveSurface {
     return this.explicitHeight > 0 ? this.explicitHeight : this.glowHeight;
   }
 
+  // 惰性获取控制器：仅在 API 23+（isImmersiveLightSenseSupported）路径下调用，
+  // 保证 new HdsSceneController()（@since 22）只在存在该类的设备上执行。
+  private getSceneController(): HdsSceneController {
+    if (this.sceneController === null) {
+      this.sceneController = new HdsSceneController();
+    }
+    return this.sceneController;
+  }
+
   aboutToAppear(): void {
     if (isImmersiveLightSenseSupported()) {
-      this.sceneController.setSceneParams({
+      this.getSceneController().setSceneParams({
         backgroundMaskColors: this.maskColors,
         firstEdgeFlowLight: { startPos: 0, endPos: 0.5, color: this.edgeColor },
         secondEdgeFlowLight: { startPos: 0, endPos: -0.5, color: this.edgeColor2 },
@@ -80,7 +92,7 @@ export struct ImmersiveSurface {
       // 触摸透传，不拦截表面交互。
       if (isImmersiveLightSenseSupported() && this.glowW() > 0 && this.glowH() > 0) {
         HdsVisualComponent()
-          .scene(HdsSceneType.DUAL_EDGE_FLOW_LIGHT_WITH_BACKGROUND_MASK, this.sceneController)
+          .scene(HdsSceneType.DUAL_EDGE_FLOW_LIGHT_WITH_BACKGROUND_MASK, this.getSceneController())
           .width(this.glowW())
           .height(this.glowH())
           .borderRadius(this.radius)

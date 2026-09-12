@@ -94,12 +94,18 @@ export default class EntryAbility extends UIAbility {
     const dark: boolean = isDarkMode();
     // 与 ColorTokens.canvas（浅 #F6F1E3 / 深 #14120C）保持一致
     const barColor: string = dark ? '#FF14120C' : '#FFF6F1E3';
+    // 状态栏/导航条内容色必须显式跟随应用主题（审核问题④：仅设背景色时内容由系统按
+    // 「系统深浅」自选，应用内主题与系统深浅不一致时就出现浅底白字/深底黑字（对比度 1.1 < 3）。
+    // 纯黑/纯白 vs 画布色对比度均 > 15，稳过 ≥3 要求。
+    const barContentColor: string = dark ? '#FFFFFFFF' : '#FF000000';
     try {
       const win = this.winStage.getMainWindowSync();
       win.setWindowBackgroundColor(barColor);
       win.setWindowSystemBarProperties({
         navigationBarColor: '#00000000', // 底部透明：内容可延伸到物理底，不被系统色带遮挡
+        navigationBarContentColor: barContentColor,
         statusBarColor: barColor,
+        statusBarContentColor: barContentColor,
       }).catch((): void => {
         // 系统栏着色失败可忽略：窗口背景色已兜底底部区域配色
       });

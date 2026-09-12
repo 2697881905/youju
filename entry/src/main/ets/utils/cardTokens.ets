@@ -21,3 +21,12 @@ export function barBottomReserve(): number {
   const nav: number = AppStorage.get<number>('navBarHeight') ?? 0;
   return LayoutTokens.floatingBarReserve + nav;
 }
+
+// 底部导航条避让（审核问题③）：三键导航设备上系统导航条占据屏幕底部区域
+//（TYPE_SYSTEM bottomRect，约 28-32vp），贴底交互控件必须整体抬高避让，否则被审核判定
+// 「底部控件抬高避让小于 28vp」。手势导航设备该值为 0，布局保持原样不受影响。
+// navBarHeight 由 Index.setupFullScreen 启动时测量写入 AppStorage。
+export function bottomNavInset(): number {
+  const nav: number = AppStorage.get<number>('navBarHeight') ?? 0;
+  return nav > 0 ? nav : 0;
+}

@@ -12,6 +12,7 @@ import { Tag } from '../models/types';
 import { safeShowToast } from '../utils/toast';
 import { PublishMode, PublishModeSheet } from '../components/PublishModeSheet';
 import { LayoutTokens } from '../design/tokens/space';
+import { bottomNavInset } from '../utils/cardTokens';
 import { RadiusTokens } from '../design/tokens/radius';
 import { common } from '@kit.AbilityKit';
 import { window } from '@kit.ArkUI';
@@ -21,7 +22,7 @@ import { publishFlowStore } from '../utils/publishFlowStore';
 import { AppTab, subscribeTabSwitch } from '../utils/nav';
 import { setSerifTypeface, setSerifBodyTypeface } from '../utils/textPoster';
 import { drawing } from '@kit.ArkGraphics2D';
-import { HdsTabs, HdsTabsController, hdsMaterial } from '@kit.UIDesignKit';
+import { HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
 import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
 import { ImmersiveSurface } from '../design/components/ImmersiveSurface';
 
@@ -148,6 +149,10 @@ struct Index {
   @State navBarHeight: number = 0;
   @State launchComplete: boolean = false;
   private hdsController: HdsTabsController = new HdsTabsController();
+  // 悬浮玻璃底栏（barFloatingStyle 及其全部字段）@since 6.1.0(23)：API 6.0.2(22) 上调用会抛
+  // TypeError（方法不存在）导致首页无法渲染。isImmersiveLightSenseSupported() 现为同步确定值
+  // （deviceInfo.sdkApiVersion + canIUse，进程级缓存），不会运行期翻转 → 组件不会重建。
+  private hdsFloatingBar: boolean = isImmersiveLightSenseSupported();
   @State lastPageIndex: number = 0;   // 发布前的实际页面 tab，用于发布后回跳
   private sessionRecovering: boolean = false;
   private unsubscribeTabSwitch: () => void = () => {};
@@ -489,53 +494,102 @@ struct Index {
     .alignItems(HorizontalAlign.Center)
   }
 
+  // 五个页签内容：发布占位（index=2）点击由 handleTabBarClick 拦截，不展示任何内容。
+  @Builder
+  mainTabContents() {
+    TabContent() { HomeTab() }
+      .tabBar(this.tabBarBuilder(0))
+    TabContent() { CircleTab() }
+      .tabBar(this.tabBarBuilder(1))
+    // 发布占位：内容为空，点击由 handleTabBarClick 拦截弹窗，不展示任何内容。
+    TabContent() { Column() {} }
+      .tabBar(this.tabBarBuilder(2))
+    TabContent() { MessagePage() }
+      .tabBar(this.tabBarBuilder(3))
+    TabContent() { ProfilePage() }
+      .tabBar(this.tabBarBuilder(4))
+  }
+
+  // API 23+ 分支：悬浮玻璃底栏（barFloatingStyle/HdsTabsFloatingStyle/hdsMaterial 均 @since 23）。
+  // systemMaterialEffect 传数值字面量（IMMERSIVE=101 / ADAPTIVE=10，对照见 immersiveMaterial.ets），
+  // 避免静态 import hdsMaterial——该模块在 API 22 上不存在，import 即崩（审核问题①根因）。
+  @Builder
+  mainTabsFloating() {
+    HdsTabs({ controller: this.hdsController }) {
+      this.mainTabContents()
+    }
+    .barOverlap(true)                        // 悬浮：页签覆盖内容
+    .barPosition(BarPosition.End)            // 底部
+    .vertical(false)                         // 水平
+    .barFloatingStyle({
+      // barBottomMargin 在系统导航区之上再留 28vp：三键导航设备 navInset≈28-32vp，
+      // 固定 28 会让底栏侵入导航条（审核问题③）；手势导航 navInset=0，维持原设计。
+      barWidth: { smallWidth: 300, mediumWidth: 420, largeWidth: 560 },
+      barSideMargin: 16,
+      barBottomMargin: 28 + bottomNavInset(),
+      gradientMask: { maskColor: $r('app.color.bar_gradient_mask'), maskHeight: 92 },
+      systemMaterialEffect: {
+        materialType: 101,
+        materialLevel: 10,
+      },
+    })
+    .scrollable(false)                       // 禁止页面主体左右滑动切换 Tab，仅点击底部页签切换
+    .onContentWillChange((currentIndex: number, comingIndex: number): boolean => {
+      // 发布占位 tab 不可切换：点击发布 tab 时阻止内容切换（配合 onTabBarClick 弹窗），
+      // 从根上消除"先切走再弹回"的横向动画
+      if (comingIndex === 2) {
+        return false;
+      }
+      return true;
+    })
+    .onTabBarClick((index: number): void => { this.handleTabBarClick(index); })
+    .onChange((index: number): void => {
+      // 防发布占位页误切换：即使当前瞬时 index=2，也回跳并拒绝广播，确保 activeTab 不驻留 2。
+      if (index === 2) {
+        this.hdsController.changeIndex(this.currentIndex === 2 ? this.lastPageIndex : this.currentIndex);
+        return;
+      }
+      this.selectTab(index);
+    })
+  }
+
+  // API 22 及以下 / 模拟器分支：省略 barFloatingStyle（@since 23），其余属性全部 @since 20 可用。
+  // 底栏退化为标准悬浮页签（barOverlap 仍生效），功能完整，仅失去玻璃药丸视觉。
+  @Builder
+  mainTabsPlain() {
+    HdsTabs({ controller: this.hdsController }) {
+      this.mainTabContents()
+    }
+    .barOverlap(true)                        // 悬浮：页签覆盖内容
+    .barPosition(BarPosition.End)            // 底部
+    .vertical(false)                         // 水平
+    .scrollable(false)
+    // API 22 分支：底栏抬升避让三键导航条（审核问题③）；手势导航 navInset=0 不影响。
+    .padding({ bottom: bottomNavInset() })
+    .onContentWillChange((currentIndex: number, comingIndex: number): boolean => {
+      if (comingIndex === 2) {
+        return false;
+      }
+      return true;
+    })
+    .onTabBarClick((index: number): void => { this.handleTabBarClick(index); })
+    .onChange((index: number): void => {
+      if (index === 2) {
+        this.hdsController.changeIndex(this.currentIndex === 2 ? this.lastPageIndex : this.currentIndex);
+        return;
+      }
+      this.selectTab(index);
+    })
+  }
+
   build() {
     Stack({ alignContent: Alignment.Bottom }) {
       Column() {
-        HdsTabs({ controller: this.hdsController }) {
-          TabContent() { HomeTab() }
-            .tabBar(this.tabBarBuilder(0))
-          TabContent() { CircleTab() }
-            .tabBar(this.tabBarBuilder(1))
-          // 发布占位：内容为空，点击由 handleTabBarClick 拦截弹窗，不展示任何内容。
-          TabContent() { Column() {} }
-            .tabBar(this.tabBarBuilder(2))
-          TabContent() { MessagePage() }
-            .tabBar(this.tabBarBuilder(3))
-          TabContent() { ProfilePage() }
-            .tabBar(this.tabBarBuilder(4))
+        if (this.hdsFloatingBar) {
+          this.mainTabsFloating()
+        } else {
+          this.mainTabsPlain()
         }
-        .barOverlap(true)                        // 悬浮：页签覆盖内容
-        .barPosition(BarPosition.End)            // 底部
-        .vertical(false)                         // 水平
-        .barFloatingStyle({
-          barWidth: { smallWidth: 300, mediumWidth: 420, largeWidth: 560 },
-          barSideMargin: 16,
-          barBottomMargin: 28,
-          gradientMask: { maskColor: $r('app.color.bar_gradient_mask'), maskHeight: 92 },
-          systemMaterialEffect: {
-            materialType: hdsMaterial.MaterialType.IMMERSIVE,
-            materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE,
-          },
-        })
-        .scrollable(false)                       // 禁止页面主体左右滑动切换 Tab，仅点击底部页签切换
-        .onContentWillChange((currentIndex: number, comingIndex: number): boolean => {
-          // 发布占位 tab 不可切换：点击发布 tab 时阻止内容切换（配合 onTabBarClick 弹窗），
-          // 从根上消除"先切走再弹回"的横向动画
-          if (comingIndex === 2) {
-            return false;
-          }
-          return true;
-        })
-        .onTabBarClick((index: number): void => { this.handleTabBarClick(index); })
-        .onChange((index: number): void => {
-          // 防发布占位页误切换：即使当前瞬时 index=2，也回跳并拒绝广播，确保 activeTab 不驻留 2。
-          if (index === 2) {
-            this.hdsController.changeIndex(this.currentIndex === 2 ? this.lastPageIndex : this.currentIndex);
-            return;
-          }
-          this.selectTab(index);
-        })
       }
       .width('100%')
       .height('100%')
