@@ -12,6 +12,8 @@ import { GlowInput } from '../design/components/GlowInput';
 @Component
 struct DetailActionButton {
   @Prop icon: Resource = resolveActionIcon('like');
+  // 激活态专用图标（实心彩色 SVG，base/dark 双套状态色）；缺省回退线条 icon
+  @Prop activeIcon: Resource = resolveActionIcon('like');
   @Prop label: string = '';
   @Prop active: boolean = false;
   @Prop disabled: boolean = false;
@@ -57,10 +59,17 @@ struct DetailActionButton {
       action: (): void => { this.onAction(); },
     }) {
       Column({ space: SpaceTokens.inlineTight }) {
-        // 一律主题线条图标（激活/未激活同形），状态色由下方文字表达（保留反馈缩放动效）
-        Image(this.icon)
-          .width(IconTokens.small)
-          .height(IconTokens.small)
+        // 激活态切换实心彩色图标（点赞红/收藏黄），未激活保持主题线条图标；
+        // 状态色由图标 + 下方文字共同表达（保留反馈缩放动效）
+        if (this.active) {
+          Image(this.activeIcon)
+            .width(IconTokens.small)
+            .height(IconTokens.small)
+        } else {
+          Image(this.icon)
+            .width(IconTokens.small)
+            .height(IconTokens.small)
+        }
         Text(this.label)
           .fontSize(TypeTokens.navLabel.size).fontFamily(TypeTokens.fontFamily)
           .fontColor(this.active ? this.activeColor : ColorTokens.secondary)
@@ -168,8 +177,8 @@ export struct DetailActionBar {
       .justifyContent(FlexAlign.Center)
       } else {
         Row() {
-          DetailActionButton({ icon: resolveActionIcon('like'), label: formatCount(this.upCount), active: this.uped, activeColor: ColorTokens.like, disabled: this.upPending, feedbackVersion: this.upFeedbackVersion, onAction: (): void => { this.onUp(); } }).layoutWeight(1)
-          DetailActionButton({ icon: resolveActionIcon('bookmark'), label: formatCount(this.bookmarkCount), active: this.bookmarked, activeColor: ColorTokens.bookmark, disabled: this.bookmarkPending, feedbackVersion: this.bookmarkFeedbackVersion, onAction: (): void => { this.onBookmark(); } }).layoutWeight(1)
+          DetailActionButton({ icon: resolveActionIcon('like'), activeIcon: resolveActionIcon('likeActive'), label: formatCount(this.upCount), active: this.uped, activeColor: ColorTokens.like, disabled: this.upPending, feedbackVersion: this.upFeedbackVersion, onAction: (): void => { this.onUp(); } }).layoutWeight(1)
+          DetailActionButton({ icon: resolveActionIcon('bookmark'), activeIcon: resolveActionIcon('bookmarkActive'), label: formatCount(this.bookmarkCount), active: this.bookmarked, activeColor: ColorTokens.bookmark, disabled: this.bookmarkPending, feedbackVersion: this.bookmarkFeedbackVersion, onAction: (): void => { this.onBookmark(); } }).layoutWeight(1)
           DetailActionButton({ icon: resolveActionIcon('comment'), label: formatCount(this.commentCount), onAction: (): void => { this.commenting = true; } }).layoutWeight(1)
           if (this.showShare) {
             DetailActionButton({ icon: resolveActionIcon('share'), label: '分享', onAction: (): void => { this.onShare(); } }).layoutWeight(1)

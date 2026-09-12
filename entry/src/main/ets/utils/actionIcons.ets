@@ -7,8 +7,10 @@ import { NotificationType } from '../models/types';
 const ACTION_ICONS: Map<string, Resource> = new Map<string, Resource>([
   // 动作
   ['like', $r('app.media.action_like')],
+  ['likeActive', $r('app.media.action_like_active')],
   ['comment', $r('app.media.action_comment')],
   ['bookmark', $r('app.media.action_bookmark')],
+  ['bookmarkActive', $r('app.media.action_bookmark_active')],
   ['share', $r('app.media.action_share')],
   ['send', $r('app.media.action_send')],
   ['follow', $r('app.media.action_follow')],
