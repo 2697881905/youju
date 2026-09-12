@@ -742,36 +742,28 @@ export struct HomeTab {
           .justifyContent(FlexAlign.Center)
         } else {
           if (this.feedMode === 'daily') {
-            Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
-              Column({ space: SpaceTokens.xs }) {
-                // 每日一帖：编辑部头版报头（日期/期数/EDITOR'S PICK）
-                this.dailyMasthead()
-                DailyPostDeck({
-                  deckVersion: this.dailyDeckVersion,
-                  posts: this.posts,
-                  loading: this.loading,
-                  finished: this.finished,
-                  onLoadMore: (): void => { this.loadMore(); },
-                  onOpen: (post: DailyPost): void => {
-                    if (post.id !== undefined) {
-                      trackPostEvent(post.id, 'click', 'daily');
-                      openPostDetail(post.id.toString());
-                      this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
-                    }
-                  },
-                })
-                  .width('100%')
-                  .layoutWeight(1)
-              }
-              .width('100%')
-              .height('100%')
+            // 每日一帖禁用下拉刷新：10 帖为固定编辑部精选，下拉无意义；
+            // 且 Refresh 手势与 DailyPostDeck 的卡牌拖拽冲突
+            Column({ space: SpaceTokens.xs }) {
+              // 每日一帖：编辑部头版报头（日期/期数/EDITOR'S PICK）
+              this.dailyMasthead()
+              DailyPostDeck({
+                deckVersion: this.dailyDeckVersion,
+                posts: this.posts,
+                loading: this.loading,
+                finished: this.finished,
+                onLoadMore: (): void => { this.loadMore(); },
+                onOpen: (post: DailyPost): void => {
+                  if (post.id !== undefined) {
+                    trackPostEvent(post.id, 'click', 'daily');
+                    openPostDetail(post.id.toString());
+                    this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
+                  }
+                },
+              })
+                .width('100%')
+                .layoutWeight(1)
             }
-            .onRefreshing(() => {
-              this.isRefreshing = true;
-              this.refresh().finally(() => {
-                this.isRefreshing = false;
-              });
-            })
             .width('100%')
             .height('100%')
           } else {
