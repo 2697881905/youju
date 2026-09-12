@@ -25,6 +25,7 @@ import { drawing } from '@kit.ArkGraphics2D';
 import { HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
 import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
 import { ImmersiveSurface } from '../design/components/ImmersiveSurface';
+import { BottomTabBar } from '../design/components/BottomTabBar';
 
 // 底部页签数据项（含发布占位 tab）。发布 tab 也走同一 builder，展示 + 图标。
 interface IndexTabItem {
@@ -149,6 +150,8 @@ struct Index {
   @State navBarHeight: number = 0;
   @State launchComplete: boolean = false;
   private hdsController: HdsTabsController = new HdsTabsController();
+  // API 20-22 分支用内置 Tabs（API 7）承载内容，底栏由自绘玻璃药丸（BottomTabBar）负责。
+  private tabsController: TabsController = new TabsController();
   // 悬浮玻璃底栏（barFloatingStyle 及其全部字段）@since 6.1.0(23)：API 6.0.2(22) 上调用会抛
   // TypeError（方法不存在）导致首页无法渲染。isImmersiveLightSenseSupported() 现为同步确定值
   // （deviceInfo.sdkApiVersion + canIUse，进程级缓存），不会运行期翻转 → 组件不会重建。
@@ -553,29 +556,30 @@ struct Index {
     })
   }
 
-  // API 22 及以下 / 模拟器分支：省略 barFloatingStyle（@since 23），其余属性全部 @since 20 可用。
-  // 底栏退化为标准悬浮页签（barOverlap 仍生效），功能完整，仅失去玻璃药丸视觉。
+  // API 20-22 / 模拟器分支：HdsTabs.barFloatingStyle @since 23 不可用，但视觉不降级——
+  // 内置 Tabs（API 7）承载内容（barHeight(0) 隐藏自带条 + 隐藏分隔线），底部悬浮玻璃药丸
+  // 由自绘 BottomTabBar（纯标准 ArkUI API，圆角/模糊/描边/阴影/点光源/弹性高亮全保留）
+  // 叠加实现，视觉与 API 23+ 悬浮条同款。三键导航避让由药丸外层 margin 承担。
   @Builder
   mainTabsPlain() {
-    HdsTabs({ controller: this.hdsController }) {
+    Tabs({ barPosition: BarPosition.End, controller: this.tabsController }) {
       this.mainTabContents()
     }
-    .barOverlap(true)                        // 悬浮：页签覆盖内容
-    .barPosition(BarPosition.End)            // 底部
-    .vertical(false)                         // 水平
+    .width('100%')
+    .height('100%')
+    .vertical(false)
     .scrollable(false)
-    // API 22 分支：底栏抬升避让三键导航条（审核问题③）；手势导航 navInset=0 不影响。
-    .padding({ bottom: bottomNavInset() })
+    .barHeight(0)
+    .divider({ strokeWidth: 0, color: Color.Transparent })
     .onContentWillChange((currentIndex: number, comingIndex: number): boolean => {
       if (comingIndex === 2) {
         return false;
       }
       return true;
     })
-    .onTabBarClick((index: number): void => { this.handleTabBarClick(index); })
     .onChange((index: number): void => {
       if (index === 2) {
-        this.hdsController.changeIndex(this.currentIndex === 2 ? this.lastPageIndex : this.currentIndex);
+        this.tabsController.changeIndex(this.currentIndex === 2 ? this.lastPageIndex : this.currentIndex);
         return;
       }
       this.selectTab(index);
@@ -594,6 +598,28 @@ struct Index {
       .width('100%')
       .height('100%')
       .padding({ top: this.statusBarHeight })
+
+      // API 20-22 分支：自绘悬浮玻璃药丸底栏（BottomTabBar，纯标准 ArkUI，无 HDS 依赖）。
+      // 与 API 23+ 的 HdsTabs 悬浮条同款视觉；三键导航避让由 margin 承担（审核问题③）。
+      if (!this.hdsFloatingBar) {
+        Row() {
+          BottomTabBar({
+            items: this.bottomTabItems(),
+            currentIndex: $currentIndex,
+            unreadCount: this.unreadCount + this.dmUnread,
+            onSelect: (index: number): void => {
+              this.handleTabBarClick(index);
+              if (index !== 2) {
+                this.tabsController.changeIndex(index);
+              }
+            },
+          })
+        }
+        .width('100%')
+        .padding({ left: LayoutTokens.tabBarSideMargin, right: LayoutTokens.tabBarSideMargin })
+        .margin({ bottom: LayoutTokens.tabBarBottomGap + bottomNavInset() })
+        .zIndex(50)
+      }
 
       if (this.showCircleOnboarding) {
         CircleOnboarding({
