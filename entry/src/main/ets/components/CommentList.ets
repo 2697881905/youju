@@ -222,7 +222,7 @@ export struct CommentList {
   actionStrip(c: Comment, compact: boolean) {
     Row({ space: 14 }) {
       Row({ space: 2 }) {
-        Image(resolveActionIcon('like'))
+        Image(this.isLiked(c) ? resolveActionIcon('likeActive') : resolveActionIcon('like'))
           .width(compact ? 12 : 13)
           .height(compact ? 12 : 13)
         Text(formatCount(this.commentUp(c)))
