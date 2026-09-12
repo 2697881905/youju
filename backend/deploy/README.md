@@ -77,4 +77,4 @@ docker compose --env-file .env.production -f docker-compose.production.yml exec 
 
 ## 6. App 上线前最后一步
 
-在 `entry/src/main/ets/services/api.ets` 中，将正式 `BASE_URL` 从当前占位 `https://api.youju.com` 改成你已经拥有、证书已生效的 `API_DOMAIN`，然后重新构建签名 Release 包并在真机上验证登录、COS 图片上传、发布、互动与推送。
+在 `entry/src/main/ets/services/api.ets` 中，将正式 `BASE_URL` 指向已部署、证书已生效的 `https://api.youju.chat`（当前已硬编码），然后重新构建签名 Release 包并在真机上验证登录、COS 图片上传、发布、互动与推送。

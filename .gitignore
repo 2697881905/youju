@@ -24,11 +24,14 @@ backend/.env
 # 本地签名材料（含测试用 keystore/证书/描述文件，由 AGC 正式材料替换）
 entry/material/
 
-# 签名配置（含环境变量占位，真实密码经 ${env.BBB_RELEASE_STORE_PASSWORD} 注入，勿入库）
+# 签名配置（含环境变量占位，真实密码经 ${env.YOUJU_RELEASE_STORE_PASSWORD} 注入，勿入库）
 build-profile.json5
 
 # WorkBuddy agent 记忆（非项目源码）
 .workbuddy/
+
+# CodeBuddy 工具缓存（非项目源码）
+.codebuddy/
 
 # 软著材料产物（脱敏后 PDF 与生成脚本不入库；仅本地留档）
 /soft_output/源代码_完整60页_合规.pdf

@@ -75,7 +75,7 @@
 |---|---|
 | 应用分类 | 社交 / 社区（或「生活方式」） |
 | 年龄分级 | 16+（含 UGC 内容） |
-| 隐私政策 URL | https://api.mindtype.cn/privacy （已就绪） |
+| 隐私政策 URL | https://api.youju.chat/privacy （已就绪） |
 | 用户协议 | App 内置（LoginPage/首启弹窗），如需 URL 可复用隐私页或另挂 |
 | 支持平台 | 手机（HarmonyOS NEXT） |
 | 应用版本 | 1.0.0（versionCode 1000000） |

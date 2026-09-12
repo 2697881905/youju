@@ -7,11 +7,11 @@
         "material": {
           "certpath": "entry/material/youju.cer",
           "keyAlias": "youju",
-          "keyPassword": "${env.BBB_RELEASE_STORE_PASSWORD}",
+          "keyPassword": "${env.YOUJU_RELEASE_STORE_PASSWORD}",
           "profile": "entry/material/youju.p7b",
           "signAlg": "SHA256withECDSA",
           "storeFile": "entry/material/youju.p12",
-          "storePassword": "${env.BBB_RELEASE_STORE_PASSWORD}"
+          "storePassword": "${env.YOUJU_RELEASE_STORE_PASSWORD}"
         }
       }
     ],

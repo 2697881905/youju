@@ -1,5 +1,7 @@
 # 「有据」App 上架前最终审查报告
 
+> **品牌过渡说明**：本报告中的 `api.mindtype.cn` 为当时的过渡域名（项目曾用名 MindType），现已统一迁移至 `api.youju.chat`。其他结论依然有效。
+>
 > 审查时间：2026-08-20 01:32 GMT+8
 > 审查范围：前端 ArkTS 代码、配置文件、签名、隐私合规、华为登录、资源完整性
 > 对照标准：HarmonyOS AGC 上架 Checklist（详见 harmonyos-code-workshop 第 10 章）

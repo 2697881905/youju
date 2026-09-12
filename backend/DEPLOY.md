@@ -7,7 +7,7 @@
 ## 一、前置（由你准备）
 - 腾讯云轻量服务器：Ubuntu 22.04 / **2核2G 起（推荐 4G）** / 磁盘 ≥40GB / 带宽 ≥3Mbps；安全组放行 22/80/443，**拒绝 3306 入站**
   > 已对 2G 小内存机器做好调优：`docker-compose.prod.yml` 中 mysql 限制 1g + `innodb-buffer-pool-size=384M`、backend 限制 1g + `NODE_OPTIONS=--max-old-space-size=512`、nginx 限制 256m。2G 可直接跑，4G 上这些只是兜底上限、不影响性能。
-- 域名 `api.mindtype.cn` 做 A 记录解析到服务器公网 IP
+- 域名 `api.youju.chat` 做 A 记录解析到服务器公网 IP
 - 华为 AGC：申请 Release 签名证书（.cer + .p7b），在 DevEco 配 Signing Config
 - 本机 Docker 可正常构建镜像
 
@@ -52,7 +52,7 @@ docker run --rm \
   -v $PWD/certbot/conf:/etc/letsencrypt \
   -v $PWD/certbot/web:/var/www/certbot \
   certbot/certbot certonly --webroot -w /var/www/certbot \
-  -d api.mindtype.cn --email admin@mindtype.cn --agree-tos --non-interactive
+  -d api.youju.chat --email admin@youju.chat --agree-tos --non-interactive
 ```
 
 ## 八、启用 443 并 reload
@@ -63,7 +63,7 @@ docker compose -f docker-compose.prod.yml exec nginx nginx -s reload
 
 ## 九、验证
 ```bash
-curl -I https://api.mindtype.cn/
+curl -I https://api.youju.chat/
 docker compose -f docker-compose.prod.yml logs -f backend   # 确认无 fail-hard 报错
 ```
 
@@ -80,7 +80,7 @@ docker compose -f docker-compose.prod.yml up -d --build backend
 ```
 
 ## 十二、前端 Release 包（DevEco，你来做）
-- `entry/src/main/ets/services/api.ets` 第 13 行 release URL 已改为 `https://api.mindtype.cn`，构建 Release 包时无需再改
+- `entry/src/main/ets/services/api.ets` 第 13 行 release URL 已改为 `https://api.youju.chat`，构建 Release 包时无需再改
 - DevEco：File → Project Structure → Signing Configs，导入 AGC 的 .cer / .p7b + profile
 - Build → Build Hap(s)/App(s) → Release
 

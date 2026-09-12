@@ -7,7 +7,7 @@
 
 ## 一、简历可直接粘贴版
 
-### 版本 A：标准条目式（与 MindType 条目同构，直接粘贴）
+### 版本 A：标准条目式（与简历其他项目条目同构，直接粘贴）
 
 **有据 YouJu｜HarmonyOS NEXT 原生内容社区 App｜独立开发 / 全栈负责人**
 基于 `ArkTS + ArkUI（HarmonyOS NEXT 原生）+ Node.js + Express + TypeScript + Prisma + MySQL + 腾讯云 COS` 独立完成产品从 0 到 1 的设计、开发、上线与 AGC 上架准备，搭建 HarmonyOS 原生 App 与后端服务。围绕“内容创作 + 理性分享”构建社区闭环，覆盖图文/视频/文字发布、互动、关注私信、搜索、内容审核、账号安全及 Docker Compose + Nginx 生产部署。
