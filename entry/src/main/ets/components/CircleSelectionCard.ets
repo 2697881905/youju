@@ -4,14 +4,13 @@ import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { RadiusTokens } from '../design/tokens/radius';
+import { ShadowTokens } from '../design/tokens/shadow';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
-import { ImmersiveSurface } from '../design/components/ImmersiveSurface';
 
 // 星环选中态资料卡独立于角度/手势计算，保留底部栏一致的玻璃层级和切换编舞。
-// 沉浸光感绑定：ImmersiveSurface 作为 Row 的 flex 子项（layoutWeight）拿到确定宽度，
-// 流光层由根 Stack 实测尺寸贴合卡片；不能用 calc(100%-x) 百分比（在 auto 父级下解析失效）。
+// 卡片本体对齐首页分段栏「选中滑块」：纸面高亮填充 + 无流光特效。
 @Component
 export struct CircleSelectionCard {
   @Prop name: string = '';
@@ -96,22 +95,21 @@ export struct CircleSelectionCard {
     .height(116)
     .padding(SpaceTokens.md)
     .justifyContent(FlexAlign.SpaceBetween)
-    .backgroundBlurStyle(GlassBlurStyle.Card)
-    .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
-    .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+    // 与首页分段栏「选中滑块」完全一致：纸面高亮填充 + lg 圆角 + 无边框 + 细接触阴影
+    .backgroundColor(ColorTokens.barSelectionSurface)
     .borderRadius(RadiusTokens.lg)
-    .shadow({ radius: 14, color: ColorTokens.barShadow, offsetY: 6 })
+    .shadow(ShadowTokens.cardContact)
     .clip(true)
   }
 
   build() {
     Row() {
-      ImmersiveSurface({
-        radius: RadiusTokens.lg,
-        content: (): void => { this.cardBody() },
-      })
-        .layoutWeight(1)
-        .margin({ top: SpaceTokens.x2l })
+      Column() {
+        // 不使用 ImmersiveSurface：去掉流光特效，卡片保持分段栏滑块的纸面质感
+        this.cardBody()
+      }
+      .layoutWeight(1)
+      .margin({ top: SpaceTokens.x2l })
     }
     .width('100%')
     .padding({ left: 18, right: 18 })

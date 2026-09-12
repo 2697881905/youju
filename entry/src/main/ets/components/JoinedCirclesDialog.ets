@@ -5,6 +5,7 @@ import { resolveActionIcon } from '../utils/actionIcons';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
+import { ShadowTokens } from '../design/tokens/shadow';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 
@@ -56,14 +57,16 @@ export struct JoinedCirclesDialog {
       .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
       .justifyContent(FlexAlign.Center)
       .alignItems(HorizontalAlign.Center)
-      .backgroundColor(ColorTokens.sunken)
-      .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.separator, style: BorderStyle.Solid })
-      .borderRadius(RadiusTokens.md)
+      // 与首页分段栏「选中滑块」完全一致：纸面高亮填充 + lg 圆角 + 无边框 + 细接触阴影
+      .backgroundColor(ColorTokens.barSelectionSurface)
+      .borderRadius(RadiusTokens.lg)
+      .shadow(ShadowTokens.cardContact)
     }
   }
 
   build() {
-    SpringPanel({ panelWidth: 344, panelPadding: SpaceTokens.lg }) {
+    // immersive=false：面板仅保留系统玻璃，去掉双边流光特效
+    SpringPanel({ panelWidth: 344, panelPadding: SpaceTokens.lg, immersive: false }) {
       Column({ space: SpaceTokens.base }) {
         Row({ space: SpaceTokens.sm }) {
           Column({ space: 2 }) {
