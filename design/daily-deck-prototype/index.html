@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>有据 · 今日一帖 — 交互原型（一期一会）</title>
+<!--
+  ==========================================================
+  有据「今日一帖」高保真交互原型 · No.042
+  定位：每日唯一内容 → 编辑部头版仪式（一期一会）
+  此原型只演示 UI/动效/交互，数据为 mock；约定与 ArkUI
+  最终实现一一对应（见页面内「预览说明」面板的映射表）。
+  ----------------------------------------------------------
+  设计契约（单页速览）
+  - 风格 tier：brand-themed · editorial-magazine / 报章编辑室
+  - 色板（与 entry/.../color.json 一致）
+      canvas #F6F1E3 / surface #FFFCF3 / sunken #EDE5CF
+      ink #161410 / ink2 #3F3A2E / ink3 #6A6353
+      brand #8A6548 / brandDeep #6F4F38 / warm #E8940B / rule #E4DCC6
+  - 字体：衬线 display = Noto Serif SC / Songti SC / SimSun；
+          正文 = PingFang SC / HarmonyOS Sans
+  - 曲率：--easeDec 减速(0,0,.2,1)  --easeSoft 柔和(0.22,1.22,.36,1)
+          --easeSpring 弱回弹(0.34,1.56,.64,1)  弹性只在“顶卡升起”一个时刻
+  - 动效准则（克制清单）：位移错峰 ≤ 45ms；旋转 ≤ 6°；无缩放连击；
+          无弹跳彩带粒子；弹性只出现在主角元素；其余一律减速/柔和
+  ==========================================================
+-->
+<style>
+  :root{
+    --canvas:#F6F1E3; --surface:#FFFCF3; --sub:#F7F1E4; --sunken:#EDE5CF;
+    --ink:#161410; --ink2:#3F3A2E; --ink3:#6A6353; --ink4:#8A8372;
+    --brand:#8A6548; --brandDeep:#6F4F38; --warm:#E8940B; --rule:#E4DCC6;
+    --serif:"Noto Serif SC","Songti SC","STSong","SimSun",serif;
+    --sans:-apple-system,"PingFang SC","HarmonyOS Sans","Microsoft YaHei",sans-serif;
+    --easeDec:cubic-bezier(0,0,.2,1);
+    --easeSoft:cubic-bezier(.22,1.22,.36,1);
+    --easeSpring:cubic-bezier(.34,1.56,.64,1);
+    --shadow-card:0 22px 44px rgba(46,42,32,.16), 0 2px 6px rgba(46,42,32,.08);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    font-family:var(--sans); color:var(--ink); background:var(--canvas);
+    overflow:hidden; -webkit-user-select:none; user-select:none;
+    display:flex; align-items:center; justify-content:center;
+  }
+  /* 纸纹氛围 */
+  .grain{
+    position:fixed; inset:-40px; pointer-events:none; opacity:.045; z-index:0;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.9'/%3E%3C/svg%3E");
+  }
+
+  /* ---------- 手机容器 ---------- */
+  .phone{
+    position:relative; z-index:1;
+    width:min(390px,94vw); height:min(820px,94vh);
+    background:var(--canvas); border-radius:44px;
+    border:10px solid #191512; overflow:hidden;
+    box-shadow:0 40px 80px rgba(46,42,32,.28);
+    display:flex; flex-direction:column;
+  }
+  .notch{
+    position:absolute; top:0; left:50%; transform:translateX(-50%);
+    width:124px; height:26px; background:#191512; border-radius:0 0 16px 16px; z-index:50;
+  }
+  .app{flex:1; display:flex; flex-direction:column; padding-top:40px; position:relative; overflow:hidden}
+
+  /* ---------- 报头（编辑部头版） ---------- */
+  .masthead{ padding:14px 20px 0; opacity:0; transform:translateY(-8px); }
+  .app.in .masthead{ opacity:1; transform:none; transition:opacity .45s var(--easeDec), transform .45s var(--easeDec); }
+  .brandrow{ display:flex; align-items:baseline; justify-content:space-between; }
+  .brand{ display:flex; align-items:baseline; gap:8px; }
+  .brand-serif{ font-family:var(--serif); font-size:22px; font-weight:700; letter-spacing:2px; color:var(--ink); }
+  .brand-en{ font-size:10px; font-weight:600; letter-spacing:3px; color:var(--ink3); }
+  .mast-actions{ display:flex; gap:6px; }
+  .mast-actions button{
+    width:32px; height:32px; border-radius:50%; border:1px solid var(--rule);
+    background:var(--surface); color:var(--ink2); cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    transition:transform .2s var(--easeDec), border-color .2s var(--easeDec);
+  }
+  .mast-actions button:active{ transform:scale(.92) }
+  .mast-actions button:hover{ border-color:var(--brand) }
+  .date-row{
+    margin-top:18px; display:flex; align-items:baseline; justify-content:space-between;
+    font-family:var(--serif); opacity:0; transform:translateY(6px);
+  }
+  .app.in .date-row{ opacity:1; transform:none; transition:opacity .5s var(--easeDec) .1s, transform .5s var(--easeDec) .1s; }
+  .date-main{ font-size:17px; font-weight:700; color:var(--ink); letter-spacing:1px; }
+  .date-week{ font-size:12px; color:var(--ink3); margin-left:8px; letter-spacing:2px; }
+  .issue{ font-size:11px; font-weight:600; letter-spacing:2px; color:var(--brand); white-space:nowrap }
+  .rule{
+    height:1px; margin-top:12px; background:var(--rule); transform-origin:0 50%;
+    opacity:0; transform:scaleX(0);
+  }
+  .app.in .rule{ opacity:1; transform:scaleX(1); transition:transform .7s var(--easeDec) .18s, opacity .3s var(--easeDec) .18s; }
+
+  /* ---------- 卡片堆叠舞台 ---------- */
+  .deck-wrap{ position:relative; flex:1; min-height:0; margin:6px 14px 0; }
+  .deck{ position:absolute; left:50%; top:6%; width:88%; transform:translateX(-50%); height:100%; touch-action:none; }
+
+  .card{
+    position:absolute; left:0; top:0; width:100%;
+    background:var(--surface); border-radius:14px; overflow:hidden;
+    box-shadow:var(--shadow-card);
+    will-change:transform,opacity;
+  }
+  .card[data-depth="0"]{ z-index:3; cursor:grab }
+  .card[data-depth="1"]{ z-index:2 }
+  .card[data-depth="2"]{ z-index:1 }
+
+  .face{ width:100%; aspect-ratio:4/3; position:relative; background:var(--sunken); overflow:hidden; }
+  .face img{ width:100%; height:100%; object-fit:cover; display:block; opacity:0; transition:opacity .35s var(--easeDec); }
+  .face img.loaded{ opacity:1 }
+  /* 无封面：衬线大字海报 */
+  .face.text{
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px;
+    background:linear-gradient(160deg,#FFFCF3 0%, #F3Ead8 100%); padding:22px;
+  }
+  .face.text .t-seal{ font-size:10px; font-weight:600; letter-spacing:4px; color:var(--brand); border:1px solid rgba(138,101,72,.34); border-radius:999px; padding:4px 12px; }
+  .face.text .t-body{
+    font-family:var(--serif); font-size:23px; font-weight:700; color:var(--ink);
+    line-height:1.55; text-align:center; max-width:88%; white-space:pre-line;
+  }
+  .face .corner-issue{
+    position:absolute; top:12px; left:12px; font-size:10px; letter-spacing:2px;
+    color:rgba(255,252,243,.92); background:rgba(22,20,16,.34); padding:3px 8px;
+    border-radius:999px;
+  }
+
+  .meta{ display:flex; align-items:center; gap:10px; padding:12px 14px; }
+  .meta .c-title{ flex:1; min-width:0; }
+  .meta .c-title h3{
+    font-family:var(--serif); font-size:15px; font-weight:700; color:var(--ink);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.4;
+  }
+  .meta .c-sub{ display:flex; align-items:center; gap:6px; margin-top:5px; }
+  .avatar{
+    width:20px; height:20px; border-radius:50%; flex:none;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(138,101,72,.16); color:var(--brand);
+    font-size:10px; font-weight:700; font-family:var(--serif);
+  }
+  .c-sub .name{ font-size:11px; color:var(--ink3); }
+  .seal{
+    font-size:10px; font-weight:600; letter-spacing:2px; color:var(--brand);
+    border:1px solid rgba(138,101,72,.34); border-radius:999px; padding:3px 9px; white-space:nowrap;
+  }
+
+  /* ---------- 舞台底部：进度 + 提示 ---------- */
+  .deck-foot{
+    position:absolute; left:0; right:0; bottom:0; height:72px;
+    display:flex; flex-direction:column; align-items:center; gap:8px; justify-content:flex-end;
+    pointer-events:none;
+  }
+  .paginate{ font-size:11px; letter-spacing:3px; color:var(--ink3); font-variant-numeric:tabular-nums; opacity:0; }
+  .app.in .paginate{ opacity:1; transition:opacity .5s var(--easeDec) .55s; }
+  .paginate b{ color:var(--ink); font-weight:700 }
+  .hint{
+    display:flex; align-items:center; gap:6px;
+    font-size:10px; letter-spacing:2px; color:var(--ink3);
+    border:1px solid var(--rule); border-radius:999px; padding:5px 14px;
+    background:rgba(255,252,243,.8); opacity:0;
+  }
+  .app.in .hint{ opacity:1; transition:opacity .5s var(--easeDec) .68s; }
+  .hint svg{ opacity:.75 }
+
+  /* ---------- 完成态 ---------- */
+  .completion{
+    position:absolute; inset:0; z-index:20; border-radius:44px;
+    background:var(--canvas);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px;
+    opacity:0; pointer-events:none;
+    transition:opacity .55s var(--easeDec);
+  }
+  .completion.show{ opacity:1; pointer-events:auto }
+  .stamp{
+    position:relative; width:92px; height:92px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--serif); font-size:18px; font-weight:700; letter-spacing:4px;
+    color:var(--brand);
+    transform:rotate(-8deg) scale(1.18); opacity:0;
+    box-shadow:inset 0 0 0 2px rgba(138,101,72,.6);
+  }
+  .stamp::after{ content:""; position:absolute; inset:-9px; border-radius:50%; box-shadow:inset 0 0 0 1px rgba(138,101,72,.28); }
+  .completion.show .stamp{ animation:stampIn .62s var(--easeSpring) .12s forwards; }
+  @keyframes stampIn{ to{ opacity:1; transform:rotate(-8deg) scale(1) } }
+  .done-title{
+    font-family:var(--serif); font-size:24px; font-weight:700; letter-spacing:4px; color:var(--ink);
+    opacity:0;
+  }
+  .completion.show .done-title{ animation:rise .6s var(--easeDec) .4s forwards; }
+  .done-sub{ font-size:11px; letter-spacing:3px; color:var(--ink3); opacity:0; }
+  .completion.show .done-sub{ animation:rise .6s var(--easeDec) .52s forwards; }
+  @keyframes rise{ from{opacity:0} to{opacity:1} }
+  .countdown{
+    display:flex; align-items:baseline; gap:8px;
+    border:1px solid var(--rule); border-radius:999px; padding:8px 16px;
+    background:var(--surface); opacity:0;
+  }
+  .completion.show .countdown{ animation:rise .6s var(--easeDec) .64s forwards; }
+  .countdown .cd-label{ font-size:10px; letter-spacing:2px; color:var(--ink3) }
+  .countdown .cd-val{ font-family:var(--serif); font-size:17px; font-weight:700; color:var(--brand); font-variant-numeric:tabular-nums; letter-spacing:1px }
+  .replay-link{
+    font-size:11px; letter-spacing:2px; color:var(--brand); cursor:pointer;
+    border:none; background:none; padding:6px 12px; opacity:0;
+  }
+  .completion.show .replay-link{ animation:rise .6s var(--easeDec) .76s forwards; }
+
+  /* ---------- 预览说明面板 ---------- */
+  .sheet{
+    position:fixed; inset:0; z-index:60; background:rgba(22,20,16,.36);
+    display:flex; align-items:flex-end; justify-content:center;
+    opacity:0; pointer-events:none; transition:opacity .3s var(--easeDec); backdrop-filter:blur(2px);
+  }
+  .sheet.open{ opacity:1; pointer-events:auto }
+  .panel{
+    position:relative; width:min(520px,96vw); max-height:78vh; overflow:auto;
+    background:var(--surface); border-radius:20px 20px 0 0; padding:22px 24px 30px;
+    transform:translateY(40px); transition:transform .45s var(--easeSoft);
+    border-top:1px solid var(--rule);
+  }
+  .sheet.open .panel{ transform:none }
+  .panel h4{ font-family:var(--serif); font-size:16px; font-weight:700; color:var(--ink); letter-spacing:2px }
+  .panel .sec{ margin-top:18px }
+  .panel .sec h5{ font-size:11px; font-weight:700; letter-spacing:2px; color:var(--brand); margin-bottom:8px }
+  .panel ul{ list-style:none }
+  .panel li{ font-size:12px; line-height:1.7; color:var(--ink2); padding-left:14px; position:relative; }
+  .panel li::before{ content:""; position:absolute; left:0; top:.75em; width:5px; height:1.5px; background:var(--brand); }
+  .panel code{ font-size:11px; color:var(--brandDeep); background:var(--sub); padding:1px 5px; border-radius:4px }
+  .close-sheet{ position:absolute; top:14px; right:16px; border:none; background:none; cursor:pointer; color:var(--ink3) }
+
+  /* 骨架 */
+  .sk-card{ position:absolute; left:0; width:100%; background:var(--surface); border-radius:14px; box-shadow:var(--shadow-card); overflow:hidden; }
+  .sk-card .sk-face{ width:100%; aspect-ratio:4/3; background:linear-gradient(110deg,var(--sunken) 30%,var(--sub) 42%,var(--sunken) 54%); background-size:200% 100%; animation:shimmer 1.2s linear infinite; }
+  .sk-card .sk-meta{ height:64px; }
+  @keyframes shimmer{ to{ background-position:-200% 0 } }
+</style>
+</head>
+<body>
+<div class="grain"></div>
+
+<div class="phone" id="phone">
+  <div class="notch"></div>
+
+  <div class="app" id="app">
+
+    <!-- 编辑部报头 -->
+    <header class="masthead">
+      <div class="brandrow">
+        <div class="brand">
+          <span class="brand-serif">今日一帖</span>
+          <span class="brand-en">EDITOR&rsquo;S PICK</span>
+        </div>
+        <div class="mast-actions">
+          <button id="btnReplay" title="重播仪式" aria-label="重播仪式">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+          </button>
+          <button id="btnInfo" title="预览说明" aria-label="预览说明">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="date-row">
+        <span><span class="date-main" id="dateMain"></span><span class="date-week" id="dateWeek"></span></span>
+        <span class="issue" id="issueNo"></span>
+      </div>
+      <div class="rule"></div>
+    </header>
+
+    <!-- 堆叠舞台 -->
+    <div class="deck-wrap">
+      <div class="deck" id="deck"></div>
+      <div class="deck-foot">
+        <div class="paginate"><b id="pagCur">01</b> / <b id="pagTotal">03</b></div>
+        <div class="hint" id="hint">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a3 3 0 0 0-3-3h0a3 3 0 0 0-3 3v0"/><path d="M14 10v-1a2 2 0 0 1 4 0v1"/><path d="M8 11V6a3 3 0 0 1 6 0v0"/><path d="M8 11v3a4 4 0 0 0 8 0v-3"/><path d="M12 17v3"/></svg>
+          轻拖卡片 · 阅读今日精选
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 完成态 -->
+  <div class="completion" id="completion">
+    <div class="stamp">已 读</div>
+    <div class="done-title">今日一帖 · 已读完</div>
+    <div class="done-sub">一期一会 &middot; 有据编辑部</div>
+    <div class="countdown"><span class="cd-label">距明日上新</span><span class="cd-val" id="cdVal">--:--:--</span></div>
+    <button class="replay-link" id="btnReplay2">重新阅读今天的仪式</button>
+  </div>
+</div>
+
+<!-- 预览说明面板 -->
+<div class="sheet" id="sheet">
+  <div class="panel">
+    <button class="close-sheet" id="btnCloseSheet" aria-label="关闭">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <h4>预览说明</h4>
+
+    <div class="sec">
+      <h5>设计准则 · 克制清单（本原型的底线）</h5>
+      <ul>
+        <li>弹性只出现在「顶卡升起」与「印章盖章」两个主角时刻，其余一律减速/柔和曲线</li>
+        <li>位移错峰 ≤ 45ms；拖拽旋转 ≤ 6°；无缩放连击、无弹跳彩带、无粒子</li>
+        <li>色板严格取自项目 token：暖纸底 + 褐金 + 墨色，≤3 个色族</li>
+        <li>衬线负责「信服」（报头/标题/印章），正文无衬线，字距 0</li>
+        <li>全部动效只动 transform / opacity，不碰布局属性</li>
+      </ul>
+    </div>
+
+    <div class="sec">
+      <h5>交互 → ArkUI 落点映射</h5>
+      <ul>
+        <li>拖拽跟手 / 松开回弹 / 飞出 ── <code>PanGesture</code> 跟手 + <code>responsiveSpringMotion</code>；离手 <code>springMotion(0.5,0.75)</code></li>
+        <li>下层卡视差级联（错峰） ── 索引延迟 + springMotion 目标跟随</li>
+        <li>入场仪式（报头→日期→卡升起→信息错峰） ── <code>TransitionEffect + delay 错峰</code></li>
+        <li>完成态印章 ── <code>animateTo + PlayMode.Alternate</code> 单次回弹</li>
+        <li>倒计时 ── <code>setInterval + CountRoll</code>（数字滚动）</li>
+      </ul>
+    </div>
+
+    <div class="sec">
+      <h5>需要业务层配合（本期先不实现，仅预留）</h5>
+      <ul>
+        <li>期数编号（No.042）与每日 09:00 上新：<code>GET /api/daily/meta</code></li>
+        <li>当日已读状态持久化：<code>POST /api/daily/read</code>（原型已用 localStorage 模拟）</li>
+        <li>编辑部精选封面图源 / 文字海报</li>
+        <li>跨天自动重置与连续阅读（打卡）</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+ * MOCK —— 单一数据源（形态 = 未来真实接口）
+ * ============================================================ */
+const DB = {
+  issue: 'No.042',
+  posts: [
+    { id: 421, genre: '测评报告', cover: 'assets/cover-desk-lamp.jpg',
+      title: '一把百元手冲壶，真能对标千元技德吗',
+      author: '老慢测评', reads: '2.4万' },
+    { id: 422, genre: '避坑指南', cover: '', // 无封面 → 衬线文字海报
+      title: '装修报价单里三个隐形项\n签字之前一定要看懂',
+      author: '蜗居装修日记', reads: '1.8万' },
+    { id: 423, genre: '经验分享', cover: 'assets/cover-tea-notebook.jpg',
+      title: '把每天通勤时间变成阅读时间的三个习惯',
+      author: '阿绿', reads: '9.6千' },
+    { id: 424, genre: '深度复盘', cover: '', // 文字海报变体
+      title: '我连续记账 400 天之后\n终于发现钱去了哪里',
+      author: '霜序', reads: '6.1千' },
+    { id: 425, genre: '真实经验', cover: 'assets/cover-desk-lamp.jpg',
+      title: '一个外包项目里，验收单比合同更值钱',
+      author: '路过的老王', reads: '4.2千' },
+  ],
+};
+
+/* ---- API 桩：签名与未来真实接口一致，功能够换实现 ---- */
+function apiWait(ms){ return new Promise(r => setTimeout(r, ms)); }
+async function fetchDailyMeta(){
+  await apiWait(240);
+  // TODO: replace with GET /api/daily/meta -> { issue }
+  return { issue: DB.issue };
+}
+async function fetchDailyPosts(){
+  await apiWait(420);
+  // TODO: replace with GET /api/daily/posts?date=YYYY-MM-DD -> { posts }
+  return DB.posts;
+}
+
+/* 扇位步进：下层卡每翻一页向前滑移的“行程”（越大，'卡自己滑到顶部'的观感越强） */
+const FAN_X = 26, FAN_R = 4, FAN_Y = 12;
+const FAN_OP = [1, 0.86, 0.72, 0.45];   // 四层不透明度：顶/中/底/预备（预备深藏堆底）
+
+/* ============================================================
+ * STATE
+ * ============================================================ */
+const S = {
+  posts: [], idx: 0, listLen: 0,
+  x: 0, vel: 0, target: 0,       // 当前顶卡：实际位置 / 速度 / 手指目标（质量弹簧跟随）
+  rot: 0, rotVel: 0,             // 当前顶卡倾角（同一弹簧体系，跟手不抖）
+  dragging: false, startX: 0,
+  cardW: 0, threshold: 0,
+  mode: 'idle',                  // idle | drag | return（飞出交给 FL）
+  swap: false,                   // 推进中：旧顶卡飞行 与 底部回正 并行
+  pendingEnd: false,             // 最后一张已被推进，等待收场
+  FL: { x: 0, vel: 0, rot: 0, active: false, dir: 1, dom: -1 },  // 被替换顶卡的飞行状态
+  fan: [                                                        // 每张 DOM 卡的扇位弹簧（滑动+旋转回正）
+    { x: 0, r: 0, vx: 0, vr: 0 },
+    { x: -FAN_X, r: -FAN_R, vx: 0, vr: 0 },
+    { x: -FAN_X * 2, r: -FAN_R * 2, vx: 0, vr: 0 },
+    { x: -FAN_X * 3, r: -FAN_R * 3, vx: 0, vr: 0 },   // 第四层“预备卡”：深藏堆底，翻页时自然前移滑入
+  ],
+  roleToDom: [0, 1, 2, 3],       // 视觉角色(0顶/1中/2底/3预备) → DOM 下标（推进时轮换）
+  par: [0, 0], parVel: [0, 0],   // 下层卡视差（弹簧错峰）
+  warm: 0, warmVel: 0,           // 顶卡抬起时下层微胀
+  enter: null,                   // 入场动画上下文
+};
+
+/* ============================================================
+ * DOM
+ * ============================================================ */
+const elDeck = document.getElementById('deck');
+const elPagCur = document.getElementById('pagCur');
+const elPagTotal = document.getElementById('pagTotal');
+const elCompletion = document.getElementById('completion');
+const elCd = document.getElementById('cdVal');
+const elApp = document.getElementById('app');
+const elSheet = document.getElementById('sheet');
+
+/* ============================================================
+ * 渲染
+ * ============================================================ */
+function buildCard(depth){
+  const el = document.createElement('article');
+  el.className = 'card';
+  el.dataset.depth = String(depth);
+  el.innerHTML =
+    '<div class="face"></div>' +
+    '<div class="meta">' +
+      '<div class="c-title">' +
+        '<h3></h3>' +
+        '<div class="c-sub"><span class="avatar"></span><span class="name"></span></div>' +
+      '</div>' +
+      '<span class="seal"></span>' +
+    '</div>';
+  return el;
+}
+
+function paintCard(el, p){
+  const face = el.querySelector('.face');
+  face.className = 'face';
+  const h3 = el.querySelector('h3');
+  const avatar = el.querySelector('.avatar');
+  const name = el.querySelector('.name');
+  const seal = el.querySelector('.seal');
+  if (p.cover){
+    face.innerHTML = '<img src="' + p.cover + '" alt=""><span class="corner-issue">今日精选 · ' + p.genre + '</span>';
+    const im = face.querySelector('img');
+    // 缓存已就绪则直接显示，否则加载后淡入——换卡不闪白、不顿挫
+    if (im.complete) im.classList.add('loaded');
+    else im.onload = () => im.classList.add('loaded');
+  } else {
+    face.classList.add('text');
+    face.innerHTML = '<span class="t-seal">' + p.genre + '</span><span class="t-body">' + p.title + '</span>';
+  }
+  h3.textContent = p.title.split('\n')[0];
+  avatar.textContent = p.author.slice(0, 1);
+  name.textContent = p.author + ' · ' + p.reads + ' 人读过';
+  seal.textContent = p.genre;
+}
+
+/* 预加载封面：换卡瞬间不因取图而掉帧/闪白 */
+function preloadFrom(i){
+  for (let k = i; k < S.posts.length; k++){
+    const c = S.posts[k].cover;
+    if (c){ const im = new Image(); im.src = c; }
+  }
+}
+
+function ensureCards(){
+  while (elDeck.children.length < 4) elDeck.appendChild(buildCard(elDeck.children.length));
+}
+
+function rerender(){
+  ensureCards();
+  preloadFrom(S.idx + 1);
+  elPagTotal.textContent = String(S.listLen).padStart(2, '0');
+  elPagCur.textContent = String(Math.min(S.idx + 1, S.listLen)).padStart(2, '0');
+  elDeck.querySelectorAll('.card').forEach((el, d) => {
+    const pi = S.idx + d;
+    el.dataset.depth = String(d);
+    if (pi < S.listLen){ paintCard(el, S.posts[pi]); el.style.visibility = 'visible'; }
+    else { el.style.visibility = 'hidden'; }
+  });
+}
+
+/* ============================================================
+ * 手势：跟手直控 → 离手带回速（return 弹簧 / fly 抛物线）
+ * ============================================================ */
+function onDown(e){
+  if (S.enter || S.swap) return;
+  S.dragging = true; S.mode = 'drag';
+  S.startX = e.clientX - S.x;      // 以“实际位置”为基准：回弹中途再次接管也跟手、无跳变
+}
+function onMove(e){
+  if (!S.dragging) return;
+  S.target = e.clientX - S.startX; // 手指是目标而非位置；物理每帧以质量弹簧追逐 → 顺滑
+}
+function onUp(){
+  if (!S.dragging) return;
+  S.dragging = false;
+  // vel 已在帧循环中持续积分（真实速度），此处直接继承，速度零断层
+  if (Math.abs(S.x) >= S.threshold){
+    startFling();                  // 顶卡飞出 + 底部回正：【同时进行】
+  } else {
+    S.mode = 'return';             // 未过阈：顶卡弹簧回弹
+  }
+}
+
+/* ============================================================
+ * 每帧：物理学 + 写 transform（只动图形属性）
+ * ============================================================ */
+const easeOutBack = (x) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+let LAST = performance.now();
+
+function frame(){
+  const now = performance.now();
+  const dt = Math.min((now - LAST) / 1000, 0.05);   // 秒制：60/120Hz 下积分一致
+  LAST = now;
+
+  /* ---- 入场仪式（一次性的顶卡升起 + 下层错峰淡入） ---- */
+  if (S.enter){
+    const t = Math.min((now - S.enter.t0) / S.enter.dur, 1);
+    const e = easeOutBack(t);
+    elDeck.querySelectorAll('.card').forEach((el, d) => {
+      const bx = -FAN_X * d, by = FAN_Y * d, br = -FAN_R * d, bs = 1 - 0.028 * d, bo = FAN_OP[d];
+      if (d === 0){
+        el.style.transform = 'translate3d(0,' + (26 * (1 - e)).toFixed(2) + 'px,0) scale(' + (1 - 0.025 * (1 - e)).toFixed(4) + ')';
+        el.style.opacity = '1';
+      } else {
+        const f = Math.min(Math.max((t - 0.05 * d) / 0.75, 0), 1);
+        el.style.opacity = String((bo * (0.3 + 0.7 * f)).toFixed(4));
+        el.style.transform = 'translate3d(' + bx + 'px,' + by + 'px,0) rotate(' + br + 'deg) scale(' + bs + ')';
+      }
+    });
+    if (t >= 1) S.enter = null;
+    requestAnimationFrame(frame);
+    return;
+  }
+
+  /* ---- 主物理：统一弹簧体系（GSAP 手感 = 质量跟随 + 速度连续） ---- */
+  const w = S.cardW || 1;
+
+  // 拖拽 / 回弹：当前顶卡 = 质量弹簧追赶手指
+  if (S.mode === 'drag' || S.mode === 'return'){
+    const goal = S.mode === 'drag' ? S.target : 0;
+    const K = S.mode === 'drag' ? 300 : 210;
+    const C = S.mode === 'drag' ? 19 : 13;
+    S.vel += ((goal - S.x) * K - C * S.vel) * dt;
+    S.x += S.vel * dt;
+    if (S.mode === 'return' && Math.abs(S.x) < 0.4 && Math.abs(S.vel) < 0.002){
+      S.x = 0; S.vel = 0; S.mode = 'idle';
+    }
+  }
+
+  // 被替换顶卡的飞行（与底部卡回正【并行】）：惯性抛滑出屏，速度连续
+  if (S.FL.active){
+    const exit = S.FL.dir * (w + 300);
+    S.FL.vel += ((exit - S.FL.x) * 130 - 13 * S.FL.vel) * dt;
+    S.FL.x += S.FL.vel * dt;
+    S.FL.rot = (S.FL.x / w) * -7;
+    // 刚出屏即收尾（比飞到 exit 更快解锁下一张）：旧卡带回速归位成新的第三层
+    const flyDone = Math.abs(S.FL.x) > w * 1.15 || Math.abs(exit - S.FL.x) < 6;
+    if (flyDone){
+      S.FL.active = false;
+      const dom = S.FL.dom;                       // 该 DOM 已被轮换为「预备层(role3)」
+      const cardsArr = elDeck.children;
+      // 预备层直接填入下一张待翻内容（深藏在堆底生效，全程不透明度不变，无淡入）
+      if (S.idx + 3 < S.listLen){
+        paintCard(cardsArr[dom], S.posts[S.idx + 3]);
+      }
+      // 旧顶卡以恒定不透明度从屏外“滑进堆底”：行程交给下方扇位弹簧（实体位移）
+      S.fan[dom].x = S.FL.x; S.fan[dom].vx = S.FL.vel * 0.35;
+      S.fan[dom].r = S.FL.rot; S.fan[dom].vr = 0;
+      S.swap = false;                              // 允许下一张继续交互
+      if (S.pendingEnd) setTimeout(showCompletion, 420);
+    }
+  }
+
+  // 倾角弹簧（当前顶卡）
+  { const rotGoal = (S.x / w) * -5;
+    S.rotVel += ((rotGoal - S.rot) * 300 - 16 * S.rotVel) * dt;
+    S.rot += S.rotVel * dt; }
+
+  // 每张 DOM 卡的扇位弹簧：目标 = 当前角色的 fan 位（推进时底层卡“带旋转滑动回正”）
+  for (let d = 0; d < S.fan.length; d++){
+    const role = S.roleToDom.indexOf(d);
+    const tx = -FAN_X * role, tr = -FAN_R * role;   // 含第四层(role3)：预备卡扇位
+    const f = S.fan[d];
+    f.vx += ((tx - f.x) * 240 - 15 * f.vx) * dt; f.x += f.vx * dt;
+    f.vr += ((tr - f.r) * 240 - 15 * f.vr) * dt; f.r += f.vr * dt;
+  }
+
+  // 下层视差：两层不同频率弹簧 = 错峰（顶卡越偏，下层越小幅跟随）
+  { const avail = S.listLen - S.idx;
+    const t1 = (avail > 1 ? S.x * 0.13 : 0);
+    const t2 = (avail > 2 ? S.x * 0.06 : 0);
+    S.parVel[0] += ((t1 - S.par[0]) * 260 - 15 * S.parVel[0]) * dt; S.par[0] += S.parVel[0] * dt;
+    S.parVel[1] += ((t2 - S.par[1]) * 210 - 14 * S.parVel[1]) * dt; S.par[1] += S.parVel[1] * dt;
+    const wt = avail > 1 ? Math.min(Math.abs(S.x) / w, 1) : 0;
+    S.warmVel += ((wt - S.warm) * 170 - 13 * S.warmVel) * dt; S.warm += S.warmVel * dt; }
+
+  /* ---- 写变换（只动 transform / opacity） ---- */
+  const nrole = Math.min(4, S.listLen - S.idx);
+  for (let role = 0; role < 4; role++){
+    const dom = S.roleToDom[role];
+    const el = elDeck.children[dom];
+    if (S.FL.active && S.FL.dom === dom){          // 正在飞走的旧顶卡
+      const out = Math.max(0, Math.abs(S.FL.x) - w) / (w * 0.7);
+      el.style.zIndex = '30';
+      el.style.transform = 'translate3d(' + S.FL.x.toFixed(2) + 'px,0,0) rotate(' + S.FL.rot.toFixed(2) + 'deg) scale(' + (1 + Math.min(Math.abs(S.FL.x) / w, 1) * 0.03) + ')';
+      el.style.opacity = String(Math.max(0, 1 - out).toFixed(4));
+      continue;
+    }
+    // 该角色已无帖子：隐藏并清理残留变换/层级（防止旧卡冻结在屏外 zIndex 30 压住顶卡）
+    if (role >= nrole){
+      el.style.opacity = '0';
+      el.style.transform = 'translate3d(0,' + (FAN_Y * role).toFixed(2) + 'px,0) rotate(' + (-FAN_R * role).toFixed(2) + 'deg) scale(0.96)';
+      el.style.zIndex = '10';
+      continue;
+    }
+    const f = S.fan[dom];
+    // 实体滑入：全程不透明度恒为角色值（无淡入），所有变化都是位置/旋转
+    if (role === 0){
+      el.style.transform = 'translate3d(' + (f.x + S.x).toFixed(2) + 'px,0,0) rotate(' + (f.r + S.rot).toFixed(2) + 'deg) scale(1)';
+      el.style.opacity = '1';
+    } else {
+      const px = f.x + (role < 3 ? S.par[role - 1] : 0);
+      const pr = f.r;
+      const ps = (1 - 0.028 * role) + S.warm * 0.06;
+      el.style.transform = 'translate3d(' + px.toFixed(2) + 'px,' + (FAN_Y * role).toFixed(2) + 'px,0) rotate(' + pr.toFixed(2) + 'deg) scale(' + ps.toFixed(4) + ')';
+      el.style.opacity = String(FAN_OP[role].toFixed(4));
+    }
+    el.style.zIndex = String(20 + (3 - role));
+  }
+
+  requestAnimationFrame(frame);
+}
+
+/* ============================================================
+ * 推进：旧顶卡抽出飞行 与 底部卡回正 并行（“卡堆前推”，非串行换卡）
+ * ============================================================ */
+function startFling(){
+  if (S.swap || S.enter) return;
+  S.swap = true;
+  const topDom = S.roleToDom[0];
+  // 旧顶卡移交飞行（继承当前真实速度与倾角，速度零断层）
+  S.FL = { x: S.x, vel: S.vel, rot: S.rot, active: true, dir: S.x >= 0 ? 1 : -1, dom: topDom };
+  // 数据前进一档 + 角色轮换：底部卡立即开始“带旋转滑动回正”，与飞出【并行】
+  S.idx += 1;
+  S.roleToDom = [S.roleToDom[1], S.roleToDom[2], S.roleToDom[3], topDom];
+  // 新顶卡接任：其扇位弹簧从旧位（-22px / -3.5°）平滑收敛到 0 / 0°
+  S.x = 0; S.vel = 0; S.target = 0; S.rot = 0; S.rotVel = 0;
+  S.par = [0, 0]; S.parVel = [0, 0]; S.warm = 0; S.warmVel = 0;
+  S.mode = 'idle';
+  updatePag();
+  if (S.idx >= S.listLen) S.pendingEnd = true;
+}
+
+function updatePag(){
+  elPagTotal.textContent = String(S.listLen).padStart(2, '0');
+  elPagCur.textContent = String(Math.min(S.idx + 1, S.listLen)).padStart(2, '0');
+}
+
+/* ============================================================
+ * 完成态：印章 + 倒计时（距明日 09:00）
+ * ============================================================ */
+function showCompletion(){
+  elCompletion.classList.add('show');
+  const tick = () => {
+    const now = new Date();
+    const t = new Date(now); t.setDate(t.getDate() + 1); t.setHours(9, 0, 0, 0);
+    let s = Math.max(0, Math.floor((t - now) / 1000));
+    const h = String(Math.floor(s / 3600)).padStart(2, '0');
+    const m = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+    s = String(s % 60).padStart(2, '0');
+    elCd.textContent = h + ':' + m + ':' + s;
+  };
+  if (!cdTimer){ tick(); cdTimer = setInterval(tick, 1000); }
+  try { localStorage.setItem('youju_daily_read_v1', new Date().toDateString()); } catch (e) {}
+}
+let cdTimer = 0;
+
+/* ============================================================
+ * 入场仪式：骨架 → 报头错峰 → 顶卡升起
+ * ============================================================ */
+function showSkeleton(){
+  elDeck.innerHTML = '';
+  for (let d = 0; d < 3; d++){
+    const sk = document.createElement('div');
+    sk.className = 'sk-card'; sk.style.top = (12 + d * 18) + 'px'; sk.style.zIndex = 10 - d;
+    sk.style.opacity = String(1 - d * 0.18);
+    sk.innerHTML = '<div class="sk-face"></div><div class="sk-meta"></div>';
+    elDeck.appendChild(sk);
+  }
+}
+
+async function runRitual(){
+  elCompletion.classList.remove('show');
+  // 全量复位物理与角色
+  S.idx = 0; S.x = 0; S.vel = 0; S.target = 0; S.rot = 0; S.rotVel = 0;
+  S.par = [0, 0]; S.parVel = [0, 0]; S.warm = 0; S.warmVel = 0;
+  S.mode = 'idle'; S.enter = null; S.swap = false; S.pendingEnd = false;
+  S.FL = { x: 0, vel: 0, rot: 0, active: false, dir: 1, dom: -1 };
+  S.roleToDom = [0, 1, 2, 3];
+  S.fan = [
+    { x: 0, r: 0, vx: 0, vr: 0 },
+    { x: -FAN_X, r: -FAN_R, vx: 0, vr: 0 },
+    { x: -FAN_X * 2, r: -FAN_R * 2, vx: 0, vr: 0 },
+    { x: -FAN_X * 3, r: -FAN_R * 3, vx: 0, vr: 0 },
+  ];
+  elApp.classList.remove('in');
+
+  showSkeleton();
+  const [meta, posts] = await Promise.all([fetchDailyMeta(), fetchDailyPosts()]);
+  S.posts = posts; S.listLen = posts.length;
+  document.getElementById('issueNo').textContent = meta.issue;
+
+  elDeck.innerHTML = '';
+  ensureCards();
+  rerender();
+  S.enter = { t0: performance.now(), dur: 640 };
+  requestAnimationFrame(() => { elApp.classList.add('in'); });
+}
+
+/* ============================================================
+ * 绑定
+ * ============================================================ */
+function layout(){
+  const rect = elDeck.getBoundingClientRect();
+  S.cardW = rect.width || parseFloat(getComputedStyle(elDeck).width) || 300;
+  S.threshold = S.cardW * 0.32;
+}
+window.addEventListener('resize', layout);
+
+elDeck.addEventListener('pointerdown', onDown);
+window.addEventListener('pointermove', onMove);
+window.addEventListener('pointerup', onUp);
+window.addEventListener('pointercancel', onUp);
+elDeck.addEventListener('contextmenu', e => e.preventDefault());
+
+document.getElementById('btnReplay').addEventListener('click', runRitual);
+document.getElementById('btnReplay2').addEventListener('click', runRitual);
+document.getElementById('btnInfo').addEventListener('click', () => elSheet.classList.add('open'));
+document.getElementById('btnCloseSheet').addEventListener('click', () => elSheet.classList.remove('open'));
+elSheet.addEventListener('click', e => { if (e.target === elSheet) elSheet.classList.remove('open'); });
+
+/* 日期（动态）与骨架 */
+const nowD = new Date();
+const week = ['日','一','二','三','四','五','六'][nowD.getDay()];
+document.getElementById('dateMain').textContent =
+  nowD.getFullYear() + '年' + (nowD.getMonth() + 1) + '月' + nowD.getDate() + '日';
+document.getElementById('dateWeek').textContent = '星期' + week;
+
+/* 当日已读状态持久化模拟（与未来后端 ReadState 语义一致） */
+let readToday = false;
+try { readToday = localStorage.getItem('youju_daily_read_v1') === nowD.toDateString(); } catch (e) {}
+if (readToday) showCompletion();
+
+layout();
+requestAnimationFrame(frame);
+// 同一天已读：直接进入完成态，不重播入场仪式
+if (!readToday) runRitual();
+</script>
+</body>
+</html>

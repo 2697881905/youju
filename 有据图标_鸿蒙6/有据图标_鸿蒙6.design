@@ -1,0 +1,45 @@
+{
+  "data": [
+    {
+      "id": "image-001",
+      "title": "前景层 foreground",
+      "type": "image",
+      "version": 7,
+      "createdAt": 1789134527644,
+      "canvasData": {
+        "x": 0,
+        "y": 0,
+        "naturalSize": {
+          "width": 1024,
+          "height": 1024
+        }
+      },
+      "devMetadata": {
+        "imageSrc": "assets/foreground.png"
+      }
+    },
+    {
+      "id": "image-002",
+      "title": "背景层 background",
+      "type": "image",
+      "version": 7,
+      "createdAt": 1789134527644,
+      "canvasData": {
+        "x": 480,
+        "y": 0,
+        "naturalSize": {
+          "width": 1024,
+          "height": 1024
+        }
+      },
+      "devMetadata": {
+        "imageSrc": "assets/background.png"
+      }
+    }
+  ],
+  "config": {
+    "autoLayout": true,
+    "deviceType": "freeSize",
+    "projectName": "有据图标_鸿蒙6"
+  }
+}
