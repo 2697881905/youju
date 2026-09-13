@@ -54,7 +54,8 @@ export struct StatRow {
         },
       }) {
         Row({ space: SpaceTokens.inlineTight }) {
-          Image(resolveActionIcon('like'))
+          // 已赞用实心红图标（与详情页互动栏一致：图标+计数双变色），未赞保持主题线条
+          Image(this.liked ? resolveActionIcon('likeActive') : resolveActionIcon('like'))
             .width(this.compact ? 14 : IconTokens.compact)
             .height(this.compact ? 14 : IconTokens.compact)
             .scale({ x: this.animLikePulse, y: this.animLikePulse })

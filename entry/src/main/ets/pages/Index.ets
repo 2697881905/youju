@@ -303,8 +303,10 @@ struct Index {
     if (!this.authExpiredAt) {
       return;
     }
+    // 区分文案：本地有 token 说明是会话过期；无 token 是匿名用户触发了需登录的操作
+    const hadToken: boolean = getToken().length > 0;
     clearSession();
-    safeShowToast(this.getUIContext(), { message: '登录已过期，请重新登录' });
+    safeShowToast(this.getUIContext(), { message: hadToken ? '登录已过期，请重新登录' : '请先登录后重试' });
     try {
       const r = this.getUIContext().getRouter();
       const state = r.getState();
