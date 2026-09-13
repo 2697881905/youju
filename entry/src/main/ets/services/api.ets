@@ -4,12 +4,14 @@ import { Post, DailyPost, Comment, Tag, User, Pagination, Genre, Provider, Bindi
 
 // 以构建期布尔 DEBUG 为准选择后端地址（调试包 true → 本地，released → 生产）。
 const BUILD_MODE: string = BUILD_MODE_NAME;
-// ⚠️ 本地联调固定走 127.0.0.1:3000 + hdc 端口转发（真机/模拟器通用）：
-//   真机：hdc -t <设备> rport tcp:3000 tcp:3000
-//   模拟器：hdc -t 127.0.0.1:5555 rport tcp:3000 tcp:3000
-// 历史坑：曾写死本机 LAN IP（10.181.227.205），换网络/换热点后 IP 变化 → 真机报
-// 「无法连接后端服务」（os_errno 111 ECONNREFUSED）。rport 方案与网络环境解耦，换网不用改代码。
-const DEBUG_API_HOST: string = 'http://127.0.0.1:3000';
+// ⚠️ 本地联调后端地址（仅 debug 形态使用）。两种可选方式：
+//   A) 127.0.0.1:3000 + hdc 端口转发（与网络环境解耦）：hdc -t <设备> rport tcp:3000 tcp:3000
+//      —— 注意：若主机已有进程占用 3000（后端本身），部分 hdc 版本会报
+//      「TCP Port listen failed at 3000」而建不起转发，此时用方式 B。
+//   B) 本机 LAN IP（要求真机/模拟器与 Mac 在同一网段）：ipconfig getifaddr en0 查当前 IP 后填入。
+// 历史坑：写死 LAN IP 后换网络（换热点/换网段）即失效 → 真机报「无法连接后端服务」
+// （os_errno 111 ECONNREFUSED）；反之 rport 在设备重连后也会失效。两者互为备份。
+const DEBUG_API_HOST: string = 'http://10.116.97.205:3000';
 export const BASE_URL: string =
   DEBUG === true
     ? DEBUG_API_HOST
@@ -120,9 +122,13 @@ async function request<T>(method: string, path: string, body?: Object): Promise<
   } catch (e) {
     const err: Error = e as Error;
     const rawMsg: string = err.message ? err.message : '请求发生未知错误';
-    // 连接失败（ECONNREFUSED 等）给出可操作提示，避免直接透传系统底层错误
+    // 连接失败（ECONNREFUSED 等）：debug 形态给开发提示（含 rport 排查指引），
+    // 发布包必须给用户可理解的网络文案——禁止把「后端/rport」等开发细节暴露给用户与审核员。
     if (isNetworkConnectionError(rawMsg)) {
-      throw new Error('无法连接后端服务，请确认后端已启动且 hdc rport 已建立（模拟器重启后需重跑 rport）');
+      if (DEBUG === true) {
+        throw new Error('无法连接后端服务，请确认后端已启动且 hdc rport 已建立（模拟器重启后需重跑 rport）');
+      }
+      throw new Error('网络连接失败，请检查网络后重试');
     }
     throw new Error(rawMsg);
   } finally {
