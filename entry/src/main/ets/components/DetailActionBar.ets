@@ -8,6 +8,7 @@ import { TypeTokens } from '../design/tokens/type';
 import { MotionCurves, MotionTokens, MotionFrameRates } from '../design/tokens/motion';
 import { Pressable } from '../design/motion/Pressable';
 import { GlowInput } from '../design/components/GlowInput';
+import { bottomNavInset } from '../utils/cardTokens';
 
 @Component
 struct DetailActionButton {
@@ -189,6 +190,11 @@ export struct DetailActionBar {
       }
     }
     .width('100%')
-    .height(LayoutTokens.tabBarHeight)
+    // 底部安全区（三键导航条 / 手势指示条）纳入栏自身高度：栏底贴物理屏底，图标行位于导航区上方。
+    // 与「整栏 margin 上浮」不同——栏是一整块（含页面底色背景），导航区那一截不会透出滚动内容。
+    // 背景用页面底色：手势导航（bottomNavInset()=0）时与原来视觉完全一致。
+    .height(LayoutTokens.tabBarHeight + bottomNavInset())
+    .padding({ bottom: bottomNavInset() })
+    .backgroundColor($r('app.color.bg_primary'))
   }
 }

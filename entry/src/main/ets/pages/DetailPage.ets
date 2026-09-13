@@ -47,7 +47,7 @@ import { DetailCommentsSection } from '../components/DetailCommentsSection';
 import { DetailActionBar } from '../components/DetailActionBar';
 import { AtMentionSuggest } from '../components/AtMentionSuggest';
 import { findActiveAtMention, applyAtMention, AtMentionMatch } from '../utils/atMention';
-import { barBottomReserve, bottomNavInset } from '../utils/cardTokens';
+import { barBottomReserve } from '../utils/cardTokens';
 import { FALLBACK_VIDEO_ASPECT_RATIO, normalizeVideoAspectRatio } from '../utils/video';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 
@@ -1176,8 +1176,6 @@ struct DetailPage {
               .transition(this.animLayerEnter(100))
           }
           .width('100%')
-          // 底部互动栏抬升避让三键导航条（审核问题③）；手势导航 navInset=0 不影响。
-          .margin({ bottom: bottomNavInset() })
           .zIndex(1)
         }
         .layoutWeight(1)
