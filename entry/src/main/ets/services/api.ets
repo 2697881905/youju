@@ -4,7 +4,12 @@ import { Post, DailyPost, Comment, Tag, User, Pagination, Genre, Provider, Bindi
 
 // 以构建期布尔 DEBUG 为准选择后端地址（调试包 true → 本地，released → 生产）。
 const BUILD_MODE: string = BUILD_MODE_NAME;
-const DEBUG_API_HOST: string = 'http://10.181.227.205:3000';
+// ⚠️ 本地联调固定走 127.0.0.1:3000 + hdc 端口转发（真机/模拟器通用）：
+//   真机：hdc -t <设备> rport tcp:3000 tcp:3000
+//   模拟器：hdc -t 127.0.0.1:5555 rport tcp:3000 tcp:3000
+// 历史坑：曾写死本机 LAN IP（10.181.227.205），换网络/换热点后 IP 变化 → 真机报
+// 「无法连接后端服务」（os_errno 111 ECONNREFUSED）。rport 方案与网络环境解耦，换网不用改代码。
+const DEBUG_API_HOST: string = 'http://127.0.0.1:3000';
 export const BASE_URL: string =
   DEBUG === true
     ? DEBUG_API_HOST
