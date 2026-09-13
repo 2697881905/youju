@@ -17,7 +17,8 @@
         "description": "$string:EntryAbility_desc",
         "icon": "$media:layered_image",
         "label": "$string:EntryAbility_label",
-        "startWindowIcon": "$media:launch_placeholder",
+        // 冷启动画面彻底隐藏：图标为全透明图，仅显示与首页画布同色的背景，白屏阶段无 Logo/无动画
+        "startWindowIcon": "$media:launch_transparent",
         "startWindowBackground": "$color:start_window_background",
         "exported": true,
         "skills": [

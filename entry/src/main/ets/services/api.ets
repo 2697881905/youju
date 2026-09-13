@@ -51,6 +51,26 @@ function isNetworkConnectionError(message: string): boolean {
     m.includes('network') || m.includes('socket') || m.includes('peer');
 }
 
+// 登录态失效（服务端 401）统一标记：2 秒节流，并发请求同时 401 只打一次标记。
+// 本层不做清态/跳转（会与 utils/auth.ets 形成循环依赖），只写 AppStorage 标记，
+// 由 UI 层（Index 的 @StorageLink @Watch）负责清登录态 + 提示 + 引导登录页。
+const AUTH_EXPIRED_KEY: string = 'authExpiredAt';
+let lastAuthExpiredMarkAt: number = 0;
+
+function markAuthExpired(): void {
+  const now: number = Date.now();
+  if (now - lastAuthExpiredMarkAt < 2000) {
+    return;
+  }
+  lastAuthExpiredMarkAt = now;
+  AppStorage.setOrCreate<number>(AUTH_EXPIRED_KEY, now);
+}
+
+// 登录/换码类接口自身的 401 属业务流程错误（如授权码无效），不触发全局过期引导。
+function isAuthEndpoint(path: string): boolean {
+  return path.startsWith('/v1/auth/');
+}
+
 async function request<T>(method: string, path: string, body?: Object): Promise<T> {
   const url = BASE_URL + path;
   const req = http.createHttp();
@@ -73,11 +93,21 @@ async function request<T>(method: string, path: string, body?: Object): Promise<
     const result = resp.result as ApiResult<T>;
     if (result && typeof result.code === 'number') {
       if (result.code !== 0) {
+        // 401 统一拦截：登录态失效（token 过期/被撤销）→ 打全局标记 + 明确文案，
+        // 由 Index 监听后清登录态并引导重新登录（避免用户"看起来还登录着"却处处失败）
+        if (result.code === 401 && !isAuthEndpoint(path)) {
+          markAuthExpired();
+          throw new Error('登录已过期，请重新登录');
+        }
         throw new Error(result.message || '请求失败');
       }
       return result.data;
     }
     // fallback：非 JSON 响应或无 code 字段
+    if (resp.responseCode === 401 && !isAuthEndpoint(path)) {
+      markAuthExpired();
+      throw new Error('登录已过期，请重新登录');
+    }
     if (resp.responseCode !== 200) {
       throw new Error('HTTP ' + resp.responseCode);
     }

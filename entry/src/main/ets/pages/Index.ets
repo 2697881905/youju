@@ -5,7 +5,7 @@ import { CircleTab } from '../components/CircleTab';
 import { CircleOnboarding } from '../components/CircleOnboarding';
 import { MessagePage } from './MessagePage';
 import { ProfilePage } from './ProfilePage';
-import { initAuthStorage, getToken, getUserId, loginWithDevStub, setPrivacyAgreed, isPrivacyAgreed, PRIVACY_POLICY_VERSION } from '../utils/auth';
+import { initAuthStorage, getToken, getUserId, loginWithDevStub, setPrivacyAgreed, isPrivacyAgreed, clearSession, PRIVACY_POLICY_VERSION } from '../utils/auth';
 import { BUILD_MODE_NAME } from '../utils/buildMode';
 import { getUnreadCount, getDmUnreadCount, getMe, recordPrivacyConsent, followTag, listTags } from '../services/api';
 import { Tag } from '../models/types';
@@ -138,6 +138,8 @@ struct Index {
   @StorageLink('unreadMessageCount') unreadCount: number = 0;
   @StorageLink('unreadDmCount') dmUnread: number = 0;
   @StorageLink('circleOnboardingPendingUserId') @Watch('onCircleOnboardingPendingChanged') circleOnboardingPendingUserId: string = '';
+  // 登录态过期标记：api.ets 在服务端 401（非登录接口）时写入，本页统一清态 + 提示 + 引导重登
+  @StorageLink('authExpiredAt') @Watch('onAuthExpired') authExpiredAt: number = 0;
   @State showCircleOnboarding: boolean = false;
   @State onboardingTags: Tag[] = [];
   @State onboardingSelectedNames: string[] = [];
@@ -292,6 +294,27 @@ struct Index {
       return;
     }
     this.maybeShowCircleOnboarding();
+  }
+
+  // 登录态过期（服务端 401，api.ets 打的全局标记）：清本地登录态 → 提示 → 引导重新登录。
+  // 用户此前"看起来还登录着"（本地 token 在、界面显示昵称），但所有鉴权操作都会失败——
+  // 统一在此收口，避免用户到处碰壁却不知道要重新登录。
+  private onAuthExpired(): void {
+    if (!this.authExpiredAt) {
+      return;
+    }
+    clearSession();
+    safeShowToast(this.getUIContext(), { message: '登录已过期，请重新登录' });
+    try {
+      const r = this.getUIContext().getRouter();
+      const state = r.getState();
+      // 已在登录页时不重复入栈
+      if (!state || state.path !== 'pages/LoginPage') {
+        r.pushUrl({ url: 'pages/LoginPage' });
+      }
+    } catch (e) {
+      // router 未就绪等异常不阻断（下次 401 标记会再试）
+    }
   }
 
   private continueLaunchFlow(): void {
