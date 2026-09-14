@@ -17,10 +17,11 @@ export struct PublishTopBar {
       Row({ space: SpaceTokens.sm }) {
         Row({ space: SpaceTokens.sm }) {
           BackButton({ action: (): void => { this.onBack(); } })
-          DesignButton({ label: '清空', variant: 'glass', action: (): void => { this.onClear(); } })
+          // 次级操作统一走 outlined（透明底 + barBorder 描边），替换旧的 glass 实色底
+          DesignButton({ label: '清空', variant: 'outlined', action: (): void => { this.onClear(); } })
         }
         Blank()
-        DesignButton({ label: '预览', variant: 'glass', disabled: this.previewDisabled, action: (): void => { this.onPreview(); } })
+        DesignButton({ label: '预览', variant: 'outlined', disabled: this.previewDisabled, action: (): void => { this.onPreview(); } })
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)

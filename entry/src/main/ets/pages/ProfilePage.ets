@@ -562,6 +562,7 @@ export struct ProfilePage {
         Image(resolveActionIcon('chevronRight'))
           .width(IconTokens.small)
           .height(IconTokens.small)
+          .fillColor(ColorTokens.secondary)
           .opacity(0.55)
       }
       .width('100%')

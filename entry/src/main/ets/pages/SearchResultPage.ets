@@ -209,6 +209,7 @@ struct SearchResultPage {
             Image(resolveActionIcon('close'))
               .width(IconTokens.compact)
               .height(IconTokens.compact)
+              .fillColor(ColorTokens.secondary)
           }
           .width(LayoutTokens.minTouchTarget)
           .height(LayoutTokens.minTouchTarget)

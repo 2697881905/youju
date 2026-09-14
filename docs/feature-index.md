@@ -11,7 +11,21 @@
 | `motion/` | Pressable、SharedSlide、Reveal、Collapse、CountRoll、Skeleton、SpringPanel |
 | `preview/` | FoundationPreview、ParchmentPreview |
 
-`DesignButton` 四个变体：`primary`（品牌实底）/ `ghost`（透明 + 品牌描边）/ `glass`（`elevated` 底 + 玻璃描边）/ `outlined`（透明 + `barBorder` 描边 + lg 圆角，2026-09-14 新增）。
+`DesignButton` 四个变体：`primary`（品牌实底，主级 CTA）/ `ghost`（透明 + 品牌描边）/ `glass`（`elevated` 底 + 玻璃描边，仅剩 `CircleOnboarding` 在用）/ `outlined`（透明 + `barBorder` 描边 + `pill` 圆角，2026-09-14 新增）。
+
+主/次配比约定：**主级 CTA 用 `primary`**（`CircleOnboarding` 确认、`PublishTagPanel` 完成、`PublishPreviewPage` 确认发布）；次级用 `outlined`；破坏性操作目前也用 `outlined`（设计系统暂无 danger 变体）。
+
+### 图标着色体系
+
+`resources/base/media` 共 97 个 SVG，两套机制并存：
+
+| 机制 | 数量 | 适用 | 说明 |
+| --- | --- | --- | --- |
+| `stroke="currentColor"` + 使用处 `.fillColor()` | 44 | 需运行时着色 | 38 个 `tag_*`（按圈子配色）+ `video_play` + 2026-09-14 新收的 5 个（`close_x` / `chevron_right` / `publish_*_outline`） |
+| 写死颜色（`#3F3A2E` / `#B9B09A`），配 `resources/dark/media/` 深色板 | 52 | 固定语义色 | `action_*` / `nav_*` / `set_*` / `status_*` / `share_*` / `genre_*` / 品牌 Logo、`close_x_white` 等 |
+| 无描边 | 1 | — | `launch_placeholder` |
+
+约定：**新增单色线条图标一律用 `currentColor`**，并在每个使用处显式 `.fillColor(token)`；只有在需要「同一图标两种固定色」时才用双份板（浮层白图标属例外）。⚠️ `utils/settingsIcons.ets` 的 `resolveSettingsIcon` fallback 指向 `chevron_right`（已转 `currentColor`），未带 `fillColor` 的调用点会失效。
 
 `outlined` 描边规格（透明底 + 1vp `barBorder` 描边 + `RadiusTokens.lg` 圆角 + 无阴影）已在 7 处采用，兼容容器类（`SegmentedControl({ outlined: true })`）与按钮类（`DesignButton({ variant: 'outlined' })`）两种入口；完整规格、采用清单与已知风险见 `docs/home-segmented-control-style-audit.md`。
 

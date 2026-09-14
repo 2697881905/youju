@@ -237,3 +237,48 @@ export type DesignButtonVariant = 'primary' | 'ghost' | 'glass' | 'outlined';
 - ⚠️ **同一个可读性风险被平移到了「已加入的圈子」**：它的结构（标题 + 若干 hairline 条目浮在遮罩上）与发布弹窗几乎同构，透明面板下大概率出现同样的对比不足。若复现，处理方式同上——回退毛玻璃、或单独给面板描边提对比度，**不要**动内部元素。
 - 结论沉淀：**弹窗面板这类大面积、承载正文的浮层不适合用 `outlined` 档位**；`outlined` 的适用面是「小面积、单行、控件级」（分段栏、搜索按钮、下拉按钮、按钮）。此为经验判断，如需再评估应先在真机上看对比度。
 
+## 8. 收尾：按钮变体收敛 + 图标着色体系收敛（2026-09-14）
+
+### 8.1 最后 4 个 `glass` 按钮收敛到 `primary` / `outlined`
+
+| 位置 | 按钮 | 改前 | 改后 | 依据 |
+| --- | --- | --- | --- | --- |
+| `components/PublishTopBar.ets:20` | 清空 | `glass` | **`outlined`** | 次级操作 |
+| `components/PublishTopBar.ets:23` | 预览 | `glass` | **`outlined`** | 次级操作 |
+| `pages/PublishPreviewPage.ets:619` | 存草稿 | `glass` | **`outlined`** | 次级操作 |
+| `pages/PublishPreviewPage.ets:627` | 确认发布 | `glass` | **`primary`**（默认变体） | 主级 CTA，与 `CircleOnboarding` 确认、`PublishTagPanel` 完成、`ParchmentPreview` 主按钮同档 |
+
+顺带修正一处层级问题：**「确认发布」此前用 `glass`，作为全流程最关键的 CTA 却与「存草稿」同权**，改 `primary` 后才符合项目既有的主/次配比。
+
+### 8.2 `DesignButton.outlined` 的圆角：`lg` → `pill`
+
+按钮类改用 `RadiusTokens.pill`，与 `primary` / `glass` 两个既有变体同形状（44 高上即全胶囊），也与同排的胶囊分段栏一致。**容器类控件仍用 `lg`**（见 §2）。这条修正了 §5.6 / §7 里「注释写『同款圆角』但形状其实不同」的问题。
+
+唯一未动的 `glass` 剩余使用方：`components/CircleOnboarding.ets:121` 的「稍后再选」——不在本轮清单内，保留它也让 `glass` 变体保持有主（未变成死变体）。
+
+### 8.3 图标着色体系收敛（双份写死板 → `currentColor` + `fillColor`）
+
+清点结果：`resources/base/media` 共 103 个 SVG，其中 **39 个已是 `currentColor`**（38 个 `tag_*` + `video_play`），**57 个写死颜色**（`action_*` / `nav_*` / `set_*` / `chevron_*` / `close_x` / `publish_*_outline` / `status_*` / `share_*` / `genre_*` / 品牌 Logo 等，多数在 `resources/dark/media/` 有对应深色板）。
+
+两套体系的分工本来合理（固定色图标用双份板；需运行时着色的图标用 `currentColor`），但**同两个弹窗里两套并存**，且写死色是冗余维护负担。本轮把**弹窗内涉及的 5 个图标**收敛到 `currentColor`：
+
+| 图标 | 原写死色 | 处理 |
+| --- | --- | --- |
+| `publish_photo_outline` / `publish_video_outline` / `publish_text_outline` | base `#3F3A2E` / dark `#B9B09A` | 改为 `currentColor`，删深色板 |
+| `chevron_right` | 同上 | 同上 |
+| `close_x` | 同上 | 同上 |
+
+**关键点：这 5 个图标的写死色恰好等于 `ds_text_secondary`**（浅 `#3F3A2E` / 深 `#B9B09A`），所以「改成 `currentColor` + 使用处 `.fillColor(ColorTokens.secondary)`」是**像素级等价**的重构——零视觉风险，只换了着色机制。
+
+改动清单（共 11 个渲染点，已用脚本反查确认 0 漏点）：
+
+- 新增 `.fillColor(...)`：`PublishModeSheet`（3 个发布图标 + `chevron_right` + `close_x`）、`FolderNameDialog`、`JoinedCirclesDialog`、`DetailActionBar`、`PostStatsDialog`、`FolderPickDialog`、`SearchResultPage`、`SettingsPage`（2 处）、`ProfilePage`。
+- 删除 `resources/dark/media/` 下这 5 个深色板（不删的话深色主题会命中写死色，`fillColor` 失效一半）。
+- `SettingsPage` 用页内一致的 `$r('app.color.text_secondary')`（该页整体还是老色板，值 `#403B2F` 与 `#3F3A2E` 差 1/255，不可感知）；其余页面用 `ColorTokens.secondary`。
+
+未处理（保持双份板）：其余 **52 个**写死色图标。`close_x_white` 属「媒体浮层白图标」例外，按规则不参与主题化。
+
+⚠️ 顺带发现：`SettingsPage.ets` 的 `sectionRow` / `toggleRow` 两个 `@Builder` **全项目 0 调用**（死代码），其中也含 `chevronRight` 渲染点，本轮一并补了 `fillColor` 以免将来复活时踩坑。
+
+⚠️ 未收敛的隐患：`utils/settingsIcons.ets` 的 `resolveSettingsIcon(name)` 在未命中时**回退返回 `chevron_right`**（注释写「避免空白」）。该 fallback 现在指向一个 `currentColor` 图标，任何未带 `fillColor` 的新调用点都会渲染成默认色。建议后续要么给 fallback 换一个双份板图标，要么在 `resolveSettingsIcon` 层返回资源 + 颜色对。
+

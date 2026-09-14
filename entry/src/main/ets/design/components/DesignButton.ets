@@ -44,7 +44,9 @@ export struct DesignButton {
       return this.cornerRadius;
     }
     if (this.isOutlined()) {
-      return RadiusTokens.lg;
+      // 按钮类用 pill：与 primary / glass 两个既有变体同形状（44 高上即全胶囊），
+      // 也与同排的胶囊分段栏一致。容器类控件仍用 lg（见 docs/home-segmented-control-style-audit.md）。
+      return RadiusTokens.pill;
     }
     return this.isPrimary() || this.isGlass() ? RadiusTokens.pill : RadiusTokens.md;
   }
