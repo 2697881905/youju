@@ -676,6 +676,11 @@ export struct MessagePage {
         }
       }
       .width('100%')
+      // 固定顶栏高度，避免切换 Tab 时整块回弹：
+      // 「全部已读」只在通知页渲染（44 高），私信页没有 → 不固定高度时本行会从
+      // max(32, 44)=44 掉到 32，下方分段栏随之整体上移 12vp。
+      // 44(触控目标) + xs×2(上下内边距) = 52，与通知页现状一致。
+      .height(LayoutTokens.minTouchTarget + SpaceTokens.xs * 2)
       // 标题贴顶（与首页有据同一水平线），左右留白与首页标题一致(sm)
       .padding({
         left: SpaceTokens.sm,
