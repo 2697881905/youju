@@ -142,3 +142,27 @@ App 内 tab 文案是「每日一**帖**」（`HomeTab.ets:46`、`FoundationPrev
 - ⚠️ **需实机复核**：卡片是 116vp 高的内容块，`bar_border` 压 `ds_canvas` 的对比只有约 1.07:1（浅）/ 1.10:1（深），容器又已透明 → 卡片与画布的分层几乎只剩这条几乎不可见的描边，且内部「进入」按钮的轮廓与卡片轮廓同色。若实机上认为卡片「立不住」，按 §5.2/§5.4 的思路补对比度（单独立一个 ≥3:1 的描边色 token，或恢复 `cardSelectionSurface` 面），而不是继续复用 `barBorder`。
 - 这是同一规格的第 4 处采用方，规格本身见 §2。
 
+### 2026-09-14 · 批量推广到圈子/发布相关控件（第 5–7 处）+ 新增 `DesignButton.outlined` 变体
+规格从「顶栏单行胶囊」推广到卡片与列表行。**注意：可复用的是「材质三件套」（透明底 + `glassBorderWidth`/`barBorder` 描边 + `RadiusTokens.lg` 圆角，无阴影）；「高 36vp」只约束顶栏单行控件**，卡片/行按其自身尺寸（116 / 76 / 68 / 44）走，半径 20 在这些高度上不再被钳制。
+
+| # | 位置 | 改动前 | 改动后 |
+| --- | --- | --- | --- |
+| 5 | `pages/CircleDetailPage.ets` 的「最新/热门」分段栏 | `glass: true`（`barSurface` 底 + 系统模糊 + `floatingBar` 圆角 + radius 18 阴影） | `glass: false, outlined: true` |
+| 6 | `components/JoinedCirclesDialog.ets` 的圈子格子（76 高） | `barSelectionSurface` 填充 + `cardContact` 阴影 | 透明底 + `barBorder` 描边，无阴影 |
+| 7 | `components/PublishModeSheet.ets` 的发布方式选项行（68 高） | `barSelectionSurface` 填充（描边/圆角已合规） | 透明底（描边/圆角不变） |
+
+配套新增 `DesignButton` 的 `outlined` 变体（`design/components/DesignButton.ets`），并让 `CircleDetailPage` 的「退出圈子 / 加入圈子」按钮改用它：
+
+```
+export type DesignButtonVariant = 'primary' | 'ghost' | 'glass' | 'outlined';
+// outlined = 透明底 + barBorder 1vp 描边 + lg 圆角 + 无阴影 + primary 文字
+```
+
+要点与风险：
+
+- **`DesignButton.outlined` 是这次唯一新增的公共 API**。规格落在组件内（`isOutlined()` + `resolvedRadius()` + `fontColor` / `border` 三元分支），页面侧只写 `variant: 'outlined'`，与「规格住在组件里」的约定一致。`primary` / `ghost` / `glass` 三个既有变体行为未改动。
+- ⚠️ 「退出圈子」是**破坏性操作**，改用 outlined 后它变成透明底 + 无品牌色（文字走 `primary`）的中性控件，和旁边的分段栏视觉同权。设计系统里本来也没有 danger 变体，若希望它仍有警示性，需要一个独立的 danger/outlined-danger 变体，而不是复用这条规格。
+- ⚠️ 该按钮 `visualHeight` 用 `DesignButton` 默认 44vp，`lg`(20) 在 44 高上不被钳制 → 形状是「大圆角方形」，与同排 36 高的分段栏（被钳成**全胶囊**）**不是同一形状**，与搜索按钮同款。要真正对齐需显式给 `cornerRadius: RadiusTokens.pill`。
+- ✅ 第 6、7 处落在 `SpringPanel`（系统玻璃 + `barBorder` 描边）之内，而 `barBorder` 本来就是为了浮在玻璃/影像上而设的 hairline → 在这两个弹窗里透明 + 描边的可读性**优于**画布上的场景（第 1–5 处），风险较低。
+- 顺带清理：`JoinedCirclesDialog` 移除失效的 `ShadowTokens` import；`PublishModeSheet` 与 `CircleDetailPage` 无残留 `barSelectionSurface` 引用。
+

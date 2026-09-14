@@ -5,7 +5,7 @@ import { RadiusTokens } from '../tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../tokens/space';
 import { TypeTokens } from '../tokens/type';
 
-export type DesignButtonVariant = 'primary' | 'ghost' | 'glass';
+export type DesignButtonVariant = 'primary' | 'ghost' | 'glass' | 'outlined';
 
 @Component
 export struct DesignButton {
@@ -33,9 +33,18 @@ export struct DesignButton {
     return this.variant === 'glass';
   }
 
+  // outlined：与首页分段栏「容器」/ 圈子下拉按钮同款的描边规格
+  // （透明底 + glassBorderWidth 细描边 barBorder + lg 圆角 + 无阴影 + primary 文字）
+  private isOutlined(): boolean {
+    return this.variant === 'outlined';
+  }
+
   private resolvedRadius(): number {
     if (this.cornerRadius > 0) {
       return this.cornerRadius;
+    }
+    if (this.isOutlined()) {
+      return RadiusTokens.lg;
     }
     return this.isPrimary() || this.isGlass() ? RadiusTokens.pill : RadiusTokens.md;
   }
@@ -83,7 +92,7 @@ export struct DesignButton {
         .fontWeight(TypeTokens.headline.weight)
         .lineHeight(TypeTokens.callout.lineHeight)
         .letterSpacing(TypeTokens.callout.tracking)
-        .fontColor(this.isPrimary() ? ColorTokens.onBrand : (this.isGlass() ? ColorTokens.primary : ColorTokens.brand))
+        .fontColor(this.isPrimary() ? ColorTokens.onBrand : (this.isGlass() || this.isOutlined() ? ColorTokens.primary : ColorTokens.brand))
         .height(this.visualHeight)
         .width(this.fillWidth ? '100%' : 'auto')
         .padding({ left: SpaceTokens.block, right: SpaceTokens.block })
@@ -91,7 +100,7 @@ export struct DesignButton {
         .backgroundColor(this.isPrimary() ? ColorTokens.brand : (this.isGlass() ? ColorTokens.elevated : Color.Transparent))
         .border({
           width: this.isPrimary() ? 0 : LayoutTokens.glassBorderWidth,
-          color: this.isGlass() ? ColorTokens.separator : ColorTokens.brand,
+          color: this.isGlass() ? ColorTokens.separator : (this.isOutlined() ? ColorTokens.barBorder : ColorTokens.brand),
           style: BorderStyle.Solid,
         })
         .borderRadius(this.resolvedRadius())
