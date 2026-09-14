@@ -184,3 +184,41 @@ export type DesignButtonVariant = 'primary' | 'ghost' | 'glass' | 'outlined';
 - 副作用：这两个弹窗现在与其余 4 个（保留流光的）**面板材质不同**，属刻意的差异，不是遗漏。
 - 图标体系差异（未处理）：`JoinedCirclesDialog` 用 `TagIcon` 的**彩色**图标（`fillColor` 可主题化），`PublishModeSheet` 用**单色灰**图标（`publish_*_outline` / `chevron_right` / `close_x`，`base` 与 `dark` 各一份写死 `#3F3A2E` / `#B9B09A`）。两套着色方式在弹窗体系内并列，若要统一需先把后者改成 `currentColor` + 使用处 `fillColor`。
 
+### 2026-09-14 · 发布选项弹窗对齐三段栏：面板 outlined（A）+ 单条容器描边（B）；形状（C）几何不可行
+用户复核后指出「首页顶部分段栏的样式和发布选项弹窗不一致」，逐行比对后确认**材质三件套已完全一致**，剩余差异只有三项。按用户选择处理 A、B，C 经几何验算判定不可行。
+
+**A · 面板也做 outlined** —— 给 `SpringPanel` 增加 `@Prop outlined: boolean = false`：
+
+```
+.backgroundBlurStyle(this.outlined ? BlurStyle.NONE : GlassBlurStyle.Floating)
+.backgroundColor(this.outlined ? Color.Transparent : (isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface))
+.border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })   // 不变
+.shadow(this.outlined ? ShadowTokens.none : ShadowTokens.floating)
+// build(): if (this.immersive && !this.outlined) → 跳过 ImmersiveSurface 流光层
+```
+
+`PublishModeSheet` 传 `outlined: true`（并显式 `immersive: false`）。默认值 `false`，**其余 5 个弹窗行为零变化**。
+
+**B · 描边层级改成 1 条** —— 三个选项合并进一个 `Column` 容器（`barBorder` 1vp + `RadiusTokens.lg` + `clip(true)`），条目自身去掉描边、保持透明底；条目之间用 `Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator)`。这与分段栏「1 条容器描边 + 内部 3 段无边框」同构。
+
+**C · 形状改成胶囊 —— 几何上不可行**（未实施，附验算）：
+
+| 量 | 值 |
+| --- | --- |
+| 容器宽 | `panelWidth 344` − `panelPadding lg`×2 = **304vp** |
+| 容器高 | 3 × 68 + 2 × 0.5(hairline) = **205vp** |
+| `RadiusTokens.pill` 钳制后半径 | `min(304, 205) / 2` = **102.5vp** |
+| 第一行图标左上角 (16, 22) 到圆角圆心 (102.5, 102.5) 的距离 | **118.2vp > 102.5 → 落在圆角之外** |
+| 第一行左侧内容区中心 (16, 34) 到圆心距离 | **110.3vp > 102.5 → 同样在圆角之外** |
+
+结论：**多行容器做不成胶囊**。圆角半径随容器总高增长（= 高/2），而内容内缩固定为 `SpaceTokens.base`(16)，两行以上必然让首/末行的图标与文字跑到圆角之外（`clip(true)` 会直接裁掉）。分段栏之所以是胶囊，是因为它是**单行 36vp** 的元素（半径钳到 18 = 高/2）。
+
+要把形状统一，只能在下面两条里选一条，二者互斥：
+
+- **C1（放弃 B）**：回到 3 个条目各自描边，半径改 `pill` → 68 高的条目各成 radius 34 的胶囊，形状与分段栏一致；代价是描边回到 3 条。
+- **C2（保留 B）**：容器保持单条描边，半径用 `RadiusTokens.floatingBar`(30) 折中——比 `lg`(20) 更圆，且内容不被裁。
+
+补充一个易被忽略的事实：分段栏渲染半径实际是 **18**（`lg` 20 被 36 高钳制），而本次容器半径是 **20**（205 高不钳制）——**两者的绝对圆度几乎相同（差 2vp）**，真正的差别是「圆角占自身高度的比例」。这一项无法靠换 token 消除，属于几何固有差异。
+
+⚠️ **可读性待实机确认**：面板去掉背景模糊与外阴影后，只剩一条描边（`barBorder` 压遮罩 ≈1.1:1 量级），弹窗内容直接浮在遮罩之上。若实机上文字/图标对比不足，应回退到「保留系统玻璃」或给面板单独提描边对比度，**不要**再靠内部元素解决。
+
