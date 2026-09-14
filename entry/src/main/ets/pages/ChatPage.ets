@@ -103,8 +103,14 @@ export struct ChatPage {
     this.captureKeyboardAvoidMode();
     if (getToken() !== '' && this.peerId > 0) {
       this.loadMessages();
+      // 轮询只在会话参数有效时启动：此前无条件启动，会在 peerId=0 时每 5 秒空转一次。
+      this.startPolling();
+    } else {
+      // 进程恢复后 takeChatIntent() 可能返回 null → peerId=0，或未登录直接进入本页。
+      // 必须显式退出 loading，否则渲染停在「加载中…」永久转圈（无任何出口）。
+      this.loading = false;
+      this.error = this.peerId > 0 ? '请先登录后查看私信' : '会话参数缺失，请返回消息列表重新进入';
     }
-    this.startPolling();
   }
 
   // 记录进入前的键盘避让模式，切到 RESIZE（内容区缩放而非整体上移），离页还原，
