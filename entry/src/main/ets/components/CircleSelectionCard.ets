@@ -4,13 +4,13 @@ import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { RadiusTokens } from '../design/tokens/radius';
-import { ShadowTokens } from '../design/tokens/shadow';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
 
 // 星环选中态资料卡独立于角度/手势计算，保留底部栏一致的玻璃层级和切换编舞。
-// 卡片本体对齐首页分段栏「选中滑块」：纸面高亮填充 + 无流光特效。
+// 卡片本体对齐首页分段栏「容器」的 outlined 规格：透明底 + 细描边 + lg 圆角 + 无阴影，
+// 无流光特效；卡内「进入」按钮复用同一套描边规格。
 @Component
 export struct CircleSelectionCard {
   @Prop name: string = '';
@@ -95,17 +95,18 @@ export struct CircleSelectionCard {
     .height(116)
     .padding(SpaceTokens.md)
     .justifyContent(FlexAlign.SpaceBetween)
-    // 与首页分段栏「选中滑块」完全一致：纸面高亮填充 + lg 圆角 + 无边框 + 细接触阴影
-    .backgroundColor(ColorTokens.barSelectionSurface)
+    // 与首页分段栏「容器」（SegmentedControl.outlined）同款：透明底 + glassBorderWidth 细描边
+    // barBorder + lg 圆角，无实色垫底、无阴影。卡片靠轮廓而非底色与画布分层。
+    .backgroundColor(Color.Transparent)
+    .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
     .borderRadius(RadiusTokens.lg)
-    .shadow(ShadowTokens.cardContact)
     .clip(true)
   }
 
   build() {
     Row() {
       Column() {
-        // 不使用 ImmersiveSurface：去掉流光特效，卡片保持分段栏滑块的纸面质感
+        // 不使用 ImmersiveSurface：卡片保持分段栏容器的描边质感，无实色底、无流光特效
         this.cardBody()
       }
       .layoutWeight(1)
