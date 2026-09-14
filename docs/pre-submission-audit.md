@@ -4,6 +4,9 @@
 审计方式：三路只读代码审计（合规/权限、未完成功能、运行时健壮性）+ 逐条人工复核
 说明：审计期间工作树存在**你正在进行的未提交批次**（`DetailHeroMedia.ets` 及详情页相关 11 个文件），本报告基于该状态，未改动任何文件。
 
+> **修复进度（2026-09-14 当晚）**：**P0-1 / P0-2 / P0-3 / P0-4 已全部修复**，涉及 `utils/shareCard.ets`、`pages/Index.ets`、`pages/BookmarkFolderDetailPage.ets`、`pages/ChatPage.ets`、`pages/UserProfilePage.ets`、`pages/ProfilePage.ets`。P1 / P2 未动。
+> 另：修复全程**未触碰**你工作区里那批详情页 hero 未提交改动。
+
 ---
 
 ## 结论速览

@@ -135,6 +135,11 @@ struct Index {
   @State currentIndex: number = 0;
   @State privacyDialogShown: boolean = false; // 防隐私弹窗重复弹出
   @State privacyDialogIsUpdate: boolean = false;
+  // 隐私同意标记（PersistentStorage 字符串 '0'/'1'，见 utils/auth.ets）。
+  // 未同意前不构建主 Tab 内容——TabContent 的子组件会立即挂载，而 HomeTab/CircleTab/
+  // MessagePage/ProfilePage 的 aboutToAppear 里就会发网络请求（continueLaunchFlow 的
+  // 同意闸门只挡住 startInit()，挡不住这条路径，属「告知—同意前处理」红线）。
+  @StorageLink('privacyAgreed') privacyAgreed: string = '0';
   @StorageLink('unreadMessageCount') unreadCount: number = 0;
   @StorageLink('unreadDmCount') dmUnread: number = 0;
   @StorageLink('circleOnboardingPendingUserId') @Watch('onCircleOnboardingPendingChanged') circleOnboardingPendingUserId: string = '';
@@ -616,7 +621,11 @@ struct Index {
   build() {
     Stack({ alignContent: Alignment.Bottom }) {
       Column() {
-        if (this.hdsFloatingBar) {
+        // ⚠️ 隐私红线：未同意隐私政策前不构建主 Tab 内容。
+        // 同意后 privacyAgreed 变 '1' → build 重跑 → 正常构建 Tab 并加载。
+        if (this.privacyAgreed !== '1') {
+          Blank()
+        } else if (this.hdsFloatingBar) {
           this.mainTabsFloating()
         } else {
           this.mainTabsPlain()
@@ -628,7 +637,8 @@ struct Index {
 
       // API 20-22 分支：自绘悬浮玻璃药丸底栏（BottomTabBar，纯标准 ArkUI，无 HDS 依赖）。
       // 与 API 23+ 的 HdsTabs 悬浮条同款视觉；三键导航避让由 margin 承担（审核问题③）。
-      if (!this.hdsFloatingBar) {
+      // 未同意隐私政策时不渲染底栏（此时没有可切换的页面，避免空白壳里出现可点的假壳）。
+      if (!this.hdsFloatingBar && this.privacyAgreed === '1') {
         Row() {
           BottomTabBar({
             items: this.bottomTabItems(),

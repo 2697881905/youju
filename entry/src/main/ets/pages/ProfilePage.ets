@@ -503,6 +503,30 @@ export struct ProfilePage {
   @Builder
   bookmarkSubSegment(): void {
     Row() {
+      // 收藏夹管理入口：pages/BookmarkFolderPage（重命名/删除）此前已实现且已注册路由，
+      // 但全项目 0 处跳转 → 用户建了收藏夹就改不了名、删不掉。仅在收藏夹子页且已有收藏夹时显示。
+      if (this.bookmarkSubTab === 1 && this.folders.length > 0) {
+        Pressable({
+          visualHeight: LayoutTokens.segmentedHeight,
+          touchTargetHeight: LayoutTokens.minTouchTarget,
+          action: (): void => {
+            this.getUIContext().getRouter().pushUrl({ url: 'pages/BookmarkFolderPage' });
+          },
+        }) {
+          Text('管理')
+            .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.headline.weight)
+            .lineHeight(TypeTokens.callout.lineHeight)
+            .fontColor(ColorTokens.primary)
+            .height(LayoutTokens.segmentedHeight)
+            .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+            .textAlign(TextAlign.Center)
+            .backgroundColor(Color.Transparent)
+            .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+            .borderRadius(RadiusTokens.lg);
+        }
+        Blank()
+      }
       SegmentedControl({
         items: BOOKMARK_SEGMENTS,
         selectedIndex: $bookmarkSubTab,

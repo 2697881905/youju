@@ -1,11 +1,11 @@
 // 分享卡片：离屏绘制一张竖版图文卡片（封面 + 标题 + 简介 + 作者 + 品牌 + 链接），
-// 落沙箱后走系统分享面板（general.image）。小红书式图文分享，不带二维码（避免引入依赖）。
+// 返回 JPEG 字节，供 App 内预览与分享使用。不带二维码（避免引入依赖）。
+// 注意：本文件不申请任何权限、不写系统相册；需要保存到相册请走 utils/mediaSave.ets 的免权限通道。
 import { drawing, common2D } from '@kit.ArkGraphics2D';
 import { image } from '@kit.ImageKit';
-import { common, abilityAccessCtrl, Permissions, PermissionRequestResult } from '@kit.AbilityKit';
+import { common } from '@kit.AbilityKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { http } from '@kit.NetworkKit';
-import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { buildPostShareUrl, downloadToSandbox } from './share';
 import { BASE_URL } from '../services/api';
 import { splitLines, makeColor, drawText } from './textPoster';
@@ -262,51 +262,3 @@ export async function generateShareCardBytes(
   return bytes;
 }
 
-// 帖子分享卡片：生成卡片图 → 请求相册写权限 → createAsset 静默写入系统图库
-// （抖音/小红书式）。不做 systemShare 面板、也不用 showAssetsCreationDialog：
-// 本环境这两个系统弹窗扩展均告超时/崩溃（DMS session 失效、extension_lifecycle_timeout），
-// 唯一可靠通道是受控权限 + createAsset 直写（首次仅一次系统授权弹窗）。
-// 返回 true=已保存到相册；false=用户未授予权限。
-export async function sharePostCardToSystem(
-  uiContext: UIContext,
-  postId: number,
-  title: string,
-  content: string,
-  authorName: string,
-  coverUrl: string,
-): Promise<boolean> {
-  const context: common.UIAbilityContext = uiContext.getHostContext() as common.UIAbilityContext;
-  console.info('[shareCard] 开始生成卡片');
-  const bytes: ArrayBuffer = await createCardBytes(context, postId, title, content, authorName, coverUrl);
-  console.info('[shareCard] 卡片编码完成, 字节数=' + bytes.byteLength);
-
-  // 相册写权限（受控权限：首次拉起系统授权框，之后静默）
-  const atManager = abilityAccessCtrl.createAtManager();
-  try {
-    const req: PermissionRequestResult = await atManager.requestPermissionsFromUser(context,
-      ['ohos.permission.WRITE_IMAGEVIDEO'] as Array<Permissions>);
-    const granted: number = (req.authResults ?? [])[0] ?? -1;
-    if (granted !== 0) {
-      console.info('[shareCard] 用户未授予相册写权限');
-      return false;
-    }
-  } catch (e) {
-    console.error('[shareCard] 请求相册权限异常: ' + String((e as Error).message ?? e));
-    return false;
-  }
-
-  // createAsset 创建图库资产 → 直接写入字节（无系统保存弹窗）
-  try {
-    const phHelper: photoAccessHelper.PhotoAccessHelper = photoAccessHelper.getPhotoAccessHelper(context);
-    const opts: photoAccessHelper.CreateOptions = { title: 'youju_' + Date.now() };
-    const uri: string = await phHelper.createAsset(photoAccessHelper.PhotoType.IMAGE, 'jpg', opts);
-    const file = fileIo.openSync(uri, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.TRUNC);
-    fileIo.writeSync(file.fd, bytes);
-    fileIo.closeSync(file);
-    console.info('[shareCard] 卡片已保存到相册 uri=' + uri);
-    return true;
-  } catch (e) {
-    console.error('[shareCard] 写入相册失败: ' + String((e as Error).message ?? e));
-    throw new Error('保存到相册失败：' + String((e as Error).message ?? e));
-  }
-}

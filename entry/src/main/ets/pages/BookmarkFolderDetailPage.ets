@@ -30,12 +30,20 @@ export struct BookmarkFolderDetailPage {
     const params = this.getUIContext().getRouter().getParams() as Record<string, string> | undefined;
     this.folderId = Number(params?.folderId ?? 0);
     this.folderName = params?.folderName ?? '收藏夹';
-    if (this.folderId > 0) {
-      this.load(true);
-    }
+    // 参数可能缺失（router.getParams() 在 API 24 不稳定）→ 统一交给 load() 进可重试的失败态，
+    // 绝不能留在「ready 仍为 false」的初始分支，否则会永久停在「加载中…」且没有出口。
+    this.load(true);
   }
 
   private async load(reset: boolean): Promise<void> {
+    // 参数非法（NaN / <= 0）时不发无效请求，直接进可重试的失败态。
+    // 注意用 !(x > 0) 而非 x <= 0，这样 NaN 也会被判为非法。
+    if (!(this.folderId > 0)) {
+      this.loading = false;
+      this.ready = true;
+      this.error = '收藏夹参数缺失，请返回重新进入';
+      return;
+    }
     if (!reset && (this.loading || this.finished)) {
       return;
     }

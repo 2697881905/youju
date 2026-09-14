@@ -71,7 +71,9 @@ export struct UserProfilePage {
 
   aboutToAppear(): void {
     this.resolveTarget();
-    if (this.token !== '') {
+    // 登录态 + 有效的目标用户 id 才发起加载；targetId 为 0 时发 getUserProfile(0) 是无效请求，
+    // 且 ready 会一直停在 false（渲染进「加载中…」）——改由渲染侧给出「参数缺失」出口。
+    if (this.token !== '' && this.targetId > 0) {
       this.loadAll();
     }
     // 帖子删除广播：详情页删除成功后，本页 posts 数组即时剔除该帖
@@ -596,6 +598,37 @@ export struct UserProfilePage {
                 .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
                 .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
                 .borderRadius(RadiusTokens.floatingBar);
+            }
+          }
+          .layoutWeight(1)
+          .width('100%')
+          .justifyContent(FlexAlign.Center);
+        } else if (this.targetId <= 0) {
+          // 已是登录态但目标用户 id 缺失（takeUserProfileId() 未设置）：
+          // 此前会落进下面的 Loading 分支永久转圈，这里显式给出出口。
+          Column({ space: SpaceTokens.sm }) {
+            Text('页面参数缺失，请返回重新进入')
+              .fontSize(TypeTokens.body.size)
+              .fontFamily(TypeTokens.fontFamily)
+              .fontColor($r('app.color.text_secondary'))
+              .textAlign(TextAlign.Center)
+              .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+            Pressable({
+              fillWidth: false,
+              visualHeight: LayoutTokens.segmentedHeight,
+              touchTargetHeight: LayoutTokens.minTouchTarget,
+              action: (): void => { this.getUIContext().getRouter().back(); },
+            }) {
+              Text('返回')
+                .width(120)
+                .height(LayoutTokens.segmentedHeight)
+                .textAlign(TextAlign.Center)
+                .fontSize(TypeTokens.callout.size)
+                .fontFamily(TypeTokens.fontFamily)
+                .fontWeight(TypeTokens.headline.weight)
+                .fontColor(ColorTokens.primary)
+                .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+                .borderRadius(RadiusTokens.lg);
             }
           }
           .layoutWeight(1)
