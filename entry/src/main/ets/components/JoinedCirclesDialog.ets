@@ -5,7 +5,6 @@ import { resolveActionIcon } from '../utils/actionIcons';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
-import { ShadowTokens } from '../design/tokens/shadow';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 
@@ -57,10 +56,11 @@ export struct JoinedCirclesDialog {
       .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
       .justifyContent(FlexAlign.Center)
       .alignItems(HorizontalAlign.Center)
-      // 与首页分段栏「选中滑块」完全一致：纸面高亮填充 + lg 圆角 + 无边框 + 细接触阴影
-      .backgroundColor(ColorTokens.barSelectionSurface)
+      // 与首页分段栏「容器」同款描边规格：透明底 + glassBorderWidth 细描边 barBorder
+      // + lg 圆角，无实色垫底、无阴影。面板本身是系统玻璃，透明格子落在玻璃上。
+      .backgroundColor(Color.Transparent)
+      .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
       .borderRadius(RadiusTokens.lg)
-      .shadow(ShadowTokens.cardContact)
     }
   }
 

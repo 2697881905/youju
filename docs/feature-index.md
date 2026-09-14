@@ -11,7 +11,9 @@
 | `motion/` | Pressable、SharedSlide、Reveal、Collapse、CountRoll、Skeleton、SpringPanel |
 | `preview/` | FoundationPreview、ParchmentPreview |
 
-顶栏 `outlined` 胶囊控件的统一规格（分段栏 / 圈子下拉按钮 / 搜索按钮 / 圈子详情卡）见 `docs/home-segmented-control-style-audit.md`。
+`DesignButton` 四个变体：`primary`（品牌实底）/ `ghost`（透明 + 品牌描边）/ `glass`（`elevated` 底 + 玻璃描边）/ `outlined`（透明 + `barBorder` 描边 + lg 圆角，2026-09-14 新增）。
+
+`outlined` 描边规格（透明底 + 1vp `barBorder` 描边 + `RadiusTokens.lg` 圆角 + 无阴影）已在 7 处采用，兼容容器类（`SegmentedControl({ outlined: true })`）与按钮类（`DesignButton({ variant: 'outlined' })`）两种入口；完整规格、采用清单与已知风险见 `docs/home-segmented-control-style-audit.md`。
 
 ## 二、页面清单（entry/src/main/ets/pages）
 

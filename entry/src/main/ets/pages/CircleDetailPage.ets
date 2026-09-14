@@ -240,13 +240,15 @@ struct CircleDetailPage {
           selectedIndex: $sortIndex,
           itemWidth: 64,
           fillWidth: false,
-          glass: true,
+          // 与首页分段栏同款描边规格：透明底 + 细描边 + lg 圆角（去掉玻璃模糊/阴影/浮层圆角）
+          glass: false,
+          outlined: true,
           onSelect: (index: number): void => { this.switchSort(index); },
         })
         Blank()
         DesignButton({
           label: this.joined ? '退出圈子' : '加入圈子',
-          variant: 'glass',
+          variant: 'outlined',
           disabled: this.joining,
           action: (): void => { this.toggleJoin(); },
         })

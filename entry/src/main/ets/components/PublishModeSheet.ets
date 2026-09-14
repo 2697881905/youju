@@ -51,7 +51,9 @@ export struct PublishModeSheet {
       .height(68)
       .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
       .alignItems(VerticalAlign.Center)
-      .backgroundColor(ColorTokens.barSelectionSurface)
+      // 与首页分段栏「容器」同款描边规格：透明底 + glassBorderWidth 细描边 barBorder + lg 圆角。
+      // 面板本身是系统玻璃，透明选项行直接落在玻璃上（去掉原来的纸面高亮填充）。
+      .backgroundColor(Color.Transparent)
       .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
       .borderRadius(RadiusTokens.lg)
     }
