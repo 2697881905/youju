@@ -51,19 +51,16 @@ export struct PublishModeSheet {
       .height(68)
       .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
       .alignItems(VerticalAlign.Center)
-      // 与首页分段栏「容器」同款描边规格：透明底 + glassBorderWidth 细描边 barBorder + lg 圆角。
-      // 面板本身是系统玻璃，透明选项行直接落在玻璃上（去掉原来的纸面高亮填充）。
+      // 条目自身不再描边：改由外层「选项容器」统一一条描边（与分段栏「1 条容器描边 + 内部无边框」同构）
       .backgroundColor(Color.Transparent)
-      .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-      .borderRadius(RadiusTokens.lg)
     }
   }
 
   build() {
     // 面板参数与「已加入的圈子」等弹窗统一：panelPadding lg / 默认 radius(lg) / 内部 space base。
-    // immersive=false：关掉 HDS 流光与 #1EFFFFFF→#1E86CFFF 蒙层，面板回归「系统玻璃 + 细描边」
-    // 的薄观感，与内部已统一的 outlined 选项行同一套语言（原为 md / radius xl / space sm + 开流光）。
-    SpringPanel({ panelWidth: 344, panelPadding: SpaceTokens.lg, immersive: false }) {
+    // outlined=true：面板本身也走项目的描边规格（透明底 + 细描边，去背景模糊与外阴影），
+    // 与首页分段栏同一套语言。immersive 已由 outlined 隐含关闭，不再叠 HDS 流光与蒙层。
+    SpringPanel({ panelWidth: 344, panelPadding: SpaceTokens.lg, outlined: true, immersive: false }) {
       Column({ space: SpaceTokens.base }) {
         Row() {
           Text('选择发布方式')
@@ -85,9 +82,20 @@ export struct PublishModeSheet {
         .width('100%')
         .alignItems(VerticalAlign.Center)
 
-        this.modeOption('photo', $r('app.media.publish_photo_outline'), '图文发布', '图片 + 文字，记录此刻所见')
-        this.modeOption('video', $r('app.media.publish_video_outline'), '视频发布', '短片叙事，直观传递现场感')
-        this.modeOption('text', $r('app.media.publish_text_outline'), '长文发布', '深度经验，娓娓道来')
+        // 三个选项共用一个描边容器（分段栏同构）：容器 1 条 barBorder 描边 + lg 圆角 + clip，
+        // 条目本身无边框，之间用发丝分隔线。
+        Column() {
+          this.modeOption('photo', $r('app.media.publish_photo_outline'), '图文发布', '图片 + 文字，记录此刻所见')
+          Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
+          this.modeOption('video', $r('app.media.publish_video_outline'), '视频发布', '短片叙事，直观传递现场感')
+          Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
+          this.modeOption('text', $r('app.media.publish_text_outline'), '长文发布', '深度经验，娓娓道来')
+        }
+        .width('100%')
+        .backgroundColor(Color.Transparent)
+        .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+        .borderRadius(RadiusTokens.lg)
+        .clip(true)
       }
       .width('100%')
     }
