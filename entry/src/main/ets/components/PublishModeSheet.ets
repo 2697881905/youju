@@ -60,8 +60,11 @@ export struct PublishModeSheet {
   }
 
   build() {
-    SpringPanel({ panelWidth: 344, panelPadding: SpaceTokens.md, radius: RadiusTokens.xl }) {
-      Column({ space: SpaceTokens.sm }) {
+    // 面板参数与「已加入的圈子」等弹窗统一：panelPadding lg / 默认 radius(lg) / 内部 space base。
+    // immersive=false：关掉 HDS 流光与 #1EFFFFFF→#1E86CFFF 蒙层，面板回归「系统玻璃 + 细描边」
+    // 的薄观感，与内部已统一的 outlined 选项行同一套语言（原为 md / radius xl / space sm + 开流光）。
+    SpringPanel({ panelWidth: 344, panelPadding: SpaceTokens.lg, immersive: false }) {
+      Column({ space: SpaceTokens.base }) {
         Row() {
           Text('选择发布方式')
             .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)

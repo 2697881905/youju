@@ -166,3 +166,21 @@ export type DesignButtonVariant = 'primary' | 'ghost' | 'glass' | 'outlined';
 - ✅ 第 6、7 处落在 `SpringPanel`（系统玻璃 + `barBorder` 描边）之内，而 `barBorder` 本来就是为了浮在玻璃/影像上而设的 hairline → 在这两个弹窗里透明 + 描边的可读性**优于**画布上的场景（第 1–5 处），风险较低。
 - 顺带清理：`JoinedCirclesDialog` 移除失效的 `ShadowTokens` import；`PublishModeSheet` 与 `CircleDetailPage` 无残留 `barSelectionSurface` 引用。
 
+### 2026-09-14 · 两个弹窗的面板参数统一（内部描边规格之后的收尾）
+反馈：改完内部格子/选项行后，「已加入的圈子」弹窗**总体仍是实心**，发布弹窗样式**又不一样**。排查结论是**问题在面板层，不在内部元素**——`SpringPanel` 6 个调用方的实测参数：
+
+| 弹窗 | panelPadding | radius | immersive | 内部 space |
+| --- | --- | --- | --- | --- |
+| FolderPickDialog / FolderNameDialog / ProfileShareSheet / PostStatsDialog | `lg`(20) | 默认 `lg`(20) | 开 | `base`(16) |
+| JoinedCirclesDialog | `lg`(20) | 默认 `lg`(20) | **关** | `base`(16) |
+| PublishModeSheet（改前） | `md`(12) | `xl`(28) | 开 | `sm`(8) |
+| PublishModeSheet（改后） | `lg`(20) | 默认 `lg`(20) | **关** | `base`(16) |
+
+结论与改动：
+
+- **`PublishModeSheet` 是三项全偏的异类**，`JoinedCirclesDialog` 是唯一关流光的。本次只改前者（`immersive: false` + 参数回归约定），后者本来已落在目标状态，**未改动**。
+- `immersive: false` 同时关掉 `ImmersiveSurface` 的 HDS 双边流光与 `#1EFFFFFF→#1E86CFFF` 蒙层 → 面板回到「系统玻璃 + 细描边」。用户 2026-09-14 明确选择「要最薄」。
+- ⚠️ **根因提醒**：`ImmersiveSurface` 源码记录「部分真机 `backgroundBlurStyle` 会渲染为不透明面板」。所以「实心」本质是**面板材质问题**——内部元素做成透明底也不会透出任何东西。**后续不要再通过调内部元素的透明度来试图解决面板的实心感**，剩下的杠杆只有 ① 面板 `ShadowTokens.floating` 外阴影（`SpringPanel` 共享，需加 prop 才能只改这两个）② 给面板描边单独提对比度。
+- 副作用：这两个弹窗现在与其余 4 个（保留流光的）**面板材质不同**，属刻意的差异，不是遗漏。
+- 图标体系差异（未处理）：`JoinedCirclesDialog` 用 `TagIcon` 的**彩色**图标（`fillColor` 可主题化），`PublishModeSheet` 用**单色灰**图标（`publish_*_outline` / `chevron_right` / `close_x`，`base` 与 `dark` 各一份写死 `#3F3A2E` / `#B9B09A`）。两套着色方式在弹窗体系内并列，若要统一需先把后者改成 `currentColor` + 使用处 `fillColor`。
+
