@@ -125,3 +125,20 @@ App 内 tab 文案是「每日一**帖**」（`HomeTab.ets:46`、`FoundationPrev
 - `glass` 三元分支因此在该按钮上失效（两个分支结果相同），已直接写常量；`TagNav` 的玻璃容器本身仍走 `barSurface / barBorder / floatingBar` 分支，不受影响。
 - 副作用：该按钮不再使用 `ColorTokens.separator`，但 `ChipRow`（`design/components/ChipRow.ets:84`，`compact || glass` 态的 chip 描边）仍在用同一 token，所以同一页面内「圈子 chip 横滑栏」与「圈子下拉按钮」在非首页场景下的描边 token 仍可能不一致，后续若启用 `dropdownOnly: false` 需一并核对。
 
+### 2026-09-14 · 圈子页底部资料卡统一到同一规格
+`entry/src/main/ets/components/CircleSelectionCard.ets`（`cardBody()` 尾部），改动前 → 改动后：
+
+| 属性 | 改动前 | 改动后 |
+| --- | --- | --- |
+| 背景 | `ColorTokens.barSelectionSurface`（纸面高亮） | `Color.Transparent` |
+| 描边 | 无 | `LayoutTokens.glassBorderWidth` + `ColorTokens.barBorder` |
+| 圆角 | `RadiusTokens.lg` | 不变 |
+| 阴影 | `ShadowTokens.cardContact` | 无 |
+
+要点：
+
+- 该卡原先对齐的是分段栏的**滑块**（纸面高亮 + 无边框），现在改为对齐分段栏的**容器**（透明底 + 细描边）。同时移除了随之失效的 `ShadowTokens` import。
+- 卡内「进入」按钮本来就走同一套 outlined 规格（`CircleSelectionCard.ets:60-61`），改动后内外两级描边同色同宽。
+- ⚠️ **需实机复核**：卡片是 116vp 高的内容块，`bar_border` 压 `ds_canvas` 的对比只有约 1.07:1（浅）/ 1.10:1（深），容器又已透明 → 卡片与画布的分层几乎只剩这条几乎不可见的描边，且内部「进入」按钮的轮廓与卡片轮廓同色。若实机上认为卡片「立不住」，按 §5.2/§5.4 的思路补对比度（单独立一个 ≥3:1 的描边色 token，或恢复 `cardSelectionSurface` 面），而不是继续复用 `barBorder`。
+- 这是同一规格的第 4 处采用方，规格本身见 §2。
+

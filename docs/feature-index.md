@@ -1,0 +1,63 @@
+# 「有据」功能索引
+
+从项目长期记忆迁出的功能清单，避免占用记忆注入额度。规则类约束仍在 `.workbuddy/memory/MEMORY.md`，排障过程在 `.workbuddy/memory/YYYY-MM-DD.md`。
+
+## 一、设计系统（entry/src/main/ets/design）
+
+| 目录 | 内容 |
+| --- | --- |
+| `tokens/` | `color`、`type`、`space`（含 `LayoutTokens`）、`radius`、`shadow`、`motion`、`icon` |
+| `components/` | SegmentedControl、ChipRow / ChipItem、BaseCard、BottomTabBar / BottomTabItem、EmptyState、IconTile、PollBlock、StatRow、AuthorRow、DesignButton、ImmersiveSurface、GlowInput、MessageRow |
+| `motion/` | Pressable、SharedSlide、Reveal、Collapse、CountRoll、Skeleton、SpringPanel |
+| `preview/` | FoundationPreview、ParchmentPreview |
+
+顶栏 `outlined` 胶囊控件的统一规格（分段栏 / 圈子下拉按钮 / 搜索按钮 / 圈子详情卡）见 `docs/home-segmented-control-style-audit.md`。
+
+## 二、页面清单（entry/src/main/ets/pages）
+
+| 分组 | 页面 |
+| --- | --- |
+| 骨架 | `Index`（Tab 容器：首页 / 圈子 / 发布 / 消息 / 我的） |
+| 内容 | `DetailPage`、`SearchPanelPage`、`SearchResultPage` |
+| 发布 | `PhotoPublishPage`、`VideoPublishPage`、`TextPublishPage`、`PublishPreviewPage`、`DraftBoxPage`、`TrashBoxPage` |
+| 圈子 | `CircleDetailPage`、`InterestTagsPage` |
+| 消息 | `MessagePage`、`ChatPage`、`NotificationSettingsPage` |
+| 我的 | `ProfilePage`、`EditProfilePage`、`UserProfilePage`、`MyFollowPage`、`BlocklistPage`、`BookmarkFolderPage`、`BookmarkFolderDetailPage` |
+| 账号 | `LoginPage`、`AccountBindingPage` |
+| 设置与合规 | `SettingsPage`、`PrivacySettingsPage`、`PrivacyPage`、`UserAgreementPage`、`AboutPage` |
+| 治理 | `ModerationPage`、`ReportAdminPage` |
+| 设计预览 | `FoundationPreviewPage`、`ParchmentPreviewPage` |
+
+## 三、功能模块
+
+### 首页（`components/HomeTab.ets`）
+- 海报式编辑部头部：品牌块（有据 / SUBSTANTIATE / 标语）+ 搜索按钮（跳 `SearchPanelPage`）。
+- 分段栏「推荐 / 关注 / 每日一帖」（`FEED_SEGMENTS`，`outlined` 规格）。
+- 推荐流右侧叠挂 `TagNav`（`compact + dropdownOnly`）圈子下拉按钮，两者共用同一行 `Stack`（`zIndex` 3 vs 2）。
+- 关注流未登录走 `EmptyState` 登录引导；列表全部用 `Scroll`（沉浸全屏下的约定）。
+- 会话缓存 `feedSessionCache`（key = `feedMode|tag|sort`，每日一帖不缓存）。
+
+### 每日一帖
+- `HomeTab` 第三分段，`DAILY_PICK_LIMIT = 10` 一次拉齐、读完即完成态；禁用下拉刷新（与卡牌拖拽冲突）。
+- `components/DailyPostDeck.ets`：卡堆拖拽 + 逐卡曝光上报 + 完成态覆盖层。
+- 报头 `dailyMasthead`：日期 / 星期 / 刊期 `No.NNN`；`DAILY_ISSUE_ORIGIN = 2026-09-11` 为首期，按北京时间（UTC+8）自然日递推。
+- 埋点：`trackDailyOpen()`（页面级进入）、`trackPostEvent(id, 'click', 'daily')`。
+
+### 圈子（`components/CircleTab.ets`）
+- 顶部 `topBar`：「圈子」标题 + 「已加入 N 个」入口（`JoinedCirclesDialog`）。
+- 中部 `CircleOrbitCanvas`：三层星环，可拖拽旋转（`ringPan` 手势），行星点击选圈。
+- 底部 `CircleSelectionCard`：选中圈资料卡（名称 / 简介 / 加入数 / 今日活跃 / 分类 + 「进入」按钮）。
+
+### 互动治理
+- 拉黑 / 不喜欢：`Blocklist` / `Dislike` 表 + `blockService` / `dislikeService`，路由 `/v1/me/block|dislike[/:id|list]`，`accessControl` 双向过滤。
+- 流差异化：`recommend` 的 excluded = 拉黑 ∪ dislike；`latest` / `following` 仅拉黑。
+- 入口：`UserProfilePage` 顶栏 ⋯ 菜单。
+
+### 内容形态
+- 视频：`Post.videoUrl` / `videoCover`（与 `images` 互斥），强制走 COS、≤50MB 服务端兜底；`PostCardMedia` 封面 + 三角角标；`DetailPage` 用 `VideoPlayer`。
+- 发布三分页共享 `publishFlowStore` / `PublishDraft`；`Index.openPublish` 按 mode 跳转；`DraftBoxPage` 按类型分流。
+
+### 品牌与合规
+- 品牌 Logo 三件套（手绘彩色 SVG）：`brand_harmony`（#1677FF / #5AA5FF）、`brand_huawei`（#E8112D / #B00B20）、`brand_wechat`（#07C160 / #2FCB79）；`utils/brandIcons.ets` 提供 `brandIconRes` / `brandTileTint`，`AccountBindingPage` 用 `providerTile`。
+- 合规页：`PrivacyPage`、`UserAgreementPage`、`PrivacySettingsPage`（个性化推荐开关）、`InterestTagsPage`（查看 / 删除用于推荐的兴趣标签）。
+- `EntryAbility`：状态栏 / 导航栏内容色随应用主题；`utils/dataExport.ets` 数据导出（分段错误标记 + hilog）。
