@@ -30,20 +30,21 @@
 -- ============================================================================
 
 -- 0) COS 媒体删除任务登记（从将被删除的帖子抽出 cos:// key）
-INSERT IGNORE INTO MediaDeletionTask (`key`)
+INSERT IGNORE INTO MediaDeletionTask (`key`, `updatedAt`)
 SELECT TRIM(TRAILING '"' FROM SUBSTRING_INDEX(SUBSTRING_INDEX(p.coverImage, 'cos://', -1), '"', 1))
-FROM Post p WHERE p.coverImage LIKE 'cos://%';
+, NOW(3) FROM Post p WHERE p.coverImage LIKE 'cos://%';
 
-INSERT IGNORE INTO MediaDeletionTask (`key`)
+INSERT IGNORE INTO MediaDeletionTask (`key`, `updatedAt`)
 SELECT TRIM(TRAILING '"' FROM SUBSTRING_INDEX(SUBSTRING_INDEX(p.videoCover, 'cos://', -1), '"', 1))
-FROM Post p WHERE p.videoCover LIKE 'cos://%';
+, NOW(3) FROM Post p WHERE p.videoCover LIKE 'cos://%';
 
-INSERT IGNORE INTO MediaDeletionTask (`key`)
+INSERT IGNORE INTO MediaDeletionTask (`key`, `updatedAt`)
 SELECT TRIM(TRAILING '"' FROM SUBSTRING_INDEX(SUBSTRING_INDEX(p.videoUrl, 'cos://', -1), '"', 1))
-FROM Post p WHERE p.videoUrl LIKE 'cos://%';
+, NOW(3) FROM Post p WHERE p.videoUrl LIKE 'cos://%';
 
-INSERT IGNORE INTO MediaDeletionTask (`key`)
+INSERT IGNORE INTO MediaDeletionTask (`key`, `updatedAt`)
 SELECT DISTINCT TRIM(TRAILING '"' FROM SUBSTRING_INDEX(SUBSTRING_INDEX(JSON_UNQUOTE(json_elem), 'cos://', -1), '"', 1))
+, NOW(3)
 FROM Post p
 CROSS JOIN JSON_TABLE(COALESCE(p.images, JSON_ARRAY()), '$[*]' COLUMNS(json_elem JSON PATH '$')) AS jt
 WHERE p.images IS NOT NULL AND p.images LIKE '%cos://%';
