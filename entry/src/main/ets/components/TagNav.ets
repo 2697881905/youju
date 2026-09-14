@@ -114,9 +114,13 @@ export struct TagNav {
           .height(LayoutTokens.segmentedHeight)
           .justifyContent(FlexAlign.Center)
           .alignItems(VerticalAlign.Center)
-          .backgroundColor(this.glass ? Color.Transparent : ColorTokens.elevated)
-          .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
-          .borderRadius(this.glass ? RadiusTokens.lg : RadiusTokens.pill)
+          // 与首页分段栏（SegmentedControl 的 outlined 分支）同款规格：
+          // 透明底 + glassBorderWidth 细描边 barBorder + lg 大圆角，无实色垫底、无阴影。
+          // 注：36 高的元素半径上限为半高 18，lg(20) 与 pill(999) 在此高度渲染结果一致（均为全胶囊），
+          // 统一取 lg 只为与分段栏共用同一个形状 token，两处圆角不会再走散。
+          .backgroundColor(Color.Transparent)
+          .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+          .borderRadius(RadiusTokens.lg)
         }
       }
       .margin({
