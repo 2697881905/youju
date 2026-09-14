@@ -137,6 +137,7 @@ export struct SettingsPage {
       Image(resolveSettingsIcon('chevronRight'))
         .width(18).height(18)
         .objectFit(ImageFit.Contain)
+        .fillColor($r('app.color.text_secondary'))
     }
     .width('100%')
     .padding({ left: 16, right: 16, top: 14, bottom: 14 })
@@ -368,6 +369,7 @@ export struct SettingsPage {
             Image(resolveSettingsIcon('chevronRight'))
               .width(18).height(18)
               .objectFit(ImageFit.Contain)
+              .fillColor($r('app.color.text_secondary'))
           }
           .width('100%')
           .padding({ left: 16, right: 16, top: 14, bottom: 14 })

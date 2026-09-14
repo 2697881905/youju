@@ -51,6 +51,7 @@ export struct FolderNameDialog {
             Image(resolveActionIcon('close'))
               .width(IconTokens.compact)
               .height(IconTokens.compact)
+              .fillColor(ColorTokens.secondary)
           }
         }
         .width('100%')

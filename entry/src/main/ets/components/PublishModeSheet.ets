@@ -25,10 +25,12 @@ export struct PublishModeSheet {
       },
     }) {
       Row({ space: SpaceTokens.md }) {
+        // 图标统一走 currentColor + fillColor 主题化（不再依赖 base/dark 双份写死板）
         Image(icon)
           .width(IconTokens.standard)
           .height(IconTokens.standard)
           .objectFit(ImageFit.Contain)
+          .fillColor(ColorTokens.secondary)
         Column({ space: SpaceTokens.inlineTight }) {
           Text(label)
             .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
@@ -46,6 +48,7 @@ export struct PublishModeSheet {
         Image($r('app.media.chevron_right'))
           .width(IconTokens.compact)
           .height(IconTokens.compact)
+          .fillColor(ColorTokens.secondary)
       }
       .width('100%')
       .height(68)
@@ -77,6 +80,7 @@ export struct PublishModeSheet {
             Image($r('app.media.close_x'))
               .width(IconTokens.compact)
               .height(IconTokens.compact)
+              .fillColor(ColorTokens.secondary)
           }
         }
         .width('100%')

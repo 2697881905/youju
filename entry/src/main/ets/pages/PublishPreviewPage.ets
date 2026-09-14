@@ -615,9 +615,10 @@ struct PublishPreviewPage {
         .width('100%')
         .scrollBar(BarState.Off)
         Row({ space: SpaceTokens.sm }) {
+          // 次级操作 → outlined；主级 CTA → primary（与 CircleOnboarding 确认 / PublishTagPanel 完成同档）
           DesignButton({
             label: '存草稿',
-            variant: 'glass',
+            variant: 'outlined',
             fillWidth: true,
             disabled: this.publishing,
             action: (): void => { this.saveCurrentDraft(); },
@@ -625,7 +626,6 @@ struct PublishPreviewPage {
           .layoutWeight(1)
           DesignButton({
             label: this.publishing ? '发布中' : '确认发布',
-            variant: 'glass',
             fillWidth: true,
             disabled: this.publishing,
             action: (): void => { this.publish(); },

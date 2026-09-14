@@ -90,6 +90,7 @@ export struct JoinedCirclesDialog {
             Image(resolveActionIcon('close'))
               .width(IconTokens.compact)
               .height(IconTokens.compact)
+              .fillColor(ColorTokens.secondary)
           }
         }
         .width('100%')
