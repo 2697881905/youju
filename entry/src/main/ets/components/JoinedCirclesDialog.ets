@@ -65,8 +65,9 @@ export struct JoinedCirclesDialog {
   }
 
   build() {
-    // immersive=false：面板仅保留系统玻璃，去掉双边流光特效
-    SpringPanel({ panelWidth: 344, panelPadding: SpaceTokens.lg, immersive: false }) {
+    // outlined=true：面板做成透明（无背景模糊、无外阴影，只留 barBorder 细描边），
+    // 与发布弹窗的毛玻璃面板区分开；immersive 由 outlined 隐含关闭，不再叠 HDS 流光与蒙层。
+    SpringPanel({ panelWidth: 344, panelPadding: SpaceTokens.lg, outlined: true, immersive: false }) {
       Column({ space: SpaceTokens.base }) {
         Row({ space: SpaceTokens.sm }) {
           Column({ space: 2 }) {

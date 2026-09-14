@@ -19,18 +19,19 @@
 
 全项目 6 个弹窗面板实测参数与约定：
 
-| 弹窗 | panelPadding | radius | immersive | 内部 space |
+| 弹窗 | panelPadding | radius | immersive | 面板材质 |
 | --- | --- | --- | --- | --- |
-| FolderPickDialog / FolderNameDialog / ProfileShareSheet / PostStatsDialog | `lg`(20) | 默认 `lg`(20) | **开** | `base`(16) |
-| JoinedCirclesDialog（已加入的圈子） | `lg`(20) | 默认 `lg`(20) | **关** | `base`(16) |
-| PublishModeSheet（发布方式） | `lg`(20) | 默认 `lg`(20) | **关**（且 `outlined: true`） | `base`(16) |
+| FolderPickDialog / FolderNameDialog / ProfileShareSheet / PostStatsDialog | `lg`(20) | 默认 `lg`(20) | **开** | 系统玻璃 + HDS 流光 |
+| PublishModeSheet（发布方式） | `lg`(20) | 默认 `lg`(20) | **关** | **毛玻璃**（模糊 + 描边 + floating 阴影） |
+| JoinedCirclesDialog（已加入的圈子） | `lg`(20) | 默认 `lg`(20) | **关** | **透明**（`outlined: true`：无模糊 / 透明底 / 描边 / 无阴影） |
 
 约定：`panelWidth: 344` + `panelPadding: SpaceTokens.lg` + 不传 `radius`（用默认 `lg`）+ 内部 `Column space: SpaceTokens.base`。
 
 `SpringPanel` 提供两个材质档位：
 
 - 默认（`outlined: false`）= 系统玻璃面板：`backgroundBlurStyle` 模糊 + `barBorder` 描边 + `ShadowTokens.floating` 外阴影，`immersive` 控制是否叠 HDS 流光。
-- `outlined: true` = 面板也走描边规格：**无模糊、透明底、`barBorder` 1vp 描边、`ShadowTokens.none`、自动跳过流光层**。当前仅「发布方式」弹窗使用，让它与首页分段栏同语言。
+- `outlined: true` = 面板也走描边规格：**无模糊、透明底、`barBorder` 1vp 描边、`ShadowTokens.none`、自动跳过流光层**。当前仅「已加入的圈子」弹窗使用。
+  ⚠️ 实测结论：**大面积、承载正文的浮层不适合 `outlined`**——面板只剩一条 ~1.1:1 的描边，内容直接浮在遮罩上，对比不足。`outlined` 的适用面是「小面积、单行、控件级」。
 
 `immersive` **刻意不一刀切**：2026-09-14 用户拍板「要最薄」，把「已加入的圈子」与「发布方式」两个弹窗都关掉 `ImmersiveSurface` 的 HDS 双边流光与 `#1EFFFFFF→#1E86CFFF` 蒙层。其余 4 个弹窗保留流光。
 

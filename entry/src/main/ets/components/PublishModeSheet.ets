@@ -58,9 +58,9 @@ export struct PublishModeSheet {
 
   build() {
     // 面板参数与「已加入的圈子」等弹窗统一：panelPadding lg / 默认 radius(lg) / 内部 space base。
-    // outlined=true：面板本身也走项目的描边规格（透明底 + 细描边，去背景模糊与外阴影），
-    // 与首页分段栏同一套语言。immersive 已由 outlined 隐含关闭，不再叠 HDS 流光与蒙层。
-    SpringPanel({ panelWidth: 344, panelPadding: SpaceTokens.lg, outlined: true, immersive: false }) {
+    // 材质回到系统毛玻璃（默认档位）：保留 backgroundBlurStyle 模糊 + barBorder 细描边 +
+    // ShadowTokens.floating 外阴影，面板可读性优先。immersive=false 仍关掉 HDS 流光与蒙层。
+    SpringPanel({ panelWidth: 344, panelPadding: SpaceTokens.lg, immersive: false }) {
       Column({ space: SpaceTokens.base }) {
         Row() {
           Text('选择发布方式')
