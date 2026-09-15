@@ -5,8 +5,7 @@ import { CircleTab } from '../components/CircleTab';
 import { CircleOnboarding } from '../components/CircleOnboarding';
 import { MessagePage } from './MessagePage';
 import { ProfilePage } from './ProfilePage';
-import { initAuthStorage, getToken, getUserId, loginWithDevStub, setPrivacyAgreed, isPrivacyAgreed, clearSession, PRIVACY_POLICY_VERSION } from '../utils/auth';
-import { BUILD_MODE_NAME } from '../utils/buildMode';
+import { initAuthStorage, getToken, getUserId, setPrivacyAgreed, isPrivacyAgreed, clearSession, PRIVACY_POLICY_VERSION } from '../utils/auth';
 import { getUnreadCount, getDmUnreadCount, getMe, recordPrivacyConsent, followTag, listTags } from '../services/api';
 import { Tag } from '../models/types';
 import { safeShowToast } from '../utils/toast';
@@ -161,7 +160,6 @@ struct Index {
   // （deviceInfo.sdkApiVersion + canIUse，进程级缓存），不会运行期翻转 → 组件不会重建。
   private hdsFloatingBar: boolean = isImmersiveLightSenseSupported();
   @State lastPageIndex: number = 0;   // 发布前的实际页面 tab，用于发布后回跳
-  private sessionRecovering: boolean = false;
   private unsubscribeTabSwitch: () => void = () => {};
   private publishModeController: CustomDialogController = new CustomDialogController({
     builder: PublishModeSheet({
@@ -397,26 +395,19 @@ struct Index {
     }
   }
 
-  // 冷启动时校验持久化 JWT。模拟器 debug 包可能长期复用旧开发 token，
-  // 过期后自动重新建立开发账号会话，避免圈子/帖子页被误判为空；生产包不静默登录。
+  // 冷启动时校验持久化 JWT 是否仍有效。
+  // 过期一律走正常 401 流程（api 写 authExpiredAt → onAuthExpired 统一清态并引导重登），
+  // **不自动重登**：原先这里有一个 debug 专用的 loginWithDevStub 静默重登分支，
+  // 提审前已移除——发布包不应包含「自动用测试账号重建会话」的路径。
   private async validateStartupSession(): Promise<void> {
-    if (this.sessionRecovering || getToken() === '') {
+    if (getToken() === '') {
       return;
     }
     try {
       await getMe();
-    } catch (e) {
-      const msg: string = (e as Error).message ?? '';
-      if (String(BUILD_MODE_NAME) === 'debug' && msg.includes('登录已过期')) {
-        this.sessionRecovering = true;
-        try {
-          await loginWithDevStub();
-        } catch (_) {
-          // 后端未就绪时保留原会话，页面的网络重试机制稍后会再次拉取。
-        } finally {
-          this.sessionRecovering = false;
-        }
-      }
+    } catch (_) {
+      // 校验失败不阻断启动：页面各自的网络重试机制稍后会再次拉取；
+      // 若确为登录过期，401 处理器会把用户引到登录页。
     }
   }
 
