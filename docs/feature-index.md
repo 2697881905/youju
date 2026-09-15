@@ -15,6 +15,11 @@
 
 主/次配比约定：**主级 CTA 用 `primary`**（`CircleOnboarding` 确认、`PublishTagPanel` 完成、`PublishPreviewPage` 确认发布）；次级用 `outlined`；破坏性操作目前也用 `outlined`（设计系统暂无 danger 变体）。
 
+### 品牌资源
+
+- 应用 Logo 源文件：`design/youju-logo-concepts/youju-v2-citation-anchor.png`（深墨引文括号 + 蓝核验锚点 + 白圆角方底），已用于 `AppScope` + `entry` 共 4 处；运行时资源为 `$r('app.media.logo')`（LoginPage / AboutPage 在用）。
+- 早期书本 Logo 归档在 `design/logo-concepts/`。
+
 ### 图标着色体系
 
 `resources/base/media` 共 97 个 SVG，两套机制并存：
