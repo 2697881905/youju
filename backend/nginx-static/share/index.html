@@ -28,6 +28,10 @@
   .badge { display: inline-block; margin-top: 4px; padding: 4px 14px; border-radius: 999px; background: #eef3ff; color: #4369e2; font-size: 13px; font-weight: 500; }
   .foot { margin-top: 22px; font-size: 12px; color: #a0abc4; }
 </style>
+<style>
+  /* ICP 备案号固定悬挂在视口底部（脱离 flex 布局，合规要求全页可见） */
+  body > p:last-of-type { position: fixed; bottom: 0; left: 0; right: 0; margin: 0; padding: 10px 16px; text-align: center; font-size: 12px; color: #8a94a6; z-index: 9; }
+</style>
 </head>
 <body>
   <div class="card">
