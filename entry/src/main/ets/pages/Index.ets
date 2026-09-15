@@ -422,7 +422,10 @@ struct Index {
         this.privacyDialogShown = true;
         this.showPrivacyDialog(true);
       }
-    }).catch(() => {});
+    }).catch((e: Error) => {
+      // 失败不阻断（离线/后端未起），但保留最小日志便于排查
+      hilog.warn(0x0000, 'Index', 'getMe 失败（不阻断首启）: %{public}s', String(e.message));
+    });
   }
 
   private showPrivacyDialog(isUpdate: boolean = false): void {
@@ -434,7 +437,10 @@ struct Index {
     setPrivacyAgreed(); // 本地兜底（离线也能拦截首启）
     // 已登录则落地服务端（PIPL 可追溯）；失败不阻断（离线/后端未起）
     if (getToken() !== '') {
-      recordPrivacyConsent(PRIVACY_POLICY_VERSION).catch(() => {});
+      recordPrivacyConsent(PRIVACY_POLICY_VERSION).catch((e: Error) => {
+        // 失败不阻断（离线/后端未起），本地已置位；保留日志用于追溯
+        hilog.warn(0x0000, 'Index', '隐私同意落地失败（不阻断）: %{public}s', String(e.message));
+      });
     }
     this.privacyDialogShown = false;
     this.startInit();

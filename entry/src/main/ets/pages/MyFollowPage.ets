@@ -186,6 +186,7 @@ export struct MyFollowPage {
         }
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
       } else {
+        Refresh({ refreshing: $$this.isRefreshing }) {
         List() {
           ForEach(this.list, (item: FollowUser) => {
             ListItem() {
@@ -221,7 +222,11 @@ export struct MyFollowPage {
             }
           }, (item: FollowUser) => item.id !== undefined ? item.id.toString() : '');
         }
-        .layoutWeight(1).width('100%');
+        .width('100%').height('100%')
+        .onReachEnd(() => { this.loadMore(); });
+        }
+        .layoutWeight(1).width('100%')
+        .onRefreshing(() => { this.refresh().finally(() => { this.isRefreshing = false; }); });
       }
     }
     .width('100%').padding({ top: this.statusBarHeight }).height('100%').backgroundColor($r('app.color.bg_primary'))
