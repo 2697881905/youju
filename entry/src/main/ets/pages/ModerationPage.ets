@@ -406,6 +406,14 @@ struct ModerationPage {
           Text(this.error ? ('加载失败：' + this.error) : '暂无待审核内容')
             .fontSize(14).fontFamily($r('app.string.font_family'))
             .fontColor($r('app.color.text_secondary'))
+          if (this.error !== '') {
+            Button('重试')
+              .fontSize(14).fontFamily($r('app.string.font_family'))
+              .margin({ top: 12 })
+              .onClick(() => {
+                this.load();
+              })
+          }
         }
         .layoutWeight(1)
         .width('100%')

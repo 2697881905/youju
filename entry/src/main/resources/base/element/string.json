@@ -23,6 +23,10 @@
     {
       "name": "font_family_serif_body",
       "value": "Noto Serif SC Body"
+    },
+    {
+      "name": "permission_internet_reason",
+      "value": "用于联网加载数据、发布与浏览内容，以及图片视频的传输"
     }
   ]
 }

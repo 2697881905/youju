@@ -1,7 +1,7 @@
 import { DailyPost } from '../models/types';
 import { resolveDisplayImageUrl, trackPostEvent } from '../services/api';
 import { ColorTokens } from '../design/tokens/color';
-import { MotionCurves, MotionTokens, MotionFrameRates } from '../design/tokens/motion';
+import { MotionCurves, MotionTokens, MotionFrameRates, MotionShared } from '../design/tokens/motion';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
@@ -30,14 +30,14 @@ const DECK_PAR_ROT: number[] = [0, 0.30, 0.18, 0.08];
 // 各槽位弹簧（对应原型每张卡独立扇位弹簧：顶卡最弹、越往后越稳，
 // 回弹/推进时按各自频率振荡 → 下层卡跟随顶卡产生自然的“摇晃”）
 const DECK_SPRING: ICurve[] = [
-  curves.springMotion(0.28, 0.58),  // 顶卡：响应最快、回弹最明显
+  curves.springMotion(0.26, 0.56),  // 顶卡：响应最快、回弹最明显
   curves.springMotion(0.34, 0.64),  // 中卡
   curves.springMotion(0.40, 0.70),  // 底卡
   curves.springMotion(0.46, 0.76),  // 预备卡：最收敛
 ];
 // 旋转专用弹簧：比位移更慢、阻尼更低 → 角度滞后于位置，形成网页那种“晃动”相位差
 const DECK_ROT_SPRING: ICurve[] = [
-  curves.springMotion(0.52, 0.48),  // 顶卡角度：最易摆
+  curves.springMotion(0.48, 0.45),  // 顶卡角度：最易摆（回弹时晃得更开）
   curves.springMotion(0.58, 0.54),  // 中卡
   curves.springMotion(0.64, 0.62),  // 底卡
   curves.springMotion(0.70, 0.70),  // 预备卡
@@ -101,6 +101,17 @@ struct DeckSlotCard {
   }
 
   // —— 扇位几何（transform 专用：无布局属性变化） ——
+
+  // 「一镜到底」源元素：仅顶卡、非飞行、有媒体时挂共享 id。
+  // 下层槽位/飞行卡不挂，避免同页重复共享 id 导致动效异常。
+  private sharedId(): string {
+    if (this.post.id === undefined || this.inFlight) {
+      return '';
+    }
+    const d: number = this.curDepth();
+    return d === 0 && this.hasMedia() ? 'card-expand-' + this.post.id : '';
+  }
+
   private offsetX(): number {
     const d: number = Math.max(this.curDepth(), 0);
     if (d === 0) {
@@ -180,35 +191,53 @@ struct DeckSlotCard {
     .clip(true)
   }
 
+  // 卡面媒体区：4:3 封面（图片 + 角标 / 文字海报）。与信息条分离，
+  // 「一镜到底」只飞这块媒体区，标题/作者等文字不参与缩放变形。
+  @Builder
+  mediaFace(): void {
+    Stack({ alignContent: Alignment.TopStart }) {
+      if (this.hasMedia()) {
+        Image(resolveDisplayImageUrl(this.mediaUrl()))
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Cover)
+          .backgroundColor(ColorTokens.sunken)
+      } else {
+        this.textPoster()
+      }
+      if (this.hasMedia()) {
+        // 角标：今日精选 · 体裁（top 12 / left 12）
+        Text('今日精选 · ' + this.genreLabel(this.post.genre))
+          .fontSize(10).fontFamily(TypeTokens.fontFamily)
+          .letterSpacing(2)
+          .fontColor('rgba(255, 252, 243, 0.92)')
+          .backgroundColor('#56161410')
+          .borderRadius(RadiusTokens.pill)
+          .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: 3, bottom: 3 })
+          .margin({ left: 12, top: 12 })
+      }
+    }
+    .width('100%')
+    .aspectRatio(DECK_MEDIA_RATIO)
+    .backgroundColor(ColorTokens.sunken)
+  }
+
   @Builder
   postFace(): void {
     Column() {
-      // —— 卡面：4:3（图片 + 角标 / 文字海报）——
-      Stack({ alignContent: Alignment.TopStart }) {
-        if (this.hasMedia()) {
-          Image(resolveDisplayImageUrl(this.mediaUrl()))
-            .width('100%')
-            .height('100%')
-            .objectFit(ImageFit.Cover)
-            .backgroundColor(ColorTokens.sunken)
-        } else {
-          this.textPoster()
+      // 共享元素只包媒体区：飞行动画期间信息条全程静止在原位，不做压缩变形。
+      // 包装 Stack 自带圆角 + clip，让飞行副本与卡面媒体观感一致。
+      if (this.sharedId() !== '') {
+        Stack() {
+          this.mediaFace()
         }
-        if (this.hasMedia()) {
-          // 角标：今日精选 · 体裁（top 12 / left 12）
-          Text('今日精选 · ' + this.genreLabel(this.post.genre))
-            .fontSize(10).fontFamily(TypeTokens.fontFamily)
-            .letterSpacing(2)
-            .fontColor('rgba(255, 252, 243, 0.92)')
-            .backgroundColor('#56161410')
-            .borderRadius(RadiusTokens.pill)
-            .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: 3, bottom: 3 })
-            .margin({ left: 12, top: 12 })
-        }
+        .width('100%')
+        .borderRadius(RadiusTokens.md)
+        .clip(true)
+        .sharedTransition(this.sharedId(), MotionShared.transition)
+      } else {
+        this.mediaFace()
       }
-      .width('100%')
-      .aspectRatio(DECK_MEDIA_RATIO)
-      .backgroundColor(ColorTokens.sunken)
 
       // —— 信息区（封面下方独立白底条）：标题/作者/阅读数 + 右侧体裁印章 ——
       Row({ space: SpaceTokens.base }) {
@@ -361,6 +390,11 @@ export struct DailyPostDeck {
       clearInterval(this.cdTimer);
       this.cdTimer = 0;
     }
+    // H-9：清理 advance/resetDrag 的延时回调，避免组件销毁后回调访问失效状态
+    for (const t of this.pendingTimers) {
+      clearTimeout(t);
+    }
+    this.pendingTimers = [];
   }
 
   // ===== 逐卡曝光埋点 =====
@@ -423,22 +457,29 @@ export struct DailyPostDeck {
     return Math.max(this.deckWidth, 1) * this.deckVisualScale * this.dismissRatio;
   }
 
+  // 统一登记延时回调：组件销毁时统一清理，避免回调访问已销毁的状态（H-9）
+  private pendingTimers: number[] = [];
+
+  private schedule(fn: () => void, ms: number): void {
+    this.pendingTimers.push(setTimeout((): void => { fn(); }, ms) as number);
+  }
+
   private resetDrag(vel: number): void {
     // 未过阈值 → 松开手指。速度越快 → 惯性过冲越大 → 回弹晃动幅度越大（对应网页速度连续）
     const width: number = Math.max(this.deckWidth, 1);
-    // 过冲位移：随速度线性放大，但钳制在翻页阈值内（约 60% 阈值），避免误触发翻页
-    const boost: number = Math.min(Math.max(0, vel * 0.035), width * 0.18);
-    if (boost > 3) {
+    // 过冲位移：随速度线性放大（0.035 → 0.05 提升甩出量），但钳制在翻页阈值内（22%），避免误触发翻页
+    const boost: number = Math.min(Math.max(0, vel * 0.05), width * 0.22);
+    if (boost > 2) {
       // 第一段：向拖动方向惯性滑出（快速短冲程），制造“甩出去又弹回”的过冲
       this.getUIContext().animateTo({
-        duration: 120,
+        duration: 140,
         curve: MotionCurves.decelerate,
         expectedFrameRateRange: MotionFrameRates.default,
       }, () => {
         this.dragOffsetX += boost;
       });
       // 第二段：从过冲点交给各卡自己的弹簧振荡回弹（分层错峰，幅度随 boost 增大）
-      setTimeout((): void => { this.dragOffsetX = 0; }, 140);
+      this.schedule((): void => { this.dragOffsetX = 0; }, 175);
     } else {
       // 慢速轻拖：直接由各卡弹簧回弹
       this.dragOffsetX = 0;
@@ -467,7 +508,7 @@ export struct DailyPostDeck {
         this.flyX = this.dragDir * (this.deckWidth * 1.6 + 200);
         this.flyRot = this.dragDir * -9;
       });
-      setTimeout((): void => { this.flyPost = null; }, 460);
+      this.schedule((): void => { this.flyPost = null; }, 460);
     } else {
       this.flyPost = null;
     }
@@ -483,10 +524,10 @@ export struct DailyPostDeck {
     // 只有推进到 activeIndex >= posts.length（最后一张也已被推出）才完成，
     // 否则仍差一张时（如 2 张读完第 1 张）就误入完成态。
     if (this.activeIndex >= this.posts.length) {
-      setTimeout((): void => { this.showDone(); }, 560);
+      this.schedule((): void => { this.showDone(); }, 560);
     }
     // 弹簧/抛射约 0.45~0.6s 内完成，期间闸住重复推进（避免连推重叠）
-    setTimeout((): void => { this.advancing = false; }, 620);
+    this.schedule((): void => { this.advancing = false; }, 620);
   }
 
   private onTopPanUpdate(event: GestureEvent): void {
