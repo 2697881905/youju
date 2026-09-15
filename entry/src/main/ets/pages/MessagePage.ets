@@ -292,6 +292,11 @@ export struct MessagePage {
 
   // 点击会话 → 进入聊天页，peer 信息经短暂导航意图传递。
   onConversationClick(c: Conversation): void {
+    // 会话数据在 api 层是 as 直转（无字段级校验），缺 peer 时读 c.peer.id 会在 onClick
+    // 回调里抛未捕获异常。同文件对 item.actor 已有同类防御，这里补齐。
+    if (!c.peer) {
+      return;
+    }
     openChat({ peerId: c.peer.id, peerName: c.peer.nickname, peerAvatar: c.peer.avatar ?? '' });
     this.getUIContext().getRouter().pushUrl({ url: 'pages/ChatPage' });
   }

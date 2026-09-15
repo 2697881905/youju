@@ -89,6 +89,11 @@ export function clearSession(): void {
   AppStorage.setOrCreate('authBio', '');
   AppStorage.setOrCreate('authGender', 0);
   AppStorage.setOrCreate('authIsAdmin', false);
+  // 未读计数是 PersistentStorage 持久化的。若不复位：用户从没打开过「消息」页就登出时，
+  // 唯一会清零的 MessagePage.resetData() 不会执行 → 红点残留，且冷启动后仍显示
+  // 上一账号的未读数（隐私观感问题，审核会实际点）。
+  AppStorage.setOrCreate('unreadMessageCount', 0);
+  AppStorage.setOrCreate('unreadDmCount', 0);
   clearTokenFromAsset();
 }
 

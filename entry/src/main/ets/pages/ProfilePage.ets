@@ -205,6 +205,16 @@ export struct ProfilePage {
     likeStore.clear();
     const u: User | null = getCurrentUser();
     if (!u || !u.id) {
+      // 登出：必须清空资料/计数/列表快照。TabContent 内本组件会被保留，不清的话
+      // 登出后仍显示上一账号的头像、昵称、关注/粉丝数与帖子（隐私观感问题）。
+      this.user = {};
+      this.posts = [];
+      this.folders = [];
+      this.followingCount = 0;
+      this.followerCount = 0;
+      this.totalLikes = 0;
+      this.page = 1;
+      this.finished = false;
       return; // 登出态不拉取
     }
     this.user = {
