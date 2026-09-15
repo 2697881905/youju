@@ -10,7 +10,6 @@ export struct GlassPanel {
   @BuilderParam content: () => void = this.emptyContent;
   @Prop panelPadding: number = SpaceTokens.base;
   @Prop radius: number = RadiusTokens.xl;
-  @Prop glassBlurRadius: number = 0;
 
   @Builder
   emptyContent(): void {}
