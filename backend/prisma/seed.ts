@@ -3,36 +3,37 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 // 23 个圈子种子（与前端 CircleTab.ets 的 CIRCLE_META、utils/tagIcons.ets 三处保持一致）。
-// 分类口语化：买之前问问 / 自己动手 / 上班搞钱 / 过日子 / 下班以后。
+// 分类：消费选购 / 动手改造 / 职场与收入 / 生活与家庭 / 兴趣休闲。
+// 设计约束：不设医疗诊疗、投资荐股等专业门槛高、容错率低的领域（合规与内容质量风险）。
 const tags = [
-  // ===== 买之前问问 =====
-  { name: '手机平板', emoji: '📱', category: '买之前问问' },
-  { name: '家电大件', emoji: '🧊', category: '买之前问问' },
-  { name: '二手闲置', emoji: '♻️', category: '买之前问问' },
-  { name: '运动装备', emoji: '👟', category: '买之前问问' },
-  { name: '退货维权', emoji: '🧾', category: '买之前问问' },
-  { name: '薅羊毛', emoji: '🐑', category: '买之前问问' },
-  // ===== 自己动手 =====
-  { name: '装修避坑', emoji: '🚚', category: '自己动手' },
-  { name: '做饭实录', emoji: '🍳', category: '自己动手' },
-  { name: '电脑装机', emoji: '🖥️', category: '自己动手' },
-  { name: '修修补补', emoji: '🪚', category: '自己动手' },
-  { name: '车的事', emoji: '🚗', category: '自己动手' },
-  // ===== 上班搞钱 =====
-  { name: '简历面试', emoji: '📄', category: '上班搞钱' },
-  { name: '跳槽谈薪', emoji: '💼', category: '上班搞钱' },
-  { name: '记账攒钱', emoji: '🧮', category: '上班搞钱' },
-  { name: '副业变现', emoji: '💰', category: '上班搞钱' },
-  // ===== 过日子 =====
-  { name: '租房经验', emoji: '🏠', category: '过日子' },
-  { name: '养猫养狗', emoji: '🐱', category: '过日子' },
-  { name: '看病就医', emoji: '🏥', category: '过日子' },
-  { name: '带娃日常', emoji: '🍼', category: '过日子' },
-  { name: '相亲恋爱', emoji: '❤️', category: '过日子' },
-  // ===== 下班以后 =====
-  { name: '探店实测', emoji: '🍜', category: '下班以后' },
-  { name: '旅行避坑', emoji: '🧳', category: '下班以后' },
-  { name: '追剧刷片', emoji: '🎬', category: '下班以后' },
+  // ===== 消费选购 =====
+  { name: '手机数码', emoji: '📱', category: '消费选购' },
+  { name: '家电选购', emoji: '🧊', category: '消费选购' },
+  { name: '二手闲置', emoji: '♻️', category: '消费选购' },
+  { name: '运动装备', emoji: '👟', category: '消费选购' },
+  { name: '消费维权', emoji: '🧾', category: '消费选购' },
+  // ===== 动手改造 =====
+  { name: '装修避坑', emoji: '🛠️', category: '动手改造' },
+  { name: '家常菜谱', emoji: '🍳', category: '动手改造' },
+  { name: '电脑装机', emoji: '🖥️', category: '动手改造' },
+  { name: '用车经验', emoji: '🚗', category: '动手改造' },
+  // ===== 职场与收入 =====
+  { name: '求职面试', emoji: '📄', category: '职场与收入' },
+  { name: '职场成长', emoji: '💼', category: '职场与收入' },
+  { name: '记账储蓄', emoji: '🧮', category: '职场与收入' },
+  { name: '副业探索', emoji: '💰', category: '职场与收入' },
+  // ===== 生活与家庭 =====
+  { name: '恋爱心得', emoji: '❤️', category: '生活与家庭' },
+  { name: '婚姻与家庭', emoji: '💍', category: '生活与家庭' },
+  { name: '育儿经验', emoji: '🍼', category: '生活与家庭' },
+  { name: '养猫养狗', emoji: '🐱', category: '生活与家庭' },
+  { name: '健康习惯', emoji: '💪', category: '生活与家庭' },
+  { name: '租房买房', emoji: '🏠', category: '生活与家庭' },
+  // ===== 兴趣休闲 =====
+  { name: '音乐分享', emoji: '🎵', category: '兴趣休闲' },
+  { name: '影视剧集', emoji: '🎬', category: '兴趣休闲' },
+  { name: '旅行出行', emoji: '🧳', category: '兴趣休闲' },
+  { name: '美食探店', emoji: '🍜', category: '兴趣休闲' },
 ];
 
 // 清理不在清单内的旧标签。Tag 被 Post.tags（字符串数组）与 UserFollowTag.tagName
