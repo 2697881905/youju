@@ -32,30 +32,36 @@ interface CircleMeta {
 }
 
 // 圈子的布局与展示元数据。成员数只读取服务端 followCount，不能回退到演示值。
+// 圈子名必须与 backend/prisma/seed.ts 的 Tag.name 完全一致（按 name 对齐服务端数据）。
 const CIRCLE_META: CircleMeta[] = [
-  { id: 'digital-shopping', name: '数码选购', ring: 0, size: 64, color: '#2D7CFF', description: '把预算花在真正影响体验的地方。', category: '消费决策' },
-  { id: 'phone-digital', name: '手机数码', ring: 0, size: 58, color: '#2D7CFF', description: '手机、平板和智能设备的真实使用分享。', category: '消费决策' },
-  { id: 'car-trade', name: '汽车买卖', ring: 0, size: 56, color: '#2D7CFF', description: '选车、比价与交易流程的经验交换。', category: '消费决策' },
-  { id: 'camping', name: '露营户外', ring: 0, size: 54, color: '#2D7CFF', description: '装备清单、营地选择和出行记录。', category: '动手实操' },
-  { id: 'relationship', name: '情感经营', ring: 1, size: 52, color: '#2D7CFF', description: '真诚交流日常关系里的理解与边界。', category: '生活方式' },
-  { id: 'family-life', name: '家庭相处', ring: 1, size: 48, color: '#FF2D55', description: '分享家庭沟通、陪伴与相处中的真实经验。', category: '生活方式' },
-  { id: 'healthy-living', name: '健康生活', ring: 1, size: 48, color: '#30D158', description: '交流作息、饮食与让生活保持好状态的方法。', category: '生活方式' },
-  { id: 'hobbies', name: '兴趣爱好', ring: 1, size: 46, color: '#AF52DE', description: '找到愿意长期投入的兴趣，也认识同好。', category: '生活方式' },
-  { id: 'sports-gear', name: '运动装备', ring: 1, size: 50, color: '#2D7CFF', description: '把装备选择放回真实运动场景。', category: '消费决策' },
-  { id: 'peripheral', name: '外设推荐', ring: 1, size: 49, color: '#2D7CFF', description: '桌搭、键鼠与生产力外设的细节讨论。', category: '消费决策' },
-  { id: 'wine', name: '酒水品鉴', ring: 1, size: 48, color: '#2D7CFF', description: '从风味到场景，记录每次品鉴。', category: '生活方式' },
-  { id: 'car-care', name: '汽车养护', ring: 2, size: 47, color: '#2D7CFF', description: '保养、清洁与用车问题的实用答案。', category: '动手实操' },
-  { id: 'digital-repair', name: '数码维修', ring: 2, size: 46, color: '#2D7CFF', description: '拆解、维修和问题排查的可复用经验。', category: '动手实操' },
-  { id: 'home-repair', name: '家居维修', ring: 2, size: 44, color: '#2D7CFF', description: '把家的小问题拆成可完成的步骤。', category: '动手实操' },
-  { id: 'food-sharing', name: '美食分享', ring: 2, size: 42, color: '#2D7CFF', description: '从食材到火候，认真分享一顿饭。', category: '动手实操' },
-  { id: 'music-sharing', name: '音乐分享', ring: 2, size: 42, color: '#FF2D55', description: '分享正在循环的歌，也分享听歌时的心情。', category: '分享' },
-  { id: 'daily-sharing', name: '日常分享', ring: 2, size: 40, color: '#FF9F0A', description: '记录生活里值得留下的小事与片段。', category: '分享' },
-  { id: 'movie-recommendation', name: '影视推荐', ring: 2, size: 40, color: '#AF52DE', description: '分享值得看的电影、剧集和片段。', category: '分享' },
-  { id: 'book-reading', name: '书籍阅读', ring: 2, size: 40, color: '#64D2FF', description: '交换正在阅读的书和留下来的观点。', category: '分享' },
-  { id: 'pet-daily', name: '宠物日常', ring: 2, size: 40, color: '#BF5AF2', description: '记录和分享宠物陪伴生活的日常。', category: '分享' },
-  { id: 'podcast-sharing', name: '播客分享', ring: 2, size: 40, color: '#5E5CE6', description: '分享听过的节目，也分享值得回味的观点。', category: '分享' },
-  { id: 'exhibition-events', name: '展览活动', ring: 2, size: 40, color: '#FF9500', description: '交换展览、演出与城市活动的现场感受。', category: '分享' },
-  { id: 'photo-journal', name: '摄影记录', ring: 2, size: 40, color: '#0A84FF', description: '用照片记录看见的人、事与生活片段。', category: '分享' },
+  // ===== 买之前问问 =====
+  { id: 'phone-tablet', name: '手机平板', ring: 0, size: 64, color: '#0A84FF', description: '买前听一句真实用户的，比背参数有用。', category: '买之前问问' },
+  { id: 'home-appliance', name: '家电大件', ring: 1, size: 54, color: '#34C759', description: '冰箱洗衣机空调，买错的成本最高。', category: '买之前问问' },
+  { id: 'second-hand', name: '二手闲置', ring: 1, size: 52, color: '#FF9F0A', description: '捡漏和出手，都是学问。', category: '买之前问问' },
+  { id: 'sports-gear', name: '运动装备', ring: 2, size: 46, color: '#30D158', description: '装备好不好，得放回真实运动里看。', category: '买之前问问' },
+  { id: 'refund-rights', name: '退货维权', ring: 2, size: 44, color: '#64D2FF', description: '把「算了」变成「较真」的经验。', category: '买之前问问' },
+  { id: 'deal-hunting', name: '薅羊毛', ring: 2, size: 42, color: '#5E5CE6', description: '优惠叠加与返现，理性地省。', category: '买之前问问' },
+  // ===== 自己动手 =====
+  { id: 'renovation', name: '装修避坑', ring: 0, size: 58, color: '#34C759', description: '装修的水很深，过来人一句顶一万句。', category: '自己动手' },
+  { id: 'home-cooking', name: '做饭实录', ring: 1, size: 50, color: '#34C759', description: '从翻车到拿手，厨房里全是真话。', category: '自己动手' },
+  { id: 'pc-build', name: '电脑装机', ring: 1, size: 49, color: '#0A84FF', description: '配置单发出来，让人帮你砍砍水分。', category: '自己动手' },
+  { id: 'fix-it', name: '修修补补', ring: 2, size: 42, color: '#0A84FF', description: '家里的小毛病，能自己修就不花冤枉钱。', category: '自己动手' },
+  { id: 'car-life', name: '车的事', ring: 2, size: 40, color: '#FF9500', description: '选车、保养、油电之争，车主的一手账。', category: '自己动手' },
+  // ===== 上班搞钱 =====
+  { id: 'resume-interview', name: '简历面试', ring: 0, size: 56, color: '#5E5CE6', description: '怎么写、怎么答、怎么谈薪，都有人趟过路。', category: '上班搞钱' },
+  { id: 'job-hopping', name: '跳槽谈薪', ring: 1, size: 48, color: '#5E5CE6', description: '薪资怎么谈，offer 怎么比。', category: '上班搞钱' },
+  { id: 'budget-saving', name: '记账攒钱', ring: 1, size: 47, color: '#5E5CE6', description: '钱花哪儿了，记下来才有数。', category: '上班搞钱' },
+  { id: 'side-hustle', name: '副业变现', ring: 2, size: 40, color: '#5E5CE6', description: '能跑通的说思路，踩过坑的说原因。', category: '上班搞钱' },
+  // ===== 过日子 =====
+  { id: 'renting', name: '租房经验', ring: 1, size: 46, color: '#34C759', description: '押金、中介与房东，全是可以聊的坑。', category: '过日子' },
+  { id: 'pets', name: '养猫养狗', ring: 2, size: 44, color: '#BF5AF2', description: '看病、粮食、绝育，铲屎官的经验之谈。', category: '过日子' },
+  { id: 'health-notes', name: '看病就医', ring: 2, size: 42, color: '#30D158', description: '挂号、选科室、和医生沟通的门道。', category: '过日子' },
+  { id: 'parenting', name: '带娃日常', ring: 2, size: 40, color: '#FF2D55', description: '从新生儿到入园，新手爸妈的实操帖。', category: '过日子' },
+  { id: 'dating', name: '相亲恋爱', ring: 2, size: 40, color: '#FF2D55', description: '少一点套路，多一点真实的经历。', category: '过日子' },
+  // ===== 下班以后 =====
+  { id: 'food-review', name: '探店实测', ring: 2, size: 40, color: '#FF9F0A', description: '网红店排队值不值，实测说话。', category: '下班以后' },
+  { id: 'travel-tips', name: '旅行避坑', ring: 2, size: 40, color: '#FF9500', description: '攻略里不会写的那部分。', category: '下班以后' },
+  { id: 'shows', name: '追剧刷片', ring: 2, size: 40, color: '#AF52DE', description: '值得花时间的剧和电影，烂片也点名。', category: '下班以后' },
 ];
 
 // 标签宽度必须纳入最外轨道的安全边距计算；过大会在 375vp 视口的左右边缘被裁切。
