@@ -34,6 +34,14 @@ export struct SegmentedControl {
   @State glowX: number = 0;
   @State barPressed: boolean = false;
   private longPressTimer: number = 0;
+
+  // 卸载时清掉在途的长按/扫选定时器：否则回调会在已销毁的组件上写 hoverIndex 等状态。
+  aboutToDisappear(): void {
+    if (this.longPressTimer !== 0) {
+      clearTimeout(this.longPressTimer);
+      this.longPressTimer = 0;
+    }
+  }
   private suppressClickUntil: number = 0;
   private pressArmed: boolean = false;
   private pressDownX: number = 0;

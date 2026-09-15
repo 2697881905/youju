@@ -4,7 +4,10 @@
 审计方式：三路只读代码审计（合规/权限、未完成功能、运行时健壮性）+ 逐条人工复核
 说明：审计期间工作树存在**你正在进行的未提交批次**（`DetailHeroMedia.ets` 及详情页相关 11 个文件），本报告基于该状态，未改动任何文件。
 
-> **修复进度（2026-09-14 当晚）**：**P0-1 / P0-2 / P0-3 / P0-4 已全部修复**，涉及 `utils/shareCard.ets`、`pages/Index.ets`、`pages/BookmarkFolderDetailPage.ets`、`pages/ChatPage.ets`、`pages/UserProfilePage.ets`、`pages/ProfilePage.ets`。P1 / P2 未动。
+> **修复进度**
+> - **2026-09-14 当晚**：**P0-1 / P0-2 / P0-3 / P0-4 已全部修复**，涉及 `utils/shareCard.ets`、`pages/Index.ets`、`pages/BookmarkFolderDetailPage.ets`、`pages/ChatPage.ets`、`pages/UserProfilePage.ets`、`pages/ProfilePage.ets`。
+> - **2026-09-15 早**：**P1 已修 6 项** —— ① ProfilePage 登出清空资料/计数/列表快照；② `clearSession` 复位两个未读计数（消除登出后红点持久化残留）；③ MyFollowPage 参数缺失改为明确失败态（不再显示成「这里还什么都没有」）；④ MessagePage 会话缺 `peer` 字段时不再抛未捕获异常；⑤ SearchPanel / BottomTabBar / SegmentedControl 三个组件补 `aboutToDisappear` 清理长按·防抖定时器；⑥ AboutPage 换用真实应用图标（`$media:logo`，与登录页一致）。另订正 2 处过期注释（ChatPage 文件消息、`utils/share.ets` 分享域名）。
+> - **本轮未做及原因**：P1-3 HomeTab 分页并发（`HomeTab.ets` 正处于你的未提交批次中，避免连带提交）；P1-8 提审产物核对（属操作项，非代码改动，见文末清单）；P2 的死代码批量清理 / `Index.ets` 开发桩残留分支 / `api.ets` 内网 IP（后两者删除或改写会破坏本地联调调试能力，建议你确认后再动）/ 版本号改读 bundleInfo / 注销清本地草稿（草稿按 `ownerId` 分账号存储，换号不会互相可见，风险低于原判断）。
 > 另：修复全程**未触碰**你工作区里那批详情页 hero 未提交改动。
 
 ---

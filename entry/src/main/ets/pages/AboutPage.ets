@@ -2,7 +2,6 @@
 
 import { common } from '@kit.AbilityKit';
 import { buildPageTransition } from '../utils/styles';
-import { resolveActionIcon } from '../utils/actionIcons';
 import { BackButton } from '../design/components/BackButton';
 
 @Entry
@@ -34,9 +33,10 @@ export struct AboutPage {
 
       Scroll() {
         Column({ space: 20 }) {
-          // App 图标占位
+          // 应用图标：与登录页同一资源（$r('app.media.logo')）
+          // 此前是通用线条图标占位，关于页的品牌信息是审核常规核对项。
           Column() {
-            Image(resolveActionIcon('book'))
+            Image($r('app.media.logo'))
               .width(48)
               .height(48);
             Text('有据')

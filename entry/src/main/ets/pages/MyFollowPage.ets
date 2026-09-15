@@ -58,6 +58,9 @@ export struct MyFollowPage {
       return;
     }
     if (this.targetId === 0) {
+      // 导航意图丢失（takeFollowListIntent 返回 null）时不发无效请求，并给出明确失败态：
+      // 否则渲染会落到空态「这里还什么都没有」，让用户误以为自己没有关注/粉丝。
+      this.error = '页面参数缺失，请返回重新进入';
       return;
     }
     this.loading = true;

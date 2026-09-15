@@ -720,7 +720,8 @@ export struct ChatPage {
             .clip(true)
             .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
         } else if (m.type === 'file') {
-          // 文件消息（P0-3）：占位气泡展示文件名，预览/下载留待 P1
+          // 文件消息：气泡展示文件名，点击由 openFileMessage() 转成可访问地址后交系统打开
+          // （预览/下载已实现，不再是占位）
           Row({ space: SpaceTokens.sm }) {
             Image($r('app.media.action_send'))
               .width(IconTokens.small)

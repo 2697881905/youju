@@ -15,12 +15,12 @@ export const EXTERNAL_SHARE_ENABLED: boolean = true;
 // 站内「分享到私信」始终可用（不依赖外部分享落地页/系统分享面板），由分享面板单独展示。
 export const DM_SHARE_ENABLED: boolean = true;
 
-// 帖子分享链接：占位域名 + /post/{id}
+// 帖子分享链接：主站根域（SHARE_BASE，域名已定）+ /post/{id}
 export function buildPostShareUrl(postId: number): string {
   return SHARE_BASE + '/post/' + String(postId);
 }
 
-// 个人主页分享链接：占位域名 + /user/{id}
+// 个人主页分享链接：主站根域 + /user/{id}
 export function buildProfileShareUrl(userId: number): string {
   return SHARE_BASE + '/user/' + String(userId);
 }

@@ -25,6 +25,15 @@ export struct SearchPanel {
   @State inputFocused: boolean = false; // 输入框聚焦（键盘弹出）时隐藏历史/热词，避免与联想卡粘连
   private suggestTimer: number = 0; // 联想防抖句柄
 
+  // 卸载时清掉在途的防抖：否则回调会在已销毁的组件上写 suggestions，
+  // 甚至继续发起 listSearchSuggest 请求。
+  aboutToDisappear(): void {
+    if (this.suggestTimer !== 0) {
+      clearTimeout(this.suggestTimer);
+      this.suggestTimer = 0;
+    }
+  }
+
   aboutToAppear(): void {
     this.loadData();
   }
