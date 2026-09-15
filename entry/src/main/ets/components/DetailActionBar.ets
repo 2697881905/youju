@@ -8,7 +8,7 @@ import { TypeTokens } from '../design/tokens/type';
 import { MotionCurves, MotionTokens, MotionFrameRates } from '../design/tokens/motion';
 import { Pressable } from '../design/motion/Pressable';
 import { GlowInput } from '../design/components/GlowInput';
-import { bottomNavInset } from '../utils/cardTokens';
+import { GESTURE_INDICATOR_MAX, NAV_INSET_EXTRA } from '../utils/cardTokens';
 
 @Component
 struct DetailActionButton {
@@ -94,6 +94,25 @@ struct DetailActionButton {
 // 固定底部操作层只负责呈现状态；请求、乐观更新和失败回滚属于 DetailPage。
 @Component
 export struct DetailActionBar {
+  // 内容操作行（图标+文字）高 = 触控目标高，栏高度在此基础上按导航模式追加底部避让（2026-09-14 收敛栏高）。
+  private static readonly ACTION_HEIGHT: number = LayoutTokens.minTouchTarget;
+  // 手势导航「下沉」态：内容行下方只留原设计底部呼吸（18vp，与悬浮药丸底栏同款），栏整体更矮贴底。
+  private static readonly GESTURE_BOTTOM_GAP: number = LayoutTokens.tabBarBottomGap;
+
+  // 响应式绑定系统导航条高度（AppStorage 由 refreshWindowInsets 实测写入）：
+  // 切换三键/手势导航会触发 avoidAreaChange → 值更新 → 本组件自动重绘，栏高实时变化（2026-09-14）。
+  @StorageProp('navBarHeight') navBarHeight: number = 0;
+
+  // 底部避让随导航模式变化：
+  //   · 三键导航「抬高」：避让 = 系统导航条高 + 呼吸空间（nav + 10），内容行整体抬到三键条上方（底部避让 ≥28vp 审核要求）；
+  //   · 手势导航「下沉」：nav ≤ 24vp 按手势处理，只留 18vp 底部呼吸，栏不追高。
+  private bottomGap(): number {
+    if (this.navBarHeight <= GESTURE_INDICATOR_MAX) {
+      return DetailActionBar.GESTURE_BOTTOM_GAP;
+    }
+    return this.navBarHeight + NAV_INSET_EXTRA;
+  }
+
   @Link commenting: boolean;
   @Link commentText: string;
   @Prop upCount: number = 0;
@@ -192,10 +211,11 @@ export struct DetailActionBar {
     }
     .width('100%')
     // 底部安全区（三键导航条 / 手势指示条）纳入栏自身高度：栏底贴物理屏底，图标行位于导航区上方。
-    // 与「整栏 margin 上浮」不同——栏是一整块（含页面底色背景），导航区那一截不会透出滚动内容。
-    // 背景用页面底色：手势导航（bottomNavInset()=0）时与原来视觉完全一致。
-    .height(LayoutTokens.tabBarHeight + bottomNavInset())
-    .padding({ bottom: bottomNavInset() })
+    // 高度随导航模式变化（2026-09-14）：内容行收敛到触控目标高(44)，
+    // 三键导航「抬高」= 44 + 导航条高 + 呼吸空间；手势导航「下沉」= 44 + 18vp 底部呼吸。
+    // 背景用页面底色：避免色块与系统导航区混为一色导致「栏过高」的观感。
+    .height(DetailActionBar.ACTION_HEIGHT + this.bottomGap())
+    .padding({ bottom: this.bottomGap() })
     .backgroundColor($r('app.color.bg_primary'))
   }
 }
