@@ -7,8 +7,10 @@
 > **修复进度**
 > - **2026-09-14 当晚**：**P0-1 / P0-2 / P0-3 / P0-4 已全部修复**，涉及 `utils/shareCard.ets`、`pages/Index.ets`、`pages/BookmarkFolderDetailPage.ets`、`pages/ChatPage.ets`、`pages/UserProfilePage.ets`、`pages/ProfilePage.ets`。
 > - **2026-09-15 早**：**P1 已修 6 项** —— ① ProfilePage 登出清空资料/计数/列表快照；② `clearSession` 复位两个未读计数（消除登出后红点持久化残留）；③ MyFollowPage 参数缺失改为明确失败态（不再显示成「这里还什么都没有」）；④ MessagePage 会话缺 `peer` 字段时不再抛未捕获异常；⑤ SearchPanel / BottomTabBar / SegmentedControl 三个组件补 `aboutToDisappear` 清理长按·防抖定时器；⑥ AboutPage 换用真实应用图标（`$media:logo`，与登录页一致）。另订正 2 处过期注释（ChatPage 文件消息、`utils/share.ets` 分享域名）。
-> - **本轮未做及原因**：P1-3 HomeTab 分页并发（`HomeTab.ets` 正处于你的未提交批次中，避免连带提交）；P1-8 提审产物核对（属操作项，非代码改动，见文末清单）；P2 的死代码批量清理 / `Index.ets` 开发桩残留分支 / `api.ets` 内网 IP（后两者删除或改写会破坏本地联调调试能力，建议你确认后再动）/ 版本号改读 bundleInfo / 注销清本地草稿（草稿按 `ownerId` 分账号存储，换号不会互相可见，风险低于原判断）。
-> 另：修复全程**未触碰**你工作区里那批详情页 hero 未提交改动。
+> - **2026-09-15 午**：**P2-3 已修**（`Index.validateStartupSession` 移除 debug 专用的 `loginWithDevStub` 静默重登分支，过期统一走正常 401 流程）；新增 **`check-release.sh` 提审前形态检查脚本**（核对 buildMode 还原 / release 产物形态 / 签名产物存在 / 版本号一致 / 产物内无内网 IP）。**死代码清理完成**（`docs/dead-code-cleanup.md`：9 个文件 + 3 个空转 @Prop，其中 6 个「预览残留」经 git 历史证实确属删了一半的残留）。
+> - **实证结论（unzip 产物字符串表）**：`DEBUG_API_HOST` 的字符串**会原样进 release 包**——当前 HAP（09-12 构建）内含旧值 `10.181.227.205:3000`；dev 账号登录桩字符串（`科技老张`/`虚拟小美`/`dev-seed-openid`）也在包内，属已知接受项（入口隐藏 + release throw 双兜底）。
+> - **本轮未做及原因**：P1-3 HomeTab 分页并发（`HomeTab.ets` 正处于你的未提交批次中，避免连带提交）；`api.ets` 内网 IP 默认值改 `127.0.0.1`（会新增一个发版前还原点，需你确认是否值得）；版本号改读 bundleInfo / 注销清本地草稿（低风险延后项）。
+> 另：修复全程**未触碰**你工作区里那批详情页 hero 未提交改动（以及你自己提交的 `c8ce013` ICP 备案号工作）。
 
 ---
 
@@ -115,6 +117,7 @@
 
 ## 提审前的手工核对清单（代码查不出来的）
 
+- [ ] **先跑 `sh check-release.sh`**（自动核对：buildMode 还原 / release 产物形态与签名包存在 / 版本号一致 / 产物内无内网 IP），全部 ✅ 再继续下面的
 - [ ] 用 **release product** 构建，确认产物是 `entry/build/release/outputs/default/*-signed.hap`
 - [ ] AGC 后台的**隐私政策 URL / 应用介绍 / 截图 / 分类**与本包一致
 - [ ] 真机冷启动首启流程：弹窗 →「不同意」能退出；「同意并继续」后功能正常
