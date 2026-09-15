@@ -7,9 +7,12 @@
 | 目录 | 内容 |
 | --- | --- |
 | `tokens/` | `color`、`type`、`space`（含 `LayoutTokens`）、`radius`、`shadow`、`motion`、`icon` |
-| `components/` | SegmentedControl、ChipRow / ChipItem、BaseCard、BottomTabBar / BottomTabItem、EmptyState、IconTile、PollBlock、StatRow、AuthorRow、DesignButton、ImmersiveSurface、GlowInput、MessageRow |
+| `components/` | SegmentedControl、ChipRow / ChipItem、BaseCard、BottomTabBar / BottomTabItem、EmptyState、IconTile、StatRow、DesignButton、ImmersiveSurface、GlowInput、MessageRow |
 | `motion/` | Pressable、SharedSlide、Reveal、Collapse、CountRoll、Skeleton、SpringPanel |
-| `preview/` | FoundationPreview、ParchmentPreview |
+
+`design/preview/` 目录**已删除**（2026-09-15）：它是「设计系统预览」功能的残留——该功能的设置入口在 `4658a0e` 就已移除，但预览组件与两个 `@Entry` 预览页一直留着（详见 `docs/dead-code-cleanup.md`）。
+
+⚠️ `PollBlock` / `AuthorRow` **已随预览壳一并删除**（2026-09-15）：它们曾用于真实页面 `components/PostCard.ets`，在 `257dfd6`（UI 体系调整）里被弃用后只剩预览壳在引用；预览壳删除后成为孤儿，已按「删干净」原则一并移除（git 历史可恢复）。
 
 `DesignButton` 四个变体：`primary`（品牌实底，主级 CTA）/ `ghost`（透明 + 品牌描边）/ `glass`（`elevated` 底 + 玻璃描边，仅剩 `CircleOnboarding` 在用）/ `outlined`（透明 + `barBorder` 描边 + `pill` 圆角，2026-09-14 新增）。
 
@@ -69,7 +72,7 @@
 | 账号 | `LoginPage`、`AccountBindingPage` |
 | 设置与合规 | `SettingsPage`、`PrivacySettingsPage`、`PrivacyPage`、`UserAgreementPage`、`AboutPage` |
 | 治理 | `ModerationPage`、`ReportAdminPage` |
-| 设计预览 | `FoundationPreviewPage`、`ParchmentPreviewPage` |
+| 设计预览 | ~~`FoundationPreviewPage`、`ParchmentPreviewPage`~~ 已删除（2026-09-15） |
 
 ## 三、功能模块
 

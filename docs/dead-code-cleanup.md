@@ -2,10 +2,10 @@
 
 生成时间：2026-09-15 · 基线 commit `f99dd66`
 方法：全项目 `entry/src/main/ets/**/*.ets` 逐符号引用扫描（脚本判定「仅自身出现」）+ 逐个文件人工核对注释与调用链。
-**重要**：本清单已纠正提审审计报告里的一处误判——审计把 9 个文件列为「不可达死代码」，其中 6 个实际是**自述的内部预览工具**，不能删（见 Tier 3）。
+**重要**：本清单已纠正提审审计报告里的一处误判——审计把 9 个文件列为「不可达死代码」。核对 git 历史后确认：**其中 4 个确实是「设计系统预览」功能删了一半留下的残留**（该功能的设置入口在 `4658a0e` 就被移除，但预览组件、两个 `@Entry` 预览页与 `main_pages.json` 路由的清理没有做完），**应删**；另外 2 个（`AuthorRow` / `PollBlock`）是被弃用的 DS 原子，随预览壳一并删除（见 Tier 3）。
 
-> **执行状态**：Tier 1 的 3 个文件 + Tier 5 的 3 个空转 @Prop **已在本批次删除**；Tier 2 / Tier 3 保留项 / Tier 4 待确认。
-> 删除项均已通过引用扫描（0 处引用）与调用点检查（无人传被删的 prop）。**未编译验证**，建议 Build Hap 一次。
+> **执行状态**：Tier 1 的 3 个文件 + Tier 3 的 4 个预览残留文件 + Tier 5 的 3 个空转 @Prop **已在本批次删除**；Tier 2 / Tier 4 待确认。
+> 删除项均已通过引用扫描（0 处引用）、调用点检查（无人传被删的 prop）与 git 历史交叉验证。**未编译验证**，建议 Build Hap 一次。
 
 ---
 
@@ -27,27 +27,27 @@
 
 > 设计系统先行版预览页：羊皮纸 + 宋体，真机查看效果用。**可从「设置 - 通用 - 设计系统预览」进入**。
 
-而全项目**没有任何一处跳转指向它**，`main_pages.json` 也没注册 → 注释里承诺的设置入口并不存在。两个选择：
+而全项目**没有任何一处跳转指向它**，`main_pages.json` 也没注册 → 注释里承诺的设置入口并不存在。
 
-- **补入口**：在设置页「通用」区加一行「设计系统预览」跳 `pages/ParchmentPreviewPage`（需同时注册进 `main_pages.json`）；
-- **删掉它**：删页面不影响预览能力，因为它的 `@Preview` 壳 `design/preview/ParchmentPreview.ets` 可以**直接在 DevEco Previewer 里打开**。
-
-倾向后者（这是一次性验收工具，不需要挂进产品导航；挂上去反而多一个审核可见的页面）。
+**处理**：已按「删掉」执行（连同它的 `@Preview` 壳一起，见 Tier 3）——`design/preview/ParchmentPreview.ets` 本可以单独在 DevEco Previewer 里打开，但既然「设计系统预览」这个功能整体要下线，就没有为它的验收壳保留入口的理由。
 
 ---
 
-## Tier 3 · 不要删（审计误判，已纠正）
+## Tier 3 · 已删（「设计系统预览」删了一半的残留，4 个文件）
 
-这 4 个文件在提审审计里被列为「完全不可达死代码」，核对后**属内部验收工具，应保留**：
+**git 历史证据**（这是推翻我最初「有意保留」判断的关键）：
 
-| 文件 | 保留依据 |
+| 提交 | 内容 |
 | --- | --- |
-| `pages/FoundationPreviewPage.ets` | 文件注释明确：「Phase1 内部预览页：**不挂接产品导航，仅用于 DevEco Preview 与设计地基验收**」 |
-| `design/preview/FoundationPreview.ets` | 带 `@Preview` 装饰器，DS 验收壳 |
-| `design/preview/ParchmentPreview.ets` | 带 `@Preview` 装饰器，DS 验收壳（含一句「敬请期待」占位文案，因不挂导航不会展示给用户） |
-| `design/components/AuthorRow.ets` / `PollBlock.ets` | 仅被上面两个预览壳引用，是设计系统**原子清单**的一部分（`docs/feature-index.md` 的 DS 表里也列着） |
+| `257dfd6` | **新增**整套预览功能：`design/preview/{FoundationPreview,ParchmentPreview}.ets`、`pages/ParchmentPreviewPage.ets`、`main_pages.json` 路由、以及设置页入口 `sectionRow('book', '设计系统预览（羊皮纸）')` |
+| `4658a0e` | **只删了设置页入口**（`- this.sectionRow('book', '设计系统预览（羊皮纸）', …)`）——页面、预览组件、路由的清理没做完 |
 
-**结论：这 6 个是一组**——删预览壳会让 `AuthorRow` / `PollBlock` 变成真孤儿，删原子又会丢 DS 库存。要删就一起删、要留就一起留，**建议留**（它们的价值是让你随时能在 Previewer 里验收设计系统）。
+此外 `pages/ParchmentPreviewPage.ets:4` 注释还写着「可从『设置 - 通用 - 设计系统预览』进入」，而设置里并没有这个入口——**注释描述的是一个已经不存在的状态，这正是它把我误导成「有意保留」的原因**。
+
+已删除的 4 个文件：`pages/ParchmentPreviewPage.ets`、`pages/FoundationPreviewPage.ets`、`design/preview/ParchmentPreview.ets`、`design/preview/FoundationPreview.ets`（`design/preview/` 目录随之消失，`main_pages.json` 本就未注册这两个页面，无需改路由）。
+
+**连带处理**：`design/components/AuthorRow.ets` 与 `PollBlock.ets` 此前**仅被这两个预览壳引用**，删预览壳后成为孤儿 → 已一并删除。git 历史显示它们曾用于真实页面 `components/PostCard.ets`，在 `257dfd6`（UI 体系调整）里被弃用——因此不是"待使用的 DS 库存"，而是随旧视觉体系一起退役的原子。`docs/feature-index.md` 的 DS 清单已同步移除。
+
 
 ---
 
