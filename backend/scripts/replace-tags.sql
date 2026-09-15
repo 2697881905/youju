@@ -43,5 +43,5 @@ INSERT INTO `Tag` (`name`, `emoji`, `category`) VALUES
 ('旅行避坑', '🧳', '下班以后'),
 ('追剧刷片', '🎬', '下班以后');
 
-SELECT category AS 分类, COUNT(*) AS 数量 FROM `Tag` GROUP BY category;
-SELECT CONCAT('total=', COUNT(*)) AS 总数 FROM `Tag`;
+SELECT category, COUNT(*) AS cnt FROM `Tag` GROUP BY category;
+SELECT COUNT(*) AS total FROM `Tag`;
