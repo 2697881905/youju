@@ -1,5 +1,5 @@
 // 帖子详情页（真实内容）：标签 → 体裁 → 标题 → 九宫格图 → 结构化字段 → 正文 → 评论区 → 底部操作栏
-import { buildPageTransition } from '../utils/styles';
+import { buildPageTransition, buildFadePageTransition } from '../utils/styles';
 import { TypeTokens } from '../design/tokens/type';
 import { ColorTokens } from '../design/tokens/color';
 import {
@@ -25,7 +25,7 @@ import { ReportDialog } from '../components/ReportDialog';
 import { FolderPickDialog } from '../components/FolderPickDialog';
 import { FolderNameDialog } from '../components/FolderNameDialog';
 import { PostStatsDialog } from '../components/PostStatsDialog';
-import { openUserProfile, takePostDetailId } from '../utils/nav';
+import { openUserProfile, takePostDetailId, takePostDetailIntent, PostDetailIntent } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 import { getUserId, getToken } from '../utils/auth';
 import { likeStore } from '../utils/likeStore';
@@ -39,6 +39,7 @@ import { image } from '@kit.ImageKit';
 import { window } from '@kit.ArkUI';
 import { DetailToolbar } from '../components/DetailToolbar';
 import { DetailMediaCarousel } from '../components/DetailMediaCarousel';
+import { DetailHeroMedia } from '../components/DetailHeroMedia';
 import { ImageViewer } from '../components/ImageViewer';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { DetailPostHeader } from '../components/DetailPostHeader';
@@ -48,8 +49,9 @@ import { DetailActionBar } from '../components/DetailActionBar';
 import { AtMentionSuggest } from '../components/AtMentionSuggest';
 import { findActiveAtMention, applyAtMention, AtMentionMatch } from '../utils/atMention';
 import { barBottomReserve } from '../utils/cardTokens';
+import { SpaceTokens } from '../design/tokens/space';
 import { FALLBACK_VIDEO_ASPECT_RATIO, normalizeVideoAspectRatio } from '../utils/video';
-import { MotionCurves, MotionTokens } from '../design/tokens/motion';
+import { MotionCurves, MotionTokens, MotionShared } from '../design/tokens/motion';
 
 
 // 字段定义：[结构化字段键, 中文标签]，按产品文档 2.4 各体裁字段表
@@ -71,6 +73,12 @@ class DetailInteractionState {
     this.bookmarkCount = bookmarkCount;
   }
 }
+
+// 「一镜到底」hero 占位保持时长：须大于共享转场（MotionShared 380ms），
+// 期间详情媒体区维持与源卡片同比（3:4/4:3）的 hero，不提前切换成真实比例轮播，
+// 否则加载完成后媒体区高度骤变 → 观感"先放大再缩小"。
+// 460ms = 转场 380ms + 80ms 缓冲（原 540ms 偏长，用户等待感明显）。
+const HERO_HOLD_MS: number = 460;
 
 // ArkTS V1 禁止按变量索引对象，这里用显式 switch 读取结构化字段
 function readField(sd: StructuredData, key: keyof StructuredData): string | number | undefined {
@@ -147,6 +155,11 @@ function structuredFieldDefs(genre?: Genre): FieldDef[] {
 @Component
 struct DetailPage {
   @State postId: string = '';
+  // 「一镜到底」意图：卡片进入时携带的展示快照（cover 非空才有共享元素）
+  @State intent: PostDetailIntent | null = null;
+  // 共享转场结束前保持 hero 占位（防止真实比例媒体提前接管造成“先放大再缩小”）
+  @State holdHero: boolean = false;
+  private holdTimer: number = 0;
   @State post: PostWithComments | null = null;
   @State fields: FieldPair[] = [];
   @State images: string[] = [];
@@ -172,6 +185,8 @@ struct DetailPage {
   @State viewingImage: string = ''; // 全屏看图
   @State shareCardPreview: image.PixelMap | null = null; // 分享卡图 App 内预览
   @State statusBarHeight: number = 0; // 全屏布局下顶部避让状态栏
+  // 系统栏测量来源（挂着 avoidAreaChange 监听，页面销毁时注销）
+  private navSourceWin: window.Window | undefined = undefined;
   // 收藏夹选择（收藏时归类）
   @State folderPickFolders: BookmarkFolderItem[] = [];
   private folderPickController: CustomDialogController | null = null;
@@ -217,6 +232,21 @@ struct DetailPage {
     }
     openUserProfile(authorId);
     this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage' });
+  }
+
+  // 「一镜到底」退出：如果当前是从共享元素路径进入且 holdHero 已释放（阅读停留后），
+  // 先重新挂载 hero（恢复共享 id），等一帧让 hero 渲染完成后再 router.back()，
+  // 这样框架在 pop 转场时能检测到共享元素并执行逆飞动画——图片从详情页位置飞回卡片位置。
+  // 无共享路径（搜索/圈子等入口）直接返回。
+  private navigateBack(): void {
+    if (this.sharedId().length > 0 && !this.holdHero) {
+      this.holdHero = true;
+      setTimeout((): void => {
+        this.getUIContext().getRouter().back();
+      }, 16);
+    } else {
+      this.getUIContext().getRouter().back();
+    }
   }
 
   // 帖子举报弹窗控制器
@@ -293,24 +323,91 @@ struct DetailPage {
   }
 
   aboutToAppear(): void {
-    // 读取状态栏高度（全屏布局下顶部内容需避让）
-    this.loadStatusBarHeight();
+    // 读取系统栏高度（全屏布局下顶部内容避让 + 底部栏高随导航模式实时变化）
+    this.loadWindowInsets();
+    this.intent = takePostDetailIntent();
     this.postId = takePostDetailId().trim();
+    // 共享路径：转场结束前媒体区保持 hero 占位（见 HERO_HOLD_MS 注释）
+    if (this.intent !== null && this.intent.cover.length > 0) {
+      this.holdHero = true;
+      this.holdTimer = setTimeout((): void => {
+        this.holdHero = false;
+        this.holdTimer = 0;
+      }, HERO_HOLD_MS) as number;
+    }
     this.load();
   }
 
-  // 读取系统状态栏高度（全屏布局下顶部内容需避让）
-  private async loadStatusBarHeight(): Promise<void> {
+  // 「一镜到底」共享元素 id：意图有封面且帖子 id 可解析时才启用。
+  // 注意：写成普通方法而非 get 访问器 —— ArkUI V1 编译器会丢弃组件上未绑定
+  // @State/@Prop 的 plain getter，导致运行时 this.sharedId 为 undefined 直接崩溃。
+  private sharedId(): string {
+    const i: PostDetailIntent | null = this.intent;
+    // 视频帖也走共享转场：源端卡片挂的是视频封面图（3:4 裁切），目标端 hero 用同比例封面图接收，
+    // holdHero 释放后切换为真实比例视频播放器——与图片帖 hero→轮播切换机制完全一致。
+    if (i === null || i.cover.length === 0) {
+      return '';
+    }
+    const idNum: number = Number(this.postId);
+    if (this.postId.length === 0 || isNaN(idNum)) {
+      return '';
+    }
+    return 'card-expand-' + this.postId;
+  }
+
+  // 共享路径目标媒体比例（宽/高）：与源卡面同比，保证进入/快速返回的共享元素帧一致
+  private sharedAspect(): number {
+    const i: PostDetailIntent | null = this.intent;
+    return i !== null && i.aspect > 0 ? i.aspect : 0.75;
+  }
+
+  // 读取系统栏高度（全屏布局下顶部内容需避让），并监听 avoidAreaChange：
+  // 三键/手势导航切换会触发回调 → 重新测量 → AppStorage 更新 → 底部功能栏高度实时响应。
+  private async loadWindowInsets(): Promise<void> {
     try {
       const ctx = this.getUIContext().getHostContext();
       if (!ctx) {
         return;
       }
       const win = await window.getLastWindow(ctx);
-      const area = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
-      this.statusBarHeight = px2vp(area.topRect.height);
+      this.navSourceWin = win;
+      this.applyWindowInsets(win);
+      win.on('avoidAreaChange', this.handleAvoidAreaChanged);
     } catch (e) {
-      // 读取失败维持 0（不阻塞页面渲染）
+      // 读取失败维持已有效果（不阻塞页面渲染）
+    }
+  }
+
+  private handleAvoidAreaChanged = (_opts: window.AvoidAreaOptions): void => {
+    if (this.navSourceWin) {
+      this.applyWindowInsets(this.navSourceWin);
+    }
+  };
+
+  private applyWindowInsets(win: window.Window): void {
+    try {
+      const sys = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
+      const indicator = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
+      this.statusBarHeight = px2vp(sys.topRect.height);
+      AppStorage.setOrCreate<number>('navBarHeight',
+        Math.max(px2vp(sys.bottomRect.height), px2vp(indicator.bottomRect.height)));
+    } catch (e) {
+      // 单独一次测量失败不影响已生效值
+    }
+  }
+
+  aboutToDisappear(): void {
+    if (this.holdTimer !== 0) {
+      clearTimeout(this.holdTimer);
+      this.holdTimer = 0;
+    }
+    if (this.navSourceWin) {
+      try {
+        this.navSourceWin.off('avoidAreaChange', this.handleAvoidAreaChanged);
+      } catch (e) {
+        // 注销失败可忽略
+      }
+      this.navSourceWin = undefined;
     }
   }
 
@@ -946,20 +1043,84 @@ struct DetailPage {
 
   // 详情页「分层进入」转场：媒体区先到（无延迟的缩放淡入），标题/正文/评论区按
   // delay 错峰进入（共享动势 + 错峰）。仅动 transform/opacity，不参与布局属性动画。
+  // duration 从 320ms 缩短到 280ms，translate 从 10px 减到 6px，让各层入场更紧凑轻盈。
   private animLayerEnter(delay: number): TransitionEffect {
     return TransitionEffect.OPACITY
-      .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate, delay: delay })
-      .combine(TransitionEffect.translate({ y: 10 })
-        .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate, delay: delay }));
+      .animation({ duration: 280, curve: MotionCurves.decelerate, delay: delay })
+      .combine(TransitionEffect.translate({ y: 6 })
+        .animation({ duration: 280, curve: MotionCurves.decelerate, delay: delay }));
   }
 
   // 详情页媒体区：以缩放起步（与列表卡片视觉动量一致的共享动势），无延迟先到
+  // duration 从 320ms 缩短到 280ms，让媒体区更快就位。
   private animMediaEnter(): TransitionEffect {
     return TransitionEffect.OPACITY
-      .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate })
+      .animation({ duration: 280, curve: MotionCurves.decelerate })
       .combine(TransitionEffect.scale({ x: MotionTokens.enterScale, y: MotionTokens.enterScale })
-        .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate }));
+        .animation({ duration: 280, curve: MotionCurves.decelerate }));
   }
+
+  // 「一镜到底」路径媒体进场：仅透明度淡入（无缩放）。
+  // 加载完成后 hero → 轮播/播放器切换时不再"缩一下"，避免叠加出二次缩放的生硬感。
+  // duration 从 320ms 缩短到 240ms，让 hero → 真实内容切换更快、更干净。
+  private animMediaEnterQuiet(): TransitionEffect {
+    return TransitionEffect.OPACITY
+      .animation({ duration: 240, curve: MotionCurves.decelerate });
+  }
+
+  // —— 「一镜到底」：共享 id 只挂在「loading / holdHero 期间的同比 hero」上 ——
+  // 进入动画 + 转场窗口内快速返回的逆飞都走 hero（与源卡同比 → 无拉伸）；
+  // holdHero 结束后内容区用真实比例展示（videoFace / carouselFace，无共享 id）→
+  // 停留阅读后的返回是干净普通页面转场，避免 4:3↔真实比例的非等比插值拉伸。
+  @Builder
+  videoFace(): void {
+    Column() {
+      VideoPlayer({ src: this.videoUrl, poster: this.videoCover })
+    }
+    .width('100%')
+    .aspectRatio(this.videoAspectRatio)
+    .backgroundColor(Color.Black)
+    .borderRadius(12)
+    .clip(true)
+    .transition(this.animMediaEnter())
+  }
+
+  @Builder
+  carouselFace(): void {
+    DetailMediaCarousel({
+      images: this.images,
+      activeIndex: $activeImageIndex,
+      onOpenImage: (url: string): void => { this.viewingImage = url; },
+    })
+      .transition(this.animMediaEnter())
+  }
+
+  @Builder
+  mediaSlot(): void {
+    if (this.videoUrl.length > 0) {
+      this.videoFace()
+    } else if (this.images.length > 0) {
+      this.carouselFace()
+    }
+  }
+
+  // 页面进入转场：
+  // - 共享路径（有媒体图卡）：纯渐显（buildFadePageTransition 已优化为 380ms + delay 60ms），由共享元素主导
+  // - 每日文字卡/视频卡（有意图但无共享）：整页轻微放大淡入 → "卡片展开"感
+  // - 其他入口（搜索/圈子等）：原短距滑入转场
+  private pageEnterTransition(): TransitionEffect {
+    const i: PostDetailIntent | null = this.intent;
+    if (this.sharedId().length > 0) {
+      return buildFadePageTransition();
+    }
+    if (i !== null) {
+      return buildFadePageTransition()
+        .combine(TransitionEffect.scale({ x: 0.985, y: 0.985 })
+          .animation({ duration: 280, curve: MotionCurves.decelerate }));
+    }
+    return buildPageTransition();
+  }
+
 
   build() {
     Column() {
@@ -1030,22 +1191,57 @@ struct DetailPage {
 
       DetailToolbar({
         title: genreMeta(this.post?.genre).label,
-        onBack: (): void => { this.getUIContext().getRouter().back(); },
+        onBack: (): void => { this.navigateBack(); },
         onMore: (): void => { this.showPostActions(); },
       })
         .zIndex(10)
 
       if (this.loading) {
-        Column() {
-          LoadingProgress().width(28).height(28)
-          Text('加载中…')
-            .fontSize(13).fontFamily($r('app.string.font_family'))
-            .fontColor($r('app.color.text_secondary'))
-            .margin({ top: 10 })
+        if (this.sharedId().length > 0) {
+          // 「一镜到底」loading：用意图渲染真实头部 + 媒体占位（与加载后同帧同位），
+          // 共享元素飞入时落到最终媒体区，数据到达后原位替换轮播/播放器，无跳变。
+          Column({ space: 16 }) {
+            DetailPostHeader({
+              title: this.intent?.title ?? '',
+              genreLabel: genreMeta(this.intent?.genre as Genre).label,
+              genreIcon: genreMeta(this.intent?.genre as Genre).iconRes,
+              tags: this.intent?.tags ?? [],
+              authorName: this.intent?.authorName ?? '',
+              authorAvatar: this.intent?.authorAvatar ?? '',
+              createdAt: this.intent?.createdAt ?? '',
+              onOpenAuthor: (): void => {},
+            })
+              // 共享元素落位后头部错峰入场，增强每日入口的“翻页感”
+              .transition(this.animLayerEnter(100))
+            if (this.intent !== null) {
+              DetailHeroMedia({ url: this.intent.cover, sharedId: this.sharedId(), mediaRatio: this.sharedAspect() })
+            }
+            Row({ space: SpaceTokens.sm }) {
+              LoadingProgress().width(14).height(14)
+              Text('正在翻页…')
+                .fontSize(12).fontFamily($r('app.string.font_family'))
+                .fontColor($r('app.color.text_secondary'))
+            }
+            .width('100%')
+            .justifyContent(FlexAlign.Center)
+            .transition(this.animLayerEnter(200))
+          }
+          .layoutWeight(1)
+          .width('100%')
+          .padding(16)
+          .alignItems(HorizontalAlign.Start)
+        } else {
+          Column() {
+            LoadingProgress().width(28).height(28)
+            Text('加载中…')
+              .fontSize(13).fontFamily($r('app.string.font_family'))
+              .fontColor($r('app.color.text_secondary'))
+              .margin({ top: 10 })
+          }
+          .layoutWeight(1)
+          .width('100%')
+          .justifyContent(FlexAlign.Center)
         }
-        .layoutWeight(1)
-        .width('100%')
-        .justifyContent(FlexAlign.Center)
       } else if (this.error) {
         Column() {
           Text(this.error)
@@ -1087,25 +1283,19 @@ struct DetailPage {
                 createdAt: this.post.createdAt,
                 onOpenAuthor: (): void => { this.openAuthorProfile(); },
               })
-                .transition(this.animLayerEnter(100))
+                .transition(this.animLayerEnter(80))
 
-              if (this.videoUrl.length > 0) {
-                Column() {
-                  VideoPlayer({ src: this.videoUrl, poster: this.videoCover })
-                }
-                .width('100%')
-                .aspectRatio(this.videoAspectRatio)
-                .backgroundColor(Color.Black)
-                .borderRadius(12)
-                .clip(true)
-                .transition(this.animMediaEnter())
-              } else {
-                DetailMediaCarousel({
-                  images: this.images,
-                  activeIndex: $activeImageIndex,
-                  onOpenImage: (url: string): void => { this.viewingImage = url; },
+              // 媒体区（视频/轮播，一镜到底时挂共享元素）
+              // 转场结束前：保持与源同比的 hero 占位，避免真实比例内容中途接管造成“先放大再缩小”
+              if (this.sharedId() !== '' && this.holdHero) {
+                DetailHeroMedia({
+                  url: (this.intent as PostDetailIntent).cover,
+                  sharedId: this.sharedId(),
+                  mediaRatio: this.sharedAspect(),
                 })
-                  .transition(this.animMediaEnter())
+                  .transition(this.animMediaEnterQuiet())
+              } else {
+                this.mediaSlot()
               }
 
               DetailPostContent({
@@ -1119,7 +1309,7 @@ struct DetailPage {
                 mentions: this.post.mentions ?? [],
                 onVote: (choice: string): void => { this.onDebateVote(choice); },
               })
-                .transition(this.animLayerEnter(100))
+                .transition(this.animLayerEnter(120))
 
               DetailCommentsSection({
                 comments: this.post.comments ?? [],
@@ -1127,7 +1317,7 @@ struct DetailPage {
                 onReportComment: (commentId: number): void => { this.openCommentReport(commentId); },
                 onReplyComment: (comment: Comment): void => { this.onReplyComment(comment); },
               })
-                .transition(this.animLayerEnter(160))
+                .transition(this.animLayerEnter(180))
 
               // 真实滚动内容占位，末尾评论可完整滑出悬浮互动栏下方。
               Blank()
@@ -1173,7 +1363,7 @@ struct DetailPage {
               replyName: this.replyTargetName,
               onCancelReply: (): void => { this.onCancelReply(); },
             })
-              .transition(this.animLayerEnter(100))
+              .transition(this.animLayerEnter(80))
           }
           .width('100%')
           .zIndex(1)
@@ -1186,6 +1376,7 @@ struct DetailPage {
     .height('100%')
     .padding({ top: this.statusBarHeight })
     .backgroundColor($r('app.color.bg_primary'))
-    .transition(buildPageTransition())
+    // 「一镜到底」路径：纯渐显（无横向位移），避免整页滑动与卡面放大双动效打架
+    .transition(this.pageEnterTransition())
   }
 }

@@ -46,3 +46,13 @@ export class MotionCurves {
 export class MotionFrameRates {
   static readonly default: ExpectedFrameRateRange = { min: 30, max: 120, expected: 60 };
 }
+
+// 「一镜到底」共享元素转场参数：sharedTransition 在页面 push/pop 时自动匹配同 id 组件，
+// 对源/目标做位置+尺寸插值飞行。curve 用 standard（进出一致），duration 380ms 与页面转场对齐。
+export class MotionShared {
+  static readonly transition: sharedTransitionOptions = {
+    duration: 380,
+    curve: MotionCurves.standard,
+    zIndex: 10,
+  };
+}

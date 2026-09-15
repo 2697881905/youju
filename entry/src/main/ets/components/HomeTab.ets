@@ -4,13 +4,13 @@
 // 搜索入口跳转独立搜索页 pages/SearchPanelPage（搜索面板已与首页解耦）。
 
 import { DailyPost, Post, Tag } from '../models/types';
-import { listDailyPosts, listPosts, listFollowingPosts, listTags, listFollowedTags, getUserProfile, trackPostEvent, trackDailyOpen } from '../services/api';
+import { listDailyPosts, listPosts, listFollowingPosts, listTags, listFollowedTags, getUserProfile, trackPostEvent, trackDailyOpen, resolveDisplayImageUrl } from '../services/api';
 import { getUserId } from '../utils/auth';
 import { likeStore } from '../utils/likeStore';
 import { postDeletionStore } from '../utils/postDeletionStore';
 import { PostCard } from './PostCard';
 import { TagNav } from './TagNav';
-import { emitTabSwitch, openPostDetail } from '../utils/nav';
+import { emitTabSwitch, openPostDetail, PostDetailIntent } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { EmptyState } from '../design/components/EmptyState';
@@ -51,6 +51,8 @@ const FEED_SEGMENTS: SegmentedItem[] = [
 // 计日统一按北京时间（UTC+8），与后端 dailyKey 的 Asia/Shanghai 口径一致，设备处于任意时区均不偏移。
 const DAILY_ISSUE_ORIGIN: string = '2026-09-11';
 const DAILY_TZ_OFFSET_MS: number = 8 * 60 * 60 * 1000;
+// 每日卡面媒体展示比例（与 DECK_MEDIA_RATIO 一致）：一镜到底飞行目标同比例
+const DAILY_DECK_MEDIA_RATIO: number = 4 / 3;
 
 // —— 会话级信息流缓存：切 Tab 回来先展示缓存再后台刷新，避免白屏重拉（P2 性能优化）——
 // key = feedMode|tag|sort；仅缓存首屏（page=1），TTL 120s；账号切换/发帖后整体失效
@@ -392,6 +394,36 @@ export struct HomeTab {
     }
   }
 
+  // —— 「一镜到底」意图组装 ——
+  // 每日一帖卡面展示图口径：与 DeckSlotCard.hasMedia()/mediaUrl() 一致（视频封面优先，其次封面）
+  private dailyDeckCover(p: DailyPost): string {
+    const raw: string = (p.videoCover ?? '').length > 0 ? (p.videoCover ?? '') : (p.coverImage ?? '');
+    return raw.length > 0 ? resolveDisplayImageUrl(raw) : '';
+  }
+
+  // 推荐/关注流卡面展示图口径：与 PostCardMedia 展示一致（视频→视频封面||封面；图片→封面）
+  private feedCardCover(p: Post): string {
+    const coverRaw: string = typeof p.coverImage === 'string' ? p.coverImage : '';
+    const vCover: string = typeof p.videoCover === 'string' ? p.videoCover : '';
+    const vUrl: string = typeof p.videoUrl === 'string' ? p.videoUrl : '';
+    const raw: string = vUrl.length > 0 ? (vCover.length > 0 ? vCover : coverRaw) : coverRaw;
+    return raw.length > 0 ? resolveDisplayImageUrl(raw) : '';
+  }
+
+  private buildDetailIntent(cover: string, p: Post, aspect: number): PostDetailIntent {
+    return {
+      cover: cover,
+      title: p.title ?? '',
+      genre: p.genre ?? '',
+      tags: p.tags ?? [],
+      authorName: p.user?.nickname ?? '',
+      authorAvatar: p.user?.avatar ?? '',
+      createdAt: p.createdAt ?? '',
+      aspect: aspect,
+      isVideo: ((p.videoUrl ?? '') as string).length > 0,
+    };
+  }
+
   @Builder
   refreshBuilder(): void {
     Row({ space: SpaceTokens.inline }) {
@@ -486,7 +518,10 @@ export struct HomeTab {
       onOpen: () => {
         if (post.id !== undefined) {
           trackPostEvent(post.id, 'click', 'feed');
-          openPostDetail(post.id.toString());
+          const cover: string = this.feedCardCover(post);
+          openPostDetail(post.id.toString(), cover.length > 0
+            ? this.buildDetailIntent(cover, post, LayoutTokens.cardMediaAspectRatio)
+            : undefined);
           this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
         }
       },
@@ -756,7 +791,10 @@ export struct HomeTab {
                 onOpen: (post: DailyPost): void => {
                   if (post.id !== undefined) {
                     trackPostEvent(post.id, 'click', 'daily');
-                    openPostDetail(post.id.toString());
+                    const cover: string = this.dailyDeckCover(post);
+                    openPostDetail(post.id.toString(), cover.length > 0
+                      ? this.buildDetailIntent(cover, post, DAILY_DECK_MEDIA_RATIO)
+                      : undefined);
                     this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
                   }
                 },

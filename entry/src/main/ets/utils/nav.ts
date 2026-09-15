@@ -11,21 +11,45 @@ export interface FollowListIntent {
   mode: 'following' | 'followers';
 }
 
+// 「一镜到底」意图：卡片进入详情页时携带的展示快照。
+// cover 为 resolveDisplayImageUrl 后的展示 URL，空串 = 无媒体 → 详情页走原转场。
+// aspect 为卡面媒体展示比例（宽/高），详情 hero 用同比例渲染 → 飞行全程等比放大无缝。
+// isVideo = true 时关闭共享转场（视频真实比例与卡面裁切比例不一致，共享受扭/拉伸）。
+export interface PostDetailIntent {
+  cover: string;
+  title: string;
+  genre: string;
+  tags: string[];
+  authorName: string;
+  authorAvatar: string;
+  createdAt: string;
+  aspect: number;
+  isVideo: boolean;
+}
+
 let detailPostId: string = '';
+let postDetailIntent: PostDetailIntent | null = null;
 let targetUserId: number = 0;
 let searchKeyword: string = '';
 let circleDetailName: string = '';
 let chatIntent: ChatIntent | null = null;
 let followListIntent: FollowListIntent | null = null;
 
-export function openPostDetail(id: string): void {
+export function openPostDetail(id: string, intent?: PostDetailIntent): void {
   detailPostId = id;
+  postDetailIntent = intent ?? null;
 }
 
 export function takePostDetailId(): string {
   const id: string = detailPostId;
   detailPostId = '';
   return id;
+}
+
+export function takePostDetailIntent(): PostDetailIntent | null {
+  const intent: PostDetailIntent | null = postDetailIntent;
+  postDetailIntent = null;
+  return intent;
 }
 
 export function openUserProfile(userId: number): void {

@@ -157,6 +157,12 @@ export struct PostCard {
     return typeof this.post.id === 'number' ? this.post.id : undefined;
   }
 
+  // 「一镜到底」源元素 id：有媒体（封面/视频）且 id 可解析时挂共享元素
+  private cardSharedId(): string {
+    const pid: number | undefined = this.postId();
+    return (this.hasCover() && pid !== undefined) ? 'card-expand-' + pid : '';
+  }
+
   private coverImage(): string {
     // 后端的无封面字段为 null；接口运行时值需在 UI 边界归一化。
     return typeof this.post.coverImage === 'string' ? this.post.coverImage : '';
@@ -244,6 +250,7 @@ export struct PostCard {
           videoUrl: this.post.videoUrl ?? '',
           videoCover: this.post.videoCover ?? '',
           compact: this.compact,
+          sharedId: this.cardSharedId(),
         })
         // 信息区：标题 + 互动/作者 合并为一块（统一 elevated 底 + 细边框 + 圆角）
         Column({ space: this.compact ? SpaceTokens.inlineTight : SpaceTokens.sm }) {

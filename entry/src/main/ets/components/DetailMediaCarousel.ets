@@ -63,6 +63,7 @@ export struct DetailMediaCarousel {
         .animation({ duration: 250, curve: Curve.EaseInOut })
         .indicator(false)
         .loop(false)
+        .disableSwipe(this.images.length <= 1)
         .onChange((index: number): void => {
           this.activeIndex = index;
           const cached: number = this.ratios[index] ?? 0;
