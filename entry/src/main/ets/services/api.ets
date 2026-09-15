@@ -11,7 +11,7 @@ const BUILD_MODE: string = BUILD_MODE_NAME;
 //   B) 本机 LAN IP（要求真机/模拟器与 Mac 在同一网段）：ipconfig getifaddr en0 查当前 IP 后填入。
 // 历史坑：写死 LAN IP 后换网络（换热点/换网段）即失效 → 真机报「无法连接后端服务」
 // （os_errno 111 ECONNREFUSED）；反之 rport 在设备重连后也会失效。两者互为备份。
-const DEBUG_API_HOST: string = 'http://10.116.97.205:3000';
+const DEBUG_API_HOST: string = 'http://127.0.0.1:3000';
 export const BASE_URL: string =
   DEBUG === true
     ? DEBUG_API_HOST
