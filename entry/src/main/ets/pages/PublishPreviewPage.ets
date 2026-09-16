@@ -444,6 +444,8 @@ struct PublishPreviewPage {
         .height('100%')
         .indicator(false)
         .loop(false)
+        // 单图无翻页语义：仅当多于 1 张时才允许滑动，避免单图出现阻尼回弹/内容位移。
+        .disableSwipe(draft.images.length <= 1)
         .onChange((index: number): void => { this.previewImageIndex = index; })
 
         if (draft.images.length > 1) {
