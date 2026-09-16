@@ -5,7 +5,7 @@ import { Genre, StructuredData, User } from '../models/types';
 import { PublishDraft } from '../utils/publishDraft';
 import { savePostDraft, SavedPostDraft } from '../utils/postDraftStore';
 import { publishFlowStore } from '../utils/publishFlowStore';
-import { uploadTextPoster, layoutPosterText, PosterTextItem, resolveTextPosterStyle, TEXT_POSTER_ASPECT_RATIO, TEXT_POSTER_STYLES, TextPosterStyleOption } from '../utils/textPoster';
+import { uploadTextPoster, renderPosterPixelMap, isSerifTypefaceReady, TEXT_POSTER_ASPECT_RATIO, TEXT_POSTER_STYLES, TextPosterStyleOption } from '../utils/textPoster';
 import { image } from '@kit.ImageKit';
 import { safeShowToast } from '../utils/toast';
 import { VideoPlayer } from '../components/VideoPlayer';
@@ -21,6 +21,19 @@ import { withCoverOnlyTextPoster } from '../utils/structuredFields';
 import { FALLBACK_VIDEO_ASPECT_RATIO, normalizeVideoAspectRatio } from '../utils/video';
 
 const TEXT_POSTER_TIMEOUT: number = 20000;
+// 预览倍率必须恒为 1，不能为省内存调小——这是「预览即发布产物」的前提。
+// 尺寸关系（已实测）：预览页海报容器的实际显示宽度约 310vp，在主流 3x 屏上约 930 物理像素；
+// 而发布产物本身是 1080×1440，在信息流卡片里同样缩小显示（1080 → 约 930px，缩小约 0.86 倍）。
+//   · scale 0.5 → 540×720：930/540 ≈ 放大 1.7 倍，drawGrain 半径仅 1–3 逻辑像素的颗粒、
+//     以及正文细笔画会被放大糊掉，明显比发布产物虚；
+//   · scale 0.75 → 810×1080：930/810 ≈ 放大 1.15 倍，仍有轻微放大与颗粒损失；
+//   · scale 1.0 → 1080×1440：930/1080 ≈ 缩小 0.86 倍，锐利，与发布产物像素级同源、观感一致。
+// 即：只有 1.0 才能让预览与发布同为「缩小显示」，否则预览是「放大显示」必然比发布糊，
+// 与用户要求的「所见即所得」直接冲突。内存代价见 prepareTextPosterPreviews 注释，仍可接受。
+const TEXT_POSTER_PREVIEW_SCALE: number = 1;
+// 字体未就绪时的兜底重绘：最多轮询 10 次、每次间隔 200ms（最多 ~2s）。
+const TEXT_POSTER_FONT_RETRY_MAX: number = 10;
+const TEXT_POSTER_FONT_RETRY_INTERVAL: number = 200;
 
 type FieldDef = [keyof StructuredData, string];
 type PreviewField = [string, string];
@@ -71,6 +84,12 @@ struct PublishPreviewPage {
   @State previewImageIndex: number = 0;
   @State publishing: boolean = false;
   @State error: string = '';
+  // 四种文字海报样式的真实渲染产物（由 renderPosterPixelMap 生成），与发布产物同源。
+  @State textPosterPixelMaps: image.PixelMap[] = [];
+  // 递增版本号：PixelMap 数组为引用类型，替换数组后配合版本号变更可靠触发 @State 刷新。
+  @State textPosterRenderVersion: number = 0;
+  // 页面销毁标记：防止字体兜底重绘在 aboutToDisappear 之后仍创建 PixelMap 造成内存泄漏。
+  private previewDisposed: boolean = false;
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
 
   aboutToAppear(): void {
@@ -80,7 +99,93 @@ struct PublishPreviewPage {
     } else {
       this.textPosterStyleIndex = this.posterStyleIndex(this.draft.textPosterStyle);
       this.previewImageIndex = 0;
+      // 仅「无图纯文字帖」会走 coverPreview 的 else 分支展示文字海报；图文帖 / 视频帖跳过预渲染，
+      // 避免无谓的 23.7MiB 图形内存占用与 4 次满分辨率主线程栅格化推迟首帧。
+      if (this.needsTextPosterPreview(this.draft)) {
+        // 首次进入即预渲染全部四种样式，滑动切换零等待。
+        this.prepareTextPosterPreviews(this.currentDraft());
+        // 字体（Index.ets 启动时注册）尚未就绪时，兜底延迟重绘，避免用默认字体渲染出错误字形。
+        if (!isSerifTypefaceReady()) {
+          this.retryPreviewsForFont(0);
+        }
+      }
     }
+  }
+
+  aboutToDisappear(): void {
+    this.previewDisposed = true;
+    this.releaseTextPosterPreviews();
+  }
+
+  // 单一事实源：判定草稿是否需要文字海报预览。与 coverPreview 的 else 分支条件严格一致——
+  // 仅当「无视频且无图片」（即无图纯文字帖）时，文字海报才会被渲染展示；其余（图文帖 / 视频帖）不需要。
+  // 集中在此处，避免 aboutToAppear、字体兜底轮询、prepareTextPosterPreviews 三处条件各写一份后失配。
+  private needsTextPosterPreview(draft: PublishDraft): boolean {
+    const hasVideo: boolean = draft.videoUrl !== undefined && draft.videoUrl.length > 0;
+    return !hasVideo && draft.images.length === 0;
+  }
+
+  // 预渲染四种样式的海报 PixelMap。先释放旧图再生成新图，避免重绘时泄漏。
+  // 内存代价（scale = 1，RGBA_8888）：单张 1080×1440×4 ≈ 5.93MiB，四张合计 ≈ 23.7MiB。
+  // 该量级仅在「发布预览页存活期间」常驻，aboutToDisappear 会 release 全部 PixelMap，
+  // 属于可接受的瞬时峰值（远低于现代中端机单进程图形内存预算），故不再为省内存而降低 scale。
+  private prepareTextPosterPreviews(draft: PublishDraft): void {
+    if (this.previewDisposed) {
+      return;
+    }
+    this.releaseTextPosterPreviews();
+    // 兜底防线：图文帖 / 视频帖即便调用方漏判，也绝不创建 PixelMap、不占主线程（零渲染、零内存）。
+    if (!this.needsTextPosterPreview(draft)) {
+      return;
+    }
+    const maps: image.PixelMap[] = [];
+    for (const style of TEXT_POSTER_STYLES) {
+      try {
+        maps.push(renderPosterPixelMap(draft.title, draft.content, style.key, TEXT_POSTER_PREVIEW_SCALE));
+      } catch {
+        // 单一样式渲染失败不阻断其余样式；该样式页回退为纯色占位。
+      }
+    }
+    // 渲染期间页面可能已销毁：此时立即释放刚生成的 PixelMap，避免泄漏。
+    if (this.previewDisposed) {
+      for (const map of maps) {
+        map.release().catch((): void => {});
+      }
+      return;
+    }
+    this.textPosterPixelMaps = maps;
+    this.textPosterRenderVersion = this.textPosterRenderVersion + 1;
+  }
+
+  // 释放当前持有的全部 PixelMap 并清空引用。可重复调用（数组清空后为空循环）。
+  private releaseTextPosterPreviews(): void {
+    for (const map of this.textPosterPixelMaps) {
+      map.release().catch((): void => {});
+    }
+    if (this.textPosterPixelMaps.length > 0) {
+      this.textPosterPixelMaps = [];
+    }
+  }
+
+  // 字体未就绪时轮询等待，就绪后重绘一次；超过上限则放弃（保持默认字形）。
+  private retryPreviewsForFont(attempt: number): void {
+    if (this.previewDisposed || attempt >= TEXT_POSTER_FONT_RETRY_MAX) {
+      return;
+    }
+    setTimeout((): void => {
+      if (this.previewDisposed || this.draft === null) {
+        return;
+      }
+      // 草稿可能在轮询期间变化：条件不再满足（如已不需文字海报）时立即停止，既不空转也不误重绘。
+      if (!this.needsTextPosterPreview(this.currentDraft())) {
+        return;
+      }
+      if (isSerifTypefaceReady()) {
+        this.prepareTextPosterPreviews(this.currentDraft());
+      } else {
+        this.retryPreviewsForFont(attempt + 1);
+      }
+    }, TEXT_POSTER_FONT_RETRY_INTERVAL) as number;
   }
 
   private currentDraft(): PublishDraft {
@@ -106,50 +211,6 @@ struct PublishPreviewPage {
     return rows;
   }
 
-  // 用「已注册的 UI 宋体 Text + 截图」生成文字覆盖层。
-  // 使用实心背景(#FAF7EF 素纸色)替代透明背景，确保 componentSnapshot 渲染后文字深黑不褪色。
-  // 采用三层渲染：阴影层 + 高光层 + 主文字层，增强立体感。
-  @Builder
-  posterOverlayBuilder(items: PosterTextItem[]) {
-    Stack() {
-      // 阴影层：向右下偏移 4vp 的半透明黑色(#8C000000)
-      ForEach(items, (it: PosterTextItem) => {
-        Text(it.text)
-          .fontSize(it.size)
-          .fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(it.weight)
-          .fontColor('#8C000000')
-          .position({ x: it.x + 4, y: it.y + 6 })
-      }, (it: PosterTextItem) => 'shadow_' + it.text + '_' + it.x + '_' + it.y)
-      // 高光层：向左上偏移 2vp 的白色(#50FFFFFF)
-      ForEach(items, (it: PosterTextItem) => {
-        Text(it.text)
-          .fontSize(it.size)
-          .fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(it.weight)
-          .fontColor('#50FFFFFF')
-          .position({ x: it.x - 2, y: it.y - 2 })
-      }, (it: PosterTextItem) => 'highlight_' + it.text + '_' + it.x + '_' + it.y)
-      // 主文字层：纯色文字
-      ForEach(items, (it: PosterTextItem) => {
-        Text(it.text)
-          .fontSize(it.size)
-          .fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(it.weight)
-          .fontColor(it.color)
-          .position({ x: it.x, y: it.y })
-      }, (it: PosterTextItem) => 'main_' + it.text + '_' + it.x + '_' + it.y)
-    }
-    .width(1080)
-    .height(1440)
-    .backgroundColor('#FAF7EF') // 素纸色背景，保证文字清晰渲染
-  }
-
-  private async buildPosterOverlay(draft: PublishDraft): Promise<image.PixelMap | undefined> {
-    // componentSnapshot 会导致文字颜色失真，已改为 canvas 直接绘制
-    return undefined;
-  }
-
   private uploadTextPosterWithTimeout(draft: PublishDraft): Promise<string> {
     return new Promise<string>((resolve: (url: string) => void, reject: (reason: Error) => void): void => {
       let settled: boolean = false;
@@ -169,8 +230,7 @@ struct PublishPreviewPage {
       timer = setTimeout((): void => {
         finish(new Error('文字海报生成超时'));
       }, TEXT_POSTER_TIMEOUT) as number;
-      this.buildPosterOverlay(draft)
-        .then((overlay: image.PixelMap | undefined) => uploadTextPoster(draft.title, draft.content, draft.genre, draft.textPosterStyle, overlay))
+      uploadTextPoster(draft.title, draft.content, draft.genre, draft.textPosterStyle)
         .then((url: string): void => { finish(undefined, url); })
         .catch((e: Error): void => { finish(e); });
     });
@@ -310,111 +370,29 @@ struct PublishPreviewPage {
     .alignItems(VerticalAlign.Center)
   }
 
+  // 单页文字海报预览：直接展示 renderPosterPixelMap 的产出，做到「预览即发布产物」。
+  // 注意：像素图数组通过 this.textPosterPixelMaps[index] 读取，数组被整体替换时会触发刷新；
+  // 同时以 this.textPosterRenderVersion 参与 ForEach key，保证 PixelMap 更新后强制重建。
   @Builder
-  textPosterPreview(draft: PublishDraft, style: TextPosterStyleOption): void {
+  textPosterSlide(index: number): void {
     Stack({ alignContent: Alignment.Center }) {
-      // 预览与端侧绘制器保持同一层级：底色、材质、正文，而不是一个纯色占位卡片。
-      Column()
-        .width('100%')
-        .height('100%')
-        .backgroundColor(style.background)
-      Column()
-        .width(style.texture === 'sticky' ? '88%' : '88%')
-        .height(style.texture === 'sticky' ? '86%' : '90%')
-        .backgroundColor(style.surface)
-        .borderRadius(style.texture === 'sticky' ? RadiusTokens.sm : RadiusTokens.lg)
-        .shadow({ radius: 10, color: '#26000000', offsetY: 6 });
-      Column()
-        .width(style.texture === 'film' ? '78%' : '84%')
-        .height(style.texture === 'sticky' ? '80%' : '84%')
-        .backgroundColor(style.innerSurface)
-        .borderRadius(RadiusTokens.md);
-      if (style.texture === 'film') {
-        Row() {
-          Column({ space: 12 }) {
-            ForEach([0, 1, 2, 3, 4, 5, 6, 7], (leftHole: number, leftIndex: number) => {
-              Circle().width(10).height(10).fill('#CC202832')
-            }, (leftKey: number, leftKeyIndex: number) => 'film-left-' + leftKeyIndex)
-          }
-          Column({ space: 12 }) {
-            ForEach([0, 1, 2, 3, 4, 5, 6, 7], (rightHole: number, rightIndex: number) => {
-              Circle().width(10).height(10).fill('#CC202832')
-            }, (rightKey: number, rightKeyIndex: number) => 'film-right-' + rightKeyIndex)
-          }
-        }
-        .width('88%')
-        .height('78%')
-        .justifyContent(FlexAlign.SpaceBetween)
-      }
-      if (style.texture === 'kraft') {
-        Column({ space: 10 }) {
-          ForEach([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], (grainRow: number, grainRowIndex: number) => {
-            Row({ space: 24 }) {
-              ForEach([0, 1, 2, 3, 4, 5], (grainDot: number, grainDotIndex: number) => {
-                Circle().width(3).height(3).fill('#552E1E')
-              }, (grainDotKey: number, grainDotKeyIndex: number) => 'kraft-dot-' + grainRowIndex + '-' + grainDotKeyIndex)
-            }
-          }, (grainKey: number, grainKeyIndex: number) => 'kraft-row-' + grainKeyIndex)
-        }
-        .width('74%')
-        .height('72%')
-        .opacity(0.28)
-      }
-      if (style.texture === 'sticky') {
+      if (index < this.textPosterPixelMaps.length) {
+        Image(this.textPosterPixelMaps[index])
+          .width('100%')
+          .height('100%')
+          // 海报本身即 3:4，与卡片容器一致，Cover 不产生裁切或留白。
+          .objectFit(ImageFit.Cover)
+          .interpolation(ImageInterpolation.High)
+      } else {
+        // 渲染尚未完成（或失败）时的占位：与海报底色一致，避免闪白。
         Column()
-          .width('26%')
-          .height(12)
-          .backgroundColor('#A8FFFFFF')
-          .position({ x: 150, y: 18 })
+          .width('100%')
+          .height('100%')
+          .backgroundColor(TEXT_POSTER_STYLES[index].background)
       }
-      Column({ space: SpaceTokens.sm }) {
-        Text(draft.title.trim().length > 0 ? draft.title.trim() : '有据 · 文字帖')
-          .fontSize(TypeTokens.caption.size)
-          .fontFamily(TypeTokens.fontFamily)
-          .fontWeight(TypeTokens.headline.weight)
-          .fontColor(style.text)
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .width('78%')
-          .textAlign(TextAlign.Center)
-          .opacity(0.72)
-        Text('“')
-          .fontSize(56).fontFamily(TypeTokens.fontFamily)
-          .fontWeight(TypeTokens.display.weight)
-          .fontColor(style.accent)
-          .height(52)
-          .alignSelf(ItemAlign.Start);
-        Text(draft.content.trim().length > 0 ? draft.content.trim() : '写下你的观点，让更多人看见。')
-          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.title.weight)
-          .lineHeight(TypeTokens.title.lineHeight)
-          .fontColor(style.text)
-          .maxLines(6)
-          .textAlign(TextAlign.Center)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .width('88%');
-        Text('”')
-          .fontSize(56).fontFamily(TypeTokens.fontFamily)
-          .fontWeight(TypeTokens.display.weight)
-          .fontColor(style.accent)
-          .height(52)
-          .alignSelf(ItemAlign.End);
-        Column()
-          .width('92%')
-          .height(4)
-          .backgroundColor(style.accent)
-          .borderRadius(RadiusTokens.pill)
-          .margin({ top: SpaceTokens.sm });
-      }
-        .width('76%')
-      .height('86%')
-      .justifyContent(FlexAlign.Center)
-      .alignItems(HorizontalAlign.Center);
     }
     .width('100%')
     .height('100%')
-    .borderRadius(style.texture === 'film' ? RadiusTokens.sm : RadiusTokens.md)
-    .clip(true)
   }
 
   @Builder
@@ -466,9 +444,9 @@ struct PublishPreviewPage {
         .clip(true)
     } else {
       Swiper() {
-        ForEach(TEXT_POSTER_STYLES, (style: TextPosterStyleOption) => {
-          this.textPosterPreview(draft, style)
-        }, (style: TextPosterStyleOption) => style.key)
+        ForEach(TEXT_POSTER_STYLES, (style: TextPosterStyleOption, index: number) => {
+          this.textPosterSlide(index)
+        }, (style: TextPosterStyleOption) => style.key + '_' + this.textPosterRenderVersion)
       }
       .width('100%')
       .aspectRatio(TEXT_POSTER_ASPECT_RATIO)
