@@ -46,10 +46,13 @@ export struct ImageViewer {
         .height('100%')
         .backgroundColor('#000000')
       // 原图宽度撑满屏幕，高度按真实宽高比自适应（onComplete 后无黑边）；支持缩放与平移
+      // draggable(false)：Image 默认 draggable=true，长按拖动会被系统拖拽接管 →
+      // 外层 PanGesture 收不到 Update，长图平移/拖动直接失效
       Image(resolveDisplayImageUrl(this.url))
         .width('100%')
         .aspectRatio(this.imageRatio)
         .objectFit(ImageFit.Contain)
+        .draggable(false)
         .scale({ x: this.zoomScale, y: this.zoomScale })
         .translate({ x: this.translateX, y: this.translateY })
         .onComplete((event): void => {
@@ -67,6 +70,7 @@ export struct ImageViewer {
         .width(24)
         .height(24)
         .position({ top: 16, right: 16 })
+        .draggable(false)
         .onClick((): void => { this.onClose(); })
       // 底部操作提示
       Text('长图可上下滑动，双击/捏合缩放')

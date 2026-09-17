@@ -25,6 +25,9 @@ export struct PostCardMedia {
       .aspectRatio(LayoutTokens.cardMediaAspectRatio)
       .objectFit(ImageFit.Cover)
       .backgroundColor(ColorTokens.sunken)
+      // 封面不吃拖拽：Image 默认 draggable=true，长按后拖动会被系统拖拽接管，
+      // 信息流滚动条会被卡住（与 DailyPostDeck 卡面同一处理）
+      .draggable(false)
       .borderRadius({ topLeft: this.compact ? RadiusTokens.xs : RadiusTokens.lg, topRight: this.compact ? RadiusTokens.xs : RadiusTokens.lg, bottomLeft: 0, bottomRight: 0 })
       .clip(true)
   }
@@ -37,6 +40,9 @@ export struct PostCardMedia {
       .aspectRatio(LayoutTokens.cardMediaAspectRatio)
       .objectFit(ImageFit.Cover)
       .backgroundColor(ColorTokens.sunken)
+      // 封面不吃拖拽：Image 默认 draggable=true，长按后拖动会被系统拖拽接管，
+      // 信息流滚动条会被卡住（与 DailyPostDeck 卡面同一处理）
+      .draggable(false)
       .borderRadius({ topLeft: this.compact ? RadiusTokens.xs : RadiusTokens.lg, topRight: this.compact ? RadiusTokens.xs : RadiusTokens.lg, bottomLeft: 0, bottomRight: 0 })
       .clip(true)
       .sharedTransition(this.sharedId, MotionShared.transition)

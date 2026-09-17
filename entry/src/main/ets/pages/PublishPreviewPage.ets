@@ -383,6 +383,8 @@ struct PublishPreviewPage {
           // 海报本身即 3:4，与卡片容器一致，Cover 不产生裁切或留白。
           .objectFit(ImageFit.Cover)
           .interpolation(ImageInterpolation.High)
+          // 该页在 Swiper 内：Image 默认 draggable=true，长按横拖会被系统拖拽接管 → 翻不动
+          .draggable(false)
       } else {
         // 渲染尚未完成（或失败）时的占位：与海报底色一致，避免闪白。
         Column()
@@ -416,6 +418,8 @@ struct PublishPreviewPage {
               // 与信息流卡片封面一致：固定 3:4 容器 + Cover 裁切填满（长图不再缩小失调）
               .objectFit(ImageFit.Cover)
               .backgroundColor(ColorTokens.sunken)
+              // 图在 Swiper 内：Image 默认 draggable=true，长按横拖会被系统拖拽接管 → 翻不动
+              .draggable(false)
           }, (url: string) => url)
         }
         .width('100%')

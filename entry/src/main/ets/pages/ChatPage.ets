@@ -707,6 +707,9 @@ export struct ChatPage {
             .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
             .borderRadius(RadiusTokens.md)
             .clip(true)
+            // 气泡所在行挂了 LongPressGesture（长按菜单）：Image 默认 draggable=true，
+            // 长按在图上会先起系统拖拽，把长按菜单抢掉
+            .draggable(false)
             .onClick(() => {
               // 点开全屏看图（与详情页一致：双击/捏合缩放、单击关闭）
               this.viewingImage = m.content;

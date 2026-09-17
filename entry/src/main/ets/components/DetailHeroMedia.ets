@@ -24,6 +24,9 @@ export struct DetailHeroMedia {
         .height('100%')
         .objectFit(ImageFit.Cover)
         .backgroundColor(ColorTokens.sunken)
+        // 详情头图不吃拖拽：Image 默认 draggable=true，长按拖动会被系统拖拽接管，
+        // 详情页需要向下拖动关页/滚动时会卡住（与信息流封面同一处理）
+        .draggable(false)
     }
     .width('100%')
     .aspectRatio(this.mediaRatio)
