@@ -25,8 +25,9 @@ const DECK_WARM: number = 0.06;         // 顶卡抬起时下层微胀最大值�
 const DECK_VISIBLE: number = 4;     // 四槽：顶 / 中 / 底 / 预备
 // 顶/中/底/预备 恒定不透明度（全程无淡入，只做位移与旋转；入场时下层从其 30% 淡入）
 const DECK_FAN_OP: number[] = [1, 0.86, 0.72, 0.45];
-// 拖拽视差：下层卡随顶卡偏移的跟随系数（顶到预备逐层递减；预备层不跟随）
-const DECK_PARAX: number[] = [0, 0.13, 0.06, 0];
+// 拖拽视差：下层卡随顶卡偏移的跟随系数（顶到预备逐层递减；预备层不跟随）。
+// 回弹时整叠一起快速归位，跟手更“实”
+const DECK_PARAX: number[] = [0, 0.16, 0.08, 0];
 // 拖拽视差倾角：拖动时下层卡也随顶卡方向倾斜（顶卡最多、逐层递减），回弹时各自滞后归位
 const DECK_PAR_ROT: number[] = [0, 0.30, 0.18, 0.08];
 // —— 自由丢出（2D）参数：方向不预设，由「实际位移 + 松手速度」共同推导 ——
@@ -38,14 +39,14 @@ const DECK_FLING_MIN_DIST: number = 0.12; // 轻甩所需的最小真实位移�
 // 各槽位弹簧（对应原型每张卡独立扇位弹簧：顶卡最弹、越往后越稳，
 // 回弹/推进时按各自频率振荡 → 下层卡跟随顶卡产生自然的“摇晃”）
 const DECK_SPRING: ICurve[] = [
-  curves.springMotion(0.26, 0.56),  // 顶卡：响应最快、回弹最明显
+  curves.springMotion(0.30, 0.58),  // 顶卡：响应快、回弹圆润（稍从容，尾段不抖）
   curves.springMotion(0.34, 0.64),  // 中卡
   curves.springMotion(0.40, 0.70),  // 底卡
   curves.springMotion(0.46, 0.76),  // 预备卡：最收敛
 ];
 // 旋转专用弹簧：比位移更慢、阻尼更低 → 角度滞后于位置，形成网页那种“晃动”相位差
 const DECK_ROT_SPRING: ICurve[] = [
-  curves.springMotion(0.48, 0.45),  // 顶卡角度：最易摆（回弹时晃得更开）
+  curves.springMotion(0.50, 0.47),  // 顶卡角度：摆动真实不夸张
   curves.springMotion(0.58, 0.54),  // 中卡
   curves.springMotion(0.64, 0.62),  // 底卡
   curves.springMotion(0.70, 0.70),  // 预备卡
@@ -511,26 +512,28 @@ export struct DailyPostDeck {
     const y: number = this.dragOffsetY;
     const len: number = Math.sqrt(x * x + y * y);
     const speed: number = Math.sqrt(vx * vx + vy * vy);
-    // 过冲位移：随速度线性放大（0.035 → 0.05 提升甩出量），但钳制在翻页阈值内（22%），避免误触发翻页
-    const boost: number = Math.min(Math.max(0, speed * 0.05), width * 0.22);
+    // 过冲位移：随速度线性放大；上限放到卡宽 24%，让快速甩动有更充分的“过头再回”幅度，
+    // 但仍明显低于丢出阈值（30%），不会误触发翻页
+    const boost: number = Math.min(Math.max(0, speed * 0.055), width * 0.24);
     if (boost > 2 && len > 0.5) {
       // 过冲沿「松手方向」而非水平轴：竖直/斜向拖拽同样有“甩出去又弹回”的手感
       const ux: number = x / len;
       const uy: number = y / len;
-      // 第一段：向拖动方向惯性滑出（快速短冲程）
+      // 第一段：向拖动方向惯性滑出（快速短冲程，稍长一点让冲程更“实”）
       this.getUIContext().animateTo({
-        duration: 140,
+        duration: 150,
         curve: MotionCurves.decelerate,
         expectedFrameRateRange: MotionFrameRates.default,
       }, () => {
         this.dragOffsetX += boost * ux;
         this.dragOffsetY += boost * uy;
       });
-      // 第二段：从过冲点交给各卡自己的弹簧振荡回弹（分层错峰，幅度随 boost 增大）
+      // 第二段：过冲到底交棒给各卡弹簧回弹——位移层走顶卡弹簧(0.30/0.58)圆滑归位，
+      // 旋转层错峰摆动，整叠一次到位不抖尾
       this.schedule((): void => {
         this.dragOffsetX = 0;
         this.dragOffsetY = 0;
-      }, 175);
+      }, 190);
     } else {
       // 慢速轻拖：直接由各卡弹簧回弹
       this.dragOffsetX = 0;

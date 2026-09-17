@@ -643,8 +643,8 @@ function tick(){
 
   // 下层视差：两层不同频率弹簧 = 错峰（顶卡越偏，下层越小幅跟随；X/Y 各自一套，方向一致）
   { const avail = S.listLen - S.idx;
-    const t1x = (avail > 1 ? S.x * 0.13 : 0), t1y = (avail > 1 ? S.y * 0.13 : 0);
-    const t2x = (avail > 2 ? S.x * 0.06 : 0), t2y = (avail > 2 ? S.y * 0.06 : 0);
+    const t1x = (avail > 1 ? S.x * 0.16 : 0), t1y = (avail > 1 ? S.y * 0.16 : 0);
+    const t2x = (avail > 2 ? S.x * 0.08 : 0), t2y = (avail > 2 ? S.y * 0.08 : 0);
     S.parVel[0]  += ((t1x - S.par[0])  * 260 - 15 * S.parVel[0])  * dt; S.par[0]  += S.parVel[0]  * dt;
     S.parVelY[0] += ((t1y - S.parY[0]) * 260 - 15 * S.parVelY[0]) * dt; S.parY[0] += S.parVelY[0] * dt;
     S.parVel[1]  += ((t2x - S.par[1])  * 210 - 14 * S.parVel[1])  * dt; S.par[1]  += S.parVel[1]  * dt;
