@@ -102,6 +102,9 @@ export struct CircleOrbitCanvas {
           .borderRadius(CENTER_AVATAR_SIZE / 2)
           .objectFit(ImageFit.Cover)
           .clip(true)
+          // 中心头像落在横向 PanGesture 的星系面上：Image 默认 draggable=true，
+          // 长按后拖动会被系统拖拽接管 → 星系转不动
+          .draggable(false)
       } else {
         // 无头像时与全局 Avatar 组件一致：用品牌默认头像，而不是首字母占位，
         // 保证星系中心看到的就是「我的」个人主页那个头像。
@@ -111,6 +114,7 @@ export struct CircleOrbitCanvas {
           .borderRadius(CENTER_AVATAR_SIZE / 2)
           .objectFit(ImageFit.Cover)
           .clip(true)
+          .draggable(false)
       }
     }
     .width(CENTER_AVATAR_SIZE)

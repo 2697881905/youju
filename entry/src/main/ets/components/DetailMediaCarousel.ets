@@ -41,6 +41,9 @@ export struct DetailMediaCarousel {
               .objectFit(ImageFit.Cover)
               .backgroundColor(ColorTokens.sunken)
               .borderRadius(RadiusTokens.lg)
+              // 图在 Swiper 内：Image 默认 draggable=true，长按后横向拖动会被系统拖拽接管，
+              // Swiper 收不到滑动 → 多图翻不动
+              .draggable(false)
               .onComplete((event): void => {
                 if (!event) {
                   return;
