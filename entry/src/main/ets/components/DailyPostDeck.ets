@@ -223,6 +223,9 @@ struct DeckSlotCard {
           .height('100%')
           .objectFit(ImageFit.Cover)
           .backgroundColor(ColorTokens.sunken)
+          // Image 的 draggable 默认为 true：长按后拖动会被系统拖拽接管，
+          // 父层 PanGesture 收不到 Update → 表现就是“卡住拖不动”。卡面必须关掉。
+          .draggable(false)
       } else {
         this.textPoster()
       }
@@ -279,6 +282,8 @@ struct DeckSlotCard {
                 .height(20)
                 .borderRadius(RadiusTokens.pill)
                 .objectFit(ImageFit.Cover)
+                // 同上：头像也是 Image（draggable 默认 true），落在信息条上会截走拖拽
+                .draggable(false)
             } else {
               Text((this.post.user?.nickname ?? '有据用户').slice(0, 1))
                 .fontSize(10).fontFamily(TypeTokens.fontFamilySerif)
