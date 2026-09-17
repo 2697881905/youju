@@ -104,7 +104,14 @@
     background:var(--surface); border-radius:14px; overflow:hidden;
     box-shadow:var(--shadow-card);
     will-change:transform,opacity;
+    /* 拖拽面：禁止文本选中与原生元素拖拽。
+       <img> 上按下左键拖动会触发 Chrome 原生图片拖拽，浏览器随即发出 pointercancel
+       接管手势 → 页面收不到 pointermove → 看起来就是「拖不动」 */
+    user-select:none; -webkit-user-select:none;
+    -webkit-user-drag:none; user-drag:none;
   }
+  /* 图片完全不参与命中测试：指针事件落在卡面 .face 上，从根上避开原生拖拽 */
+  .card img{ pointer-events:none; -webkit-user-drag:none; user-drag:none; }
   .card[data-depth="0"]{ z-index:3; cursor:grab }
   .card[data-depth="1"]{ z-index:2 }
   .card[data-depth="2"]{ z-index:1 }
@@ -448,7 +455,8 @@ function paintCard(el, p){
   const name = el.querySelector('.name');
   const seal = el.querySelector('.seal');
   if (p.cover){
-    face.innerHTML = '<img src="' + p.cover + '" alt=""><span class="corner-issue">今日精选 · ' + p.genre + '</span>';
+    // draggable="false"：兜底关掉原生图片拖拽（CSS/JS 层可能被覆盖，属性最稳）
+    face.innerHTML = '<img src="' + p.cover + '" alt="" draggable="false"><span class="corner-issue">今日精选 · ' + p.genre + '</span>';
     const im = face.querySelector('img');
     // 缓存已就绪则直接显示，否则加载后淡入——换卡不闪白、不顿挫
     if (im.complete) im.classList.add('loaded');
@@ -492,7 +500,13 @@ function rerender(){
  * 手势：跟手直控（2D，任意方向）→ 离手带回速（return 弹簧 / fly 抛物线）
  * ============================================================ */
 function onDown(e){
-  if (S.enter || S.swap) return;
+  // 入场仪式进行中不接受拖拽；但若仪式已远超自身时长仍未收尾（后台标签页 rAF 被暂停等），
+  // 按“已结束”处理 —— 否则一次卡住的仪式会永久闸住手势，表现就是“拖不动”
+  if (S.enter){
+    if (performance.now() - S.enter.t0 < S.enter.dur + 600) return;
+    S.enter = null;
+  }
+  if (S.swap) return;
   S.dragging = true; S.mode = 'drag';
   S.startX = e.clientX - S.x;      // 以“实际位置”为基准：回弹中途再次接管也跟手、无跳变
   S.startY = e.clientY - S.y;
@@ -526,11 +540,23 @@ function onUp(){
 
 /* ============================================================
  * 每帧：物理学 + 写 transform（只动图形属性）
+ * frame 只负责兜底与续帧，tick 负责一帧的物理 —— 单帧抛错不得中断 rAF 链，
+ * 否则一次异常就会永久冻结动画，且 S.enter 永不清空 → 手势判定被永久闸住（拖不动）
  * ============================================================ */
 const easeOutBack = (x) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
 let LAST = performance.now();
+let frameErrLogged = false;
 
 function frame(){
+  try {
+    tick();
+  } catch (err) {
+    if (!frameErrLogged){ frameErrLogged = true; console.error('[deck] frame error:', err); }
+  }
+  requestAnimationFrame(frame);
+}
+
+function tick(){
   const now = performance.now();
   const dt = Math.min((now - LAST) / 1000, 0.05);   // 秒制：60/120Hz 下积分一致
   LAST = now;
@@ -551,7 +577,6 @@ function frame(){
       }
     });
     if (t >= 1) S.enter = null;
-    requestAnimationFrame(frame);
     return;
   }
 
@@ -632,6 +657,9 @@ function frame(){
   for (let role = 0; role < 4; role++){
     const dom = S.roleToDom[role];
     const el = elDeck.children[dom];
+    // 骨架期 / innerHTML 清空后的空档：DOM 槽位可能少于 4 个。
+    // 缺槽直接跳过 —— 这里一旦抛错，整条 rAF 链就断了（历史事故：拖不动）
+    if (!el) continue;
     if (S.FL.active && S.FL.dom === dom){          // 正在飞走的旧顶卡
       const out = Math.sqrt(S.FL.x * S.FL.x + S.FL.y * S.FL.y);
       const fade = Math.max(0, out - w) / (w * 0.7);
@@ -662,8 +690,6 @@ function frame(){
     }
     el.style.zIndex = String(20 + (3 - role));
   }
-
-  requestAnimationFrame(frame);
 }
 
 /* ============================================================
@@ -720,7 +746,10 @@ let cdTimer = 0;
  * ============================================================ */
 function showSkeleton(){
   elDeck.innerHTML = '';
-  for (let d = 0; d < 3; d++){
+  // 4 层：与 FAN_OP / 写变换循环的角色数一致。
+  // 若骨架只给 3 个 DOM 槽，写变换循环取到第 4 个槽时 elDeck.children[3] 为 undefined，
+  // 会在第一帧抛错并打断 rAF 链 → 入场动画与拖拽全部失效（拖不动的根因之一）
+  for (let d = 0; d < 4; d++){
     const sk = document.createElement('div');
     sk.className = 'sk-card'; sk.style.top = (12 + d * 18) + 'px'; sk.style.zIndex = 10 - d;
     sk.style.opacity = String(1 - d * 0.18);
@@ -775,6 +804,9 @@ window.addEventListener('pointermove', onMove);
 window.addEventListener('pointerup', onUp);
 window.addEventListener('pointercancel', onUp);
 elDeck.addEventListener('contextmenu', e => e.preventDefault());
+// 拖拽面兜底：任何原生拖拽（图片 / 选中文本）都会让浏览器接管手势并发出 pointercancel
+elDeck.addEventListener('dragstart', e => e.preventDefault());
+elDeck.addEventListener('selectstart', e => e.preventDefault());
 
 document.getElementById('btnReplay').addEventListener('click', runRitual);
 document.getElementById('btnReplay2').addEventListener('click', runRitual);
