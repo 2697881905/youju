@@ -15,6 +15,8 @@ const DECK_FAN_X: number = 30;          // 层间水平行程（抽出左上角�
 const DECK_FAN_Y: number = 7;          // 层间纵向行程（收敛：右下角收拢成轴，不露出横向叠条）
 const DECK_FAN_ANGLE: number = 4;       // 层间角差
 const DECK_DRAG_TILT: number = 5;       // 顶卡拖拽最大倾角（原型 rotGoal = x/w * -5）
+const DECK_DRAG_ROLL: number = 2.5;     // 竖直分量带来的轻微滚转（向上/向下拖也会“晃”，幅度刻意压低）
+const DECK_LIFT_SCALE: number = 0.03;   // 拿起卡片的微胀（对应 GSAP 拖拽时给目标的 scale 抬升）
 const DECK_RISE: number = 26;           // 入场仪式：顶卡升起行程
 const DECK_RISE_SCALE: number = 0.025;  // 入场仪式：顶卡缩放（1 → 0.975 之间）
 const DECK_MEDIA_RATIO: number = 4 / 3; // 卡面 4:3（原型 aspect-ratio: 4/3）
@@ -27,6 +29,12 @@ const DECK_FAN_OP: number[] = [1, 0.86, 0.72, 0.45];
 const DECK_PARAX: number[] = [0, 0.13, 0.06, 0];
 // 拖拽视差倾角：拖动时下层卡也随顶卡方向倾斜（顶卡最多、逐层递减），回弹时各自滞后归位
 const DECK_PAR_ROT: number[] = [0, 0.30, 0.18, 0.08];
+// —— 自由丢出（2D）参数：方向不预设，由「实际位移 + 松手速度」共同推导 ——
+// 惯性投影时长（秒）：松手后速度还能带出的行程 = 速度 × 该值，
+// 对应 GSAP Draggable 的 `inertia: true`（InertiaPlugin 用速度预测 end，再 glide 到该点）
+const DECK_INERTIA_PROJECT: number = 0.16;
+const DECK_FLING_MIN_VEL: number = 520;   // 轻甩判定速度下限（vp/s，与手势速度同量纲）
+const DECK_FLING_MIN_DIST: number = 0.12; // 轻甩所需的最小真实位移（卡宽比）：挡住点按抖动
 // 各槽位弹簧（对应原型每张卡独立扇位弹簧：顶卡最弹、越往后越稳，
 // 回弹/推进时按各自频率振荡 → 下层卡跟随顶卡产生自然的“摇晃”）
 const DECK_SPRING: ICurve[] = [
@@ -50,12 +58,13 @@ struct DeckSlotCard {
   @Prop anchor: number = 0;          // 当前顶帖下标（activeIndex），变化即驱动重渲染与实体前移
   @Prop posts: DailyPost[] = [];     // 全量列表，供查找本卡当前深度
   @Prop deckWidth: number = 0;       // 用于退场飞出距离
-  @Prop dragOffsetX: number = 0;     // 顶卡跟手位移 → 下层视差跟随
-  @Prop dragDir: number = 1;         // 拖拽方向 ±1：决定飞出朝向与抛射旋转方向（对应原型 dir=±1）
+  @Prop dragOffsetX: number = 0;     // 顶卡跟手位移 X → 下层视差跟随
+  @Prop dragOffsetY: number = 0;     // 顶卡跟手位移 Y：自由拖动，竖直方向同样跟手
   @Prop rise: number = 1;            // 入场仪式 0→1：顶卡升起 + 下层淡入
   // —— 飞行模式（旧顶卡被推进时独立抛射到屏外，对应原型 S.FL）——
   @Prop inFlight: boolean = false;   // true：本卡不再参与堆叠，仅按飞行参数渲染
-  @Prop flyX: number = 0;            // 飞行卡当前水平位移（弹簧甩出）
+  @Prop flyX: number = 0;            // 飞行卡当前位移 X（沿丢出方向）
+  @Prop flyY: number = 0;            // 飞行卡当前位移 Y（沿丢出方向）
   @Prop flyRot: number = 0;          // 飞行卡抛射倾角
 
   // 本卡的“当前槽位”：深度 = 在可见序(activeIndex 起)中的下标；越界则为 -1（不渲染）
@@ -112,6 +121,13 @@ struct DeckSlotCard {
     return d === 0 && this.hasMedia() ? 'card-expand-' + this.post.id : '';
   }
 
+  // 拖拽量（0→1，卡宽归一）：驱动“拿起”微胀与倾角
+  private dragAmount(): number {
+    const x: number = this.dragOffsetX;
+    const y: number = this.dragOffsetY;
+    return Math.min(1, Math.sqrt(x * x + y * y) / Math.max(this.deckWidth, 1));
+  }
+
   private offsetX(): number {
     const d: number = Math.max(this.curDepth(), 0);
     if (d === 0) {
@@ -124,18 +140,23 @@ struct DeckSlotCard {
   private offsetY(): number {
     const d: number = Math.max(this.curDepth(), 0);
     if (d === 0) {
-      // 入场仪式：顶卡从下方升起 DECK_RISE 像素（弹性回位），平时为 0
-      return (1 - this.rise) * DECK_RISE;
+      // 入场仪式：顶卡从下方升起 DECK_RISE 像素（弹性回位），平时为 0；
+      // 叠加竖直跟手位移 → 向上/向下都能拖走（自由拖动）
+      return (1 - this.rise) * DECK_RISE + this.dragOffsetY;
     }
-    return d * DECK_FAN_Y;
+    // 下层：固有扇位纵深 + 竖直方向同样视差跟随（与水平同一套系数，物理一致）
+    return d * DECK_FAN_Y + this.dragOffsetY * DECK_PARAX[d];
   }
 
   private angle(): number {
     const d: number = Math.max(this.curDepth(), 0);
     // 拖拽倾角：所有层同方向倾斜，幅度随深度递减（顶卡满幅，下层视差），
-    // 每层独立慢弹簧 → 回弹时整叠“上下角度晃动”逐层错峰
+    // 每层独立慢弹簧 → 回弹时整叠“上下角度晃动”逐层错峰；
+    // 竖直分量再叠一道小幅滚转，让纵向拖拽也有“卡片在手里翻”的松感
     const width: number = Math.max(this.deckWidth, 1);
-    const tilt: number = Math.max(-1, Math.min(1, (this.dragOffsetX / width) * 1.6)) * (-DECK_DRAG_TILT);
+    const tiltX: number = Math.max(-1, Math.min(1, (this.dragOffsetX / width) * 1.6)) * (-DECK_DRAG_TILT);
+    const rollY: number = Math.max(-1, Math.min(1, this.dragOffsetY / width)) * DECK_DRAG_ROLL;
+    const tilt: number = tiltX + rollY;
     if (d === 0) {
       return tilt;
     }
@@ -145,11 +166,11 @@ struct DeckSlotCard {
   private cardScale(): number {
     const d: number = Math.max(this.curDepth(), 0);
     if (d === 0) {
-      // 入场仪式：顶卡从 0.975 微胀到 1
-      return 1 - DECK_RISE_SCALE * (1 - this.rise);
+      // 入场仪式：顶卡从 0.975 微胀到 1；拖拽时再抬 3% → “被拎起来”的实感
+      return 1 - DECK_RISE_SCALE * (1 - this.rise) + this.dragAmount() * DECK_LIFT_SCALE;
     }
     // 下层热胀：拖得越远，底层轻微放大，增强“被带起来”的实感
-    const warm: number = Math.min(Math.abs(this.dragOffsetX) / Math.max(this.deckWidth, 1), 1) * DECK_WARM;
+    const warm: number = this.dragAmount() * DECK_WARM;
     return (1 - DECK_SLOT_SCALE * d) + warm;
   }
 
@@ -325,7 +346,11 @@ struct DeckSlotCard {
           expectedFrameRateRange: MotionFrameRates.default })
       }
       .width('88%')
-      .translate({ x: this.inFlight ? this.flyX : this.offsetX(), y: this.inFlight ? 0 : this.offsetY() })
+      // 自由拖动：X/Y 同源跟手；飞行卡沿「丢出单位向量」在 X、Y 上并行抛射
+      .translate({
+        x: this.inFlight ? this.flyX : this.offsetX(),
+        y: this.inFlight ? this.flyY : this.offsetY(),
+      })
       .opacity(this.inFlight ? 1 : this.cardOpacity())
       .zIndex(this.inFlight ? 30 : 10 - this.curDepth())
       .animation({ duration: MotionTokens.slow,
@@ -347,13 +372,14 @@ export struct DailyPostDeck {
   onOpen?: (post: DailyPost) => void = undefined;
 
   @State @Watch('onExposureSourceChanged') activeIndex: number = 0;
-  @State dragOffsetX: number = 0;    // 跟手位移（双向：向右为正、向左为负）
-  @State dragDir: number = 1;        // 拖拽方向：+1 右 / -1 左（决定飞出朝向）
+  @State dragOffsetX: number = 0;    // 跟手位移 X（双向：右为正、左为负）
+  @State dragOffsetY: number = 0;    // 跟手位移 Y（双向：下为正、上为负）→ 不再局限于左右滑动
   @State advancing: boolean = false;
   @State deckWidth: number = 0;
   // 飞行卡（对应原型 S.FL）：被推进的旧顶卡独立抛射到屏外，全程可见
   @State flyPost: DailyPost | null = null;  // 正在飞走的旧顶帖（null = 无飞行卡）
-  @State flyX: number = 0;                  // 飞行卡当前水平位移
+  @State flyX: number = 0;                  // 飞行卡位移 X（沿丢出方向的水平分量）
+  @State flyY: number = 0;                  // 飞行卡位移 Y（沿丢出方向的竖直分量）
   @State flyRot: number = 0;                // 飞行卡抛射倾角
   @State animRise: number = 0;       // 入场仪式：0→1（顶卡升起 + 整叠淡入）
   @State doneVisible: boolean = false;  // 完成态（读完全部）
@@ -371,7 +397,10 @@ export struct DailyPostDeck {
   private static readonly DAILY_TZ_OFFSET_MS: number = 8 * 60 * 60 * 1000;
   private static readonly DAY_MS: number = 86400000;
 
-  private readonly dismissRatio: number = 0.3;
+  // 丢出阈值：以「椭圆边界」判定（水平 30% 卡宽 / 竖直 26% 卡宽）。
+  // 不用单一半径：卡片竖直方向的有效行程更短，椭圆边界让四个方向手感一致
+  private readonly dismissRatioX: number = 0.30;
+  private readonly dismissRatioY: number = 0.26;
   private readonly deckVisualScale: number = 1; // 卡堆无整体缩放（与原型一致）
 
   aboutToAppear(): void {
@@ -422,6 +451,7 @@ export struct DailyPostDeck {
   resetDeck(): void {
     this.activeIndex = 0;
     this.dragOffsetX = 0;
+    this.dragOffsetY = 0;
     this.advancing = false;
     this.flyPost = null;
     this.doneVisible = false;
@@ -453,8 +483,13 @@ export struct DailyPostDeck {
     return this.posts.slice(this.activeIndex, this.activeIndex + DECK_VISIBLE);
   }
 
-  private dismissDistance(): number {
-    return Math.max(this.deckWidth, 1) * this.deckVisualScale * this.dismissRatio;
+  // 丢出进度（0→1，1 即越过椭圆边界）：把 (x,y) 投影到「归一化丢出空间」取模长，
+  // 于是斜向丢出是水平/竖直两个阈值的合成，不需要为 8 个方向各写一套判定
+  private outProgress(px: number, py: number): number {
+    const width: number = Math.max(this.deckWidth, 1) * this.deckVisualScale;
+    const nx: number = px / (width * this.dismissRatioX);
+    const ny: number = py / (width * this.dismissRatioY);
+    return Math.sqrt(nx * nx + ny * ny);
   }
 
   // 统一登记延时回调：组件销毁时统一清理，避免回调访问已销毁的状态（H-9）
@@ -464,49 +499,74 @@ export struct DailyPostDeck {
     this.pendingTimers.push(setTimeout((): void => { fn(); }, ms) as number);
   }
 
-  private resetDrag(vel: number): void {
+  private resetDrag(vx: number, vy: number): void {
     // 未过阈值 → 松开手指。速度越快 → 惯性过冲越大 → 回弹晃动幅度越大（对应网页速度连续）
     const width: number = Math.max(this.deckWidth, 1);
+    const x: number = this.dragOffsetX;
+    const y: number = this.dragOffsetY;
+    const len: number = Math.sqrt(x * x + y * y);
+    const speed: number = Math.sqrt(vx * vx + vy * vy);
     // 过冲位移：随速度线性放大（0.035 → 0.05 提升甩出量），但钳制在翻页阈值内（22%），避免误触发翻页
-    const boost: number = Math.min(Math.max(0, vel * 0.05), width * 0.22);
-    if (boost > 2) {
-      // 第一段：向拖动方向惯性滑出（快速短冲程），制造“甩出去又弹回”的过冲
+    const boost: number = Math.min(Math.max(0, speed * 0.05), width * 0.22);
+    if (boost > 2 && len > 0.5) {
+      // 过冲沿「松手方向」而非水平轴：竖直/斜向拖拽同样有“甩出去又弹回”的手感
+      const ux: number = x / len;
+      const uy: number = y / len;
+      // 第一段：向拖动方向惯性滑出（快速短冲程）
       this.getUIContext().animateTo({
         duration: 140,
         curve: MotionCurves.decelerate,
         expectedFrameRateRange: MotionFrameRates.default,
       }, () => {
-        this.dragOffsetX += boost;
+        this.dragOffsetX += boost * ux;
+        this.dragOffsetY += boost * uy;
       });
       // 第二段：从过冲点交给各卡自己的弹簧振荡回弹（分层错峰，幅度随 boost 增大）
-      this.schedule((): void => { this.dragOffsetX = 0; }, 175);
+      this.schedule((): void => {
+        this.dragOffsetX = 0;
+        this.dragOffsetY = 0;
+      }, 175);
     } else {
       // 慢速轻拖：直接由各卡弹簧回弹
       this.dragOffsetX = 0;
+      this.dragOffsetY = 0;
     }
   }
 
-  private advance(): void {
+  // 丢出（任意方向）：px/py 为「位移 + 速度投影」的合成向量，
+  // 单位化后即为旧顶卡的抛射方向 —— 方向由用户手势决定，代码不预设左右
+  private throwOut(px: number, py: number): void {
     if (this.advancing || this.activeIndex >= this.posts.length) {
       return;
     }
     this.advancing = true;
+    const width: number = Math.max(this.deckWidth, 1);
+    // 卡高 = 88% 卡宽 × 4:3 媒体 + 70 信息条（与 DeckSlotCard 的布局一致）
+    const cardHeight: number = width * 0.88 * 0.75 + 70;
+    const len: number = Math.sqrt(px * px + py * py);
+    // 兜底：位移与速度都近似为 0 时退回水平方向，保证一定能出屏
+    const ux: number = len > 0.5 ? px / len : 1;
+    const uy: number = len > 0.5 ? py / len : 0;
+    // 抛射行程须能完全盖住屏幕：取「卡宽 / 卡高」较大者为基准
+    const travel: number = Math.max(width, cardHeight) * 1.6 + 240;
     const top: DailyPost | undefined = this.posts[this.activeIndex];
     if (top !== undefined) {
       // —— 发射飞行卡：旧顶卡从当前跟手位置带速度抛射到屏外（对应原型 S.FL）——
-      // 起点继承当前跟手位移与倾角，抛射行程须能完全盖住屏幕（约 2.3 倍卡宽），
-      // 全程保持不透明度，出屏后才由父层销毁。
+      // 起点继承当前跟手位移与倾角，全程保持不透明度，出屏后才由父层销毁。
       this.flyPost = top;
       this.flyX = this.dragOffsetX;
-      this.flyRot = this.dragDir * -DECK_DRAG_TILT;
+      this.flyY = this.dragOffsetY;
+      this.flyRot = Math.max(-1, Math.min(1, (this.dragOffsetX / width) * 1.6)) * (-DECK_DRAG_TILT);
       this.getUIContext().animateTo({
         duration: MotionTokens.slow,
         curve: MotionCurves.springRelease,
         expectedFrameRateRange: MotionFrameRates.default,
       }, () => {
-        // 从「抬手位置」飞到「屏外远端」：带量级行程，落地前不淡出
-        this.flyX = this.dragDir * (this.deckWidth * 1.6 + 200);
-        this.flyRot = this.dragDir * -9;
+        // 沿单位向量飞到屏外远端：水平丢与竖直丢走同一条物理路径，只差方向
+        this.flyX = ux * travel;
+        this.flyY = uy * travel;
+        // 抛射倾角由方向决定：纯水平丢满幅滚转，纯竖直丢几乎不转
+        this.flyRot = ux * -14;
       });
       this.schedule((): void => { this.flyPost = null; }, 460);
     } else {
@@ -516,6 +576,7 @@ export struct DailyPostDeck {
     // 各卡按自身槽位弹簧回正（下层带旋转错峰滑入），飞行卡并行抛射
     this.activeIndex += 1;
     this.dragOffsetX = 0;
+    this.dragOffsetY = 0;
     if (this.activeIndex + 1 >= this.posts.length - DECK_VISIBLE + 1 && !this.finished) {
       this.onLoadMore?.();
     }
@@ -534,13 +595,9 @@ export struct DailyPostDeck {
     if (this.advancing || this.doneVisible) {
       return;
     }
-    // 双向跟手：向右为正、向左为负（对应原型 S.x 可正可负）
+    // 双向跟手：X 右正左负、Y 下正上负（对应原型 S.x 可正可负）——四个方向都跟手
     this.dragOffsetX = event.offsetX;
-    if (this.dragOffsetX < 0) {
-      this.dragDir = -1;
-    } else if (this.dragOffsetX > 0) {
-      this.dragDir = 1;
-    }
+    this.dragOffsetY = event.offsetY;
   }
 
   private onTopPanEnd(event?: GestureEvent): void {
@@ -548,16 +605,24 @@ export struct DailyPostDeck {
       return;
     }
     const width: number = Math.max(this.deckWidth, 1);
-    const vel: number = event?.velocityX ?? 0;
-    // 过位移阈值，或“轻甩”速度够大（|位移|>卡宽 12% 即可）：惯性甩出下一页
-    const fling: boolean = Math.abs(vel) > 520 &&
-      Math.abs(this.dragOffsetX) > width * 0.12;
-    if (Math.abs(this.dragOffsetX) >= this.dismissDistance() || fling) {
-      this.advance();
+    const vx: number = event?.velocityX ?? 0;
+    const vy: number = event?.velocityY ?? 0;
+    const x: number = this.dragOffsetX;
+    const y: number = this.dragOffsetY;
+    const real: number = Math.sqrt(x * x + y * y);
+    // 惯性投影：松手后速度还会带出一段行程（对应 GSAP Draggable 的 inertia: true，
+    // InertiaPlugin 用速度预测终点 end 再 glide 过去）—— 所以“快速小距离甩”也能丢出去
+    const px: number = x + vx * DECK_INERTIA_PROJECT;
+    const py: number = y + vy * DECK_INERTIA_PROJECT;
+    // 轻甩：速度够大且已有实际位移（超过点按抖动）→ 不等阈值直接丢出
+    const fling: boolean = Math.sqrt(vx * vx + vy * vy) > DECK_FLING_MIN_VEL &&
+      real > width * DECK_FLING_MIN_DIST;
+    if (this.outProgress(px, py) >= 1 || fling) {
+      this.throwOut(px, py);
       return;
     }
     // 未过阈值：按松手速度回弹——速度越快过冲越大、晃动越明显
-    this.resetDrag(vel);
+    this.resetDrag(vx, vy);
   }
 
   private openActivePost(): void {
@@ -744,7 +809,7 @@ export struct DailyPostDeck {
                 posts: this.posts,
                 deckWidth: this.deckWidth,
                 dragOffsetX: this.dragOffsetX,
-                dragDir: this.dragDir,
+                dragOffsetY: this.dragOffsetY,
                 rise: this.animRise,
               })
             }, (post: DailyPost) => String(post.id ?? 'deck-' + post.title?.slice(0, 12)))
@@ -757,10 +822,11 @@ export struct DailyPostDeck {
                 posts: this.posts,
                 deckWidth: this.deckWidth,
                 dragOffsetX: this.dragOffsetX,
-                dragDir: this.dragDir,
+                dragOffsetY: this.dragOffsetY,
                 rise: 1,
                 inFlight: true,
                 flyX: this.flyX,
+                flyY: this.flyY,
                 flyRot: this.flyRot,
               })
             }
@@ -768,7 +834,9 @@ export struct DailyPostDeck {
           .width('100%')
           .layoutWeight(1)
           .gesture(
-            PanGesture({ direction: PanDirection.Horizontal, distance: 4 })
+            // 自由拖动：取消方向约束（原为 PanDirection.Horizontal），四个方向都可拖、可丢。
+            // 每日一帖所在容器是无滚动 Column，且已禁用下拉刷新 → 竖直手势不会与任何父级滚动竞争。
+            PanGesture({ direction: PanDirection.All, distance: 4 })
               .onActionUpdate((event: GestureEvent): void => { this.onTopPanUpdate(event); })
               .onActionEnd((event: GestureEvent): void => { this.onTopPanEnd(event); })
               .onActionCancel((event: GestureEvent): void => { this.onTopPanEnd(event); })
@@ -793,7 +861,7 @@ export struct DailyPostDeck {
               .fontColor(ColorTokens.tertiary)
               .fontFeature(TypeTokens.tabularFeature)
             if (!this.doneVisible) {
-              Text('轻拖卡片 · 阅读今日精选')
+              Text('随手拖 · 任意方向丢出换下一张')
                 .fontSize(10).fontFamily(TypeTokens.fontFamily)
                 .letterSpacing(2)
                 .fontColor(ColorTokens.tertiary)
