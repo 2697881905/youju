@@ -384,8 +384,9 @@ const FAN_X = 26, FAN_R = 4, FAN_Y = 12;
 const FAN_OP = [1, 0.86, 0.72, 0.45];   // 四层不透明度：顶/中/底/预备（预备深藏堆底）
 
 /* 自由丢出（2D）：椭圆阈值 + 惯性投影。方向完全由手势决定，代码不预设左右 */
-const DISMISS_X = 0.30, DISMISS_Y = 0.26;  // 丢出阈值（卡宽比）：水平 / 竖直各一档
+const DISMISS_X = 0.38, DISMISS_Y = 0.33;  // 丢出阈值（卡宽比）：水平 / 竖直各一档
 const INERTIA_PROJECT = 0.16;              // 惯性投影时长（秒）：松手速度还能带出的行程
+const COMMIT_MIN = 0.18;                   // 拖动意图门槛（卡宽比）：位移不够时速度不参与判定
 const ROLL_Y = 2.5;                        // 竖直分量的滚转角（deg）：纵向拖也有“松”感
 
 /* ============================================================
@@ -528,9 +529,12 @@ function onUp(){
   if (!S.dragging) return;
   S.dragging = false;
   // vel/velY 已在帧循环中持续积分（真实速度），此处直接继承，速度零断层
-  // 惯性投影：松手后速度还会带出一段行程（对应 GSAP Draggable 的 inertia: true）
-  const px = S.x + S.vel * INERTIA_PROJECT;
-  const py = S.y + S.velY * INERTIA_PROJECT;
+  const real = Math.sqrt(S.x * S.x + S.y * S.y);
+  // 拖动意图门槛：位移不够就只是一次抖动 —— 速度不参与判定，
+  // 否则 位移几 px + 速度 800 会凭空凑出满阈值行程，卡片被误丢出去
+  const committed = real > S.cardW * COMMIT_MIN;
+  const px = S.x + (committed ? S.vel * INERTIA_PROJECT : 0);
+  const py = S.y + (committed ? S.velY * INERTIA_PROJECT : 0);
   if (outProgress(px, py) >= 1){
     startFling(px, py);            // 顶卡沿该方向飞出 + 底部回正：【同时进行】
   } else {

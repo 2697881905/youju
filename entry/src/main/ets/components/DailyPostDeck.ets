@@ -32,10 +32,14 @@ const DECK_PARAX: number[] = [0, 0.16, 0.08, 0];
 const DECK_PAR_ROT: number[] = [0, 0.30, 0.18, 0.08];
 // —— 自由丢出（2D）参数：方向不预设，由「实际位移 + 松手速度」共同推导 ——
 // 惯性投影时长（秒）：松手后速度还能带出的行程 = 速度 × 该值，
-// 对应 GSAP Draggable 的 `inertia: true`（InertiaPlugin 用速度预测 end，再 glide 到该点）
+// 对应 GSAP Draggable 的 `inertia: true`（InertiaPlugin 用速度预测 end，再 glide 到该点）。
+// 注意：投影只在「已有明确拖动意图」时生效（见 DECK_FLING_MIN_DIST），
+// 否则一次快速抖动就能凭空凑出满阈值行程，卡片会被误丢出去。
 const DECK_INERTIA_PROJECT: number = 0.16;
 const DECK_FLING_MIN_VEL: number = 520;   // 轻甩判定速度下限（vp/s，与手势速度同量纲）
-const DECK_FLING_MIN_DIST: number = 0.12; // 轻甩所需的最小真实位移（卡宽比）：挡住点按抖动
+// 拖动意图门槛（卡宽比）：位移超过它才算「在拖」，才允许速度参与丢出判定。
+// 它同时是轻甩路线的下限与惯性投影的开关 —— 0.12 时一次 20vp 的抖动会被速度放大成丢出
+const DECK_FLING_MIN_DIST: number = 0.18;
 // 各槽位弹簧（对应原型每张卡独立扇位弹簧：顶卡最弹、越往后越稳，
 // 回弹/推进时按各自频率振荡 → 下层卡跟随顶卡产生自然的“摇晃”）
 const DECK_SPRING: ICurve[] = [
@@ -403,10 +407,11 @@ export struct DailyPostDeck {
   private static readonly DAILY_TZ_OFFSET_MS: number = 8 * 60 * 60 * 1000;
   private static readonly DAY_MS: number = 86400000;
 
-  // 丢出阈值：以「椭圆边界」判定（水平 30% 卡宽 / 竖直 26% 卡宽）。
-  // 不用单一半径：卡片竖直方向的有效行程更短，椭圆边界让四个方向手感一致
-  private readonly dismissRatioX: number = 0.30;
-  private readonly dismissRatioY: number = 0.26;
+  // 丢出阈值：以「椭圆边界」判定（水平 38% 卡宽 / 竖直 33% 卡宽）。
+  // 不用单一半径：卡片竖直方向的有效行程更短，椭圆边界让四个方向手感一致。
+  // 0.30/0.26 时轻微一拖就过线，改为 0.38/0.33 后需要明确的拖动行程才丢出
+  private readonly dismissRatioX: number = 0.38;
+  private readonly dismissRatioY: number = 0.33;
   private readonly deckVisualScale: number = 1; // 卡堆无整体缩放（与原型一致）
 
   aboutToAppear(): void {
@@ -618,13 +623,16 @@ export struct DailyPostDeck {
     const x: number = this.dragOffsetX;
     const y: number = this.dragOffsetY;
     const real: number = Math.sqrt(x * x + y * y);
+    const speed: number = Math.sqrt(vx * vx + vy * vy);
+    // 「拖动意图」门槛：位移不够就只是一次抖动，速度不参与判定 ——
+    // 否则 px = x + vx*0.16 会凭空凑出满阈值行程，卡片被误丢出去
+    const committed: boolean = real > width * DECK_FLING_MIN_DIST;
     // 惯性投影：松手后速度还会带出一段行程（对应 GSAP Draggable 的 inertia: true，
     // InertiaPlugin 用速度预测终点 end 再 glide 过去）—— 所以“快速小距离甩”也能丢出去
-    const px: number = x + vx * DECK_INERTIA_PROJECT;
-    const py: number = y + vy * DECK_INERTIA_PROJECT;
-    // 轻甩：速度够大且已有实际位移（超过点按抖动）→ 不等阈值直接丢出
-    const fling: boolean = Math.sqrt(vx * vx + vy * vy) > DECK_FLING_MIN_VEL &&
-      real > width * DECK_FLING_MIN_DIST;
+    const px: number = x + (committed ? vx * DECK_INERTIA_PROJECT : 0);
+    const py: number = y + (committed ? vy * DECK_INERTIA_PROJECT : 0);
+    // 轻甩：速度够大且已有明确拖动 → 不等阈值直接丢出
+    const fling: boolean = speed > DECK_FLING_MIN_VEL && committed;
     if (this.outProgress(px, py) >= 1 || fling) {
       this.throwOut(px, py);
       return;
