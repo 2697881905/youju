@@ -18,7 +18,7 @@ import { PublishDraft } from '../utils/publishDraft';
 import { removePostDraft } from '../utils/postDraftStore';
 import { getUserId } from '../utils/auth';
 import { PublishSession, publishFlowStore } from '../utils/publishFlowStore';
-import { genreStructuredFields, readStructuredField, withStructuredField } from '../utils/structuredFields';
+import { collectStructuredData, withStructuredField } from '../utils/structuredFields';
 import { PublishStructuredSupplement } from '../components/PublishStructuredSupplement';
 import { PublishTagPanel } from '../components/PublishTagPanel';
 import { PUBLISH_GENRES, publishGenreMeta } from '../utils/publishGenres';
@@ -184,17 +184,6 @@ struct TextPublishPage {
     this.mentionAt = -1;
   }
 
-  private buildStructuredData(): StructuredData {
-    let out: StructuredData = {};
-    for (const item of genreStructuredFields(this.genre)) {
-      const raw: string | number | undefined = readStructuredField(this.sd, item[0]);
-      if (raw !== undefined && raw !== '') {
-        out = withStructuredField(out, item[0], String(raw));
-      }
-    }
-    return out;
-  }
-
   private toggleTag(name: string): void {
     if (name.length === 0) {
       return;
@@ -231,7 +220,7 @@ struct TextPublishPage {
       content: this.content,
       genre: this.genre,
       tags: this.selectedTags,
-      structuredData: this.buildStructuredData(),
+      structuredData: collectStructuredData(this.sd, this.genre),
       images: [],
       textPosterStyle: this.textPosterStyle,
       mentions: this.mentionRefs.length > 0 ? this.mentionRefs : undefined,

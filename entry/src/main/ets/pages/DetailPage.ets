@@ -31,6 +31,7 @@ import { getUserId, getToken } from '../utils/auth';
 import { likeStore } from '../utils/likeStore';
 import { postDeletionStore } from '../utils/postDeletionStore';
 import { debateVoteStore, DebateVoteInfo } from '../utils/debateVoteStore';
+import { structuredFieldPairs } from '../utils/structuredFields';
 import { ShareSheet } from '../components/ShareSheet';
 import { ShareToDmSheet } from '../components/ShareToDmSheet';
 import { buildPostShareUrl, copyToClipboard, EXTERNAL_SHARE_ENABLED, DM_SHARE_ENABLED, sharePostToSystem } from '../utils/share';
@@ -54,9 +55,7 @@ import { FALLBACK_VIDEO_ASPECT_RATIO, normalizeVideoAspectRatio } from '../utils
 import { MotionCurves, MotionTokens, MotionShared } from '../design/tokens/motion';
 
 
-// 字段定义：[结构化字段键, 中文标签]，按产品文档 2.4 各体裁字段表
-type FieldDef = [keyof StructuredData, string];
-// 渲染用：[中文标签, 值]
+// 字段定义与读取统一在 utils/structuredFields（唯一定义处），此处不再维护副本
 type FieldPair = DetailField;
 
 // 底部互动使用不可变快照。每次替换顶层 @State，保证 ArkUI 当帧重新渲染计数和选中态。
@@ -80,38 +79,6 @@ class DetailInteractionState {
 // 460ms = 转场 380ms + 80ms 缓冲（原 540ms 偏长，用户等待感明显）。
 const HERO_HOLD_MS: number = 460;
 
-// ArkTS V1 禁止按变量索引对象，这里用显式 switch 读取结构化字段
-function readField(sd: StructuredData, key: keyof StructuredData): string | number | undefined {
-  switch (key) {
-    case 'pros':
-      return sd.pros;
-    case 'cons':
-      return sd.cons;
-    case 'rating':
-      return sd.rating;
-    case 'targetAudience':
-      return sd.targetAudience;
-    case 'pitfallExperience':
-      return sd.pitfallExperience;
-    case 'lossAmount':
-      return sd.lossAmount;
-    case 'correctApproach':
-      return sd.correctApproach;
-    case 'tools':
-      return sd.tools;
-    case 'steps':
-      return sd.steps;
-    case 'timeDifficulty':
-      return sd.timeDifficulty;
-    case 'planA':
-      return sd.planA;
-    case 'planB':
-      return sd.planB;
-    default:
-      return undefined;
-  }
-}
-
 interface GenreMeta {
   label: string;
   iconRes: Resource;
@@ -131,23 +98,6 @@ function genreMeta(genre?: Genre): GenreMeta {
       return { label: '经验分享', iconRes: $r('app.media.genre_share') };
     default:
       return { label: '经验分享', iconRes: $r('app.media.genre_share') };
-  }
-}
-
-function structuredFieldDefs(genre?: Genre): FieldDef[] {
-  switch (genre) {
-    case 'review':
-      return [['pros', '优点'], ['cons', '缺点'], ['rating', '推荐指数'], ['targetAudience', '适合人群']];
-    case 'pitfall':
-      return [['pitfallExperience', '踩坑经历'], ['lossAmount', '损失金额'], ['correctApproach', '正确做法']];
-    case 'tutorial':
-      return [['tools', '准备工具'], ['steps', '步骤拆解'], ['timeDifficulty', '耗时/难度']];
-    case 'debate':
-      return [['planA', '方案A'], ['planB', '方案B']];
-    case 'share':
-      return [];
-    default:
-      return [];
   }
 }
 
@@ -473,21 +423,12 @@ struct DetailPage {
     }
   }
 
-  // 把后端自由结构的结构化字段，按体裁映射成 [中文标签, 值] 列表
+  // 结构化字段的展示投影：[中文标签, 值]。字段表与读取都来自 utils/structuredFields 的唯一定义处。
+  // 空值不产出条目 —— 改造前只过滤 undefined/null，空字符串会渲染成「有标签、无内容」的空行。
   private buildFields(p: PostWithComments): FieldPair[] {
-    const defs = structuredFieldDefs(p.genre);
-    if (defs.length === 0) {
-      return [];
-    }
-    const sd: StructuredData | undefined = p.structuredData;
     const out: FieldPair[] = [];
-    if (sd) {
-      for (const item of defs) {
-        const raw = readField(sd, item[0]);
-        if (raw !== undefined && raw !== null) {
-          out.push([item[1], String(raw)]);
-        }
-      }
+    for (const pair of structuredFieldPairs(p.structuredData, p.genre)) {
+      out.push([pair.label, pair.value]);
     }
     return out;
   }
