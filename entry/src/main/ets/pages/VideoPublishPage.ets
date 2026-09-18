@@ -43,7 +43,8 @@ struct VideoPublishPage {
   @State videoCover: string = '';
   @State videoAspectRatio: number = FALLBACK_VIDEO_ASPECT_RATIO;
   @State tags: Tag[] = [];
-  @State showFields: boolean = false;
+  // 结构化区默认展开：它是产品核心特色，藏在折叠里等于没有（覆盖率的最大杀手）
+  @State showFields: boolean = true;
   @State showGenreMenu: boolean = false;
   @State showTagPanel: boolean = false;
   @State editingSavedDraftId: string = '';
@@ -241,7 +242,7 @@ struct VideoPublishPage {
     this.videoCover = draft.videoCover ?? '';
     this.videoAspectRatio = draft.videoAspectRatio ?? FALLBACK_VIDEO_ASPECT_RATIO;
     this.editingSavedDraftId = savedDraftId;
-    this.showFields = false;
+    this.showFields = true;
     this.showGenreMenu = false;
     this.showTagPanel = false;
     this.closeMention();
@@ -287,7 +288,7 @@ struct VideoPublishPage {
     this.videoCover = '';
     this.videoAspectRatio = FALLBACK_VIDEO_ASPECT_RATIO;
     this.editingSavedDraftId = '';
-    this.showFields = false;
+    this.showFields = true;
     this.showGenreMenu = false;
     this.showTagPanel = false;
     this.mentionRefs = [];

@@ -1,4 +1,5 @@
-import { StructuredData } from '../models/types';
+import { StructuredFieldPair } from '../utils/structuredFields';
+import { StructuredConclusionCard, StructuredFieldBlock, withoutHeadline } from './StructuredFieldView';
 import { formatCount } from '../utils/format';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { ColorTokens } from '../design/tokens/color';
@@ -13,11 +14,11 @@ import { openCircleDetail, openUserProfile } from '../utils/nav';
 import { MentionRef } from '../models/types';
 
 // 详情正文只负责体裁内容的展示；投票的请求和回滚仍由 DetailPage 持有。
-export type DetailField = [string, string];
 
 @Component
 export struct DetailPostContent {
-  @Prop fields: DetailField[] = [];
+  // 结构化字段投影（含 kind）：字段表与读取都来自 utils/structuredFields
+  @Prop pairs: StructuredFieldPair[] = [];
   @Prop genre: string = '';
   @Prop content: string = '';
   @Prop coverOnlyTextPoster: boolean = false;
@@ -178,44 +179,23 @@ export struct DetailPostContent {
     .clip(true);
   }
 
-  @Builder
-  private structuredFields(): void {
-    if (this.fields.length > 0 && this.genre !== 'debate') {
-      Column({ space: SpaceTokens.md }) {
-        ForEach(
-          this.fields,
-          (field: DetailField) => {
-            Row({ space: SpaceTokens.block }) {
-              Text(field[0])
-                .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-                .fontColor(ColorTokens.secondary)
-                .width(88)
-              Text(field[1])
-                .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamilySerifBody)
-                .fontColor(ColorTokens.primary)
-                .lineHeight(TypeTokens.body.lineHeight)
-                .layoutWeight(1)
-            }
-            .width('100%')
-            .alignItems(VerticalAlign.Top)
-          },
-          (field: DetailField) => field[0]
-        )
-      }
-      .width('100%')
-      .padding(18)
-      .backgroundColor(ColorTokens.elevated)
-      .borderRadius(RadiusTokens.md)
-      .border({ width: 0.5, color: ColorTokens.separator, style: BorderStyle.Solid })
+  // 字段块内容：头条指标（推荐指数/损失金额）已由结论卡承担，这里去掉避免同屏重复；
+  // 辩论体裁的方案文字已合并进投票卡片，也不再重复展示。
+  private bodyPairs(): StructuredFieldPair[] {
+    if (this.genre === 'debate') {
+      return [];
     }
+    return withoutHeadline(this.pairs);
   }
 
   build() {
     Column({ space: SpaceTokens.lg }) {
+      // 先结论后依据：头条指标 + 适合人群置顶（内部无内容时不渲染）
+      StructuredConclusionCard({ pairs: this.pairs })
       if (this.genre === 'debate') {
         this.debatePanel();
       }
-      this.structuredFields();
+      StructuredFieldBlock({ pairs: this.bodyPairs() })
       if (this.content.length > 0) {
         // 文字海报已完整容纳正文时不再冗余展示纯文本；
         // 海报截断（省略号）时仍显示完整正文，确保读者不丢信息。

@@ -18,8 +18,19 @@ import { Genre, StructuredData } from '../models/types';
 // 后端镜像：backend/src/utils/structuredFields.ts —— 改动必须同批提交。
 // ============================================================================
 
-// 控件与渲染类型：shortText → 单行输入；longText → 多行输入；rating → 数值输入（0-5）
-export type StructuredFieldKind = 'shortText' | 'longText' | 'rating';
+// 控件与渲染类型：
+//   shortText → 单行输入 / 单行文本
+//   longText  → 多行输入 / 带左侧色条的段落块
+//   steps     → 多行输入 / 有序步骤流（按换行与分号拆条，拆不出条目时回退段落块）
+//   rating    → 数值输入 / 星级 + 数值
+//   amount    → 单行输入 / 醒目金额
+//   chips     → 单行输入 / 标签行（按顿号、逗号、斜杠拆）
+export type StructuredFieldKind = 'shortText' | 'longText' | 'steps' | 'rating' | 'amount' | 'chips';
+
+// 多行输入控件（发布区）与段落块渲染（详情页）共用同一判断，避免两处各写一份
+export function isMultilineKind(kind: StructuredFieldKind): boolean {
+  return kind === 'longText' || kind === 'steps';
+}
 
 export interface StructuredFieldMeta {
   key: keyof StructuredData;
@@ -40,24 +51,24 @@ const REVIEW_FIELDS: StructuredFieldMeta[] = [
     hint: '重量偏重、价格偏高' },
   { key: 'rating', label: '推荐指数', kind: 'rating', maxLength: 3, essential: true,
     hint: '4.5（0-5，可带一位小数）' },
-  { key: 'targetAudience', label: '适合人群', kind: 'shortText', maxLength: 40, essential: false,
-    hint: '学生党 / 摄影党' },
+  { key: 'targetAudience', label: '适合人群', kind: 'chips', maxLength: 40, essential: false,
+    hint: '学生党、摄影党（用顿号分隔）' },
 ];
 
 const PITFALL_FIELDS: StructuredFieldMeta[] = [
   { key: 'pitfallExperience', label: '踩坑经历', kind: 'longText', maxLength: 300, essential: true,
     hint: '在哪一步出的问题、当时是怎么判断的' },
-  { key: 'lossAmount', label: '损失金额', kind: 'shortText', maxLength: 20, essential: false,
+  { key: 'lossAmount', label: '损失金额', kind: 'amount', maxLength: 20, essential: false,
     hint: '3200 元' },
   { key: 'correctApproach', label: '正确做法', kind: 'longText', maxLength: 300, essential: true,
     hint: '如果重来一次会怎么做' },
 ];
 
 const TUTORIAL_FIELDS: StructuredFieldMeta[] = [
-  { key: 'tools', label: '准备工具', kind: 'shortText', maxLength: 120, essential: false,
-    hint: '螺丝刀、万用表' },
-  { key: 'steps', label: '步骤拆解', kind: 'longText', maxLength: 1000, essential: true,
-    hint: '1. 先断电；2. 拆后盖；3. …' },
+  { key: 'tools', label: '准备工具', kind: 'chips', maxLength: 120, essential: false,
+    hint: '螺丝刀、万用表（用顿号分隔）' },
+  { key: 'steps', label: '步骤拆解', kind: 'steps', maxLength: 1000, essential: true,
+    hint: '每行一步：1. 先断电\n2. 拆后盖' },
   { key: 'timeDifficulty', label: '耗时/难度', kind: 'shortText', maxLength: 40, essential: false,
     hint: '20 分钟 / 入门' },
 ];
@@ -214,12 +225,16 @@ export function missingEssentialLabels(data: StructuredData, genre?: Genre): str
   return missing;
 }
 
-// 展示用：[标签, 值] 列表。空值不产出条目 —— 改造前只过滤 undefined/null，
+// 展示用：一条结构化字段的投影。空值不产出条目 —— 改造前只过滤 undefined/null，
 // 空字符串会渲染成「只有标签、没有内容」的空行。
 export interface StructuredFieldPair {
   key: string;
   label: string;
   value: string;
+  // 渲染类型：详情页/卡面据此选择「星级 / 金额 / 标签行 / 步骤流 / 段落块」
+  kind: StructuredFieldKind;
+  // 是否核心字段：卡面摘要优先挑它，不靠字段顺序猜
+  essential: boolean;
 }
 
 export function structuredFieldPairs(data: StructuredData | undefined, genre?: Genre): StructuredFieldPair[] {
@@ -236,7 +251,17 @@ export function structuredFieldPairs(data: StructuredData | undefined, genre?: G
     if (value.length === 0) {
       continue;
     }
-    out.push({ key: meta.key as string, label: meta.label, value: value });
+    out.push({ key: meta.key as string, label: meta.label, value: value, kind: meta.kind, essential: meta.essential });
   }
   return out;
+}
+
+// 在投影结果里按 key 取值（卡面摘要、方案文字合并等场景用）
+export function pairValueOf(pairs: StructuredFieldPair[], label: string): string {
+  for (const pair of pairs) {
+    if (pair.label === label) {
+      return pair.value;
+    }
+  }
+  return '';
 }

@@ -9,7 +9,7 @@
  * structuredData 是无 schema 的 Json 列，历史上任何键、任何长度、任何类型都能进库；
  * 脏数据一旦落库，详情渲染、检索、分享都要写兼容分支，且无法回溯清洗。
  */
-export type StructuredFieldKind = 'shortText' | 'longText' | 'rating';
+export type StructuredFieldKind = 'shortText' | 'longText' | 'steps' | 'rating' | 'amount' | 'chips';
 
 export interface StructuredFieldMeta {
   key: string;
@@ -24,18 +24,18 @@ const REVIEW_FIELDS: StructuredFieldMeta[] = [
   { key: 'pros', label: '优点', kind: 'longText', maxLength: 200, essential: true },
   { key: 'cons', label: '缺点', kind: 'longText', maxLength: 200, essential: true },
   { key: 'rating', label: '推荐指数', kind: 'rating', maxLength: 3, essential: true },
-  { key: 'targetAudience', label: '适合人群', kind: 'shortText', maxLength: 40, essential: false },
+  { key: 'targetAudience', label: '适合人群', kind: 'chips', maxLength: 40, essential: false },
 ];
 
 const PITFALL_FIELDS: StructuredFieldMeta[] = [
   { key: 'pitfallExperience', label: '踩坑经历', kind: 'longText', maxLength: 300, essential: true },
-  { key: 'lossAmount', label: '损失金额', kind: 'shortText', maxLength: 20, essential: false },
+  { key: 'lossAmount', label: '损失金额', kind: 'amount', maxLength: 20, essential: false },
   { key: 'correctApproach', label: '正确做法', kind: 'longText', maxLength: 300, essential: true },
 ];
 
 const TUTORIAL_FIELDS: StructuredFieldMeta[] = [
-  { key: 'tools', label: '准备工具', kind: 'shortText', maxLength: 120, essential: false },
-  { key: 'steps', label: '步骤拆解', kind: 'longText', maxLength: 1000, essential: true },
+  { key: 'tools', label: '准备工具', kind: 'chips', maxLength: 120, essential: false },
+  { key: 'steps', label: '步骤拆解', kind: 'steps', maxLength: 1000, essential: true },
   { key: 'timeDifficulty', label: '耗时/难度', kind: 'shortText', maxLength: 40, essential: false },
 ];
 

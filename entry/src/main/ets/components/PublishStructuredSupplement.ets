@@ -1,5 +1,5 @@
 import { Genre, StructuredData } from '../models/types';
-import { genreFieldMeta, readStructuredField, StructuredFieldMeta } from '../utils/structuredFields';
+import { genreFieldMeta, isMultilineKind, readStructuredField, StructuredFieldMeta } from '../utils/structuredFields';
 import { Collapse } from '../design/motion/Collapse';
 import { Pressable } from '../design/motion/Pressable';
 import { IconTile } from '../design/components/IconTile';
@@ -46,7 +46,8 @@ export struct PublishStructuredSupplement {
       .width('100%')
       .alignItems(VerticalAlign.Center)
 
-      if (item.kind === 'longText') {
+      // 多行/单行由 kind 决定（longText 与 steps 走 TextArea：步骤需要按行输入）
+      if (isMultilineKind(item.kind)) {
         TextArea({ text: String(readStructuredField(this.data, item.key) ?? ''), placeholder: item.hint })
           .width('100%')
           .height(LayoutTokens.composerFieldHeight)

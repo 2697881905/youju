@@ -31,7 +31,7 @@ import { getUserId, getToken } from '../utils/auth';
 import { likeStore } from '../utils/likeStore';
 import { postDeletionStore } from '../utils/postDeletionStore';
 import { debateVoteStore, DebateVoteInfo } from '../utils/debateVoteStore';
-import { structuredFieldPairs } from '../utils/structuredFields';
+import { structuredFieldPairs, pairValueOf, StructuredFieldPair } from '../utils/structuredFields';
 import { ShareSheet } from '../components/ShareSheet';
 import { ShareToDmSheet } from '../components/ShareToDmSheet';
 import { buildPostShareUrl, copyToClipboard, EXTERNAL_SHARE_ENABLED, DM_SHARE_ENABLED, sharePostToSystem } from '../utils/share';
@@ -44,7 +44,7 @@ import { DetailHeroMedia } from '../components/DetailHeroMedia';
 import { ImageViewer } from '../components/ImageViewer';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { DetailPostHeader } from '../components/DetailPostHeader';
-import { DetailPostContent, DetailField } from '../components/DetailPostContent';
+import { DetailPostContent } from '../components/DetailPostContent';
 import { DetailCommentsSection } from '../components/DetailCommentsSection';
 import { DetailActionBar } from '../components/DetailActionBar';
 import { AtMentionSuggest } from '../components/AtMentionSuggest';
@@ -56,7 +56,6 @@ import { MotionCurves, MotionTokens, MotionShared } from '../design/tokens/motio
 
 
 // 字段定义与读取统一在 utils/structuredFields（唯一定义处），此处不再维护副本
-type FieldPair = DetailField;
 
 // 底部互动使用不可变快照。每次替换顶层 @State，保证 ArkUI 当帧重新渲染计数和选中态。
 class DetailInteractionState {
@@ -111,7 +110,7 @@ struct DetailPage {
   @State holdHero: boolean = false;
   private holdTimer: number = 0;
   @State post: PostWithComments | null = null;
-  @State fields: FieldPair[] = [];
+  @State fields: StructuredFieldPair[] = [];
   @State images: string[] = [];
   @State videoUrl: string = '';
   @State videoCover: string = '';
@@ -423,24 +422,14 @@ struct DetailPage {
     }
   }
 
-  // 结构化字段的展示投影：[中文标签, 值]。字段表与读取都来自 utils/structuredFields 的唯一定义处。
-  // 空值不产出条目 —— 改造前只过滤 undefined/null，空字符串会渲染成「有标签、无内容」的空行。
-  private buildFields(p: PostWithComments): FieldPair[] {
-    const out: FieldPair[] = [];
-    for (const pair of structuredFieldPairs(p.structuredData, p.genre)) {
-      out.push([pair.label, pair.value]);
-    }
-    return out;
+  // 结构化字段的展示投影：字段表、读取与空值过滤都在 utils/structuredFields 的唯一定义处。
+  private buildFields(p: PostWithComments): StructuredFieldPair[] {
+    return structuredFieldPairs(p.structuredData, p.genre);
   }
 
   // 取某方案（方案A/方案B）的介绍文字，用于把方案介绍合并进投票卡片
   private planTextOf(planLabel: string): string {
-    for (const f of this.fields) {
-      if (f[0] === planLabel) {
-        return f[1];
-      }
-    }
-    return '';
+    return pairValueOf(this.fields, planLabel);
   }
 
   private imagesOf(p: PostWithComments): string[] {
@@ -1240,7 +1229,7 @@ struct DetailPage {
               }
 
               DetailPostContent({
-                fields: this.fields,
+                pairs: this.fields,
                 genre: this.post.genre ?? '',
                 content: this.post.content ?? '',
                 coverOnlyTextPoster: this.post.structuredData?.coverOnlyTextPoster ?? false,
