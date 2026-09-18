@@ -42,7 +42,8 @@ struct PhotoPublishPage {
   @State sd: StructuredData = {};
   @State images: string[] = [];
   @State tags: Tag[] = [];
-  @State showFields: boolean = false;
+  // 结构化区默认展开：它是产品核心特色，藏在折叠里等于没有（覆盖率的最大杀手）
+  @State showFields: boolean = true;
   @State showGenreMenu: boolean = false;
   @State showTagPanel: boolean = false;
   @State editingSavedDraftId: string = '';
@@ -240,7 +241,7 @@ struct PhotoPublishPage {
     this.sd = draft.structuredData;
     this.images = [...draft.images];
     this.editingSavedDraftId = savedDraftId;
-    this.showFields = false;
+    this.showFields = true;
     this.showGenreMenu = false;
     this.showTagPanel = false;
     this.closeMention();
@@ -287,7 +288,7 @@ struct PhotoPublishPage {
     this.sd = {};
     this.images = [];
     this.editingSavedDraftId = '';
-    this.showFields = false;
+    this.showFields = true;
     this.showGenreMenu = false;
     this.showTagPanel = false;
     this.mentionRefs = [];

@@ -41,7 +41,8 @@ struct TextPublishPage {
   @State sd: StructuredData = {};
   @State textPosterStyle: string = 'film';
   @State tags: Tag[] = [];
-  @State showFields: boolean = false;
+  // 结构化区默认展开：它是产品核心特色，藏在折叠里等于没有（覆盖率的最大杀手）
+  @State showFields: boolean = true;
   @State showGenreMenu: boolean = false;
   @State showTagPanel: boolean = false;
   @State editingSavedDraftId: string = '';
@@ -241,7 +242,7 @@ struct TextPublishPage {
     this.sd = draft.structuredData;
     this.textPosterStyle = resolveTextPosterStyle(draft.textPosterStyle).key;
     this.editingSavedDraftId = savedDraftId;
-    this.showFields = false;
+    this.showFields = true;
     this.showGenreMenu = false;
     this.showTagPanel = false;
     this.closeMention();
@@ -285,7 +286,7 @@ struct TextPublishPage {
     this.sd = {};
     this.textPosterStyle = 'film';
     this.editingSavedDraftId = '';
-    this.showFields = false;
+    this.showFields = true;
     this.showGenreMenu = false;
     this.showTagPanel = false;
     this.mentionRefs = [];

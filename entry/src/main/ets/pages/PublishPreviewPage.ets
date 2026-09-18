@@ -17,7 +17,7 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { bottomNavInset } from '../utils/cardTokens';
 import { TypeTokens } from '../design/tokens/type';
-import { structuredFieldPairs, withCoverOnlyTextPoster } from '../utils/structuredFields';
+import { missingEssentialLabels, structuredFieldPairs, withCoverOnlyTextPoster } from '../utils/structuredFields';
 import { FALLBACK_VIDEO_ASPECT_RATIO, normalizeVideoAspectRatio } from '../utils/video';
 
 const TEXT_POSTER_TIMEOUT: number = 20000;
@@ -54,6 +54,8 @@ struct PublishPreviewPage {
   @State textPosterStyleIndex: number = 0;
   @State previewImageIndex: number = 0;
   @State publishing: boolean = false;
+  // 软校验已提示过：核心字段缺失时先提示一次、不阻断，再点一次即发布
+  @State softGatePassed: boolean = false;
   @State error: string = '';
   // 四种文字海报样式的真实渲染产物（由 renderPosterPixelMap 生成），与发布产物同源。
   @State textPosterPixelMaps: image.PixelMap[] = [];
@@ -209,6 +211,18 @@ struct PublishPreviewPage {
   private async publish(): Promise<void> {
     if (this.publishing || this.draft === null) {
       return;
+    }
+    // 软校验（C-3）：核心字段缺失时先提示一次，再点一次即发布。
+    // 硬必填能立刻拉高完整率，但会压低发布率；冷启动期发布率更贵，所以选「提示 + 二次确认」。
+    if (!this.softGatePassed) {
+      const missing: string[] = missingEssentialLabels(this.draft.structuredData, this.draft.genre);
+      if (missing.length > 0) {
+        this.softGatePassed = true;
+        safeShowToast(this.getUIContext(), {
+          message: '补全「' + missing.join('、') + '」可提升曝光，再点一次即可直接发布',
+        });
+        return;
+      }
     }
     let user: User | null = null;
     try {
