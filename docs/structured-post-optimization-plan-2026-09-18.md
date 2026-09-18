@@ -30,7 +30,7 @@
 | `rating` 声明为 `number \| string` —— 种子数据给 4.5（number），发布页走 TextInput 写入字符串 | `models/types.ets:34`、`backend/prisma/seed-post.ts:50` |
 | `steps`（步骤拆解）是**单个字符串**，不是条目数组 | `utils/structuredFields.ets:12` |
 | 无字段长度上限、无必填、无类型约束 | `utils/structuredFields.ets` 全文 |
-| 后端 `structuredData` 是自由 Json 列，建帖只做 `?? {}` 兜底，**不校验 genre 白名单、不校验字段** | `backend/prisma/schema.prisma:60`、`backend/src/services/postService.ts:569-571` |
+| 后端 `structuredData` 是自由 Json 列，建帖只做 `?? {}` 兜底，**字段层无任何校验**（genre 白名单已有） | `backend/prisma/schema.prisma:60`、`backend/src/services/postService.ts:569-571`；genre 白名单见 `backend/src/routes/posts.ts:112-114` |
 
 ### 2.2 读写路径的重复
 
@@ -152,7 +152,7 @@
 | 编号 | 建议 | 适用场景 | 优先级 | 预期收益 |
 |---|---|---|---|---|
 | P-1 | **字段级长度上限**（长短文本分级，如单项 ≤ 200 字、条目数 ≤ 12） | 输入与入库 | 高 | 性能：直接决定 JSON 体积、海报渲染耗时与列表接口大小；现在完全没有上限 |
-| P-2 | 后端建帖补 **genre 白名单 + structuredData 结构校验** | 建帖 / 改帖接口 | 高 | 健壮性 + 性能：现在任意 genre、任意 JSON 都能入库，脏数据一旦进库，后续渲染与检索都要做兼容 |
+| P-2 | 后端补 **structuredData 结构校验**（键白名单 + 长度 + 推荐指数字式），建帖与编辑两条路径都要加 | 建帖 / 改帖接口 | 高 | 健壮性 + 性能：现在任意 JSON 都能入库（genre 白名单已有，缺的是字段层），脏数据一旦进库，后续渲染与检索都要做兼容 |
 | P-3 | 前端字段读写**收敛为一份定义**（同 S-1） | 全局 | 高 | 可维护性：消除 4 处 switch 的漏改风险，也让"必填/长度/可检索"有了唯一出处 |
 | P-4 | 步骤多（≥ 8）时**分段懒渲染**（折叠"展开全部"） | 长教程详情页 | 中 | 首屏性能：详情页首屏时间直接受影响于字段区高度 |
 | P-5 | 长文本**测量结果缓存**（同 `doesTextFitInPoster` 的重复测量问题） | 海报生成、卡片截断 | 中 | 性能：避免逐帧文本测量导致掉帧 |

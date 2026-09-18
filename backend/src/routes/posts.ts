@@ -6,6 +6,7 @@ import * as postService from '../services/postService';
 import * as reportService from '../services/reportService';
 import { SensitiveWordError, ValidationError } from '../utils/errors';
 import { getAccessiblePublishedPost } from '../services/accessControl';
+import { validateStructuredData } from '../utils/structuredFields';
 
 import { asyncHandler } from '../middleware/asyncHandler';
 
@@ -112,6 +113,12 @@ router.post('/', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   if (!['review', 'pitfall', 'tutorial', 'debate', 'share'].includes(genre)) {
     return fail(res, CODE.BAD_REQUEST, '体裁参数无效');
   }
+  // 结构化字段校验：键白名单 + 字段长度上限 + 推荐指数字式。
+  // 此前 structuredData 完全不校验，任意键/任意长度/任意类型都会落到 Json 列里。
+  const structuredError = validateStructuredData(req.body?.structuredData, genre);
+  if (structuredError) {
+    return fail(res, CODE.BAD_REQUEST, structuredError);
+  }
   if (tags !== undefined && (!Array.isArray(tags) || tags.length > 3 || tags.some((tag: unknown) => typeof tag !== 'string'))) {
     return fail(res, CODE.BAD_REQUEST, '标签格式无效或超过 3 个');
   }
@@ -182,6 +189,11 @@ router.delete('/:id/permanent', auth, asyncHandler(async (req: AuthRequest, res:
 router.put('/:id', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const id = Number(req.params.id);
   if (!id || isNaN(id)) return fail(res, CODE.BAD_REQUEST, '无效帖子ID');
+  // 编辑与发布走同一套结构化字段校验（编辑时可能不带体裁 → 按全量字段白名单校验）
+  const structuredError = validateStructuredData(req.body?.structuredData, req.body?.genre);
+  if (structuredError) {
+    return fail(res, CODE.BAD_REQUEST, structuredError);
+  }
   let result;
   try {
     result = await postService.updatePost(id, req.userId!, req.body ?? {});

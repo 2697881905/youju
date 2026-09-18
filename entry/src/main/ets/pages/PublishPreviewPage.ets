@@ -17,7 +17,7 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { bottomNavInset } from '../utils/cardTokens';
 import { TypeTokens } from '../design/tokens/type';
-import { withCoverOnlyTextPoster } from '../utils/structuredFields';
+import { structuredFieldPairs, withCoverOnlyTextPoster } from '../utils/structuredFields';
 import { FALLBACK_VIDEO_ASPECT_RATIO, normalizeVideoAspectRatio } from '../utils/video';
 
 const TEXT_POSTER_TIMEOUT: number = 20000;
@@ -35,7 +35,6 @@ const TEXT_POSTER_PREVIEW_SCALE: number = 1;
 const TEXT_POSTER_FONT_RETRY_MAX: number = 10;
 const TEXT_POSTER_FONT_RETRY_INTERVAL: number = 200;
 
-type FieldDef = [keyof StructuredData, string];
 type PreviewField = [string, string];
 
 function genreLabel(genre: Genre): string {
@@ -45,34 +44,6 @@ function genreLabel(genre: Genre): string {
     case 'debate': return '辩论';
     case 'share': return '分享';
     default: return '测评';
-  }
-}
-
-function genreFieldDefs(genre: Genre): FieldDef[] {
-  switch (genre) {
-    case 'review': return [['pros', '优点'], ['cons', '缺点'], ['rating', '推荐指数'], ['targetAudience', '适合人群']];
-    case 'pitfall': return [['pitfallExperience', '踩坑经历'], ['lossAmount', '损失金额'], ['correctApproach', '正确做法']];
-    case 'tutorial': return [['tools', '准备工具'], ['steps', '步骤拆解'], ['timeDifficulty', '耗时/难度']];
-    case 'debate': return [['planA', '方案 A'], ['planB', '方案 B']];
-    default: return [];
-  }
-}
-
-function readField(sd: StructuredData, key: keyof StructuredData): string | number | undefined {
-  switch (key) {
-    case 'pros': return sd.pros;
-    case 'cons': return sd.cons;
-    case 'rating': return sd.rating;
-    case 'targetAudience': return sd.targetAudience;
-    case 'pitfallExperience': return sd.pitfallExperience;
-    case 'lossAmount': return sd.lossAmount;
-    case 'correctApproach': return sd.correctApproach;
-    case 'tools': return sd.tools;
-    case 'steps': return sd.steps;
-    case 'timeDifficulty': return sd.timeDifficulty;
-    case 'planA': return sd.planA;
-    case 'planB': return sd.planB;
-    default: return undefined;
   }
 }
 
@@ -199,14 +170,13 @@ struct PublishPreviewPage {
     return videoUrl.length > 0;
   }
 
+  // 预览区字段行：[中文标签, 值]。字段表来自 utils/structuredFields，与详情页同源，
+  // 避免「预览写方案 A、详情写方案A」这类副本漂移。
   private previewFields(): PreviewField[] {
     const draft: PublishDraft = this.currentDraft();
     const rows: PreviewField[] = [];
-    for (const field of genreFieldDefs(draft.genre)) {
-      const value: string | number | undefined = readField(draft.structuredData, field[0]);
-      if (value !== undefined && String(value).length > 0) {
-        rows.push([field[1], String(value)]);
-      }
+    for (const pair of structuredFieldPairs(draft.structuredData, draft.genre)) {
+      rows.push([pair.label, pair.value]);
     }
     return rows;
   }
