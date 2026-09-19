@@ -471,6 +471,30 @@ export struct MessagePage {
     }
   }
 
+  // 左右滑动切换分段。复用 switchDmTab 这一个入口，
+  // 保证手势与点击走同一条路径：分段栏脉冲反馈、私信懒加载都不会漏。
+  // 边界不循环：通知页再向右、私信页再向左都不动，避免"划了但没变"被误读成手势失效。
+  private swipeSegment(offset: number): void {
+    const next: number = this.dmTabIndex + offset;
+    if (next < 0 || next >= MESSAGE_SEGMENTS.length) {
+      return;
+    }
+    this.switchDmTab(next);
+  }
+
+  // SwipeGesture 只提供方向掩码（None/Horizontal/Vertical/All），没有 Left/Right，
+  // 因此左右必须由 event.angle 判定。先把角度归一化到 0..360：
+  // 约 0° 为向右滑、约 180° 为向左滑（屏幕坐标系顺时针）。
+  // 归一化同时兼容个别版本回传 -180..180 的情况（向右的 -10° 会被归到 350°，仍判为向右）。
+  private onSegmentSwipe(angle: number): void {
+    let normalized: number = angle % 360;
+    if (normalized < 0) {
+      normalized += 360;
+    }
+    const towardLeft: boolean = normalized > 90 && normalized < 270;
+    this.swipeSegment(towardLeft ? 1 : -1);
+  }
+
   @Builder
   notificationShortcut(filter: string, label: string, icon: Resource, unread: number) {
     Column() {
@@ -819,6 +843,14 @@ export struct MessagePage {
     .width('100%')
     .height('100%')
     .backgroundColor(ColorTokens.canvas)
+    // 左右滑动切换「通知 / 私信」：
+    // - direction 限定 Horizontal，竖向滚动（列表、下拉刷新）不受影响；
+    // - speed 200vp/s 高于默认 100，慢速斜拖不会误切；
+    // - 用 gesture 而非 priorityGesture：页内没有任何横向手势，无需抢优先级。
+    .gesture(
+      SwipeGesture({ direction: SwipeDirection.Horizontal, speed: 200 })
+        .onAction((event: GestureEvent): void => { this.onSegmentSwipe(event.angle); })
+    )
     .transition(buildPageTransition())
   }
 }
