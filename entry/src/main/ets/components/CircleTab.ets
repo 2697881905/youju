@@ -527,11 +527,19 @@ export struct CircleTab {
     this.inertiaTimer = setTimeout(tick, 16) as number;
   }
 
-  private onRingPanStart(): void {
+  // 拨哪一环转哪一环：环由触点半径决定（画布回报）。
+  // 旧实现全程只用 activeRing（仅由「上次选中的圈 / 点击的行星」决定，拖拽不改它），
+  // 于是无论按在哪里都只转那一环 —— 表现为「拨动任意区域只有最内层星环在转动」。
+  private onRingPanStart(ring: number): void {
     if (this.centeredName.length > 0) {
       return;
     }
+    if (ring >= 0 && ring < this.autoOrbitEnabled.length) {
+      this.activeRing = ring;
+    }
     this.stopInertia();
+    // 拖动期间只暂停「正在拨动的这一环」，其余两环保持自转；
+    // 复位三环开关再单独关掉当前环，避免上一轮拖动的环一直停着。
     this.pauseOrbitExcept(this.activeRing);
     this.dragOffset = 0;
     this.inertiaVelocity = 0;
@@ -672,7 +680,7 @@ export struct CircleTab {
       avatar: this.selfAvatar,
       nickname: this.authNickname,
       onPlanet: (name: string): void => { this.onPlanetPressed(name); },
-      onPanStart: (): void => { this.onRingPanStart(); },
+      onPanStart: (ring: number): void => { this.onRingPanStart(ring); },
       onPanUpdate: (event: GestureEvent): void => { this.onRingPanUpdate(event); },
       onPanEnd: (): void => { this.onRingPanEnd(); },
     })

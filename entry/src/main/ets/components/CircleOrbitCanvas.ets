@@ -48,7 +48,9 @@ export struct CircleOrbitCanvas {
   @Prop avatar: string = '';
   @Prop nickname: string = '';
   onPlanet: (name: string) => void = (_name: string): void => {};
-  onPanStart: () => void = (): void => {};
+  // 手势按下时回报「触点落在哪一条环」（环序号，判不出来时为 -1）：
+  // 环的判定依赖半径与画布几何，因此留在本组件；父页面只消费结果。
+  onPanStart: (ring: number) => void = (_ring: number): void => {};
   onPanUpdate: (event: GestureEvent) => void = (_event: GestureEvent): void => {};
   onPanEnd: () => void = (): void => {};
 
@@ -58,6 +60,30 @@ export struct CircleOrbitCanvas {
 
   private radiusFor(ring: number): number {
     return this.radii[ring] ?? 0;
+  }
+
+  // 触点离画布中心多远 → 最接近哪一条环带。
+  // FingerInfo.localX/localY 是「相对手势宿主元素左上角」的坐标（见 SDK gesture.d.ts），
+  // 本手势绑在 galaxySize × galaxySize 的画布 Stack 上，故减 galaxySize/2 即得相对圆心的偏移。
+  private ringAtTouch(event: GestureEvent): number {
+    const fingers: FingerInfo[] | undefined = event?.fingerList;
+    if (fingers === undefined || fingers.length === 0) {
+      return -1;
+    }
+    const center: number = this.galaxySize / 2;
+    const dx: number = fingers[0].localX - center;
+    const dy: number = fingers[0].localY - center;
+    const distance: number = Math.sqrt(dx * dx + dy * dy);
+    let best: number = -1;
+    let bestGap: number = -1;
+    for (let index: number = 0; index < this.radii.length; index++) {
+      const gap: number = Math.abs(distance - this.radii[index]);
+      if (bestGap < 0 || gap < bestGap) {
+        bestGap = gap;
+        best = index;
+      }
+    }
+    return best;
   }
 
   private circlesFor(ring: number): OrbitCircleItem[] {
@@ -149,7 +175,7 @@ export struct CircleOrbitCanvas {
     .clip(false)
     .gesture(
       PanGesture({ direction: PanDirection.Horizontal, distance: 2 })
-        .onActionStart((): void => { this.onPanStart(); })
+        .onActionStart((event: GestureEvent): void => { this.onPanStart(this.ringAtTouch(event)); })
         .onActionUpdate((event: GestureEvent): void => { this.onPanUpdate(event); })
         .onActionEnd((): void => { this.onPanEnd(); })
         .onActionCancel((): void => { this.onPanEnd(); })
