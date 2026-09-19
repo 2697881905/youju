@@ -2,6 +2,7 @@
 // 星环只负责布局与交互；颜色、阴影、字体和圆角全部复用应用 design token。
 
 import { Tag } from '../models/types';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { listTags, listFollowedTags, getUserProfile } from '../services/api';
 import { getToken, getUserId, getCurrentUser } from '../utils/auth';
 import { likeStore } from '../utils/likeStore';
@@ -119,8 +120,8 @@ export struct CircleTab {
   // Blank 弹性推底必须用显式数值 minHeight，否则卡片无法贴底。
   @State scrollViewportHeight: number = 0;
   @State ringDragging: boolean = false;
-  @StorageLink('reduceMotion') appReduceMotion: boolean = false;
-  @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
+  @StorageLink('reduceMotion') @Watch('onReduceMotionChanged') appReduceMotion: boolean = false;
+  @StorageLink('systemReduceMotion') @Watch('onReduceMotionChanged') systemReduceMotion: boolean = false;
   @StorageLink('authNickname') authNickname: string = '';
   @StorageLink('authAvatar') authAvatar: string = '';
   // 星系中心头像：以 authAvatar（登录响应缓存，可能有缺）为初始值，
@@ -208,6 +209,20 @@ export struct CircleTab {
 
   private shouldReduceMotion(): boolean {
     return this.appReduceMotion || this.systemReduceMotion;
+  }
+
+  // 减弱动效开关变化时立即收敛星环状态。
+  // 此前没有任何监听：关掉开关后要等到重进页面或点一次星系背景，星环才可能恢复自转，
+  // 配合旧的 autoOrbitRunning 残留问题就是「星环不转了」且看起来永远修不好。
+  private onReduceMotionChanged(): void {
+    if (this.shouldReduceMotion()) {
+      this.stopAutoOrbit();
+      this.stopInertia();
+      return;
+    }
+    if (this.activeTab === 1 && this.circles.length > 0 && this.centeredName.length === 0) {
+      this.resumeAllOrbits();
+    }
   }
 
   // 同步自己的头像到星系中心：优先用已就绪的 authAvatar，不足/为空时从后端资料接口兜底拉取，
@@ -383,13 +398,32 @@ export struct CircleTab {
   // 自动旋转只更新仍处于启用状态的环：内/外环顺时针，中环逆时针。
   // 16ms 一帧配合轻量 transform，离开页面或点击行星时立即清理。
   private startAutoOrbit(): void {
-    if (this.autoOrbitRunning || this.shouldReduceMotion() || this.circles.length === 0) {
+    if (this.autoOrbitRunning) {
+      return;
+    }
+    if (this.shouldReduceMotion()) {
+      // 减弱动效开启时星环不自转（用户偏好优先），但要留下可诊断痕迹
+      hilog.info(0x0000, 'CircleTab', '星环自转未启动：减弱动效开启 app=%{public}s system=%{public}s',
+        String(this.appReduceMotion), String(this.systemReduceMotion));
+      return;
+    }
+    if (this.circles.length === 0) {
       return;
     }
     this.autoOrbitRunning = true;
+    hilog.info(0x0000, 'CircleTab', '星环自转启动');
     const tick = (): void => {
-      if (!this.autoOrbitRunning || this.shouldReduceMotion()) {
+      if (!this.autoOrbitRunning) {
         this.autoOrbitTimer = 0;
+        return;
+      }
+      if (this.shouldReduceMotion()) {
+        // 必须走 stopAutoOrbit 复位 autoOrbitRunning：
+        // 旧实现只把 autoOrbitTimer 置 0 就 return，autoOrbitRunning 留真，
+        // 之后 startAutoOrbit 会被开头那句 `if (this.autoOrbitRunning) return` 永久挡住 ——
+        // 关掉减弱动效后星环也回不来，只能靠重进页面（initData 里的 stopAutoOrbit）偶然恢复。
+        hilog.info(0x0000, 'CircleTab', '星环自转中止：运行中检测到减弱动效开启');
+        this.stopAutoOrbit();
         return;
       }
       const speed: number = 0.16;
@@ -412,10 +446,14 @@ export struct CircleTab {
   }
 
   private stopAutoOrbit(): void {
+    const wasRunning: boolean = this.autoOrbitRunning;
     this.autoOrbitRunning = false;
     if (this.autoOrbitTimer !== 0) {
       clearTimeout(this.autoOrbitTimer);
       this.autoOrbitTimer = 0;
+    }
+    if (wasRunning) {
+      hilog.info(0x0000, 'CircleTab', '星环自转停止');
     }
   }
 
