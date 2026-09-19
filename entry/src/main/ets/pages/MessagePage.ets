@@ -5,6 +5,7 @@
 // - 回写 AppStorage['unreadMessageCount'] 供 Index 消息 Tab 红点
 
 import { NotificationItem, NotificationType, Conversation } from '../models/types';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { openChat, openPostDetail, openUserProfile } from '../utils/nav';
 import {
   listNotifications,
@@ -35,6 +36,9 @@ const MESSAGE_SEGMENTS: SegmentedItem[] = [
   { key: 'notif', label: '通知' },
   { key: 'dm', label: '私信' },
 ];
+
+// 横划切换分段的位移阈值（vp）：高于竖向滚动时的横向抖动，低于一次有意的横划
+const SEGMENT_SWIPE_MIN_OFFSET: number = 64;
 
 @Entry
 @Component
@@ -482,17 +486,17 @@ export struct MessagePage {
     this.switchDmTab(next);
   }
 
-  // SwipeGesture 只提供方向掩码（None/Horizontal/Vertical/All），没有 Left/Right，
-  // 因此左右必须由 event.angle 判定。先把角度归一化到 0..360：
-  // 约 0° 为向右滑、约 180° 为向左滑（屏幕坐标系顺时针）。
-  // 归一化同时兼容个别版本回传 -180..180 的情况（向右的 -10° 会被归到 350°，仍判为向右）。
-  private onSegmentSwipe(angle: number): void {
-    let normalized: number = angle % 360;
-    if (normalized < 0) {
-      normalized += 360;
+  // 横划结束：位移达阈值才切换。
+  // 方向用 PanGesture 的 offsetX 判定（向右为正），不用 SwipeGesture 的 event.angle ——
+  // angle 的取值约定在不同版本上不一致（0..360 与 -180..180 都有），判反就会「往左滑没反应」。
+  // 留在 onActionEnd 判定而非 onActionUpdate：竖向滚动的横向抖动累积不到阈值，不会误切。
+  private onSegmentPanEnd(offsetX: number): void {
+    hilog.info(0x0000, 'MessagePage', '分段横划结束 offsetX=%{public}s 阈值=%{public}s',
+      String(Math.round(offsetX)), String(SEGMENT_SWIPE_MIN_OFFSET));
+    if (Math.abs(offsetX) < SEGMENT_SWIPE_MIN_OFFSET) {
+      return;
     }
-    const towardLeft: boolean = normalized > 90 && normalized < 270;
-    this.swipeSegment(towardLeft ? 1 : -1);
+    this.swipeSegment(offsetX < 0 ? 1 : -1);
   }
 
   @Builder
@@ -843,13 +847,16 @@ export struct MessagePage {
     .width('100%')
     .height('100%')
     .backgroundColor(ColorTokens.canvas)
-    // 左右滑动切换「通知 / 私信」：
-    // - direction 限定 Horizontal，竖向滚动（列表、下拉刷新）不受影响；
-    // - speed 200vp/s 高于默认 100，慢速斜拖不会误切；
-    // - 用 gesture 而非 priorityGesture：页内没有任何横向手势，无需抢优先级。
-    .gesture(
-      SwipeGesture({ direction: SwipeDirection.Horizontal, speed: 200 })
-        .onAction((event: GestureEvent): void => { this.onSegmentSwipe(event.angle); })
+    // 左右拖动切换「通知 / 私信」。
+    // 用 parallelGesture 而非 gesture：页面内容全在 Scroll / Refresh 内，
+    // ArkUI 默认「子组件手势优先」，父组件用 gesture 绑的手势收不到事件 → 表现为「滑了没反应」。
+    // 并行识别不抢优先级：竖向滚动照旧，横向拖动触发切换，两者互不干扰。
+    // 用 PanGesture 而非 SwipeGesture：后者只有方向掩码（没有 Left/Right），
+    // 左右只能靠 event.angle 推，而该约定跨版本不一致；PanGesture 的 offsetX 符号明确。
+    // distance 24vp 让识别晚于滚动起步，避免轻扫列表就被判定为横划。
+    .parallelGesture(
+      PanGesture({ direction: PanDirection.Horizontal, distance: 24 })
+        .onActionEnd((event: GestureEvent): void => { this.onSegmentPanEnd(event.offsetX); })
     )
     .transition(buildPageTransition())
   }
