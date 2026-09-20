@@ -6,6 +6,7 @@ import { StatRow } from '../design/components/StatRow';
 import { PostCardAuthor } from './PostCardAuthor';
 import { PostCardMedia } from './PostCardMedia';
 import { PostCardTitle } from './PostCardTitle';
+import { StructuredSummaryCard } from './StructuredSummaryCard';
 import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
@@ -13,6 +14,7 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { openUserProfile } from '../utils/nav';
+import { StructuredSummary, structuredSummaryOf } from '../utils/structuredBlocks';
 
 @Component
 export struct PostCard {
@@ -157,15 +159,19 @@ export struct PostCard {
     return typeof this.post.id === 'number' ? this.post.id : undefined;
   }
 
-  // 「一镜到底」源元素 id：有媒体（封面/视频）且 id 可解析时挂共享元素
-  private cardSharedId(): string {
+  // 「一镜到底」取帧/定位用组件 id（componentUtils.getRectangleById）
+  private cardMediaId(): string {
     const pid: number | undefined = this.postId();
-    return (this.hasCover() && pid !== undefined) ? 'card-expand-' + pid : '';
+    return (this.hasCover() && pid !== undefined) ? 'cardMedia-' + pid : '';
   }
 
   private coverImage(): string {
     // 后端的无封面字段为 null；接口运行时值需在 UI 边界归一化。
     return typeof this.post.coverImage === 'string' ? this.post.coverImage : '';
+  }
+
+  private structuredSummary(): StructuredSummary | null {
+    return structuredSummaryOf(this.post.structuredData, this.post.genre, this.post.structuredDocument);
   }
 
   @Builder
@@ -250,8 +256,15 @@ export struct PostCard {
           videoUrl: this.post.videoUrl ?? '',
           videoCover: this.post.videoCover ?? '',
           compact: this.compact,
-          sharedId: this.cardSharedId(),
+          mediaId: this.cardMediaId(),
         })
+        if (this.variant === 'feed' && this.structuredSummary() !== null) {
+          StructuredSummaryCard({
+            summary: this.structuredSummary(),
+            compact: this.compact,
+            attached: true,
+          })
+        }
         // 信息区：标题 + 互动/作者 合并为一块（统一 elevated 底 + 细边框 + 圆角）
         Column({ space: this.compact ? SpaceTokens.inlineTight : SpaceTokens.sm }) {
           PostCardTitle({ title: this.post.title ?? '', compact: this.compact })
@@ -264,19 +277,12 @@ export struct PostCard {
         .padding(this.compact ? SpaceTokens.xs : SpaceTokens.sm)
         .alignItems(HorizontalAlign.Start)
         .backgroundColor(ColorTokens.elevated)
-        .border({
-          width: 1,
-          color: ColorTokens.separator,
-          style: BorderStyle.Solid,
-        })
-        .borderRadius({
-          topLeft: this.hasCover() ? 0 : (this.compact ? RadiusTokens.xs : RadiusTokens.lg),
-          topRight: this.hasCover() ? 0 : (this.compact ? RadiusTokens.xs : RadiusTokens.lg),
-          bottomLeft: this.compact ? RadiusTokens.xs : RadiusTokens.lg,
-          bottomRight: this.compact ? RadiusTokens.xs : RadiusTokens.lg,
-        })
       }
       .width('100%')
+      .backgroundColor(ColorTokens.elevated)
+      .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
+      .borderRadius(this.compact ? RadiusTokens.xs : RadiusTokens.lg)
+      .clip(true)
       .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
     }
   }

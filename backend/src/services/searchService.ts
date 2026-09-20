@@ -84,6 +84,7 @@ export function scoreSearchPost(post: any, keyword: string): number {
   const k = keyword.toLowerCase().trim();
   const title = String(post.title ?? '').toLowerCase();
   const content = String(post.content ?? '').toLowerCase();
+  const structured = String(post.structuredSearchText ?? '').toLowerCase();
   const genre = String(post.genre ?? '').toLowerCase();
   const tags: string[] = (Array.isArray(post.tags) ? post.tags : [])
     .map((t: unknown) => String(t).toLowerCase());
@@ -107,6 +108,9 @@ export function scoreSearchPost(post: any, keyword: string): number {
   if (content.includes(k)) {
     score += 10; // 正文命中权重最低（正文噪声大）
   }
+  if (structured.includes(k)) {
+    score += 30; // 结构化结论是作者主动提炼的高信号信息
+  }
   return score;
 }
 
@@ -129,6 +133,7 @@ export async function searchPosts(params: SearchPostsParams) {
       { content: { contains: keyword } },
       { genre: { contains: keyword } },
       { tags: { array_contains: keyword } },
+      { structuredSearchText: { contains: keyword } },
     ],
   };
   if (params.tag) {

@@ -58,6 +58,9 @@ export struct ProfilePage {
   @State followerCount: number = 0;
   @State totalLikes: number = 0; // 获赞总数
   @State tabIdx: number = 0; // 0 我发布, 1 我收藏, 2 我赞过, 3 我评论
+  // 四个分段各自的列表缓存。分页要求每一页都能立刻拿到"自己的"内容：
+  // 只保留当前分段的列表，会让相邻页在拖动过程中显示当前分段的数据。
+  @State postsCache: Post[][] = [[], [], [], []];
   // 「我收藏」子分段：0 帖子列表 / 1 收藏夹网格（切换时懒加载收藏夹）
   @State @Watch('onBookmarkSubTabChange') bookmarkSubTab: number = 0;
   @State folders: BookmarkFolderItem[] = [];
@@ -127,13 +130,13 @@ export struct ProfilePage {
       if (this.tabIdx === 2) {
         const info = likeStore.get(changedId);
         if (info && !info.liked) {
-          this.posts = this.posts.filter((p: Post) => p.id !== changedId);
+          this.removeFromSegment(2, changedId);
         }
       }
     });
     // 订阅帖子删除事件：无论当前停在哪个子 Tab，只要列表含该帖即即时移除
     this.unsubDeletion = postDeletionStore.subscribe((deletedId: number): void => {
-      this.posts = this.posts.filter((p: Post) => p.id !== deletedId);
+      this.removeFromAllSegments(deletedId);
     });
   }
 
@@ -193,7 +196,7 @@ export struct ProfilePage {
   }
 
   onTokenReady(): void {
-    if (this.token !== '' && this.activeTab === 4 && this.ready && this.posts.length === 0) {
+    if (this.token !== '' && this.activeTab === 4 && this.ready && this.pagePostsOf(this.tabIdx).length === 0) {
       this.refresh();
     }
   }
@@ -208,7 +211,7 @@ export struct ProfilePage {
       // 登出：必须清空资料/计数/列表快照。TabContent 内本组件会被保留，不清的话
       // 登出后仍显示上一账号的头像、昵称、关注/粉丝数与帖子（隐私观感问题）。
       this.user = {};
-      this.posts = [];
+      this.postsCache = [[], [], [], []];
       this.folders = [];
       this.followingCount = 0;
       this.followerCount = 0;
@@ -279,7 +282,7 @@ export struct ProfilePage {
       this.followingCount = 0;
       this.followerCount = 0;
       this.totalLikes = 0;
-      this.posts = [];
+      this.postsCache = [[], [], [], []];
       // 未登录也要呈现资料区（显示「去登录」按钮），否则主体被透明度动画隐藏。
       this.presentProfile();
       return;
@@ -336,8 +339,9 @@ export struct ProfilePage {
     this.page = 1;
     this.finished = false;
     this.error = '';
-    // 先移除上一分段内容，避免请求期间显示错误的帖子集合。
-    this.posts = [];
+    // 不再清空列表：分页里每一页只读自己那份缓存，
+    // 切段时先显示该分段上次的内容、拿到新数据后整体替换（stale-while-revalidate），
+    // 避免每次切段都闪一次加载态；首次访问的分段缓存为空，页内自然呈现加载态。
     await this.fetch(true, version);
   }
 
@@ -382,9 +386,9 @@ export struct ProfilePage {
         return;
       }
       if (reset) {
-        this.posts = list;
+        this.setPagePosts(this.tabIdx, list);
       } else {
-        this.posts = this.posts.concat(list);
+        this.setPagePosts(this.tabIdx, this.pagePostsOf(this.tabIdx).concat(list));
       }
       if (list.length < 20) {
         this.finished = true;
@@ -459,7 +463,9 @@ export struct ProfilePage {
   }
 
   onTabChange(idx: number): void {
-    // SegmentedControl 会先写入双向绑定的 tabIdx，再触发 onSelect。
+    // 分段栏点击与 Swiper 分页滑动共用这一个入口：两条路径最终都落到这里，
+    // 所以滑块移动与页面位移天然同步，不会一个先到一个后到。
+    // 注意 SegmentedControl 会先写入双向绑定的 tabIdx，再触发 onSelect，
     // 因此不能把“索引相同”当作无需刷新，否则只会切换选中态而继续显示旧分段数据。
     if (this.tabIdx !== idx) {
       this.tabIdx = idx;
@@ -467,11 +473,36 @@ export struct ProfilePage {
     this.refresh();
   }
 
+  // 分页每一页只读自己那份缓存：拖动过程中相邻页显示的是它自己的内容
+  private pagePostsOf(seg: number): Post[] {
+    return this.postsCache[seg] ?? [];
+  }
+
+  // 整体替换数组以触发 @State 刷新（ArkTS 不观察数组元素的原地修改）
+  private setPagePosts(seg: number, list: Post[]): void {
+    const next: Post[][] = [[], [], [], []];
+    for (let i: number = 0; i < PROFILE_SEGMENTS.length; i++) {
+      next[i] = i === seg ? list : this.pagePostsOf(i);
+    }
+    this.postsCache = next;
+  }
+
+  private removeFromSegment(seg: number, id: number): void {
+    this.setPagePosts(seg, this.pagePostsOf(seg).filter((p: Post) => p.id !== id));
+  }
+
+  // 帖子被删除：任何分段都可能含该帖，逐段移除
+  private removeFromAllSegments(id: number): void {
+    for (let i: number = 0; i < PROFILE_SEGMENTS.length; i++) {
+      this.removeFromSegment(i, id);
+    }
+  }
+
   // 收藏 Tab：取消收藏（乐观移除 + 失败回滚）
   private async handleCancelBookmark(id: number): Promise<void> {
     try {
       await cancelBookmarkPost(id);
-      this.posts = this.posts.filter((p: Post) => p.id !== id);
+      this.removeFromSegment(1, id);
     } catch (e) {
       safeShowToast(this.getUIContext(), { message: (e as Error).message });
     }
@@ -509,41 +540,19 @@ export struct ProfilePage {
     });
   }
 
-  // 「我收藏」子分段（帖子 | 收藏夹），右对齐、紧凑尺寸；外层由调用处补充左右留白与定位
+  // 「我收藏」子分段（帖子 | 收藏夹）；外层由调用处补充左右留白与定位。
+  // 这一行只放分段控件本身：分段控件是满宽控件（fillWidth 默认 true → width('100%')），
+  // 同行的兄弟节点会让总宽超过 100%，布局开始压缩弹性子节点，表现为分段栏被挤到右侧。
+  // 收藏夹的管理入口因此移到列表自己的头部（见 foldersView）。
   @Builder
   bookmarkSubSegment(): void {
     Row() {
-      // 收藏夹管理入口：pages/BookmarkFolderPage（重命名/删除）此前已实现且已注册路由，
-      // 但全项目 0 处跳转 → 用户建了收藏夹就改不了名、删不掉。仅在收藏夹子页且已有收藏夹时显示。
-      if (this.bookmarkSubTab === 1 && this.folders.length > 0) {
-        Pressable({
-          visualHeight: LayoutTokens.segmentedHeight,
-          touchTargetHeight: LayoutTokens.minTouchTarget,
-          action: (): void => {
-            this.getUIContext().getRouter().pushUrl({ url: 'pages/BookmarkFolderPage' });
-          },
-        }) {
-          Text('管理')
-            .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-            .fontWeight(TypeTokens.headline.weight)
-            .lineHeight(TypeTokens.callout.lineHeight)
-            .fontColor(ColorTokens.primary)
-            .height(LayoutTokens.segmentedHeight)
-            .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-            .textAlign(TextAlign.Center)
-            .backgroundColor(Color.Transparent)
-            .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-            .borderRadius(RadiusTokens.lg);
-        }
-        Blank()
-      }
       SegmentedControl({
         items: BOOKMARK_SEGMENTS,
         selectedIndex: $bookmarkSubTab,
         itemWidth: 46,
-        // 描边风格：与主分段栏/首页/消息页同款统一
-        glass: false,
-        outlined: true,
+        // 沉浸光感（华为应用商店同款）：玻璃底 + backdropBlur + 高光边框 + 滑块悬浮投影
+        immersive: true,
         onSelect: (): void => {
           // 双向绑定已写回 bookmarkSubTab，@Watch 负责后续动作
         },
@@ -629,6 +638,39 @@ export struct ProfilePage {
             .width('100%')
             .padding({ top: SpaceTokens.xl })
         } else {
+          // 收藏夹工具栏：管理入口（pages/BookmarkFolderPage，重命名/删除）放在收藏夹列表自己的头部。
+          // 原先它挂在悬浮的子分段栏那一行，而分段控件是满宽控件，兄弟一出现就把分段栏挤到右侧；
+          // 移到列表头后，分段栏的位置不再受它影响，滚动时也随列表一起走。
+          // 仅在已有收藏夹时出现 —— 空列表没有可管理的东西。
+          Row({ space: SpaceTokens.sm }) {
+            Text('共 ' + this.folders.length + ' 个收藏夹')
+              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+              .fontWeight(TypeTokens.caption.weight)
+              .lineHeight(TypeTokens.caption.lineHeight)
+              .fontColor(ColorTokens.secondary)
+              .layoutWeight(1)
+            Pressable({
+              visualHeight: LayoutTokens.segmentedHeight,
+              touchTargetHeight: LayoutTokens.minTouchTarget,
+              action: (): void => {
+                this.getUIContext().getRouter().pushUrl({ url: 'pages/BookmarkFolderPage' });
+              },
+            }) {
+              Text('管理')
+                .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+                .fontWeight(TypeTokens.headline.weight)
+                .lineHeight(TypeTokens.callout.lineHeight)
+                .fontColor(ColorTokens.primary)
+                .height(LayoutTokens.segmentedHeight)
+                .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+                .textAlign(TextAlign.Center)
+                .backgroundColor(Color.Transparent)
+                .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+                .borderRadius(RadiusTokens.lg);
+            }
+          }
+          .width('100%')
+          .alignItems(VerticalAlign.Center)
           ForEach(this.folders, (f: BookmarkFolderItem) => {
             this.folderListItem(f)
           }, (f: BookmarkFolderItem) => 'folder-list-' + String(f.id))
@@ -730,6 +772,84 @@ export struct ProfilePage {
       onOpenTrash: (): void => { this.getUIContext().getRouter().pushUrl({ url: 'pages/TrashBoxPage' }); },
       onLogin: (): void => { this.getUIContext().getRouter().pushUrl({ url: 'pages/LoginPage' }); },
     })
+  }
+
+  // 分页内容：每个分段一页。每页只读自己那份缓存，因此拖动过程中相邻页显示的是它自己的内容，
+  // 而不是当前分段的数据；未访问过的分段缓存为空，页内会先呈现加载态。
+  @Builder
+  segmentPage(seg: number) {
+    Column() {
+      // 「我收藏 → 收藏夹」子视图（子分段栏 + 双列卡片流），优先于帖子网格渲染
+      if (seg === 1 && this.bookmarkSubTab === 1) {
+        this.foldersView()
+      } else if (this.pagePostsOf(seg).length === 0 && (seg !== this.tabIdx || !this.ready || this.loading)) {
+        PostCollectionState({ loading: true })
+      } else if (this.pagePostsOf(seg).length === 0) {
+        PostCollectionState({
+          error: this.error,
+          emptyTitle: seg === 0
+            ? '还没有发布过帖子'
+            : seg === 1
+              ? '还没有收藏过帖子'
+              : seg === 2 ? '还没有赞过的帖子' : '还没有评论过帖子',
+          onRetry: (): void => { this.refresh(); },
+        })
+      } else {
+        Refresh({ refreshing: seg === this.tabIdx ? this.isRefreshing : false, builder: this.refreshBuilder }) {
+          // 显式双列：偶数项固定左列、奇数项固定右列，首项始终位于左上角。
+          // 两列独立排列，保留瀑布流的紧凑效果且不受 WaterFlow 列测量顺序影响。
+          Scroll() {
+            Column() {
+              Row({ space: SpaceTokens.xs }) {
+                Column({ space: SpaceTokens.xs }) {
+                  ForEach(this.pagePostsOf(seg).filter((_post: Post, idx: number) => idx % 2 === 0), (post: Post) => {
+                    this.profilePostCard(post)
+                  }, (post: Post) => seg + '-left-' + (post.id ?? ''))
+                }
+                .layoutWeight(1)
+                Column({ space: SpaceTokens.xs }) {
+                  ForEach(this.pagePostsOf(seg).filter((_post: Post, idx: number) => idx % 2 === 1), (post: Post) => {
+                    this.profilePostCard(post)
+                  }, (post: Post) => seg + '-right-' + (post.id ?? ''))
+                }
+                .layoutWeight(1)
+              }
+              .width('100%')
+              .alignItems(VerticalAlign.Top)
+              Column() {
+                Blank().width('100%').height(barBottomReserve())
+              }
+              .width('100%')
+            }
+            .width('100%')
+            // constraintSize minHeight 撑满视口：内容不足一屏时从顶部贴齐（规避 Scroll 内容垂直居中）
+            .constraintSize({ minHeight: '100%' })
+            .padding({
+              left: SpaceTokens.sm,
+              right: SpaceTokens.sm,
+              // 主分段悬浮于顶部；「我收藏」额外悬浮子分段，内容需让出两层分段栏高度
+              top: LayoutTokens.segmentedHeight + SpaceTokens.md + (seg === 1 ? LayoutTokens.segmentedHeight + 2 * SpaceTokens.xs : 0),
+              bottom: SpaceTokens.md,
+            })
+          }
+          .scrollable(ScrollDirection.Vertical)
+          .onScrollEdge((edge: Edge) => {
+            if (edge === Edge.Bottom) {
+              this.loadMore();
+            }
+          })
+        }
+        .onRefreshing(() => {
+          this.isRefreshing = true;
+          this.refresh().finally(() => {
+            this.isRefreshing = false;
+          });
+        })
+        .width('100%').height('100%')
+      }
+    }
+    .width('100%')
+    .height('100%')
   }
 
   build() {
@@ -836,81 +956,30 @@ export struct ProfilePage {
 
       // 列表区与分段栏共享同一滚动空间，帖子上滑时可进入分段栏下方。
       Stack({ alignContent: Alignment.TopStart }) {
-      // 「我收藏 → 收藏夹」子视图（子分段栏 + 双列卡片流），优先于帖子网格渲染
-      if (this.tabIdx === 1 && this.bookmarkSubTab === 1) {
-        this.foldersView()
-      } else if (!this.ready || (this.posts.length === 0 && this.loading)) {
-        PostCollectionState({ loading: true })
-      } else if (this.posts.length === 0) {
-        PostCollectionState({
-          error: this.error,
-          emptyTitle: this.tabIdx === 0
-            ? '还没有发布过帖子'
-            : this.tabIdx === 1
-              ? '还没有收藏过帖子'
-              : this.tabIdx === 2 ? '还没有赞过的帖子' : '还没有评论过帖子',
-          onRetry: (): void => { this.refresh(); },
-        })
-      } else {
-        Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
-          // 显式双列：偶数项固定左列、奇数项固定右列，首项始终位于左上角。
-          // 两列独立排列，保留瀑布流的紧凑效果且不受 WaterFlow 列测量顺序影响。
-          Scroll() {
-            Column() {
-              Row({ space: SpaceTokens.xs }) {
-                Column({ space: SpaceTokens.xs }) {
-                  ForEach(this.posts.filter((_post: Post, idx: number) => idx % 2 === 0), (post: Post) => {
-                    this.profilePostCard(post)
-                  }, (post: Post) => this.tabIdx + '-left-' + (post.id ?? ''))
-                }
-                .layoutWeight(1)
-                Column({ space: SpaceTokens.xs }) {
-                  ForEach(this.posts.filter((_post: Post, idx: number) => idx % 2 === 1), (post: Post) => {
-                    this.profilePostCard(post)
-                  }, (post: Post) => this.tabIdx + '-right-' + (post.id ?? ''))
-                }
-                .layoutWeight(1)
-              }
-              .width('100%')
-              .alignItems(VerticalAlign.Top)
-              Column() {
-                Blank().width('100%').height(barBottomReserve())
-              }
-              .width('100%')
-            }
-            .width('100%')
-            // constraintSize minHeight 撑满视口：内容不足一屏时从顶部贴齐（规避 Scroll 内容垂直居中）
-            .constraintSize({ minHeight: '100%' })
-            .padding({
-              left: SpaceTokens.sm,
-              right: SpaceTokens.sm,
-              // 主分段悬浮于顶部；「我收藏」额外悬浮子分段，内容需让出两层分段栏高度
-              top: LayoutTokens.segmentedHeight + SpaceTokens.md + (this.tabIdx === 1 ? LayoutTokens.segmentedHeight + 2 * SpaceTokens.xs : 0),
-              bottom: SpaceTokens.md,
-            })
-          }
-          .scrollable(ScrollDirection.Vertical)
-          .onScrollEdge((edge: Edge) => {
-            if (edge === Edge.Bottom) {
-              this.loadMore();
-            }
-          })
-        }
-        .onRefreshing(() => {
-          this.isRefreshing = true;
-          this.refresh().finally(() => {
-            this.isRefreshing = false;
-          });
-        })
-        .width('100%').height('100%')
+      // 四个分段做成真正的分页：内容跟手位移、松手按速度吸附，与消息页同一套系统实现。
+      // 前提是每一页都能立刻拿到「自己的」内容 —— 列表已按分段各自缓存（postsCache）。
+      // 手势由 Swiper 自带，页面不再绑任何横向手势（两套会互相抢事件）。
+      Swiper() {
+        this.segmentPage(0)
+        this.segmentPage(1)
+        this.segmentPage(2)
+        this.segmentPage(3)
       }
+      .index(this.tabIdx)
+      .loop(false)                 // 到边界不循环：与分段栏两端不可再点一致
+      .indicator(false)            // 进度点由分段栏承担
+      .duration(this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.container)
+      .curve(MotionCurves.springSoft)
+      .onChange((index: number): void => { this.onTabChange(index); })
+      .width('100%')
+      .height('100%')
+
       SegmentedControl({
         items: PROFILE_SEGMENTS,
         selectedIndex: $tabIdx,
         itemWidth: 67,
-        // 描边风格：与首页/消息页顶部分段栏同款（透明底 + 细边框 + 大圆角）
-        glass: false,
-        outlined: true,
+        // 沉浸光感（华为应用商店同款）：玻璃底 + backdropBlur + 高光边框 + 滑块悬浮投影
+        immersive: true,
         onSelect: (idx: number): void => { this.onTabChange(idx); },
       })
       .margin({

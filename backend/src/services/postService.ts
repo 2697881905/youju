@@ -18,6 +18,7 @@ import {
   ViewerProfile,
 } from './dailyScoreService';
 import { isPersonalizationEnabled } from './privacyService';
+import { buildStructuredSearchText } from '../utils/structuredSearchText';
 
 export type SortType = 'hot' | 'latest' | 'recommend';
 
@@ -569,6 +570,8 @@ export async function createPost(data: any, userId: number) {
       genre: data.genre,
       tags: mergedTags.slice(0, 3),
       structuredData: data.structuredData ?? {},
+      structuredDocument: data.structuredDocument ?? Prisma.DbNull,
+      structuredSearchText: buildStructuredSearchText(data.structuredDocument, data.structuredData),
       mentions: mentionRefs.length > 0 ? (mentionRefs as unknown as Prisma.InputJsonValue) : Prisma.DbNull,
       status: 1,
     },
@@ -656,6 +659,7 @@ export interface UpdatePostInput {
   images?: string[];
   tags?: string[];
   structuredData?: any;
+  structuredDocument?: any;
   // 编辑器显式选择的 @提及（精确到 userId，防重名歧义）；缺失时回退按昵称解析
   mentions?: Array<{ name: string; userId: number }>;
 }
@@ -724,6 +728,13 @@ export async function updatePost(id: number, userId: number, input: UpdatePostIn
     data.mentions = mentionRefs.length > 0 ? mentionRefs : null;
   }
   if (input.structuredData !== undefined) data.structuredData = input.structuredData;
+  if (input.structuredDocument !== undefined) data.structuredDocument = input.structuredDocument;
+  if (input.structuredDocument !== undefined || input.structuredData !== undefined) {
+    data.structuredSearchText = buildStructuredSearchText(
+      input.structuredDocument !== undefined ? input.structuredDocument : post.structuredDocument,
+      input.structuredData !== undefined ? input.structuredData : post.structuredData,
+    );
+  }
 
   const updated = await prisma.post.update({ where: { id }, data });
   // @提及通知（正文变化时）：按入库映射推送，失败不阻断编辑

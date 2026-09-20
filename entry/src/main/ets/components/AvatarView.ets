@@ -24,6 +24,9 @@ export struct AvatarView {
           .borderRadius(this.avatarSize / 2)
           .objectFit(ImageFit.Cover)
           .clip(true)
+          // 头像不吃拖拽：Image 的 draggable 默认 true，长按拖动会被系统拖拽接管，
+          // 使外层手势（长按菜单 / 横向 Pan / Swiper）失效
+          .draggable(false)
           .onError(() => {
             // URL 非空但加载失败（404/过期/断网）→ 回退默认头像
             this.loadFailed = true;
@@ -36,6 +39,7 @@ export struct AvatarView {
           .borderRadius(this.avatarSize / 2)
           .objectFit(ImageFit.Cover)
           .clip(true)
+          .draggable(false)
       }
     }
     .width(this.avatarSize + 2 * this.ringWidth)

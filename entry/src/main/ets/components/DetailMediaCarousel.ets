@@ -7,10 +7,18 @@ import { RadiusTokens } from '../design/tokens/radius';
 export struct DetailMediaCarousel {
   @Prop images: string[] = [];
   @Link activeIndex: number;
+  // 卡片一镜到底时锁定源卡片比例，避免首图解码后详情媒体高度突然跳变。
+  // 普通详情入口传 0，继续使用图片真实比例。
+  @Prop initialAspect: number = 0;
+  // 每日一帖卡面是 Cover 裁切，详情阅读时保留原图完整内容。
+  @Prop preserveContent: boolean = false;
   onOpenImage: (url: string) => void = (_url: string): void => {};
+  // 首图解码完成回调：一镜到底详情页据此从 hero 切到真实轮播（图片命中缓存通常即时触发）
+  onFirstReady: (() => void) | null = null;
 
   // 已加载图片的真实宽高比缓存（索引 → 比例），仅在切换页时读取，无需响应式
   private ratios: number[] = [];
+  private firstReadyFired: boolean = false;
   // 当前展示比例：默认 3:4 占位，加载完成或切换页后按真实比例更新
   @State currentRatio: number = 0.75;
 
@@ -30,6 +38,12 @@ export struct DetailMediaCarousel {
     return ratio;
   }
 
+  aboutToAppear(): void {
+    if (this.initialAspect > 0) {
+      this.currentRatio = this.clampRatio(this.initialAspect);
+    }
+  }
+
   build() {
     if (this.images.length > 0) {
       Stack({ alignContent: Alignment.BottomEnd }) {
@@ -38,9 +52,12 @@ export struct DetailMediaCarousel {
             Image(url)
               .width('100%')
               .height('100%')
-              .objectFit(ImageFit.Cover)
+              .objectFit(this.preserveContent ? ImageFit.Contain : ImageFit.Cover)
               .backgroundColor(ColorTokens.sunken)
               .borderRadius(RadiusTokens.lg)
+              // 图在 Swiper 内：Image 默认 draggable=true，长按后横向拖动会被系统拖拽接管，
+              // Swiper 收不到滑动 → 多图翻不动
+              .draggable(false)
               .onComplete((event): void => {
                 if (!event) {
                   return;
@@ -50,9 +67,13 @@ export struct DetailMediaCarousel {
                 if (w > 0 && h > 0) {
                   const ratio: number = this.clampRatio(w / h);
                   this.ratios[index] = ratio;
-                  if (index === this.activeIndex) {
+                  if (index === this.activeIndex && this.initialAspect <= 0) {
                     this.currentRatio = ratio;
                   }
+                }
+                if (index === 0 && !this.firstReadyFired && this.onFirstReady !== null) {
+                  this.firstReadyFired = true;
+                  this.onFirstReady();
                 }
               })
               .onClick((): void => { this.onOpenImage(url); })

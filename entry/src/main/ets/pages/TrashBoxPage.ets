@@ -57,6 +57,7 @@ struct TrashBoxPage {
       genre: post.genre,
       tags: post.tags,
       structuredData: post.structuredData,
+      structuredDocument: post.structuredDocument,
       upCount: post.upCount,
       bookmarkCount: post.bookmarkCount,
       commentCount: post.commentCount,

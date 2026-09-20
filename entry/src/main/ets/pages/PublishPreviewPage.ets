@@ -1,7 +1,7 @@
 import { createPost, resolveDisplayImageUrl } from '../services/api';
 import { LengthMetrics } from '@kit.ArkUI';
 import { ensureLogin, getUserId } from '../utils/auth';
-import { Genre, StructuredData, User } from '../models/types';
+import { Genre, StructuredData, StructuredDocument, User } from '../models/types';
 import { PublishDraft } from '../utils/publishDraft';
 import { savePostDraft, SavedPostDraft } from '../utils/postDraftStore';
 import { publishFlowStore } from '../utils/publishFlowStore';
@@ -17,7 +17,11 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { bottomNavInset } from '../utils/cardTokens';
 import { TypeTokens } from '../design/tokens/type';
-import { withCoverOnlyTextPoster } from '../utils/structuredFields';
+import { missingEssentialLabels, structuredFieldPairs, withCoverOnlyTextPoster } from '../utils/structuredFields';
+import { structuredSummaryOf } from '../utils/structuredBlocks';
+import { StructuredSummaryCard } from '../components/StructuredSummaryCard';
+import { StructuredFlowView } from '../components/StructuredFlowView';
+import { collectStructuredDocument, emptyStructuredDocument, structuredDocumentFromLegacy } from '../utils/structuredDocument';
 import { FALLBACK_VIDEO_ASPECT_RATIO, normalizeVideoAspectRatio } from '../utils/video';
 
 const TEXT_POSTER_TIMEOUT: number = 20000;
@@ -35,7 +39,6 @@ const TEXT_POSTER_PREVIEW_SCALE: number = 1;
 const TEXT_POSTER_FONT_RETRY_MAX: number = 10;
 const TEXT_POSTER_FONT_RETRY_INTERVAL: number = 200;
 
-type FieldDef = [keyof StructuredData, string];
 type PreviewField = [string, string];
 
 function genreLabel(genre: Genre): string {
@@ -48,34 +51,6 @@ function genreLabel(genre: Genre): string {
   }
 }
 
-function genreFieldDefs(genre: Genre): FieldDef[] {
-  switch (genre) {
-    case 'review': return [['pros', '优点'], ['cons', '缺点'], ['rating', '推荐指数'], ['targetAudience', '适合人群']];
-    case 'pitfall': return [['pitfallExperience', '踩坑经历'], ['lossAmount', '损失金额'], ['correctApproach', '正确做法']];
-    case 'tutorial': return [['tools', '准备工具'], ['steps', '步骤拆解'], ['timeDifficulty', '耗时/难度']];
-    case 'debate': return [['planA', '方案 A'], ['planB', '方案 B']];
-    default: return [];
-  }
-}
-
-function readField(sd: StructuredData, key: keyof StructuredData): string | number | undefined {
-  switch (key) {
-    case 'pros': return sd.pros;
-    case 'cons': return sd.cons;
-    case 'rating': return sd.rating;
-    case 'targetAudience': return sd.targetAudience;
-    case 'pitfallExperience': return sd.pitfallExperience;
-    case 'lossAmount': return sd.lossAmount;
-    case 'correctApproach': return sd.correctApproach;
-    case 'tools': return sd.tools;
-    case 'steps': return sd.steps;
-    case 'timeDifficulty': return sd.timeDifficulty;
-    case 'planA': return sd.planA;
-    case 'planB': return sd.planB;
-    default: return undefined;
-  }
-}
-
 @Entry
 @Component
 struct PublishPreviewPage {
@@ -83,6 +58,8 @@ struct PublishPreviewPage {
   @State textPosterStyleIndex: number = 0;
   @State previewImageIndex: number = 0;
   @State publishing: boolean = false;
+  // 软校验已提示过：核心字段缺失时先提示一次、不阻断，再点一次即发布
+  @State softGatePassed: boolean = false;
   @State error: string = '';
   // 四种文字海报样式的真实渲染产物（由 renderPosterPixelMap 生成），与发布产物同源。
   @State textPosterPixelMaps: image.PixelMap[] = [];
@@ -190,8 +167,15 @@ struct PublishPreviewPage {
 
   private currentDraft(): PublishDraft {
     return this.draft ?? {
-      mode: 'photo', title: '', content: '', genre: 'share', tags: [], structuredData: {}, images: [], videoUrl: '', videoCover: '', videoAspectRatio: FALLBACK_VIDEO_ASPECT_RATIO,
+      mode: 'photo', title: '', content: '', genre: 'share', tags: [], structuredData: {},
+      structuredDocument: emptyStructuredDocument(), images: [], videoUrl: '', videoCover: '',
+      videoAspectRatio: FALLBACK_VIDEO_ASPECT_RATIO,
     };
+  }
+
+  private currentStructuredDocument(): StructuredDocument {
+    const draft: PublishDraft = this.currentDraft();
+    return draft.structuredDocument ?? structuredDocumentFromLegacy(draft.structuredData, draft.genre);
   }
 
   private hasPreviewVideo(): boolean {
@@ -199,14 +183,13 @@ struct PublishPreviewPage {
     return videoUrl.length > 0;
   }
 
+  // 预览区字段行：[中文标签, 值]。字段表来自 utils/structuredFields，与详情页同源，
+  // 避免「预览写方案 A、详情写方案A」这类副本漂移。
   private previewFields(): PreviewField[] {
     const draft: PublishDraft = this.currentDraft();
     const rows: PreviewField[] = [];
-    for (const field of genreFieldDefs(draft.genre)) {
-      const value: string | number | undefined = readField(draft.structuredData, field[0]);
-      if (value !== undefined && String(value).length > 0) {
-        rows.push([field[1], String(value)]);
-      }
+    for (const pair of structuredFieldPairs(draft.structuredData, draft.genre)) {
+      rows.push([pair.label, pair.value]);
     }
     return rows;
   }
@@ -239,6 +222,18 @@ struct PublishPreviewPage {
   private async publish(): Promise<void> {
     if (this.publishing || this.draft === null) {
       return;
+    }
+    // 软校验（C-3）：核心字段缺失时先提示一次，再点一次即发布。
+    // 硬必填能立刻拉高完整率，但会压低发布率；冷启动期发布率更贵，所以选「提示 + 二次确认」。
+    if (!this.softGatePassed && this.currentStructuredDocument().blocks.length === 0) {
+      const missing: string[] = missingEssentialLabels(this.draft.structuredData, this.draft.genre);
+      if (missing.length > 0) {
+        this.softGatePassed = true;
+        safeShowToast(this.getUIContext(), {
+          message: '补全「' + missing.join('、') + '」可提升曝光，再点一次即可直接发布',
+        });
+        return;
+      }
     }
     let user: User | null = null;
     try {
@@ -287,6 +282,7 @@ struct PublishPreviewPage {
         genre: draft.genre,
         tags: draft.tags,
         structuredData: withCoverOnlyTextPoster(draft.structuredData, coverOnlyTextPoster),
+        structuredDocument: collectStructuredDocument(this.currentStructuredDocument()),
         mentions: draft.mentions,
         images: images,
         videoUrl: videoUrl,
@@ -340,8 +336,10 @@ struct PublishPreviewPage {
       genre: current.genre,
       tags: current.tags,
       structuredData: current.structuredData,
+      structuredDocument: current.structuredDocument,
       images: current.images,
       textPosterStyle: style.key,
+      mentions: current.mentions,
     };
     this.textPosterStyleIndex = index;
     this.draft = next;
@@ -383,6 +381,8 @@ struct PublishPreviewPage {
           // 海报本身即 3:4，与卡片容器一致，Cover 不产生裁切或留白。
           .objectFit(ImageFit.Cover)
           .interpolation(ImageInterpolation.High)
+          // 该页在 Swiper 内：Image 默认 draggable=true，长按横拖会被系统拖拽接管 → 翻不动
+          .draggable(false)
       } else {
         // 渲染尚未完成（或失败）时的占位：与海报底色一致，避免闪白。
         Column()
@@ -416,6 +416,8 @@ struct PublishPreviewPage {
               // 与信息流卡片封面一致：固定 3:4 容器 + Cover 裁切填满（长图不再缩小失调）
               .objectFit(ImageFit.Cover)
               .backgroundColor(ColorTokens.sunken)
+              // 图在 Swiper 内：Image 默认 draggable=true，长按横拖会被系统拖拽接管 → 翻不动
+              .draggable(false)
           }, (url: string) => url)
         }
         .width('100%')
@@ -534,35 +536,44 @@ struct PublishPreviewPage {
 
   @Builder
   structuredPreview(): void {
-    if (this.previewFields().length > 0) {
-      GlassPanel({ panelPadding: SpaceTokens.md, radius: RadiusTokens.md }) {
-        Column({ space: SpaceTokens.sm }) {
-          Text('结构化补充')
-            .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-            .fontWeight(TypeTokens.headline.weight)
-            .lineHeight(TypeTokens.callout.lineHeight)
-            .fontColor(ColorTokens.primary)
-          ForEach(this.previewFields(), (row: PreviewField) => {
-            Row({ space: SpaceTokens.md }) {
-              Text(row[0])
-                .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-                .fontWeight(TypeTokens.caption.weight)
-                .lineHeight(TypeTokens.caption.lineHeight)
-                .fontColor(ColorTokens.secondary)
-                .width(88)
-              Text(row[1])
-                .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-                .fontWeight(TypeTokens.callout.weight)
-                .lineHeight(TypeTokens.callout.lineHeight)
-                .fontColor(ColorTokens.primary)
-                .layoutWeight(1)
-            }
-            .width('100%')
-            .alignItems(VerticalAlign.Top)
-          }, (row: PreviewField) => row[0])
+    if (this.currentStructuredDocument().blocks.length > 0) {
+      StructuredFlowView({ document: collectStructuredDocument(this.currentStructuredDocument()) })
+    } else if (this.previewFields().length > 0) {
+      Column({ space: SpaceTokens.sm }) {
+        StructuredSummaryCard({
+          summary: structuredSummaryOf(this.currentDraft().structuredData, this.currentDraft().genre,
+            this.currentStructuredDocument()),
+          compact: false,
+        })
+        GlassPanel({ panelPadding: SpaceTokens.md, radius: RadiusTokens.md }) {
+          Column({ space: SpaceTokens.sm }) {
+            Text('完整信息')
+              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+              .fontWeight(TypeTokens.headline.weight)
+              .lineHeight(TypeTokens.callout.lineHeight)
+              .fontColor(ColorTokens.primary)
+            ForEach(this.previewFields(), (row: PreviewField) => {
+              Row({ space: SpaceTokens.md }) {
+                Text(row[0])
+                  .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+                  .fontWeight(TypeTokens.caption.weight)
+                  .lineHeight(TypeTokens.caption.lineHeight)
+                  .fontColor(ColorTokens.secondary)
+                  .width(88)
+                Text(row[1])
+                  .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+                  .fontWeight(TypeTokens.callout.weight)
+                  .lineHeight(TypeTokens.callout.lineHeight)
+                  .fontColor(ColorTokens.primary)
+                  .layoutWeight(1)
+              }
+              .width('100%')
+              .alignItems(VerticalAlign.Top)
+            }, (row: PreviewField) => row[0])
+          }
+          .width('100%')
+          .alignItems(HorizontalAlign.Start)
         }
-        .width('100%')
-        .alignItems(HorizontalAlign.Start)
       }
     }
   }

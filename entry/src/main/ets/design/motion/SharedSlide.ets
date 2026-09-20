@@ -13,6 +13,10 @@ export struct SharedSlide {
   @Prop itemWidth: number = 0;
   @Prop radius: number = RadiusTokens.sm;
   @Prop fill: ResourceColor = ColorTokens.elevated;
+  // 滑块投影：默认极轻接触阴影；参照华为应用商店分段栏可传入更柔和的悬浮投影
+  @Prop slideShadow: ShadowOptions = ShadowTokens.cardContact;
+  // 按压态：滑块缩小的弹性形变（华为应用商店同款按压反馈），松手后 spring 回弹
+  @Prop pressed: boolean = false;
   @Prop reduceMotion: boolean = false;
   @StorageLink('reduceMotion') appReduceMotion: boolean = false;
   @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
@@ -49,10 +53,15 @@ export struct SharedSlide {
         .translate({ x: this.selectedOffset() })
         .backgroundColor(this.fill)
         .borderRadius(this.radius)
-        .shadow(ShadowTokens.cardContact)
+        .shadow(this.slideShadow)
+        // 华为应用商店同款按压反馈：按下滑块轻微缩小，松手 spring 过冲回弹
+        .scale({
+          x: this.pressed && !this.shouldReduceMotion() ? MotionTokens.pressSlideScale : 1,
+          y: this.pressed && !this.shouldReduceMotion() ? MotionTokens.pressSlideScale : 1,
+        })
         .animation({
           duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.base,
-          curve: MotionCurves.standard,
+          curve: this.shouldReduceMotion() ? MotionCurves.standard : MotionCurves.springInteract,
         })
     }
     .width('100%')

@@ -1,5 +1,5 @@
 import { Genre, StructuredData } from '../models/types';
-import { isLongStructuredField, genreStructuredFields, readStructuredField, StructuredFieldDef } from '../utils/structuredFields';
+import { genreFieldMeta, isMultilineKind, readStructuredField, StructuredFieldMeta } from '../utils/structuredFields';
 import { Collapse } from '../design/motion/Collapse';
 import { Pressable } from '../design/motion/Pressable';
 import { IconTile } from '../design/components/IconTile';
@@ -19,17 +19,36 @@ export struct PublishStructuredSupplement {
   @Link expanded: boolean;
   onChange: (key: keyof StructuredData, value: string) => void = (_key: keyof StructuredData, _value: string): void => {};
 
+  // 字段控件完全由元数据驱动：kind 决定单行/多行，maxLength 决定上限，hint 作为示例占位。
+  // 过去 placeholder 直接复用字段名（「优点」），对从没写过测评的人是零信息；
+  // 换成示例（「续航强、系统流畅」）既降低起步门槛，也把内容粒度收敛到一致。
   @Builder
-  private fieldInput(item: StructuredFieldDef): void {
+  private fieldInput(item: StructuredFieldMeta): void {
     Column({ space: SpaceTokens.inline }) {
-      Text(item[1])
-        .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-        .fontWeight(TypeTokens.caption.weight)
-        .lineHeight(TypeTokens.caption.lineHeight)
-        .fontColor(ColorTokens.secondary)
-        .width('100%')
-      if (isLongStructuredField(item[0])) {
-        TextArea({ text: String(readStructuredField(this.data, item[0]) ?? ''), placeholder: item[1] })
+      Row({ space: SpaceTokens.inlineTight }) {
+        Text(item.label)
+          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.caption.weight)
+          .lineHeight(TypeTokens.caption.lineHeight)
+          .fontColor(ColorTokens.secondary)
+        // 核心字段只做「建议」标注，不做必填拦截 —— 冷启动期发布率比完整率更贵
+        if (item.essential) {
+          Text('建议填写')
+            .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.overline.weight)
+            .letterSpacing(TypeTokens.overline.tracking)
+            .fontColor(ColorTokens.tertiary)
+            .border({ width: LayoutTokens.hairlineWidth, color: ColorTokens.separator, style: BorderStyle.Solid })
+            .borderRadius(RadiusTokens.pill)
+            .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: 1, bottom: 1 })
+        }
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      // 多行/单行由 kind 决定（longText 与 steps 走 TextArea：步骤需要按行输入）
+      if (isMultilineKind(item.kind)) {
+        TextArea({ text: String(readStructuredField(this.data, item.key) ?? ''), placeholder: item.hint })
           .width('100%')
           .height(LayoutTokens.composerFieldHeight)
           .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
@@ -40,9 +59,10 @@ export struct PublishStructuredSupplement {
           .backgroundColor(ColorTokens.subtle)
           .borderRadius(RadiusTokens.sm)
           .padding(SpaceTokens.item)
-          .onChange((value: string): void => { this.onChange(item[0], value); })
+          .maxLength(item.maxLength)
+          .onChange((value: string): void => { this.onChange(item.key, value); })
       } else {
-        TextInput({ text: String(readStructuredField(this.data, item[0]) ?? ''), placeholder: item[1] })
+        TextInput({ text: String(readStructuredField(this.data, item.key) ?? ''), placeholder: item.hint })
           .width('100%')
           .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
           .fontWeight(TypeTokens.callout.weight)
@@ -52,7 +72,8 @@ export struct PublishStructuredSupplement {
           .backgroundColor(ColorTokens.subtle)
           .borderRadius(RadiusTokens.sm)
           .padding(SpaceTokens.item)
-          .onChange((value: string): void => { this.onChange(item[0], value); })
+          .maxLength(item.maxLength)
+          .onChange((value: string): void => { this.onChange(item.key, value); })
       }
     }
     .width('100%')
@@ -61,7 +82,7 @@ export struct PublishStructuredSupplement {
 
   build() {
     // 无结构化字段的体裁（如分享）不渲染整个补充区，避免出现空标题栏。
-    if (genreStructuredFields(this.genre).length > 0) {
+    if (genreFieldMeta(this.genre).length > 0) {
       Column({ space: SpaceTokens.sm }) {
         Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
         Pressable({
@@ -99,9 +120,9 @@ export struct PublishStructuredSupplement {
         Collapse({ expanded: this.expanded }) {
           Column({ space: SpaceTokens.sm }) {
             Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
-            ForEach(genreStructuredFields(this.genre), (item: StructuredFieldDef) => {
+            ForEach(genreFieldMeta(this.genre), (item: StructuredFieldMeta) => {
               this.fieldInput(item)
-            }, (item: StructuredFieldDef) => item[0] as string)
+            }, (item: StructuredFieldMeta) => item.key as string)
           }
           .width('100%')
         }

@@ -58,6 +58,8 @@ model Post {
   genre          String   @db.VarChar(20) // review | pitfall | tutorial | debate
   tags           Json // 标签列表，1~3个
   structuredData Json? // 结构化字段（体裁不同，内容不同）
+  structuredDocument Json? // V2 通用信息块文档（双读兼容，新增帖子优先写入）
+  structuredSearchText String? @db.Text // 结构化块展平后的检索文本
   mentions       Json? // 正文 @提及 解析结果 [{name: 昵称, userId}]，供前端点击跳转用户主页
   upCount        Int      @default(0)
   bookmarkCount  Int      @default(0)

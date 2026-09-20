@@ -5,12 +5,24 @@ import { MotionCurves, MotionTokens } from '../tokens/motion';
 import { RadiusTokens } from '../tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../tokens/space';
 import { TypeTokens } from '../tokens/type';
+import { ShadowTokens } from '../tokens/shadow';
 import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../../utils/immersiveMaterial';
 
 export interface SegmentedItem {
   key: string;
   label: string;
 }
+
+// —— 沉浸光感（华为应用商店分段栏同款）降级参数 ——
+// API 26+（未来）：原生 backgroundSystemMaterial(uiMaterial.ImmersiveMaterial)，升级 SDK 后替换为：
+//   .backgroundSystemMaterial(new uiMaterial.ImmersiveMaterial({
+//     style: uiMaterial.ImmersiveStyle.THIN, interactive: true, applyShadow: true, colorInvert: true }))
+// API 23~25（当前）：半透明白玻璃底 + backdropBlur 伪沉浸 + 1px 高光边框（系统原生，无第三方库）。
+const IMMERSIVE_GLASS_BG: ResourceColor = '#20FFFFFF';
+const IMMERSIVE_GLASS_BLUR: number = 20;
+const IMMERSIVE_GLASS_BORDER: ResourceColor = '#30FFFFFF';
+// 选中滑块悬浮投影（参照华为应用商店分段栏）：加重的柔和投影，突出滑块浮起感
+const IMMERSIVE_SLIDE_SHADOW: ShadowOptions = { radius: 14, color: '#33000000', offsetY: 4 };
 
 const LONG_PRESS_MS: number = 180;
 const MOVE_THRESHOLD: number = 6;
@@ -25,6 +37,13 @@ export struct SegmentedControl {
   @Prop glass: boolean = false;
   // 描边风格（搜索引擎顶栏同款）：透明底 + 细边框 + 大圆角 + 无阴影，与右侧搜索按钮视觉统一
   @Prop outlined: boolean = false;
+  // 按压/长按光斑（glowOverlay）：默认开启；试点场景可传 false 关闭，避免长按高光干扰沉浸光感观感
+  @Prop glowEnabled: boolean = true;
+  // 选中滑块投影：默认极轻接触阴影；参照华为应用商店分段栏可传悬浮投影（ShadowTokens 或自定义）
+  @Prop slideShadow: ShadowOptions = ShadowTokens.cardContact;
+  // 沉浸光感模式（华为应用商店分段栏同款）：玻璃底 + backdropBlur + 高光边框 + 滑块悬浮投影，
+  // 并自动关闭按压/长按光斑；内部按 API 分级降级（见文件头 IMMERSIVE_* 注释）
+  @Prop immersive: boolean = false;
   @StorageLink('reduceMotion') appReduceMotion: boolean = false;
   @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
   onSelect?: (index: number) => void = undefined;
@@ -155,11 +174,12 @@ export struct SegmentedControl {
       })
       .blendMode(BlendMode.SCREEN)
       .position({ x: this.glowX - LayoutTokens.tabBarGlowSize / 2, y: 0 })
-      .opacity(this.barPressed ? (this.scrubbing ? 0.92 : 0.55) : 0)
+      // 沉浸光感模式强制关闭光斑：长按高光会干扰玻璃观感
+      .opacity(!this.immersive && this.glowEnabled && this.barPressed ? (this.scrubbing ? 0.92 : 0.55) : 0)
       // 按压光斑弹性放大：模拟底部栏的点光源响应
       .scale({
-        x: this.barPressed && !this.shouldReduceMotion() ? 1.18 : 1,
-        y: this.barPressed && !this.shouldReduceMotion() ? 1.18 : 1,
+        x: !this.immersive && this.glowEnabled && this.barPressed && !this.shouldReduceMotion() ? 1.18 : 1,
+        y: !this.immersive && this.glowEnabled && this.barPressed && !this.shouldReduceMotion() ? 1.18 : 1,
       })
       .hitTestBehavior(HitTestMode.None)
       .animation({
@@ -175,18 +195,23 @@ export struct SegmentedControl {
   // 分段栏本体：
   // - glass：与底部悬浮导航栏材质完全一致（系统玻璃模糊 + 半透明底 + 细边框 + 柔和阴影）
   // - outline：与右侧搜索按钮同款描边（透明底 + 细边框 + 大圆角 + 无阴影）
+  // - immersive：华为应用商店同款沉浸光感（玻璃底 + backdropBlur + 高光边框 + 滑块悬浮投影）
   // - 默认：纯色 sunken 底
   @Builder
   controlBody(): void {
     Stack({ alignContent: Alignment.Center }) {
-      // 分段滑块：outlined 用纸面高亮（同 glass）；默认 elevated
+      // 分段滑块：immersive/outlined/glass 用纸面高亮；默认 elevated
       SharedSlide({
         selectedIndex: this.activeIndex(),
         itemCount: this.items.length,
         controlHeight: LayoutTokens.segmentedHeight,
-        inset: SpaceTokens.none,
-        radius: RadiusTokens.lg,
-        fill: this.outlined || this.glass ? ColorTokens.barSelectionSurface : ColorTokens.elevated,
+        // 滑块内缩量与容器 padding 一致，滑块高度/圆角按同心原则收进容器（不超出分段栏）
+        inset: SpaceTokens.xs / 2,
+        radius: RadiusTokens.lg - SpaceTokens.xs / 2,
+        fill: this.immersive || this.outlined || this.glass ? ColorTokens.barSelectionSurface : ColorTokens.elevated,
+        slideShadow: this.immersive ? IMMERSIVE_SLIDE_SHADOW : this.slideShadow,
+        // 华为应用商店同款：按下滑块缩小，松手 spring 回弹
+        pressed: this.barPressed,
         reduceMotion: this.shouldReduceMotion(),
       })
       Row({ space: SpaceTokens.none }) {
@@ -231,24 +256,29 @@ export struct SegmentedControl {
     .width(this.fillWidth ? '100%' : this.intrinsicWidth())
     .height(LayoutTokens.segmentedHeight)
     .padding(SpaceTokens.xs / 2)
-    .backgroundBlurStyle(this.glass ? GlassBlurStyle.Floating : BlurStyle.NONE)
+    // immersive：backdropBlur 伪沉浸（API 26+ 升级后替换为 backgroundSystemMaterial，见文件头注释）
+    .backdropBlur(this.immersive ? IMMERSIVE_GLASS_BLUR : 0)
+    .backgroundBlurStyle(!this.immersive && this.glass ? GlassBlurStyle.Floating : BlurStyle.NONE)
     // 底/边框/阴影按风格分发：
-    // - outlined → 透明底 + 细边框 barBorder + lg 圆角 + 无阴影（与右侧搜索按钮一致）
-    // - glass   → 系统材质渲染透明底 / 低端机 barSurface + 细边框 + floatingBar 圆角 + 柔和阴影
-    // - 默认    → 纯色 sunken 底、无边框
-    .backgroundColor(this.outlined
-      ? Color.Transparent
-      : (this.glass ? (isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface) : ColorTokens.sunken))
-    .borderRadius(this.outlined ? RadiusTokens.lg : (this.glass ? RadiusTokens.floatingBar : RadiusTokens.sm))
+    // - immersive → 半透明白玻璃底 + 1px 高光边框 + lg 圆角 + 无整栏阴影（滑块自带悬浮投影）
+    // - outlined  → 透明底 + 细边框 barBorder + lg 圆角 + 无阴影（与右侧搜索按钮一致）
+    // - glass     → 系统材质渲染透明底 / 低端机 barSurface + 细边框 + floatingBar 圆角 + 柔和阴影
+    // - 默认      → 纯色 sunken 底、无边框
+    .backgroundColor(this.immersive
+      ? IMMERSIVE_GLASS_BG
+      : (this.outlined
+        ? Color.Transparent
+        : (this.glass ? (isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface) : ColorTokens.sunken)))
+    .borderRadius(this.immersive ? RadiusTokens.lg : (this.outlined ? RadiusTokens.lg : (this.glass ? RadiusTokens.floatingBar : RadiusTokens.sm)))
     .border({
-      width: this.outlined || this.glass ? LayoutTokens.glassBorderWidth : 0,
-      color: this.outlined || this.glass ? ColorTokens.barBorder : Color.Transparent,
+      width: this.immersive ? 1 : (this.outlined || this.glass ? LayoutTokens.glassBorderWidth : 0),
+      color: this.immersive ? IMMERSIVE_GLASS_BORDER : (this.outlined || this.glass ? ColorTokens.barBorder : Color.Transparent),
       style: BorderStyle.Solid,
     })
     .shadow({
-      radius: this.glass ? 18 : 0,
-      color: this.glass ? ColorTokens.barShadow : Color.Transparent,
-      offsetY: this.glass ? 8 : 0,
+      radius: this.immersive ? 0 : (this.glass ? 18 : 0),
+      color: this.immersive ? Color.Transparent : (this.glass ? ColorTokens.barShadow : Color.Transparent),
+      offsetY: this.immersive ? 0 : (this.glass ? 8 : 0),
     })
     .clip(true)
     // 按压反馈（底部栏同款灵动感）：弹性回弹曲线（spring 过冲）+ 更明显的整栏下沉

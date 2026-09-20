@@ -5,6 +5,7 @@
 // - 回写 AppStorage['unreadMessageCount'] 供 Index 消息 Tab 红点
 
 import { NotificationItem, NotificationType, Conversation } from '../models/types';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { openChat, openPostDetail, openUserProfile } from '../utils/nav';
 import {
   listNotifications,
@@ -699,9 +700,8 @@ export struct MessagePage {
         items: MESSAGE_SEGMENTS,
         selectedIndex: $dmTabIndex,
         itemWidth: 88,
-        // 描边风格：与首页搜索按钮/分段栏同款（透明底 + 细边框 + 大圆角）
-        glass: false,
-        outlined: true,
+        // 沉浸光感（华为应用商店同款）：玻璃底 + backdropBlur + 高光边框 + 滑块悬浮投影
+        immersive: true,
         onSelect: (idx: number): void => { this.switchDmTab(idx); },
       })
       .margin({ left: SpaceTokens.sm, right: SpaceTokens.sm, bottom: SpaceTokens.sm })
@@ -712,108 +712,136 @@ export struct MessagePage {
       if (this.token === '') {
         // 未登录（游客）：不展示任何个人化消息内容，提供手动登录入口（不做自动跳转）
         this.guestState()
-      } else if (this.dmTab === 'notif') {
-        // 快捷入口：三类通知共用可选中图标块。
-        Row({ space: SpaceTokens.none }) {
-          this.notificationShortcut('up_bookmark', '赞和收藏', resolveActionIcon('like'), this.unreadCountOf(['up', 'bookmark']))
-          this.notificationShortcut('follow', '新增关注', resolveActionIcon('follow'), this.unreadCountOf(['follow']))
-          this.notificationShortcut('comment', '评论', resolveActionIcon('comment'), this.unreadCountOf(['comment']))
-        }
-        .width('100%')
-        .padding({
-          left: SpaceTokens.sm,
-          right: SpaceTokens.sm,
-          top: SpaceTokens.inlineTight,
-          bottom: SpaceTokens.item,
-        })
-
-        if (this.loading && this.list.length === 0) {
+      } else {
+        // 两个分段做成真正的分页：内容跟手位移、松手按速度吸附，
+        // 而不是「划一下、内容瞬间换掉」——后者即使加了淡入也仍然生硬。
+        // 分页手势由 Swiper 自带，因此页面不再绑任何横向手势（避免两套手势互相干扰）。
+        Swiper() {
+          // 页 1：通知。内容整体包一层定高 Column：
+          // 内部各态用的是 layoutWeight(1) 撑满，在 Swiper 分页里必须先有确定高度的父容器。
           Column() {
-            LoadingProgress().width(IconTokens.empty).height(IconTokens.empty)
-            Text('加载中…')
-              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-              .fontWeight(TypeTokens.callout.weight)
-              .lineHeight(TypeTokens.callout.lineHeight)
-              .letterSpacing(TypeTokens.callout.tracking)
-              .fontColor(ColorTokens.secondary)
-              .margin({ top: SpaceTokens.md })
-          }
-          .layoutWeight(1)
-          .width('100%')
-          .justifyContent(FlexAlign.Center)
-        } else if (this.error !== '' && this.list.length === 0) {
-          // 错误态（重试）
-          Column() {
-            EmptyState({
-              title: '加载失败',
-              message: this.error,
-              actionLabel: '重试',
-              onAction: (): void => { this.loadFirst(); },
-            })
-          }
-          .layoutWeight(1)
-          .width('100%')
-          .justifyContent(FlexAlign.Center)
-        } else if (this.list.length === 0) {
-          Column() {
-            EmptyState({
-              title: this.activeFilter === 'all' ? '暂无新消息' : '暂无此类通知',
-              message: '新的互动会显示在这里',
-            })
-          }
-          .layoutWeight(1)
-          .width('100%')
-          .justifyContent(FlexAlign.Center)
-        } else {
-          Refresh({ refreshing: $$this.refreshing, offset: 80, friction: 48 }) {
-          // 通知列表：Scroll 单列（懒加载 List 会把滚动终点钳制在底部非安全区之上，
-          // 露出窗口底色横带截断末行；Scroll 滚动范围天然到物理屏底）
-          Scroll() {
-          Column({ space: SpaceTokens.none }) {
-          ForEach(
-                this.getFilteredList(),
-                (item: NotificationItem, idx: number) => {
-                    Reveal({ index: idx % 5 }) {
-                      this.notificationRow(item)
-                    }
-                },
-                // key 必须包含已读状态：ArkUI ForEach 复用相同 key 的行时不刷新子组件 @Prop，
-                // 若不带上 read，点击单条已读后红点不会消失（只有重进页面才恢复）。
-                (item: NotificationItem) => String(item.id ?? 0) + (item.read ? '-r' : '-u'),
-              )
-              // 底部预留：为悬浮底栏与系统手势区让出滚动空间
-              Column() {
-                Blank().width('100%').height(barBottomReserve())
-              }
-              .width('100%')
+            // 快捷入口：三类通知共用可选中图标块。
+            Row({ space: SpaceTokens.none }) {
+              this.notificationShortcut('up_bookmark', '赞和收藏', resolveActionIcon('like'), this.unreadCountOf(['up', 'bookmark']))
+              this.notificationShortcut('follow', '新增关注', resolveActionIcon('follow'), this.unreadCountOf(['follow']))
+              this.notificationShortcut('comment', '评论', resolveActionIcon('comment'), this.unreadCountOf(['comment']))
             }
             .width('100%')
-            .constraintSize({ minHeight: '100%' })
             .padding({
               left: SpaceTokens.sm,
               right: SpaceTokens.sm,
-              bottom: SpaceTokens.sm,
+              top: SpaceTokens.inlineTight,
+              bottom: SpaceTokens.item,
             })
-          }
-          .scrollable(ScrollDirection.Vertical)
-          .onScrollEdge((edge: Edge) => {
-            if (edge === Edge.Bottom) {
-              this.loadMore();
+
+            if (this.loading && this.list.length === 0) {
+              Column() {
+                LoadingProgress().width(IconTokens.empty).height(IconTokens.empty)
+                Text('加载中…')
+                  .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+                  .fontWeight(TypeTokens.callout.weight)
+                  .lineHeight(TypeTokens.callout.lineHeight)
+                  .letterSpacing(TypeTokens.callout.tracking)
+                  .fontColor(ColorTokens.secondary)
+                  .margin({ top: SpaceTokens.md })
+              }
+              .layoutWeight(1)
+              .width('100%')
+              .justifyContent(FlexAlign.Center)
+            } else if (this.error !== '' && this.list.length === 0) {
+              // 错误态（重试）
+              Column() {
+                EmptyState({
+                  title: '加载失败',
+                  message: this.error,
+                  actionLabel: '重试',
+                  onAction: (): void => { this.loadFirst(); },
+                })
+              }
+              .layoutWeight(1)
+              .width('100%')
+              .justifyContent(FlexAlign.Center)
+            } else if (this.list.length === 0) {
+              Column() {
+                EmptyState({
+                  title: this.activeFilter === 'all' ? '暂无新消息' : '暂无此类通知',
+                  message: '新的互动会显示在这里',
+                })
+              }
+              .layoutWeight(1)
+              .width('100%')
+              .justifyContent(FlexAlign.Center)
+            } else {
+              Refresh({ refreshing: $$this.refreshing, offset: 80, friction: 48 }) {
+              // 通知列表：Scroll 单列（懒加载 List 会把滚动终点钳制在底部非安全区之上，
+              // 露出窗口底色横带截断末行；Scroll 滚动范围天然到物理屏底）
+              Scroll() {
+              Column({ space: SpaceTokens.none }) {
+              ForEach(
+                    this.getFilteredList(),
+                    (item: NotificationItem, idx: number) => {
+                        Reveal({ index: idx % 5 }) {
+                          this.notificationRow(item)
+                        }
+                    },
+                    // key 必须包含已读状态：ArkUI ForEach 复用相同 key 的行时不刷新子组件 @Prop，
+                    // 若不带上 read，点击单条已读后红点不会消失（只有重进页面才恢复）。
+                    (item: NotificationItem) => String(item.id ?? 0) + (item.read ? '-r' : '-u'),
+                  )
+                  // 底部预留：为悬浮底栏与系统手势区让出滚动空间
+                  Column() {
+                    Blank().width('100%').height(barBottomReserve())
+                  }
+                  .width('100%')
+                }
+                .width('100%')
+                .constraintSize({ minHeight: '100%' })
+                .padding({
+                  left: SpaceTokens.sm,
+                  right: SpaceTokens.sm,
+                  bottom: SpaceTokens.sm,
+                })
+              }
+              .scrollable(ScrollDirection.Vertical)
+              .onScrollEdge((edge: Edge) => {
+                if (edge === Edge.Bottom) {
+                  this.loadMore();
+                }
+              })
+              .width('100%')
+              .layoutWeight(1)
+              }
+              .onRefreshing(() => {
+                this.loadFirst().finally(() => {
+                  this.refreshing = false;
+                });
+              })
+              .layoutWeight(1)
+              .width('100%')
             }
-          })
-          .width('100%')
-          .layoutWeight(1)
           }
-          .onRefreshing(() => {
-            this.loadFirst().finally(() => {
-              this.refreshing = false;
-            });
-          })
-          .layoutWeight(1)
           .width('100%')
+          .height('100%')
+
+          // 页 2：私信。dmContent 内部各态同样以 layoutWeight(1) 撑满，故同样包定高 Column。
+          Column() {
+            this.dmContent()
+          }
+          .width('100%')
+          .height('100%')
         }
-      } else {
-        this.dmContent()
+        .index(this.dmTabIndex)
+        .loop(false)              // 到边界不循环：与分段栏两端不可再点一致
+        .indicator(false)         // 进度点由分段栏承担
+        .duration(this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.container)
+        // 容器的 320ms + 轻微过冲的柔弹簧：整页位移用纯缓动会显干，带一点回稳才有"丝滑"感
+        .curve(MotionCurves.springSoft)
+        .onChange((index: number): void => {
+          hilog.info(0x0000, 'MessagePage', '分段页切换 index=%{public}s', String(index));
+          this.switchDmTab(index);
+        })
+        .layoutWeight(1)          // 顶栏与分段栏之外的剩余高度全部给分页区
+        .width('100%')
       }
     }
     .width('100%')

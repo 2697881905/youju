@@ -19,6 +19,8 @@ export class MotionTokens {
   static readonly shimmer: number = 1200;
 
   static readonly pressScale: number = 0.97;
+  // 分段栏选中滑块按压缩放（华为应用商店同款）：比通用 Pressable 更明显的缩小，配合 spring 回弹
+  static readonly pressSlideScale: number = 0.94;
   static readonly pressOpacity: number = 0.92;
   static readonly successScale: number = 1.045;
   static readonly enterScale: number = 0.975;

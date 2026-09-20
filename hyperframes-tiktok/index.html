@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-resolution="portrait">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1080, height=1920">
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      /* ============ 设计令牌（暖米棕 + 金箔，含沉浸光感深色态） ============ */
+      :root {
+        --canvas: #F6F1E3;
+        --surface: #FFFCF3;
+        --sub: #F7F1E4;
+        --sunken: #EDE5CF;
+        --ink: #161410;
+        --ink2: #3F3A2E;
+        --ink3: #6A6353;
+        --ink4: #8A8372;
+        --brand: #8A6548;
+        --brandDeep: #6F4F38;
+        --warm: #E8940B;
+        --gold: #B9925A;
+        --goldDeep: #8C6A38;
+        --rule: #E4DCC6;
+        --bezel: #17130E;
+        --bezelHi: #2B251C;
+        --nightBg: #17130E;
+        --nightCard: #241D14;
+        --nightLine: #3A3226;
+        --nightText: #F6F1E3;
+        --serif: "Noto Serif SC", "Songti SC", "STSong", serif;
+        --sans: "Noto Sans SC", "PingFang SC", "HarmonyOS Sans", sans-serif;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      @font-face { font-family: "Noto Sans SC"; font-weight: 400; src: url("assets/fonts/NotoSansSC-subset.woff2") format("woff2"); }
+      @font-face { font-family: "Noto Sans SC"; font-weight: 700; src: url("assets/fonts/NotoSansSC-subset-bold.woff2") format("woff2"); }
+      html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; background: var(--canvas); }
+      body { font-family: var(--sans); color: var(--ink); -webkit-font-smoothing: antialiased; }
+
+      /* 纸纹颗粒（全片统一质感层） */
+      .grain {
+        position: absolute; inset: -40px; pointer-events: none; opacity: .05; z-index: 60;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.9'/%3E%3C/svg%3E");
+      }
+
+      /* ============ 场景容器 ============ */
+      .scene {
+        position: absolute; inset: 0; width: 1080px; height: 1920px;
+        background: var(--canvas); overflow: hidden;
+        box-shadow: inset 0 0 480px rgba(23,19,14,.10);
+      }
+      #scene0 { z-index: 1; }
+      #scene1 { z-index: 2; opacity: 0; }
+      #scene2 { z-index: 3; opacity: 0; }
+      #scene3 { z-index: 4; opacity: 0; }
+      #scene4 { z-index: 5; opacity: 0; }
+      #scene5 { z-index: 6; opacity: 0; }
+      #scene6 { z-index: 7; opacity: 0; }
+      .scene::after {
+        content: ""; position: absolute; inset: 0; pointer-events: none;
+        background: radial-gradient(110% 70% at 12% 0%, rgba(138,101,72,.06), transparent 62%);
+      }
+      .wmk {
+        position: absolute; top: -90px; left: -46px; font-family: var(--serif);
+        font-weight: 900; font-size: 640px; line-height: 1; letter-spacing: .02em;
+        color: rgba(138,101,72,.06); user-select: none;
+      }
+
+      /* ============ 通用排版件 ============ */
+      .eyebrow {
+        display: inline-flex; align-items: center; gap: 16px;
+        font-size: 28px; font-weight: 500; letter-spacing: .38em; color: var(--ink3);
+      }
+      .eyebrow::before { content: ""; width: 52px; height: 3px; background: linear-gradient(90deg, var(--gold), var(--goldDeep)); border-radius: 99px; }
+      .headline { font-family: var(--serif); font-weight: 900; color: var(--ink); line-height: 1.18; letter-spacing: .01em; }
+      .line-mask { display: block; overflow: hidden; }
+      .line-inner { display: block; }
+      .sub { font-family: var(--sans); font-weight: 300; font-size: 38px; color: var(--ink3); line-height: 1.55; }
+      .accent { color: var(--brand); }
+      .gold-line { width: 120px; height: 3px; border-radius: 99px; background: linear-gradient(90deg, var(--gold), transparent); }
+
+      /* HarmonyOS角标（金色胶囊） */
+      .hpill {
+        display: inline-flex; align-items: center; gap: 12px;
+        font-size: 24px; font-weight: 500; letter-spacing: .22em; color: var(--brandDeep);
+        border: 1.5px solid var(--gold); border-radius: 99px; padding: 12px 28px;
+        background: rgba(255,252,243,.6);
+      }
+      .hpill .seed { width: 8px; height: 8px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 10px rgba(185,146,90,.8); }
+
+      /* ============ S0 软件介绍 · 居中定版（与 S6 同布局） ============ */
+      #scene0 .intro {
+        position: absolute; inset: 0; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; text-align: center; padding: 0 60px; z-index: 3;
+      }
+      #scene0 .int-pill { position: absolute; left: 0; right: 0; top: 150px; text-align: center; }
+      #scene0 .int-bottom { position: absolute; left: 0; right: 0; bottom: 140px; text-align: center; }
+      #scene0 .int-logo { position: relative; display: flex; align-items: center; gap: 30px; }
+      #scene0 .int-logo .ring {
+        position: absolute; left: -30px; top: 50%; margin-top: -128px; width: 256px; height: 256px;
+        border-radius: 60px; border: 2px solid rgba(185,146,90,.55); box-shadow: 0 0 60px rgba(185,146,90,.18);
+      }
+      #scene0 .int-logo img { position: relative; width: 176px; height: 176px; border-radius: 38px; box-shadow: 0 18px 44px rgba(46,42,32,.2); }
+      #scene0 .int-name { font-family: var(--serif); font-weight: 700; font-size: 96px; color: var(--ink); }
+      #scene0 .int-tag { font-family: var(--serif); font-weight: 900; font-size: 92px; line-height: 1.45; color: var(--ink); margin-top: 72px; }
+      #scene0 .int-sub { font-weight: 300; font-size: 38px; color: var(--ink3); margin-top: 44px; letter-spacing: .1em; }
+      #scene0 .int-side {
+        position: absolute; right: 96px; top: 46%; margin-top: -140px; writing-mode: vertical-rl;
+        font-size: 24px; font-weight: 500; letter-spacing: .56em; color: var(--ink3);
+      }
+
+      /* ============ S1 顶部文案（真机之外） ============ */
+      #scene1 .deck-copy { position: absolute; left: 0; right: 0; top: 76px; padding: 0 80px; z-index: 5; text-align: center; }
+      #scene1 .deck-copy .eyebrow { justify-content: center; }
+      #scene1 .deck-copy .headline { font-size: 92px; margin-top: 26px; }
+      #scene1 .deck-copy .sub { margin-top: 22px; opacity: .85; }
+
+      /* ============ S1 真机边框 ============ */
+      .device { position: absolute; left: 50%; top: 452px; width: 760px; height: 1112px; margin-left: -380px; z-index: 4; }
+      .device-bezel {
+        position: absolute; inset: 0; border-radius: 64px; background: var(--bezel);
+        padding: 20px; box-shadow: 0 70px 140px rgba(23,19,14,.34), inset 0 0 0 2px rgba(255,255,255,.05);
+      }
+      .device-screen {
+        position: relative; width: 100%; height: 100%; border-radius: 46px;
+        background: var(--canvas); overflow: hidden;
+      }
+      .punch { position: absolute; top: 14px; left: 50%; width: 22px; height: 22px; margin-left: -11px; border-radius: 50%; background: var(--bezel); z-index: 20; }
+      .home-bar { position: absolute; left: 50%; bottom: 16px; width: 132px; height: 8px; margin-left: -66px; border-radius: 99px; background: rgba(23,19,14,.22); z-index: 20; }
+      .stat-row {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 30px 36px 0; position: relative; z-index: 19;
+      }
+      .stat-time { font-size: 22px; font-weight: 600; color: var(--ink2); letter-spacing: .1em; font-variant-numeric: tabular-nums; }
+      .stat-ic { display: flex; align-items: center; gap: 12px; color: var(--ink2); }
+      .stat-ic svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; }
+      .stat-chip { margin-left: 18px; font-size: 18px; font-weight: 600; letter-spacing: .24em; color: var(--ink2); border: 1px solid rgba(185,146,90,.55); border-radius: 99px; padding: 5px 14px; }
+
+      /* S1 机内报头 */
+      #scene1 .head { display: flex; align-items: center; justify-content: space-between; padding: 26px 36px 0; }
+      .brand { display: flex; align-items: baseline; gap: 14px; }
+      .brand-serif { font-family: var(--serif); font-weight: 700; font-size: 42px; letter-spacing: 4px; color: var(--ink); }
+      .brand-en { font-size: 18px; font-weight: 600; letter-spacing: 4px; color: var(--ink3); }
+      .mast-acts { display: flex; gap: 14px; }
+      .mast-btn { width: 58px; height: 58px; border-radius: 50%; border: 1.5px solid var(--rule); background: var(--surface); color: var(--ink2); display: grid; place-items: center; }
+      .mast-btn svg { width: 25px; height: 25px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      .date-row { padding: 24px 36px 0; display: flex; align-items: baseline; justify-content: space-between; }
+      .date-main { font-family: var(--serif); font-size: 28px; font-weight: 700; color: var(--ink); letter-spacing: 2px; }
+      .date-week { font-size: 18px; color: var(--ink3); margin-left: 10px; letter-spacing: 3px; }
+      .issue { font-size: 18px; font-weight: 600; letter-spacing: 3px; color: var(--brandDeep); }
+      .rule { height: 1.5px; margin: 20px 36px 0; background: var(--rule); transform-origin: 0 50%; }
+
+      /* ============ S1 卡堆舞台（机内） ============ */
+      #scene1 .deck-stage { position: absolute; left: 50%; top: 252px; width: 640px; height: 600px; margin-left: -320px; z-index: 3; }
+      .d-card {
+        position: absolute; left: 0; top: 0; width: 640px; border-radius: 24px;
+        background: var(--surface); overflow: hidden;
+        box-shadow: 0 26px 50px rgba(46,42,32,.16), 0 2px 6px rgba(46,42,32,.08);
+        will-change: transform;
+      }
+      .d0 { z-index: 4; }
+      .d1 { transform: translateY(-38px) scale(.975) rotate(-1.2deg); z-index: 3; opacity: .92; }
+      .d2 { transform: translateY(-68px) scale(.952) rotate(-2.4deg); z-index: 2; opacity: .8; }
+      .d3 { transform: translateY(-94px) scale(.93) rotate(-3.6deg); z-index: 1; opacity: .6; }
+      .d-face { width: 640px; aspect-ratio: 4 / 3; background: var(--sunken); overflow: hidden; }
+      .d-face img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .d-face .corner { position: absolute; top: 22px; left: 22px; font-size: 17px; letter-spacing: 3px; color: #FFFFFF; background: rgba(22,20,16,.55); padding: 7px 16px; border-radius: 99px; }
+      .d-meta { display: flex; align-items: center; gap: 18px; padding: 22px 26px; background: var(--surface); }
+      .d-avatar { width: 52px; height: 52px; border-radius: 50%; background: rgba(138,101,72,.16); color: var(--brand); display: grid; place-items: center; font-family: var(--serif); font-weight: 700; font-size: 26px; flex: 0 0 auto; }
+      .d-title { font-family: var(--serif); font-size: 32px; font-weight: 700; color: var(--ink); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .d-stat { font-size: 23px; color: var(--ink3); letter-spacing: .04em; flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+      .d-seal-stamp {
+        position: absolute; right: -14px; bottom: -14px;
+        font-size: 21px; font-weight: 600; letter-spacing: .12em; color: var(--brandDeep);
+        border: 2.5px solid var(--brandDeep); border-radius: 10px; background: var(--surface);
+        padding: 10px 20px; transform: rotate(-6deg);
+        box-shadow: 0 6px 18px rgba(46,42,32,.14);
+      }
+      .finger {
+        position: absolute; left: 476px; top: 450px; width: 92px; height: 92px;
+        border-radius: 50%; border: 6px solid var(--gold); background: rgba(255,252,243,.55);
+        box-shadow: 0 10px 30px rgba(46,42,32,.2); z-index: 8;
+      }
+
+      /* ============ S1 机内底部 ============ */
+      #scene1 .deck-foot {
+        position: absolute; left: 36px; right: 36px; bottom: 56px;
+        display: flex; align-items: center; justify-content: space-between; z-index: 4;
+      }
+      .dots { display: flex; gap: 14px; }
+      .dot { width: 17px; height: 17px; border-radius: 50%; background: var(--rule); transform-origin: 50% 50%; }
+      .dot.on { background: var(--brand); }
+      .read-count { font-size: 26px; font-weight: 600; color: var(--ink3); letter-spacing: .14em; font-variant-numeric: tabular-nums; }
+
+      /* S1 底部定位胶囊（真机外） */
+      #scene1 .s1-pill { position: absolute; left: 0; right: 0; top: 1622px; text-align: center; z-index: 5; }
+
+      /* ============ S2 内容体裁 ============ */
+      #scene2 .corner-pill { position: absolute; right: 76px; top: 84px; z-index: 6; }
+      #scene2 .body { position: absolute; left: 0; right: 0; top: 280px; padding: 0 76px; z-index: 3; }
+      #scene2 .headline { font-size: 88px; margin-top: 26px; }
+      #scene2 .sub { margin-top: 20px; font-size: 36px; }
+      .genre { display: flex; align-items: center; gap: 28px; background: var(--surface); border: 1.5px solid var(--rule); border-radius: 22px; padding: 20px 32px; margin-top: 12px; box-shadow: 0 12px 34px rgba(46,42,32,.05); }
+      .gno { font-family: var(--serif); font-weight: 900; font-size: 32px; color: var(--goldDeep); width: 62px; flex: 0 0 auto; }
+      .gname { font-family: var(--serif); font-size: 44px; font-weight: 700; color: var(--ink); width: 172px; flex: 0 0 auto; }
+      .ghint { font-size: 25px; color: var(--ink3); flex: 1; }
+      .vote { margin-top: 16px; background: var(--surface); border: 1.5px solid var(--rule); border-radius: 24px; padding: 24px 34px; box-shadow: 0 12px 34px rgba(46,42,32,.05); }
+      .vrow { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+      .vrow + .vrow { margin-top: 16px; }
+      .vlabel { font-size: 27px; color: var(--ink2); flex: 0 0 auto; }
+      .vbar { flex: 1; height: 15px; border-radius: 99px; background: var(--sub); overflow: hidden; }
+      .vfill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--brand), var(--goldDeep)); width: 62%; transform-origin: left center; }
+      .vfill.b { background: linear-gradient(90deg, var(--warm), #C07A2A); width: 38%; }
+      .vno { font-size: 27px; font-weight: 600; color: var(--brandDeep); width: 88px; text-align: right; flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+      #scene2 .slogan-wrap { position: absolute; left: 76px; right: 76px; bottom: 66px; z-index: 3; }
+      #scene2 .slogan { font-family: var(--serif); font-weight: 900; font-size: 56px; color: var(--ink); line-height: 1.35; }
+
+      /* ============ S3 圈子 · 星环选圈 ============ */
+      #scene3 .corner-pill { position: absolute; right: 76px; top: 84px; z-index: 6; }
+      #scene3 .body { position: absolute; left: 0; right: 0; top: 236px; padding: 0 76px; z-index: 3; text-align: center; }
+      #scene3 .body .eyebrow { justify-content: center; }
+      #scene3 .body .headline { font-size: 96px; margin-top: 26px; }
+      #scene3 .body .sub { margin-top: 22px; }
+      .ob-stage { position: absolute; left: 50%; top: 1020px; width: 700px; height: 570px; margin-left: -350px; z-index: 4; }
+      .ob-ring {
+        position: absolute; left: 50%; top: 50%;
+        border: 1.5px solid rgba(138,101,72,.38); border-radius: 50%;
+      }
+      .ob-r1 { width: 640px; height: 226px; margin-left: -320px; margin-top: -113px; }
+      .ob-r2 { width: 486px; height: 330px; margin-left: -243px; margin-top: -165px; }
+      .ob-r3 { width: 320px; height: 420px; margin-left: -160px; margin-top: -210px; }
+      .ob-core {
+        position: absolute; left: 50%; top: 50%; width: 110px; height: 110px; margin-left: -55px; margin-top: -55px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(185,146,90,.5) 0%, rgba(185,146,90,.08) 60%, rgba(185,146,90,0) 72%);
+      }
+      .ob-planet {
+        position: absolute; width: 34px; height: 34px; border-radius: 50%;
+        border: 2px solid rgba(255,252,243,.9);
+        box-shadow: 0 6px 16px rgba(46,42,32,.22);
+      }
+      .ob-p1 { background: var(--brand); }
+      .ob-p2 { background: var(--warm); }
+      .ob-p3 { background: var(--goldDeep); }
+      .ob-p4 { background: var(--ink2); }
+      .ob-hand {
+        position: absolute; left: 596px; top: 196px; width: 78px; height: 78px; z-index: 9;
+        border-radius: 50%; border: 6px solid var(--gold); background: rgba(255,252,243,.5);
+        box-shadow: 0 10px 26px rgba(46,42,32,.2);
+      }
+      .ob-card {
+        position: absolute; left: 50%; bottom: 26px; width: 560px; margin-left: -280px; height: 120px; z-index: 8;
+        display: flex; align-items: center; justify-content: space-between; padding: 0 34px;
+        background: var(--surface); border: 1.5px solid var(--rule); border-radius: 26px;
+        box-shadow: 0 20px 46px rgba(46,42,32,.16);
+      }
+      .obc-name { font-family: var(--serif); font-size: 38px; font-weight: 700; color: var(--ink); }
+      .obc-meta { font-size: 24px; color: var(--ink3); margin-top: 8px; letter-spacing: .08em; }
+      .obc-btn {
+        font-size: 28px; font-weight: 600; letter-spacing: .16em; color: var(--surface);
+        background: var(--brand); border-radius: 99px; padding: 14px 34px;
+        box-shadow: 0 10px 24px rgba(138,101,72,.35);
+      }
+      #scene3 .s3-chips { position: absolute; left: 0; right: 0; bottom: 116px; display: flex; gap: 18px; justify-content: center; z-index: 5; }
+      #scene3 .s3-chips .chip { font-size: 26px; padding: 14px 30px; }
+
+      /* ============ S4 收藏 · 圈子 · 关注 ============ */
+      #scene4 .corner-pill { position: absolute; right: 76px; top: 84px; z-index: 6; }
+      #scene4 .body { position: absolute; left: 0; right: 0; top: 400px; padding: 0 76px; z-index: 3; }
+      #scene4 .headline { font-size: 100px; margin-top: 30px; }
+      #scene4 .sub { margin-top: 26px; }
+      .feat-row { display: flex; gap: 24px; margin-top: 56px; }
+      .feat { flex: 1; background: var(--surface); border: 1.5px solid var(--rule); border-radius: 26px; padding: 44px 26px 40px; text-align: center; box-shadow: 0 14px 40px rgba(46,42,32,.05); }
+      .feat-ic { width: 108px; height: 108px; border-radius: 30px; background: rgba(138,101,72,.12); color: var(--brandDeep); display: grid; place-items: center; margin: 0 auto 26px; }
+      .feat-ic svg { width: 52px; height: 52px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      .feat-name { font-family: var(--serif); font-size: 42px; font-weight: 700; color: var(--ink); }
+      .feat-tip { font-size: 24px; color: var(--ink3); margin-top: 12px; letter-spacing: .06em; }
+      #scene4 .foot-note { position: absolute; left: 76px; right: 76px; bottom: 120px; font-size: 30px; color: var(--ink3); letter-spacing: .14em; text-align: center; }
+
+      /* ============ S5 价值观收束 ============ */
+      #scene5 .corner-pill { position: absolute; right: 76px; top: 84px; z-index: 6; }
+      #scene5 .body { position: absolute; left: 0; right: 0; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; padding: 0 76px; z-index: 3; }
+      #scene5 .gold-line { margin-top: 40px; }
+      #scene5 .headline { font-size: 116px; margin-top: 34px; }
+      .chips { display: flex; gap: 20px; margin-top: 64px; }
+      .chip { font-size: 28px; font-weight: 500; color: var(--brandDeep); border: 1.5px solid var(--rule); background: var(--surface); border-radius: 99px; padding: 16px 34px; }
+      .chip.harmony { border-color: rgba(185,146,90,.6); color: var(--goldDeep); background: rgba(255,252,243,.7); }
+      #scene5 .sub { margin-top: 40px; }
+
+      /* ============ S6 结尾定版 ============ */
+      #scene6 .outro {
+        position: absolute; inset: 0; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; text-align: center; padding: 0 60px; z-index: 3;
+      }
+      #scene6 .out-eyebrow { font-size: 28px; letter-spacing: .34em; color: var(--ink3); margin-bottom: 64px; }
+      #scene6 .out-logo { position: relative; display: flex; align-items: center; gap: 30px; }
+      #scene6 .out-logo .ring {
+        position: absolute; left: -30px; top: 50%; margin-top: -118px; width: 236px; height: 236px;
+        border-radius: 56px; border: 2px solid rgba(185,146,90,.55); box-shadow: 0 0 60px rgba(185,146,90,.18);
+      }
+      #scene6 .out-logo img { position: relative; width: 176px; height: 176px; border-radius: 38px; box-shadow: 0 18px 44px rgba(46,42,32,.2); }
+      #scene6 .out-name { font-family: var(--serif); font-weight: 700; font-size: 96px; color: var(--ink); }
+      #scene6 .out-title { font-family: var(--serif); font-weight: 900; font-size: 92px; line-height: 1.45; color: var(--ink); margin-top: 80px; }
+      #scene6 .out-title .accent { color: var(--brand); }
+      #scene6 .out-sub { font-weight: 300; font-size: 40px; color: var(--ink3); margin-top: 50px; letter-spacing: .1em; }
+      #scene6 .out-pill { margin-top: 74px; }
+      #scene6 .out-foot { position: absolute; left: 0; right: 0; bottom: 96px; text-align: center; font-size: 26px; color: var(--ink3); letter-spacing: .08em; }
+
+      /* ============ 转场 Bridge（共享元素覆盖层） ============ */
+      .bridge { position: absolute; inset: 0; z-index: 70; pointer-events: none; }
+      /* 金环 + Logo（bridge01/06 复用） */
+      .b-ring {
+        position: absolute; left: 50%; top: 700px; width: 236px; height: 236px; margin-left: -118px; margin-top: -118px;
+        border-radius: 56px; border: 2px solid rgba(185,146,90,.55); box-shadow: 0 0 60px rgba(185,146,90,.18);
+      }
+      .b-logo {
+        position: absolute; left: 50%; top: 700px; width: 176px; height: 176px; margin-left: -88px; margin-top: -88px;
+        border-radius: 38px; box-shadow: 0 18px 44px rgba(46,42,32,.2);
+      }
+      .b-logo-s { width: 150px; height: 150px; margin-left: -75px; margin-top: -75px; }
+      /* 卡堆顶卡副本（bridge02） */
+      .b-card {
+        position: absolute; left: 50%; top: 700px; width: 640px; margin-left: -320px;
+        border-radius: 24px; background: var(--surface); overflow: hidden;
+        box-shadow: 0 26px 50px rgba(46,42,32,.16), 0 2px 6px rgba(46,42,32,.08);
+      }
+      .b-face { width: 640px; aspect-ratio: 4 / 3; background: var(--sunken); overflow: hidden; }
+      .b-face img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .b-meta { display: flex; align-items: center; gap: 18px; padding: 22px 26px; background: var(--surface); }
+      .b-av { width: 52px; height: 52px; border-radius: 50%; background: rgba(138,101,72,.16); color: var(--brand); display: grid; place-items: center; font-family: var(--serif); font-weight: 700; font-size: 26px; flex: 0 0 auto; }
+      .b-ti { font-family: var(--serif); font-size: 32px; font-weight: 700; color: var(--ink); }
+      /* 金色圆斑（bridge03 → 星环核心） */
+      .b-orb {
+        position: absolute; left: 50%; top: 1180px; width: 140px; height: 140px; margin-left: -70px; margin-top: -70px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(185,146,90,.55) 0%, rgba(185,146,90,.1) 55%, rgba(185,146,90,0) 72%);
+      }
+      /* 选圈卡副本（bridge04） */
+      .b-selcard {
+        position: absolute; left: 50%; top: 1560px; width: 560px; margin-left: -280px; height: 120px;
+        display: flex; align-items: center; justify-content: space-between; padding: 0 34px;
+        background: var(--surface); border: 1.5px solid var(--rule); border-radius: 26px;
+        box-shadow: 0 20px 46px rgba(46,42,32,.16);
+      }
+      .b-sc-name { font-family: var(--serif); font-size: 38px; font-weight: 700; color: var(--ink); }
+      .b-sc-btn { font-size: 28px; font-weight: 600; letter-spacing: .16em; color: var(--surface); background: var(--brand); border-radius: 99px; padding: 14px 34px; box-shadow: 0 10px 24px rgba(138,101,72,.35); }
+      /* 大字块（bridge05） */
+      .b-txt {
+        position: absolute; left: 50%; top: 760px; margin-left: -260px;
+        font-family: var(--serif); font-weight: 900; font-size: 96px; line-height: 1.4; color: var(--ink); white-space: nowrap;
+      }
+    </style>
+  </head>
+  <body>
+    <div data-hf-id="hf-iaqq" id="root" data-composition-id="main" data-start="0" data-duration="28.2" data-width="1080" data-height="1920">
+      <div data-hf-id="hf-ryn8" class="grain" data-layout-ignore=""></div>
+
+      <!-- ============ S0 软件介绍 · HarmonyOS ============ -->
+      <div data-hf-id="hf-8abr" id="scene0" class="clip scene" data-start="0" data-duration="3.2" data-track-index="0">
+        <span data-hf-id="hf-4xc4" class="wmk" data-layout-ignore="">有</span>
+        <div data-hf-id="hf-hdnq" class="intro">
+          <div data-hf-id="hf-98ix" class="int-logo">
+            <span data-hf-id="hf-p779" class="ring" id="intRing" data-layout-ignore=""></span>
+            <img data-hf-id="hf-5qon" id="intLogo" src="assets/logo-intro.png" width="176" height="176" alt="有据" crossorigin="anonymous">
+            <span data-hf-id="hf-gehv" class="int-name" id="intName">有据</span>
+          </div>
+          <div data-hf-id="hf-a3o1" class="int-tag" id="intTag" data-layout-allow-overlap="" data-layout-allow-occlusion="">
+            <span data-hf-id="hf-aetl" class="line-mask" data-layout-allow-overflow=""><span data-hf-id="hf-xzp5" class="line-inner" data-layout-allow-overflow="" data-layout-allow-overlap="" data-layout-allow-occlusion="">基于 HarmonyOS 的</span>
+            <span data-hf-id="hf-uxrx" class="line-mask" data-layout-allow-overflow=""><span data-hf-id="hf-ivkl" class="line-inner" data-layout-allow-overflow="" data-layout-allow-overlap="" data-layout-allow-occlusion=""><span data-hf-id="hf-g4p2" class="accent">理性社交社区</span>。</span></span>
+          </span></div>
+          <p data-hf-id="hf-c96q" class="sub int-sub" id="intSub">真实经验，有据可循 · 敬请期待</p>
+          <span data-hf-id="hf-5mhd" class="int-side" id="intSide">把 真 话 ， 讲 给 懂 的 人 听</span>
+        </div>
+        <div data-hf-id="hf-c6x1" class="int-pill"><span data-hf-id="hf-48gg" class="hpill"><span data-hf-id="hf-ud0e" class="seed"></span>HARMONYOS NEXT · 原生开发</span></div>
+        <div data-hf-id="hf-tpw5" class="int-bottom"><span data-hf-id="hf-nc63" class="hpill"><span data-hf-id="hf-6vya" class="seed"></span>即将上线 · COMING SOON</span></div>
+      </div>
+
+      <!-- ============ S1 每日一帖 · 真机卡堆 ============ -->
+      <div data-hf-id="hf-6l0u" id="scene1" class="clip scene" data-start="2.6" data-duration="6.0" data-track-index="1">
+        <span data-hf-id="hf-g9mo" class="wmk" data-layout-ignore="">日</span>
+        <div data-hf-id="hf-l77v" class="deck-copy">
+          <span data-hf-id="hf-2rpq" class="eyebrow">每 日 一 帖 · HARMONYOS NATIVE</span>
+          <h2 data-hf-id="hf-t43f" class="headline">
+            <span data-hf-id="hf-w4p0" class="line-mask" data-layout-allow-overflow=""><span data-hf-id="hf-nfjx" class="line-inner" data-layout-allow-overflow="">每天 10 篇，</span></span>
+            <span data-hf-id="hf-vqdz" class="line-mask" data-layout-allow-overflow=""><span data-hf-id="hf-tkmv" class="line-inner" data-layout-allow-overflow="">读完即止。</span></span>
+          </h2>
+          <p data-hf-id="hf-7wbt" class="sub">一期一会 · 十篇读到完，一天就这一叠</p>
+        </div>
+
+        <div data-hf-id="hf-l1ou" class="device">
+          <div data-hf-id="hf-f7bx" class="device-bezel">
+            <div data-hf-id="hf-knsr" class="device-screen">
+              <span data-hf-id="hf-36l7" class="punch"></span>
+              <div data-hf-id="hf-qwep" class="stat-row">
+                <span data-hf-id="hf-m1pf" class="stat-time">9:41</span>
+                <span data-hf-id="hf-78n4" class="stat-ic">
+                  <span data-hf-id="hf-imvg" class="stat-chip">HarmonyOS</span>
+                  <svg data-hf-id="hf-ulu9" viewBox="0 0 24 24"><path data-hf-id="hf-if4b" d="M2 16h4.5c.8 0 1.5.3 2 .9s1.2.9 2 .9h7c.8 0 1.4-.6 1.4-1.4" /><path data-hf-id="hf-h82j" d="M2 12h6.5c1.2 0 2.3.5 3 1.4M2 8h9c1.2 0 2.2.6 3 1.4" /><path data-hf-id="hf-0h1w" d="M20 4v16M16.5 7.5l3.5-3.5 3.5 3.5" /></svg>
+                  <svg data-hf-id="hf-1tol" viewBox="0 0 24 24"><rect data-hf-id="hf-qx93" x="2" y="6" width="14" height="12" rx="2" /><path data-hf-id="hf-stfh" d="M20 10.5v3M22 8v8" /></svg>
+                  <svg data-hf-id="hf-30lo" viewBox="0 0 24 24"><path data-hf-id="hf-ft7x" d="M4 15a12 12 0 0 1 16 0M6.5 18a8.5 8.5 0 0 1 11 0" /><circle data-hf-id="hf-77y9" cx="12" cy="20.8" r="1.2" fill="currentColor" stroke="none" /></svg>
+                </span>
+              </div>
+              <div data-hf-id="hf-z992" class="head">
+                <div data-hf-id="hf-oojr" class="brand"><span data-hf-id="hf-zcaf" class="brand-serif">有据</span><span data-hf-id="hf-bqwq" class="brand-en">YOUJU</span></div>
+                <div data-hf-id="hf-brpb" class="mast-acts">
+                  <button data-hf-id="hf-juzi" class="mast-btn" aria-label="search"><svg data-hf-id="hf-2man" viewBox="0 0 24 24"><path data-hf-id="hf-lupt" d="M21 21l-4.3-4.3M17 10.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0z" /></svg></button>
+                  <button data-hf-id="hf-ox8n" class="mast-btn" aria-label="more"><svg data-hf-id="hf-3t7q" viewBox="0 0 24 24"><circle data-hf-id="hf-x96z" cx="5" cy="12" r="1.6" /><circle data-hf-id="hf-1z27" cx="12" cy="12" r="1.6" /><circle data-hf-id="hf-9lnk" cx="19" cy="12" r="1.6" /></svg></button>
+                </div>
+              </div>
+              <div data-hf-id="hf-2xz7" class="date-row">
+                <span data-hf-id="hf-msmb" class="date-main" data-layout-allow-occlusion="" data-layout-allow-overlap="">9月16日 星期三<span data-hf-id="hf-oo7q" class="date-week" data-layout-allow-occlusion="" data-layout-allow-overlap="">WED · SEP 16</span></span>
+                <span data-hf-id="hf-cd51" class="issue" data-layout-allow-occlusion="">NO.006</span>
+              </div>
+              <div data-hf-id="hf-a46i" class="rule"></div>
+
+              <div data-hf-id="hf-9uku" class="deck-stage">
+                <div data-hf-id="hf-omjk" class="d-card" id="deck4" data-layout-allow-overlap="" data-layout-allow-occlusion="">
+                  <div data-hf-id="hf-k9nw" class="d-face" data-layout-allow-overlap="" data-layout-allow-occlusion=""><div data-hf-id="hf-wm1l" class="corner" data-layout-allow-overlap="" data-layout-allow-occlusion="">避坑</div><img data-hf-id="hf-tngj" src="assets/cover-service.jpg" alt="首保避坑" crossorigin="anonymous"></div>
+                  <div data-hf-id="hf-39zk" class="d-meta" data-layout-allow-overlap="" data-layout-allow-occlusion=""><span data-hf-id="hf-ic2d" class="d-avatar" data-layout-allow-overlap="" data-layout-allow-occlusion="">首</span><span data-hf-id="hf-l2up" class="d-title" data-layout-allow-overlap="" data-layout-allow-occlusion="" data-layout-allow-overflow="">首保别被忽悠，这 4 项根本不用做</span><span data-hf-id="hf-ned0" class="d-stat" data-layout-allow-overlap="" data-layout-allow-occlusion="">356 赞</span></div>
+                </div>
+                <div data-hf-id="hf-5q2g" class="d-card d3" id="deck3" data-layout-allow-overlap="" data-layout-allow-occlusion="">
+                  <div data-hf-id="hf-ajyc" class="d-face" data-layout-allow-overlap="" data-layout-allow-occlusion=""><div data-hf-id="hf-e96e" class="corner" data-layout-allow-overlap="" data-layout-allow-occlusion="">测评</div><img data-hf-id="hf-wckl" src="assets/cover-earbuds.jpg" alt="耳机测评" crossorigin="anonymous"></div>
+                  <div data-hf-id="hf-jzmw" class="d-meta" data-layout-allow-overlap="" data-layout-allow-occlusion=""><span data-hf-id="hf-u7rq" class="d-avatar" data-layout-allow-overlap="" data-layout-allow-occlusion="">耳</span><span data-hf-id="hf-zljn" class="d-title" data-layout-allow-overlap="" data-layout-allow-occlusion="" data-layout-allow-overflow="">蓝牙耳机怎么选？附三轮实测对比</span><span data-hf-id="hf-s2nb" class="d-stat" data-layout-allow-overlap="" data-layout-allow-occlusion="">128 赞</span></div>
+                </div>
+                <div data-hf-id="hf-444q" class="d-card d2" id="deck2" data-layout-allow-overlap="" data-layout-allow-occlusion="">
+                  <div data-hf-id="hf-9d19" class="d-face" data-layout-allow-overlap="" data-layout-allow-occlusion=""><div data-hf-id="hf-uwoh" class="corner" data-layout-allow-overlap="" data-layout-allow-occlusion="">教程</div><img data-hf-id="hf-fjyd" src="assets/cover-tea-notebook.jpg" alt="学会记账" crossorigin="anonymous"></div>
+                  <div data-hf-id="hf-ispt" class="d-meta" data-layout-allow-overlap="" data-layout-allow-occlusion=""><span data-hf-id="hf-tmtf" class="d-avatar" data-layout-allow-overlap="" data-layout-allow-occlusion="">记</span><span data-hf-id="hf-pq4j" class="d-title" data-layout-allow-overlap="" data-layout-allow-occlusion="" data-layout-allow-overflow="">5分钟学会记账，亏钱习惯先改</span><span data-hf-id="hf-0wvp" class="d-stat" data-layout-allow-overlap="" data-layout-allow-occlusion="">89 赞</span></div>
+                </div>
+                <div data-hf-id="hf-4wfk" class="d-card d1" id="deck1" data-layout-allow-overlap="" data-layout-allow-occlusion="">
+                  <div data-hf-id="hf-9rca" class="d-face" data-layout-allow-overlap="" data-layout-allow-occlusion=""><div data-hf-id="hf-8y3f" class="corner" data-layout-allow-overlap="" data-layout-allow-occlusion="">心得</div><img data-hf-id="hf-alrd" src="assets/cover-desk-lamp.jpg" alt="多读点书" crossorigin="anonymous"></div>
+                  <div data-hf-id="hf-j70u" class="d-meta" data-layout-allow-overlap="" data-layout-allow-occlusion=""><span data-hf-id="hf-0mge" class="d-avatar" data-layout-allow-overlap="" data-layout-allow-occlusion="">读</span><span data-hf-id="hf-bxkm" class="d-title" data-layout-allow-overlap="" data-layout-allow-occlusion="" data-layout-allow-overflow="">每天空出 1 小时，一年顶十年</span><span data-hf-id="hf-sco5" class="d-stat" data-layout-allow-overlap="" data-layout-allow-occlusion="">203 赞</span></div>
+                  <span data-hf-id="hf-fe1i" class="d-seal-stamp" id="stamp1">今日一帖 · 已读完</span>
+                </div>
+                <div data-hf-id="hf-sieu" class="d-card d0" id="deck0" data-layout-allow-overlap="" data-layout-allow-occlusion="">
+                  <div data-hf-id="hf-bqvf" class="d-face" data-layout-allow-overlap="" data-layout-allow-occlusion=""><div data-hf-id="hf-4gyt" class="corner" data-layout-allow-overlap="" data-layout-allow-occlusion="">教程</div><img data-hf-id="hf-lyit" src="assets/cover-planner.jpg" alt="每周复盘" crossorigin="anonymous"></div>
+                  <div data-hf-id="hf-i03r" class="d-meta" data-layout-allow-overlap="" data-layout-allow-occlusion=""><span data-hf-id="hf-1ays" class="d-avatar" data-layout-allow-overlap="" data-layout-allow-occlusion="">复</span><span data-hf-id="hf-utzp" class="d-title" data-layout-allow-overlap="" data-layout-allow-occlusion="" data-layout-allow-overflow="">每周复盘 5 分钟，财商慢慢涨</span><span data-hf-id="hf-5gej" class="d-stat" data-layout-allow-overlap="" data-layout-allow-occlusion="">256 赞</span></div>
+                </div>
+                <div data-hf-id="hf-zd22" class="finger" id="finger"></div>
+              </div>
+
+              <div data-hf-id="hf-paqo" class="deck-foot">
+                <div data-hf-id="hf-drb2" class="dots" id="dots"></div>
+                <span data-hf-id="hf-z0hn" class="read-count"><span data-hf-id="hf-rs8u" id="cntA">0 / 10</span><span data-hf-id="hf-zvw0" id="cntB">10 / 10</span></span>
+              </div>
+              <span data-hf-id="hf-bg2c" class="home-bar"></span>
+            </div>
+          </div>
+        </div>
+
+        <span data-hf-id="hf-upry" class="s1-pill hpill"><span data-hf-id="hf-7a9b" class="seed"></span>HarmonyOS · 理性社交社区</span>
+      </div>
+
+      <!-- ============ S2 内容体裁 ============ -->
+      <div data-hf-id="hf-3lbe" id="scene2" class="clip scene" data-start="8.0" data-duration="4.6" data-track-index="2">
+        <span data-hf-id="hf-1g9d" class="wmk" data-layout-ignore="">据</span>
+        <span data-hf-id="hf-zlod" class="corner-pill hpill"><span data-hf-id="hf-7okc" class="seed"></span>HarmonyOS</span>
+        <div data-hf-id="hf-2t3w" class="body">
+          <span data-hf-id="hf-t5vs" class="eyebrow">有 据 · 内 容 体 裁</span>
+          <h2 data-hf-id="hf-abaz" class="headline">
+            <span data-hf-id="hf-wxb2" class="line-mask" data-layout-allow-overflow=""><span data-hf-id="hf-8c4r" class="line-inner" data-layout-allow-overflow="">五种体裁，</span></span>
+            <span data-hf-id="hf-wj01" class="line-mask" data-layout-allow-overflow=""><span data-hf-id="hf-mb27" class="line-inner" data-layout-allow-overflow="">都讲真话。</span></span>
+          </h2>
+          <p data-hf-id="hf-65ed" class="sub">测评 · 避坑 · 教程 · 辩论 · 分享，一律有结构、有依据</p>
+          <div data-hf-id="hf-727p" class="genre"><span data-hf-id="hf-62qq" class="gno">01</span><span data-hf-id="hf-sk0m" class="gname">测评报告</span><span data-hf-id="hf-4p8w" class="ghint">优缺点 · 推荐指数</span></div>
+          <div data-hf-id="hf-d6p5" class="genre"><span data-hf-id="hf-6h1r" class="gno">02</span><span data-hf-id="hf-ft89" class="gname">避坑指南</span><span data-hf-id="hf-ex0v" class="ghint">踩过的坑 · 正确做法</span></div>
+          <div data-hf-id="hf-edm8" class="genre"><span data-hf-id="hf-6vcs" class="gno">03</span><span data-hf-id="hf-hia9" class="gname">实操教程</span><span data-hf-id="hf-7b4k" class="ghint">工具 · 步骤 · 清单</span></div>
+          <div data-hf-id="hf-dzb7" class="genre"><span data-hf-id="hf-79nt" class="gno">04</span><span data-hf-id="hf-0whn" class="gname">辩论投票</span><span data-hf-id="hf-v1p5" class="ghint">A / B 方案 · 投票</span></div>
+          <div data-hf-id="hf-dzb8" class="genre"><span data-hf-id="hf-79nu" class="gno">05</span><span data-hf-id="hf-0who" class="gname">经验分享</span><span data-hf-id="hf-v1p6" class="ghint">真实经历 · 见闻</span></div>
+          <div data-hf-id="hf-uggk" class="vote">
+            <div data-hf-id="hf-03yy" class="vrow"><span data-hf-id="hf-2y6s" class="vlabel">方案 A：先租后买</span><div data-hf-id="hf-y26p" class="vbar"><div data-hf-id="hf-k8ed" class="vfill" id="vfillA"></div></div><span data-hf-id="hf-95nj" class="vno">62%</span></div>
+            <div data-hf-id="hf-nbr2" class="vrow"><span data-hf-id="hf-rgqx" class="vlabel">方案 B：直接攒首付</span><div data-hf-id="hf-ubk5" class="vbar"><div data-hf-id="hf-nf38" class="vfill b" id="vfillB"></div></div><span data-hf-id="hf-l3s2" class="vno">38%</span></div>
+          </div>
+        </div>
+        <div data-hf-id="hf-rxjn" class="slogan-wrap">
+          <p data-hf-id="hf-vhgt" class="slogan"><span data-hf-id="hf-xpx4" class="line-mask" data-layout-allow-overflow=""><span data-hf-id="hf-72ea" class="line-inner" data-layout-allow-overflow="" data-layout-allow-overlap="" data-layout-allow-occlusion="">不贩卖焦虑，只分享依据。</span></span></p>
+        </div>
+      </div>
+
+      <!-- ============ S3 理性社交 · 双向治理 ============ -->
+      <div data-hf-id="hf-ttov" id="scene3" class="clip scene" data-start="12.0" data-duration="4.8" data-track-index="3">
+        <span data-hf-id="hf-s51g" class="wmk" data-layout-ignore="">圈</span>
+        <span data-hf-id="hf-lbbl" class="corner-pill hpill"><span data-hf-id="hf-82vd" class="seed"></span>HarmonyOS</span>
+        <div data-hf-id="hf-6g9g" class="body">
+          <span data-hf-id="hf-uffb" class="eyebrow">圈 子 · ORBIT 选 圈</span>
+          <h2 data-hf-id="hf-9wzy" class="headline">
+            <span data-hf-id="hf-xbm3" class="line-mask" data-layout-allow-overflow=""><span data-hf-id="hf-1s8p" class="line-inner" data-layout-allow-overflow="">把同好，</span></span>
+            <span data-hf-id="hf-yij6" class="line-mask" data-layout-allow-overflow=""><span data-hf-id="hf-5nwl" class="line-inner" data-layout-allow-overflow="">圈成星球。</span></span>
+          </h2>
+          <p data-hf-id="hf-h8rx" class="sub" data-layout-allow-overlap="">三层星环 · 拖拽旋转 · 一键进圈</p>
+        </div>
+        <div data-hf-id="hf-7r1g" class="ob-stage" id="obStage" data-layout-allow-overlap="" data-layout-allow-occlusion="" data-layout-allow-overflow="">
+          <div data-hf-id="hf-d8r3" class="ob-ring ob-r1" id="obR1"><span data-hf-id="hf-o49l" class="ob-planet ob-p1" id="pl1" data-layout-ignore="" style="left:-17px;top:calc(50% - 17px)"></span><span data-hf-id="hf-ua7t" class="ob-planet ob-p2" id="pl2" data-layout-ignore="" style="left:calc(50% - 17px);top:-17px"></span></div>
+          <div data-hf-id="hf-h84v" class="ob-ring ob-r2" id="obR2"><span data-hf-id="hf-9hn1" class="ob-planet ob-p3" id="pl3" data-layout-ignore="" style="left:calc(50% - 17px);top:calc(100% - 17px)"></span></div>
+          <div data-hf-id="hf-3ygv" class="ob-ring ob-r3" id="obR3"><span data-hf-id="hf-ygvh" class="ob-planet ob-p4" id="pl4" data-layout-ignore="" style="left:calc(100% - 17px);top:calc(50% - 17px)"></span></div>
+          <span data-hf-id="hf-8yyr" class="ob-core" id="obCore" data-layout-ignore=""></span>
+          <div data-hf-id="hf-nghk" class="ob-hand" id="obHand" data-layout-ignore=""></div>
+          <div data-hf-id="hf-jekz" class="ob-card" id="obCard" data-layout-allow-overlap="" data-layout-allow-occlusion="">
+            <div data-hf-id="hf-yeow"><div data-hf-id="hf-f5h8" class="obc-name">旅游出行</div><div data-hf-id="hf-nlt8" class="obc-meta">2.3w 成员 · 作业打卡 / 约伴</div></div>
+            <span data-hf-id="hf-s3gl" class="obc-btn">进圈</span>
+          </div>
+        </div>
+        <div data-hf-id="hf-y4vc" class="s3-chips">
+          <span data-hf-id="hf-6rmb" class="chip" data-layout-allow-overlap="">三层星环</span><span data-hf-id="hf-sgvj" class="chip" data-layout-allow-overlap="">拖拽选圈</span><span data-hf-id="hf-4s7u" class="chip harmony" data-layout-allow-overlap="">一键进圈</span>
+        </div>
+      </div>
+
+      <!-- ============ S4 收藏 · 圈子 · 关注 ============ -->
+      <div data-hf-id="hf-bai9" id="scene4" class="clip scene" data-start="16.2" data-duration="4.4" data-track-index="4">
+        <span data-hf-id="hf-e6d0" class="wmk" data-layout-ignore="">留</span>
+        <span data-hf-id="hf-mi8o" class="corner-pill hpill"><span data-hf-id="hf-8h6e" class="seed"></span>HarmonyOS</span>
+        <div data-hf-id="hf-59cd" class="body">
+          <span data-hf-id="hf-qnw4" class="eyebrow">收 藏 · 圈 子 · 关 注</span>
+          <h2 data-hf-id="hf-9iox" class="headline">
+            <span data-hf-id="hf-y485" class="line-mask" data-layout-allow-overflow=""><span data-hf-id="hf-5m6g" class="line-inner" data-layout-allow-overflow="">把有用的，</span></span>
+            <span data-hf-id="hf-wk6v" class="line-mask" data-layout-allow-overflow=""><span data-hf-id="hf-w7ei" class="line-inner" data-layout-allow-overflow="">留下来。</span></span>
+          </h2>
+          <p data-hf-id="hf-12f5" class="sub">理性社交 · 圈子聊得来，关注刷屏少</p>
+          <div data-hf-id="hf-wupb" class="feat-row">
+            <div data-hf-id="hf-vrs0" class="feat"><div data-hf-id="hf-obr5" class="feat-ic"><svg data-hf-id="hf-3ewp" viewBox="0 0 24 24"><path data-hf-id="hf-7vft" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg></div><div data-hf-id="hf-0zlt" class="feat-name" data-layout-allow-overlap="">收藏</div><div data-hf-id="hf-2b1u" class="feat-tip">随时回看</div></div>
+            <div data-hf-id="hf-75ug" class="feat"><div data-hf-id="hf-38gl" class="feat-ic"><svg data-hf-id="hf-4lts" viewBox="0 0 24 24"><circle data-hf-id="hf-1iwn" cx="12" cy="12" r="9" /><circle data-hf-id="hf-kysq" cx="12" cy="12" r="4" /><path data-hf-id="hf-in7l" d="M4.8 5.5h8.4M3.5 5.5h1.3M15 5.5h5.5" /></svg></div><div data-hf-id="hf-x65e" class="feat-name" data-layout-allow-overlap="">圈子</div><div data-hf-id="hf-6rdu" class="feat-tip">慢慢聊</div></div>
+            <div data-hf-id="hf-5yxd" class="feat"><div data-hf-id="hf-4fdo" class="feat-ic"><svg data-hf-id="hf-47ir" viewBox="0 0 24 24"><path data-hf-id="hf-g1oz" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM19 8v6M16 11h6" /></svg></div><div data-hf-id="hf-g4jt" class="feat-name" data-layout-allow-overlap="">关注</div><div data-hf-id="hf-e5m5" class="feat-tip">不迷路</div></div>
+          </div>
+        </div>
+        <div data-hf-id="hf-k2q8" class="foot-note">把有用的，留下来 · 收藏 · 圈子 · 关注</div>
+      </div>
+
+      <!-- ============ S5 价值观收束 ============ -->
+      <div data-hf-id="hf-pq2k" id="scene5" class="clip scene" data-start="20.0" data-duration="4.2" data-track-index="5">
+        <span data-hf-id="hf-zzda" class="wmk" data-layout-ignore="">真</span>
+        <span data-hf-id="hf-m3xn" class="corner-pill hpill"><span data-hf-id="hf-8vhf" class="seed"></span>HarmonyOS</span>
+        <div data-hf-id="hf-5nne" class="body">
+          <span data-hf-id="hf-yt0e" class="eyebrow">HarmonyOS NEXT 原生开发</span>
+          <div data-hf-id="hf-mecc" class="gold-line" data-layout-ignore=""></div>
+          <h2 data-hf-id="hf-94dw" class="headline">
+            <span data-hf-id="hf-wyhw" class="line-mask" data-layout-allow-overflow=""><span data-hf-id="hf-v5yp" class="line-inner" data-layout-allow-overflow="">真实经验，</span></span>
+            <span data-hf-id="hf-vrkt" class="line-mask" data-layout-allow-overflow=""><span data-hf-id="hf-bx35" class="line-inner" data-layout-allow-overflow=""><span data-hf-id="hf-cn7d" class="accent">有据可循</span>。</span></span>
+          </h2>
+          <div data-hf-id="hf-exrd" class="chips">
+            <span data-hf-id="hf-cj8s" class="chip">理性</span><span data-hf-id="hf-b01c" class="chip">友善</span><span data-hf-id="hf-1ezv" class="chip">共创</span><span data-hf-id="hf-368f" class="chip harmony">HarmonyOS</span>
+          </div>
+          <p data-hf-id="hf-hiyg" class="sub">不迎合流量，把话说清楚，把边界守明白</p>
+        </div>
+      </div>
+
+      <!-- ============ S6 结尾定版 ============ -->
+      <div data-hf-id="hf-vxl7" id="scene6" class="clip scene" data-start="23.6" data-duration="4.6" data-track-index="6">
+        <div data-hf-id="hf-e0lx" class="outro">
+          <div data-hf-id="hf-ylha" class="out-eyebrow">即将上线 · HARMONYOS NEXT</div>
+          <div data-hf-id="hf-awx8" class="out-logo">
+            <span data-hf-id="hf-q32s" class="ring" id="ring6" data-layout-ignore=""></span>
+            <img data-hf-id="hf-6dla" src="assets/logo.png" width="176" height="176" alt="有据" crossorigin="anonymous">
+            <span data-hf-id="hf-tu9i" class="out-name">有据</span>
+          </div>
+          <h2 data-hf-id="hf-d0wg" class="out-title">
+            <span data-hf-id="hf-w5vu" class="line-mask" data-layout-allow-overflow=""><span data-hf-id="hf-qwll" class="line-inner" data-layout-allow-overflow="">真实经验，<span data-hf-id="hf-pnbh" class="accent">有据可循</span>。</span></span>
+          </h2>
+          <div data-hf-id="hf-wqyb" class="out-sub">HarmonyOS · 理性社交社区</div>
+          <span data-hf-id="hf-calp" class="out-pill hpill"><span data-hf-id="hf-99sg" class="seed"></span>尊重每一次阅读 · 敬请期待</span>
+        </div>
+        <div data-hf-id="hf-yuwk" class="out-foot">© 2026 有据 · HARMONYOS NEXT 原生理性内容社区</div>
+      </div>
+
+      <!-- ============ 转场 Bridge 覆盖层（共享元素接力） ============ -->
+      <div data-hf-id="hf-12u9" id="bridge01" class="clip bridge" data-start="2.5" data-duration="0.95" data-track-index="8" data-layout-ignore="">
+        <span data-hf-id="hf-wb4g" class="b-ring" id="br01r" data-layout-ignore=""></span>
+        <img data-hf-id="hf-p6ra" class="b-logo" id="br01l" src="assets/logo-bridge1.png" width="176" height="176" alt="有据" crossorigin="anonymous" data-layout-ignore="">
+      </div>
+      <div data-hf-id="hf-k3lq" id="bridge02" class="clip bridge" data-start="7.9" data-duration="0.95" data-track-index="9" data-layout-ignore="">
+        <div data-hf-id="hf-3osv" class="b-card" id="br02c" data-layout-ignore="">
+          <div data-hf-id="hf-7aup" class="b-face" data-layout-ignore=""><img data-hf-id="hf-2ycr" src="assets/cover-bridge2.jpg" alt="" crossorigin="anonymous" data-layout-ignore=""></div>
+          <div data-hf-id="hf-qdcd" class="b-meta" data-layout-ignore=""><span data-hf-id="hf-pohp" class="b-av" data-layout-ignore="">复</span><span data-hf-id="hf-i2ly" class="b-ti" data-layout-ignore="">每周复盘 5 分钟，财商慢慢涨</span></div>
+        </div>
+      </div>
+      <div data-hf-id="hf-en7c" id="bridge03" class="clip bridge" data-start="11.9" data-duration="0.95" data-track-index="10" data-layout-ignore="">
+        <span data-hf-id="hf-xu40" class="b-orb" id="br03o" data-layout-ignore=""></span>
+      </div>
+      <div data-hf-id="hf-wpf3" id="bridge04" class="clip bridge" data-start="16.1" data-duration="0.95" data-track-index="11" data-layout-ignore="">
+        <div data-hf-id="hf-dhyj" class="b-selcard" id="br04s" data-layout-ignore="">
+          <div data-hf-id="hf-zbo5" class="b-sc-name" data-layout-ignore="">旅游出行</div>
+          <span data-hf-id="hf-9621" class="b-sc-btn" data-layout-ignore="">进圈</span>
+        </div>
+      </div>
+      <div data-hf-id="hf-siiw" id="bridge05" class="clip bridge" data-start="19.9" data-duration="0.95" data-track-index="12" data-layout-ignore="">
+        <span data-hf-id="hf-02aj" class="b-txt" id="br05t" data-layout-ignore="">留下来。</span>
+      </div>
+      <div data-hf-id="hf-2hmv" id="bridge06" class="clip bridge" data-start="23.5" data-duration="0.95" data-track-index="13" data-layout-ignore="">
+        <span data-hf-id="hf-6ljv" class="b-ring" id="br06r" style="top:1150px" data-layout-ignore=""></span>
+        <img data-hf-id="hf-00fq" class="b-logo" id="br06l" src="assets/logo-bridge6.png" width="176" height="176" alt="有据" style="top:1150px" crossorigin="anonymous" data-layout-ignore="">
+      </div>
+    </div>
+
+    <script>
+      // 初始化进度点
+      (function () {
+        var dotsWrap = document.getElementById("dots");
+        for (var i = 0; i < 10; i++) {
+          var dot = document.createElement("span");
+          dot.className = "dot";
+          dotsWrap.appendChild(dot);
+        }
+      })();
+
+      // S0 初始隐藏态（立即生效，避免 t=0 闪现）
+      gsap.set("#intLogo", { scale: 0.7, opacity: 0 });
+      gsap.set("#intRing", { scale: 0, opacity: 0 });
+      gsap.set("#intName", { y: 30, opacity: 0 });
+      gsap.set("#scene0 .int-tag .line-inner", { yPercent: 110 });
+      gsap.set("#intSub", { y: 18, opacity: 0 });
+      gsap.set("#intSide", { opacity: 0 });
+      gsap.set(".int-pill", { y: -16, opacity: 0 });
+      gsap.set(".int-bottom", { y: 16, opacity: 0 });
+      // Bridge 转场元素初始隐藏（转场窗口外不可见）
+      gsap.set("#bridge01 #br01r, #bridge01 #br01l", { opacity: 0 });
+      gsap.set("#bridge02 #br02c", { opacity: 0 });
+      gsap.set("#bridge03 #br03o", { opacity: 0 });
+      gsap.set("#bridge04 #br04s", { opacity: 0 });
+      gsap.set("#bridge05 #br05t", { opacity: 0 });
+      gsap.set("#bridge06 #br06r, #bridge06 #br06l", { opacity: 0, scale: 0.35 });
+
+      const tl = gsap.timeline({ paused: true });
+
+      /* ================= S0 软件介绍 · 居中定版（0–2.6，2.6 转场交棒） ================= */
+      tl.to(".int-pill", { y: 0, opacity: 1, duration: 0.55, ease: "power3.out" }, 0.15);
+      tl.to("#intLogo", { scale: 1, opacity: 1, duration: 0.6, ease: "back.out(1.6)" }, 0.45);
+      tl.to("#intRing", { scale: 1, opacity: 0.9, duration: 0.6, ease: "back.out(1.4)" }, 0.5);
+      tl.to("#intName", { y: 0, opacity: 1, duration: 0.6, ease: "power3.out" }, 0.7);
+      tl.to("#scene0 .int-tag .line-inner", { yPercent: 0, duration: 0.7, ease: "power4.out", stagger: 0.16 }, 0.95);
+      tl.to("#intSub", { y: 0, opacity: 1, duration: 0.5, ease: "power2.out" }, 1.6);
+      tl.to("#intSide", { opacity: 1, duration: 0.6, ease: "power2.out" }, 1.9);
+      tl.to(".int-bottom", { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 2.2);
+
+      /* ================= 转场 S0→S1（Logo 落进真机） ================= */
+      tl.to("#scene0", { opacity: 0, duration: 0.45, ease: "power2.inOut" }, 2.6);
+      tl.fromTo("#scene1", { opacity: 0 }, { opacity: 1, duration: 0.45, ease: "power2.inOut" }, 2.72);
+      tl.to("#bridge01 #br01r, #bridge01 #br01l", { opacity: 1, duration: 0.18, ease: "power2.out" }, 2.62);
+      tl.to("#bridge01 #br01r, #bridge01 #br01l", { scaleX: 1.06, scaleY: 0.9, rotation: 2, duration: 0.22, ease: "power2.inOut" }, 2.66);
+      tl.to("#bridge01 #br01r, #bridge01 #br01l", { y: -140, scaleX: 0.5, scaleY: 0.5, rotation: 0, duration: 0.5, ease: "expo.inOut", overwrite: "auto" }, 2.76);
+      tl.to("#bridge01 #br01r, #bridge01 #br01l", { scaleX: 0.53, scaleY: 0.47, opacity: 0.55, duration: 0.16, ease: "back.out(1.4)", overwrite: "auto" }, 3.2);
+      tl.to("#bridge01", { opacity: 0, duration: 0.2, ease: "power2.in" }, 3.3);
+
+      /* ================= S1 每日一帖（2.6–8.0，T 8.0） ================= */
+      tl.set(".device", { y: 80, scale: 0.94, opacity: 0 }, 2.7);
+      tl.set("#scene1 .brand-serif", { y: -20, opacity: 0 }, 2.7);
+      tl.set("#scene1 .brand-en", { y: -20, opacity: 0 }, 2.7);
+      tl.set("#scene1 .mast-btn", { scale: 0, opacity: 0 }, 2.7);
+      tl.set("#scene1 .date-row", { y: -12, opacity: 0 }, 2.7);
+      tl.set("#scene1 .rule", { scaleX: 0 }, 2.7);
+      tl.set("#deck1", { y: -140, opacity: 0 }, 2.7);
+      tl.set("#deck2", { y: -170, opacity: 0 }, 2.7);
+      tl.set("#deck3", { y: -196, opacity: 0 }, 2.7);
+      tl.set("#deck4", { y: -220, opacity: 0 }, 2.7);
+      tl.set("#deck0", { y: 46, opacity: 0 }, 2.7);
+      tl.set("#deck0 .d-meta", { opacity: 0 }, 2.7);
+      tl.set("#stamp1", { scale: 0, rotation: -20, opacity: 0 }, 2.7);
+      tl.set("#cntB", { opacity: 0 }, 2.7);
+      tl.set("#finger", { scale: 0, opacity: 0 }, 2.7);
+      tl.set("#scene1 .deck-foot", { opacity: 0 }, 2.7);
+      tl.set("#scene1 .s1-pill", { y: 16, opacity: 0 }, 2.7);
+      tl.set("#scene1 .deck-copy .eyebrow", { y: -16, opacity: 0 }, 2.7);
+      tl.set("#scene1 .deck-copy .line-inner", { yPercent: 110 }, 2.7);
+      tl.set("#scene1 .deck-copy .sub", { y: 20, opacity: 0 }, 2.7);
+
+      tl.to(".device", { y: 0, scale: 1, opacity: 1, duration: 0.7, ease: "power3.out", overwrite: "auto" }, 2.85);
+      tl.fromTo("#scene1 .brand-serif", { y: -20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 3.3);
+      tl.fromTo("#scene1 .brand-en", { y: -20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 3.38);
+      tl.fromTo("#scene1 .mast-btn", { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.45, ease: "back.out(2)", stagger: 0.08 }, 3.46);
+      tl.fromTo("#scene1 .date-row", { y: -12, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power2.out" }, 3.58);
+      tl.fromTo("#scene1 .rule", { scaleX: 0 }, { scaleX: 1, duration: 0.6, ease: "power3.inOut" }, 3.72);
+
+      /* 卡堆实体出场：从上方高位滑落归位 */
+      tl.to("#deck1", { y: -38, opacity: .92, duration: 0.5, ease: "power3.out", overwrite: "auto" }, 3.85);
+      tl.to("#deck2", { y: -68, opacity: .8, duration: 0.5, ease: "power3.out", overwrite: "auto" }, 3.92);
+      tl.to("#deck3", { y: -94, opacity: .6, duration: 0.5, ease: "power3.out", overwrite: "auto" }, 3.99);
+      tl.to("#deck4", { y: -112, scale: .93, rotation: -3.6, opacity: .6, duration: 0.5, ease: "power3.out", overwrite: "auto" }, 4.06);
+      tl.to("#deck0", { y: 0, opacity: 1, duration: 0.55, ease: "back.out(1.5)", overwrite: "auto" }, 4.2);
+      tl.to("#deck0 .d-meta", { opacity: 1, duration: 0.4, ease: "power2.out", overwrite: "auto" }, 4.45);
+
+      tl.fromTo("#scene1 .deck-copy .eyebrow", { y: -16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 4.65);
+      tl.fromTo("#scene1 .deck-copy .line-inner", { yPercent: 110 }, { yPercent: 0, duration: 0.7, ease: "power4.out", stagger: 0.15 }, 4.82);
+      tl.fromTo("#scene1 .deck-copy .sub", { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power2.out" }, 5.25);
+      tl.fromTo("#scene1 .deck-foot", { opacity: 0 }, { opacity: 1, duration: 0.45, ease: "power2.out" }, 5.4);
+      tl.fromTo("#scene1 .s1-pill", { y: 16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 5.5);
+
+      /* 手指出现 + 拖拽（视差 0.30 / 0.18 / 0.08，同向倾斜） */
+      tl.to("#finger", { scale: 1, opacity: 1, duration: 0.45, ease: "back.out(2.2)" }, 5.8);
+      tl.to("#finger", { x: 132, y: 28, duration: 0.55, ease: "power1.inOut" }, 6.1);
+      tl.fromTo("#deck0", { x: 0, rotation: 0 }, { x: 150, rotation: 7, duration: 0.55, ease: "power1.inOut" }, 6.1);
+      tl.fromTo("#deck1", { x: 0, rotation: -1.2 }, { x: 45, rotation: -5.2, duration: 0.55, ease: "power1.inOut" }, 6.1);
+      tl.fromTo("#deck2", { x: 0, rotation: -2.4 }, { x: 27, rotation: -4.5, duration: 0.55, ease: "power1.inOut" }, 6.1);
+      tl.fromTo("#deck3", { x: 0, rotation: -3.6 }, { x: 12, rotation: -4.2, duration: 0.55, ease: "power1.inOut" }, 6.1);
+
+      /* 松手回弹 */
+      tl.to("#finger", { x: 132, y: 32, duration: 0.12, ease: "none" }, 6.65);
+      tl.to("#deck0", { x: 0, rotation: 0, duration: 0.6, ease: "back.out(1.8)" }, 6.7);
+      tl.to("#deck1", { x: 0, rotation: -1.2, duration: 0.6, ease: "back.out(1.4)" }, 6.75);
+      tl.to("#deck2", { x: 0, rotation: -2.4, duration: 0.6, ease: "back.out(1.2)" }, 6.8);
+      tl.to("#deck3", { x: 0, rotation: -3.6, duration: 0.6, ease: "back.out(1.1)" }, 6.85);
+
+      /* 顶卡抛出（机内飞出屏幕带轨迹）+ 下一张升起 */
+      tl.to("#deck0", { x: 470, y: -1010, rotation: 26, duration: 0.55, ease: "power2.in" }, 7.35);
+      tl.to("#finger", { opacity: 0, scale: .6, duration: 0.3, ease: "power2.in" }, 7.4);
+      tl.fromTo("#deck1", { y: -38, scale: .975, rotation: -1.2 }, { y: 0, scale: 1, rotation: 0, duration: 0.55, ease: "back.out(1.6)" }, 7.55);
+      tl.to("#stamp1", { scale: 1, rotation: -6, opacity: 1, duration: 0.5, ease: "back.out(1.9)" }, 7.75);
+      tl.to("#scene1 .dot", { background: "#8A6548", scaleY: 1.15, duration: 0.3, ease: "power2.out", stagger: 0.03 }, 7.75);
+      tl.to("#cntA", { opacity: 0, duration: 0.3, ease: "power2.out" }, 7.9);
+      tl.to("#cntB", { opacity: 1, duration: 0.3, ease: "power2.out" }, 7.93);
+
+      /* ================= 转场 S1→S2（顶卡飞成体裁卡） ================= */
+      tl.to("#scene1", { opacity: 0, duration: 0.45, ease: "power2.inOut" }, 8.0);
+      tl.fromTo("#scene2", { opacity: 0 }, { opacity: 1, duration: 0.45, ease: "power2.inOut" }, 8.12);
+      tl.to("#bridge02 #br02c", { opacity: 1, duration: 0.18, ease: "power2.out" }, 8.02);
+      tl.to("#bridge02 #br02c", { scaleX: 1.05, scaleY: 0.93, rotation: 1.5, duration: 0.22, ease: "power2.inOut" }, 8.06);
+      tl.to("#bridge02 #br02c", { y: 82, scaleX: 0.67, scaleY: 0.67, rotation: 0, duration: 0.5, ease: "expo.inOut", overwrite: "auto" }, 8.16);
+      tl.to("#bridge02 #br02c", { scaleX: 0.71, scaleY: 0.63, opacity: 0.55, duration: 0.16, ease: "back.out(1.4)", overwrite: "auto" }, 8.6);
+      tl.to("#bridge02", { opacity: 0, duration: 0.2, ease: "power2.in" }, 8.7);
+
+      /* ================= S2 内容体裁（8.0–12.0） ================= */
+      tl.set("#scene2 .eyebrow", { y: -16, opacity: 0 }, 8.0);
+      tl.set("#scene2 .corner-pill", { y: -16, opacity: 0 }, 8.0);
+      tl.set("#scene2 .line-inner", { yPercent: 110 }, 8.0);
+      tl.set("#scene2 .sub", { y: 22, opacity: 0 }, 8.0);
+      tl.set("#scene2 .genre", { y: 44, scale: 0.94, opacity: 0 }, 8.0);
+      tl.set("#scene2 .vote", { y: 46, opacity: 0 }, 8.0);
+      tl.set("#scene2 .vfill", { scaleX: 0 }, 8.0);
+      tl.set("#scene2 .vno", { opacity: 0 }, 8.0);
+      tl.set("#scene2 .slogan .line-inner", { yPercent: 110 }, 8.0);
+
+      tl.fromTo("#scene2 .corner-pill", { y: -16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 8.1);
+      tl.fromTo("#scene2 .eyebrow", { y: -16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 8.2);
+      tl.fromTo("#scene2 .headline .line-inner", { yPercent: 110 }, { yPercent: 0, duration: 0.7, ease: "power4.out", stagger: 0.16 }, 8.35);
+      tl.fromTo("#scene2 .sub", { y: 22, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power2.out" }, 8.8);
+      tl.fromTo("#scene2 .genre", { y: 44, scale: 0.94, opacity: 0 }, { y: 0, scale: 1, opacity: 1, duration: 0.55, ease: "back.out(1.45)", stagger: 0.09 }, 9.05);
+      tl.fromTo("#scene2 .vote", { y: 46, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: "power3.out" }, 9.85);
+      tl.fromTo("#scene2 .vfill", { scaleX: 0 }, { scaleX: 1, duration: 1.0, ease: "expo.out", stagger: 0.18 }, 10.15);
+      tl.fromTo("#scene2 .vno", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power2.out", stagger: 0.18 }, 10.55);
+      tl.fromTo("#scene2 .slogan .line-inner", { yPercent: 110 }, { yPercent: 0, duration: 0.7, ease: "power4.out" }, 10.95);
+
+      /* ================= 转场 S2→S3（金色圆斑长成星环核心） ================= */
+      tl.to("#scene2", { opacity: 0, duration: 0.45, ease: "power2.inOut" }, 12.0);
+      tl.fromTo("#scene3", { opacity: 0 }, { opacity: 1, duration: 0.45, ease: "power2.inOut" }, 12.12);
+      tl.to("#bridge03 #br03o", { opacity: 1, duration: 0.18, ease: "power2.out" }, 12.02);
+      tl.to("#bridge03 #br03o", { scaleX: 0.92, scaleY: 1.12, duration: 0.22, ease: "power2.inOut" }, 12.06);
+      tl.to("#bridge03 #br03o", { y: 60, scaleX: 2.5, scaleY: 2.5, duration: 0.5, ease: "expo.inOut", overwrite: "auto" }, 12.16);
+      tl.to("#bridge03 #br03o", { scaleX: 2.65, scaleY: 2.35, opacity: 0.6, duration: 0.16, ease: "back.out(1.4)", overwrite: "auto" }, 12.6);
+      tl.to("#bridge03", { opacity: 0, duration: 0.2, ease: "power2.in" }, 12.7);
+
+      /* ================= S3 圈子 · 星环选圈（12.0–16.2） ================= */
+      tl.set("#scene3 .eyebrow", { y: -16, opacity: 0 }, 12.0);
+      tl.set("#scene3 .corner-pill", { y: -16, opacity: 0 }, 12.0);
+      tl.set("#scene3 .line-inner", { yPercent: 110 }, 12.0);
+      tl.set("#scene3 .sub", { y: 20, opacity: 0 }, 12.0);
+      tl.set("#obStage", { y: 70, scale: 0.94, opacity: 0 }, 12.0);
+      tl.set("#obR1, #obR2, #obR3", { scale: 0.5, opacity: 0 }, 12.0);
+      tl.set("#pl1, #pl2, #pl3, #pl4", { scale: 0 }, 12.0);
+      tl.set("#obCore", { opacity: 0 }, 12.0);
+      tl.set("#obHand", { scale: 0, opacity: 0 }, 12.0);
+      tl.set("#obCard", { y: 50, opacity: 0 }, 12.0);
+      tl.set("#scene3 .s3-chips .chip", { scale: 0.6, opacity: 0 }, 12.0);
+
+      tl.fromTo("#scene3 .corner-pill", { y: -16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 12.3);
+      tl.fromTo("#scene3 .eyebrow", { y: -16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 12.35);
+      tl.fromTo("#scene3 .headline .line-inner", { yPercent: 110 }, { yPercent: 0, duration: 0.7, ease: "power4.out", stagger: 0.16 }, 12.5);
+      tl.fromTo("#scene3 .sub", { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power2.out" }, 12.95);
+      tl.to("#obStage", { y: 0, scale: 1, opacity: 1, duration: 0.6, ease: "back.out(1.5)", overwrite: "auto" }, 13.25);
+      /* 三层星环错峰展开 */
+      tl.to("#obR1, #obR2, #obR3", { scale: 1, opacity: 1, duration: 0.55, ease: "back.out(1.6)", stagger: 0.12, overwrite: "auto" }, 13.55);
+      tl.to("#obCore", { opacity: 1, duration: 0.5, ease: "power2.out", overwrite: "auto" }, 13.95);
+      /* 行星弹出 */
+      tl.to("#pl1, #pl2, #pl3, #pl4", { scale: 1, duration: 0.4, ease: "back.out(2.2)", stagger: 0.1 }, 14.05);
+      /* 星环自转（轨道带行星绕行） */
+      tl.to("#obR1", { rotation: 18, duration: 2.0, ease: "power1.inOut" }, 14.35);
+      tl.to("#obR2", { rotation: -15, duration: 2.2, ease: "power1.inOut" }, 14.35);
+      tl.to("#obR3", { rotation: 12, duration: 1.8, ease: "power1.inOut" }, 14.35);
+      /* 拖拽内环选圈 → 松手回弹 → 选中高亮 + 圈卡片 */
+      tl.to("#obHand", { scale: 1, opacity: 1, duration: 0.45, ease: "back.out(2.2)" }, 14.9);
+      tl.to("#obR2", { rotation: 24, duration: 0.45, ease: "power2.inOut", overwrite: "auto" }, 15.15);
+      tl.to("#obR2", { rotation: -13, duration: 0.55, ease: "back.out(1.5)", overwrite: "auto" }, 15.6);
+      tl.to("#pl3", { scale: 1.5, duration: 0.35, ease: "back.out(2)", overwrite: "auto" }, 15.75);
+      tl.to("#obCard", { y: 0, opacity: 1, duration: 0.5, ease: "back.out(1.7)", overwrite: "auto" }, 15.7);
+      tl.to("#obHand", { opacity: 0, scale: 0.6, duration: 0.3, ease: "power2.in" }, 16.0);
+      /* 圈层能力标签 */
+      tl.fromTo("#scene3 .s3-chips .chip", { scale: 0.6, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.45, ease: "back.out(2)", stagger: 0.1 }, 15.85);
+
+      /* ================= 转场 S3→S4（选圈卡缩成三宫格） ================= */
+      tl.to("#scene3", { opacity: 0, duration: 0.45, ease: "power2.inOut" }, 16.2);
+      tl.fromTo("#scene4", { opacity: 0 }, { opacity: 1, duration: 0.45, ease: "power2.inOut" }, 16.32);
+      tl.to("#bridge04 #br04s", { opacity: 1, duration: 0.18, ease: "power2.out" }, 16.22);
+      tl.to("#bridge04 #br04s", { scaleX: 1.05, scaleY: 0.92, rotation: -2, duration: 0.22, ease: "power2.inOut" }, 16.26);
+      tl.to("#bridge04 #br04s", { y: -210, scaleX: 0.42, scaleY: 0.42, rotation: 0, duration: 0.5, ease: "expo.inOut", overwrite: "auto" }, 16.36);
+      tl.to("#bridge04 #br04s", { scaleX: 0.45, scaleY: 0.4, opacity: 0.55, duration: 0.16, ease: "back.out(1.4)", overwrite: "auto" }, 16.8);
+      tl.to("#bridge04", { opacity: 0, duration: 0.2, ease: "power2.in" }, 16.9);
+
+      /* ================= S4 收藏·圈子·关注（16.2–20.0） ================= */
+      tl.set("#scene4 .eyebrow", { y: -16, opacity: 0 }, 16.2);
+      tl.set("#scene4 .corner-pill", { y: -16, opacity: 0 }, 16.2);
+      tl.set("#scene4 .line-inner", { yPercent: 110 }, 16.2);
+      tl.set("#scene4 .sub", { y: 22, opacity: 0 }, 16.2);
+      tl.set("#scene4 .feat", { y: 70, scale: 0.88, opacity: 0 }, 16.2);
+      tl.set("#scene4 .foot-note", { opacity: 0 }, 16.2);
+
+      tl.fromTo("#scene4 .corner-pill", { y: -16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 16.5);
+      tl.fromTo("#scene4 .eyebrow", { y: -16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 16.6);
+      tl.fromTo("#scene4 .headline .line-inner", { yPercent: 110 }, { yPercent: 0, duration: 0.7, ease: "power4.out", stagger: 0.16 }, 16.75);
+      tl.fromTo("#scene4 .sub", { y: 22, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power2.out" }, 17.2);
+      tl.fromTo("#scene4 .feat", { y: 70, scale: 0.88, opacity: 0 }, { y: 0, scale: 1, opacity: 1, duration: 0.6, ease: "back.out(1.7)", stagger: 0.14 }, 17.55);
+      tl.fromTo("#scene4 .foot-note", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.out" }, 18.55);
+
+      /* ================= 转场 S4→S5（大标题接力） ================= */
+      tl.to("#scene4", { opacity: 0, duration: 0.45, ease: "power2.inOut" }, 20.0);
+      tl.fromTo("#scene5", { opacity: 0 }, { opacity: 1, duration: 0.45, ease: "power2.inOut" }, 20.12);
+      tl.to("#bridge05 #br05t", { opacity: 1, duration: 0.18, ease: "power2.out" }, 20.02);
+      tl.to("#bridge05 #br05t", { scaleX: 1.06, scaleY: 0.92, rotation: 1, duration: 0.22, ease: "power2.inOut" }, 20.06);
+      tl.to("#bridge05 #br05t", { y: 40, scaleX: 0.8, scaleY: 0.8, rotation: 0, duration: 0.5, ease: "expo.inOut", overwrite: "auto" }, 20.16);
+      tl.to("#bridge05 #br05t", { scaleX: 0.85, scaleY: 0.76, opacity: 0.5, duration: 0.16, ease: "back.out(1.4)", overwrite: "auto" }, 20.6);
+      tl.to("#bridge05", { opacity: 0, duration: 0.2, ease: "power2.in" }, 20.7);
+
+      /* ================= S5 价值观收束（20.0–23.6） ================= */
+      tl.set("#scene5 .eyebrow", { y: -16, opacity: 0 }, 20.0);
+      tl.set("#scene5 .corner-pill", { y: -16, opacity: 0 }, 20.0);
+      tl.set("#scene5 .gold-line", { scaleX: 0, opacity: 0 }, 20.0);
+      tl.set("#scene5 .line-inner", { yPercent: 110 }, 20.0);
+      tl.set("#scene5 .chip", { scale: 0.6, opacity: 0 }, 20.0);
+      tl.set("#scene5 .sub", { y: 22, opacity: 0 }, 20.0);
+
+      tl.fromTo("#scene5 .corner-pill", { y: -16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 20.3);
+      tl.fromTo("#scene5 .eyebrow", { y: -16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 20.4);
+      tl.fromTo("#scene5 .gold-line", { scaleX: 0, opacity: 0 }, { scaleX: 1, opacity: 1, duration: 0.7, ease: "power3.inOut" }, 20.55);
+      tl.fromTo("#scene5 .headline .line-inner", { yPercent: 110 }, { yPercent: 0, duration: 0.75, ease: "power4.out", stagger: 0.18 }, 20.7);
+      tl.fromTo("#scene5 .chip", { scale: 0.6, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.45, ease: "back.out(2)", stagger: 0.1 }, 21.45);
+      tl.fromTo("#scene5 .sub", { y: 22, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power2.out" }, 22.05);
+
+      /* ================= 转场 S5→S6（徽章放大成定版 Logo，终点对齐 out-logo 中心 ~718） ================= */
+      tl.to("#scene5", { opacity: 0, duration: 0.45, ease: "power2.inOut" }, 23.6);
+      tl.fromTo("#scene6", { opacity: 0 }, { opacity: 1, duration: 0.45, ease: "power2.inOut" }, 23.72);
+      tl.to("#bridge06 #br06r, #bridge06 #br06l", { opacity: 1, duration: 0.18, ease: "power2.out" }, 23.62);
+      tl.to("#bridge06 #br06r, #bridge06 #br06l", { scaleX: 0.4, scaleY: 0.32, rotation: 2, duration: 0.22, ease: "power2.inOut" }, 23.66);
+      tl.to("#bridge06 #br06r, #bridge06 #br06l", { y: -430, scaleX: 1, scaleY: 1, rotation: 0, duration: 0.5, ease: "expo.inOut", overwrite: "auto" }, 23.76);
+      /* 到位后不再挤压形变，保持 scale 1 并轻微降透明度，与 S6 原地淡入的 Logo 交叉渐显 */
+      tl.to("#bridge06 #br06r, #bridge06 #br06l", { opacity: 0.7, duration: 0.16, ease: "power2.out", overwrite: "auto" }, 24.2);
+      tl.to("#bridge06", { opacity: 0, duration: 0.22, ease: "power2.in" }, 24.26);
+
+      /* ================= S6 结尾定版（23.6–28.2） ================= */
+      tl.set("#scene6 .out-eyebrow", { y: -16, opacity: 0 }, 23.6);
+      tl.set("#scene6 .out-logo img", { opacity: 0 }, 23.6);
+      tl.set("#ring6", { opacity: 0 }, 23.6);
+      tl.set("#scene6 .out-name", { y: 30, opacity: 0 }, 23.6);
+      tl.set("#scene6 .out-title .line-inner", { yPercent: 110 }, 23.6);
+      tl.set("#scene6 .out-sub", { y: 18, opacity: 0 }, 23.6);
+      tl.set("#scene6 .out-pill", { y: 14, opacity: 0 }, 23.6);
+      tl.set("#scene6 .out-foot", { opacity: 0 }, 23.6);
+
+      tl.fromTo("#scene6 .out-eyebrow", { y: -16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power2.out" }, 23.95);
+      /* S6 Logo 不再做缩放形变入场：bridge 徽章已精确就位，此处原地淡入完成 crossfade */
+      tl.fromTo("#scene6 .out-logo img", { opacity: 0 }, { opacity: 1, duration: 0.45, ease: "power2.out" }, 24.2);
+      tl.fromTo("#ring6", { opacity: 0 }, { opacity: .85, duration: 0.5, ease: "power2.out" }, 24.3);
+      tl.fromTo("#scene6 .out-name", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: "power3.out" }, 24.35);
+      tl.fromTo("#scene6 .out-title .line-inner", { yPercent: 110 }, { yPercent: 0, duration: 0.7, ease: "power4.out" }, 24.6);
+      tl.fromTo("#scene6 .out-sub", { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power2.out" }, 25.2);
+      tl.fromTo("#scene6 .out-pill", { y: 14, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 25.5);
+      tl.fromTo("#scene6 .out-foot", { opacity: 0 }, { opacity: 1, duration: 0.45, ease: "power2.out" }, 25.8);
+
+      /* 结尾淡出收尾（final scene 允许） */
+      tl.to("#scene6", { opacity: 0, duration: 0.8, ease: "power2.in" }, 27.2);
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

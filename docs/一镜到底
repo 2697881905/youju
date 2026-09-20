@@ -1,0 +1,106 @@
+方案一：共享元素转场 (geometryTransition) — 适用于应用内卡片
+这是实现“一镜到底”最推荐的方式，核心是使用 geometryTransition 属性将卡片和详情页中的对应元素绑定同一个 id，让系统自动计算并平滑过渡位置和大小。
+
+核心实现步骤：
+
+绑定共享标识：为卡片和详情页中需要“连续”的元素（如封面图、标题）设置相同的 geometryTransition 标识符。
+
+typescript
+// 卡片页面中的元素
+Image(...)
+  .geometryTransition(this.cardId, { follow: true }) // follow: true 使元素跟随移动
+
+// 全屏详情页中的对应元素
+Image(...)
+  .geometryTransition(this.cardId) // 使用相同的标识符
+使用 bindContentCover 绑定模态页面：将卡片所在的页面与全屏模态页面绑定，实现动态转场。
+
+typescript
+Column() {
+  // 卡片页面内容
+}
+.bindContentCover(this.isDetailShow, // 控制全屏模态显示与隐藏
+  this.cardContentBuilder(this.selectedIndex), // 全屏模态页面内容
+  {
+    modalTransition: ModalTransition.NONE, // 关闭默认转场，让 geometryTransition 生效
+  }
+)
+使用 animateTo 驱动动画：通过点击事件触发 animateTo，在闭包中改变控制模态页面显示的状态变量，从而驱动整个转场动画。
+
+typescript
+// 点击卡片打开全屏模态
+private onCardClicked(index: number): void {
+  this.selectedIndex = index;
+  this.getUIContext()?.animateTo({
+    duration: 350,
+    curve: Curve.Friction
+  }, () => {
+    this.isDetailShow = !this.isDetailShow;
+  });
+}
+
+// 下拉全屏模态返回卡片
+private onDetailBack(): void {
+  this.getUIContext()?.animateTo({
+    duration: 350,
+    curve: Curve.Friction
+  }, () => {
+    this.isDetailShow = !this.isDetailShow;
+  });
+}
+关键约束：geometryTransition 必须配合 animateTo 使用才会产生动画效果，动效的时长和曲线均跟随 animateTo 中的配置。
+
+方案二：Stack 布局组件动画 — 适用于首页卡片列表
+如果你的卡片是列表中的一项，希望点击后平滑展开为详情页，可以使用 Stack 布局叠加的方案。其核心思路是在动画开始前，将一个视觉上相同的组件覆盖到卡片上，然后对这个覆盖组件进行入场和出场动画。
+
+核心实现步骤：
+
+使用 Stack 布局：在页面顶层使用 Stack 布局，将卡片列表 (CardList) 和详情页 (DetailPage) 叠放。
+
+typescript
+build() {
+  Stack() {
+    this.CardList();   // 卡片列表
+    this.DetailPage(); // 详情页（展开时显示）
+  }
+}
+记录卡片位置与尺寸：在卡片列表中使用 onAreaChange 存储每个卡片被点击时的位置和宽高信息，用于设置返回动画的结束状态。
+
+typescript
+LazyForEach(this.dataSource, (item: CardData, index) => {
+  FlowItem() {
+    CardPage({ cardData: item })
+      .onClick(() => {
+        this.clickedCardIndex = index;
+      })
+  }
+  .onAreaChange((oldValue, newValue) => {
+    this.dataSource.getData(index).cardArea = newValue; // 存储位置尺寸
+  })
+})
+通过状态驱动动画：使用一个状态变量（如 expandCardId）来控制详情页的显示，并通过 animateTo 改变这个状态来触发宽高、位置的属性动画。
+
+typescript
+// 入场动画：点击卡片后
+animateTo({
+  duration: 350,
+  onFinish: () => {
+    this.expandCardId = this.dataSource.getData(this.clickedCardIndex).id;
+  }
+}, () => {
+  this.isDetailPageShow = true;
+})
+
+// 出场动画：点击返回按钮
+this.expandCardId = -1; // 触发重置，执行返回动画
+两种方案对比
+特性	共享元素转场 (geometryTransition)	Stack 布局组件动画
+适用场景	应用内卡片到详情页的转场	首页卡片列表到详情页
+核心 API	geometryTransition, bindContentCover, animateTo	Stack, onAreaChange, animateTo
+优势	系统自动处理位置和大小匹配，效果最丝滑	对现有列表侵入性较小，控制粒度更细
+限制	必须配合 animateTo 使用，需 API Version 20+	需要手动记录和恢复卡片位置信息
+参考资源
+官方示例：卡片共享元素转场实现一镜到底动效 提供了完整的实现思路和代码。
+
+社区项目：transitions-collection 是一个转场动效合集，其中包含了卡片一镜到底的具体实现模块，你可以直接参考其源码。
+

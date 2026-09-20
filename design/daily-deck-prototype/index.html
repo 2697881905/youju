@@ -104,7 +104,14 @@
     background:var(--surface); border-radius:14px; overflow:hidden;
     box-shadow:var(--shadow-card);
     will-change:transform,opacity;
+    /* 拖拽面：禁止文本选中与原生元素拖拽。
+       <img> 上按下左键拖动会触发 Chrome 原生图片拖拽，浏览器随即发出 pointercancel
+       接管手势 → 页面收不到 pointermove → 看起来就是「拖不动」 */
+    user-select:none; -webkit-user-select:none;
+    -webkit-user-drag:none; user-drag:none;
   }
+  /* 图片完全不参与命中测试：指针事件落在卡面 .face 上，从根上避开原生拖拽 */
+  .card img{ pointer-events:none; -webkit-user-drag:none; user-drag:none; }
   .card[data-depth="0"]{ z-index:3; cursor:grab }
   .card[data-depth="1"]{ z-index:2 }
   .card[data-depth="2"]{ z-index:1 }
@@ -275,7 +282,7 @@
         <div class="paginate"><b id="pagCur">01</b> / <b id="pagTotal">03</b></div>
         <div class="hint" id="hint">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a3 3 0 0 0-3-3h0a3 3 0 0 0-3 3v0"/><path d="M14 10v-1a2 2 0 0 1 4 0v1"/><path d="M8 11V6a3 3 0 0 1 6 0v0"/><path d="M8 11v3a4 4 0 0 0 8 0v-3"/><path d="M12 17v3"/></svg>
-          轻拖卡片 · 阅读今日精选
+          随手拖 · 任意方向丢出换下一张
         </div>
       </div>
     </div>
@@ -303,7 +310,7 @@
       <h5>设计准则 · 克制清单（本原型的底线）</h5>
       <ul>
         <li>弹性只出现在「顶卡升起」与「印章盖章」两个主角时刻，其余一律减速/柔和曲线</li>
-        <li>位移错峰 ≤ 45ms；拖拽旋转 ≤ 6°；无缩放连击、无弹跳彩带、无粒子</li>
+        <li>位移错峰 ≤ 45ms；倾角 = 水平分量 ≤5° + 竖直分量 ≤2.5°（合计 ≤6°）；无缩放连击、无弹跳彩带、无粒子</li>
         <li>色板严格取自项目 token：暖纸底 + 褐金 + 墨色，≤3 个色族</li>
         <li>衬线负责「信服」（报头/标题/印章），正文无衬线，字距 0</li>
         <li>全部动效只动 transform / opacity，不碰布局属性</li>
@@ -313,7 +320,8 @@
     <div class="sec">
       <h5>交互 → ArkUI 落点映射</h5>
       <ul>
-        <li>拖拽跟手 / 松开回弹 / 飞出 ── <code>PanGesture</code> 跟手 + <code>responsiveSpringMotion</code>；离手 <code>springMotion(0.5,0.75)</code></li>
+        <li>自由拖动跟手（任意方向）/ 松开回弹 / 沿丢出方向飞出 ── <code>PanGesture(PanDirection.All)</code> 跟手 + <code>responsiveSpringMotion</code>；离手 <code>springMotion(0.5,0.75)</code></li>
+        <li>丢出方向 = 「位移 + 松手速度投影」的单位向量（对应 GSAP Draggable <code>inertia: true</code> 的 end 预测）；阈值走椭圆边界（水平 30% / 竖直 26% 卡宽）</li>
         <li>下层卡视差级联（错峰） ── 索引延迟 + springMotion 目标跟随</li>
         <li>入场仪式（报头→日期→卡升起→信息错峰） ── <code>TransitionEffect + delay 错峰</code></li>
         <li>完成态印章 ── <code>animateTo + PlayMode.Alternate</code> 单次回弹</li>
@@ -375,19 +383,28 @@ async function fetchDailyPosts(){
 const FAN_X = 26, FAN_R = 4, FAN_Y = 12;
 const FAN_OP = [1, 0.86, 0.72, 0.45];   // 四层不透明度：顶/中/底/预备（预备深藏堆底）
 
+/* 自由丢出（2D）：椭圆阈值 + 惯性投影。方向完全由手势决定，代码不预设左右 */
+const DISMISS_X = 0.38, DISMISS_Y = 0.33;  // 丢出阈值（卡宽比）：水平 / 竖直各一档
+const INERTIA_PROJECT = 0.16;              // 惯性投影时长（秒）：松手速度还能带出的行程
+const COMMIT_MIN = 0.18;                   // 拖动意图门槛（卡宽比）：位移不够时速度不参与判定
+const ROLL_Y = 2.5;                        // 竖直分量的滚转角（deg）：纵向拖也有“松”感
+
 /* ============================================================
  * STATE
  * ============================================================ */
 const S = {
   posts: [], idx: 0, listLen: 0,
-  x: 0, vel: 0, target: 0,       // 当前顶卡：实际位置 / 速度 / 手指目标（质量弹簧跟随）
+  x: 0, y: 0,                    // 当前顶卡：实际位置（2D，四个方向都跟手）
+  vel: 0, velY: 0,               // 各自速度（帧循环持续积分 → 松手速度零断层）
+  target: 0, targetY: 0,         // 手指目标（质量弹簧追逐，非直接赋值）
   rot: 0, rotVel: 0,             // 当前顶卡倾角（同一弹簧体系，跟手不抖）
-  dragging: false, startX: 0,
-  cardW: 0, threshold: 0,
+  dragging: false, startX: 0, startY: 0,
+  cardW: 0, threshold: 0, thresholdY: 0,
   mode: 'idle',                  // idle | drag | return（飞出交给 FL）
   swap: false,                   // 推进中：旧顶卡飞行 与 底部回正 并行
   pendingEnd: false,             // 最后一张已被推进，等待收场
-  FL: { x: 0, vel: 0, rot: 0, active: false, dir: 1, dom: -1 },  // 被替换顶卡的飞行状态
+  // 被替换顶卡的飞行状态：方向不预设，ux/uy 为单位向量（由位移 + 速度投影决定）
+  FL: { x: 0, y: 0, vel: 0, velY: 0, rot: 0, active: false, ux: 1, uy: 0, dom: -1 },
   fan: [                                                        // 每张 DOM 卡的扇位弹簧（滑动+旋转回正）
     { x: 0, r: 0, vx: 0, vr: 0 },
     { x: -FAN_X, r: -FAN_R, vx: 0, vr: 0 },
@@ -395,7 +412,8 @@ const S = {
     { x: -FAN_X * 3, r: -FAN_R * 3, vx: 0, vr: 0 },   // 第四层“预备卡”：深藏堆底，翻页时自然前移滑入
   ],
   roleToDom: [0, 1, 2, 3],       // 视觉角色(0顶/1中/2底/3预备) → DOM 下标（推进时轮换）
-  par: [0, 0], parVel: [0, 0],   // 下层卡视差（弹簧错峰）
+  par: [0, 0], parVel: [0, 0],   // 下层卡视差（X，弹簧错峰）
+  parY: [0, 0], parVelY: [0, 0], // 下层卡视差（Y，与 X 同一套系数 → 物理一致）
   warm: 0, warmVel: 0,           // 顶卡抬起时下层微胀
   enter: null,                   // 入场动画上下文
 };
@@ -438,7 +456,8 @@ function paintCard(el, p){
   const name = el.querySelector('.name');
   const seal = el.querySelector('.seal');
   if (p.cover){
-    face.innerHTML = '<img src="' + p.cover + '" alt=""><span class="corner-issue">今日精选 · ' + p.genre + '</span>';
+    // draggable="false"：兜底关掉原生图片拖拽（CSS/JS 层可能被覆盖，属性最稳）
+    face.innerHTML = '<img src="' + p.cover + '" alt="" draggable="false"><span class="corner-issue">今日精选 · ' + p.genre + '</span>';
     const im = face.querySelector('img');
     // 缓存已就绪则直接显示，否则加载后淡入——换卡不闪白、不顿挫
     if (im.complete) im.classList.add('loaded');
@@ -479,35 +498,69 @@ function rerender(){
 }
 
 /* ============================================================
- * 手势：跟手直控 → 离手带回速（return 弹簧 / fly 抛物线）
+ * 手势：跟手直控（2D，任意方向）→ 离手带回速（return 弹簧 / fly 抛物线）
  * ============================================================ */
 function onDown(e){
-  if (S.enter || S.swap) return;
+  // 入场仪式进行中不接受拖拽；但若仪式已远超自身时长仍未收尾（后台标签页 rAF 被暂停等），
+  // 按“已结束”处理 —— 否则一次卡住的仪式会永久闸住手势，表现就是“拖不动”
+  if (S.enter){
+    if (performance.now() - S.enter.t0 < S.enter.dur + 600) return;
+    S.enter = null;
+  }
+  if (S.swap) return;
   S.dragging = true; S.mode = 'drag';
   S.startX = e.clientX - S.x;      // 以“实际位置”为基准：回弹中途再次接管也跟手、无跳变
+  S.startY = e.clientY - S.y;
 }
 function onMove(e){
   if (!S.dragging) return;
   S.target = e.clientX - S.startX; // 手指是目标而非位置；物理每帧以质量弹簧追逐 → 顺滑
+  S.targetY = e.clientY - S.startY;
 }
+
+/* 丢出进度（0→1）：把 (x,y) 投影到归一化空间取模长 →
+ * 水平阈值 30% 卡宽 / 竖直阈值 26% 卡宽，斜向丢出即两者的合成，不必给 8 个方向各写判定 */
+function outProgress(px, py){
+  const nx = px / S.threshold, ny = py / (S.thresholdY || 1);
+  return Math.sqrt(nx * nx + ny * ny);
+}
+
 function onUp(){
   if (!S.dragging) return;
   S.dragging = false;
-  // vel 已在帧循环中持续积分（真实速度），此处直接继承，速度零断层
-  if (Math.abs(S.x) >= S.threshold){
-    startFling();                  // 顶卡飞出 + 底部回正：【同时进行】
+  // vel/velY 已在帧循环中持续积分（真实速度），此处直接继承，速度零断层
+  const real = Math.sqrt(S.x * S.x + S.y * S.y);
+  // 拖动意图门槛：位移不够就只是一次抖动 —— 速度不参与判定，
+  // 否则 位移几 px + 速度 800 会凭空凑出满阈值行程，卡片被误丢出去
+  const committed = real > S.cardW * COMMIT_MIN;
+  const px = S.x + (committed ? S.vel * INERTIA_PROJECT : 0);
+  const py = S.y + (committed ? S.velY * INERTIA_PROJECT : 0);
+  if (outProgress(px, py) >= 1){
+    startFling(px, py);            // 顶卡沿该方向飞出 + 底部回正：【同时进行】
   } else {
-    S.mode = 'return';             // 未过阈：顶卡弹簧回弹
+    S.mode = 'return';             // 未过阈：顶卡弹簧回弹（沿原方向过冲后归零）
   }
 }
 
 /* ============================================================
  * 每帧：物理学 + 写 transform（只动图形属性）
+ * frame 只负责兜底与续帧，tick 负责一帧的物理 —— 单帧抛错不得中断 rAF 链，
+ * 否则一次异常就会永久冻结动画，且 S.enter 永不清空 → 手势判定被永久闸住（拖不动）
  * ============================================================ */
 const easeOutBack = (x) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
 let LAST = performance.now();
+let frameErrLogged = false;
 
 function frame(){
+  try {
+    tick();
+  } catch (err) {
+    if (!frameErrLogged){ frameErrLogged = true; console.error('[deck] frame error:', err); }
+  }
+  requestAnimationFrame(frame);
+}
+
+function tick(){
   const now = performance.now();
   const dt = Math.min((now - LAST) / 1000, 0.05);   // 秒制：60/120Hz 下积分一致
   LAST = now;
@@ -528,33 +581,40 @@ function frame(){
       }
     });
     if (t >= 1) S.enter = null;
-    requestAnimationFrame(frame);
     return;
   }
 
   /* ---- 主物理：统一弹簧体系（GSAP 手感 = 质量跟随 + 速度连续） ---- */
   const w = S.cardW || 1;
 
-  // 拖拽 / 回弹：当前顶卡 = 质量弹簧追赶手指
+  // 拖拽 / 回弹：当前顶卡 = 质量弹簧追赶手指（X/Y 同源，四个方向一致）
   if (S.mode === 'drag' || S.mode === 'return'){
-    const goal = S.mode === 'drag' ? S.target : 0;
+    const gx = S.mode === 'drag' ? S.target : 0;
+    const gy = S.mode === 'drag' ? S.targetY : 0;
     const K = S.mode === 'drag' ? 300 : 210;
     const C = S.mode === 'drag' ? 19 : 13;
-    S.vel += ((goal - S.x) * K - C * S.vel) * dt;
+    S.vel  += ((gx - S.x) * K - C * S.vel)  * dt;
+    S.velY += ((gy - S.y) * K - C * S.velY) * dt;
     S.x += S.vel * dt;
-    if (S.mode === 'return' && Math.abs(S.x) < 0.4 && Math.abs(S.vel) < 0.002){
-      S.x = 0; S.vel = 0; S.mode = 'idle';
+    S.y += S.velY * dt;
+    if (S.mode === 'return' && Math.abs(S.x) < 0.4 && Math.abs(S.y) < 0.4 &&
+        Math.abs(S.vel) < 0.002 && Math.abs(S.velY) < 0.002){
+      S.x = 0; S.y = 0; S.vel = 0; S.velY = 0; S.mode = 'idle';
     }
   }
 
-  // 被替换顶卡的飞行（与底部卡回正【并行】）：惯性抛滑出屏，速度连续
+  // 被替换顶卡的飞行（与底部卡回正【并行】）：沿单位向量惯性抛滑出屏，速度连续
   if (S.FL.active){
-    const exit = S.FL.dir * (w + 300);
-    S.FL.vel += ((exit - S.FL.x) * 130 - 13 * S.FL.vel) * dt;
+    const exitX = S.FL.ux * (w + 300);
+    const exitY = S.FL.uy * (w + 300);
+    S.FL.vel  += ((exitX - S.FL.x) * 130 - 13 * S.FL.vel)  * dt;
+    S.FL.velY += ((exitY - S.FL.y) * 130 - 13 * S.FL.velY) * dt;
     S.FL.x += S.FL.vel * dt;
+    S.FL.y += S.FL.velY * dt;
     S.FL.rot = (S.FL.x / w) * -7;
     // 刚出屏即收尾（比飞到 exit 更快解锁下一张）：旧卡带回速归位成新的第三层
-    const flyDone = Math.abs(S.FL.x) > w * 1.15 || Math.abs(exit - S.FL.x) < 6;
+    const out = Math.sqrt(S.FL.x * S.FL.x + S.FL.y * S.FL.y);
+    const flyDone = out > w * 1.15;
     if (flyDone){
       S.FL.active = false;
       const dom = S.FL.dom;                       // 该 DOM 已被轮换为「预备层(role3)」
@@ -571,8 +631,8 @@ function frame(){
     }
   }
 
-  // 倾角弹簧（当前顶卡）
-  { const rotGoal = (S.x / w) * -5;
+  // 倾角弹簧（当前顶卡）：水平分量主导倾角 + 竖直分量叠一道小幅滚转
+  { const rotGoal = (S.x / w) * -5 + (S.y / w) * ROLL_Y;
     S.rotVel += ((rotGoal - S.rot) * 300 - 16 * S.rotVel) * dt;
     S.rot += S.rotVel * dt; }
 
@@ -585,13 +645,15 @@ function frame(){
     f.vr += ((tr - f.r) * 240 - 15 * f.vr) * dt; f.r += f.vr * dt;
   }
 
-  // 下层视差：两层不同频率弹簧 = 错峰（顶卡越偏，下层越小幅跟随）
+  // 下层视差：两层不同频率弹簧 = 错峰（顶卡越偏，下层越小幅跟随；X/Y 各自一套，方向一致）
   { const avail = S.listLen - S.idx;
-    const t1 = (avail > 1 ? S.x * 0.13 : 0);
-    const t2 = (avail > 2 ? S.x * 0.06 : 0);
-    S.parVel[0] += ((t1 - S.par[0]) * 260 - 15 * S.parVel[0]) * dt; S.par[0] += S.parVel[0] * dt;
-    S.parVel[1] += ((t2 - S.par[1]) * 210 - 14 * S.parVel[1]) * dt; S.par[1] += S.parVel[1] * dt;
-    const wt = avail > 1 ? Math.min(Math.abs(S.x) / w, 1) : 0;
+    const t1x = (avail > 1 ? S.x * 0.16 : 0), t1y = (avail > 1 ? S.y * 0.16 : 0);
+    const t2x = (avail > 2 ? S.x * 0.08 : 0), t2y = (avail > 2 ? S.y * 0.08 : 0);
+    S.parVel[0]  += ((t1x - S.par[0])  * 260 - 15 * S.parVel[0])  * dt; S.par[0]  += S.parVel[0]  * dt;
+    S.parVelY[0] += ((t1y - S.parY[0]) * 260 - 15 * S.parVelY[0]) * dt; S.parY[0] += S.parVelY[0] * dt;
+    S.parVel[1]  += ((t2x - S.par[1])  * 210 - 14 * S.parVel[1])  * dt; S.par[1]  += S.parVel[1]  * dt;
+    S.parVelY[1] += ((t2y - S.parY[1]) * 210 - 14 * S.parVelY[1]) * dt; S.parY[1] += S.parVelY[1] * dt;
+    const wt = avail > 1 ? Math.min(Math.sqrt(S.x * S.x + S.y * S.y) / w, 1) : 0;
     S.warmVel += ((wt - S.warm) * 170 - 13 * S.warmVel) * dt; S.warm += S.warmVel * dt; }
 
   /* ---- 写变换（只动 transform / opacity） ---- */
@@ -599,11 +661,15 @@ function frame(){
   for (let role = 0; role < 4; role++){
     const dom = S.roleToDom[role];
     const el = elDeck.children[dom];
+    // 骨架期 / innerHTML 清空后的空档：DOM 槽位可能少于 4 个。
+    // 缺槽直接跳过 —— 这里一旦抛错，整条 rAF 链就断了（历史事故：拖不动）
+    if (!el) continue;
     if (S.FL.active && S.FL.dom === dom){          // 正在飞走的旧顶卡
-      const out = Math.max(0, Math.abs(S.FL.x) - w) / (w * 0.7);
+      const out = Math.sqrt(S.FL.x * S.FL.x + S.FL.y * S.FL.y);
+      const fade = Math.max(0, out - w) / (w * 0.7);
       el.style.zIndex = '30';
-      el.style.transform = 'translate3d(' + S.FL.x.toFixed(2) + 'px,0,0) rotate(' + S.FL.rot.toFixed(2) + 'deg) scale(' + (1 + Math.min(Math.abs(S.FL.x) / w, 1) * 0.03) + ')';
-      el.style.opacity = String(Math.max(0, 1 - out).toFixed(4));
+      el.style.transform = 'translate3d(' + S.FL.x.toFixed(2) + 'px,' + S.FL.y.toFixed(2) + 'px,0) rotate(' + S.FL.rot.toFixed(2) + 'deg) scale(' + (1 + Math.min(out / w, 1) * 0.03) + ')';
+      el.style.opacity = String(Math.max(0, 1 - fade).toFixed(4));
       continue;
     }
     // 该角色已无帖子：隐藏并清理残留变换/层级（防止旧卡冻结在屏外 zIndex 30 压住顶卡）
@@ -616,36 +682,40 @@ function frame(){
     const f = S.fan[dom];
     // 实体滑入：全程不透明度恒为角色值（无淡入），所有变化都是位置/旋转
     if (role === 0){
-      el.style.transform = 'translate3d(' + (f.x + S.x).toFixed(2) + 'px,0,0) rotate(' + (f.r + S.rot).toFixed(2) + 'deg) scale(1)';
+      el.style.transform = 'translate3d(' + (f.x + S.x).toFixed(2) + 'px,' + S.y.toFixed(2) + 'px,0) rotate(' + (f.r + S.rot).toFixed(2) + 'deg) scale(1)';
       el.style.opacity = '1';
     } else {
       const px = f.x + (role < 3 ? S.par[role - 1] : 0);
+      const py = FAN_Y * role + (role < 3 ? S.parY[role - 1] : 0);
       const pr = f.r;
       const ps = (1 - 0.028 * role) + S.warm * 0.06;
-      el.style.transform = 'translate3d(' + px.toFixed(2) + 'px,' + (FAN_Y * role).toFixed(2) + 'px,0) rotate(' + pr.toFixed(2) + 'deg) scale(' + ps.toFixed(4) + ')';
+      el.style.transform = 'translate3d(' + px.toFixed(2) + 'px,' + py.toFixed(2) + 'px,0) rotate(' + pr.toFixed(2) + 'deg) scale(' + ps.toFixed(4) + ')';
       el.style.opacity = String(FAN_OP[role].toFixed(4));
     }
     el.style.zIndex = String(20 + (3 - role));
   }
-
-  requestAnimationFrame(frame);
 }
 
 /* ============================================================
  * 推进：旧顶卡抽出飞行 与 底部卡回正 并行（“卡堆前推”，非串行换卡）
  * ============================================================ */
-function startFling(){
+function startFling(px, py){
   if (S.swap || S.enter) return;
   S.swap = true;
   const topDom = S.roleToDom[0];
+  // 丢出方向 = 单位向量（位移 + 速度投影的合成）：纯水平、纯竖直、斜向走同一条路径
+  const len = Math.sqrt(px * px + py * py);
+  const ux = len > 0.5 ? px / len : (S.x >= 0 ? 1 : -1), uy = len > 0.5 ? py / len : 0;
   // 旧顶卡移交飞行（继承当前真实速度与倾角，速度零断层）
-  S.FL = { x: S.x, vel: S.vel, rot: S.rot, active: true, dir: S.x >= 0 ? 1 : -1, dom: topDom };
+  S.FL = { x: S.x, y: S.y, vel: S.vel, velY: S.velY, rot: S.rot, active: true, ux: ux, uy: uy, dom: topDom };
   // 数据前进一档 + 角色轮换：底部卡立即开始“带旋转滑动回正”，与飞出【并行】
   S.idx += 1;
   S.roleToDom = [S.roleToDom[1], S.roleToDom[2], S.roleToDom[3], topDom];
   // 新顶卡接任：其扇位弹簧从旧位（-22px / -3.5°）平滑收敛到 0 / 0°
-  S.x = 0; S.vel = 0; S.target = 0; S.rot = 0; S.rotVel = 0;
-  S.par = [0, 0]; S.parVel = [0, 0]; S.warm = 0; S.warmVel = 0;
+  S.x = 0; S.vel = 0; S.target = 0; S.y = 0; S.velY = 0; S.targetY = 0;
+  S.rot = 0; S.rotVel = 0;
+  S.par = [0, 0]; S.parVel = [0, 0]; S.parY = [0, 0]; S.parVelY = [0, 0];
+  S.warm = 0; S.warmVel = 0;
   S.mode = 'idle';
   updatePag();
   if (S.idx >= S.listLen) S.pendingEnd = true;
@@ -680,7 +750,10 @@ let cdTimer = 0;
  * ============================================================ */
 function showSkeleton(){
   elDeck.innerHTML = '';
-  for (let d = 0; d < 3; d++){
+  // 4 层：与 FAN_OP / 写变换循环的角色数一致。
+  // 若骨架只给 3 个 DOM 槽，写变换循环取到第 4 个槽时 elDeck.children[3] 为 undefined，
+  // 会在第一帧抛错并打断 rAF 链 → 入场动画与拖拽全部失效（拖不动的根因之一）
+  for (let d = 0; d < 4; d++){
     const sk = document.createElement('div');
     sk.className = 'sk-card'; sk.style.top = (12 + d * 18) + 'px'; sk.style.zIndex = 10 - d;
     sk.style.opacity = String(1 - d * 0.18);
@@ -692,10 +765,12 @@ function showSkeleton(){
 async function runRitual(){
   elCompletion.classList.remove('show');
   // 全量复位物理与角色
-  S.idx = 0; S.x = 0; S.vel = 0; S.target = 0; S.rot = 0; S.rotVel = 0;
-  S.par = [0, 0]; S.parVel = [0, 0]; S.warm = 0; S.warmVel = 0;
+  S.idx = 0; S.x = 0; S.vel = 0; S.target = 0; S.y = 0; S.velY = 0; S.targetY = 0;
+  S.rot = 0; S.rotVel = 0;
+  S.par = [0, 0]; S.parVel = [0, 0]; S.parY = [0, 0]; S.parVelY = [0, 0];
+  S.warm = 0; S.warmVel = 0;
   S.mode = 'idle'; S.enter = null; S.swap = false; S.pendingEnd = false;
-  S.FL = { x: 0, vel: 0, rot: 0, active: false, dir: 1, dom: -1 };
+  S.FL = { x: 0, y: 0, vel: 0, velY: 0, rot: 0, active: false, ux: 1, uy: 0, dom: -1 };
   S.roleToDom = [0, 1, 2, 3];
   S.fan = [
     { x: 0, r: 0, vx: 0, vr: 0 },
@@ -723,7 +798,8 @@ async function runRitual(){
 function layout(){
   const rect = elDeck.getBoundingClientRect();
   S.cardW = rect.width || parseFloat(getComputedStyle(elDeck).width) || 300;
-  S.threshold = S.cardW * 0.32;
+  S.threshold = S.cardW * DISMISS_X;    // 水平丢出阈值
+  S.thresholdY = S.cardW * DISMISS_Y;   // 竖直丢出阈值（竖直方向有效行程更短，故略小）
 }
 window.addEventListener('resize', layout);
 
@@ -732,6 +808,9 @@ window.addEventListener('pointermove', onMove);
 window.addEventListener('pointerup', onUp);
 window.addEventListener('pointercancel', onUp);
 elDeck.addEventListener('contextmenu', e => e.preventDefault());
+// 拖拽面兜底：任何原生拖拽（图片 / 选中文本）都会让浏览器接管手势并发出 pointercancel
+elDeck.addEventListener('dragstart', e => e.preventDefault());
+elDeck.addEventListener('selectstart', e => e.preventDefault());
 
 document.getElementById('btnReplay').addEventListener('click', runRitual);
 document.getElementById('btnReplay2').addEventListener('click', runRitual);
