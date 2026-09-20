@@ -3,7 +3,8 @@
 // 「华为一键登录」或「其他方式登录（开发桩）」。
 import { login, LoginResult } from '../services/api';
 import { User } from '../models/types';
-import { router } from '@kit.ArkUI';
+import { hilog } from '@kit.PerformanceAnalysisKit';
+import { getSharedUiContext } from './navigationTransition';
 import { BUILD_MODE_NAME } from './buildMode';
 import { asset } from '@kit.AssetStoreKit';
 // BUILD_MODE_NAME 由构建期生成，类型为字面量（'debug'/'release'）。
@@ -104,17 +105,17 @@ export async function ensureLogin(): Promise<User | null> {
   if (existing && getToken()) {
     return existing;
   }
-  // 防递归：LoginPage 自身（如「其他方式登录」）调用时不再重复 pushUrl
-  try {
-    const state = router.getState();
-    if (state && state.path !== 'pages/LoginPage') {
-      router.pushUrl({ url: 'pages/LoginPage' });
-    }
-  } catch (e) {
-    // router 未就绪等异常时直接尝试跳转，不阻断
-    try {
-      router.pushUrl({ url: 'pages/LoginPage' });
-    } catch (_) { /* ignore */ }
+  // 防递归：LoginPage 自身（如「其他方式登录」）调用时不再重复 pushUrl。
+  // router 全局形态已废弃（since 18）→ 走共享 UIContext 的 Router（@since 11 ✓，与原 API 等价）。
+  // 共享实例由 Index.aboutToAppear 注册；本函数只会被组件/页面在 Index 挂载后调用，必非 null。
+  const ui = getSharedUiContext();
+  if (ui === null) {
+    hilog.warn(0x0000, 'auth', 'ensureLogin: 共享 UIContext 未注册，无法跳转 LoginPage');
+    return null;
+  }
+  const state = ui.getRouter().getState();
+  if (state && state.path !== 'pages/LoginPage') {
+    ui.getRouter().pushUrl({ url: 'pages/LoginPage' });
   }
   return null;
 }
