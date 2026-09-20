@@ -27,6 +27,10 @@
     {
       "name": "permission_internet_reason",
       "value": "用于联网加载数据、发布与浏览内容，以及图片视频的传输"
+    },
+    {
+      "name": "permission_gesture_reason",
+      "value": "用于识别握持姿态，将操作按钮调整至握持手侧，便于单手使用"
     }
   ]
 }

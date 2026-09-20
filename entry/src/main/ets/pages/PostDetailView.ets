@@ -28,6 +28,7 @@ import { PostStatsDialog } from '../components/PostStatsDialog';
 import { openUserProfile, takePostDetailId, takePostDetailIntent, PostDetailIntent } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 import { getUserId, getToken } from '../utils/auth';
+import { startGripTracking, stopGripTracking } from '../utils/gripAwareness';
 import { likeStore } from '../utils/likeStore';
 import { postDeletionStore } from '../utils/postDeletionStore';
 import { debateVoteStore, DebateVoteInfo } from '../utils/debateVoteStore';
@@ -284,7 +285,14 @@ export struct PostDetailView {
     this.loadWindowInsets();
     this.intent = takePostDetailIntent();
     this.postId = takePostDetailId().trim();
+    // 智感握姿：订阅握持手状态（写入 AppStorage.gripOnRight），供 DetailPostHeader 跟手换边
+    startGripTracking();
     this.load();
+  }
+
+  aboutToDisappear(): void {
+    // 详情页关闭即退订（官方建议：避免多余的性能功耗开销）
+    stopGripTracking();
   }
 
   // 读取系统栏高度（全屏布局下顶部内容需避让），并监听 avoidAreaChange：
