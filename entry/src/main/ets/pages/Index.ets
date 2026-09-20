@@ -583,6 +583,7 @@ struct Index {
     HdsTabs({ controller: this.hdsController }) {
       this.mainTabContents()
     }
+    .clip(false)                             // 首页飞行卡向上抛射需溢出页面边界（状态栏区域）
     .barOverlap(true)                        // 悬浮：页签覆盖内容
     .barPosition(BarPosition.End)            // 底部
     .vertical(false)                         // 水平
@@ -629,6 +630,7 @@ struct Index {
     }
     .width('100%')
     .height('100%')
+    .clip(false)                             // 首页飞行卡向上抛射需溢出页面边界（状态栏区域）
     .vertical(false)
     .scrollable(false)
     .barHeight(0)
@@ -697,6 +699,9 @@ struct Index {
       }
       .id('mainNav')
       .hideTitleBar(true)
+      // 首页每日一帖飞行卡向上抛射需一路溢出到窗口顶部（状态栏区域），
+      // 关闭 Navigation 内容裁剪（详情页全屏、快照转场在独立层，均不受影响）。
+      .clip(false)
       .navDestination(this.pageMap)
       .width('100%')
       .height('100%')
