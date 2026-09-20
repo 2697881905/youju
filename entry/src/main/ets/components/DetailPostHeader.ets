@@ -30,7 +30,9 @@ export struct DetailPostHeader {
         .fontWeight(700)
         .lineHeight(TypeTokens.title.lineHeight)
         .fontColor(ColorTokens.primary)
-        .width('100%')
+        // 内容自适应宽度（≤父宽）：短标题随根对齐与标签/作者行一起连续滑动；
+        // textAlign 是瞬变属性无法插值——长标题折行占满父宽时换边会跳变，属已知取舍。
+        .constraintSize({ maxWidth: '100%' })
         .textAlign(this.gripOnRight ? TextAlign.End : TextAlign.Start)
       Row({ space: 4 }) {
         Image(this.genreIcon)
