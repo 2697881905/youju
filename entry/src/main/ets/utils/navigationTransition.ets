@@ -29,9 +29,15 @@ export function captureCardSnapshot(mediaId: string, cb: (pixelMap: image.PixelM
 }
 
 // 读取绑定 id 组件的屏幕矩形（统一换算为 vp；componentUtils 返回单位为 px）
+// getRectangleById 已废弃（since 18）→ 走 UIContext.getComponentUtils（@since 11 ✓）；
+// px2vp 的 UIContext 形态 @since 22 > 工程下限 20，故保持全局形态（已废弃但可用）。
 export function cardRectOf(mediaId: string): CardRect | null {
   try {
-    const rect = componentUtils.getRectangleById(mediaId);
+    const ui = getSharedUiContext();
+    if (ui === null) {
+      return null;
+    }
+    const rect = ui.getComponentUtils().getRectangleById(mediaId);
     if (!rect || !rect.size) {
       return null;
     }
@@ -88,9 +94,13 @@ export function getMainNavStack(): NavPathStack | null {
   return mainNavStack;
 }
 
-// 全局唯一 UIContext：util 文件（auth/navigationTransition 等）没有组件上下文，
-// Index 挂载时注册，替换已废弃的全局 router/组件工具 API 时从这里读取。
-let sharedUiContext: UIContext | null = null;
+// 全局唯一 UIContext 共享实例：Index 组件挂载时注册（与 mainNavStack 同一生命周期）。
+// 用途：util 文件（auth/navigationTransition 等）没有 this.getUIContext()，
+// 要把已废弃的全局 router/px2vp 换成 UIContext 形态时从这里取。
+// 注意（版本门槛）：UIContext.px2vp / ComponentSnapshot.get 均 @since 22，而本工程
+// compatibleSdkVersion = 6.0.0(20) —— 这两个 API 保持全局形态不变；
+// 只有 @since ≤ 20 的（getRouter/getComponentUtils/getFont）才允许走 UIContext 形态。
+export let sharedUiContext: UIContext | null = null;
 
 export function setSharedUiContext(ctx: UIContext): void {
   sharedUiContext = ctx;
