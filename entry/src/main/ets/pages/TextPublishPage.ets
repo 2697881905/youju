@@ -1,6 +1,6 @@
 // 长文发布页 — 独立 @Entry 页面，仅处理长文发布，不耦合图文/视频发布逻辑。
 // 媒体区渲染文字海报样式选择器，无图片/视频入口，无 mediaTypeSelector 切换行。
-import { LengthMetrics, router } from '@kit.ArkUI';
+import { LengthMetrics } from '@kit.ArkUI';
 import { listTags } from '../services/api';
 import { Genre, StructuredData, StructuredDocument, Tag, MentionRef, MentionCandidate } from '../models/types';
 import { safeShowToast } from '../utils/toast';
@@ -491,7 +491,7 @@ struct TextPublishPage {
           previewDisabled: this.title.trim().length === 0,
           onClear: (): void => { this.reset(); },
           onPreview: (): void => { this.openPreview(); },
-          onBack: (): void => { router.back(); },
+          onBack: (): void => { this.getUIContext().getRouter().back(); },
         })
       }
       .width('100%')

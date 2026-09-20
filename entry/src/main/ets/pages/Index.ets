@@ -18,7 +18,6 @@ import { ShadowTokens } from '../design/tokens/shadow';
 import { common } from '@kit.AbilityKit';
 import { window } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import font from '@ohos.font';
 import { publishFlowStore } from '../utils/publishFlowStore';
 import { AppTab, subscribeTabSwitch } from '../utils/nav';
 import { setMainNavStack } from '../utils/navigationTransition';
@@ -212,13 +211,13 @@ struct Index {
   // 内置开源宋体（Noto Serif SC），保证「全文科感」标题在无系统宋体的设备上也真实呈现。
   private registerSerifFont(): void {
     try {
-      font.registerFont({
+      this.getUIContext().getFont().registerFont({
         familyName: 'Noto Serif SC',
         familySrc: $rawfile('fonts/NotoSerifSC-Bold.otf'),
       });
       // 正文字重：Regular 单独注册一个 family（一个 familyName 只能绑一个字体文件），
       // 正文用 Bold 字形会被整体拉粗，与标题失去层次。
-      font.registerFont({
+      this.getUIContext().getFont().registerFont({
         familyName: 'Noto Serif SC Body',
         familySrc: $rawfile('fonts/NotoSerifSC-Regular.otf'),
       });
