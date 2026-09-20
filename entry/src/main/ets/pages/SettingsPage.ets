@@ -34,7 +34,7 @@ export struct SettingsPage {
       }
       const win = await window.getLastWindow(ctx);
       const area = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
-      this.statusBarHeight = px2vp(area.topRect.height);
+      this.statusBarHeight = this.getUIContext().px2vp(area.topRect.height);
     } catch (e) {
       // 读取失败维持 0
     }

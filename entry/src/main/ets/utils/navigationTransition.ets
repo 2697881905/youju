@@ -42,10 +42,10 @@ export function cardRectOf(mediaId: string): CardRect | null {
       return null;
     }
     return {
-      left: px2vp(rect.windowOffset?.x ?? 0),
-      top: px2vp(rect.windowOffset?.y ?? 0),
-      width: px2vp(rect.size.width),
-      height: px2vp(rect.size.height),
+      left: ui.px2vp(rect.windowOffset?.x ?? 0),
+      top: ui.px2vp(rect.windowOffset?.y ?? 0),
+      width: ui.px2vp(rect.size.width),
+      height: ui.px2vp(rect.size.height),
     };
   } catch (e) {
     return null;
