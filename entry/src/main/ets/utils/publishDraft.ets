@@ -1,4 +1,5 @@
-import { Genre, StructuredData, MentionRef } from '../models/types';
+import { Genre, StructuredData, StructuredDocument, MentionRef } from '../models/types';
+import { cloneStructuredDocument, structuredDocumentFromLegacy } from './structuredDocument';
 
 export type PublishDraftMode = 'photo' | 'text' | 'video';
 
@@ -10,6 +11,7 @@ export interface PublishDraft {
   genre: Genre;
   tags: string[];
   structuredData: StructuredData;
+  structuredDocument: StructuredDocument;
   images: string[];
   videoUrl?: string;   // 视频地址（轻量单视频，与 images 互斥）
   videoCover?: string; // 视频封面（首帧抓取上传）
@@ -19,6 +21,9 @@ export interface PublishDraft {
 }
 
 export function clonePublishDraft(draft: PublishDraft): PublishDraft {
+  const document: StructuredDocument = draft.structuredDocument === undefined
+    ? structuredDocumentFromLegacy(draft.structuredData, draft.genre)
+    : draft.structuredDocument;
   return {
     mode: draft.mode,
     title: draft.title,
@@ -26,6 +31,7 @@ export function clonePublishDraft(draft: PublishDraft): PublishDraft {
     genre: draft.genre,
     tags: [...draft.tags],
     structuredData: draft.structuredData,
+    structuredDocument: cloneStructuredDocument(document),
     images: [...draft.images],
     videoUrl: draft.videoUrl,
     videoCover: draft.videoCover,

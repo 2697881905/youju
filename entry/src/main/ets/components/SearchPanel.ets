@@ -120,13 +120,15 @@ export struct SearchPanel {
     return rows * LayoutTokens.segmentedHeight + (rows - 1) * SpaceTokens.sm;
   }
 
-  // 聚焦流光输入框：键入（聚焦）点亮原生流光，失焦熄灭
+  // 聚焦流光输入框：键入（聚焦）点亮原生流光，失焦熄灭；分段栏同款玻璃样式
   @Builder
   searchInput(): void {
     GlowInput({
       placeholder: '搜索你关心的经验和问题',
       text: $keyword,
       fillWidth: true,
+      // 分段栏同款：半透明白玻璃底 + backdropBlur + 1px 高光边框 + lg 圆角
+      segmentStyle: true,
       onChange: (v: string): void => { this.debounceSuggest(v); },
       onEnter: (): void => { this.doSearch(); },
       onFocusChanged: (focus: boolean): void => {

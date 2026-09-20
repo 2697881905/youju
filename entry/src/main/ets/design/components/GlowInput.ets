@@ -28,6 +28,11 @@ import { RadiusTokens } from '../tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../tokens/space';
 import { TypeTokens } from '../tokens/type';
 
+// —— 分段栏同款沉浸光感参数（与 SegmentedControl.ets 顶部 IMMERSIVE_* 完全同值）——
+const SEGMENT_GLASS_BG: ResourceColor = '#20FFFFFF';
+const SEGMENT_GLASS_BLUR: number = 20;
+const SEGMENT_GLASS_BORDER: ResourceColor = '#30FFFFFF';
+
 @Component
 export struct GlowInput {
   // 受控文本：外部 @State 变量经 $ 双向绑定（与 TextInput text 一致）
@@ -37,6 +42,9 @@ export struct GlowInput {
   // 输入框高度（不叫 height，避开 CustomComponent 基类同名方法）
   @Prop inputHeight: number = LayoutTokens.minTouchTarget;
   @Prop radius: number = RadiusTokens.floatingBar;
+  // 分段栏同款样式（搜索框试点）：半透明白玻璃底 + backdropBlur + 1px 高光边框 + lg 圆角，
+  // 与 SegmentedControl immersive 完全同规格，视觉上输入框与分段栏属于同一材质体系
+  @Prop segmentStyle: boolean = false;
   // 最大输入长度（0=不限）
   @Prop maxLength: number = 0;
   onChange?: (value: string) => void = undefined;
@@ -86,7 +94,7 @@ export struct GlowInput {
           .scene(HdsSceneType.DUAL_EDGE_FLOW_LIGHT_WITH_BACKGROUND_MASK, this.getGlowController())
           .width(this.inputW)
           .height(this.inputH)
-          .borderRadius(this.radius)
+          .borderRadius(this.segmentStyle ? RadiusTokens.lg : this.radius)
           .clip(true)
           .hitTestBehavior(HitTestMode.Transparent)
       }
@@ -96,10 +104,19 @@ export struct GlowInput {
         .fontColor(ColorTokens.primary)
         .width('100%')
         .height(this.inputHeight)
-        .backgroundBlurStyle(GlassBlurStyle.Floating)
-        .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
-        .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-        .borderRadius(this.radius)
+        // 分段栏同款（segmentStyle）：backdropBlur 伪沉浸 + 半透明白玻璃底 + 1px 高光边框 + lg 圆角；
+        // 普通模式维持系统玻璃（backgroundBlurStyle）方案不变
+        .backgroundBlurStyle(this.segmentStyle ? BlurStyle.NONE : GlassBlurStyle.Floating)
+        .backdropBlur(this.segmentStyle ? SEGMENT_GLASS_BLUR : 0)
+        .backgroundColor(this.segmentStyle
+          ? SEGMENT_GLASS_BG
+          : (isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface))
+        .border({
+          width: 1,
+          color: this.segmentStyle ? SEGMENT_GLASS_BORDER : ColorTokens.barBorder,
+          style: BorderStyle.Solid,
+        })
+        .borderRadius(this.segmentStyle ? RadiusTokens.lg : this.radius)
         .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
         .maxLength(this.maxLength > 0 ? this.maxLength : 2147483647)
         .onChange((v: string): void => {

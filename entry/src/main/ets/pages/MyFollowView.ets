@@ -1,0 +1,259 @@
+import { FollowUser } from '../models/types';
+import { listFollowing, listFollowers, followUser, unfollowUser, resolveDisplayImageUrl } from '../services/api';
+import { safeShowToast } from '../utils/toast';
+import { buildPageTransition } from '../utils/styles';
+import { BackButton } from '../design/components/BackButton';
+import { openUserProfile, takeFollowListIntent } from '../utils/nav';
+import { getMainNavStack, UserProfileNavParams } from '../utils/navigationTransition';
+
+// 我的关注/粉丝「主体视图」：router 壳（pages/MyFollowPage）与 Navigation 壳
+// （pages/MyFollowDestination）共用。差异点收敛为注入回调：
+// - navMode=true（Navigation 壳）：返回走 onBack，进入主页走 navStack.pushPathByName；
+// - navMode=false（router 壳）：保持原 router 行为（router.back / router.pushUrl）。
+@Component
+export struct MyFollowView {
+  // —— 壳注入（Navigation 壳 pages/MyFollowDestination 使用）——
+  @Prop navMode: boolean = false;
+  onBack?: () => void = undefined;     // Navigation 壳：navStack.pop()
+  @State mode: string = 'following';
+  @State targetId: number = 0;
+  @State list: FollowUser[] = [];
+  @State page: number = 1;
+  @State loading: boolean = false;
+  @State finished: boolean = false;
+  @State isRefreshing: boolean = false;
+  @State error: string = '';
+  @State ready: boolean = false;
+  @StorageLink('statusBarHeight') statusBarHeight: number = 0;
+
+  // 统一返回入口：Navigation 壳走 onBack（navStack.pop），router 壳走普通返回
+  private backAction(): void {
+    if (this.onBack !== undefined) {
+      this.onBack();
+      return;
+    }
+    this.getUIContext().getRouter().back();
+  }
+
+  aboutToAppear(): void {
+    this.resolveParams();
+    this.loadAll();
+  }
+
+  private resolveParams(): void {
+    const intent = takeFollowListIntent();
+    if (intent !== null) {
+      this.targetId = intent.userId;
+      this.mode = intent.mode;
+    }
+  }
+
+  async loadAll(): Promise<void> {
+    this.ready = false;
+    await this.refresh();
+    this.ready = true;
+  }
+
+  async refresh(): Promise<void> {
+    this.page = 1;
+    this.finished = false;
+    await this.fetch(true);
+  }
+
+  async loadMore(): Promise<void> {
+    if (this.finished || this.loading || this.isRefreshing) {
+      return;
+    }
+    this.page += 1;
+    await this.fetch(false);
+  }
+
+  private async fetch(reset: boolean): Promise<void> {
+    if (this.loading) {
+      return;
+    }
+    if (this.targetId === 0) {
+      // 导航意图丢失（takeFollowListIntent 返回 null）时不发无效请求，并给出明确失败态：
+      // 否则渲染会落到空态「这里还什么都没有」，让用户误以为自己没有关注/粉丝。
+      this.error = '页面参数缺失，请返回重新进入';
+      return;
+    }
+    this.loading = true;
+    this.error = '';
+    try {
+      const res = this.mode === 'following'
+        ? await listFollowing(this.targetId, this.page, 20)
+        : await listFollowers(this.targetId, this.page, 20);
+      const data: FollowUser[] = res.list;
+      if (reset) {
+        this.list = data;
+      } else {
+        this.list = this.list.concat(data);
+      }
+      if (data.length < 20) {
+        this.finished = true;
+      }
+    } catch (e) {
+      this.error = (e as Error).message;
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  // 关注/取关（乐观更新，避免对象展开，用显式拷贝）
+  private updatedItem(item: FollowUser, isFollowing: boolean): FollowUser {
+    return {
+      id: item.id,
+      nickname: item.nickname,
+      avatar: item.avatar,
+      bio: item.bio,
+      isFollowing: isFollowing,
+    };
+  }
+
+  async onToggle(item: FollowUser): Promise<void> {
+    if (item.id === undefined) {
+      return;
+    }
+    if (item.isFollowing) {
+      this.getUIContext().showAlertDialog({
+        title: '取消关注',
+        message: '确定不再关注 ' + (item.nickname !== '' ? item.nickname : '') + ' 吗？',
+        primaryButton: { value: '取消', action: (): void => {} },
+        secondaryButton: {
+          value: '取消关注',
+          fontColor: $r('app.color.semantic_red'),
+          action: (): void => {
+            this.doToggle(item);
+          },
+        },
+      });
+    } else {
+      await this.doToggle(item);
+    }
+  }
+
+  async doToggle(item: FollowUser): Promise<void> {
+    if (item.id === undefined) {
+      return;
+    }
+    const id: number = item.id;
+    const willFollow: boolean = !item.isFollowing;
+    const updated: FollowUser[] = [];
+    for (let i = 0; i < this.list.length; i++) {
+      const curId: number | undefined = this.list[i].id;
+      if (curId === id) {
+        updated.push(this.updatedItem(this.list[i], willFollow));
+      } else {
+        updated.push(this.list[i]);
+      }
+    }
+    this.list = updated;
+    try {
+      if (willFollow) {
+        await followUser(id);
+      } else {
+        await unfollowUser(id);
+      }
+    } catch (e) {
+      const reverted: FollowUser[] = [];
+      for (let i = 0; i < this.list.length; i++) {
+        const curId: number | undefined = this.list[i].id;
+        if (curId === id) {
+          reverted.push(this.updatedItem(this.list[i], !willFollow));
+        } else {
+          reverted.push(this.list[i]);
+        }
+      }
+      this.list = reverted;
+      safeShowToast(this.getUIContext(), { message: (e as Error).message });
+    }
+  }
+
+  private goProfile(item: FollowUser): void {
+    if (item.id === undefined) {
+      return;
+    }
+    openUserProfile(item.id);
+    if (this.navMode) {
+      const nav: NavPathStack | null = getMainNavStack();
+      if (nav !== null) {
+        const p: UserProfileNavParams = new UserProfileNavParams();
+        p.userId = item.id;
+        nav.pushPathByName('UserProfile', p);
+        return;
+      }
+    }
+    this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage', params: { userId: String(item.id) } });
+  }
+
+  build() {
+    Column() {
+      Row() {
+        BackButton({ action: (): void => { this.backAction(); } })
+        Text(this.mode === 'following' ? '我的关注' : '我的粉丝')
+          .fontSize(17).fontFamily($r('app.string.font_family')).fontWeight(600).layoutWeight(1).textAlign(TextAlign.Center);
+        Text('').width(44);
+      }
+      .width('100%').padding({ top: 12, bottom: 8 });
+
+      if (!this.ready) {
+        Column() {
+          LoadingProgress().width(28).height(28);
+          Text('加载中…').fontSize(13).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary')).margin({ top: 10 });
+        }
+        .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
+      } else if (this.list.length === 0) {
+        Column() {
+          Text(this.error ? ('加载失败：' + this.error) : '这里还什么都没有')
+            .fontSize(14).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary'));
+        }
+        .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
+      } else {
+        Refresh({ refreshing: $$this.isRefreshing }) {
+        List() {
+          ForEach(this.list, (item: FollowUser) => {
+            ListItem() {
+              Row({ space: 12 }) {
+                if (item.avatar) {
+                  Image(resolveDisplayImageUrl(item.avatar)).width(44).height(44).borderRadius(22).objectFit(ImageFit.Cover);
+                } else {
+                  Text((item.nickname !== '' ? item.nickname : '?').charAt(0))
+                    .width(44).height(44).borderRadius(22).fontSize(18).fontFamily($r('app.string.font_family')).fontColor('#fff')
+                    .backgroundColor($r('app.color.brand_primary')).textAlign(TextAlign.Center);
+                }
+                Column({ space: 4 }) {
+                  Text(item.nickname).fontSize(15).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_primary'));
+                  if (item.bio) {
+                    Text(item.bio).fontSize(12).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary')).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis });
+                  }
+                }
+                .alignItems(HorizontalAlign.Start)
+                .layoutWeight(1)
+                .onClick(() => {
+                  this.goProfile(item);
+                });
+
+                Button(item.isFollowing ? '已关注' : '回关')
+                  .height(32).borderRadius(16).padding({ left: 16, right: 16 })
+                  .backgroundColor(item.isFollowing ? $r('app.color.card_bg') : $r('app.color.brand_primary'))
+                  .fontColor(item.isFollowing ? $r('app.color.text_primary') : '#fff')
+                  .onClick(() => {
+                    this.onToggle(item);
+                  });
+              }
+              .width('100%').padding({ left: 16, right: 16, top: 12, bottom: 12 });
+            }
+          }, (item: FollowUser) => item.id !== undefined ? item.id.toString() : '');
+        }
+        .width('100%').height('100%')
+        .onReachEnd(() => { this.loadMore(); });
+        }
+        .layoutWeight(1).width('100%')
+        .onRefreshing(() => { this.refresh().finally(() => { this.isRefreshing = false; }); });
+      }
+    }
+    .width('100%').padding({ top: this.statusBarHeight }).height('100%').backgroundColor($r('app.color.bg_primary'))
+    .transition(buildPageTransition())
+  }
+}

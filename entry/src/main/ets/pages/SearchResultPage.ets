@@ -235,7 +235,8 @@ struct SearchResultPage {
           selectedIndex: $sortIndex,
           itemWidth: 54,
           fillWidth: false,
-          glass: true,
+          // 沉浸光感（华为应用商店同款）：玻璃底 + backdropBlur + 高光边框 + 滑块悬浮投影
+          immersive: true,
           onSelect: (index: number): void => { this.onSortChange(index); },
         })
       }

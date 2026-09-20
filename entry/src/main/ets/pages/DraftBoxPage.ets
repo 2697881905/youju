@@ -78,6 +78,7 @@ struct DraftBoxPage {
       genre: draft.genre,
       tags: [...draft.tags],
       structuredData: draft.structuredData,
+      structuredDocument: draft.structuredDocument,
       upCount: 0,
       commentCount: 0,
       user: getCurrentUser() ?? undefined,

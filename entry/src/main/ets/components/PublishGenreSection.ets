@@ -9,8 +9,13 @@ import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
-import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
-import { ImmersiveSurface } from '../design/components/ImmersiveSurface';
+
+// —— 应用整体浮层材质（暖纸色系，与底部栏/浮层面板同语言）——
+// 背景用 barSurface 暖米半透明 + backdropBlur（暖玻璃感），描边用 barBorder 暖色细线，
+// 阴影用 barShadow 暖棕——与 SpringPanel/GlassPanel 保持一致，而非分段栏组件的纯白玻璃。
+const SEGMENT_GLASS_BG: ResourceColor = ColorTokens.barSurface;
+const SEGMENT_GLASS_BLUR: number = 20;
+const SEGMENT_GLASS_BORDER: ResourceColor = ColorTokens.barBorder;
 
 @Component
 export struct PublishGenreSection {
@@ -26,40 +31,39 @@ export struct PublishGenreSection {
 
   @Builder
   private genreMenu(): void {
-    ImmersiveSurface({ radius: RadiusTokens.lg }) {
-      Column({ space: SpaceTokens.none }) {
-        ForEach(PUBLISH_GENRES, (item: PublishGenreItem, index: number) => {
-          Pressable({
-            fillWidth: true,
-            visualHeight: LayoutTokens.minTouchTarget,
-            action: (): void => { this.onSelectGenre(index); },
-          }) {
-            Row({ space: SpaceTokens.sm }) {
-              Image(item.iconRes)
-                .width(IconTokens.small)
-                .height(IconTokens.small)
-              Text(item.label)
-                .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-                .fontWeight(index === this.genreIndex ? TypeTokens.headline.weight : TypeTokens.callout.weight)
-                .lineHeight(TypeTokens.callout.lineHeight)
-                .fontColor(index === this.genreIndex ? ColorTokens.brand : ColorTokens.primary)
-            }
-            .width('100%')
-            .height(LayoutTokens.minTouchTarget)
-            .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-            .alignItems(VerticalAlign.Center)
-            .backgroundColor(index === this.genreIndex ? ColorTokens.brandTint : Color.Transparent)
+    // 应用整体浮层风格（暖纸色系）：barSurface 暖米玻璃底 + backdropBlur + barBorder 暖描边 + lg 圆角
+    Column({ space: SpaceTokens.none }) {
+      ForEach(PUBLISH_GENRES, (item: PublishGenreItem, index: number) => {
+        Pressable({
+          fillWidth: true,
+          visualHeight: LayoutTokens.minTouchTarget,
+          action: (): void => { this.onSelectGenre(index); },
+        }) {
+          Row({ space: SpaceTokens.sm }) {
+            Image(item.iconRes)
+              .width(IconTokens.small)
+              .height(IconTokens.small)
+            Text(item.label)
+              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+              .fontWeight(index === this.genreIndex ? TypeTokens.headline.weight : TypeTokens.callout.weight)
+              .lineHeight(TypeTokens.callout.lineHeight)
+              .fontColor(index === this.genreIndex ? ColorTokens.brand : ColorTokens.primary)
           }
-        }, (item: PublishGenreItem) => item.key)
-      }
-      .width(128)
-      .backgroundBlurStyle(GlassBlurStyle.Floating)
-      .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
-      .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-      .borderRadius(RadiusTokens.lg)
-      .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
-      .clip(true)
+          .width('100%')
+          .height(LayoutTokens.minTouchTarget)
+          .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+          .alignItems(VerticalAlign.Center)
+          .backgroundColor(index === this.genreIndex ? ColorTokens.brandTint : Color.Transparent)
+        }
+      }, (item: PublishGenreItem) => item.key)
     }
+    .width(128)
+    .backdropBlur(SEGMENT_GLASS_BLUR)
+    .backgroundColor(SEGMENT_GLASS_BG)
+    .border({ width: 1, color: SEGMENT_GLASS_BORDER, style: BorderStyle.Solid })
+    .borderRadius(RadiusTokens.lg)
+    .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
+    .clip(true)
   }
 
   build() {
@@ -101,8 +105,10 @@ export struct PublishGenreSection {
         .height(LayoutTokens.segmentedHeight)
         .padding({ left: SpaceTokens.md, right: SpaceTokens.sm })
         .alignItems(VerticalAlign.Center)
-        .backgroundColor(Color.Transparent)
-        .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+        // 应用整体浮层风格（暖纸色系）：barSurface 暖米玻璃底 + backdropBlur + barBorder 暖描边 + lg 圆角
+        .backdropBlur(SEGMENT_GLASS_BLUR)
+        .backgroundColor(SEGMENT_GLASS_BG)
+        .border({ width: 1, color: SEGMENT_GLASS_BORDER, style: BorderStyle.Solid })
         .borderRadius(RadiusTokens.lg)
         .bindPopup(this.menuVisible, {
           builder: this.genreMenu,
@@ -130,8 +136,10 @@ export struct PublishGenreSection {
         .height(LayoutTokens.segmentedHeight)
         .padding({ left: SpaceTokens.md, right: SpaceTokens.sm })
         .alignItems(VerticalAlign.Center)
-        .backgroundColor(Color.Transparent)
-        .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+        // 与体裁按钮同款应用浮层风格（暖纸色系）：barSurface 暖米玻璃底 + backdropBlur + barBorder 暖描边
+        .backdropBlur(SEGMENT_GLASS_BLUR)
+        .backgroundColor(SEGMENT_GLASS_BG)
+        .border({ width: 1, color: SEGMENT_GLASS_BORDER, style: BorderStyle.Solid })
         .borderRadius(RadiusTokens.lg)
       }
     }

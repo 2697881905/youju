@@ -1,4 +1,5 @@
-import { StructuredData } from '../models/types';
+import { StructuredFieldPair } from '../utils/structuredFields';
+import { StructuredFieldBlock, withoutHeadline } from './StructuredFieldView';
 import { formatCount } from '../utils/format';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { ColorTokens } from '../design/tokens/color';
@@ -10,14 +11,18 @@ import { doesTextFitInPoster } from '../utils/textPoster';
 import { ShadowTokens } from '../design/tokens/shadow';
 import { HighlightSegment, parseHighlightSegments } from '../utils/textHighlight';
 import { openCircleDetail, openUserProfile } from '../utils/nav';
-import { MentionRef } from '../models/types';
+import { MentionRef, StructuredDocument } from '../models/types';
+import { StructuredSummaryCard } from './StructuredSummaryCard';
+import { structuredSummaryFromPairs } from '../utils/structuredBlocks';
+import { StructuredFlowView } from './StructuredFlowView';
 
 // 详情正文只负责体裁内容的展示；投票的请求和回滚仍由 DetailPage 持有。
-export type DetailField = [string, string];
 
 @Component
 export struct DetailPostContent {
-  @Prop fields: DetailField[] = [];
+  // 结构化字段投影（含 kind）：字段表与读取都来自 utils/structuredFields
+  @Prop pairs: StructuredFieldPair[] = [];
+  @Prop structuredDocument: StructuredDocument | null = null;
   @Prop genre: string = '';
   @Prop content: string = '';
   @Prop coverOnlyTextPoster: boolean = false;
@@ -117,6 +122,17 @@ export struct DetailPostContent {
     return choice === 'A' ? this.planAVotes : this.planBVotes;
   }
 
+  private debateValue(left: boolean): string {
+    const legacy: string = left ? this.planA : this.planB;
+    if (legacy.length > 0) return legacy;
+    if (this.structuredDocument !== null) {
+      for (const block of this.structuredDocument.blocks) {
+        if (block.type === 'compare') return left ? block.leftValue : block.rightValue;
+      }
+    }
+    return '';
+  }
+
   @Builder
   private voteRow(planName: string, fallbackLabel: string, choice: string): void {
     Row() {
@@ -166,8 +182,8 @@ export struct DetailPostContent {
   @Builder
   private debatePanel(): void {
     Column({ space: SpaceTokens.lg }) {
-      this.voteRow(this.planA, '方案A', 'A');
-      this.voteRow(this.planB, '方案B', 'B');
+      this.voteRow(this.debateValue(true), '方案A', 'A');
+      this.voteRow(this.debateValue(false), '方案B', 'B');
     }
     .width('100%')
     .padding(18)
@@ -178,44 +194,30 @@ export struct DetailPostContent {
     .clip(true);
   }
 
-  @Builder
-  private structuredFields(): void {
-    if (this.fields.length > 0 && this.genre !== 'debate') {
-      Column({ space: SpaceTokens.md }) {
-        ForEach(
-          this.fields,
-          (field: DetailField) => {
-            Row({ space: SpaceTokens.block }) {
-              Text(field[0])
-                .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-                .fontColor(ColorTokens.secondary)
-                .width(88)
-              Text(field[1])
-                .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamilySerifBody)
-                .fontColor(ColorTokens.primary)
-                .lineHeight(TypeTokens.body.lineHeight)
-                .layoutWeight(1)
-            }
-            .width('100%')
-            .alignItems(VerticalAlign.Top)
-          },
-          (field: DetailField) => field[0]
-        )
-      }
-      .width('100%')
-      .padding(18)
-      .backgroundColor(ColorTokens.elevated)
-      .borderRadius(RadiusTokens.md)
-      .border({ width: 0.5, color: ColorTokens.separator, style: BorderStyle.Solid })
+  // 字段块内容：头条指标（推荐指数/损失金额）已由结论卡承担，这里去掉避免同屏重复；
+  // 辩论体裁的方案文字已合并进投票卡片，也不再重复展示。
+  private bodyPairs(): StructuredFieldPair[] {
+    if (this.genre === 'debate') {
+      return [];
     }
+    return withoutHeadline(this.pairs);
   }
 
   build() {
     Column({ space: SpaceTokens.lg }) {
+      // V2 用完整视觉信息流；历史帖子继续走旧字段投影，不要求数据迁移后才能阅读。
+      if (this.structuredDocument !== null && this.structuredDocument.blocks.length > 0) {
+        StructuredFlowView({ document: this.structuredDocument })
+      } else {
+        StructuredSummaryCard({
+          summary: structuredSummaryFromPairs(this.pairs, this.genre),
+          compact: false,
+        })
+        StructuredFieldBlock({ pairs: this.bodyPairs() })
+      }
       if (this.genre === 'debate') {
         this.debatePanel();
       }
-      this.structuredFields();
       if (this.content.length > 0) {
         // 文字海报已完整容纳正文时不再冗余展示纯文本；
         // 海报截断（省略号）时仍显示完整正文，确保读者不丢信息。

@@ -2,7 +2,7 @@
 // 媒体区直接渲染 ImagePicker，无 mediaTypeSelector 切换行。
 import { LengthMetrics, router } from '@kit.ArkUI';
 import { listTags } from '../services/api';
-import { Genre, StructuredData, Tag, MentionRef, MentionCandidate } from '../models/types';
+import { Genre, StructuredData, StructuredDocument, Tag, MentionRef, MentionCandidate } from '../models/types';
 import { ImagePicker } from '../components/ImagePicker';
 import { safeShowToast } from '../utils/toast';
 import { resolveActionIcon } from '../utils/actionIcons';
@@ -19,8 +19,9 @@ import { PublishDraft } from '../utils/publishDraft';
 import { removePostDraft } from '../utils/postDraftStore';
 import { getUserId } from '../utils/auth';
 import { PublishSession, publishFlowStore } from '../utils/publishFlowStore';
-import { genreStructuredFields, readStructuredField, withStructuredField } from '../utils/structuredFields';
-import { PublishStructuredSupplement } from '../components/PublishStructuredSupplement';
+import { collectStructuredData } from '../utils/structuredFields';
+import { emptyStructuredDocument, filterStructuredDocumentForGenre } from '../utils/structuredDocument';
+import { StructuredComposer } from '../components/StructuredComposer';
 import { PublishTagPanel } from '../components/PublishTagPanel';
 import { PUBLISH_GENRES, publishGenreMeta } from '../utils/publishGenres';
 import { PublishGenreSection } from '../components/PublishGenreSection';
@@ -40,9 +41,11 @@ struct PhotoPublishPage {
   @State title: string = '';
   @State content: string = '';
   @State sd: StructuredData = {};
+  @State structuredDocument: StructuredDocument = emptyStructuredDocument();
   @State images: string[] = [];
   @State tags: Tag[] = [];
-  @State showFields: boolean = false;
+  // 结构化区默认展开：它是产品核心特色，藏在折叠里等于没有（覆盖率的最大杀手）
+  @State showFields: boolean = true;
   @State showGenreMenu: boolean = false;
   @State showTagPanel: boolean = false;
   @State editingSavedDraftId: string = '';
@@ -123,21 +126,6 @@ struct PhotoPublishPage {
     });
     this.tagsByCategory = rec;
     this.categoryList = cats;
-  }
-
-  private onFieldChange(key: keyof StructuredData, value: string): void {
-    this.sd = withStructuredField(this.sd, key, value);
-  }
-
-  private buildStructuredData(): StructuredData {
-    let out: StructuredData = {};
-    for (const item of genreStructuredFields(this.genre)) {
-      const raw: string | number | undefined = readStructuredField(this.sd, item[0]);
-      if (raw !== undefined && raw !== '') {
-        out = withStructuredField(out, item[0], String(raw));
-      }
-    }
-    return out;
   }
 
   private toggleTag(name: string): void {
@@ -231,7 +219,8 @@ struct PhotoPublishPage {
       content: this.content,
       genre: this.genre,
       tags: this.selectedTags,
-      structuredData: this.buildStructuredData(),
+      structuredData: collectStructuredData(this.sd, this.genre),
+      structuredDocument: this.structuredDocument,
       images: this.images,
       mentions: this.mentionRefs.length > 0 ? this.mentionRefs : undefined,
     };
@@ -249,9 +238,10 @@ struct PhotoPublishPage {
     this.title = draft.title;
     this.content = draft.content;
     this.sd = draft.structuredData;
+    this.structuredDocument = draft.structuredDocument;
     this.images = [...draft.images];
     this.editingSavedDraftId = savedDraftId;
-    this.showFields = false;
+    this.showFields = true;
     this.showGenreMenu = false;
     this.showTagPanel = false;
     this.closeMention();
@@ -296,9 +286,10 @@ struct PhotoPublishPage {
     this.title = '';
     this.content = '';
     this.sd = {};
+    this.structuredDocument = emptyStructuredDocument();
     this.images = [];
     this.editingSavedDraftId = '';
-    this.showFields = false;
+    this.showFields = true;
     this.showGenreMenu = false;
     this.showTagPanel = false;
     this.mentionRefs = [];
@@ -313,8 +304,10 @@ struct PhotoPublishPage {
     if (index < 0 || index >= PUBLISH_GENRES.length) {
       return;
     }
+    const nextGenre: Genre = PUBLISH_GENRES[index].key;
     this.genreIndex = index;
-    this.genre = PUBLISH_GENRES[index].key;
+    this.genre = nextGenre;
+    this.structuredDocument = filterStructuredDocumentForGenre(this.structuredDocument, nextGenre);
     this.showGenreMenu = false;
   }
 
@@ -381,12 +374,11 @@ struct PhotoPublishPage {
             .width('100%')
         }
         Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator).margin({ top: SpaceTokens.sm })
-        PublishStructuredSupplement({
-          genre: this.genre,
-          hint: this.currentGenreHint(),
-          data: this.sd,
+        StructuredComposer({
+          document: this.structuredDocument,
+          genreLabel: this.genre,
           expanded: $showFields,
-          onChange: (key: keyof StructuredData, value: string): void => { this.onFieldChange(key, value); },
+          onDocumentChange: (document: StructuredDocument): void => { this.structuredDocument = document; },
         })
       }
       .width('100%')
@@ -461,25 +453,33 @@ struct PhotoPublishPage {
       }
       .width('100%')
       .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: this.statusBarHeight + SpaceTokens.xs, bottom: SpaceTokens.sm })
-
-      if (this.showTagPanel) {
-        Column() {
-          PublishTagPanel({
-            categoryList: this.categoryList,
-            tagsByCategory: this.tagsByCategory,
-            selectedTags: this.selectedTags,
-            maxSelected: MAX_SELECTED_TAGS,
-            onToggle: (name: string): void => { this.toggleTag(name); },
-            onClose: (): void => { this.showTagPanel = false; },
-          })
-        }
-        .width('100%')
-        .height('100%')
-        .padding({ top: this.statusBarHeight })
-      }
     }
     .width('100%')
     .height('100%')
     .backgroundColor(ColorTokens.canvas)
+    // 选择圈子：bindSheet 底部弹层（替代原全屏覆盖面板）
+    .bindSheet(this.showTagPanel, this.tagSheet(), {
+      height: '60%',
+      dragBar: true,
+      // 内容自绘分段栏同款玻璃（backdropBlur + 高光边框），不再叠系统模糊
+      blurStyle: BlurStyle.NONE,
+      // 关闭由内容内"完成"按钮与下滑手势负责，隐藏系统右上角关闭按钮避免与标题重叠
+      showClose: false,
+      maskColor: '#33000000',
+      onDisappear: (): void => { this.showTagPanel = false; },
+    })
+  }
+
+  // 选择圈子弹层内容：按分类多选标签（最多 MAX_SELECTED_TAGS 个）
+  @Builder
+  tagSheet(): void {
+    PublishTagPanel({
+      categoryList: this.categoryList,
+      tagsByCategory: this.tagsByCategory,
+      selectedTags: this.selectedTags,
+      maxSelected: MAX_SELECTED_TAGS,
+      onToggle: (name: string): void => { this.toggleTag(name); },
+      onClose: (): void => { this.showTagPanel = false; },
+    })
   }
 }

@@ -21,11 +21,18 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import font from '@ohos.font';
 import { publishFlowStore } from '../utils/publishFlowStore';
 import { AppTab, subscribeTabSwitch } from '../utils/nav';
+import { setMainNavStack } from '../utils/navigationTransition';
 import { setSerifTypeface, setSerifBodyTypeface } from '../utils/textPoster';
 import { drawing } from '@kit.ArkGraphics2D';
 import { HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
 import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
 import { BottomTabBar } from '../design/components/BottomTabBar';
+import { PostDetailDestination } from './PostDetailDestination';
+import { UserProfileDestination } from './UserProfileDestination';
+import { CircleDetailDestination } from './CircleDetailDestination';
+import { ChatDestination } from './ChatDestination';
+import { MyFollowDestination } from './MyFollowDestination';
+import { LoginDestination } from './LoginDestination';
 
 // 底部页签数据项（含发布占位 tab）。发布 tab 也走同一 builder，展示 + 图标。
 interface IndexTabItem {
@@ -160,6 +167,8 @@ struct Index {
   // （deviceInfo.sdkApiVersion + canIUse，进程级缓存），不会运行期翻转 → 组件不会重建。
   private hdsFloatingBar: boolean = isImmersiveLightSenseSupported();
   @State lastPageIndex: number = 0;   // 发布前的实际页面 tab，用于发布后回跳
+  // 导航栈：主框架为 Navigation 首页，帖子详情等走 navDestination（首页卡片一镜到底）
+  private pageStack: NavPathStack = new NavPathStack();
   private unsubscribeTabSwitch: () => void = () => {};
   private publishModeController: CustomDialogController = new CustomDialogController({
     builder: PublishModeSheet({
@@ -228,6 +237,7 @@ struct Index {
   aboutToAppear(): void {
     this.registerSerifFont();
     initAuthStorage();
+    setMainNavStack(this.pageStack);
     AppStorage.setOrCreate<number>('circleLogoDismissVersion', AppStorage.get<number>('circleLogoDismissVersion') ?? 0);
     this.unsubscribeTabSwitch();
     this.unsubscribeTabSwitch = subscribeTabSwitch((target: AppTab): void => {
@@ -495,6 +505,24 @@ struct Index {
     this.selectTab(index);
   }
 
+  // 导航目的地注册：pushPathByName(name, params) 对应的 NavDestination
+  @Builder
+  pageMap(name: string, _param: Object) {
+    if (name === 'PostDetail') {
+      PostDetailDestination()
+    } else if (name === 'UserProfile') {
+      UserProfileDestination()
+    } else if (name === 'CircleDetail') {
+      CircleDetailDestination()
+    } else if (name === 'ChatPage') {
+      ChatDestination()
+    } else if (name === 'MyFollow') {
+      MyFollowDestination()
+    } else if (name === 'Login') {
+      LoginDestination()
+    }
+  }
+
   // 官方 HdsTabs 页签：图标 + 文字，选中态品牌色；消息 tab（index=3）叠加未读红点。
   @Builder
   tabBarBuilder(index: number) {
@@ -617,43 +645,56 @@ struct Index {
 
   build() {
     Stack({ alignContent: Alignment.Bottom }) {
-      Column() {
-        // ⚠️ 隐私红线：未同意隐私政策前不构建主 Tab 内容。
-        // 同意后 privacyAgreed 变 '1' → build 重跑 → 正常构建 Tab 并加载。
-        if (this.privacyAgreed !== '1') {
-          Blank()
-        } else if (this.hdsFloatingBar) {
-          this.mainTabsFloating()
-        } else {
-          this.mainTabsPlain()
-        }
-      }
-      .width('100%')
-      .height('100%')
-      .padding({ top: this.statusBarHeight })
+      // —— 组件导航根：主框架（Tabs + 悬浮底栏）作为 Navigation 首页 ——
+      // 首页卡片→详情走 navDestination（customNavContentTransition + componentSnapshot 一镜到底）
+      Navigation(this.pageStack) {
+        Stack({ alignContent: Alignment.Bottom }) {
+          Column() {
+            // ⚠️ 隐私红线：未同意隐私政策前不构建主 Tab 内容。
+            // 同意后 privacyAgreed 变 '1' → build 重跑 → 正常构建 Tab 并加载。
+            if (this.privacyAgreed !== '1') {
+              Blank()
+            } else if (this.hdsFloatingBar) {
+              this.mainTabsFloating()
+            } else {
+              this.mainTabsPlain()
+            }
+          }
+          .width('100%')
+          .height('100%')
+          .padding({ top: this.statusBarHeight })
 
-      // API 20-22 分支：自绘悬浮玻璃药丸底栏（BottomTabBar，纯标准 ArkUI，无 HDS 依赖）。
-      // 与 API 23+ 的 HdsTabs 悬浮条同款视觉；三键导航避让由 margin 承担（审核问题③）。
-      // 未同意隐私政策时不渲染底栏（此时没有可切换的页面，避免空白壳里出现可点的假壳）。
-      if (!this.hdsFloatingBar && this.privacyAgreed === '1') {
-        Row() {
-          BottomTabBar({
-            items: this.bottomTabItems(),
-            currentIndex: $currentIndex,
-            unreadCount: this.unreadCount + this.dmUnread,
-            onSelect: (index: number): void => {
-              this.handleTabBarClick(index);
-              if (index !== 2) {
-                this.tabsController.changeIndex(index);
-              }
-            },
-          })
+          // API 20-22 分支：自绘悬浮玻璃药丸底栏（BottomTabBar，纯标准 ArkUI，无 HDS 依赖）。
+          // 与 API 23+ 的 HdsTabs 悬浮条同款视觉；三键导航避让由 margin 承担（审核问题③）。
+          // 未同意隐私政策时不渲染底栏（此时没有可切换的页面，避免空白壳里出现可点的假壳）。
+          if (!this.hdsFloatingBar && this.privacyAgreed === '1') {
+            Row() {
+              BottomTabBar({
+                items: this.bottomTabItems(),
+                currentIndex: $currentIndex,
+                unreadCount: this.unreadCount + this.dmUnread,
+                onSelect: (index: number): void => {
+                  this.handleTabBarClick(index);
+                  if (index !== 2) {
+                    this.tabsController.changeIndex(index);
+                  }
+                },
+              })
+            }
+            .width('100%')
+            .padding({ left: LayoutTokens.tabBarSideMargin, right: LayoutTokens.tabBarSideMargin })
+            .margin({ bottom: LayoutTokens.tabBarBottomGap + bottomNavInset() })
+            .zIndex(50)
+          }
         }
         .width('100%')
-        .padding({ left: LayoutTokens.tabBarSideMargin, right: LayoutTokens.tabBarSideMargin })
-        .margin({ bottom: LayoutTokens.tabBarBottomGap + bottomNavInset() })
-        .zIndex(50)
+        .height('100%')
       }
+      .id('mainNav')
+      .hideTitleBar(true)
+      .navDestination(this.pageMap)
+      .width('100%')
+      .height('100%')
 
       if (this.showCircleOnboarding) {
         CircleOnboarding({

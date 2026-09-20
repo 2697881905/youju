@@ -43,6 +43,32 @@ export interface StructuredData {
   planB?: string;
 }
 
+// 结构化帖子 V2：体裁不再决定字段，作者可自由组合并排序通用信息块。
+// 字段保持扁平且显式，兼容 ArkTS V1，也便于后端对每一种块做严格校验。
+export type StructuredBlockType = 'metric' | 'insight' | 'list' | 'steps' | 'compare';
+export type StructuredDocumentTheme = 'editorial' | 'warm' | 'cool';
+
+export interface StructuredBlock {
+  id: string;
+  type: StructuredBlockType;
+  title: string;
+  value: string;
+  unit: string;
+  helper: string;
+  items: string[];
+  leftLabel: string;
+  leftValue: string;
+  rightLabel: string;
+  rightValue: string;
+}
+
+export interface StructuredDocument {
+  schemaVersion: number;
+  primaryBlockId: string;
+  theme: StructuredDocumentTheme;
+  blocks: StructuredBlock[];
+}
+
 // 正文 @提及 解析结果（后端入库，前端点击跳转用户主页）
 export interface MentionRef {
   name: string;
@@ -70,6 +96,7 @@ export interface Post {
   genre?: Genre;
   tags?: string[];
   structuredData?: StructuredData;
+  structuredDocument?: StructuredDocument;
   // 正文 @提及 解析结果（后端入库，前端点击跳转用户主页）
   mentions?: MentionRef[];
   upCount?: number;

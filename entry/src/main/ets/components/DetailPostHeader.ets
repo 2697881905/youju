@@ -17,38 +17,35 @@ export struct DetailPostHeader {
   onOpenAuthor: () => void = (): void => {};
 
   build() {
-    Row({ space: SpaceTokens.sm }) {
-      Column({ space: SpaceTokens.sm }) {
-        Text(this.title)
-          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(700)
-          .lineHeight(TypeTokens.title.lineHeight)
-          .fontColor(ColorTokens.primary)
-        Row({ space: 4 }) {
-          Image(this.genreIcon)
-            .width(14)
-            .height(14)
-          Text(this.genreLabel)
-            .fontSize(12).fontFamily($r('app.string.font_family'))
-            .fontColor($r('app.color.brand_primary'))
-        }
-        .backgroundColor($r('app.color.surface_selected'))
-        .borderRadius(4)
-        .padding({ left: 8, right: 8, top: 3, bottom: 3 })
-        if (this.tags.length > 0) {
-          Row({ space: 8 }) {
-            ForEach(this.tags, (tag: string) => {
-              Text(tag.startsWith('#') ? tag : ('#' + tag))
-                .fontSize(13).fontFamily($r('app.string.font_family'))
-                .fontColor($r('app.color.brand_primary'))
-            }, (tag: string) => tag)
-          }
+    Column({ space: SpaceTokens.sm }) {
+      Text(this.title)
+        .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
+        .fontWeight(700)
+        .lineHeight(TypeTokens.title.lineHeight)
+        .fontColor(ColorTokens.primary)
+        .width('100%')
+      Row({ space: 4 }) {
+        Image(this.genreIcon)
+          .width(14)
+          .height(14)
+        Text(this.genreLabel)
+          .fontSize(12).fontFamily($r('app.string.font_family'))
+          .fontColor($r('app.color.brand_primary'))
+      }
+      .backgroundColor($r('app.color.surface_selected'))
+      .borderRadius(4)
+      .padding({ left: 8, right: 8, top: 3, bottom: 3 })
+      if (this.tags.length > 0) {
+        Row({ space: 8 }) {
+          ForEach(this.tags, (tag: string) => {
+            Text(tag.startsWith('#') ? tag : ('#' + tag))
+              .fontSize(13).fontFamily($r('app.string.font_family'))
+              .fontColor($r('app.color.brand_primary'))
+          }, (tag: string) => tag)
         }
       }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
 
-      // 作者区：纯文字入口，无胶囊底（去掉毛玻璃头卡）
+      // 作者区：位于标题与标签下方，头像 + 名字 + 时间
       Row({ space: SpaceTokens.sm }) {
         Avatar({ avatar: this.authorAvatar, name: this.authorName, avatarSize: 32 })
         Column({ space: 1 }) {
@@ -64,12 +61,11 @@ export struct DetailPostHeader {
             .maxLines(1)
         }
         .alignItems(HorizontalAlign.Start)
-        .constraintSize({ maxWidth: 72 })
       }
       .alignItems(VerticalAlign.Center)
       .onClick((): void => { this.onOpenAuthor(); })
     }
     .width('100%')
-    .alignItems(VerticalAlign.Top)
+    .alignItems(HorizontalAlign.Start)
   }
 }

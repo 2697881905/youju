@@ -13,7 +13,7 @@ export interface FollowListIntent {
 
 // 「一镜到底」意图：卡片进入详情页时携带的展示快照。
 // cover 为 resolveDisplayImageUrl 后的展示 URL，空串 = 无媒体 → 详情页走原转场。
-// aspect 为卡面媒体展示比例（宽/高），详情 hero 用同比例渲染 → 飞行全程等比放大无缝。
+// aspect 为详情媒体目标展示比例（宽/高）；卡面源帧由实际组件矩形单独测量。
 // isVideo = true 时关闭共享转场（视频真实比例与卡面裁切比例不一致，共享受扭/拉伸）。
 export interface PostDetailIntent {
   cover: string;

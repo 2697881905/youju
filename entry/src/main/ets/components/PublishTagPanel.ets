@@ -1,7 +1,6 @@
 import { LengthMetrics } from '@kit.ArkUI';
 import { Tag } from '../models/types';
 import { TagIcon } from './TagIcon';
-import { GlassPanel } from '../design/components/GlassPanel';
 import { DesignButton } from '../design/components/DesignButton';
 import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
@@ -10,7 +9,14 @@ import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
+import { ShadowTokens } from '../design/tokens/shadow';
 import { barBottomReserve } from '../utils/cardTokens';
+
+// —— 应用整体纸面卡片材质（与 GlassPanel/内容卡片同语言）——
+// 暖白纸面 elevated 底 + ds_separator 细描边 + 柔和阴影，无玻璃模糊；
+// 与整款软件的暖纸/棕金/墨色体系一致。
+const SEGMENT_PAPER_BG: ResourceColor = ColorTokens.elevated;
+const SEGMENT_PAPER_BORDER: ResourceColor = ColorTokens.separator;
 
 @Component
 export struct PublishTagPanel {
@@ -59,31 +65,28 @@ export struct PublishTagPanel {
 
   build() {
     Column() {
-      Row() {
-        GlassPanel({ panelPadding: SpaceTokens.item, radius: RadiusTokens.xl }) {
-          Row({ space: SpaceTokens.item }) {
-            Column({ space: SpaceTokens.xs }) {
-              Text('选择圈子')
-                .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
-                .fontWeight(TypeTokens.headline.weight)
-                .lineHeight(TypeTokens.headline.lineHeight)
-                .fontColor(ColorTokens.primary)
-              Text('已选择 ' + this.selectedTags.length + '/' + this.maxSelected)
-                .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-                .fontWeight(TypeTokens.caption.weight)
-                .lineHeight(TypeTokens.caption.lineHeight)
-                .fontColor(ColorTokens.secondary)
-            }
-            .layoutWeight(1)
-            .alignItems(HorizontalAlign.Start)
-            DesignButton({ label: '完成', action: (): void => { this.onClose(); } })
-          }
-          .width('100%')
-          .alignItems(VerticalAlign.Center)
+      // 标题行：选择圈子 + 已选计数 + 完成按钮
+      Row({ space: SpaceTokens.item }) {
+        Column({ space: SpaceTokens.xs }) {
+          Text('选择圈子')
+            .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
+            .fontWeight(TypeTokens.headline.weight)
+            .lineHeight(TypeTokens.headline.lineHeight)
+            .fontColor(ColorTokens.primary)
+          Text('已选择 ' + this.selectedTags.length + '/' + this.maxSelected)
+            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.caption.weight)
+            .lineHeight(TypeTokens.caption.lineHeight)
+            .fontColor(ColorTokens.secondary)
         }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+        DesignButton({ label: '完成', action: (): void => { this.onClose(); } })
       }
       .width('100%')
-      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+      .alignItems(VerticalAlign.Center)
+      // 顶部留白加大：弹层内容距上缘更宽松，避免紧贴 sheet 顶部
+      .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.lg, bottom: SpaceTokens.xs })
 
       Scroll() {
         Column({ space: SpaceTokens.md }) {
@@ -130,10 +133,11 @@ export struct PublishTagPanel {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(ColorTokens.canvas)
-    .transition(TransitionEffect.OPACITY
-      .animation({ duration: MotionTokens.fast, curve: MotionCurves.standard })
-      .combine(TransitionEffect.translate({ y: SpaceTokens.item })
-        .animation({ duration: MotionTokens.base, curve: MotionCurves.standard })))
+    // 纸面卡片样式（应用整体统一语言）：暖白纸底 + ds_separator 细描边 + 柔和阴影，无玻璃模糊
+    .backgroundColor(SEGMENT_PAPER_BG)
+    .border({ width: 1, color: SEGMENT_PAPER_BORDER, style: BorderStyle.Solid })
+    .borderRadius(RadiusTokens.lg)
+    .shadow(ShadowTokens.cardAmbient)
+    .clip(true)
   }
 }

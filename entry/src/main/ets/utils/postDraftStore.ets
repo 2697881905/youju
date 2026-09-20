@@ -1,8 +1,9 @@
 import { PublishDraft } from './publishDraft';
-import { MentionRef } from '../models/types';
+import { MentionRef, StructuredDocument } from '../models/types';
+import { cloneStructuredDocument, structuredDocumentFromLegacy } from './structuredDocument';
 
 const SAVED_POST_DRAFTS_KEY: string = 'savedPostDrafts';
-const SAVED_POST_DRAFTS_VERSION: number = 1;
+const SAVED_POST_DRAFTS_VERSION: number = 2;
 
 // 草稿为本机私有数据，按登录账号隔离，避免切换账号后看到其他账号的未发布内容。
 PersistentStorage.persistProp(SAVED_POST_DRAFTS_KEY, '[]');
@@ -37,6 +38,40 @@ function isValidDraft(value: Object): boolean {
     (draft.textPosterStyle === undefined || typeof draft.textPosterStyle === 'string');
 }
 
+function validStructuredDocument(value: Object | undefined): boolean {
+  if (value === undefined || value === null) return false;
+  const document: StructuredDocument = value as StructuredDocument;
+  return document.schemaVersion === 2 && typeof document.primaryBlockId === 'string' &&
+    (document.theme === 'editorial' || document.theme === 'warm' || document.theme === 'cool') &&
+    Array.isArray(document.blocks);
+}
+
+function normalizeDraft(value: Object): SavedPostDraft {
+  const draft: SavedPostDraft = value as SavedPostDraft;
+  const document: StructuredDocument = validStructuredDocument(draft.structuredDocument as Object | undefined)
+    ? cloneStructuredDocument(draft.structuredDocument)
+    : structuredDocumentFromLegacy(draft.structuredData, draft.genre);
+  return {
+    id: draft.id,
+    ownerId: draft.ownerId,
+    createdAt: draft.createdAt,
+    updatedAt: draft.updatedAt,
+    mode: draft.mode,
+    title: draft.title,
+    content: draft.content,
+    genre: draft.genre,
+    tags: draft.tags.slice(),
+    structuredData: draft.structuredData,
+    structuredDocument: document,
+    images: draft.images.slice(),
+    videoUrl: draft.videoUrl,
+    videoCover: draft.videoCover,
+    videoAspectRatio: draft.videoAspectRatio,
+    textPosterStyle: draft.textPosterStyle,
+    mentions: draft.mentions,
+  };
+}
+
 function allDrafts(): SavedPostDraft[] {
   const raw: string = (AppStorage.get<string>(SAVED_POST_DRAFTS_KEY) ?? '[]') as string;
   try {
@@ -44,13 +79,18 @@ function allDrafts(): SavedPostDraft[] {
     // 兼容旧版本直接保存数组的数据；新写入统一为版本化信封，便于后续迁移。
     const candidates: Object[] = Array.isArray(parsed)
       ? parsed as Object[]
-      : ((parsed as DraftStorageEnvelope).version === SAVED_POST_DRAFTS_VERSION &&
+      : (((parsed as DraftStorageEnvelope).version === 1 ||
+        (parsed as DraftStorageEnvelope).version === SAVED_POST_DRAFTS_VERSION) &&
         Array.isArray((parsed as DraftStorageEnvelope).drafts)
         ? (parsed as DraftStorageEnvelope).drafts as Object[] : []);
     if (candidates.length === 0) {
       return [];
     }
-    return candidates.filter((item: Object): boolean => isValidDraft(item)) as SavedPostDraft[];
+    const drafts: SavedPostDraft[] = [];
+    for (const item of candidates) {
+      if (isValidDraft(item)) drafts.push(normalizeDraft(item));
+    }
+    return drafts;
   } catch (_) {
     return [];
   }
@@ -117,6 +157,7 @@ export function savePostDraft(ownerId: number, draft: PublishDraft, existingId?:
     genre: draft.genre,
     tags: [...draft.tags],
     structuredData: draft.structuredData,
+    structuredDocument: cloneStructuredDocument(draft.structuredDocument),
     images: [...draft.images],
     videoUrl: draft.videoUrl,
     videoCover: draft.videoCover,
