@@ -1,6 +1,6 @@
 // 图文发布页 — 独立 @Entry 页面，仅处理短文图文，不耦合视频/长文发布逻辑。
 // 媒体区直接渲染 ImagePicker，无 mediaTypeSelector 切换行。
-import { LengthMetrics, router } from '@kit.ArkUI';
+import { LengthMetrics } from '@kit.ArkUI';
 import { listTags } from '../services/api';
 import { Genre, StructuredData, StructuredDocument, Tag, MentionRef, MentionCandidate } from '../models/types';
 import { ImagePicker } from '../components/ImagePicker';
@@ -448,7 +448,7 @@ struct PhotoPublishPage {
           previewDisabled: this.title.trim().length === 0,
           onClear: (): void => { this.reset(); },
           onPreview: (): void => { this.openPreview(); },
-          onBack: (): void => { router.back(); },
+          onBack: (): void => { this.getUIContext().getRouter().back(); },
         })
       }
       .width('100%')
