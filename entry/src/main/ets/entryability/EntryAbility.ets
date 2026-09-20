@@ -89,23 +89,21 @@ export default class EntryAbility extends UIAbility {
   //   两条系统栏都设透明，让页面背景与内容一路铺到物理屏上下沿，消除上下横带。
   // - 各页负责自己让出状态栏高度（pages/Index 统一写 AppStorage['statusBarHeight']，
   //   路由页在根节点或顶栏加 padding），否则全屏下标题会被状态栏区域盖住。
-  private async applySystemBarColor(): Promise<void> {
+  private applySystemBarColor(): void {
     if (this.winStage === null) {
       return;
     }
     const dark: boolean = isDarkMode();
     // 与 ColorTokens.canvas（浅 #F6F1E3 / 深 #14120C）保持一致
-    // 【诊断】临时改红：验证每日一帖抛射时顶部横条是否 = 窗口背景色（定位后还原为原色）
-    const barColor: string = '#FFFF0000';
+    const barColor: string = dark ? '#FF14120C' : '#FFF6F1E3';
     // 状态栏/导航条内容色必须显式跟随应用主题（审核问题④：仅设背景色时内容由系统按
     // 「系统深浅」自选，应用内主题与系统深浅不一致时就出现浅底白字/深底黑字（对比度 1.1 < 3）。
     // 纯黑/纯白 vs 画布色对比度均 > 15，稳过 ≥3 要求。
     const barContentColor: string = dark ? '#FFFFFFFF' : '#FF000000';
     try {
       const win = this.winStage.getMainWindowSync();
-      await win.setWindowBackgroundColor(barColor);
-      hilog.info(DOMAIN, 'testTag', 'window background color set: %{public}s', barColor);
-      await win.setWindowSystemBarProperties({
+      win.setWindowBackgroundColor(barColor);
+      win.setWindowSystemBarProperties({
         // 上下两条系统栏统一设透明：窗口背景色（= 主题画布色）+ 各页自身背景一路铺到物理屏上下沿，
         // 系统不再额外画一条自己的色带。
         // 顶部此前是 barColor（不透明画布色），在全屏布局下有两个后果：
@@ -117,11 +115,11 @@ export default class EntryAbility extends UIAbility {
         navigationBarContentColor: barContentColor,
         statusBarColor: '#00000000',
         statusBarContentColor: barContentColor,
+      }).catch((): void => {
+        // 系统栏着色失败可忽略：窗口背景色已兜底底部区域配色
       });
-      hilog.info(DOMAIN, 'testTag', 'system bar properties set');
     } catch (e) {
-      // 窗口不可用 / 设置失败：记录原因（此前未 await/catch，失败会被静默吞掉）
-      hilog.error(DOMAIN, 'testTag', 'applySystemBarColor failed: %{public}s', JSON.stringify(e));
+      // 窗口不可用时跳过（如页面销毁竞态），下次主题变化/前台恢复会重试
     }
   }
 
