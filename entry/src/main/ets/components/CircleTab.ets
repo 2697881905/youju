@@ -773,7 +773,7 @@ export struct CircleTab {
         .onAreaChange((_old: Area, area: Area) => {
           // 在外层滚动视口测量，避免星系内容的固有宽度反过来影响自身尺寸。
           const rawWidth: number = area.width as number;
-          const viewportWidth: number = rawWidth > 1200 ? px2vp(rawWidth) : rawWidth;
+          const viewportWidth: number = rawWidth > 1200 ? this.getUIContext().px2vp(rawWidth) : rawWidth;
           const availableWidth: number = viewportWidth - SpaceTokens.xs * 2;
           if (availableWidth > 0) {
             // 不再强制 360vp 下限：375vp 手机扣除页边距后不足 360，旧逻辑会横向溢出。
@@ -781,7 +781,7 @@ export struct CircleTab {
           }
           // 记录视口高度，供内容 Column 的 minHeight 使用（弹性推底依赖显式数值）。
           const rawHeight: number = area.height as number;
-          this.scrollViewportHeight = rawHeight > 1200 ? px2vp(rawHeight) : rawHeight;
+          this.scrollViewportHeight = rawHeight > 1200 ? this.getUIContext().px2vp(rawHeight) : rawHeight;
         })
       }
     }
