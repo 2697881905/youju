@@ -39,6 +39,12 @@ const BOOKMARK_SEGMENTS: SegmentedItem[] = [
   { key: 'folders', label: '收藏夹' },
 ];
 
+// 分段切换时内容的滑入距离（vp）：只做「方向承接」的暗示，不做整页位移
+const SEGMENT_SLIDE_DISTANCE: number = 26;
+
+// 横划切换分段的位移阈值（vp）：高于竖向滚动时的横向抖动，低于一次有意的横划
+const SEGMENT_SWIPE_MIN_OFFSET: number = 64;
+
 @Component
 export struct ProfilePage {
   @State user: User = {};
@@ -58,6 +64,14 @@ export struct ProfilePage {
   @State followerCount: number = 0;
   @State totalLikes: number = 0; // 获赞总数
   @State tabIdx: number = 0; // 0 我发布, 1 我收藏, 2 我赞过, 3 我评论
+  // 分段切换的内容转场：+1 向前一段（新内容自右侧滑入）、-1 反向、0 不播
+  @State segmentShift: number = 0;
+  // 内容当前的转场位移与透明度（由 playSegmentTransition 分两帧驱动）
+  @State contentShift: number = 0;
+  @State contentFade: number = 1;
+  // 上一次的分段索引。SegmentedControl 会先写双向绑定的 tabIdx 再触发 onSelect，
+  // 所以在 onSelect 里判断方向必须与「上一次的值」比 —— 那时 this.tabIdx 已被写成新值。
+  private lastSegmentIdx: number = 0;
   // 「我收藏」子分段：0 帖子列表 / 1 收藏夹网格（切换时懒加载收藏夹）
   @State @Watch('onBookmarkSubTabChange') bookmarkSubTab: number = 0;
   @State folders: BookmarkFolderItem[] = [];
@@ -461,10 +475,55 @@ export struct ProfilePage {
   onTabChange(idx: number): void {
     // SegmentedControl 会先写入双向绑定的 tabIdx，再触发 onSelect。
     // 因此不能把“索引相同”当作无需刷新，否则只会切换选中态而继续显示旧分段数据。
+    if (idx !== this.lastSegmentIdx) {
+      this.segmentShift = idx > this.lastSegmentIdx ? 1 : -1;
+      this.lastSegmentIdx = idx;
+    } else {
+      this.segmentShift = 0;
+    }
     if (this.tabIdx !== idx) {
       this.tabIdx = idx;
     }
+    this.playSegmentTransition();
     this.refresh();
+  }
+
+  // 分段内容转场：先把内容瞬移到起点，下一帧再用 animateTo 归位。
+  // 必须分两帧 —— 同一个同步块里连续赋值会被 ArkUI 合并成一次更新，看不到位移。
+  // 本页四个分段共用一份列表状态（fetch 按 tabIdx 选接口写入同一个 posts），
+  // 无法像消息页那样做「两页各自持数据的 Swiper 分页」，
+  // 因此这里用方向性滑入承接切换方向：位移感一致，代价是不跟手（见交付说明）。
+  private playSegmentTransition(): void {
+    if (this.shouldReduceMotion() || this.segmentShift === 0) {
+      this.contentShift = 0;
+      this.contentFade = 1;
+      return;
+    }
+    this.contentShift = this.segmentShift * SEGMENT_SLIDE_DISTANCE;
+    this.contentFade = 0;
+    setTimeout((): void => {
+      this.getUIContext().animateTo({
+        duration: MotionTokens.container,
+        curve: MotionCurves.standard,
+      }, (): void => {
+        this.contentShift = 0;
+        this.contentFade = 1;
+      });
+    }, 16) as number;
+  }
+
+  // 横划切换分段：位移达阈值才切，方向用 PanGesture.offsetX（向右为正）。
+  // 不用 SwipeGesture.event.angle —— 该约定跨版本不一致（0..360 与 -180..180 都有），判反就会「往左滑没反应」。
+  // 只在 onActionEnd 判定：竖向滚动过程中的横向抖动累积不到阈值，不会误切。
+  private onSegmentPanEnd(offsetX: number): void {
+    if (Math.abs(offsetX) < SEGMENT_SWIPE_MIN_OFFSET) {
+      return;
+    }
+    const next: number = this.tabIdx + (offsetX < 0 ? 1 : -1);
+    if (next < 0 || next >= PROFILE_SEGMENTS.length) {
+      return;
+    }
+    this.onTabChange(next);
   }
 
   // 收藏 Tab：取消收藏（乐观移除 + 失败回滚）
@@ -836,6 +895,9 @@ export struct ProfilePage {
 
       // 列表区与分段栏共享同一滚动空间，帖子上滑时可进入分段栏下方。
       Stack({ alignContent: Alignment.TopStart }) {
+      // 内容区：分段切换时做方向性滑入。单独包一层是为了让位移/淡入只作用于内容，
+      // 下面悬浮的分段栏（zIndex 1）必须保持不动 —— 真实分页里栏也是不动的。
+      Column() {
       // 「我收藏 → 收藏夹」子视图（子分段栏 + 双列卡片流），优先于帖子网格渲染
       if (this.tabIdx === 1 && this.bookmarkSubTab === 1) {
         this.foldersView()
@@ -904,6 +966,14 @@ export struct ProfilePage {
         })
         .width('100%').height('100%')
       }
+      }
+      .width('100%')
+      .height('100%')
+      .translate({ x: this.contentShift })
+      .opacity(this.contentFade)
+      // 触点仍要落到下层滚动区：包裹层只做视觉，不拦事件
+      .hitTestBehavior(HitTestMode.Transparent)
+
       SegmentedControl({
         items: PROFILE_SEGMENTS,
         selectedIndex: $tabIdx,
@@ -939,5 +1009,13 @@ export struct ProfilePage {
     }
     .width('100%').height('100%')
     .backgroundColor(ColorTokens.canvas)
+    // 横划切换「我发布 / 我收藏 / 我赞过 / 我评论」。
+    // parallelGesture 而非 gesture：内容在 Scroll 内，分页/滚动手势都在子节点上，
+    // ArkUI 默认子组件手势优先，父组件用 gesture 绑的手势收不到事件（消息页踩过这个坑）。
+    // direction 限定 Horizontal，竖向滚动与下拉刷新不受影响。
+    .parallelGesture(
+      PanGesture({ direction: PanDirection.Horizontal, distance: 24 })
+        .onActionEnd((event: GestureEvent): void => { this.onSegmentPanEnd(event.offsetX); })
+    )
   }
 }
