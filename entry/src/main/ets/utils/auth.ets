@@ -113,9 +113,14 @@ export async function ensureLogin(): Promise<User | null> {
     hilog.warn(0x0000, 'auth', 'ensureLogin: 共享 UIContext 未注册，无法跳转 LoginPage');
     return null;
   }
-  const state = ui.getRouter().getState();
-  if (state && state.path !== 'pages/LoginPage') {
-    ui.getRouter().pushUrl({ url: 'pages/LoginPage' });
+  try {
+    const state = ui.getRouter().getState();
+    if (state && state.path !== 'pages/LoginPage') {
+      ui.getRouter().pushUrl({ url: 'pages/LoginPage' });
+    }
+  } catch (e) {
+    // Router 异常不阻断登录流程：调用方对 null 返回已有处理。
+    hilog.warn(0x0000, 'auth', 'ensureLogin: 跳转 LoginPage 失败 %{public}s', JSON.stringify(e));
   }
   return null;
 }

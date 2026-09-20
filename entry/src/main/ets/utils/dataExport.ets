@@ -25,7 +25,8 @@ export async function shareUserDataExport(uiContext: UIContext, data: UserExport
   let path: string = context.cacheDir + '/' + exportFileName(data.exportedAt);
   try {
     const encoder: util.TextEncoder = new util.TextEncoder();
-    const bytes: Uint8Array = encoder.encode(JSON.stringify(data, null, 2));
+    // encode 已废弃（since 9 → encodeInto，@since 10/11 ✓）：同签名同返回，行为不变。
+    const bytes: Uint8Array = encoder.encodeInto(JSON.stringify(data, null, 2));
     const file: fileIo.File = fileIo.openSync(path, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE);
     try {
       fileIo.truncateSync(file.fd, 0);
