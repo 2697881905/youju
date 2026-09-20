@@ -20,7 +20,7 @@ import { window } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { publishFlowStore } from '../utils/publishFlowStore';
 import { AppTab, subscribeTabSwitch } from '../utils/nav';
-import { setMainNavStack } from '../utils/navigationTransition';
+import { setMainNavStack, setSharedUiContext } from '../utils/navigationTransition';
 import { setSerifTypeface, setSerifBodyTypeface } from '../utils/textPoster';
 import { drawing } from '@kit.ArkGraphics2D';
 import { HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
@@ -234,6 +234,9 @@ struct Index {
   }
 
   aboutToAppear(): void {
+    // 注册全局唯一 UIContext：util 文件（auth/navigationTransition 等）没有组件上下文，
+    // 替换已废弃的全局 router/组件工具 API 时从这里取（与 mainNavStack 同一注册时机）。
+    setSharedUiContext(this.getUIContext());
     this.registerSerifFont();
     initAuthStorage();
     setMainNavStack(this.pageStack);
