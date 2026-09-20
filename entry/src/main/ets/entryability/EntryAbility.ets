@@ -82,11 +82,13 @@ export default class EntryAbility extends UIAbility {
     });
   }
 
-  // 底部系统栏区域（手势指示条/三键导航）的底色治理：
+  // 顶部/底部系统栏区域的底色治理（窗口为全屏沉浸式：setWindowLayoutFullScreen(true)）：
   // - 手势导航下 navigationBarColor 不生效（官方论坛确认，仅三键导航可着色），该区域默认
   //   透传「窗口背景色」，而窗口背景默认黑色 → 全屏内容未铺满物理屏底时底部露出黑带，截断卡片。
   // - 正确做法：窗口背景色 = 主题画布色（与 ColorTokens.canvas 浅 #F6F1E3 / 深 #14120C 一致），
-  //   导航条设透明，让页面背景与内容一路铺到物理屏底，消除底部横带。
+  //   两条系统栏都设透明，让页面背景与内容一路铺到物理屏上下沿，消除上下横带。
+  // - 各页负责自己让出状态栏高度（pages/Index 统一写 AppStorage['statusBarHeight']，
+  //   路由页在根节点或顶栏加 padding），否则全屏下标题会被状态栏区域盖住。
   private applySystemBarColor(): void {
     if (this.winStage === null) {
       return;
@@ -102,9 +104,16 @@ export default class EntryAbility extends UIAbility {
       const win = this.winStage.getMainWindowSync();
       win.setWindowBackgroundColor(barColor);
       win.setWindowSystemBarProperties({
-        navigationBarColor: '#00000000', // 底部透明：内容可延伸到物理底，不被系统色带遮挡
+        // 上下两条系统栏统一设透明：窗口背景色（= 主题画布色）+ 各页自身背景一路铺到物理屏上下沿，
+        // 系统不再额外画一条自己的色带。
+        // 顶部此前是 barColor（不透明画布色），在全屏布局下有两个后果：
+        //   1) 它会盖住画到状态栏下面的页面内容 —— 例如收藏夹管理页的标题上半截被截断；
+        //   2) 下拉通知栏时，这条系统色带不随页面一起变暗/虚化，顶部就出现一条有轻微色差的横带。
+        // 透明后该区域显示的就是页面自己的背景，随页面一起响应，两处现象一并消除。
+        // 状态栏图标颜色仍由 statusBarContentColor 显式指定，不依赖背景色。
+        navigationBarColor: '#00000000',
         navigationBarContentColor: barContentColor,
-        statusBarColor: barColor,
+        statusBarColor: '#00000000',
         statusBarContentColor: barContentColor,
       }).catch((): void => {
         // 系统栏着色失败可忽略：窗口背景色已兜底底部区域配色
