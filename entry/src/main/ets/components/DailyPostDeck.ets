@@ -9,7 +9,6 @@ import { formatCount } from '../utils/format';
 import { barBottomReserve } from '../utils/cardTokens';
 import { Pressable } from '../design/motion/Pressable';
 import { curves } from '@kit.ArkUI';
-import { hilog } from '@kit.PerformanceAnalysisKit';
 
 // —— 卡堆扇位参数：实体卡堆滑入（对应原型 FAN_X/FAN_R/FAN_Y）——
 const DECK_FAN_X: number = 30;          // 层间水平行程（抽出左上角，强化扇面）
@@ -398,8 +397,6 @@ export struct DailyPostDeck {
   aboutToAppear(): void {
     // 当日已读持久化：同一天再次打开直接进入完成态
     PersistentStorage.persistProp<string>('youjuDailyReadDate', '');
-    hilog.info(0x0000, 'DailyDeck', 'aboutToAppear reset=%{public}s readDate=%{public}s today=%{public}s',
-      String(AppStorage.get<boolean>('youjuDailyReadReset')), String(AppStorage.get<string>('youjuDailyReadDate')), this.todayStr());
     if (this.restoreReadState()) {
       return;
     }
@@ -441,7 +438,6 @@ export struct DailyPostDeck {
   }
 
   resetDeck(): void {
-    hilog.info(0x0000, 'DailyDeck', 'resetDeck() called');
     this.activeIndex = 0;
     this.dragOffsetX = 0;
     this.dragOffsetY = 0;
@@ -467,8 +463,6 @@ export struct DailyPostDeck {
     // 冷启动时 AppStorage 无此键（undefined），仍按持久化正常恢复。
     const reset: boolean = AppStorage.get<boolean>('youjuDailyReadReset') === true;
     const readDate: string = (AppStorage.get<string>('youjuDailyReadDate') ?? '');
-    hilog.info(0x0000, 'DailyDeck', 'restoreReadState reset=%{public}s readDate=%{public}s today=%{public}s → done=%{public}d',
-      String(reset), readDate, this.todayStr(), reset ? 0 : (readDate === this.todayStr() ? 1 : 0));
     if (reset) {
       return false;
     }
@@ -675,7 +669,6 @@ export struct DailyPostDeck {
   // —— 入场仪式：顶卡升起 / 下层淡入的几何见 DeckSlotCard ——
   // —— 完成态 ——
   private showDone(): void {
-    hilog.info(0x0000, 'DailyDeck', 'showDone() called');
     if (this.doneVisible) {
       return;
     }
@@ -688,7 +681,6 @@ export struct DailyPostDeck {
   }
 
   private replay(): void {
-    hilog.info(0x0000, 'DailyDeck', 'replay() called');
     this.doneVisible = false;
     // 会话内标记：此后（直到真正读完）任何重建都不再恢复「已读完」，
     // 兜底持久化异步写盘的竞态（详见 restoreReadState）。
