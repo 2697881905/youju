@@ -256,99 +256,97 @@ export struct SearchPanel {
           if (!this.inputFocused) {
           Column({ space: SpaceTokens.md }) {
             if (this.historyList.length > 0) {
-              GlassPanel({ panelPadding: SpaceTokens.md, radius: RadiusTokens.lg }) {
-                Column({ space: SpaceTokens.md }) {
-                  Row() {
-                    Text('最近搜索')
-                      .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
-                      .fontWeight(TypeTokens.headline.weight)
-                      .fontColor(ColorTokens.primary)
-                    Blank()
-                    Pressable({
-                      visualHeight: LayoutTokens.segmentedHeight,
-                      touchTargetHeight: LayoutTokens.minTouchTarget,
-                      action: (): void => { this.clearHistory(); },
-                    }) {
-                      Image($r('app.media.set_trash'))
-                        .width(IconTokens.compact)
-                        .height(IconTokens.compact)
-                    }
-                  }
-                  .width('100%')
-                  Row({ space: SpaceTokens.inline }) {
-                    ForEach(this.historyList.slice(0, 3), (kw: string) => {
-                      this.historyChip(kw)
-                    }, (kw: string) => 'history-first-' + kw)
-                  }
-                  .width('100%')
-                  if (this.historyList.length > 3) {
-                    Row({ space: SpaceTokens.inline }) {
-                      ForEach(this.historyList.slice(3, 6), (kw: string) => {
-                        this.historyChip(kw)
-                      }, (kw: string) => 'history-second-' + kw)
-                    }
-                    .width('100%')
+              Column({ space: SpaceTokens.md }) {
+                Row() {
+                  Text('最近搜索')
+                    .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
+                    .fontWeight(TypeTokens.headline.weight)
+                    .fontColor(ColorTokens.primary)
+                  Blank()
+                  Pressable({
+                    visualHeight: LayoutTokens.segmentedHeight,
+                    touchTargetHeight: LayoutTokens.minTouchTarget,
+                    action: (): void => { this.clearHistory(); },
+                  }) {
+                    Image($r('app.media.set_trash'))
+                      .width(IconTokens.compact)
+                      .height(IconTokens.compact)
                   }
                 }
                 .width('100%')
-              }
-            }
-
-            GlassPanel({ panelPadding: SpaceTokens.md, radius: RadiusTokens.lg }) {
-              Column({ space: SpaceTokens.md }) {
-                Text('大家都在搜')
-                  .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
-                  .fontWeight(TypeTokens.headline.weight)
-                  .fontColor(ColorTokens.primary)
-                if (this.visibleHotKeywords().length === 0) {
-                  Text('暂时没有热门搜索')
-                    .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-                    .fontColor(ColorTokens.secondary)
-                } else {
-                  Grid() {
-                    ForEach(this.visibleHotKeywords(), (kw: string, idx: number) => {
-                      GridItem() {
-                        Pressable({
-                          fillWidth: true,
-                          visualHeight: LayoutTokens.segmentedHeight,
-                          touchTargetHeight: LayoutTokens.minTouchTarget,
-                          action: (): void => { this.onKeywordSelect(kw); },
-                        }) {
-                          // 热搜格子：分段栏 outlined 同款（透明底 + 细边框 + 大圆角 + 无阴影）
-                          Row({ space: SpaceTokens.sm }) {
-                            Text(String(idx + 1))
-                              .width(18)
-                              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-                              .fontWeight(TypeTokens.headline.weight)
-                              .fontColor(this.rankColor(idx))
-                            Text(kw)
-                              .layoutWeight(1)
-                              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-                              .fontWeight(TypeTokens.callout.weight)
-                              .fontColor(ColorTokens.primary)
-                              .maxLines(1)
-                              .textOverflow({ overflow: TextOverflow.Ellipsis })
-                          }
-                          .width('100%')
-                          .height(LayoutTokens.segmentedHeight)
-                          .padding({ left: SpaceTokens.md, right: SpaceTokens.sm })
-                          .backgroundColor(Color.Transparent)
-                          .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-                          .borderRadius(RadiusTokens.lg)
-                          .alignItems(VerticalAlign.Center)
-                        }
-                      }
-                    }, (kw: string, idx: number) => 'hot-' + idx.toString() + '-' + kw)
+                Row({ space: SpaceTokens.inline }) {
+                  ForEach(this.historyList.slice(0, 3), (kw: string) => {
+                    this.historyChip(kw)
+                  }, (kw: string) => 'history-first-' + kw)
+                }
+                .width('100%')
+                if (this.historyList.length > 3) {
+                  Row({ space: SpaceTokens.inline }) {
+                    ForEach(this.historyList.slice(3, 6), (kw: string) => {
+                      this.historyChip(kw)
+                    }, (kw: string) => 'history-second-' + kw)
                   }
-                  .columnsTemplate('1fr 1fr')
-                  .columnsGap(SpaceTokens.sm)
-                  .rowsGap(SpaceTokens.sm)
                   .width('100%')
-                  .height(this.hotGridHeight())
                 }
               }
               .width('100%')
+              .padding(SpaceTokens.md)
             }
+
+            Column({ space: SpaceTokens.md }) {
+              Text('大家都在搜')
+                .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
+                .fontWeight(TypeTokens.headline.weight)
+                .fontColor(ColorTokens.primary)
+              if (this.visibleHotKeywords().length === 0) {
+                Text('暂时没有热门搜索')
+                  .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+                  .fontColor(ColorTokens.secondary)
+              } else {
+                Grid() {
+                  ForEach(this.visibleHotKeywords(), (kw: string, idx: number) => {
+                    GridItem() {
+                      Pressable({
+                        fillWidth: true,
+                        visualHeight: LayoutTokens.segmentedHeight,
+                        touchTargetHeight: LayoutTokens.minTouchTarget,
+                        action: (): void => { this.onKeywordSelect(kw); },
+                      }) {
+                        // 热搜格子：分段栏 outlined 同款（透明底 + 细边框 + 大圆角 + 无阴影）
+                        Row({ space: SpaceTokens.sm }) {
+                          Text(String(idx + 1))
+                            .width(18)
+                            .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+                            .fontWeight(TypeTokens.headline.weight)
+                            .fontColor(this.rankColor(idx))
+                          Text(kw)
+                            .layoutWeight(1)
+                            .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+                            .fontWeight(TypeTokens.callout.weight)
+                            .fontColor(ColorTokens.primary)
+                            .maxLines(1)
+                            .textOverflow({ overflow: TextOverflow.Ellipsis })
+                        }
+                        .width('100%')
+                        .height(LayoutTokens.segmentedHeight)
+                        .padding({ left: SpaceTokens.md, right: SpaceTokens.sm })
+                        .backgroundColor(Color.Transparent)
+                        .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+                        .borderRadius(RadiusTokens.lg)
+                        .alignItems(VerticalAlign.Center)
+                      }
+                    }
+                  }, (kw: string, idx: number) => 'hot-' + idx.toString() + '-' + kw)
+                }
+                .columnsTemplate('1fr 1fr')
+                .columnsGap(SpaceTokens.sm)
+                .rowsGap(SpaceTokens.sm)
+                .width('100%')
+                .height(this.hotGridHeight())
+              }
+            }
+            .width('100%')
+            .padding(SpaceTokens.md)
           }
           .width('100%')
           .justifyContent(FlexAlign.Start)
