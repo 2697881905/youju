@@ -28,7 +28,7 @@ import { PostStatsDialog } from '../components/PostStatsDialog';
 import { openUserProfile, takePostDetailId, takePostDetailIntent, PostDetailIntent } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 import { getUserId, getToken } from '../utils/auth';
-import { startGripTracking, stopGripTracking } from '../utils/gripAwareness';
+import { startGripTracking, stopGripTracking, KEY_GRIP_ON_RIGHT } from '../utils/gripAwareness';
 import { likeStore } from '../utils/likeStore';
 import { postDeletionStore } from '../utils/postDeletionStore';
 import { debateVoteStore, DebateVoteInfo } from '../utils/debateVoteStore';
@@ -39,7 +39,7 @@ import { buildPostShareUrl, copyToClipboard, EXTERNAL_SHARE_ENABLED, DM_SHARE_EN
 import { generateShareCardBytes } from '../utils/shareCard';
 import { structuredSummaryOf, StructuredSummary } from '../utils/structuredBlocks';
 import { image } from '@kit.ImageKit';
-import { window } from '@kit.ArkUI';
+import { curves, window } from '@kit.ArkUI';
 import { DetailToolbar } from '../components/DetailToolbar';
 import { DetailMediaCarousel } from '../components/DetailMediaCarousel';
 import { ImageViewer } from '../components/ImageViewer';
@@ -148,6 +148,10 @@ export struct PostDetailView {
   private statsDialog: CustomDialogController | null = null;
   // 监听登录账号：切换账号/登出时重新加载本帖，以服务器为准校准点赞/收藏/投票态（避免 likeStore 单例残留串号）
   @StorageLink('authUserId') @Watch('onAccountSwitch') accountId: string = '';
+  // 智感握姿：原始握持手状态（gripAwareness 写入；1=左手 2=右手 0=未握持/不支持）
+  @StorageProp('holdingHandStatus') @Watch('onHoldingHandStatusChanged') holdingHandStatus: number = 0;
+  // 当前整组贴边侧：true=居右（右手握持）；用于去重，避免同侧重复触发动画
+  private gripSideIsRight: boolean = false;
 
   private get pid(): number {
     return Number(this.postId);
@@ -285,7 +289,7 @@ export struct PostDetailView {
     this.loadWindowInsets();
     this.intent = takePostDetailIntent();
     this.postId = takePostDetailId().trim();
-    // 智感握姿：订阅握持手状态（写入 AppStorage.gripOnRight），供 DetailPostHeader 跟手换边
+    // 智感握姿：订阅握持手原始状态（holdingHandStatus），由本页派生 gripOnRight 并带过渡提交
     startGripTracking();
     this.load();
   }
@@ -336,6 +340,23 @@ export struct PostDetailView {
       }
       this.navSourceWin = undefined;
     }
+  }
+
+  // 握持手变化 → 整组换边。对齐/justifyContent 是瞬变布局属性，
+  // 状态变化必须包进 animateTo，头部内容才会连续滑动到对侧而非瞬跳。
+  onHoldingHandStatusChanged(): void {
+    // 仅单手状态驱动：2=右手→整组居右，1=左手→整组居左；离手/双手保持当前侧
+    const right: boolean = this.holdingHandStatus === 2;
+    if (right === this.gripSideIsRight) {
+      return;
+    }
+    this.gripSideIsRight = right;
+    this.getUIContext().animateTo({
+      duration: 350,
+      curve: curves.interpolatingSpring(0, 1, 170, 17),
+    }, () => {
+      AppStorage.setOrCreate<boolean>(KEY_GRIP_ON_RIGHT, right);
+    });
   }
 
   async load(): Promise<void> {
