@@ -314,9 +314,9 @@ export struct PostDetailView {
     try {
       const sys = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
       const indicator = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
-      this.statusBarHeight = px2vp(sys.topRect.height);
+      this.statusBarHeight = this.getUIContext().px2vp(sys.topRect.height);
       AppStorage.setOrCreate<number>('navBarHeight',
-        Math.max(px2vp(sys.bottomRect.height), px2vp(indicator.bottomRect.height)));
+        Math.max(this.getUIContext().px2vp(sys.bottomRect.height), this.getUIContext().px2vp(indicator.bottomRect.height)));
     } catch (e) {
       // 单独一次测量失败不影响已生效值
     }
