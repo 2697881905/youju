@@ -1098,7 +1098,12 @@ export struct HomeTab {
         }
         .width('100%')
         .height('100%')
-        .clip(true)
+        // 每日一帖模式不裁剪：卡堆向上抛射的飞行卡需溢出列表区穿过报头；
+        // 滚动流模式保持裁剪（Refresh/Scroll 内容不出视口）。
+        .clip(this.feedMode !== 'daily')
+        // 每日一帖模式提升列表区整体层级（与报头同为根 Column 兄弟，1001 > 1000）：
+        // 飞行卡随列表区一起盖过报头区域，向上抛射不被「有据」标题/分段栏遮挡。
+        .zIndex(this.feedMode === 'daily' ? 1001 : 0)
         .layoutWeight(1)
       }
       .width('100%')

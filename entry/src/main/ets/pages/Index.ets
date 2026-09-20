@@ -20,7 +20,7 @@ import { window } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { publishFlowStore } from '../utils/publishFlowStore';
 import { AppTab, subscribeTabSwitch } from '../utils/nav';
-import { setMainNavStack } from '../utils/navigationTransition';
+import { setMainNavStack, setSharedUiContext } from '../utils/navigationTransition';
 import { setSerifTypeface, setSerifBodyTypeface } from '../utils/textPoster';
 import { drawing } from '@kit.ArkGraphics2D';
 import { HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
@@ -234,6 +234,9 @@ struct Index {
   }
 
   aboutToAppear(): void {
+    // 注册全局唯一 UIContext：util 文件（auth/navigationTransition 等）没有组件上下文，
+    // 替换已废弃的全局 router/组件工具 API 时从这里取（与 mainNavStack 同一注册时机）。
+    setSharedUiContext(this.getUIContext());
     this.registerSerifFont();
     initAuthStorage();
     setMainNavStack(this.pageStack);
@@ -556,7 +559,10 @@ struct Index {
   // 五个页签内容：发布占位（index=2）点击由 handleTabBarClick 拦截，不展示任何内容。
   @Builder
   mainTabContents() {
+    // TabContent 默认在页面边界裁剪内容：每日一帖的飞行卡向上抛射需溢出到
+    // 屏幕顶部（状态栏区域），首页 Tab 关闭裁剪，其余 Tab 内容各自不溢出、不受影响。
     TabContent() { HomeTab() }
+      .clip(false)
       .tabBar(this.tabBarBuilder(0))
     TabContent() { CircleTab() }
       .tabBar(this.tabBarBuilder(1))

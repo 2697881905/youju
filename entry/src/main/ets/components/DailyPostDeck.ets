@@ -618,8 +618,9 @@ export struct DailyPostDeck {
     if (this.activeIndex >= this.posts.length) {
       this.schedule((): void => { this.showDone(); }, 560);
     }
-    // 弹簧/抛射约 0.45~0.6s 内完成，期间闸住重复推进（避免连推重叠）
-    this.schedule((): void => { this.advancing = false; }, 620);
+    // 推进闸门再收紧：新顶卡弹簧（response 0.30s）约 90% 就位时即可解锁下一张，
+    // 飞行卡仍按 460ms 独立抛射销毁（不改动）。
+    this.schedule((): void => { this.advancing = false; }, 400);
   }
 
   private onTopPanUpdate(event: GestureEvent): void {
@@ -682,6 +683,13 @@ export struct DailyPostDeck {
 
   private replay(): void {
     this.doneVisible = false;
+    // 读完时 activeIndex 已推进到 posts.length，visiblePosts() 会返回空数组；
+    // 必须复位卡堆状态，否则覆盖层消失后露出的是空白卡堆。
+    this.activeIndex = 0;
+    this.dragOffsetX = 0;
+    this.dragOffsetY = 0;
+    this.advancing = false;
+    this.flyPost = null;
     // 会话内标记：此后（直到真正读完）任何重建都不再恢复「已读完」，
     // 兜底持久化异步写盘的竞态（详见 restoreReadState）。
     AppStorage.setOrCreate<boolean>('youjuDailyReadReset', true);

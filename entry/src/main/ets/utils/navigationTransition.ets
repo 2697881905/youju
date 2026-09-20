@@ -88,6 +88,18 @@ export function getMainNavStack(): NavPathStack | null {
   return mainNavStack;
 }
 
+// 全局唯一 UIContext：util 文件（auth/navigationTransition 等）没有组件上下文，
+// Index 挂载时注册，替换已废弃的全局 router/组件工具 API 时从这里读取。
+let sharedUiContext: UIContext | null = null;
+
+export function setSharedUiContext(ctx: UIContext): void {
+  sharedUiContext = ctx;
+}
+
+export function getSharedUiContext(): UIContext | null {
+  return sharedUiContext;
+}
+
 // 「一镜到底」详情跳转参数（pushPathByName 的 param 需要显式声明的类型，禁止裸对象字面量）
 export class PostDetailNavParams {
   postId: number = 0;
