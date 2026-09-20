@@ -32,8 +32,8 @@ export struct CardSnapshotLayer {
 
   aboutToAppear(): void {
     const d = display.getDefaultDisplaySync();
-    this.winW = px2vp(d.width);
-    this.winH = px2vp(d.height);
+    this.winW = this.getUIContext().px2vp(d.width);
+    this.winH = this.getUIContext().px2vp(d.height);
     this.statusBarH = (AppStorage.get<number>('statusBarHeight') ?? 44) as number;
     // 起点：有效的外部卡帧优先；否则默认「屏幕中部下侧小卡」位（稳定兜底）
     if (this.src.width > 0 && this.src.height > 0) {

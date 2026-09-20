@@ -9,6 +9,8 @@ import { common } from '@kit.AbilityKit';
 //   折叠屏展开/平板竖屏       → 3 列
 //   平板横屏/桌面 (>840vp)    → 4 列
 function computeGridColumns(widthPx: number): number {
+  // px2vp 的 UIContext 形态 @since 22 > 工程下限 20，本 util 只有 common.Context 没有 UIContext，
+  // 故保留全局形态（已废弃但全版本可用）；列数只取 2/3/4 档，1-2vp 密度误差不影响分档。
   const wvp: number = px2vp(widthPx);
   if (wvp >= 840) {
     return 4;
