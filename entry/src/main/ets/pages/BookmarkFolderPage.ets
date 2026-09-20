@@ -18,6 +18,10 @@ export struct BookmarkFolderPage {
   @State ready: boolean = false;
   @State error: string = '';
   @State editingFolder: BookmarkFolderItem | null = null;
+  // 窗口是全屏沉浸式（EntryAbility 里 setWindowLayoutFullScreen(true)），
+  // 内容会画到状态栏下面；顶栏必须自己让出状态栏高度，否则标题被状态栏区域盖掉。
+  // 取值由 Index 写入 AppStorage，与其余 27 个路由页同一套（姊妹页 BookmarkFolderDetailPage 亦然）。
+  @StorageLink('statusBarHeight') statusBarHeight: number = 0;
 
   private createController: CustomDialogController | null = null;
   private renameController: CustomDialogController | null = null;
@@ -182,7 +186,7 @@ export struct BookmarkFolderPage {
           .fontSize(17).fontFamily($r('app.string.font_family')).fontWeight(600).layoutWeight(1).textAlign(TextAlign.Center);
         Text('').width(44);
       }
-      .width('100%').padding({ top: 12, bottom: 8 });
+      .width('100%').padding({ top: this.statusBarHeight + 12, bottom: 8 });
 
       if (!this.ready) {
         Column() {
