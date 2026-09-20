@@ -540,34 +540,13 @@ export struct ProfilePage {
     });
   }
 
-  // 「我收藏」子分段（帖子 | 收藏夹），右对齐、紧凑尺寸；外层由调用处补充左右留白与定位
+  // 「我收藏」子分段（帖子 | 收藏夹）；外层由调用处补充左右留白与定位。
+  // 这一行只放分段控件本身：分段控件是满宽控件（fillWidth 默认 true → width('100%')），
+  // 同行的兄弟节点会让总宽超过 100%，布局开始压缩弹性子节点，表现为分段栏被挤到右侧。
+  // 收藏夹的管理入口因此移到列表自己的头部（见 foldersView）。
   @Builder
   bookmarkSubSegment(): void {
     Row() {
-      // 收藏夹管理入口：pages/BookmarkFolderPage（重命名/删除）此前已实现且已注册路由，
-      // 但全项目 0 处跳转 → 用户建了收藏夹就改不了名、删不掉。仅在收藏夹子页且已有收藏夹时显示。
-      if (this.bookmarkSubTab === 1 && this.folders.length > 0) {
-        Pressable({
-          visualHeight: LayoutTokens.segmentedHeight,
-          touchTargetHeight: LayoutTokens.minTouchTarget,
-          action: (): void => {
-            this.getUIContext().getRouter().pushUrl({ url: 'pages/BookmarkFolderPage' });
-          },
-        }) {
-          Text('管理')
-            .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-            .fontWeight(TypeTokens.headline.weight)
-            .lineHeight(TypeTokens.callout.lineHeight)
-            .fontColor(ColorTokens.primary)
-            .height(LayoutTokens.segmentedHeight)
-            .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-            .textAlign(TextAlign.Center)
-            .backgroundColor(Color.Transparent)
-            .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-            .borderRadius(RadiusTokens.lg);
-        }
-        Blank()
-      }
       SegmentedControl({
         items: BOOKMARK_SEGMENTS,
         selectedIndex: $bookmarkSubTab,
@@ -660,6 +639,39 @@ export struct ProfilePage {
             .width('100%')
             .padding({ top: SpaceTokens.xl })
         } else {
+          // 收藏夹工具栏：管理入口（pages/BookmarkFolderPage，重命名/删除）放在收藏夹列表自己的头部。
+          // 原先它挂在悬浮的子分段栏那一行，而分段控件是满宽控件，兄弟一出现就把分段栏挤到右侧；
+          // 移到列表头后，分段栏的位置不再受它影响，滚动时也随列表一起走。
+          // 仅在已有收藏夹时出现 —— 空列表没有可管理的东西。
+          Row({ space: SpaceTokens.sm }) {
+            Text('共 ' + this.folders.length + ' 个收藏夹')
+              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+              .fontWeight(TypeTokens.caption.weight)
+              .lineHeight(TypeTokens.caption.lineHeight)
+              .fontColor(ColorTokens.secondary)
+              .layoutWeight(1)
+            Pressable({
+              visualHeight: LayoutTokens.segmentedHeight,
+              touchTargetHeight: LayoutTokens.minTouchTarget,
+              action: (): void => {
+                this.getUIContext().getRouter().pushUrl({ url: 'pages/BookmarkFolderPage' });
+              },
+            }) {
+              Text('管理')
+                .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+                .fontWeight(TypeTokens.headline.weight)
+                .lineHeight(TypeTokens.callout.lineHeight)
+                .fontColor(ColorTokens.primary)
+                .height(LayoutTokens.segmentedHeight)
+                .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+                .textAlign(TextAlign.Center)
+                .backgroundColor(Color.Transparent)
+                .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+                .borderRadius(RadiusTokens.lg);
+            }
+          }
+          .width('100%')
+          .alignItems(VerticalAlign.Center)
           ForEach(this.folders, (f: BookmarkFolderItem) => {
             this.folderListItem(f)
           }, (f: BookmarkFolderItem) => 'folder-list-' + String(f.id))
