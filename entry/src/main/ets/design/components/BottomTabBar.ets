@@ -144,11 +144,13 @@ export struct BottomTabBar {
           x: this.shouldReduceMotion() ? 1 : 1.08,
           y: this.shouldReduceMotion() ? 1 : 1.08,
         })
+        .draggable(false)
     } else {
       Image(item.icon)
         .width(IconTokens.tabBar)
         .height(IconTokens.tabBar)
         .scale({ x: 1, y: 1 })
+        .draggable(false)
     }
   }
 
