@@ -39,12 +39,6 @@ const BOOKMARK_SEGMENTS: SegmentedItem[] = [
   { key: 'folders', label: '收藏夹' },
 ];
 
-// 分段切换时内容的滑入距离（vp）：只做「方向承接」的暗示，不做整页位移
-const SEGMENT_SLIDE_DISTANCE: number = 26;
-
-// 横划切换分段的位移阈值（vp）：高于竖向滚动时的横向抖动，低于一次有意的横划
-const SEGMENT_SWIPE_MIN_OFFSET: number = 64;
-
 @Component
 export struct ProfilePage {
   @State user: User = {};
@@ -64,14 +58,9 @@ export struct ProfilePage {
   @State followerCount: number = 0;
   @State totalLikes: number = 0; // 获赞总数
   @State tabIdx: number = 0; // 0 我发布, 1 我收藏, 2 我赞过, 3 我评论
-  // 分段切换的内容转场：+1 向前一段（新内容自右侧滑入）、-1 反向、0 不播
-  @State segmentShift: number = 0;
-  // 内容当前的转场位移与透明度（由 playSegmentTransition 分两帧驱动）
-  @State contentShift: number = 0;
-  @State contentFade: number = 1;
-  // 上一次的分段索引。SegmentedControl 会先写双向绑定的 tabIdx 再触发 onSelect，
-  // 所以在 onSelect 里判断方向必须与「上一次的值」比 —— 那时 this.tabIdx 已被写成新值。
-  private lastSegmentIdx: number = 0;
+  // 四个分段各自的列表缓存。分页要求每一页都能立刻拿到"自己的"内容：
+  // 只保留当前分段的列表，会让相邻页在拖动过程中显示当前分段的数据。
+  @State postsCache: Post[][] = [[], [], [], []];
   // 「我收藏」子分段：0 帖子列表 / 1 收藏夹网格（切换时懒加载收藏夹）
   @State @Watch('onBookmarkSubTabChange') bookmarkSubTab: number = 0;
   @State folders: BookmarkFolderItem[] = [];
@@ -141,13 +130,13 @@ export struct ProfilePage {
       if (this.tabIdx === 2) {
         const info = likeStore.get(changedId);
         if (info && !info.liked) {
-          this.posts = this.posts.filter((p: Post) => p.id !== changedId);
+          this.removeFromSegment(2, changedId);
         }
       }
     });
     // 订阅帖子删除事件：无论当前停在哪个子 Tab，只要列表含该帖即即时移除
     this.unsubDeletion = postDeletionStore.subscribe((deletedId: number): void => {
-      this.posts = this.posts.filter((p: Post) => p.id !== deletedId);
+      this.removeFromAllSegments(deletedId);
     });
   }
 
@@ -207,7 +196,7 @@ export struct ProfilePage {
   }
 
   onTokenReady(): void {
-    if (this.token !== '' && this.activeTab === 4 && this.ready && this.posts.length === 0) {
+    if (this.token !== '' && this.activeTab === 4 && this.ready && this.pagePostsOf(this.tabIdx).length === 0) {
       this.refresh();
     }
   }
@@ -222,7 +211,7 @@ export struct ProfilePage {
       // 登出：必须清空资料/计数/列表快照。TabContent 内本组件会被保留，不清的话
       // 登出后仍显示上一账号的头像、昵称、关注/粉丝数与帖子（隐私观感问题）。
       this.user = {};
-      this.posts = [];
+      this.postsCache = [[], [], [], []];
       this.folders = [];
       this.followingCount = 0;
       this.followerCount = 0;
@@ -293,7 +282,7 @@ export struct ProfilePage {
       this.followingCount = 0;
       this.followerCount = 0;
       this.totalLikes = 0;
-      this.posts = [];
+      this.postsCache = [[], [], [], []];
       // 未登录也要呈现资料区（显示「去登录」按钮），否则主体被透明度动画隐藏。
       this.presentProfile();
       return;
@@ -350,8 +339,9 @@ export struct ProfilePage {
     this.page = 1;
     this.finished = false;
     this.error = '';
-    // 先移除上一分段内容，避免请求期间显示错误的帖子集合。
-    this.posts = [];
+    // 不再清空列表：分页里每一页只读自己那份缓存，
+    // 切段时先显示该分段上次的内容、拿到新数据后整体替换（stale-while-revalidate），
+    // 避免每次切段都闪一次加载态；首次访问的分段缓存为空，页内自然呈现加载态。
     await this.fetch(true, version);
   }
 
@@ -396,9 +386,9 @@ export struct ProfilePage {
         return;
       }
       if (reset) {
-        this.posts = list;
+        this.setPagePosts(this.tabIdx, list);
       } else {
-        this.posts = this.posts.concat(list);
+        this.setPagePosts(this.tabIdx, this.pagePostsOf(this.tabIdx).concat(list));
       }
       if (list.length < 20) {
         this.finished = true;
@@ -473,64 +463,46 @@ export struct ProfilePage {
   }
 
   onTabChange(idx: number): void {
-    // SegmentedControl 会先写入双向绑定的 tabIdx，再触发 onSelect。
+    // 分段栏点击与 Swiper 分页滑动共用这一个入口：两条路径最终都落到这里，
+    // 所以滑块移动与页面位移天然同步，不会一个先到一个后到。
+    // 注意 SegmentedControl 会先写入双向绑定的 tabIdx，再触发 onSelect，
     // 因此不能把“索引相同”当作无需刷新，否则只会切换选中态而继续显示旧分段数据。
-    if (idx !== this.lastSegmentIdx) {
-      this.segmentShift = idx > this.lastSegmentIdx ? 1 : -1;
-      this.lastSegmentIdx = idx;
-    } else {
-      this.segmentShift = 0;
-    }
     if (this.tabIdx !== idx) {
       this.tabIdx = idx;
     }
-    this.playSegmentTransition();
     this.refresh();
   }
 
-  // 分段内容转场：先把内容瞬移到起点，下一帧再用 animateTo 归位。
-  // 必须分两帧 —— 同一个同步块里连续赋值会被 ArkUI 合并成一次更新，看不到位移。
-  // 本页四个分段共用一份列表状态（fetch 按 tabIdx 选接口写入同一个 posts），
-  // 无法像消息页那样做「两页各自持数据的 Swiper 分页」，
-  // 因此这里用方向性滑入承接切换方向：位移感一致，代价是不跟手（见交付说明）。
-  private playSegmentTransition(): void {
-    if (this.shouldReduceMotion() || this.segmentShift === 0) {
-      this.contentShift = 0;
-      this.contentFade = 1;
-      return;
-    }
-    this.contentShift = this.segmentShift * SEGMENT_SLIDE_DISTANCE;
-    this.contentFade = 0;
-    setTimeout((): void => {
-      this.getUIContext().animateTo({
-        duration: MotionTokens.container,
-        curve: MotionCurves.standard,
-      }, (): void => {
-        this.contentShift = 0;
-        this.contentFade = 1;
-      });
-    }, 16) as number;
+  // 分页每一页只读自己那份缓存：拖动过程中相邻页显示的是它自己的内容
+  private pagePostsOf(seg: number): Post[] {
+    return this.postsCache[seg] ?? [];
   }
 
-  // 横划切换分段：位移达阈值才切，方向用 PanGesture.offsetX（向右为正）。
-  // 不用 SwipeGesture.event.angle —— 该约定跨版本不一致（0..360 与 -180..180 都有），判反就会「往左滑没反应」。
-  // 只在 onActionEnd 判定：竖向滚动过程中的横向抖动累积不到阈值，不会误切。
-  private onSegmentPanEnd(offsetX: number): void {
-    if (Math.abs(offsetX) < SEGMENT_SWIPE_MIN_OFFSET) {
-      return;
+  // 整体替换数组以触发 @State 刷新（ArkTS 不观察数组元素的原地修改）
+  private setPagePosts(seg: number, list: Post[]): void {
+    const next: Post[][] = [[], [], [], []];
+    for (let i: number = 0; i < PROFILE_SEGMENTS.length; i++) {
+      next[i] = i === seg ? list : this.pagePostsOf(i);
     }
-    const next: number = this.tabIdx + (offsetX < 0 ? 1 : -1);
-    if (next < 0 || next >= PROFILE_SEGMENTS.length) {
-      return;
+    this.postsCache = next;
+  }
+
+  private removeFromSegment(seg: number, id: number): void {
+    this.setPagePosts(seg, this.pagePostsOf(seg).filter((p: Post) => p.id !== id));
+  }
+
+  // 帖子被删除：任何分段都可能含该帖，逐段移除
+  private removeFromAllSegments(id: number): void {
+    for (let i: number = 0; i < PROFILE_SEGMENTS.length; i++) {
+      this.removeFromSegment(i, id);
     }
-    this.onTabChange(next);
   }
 
   // 收藏 Tab：取消收藏（乐观移除 + 失败回滚）
   private async handleCancelBookmark(id: number): Promise<void> {
     try {
       await cancelBookmarkPost(id);
-      this.posts = this.posts.filter((p: Post) => p.id !== id);
+      this.removeFromSegment(1, id);
     } catch (e) {
       safeShowToast(this.getUIContext(), { message: (e as Error).message });
     }
@@ -791,6 +763,84 @@ export struct ProfilePage {
     })
   }
 
+  // 分页内容：每个分段一页。每页只读自己那份缓存，因此拖动过程中相邻页显示的是它自己的内容，
+  // 而不是当前分段的数据；未访问过的分段缓存为空，页内会先呈现加载态。
+  @Builder
+  segmentPage(seg: number) {
+    Column() {
+      // 「我收藏 → 收藏夹」子视图（子分段栏 + 双列卡片流），优先于帖子网格渲染
+      if (seg === 1 && this.bookmarkSubTab === 1) {
+        this.foldersView()
+      } else if (this.pagePostsOf(seg).length === 0 && (seg !== this.tabIdx || !this.ready || this.loading)) {
+        PostCollectionState({ loading: true })
+      } else if (this.pagePostsOf(seg).length === 0) {
+        PostCollectionState({
+          error: this.error,
+          emptyTitle: seg === 0
+            ? '还没有发布过帖子'
+            : seg === 1
+              ? '还没有收藏过帖子'
+              : seg === 2 ? '还没有赞过的帖子' : '还没有评论过帖子',
+          onRetry: (): void => { this.refresh(); },
+        })
+      } else {
+        Refresh({ refreshing: seg === this.tabIdx ? this.isRefreshing : false, builder: this.refreshBuilder }) {
+          // 显式双列：偶数项固定左列、奇数项固定右列，首项始终位于左上角。
+          // 两列独立排列，保留瀑布流的紧凑效果且不受 WaterFlow 列测量顺序影响。
+          Scroll() {
+            Column() {
+              Row({ space: SpaceTokens.xs }) {
+                Column({ space: SpaceTokens.xs }) {
+                  ForEach(this.pagePostsOf(seg).filter((_post: Post, idx: number) => idx % 2 === 0), (post: Post) => {
+                    this.profilePostCard(post)
+                  }, (post: Post) => seg + '-left-' + (post.id ?? ''))
+                }
+                .layoutWeight(1)
+                Column({ space: SpaceTokens.xs }) {
+                  ForEach(this.pagePostsOf(seg).filter((_post: Post, idx: number) => idx % 2 === 1), (post: Post) => {
+                    this.profilePostCard(post)
+                  }, (post: Post) => seg + '-right-' + (post.id ?? ''))
+                }
+                .layoutWeight(1)
+              }
+              .width('100%')
+              .alignItems(VerticalAlign.Top)
+              Column() {
+                Blank().width('100%').height(barBottomReserve())
+              }
+              .width('100%')
+            }
+            .width('100%')
+            // constraintSize minHeight 撑满视口：内容不足一屏时从顶部贴齐（规避 Scroll 内容垂直居中）
+            .constraintSize({ minHeight: '100%' })
+            .padding({
+              left: SpaceTokens.sm,
+              right: SpaceTokens.sm,
+              // 主分段悬浮于顶部；「我收藏」额外悬浮子分段，内容需让出两层分段栏高度
+              top: LayoutTokens.segmentedHeight + SpaceTokens.md + (seg === 1 ? LayoutTokens.segmentedHeight + 2 * SpaceTokens.xs : 0),
+              bottom: SpaceTokens.md,
+            })
+          }
+          .scrollable(ScrollDirection.Vertical)
+          .onScrollEdge((edge: Edge) => {
+            if (edge === Edge.Bottom) {
+              this.loadMore();
+            }
+          })
+        }
+        .onRefreshing(() => {
+          this.isRefreshing = true;
+          this.refresh().finally(() => {
+            this.isRefreshing = false;
+          });
+        })
+        .width('100%').height('100%')
+      }
+    }
+    .width('100%')
+    .height('100%')
+  }
+
   build() {
     Column() {
       // 顶栏
@@ -895,84 +945,23 @@ export struct ProfilePage {
 
       // 列表区与分段栏共享同一滚动空间，帖子上滑时可进入分段栏下方。
       Stack({ alignContent: Alignment.TopStart }) {
-      // 内容区：分段切换时做方向性滑入。单独包一层是为了让位移/淡入只作用于内容，
-      // 下面悬浮的分段栏（zIndex 1）必须保持不动 —— 真实分页里栏也是不动的。
-      Column() {
-      // 「我收藏 → 收藏夹」子视图（子分段栏 + 双列卡片流），优先于帖子网格渲染
-      if (this.tabIdx === 1 && this.bookmarkSubTab === 1) {
-        this.foldersView()
-      } else if (!this.ready || (this.posts.length === 0 && this.loading)) {
-        PostCollectionState({ loading: true })
-      } else if (this.posts.length === 0) {
-        PostCollectionState({
-          error: this.error,
-          emptyTitle: this.tabIdx === 0
-            ? '还没有发布过帖子'
-            : this.tabIdx === 1
-              ? '还没有收藏过帖子'
-              : this.tabIdx === 2 ? '还没有赞过的帖子' : '还没有评论过帖子',
-          onRetry: (): void => { this.refresh(); },
-        })
-      } else {
-        Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
-          // 显式双列：偶数项固定左列、奇数项固定右列，首项始终位于左上角。
-          // 两列独立排列，保留瀑布流的紧凑效果且不受 WaterFlow 列测量顺序影响。
-          Scroll() {
-            Column() {
-              Row({ space: SpaceTokens.xs }) {
-                Column({ space: SpaceTokens.xs }) {
-                  ForEach(this.posts.filter((_post: Post, idx: number) => idx % 2 === 0), (post: Post) => {
-                    this.profilePostCard(post)
-                  }, (post: Post) => this.tabIdx + '-left-' + (post.id ?? ''))
-                }
-                .layoutWeight(1)
-                Column({ space: SpaceTokens.xs }) {
-                  ForEach(this.posts.filter((_post: Post, idx: number) => idx % 2 === 1), (post: Post) => {
-                    this.profilePostCard(post)
-                  }, (post: Post) => this.tabIdx + '-right-' + (post.id ?? ''))
-                }
-                .layoutWeight(1)
-              }
-              .width('100%')
-              .alignItems(VerticalAlign.Top)
-              Column() {
-                Blank().width('100%').height(barBottomReserve())
-              }
-              .width('100%')
-            }
-            .width('100%')
-            // constraintSize minHeight 撑满视口：内容不足一屏时从顶部贴齐（规避 Scroll 内容垂直居中）
-            .constraintSize({ minHeight: '100%' })
-            .padding({
-              left: SpaceTokens.sm,
-              right: SpaceTokens.sm,
-              // 主分段悬浮于顶部；「我收藏」额外悬浮子分段，内容需让出两层分段栏高度
-              top: LayoutTokens.segmentedHeight + SpaceTokens.md + (this.tabIdx === 1 ? LayoutTokens.segmentedHeight + 2 * SpaceTokens.xs : 0),
-              bottom: SpaceTokens.md,
-            })
-          }
-          .scrollable(ScrollDirection.Vertical)
-          .onScrollEdge((edge: Edge) => {
-            if (edge === Edge.Bottom) {
-              this.loadMore();
-            }
-          })
-        }
-        .onRefreshing(() => {
-          this.isRefreshing = true;
-          this.refresh().finally(() => {
-            this.isRefreshing = false;
-          });
-        })
-        .width('100%').height('100%')
+      // 四个分段做成真正的分页：内容跟手位移、松手按速度吸附，与消息页同一套系统实现。
+      // 前提是每一页都能立刻拿到「自己的」内容 —— 列表已按分段各自缓存（postsCache）。
+      // 手势由 Swiper 自带，页面不再绑任何横向手势（两套会互相抢事件）。
+      Swiper() {
+        this.segmentPage(0)
+        this.segmentPage(1)
+        this.segmentPage(2)
+        this.segmentPage(3)
       }
-      }
+      .index(this.tabIdx)
+      .loop(false)                 // 到边界不循环：与分段栏两端不可再点一致
+      .indicator(false)            // 进度点由分段栏承担
+      .duration(this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.container)
+      .curve(MotionCurves.springSoft)
+      .onChange((index: number): void => { this.onTabChange(index); })
       .width('100%')
       .height('100%')
-      .translate({ x: this.contentShift })
-      .opacity(this.contentFade)
-      // 触点仍要落到下层滚动区：包裹层只做视觉，不拦事件
-      .hitTestBehavior(HitTestMode.Transparent)
 
       SegmentedControl({
         items: PROFILE_SEGMENTS,
@@ -1009,13 +998,5 @@ export struct ProfilePage {
     }
     .width('100%').height('100%')
     .backgroundColor(ColorTokens.canvas)
-    // 横划切换「我发布 / 我收藏 / 我赞过 / 我评论」。
-    // parallelGesture 而非 gesture：内容在 Scroll 内，分页/滚动手势都在子节点上，
-    // ArkUI 默认子组件手势优先，父组件用 gesture 绑的手势收不到事件（消息页踩过这个坑）。
-    // direction 限定 Horizontal，竖向滚动与下拉刷新不受影响。
-    .parallelGesture(
-      PanGesture({ direction: PanDirection.Horizontal, distance: 24 })
-        .onActionEnd((event: GestureEvent): void => { this.onSegmentPanEnd(event.offsetX); })
-    )
   }
 }
