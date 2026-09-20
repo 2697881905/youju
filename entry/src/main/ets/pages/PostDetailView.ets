@@ -290,11 +290,6 @@ export struct PostDetailView {
     this.load();
   }
 
-  aboutToDisappear(): void {
-    // 详情页关闭即退订（官方建议：避免多余的性能功耗开销）
-    stopGripTracking();
-  }
-
   // 读取系统栏高度（全屏布局下顶部内容需避让），并监听 avoidAreaChange：
   // 三键/手势导航切换会触发回调 → 重新测量 → AppStorage 更新 → 底部功能栏高度实时响应。
   private async loadWindowInsets(): Promise<void> {
@@ -331,6 +326,8 @@ export struct PostDetailView {
   }
 
   aboutToDisappear(): void {
+    // 智感握姿退订（详情页关闭即退订，官方功耗建议）
+    stopGripTracking();
     if (this.navSourceWin) {
       try {
         this.navSourceWin.off('avoidAreaChange', this.handleAvoidAreaChanged);
