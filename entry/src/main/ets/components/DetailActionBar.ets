@@ -8,7 +8,7 @@ import { TypeTokens } from '../design/tokens/type';
 import { MotionCurves, MotionTokens, MotionFrameRates } from '../design/tokens/motion';
 import { Pressable } from '../design/motion/Pressable';
 import { GlowInput } from '../design/components/GlowInput';
-import { GESTURE_INDICATOR_MAX, NAV_INSET_EXTRA } from '../utils/cardTokens';
+import { bottomNavInset } from '../utils/cardTokens';
 import { GlassBlurStyle, isImmersiveLightSenseSupported } from '../utils/immersiveMaterial';
 
 @Component
@@ -65,12 +65,12 @@ struct DetailActionButton {
         // 状态色由图标 + 下方文字共同表达（保留反馈缩放动效）
         if (this.active) {
           Image(this.activeIcon)
-            .width(IconTokens.small)
-            .height(IconTokens.small)
+            .width(IconTokens.tabBar)
+            .height(IconTokens.tabBar)
         } else {
           Image(this.icon)
-            .width(IconTokens.small)
-            .height(IconTokens.small)
+            .width(IconTokens.tabBar)
+            .height(IconTokens.tabBar)
         }
         Text(this.label)
           .fontSize(TypeTokens.navLabel.size).fontFamily(TypeTokens.fontFamily)
@@ -78,7 +78,7 @@ struct DetailActionButton {
           .maxLines(1)
       }
       .width('100%')
-      .height(LayoutTokens.minTouchTarget)
+      .height(LayoutTokens.tabBarItemHeight)
       .justifyContent(FlexAlign.Center)
       .alignItems(HorizontalAlign.Center)
       .opacity(this.disabled ? 0.6 : 1)
@@ -95,24 +95,9 @@ struct DetailActionButton {
 // 固定底部操作层只负责呈现状态；请求、乐观更新和失败回滚属于 DetailPage。
 @Component
 export struct DetailActionBar {
-  // 内容操作行（图标+文字）高 = 触控目标高，栏高度在此基础上按导航模式追加底部避让（2026-09-14 收敛栏高）。
-  private static readonly ACTION_HEIGHT: number = LayoutTokens.minTouchTarget;
-  // 手势导航「下沉」态：内容行下方只留原设计底部呼吸（18vp，与悬浮药丸底栏同款），栏整体更矮贴底。
-  private static readonly GESTURE_BOTTOM_GAP: number = LayoutTokens.tabBarBottomGap;
-
   // 响应式绑定系统导航条高度（AppStorage 由 refreshWindowInsets 实测写入）：
-  // 切换三键/手势导航会触发 avoidAreaChange → 值更新 → 本组件自动重绘，栏高实时变化（2026-09-14）。
+  // 切换三键/手势导航会触发 avoidAreaChange → 值更新 → 本组件自动重绘。
   @StorageProp('navBarHeight') navBarHeight: number = 0;
-
-  // 底部避让随导航模式变化：
-  //   · 三键导航「抬高」：避让 = 系统导航条高 + 呼吸空间（nav + 10），内容行整体抬到三键条上方（底部避让 ≥28vp 审核要求）；
-  //   · 手势导航「下沉」：nav ≤ 24vp 按手势处理，只留 18vp 底部呼吸，栏不追高。
-  private bottomGap(): number {
-    if (this.navBarHeight <= GESTURE_INDICATOR_MAX) {
-      return DetailActionBar.GESTURE_BOTTOM_GAP;
-    }
-    return this.navBarHeight + NAV_INSET_EXTRA;
-  }
 
   @Link commenting: boolean;
   @Link commentText: string;
@@ -135,89 +120,97 @@ export struct DetailActionBar {
   onCancelReply: () => void = (): void => {};
 
   build() {
-    // 悬浮玻璃 Dock：与首页 BottomTabBar 同材质同视觉语言（背景模糊/描边/阴影/悬浮条圆角），
-    // 底部以 bottomGap 悬浮于系统导航区之上，左右留边成「药丸」观感；
-    // 滚动列表尾部以 barBottomReserve() 预留空间，末条内容可完整滚出 Dock 上方。
-    Column() {
-      // 无玻璃栏：仅保留点赞/收藏/评论/分享操作内容（评论输入态就地切换）
-      Stack({ alignContent: Alignment.Center }) {
-        if (this.commenting) {
-          Column({ space: 4 }) {
-            // 楼中楼回复态提示条：仅当回复目标非空时显示
-            if (this.replyName.length > 0) {
-              Row() {
-                Text('回复 @' + this.replyName)
-                  .fontSize(12).fontFamily(TypeTokens.fontFamily)
-                  .fontColor(ColorTokens.brand)
+    // 悬浮玻璃 Dock：与首页 BottomTabBar **同 token 同视觉**——
+    // 外层 padding = tabBarSideMargin(18)、margin = tabBarBottomGap(18)+bottomNavInset()、
+    // 药丸高 = tabBarHeight(64)、圆角 = floatingBar、材质 = Floating blur（沉浸光感降级同策略）。
+    // 滚动列表尾部以 barBottomReserve()（floatingBarReserve 94 + 导航条高）预留，恰好覆盖本 Dock。
+    Row() {
+      Column() {
+        Stack({ alignContent: Alignment.Center }) {
+          if (this.commenting) {
+            Column({ space: 4 }) {
+              // 楼中楼回复态提示条：仅当回复目标非空时显示
+              if (this.replyName.length > 0) {
+                Row() {
+                  Text('回复 @' + this.replyName)
+                    .fontSize(12).fontFamily(TypeTokens.fontFamily)
+                    .fontColor(ColorTokens.brand)
+                }
+                .width('100%')
+                .padding({ left: SpaceTokens.sm })
+              }
+              Row({ space: SpaceTokens.sm }) {
+                Row() {
+                  Image(resolveActionIcon('close'))
+                    .width(IconTokens.compact)
+                    .height(IconTokens.compact)
+                    .fillColor(ColorTokens.secondary)
+                }
+                .width(LayoutTokens.minTouchTarget)
+                .height(LayoutTokens.minTouchTarget)
+                .justifyContent(FlexAlign.Center)
+                .onClick((): void => { this.commenting = false; this.commentText = ''; this.onCancelReply(); })
+                // 聚焦流光输入框：键入（聚焦）点亮原生流光，失焦熄灭
+                GlowInput({
+                  placeholder: this.replyName.length > 0 ? ('回复 @' + this.replyName) : '理性补充，有图有真相',
+                  text: $commentText,
+                  fillWidth: true,
+                })
+                // 发送按钮：暖白玻璃胶囊 + 主文字色 + 柔和阴影（与输入框同区，非品牌蓝）
+                Text('发送')
+                  .width(56)
+                  .height(LayoutTokens.minTouchTarget)
+                  .textAlign(TextAlign.Center)
+                  .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+                  .fontWeight(TypeTokens.headline.weight)
+                  .fontColor(ColorTokens.primary)
+                  .backgroundColor(Color.Transparent)
+                  .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+                  .borderRadius(RadiusTokens.lg)
+                  .stateStyles({
+                    pressed: {
+                      .scale({ x: 0.95, y: 0.95 })
+                      .backgroundColor(ColorTokens.brandTint)
+                    },
+                    normal: {
+                      .scale({ x: 1, y: 1 })
+                      .backgroundColor(Color.Transparent)
+                    },
+                  })
+                  .animation({ duration: MotionTokens.fast, curve: MotionCurves.standard })
+                  .onClick((): void => { this.onSendComment(); })
               }
               .width('100%')
-              .padding({ left: SpaceTokens.sm })
-            }
-            Row({ space: SpaceTokens.sm }) {
-              Row() {
-                Image(resolveActionIcon('close'))
-                  .width(IconTokens.compact)
-                  .height(IconTokens.compact)
-                  .fillColor(ColorTokens.secondary)
-              }
-              .width(LayoutTokens.minTouchTarget)
-              .height(LayoutTokens.minTouchTarget)
-              .justifyContent(FlexAlign.Center)
-              .onClick((): void => { this.commenting = false; this.commentText = ''; this.onCancelReply(); })
-              // 聚焦流光输入框：键入（聚焦）点亮原生流光，失焦熄灭
-              GlowInput({
-                placeholder: this.replyName.length > 0 ? ('回复 @' + this.replyName) : '理性补充，有图有真相',
-                text: $commentText,
-                fillWidth: true,
-              })
-            // 发送按钮：暖白玻璃胶囊 + 主文字色 + 柔和阴影（与输入框同区，非品牌蓝）
-            Text('发送')
-              .width(56)
-              .height(LayoutTokens.minTouchTarget)
-              .textAlign(TextAlign.Center)
-              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-              .fontWeight(TypeTokens.headline.weight)
-              .fontColor(ColorTokens.primary)
-              .backgroundColor(Color.Transparent)
-              .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-              .borderRadius(RadiusTokens.lg)
-              .stateStyles({
-                pressed: {
-                  .scale({ x: 0.95, y: 0.95 })
-                  .backgroundColor(ColorTokens.brandTint)
-                },
-                normal: {
-                  .scale({ x: 1, y: 1 })
-                  .backgroundColor(Color.Transparent)
-                },
-              })
-              .animation({ duration: MotionTokens.fast, curve: MotionCurves.standard })
-              .onClick((): void => { this.onSendComment(); })
+              .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+              .alignItems(VerticalAlign.Center)
             }
             .width('100%')
-            .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
-            .alignItems(VerticalAlign.Center)
-          }
-          .width('100%')
-          .justifyContent(FlexAlign.Center)
-        } else {
-          Row() {
-            DetailActionButton({ icon: resolveActionIcon('like'), activeIcon: resolveActionIcon('likeActive'), label: formatCount(this.upCount), active: this.uped, activeColor: ColorTokens.like, disabled: this.upPending, feedbackVersion: this.upFeedbackVersion, onAction: (): void => { this.onUp(); } }).layoutWeight(1)
-            DetailActionButton({ icon: resolveActionIcon('bookmark'), activeIcon: resolveActionIcon('bookmarkActive'), label: formatCount(this.bookmarkCount), active: this.bookmarked, activeColor: ColorTokens.bookmark, disabled: this.bookmarkPending, feedbackVersion: this.bookmarkFeedbackVersion, onAction: (): void => { this.onBookmark(); } }).layoutWeight(1)
-            DetailActionButton({ icon: resolveActionIcon('comment'), label: formatCount(this.commentCount), onAction: (): void => { this.commenting = true; } }).layoutWeight(1)
-            if (this.showShare) {
-              DetailActionButton({ icon: resolveActionIcon('share'), label: '分享', onAction: (): void => { this.onShare(); } }).layoutWeight(1)
+            .justifyContent(FlexAlign.Center)
+          } else {
+            Row() {
+              DetailActionButton({ icon: resolveActionIcon('like'), activeIcon: resolveActionIcon('likeActive'), label: formatCount(this.upCount), active: this.uped, activeColor: ColorTokens.like, disabled: this.upPending, feedbackVersion: this.upFeedbackVersion, onAction: (): void => { this.onUp(); } }).layoutWeight(1)
+              DetailActionButton({ icon: resolveActionIcon('bookmark'), activeIcon: resolveActionIcon('bookmarkActive'), label: formatCount(this.bookmarkCount), active: this.bookmarked, activeColor: ColorTokens.bookmark, disabled: this.bookmarkPending, feedbackVersion: this.bookmarkFeedbackVersion, onAction: (): void => { this.onBookmark(); } }).layoutWeight(1)
+              DetailActionButton({ icon: resolveActionIcon('comment'), label: formatCount(this.commentCount), onAction: (): void => { this.commenting = true; } }).layoutWeight(1)
+              if (this.showShare) {
+                DetailActionButton({ icon: resolveActionIcon('share'), label: '分享', onAction: (): void => { this.onShare(); } }).layoutWeight(1)
+              }
             }
+            .width('100%')
+            .height('100%')
           }
-          .width('100%')
-          .height(LayoutTokens.minTouchTarget)
         }
+        .width('100%')
+        .height('100%')
       }
       .width('100%')
+      .height('100%')
     }
-    .margin({ left: 16, right: 16, bottom: this.bottomGap() })
+    .width('100%')
+    .height(LayoutTokens.tabBarHeight)
+    .padding({ left: LayoutTokens.tabBarSideMargin, right: LayoutTokens.tabBarSideMargin })
+    .margin({ bottom: LayoutTokens.tabBarBottomGap + bottomNavInset() })
     .borderRadius(RadiusTokens.floatingBar)
-    // 沉浸光感材质：真机（HarmonyOS 6+）hdsMaterial，模拟器/低端机降级为系统模糊，与首页 Dock 同策略
+    // 沉浸光感材质：真机（HarmonyOS 6+）hdsMaterial，模拟器/低端机降级为系统模糊——与首页 Dock 同策略
     .backgroundBlurStyle(GlassBlurStyle.Floating)
     .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
     .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
