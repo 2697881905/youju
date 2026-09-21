@@ -11,7 +11,7 @@ import { Tag } from '../models/types';
 import { safeShowToast } from '../utils/toast';
 import { PublishMode, PublishModeSheet } from '../components/PublishModeSheet';
 import { LayoutTokens } from '../design/tokens/space';
-import { bottomNavInset } from '../utils/cardTokens';
+import { bottomNavInset, DOCK_WIDTH_SMALL, DOCK_BOTTOM_MARGIN_BASE, DOCK_SIDE_MARGIN_MIN } from '../utils/cardTokens';
 import { RadiusTokens } from '../design/tokens/radius';
 import { ColorTokens } from '../design/tokens/color';
 import { ShadowTokens } from '../design/tokens/shadow';
@@ -590,9 +590,9 @@ struct Index {
     .barFloatingStyle({
       // barBottomMargin 在系统导航区之上再留 28vp：三键导航设备 navInset≈28-32vp，
       // 固定 28 会让底栏侵入导航条（审核问题③）；手势导航 navInset=0，维持原设计。
-      barWidth: { smallWidth: 300, mediumWidth: 420, largeWidth: 560 },
-      barSideMargin: 16,
-      barBottomMargin: 28 + bottomNavInset(),
+      barWidth: { smallWidth: DOCK_WIDTH_SMALL, mediumWidth: 420, largeWidth: 560 },
+      barSideMargin: DOCK_SIDE_MARGIN_MIN,
+      barBottomMargin: DOCK_BOTTOM_MARGIN_BASE + bottomNavInset(),
       gradientMask: { maskColor: $r('app.color.bar_gradient_mask'), maskHeight: 92 },
       systemMaterialEffect: {
         materialType: 101,

@@ -8,7 +8,7 @@ import { TypeTokens } from '../design/tokens/type';
 import { MotionCurves, MotionTokens, MotionFrameRates } from '../design/tokens/motion';
 import { Pressable } from '../design/motion/Pressable';
 import { GlowInput } from '../design/components/GlowInput';
-import { bottomNavInset } from '../utils/cardTokens';
+import { bottomNavInset, DOCK_WIDTH_SMALL, DOCK_BOTTOM_MARGIN_BASE } from '../utils/cardTokens';
 import { GlassBlurStyle, isImmersiveLightSenseSupported } from '../utils/immersiveMaterial';
 
 @Component
@@ -202,7 +202,7 @@ export struct DetailActionBar {
       .width('100%')
       .height('100%')
     }
-    .width(300)
+    .width(DOCK_WIDTH_SMALL)
     .height(LayoutTokens.tabBarHeight)
     .borderRadius(RadiusTokens.floatingBar)
     // 沉浸光感材质：真机（HarmonyOS 6+）hdsMaterial，模拟器/低端机降级为系统模糊——与首页 Dock 同策略
@@ -211,6 +211,6 @@ export struct DetailActionBar {
     .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
     .shadow({ radius: 18, color: ColorTokens.barShadow, offsetY: 8 })
     .clip(true)
-    .margin({ bottom: 28 + bottomNavInset() })
+    .margin({ bottom: DOCK_BOTTOM_MARGIN_BASE + bottomNavInset() })
   }
 }

@@ -32,6 +32,14 @@ export function barBottomReserve(): number {
 export const GESTURE_INDICATOR_MAX: number = 24;
 export const NAV_INSET_EXTRA: number = 10;
 
+// —— 悬浮 Dock 几何（首页 HdsTabs 悬浮条 与 详情页 Dock 共用；改这里两处同步）——
+// barWidth.smallWidth：手机竖屏档 Dock 宽（Index 的 barFloatingStyle 与 DetailActionBar 共用）
+export const DOCK_WIDTH_SMALL: number = 300;
+// barBottomMargin 基数：Dock 底沿到系统导航区上沿的呼吸（实际 = 此值 + bottomNavInset()）
+export const DOCK_BOTTOM_MARGIN_BASE: number = 28;
+// barSideMargin：Dock 距屏幕侧边的最小留白
+export const DOCK_SIDE_MARGIN_MIN: number = 16;
+
 export function bottomNavInset(): number {
   const nav: number = AppStorage.get<number>('navBarHeight') ?? 0;
   if (nav <= GESTURE_INDICATOR_MAX) {
