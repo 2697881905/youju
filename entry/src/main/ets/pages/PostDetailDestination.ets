@@ -88,6 +88,8 @@ export struct PostDetailDestination {
             navMode: true,
             onBack: (): void => { this.back(); },
             onOpenProfile: (userId: number): void => { this.openProfile(userId); },
+            // 真媒体首帧就绪 → 淡出卡片截图（交接，不是"闪一下"）
+            onHeroReady: (): void => { this.anim.onHeroReady(this.getUIContext()); },
           })
             .width('100%')
             .height('100%')
