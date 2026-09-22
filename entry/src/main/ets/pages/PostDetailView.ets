@@ -55,6 +55,15 @@ import { SpaceTokens } from '../design/tokens/space';
 import { FALLBACK_VIDEO_ASPECT_RATIO, normalizeVideoAspectRatio } from '../utils/video';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 
+// ── 一镜到底的「对应节点」id（PostDetailDestination 也会引用，单一出处防漂移）──
+// 真实内容里的媒体 Stack：整页缩放到「该节点宽 == 卡片宽」再展开。
+export const DETAIL_HERO_ID: string = 'detailHeroMedia';
+// 加载壳里的媒体占位 id：**必须与真实 hero 不同名** —— 两个分支虽然互斥，
+// 但同名会被编译器判 duplicate id（发布构建实测报 WARN），且壳与真内容短暂共存时
+// getFrameNodeById 会取到不确定节点。数据是异步的，转场开始那一刻只有壳，
+// 量不到真实 hero 就回退量这个壳占位（宽高由 intent.aspect 决定，与真实 hero 一致）。
+export const DETAIL_HERO_SHELL_ID: string = 'detailHeroShellMedia';
+
 
 // 底部互动使用不可变快照。每次替换顶层 @State，保证 ArkUI 当帧重新渲染计数和选中态。
 class DetailInteractionState {
@@ -1104,10 +1113,11 @@ export struct PostDetailView {
         // 卡片截图位于内容层**之下**，这里一旦有底色就会把截图盖住
         // （观感变成「卡片图 → 灰块 → 照片」）；不加 opacity 也免得赌
         // 「完全透明是否被渲染层裁掉」这种实现细节——空盒子照样能量。
+        // id 用独立的 DETAIL_HERO_SHELL_ID：与真实 hero 不同名（防 duplicate id）。
         Stack()
           .width('100%')
           .aspectRatio(this.transitionAspect())
-          .id('detailHeroMedia')
+          .id(DETAIL_HERO_SHELL_ID)
       }
       .padding(16)
       .width('100%')
@@ -1269,7 +1279,7 @@ export struct PostDetailView {
                 this.mediaSlot()
               }
               .width('100%')
-              .id('detailHeroMedia')
+              .id(DETAIL_HERO_ID)
               .opacity(this.heroOpacity())
 
               DetailPostContent({

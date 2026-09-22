@@ -10,7 +10,7 @@
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { image } from '@kit.ImageKit';
-import { PostDetailView } from './PostDetailView';
+import { PostDetailView, DETAIL_HERO_ID, DETAIL_HERO_SHELL_ID } from './PostDetailView';
 import { PostDetailIntent, openPostDetail } from '../utils/nav';
 import { getMainNavStack, PostDetailNavParams, UserProfileNavParams } from '../utils/navigationTransition';
 import { CustomTransition } from '../utils/longTake/customNavigationUtils';
@@ -20,10 +20,9 @@ import { ColorTokens } from '../design/tokens/color';
 const TAG: string = 'PostDetailDest';
 // 转场超时：超时由框架兜底结束，避免动画异常时页面卡住不放行
 const TRANSITION_TIMEOUT_MS: number = 2000;
-// 详情页里充当「卡片对应节点」的组件 id：整页缩放到「该节点宽 == 卡片宽」再展开
-const HERO_ID: string = 'detailHeroMedia';
-// 页面根的 id：用来量出「页面内容原点」的窗口位置。官方直接用节点的窗口坐标做初值，
-// 隐含「页面原点 == 窗口原点」；这里显式量一下，避免因状态栏避让差异整体偏移。
+// 详情页里充当「卡片对应节点」的组件 id：整页缩放到「该节点宽 == 卡片宽」再展开。
+// 主 id = 真实内容里的媒体 Stack；回退 id = 加载壳里的占位（数据异步时先量到的是它），
+// 两个 id 不能同名 —— 同名会被编译器判 duplicate id（发布构建实测报 WARN）。
 const PAGE_ROOT_ID: string = 'detailPageRoot';
 
 @Component
@@ -64,7 +63,8 @@ export struct PostDetailDestination {
     }
     this.registered = true;
     try {
-      this.longTakeAnimationProperties.init(this.takeParams.cardRect, HERO_ID, PAGE_ROOT_ID, this.takeParams.cardId);
+      this.longTakeAnimationProperties.init(this.takeParams.cardRect,
+        DETAIL_HERO_ID, DETAIL_HERO_SHELL_ID, PAGE_ROOT_ID, this.takeParams.cardId);
       CustomTransition.getInstance().registerNavParam(this.pageId, TRANSITION_TIMEOUT_MS,
         (transitionProxy: NavigationTransitionProxy): void => {
           // 初值必须在动画开始这一刻量：此时本页已完成布局
