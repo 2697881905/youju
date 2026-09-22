@@ -148,17 +148,21 @@ export struct DetailActionBar {
     });
   }
 
-  // 换边转场（对齐 Title 的跟手感）：新子元素从「移动方向」弹性滑入，旧子元素原地淡出。
-  // 分支重排是销毁重建，同一节点无法连续滑动——用方向性滑入模拟 Title 的连续滑动观感。
+  // 换边转场（对齐 Title 的跟手感）：新旧子元素沿「移动方向」弹性滑动——
+  // 新子元素从对侧滑入（**纯滑动，无淡入**），旧子元素向移动方向滑出并淡出。
+  // 分支重排是销毁重建，同一节点无法连续滑动——用方向性滑动模拟连续迁移观感。
   private gripSwapTransition(): TransitionEffect {
-    // 新子元素滑入方向：换到右侧布局（inputOnRight=true）→ 从左（-60）滑入；反之从右滑入
-    const slideIn: TransitionEffect = TransitionEffect
-      .translate({ x: this.inputOnRight ? -60 : 60 })
+    // 滑动方向：换到右侧布局（inputOnRight=true）→ 子元素从左（-60）进入、
+    // 旧元素向左（-60）退出；换到左侧布局反之。
+    const offset: number = this.inputOnRight ? -60 : 60;
+    const slide: TransitionEffect = TransitionEffect
+      .translate({ x: offset })
+      .animation({ curve: curves.interpolatingSpring(0, 1, 170, 17) });
+    const slideOut: TransitionEffect = TransitionEffect
+      .translate({ x: offset })
       .combine(TransitionEffect.OPACITY)
       .animation({ curve: curves.interpolatingSpring(0, 1, 170, 17) });
-    const fadeOut: TransitionEffect = TransitionEffect.OPACITY
-      .animation({ duration: MotionTokens.container, curve: MotionCurves.springInteract });
-    return TransitionEffect.asymmetric(slideIn, fadeOut);
+    return TransitionEffect.asymmetric(slide, slideOut);
   }
 
   private collapseCancel(): void {
