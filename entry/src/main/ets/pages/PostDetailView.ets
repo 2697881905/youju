@@ -848,15 +848,17 @@ export struct PostDetailView {
       safeShowToast(this.getUIContext(), { message: '无效帖子ID' });
       return;
     }
-    // 先清掉上一帖的数据：面板经 @Prop 同步，带着旧数据开窗会在加载期间串帖
+    // 先清掉上一帖的数据：@Link 双向绑定，带着旧数据开窗会在加载期间串帖
     this.postStats = null;
     this.statsLoading = true;
     this.statsError = '';
     this.statsDialog = new CustomDialogController({
       builder: PostStatsDialog({
-        stats: this.postStats,
-        loading: this.statsLoading,
-        error: this.statsError,
+        // @Link：CustomDialog 的 builder 在 open() 后不随父组件重渲染同步 @Prop，
+        // 数据拉取结果必须经 @Link 才能实时进入面板（踩过：@Prop 卡在「正在汇总」）
+        stats: $postStats,
+        loading: $statsLoading,
+        error: $statsError,
         onRetry: (): void => { this.loadPostStats(postId); },
       }),
       autoCancel: true,

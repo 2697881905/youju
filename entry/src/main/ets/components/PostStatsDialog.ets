@@ -1,14 +1,18 @@
 // 帖子创作数据面板（作者侧）：浏览 → 互动 → 流量转化 的三段式轻数据表达。
 //
-// 视觉（与详情页玻璃面板同族）：去掉旧版 7 块 sunken 灰底小方块——它们与玻璃面板语言冲突，
-// 且 3 列 7 格的尾行只有 1 格、视觉失衡。改为：
-//   Hero   累计浏览（display 大数字，衬线体，编辑感）
-//   互动   顶 / 收藏 / 评论 三列（图标 + 数字 + 标签，细分隔线分组，无底色）
-//   转化   曝光 → 点击 → 浏览 三行比例条 + 「曝光→点击」转化率
+// 面板风格：**outlined 描边风**（透明底 + barBorder 细描边，无玻璃模糊、无 HDS 流光）——
+// 数据面板是信息型弹窗，不做沉浸光感材质；与「已加入圈子」面板同语言（JoinedCirclesDialog）。
+//
+// 结构（自上而下）：
+//   标题区（serif 帖子数据 / 仅你自己可见 / 关闭）
+//   Hero：累计浏览（display 大数字，衬线体，编辑感）
+//   互动表现：顶 / 收藏 / 评论 三列（图标 + 数字 + 标签，细分隔线分组，无底色）
+//   流量转化：曝光 → 点击 → 浏览 三行比例条 + 「曝光→点击」转化率
 // 比例条用官方 component-collection dataPanelSample 的 DataPanelType.Line +
 // valueColors 双色（brand = 实际值 / sunken = 余量），不是手绘进度条。
-// 数据流：loading/error 由普通成员改为 @Prop（原先不随父组件刷新）；
-//         父组件在开窗前重置旧数据（防串帖）；新增 onRetry（加载失败可原地重试）。
+// 数据流：stats/loading/error 必须是 **@Link** —— CustomDialog 的 builder 在 open() 后
+// 不随父组件重渲染同步 @Prop（踩过：@Prop 导致面板永远停在「正在汇总」），
+// @Link 建立双向订阅，父组件的拉取结果能实时进入面板。
 import { SpringPanel } from '../design/motion/SpringPanel';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { ColorTokens } from '../design/tokens/color';
@@ -28,9 +32,9 @@ const FUNNEL_VALUE_WIDTH: number = 52;
 @CustomDialog
 export struct PostStatsDialog {
   controller: CustomDialogController;
-  @Prop stats: PostStats | null = null;
-  @Prop loading: boolean = false;
-  @Prop error: string = '';
+  @Link stats: PostStats | null;
+  @Link loading: boolean;
+  @Link error: string;
   // 加载失败重试：父组件重新拉取，不重开面板
   onRetry: () => void = (): void => {};
 
@@ -114,7 +118,9 @@ export struct PostStatsDialog {
   }
 
   build() {
-    SpringPanel({ panelWidth: 344, panelPadding: SpaceTokens.lg }) {
+    // outlined=true + immersive=false：数据面板走描边风——透明底 + 细描边，
+    // 不叠玻璃模糊与 HDS 流光（信息型弹窗不做沉浸光感材质）。
+    SpringPanel({ panelWidth: 344, panelPadding: SpaceTokens.lg, outlined: true, immersive: false }) {
       Column({ space: SpaceTokens.base }) {
         // 标题区（与同族弹窗同构：衬线标题 + 关闭）
         Row({ space: SpaceTokens.sm }) {
