@@ -1,6 +1,7 @@
 // 内容审核台（admin）：待审帖子列表 + 通过/驳回
 // 数据：GET /v1/admin/posts/pending（含举报记录）；操作：POST /v1/admin/posts/:id/moderate
 
+import { ColorTokens } from '../design/tokens/color';
 import { PendingPost, ReportItem, ReportReason, ModerateAction } from '../models/types';
 import { getPendingPosts, moderatePost, banUser, resolveDisplayImageUrl } from '../services/api';
 import { safeShowToast } from '../utils/toast';
@@ -389,6 +390,7 @@ struct ModerationPage {
           Image(resolveActionIcon('lock'))
             .width(48)
             .height(48)
+            .fillColor(ColorTokens.secondary)
           Text('无管理员权限')
             .fontSize(16).fontFamily($r('app.string.font_family'))
             .fontColor($r('app.color.text_secondary'))

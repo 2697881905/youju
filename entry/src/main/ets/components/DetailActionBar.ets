@@ -44,7 +44,7 @@ struct DetailActionButton {
     Pressable({ disabled: this.disabled, visualHeight: COMPACT_ROW_HEIGHT,
       touchTargetHeight: LayoutTokens.minTouchTarget, action: (): void => { this.onAction(); } }) {
       Row({ space: SpaceTokens.xs }) {
-        Image(this.active ? this.activeIcon : this.icon).width(this.iconSize).height(this.iconSize)
+        Image(this.active ? this.activeIcon : this.icon).width(this.iconSize).height(this.iconSize).fillColor(this.active ? this.activeColor : ColorTokens.secondary)
         Text(this.label).fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
           .fontColor(this.active ? this.activeColor : ColorTokens.secondary).maxLines(1)
       }

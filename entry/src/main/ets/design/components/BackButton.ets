@@ -1,3 +1,4 @@
+import { ColorTokens } from '../tokens/color';
 import { resolveActionIcon } from '../../utils/actionIcons';
 import { Pressable } from '../motion/Pressable';
 import { IconTokens } from '../tokens/icon';
@@ -18,6 +19,7 @@ export struct BackButton {
         Image(resolveActionIcon('back'))
           .width(IconTokens.small)
           .height(IconTokens.small)
+          .fillColor(ColorTokens.secondary)
       }
       .width(LayoutTokens.minTouchTarget)
       .height(LayoutTokens.minTouchTarget)

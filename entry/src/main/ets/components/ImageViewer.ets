@@ -72,6 +72,7 @@ export struct ImageViewer {
         .position({ top: 16, right: 16 })
         .draggable(false)
         .onClick((): void => { this.onClose(); })
+        .fillColor(Color.White)
       // 底部操作提示
       Text('长图可上下滑动，双击/捏合缩放')
         .fontSize(12).fontFamily($r('app.string.font_family'))

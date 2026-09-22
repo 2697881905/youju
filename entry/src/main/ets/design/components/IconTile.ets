@@ -18,6 +18,7 @@ export struct IconTile {
       Image(this.icon)
         .width(this.iconSize)
         .height(this.iconSize)
+        .fillColor(ColorTokens.secondary)
     }
     .width(this.tileSize)
     .height(this.tileSize)
