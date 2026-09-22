@@ -47,7 +47,7 @@ struct DetailActionButton {
       Row({ space: SpaceTokens.xs }) {
         Image(this.active ? this.activeIcon : this.icon).width(this.iconSize).height(this.iconSize).fillColor(this.active ? this.activeColor : ColorTokens.icon)
         Text(this.label).fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-          .fontColor(this.active ? this.activeColor : ColorTokens.secondary).maxLines(1)
+          .fontColor(this.active ? this.activeColor : ColorTokens.icon).maxLines(1)
       }
       .height(COMPACT_ROW_HEIGHT)
       // 固定 LTR：图标恒在文字左侧——父层镜像（Rtl）时不跟随翻转

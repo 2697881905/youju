@@ -500,7 +500,7 @@ export struct MessagePage {
             .fontWeight(this.activeFilter === filter ? TypeTokens.headline.weight : TypeTokens.overline.weight)
             .lineHeight(TypeTokens.overline.lineHeight)
             .letterSpacing(TypeTokens.overline.tracking)
-            .fontColor(this.activeFilter === filter ? ColorTokens.brand : ColorTokens.secondary)
+            .fontColor(this.activeFilter === filter ? ColorTokens.brand : ColorTokens.icon)
             .maxLines(1)
         }
         .width('100%')

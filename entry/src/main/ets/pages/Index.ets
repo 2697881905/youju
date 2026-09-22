@@ -552,7 +552,7 @@ struct Index {
       .width(28).height(28)
       Text(this.bottomTabItems()[index].title)
         .fontSize(10)
-        .fontColor(this.currentIndex === index ? $r('app.color.ds_brand') : $r('app.color.ds_text_secondary'))
+        .fontColor(this.currentIndex === index ? $r('app.color.ds_brand') : $r('app.color.ds_icon'))
     }
     .width(64).height(54)
     .justifyContent(FlexAlign.Center)
