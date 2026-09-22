@@ -436,7 +436,8 @@ export struct HomeTab {
   // 卡片 → 详情：走 Navigation 的 PostDetail 目的地以启用自定义转场（一镜到底）；
   // 起点用卡片媒体块屏幕帧，飞行由 PostDetailDestination 内的 CardSnapshotLayer 完成。
   // Navigation 未就绪时兜底走老路由整页（无飞行）。
-  private openDetailViaNav(post: Post, aspect: number, cover: string): void {
+  // mediaIdPrefix：信息流卡片是 cardMedia-{id}，每日一帖卡堆是 deckCardMedia-{id}（两套 id 不同）。
+  private openDetailViaNav(post: Post, aspect: number, cover: string, mediaIdPrefix: string): void {
     if (post.id === undefined) {
       return;
     }
@@ -449,7 +450,7 @@ export struct HomeTab {
     const p: PostDetailNavParams = new PostDetailNavParams();
     p.postId = post.id;
     p.intent = cover.length > 0 ? this.buildDetailIntent(cover, post, aspect) : null;
-    p.src = cardRectOf('cardMedia-' + post.id);
+    p.src = cardRectOf(mediaIdPrefix + post.id);
     nav.pushPathByName('PostDetail', p);
   }
 
@@ -547,7 +548,7 @@ export struct HomeTab {
       onOpen: () => {
         if (post.id !== undefined) {
           trackPostEvent(post.id, 'click', 'feed');
-          this.openDetailViaNav(post, LayoutTokens.cardMediaAspectRatio, this.feedCardCover(post));
+          this.openDetailViaNav(post, LayoutTokens.cardMediaAspectRatio, this.feedCardCover(post), 'cardMedia-');
         }
       },
     })
@@ -862,7 +863,7 @@ export struct HomeTab {
                 onOpen: (post: DailyPost): void => {
                   if (post.id !== undefined) {
                     trackPostEvent(post.id, 'click', 'daily');
-                    this.openDetailViaNav(post, DAILY_DECK_MEDIA_RATIO, this.dailyDeckCover(post));
+                    this.openDetailViaNav(post, DAILY_DECK_MEDIA_RATIO, this.dailyDeckCover(post), 'deckCardMedia-');
                   }
                 },
               })

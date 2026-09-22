@@ -24,7 +24,8 @@ export struct CardSnapshotLayer {
   @State translateY: number = 0;
   @State layerOpacity: number = 1;
 
-  private target: CardRect = { left: 0, top: 0, width: 0, height: 0 };
+  // 目标帧用 @State：播放前实测到真实 hero 帧后需要触发一次重绘（宽高/位置随之更新）
+  @State target: CardRect = { left: 0, top: 0, width: 0, height: 0 };
   private from: CardRect = { left: 0, top: 0, width: 0, height: 0 };
   private winW: number = 360;
   private winH: number = 780;
@@ -67,6 +68,14 @@ export struct CardSnapshotLayer {
   }
 
   private play(): void {
+    // 播放前重新实测目标帧：aboutToAppear 时详情 hero 往往尚未布局，
+    // 早测会落到近似兜底值，导致飞行终点偏移、随后真内容渲染时再跳一下。
+    if (this.targetId.length > 0) {
+      const real: CardRect | null = cardRectOf(this.targetId);
+      if (real !== null && real.width > 0) {
+        this.target = real;
+      }
+    }
     const sw: number = this.from.width;
     const sh: number = this.from.height;
     const tw: number = this.target.width;
