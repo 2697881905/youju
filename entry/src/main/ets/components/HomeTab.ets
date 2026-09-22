@@ -456,7 +456,6 @@ export struct HomeTab {
     p.postId = post.id;
     p.intent = cover.length > 0 ? this.buildDetailIntent(cover, post, aspect) : null;
     const rect: CardRect | null = cardRectOf(cardId);
-    p.src = rect;
     // 官方做法：先截卡片图顶住首帧，再 push；截图失败则退化为纯布局变形（转场照走）
     const take: LongTakeParams = new LongTakeParams();
     take.cardId = cardId;

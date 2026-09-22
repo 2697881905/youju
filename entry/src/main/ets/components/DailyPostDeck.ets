@@ -245,7 +245,8 @@ struct DeckSlotCard {
   @Builder
   postFace(): void {
     Column() {
-      // 卡面媒体区（详情一镜到底以 componentUtils 定位此块屏幕帧，由模态 hero 变身飞入）
+      // 卡面媒体区（详情页一镜到底以 componentUtils 定位此块屏幕帧作为起点，
+      // 详情整页从该帧缩放展开；id 见本文件 deckCardMedia-{id}）
       this.mediaFace()
 
       // —— 信息区（封面下方独立白底条）：标题/作者/阅读数 + 右侧体裁印章 ——
