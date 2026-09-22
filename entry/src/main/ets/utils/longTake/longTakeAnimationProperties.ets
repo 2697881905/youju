@@ -74,6 +74,9 @@ export class LongTakeAnimationProperties {
   // 源页/目的地约定的组件 id 与卡片帧，init 时一次性记录
   private clickedCardId: string = '';
   private destNodeId: string = '';
+  // 对应节点的**回退 id**（加载壳里的占位）：详情数据异步，转场开始那一刻
+  // 页面上往往只有壳，量不到真实 hero 时就量壳占位（几何与真实 hero 一致）。
+  private destNodeFallbackId: string = '';
   private rootNodeId: string = '';
   private cardItemInfo_vp: CardRect = { left: 0, top: 0, width: 0, height: 0 };
 
@@ -86,11 +89,14 @@ export class LongTakeAnimationProperties {
   /* 目的地页注册转场前调用
    * cardItemInfo_vp：源页实测的卡片屏幕帧（vp）
    * destNodeId：详情页里充当「卡片对应节点」的组件 id（整页缩放到「该节点宽 == 卡片宽」）
+   * destNodeFallbackId：对应节点的回退 id（加载壳占位，几何与真实 hero 一致）
    * rootNodeId：页面根组件 id（用来量出页面内容原点，见 initParams 注释）
    */
-  init(cardItemInfo_vp: CardRect, destNodeId: string, rootNodeId: string, clickedCardId: string): void {
+  init(cardItemInfo_vp: CardRect, destNodeId: string,
+    destNodeFallbackId: string, rootNodeId: string, clickedCardId: string): void {
     this.cardItemInfo_vp = cardItemInfo_vp;
     this.destNodeId = destNodeId;
+    this.destNodeFallbackId = destNodeFallbackId;
     this.rootNodeId = rootNodeId;
     this.clickedCardId = clickedCardId;
   }
@@ -131,7 +137,12 @@ export class LongTakeAnimationProperties {
     let rootPositionY_vp: number = 0;
     let rootWidth_px: number = 0;
     try {
-      const heroNode: FrameNode | null = ui.getFrameNodeById(this.destNodeId);
+      let heroNode: FrameNode | null = ui.getFrameNodeById(this.destNodeId);
+      if ((heroNode === null || heroNode.getMeasuredSize().width <= 0) && this.destNodeFallbackId.length > 0) {
+        // 详情数据异步：转场开始那一刻页面上往往只有加载壳（真实 hero 还不存在），
+        // 回退量壳里的占位——它的宽高由 intent.aspect 决定，与真实 hero 一致。
+        heroNode = ui.getFrameNodeById(this.destNodeFallbackId);
+      }
       if (heroNode !== null) {
         nodePositionX_vp = heroNode.getPositionToWindowWithTransform().x;
         nodePositionY_vp = heroNode.getPositionToWindowWithTransform().y;
