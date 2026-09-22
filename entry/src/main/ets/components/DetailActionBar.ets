@@ -6,6 +6,7 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { MotionCurves, MotionTokens, MotionFrameRates } from '../design/tokens/motion';
+import { curves } from '@kit.ArkUI';
 import { Pressable } from '../design/motion/Pressable';
 import { GlowInput } from '../design/components/GlowInput';
 import { GlassBlurStyle, isImmersiveLightSenseSupported } from '../utils/immersiveMaterial';
@@ -137,22 +138,27 @@ export struct DetailActionBar {
     if (right === this.inputOnRight) {
       return;
     }
-    // 换边是分支重排（结构变化），包进 animateTo 让新旧子元素走淡入淡出转场
+    // 换边动画与 Title 的握姿动画同款：interpolatingSpring 弹性弹簧（带过冲回弹），
+    // 分支重排的新旧子元素再走 gripSwapTransition 的方向性滑入/淡出。
     this.getUIContext().animateTo({
-      duration: MotionTokens.container,
-      curve: MotionCurves.springInteract,
-      expectedFrameRateRange: MotionFrameRates.default,
+      duration: 350,
+      curve: curves.interpolatingSpring(0, 1, 170, 17),
     }, (): void => {
       this.inputOnRight = right;
     });
   }
 
-  // 换边时新旧子元素的进出场（轻淡入 + 微缩放）
+  // 换边转场（对齐 Title 的跟手感）：新子元素从「移动方向」弹性滑入，旧子元素原地淡出。
+  // 分支重排是销毁重建，同一节点无法连续滑动——用方向性滑入模拟 Title 的连续滑动观感。
   private gripSwapTransition(): TransitionEffect {
-    return TransitionEffect.OPACITY
-      .animation({ duration: MotionTokens.container, curve: MotionCurves.springInteract })
-      .combine(TransitionEffect.scale({ x: MotionTokens.enterScale, y: MotionTokens.enterScale })
-        .animation({ duration: MotionTokens.container, curve: MotionCurves.springInteract }));
+    // 新子元素滑入方向：换到右侧布局（inputOnRight=true）→ 从左（-60）滑入；反之从右滑入
+    const slideIn: TransitionEffect = TransitionEffect
+      .translate({ x: this.inputOnRight ? -60 : 60 })
+      .combine(TransitionEffect.OPACITY)
+      .animation({ curve: curves.interpolatingSpring(0, 1, 170, 17) });
+    const fadeOut: TransitionEffect = TransitionEffect.OPACITY
+      .animation({ duration: MotionTokens.container, curve: MotionCurves.springInteract });
+    return TransitionEffect.asymmetric(slideIn, fadeOut);
   }
 
   private collapseCancel(): void {
