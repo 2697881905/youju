@@ -1098,15 +1098,16 @@ export struct PostDetailView {
           createdAt: this.intent.createdAt,
           onOpenAuthor: (): void => {},
         })
+        // 这个盒子只承担一个职责：给一镜到底提供**可量的「对应节点」**
+        // （转场开始那一刻就要量它的宽高与位置，量不到动画整体不出现）。
+        // 因此它必须与真实 hero 同比例（transitionAspect），但**不能画任何东西**：
+        // 卡片截图位于内容层**之下**，这里一旦有底色就会把截图盖住
+        // （观感变成「卡片图 → 灰块 → 照片」）；不加 opacity 也免得赌
+        // 「完全透明是否被渲染层裁掉」这种实现细节——空盒子照样能量。
         Stack()
           .width('100%')
           .aspectRatio(this.transitionAspect())
-          .backgroundColor(ColorTokens.sunken)
-          // 与真实内容里的 hero 用同一个 id：一镜到底在**转场开始那一刻**就要量出
-          // 「对应节点」帧来算缩放/位移，而详情数据是异步的，此时页面上只有这个壳。
-          // 壳的宽高由 intent.aspect 决定，与真实 hero 一致，因此量出来的就是真实落点。
           .id('detailHeroMedia')
-          .opacity(0.01)
       }
       .padding(16)
       .width('100%')
