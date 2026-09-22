@@ -464,13 +464,34 @@ export struct HomeTab {
     if (rect !== null) {
       take.cardRect = rect;
     }
-    componentSnapshot.get(cardId, (err: BusinessError, pixelMap: image.PixelMap): void => {
-      if (!err && pixelMap !== undefined) {
-        take.snapshot = pixelMap;
-      }
-      p.longTake = take;
+    p.longTake = take;
+    // 量不到卡片帧：没有起点就没有飞行，但**点击绝不能被吞掉** —— 立刻推进去
+    if (rect === null) {
       nav.pushPathByName('PostDetail', p);
-    });
+      return;
+    }
+    // 截图是异步的，且 id 不存在时回调不保证触发（踩过：卡堆 id 少拼 post.id，
+    // 结果 push 永远等不到回调，表现为「点了没反应」）。因此加一次性放行 + 超时兜底，
+    // 保证任何异常路径下都会完成跳转（最差只是没有截图、退化为纯布局变形）。
+    let pushed: boolean = false;
+    const pushOnce: () => void = (): void => {
+      if (pushed) {
+        return;
+      }
+      pushed = true;
+      nav.pushPathByName('PostDetail', p);
+    };
+    setTimeout(pushOnce, 100);
+    try {
+      componentSnapshot.get(cardId, (err: BusinessError, pixelMap: image.PixelMap): void => {
+        if (!err && pixelMap !== undefined) {
+          take.snapshot = pixelMap;
+        }
+        pushOnce();
+      });
+    } catch (e) {
+      pushOnce();
+    }
   }
 
   @Builder
@@ -887,7 +908,7 @@ export struct HomeTab {
                     // 注意：第三个参数是「详情媒体的目标比例」，不是卡面比例——
                     // 卡堆卡面是 4/3 横屏，但详情媒体统一 0.75（竖版），传 DAILY_DECK_MEDIA_RATIO 会把图片拉横。
                     // 起点形状由 src 矩形决定（cardRectOf 实测），与该参数无关。
-                    this.openDetailViaNav(post, LayoutTokens.cardMediaAspectRatio, this.dailyDeckCover(post), 'deckCardMedia-');
+                    this.openDetailViaNav(post, LayoutTokens.cardMediaAspectRatio, this.dailyDeckCover(post), 'deckCardMedia-' + post.id);
                   }
                 },
               })
