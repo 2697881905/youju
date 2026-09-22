@@ -133,11 +133,12 @@ export struct PublishGenreSection {
             .fontColor(ColorTokens.primary)
           Image(resolveActionIcon('chevronDown'))
             .width(IconTokens.compact)
-            .height(IconTokens.compact)        }
+            .height(IconTokens.compact)
+            .fillColor(ColorTokens.secondary)
+        }
         .height(LayoutTokens.segmentedHeight)
         .padding({ left: SpaceTokens.md, right: SpaceTokens.sm })
         .alignItems(VerticalAlign.Center)
-        .fillColor(ColorTokens.secondary)
         // 与体裁按钮同款应用浮层风格（暖纸色系）：barSurface 暖米玻璃底 + backdropBlur + barBorder 暖描边
         .backdropBlur(SEGMENT_GLASS_BLUR)
         .backgroundColor(SEGMENT_GLASS_BG)
