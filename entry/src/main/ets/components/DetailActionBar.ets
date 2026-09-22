@@ -8,6 +8,7 @@ import { TypeTokens } from '../design/tokens/type';
 import { MotionCurves, MotionTokens, MotionFrameRates } from '../design/tokens/motion';
 import { Pressable } from '../design/motion/Pressable';
 import { GlowInput } from '../design/components/GlowInput';
+import { GlassBlurStyle, isImmersiveLightSenseSupported } from '../utils/immersiveMaterial';
 
 // 评论态压缩：视觉高度下调，触控目标由 Pressable touchTargetHeight 保持 44 不变
 const COMPACT_CONTROL_HEIGHT: number = 32; // 输入框 / 发送键视觉高
@@ -173,8 +174,12 @@ export struct DetailActionBar {
     }
     .width('100%')
     .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
-    // 不设背景：底栏容器隐身，元素直接浮在页面底色（根节点 bg_primary）上，
-    // 与页面完全同色；内容区的 barBottomReserve 继续保证正文不被遮挡
+    // 毛玻璃底栏：GlassBlurStyle.Floating = BACKGROUND_THICK 通透厚玻璃——
+    // 自带系统着色与半透明，重糊但略微透出底部内容；API 23+ 纯材质，
+    // 低端机回落 barSurface 实底；玻璃描边勾出栏体边界。
+    .backgroundBlurStyle(GlassBlurStyle.Floating)
+    .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
+    .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
     .borderRadius(RadiusTokens.none)
     .animation({ duration: MotionTokens.container, curve: MotionCurves.springInteract,
       expectedFrameRateRange: MotionFrameRates.default })
