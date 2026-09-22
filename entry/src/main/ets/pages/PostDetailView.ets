@@ -155,7 +155,11 @@ export struct PostDetailView {
   @State postStats: PostStats | null = null;
   @State statsLoading: boolean = false;
   @State statsError: string = '';
-  private statsDialog: CustomDialogController | null = null;
+  // 帖子数据面板：页内覆盖层（if 分支渲染），由本状态驱动挂载/卸载。
+  // 不用 CustomDialog —— 动态 new CustomDialogController 的 builder 传 @Link 会闪退，
+  // 传 @Prop 又不随父组件刷新（两个坑都踩过，见 PostStatsDialog 头注释）。
+  @State statsPanelShow: boolean = false;
+  private statsPostId: number = 0;
   // 监听登录账号：切换账号/登出时重新加载本帖，以服务器为准校准点赞/收藏/投票态（避免 likeStore 单例残留串号）
   @StorageLink('authUserId') @Watch('onAccountSwitch') accountId: string = '';
   // 智感握姿：原始握持手状态（gripAwareness 写入；1=左手 2=右手 0=未握持/不支持）
@@ -841,34 +845,23 @@ export struct PostDetailView {
     }
   }
 
-  // 打开帖子数据面板（作者本人）：重置旧数据防串帖 → 弹窗 → 拉取
+  // 打开帖子数据面板（作者本人）：重置旧数据防串帖 → 挂载覆盖层 → 拉取
   private showPostStats(): void {
     const postId: number = this.post?.id ?? this.pid;
     if (isNaN(postId) || postId <= 0) {
       safeShowToast(this.getUIContext(), { message: '无效帖子ID' });
       return;
     }
-    // 先清掉上一帖的数据：@Link 双向绑定，带着旧数据开窗会在加载期间串帖
+    // 先清掉上一帖的数据：覆盖层经 @Prop 同步，带着旧数据挂载会串帖
     this.postStats = null;
     this.statsLoading = true;
     this.statsError = '';
-    this.statsDialog = new CustomDialogController({
-      builder: PostStatsDialog({
-        // @Link：CustomDialog 的 builder 在 open() 后不随父组件重渲染同步 @Prop，
-        // 数据拉取结果必须经 @Link 才能实时进入面板（踩过：@Prop 卡在「正在汇总」）
-        stats: $postStats,
-        loading: $statsLoading,
-        error: $statsError,
-        onRetry: (): void => { this.loadPostStats(postId); },
-      }),
-      autoCancel: true,
-      customStyle: true,
-    });
-    this.statsDialog.open();
+    this.statsPostId = postId;
+    this.statsPanelShow = true;
     this.loadPostStats(postId);
   }
 
-  // 拉取聚合数据（也供面板内「重试」复用，不重开面板）
+  // 拉取聚合数据（也供面板内「重试」复用，不重挂覆盖层）
   private loadPostStats(postId: number): void {
     this.statsLoading = true;
     this.statsError = '';
@@ -1230,6 +1223,22 @@ export struct PostDetailView {
           url: this.viewingImage,
           onClose: (): void => { this.viewingImage = ''; },
         })
+      }
+
+      // 帖子数据面板（作者侧）：页内覆盖层（if 分支渲染，同 ImageViewer 惯例）。
+      // position 脱离文档流，避免半透明遮罩把页面内容推走；zIndex 压过页面内容。
+      if (this.statsPanelShow) {
+        PostStatsDialog({
+          stats: this.postStats,
+          loading: this.statsLoading,
+          error: this.statsError,
+          onClose: (): void => { this.statsPanelShow = false; },
+          onRetry: (): void => { this.loadPostStats(this.statsPostId); },
+        })
+          .width('100%')
+          .height('100%')
+          .position({ x: 0, y: 0 })
+          .zIndex(210)
       }
 
       DetailToolbar({
