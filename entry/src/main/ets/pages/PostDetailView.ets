@@ -102,8 +102,14 @@ export struct PostDetailView {
   @Prop navMode: boolean = false;
   onBack?: () => void = undefined;                    // Navigation 壳：navStack.pop()
   onOpenProfile?: (userId: number) => void = undefined; // Navigation 壳：pushPathByName('UserProfile')
+  // Navigation 壳 + 一镜到底：真媒体首帧画出来时回调一次。
+  // 目的地页据此把「卡片截图」淡出——截图顶住媒体位，直到真内容能接手，避免中途露灰底/空白。
+  onHeroReady?: () => void = undefined;
   // 首页卡片转场时暂时隐藏真实媒体，避免覆盖层从卡片位飞出前露出目标位首帧。
   @Prop mediaCovered: boolean = false;
+  // 一镜到底：真媒体首帧是否已就绪（navMode 下就地决定 hero 的可见性）
+  @State mediaReady: boolean = false;
+  private heroReadyFired: boolean = false;
   // 媒体区屏幕帧回报（vp，窗口坐标）：模态入口依据它摆放一镜到底覆盖层
   onFlyMediaArea: ((left: number, top: number, width: number, height: number) => void) | null = null;
   private mediaAreaReported: boolean = false;
@@ -410,6 +416,11 @@ export struct PostDetailView {
       this.error = (e as Error).message;
     } finally {
       this.loading = false;
+      // 一镜到底兜底：视频等形态没有「首图就绪」事件，给个上限无条件交接，
+      // 避免卡片截图长期压住媒体位（正常情况下轮播 onFirstReady 会先到，此处即空跑）。
+      if (this.navMode && this.post !== null) {
+        setTimeout((): void => { this.markHeroReady(); }, 900);
+      }
     }
   }
 
@@ -984,6 +995,12 @@ export struct PostDetailView {
   // delay 错峰进入（共享动势 + 错峰）。仅动 transform/opacity，不参与布局属性动画。
   // duration 从 320ms 缩短到 280ms，translate 从 10px 减到 6px，让各层入场更紧凑轻盈。
   private animLayerEnter(delay: number): TransitionEffect {
+    // 一镜到底（navMode）：真内容是「长镜头」的落点，它自己再滑一下就会被看成"跳一下"，
+    // 因此只保留透明度、去掉 6vp 位移与错峰。router 入口无长镜头，保留完整入场动势。
+    if (this.navMode) {
+      return TransitionEffect.OPACITY
+        .animation({ duration: 200, curve: MotionCurves.decelerate, delay: delay });
+    }
     return TransitionEffect.OPACITY
       .animation({ duration: 280, curve: MotionCurves.decelerate, delay: delay })
       .combine(TransitionEffect.translate({ y: 6 })
@@ -1028,6 +1045,7 @@ export struct PostDetailView {
       activeIndex: $activeImageIndex,
       initialAspect: this.transitionAspect(),
       preserveContent: this.transitionAspect() > 1,
+      onFirstReady: (): void => { this.markHeroReady(); },
       onOpenImage: (url: string): void => { this.viewingImage = url; },
     })
       .transition(this.mediaEnterTransition())
@@ -1039,6 +1057,32 @@ export struct PostDetailView {
       this.videoFace()
     } else if (this.images.length > 0) {
       this.carouselFace()
+    }
+  }
+
+  // 一镜到底（navMode）下 hero 的可见性：真媒体首帧就绪前**保持透明**，
+  // 让下层的卡片截图透出来顶住媒体位。若直接显示，轮播图自带的 sunken 灰底会盖住截图，
+  // 观感就是「卡片图 → 灰块 → 照片」闪一下（本轮修的跳动主因）。
+  // 走 router 入口（非 navMode）没有截图层，必须立即显示。
+  private heroVisible(): boolean {
+    return !this.navMode || this.mediaReady;
+  }
+
+  private heroOpacity(): number {
+    return (this.mediaCovered || !this.heroVisible()) ? 0 : 1;
+  }
+
+  // 真媒体首帧就绪（轮播 onFirstReady / 兜底超时）：淡入真媒体并通知目的地页淡出卡片截图。
+  private markHeroReady(): void {
+    if (this.heroReadyFired) {
+      return;
+    }
+    this.heroReadyFired = true;
+    this.getUIContext().animateTo(
+      { duration: 180, curve: MotionCurves.decelerate },
+      (): void => { this.mediaReady = true; });
+    if (this.onHeroReady !== undefined) {
+      this.onHeroReady();
     }
   }
 
@@ -1252,7 +1296,7 @@ export struct PostDetailView {
               }
               .width('100%')
               .id('detailHeroMedia')
-              .opacity(this.mediaCovered ? 0 : 1)
+              .opacity(this.heroOpacity())
               .onAreaChange((_oldValue: Area, newValue: Area): void => {
                 this.reportMediaArea(newValue);
               })

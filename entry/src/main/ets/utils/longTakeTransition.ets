@@ -19,6 +19,12 @@ import { CardRect } from './navigationTransition';
 
 const TAG: string = 'LongTake';
 
+// 卡片截图的展示窗口：
+//   MIN —— 无论真内容多早就绪，截图至少展示这么久（覆盖入场前半段，避免"闪一下就没"）；
+//   MAX —— 上限，真内容迟迟不就绪也必须交接，避免截图长期压住媒体位。
+const SNAP_MIN_MS: number = 300;
+const SNAP_MAX_MS: number = 1500;
+
 // ── 回调注册表：key = navDestinationId（目的地页在 onReady 里注册自己）──
 export interface LongTakeCallback {
   timeout?: number;
@@ -93,6 +99,8 @@ export class LongTakeAnim {
   private initPosY: number = 0;
   private card: CardRect = { left: 0, top: 0, width: 0, height: 0 };
   private animCount: number = 0;
+  // 入场开始的时刻（ms）：真内容就绪后据此保证截图的最小展示时长
+  private enterStartMs: number = 0;
   // 初值是否量成功：失败时不做动画，直接落终态并立刻放行转场（否则会白等一个动画时长）
   private geometryValid: boolean = false;
 
@@ -205,11 +213,37 @@ export class LongTakeAnim {
     });
 
     ui.animateTo({ delay: 50, duration: 100, curve: Curve.Sharp }, () => {
-      this.snapOpacity = 0;
-    });
-    ui.animateTo({ duration: 100, curve: Curve.Sharp }, () => {
       this.contentOpacity = 1;
     });
+    // 截图不再按固定时间淡出，而是等「真媒体首帧画出来」再交接（onHeroReady）；
+    // 这里只挂一个上限兜底，保证任何异常路径下截图都会退场。
+    this.enterStartMs = Date.now();
+    this.scheduleSnapFade(ui, SNAP_MAX_MS);
+  }
+
+  // 真媒体首帧就绪（目的地页收到 PostDetailView 的回调后调用）：
+  // 截图淡出 + 真媒体同时淡入，两者锚点同源，所以是"交接"而不是"闪一下"。
+  onHeroReady(ui: UIContext): void {
+    if (this.enterStartMs <= 0) {
+      // 极早（入场还没开始）就绪：等 doEnter 里挂的 MAX 兜底即可，不抢跑
+      return;
+    }
+    const elapsed: number = Date.now() - this.enterStartMs;
+    this.scheduleSnapFade(ui, Math.max(0, SNAP_MIN_MS - elapsed));
+  }
+
+  // 定时淡出截图：用 animCount 守卫，返回动画（doBack）一旦开始，旧的定时器即作废，
+  // 否则 POP 过程中截图会被入场的残留定时器提前抹掉。
+  private scheduleSnapFade(ui: UIContext, delayMs: number): void {
+    const count: number = this.animCount;
+    setTimeout((): void => {
+      if (count !== this.animCount || this.snapOpacity === 0) {
+        return;
+      }
+      ui.animateTo({ duration: 180, curve: Curve.Friction }, (): void => {
+        this.snapOpacity = 0;
+      });
+    }, delayMs);
   }
 
   // 返回：全屏收回卡片帧（与进场对称）
@@ -218,6 +252,8 @@ export class LongTakeAnim {
       proxy.finishTransition();
       return;
     }
+    // 入场阶段挂的截图淡出定时器由 animCount 作废（见 scheduleSnapFade）
+    this.enterStartMs = 0;
     ++this.animCount;
     ui.animateTo({
       duration: 350,
