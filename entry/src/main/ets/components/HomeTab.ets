@@ -13,8 +13,7 @@ import { FeedDataSource } from '../utils/feedSource';
 import { TagNav } from './TagNav';
 import { emitTabSwitch, openPostDetail, PostDetailIntent } from '../utils/nav';
 import { cardRectOf, getMainNavStack, PostDetailNavParams, CardRect } from '../utils/navigationTransition';
-import { LongTakeParams } from '../utils/longTakeTransition';
-import { componentSnapshot } from '@kit.ArkUI';
+import { LongTakeParams } from '../utils/longTake/longTakeAnimationProperties';
 import { image } from '@kit.ImageKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { safeShowToast } from '../utils/toast';
@@ -483,12 +482,15 @@ export struct HomeTab {
     };
     setTimeout(pushOnce, 100);
     try {
-      componentSnapshot.get(cardId, (err: BusinessError, pixelMap: image.PixelMap): void => {
-        if (!err && pixelMap !== undefined) {
-          take.snapshot = pixelMap;
-        }
-        pushOnce();
-      });
+      // UIContext 形态（@since 12）：全局 componentSnapshot.get 自 API 18 起已废弃，
+      // @useinstead 即此形态；官方示例同样走 UIContext。
+      this.getUIContext().getComponentSnapshot().get(cardId,
+        (err: BusinessError, pixelMap: image.PixelMap): void => {
+          if (!err && pixelMap !== undefined) {
+            take.snapshot = pixelMap;
+          }
+          pushOnce();
+        });
     } catch (e) {
       pushOnce();
     }

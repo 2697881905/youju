@@ -1,8 +1,7 @@
-// 卡片「一镜到底」导航转场工具（Navigation 教程原版）：
-// 1) 用 componentSnapshot 对卡面媒体块截图，避免转场期间目标页白屏；
-// 2) 用 componentUtils 读取卡片媒体块的屏幕帧，计算"快照层"从源帧到目标帧的
-//    纯 transform（translate/scale，不动布局）插值，跨页面实现无缝放大/缩回。
-import { componentSnapshot, componentUtils } from '@kit.ArkUI';
+// 卡片「一镜到底」导航转场工具：
+// 1) 用 componentUtils 读取卡片媒体块的屏幕帧，供转场计算起点（旧覆盖层方案已下线，
+//    但 cardRectOf 仍是现役工具：源页量卡片帧 → 随 push 参数传给目的地页）；
+// 2) 旧的覆盖层快照工具（captureCardSnapshot / coverTargetRect）已随方案下线删除。
 import { image } from '@kit.ImageKit';
 
 // 屏幕帧（单位 vp）：与卡片媒体块 on-screen 矩形对应
@@ -13,39 +12,37 @@ export interface CardRect {
   height: number;
 }
 
-// cardMedia-{postId} / deckCardMedia-{postId} 组件截图回调
-export function captureCardSnapshot(mediaId: string, cb: (pixelMap: image.PixelMap | null) => void): void {
-  try {
-    componentSnapshot.get(mediaId, (err, pixelMap) => {
-      if (err || !pixelMap) {
-        cb(null);
-        return;
-      }
-      cb(pixelMap);
-    });
-  } catch (e) {
-    cb(null);
-  }
-}
-
-// 读取绑定 id 组件的屏幕矩形（统一换算为 vp；componentUtils 返回单位为 px）
-// getRectangleById 已废弃（since 18）→ 走 UIContext.getComponentUtils（@since 11 ✓）；
-// px2vp 的 UIContext 形态 @since 22 > 工程下限 20，故保持全局形态（已废弃但可用）。
+// 读取绑定 id 组件的屏幕矩形（统一换算为 vp；componentUtils 返回单位为 px）。
+//
+// getRectangleById 已废弃（since 18）→ 走 UIContext.getComponentUtils（@since 11 ✓）。
+// 取 windowOffset 而非 screenOffset：与 getPositionToWindowWithTransform 的坐标系保持一致
+// （本项目只有一个全屏窗口，两者数值相同，但要与目的地页的量测同源）。
+//
+// 缩放补偿（照官方 ComponentAttrUtils.getRectInfoById）：组件被 scale 后，
+// getRectangleById 给的是**布局**矩形，视觉矩形要按缩放差内缩，否则量到的起点比实际大一圈。
 export function cardRectOf(mediaId: string): CardRect | null {
   try {
-    const ui = getSharedUiContext();
-    if (ui === null) {
+    const ui: UIContext | null = getSharedUiContext();
+    if (ui === null || mediaId.length === 0) {
       return null;
     }
     const rect = ui.getComponentUtils().getRectangleById(mediaId);
     if (!rect || !rect.size) {
       return null;
     }
+    const sizeWidth_px: number = rect.size.width;
+    const sizeHeight_px: number = rect.size.height;
+    const scaleX: number = rect.scale?.x ?? 1;
+    const scaleY: number = rect.scale?.y ?? 1;
+    const widthScaleGap_px: number = sizeWidth_px * (1 - scaleX) / 2;
+    const heightScaleGap_px: number = sizeHeight_px * (1 - scaleY) / 2;
+    const left_px: number = (rect.windowOffset?.x ?? 0) + (rect.translate?.x ?? 0) + widthScaleGap_px;
+    const top_px: number = (rect.windowOffset?.y ?? 0) + (rect.translate?.y ?? 0) + heightScaleGap_px;
     return {
-      left: ui.px2vp(rect.windowOffset?.x ?? 0),
-      top: ui.px2vp(rect.windowOffset?.y ?? 0),
-      width: ui.px2vp(rect.size.width),
-      height: ui.px2vp(rect.size.height),
+      left: ui.px2vp(left_px),
+      top: ui.px2vp(top_px),
+      width: ui.px2vp(sizeWidth_px - widthScaleGap_px * 2),
+      height: ui.px2vp(sizeHeight_px - heightScaleGap_px * 2),
     };
   } catch (e) {
     return null;
