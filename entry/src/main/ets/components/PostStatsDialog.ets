@@ -6,8 +6,10 @@
 // CustomDialog 的 builder 里 open() 后不随父组件重渲染同步（面板永远停在「正在汇总」）。
 // 改为父组件 @State 驱动的 if 分支覆盖层后，@Prop 随父组件刷新，天然响应式。
 //
-// 面板材质：**应用标准玻璃面板**（GlassBlurStyle.Floating + barSurface 兜底 + 浮层阴影，
-// 与收藏夹命名/分享面板等同族）——数据面板曾试过 outlined 透明描边风，遮罩上可视性差，已弃。
+// 面板材质：**与应用内容卡同款**（PostCard 的卡片语言）——实心 elevated 底 +
+// 1px separator 描边 + lg 圆角，**无模糊、无透明、无阴影、无流光**。
+// 踩坑记录：玻璃模糊（与暖纸背景不搭）、透明描边（遮罩上可视性差）都被否，
+// 最终回归应用的内容卡语言。
 //
 // 结构（自上而下）：
 //   标题区（serif 帖子数据 / 仅你自己可见 / 关闭）
@@ -16,13 +18,13 @@
 //   流量转化：曝光 → 点击 → 浏览 三行比例条 + 「曝光→点击」转化率
 // 比例条用官方 component-collection dataPanelSample 的 DataPanelType.Line +
 // valueColors 双色（brand = 实际值 / sunken = 余量），不是手绘进度条。
-import { SpringPanel } from '../design/motion/SpringPanel';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
+import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { Pressable } from '../design/motion/Pressable';
 import { formatCount } from '../utils/format';
 import { PostStats } from '../services/api';
@@ -122,7 +124,7 @@ export struct PostStatsDialog {
   }
 
   build() {
-    // 全屏覆盖层：暗色遮罩（点空白处关闭）+ 居中面板
+    // 全屏覆盖层：暗色遮罩（点空白处关闭）+ 居中卡片
     Stack({ alignContent: Alignment.Center }) {
       Column()
         .width('100%')
@@ -130,124 +132,130 @@ export struct PostStatsDialog {
         .backgroundColor('rgba(0,0,0,0.35)')
         .onClick((): void => { this.onClose(); })
 
-      // 应用标准玻璃面板（同族弹窗默认材质）：可视性优先，不做透明描边风
-      SpringPanel({ panelWidth: 344, panelPadding: SpaceTokens.lg }) {
-        Column({ space: SpaceTokens.base }) {
-          // 标题区（与同族弹窗同构：衬线标题 + 关闭）
-          Row({ space: SpaceTokens.sm }) {
-            Column({ space: 2 }) {
-              Text('帖子数据')
-                .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
-                .fontWeight(TypeTokens.headline.weight)
-                .lineHeight(TypeTokens.headline.lineHeight)
-                .fontColor(ColorTokens.primary)
-              Text('仅你自己可见')
-                .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-                .fontColor(ColorTokens.secondary)
-            }
-            .layoutWeight(1)
-            .alignItems(HorizontalAlign.Start)
-            Pressable({
-              visualHeight: IconTokens.compact,
-              touchTargetHeight: LayoutTokens.minTouchTarget,
-              action: (): void => { this.onClose(); },
-            }) {
-              Image(resolveActionIcon('close'))
-                .width(IconTokens.compact)
-                .height(IconTokens.compact)
-                .fillColor(ColorTokens.secondary)
-            }
+      // 卡片材质与应用内容卡（PostCard）同款：实心 elevated + 1px separator + lg 圆角，
+      // 无模糊/透明/阴影/流光；进出场用轻淡入 + 微缩放（与全局动效令牌一致）。
+      Column({ space: SpaceTokens.base }) {
+        // 标题区（与同族弹窗同构：衬线标题 + 关闭）
+        Row({ space: SpaceTokens.sm }) {
+          Column({ space: 2 }) {
+            Text('帖子数据')
+              .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
+              .fontWeight(TypeTokens.headline.weight)
+              .lineHeight(TypeTokens.headline.lineHeight)
+              .fontColor(ColorTokens.primary)
+            Text('仅你自己可见')
+              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+              .fontColor(ColorTokens.secondary)
+          }
+          .layoutWeight(1)
+          .alignItems(HorizontalAlign.Start)
+          Pressable({
+            visualHeight: IconTokens.compact,
+            touchTargetHeight: LayoutTokens.minTouchTarget,
+            action: (): void => { this.onClose(); },
+          }) {
+            Image(resolveActionIcon('close'))
+              .width(IconTokens.compact)
+              .height(IconTokens.compact)
+              .fillColor(ColorTokens.secondary)
+          }
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+
+        if (this.loading && this.stats === null) {
+          Column({ space: SpaceTokens.sm }) {
+            LoadingProgress().width(22).height(22).color(ColorTokens.brand)
+            Text('正在汇总这篇帖子的数据…')
+              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+              .fontColor(ColorTokens.secondary)
+          }
+          .width('100%')
+          .alignItems(HorizontalAlign.Center)
+          .padding({ top: SpaceTokens.lg, bottom: SpaceTokens.lg })
+        } else if (this.stats !== null) {
+          // Hero：累计浏览
+          Column({ space: 2 }) {
+            Text(formatCount(this.stats.viewCount))
+              .fontSize(TypeTokens.display.size).fontFamily(TypeTokens.fontFamilySerif)
+              .fontWeight(TypeTokens.display.weight)
+              .lineHeight(TypeTokens.display.lineHeight)
+              .fontColor(ColorTokens.primary)
+            Text('累计浏览')
+              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+              .fontColor(ColorTokens.secondary)
+          }
+          .width('100%')
+          .alignItems(HorizontalAlign.Center)
+
+          this.hairline()
+
+          // 互动表现：三列 + 竖向细分隔线
+          this.sectionHeader('互动表现', '')
+          Row() {
+            this.interactCell(resolveActionIcon('like'), this.stats.upCount, '顶')
+            Divider()
+              .vertical(true)
+              .strokeWidth(LayoutTokens.hairlineWidth)
+              .color(ColorTokens.separator)
+              .height(30)
+            this.interactCell(resolveActionIcon('bookmark'), this.stats.bookmarkCount, '收藏')
+            Divider()
+              .vertical(true)
+              .strokeWidth(LayoutTokens.hairlineWidth)
+              .color(ColorTokens.separator)
+              .height(30)
+            this.interactCell(resolveActionIcon('comment'), this.stats.commentCount, '评论')
           }
           .width('100%')
           .alignItems(VerticalAlign.Center)
 
-          if (this.loading && this.stats === null) {
-            Column({ space: SpaceTokens.sm }) {
-              LoadingProgress().width(22).height(22).color(ColorTokens.brand)
-              Text('正在汇总这篇帖子的数据…')
-                .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-                .fontColor(ColorTokens.secondary)
-            }
-            .width('100%')
-            .alignItems(HorizontalAlign.Center)
-            .padding({ top: SpaceTokens.lg, bottom: SpaceTokens.lg })
-          } else if (this.stats !== null) {
-            // Hero：累计浏览
-            Column({ space: 2 }) {
-              Text(formatCount(this.stats.viewCount))
-                .fontSize(TypeTokens.display.size).fontFamily(TypeTokens.fontFamilySerif)
-                .fontWeight(TypeTokens.display.weight)
-                .lineHeight(TypeTokens.display.lineHeight)
-                .fontColor(ColorTokens.primary)
-              Text('累计浏览')
-                .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-                .fontColor(ColorTokens.secondary)
-            }
-            .width('100%')
-            .alignItems(HorizontalAlign.Center)
+          this.hairline()
 
-            this.hairline()
-
-            // 互动表现：三列 + 竖向细分隔线
-            this.sectionHeader('互动表现', '')
-            Row() {
-              this.interactCell(resolveActionIcon('like'), this.stats.upCount, '顶')
-              Divider()
-                .vertical(true)
-                .strokeWidth(LayoutTokens.hairlineWidth)
-                .color(ColorTokens.separator)
-                .height(30)
-              this.interactCell(resolveActionIcon('bookmark'), this.stats.bookmarkCount, '收藏')
-              Divider()
-                .vertical(true)
-                .strokeWidth(LayoutTokens.hairlineWidth)
-                .color(ColorTokens.separator)
-                .height(30)
-              this.interactCell(resolveActionIcon('comment'), this.stats.commentCount, '评论')
-            }
-            .width('100%')
-            .alignItems(VerticalAlign.Center)
-
-            this.hairline()
-
-            // 流量转化：曝光为漏斗顶端，三行比例条共用同一分母
-            this.sectionHeader('流量转化', this.clickRateText())
-            Column({ space: SpaceTokens.sm }) {
-              this.funnelRow('曝光', this.stats.expose, this.funnelMax())
-              this.funnelRow('点击', this.stats.click, this.funnelMax())
-              this.funnelRow('浏览', this.stats.viewCount, this.funnelMax())
-            }
-            .width('100%')
-          } else {
-            // 错误 / 空态
-            Column({ space: SpaceTokens.base }) {
-              Text(this.error !== '' ? ('加载失败：' + this.error) : '暂无数据')
-                .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
-                .fontColor(ColorTokens.secondary)
-                .textAlign(TextAlign.Center)
-              if (this.error !== '') {
-                Pressable({
-                  visualHeight: 30,
-                  touchTargetHeight: LayoutTokens.minTouchTarget,
-                  action: (): void => { this.onRetry(); },
-                }) {
-                  Text('重试')
-                    .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-                    .fontWeight(TypeTokens.headline.weight)
-                    .fontColor(ColorTokens.onBrand)
-                    .backgroundColor(ColorTokens.brand)
-                    .borderRadius(RadiusTokens.pill)
-                    .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: 6, bottom: 6 })
-                }
+          // 流量转化：曝光为漏斗顶端，三行比例条共用同一分母
+          this.sectionHeader('流量转化', this.clickRateText())
+          Column({ space: SpaceTokens.sm }) {
+            this.funnelRow('曝光', this.stats.expose, this.funnelMax())
+            this.funnelRow('点击', this.stats.click, this.funnelMax())
+            this.funnelRow('浏览', this.stats.viewCount, this.funnelMax())
+          }
+          .width('100%')
+        } else {
+          // 错误 / 空态
+          Column({ space: SpaceTokens.base }) {
+            Text(this.error !== '' ? ('加载失败：' + this.error) : '暂无数据')
+              .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
+              .fontColor(ColorTokens.secondary)
+              .textAlign(TextAlign.Center)
+            if (this.error !== '') {
+              Pressable({
+                visualHeight: 30,
+                touchTargetHeight: LayoutTokens.minTouchTarget,
+                action: (): void => { this.onRetry(); },
+              }) {
+                Text('重试')
+                  .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+                  .fontWeight(TypeTokens.headline.weight)
+                  .fontColor(ColorTokens.onBrand)
+                  .backgroundColor(ColorTokens.brand)
+                  .borderRadius(RadiusTokens.pill)
+                  .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: 6, bottom: 6 })
               }
             }
-            .width('100%')
-            .alignItems(HorizontalAlign.Center)
-            .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
           }
+          .width('100%')
+          .alignItems(HorizontalAlign.Center)
+          .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
         }
-        .width('100%')
       }
+      .width('100%')
+      .backgroundColor(ColorTokens.elevated)
+      .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
+      .borderRadius(RadiusTokens.lg)
+      .transition(TransitionEffect.OPACITY
+        .animation({ duration: MotionTokens.container, curve: MotionCurves.springSoft })
+        .combine(TransitionEffect.scale({ x: MotionTokens.enterScale, y: MotionTokens.enterScale })
+          .animation({ duration: MotionTokens.container, curve: MotionCurves.springSoft })))
     }
     .width('100%')
     .height('100%')
