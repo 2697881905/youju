@@ -104,6 +104,9 @@ export struct GlowInput {
       TextInput({ placeholder: this.placeholder, text: this.text })
         .fontFamily(TypeTokens.fontFamily)
         .fontSize(this.fontSize)
+        // 行高按字号定比（1.45 倍）：不显式给的话走系统默认行盒，
+        // 小字号 + 紧凑高度（如详情页 Dock 的 32vp）时文字底部会被裁掉。
+        .lineHeight(this.fontSize * 1.45)
         .fontColor(ColorTokens.primary)
         .width('100%')
         .height(this.inputHeight)
@@ -120,7 +123,8 @@ export struct GlowInput {
           style: BorderStyle.Solid,
         })
         .borderRadius(this.segmentStyle ? RadiusTokens.lg : this.radius)
-        .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+        // 上下内边距显式归零：否则默认值叠加在小高度容器上会把文字挤出可视区（底部截断）
+        .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: 0, bottom: 0 })
         .maxLength(this.maxLength > 0 ? this.maxLength : 2147483647)
         .onChange((v: string): void => {
           this.text = v;
