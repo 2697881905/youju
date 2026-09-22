@@ -50,8 +50,9 @@ struct DetailActionButton {
       }
       .height(COMPACT_ROW_HEIGHT)
       .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-      .borderRadius(RadiusTokens.sm)
-      .backgroundColor(this.active ? ColorTokens.brandTint : Color.Transparent)
+      // 不再给活跃态铺底色：原先是 brandTint 圆角矩形，点赞/收藏点亮时会在按钮范围出现一层蒙层。
+      // 状态表达只保留「图标换实心款 + 颜色变 activeColor + 数字变色」；
+      // 按压反馈由外层 Pressable 的 stateStyles（透明度 + 缩放）承担，不需要底色。
       .opacity(this.disabled ? 0.55 : 1)
       .scale({ x: this.confirmationScale, y: this.confirmationScale })
       .animation({ duration: this.reduceMotion() ? MotionTokens.instant : MotionTokens.control,
