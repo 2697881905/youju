@@ -21,6 +21,7 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { publishFlowStore } from '../utils/publishFlowStore';
 import { AppTab, subscribeTabSwitch } from '../utils/nav';
 import { setMainNavStack, setSharedUiContext } from '../utils/navigationTransition';
+import { LongTakeCallback, LongTakeTransition } from '../utils/longTakeTransition';
 import { setSerifTypeface, setSerifBodyTypeface } from '../utils/textPoster';
 import { drawing } from '@kit.ArkGraphics2D';
 import { HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
@@ -709,15 +710,29 @@ struct Index {
       // 其余目的地与返回操作返回 undefined，走系统默认转场。
       .customNavContentTransition((from: NavContentInfo, to: NavContentInfo,
         operation: NavigationOperation): NavigationAnimatedTransition | undefined => {
-        if (operation === NavigationOperation.PUSH && to.name === 'PostDetail') {
-          return {
-            timeout: 600,
-            transition: (proxy: NavigationTransitionProxy): void => {
-              proxy.finishTransition();
-            },
-          };
+        const toId: string = to.navDestinationId !== undefined ? to.navDestinationId : '';
+        const fromId: string = from.navDestinationId !== undefined ? from.navDestinationId : '';
+        const toCb: LongTakeCallback = LongTakeTransition.getInstance().get(toId);
+        const fromCb: LongTakeCallback = LongTakeTransition.getInstance().get(fromId);
+        LongTakeTransition.getInstance().operation = operation;
+        if (toCb.animation === undefined && fromCb.animation === undefined) {
+          return undefined;   // 未注册自定义转场的目的地（含返回目标）走系统默认
         }
-        return undefined;
+        return {
+          timeout: toCb.timeout !== undefined ? toCb.timeout : fromCb.timeout,
+          onTransitionEnd: (): void => {
+            LongTakeTransition.getInstance().proxy = undefined;
+          },
+          transition: (proxy: NavigationTransitionProxy): void => {
+            LongTakeTransition.getInstance().proxy = proxy;
+            const cb: LongTakeCallback = operation === NavigationOperation.PUSH ? toCb : fromCb;
+            if (cb.animation !== undefined) {
+              cb.animation(proxy);
+            } else {
+              proxy.finishTransition();
+            }
+          },
+        };
       })
       .width('100%')
       .height('100%')

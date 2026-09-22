@@ -116,6 +116,8 @@ export class PostDetailNavParams {
   intent: Object | null = null;
   src: CardRect | null = null;
   snapshot: image.PixelMap | null = null;
+  // 一镜到底（官方范式）参数：整卡 id + 卡片帧 + 整卡截图
+  longTake: Object | null = null;
 }
 
 // 用户主页跳转参数

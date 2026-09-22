@@ -12,7 +12,11 @@ import { PostCard } from './PostCard';
 import { FeedDataSource } from '../utils/feedSource';
 import { TagNav } from './TagNav';
 import { emitTabSwitch, openPostDetail, PostDetailIntent } from '../utils/nav';
-import { cardRectOf, getMainNavStack, PostDetailNavParams } from '../utils/navigationTransition';
+import { cardRectOf, getMainNavStack, PostDetailNavParams, CardRect } from '../utils/navigationTransition';
+import { LongTakeParams } from '../utils/longTakeTransition';
+import { componentSnapshot } from '@kit.ArkUI';
+import { image } from '@kit.ImageKit';
+import { BusinessError } from '@kit.BasicServicesKit';
 import { safeShowToast } from '../utils/toast';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { EmptyState } from '../design/components/EmptyState';
@@ -436,8 +440,9 @@ export struct HomeTab {
   // 卡片 → 详情：走 Navigation 的 PostDetail 目的地以启用自定义转场（一镜到底）；
   // 起点用卡片媒体块屏幕帧，飞行由 PostDetailDestination 内的 CardSnapshotLayer 完成。
   // Navigation 未就绪时兜底走老路由整页（无飞行）。
-  // mediaIdPrefix：信息流卡片是 cardMedia-{id}，每日一帖卡堆是 deckCardMedia-{id}（两套 id 不同）。
-  private openDetailViaNav(post: Post, aspect: number, cover: string, mediaIdPrefix: string): void {
+  // cardId：用于截图与测量起点的卡片组件 id。信息流是整卡（feedCard-{id}），
+  // 每日一帖卡堆沿用媒体块 id（deckCardMedia-{id}）。
+  private openDetailViaNav(post: Post, aspect: number, cover: string, cardId: string): void {
     if (post.id === undefined) {
       return;
     }
@@ -450,8 +455,21 @@ export struct HomeTab {
     const p: PostDetailNavParams = new PostDetailNavParams();
     p.postId = post.id;
     p.intent = cover.length > 0 ? this.buildDetailIntent(cover, post, aspect) : null;
-    p.src = cardRectOf(mediaIdPrefix + post.id);
-    nav.pushPathByName('PostDetail', p);
+    const rect: CardRect | null = cardRectOf(cardId);
+    p.src = rect;
+    // 官方做法：先截卡片图顶住首帧，再 push；截图失败则退化为纯布局变形（转场照走）
+    const take: LongTakeParams = new LongTakeParams();
+    take.cardId = cardId;
+    if (rect !== null) {
+      take.cardRect = rect;
+    }
+    componentSnapshot.get(cardId, (err: BusinessError, pixelMap: image.PixelMap): void => {
+      if (!err && pixelMap !== undefined) {
+        take.snapshot = pixelMap;
+      }
+      p.longTake = take;
+      nav.pushPathByName('PostDetail', p);
+    });
   }
 
   @Builder
@@ -548,16 +566,20 @@ export struct HomeTab {
       onOpen: () => {
         if (post.id !== undefined) {
           trackPostEvent(post.id, 'click', 'feed');
-          this.openDetailViaNav(post, LayoutTokens.cardMediaAspectRatio, this.feedCardCover(post), 'cardMedia-');
+          this.openDetailViaNav(post, LayoutTokens.cardMediaAspectRatio, this.feedCardCover(post), 'feedCard-' + post.id);
         }
       },
     })
+      // 整卡 id：一镜到底的截图与测量起点（官方做法是截整卡，不是只截图）
+      .id('feedCard-' + post.id)
       .transition(
         TransitionEffect.OPACITY
           .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate, delay: Math.min(idx, 6) * MotionTokens.stagger })
           .combine(TransitionEffect.translate({ y: 14 })
             .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate, delay: Math.min(idx, 6) * MotionTokens.stagger }))
       )
+      // 整卡 id：一镜到底的截图与测量起点（官方做法是截整卡，不是只截图）
+      .id('feedCard-' + post.id)
       .onAppear(() => {
         if (post.id !== undefined && !this.exposedIds.has(post.id)) {
           this.exposedIds.add(post.id);
