@@ -108,7 +108,7 @@ export struct DetailActionBar {
       }
       GlowInput({ placeholder: this.replyName.length > 0 ? ('回复 @' + this.replyName) : '说点什么…',
         text: $commentText, fillWidth: true, inputHeight: COMPACT_CONTROL_HEIGHT, radius: RadiusTokens.sm,
-        segmentStyle: true, onFocusChanged: (focused: boolean): void => { this.inputFocused = focused; },
+        fontSize: 14, segmentStyle: true, onFocusChanged: (focused: boolean): void => { this.inputFocused = focused; },
         onEnter: (): void => { this.onSendComment(); } })
       Text('发送').height(COMPACT_CONTROL_HEIGHT)
         .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
