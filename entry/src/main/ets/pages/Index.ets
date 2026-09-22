@@ -704,10 +704,9 @@ struct Index {
       // 关闭 Navigation 内容裁剪（详情页全屏、快照转场在独立层，均不受影响）。
       .clip(false)
       .navDestination(this.pageMap)
-      // 首页卡片 → 帖子详情：取消系统默认导航转场（瞬间切页），
-      // 一镜到底飞行交给 PostDetailDestination 内的 CardSnapshotLayer 覆盖层
-      // （同 URL 封面走缓存，起点为卡片媒体块屏幕帧，不依赖截图链路）。
-      // 其余目的地与返回操作返回 undefined，走系统默认转场。
+      // 首页卡片 → 帖子详情：一镜到底按官方范式实现——目的地页在 onReady 里
+      // 按自己的 navDestinationId 注册转场，这里只负责按 from/to 的 id 查表并转交
+      // （PUSH 交 to、POP 交 from）。未注册的目的地返回 undefined，走系统默认转场。
       .customNavContentTransition((from: NavContentInfo, to: NavContentInfo,
         operation: NavigationOperation): NavigationAnimatedTransition | undefined => {
         const toId: string = to.navDestinationId !== undefined ? to.navDestinationId : '';

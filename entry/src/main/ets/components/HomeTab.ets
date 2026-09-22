@@ -438,7 +438,8 @@ export struct HomeTab {
   }
 
   // 卡片 → 详情：走 Navigation 的 PostDetail 目的地以启用自定义转场（一镜到底）；
-  // 起点用卡片媒体块屏幕帧，飞行由 PostDetailDestination 内的 CardSnapshotLayer 完成。
+  // 变形由 PostDetailDestination 自身完成（官方范式：整页从卡片帧缩放展开），
+  // 本处只负责「截整卡图 + 量卡片帧」并随参数传出。
   // Navigation 未就绪时兜底走老路由整页（无飞行）。
   // cardId：用于截图与测量起点的卡片组件 id。信息流是整卡（feedCard-{id}），
   // 每日一帖卡堆沿用媒体块 id（deckCardMedia-{id}）。
@@ -578,8 +579,6 @@ export struct HomeTab {
           .combine(TransitionEffect.translate({ y: 14 })
             .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate, delay: Math.min(idx, 6) * MotionTokens.stagger }))
       )
-      // 整卡 id：一镜到底的截图与测量起点（官方做法是截整卡，不是只截图）
-      .id('feedCard-' + post.id)
       .onAppear(() => {
         if (post.id !== undefined && !this.exposedIds.has(post.id)) {
           this.exposedIds.add(post.id);

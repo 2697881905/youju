@@ -93,25 +93,38 @@ export class LongTakeAnim {
   private initPosY: number = 0;
   private card: CardRect = { left: 0, top: 0, width: 0, height: 0 };
   private animCount: number = 0;
+  // 初值是否量成功：失败时不做动画，直接落终态并立刻放行转场（否则会白等一个动画时长）
+  private geometryValid: boolean = false;
 
   // 源页传卡片帧（vp）：只记录；真正的初值在 initParams 里算（那时目的地已布局）
   init(cardRect: CardRect): void {
     this.card = cardRect;
   }
 
-  // 目的地布局完成后调用：量出「对应节点」（详情 hero）位置与尺寸，算出全部初值。
-  // 官方公式：整页缩放到「对应节点宽度 == 卡片宽度」，再把该节点挪到卡片位置，
-  // 裁切高度按缩放比换算回未缩放坐标系，作为展开动画的起始可视高。
-  initParams(ui: UIContext, destNodeId: string, windowWidthPx: number): void {
+  // 目的地布局完成后调用：量出「对应节点」（详情 hero）与「页面根」的窗口位置，算出全部初值。
+  //
+  // 公式与官方一致，只多一个 aX/aY 修正：官方直接用节点的**窗口**坐标做初值，隐含前提是
+  // 「页面内容原点 == 窗口原点」。本项目页面是否延伸进状态栏由 expandSafeArea 决定，
+  // 写死这个前提一旦不成立就会整体差一个状态栏高度。因此这里额外量出页面根的窗口位置
+  // aX/aY（此时 posX/posY 还是 0，所以它就是页面内容原点），所有落点都相对它计算：
+  // aX/aY 为 0 时与官方公式完全相同。
+  initParams(ui: UIContext, destNodeId: string, rootNodeId: string, windowWidthPx: number): void {
     let nodeWpx: number = 0;
     let nodeXvp: number = 0;
     let nodeYvp: number = 0;
+    let rootXvp: number = 0;
+    let rootYvp: number = 0;
     try {
       const node: FrameNode | null = ui.getFrameNodeById(destNodeId);
       if (node !== null) {
         nodeXvp = node.getPositionToWindowWithTransform().x;
         nodeYvp = node.getPositionToWindowWithTransform().y;
         nodeWpx = node.getMeasuredSize().width;
+      }
+      const root: FrameNode | null = ui.getFrameNodeById(rootNodeId);
+      if (root !== null) {
+        rootXvp = root.getPositionToWindowWithTransform().x;
+        rootYvp = root.getPositionToWindowWithTransform().y;
       }
     } catch (err) {
       hilog.error(0x0000, TAG, 'initParams measure failed: %{public}s', JSON.stringify(err));
@@ -126,25 +139,42 @@ export class LongTakeAnim {
       this.setFinalStatus();
       return;
     }
+    this.geometryValid = true;
 
+    // 缩放比：整页缩放到「对应节点宽度 == 卡片宽度」
     this.initScale = cardWpx / nodeWpx;
     this.initClipW = '100%';
-    this.initClipH = ui.px2vp(cardHpx / Math.max(this.initScale, 0.0001));
-    const clipHpx: number = ui.vp2px(this.initClipH);
-    this.initTx = ui.px2vp(cardLpx - (windowWidthPx - cardWpx) / 2);
-    this.initTy = ui.px2vp(cardTpx - ((clipHpx - clipHpx * this.initScale) / 2));
-    this.initPosX = -nodeXvp;
-    this.initPosY = -nodeYvp;
-    const statusBarVp: number = AppStorage.get<number>('statusBarHeight') ?? 0;
-    this.snapX = nodeXvp;
-    this.snapY = nodeYvp - statusBarVp;
+    const clipHpx: number = cardHpx / Math.max(this.initScale, 0.0001);
+    this.initClipH = ui.px2vp(clipHpx);
+
+    // 位移：让缩放后的可视框（宽 = 窗口宽×s，高 = 卡片高）正好落到卡片帧
+    const rootXpx: number = ui.vp2px(rootXvp);
+    const rootYpx: number = ui.vp2px(rootYvp);
+    this.initTx = ui.px2vp(cardLpx - rootXpx - (windowWidthPx - cardWpx) / 2);
+    this.initTy = ui.px2vp(cardTpx - rootYpx - (clipHpx - clipHpx * this.initScale) / 2);
+
+    // 「对应节点」在页面内容坐标系里的位置：内层用它做定位，截图用它做落点
+    // （两者必须同源，否则截图与真内容会错位）
+    const nodeLocalXvp: number = nodeXvp - rootXvp;
+    const nodeLocalYvp: number = nodeYvp - rootYvp;
+    this.initPosX = -nodeLocalXvp;
+    this.initPosY = -nodeLocalYvp;
+    this.snapX = nodeLocalXvp;
+    this.snapY = nodeLocalYvp;
+
     hilog.info(0x0000, TAG,
-      'initParams scale=%{public}f pos=(%{public}f,%{public}f) clipH=%{public}f tx=%{public}f ty=%{public}f',
-      this.initScale, this.initPosX, this.initPosY, clipHpx, this.initTx, this.initTy);
+      'initParams s=%{public}f root=(%{public}f,%{public}f) node=(%{public}f,%{public}f) clipH=%{public}f tx=%{public}f ty=%{public}f',
+      this.initScale, rootXvp, rootYvp, nodeXvp, nodeYvp, clipHpx, this.initTx, this.initTy);
   }
 
   // 进场：从卡片帧展开到全屏；截图 50ms 后淡出，真内容同步淡入
   doEnter(ui: UIContext, proxy: NavigationTransitionProxy): void {
+    if (!this.geometryValid) {
+      // 量不到几何（极少数：无 hero 节点等）→ 直接落终态并放行，不做无意义的空动画
+      this.setFinalStatus();
+      proxy.finishTransition();
+      return;
+    }
     this.scale = this.initScale;
     this.tx = this.initTx;
     this.ty = this.initTy;
@@ -184,6 +214,10 @@ export class LongTakeAnim {
 
   // 返回：全屏收回卡片帧（与进场对称）
   doBack(ui: UIContext, proxy: NavigationTransitionProxy): void {
+    if (!this.geometryValid) {
+      proxy.finishTransition();
+      return;
+    }
     ++this.animCount;
     ui.animateTo({
       duration: 350,

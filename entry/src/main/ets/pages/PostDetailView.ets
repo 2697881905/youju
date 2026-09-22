@@ -1082,6 +1082,10 @@ export struct PostDetailView {
           .width('100%')
           .aspectRatio(this.transitionAspect())
           .backgroundColor(ColorTokens.sunken)
+          // 与真实内容里的 hero 用同一个 id：一镜到底在**转场开始那一刻**就要量出
+          // 「对应节点」帧来算缩放/位移，而详情数据是异步的，此时页面上只有这个壳。
+          // 壳的宽高由 intent.aspect 决定，与真实 hero 一致，因此量出来的就是真实落点。
+          .id('detailHeroMedia')
           .opacity(this.mediaCovered ? 0 : 0.01)
           .onAreaChange((_oldValue: Area, newValue: Area): void => {
             this.reportMediaArea(newValue);
