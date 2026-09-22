@@ -1,11 +1,13 @@
-// GlowInput —— 聚焦流光输入框
+// GlowInput —— 统一输入框（**已按产品要求移除聚焦流光**）
 //
-// 统一所有输入框的聚焦态视觉：点击键入（聚焦）时点亮鸿蒙沉浸光感**原生流光**，
-// 失焦后流光随之熄灭（区别于此前常显的"亮色描边+冷色光晕"模拟发光）。
+// 历史：曾用 HdsVisualComponent + DUAL_EDGE_FLOW_LIGHT_WITH_BACKGROUND_MASK 在聚焦时
+// 点亮鸿蒙沉浸光感「双边流光」。现全部输入框（搜索框、评论/聊天输入、编辑资料、
+// 收藏夹命名、分享到私信…）统一去掉该效果，因此这里也一并移除了流光层与相关依赖。
+// 文件名/组件名保留 GlowInput（7 处调用方不动），仅作历史命名。
 //
-// 实现：HdsVisualComponent + DUAL_EDGE_FLOW_LIGHT_WITH_BACKGROUND_MASK，
-// 与 ImmersiveSurface 同款双边流光。尺寸用根 Stack onAreaChange 实测驱动
-// （同尺寸铁律：不使用 width/height('100%')，避免自动尺寸 Stack 撑满父容器）。
+// 现在的视觉：系统玻璃（backgroundBlurStyle）+ 主题描边 + 圆角，与 API 版本无关；
+// segmentStyle=true 时用「分段栏同款」半透明白玻璃底 + backdropBlur + 1px 高光边框。
+// 聚焦不再有额外高亮（流光已移除）。
 //
 // 布局模式：
 //   fillWidth=true  → 根 Stack 参与 flex 拉伸（.layoutWeight(1)），用于 Row 内
@@ -21,14 +23,13 @@
 //     onEnter: (): void => { this.onSend(); },
 //   })
 
-import { HdsSceneController, HdsSceneType, HdsVisualComponent } from '@kit.UIDesignKit';
-import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../../utils/immersiveMaterial';
+import { GlassBlurStyle } from '../../utils/immersiveMaterial';
 import { ColorTokens } from '../tokens/color';
 import { RadiusTokens } from '../tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../tokens/space';
 import { TypeTokens } from '../tokens/type';
 
-// —— 分段栏同款沉浸光感参数（与 SegmentedControl.ets 顶部 IMMERSIVE_* 完全同值）——
+// —— 分段栏同款参数（与 SegmentedControl.ets 顶部 IMMERSIVE_* 完全同值）——
 const SEGMENT_GLASS_BG: ResourceColor = '#20FFFFFF';
 const SEGMENT_GLASS_BLUR: number = 20;
 const SEGMENT_GLASS_BORDER: ResourceColor = '#30FFFFFF';
@@ -54,53 +55,8 @@ export struct GlowInput {
   // 聚焦/失焦变化透出（如搜索面板需在再次聚焦时恢复联想词）
   onFocusChanged?: (focused: boolean) => void = undefined;
 
-  @State focused: boolean = false;
-  // 流光层像素尺寸：由根 Stack 实测驱动（同尺寸铁律，不用 '100%'）
-  @State inputW: number = 0;
-  @State inputH: number = 0;
-
-  // HdsSceneController @since 6.0.2(22)：API 20/21 上构造函数不存在。
-  // 惰性创建，且仅在 isImmersiveLightSenseSupported()（API 23+）分支内使用。
-  private glowController: HdsSceneController | null = null;
-
-  // 惰性获取控制器：只在 API 23+ 路径下触发 new，低版本设备不会执行。
-  private getGlowController(): HdsSceneController {
-    if (this.glowController === null) {
-      this.glowController = new HdsSceneController();
-    }
-    return this.glowController;
-  }
-
-  aboutToAppear(): void {
-    if (isImmersiveLightSenseSupported()) {
-      this.getGlowController().setSceneParams({
-        backgroundMaskColors: ['#1EFFFFFF', '#1E86CFFF'],
-        firstEdgeFlowLight: { startPos: 0, endPos: 0.5, color: '#C4FFFFFF' },
-        secondEdgeFlowLight: { startPos: 0, endPos: -0.5, color: '#8FC8EFFF' },
-      });
-    }
-  }
-
-  private toggleFocus(focus: boolean): void {
-    this.focused = focus;
-    if (this.onFocusChanged !== undefined) {
-      this.onFocusChanged(focus);
-    }
-  }
-
   build() {
     Stack({ alignContent: Alignment.Center }) {
-      // 原生流光层：仅聚焦时点亮；置顶 + 触摸透传，不遮挡输入交互
-      if (isImmersiveLightSenseSupported() && this.focused && this.inputW > 0 && this.inputH > 0) {
-        HdsVisualComponent()
-          .scene(HdsSceneType.DUAL_EDGE_FLOW_LIGHT_WITH_BACKGROUND_MASK, this.getGlowController())
-          .width(this.inputW)
-          .height(this.inputH)
-          .borderRadius(this.segmentStyle ? RadiusTokens.lg : this.radius)
-          .clip(true)
-          .hitTestBehavior(HitTestMode.Transparent)
-      }
-
       TextInput({ placeholder: this.placeholder, text: this.text })
         .fontFamily(TypeTokens.fontFamily)
         .fontSize(this.fontSize)
@@ -111,12 +67,10 @@ export struct GlowInput {
         .width('100%')
         .height(this.inputHeight)
         // 分段栏同款（segmentStyle）：backdropBlur 伪沉浸 + 半透明白玻璃底 + 1px 高光边框 + lg 圆角；
-        // 普通模式维持系统玻璃（backgroundBlurStyle）方案不变
+        // 普通模式维持系统玻璃（backgroundBlurStyle）方案
         .backgroundBlurStyle(this.segmentStyle ? BlurStyle.NONE : GlassBlurStyle.Floating)
         .backdropBlur(this.segmentStyle ? SEGMENT_GLASS_BLUR : 0)
-        .backgroundColor(this.segmentStyle
-          ? SEGMENT_GLASS_BG
-          : (isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface))
+        .backgroundColor(this.segmentStyle ? SEGMENT_GLASS_BG : ColorTokens.barSurface)
         .border({
           width: 1,
           color: this.segmentStyle ? SEGMENT_GLASS_BORDER : ColorTokens.barBorder,
@@ -137,19 +91,17 @@ export struct GlowInput {
             this.onEnter();
           }
         })
-        .onFocus((): void => { this.toggleFocus(true); })
-        .onBlur((): void => { this.toggleFocus(false); })
+        .onFocus((): void => { this.notifyFocus(true); })
+        .onBlur((): void => { this.notifyFocus(false); })
     }
     .layoutWeight(this.fillWidth ? 1 : 0)
     .width(this.fillWidth ? 'auto' : '100%')
     .height(this.inputHeight)
-    .onAreaChange((_oldValue: Area, newValue: Area): void => {
-      const w: number = parseFloat(String(newValue.width));
-      const h: number = parseFloat(String(newValue.height));
-      if (w > 0 && h > 0 && (w !== this.inputW || h !== this.inputH)) {
-        this.inputW = w;
-        this.inputH = h;
-      }
-    })
+  }
+
+  private notifyFocus(focus: boolean): void {
+    if (this.onFocusChanged !== undefined) {
+      this.onFocusChanged(focus);
+    }
   }
 }
