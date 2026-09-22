@@ -21,7 +21,7 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { publishFlowStore } from '../utils/publishFlowStore';
 import { AppTab, subscribeTabSwitch } from '../utils/nav';
 import { setMainNavStack, setSharedUiContext } from '../utils/navigationTransition';
-import { LongTakeCallback, LongTakeTransition } from '../utils/longTakeTransition';
+import { AnimateCallback, CustomTransition } from '../utils/longTake/customNavigationUtils';
 import { setSerifTypeface, setSerifBodyTypeface } from '../utils/textPoster';
 import { drawing } from '@kit.ArkGraphics2D';
 import { HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
@@ -709,29 +709,34 @@ struct Index {
       // （PUSH 交 to、POP 交 from）。未注册的目的地返回 undefined，走系统默认转场。
       .customNavContentTransition((from: NavContentInfo, to: NavContentInfo,
         operation: NavigationOperation): NavigationAnimatedTransition | undefined => {
-        const toId: string = to.navDestinationId !== undefined ? to.navDestinationId : '';
-        const fromId: string = from.navDestinationId !== undefined ? from.navDestinationId : '';
-        const toCb: LongTakeCallback = LongTakeTransition.getInstance().get(toId);
-        const fromCb: LongTakeCallback = LongTakeTransition.getInstance().get(fromId);
-        LongTakeTransition.getInstance().operation = operation;
-        if (toCb.animation === undefined && fromCb.animation === undefined) {
-          return undefined;   // 未注册自定义转场的目的地（含返回目标）走系统默认
+        if (!from.navDestinationId || !to.navDestinationId) {
+          return undefined;
         }
-        return {
-          timeout: toCb.timeout !== undefined ? toCb.timeout : fromCb.timeout,
+        const fromParam: AnimateCallback = CustomTransition.getInstance().getAnimateParam(from.navDestinationId);
+        const toParam: AnimateCallback = CustomTransition.getInstance().getAnimateParam(to.navDestinationId);
+        // 未注册自定义转场的目的地（含返回目标）走系统默认转场
+        if (fromParam.animation === undefined && toParam.animation === undefined) {
+          return undefined;
+        }
+        CustomTransition.getInstance().operation = operation;
+        const customAnimation: NavigationAnimatedTransition = {
+          // PUSH 交 to、POP 交 from
+          timeout: operation === NavigationOperation.PUSH ? toParam.timeout : fromParam.timeout,
           onTransitionEnd: (): void => {
-            LongTakeTransition.getInstance().proxy = undefined;
+            CustomTransition.getInstance().proxy = undefined;
           },
-          transition: (proxy: NavigationTransitionProxy): void => {
-            LongTakeTransition.getInstance().proxy = proxy;
-            const cb: LongTakeCallback = operation === NavigationOperation.PUSH ? toCb : fromCb;
-            if (cb.animation !== undefined) {
-              cb.animation(proxy);
+          transition: (transitionProxy: NavigationTransitionProxy): void => {
+            CustomTransition.getInstance().proxy = transitionProxy;
+            const animateParam: AnimateCallback =
+              operation === NavigationOperation.PUSH ? toParam : fromParam;
+            if (animateParam.animation !== undefined) {
+              animateParam.animation(transitionProxy);
             } else {
-              proxy.finishTransition();
+              transitionProxy.finishTransition();
             }
-          },
+          }
         };
+        return customAnimation;
       })
       .width('100%')
       .height('100%')
