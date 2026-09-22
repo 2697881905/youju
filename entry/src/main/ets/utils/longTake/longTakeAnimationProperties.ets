@@ -46,8 +46,11 @@ export class LongTakeParams {
 @Observed
 export class LongTakeAnimationProperties {
   // ——— 绑定到目的地页面根容器的可动画属性（官方同名）———
-  snapShotOpacity: number = 1; // 卡片截图：进场 1→0（真内容接管）；返回 0→1
-  postPageOpacity: number = 0; // 目的地真内容：进场 0→1
+  // 字段**初值取「安全终态」**（内容可见、截图不显示），真正的转场起始态由
+  // doEnterAnimation 显式赋值。这样万一自定义转场没跑（未注册 / 委托被跳过 / 异常），
+  // 页面只是少一段动画，而不会停在「内容 0 透明度 + 截图铺满屏」的坏状态（踩过）。
+  snapShotOpacity: number = 0; // 卡片截图：进场 1→0（真内容接管）；返回 0→1
+  postPageOpacity: number = 1; // 目的地真内容：进场 0→1
   scaleValue: number = 1;
   translateX: number = 0;
   translateY: number = 0;
@@ -92,13 +95,19 @@ export class LongTakeAnimationProperties {
     this.clickedCardId = clickedCardId;
   }
 
-  // 框架在转场开始时调用（官方同名的单一入口）：PUSH 走进场、其余走返回
+  // 框架在转场开始时调用（官方同名的单一入口）：PUSH 走进场、POP 走返回
   doAnimation(ui: UIContext, transitionProxy: NavigationTransitionProxy): void {
-    if (CustomTransition.getInstance().operation === NavigationOperation.PUSH) {
+    const operation: NavigationOperation = CustomTransition.getInstance().operation;
+    if (operation === NavigationOperation.PUSH) {
       this.initParams(ui);
       this.doEnterAnimation(ui, transitionProxy);
-    } else {
+    } else if (operation === NavigationOperation.POP) {
       this.doBackAnimation(ui, transitionProxy);
+    } else {
+      // 其它 operation（未来新增取值等）：不做动画，落终态并立刻放行 ——
+      // 不能落到 else 就当 POP 处理，否则会走语义相反的反向动画。
+      this.setFinalStatus();
+      transitionProxy.finishTransition();
     }
   }
 
@@ -189,6 +198,10 @@ export class LongTakeAnimationProperties {
     this.clipHeight = this.initClipHeight;
     this.positionXValue = this.initPositionValueX;
     this.positionYValue = this.initPositionValueY;
+    // 起始不透明度**显式赋值**（不依赖字段初值，见字段处注释）：
+    // 截图先顶住首帧，真内容从 0 淡入
+    this.postPageOpacity = 0;
+    this.snapShotOpacity = 1;
 
     const animationCount: number = ++this.animationCount;
     ui.animateTo({
