@@ -9,6 +9,7 @@ import { getUserId } from '../utils/auth';
 import { likeStore } from '../utils/likeStore';
 import { postDeletionStore } from '../utils/postDeletionStore';
 import { PostCard } from './PostCard';
+import { FeedDataSource } from '../utils/feedSource';
 import { TagNav } from './TagNav';
 import { emitTabSwitch, openPostDetail, PostDetailIntent } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
@@ -77,6 +78,8 @@ export struct HomeTab {
   @State isRefreshing: boolean = false;
   @State error: string = '';
   @State feedMode: FeedMode = 'recommend';
+  // WaterFlow 懒加载数据源（与 posts 同步；见 utils/feedSource.ets）
+  private feedSource: FeedDataSource = new FeedDataSource();
   @State feedIndex: number = 0;
   @State needLogin: boolean = false; // 关注流且未登录的引导态
   @State followingCount: number = 0; // 关注流的关注数缓存（空态 A/B 区分）
@@ -352,10 +355,12 @@ export struct HomeTab {
           : await listPosts({ page: this.page, limit: 20, sort, tag: this.currentTag() });
       if (reset) {
         this.posts = res.list;
+        this.feedSource.replaceAll(res.list);
         // 写回会话缓存（仅首屏，供切 Tab 回来快速呈现）
         feedSessionCache.set(this.feedCacheKey(), { posts: res.list, at: Date.now() });
       } else {
         this.posts = this.posts.concat(res.list);
+        this.feedSource.append(res.list);
       }
       if (res.list.length < 20) {
         this.finished = true;
@@ -598,6 +603,34 @@ export struct HomeTab {
     })
   }
 
+  // 实验：WaterFlow + LazyForEach 信息流（替换 Scroll + ForEach 手写双列）。
+  // 收益：① LazyForEach 按需创建/回收卡片，已加载卡片不再全部常驻；
+  //       ② 真正瀑布流装箱（按卡片实际高度），消除奇偶分列的底部参差。
+  // 关键：expandSafeArea 让容器不被底部安全区收缩——此前 WaterFlow 回退的根因。
+  @Builder
+  feedWaterFlow(): void {
+    WaterFlow() {
+      LazyForEach(this.feedSource, (post: Post, idx: number) => {
+        FlowItem() {
+          this.feedPost(post, idx)
+        }
+        .width('100%')
+        // 末条留出悬浮底栏让位（WaterFlow 无 footer 插槽，用末项 margin 实现）
+        .margin({ bottom: idx === this.posts.length - 1 ? barBottomReserve() : 0 })
+      }, (post: Post) => 'wf-' + String(post.id ?? ''))
+    }
+    .columnsTemplate('1fr 1fr')
+    .columnsGap(SpaceTokens.xs)
+    .rowsGap(SpaceTokens.xs)
+    .cachedCount(4)
+    .scrollBar(BarState.Off)
+    .width('100%')
+    .height('100%')
+    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: 5 })
+    // 实验关键：容器自身不吃底部安全区收缩，滚动终点回到物理屏底
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
+    .onReachEnd((): void => { this.loadMore(); })
+  }
   build() {
     Column() {
       // 海报式编辑部头部：编号、品牌标题、主标语和栏目切换构成明确的阅读层级。
@@ -808,7 +841,7 @@ export struct HomeTab {
             // 推荐/关注流：Scroll 显式双列。懒加载容器(WaterFlow)实测把滚动终点钳制在
             // 底部非安全区之上、露出窗口底色横带截断末卡，故统一走 Scroll（天然到物理屏底）
             Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
-              this.feedScroll()
+              this.feedWaterFlow()
             }
             .onRefreshing(() => {
               this.isRefreshing = true;
