@@ -61,10 +61,31 @@ export struct CardSnapshotLayer {
         height: w / Math.max(this.aspect, 0.01),
       };
     }
-    // 首帧渲染完成后开始播放（避免转场首帧状态被动画系统提前记录导致无动画）
+    // 首帧渲染完成后开始准备播放（避免转场首帧状态被动画系统提前记录导致无动画）
     setTimeout((): void => {
-      this.play();
+      this.waitTargetThenPlay(0);
     }, 80);
+  }
+
+  // 等真实目标帧出现再播：详情接口加载期间只有「加载壳」，壳里的媒体占位没有
+  // detailHeroMedia 这个 id，此时实测会落到近似兜底值，飞完再被真实内容顶一下（二次对位）。
+  // 轮询上限 ~800ms；始终拿不到就按近似兜底播，保证动画必然出现。
+  private waitTargetThenPlay(attempt: number): void {
+    if (this.targetId.length > 0) {
+      const real: CardRect | null = cardRectOf(this.targetId);
+      if (real !== null && real.width > 0 && real.height > 0) {
+        this.target = real;
+        this.play();
+        return;
+      }
+      if (attempt < 20) {
+        setTimeout((): void => {
+          this.waitTargetThenPlay(attempt + 1);
+        }, 40);
+        return;
+      }
+    }
+    this.play();
   }
 
   private play(): void {

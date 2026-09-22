@@ -863,7 +863,10 @@ export struct HomeTab {
                 onOpen: (post: DailyPost): void => {
                   if (post.id !== undefined) {
                     trackPostEvent(post.id, 'click', 'daily');
-                    this.openDetailViaNav(post, DAILY_DECK_MEDIA_RATIO, this.dailyDeckCover(post), 'deckCardMedia-');
+                    // 注意：第三个参数是「详情媒体的目标比例」，不是卡面比例——
+                    // 卡堆卡面是 4/3 横屏，但详情媒体统一 0.75（竖版），传 DAILY_DECK_MEDIA_RATIO 会把图片拉横。
+                    // 起点形状由 src 矩形决定（cardRectOf 实测），与该参数无关。
+                    this.openDetailViaNav(post, LayoutTokens.cardMediaAspectRatio, this.dailyDeckCover(post), 'deckCardMedia-');
                   }
                 },
               })
