@@ -8,7 +8,6 @@ import { TypeTokens } from '../design/tokens/type';
 import { MotionCurves, MotionTokens, MotionFrameRates } from '../design/tokens/motion';
 import { Pressable } from '../design/motion/Pressable';
 import { GlowInput } from '../design/components/GlowInput';
-import { GlassBlurStyle, isImmersiveLightSenseSupported } from '../utils/immersiveMaterial';
 
 // 评论态压缩：视觉高度下调，触控目标由 Pressable touchTargetHeight 保持 44 不变
 const COMPACT_CONTROL_HEIGHT: number = 32; // 输入框 / 发送键视觉高
@@ -174,9 +173,8 @@ export struct DetailActionBar {
     }
     .width('100%')
     .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
-    .backgroundBlurStyle(GlassBlurStyle.Floating)
-    .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
-    .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+    // 底栏与页面同色（canvas）：不再是玻璃浮层，与详情页融为一体
+    .backgroundColor(ColorTokens.canvas)
     .borderRadius(RadiusTokens.none)
     .animation({ duration: MotionTokens.container, curve: MotionCurves.springInteract,
       expectedFrameRateRange: MotionFrameRates.default })
