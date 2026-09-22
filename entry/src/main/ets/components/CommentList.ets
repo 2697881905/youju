@@ -1,4 +1,5 @@
 // 评论列表组件（楼中楼盖楼式展示：一级评论 + 子回复面板，含"事实补充"徽标 + 举报入口 + 作者删除 + 回复入口）
+import { ColorTokens } from '../design/tokens/color';
 import { Comment } from '../models/types';
 import { timeAgo, formatCount } from '../utils/format';
 import { deleteComment, upComment, cancelUpComment } from '../services/api';
@@ -222,7 +223,7 @@ export struct CommentList {
   actionStrip(c: Comment, compact: boolean) {
     Row({ space: 14 }) {
       Row({ space: 2 }) {
-        Image(this.isLiked(c) ? resolveActionIcon('likeActive') : resolveActionIcon('like'))
+        Image(this.isLiked(c) ? resolveActionIcon('likeActive') : resolveActionIcon('like')).fillColor(this.isLiked(c) ? $r('app.color.semantic_red') : ColorTokens.secondary)
           .width(compact ? 12 : 13)
           .height(compact ? 12 : 13)
         Text(formatCount(this.commentUp(c)))

@@ -141,6 +141,7 @@ export struct BottomTabBar {
         .width(IconTokens.tabBar)
         .height(IconTokens.tabBar)
         .scale({
+        .fillColor(ColorTokens.secondary)
           x: this.shouldReduceMotion() ? 1 : 1.08,
           y: this.shouldReduceMotion() ? 1 : 1.08,
         })
@@ -151,6 +152,7 @@ export struct BottomTabBar {
         .height(IconTokens.tabBar)
         .scale({ x: 1, y: 1 })
         .draggable(false)
+        .fillColor(ColorTokens.secondary)
     }
   }
 

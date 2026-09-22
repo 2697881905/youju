@@ -392,6 +392,7 @@ struct VideoPublishPage {
         Image($r('app.media.close_x_white'))
           .width(IconTokens.compact)
           .height(IconTokens.compact)
+          .fillColor(Color.White)
       }
       .height(LayoutTokens.segmentedHeight)
       .padding({ left: SpaceTokens.item, right: SpaceTokens.item })

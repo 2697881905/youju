@@ -144,6 +144,7 @@ struct TrashBoxPage {
             Image($r('app.media.set_trash'))
               .width(IconTokens.compact)
               .height(IconTokens.compact)
+              .fillColor(ColorTokens.secondary)
           }
           .width(28)
           .height(IconTokens.small)

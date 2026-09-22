@@ -28,11 +28,13 @@ export struct DetailToolbar {
           .height(20)
           .opacity(0.82)
           .onClick((): void => { this.onShare(); })
+          .fillColor(ColorTokens.secondary)
         Image(resolveActionIcon('more'))
           .width(20)
           .height(20)
           .opacity(0.82)
           .onClick((): void => { this.onMore(); })
+          .fillColor(ColorTokens.secondary)
       }
       .width(LayoutTokens.minTouchTarget * 2 + SpaceTokens.xs)
       .height(LayoutTokens.minTouchTarget)

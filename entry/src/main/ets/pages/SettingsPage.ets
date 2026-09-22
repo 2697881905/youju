@@ -162,6 +162,7 @@ export struct SettingsPage {
       Image(resolveSettingsIcon(icon))
         .width(22).height(22)
         .objectFit(ImageFit.Contain)
+        .fillColor($r('app.color.text_secondary'))
       Column({ space: 2 }) {
         Text(title)
           .fontSize(16).fontFamily($r('app.string.font_family'))
@@ -383,6 +384,7 @@ export struct SettingsPage {
             Image(resolveSettingsIcon('trash'))
               .width(22).height(22)
               .objectFit(ImageFit.Contain)
+              .fillColor($r('app.color.text_secondary'))
             Text('账号注销')
               .fontSize(16).fontFamily($r('app.string.font_family'))
               .fontColor($r('app.color.semantic_red'))

@@ -31,6 +31,7 @@ export struct EmptyState {
       Image(this.icon)
         .width(IconTokens.empty)
         .height(IconTokens.empty)
+        .fillColor(ColorTokens.secondary)
 
       Text(this.safeTitle())
         .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)

@@ -191,6 +191,7 @@ export struct VideoViewer {
         .height(24)
         .position({ top: 16, right: 16 })
         .onClick((): void => { this.onClose(); })
+        .fillColor(Color.White)
 
       // 底部播放条（暂停时常显；播放中 3s 自动隐藏）
       if (this.showBar) {
