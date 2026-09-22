@@ -248,8 +248,9 @@ export struct PostStatsDialog {
           .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
         }
       }
-      // 弹窗宽度走应用标准 344（同收藏夹命名/分享面板）；高度内容自适应
+      // 弹窗宽度走应用标准 344（同收藏夹命名/分享面板）；内边距同族 lg=20；高度内容自适应
       .width(344)
+      .padding(SpaceTokens.lg)
       .backgroundColor(ColorTokens.elevated)
       .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
       .borderRadius(RadiusTokens.lg)
