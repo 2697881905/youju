@@ -105,14 +105,9 @@ export struct PostDetailView {
   // Navigation 壳 + 一镜到底：真媒体首帧画出来时回调一次。
   // 目的地页据此把「卡片截图」淡出——截图顶住媒体位，直到真内容能接手，避免中途露灰底/空白。
   onHeroReady?: () => void = undefined;
-  // 首页卡片转场时暂时隐藏真实媒体，避免覆盖层从卡片位飞出前露出目标位首帧。
-  @Prop mediaCovered: boolean = false;
   // 一镜到底：真媒体首帧是否已就绪（navMode 下就地决定 hero 的可见性）
   @State mediaReady: boolean = false;
   private heroReadyFired: boolean = false;
-  // 媒体区屏幕帧回报（vp，窗口坐标）：模态入口依据它摆放一镜到底覆盖层
-  onFlyMediaArea: ((left: number, top: number, width: number, height: number) => void) | null = null;
-  private mediaAreaReported: boolean = false;
   @State postId: string = '';
   // 「一镜到底」意图：卡片进入时携带的展示快照（cover 非空才有一镜到底）
   @State intent: PostDetailIntent | null = null;
@@ -185,8 +180,9 @@ export struct PostDetailView {
     return this.isDeletedAuthor() ? '' : (this.post?.user?.avatar ?? '');
   }
 
-  // 模态一镜到底时，详情媒体先沿用卡片的比例，等封面覆盖层完成后也不会发生
-  // 首图解码导致的高度跳变；普通 router 入口返回 0，媒体按真实比例展示。
+  // 一镜到底（navMode）下，详情媒体沿用卡片传入的比例：整页缩放展开需要
+  // 「媒体高度在转场期间稳定」，否则首图解码出真实比例时会二次跳位；
+  // 普通 router 入口返回 0，媒体按真实比例展示。
   private transitionAspect(): number {
     if (!this.navMode || this.intent === null || !(this.intent.aspect > 0)) {
       return 0;
@@ -291,7 +287,6 @@ export struct PostDetailView {
 
   aboutToAppear(): void {
     // 读取系统栏高度（全屏布局下顶部内容避让 + 底部栏高随导航模式实时变化）
-    this.mediaAreaReported = false;
     this.loadWindowInsets();
     this.intent = takePostDetailIntent();
     this.postId = takePostDetailId().trim();
@@ -1017,7 +1012,7 @@ export struct PostDetailView {
   }
 
   private mediaEnterTransition(): TransitionEffect {
-    // 模态一镜到底的覆盖层已经负责媒体动势，详情媒体本身不能再缩放一次。
+    // 一镜到底由目的地页整体变形负责媒体动势，详情媒体本身不能再缩放一次。
     if (this.navMode) {
       return TransitionEffect.OPACITY.animation({ duration: 1, curve: MotionCurves.linear });
     }
@@ -1069,7 +1064,7 @@ export struct PostDetailView {
   }
 
   private heroOpacity(): number {
-    return (this.mediaCovered || !this.heroVisible()) ? 0 : 1;
+    return this.heroVisible() ? 1 : 0;
   }
 
   // 真媒体首帧就绪（轮播 onFirstReady / 兜底超时）：淡入真媒体并通知目的地页淡出卡片截图。
@@ -1086,28 +1081,9 @@ export struct PostDetailView {
     }
   }
 
-  private reportMediaArea(newValue: Area): void {
-    // 加载壳阶段（intent 占位数据）头部高度与真实内容不一致：
-    // 头像位于标题下方后头部更高，此时回报的媒体区位置会偏离真实落点，
-    // 因此等真实内容就绪（loading=false）再回报，一镜到底落点才准确。
-    if (this.loading || this.mediaAreaReported || this.onFlyMediaArea === null) {
-      return;
-    }
-    const w: number = newValue.width as number;
-    const h: number = newValue.height as number;
-    if (w > 0 && h > 0) {
-      this.mediaAreaReported = true;
-      this.onFlyMediaArea(
-        newValue.globalPosition.x as number,
-        newValue.globalPosition.y as number,
-        w,
-        h);
-    }
-  }
-
   // 详情接口还在加载时，先用卡片意图绘制同尺寸的标题/媒体锚点。
-  // 这样覆盖层可以立即从卡片位飞出，不会先出现 LoadingProgress；真实内容返回后
-  // 复用相同布局，媒体帧也不会突然跳位。
+  // 这样「一镜到底」在转场开始那一刻就有可量的对应节点（否则量不到 → 动画不出现），
+  // 也不会先闪一下 LoadingProgress；真实内容返回后复用相同布局，媒体帧不会跳位。
   @Builder
   transitionLoadingShell(): void {
     if (this.intent !== null && this.transitionAspect() > 0) {
@@ -1130,10 +1106,7 @@ export struct PostDetailView {
           // 「对应节点」帧来算缩放/位移，而详情数据是异步的，此时页面上只有这个壳。
           // 壳的宽高由 intent.aspect 决定，与真实 hero 一致，因此量出来的就是真实落点。
           .id('detailHeroMedia')
-          .opacity(this.mediaCovered ? 0 : 0.01)
-          .onAreaChange((_oldValue: Area, newValue: Area): void => {
-            this.reportMediaArea(newValue);
-          })
+          .opacity(0.01)
       }
       .padding(16)
       .width('100%')
@@ -1289,17 +1262,14 @@ export struct PostDetailView {
               })
                 .transition(this.animLayerEnter(80))
 
-              // 媒体区（视频/轮播）：真实媒体直接展示。onAreaChange 回报本块屏幕帧（vp 窗口坐标），
-              // 模态入口据此摆放一镜到底覆盖层（打开放大/返回缩回）。
+              // 媒体区（视频/轮播）：真实媒体直接展示。这个 id 是「一镜到底的对应节点」——
+              // 目的地页把它缩放/挪移到卡片帧，因此加载壳里的占位必须挂同一个 id。
               Stack() {
                 this.mediaSlot()
               }
               .width('100%')
               .id('detailHeroMedia')
               .opacity(this.heroOpacity())
-              .onAreaChange((_oldValue: Area, newValue: Area): void => {
-                this.reportMediaArea(newValue);
-              })
 
               DetailPostContent({
                 pairs: this.fields,
