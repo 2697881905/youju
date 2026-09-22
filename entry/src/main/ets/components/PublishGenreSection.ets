@@ -101,6 +101,7 @@ export struct PublishGenreSection {
             .width(IconTokens.compact)
             .height(IconTokens.compact)            .rotate({ angle: this.menuVisible ? 180 : 0 })
             .animation({ duration: MotionTokens.fast, curve: MotionCurves.standard })
+            .fillColor(ColorTokens.secondary)
         }
         .height(LayoutTokens.segmentedHeight)
         .padding({ left: SpaceTokens.md, right: SpaceTokens.sm })
@@ -136,6 +137,7 @@ export struct PublishGenreSection {
         .height(LayoutTokens.segmentedHeight)
         .padding({ left: SpaceTokens.md, right: SpaceTokens.sm })
         .alignItems(VerticalAlign.Center)
+        .fillColor(ColorTokens.secondary)
         // 与体裁按钮同款应用浮层风格（暖纸色系）：barSurface 暖米玻璃底 + backdropBlur + barBorder 暖描边
         .backdropBlur(SEGMENT_GLASS_BLUR)
         .backgroundColor(SEGMENT_GLASS_BG)

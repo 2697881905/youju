@@ -58,6 +58,7 @@ export struct FolderPickDialog {
         Image(resolveActionIcon('bookmark'))
           .width(IconTokens.compact)
           .height(IconTokens.compact)
+          .fillColor(ColorTokens.secondary)
       }
       .width('100%')
       .height(48)

@@ -59,7 +59,7 @@ export struct StatRow {
             .width(this.compact ? 14 : IconTokens.compact)
             .height(this.compact ? 14 : IconTokens.compact)
             .scale({ x: this.animLikePulse, y: this.animLikePulse })
-            .fillColor(this.liked ? $r('app.color.semantic_red') : ColorTokens.secondary)
+            .fillColor(this.liked ? ColorTokens.like : ColorTokens.secondary)
           CountRoll({
             value: this.likeCount,
             prefix: '顶 ',
