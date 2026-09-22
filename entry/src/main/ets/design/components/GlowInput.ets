@@ -59,6 +59,8 @@ export struct GlowInput {
     Stack({ alignContent: Alignment.Center }) {
       TextInput({ placeholder: this.placeholder, text: this.text })
         .fontFamily(TypeTokens.fontFamily)
+        // 固定 LTR：父层握姿镜像（Rtl）时输入内容仍从左排版，中文不被挤到右边
+        .direction(Direction.Ltr)
         .fontSize(this.fontSize)
         // 行高按字号定比（1.45 倍）：不显式给的话走系统默认行盒，
         // 小字号 + 紧凑高度（如详情页 Dock 的 32vp）时文字底部会被裁掉。
