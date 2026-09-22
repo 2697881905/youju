@@ -183,10 +183,10 @@ model UserBinding {
   id         Int      @id @default(autoincrement())
   userId     Int
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  provider   String   @db.VarChar(32)   // 'harmony' | 'huawei' | 'wechat' ... 见共享知识
+  provider   String   @db.VarChar(32)   // 'huawei' | 'wechat' ... 见共享知识（'harmony' 已下线）
   externalId String   @db.VarChar(128)  // 各 provider 的外部标识：openId / unionID / openid
   boundAt    DateTime @default(now())
-  isPrimary  Boolean  @default(false)   // 当前仅 harmony 主账号为 true（合成项）
+  isPrimary  Boolean  @default(false)   // 仅合成项（华为主账号）为 true；表内行恒 false
   extra      Json?    // 扩展位：头像/昵称快照等，本期未用
 
   @@unique([userId, provider])          // (userId, provider) 唯一：同一用户同 provider 仅一条

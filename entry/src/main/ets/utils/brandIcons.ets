@@ -4,18 +4,17 @@
 import { Provider } from '../models/types';
 
 const BRAND_ICONS: Map<string, Resource> = new Map<string, Resource>([
-  ['harmony', $r('app.media.brand_harmony')],
   ['huawei', $r('app.media.brand_huawei')],
   ['wechat', $r('app.media.brand_wechat')],
 ]);
 
-// 解析账号类型对应的彩色品牌 Logo 资源；未命中回退鸿蒙（主账号）标识。
+// 解析账号类型对应的彩色品牌 Logo 资源；未命中回退华为（主账号）标识。
 export function brandIconRes(provider: Provider): Resource {
   const found: Resource | undefined = BRAND_ICONS.get(provider);
   if (found !== undefined) {
     return found;
   }
-  return $r('app.media.brand_harmony');
+  return $r('app.media.brand_huawei');
 }
 
 // 品牌 Logo 底块色（品牌色低透明度，适配浅/深色卡片背景）。
@@ -27,6 +26,6 @@ export function brandTileTint(provider: Provider): ResourceColor {
     case 'wechat':
       return $r('app.color.account_tile_wechat');
     default:
-      return $r('app.color.account_tile_harmony');
+      return $r('app.color.account_tile_huawei');
   }
 }

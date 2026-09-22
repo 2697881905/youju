@@ -156,22 +156,24 @@ export interface BookmarkFolderItem {
 
 // ===== 账号绑定 =====
 // provider 枚举（与后端 accountBindingService 的 Provider 单一来源对齐）
-export type Provider = 'harmony' | 'huawei' | 'wechat';
+// ⚠️ v1 单一登录方式：有据只用华为账号（unionID）登录，早期并列的「鸿蒙账号（openId）」已废弃——
+//    生产禁用开放 openId 登录，新用户 openId 恒为 null，故列表主账号项由 unionID 合成。
+export type Provider = 'huawei' | 'wechat';
 
 // 账号绑定列表项（后端返回已脱敏 externalId）
 export interface BindingItem {
-  provider: Provider; // 'harmony' | 'huawei' | 'wechat'
+  provider: Provider; // 'huawei' | 'wechat'
   externalId: string; // 已脱敏展示串，如 '****1234'
   boundAt: string; // ISO 时间串
-  isPrimary: boolean; // true 仅鸿蒙主账号
-  displayName: string; // 中文展示名：'鸿蒙账号' / '华为账号' / '微信'
+  isPrimary: boolean; // true 仅华为账号主账号
+  displayName: string; // 中文展示名：'华为账号' / '微信'
   status: 'primary' | 'bound' | 'unbound'; // 主账号 / 已绑定 / 未绑定
 }
 
-// 绑定请求体（POST /v1/account/bindings，code 变体：前端传华为 authorizationCode）
+// 绑定请求体（POST /v1/account/bindings，code 变体：前端传第三方 authorizationCode）
 export interface BindAccountBody {
   provider: Provider;
-  code: string; // 华为授权页回调的 authorizationCode
+  code: string; // 授权页回调的 authorizationCode
 }
 
 // 解绑响应（DELETE /v1/account/bindings/:provider）

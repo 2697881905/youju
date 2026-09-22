@@ -7,16 +7,39 @@
 
 ---
 
+## 变更记录 · 2026-09-23 单一登录方式收敛（鸿蒙账号下线）
+
+> 本次变更推翻了原设计中「鸿蒙主账号（openId）+ 华为账号（unionID）并列」的双账号模型，
+> v1 起**只保留华为账号一种登录方式**。以下各节中涉及 `harmony` 的描述均已失效，以本节为准。
+
+| 变更点 | 原设计 | 现行实现 |
+| :--- | :--- | :--- |
+| provider 枚举 | `'harmony' \| 'huawei' \| 'wechat'` | `'huawei' \| 'wechat'` |
+| 列表主账号项 | 由 `User.openId` 合成 `provider='harmony'` | 由 `User.unionID` 合成 `provider='huawei'`（`unionID` 为空时退回 `openId`，仅供老账号脱敏展示） |
+| 绑定入口 | 页面提供 `HuaweiBindButton` 主动绑定华为 | **移除**。登录即绑定；`POST /bindings` 对 `huawei` 返回 400 |
+| 解绑华为 | 允许，同时把 `User.unionID` 置空 | **禁止**（403）。置空 unionID = 用户永久失去登录能力 |
+| `HuaweiBindButton.ets` | 新建 | **已删除**（无引用）。登录仍用 `HuaweiLoginButton` |
+
+**废弃理由**：
+1. 生产已禁用开放 openId 登录（`routes/auth.ts` 的 `/v1/auth/login` 仅本地开发可用，存在身份冒充风险），
+   `loginWithHuawei` 建号时 `openId` 恒为 `null` → 「鸿蒙账号」对真实用户永远是一个空壳条目。
+2. 解绑华为会把 `User.unionID` 置空，而生产登录只认 `unionID` → 用户登出后永久无法再登录。
+3. 已登录用户（unionID=A）绑定另一个华为账号 B 会直接覆盖 `User.unionID` → 串号。
+
+`User.openId` 列与 `/v1/auth/login` 路由保留（debug-only），但不再出现在绑定列表中。
+
+---
+
 ## 0. 核心设计决策（拍板项速览）
 
 | 决策点 | 结论 |
 | :--- | :--- |
 | **数据模型** | 采用**独立 `UserBinding` 表** `{ id, userId, provider, externalId, boundAt, isPrimary, extra? }`，`(userId, provider)` 唯一。 |
 | **`User.unionID` 冗余列** | **保留并同步**。绑定华为时同时写 `UserBinding` 与 `User.unionID`，兼容现有 `loginWithHuawei`（按 `unionID` findOrCreate）逻辑。 |
-| **鸿蒙主账号在列表中的呈现** | **不落 `UserBinding` 行**，由 `GET` 接口从 `User.openId` / `User.createdAt` **合成**为 `provider='harmony'` 的置顶项（`isPrimary=true`）。理由：主账号是账号身份、不可变、永驻，不属于"绑定关系"语义；这样既满足"列表以 `UserBinding` 为准"（第三方关系唯一真源仍是表），又无需改登录流程、天然防锁死。 |
-| **provider 枚举值** | `'harmony'`（鸿蒙主账号）/ `'huawei'`（华为）/ `'wechat'`（微信，P1）。常量统一定义，避免散落字符串。 |
-| **华为授权交互** | 走 Account Kit **系统级授权页**（复用 `LoginWithHuaweiIDButton` 思路，新做 `HuaweiBindButton` 暴露 `unionID`），非 WebView。前端直接取 `unionID` 调 `POST /v1/account/bindings`（body `{provider, externalId}`），契合既定接口契约。 |
-| **解绑策略** | 鸿蒙主账号**无解绑入口 + DELETE 接口直接 403**；第三方（华为）自由解绑。主账号永驻 → 天然满足"至少一种登录方式"约束。 |
+| **主账号在列表中的呈现** | **不落 `UserBinding` 行**，由 `GET` 接口从 `User.unionID` / `User.createdAt` **合成**为 `provider='huawei'` 的置顶项（`isPrimary=true`）。理由：主账号是账号身份、不可变、永驻，不属于"绑定关系"语义；这样既满足"列表以 `UserBinding` 为准"（第三方关系唯一真源仍是表），又无需改登录流程、天然防锁死。（2026-09-23 起由 `openId` 改为 `unionID` 合成，见变更记录） |
+| **provider 枚举值** | `'huawei'`（华为主账号，即唯一登录方式）/ `'wechat'`（微信，P1）。~~`'harmony'`~~ 已下线。常量统一定义，避免散落字符串。 |
+| **华为授权交互** | 登录走 Account Kit 系统级授权页（`HuaweiLoginButton` 取 `authorizationCode` → 后端 `/v1/auth/huawei/exchange` 换 unionID）。**绑定页不再提供授权入口**（2026-09-23）。 |
+| **解绑策略** | 华为主账号**无解绑入口 + DELETE 接口直接 403**（解绑即置空 `User.unionID`，等于注销登录能力）；第三方（如 P1 微信）可解绑。主账号永驻 → 天然满足"至少一种登录方式"约束。 |
 | **Prisma 变更方式** | 用 `prisma db push`（非 migrate），因 DB 用户无建库权；变更仅为**新增表 + 虚拟关系**（对 `User` 无新增列），属安全可加操作。 |
 
 ---
@@ -381,14 +404,12 @@ classDiagram
 
 ## 7. 共享知识（跨文件约定）
 
-- **provider 枚举值（前后端单一来源）**：
-  - `'harmony'`：鸿蒙主账号（展示、不可绑定/解绑）。
-  - `'huawei'`：华为账号（本期可绑定/解绑，externalId = unionID）。
+- **provider 枚举值（前后端单一来源，2026-09-23 起）**：
+  - `'huawei'`：华为账号 = **唯一登录方式**（主账号，列表合成项，不可绑定/不可解绑，externalId = unionID）。
   - `'wechat'`：微信（P1，本期不出现在后端逻辑，仅类型预留）。
-  - 后端 `accountBindingService.ts` 顶部定义 `ALLOWED_BIND_PROVIDERS = ['huawei']`（可绑定列表，P0 仅 huawei；harmony 由列表合成）；前端 `types.ets` 定义 `Provider` 联合类型。
-- **externalId 脱敏规则**（仅后端返回时脱敏，存储为明文）：
-  - `harmony`：`openId` 较短，保留前 2 后 2，中间 `****`（长度 ≤6 则整体 `****`）。
-  - `huawei` / `wechat`：`unionID/openid` 较长，保留末 4 位 → `'****' + raw.slice(-4)`。
+  - ~~`'harmony'`~~：鸿蒙账号（openId）**已下线**，仅保留 `User.openId` 列与本地 debug 登录路由。
+  - 后端 `accountBindingService.ts` 顶部 `ALLOWED_BIND_PROVIDERS = []`（v1 无主动绑定）；前端 `types.ets` 定义 `Provider` 联合类型。
+- **externalId 脱敏规则**（仅后端返回时脱敏，存储为明文）：统一保留末 4 位 → `'****' + raw.slice(-4)`（原 harmony 的"前 2 后 2"规则随 harmony 一并废弃）。
   - 前端**绝不**接收明文 externalId；列表展示直接用后端返回串。
 - **错误码约定**（复用 `utils/response.ts` 的 `CODE`）：
   - `401` 缺/过期 token（auth 中间件统一返回）。
@@ -398,8 +419,8 @@ classDiagram
   - `404` 待解绑的绑定不存在。
   - `500` 服务端异常。
 - **token 获取方式**：前端从 `AppStorage.get('authToken')` 读取（由 `utils/auth.ets` 的 `setSession` 持久化）；`api.ets` 的 `request` 已自动注入 `Authorization: Bearer <token>`，业务页面无需手动处理。
-- **列表顺序约定**：GET 返回数组固定顺序 = `harmony`(主账号) → `huawei` → `wechat`(P1) → 其他（按 `displayName` 字典序兜底）。后端 `listBindings` 负责排序，前端按序渲染即可。
-- **`isPrimary` 语义**：仅合成的 harmony 主账号项 `isPrimary=true`；`UserBinding` 表内行本期恒为 `false`（未来若支持"纯第三方注册"再启用）。
+- **列表顺序约定**：GET 返回数组固定顺序 = `huawei`(主账号) → `wechat`(P1) → 其他（按 `displayName` 字典序兜底）。后端 `listBindings` 负责排序并跳过 `UserBinding` 中重复的 `huawei` 行，前端按序渲染即可。
+- **`isPrimary` 语义**：仅合成的 huawei 主账号项 `isPrimary=true`；`UserBinding` 表内行本期恒为 `false`（未来若支持"纯第三方注册"再启用）。
 - **越权防护**：所有 `UserBinding` 读写必须以 `req.userId`（JWT 解析）为 `userId` 过滤条件；占用校验排除自身（`NOT { userId }`）。
 
 ---
