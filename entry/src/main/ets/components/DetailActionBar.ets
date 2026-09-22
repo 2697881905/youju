@@ -173,8 +173,8 @@ export struct DetailActionBar {
     }
     .width('100%')
     .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
-    // 底栏与页面同色（canvas）：不再是玻璃浮层，与详情页融为一体
-    .backgroundColor(ColorTokens.canvas)
+    // 不设背景：底栏容器隐身，元素直接浮在页面底色（根节点 bg_primary）上，
+    // 与页面完全同色；内容区的 barBottomReserve 继续保证正文不被遮挡
     .borderRadius(RadiusTokens.none)
     .animation({ duration: MotionTokens.container, curve: MotionCurves.springInteract,
       expectedFrameRateRange: MotionFrameRates.default })
