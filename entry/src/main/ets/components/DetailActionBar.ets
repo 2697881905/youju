@@ -148,21 +148,15 @@ export struct DetailActionBar {
     });
   }
 
-  // 换边转场（对齐 Title 的跟手感）：新旧子元素沿「移动方向」弹性滑动——
-  // 新子元素从对侧滑入（**纯滑动，无淡入**），旧子元素向移动方向滑出并淡出。
-  // 分支重排是销毁重建，同一节点无法连续滑动——用方向性滑动模拟连续迁移观感。
+  // 换边转场：**纯位移**——新旧子元素沿「移动方向」弹性滑动，无任何淡入淡出。
+  // 插入：从对侧偏移滑到 0；删除：从 0 滑到偏移（同一效果双向适用）。
+  // 分支重排是销毁重建，同一节点无法连续滑动——用双向纯位移模拟整组迁移。
   private gripSwapTransition(): TransitionEffect {
-    // 滑动方向：换到右侧布局（inputOnRight=true）→ 子元素从左（-60）进入、
-    // 旧元素向左（-60）退出；换到左侧布局反之。
+    // 滑动方向：换到右侧布局（inputOnRight=true）→ 从左（-60）进入 / 向左（-60）退出；反之从右
     const offset: number = this.inputOnRight ? -60 : 60;
-    const slide: TransitionEffect = TransitionEffect
+    return TransitionEffect
       .translate({ x: offset })
       .animation({ curve: curves.interpolatingSpring(0, 1, 170, 17) });
-    const slideOut: TransitionEffect = TransitionEffect
-      .translate({ x: offset })
-      .combine(TransitionEffect.OPACITY)
-      .animation({ curve: curves.interpolatingSpring(0, 1, 170, 17) });
-    return TransitionEffect.asymmetric(slide, slideOut);
   }
 
   private collapseCancel(): void {
