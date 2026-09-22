@@ -1,27 +1,22 @@
 // 账号绑定路由集成测试（轻量 in-process HTTP，无需 supertest）。
-// mock 两个外部依赖：exchangeCodeForToken / fetchHuaweiUserProfile（复用现有 huaweiAuth），
-// 以及 prisma（避免真实 DB 连接）。覆盖：
-//   缺 token → 401；同 unionID 跨账号 → 409；
-//   DELETE harmony → 403；DELETE 不存在 provider → 404；
-//   正常 bind → list → unbind 路径。
+// mock prisma（避免真实 DB 连接）。覆盖当前契约（v1 单一登录方式 = 华为账号）：
+//   缺 token → 401；POST huawei → 400（登录即绑定，无需重复绑定）；
+//   GET list → 华为主账号置顶且脱敏、跳过 UserBinding 里的 huawei 重复行；
+//   DELETE huawei → 403（解绑即丢失登录能力）；DELETE 不存在 provider → 404；
+//   DELETE wechat 已绑定 → 200 且只删行、不碰 User.unionID。
 import express from 'express';
 import * as http from 'http';
 import jwt from 'jsonwebtoken';
 
-import * as huaweiAuth from '../services/huaweiAuth';
 import router from './account';
 import { env } from '../config/env';
 import { CODE } from '../utils/response';
 
-jest.mock('../services/huaweiAuth', () => ({
-  exchangeCodeForToken: jest.fn(),
-  fetchHuaweiUserProfile: jest.fn(),
-}));
-// postService / tagService 等不在本路由被引用，仅占位 prisma 即可避免真实 DB 连接。
+// 本路由不再经华为换 token（v1 无主动绑定），仅占位 prisma 避免真实 DB 连接。
 jest.mock('../prisma', () => ({
   prisma: {
     user: {
-      findUnique: jest.fn().mockResolvedValue({ deletedAt: null }),
+      findUnique: jest.fn(),
       findFirst: jest.fn(),
       update: jest.fn(),
     },
@@ -38,10 +33,10 @@ jest.mock('../prisma', () => ({
 
 import { prisma } from '../prisma';
 const mockPrisma = prisma as any;
-const mockExchange = huaweiAuth.exchangeCodeForToken as jest.Mock;
-const mockFetchUser = huaweiAuth.fetchHuaweiUserProfile as jest.Mock;
 
 const TEST_USER_ID = 1;
+const TEST_UNION_ID = 'U_ABCDEFG';
+const CREATED_AT = new Date('2026-07-09T08:00:00Z');
 
 // 生成一个经 auth 中间件可验证的合法 Bearer Token
 function authHeader(userId: number = TEST_USER_ID): Record<string, string> {
@@ -70,6 +65,14 @@ afterAll((done) => {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // auth 中间件与 listBindings 共用同一 stub：字段取并集
+  mockPrisma.user.findUnique.mockResolvedValue({
+    id: TEST_USER_ID,
+    deletedAt: null,
+    unionID: TEST_UNION_ID,
+    openId: null,
+    createdAt: CREATED_AT,
+  });
 });
 
 function req(
@@ -115,32 +118,50 @@ describe('GET/POST/DELETE /v1/account/bindings', () => {
     expect(res.json.code).toBe(CODE.BAD_REQUEST);
   });
 
-  it('POST harmony（不允许主动绑定）→ BAD_REQUEST(400)', async () => {
+  it('POST huawei（登录即绑定，不允许主动绑定）→ BAD_REQUEST(400)', async () => {
+    const res = await req('POST', '/v1/account/bindings', { provider: 'huawei', code: 'CODE' }, authHeader());
+    expect(res.status).toBe(400);
+    expect(res.json.code).toBe(CODE.BAD_REQUEST);
+    expect(res.json.message).toContain('无需重复绑定');
+    // 拒绝时不得写 UserBinding，也不得改动 User.unionID（防串号）
+    expect(mockPrisma.userBinding.create).not.toHaveBeenCalled();
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('POST 未知 provider → BAD_REQUEST(400)', async () => {
     const res = await req('POST', '/v1/account/bindings', { provider: 'harmony', code: 'C' }, authHeader());
     expect(res.status).toBe(400);
     expect(res.json.code).toBe(CODE.BAD_REQUEST);
   });
 
-  it('同 unionID 已被其他账号占用 → CONFLICT(409)', async () => {
-    mockExchange.mockResolvedValue('ACCESS_TOKEN');
-    mockFetchUser.mockResolvedValue({ unionID: 'U_DUP' });
-    // UserBinding 中已被 userId=2 占用
-    mockPrisma.userBinding.findFirst.mockResolvedValue({ userId: 2, provider: 'huawei', externalId: 'U_DUP' });
-    mockPrisma.user.findFirst.mockResolvedValue(null);
+  it('GET list → 华为主账号置顶 + 跳过 UserBinding 里的 huawei 重复行', async () => {
+    mockPrisma.userBinding.findMany.mockResolvedValue([
+      { provider: 'huawei', externalId: TEST_UNION_ID, boundAt: new Date('2026-07-18T08:00:00Z'), isPrimary: false },
+      { provider: 'wechat', externalId: 'WX_OPENID_9', boundAt: new Date('2026-07-20T08:00:00Z'), isPrimary: false },
+    ]);
 
-    const res = await req('POST', '/v1/account/bindings', { provider: 'huawei', code: 'CODE' }, authHeader());
+    const res = await req('GET', '/v1/account/bindings', undefined, authHeader());
+    expect(res.status).toBe(200);
+    expect(res.json.code).toBe(0);
 
-    expect(res.status).toBe(409);
-    expect(res.json.code).toBe(CODE.CONFLICT);
-    expect(res.json.message).toContain('已关联其他');
-    // 占用则不应写表
-    expect(mockPrisma.userBinding.create).not.toHaveBeenCalled();
+    const items = res.json.data as any[];
+    expect(items.length).toBe(2); // huawei 主账号 + wechat；huawei 表行被跳过
+    expect(items[0].provider).toBe('huawei');
+    expect(items[0].isPrimary).toBe(true);
+    expect(items[0].status).toBe('primary');
+    expect(items[0].displayName).toBe('华为账号');
+    expect(items[0].externalId).toBe('****' + TEST_UNION_ID.slice(-4)); // 脱敏末 4 位
+    expect(items[1].provider).toBe('wechat');
+    expect(items[1].status).toBe('bound');
   });
 
-  it('DELETE harmony → FORBIDDEN(403)', async () => {
-    const res = await req('DELETE', '/v1/account/bindings/harmony', undefined, authHeader());
+  it('DELETE huawei（主账号/登录方式）→ FORBIDDEN(403)', async () => {
+    const res = await req('DELETE', '/v1/account/bindings/huawei', undefined, authHeader());
     expect(res.status).toBe(403);
     expect(res.json.code).toBe(CODE.FORBIDDEN);
+    // 绝不允许把 User.unionID 置空（否则用户永久失去登录能力）
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+    expect(mockPrisma.userBinding.delete).not.toHaveBeenCalled();
   });
 
   it('DELETE 不存在的 provider → NOT_FOUND(404)', async () => {
@@ -150,57 +171,15 @@ describe('GET/POST/DELETE /v1/account/bindings', () => {
     expect(res.json.code).toBe(CODE.NOT_FOUND);
   });
 
-  it('正常 bind → list → unbind 路径', async () => {
-    // ---- bind ----
-    mockExchange.mockResolvedValue('ACCESS_TOKEN');
-    mockFetchUser.mockResolvedValue({ unionID: 'U_1' });
-    // 占用校验：两处均无他人占用
-    mockPrisma.userBinding.findFirst.mockResolvedValue(null);
-    mockPrisma.user.findFirst.mockResolvedValue(null);
-    mockPrisma.userBinding.create.mockResolvedValue({ boundAt: new Date('2026-07-18T08:00:00Z') });
-    mockPrisma.user.update.mockResolvedValue({});
-
-    const bindRes = await req('POST', '/v1/account/bindings', { provider: 'huawei', code: 'CODE' }, authHeader());
-    expect(bindRes.status).toBe(200);
-    expect(bindRes.json.code).toBe(0);
-    expect(bindRes.json.data.provider).toBe('huawei');
-    expect(bindRes.json.data.status).toBe('bound');
-    expect(bindRes.json.data.externalId).toBe('****' + 'U_1'.slice(-4)); // 脱敏
-    expect(mockPrisma.userBinding.create).toHaveBeenCalledTimes(1);
-    expect(mockPrisma.user.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: TEST_USER_ID }, data: { unionID: 'U_1' } }),
-    );
-
-    // ---- list：harmony 置顶 + huawei 已绑定 ----
-    mockPrisma.user.findUnique.mockResolvedValue({
-      openId: 'openid1234',
-      createdAt: new Date('2026-07-09T08:00:00Z'),
-    });
-    mockPrisma.userBinding.findMany.mockResolvedValue([
-      { provider: 'huawei', externalId: 'U_1', boundAt: new Date('2026-07-18T08:00:00Z'), isPrimary: false },
-    ]);
-    const listRes = await req('GET', '/v1/account/bindings', undefined, authHeader());
-    expect(listRes.status).toBe(200);
-    expect(listRes.json.code).toBe(0);
-    const items = listRes.json.data as any[];
-    expect(items.length).toBe(2);
-    expect(items[0].provider).toBe('harmony');
-    expect(items[0].isPrimary).toBe(true);
-    expect(items[0].status).toBe('primary');
-    expect(items[0].externalId).toBe('op****34'); // harmony 保留前2后2
-    expect(items[1].provider).toBe('huawei');
-    expect(items[1].status).toBe('bound');
-
-    // ---- unbind ----
-    mockPrisma.userBinding.findUnique.mockResolvedValue({ userId: TEST_USER_ID, provider: 'huawei' });
+  it('DELETE wechat 已绑定 → 200 且只删行、不动 User.unionID', async () => {
+    mockPrisma.userBinding.findUnique.mockResolvedValue({ userId: TEST_USER_ID, provider: 'wechat' });
     mockPrisma.userBinding.delete.mockResolvedValue({});
-    const unbindRes = await req('DELETE', '/v1/account/bindings/huawei', undefined, authHeader());
-    expect(unbindRes.status).toBe(200);
-    expect(unbindRes.json.code).toBe(0);
-    expect(unbindRes.json.data.unbound).toBe(true);
+
+    const res = await req('DELETE', '/v1/account/bindings/wechat', undefined, authHeader());
+    expect(res.status).toBe(200);
+    expect(res.json.code).toBe(0);
+    expect(res.json.data.unbound).toBe(true);
     expect(mockPrisma.userBinding.delete).toHaveBeenCalledTimes(1);
-    expect(mockPrisma.user.update).toHaveBeenLastCalledWith(
-      expect.objectContaining({ where: { id: TEST_USER_ID }, data: { unionID: null } }),
-    );
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
   });
 });

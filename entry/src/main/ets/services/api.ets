@@ -630,18 +630,19 @@ export function listMyCommentedPosts(page: number = 1, limit: number = 20): Prom
 }
 
 // ===== 账号绑定管理 =====
-// GET /v1/account/bindings（当前用户全部绑定，harmony 主账号置顶）
+// GET /v1/account/bindings（当前用户全部绑定，华为主账号置顶）
 export function listBindings(): Promise<BindingItem[]> {
   return api.get<BindingItem[]>('/v1/account/bindings');
 }
 
 // POST /v1/account/bindings（绑定第三方，code 变体）
+// ⚠️ v1 无主动绑定场景：华为账号即登录方式（后端对 huawei 返回 400），微信尚未接入。
 export function bindAccount(provider: Provider, code: string): Promise<BindingItem> {
   const body: BindAccountBody = { provider, code };
   return api.post<BindingItem>('/v1/account/bindings', body);
 }
 
-// DELETE /v1/account/bindings/:provider（解绑第三方，harmony 不可解绑）
+// DELETE /v1/account/bindings/:provider（解绑第三方，华为主账号后端返回 403）
 export function unbindAccount(provider: Provider): Promise<UnbindResult> {
   return api.del<UnbindResult>('/v1/account/bindings/' + provider);
 }

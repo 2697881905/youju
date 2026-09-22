@@ -1,9 +1,12 @@
-// 账号绑定管理页（核心）：列表（harmony 主账号置顶 + 第三方）+ 绑定/解绑 + 二次确认 + 空状态。
+// 账号绑定管理页：展示当前可用于登录有据的账号。
+// ⚠️ v1 采用单一登录方式：只用华为账号（AccountKit → unionID）登录，登录即绑定。
+//    早期并列的「鸿蒙账号（openId）」已废弃（生产禁用 openId 登录、新用户 openId 恒为 null），
+//    故本页只展示华为主账号（不可解绑）+ 未来接入的第三方（如微信，可解绑），
+//    不再提供「去绑定华为」入口——重复绑定会覆盖 User.unionID，存在串号风险。
 // 入口：设置页 → 账号绑定。遵循现有深色主题与 safeShowToast 提示风格。
 
 import { BindingItem, Provider, User } from '../models/types';
-import { listBindings, bindAccount, unbindAccount } from '../services/api';
-import { HuaweiBindButton } from '../components/HuaweiBindButton';
+import { listBindings, unbindAccount } from '../services/api';
 import { ensureLogin } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
@@ -16,7 +19,7 @@ import { BackButton } from '../design/components/BackButton';
 struct AccountBindingPage {
   @State bindings: BindingItem[] = [];
   @State loading: boolean = false;
-  @State pendingUnbindProvider: Provider = 'huawei';
+  @State pendingUnbindProvider: Provider = 'wechat';
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
 
   aboutToAppear(): void {
@@ -49,23 +52,7 @@ struct AccountBindingPage {
     }
   }
 
-  // 华为绑定按钮成功回调（拿到 authorizationCode）
-  private async handleBindHuawei(code: string): Promise<void> {
-    try {
-      await bindAccount('huawei', code);
-      safeShowToast(this.getUIContext(), { message: '绑定成功' });
-      await this.loadBindings();
-    } catch (e) {
-      safeShowToast(this.getUIContext(), { message: (e as Error).message });
-    }
-  }
-
-  private handleBindFailure(error: string | Error): void {
-    const msg: string = typeof error === 'string' ? error : error.message;
-    safeShowToast(this.getUIContext(), { message: msg || '华为授权失败' });
-  }
-
-  // 二次确认后执行解绑
+  // 二次确认后执行解绑（仅第三方账号；华为主账号由后端 403 兜底）
   private async confirmUnbind(): Promise<void> {
     const provider: Provider = this.pendingUnbindProvider;
     try {
@@ -75,15 +62,6 @@ struct AccountBindingPage {
     } catch (e) {
       safeShowToast(this.getUIContext(), { message: (e as Error).message });
     }
-  }
-
-  private isHuaweiBound(): boolean {
-    for (const b of this.bindings) {
-      if (b.provider === 'huawei') {
-        return true;
-      }
-    }
-    return false;
   }
 
   // 绑定时间格式化：'YYYY-MM-DD 绑定'
@@ -114,13 +92,14 @@ struct AccountBindingPage {
     .margin({ right: 13 })
   }
 
+  // 华为主账号行：置顶、标记主账号、无解绑入口
   @Builder
-  harmonyRow(item: BindingItem) {
+  primaryRow(item: BindingItem) {
     Row() {
-      this.providerTile('harmony')
+      this.providerTile('huawei')
       Column({ space: 4 }) {
         Row() {
-          Text(item.displayName)
+          Text('华为账号')
             .fontSize(17).fontFamily($r('app.string.font_family'))
             .fontWeight(FontWeight.Medium)
             .fontColor($r('app.color.text_primary'))
@@ -129,7 +108,7 @@ struct AccountBindingPage {
             .fontColor($r('app.color.text_secondary'))
             .margin({ left: 8 })
         }
-        Text(this.formatBoundAt(item.boundAt))
+        Text(this.primarySubtitle(item))
           .fontSize(13).fontFamily($r('app.string.font_family'))
           .fontColor($r('app.color.text_secondary'))
       }
@@ -143,6 +122,17 @@ struct AccountBindingPage {
     .shadow(CARD_SHADOW)
   }
 
+  // 主账号副标题：脱敏尾号 + 绑定时间
+  private primarySubtitle(item: BindingItem): string {
+    const time: string = this.formatBoundAt(item.boundAt);
+    const masked: string = item.externalId ? item.externalId : '****';
+    if (time === '') {
+      return masked;
+    }
+    return masked + ' · ' + time;
+  }
+
+  // 第三方已绑定行（当前仅预留给微信等未来接入的 provider）
   @Builder
   boundRow(item: BindingItem) {
     Row() {
@@ -152,7 +142,7 @@ struct AccountBindingPage {
           .fontSize(17).fontFamily($r('app.string.font_family'))
           .fontWeight(FontWeight.Medium)
           .fontColor($r('app.color.text_primary'))
-        Text(this.formatBoundAt(item.boundAt))
+        Text(this.primarySubtitle(item))
           .fontSize(13).fontFamily($r('app.string.font_family'))
           .fontColor($r('app.color.text_secondary'))
       }
@@ -164,8 +154,8 @@ struct AccountBindingPage {
         .onClick(() => {
           this.pendingUnbindProvider = item.provider;
           this.getUIContext().showAlertDialog({
-            title: '解绑华为账号？',
-            message: '解绑后你将无法使用华为账号登录有据，但仍可用鸿蒙主账号登录。',
+            title: '解绑该账号？',
+            message: '解绑后你将无法使用该账号登录有据，华为账号仍可正常登录。',
             primaryButton: {
               value: '确定解绑',
               fontColor: $r('app.color.semantic_red'),
@@ -187,49 +177,6 @@ struct AccountBindingPage {
     .backgroundColor($r('app.color.card_bg'))
     .borderRadius(CARD_RADIUS)
     .shadow(CARD_SHADOW)
-  }
-
-  // 华为未绑定行（兼作「空状态」：引导文案 + 去绑定按钮）
-  @Builder
-  huaweiUnboundRow() {
-    Column({ space: 12 }) {
-      Row() {
-        this.providerTile('huawei')
-        Column({ space: 4 }) {
-          Text('华为账号')
-            .fontSize(17).fontFamily($r('app.string.font_family'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('app.color.text_primary'))
-          Text('绑定后可用华为账号快捷登录')
-            .fontSize(13).fontFamily($r('app.string.font_family'))
-            .fontColor($r('app.color.text_secondary'))
-        }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
-      }
-      .width('100%')
-      .padding(16)
-      .backgroundColor($r('app.color.card_bg'))
-      .borderRadius(CARD_RADIUS)
-      .shadow(CARD_SHADOW)
-
-      Column({ space: 10 }) {
-        Text('暂未绑定第三方账号，绑定后可在其他设备用华为一键登录。')
-          .fontSize(13).fontFamily($r('app.string.font_family'))
-          .fontColor($r('app.color.text_secondary'))
-        HuaweiBindButton({
-          onHuaweiBindSuccess: (code: string): void => {
-            this.handleBindHuawei(code);
-          },
-          onHuaweiBindFailure: (error: string | Error): void => {
-            this.handleBindFailure(error);
-          },
-        })
-      }
-      .width('100%')
-      .padding({ left: 16, right: 16, top: 4, bottom: 8 })
-      .alignItems(HorizontalAlign.Start)
-    }
   }
 
   build() {
@@ -268,17 +215,12 @@ struct AccountBindingPage {
       } else {
         Column({ space: 12 }) {
           ForEach(this.bindings, (item: BindingItem) => {
-            if (item.provider === 'harmony') {
-              this.harmonyRow(item)
+            if (item.provider === 'huawei') {
+              this.primaryRow(item)
             } else {
               this.boundRow(item)
             }
           }, (item: BindingItem) => item.provider)
-
-          // 华为未绑定 → 绑定行（兼作空状态引导）
-          if (!this.isHuaweiBound()) {
-            this.huaweiUnboundRow()
-          }
         }
         .width('100%')
         .padding(16)
@@ -286,7 +228,7 @@ struct AccountBindingPage {
       }
 
       // 底部安全提示
-      Text('解绑后将无法使用该方式登录；鸿蒙账号为主账号，不可解绑。')
+      Text('华为账号是你的登录方式，登录即完成绑定，不支持解绑。')
         .fontSize(13).fontFamily($r('app.string.font_family'))
         .fontColor($r('app.color.text_secondary'))
         .width('100%')
