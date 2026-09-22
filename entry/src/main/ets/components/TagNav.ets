@@ -109,6 +109,7 @@ export struct TagNav {
             Image(resolveActionIcon('chevronDown'))
               .width(IconTokens.compact)
               .height(IconTokens.compact)
+              .fillColor(ColorTokens.secondary)
           }
           .width(this.dropdownOnly ? 88 : LayoutTokens.minTouchTarget)
           .height(LayoutTokens.segmentedHeight)

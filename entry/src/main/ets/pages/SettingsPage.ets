@@ -263,6 +263,7 @@ export struct SettingsPage {
               Image(resolveSettingsIcon('system'))
                 .width(22).height(22)
                 .objectFit(ImageFit.Contain)
+                .fillColor($r('app.color.text_secondary'))
               Column({ space: 2 }) {
                 Text('跟随系统')
                   .fontSize(16).fontFamily($r('app.string.font_family'))
@@ -289,6 +290,7 @@ export struct SettingsPage {
               Image(resolveSettingsIcon('dark'))
                 .width(22).height(22)
                 .objectFit(ImageFit.Contain)
+                .fillColor($r('app.color.text_secondary'))
               Column({ space: 2 }) {
                 Text('深色模式')
                   .fontSize(16).fontFamily($r('app.string.font_family'))
@@ -316,6 +318,7 @@ export struct SettingsPage {
               Image(resolveSettingsIcon('system'))
                 .width(22).height(22)
                 .objectFit(ImageFit.Contain)
+                .fillColor($r('app.color.text_secondary'))
               Column({ space: 2 }) {
                 Text('减少动态效果')
                   .fontSize(16).fontFamily($r('app.string.font_family'))

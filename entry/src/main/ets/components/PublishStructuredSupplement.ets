@@ -113,6 +113,7 @@ export struct PublishStructuredSupplement {
             Image(this.expanded ? resolveActionIcon('chevronUp') : resolveActionIcon('chevronDown'))
               .width(IconTokens.compact)
               .height(IconTokens.compact)
+              .fillColor(ColorTokens.secondary)
           }
           .width('100%')
           .alignItems(VerticalAlign.Center)
