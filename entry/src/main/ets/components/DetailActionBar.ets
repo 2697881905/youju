@@ -78,6 +78,14 @@ export struct DetailActionBar {
   // 点赞/收藏按钮组的自然宽度（未聚焦时实测一次）。聚焦时把它动画到 0，
   // 输入框就在逐帧布局中平滑铺满整行 —— 见 focusExpand/focusCollapse 的注释。
   @State actionsW: number = 0;
+  // 智感握姿（官方 SmartReach 范式）：底部组件随握持手跟手换边——
+  // 右手握持：输入+发送靠右、点赞/收藏靠左；左手握持：整体镜像。
+  // holdingHandStatus 由 gripAwareness 写入（1=左手 2=右手 0=未握持/不支持，离手不触发迁移）。
+  @StorageProp('holdingHandStatus') @Watch('onHoldingHandChanged') holdingHandStatus: number = 0;
+  // 输入组贴边侧：true = 输入+发送靠右（默认右手布局）；false = 靠左（左手镜像）
+  @State inputOnRight: boolean = true;
+  // 输入聚焦期间收到换边：先挂起、失焦后再翻转 —— 分支重排会重建输入框丢焦点
+  @State pendingOnRight: boolean = true;
   onUp: () => void = (): void => {};
   onBookmark: () => void = (): void => {};
   onSendComment: () => void = (): void => {};
@@ -102,6 +110,49 @@ export struct DetailActionBar {
     }, (): void => {
       this.inputFocused = focused;
     });
+    // 失焦时应用聚焦期间挂起的握姿换边（换边会重建输入框，聚焦期间只能挂起）
+    if (!focused && this.pendingOnRight !== this.inputOnRight) {
+      this.applyInputSide(this.pendingOnRight);
+    }
+  }
+
+  // 握持手变化 → 输入组跟手换边（官方 SmartReach 范式：底部组件随握持手左右迁移）。
+  // 右手：输入+发送靠右、点赞/收藏靠左；左手：整体镜像。0=未握持/不支持保持当前侧。
+  onHoldingHandChanged(): void {
+    const wantRight: boolean = this.holdingHandStatus === 2;
+    if (wantRight === this.inputOnRight) {
+      this.pendingOnRight = wantRight;
+      return;
+    }
+    // 聚焦输入期间换边会重建输入框（if/else 分支重排）丢焦点，先挂起、失焦再翻转
+    if (this.inputFocused) {
+      this.pendingOnRight = wantRight;
+      return;
+    }
+    this.applyInputSide(wantRight);
+  }
+
+  private applyInputSide(right: boolean): void {
+    this.pendingOnRight = right;
+    if (right === this.inputOnRight) {
+      return;
+    }
+    // 换边是分支重排（结构变化），包进 animateTo 让新旧子元素走淡入淡出转场
+    this.getUIContext().animateTo({
+      duration: MotionTokens.container,
+      curve: MotionCurves.springInteract,
+      expectedFrameRateRange: MotionFrameRates.default,
+    }, (): void => {
+      this.inputOnRight = right;
+    });
+  }
+
+  // 换边时新旧子元素的进出场（轻淡入 + 微缩放）
+  private gripSwapTransition(): TransitionEffect {
+    return TransitionEffect.OPACITY
+      .animation({ duration: MotionTokens.container, curve: MotionCurves.springInteract })
+      .combine(TransitionEffect.scale({ x: MotionTokens.enterScale, y: MotionTokens.enterScale })
+        .animation({ duration: MotionTokens.container, curve: MotionCurves.springInteract }));
   }
 
   private collapseCancel(): void {
@@ -115,62 +166,96 @@ export struct DetailActionBar {
     });
   }
 
-  build() {
-    // 注意：这里不用 Row({ space })。space 由父容器插入、不随子元素折叠而收缩，
-    // 会让输入框差一段间距铺不满；改用各子元素自己的 margin（margin 是 animateTo 可插值的布局属性）。
+  // 点赞/收藏组：整组折叠（宽度 + 透明度 + 外边距一起动画），而不是用 if 把它从布局里摘掉
+  @Builder
+  actionsGroup() {
+    Row({ space: SpaceTokens.md }) {
+      DetailActionButton({ icon: resolveActionIcon('like'), activeIcon: resolveActionIcon('likeActive'),
+        label: formatCount(this.upCount), active: this.uped, activeColor: ColorTokens.like,
+        disabled: this.upPending, feedbackVersion: this.upFeedbackVersion,
+        iconSize: 24, onAction: (): void => { this.onUp(); } })
+      DetailActionButton({ icon: resolveActionIcon('bookmark'), activeIcon: resolveActionIcon('bookmarkActive'),
+        label: formatCount(this.bookmarkCount), active: this.bookmarked, activeColor: ColorTokens.bookmark,
+        disabled: this.bookmarkPending, feedbackVersion: this.bookmarkFeedbackVersion,
+        iconSize: 24, onAction: (): void => { this.onBookmark(); } })
+    }
+    // actionsW 实测前用 'auto'（内容宽度）兜底，实测后一律走数值，保证 0 ↔ 自然宽 是纯数值插值
+    .width(this.inputFocused ? 0 : (this.actionsW > 0 ? this.actionsW : 'auto'))
+    .opacity(this.inputFocused ? 0 : 1)
+    .clip(true)
+    // 组与输入框之间的间距：镜像布局时间距朝向输入框的一侧随之翻转
+    .margin(this.inputFocused
+      ? { left: 0, right: 0 }
+      : (this.inputOnRight ? { right: SpaceTokens.md } : { left: SpaceTokens.md }))
+    .hitTestBehavior(this.inputFocused ? HitTestMode.None : HitTestMode.Default)
+    .onAreaChange((_oldValue: Area, newValue: Area): void => {
+      if (this.inputFocused) {
+        return;
+      }
+      const w: number = parseFloat(String(newValue.width));
+      if (w > 0 && Math.abs(w - this.actionsW) > 0.5) {
+        this.actionsW = w;
+      }
+    })
+    .transition(this.gripSwapTransition())
+  }
+
+  @Builder
+  inputField() {
+    GlowInput({ placeholder: this.replyName.length > 0 ? ('回复 @' + this.replyName) : '说点什么…',
+      text: $commentText, fillWidth: true, inputHeight: COMPACT_CONTROL_HEIGHT, radius: RadiusTokens.sm,
+      fontSize: 14, segmentStyle: true,
+      onFocusChanged: (focused: boolean): void => { this.applyFocusLayout(focused); },
+      onEnter: (): void => { this.onSendComment(); } })
+  }
+
+  @Builder
+  sendButton() {
+    Text('发送').height(COMPACT_CONTROL_HEIGHT)
+      .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+      .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+      .fontWeight(TypeTokens.headline.weight).fontColor(ColorTokens.onBrand)
+      .backgroundColor(ColorTokens.brand).borderRadius(RadiusTokens.pill)
+      // 间距朝输入框一侧：镜像时翻转
+      .margin(this.inputOnRight ? { left: SpaceTokens.md } : { right: SpaceTokens.md })
+      .onClick((): void => { this.onSendComment(); })
+      .transition(this.gripSwapTransition())
+  }
+
+  @Builder
+  cancelButton() {
+    // 取消键：同样折叠而不是 if 摘除（宽度固定 36，直接数值插值）
     Row() {
-      // 点赞/收藏：整组折叠（宽度 + 透明度 + 外边距一起动画），而不是用 if 把它从布局里摘掉
-      Row({ space: SpaceTokens.md }) {
-        DetailActionButton({ icon: resolveActionIcon('like'), activeIcon: resolveActionIcon('likeActive'),
-          label: formatCount(this.upCount), active: this.uped, activeColor: ColorTokens.like,
-          disabled: this.upPending, feedbackVersion: this.upFeedbackVersion,
-          iconSize: 24, onAction: (): void => { this.onUp(); } })
-        DetailActionButton({ icon: resolveActionIcon('bookmark'), activeIcon: resolveActionIcon('bookmarkActive'),
-          label: formatCount(this.bookmarkCount), active: this.bookmarked, activeColor: ColorTokens.bookmark,
-          disabled: this.bookmarkPending, feedbackVersion: this.bookmarkFeedbackVersion,
-          iconSize: 24, onAction: (): void => { this.onBookmark(); } })
+      Text('×').width(COMPACT_ROW_HEIGHT).height(COMPACT_ROW_HEIGHT)
+        .fontSize(22).textAlign(TextAlign.Center).fontColor(ColorTokens.secondary)
+        .onClick((): void => { this.collapseCancel(); this.onCancelReply(); })
+    }
+    .width(this.showCancel() ? COMPACT_ROW_HEIGHT : 0)
+    .opacity(this.showCancel() ? 1 : 0)
+    .clip(true)
+    .margin(this.showCancel()
+      ? (this.inputOnRight ? { left: SpaceTokens.md } : { right: SpaceTokens.md })
+      : { left: 0, right: 0 })
+    .hitTestBehavior(this.showCancel() ? HitTestMode.Default : HitTestMode.None)
+    .transition(this.gripSwapTransition())
+  }
+
+  build() {
+    // 注意：不用 Row({ space })，间距全走各子元素自己的 margin（可插值）。
+    // 智感握姿：输入组随握持手换边（右手=输入在右；左手=输入在左），
+    // 分支重排时子元素走 gripSwapTransition 淡入淡出。
+    Row() {
+      if (this.inputOnRight) {
+        this.actionsGroup()
+        this.inputField()
+        this.sendButton()
+        this.cancelButton()
+      } else {
+        this.cancelButton()
+        this.sendButton()
+        this.inputField()
+        this.actionsGroup()
       }
-      // actionsW 实测前用 'auto'（内容宽度）兜底，实测后一律走数值，保证 0 ↔ 自然宽 是纯数值插值
-      .width(this.inputFocused ? 0 : (this.actionsW > 0 ? this.actionsW : 'auto'))
-      .opacity(this.inputFocused ? 0 : 1)
-      .clip(true)
-      .margin({ right: this.inputFocused ? 0 : SpaceTokens.md })
-      .hitTestBehavior(this.inputFocused ? HitTestMode.None : HitTestMode.Default)
-      .onAreaChange((_oldValue: Area, newValue: Area): void => {
-        if (this.inputFocused) {
-          return;
-        }
-        const w: number = parseFloat(String(newValue.width));
-        if (w > 0 && Math.abs(w - this.actionsW) > 0.5) {
-          this.actionsW = w;
-        }
-      })
-
-      GlowInput({ placeholder: this.replyName.length > 0 ? ('回复 @' + this.replyName) : '说点什么…',
-        text: $commentText, fillWidth: true, inputHeight: COMPACT_CONTROL_HEIGHT, radius: RadiusTokens.sm,
-        fontSize: 14, segmentStyle: true,
-        onFocusChanged: (focused: boolean): void => { this.applyFocusLayout(focused); },
-        onEnter: (): void => { this.onSendComment(); } })
-
-      Text('发送').height(COMPACT_CONTROL_HEIGHT)
-        .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-        .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-        .fontWeight(TypeTokens.headline.weight).fontColor(ColorTokens.onBrand)
-        .backgroundColor(ColorTokens.brand).borderRadius(RadiusTokens.pill)
-        .margin({ left: SpaceTokens.md })
-        .onClick((): void => { this.onSendComment(); })
-
-      // 取消键：同样折叠而不是 if 摘除（宽度固定 36，直接数值插值）
-      Row() {
-        Text('×').width(COMPACT_ROW_HEIGHT).height(COMPACT_ROW_HEIGHT)
-          .fontSize(22).textAlign(TextAlign.Center).fontColor(ColorTokens.secondary)
-          .onClick((): void => { this.collapseCancel(); this.onCancelReply(); })
-      }
-      .width(this.showCancel() ? COMPACT_ROW_HEIGHT : 0)
-      .opacity(this.showCancel() ? 1 : 0)
-      .clip(true)
-      .margin({ left: this.showCancel() ? SpaceTokens.md : 0 })
-      .hitTestBehavior(this.showCancel() ? HitTestMode.Default : HitTestMode.None)
     }
     .width('100%')
     .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
