@@ -16,6 +16,9 @@ import { ColorTokens } from '../design/tokens/color';
 const TAG: string = 'PostDetailDest';
 // 详情页里充当「卡片对应节点」的组件 id：整页缩放到「该节点宽 == 卡片宽」再展开
 const HERO_ID: string = 'detailHeroMedia';
+// 页面根的 id：用来量出「页面内容原点」的窗口位置。官方直接用节点的窗口坐标做初值，
+// 隐含「页面原点 == 窗口原点」；这里显式量一下，避免因状态栏避让差异整体偏移。
+const PAGE_ROOT_ID: string = 'detailPageRoot';
 
 @Component
 export struct PostDetailDestination {
@@ -55,7 +58,7 @@ export struct PostDetailDestination {
         const ui: UIContext = this.getUIContext();
         const winWpx: number = display.getDefaultDisplaySync().width;
         // 初值必须在动画开始这一刻量：此时本页已完成布局
-        this.anim.initParams(ui, HERO_ID, winWpx);
+        this.anim.initParams(ui, HERO_ID, PAGE_ROOT_ID, winWpx);
         if (LongTakeTransition.getInstance().operation === NavigationOperation.PUSH) {
           this.anim.doEnter(ui, proxy);
         } else {
@@ -93,6 +96,7 @@ export struct PostDetailDestination {
         .width('100%')
         // 把「对应节点」挪到卡片位置
         .position({ x: this.anim.posX, y: this.anim.posY })
+        .id(PAGE_ROOT_ID)
       }
       .scale({ x: this.anim.scale, y: this.anim.scale })
       .translate({ x: this.anim.tx, y: this.anim.ty })
