@@ -41,6 +41,8 @@ export struct GlowInput {
   @Prop fillWidth: boolean = true;
   // 输入框高度（不叫 height，避开 CustomComponent 基类同名方法）
   @Prop inputHeight: number = LayoutTokens.minTouchTarget;
+  // 文字/占位字号（fp；默认 16 = TextInput 系统默认，既有使用方不传则视觉不变）
+  @Prop fontSize: number = 16;
   @Prop radius: number = RadiusTokens.floatingBar;
   // 分段栏同款样式（搜索框试点）：半透明白玻璃底 + backdropBlur + 1px 高光边框 + lg 圆角，
   // 与 SegmentedControl immersive 完全同规格，视觉上输入框与分段栏属于同一材质体系
@@ -101,6 +103,7 @@ export struct GlowInput {
 
       TextInput({ placeholder: this.placeholder, text: this.text })
         .fontFamily(TypeTokens.fontFamily)
+        .fontSize(this.fontSize)
         .fontColor(ColorTokens.primary)
         .width('100%')
         .height(this.inputHeight)
