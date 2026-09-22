@@ -159,7 +159,7 @@ export struct SearchPanel {
         Image($r('app.media.history'))
           .width(IconTokens.compact)
           .height(IconTokens.compact)
-          .fillColor(ColorTokens.secondary)
+          .fillColor(ColorTokens.icon)
         Text(keyword)
           .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
           .fontWeight(TypeTokens.callout.weight)
@@ -187,7 +187,7 @@ export struct SearchPanel {
           Image($r('app.media.empty_search'))
             .width(IconTokens.small)
             .height(IconTokens.small)
-            .fillColor(ColorTokens.secondary)
+            .fillColor(ColorTokens.icon)
         }
         .width(LayoutTokens.minTouchTarget)
         .height(LayoutTokens.minTouchTarget)
@@ -225,7 +225,7 @@ export struct SearchPanel {
                           .width(IconTokens.compact)
                           .height(IconTokens.compact)
                           .opacity(0.75)
-                          .fillColor(ColorTokens.secondary)
+                          .fillColor(ColorTokens.icon)
                         Text(kw)
                           .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
                           .fontColor(ColorTokens.primary)
@@ -274,7 +274,7 @@ export struct SearchPanel {
                     Image($r('app.media.set_trash'))
                       .width(IconTokens.compact)
                       .height(IconTokens.compact)
-                      .fillColor(ColorTokens.secondary)
+                      .fillColor(ColorTokens.icon)
                   }
                 }
                 .width('100%')

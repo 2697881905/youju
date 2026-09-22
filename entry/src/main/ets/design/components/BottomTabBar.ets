@@ -144,14 +144,14 @@ export struct BottomTabBar {
           x: this.shouldReduceMotion() ? 1 : 1.08,
           y: this.shouldReduceMotion() ? 1 : 1.08,
         })
-        .fillColor(ColorTokens.secondary)
+        .fillColor(ColorTokens.icon)
         .draggable(false)
     } else {
       Image(item.icon)
         .width(IconTokens.tabBar)
         .height(IconTokens.tabBar)
         .scale({ x: 1, y: 1 })
-        .fillColor(ColorTokens.secondary)
+        .fillColor(ColorTokens.icon)
         .draggable(false)
     }
   }

@@ -30,7 +30,7 @@ export struct DetailToolbar {
           Image(resolveActionIcon('share'))
             .width(IconTokens.standard)
             .height(IconTokens.standard)
-            .fillColor(ColorTokens.secondary)
+            .fillColor(ColorTokens.icon)
             .draggable(false)
         }
         .width(LayoutTokens.minTouchTarget)
@@ -44,7 +44,7 @@ export struct DetailToolbar {
           Image(resolveActionIcon('more'))
             .width(IconTokens.standard)
             .height(IconTokens.standard)
-            .fillColor(ColorTokens.secondary)
+            .fillColor(ColorTokens.icon)
             .draggable(false)
         }
         .width(LayoutTokens.minTouchTarget)

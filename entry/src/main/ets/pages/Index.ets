@@ -540,13 +540,13 @@ struct Index {
             Image(this.bottomTabItems()[index].icon)
               .width(24).height(24)
               .objectFit(ImageFit.Contain)
-              .fillColor($r('app.color.ds_text_secondary'))
+              .fillColor($r('app.color.ds_icon'))
           }
         } else {
           Image(this.bottomTabItems()[index].icon)
             .width(24).height(24)
             .objectFit(ImageFit.Contain)
-            .fillColor($r('app.color.ds_text_secondary'))
+            .fillColor($r('app.color.ds_icon'))
         }
       }
       .width(28).height(28)

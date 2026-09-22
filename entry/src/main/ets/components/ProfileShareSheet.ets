@@ -148,7 +148,7 @@ export struct ProfileShareSheet {
         Column() {
           Image(resolveActionIcon(iconName))
             .width(24).height(24)
-            .fillColor(ColorTokens.secondary)
+            .fillColor(ColorTokens.icon)
         }
         .width(48).height(48)
         .backgroundColor(ColorTokens.sunken)

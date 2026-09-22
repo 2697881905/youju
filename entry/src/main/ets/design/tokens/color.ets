@@ -7,6 +7,9 @@ export class ColorTokens {
 
   static readonly primary: ResourceColor = $r('app.color.ds_text_primary');
   static readonly secondary: ResourceColor = $r('app.color.ds_text_secondary');
+  // 图标专用色：浅色与次要文字同色（#3F3A2E），深色为纯白。
+  // 与次要文字分开放的原因：深色下次要文字用暖棕白（#B9B09A），图标线条用纯白，可视对比更好。
+  static readonly icon: ResourceColor = $r('app.color.ds_icon');
   static readonly tertiary: ResourceColor = $r('app.color.ds_text_tertiary');
   static readonly quaternary: ResourceColor = $r('app.color.ds_text_quaternary');
 

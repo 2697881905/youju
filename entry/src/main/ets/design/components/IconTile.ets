@@ -23,7 +23,7 @@ export struct IconTile {
       Image(this.icon)
         .width(this.iconSize)
         .height(this.iconSize)
-        .fillColor(ColorTokens.secondary)
+        .fillColor(ColorTokens.icon)
     }
     .width(this.tileSize)
     .height(this.tileSize)

@@ -770,7 +770,7 @@ export struct ChatView {
               .height(IconTokens.small)
               .objectFit(ImageFit.Contain)
               .opacity(0.9)
-              .fillColor(ColorTokens.secondary)
+              .fillColor(ColorTokens.icon)
             Text(this.fileNameOf(m.content))
               .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
               .fontWeight(TypeTokens.body.weight)

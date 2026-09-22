@@ -150,7 +150,7 @@ export struct ShareSheet {
         Column() {
           Image(resolveActionIcon(iconName))
             .width(24).height(24)
-            .fillColor(ColorTokens.secondary)
+            .fillColor(ColorTokens.icon)
         }
         .width(48).height(48)
         .backgroundColor(ColorTokens.sunken)
@@ -195,7 +195,7 @@ export struct ShareSheet {
             Column() {
               Image(resolveActionIcon('check'))
                 .width(20).height(20)
-                .fillColor(ColorTokens.secondary)
+                .fillColor(ColorTokens.icon)
             }
             .width(AVATAR_SIZE).height(AVATAR_SIZE)
             .borderRadius(AVATAR_SIZE / 2)

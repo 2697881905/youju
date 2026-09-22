@@ -754,7 +754,7 @@ export struct HomeTab {
                 Image(resolveActionIcon('search'))
                   .width(IconTokens.small)
                   .height(IconTokens.small)
-                  .fillColor(ColorTokens.secondary)
+                  .fillColor(ColorTokens.icon)
               }
               .width(LayoutTokens.minTouchTarget)
               .height(LayoutTokens.minTouchTarget)

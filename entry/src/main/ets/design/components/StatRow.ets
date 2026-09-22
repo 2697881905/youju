@@ -59,7 +59,7 @@ export struct StatRow {
             .width(this.compact ? 14 : IconTokens.compact)
             .height(this.compact ? 14 : IconTokens.compact)
             .scale({ x: this.animLikePulse, y: this.animLikePulse })
-            .fillColor(this.liked ? ColorTokens.like : ColorTokens.secondary)
+            .fillColor(this.liked ? ColorTokens.like : ColorTokens.icon)
           CountRoll({
             value: this.likeCount,
             prefix: '顶 ',
@@ -76,7 +76,7 @@ export struct StatRow {
           Image(resolveActionIcon('comment'))
             .width(IconTokens.compact)
             .height(IconTokens.compact)
-            .fillColor(ColorTokens.secondary)
+            .fillColor(ColorTokens.icon)
           Text(formatCount(this.commentCount))
             .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
             .fontWeight(TypeTokens.caption.weight)
