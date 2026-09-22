@@ -841,13 +841,15 @@ export struct PostDetailView {
     }
   }
 
-  // 打开帖子数据面板（作者本人）：请求聚合数据并弹窗展示
+  // 打开帖子数据面板（作者本人）：重置旧数据防串帖 → 弹窗 → 拉取
   private showPostStats(): void {
     const postId: number = this.post?.id ?? this.pid;
     if (isNaN(postId) || postId <= 0) {
       safeShowToast(this.getUIContext(), { message: '无效帖子ID' });
       return;
     }
+    // 先清掉上一帖的数据：面板经 @Prop 同步，带着旧数据开窗会在加载期间串帖
+    this.postStats = null;
     this.statsLoading = true;
     this.statsError = '';
     this.statsDialog = new CustomDialogController({
@@ -855,11 +857,19 @@ export struct PostDetailView {
         stats: this.postStats,
         loading: this.statsLoading,
         error: this.statsError,
+        onRetry: (): void => { this.loadPostStats(postId); },
       }),
       autoCancel: true,
       customStyle: true,
     });
     this.statsDialog.open();
+    this.loadPostStats(postId);
+  }
+
+  // 拉取聚合数据（也供面板内「重试」复用，不重开面板）
+  private loadPostStats(postId: number): void {
+    this.statsLoading = true;
+    this.statsError = '';
     getPostStats(postId).then((s: PostStats): void => {
       this.postStats = s;
       this.statsLoading = false;
