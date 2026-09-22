@@ -110,7 +110,7 @@ export struct PostStatsDialog {
       Image(icon)
         .width(18)
         .height(18)
-        .fillColor(ColorTokens.secondary)
+        .fillColor(ColorTokens.icon)
       Text(formatCount(value))
         .fontSize(17).fontFamily(TypeTokens.fontFamily)
         .fontWeight(TypeTokens.headline.weight)
@@ -157,7 +157,7 @@ export struct PostStatsDialog {
             Image(resolveActionIcon('close'))
               .width(IconTokens.compact)
               .height(IconTokens.compact)
-              .fillColor(ColorTokens.secondary)
+              .fillColor(ColorTokens.icon)
           }
         }
         .width('100%')

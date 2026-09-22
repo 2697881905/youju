@@ -131,7 +131,7 @@ export struct EditableProfilePreview {
       action: action,
     }) {
       Row({ space: SpaceTokens.inlineTight }) {
-        Image(resolveSettingsIcon('edit')).width(IconTokens.compact).height(IconTokens.compact).fillColor(ColorTokens.secondary)
+        Image(resolveSettingsIcon('edit')).width(IconTokens.compact).height(IconTokens.compact).fillColor(ColorTokens.icon)
         Text(label)
           .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
           .fontWeight(TypeTokens.headline.weight).fontColor(ColorTokens.primary)

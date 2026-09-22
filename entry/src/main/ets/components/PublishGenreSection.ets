@@ -101,7 +101,7 @@ export struct PublishGenreSection {
             .width(IconTokens.compact)
             .height(IconTokens.compact)            .rotate({ angle: this.menuVisible ? 180 : 0 })
             .animation({ duration: MotionTokens.fast, curve: MotionCurves.standard })
-            .fillColor(ColorTokens.secondary)
+            .fillColor(ColorTokens.icon)
         }
         .height(LayoutTokens.segmentedHeight)
         .padding({ left: SpaceTokens.md, right: SpaceTokens.sm })
@@ -134,7 +134,7 @@ export struct PublishGenreSection {
           Image(resolveActionIcon('chevronDown'))
             .width(IconTokens.compact)
             .height(IconTokens.compact)
-            .fillColor(ColorTokens.secondary)
+            .fillColor(ColorTokens.icon)
         }
         .height(LayoutTokens.segmentedHeight)
         .padding({ left: SpaceTokens.md, right: SpaceTokens.sm })

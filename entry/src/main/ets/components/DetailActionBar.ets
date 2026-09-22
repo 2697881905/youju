@@ -45,7 +45,7 @@ struct DetailActionButton {
     Pressable({ disabled: this.disabled, visualHeight: COMPACT_ROW_HEIGHT,
       touchTargetHeight: LayoutTokens.minTouchTarget, action: (): void => { this.onAction(); } }) {
       Row({ space: SpaceTokens.xs }) {
-        Image(this.active ? this.activeIcon : this.icon).width(this.iconSize).height(this.iconSize).fillColor(this.active ? this.activeColor : ColorTokens.secondary)
+        Image(this.active ? this.activeIcon : this.icon).width(this.iconSize).height(this.iconSize).fillColor(this.active ? this.activeColor : ColorTokens.icon)
         Text(this.label).fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
           .fontColor(this.active ? this.activeColor : ColorTokens.secondary).maxLines(1)
       }
@@ -95,6 +95,17 @@ export struct DetailActionBar {
   onBookmark: () => void = (): void => {};
   onSendComment: () => void = (): void => {};
   onCancelReply: () => void = (): void => {};
+
+  // @StorageProp 初始化不触发 @Watch：进入页面时若系统已握持左手
+  // （握姿事件早于本页触发并残留 holdingHandStatus=1），@Watch 不会回调，
+  // inputOnRight 会停在默认 true（右侧）→ 输入框永远不迁移。这里显式同步一次。
+  aboutToAppear(): void {
+    const right: boolean = this.holdingHandStatus === 2;
+    if (this.inputOnRight !== right) {
+      this.inputOnRight = right;
+      this.padOnRight = right;
+    }
+  }
 
   // 取消键是否可见（聚焦展开时让位）
   private showCancel(): boolean {

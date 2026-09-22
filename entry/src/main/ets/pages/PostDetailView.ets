@@ -305,6 +305,14 @@ export struct PostDetailView {
     this.postId = takePostDetailId().trim();
     // 智感握姿：订阅握持手原始状态（holdingHandStatus），由本页派生 gripOnRight 并带过渡提交
     startGripTracking();
+    // @StorageProp 初始化不触发 @Watch：进入页面时若系统已握持左手/右手
+    // （握姿事件早于本页触发并残留 holdingHandStatus），onHoldingHandStatusChanged 不会回调，
+    // gripOnRight 会停在默认假值 → 头部/输入框不迁移到正确一侧。这里按当前状态派生一次。
+    const right: boolean = this.holdingHandStatus === 2;
+    if (this.gripSideIsRight !== right) {
+      this.gripSideIsRight = right;
+      AppStorage.setOrCreate<boolean>(KEY_GRIP_ON_RIGHT, right);
+    }
     this.load();
   }
 

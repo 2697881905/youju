@@ -605,7 +605,7 @@ export struct ProfilePage {
         Image(resolveActionIcon('chevronRight'))
           .width(IconTokens.small)
           .height(IconTokens.small)
-          .fillColor(ColorTokens.secondary)
+          .fillColor(ColorTokens.icon)
           .opacity(0.55)
       }
       .width('100%')
@@ -873,7 +873,7 @@ export struct ProfilePage {
               Image(resolveActionIcon('share'))
                 .width(IconTokens.small)
                 .height(IconTokens.small)
-                .fillColor(ColorTokens.secondary)
+                .fillColor(ColorTokens.icon)
             }
             .width(LayoutTokens.segmentedHeight)
             .height(LayoutTokens.segmentedHeight)
@@ -895,7 +895,7 @@ export struct ProfilePage {
             Image(resolveSettingsIcon('gear'))
               .width(IconTokens.small)
               .height(IconTokens.small)
-              .fillColor(ColorTokens.secondary)
+              .fillColor(ColorTokens.icon)
           }
           .width(LayoutTokens.segmentedHeight)
           .height(LayoutTokens.segmentedHeight)

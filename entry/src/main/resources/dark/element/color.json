@@ -133,6 +133,10 @@
       "value": "#B9B09A"
     },
     {
+      "name": "ds_icon",
+      "value": "#FFFFFF"
+    },
+    {
       "name": "ds_text_tertiary",
       "value": "#9C937C"
     },
