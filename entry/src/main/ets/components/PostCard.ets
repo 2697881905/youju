@@ -6,7 +6,6 @@ import { StatRow } from '../design/components/StatRow';
 import { PostCardAuthor } from './PostCardAuthor';
 import { PostCardMedia } from './PostCardMedia';
 import { PostCardTitle } from './PostCardTitle';
-import { StructuredSummaryCard } from './StructuredSummaryCard';
 import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
@@ -14,7 +13,6 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { openUserProfile } from '../utils/nav';
-import { StructuredSummary, structuredSummaryOf } from '../utils/structuredBlocks';
 
 @Component
 export struct PostCard {
@@ -170,10 +168,6 @@ export struct PostCard {
     return typeof this.post.coverImage === 'string' ? this.post.coverImage : '';
   }
 
-  private structuredSummary(): StructuredSummary | null {
-    return structuredSummaryOf(this.post.structuredData, this.post.genre, this.post.structuredDocument);
-  }
-
   @Builder
   statSlot(): void {
     StatRow({
@@ -258,13 +252,6 @@ export struct PostCard {
           compact: this.compact,
           mediaId: this.cardMediaId(),
         })
-        if (this.variant === 'feed' && this.structuredSummary() !== null) {
-          StructuredSummaryCard({
-            summary: this.structuredSummary(),
-            compact: this.compact,
-            attached: true,
-          })
-        }
         // 信息区：标题 + 互动/作者 合并为一块（统一 elevated 底 + 细边框 + 圆角）
         Column({ space: this.compact ? SpaceTokens.inlineTight : SpaceTokens.sm }) {
           PostCardTitle({ title: this.post.title ?? '', compact: this.compact })

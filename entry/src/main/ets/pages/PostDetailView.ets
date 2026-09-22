@@ -1192,6 +1192,7 @@ export struct PostDetailView {
         title: genreMeta(this.post?.genre).label,
         onBack: (): void => { this.navigateBack(); },
         onMore: (): void => { this.showPostActions(); },
+        onShare: (): void => { this.onShare(); },
       })
         .zIndex(10)
 
@@ -1302,18 +1303,15 @@ export struct PostDetailView {
               commentText: $commentText,
               upCount: this.interaction.upCount,
               bookmarkCount: this.interaction.bookmarkCount,
-              commentCount: this.post.commentCount ?? 0,
               uped: this.interaction.uped,
               bookmarked: this.interaction.bookmarked,
               upPending: this.upPending,
               bookmarkPending: this.bookmarkPending,
               upFeedbackVersion: this.upFeedbackVersion,
               bookmarkFeedbackVersion: this.bookmarkFeedbackVersion,
-              showShare: EXTERNAL_SHARE_ENABLED || DM_SHARE_ENABLED,
               onUp: (): void => { this.onUp(); },
               onBookmark: (): void => { this.onBookmark(); },
               onSendComment: (): void => { this.onSendComment(); },
-              onShare: (): void => { this.onShare(); },
               replyName: this.replyTargetName,
               onCancelReply: (): void => { this.onCancelReply(); },
             })
