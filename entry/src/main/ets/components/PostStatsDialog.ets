@@ -1,7 +1,13 @@
 // 帖子创作数据面板（作者侧）：浏览 → 互动 → 流量转化 的三段式轻数据表达。
 //
-// 面板风格：**outlined 描边风**（透明底 + barBorder 细描边，无玻璃模糊、无 HDS 流光）——
-// 数据面板是信息型弹窗，不做沉浸光感材质；与「已加入圈子」面板同语言（JoinedCirclesDialog）。
+// ⚠️ 实现形态：**页内覆盖层（父组件 if 分支渲染），不是 @CustomDialog**。
+// 原因（release 实测踩过）：动态 `new CustomDialogController({builder: ...})` 的 builder 里
+// 传 @Link 会直接 ReferenceError（`$postStats is not defined`）闪退；而 @Prop 在
+// CustomDialog 的 builder 里 open() 后不随父组件重渲染同步（面板永远停在「正在汇总」）。
+// 改为父组件 @State 驱动的 if 分支覆盖层后，@Prop 随父组件刷新，天然响应式。
+//
+// 面板材质：**outlined 描边风**（透明底 + barBorder 细描边，无玻璃模糊/流光/阴影）——
+// 数据面板是信息型弹窗，不做沉浸光感材质；与「已加入圈子」面板同语言。
 //
 // 结构（自上而下）：
 //   标题区（serif 帖子数据 / 仅你自己可见 / 关闭）
@@ -10,9 +16,6 @@
 //   流量转化：曝光 → 点击 → 浏览 三行比例条 + 「曝光→点击」转化率
 // 比例条用官方 component-collection dataPanelSample 的 DataPanelType.Line +
 // valueColors 双色（brand = 实际值 / sunken = 余量），不是手绘进度条。
-// 数据流：stats/loading/error 必须是 **@Link** —— CustomDialog 的 builder 在 open() 后
-// 不随父组件重渲染同步 @Prop（踩过：@Prop 导致面板永远停在「正在汇总」），
-// @Link 建立双向订阅，父组件的拉取结果能实时进入面板。
 import { SpringPanel } from '../design/motion/SpringPanel';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { ColorTokens } from '../design/tokens/color';
@@ -29,18 +32,19 @@ const FUNNEL_BAR_HEIGHT: number = 8;
 const FUNNEL_LABEL_WIDTH: number = 36;
 const FUNNEL_VALUE_WIDTH: number = 52;
 
-@CustomDialog
+@Component
 export struct PostStatsDialog {
-  controller: CustomDialogController;
-  @Link stats: PostStats | null;
-  @Link loading: boolean;
-  @Link error: string;
+  @Prop stats: PostStats | null = null;
+  @Prop loading: boolean = false;
+  @Prop error: string = '';
+  // 遮罩/关闭键：父组件置 statsPanelShow=false 卸载覆盖层
+  onClose: () => void = (): void => {};
   // 加载失败重试：父组件重新拉取，不重开面板
   onRetry: () => void = (): void => {};
 
   // 漏斗的共用分母是曝光（漏斗顶端）；曝光为 0 时比例条为空，数值仍然可读
-  private funnelMax(s: PostStats): number {
-    return Math.max(s.expose, 1);
+  private funnelMax(): number {
+    return Math.max(this.stats?.expose ?? 1, 1);
   }
 
   private clickRateText(): string {
@@ -118,124 +122,133 @@ export struct PostStatsDialog {
   }
 
   build() {
-    // outlined=true + immersive=false：数据面板走描边风——透明底 + 细描边，
-    // 不叠玻璃模糊与 HDS 流光（信息型弹窗不做沉浸光感材质）。
-    SpringPanel({ panelWidth: 344, panelPadding: SpaceTokens.lg, outlined: true, immersive: false }) {
-      Column({ space: SpaceTokens.base }) {
-        // 标题区（与同族弹窗同构：衬线标题 + 关闭）
-        Row({ space: SpaceTokens.sm }) {
-          Column({ space: 2 }) {
-            Text('帖子数据')
-              .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
-              .fontWeight(TypeTokens.headline.weight)
-              .lineHeight(TypeTokens.headline.lineHeight)
-              .fontColor(ColorTokens.primary)
-            Text('仅你自己可见')
-              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-              .fontColor(ColorTokens.secondary)
-          }
-          .layoutWeight(1)
-          .alignItems(HorizontalAlign.Start)
-          Pressable({
-            visualHeight: IconTokens.compact,
-            touchTargetHeight: LayoutTokens.minTouchTarget,
-            action: (): void => { this.controller.close(); },
-          }) {
-            Image(resolveActionIcon('close'))
-              .width(IconTokens.compact)
-              .height(IconTokens.compact)
-              .fillColor(ColorTokens.secondary)
-          }
-        }
+    // 全屏覆盖层：暗色遮罩（点空白处关闭）+ 居中面板
+    Stack({ alignContent: Alignment.Center }) {
+      Column()
         .width('100%')
-        .alignItems(VerticalAlign.Center)
+        .height('100%')
+        .backgroundColor('rgba(0,0,0,0.35)')
+        .onClick((): void => { this.onClose(); })
 
-        if (this.loading && this.stats === null) {
-          Column({ space: SpaceTokens.sm }) {
-            LoadingProgress().width(22).height(22).color(ColorTokens.brand)
-            Text('正在汇总这篇帖子的数据…')
-              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-              .fontColor(ColorTokens.secondary)
-          }
-          .width('100%')
-          .alignItems(HorizontalAlign.Center)
-          .padding({ top: SpaceTokens.lg, bottom: SpaceTokens.lg })
-        } else if (this.stats !== null) {
-          // Hero：累计浏览
-          Column({ space: 2 }) {
-            Text(formatCount(this.stats?.viewCount))
-              .fontSize(TypeTokens.display.size).fontFamily(TypeTokens.fontFamilySerif)
-              .fontWeight(TypeTokens.display.weight)
-              .lineHeight(TypeTokens.display.lineHeight)
-              .fontColor(ColorTokens.primary)
-            Text('累计浏览')
-              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-              .fontColor(ColorTokens.secondary)
-          }
-          .width('100%')
-          .alignItems(HorizontalAlign.Center)
-
-          this.hairline()
-
-          // 互动表现：三列 + 竖向细分隔线
-          this.sectionHeader('互动表现', '')
-          Row() {
-            this.interactCell(resolveActionIcon('like'), this.stats?.upCount ?? 0, '顶')
-            Divider()
-              .vertical(true)
-              .strokeWidth(LayoutTokens.hairlineWidth)
-              .color(ColorTokens.separator)
-              .height(30)
-            this.interactCell(resolveActionIcon('bookmark'), this.stats?.bookmarkCount ?? 0, '收藏')
-            Divider()
-              .vertical(true)
-              .strokeWidth(LayoutTokens.hairlineWidth)
-              .color(ColorTokens.separator)
-              .height(30)
-            this.interactCell(resolveActionIcon('comment'), this.stats?.commentCount ?? 0, '评论')
+      SpringPanel({ panelWidth: 344, panelPadding: SpaceTokens.lg, outlined: true, immersive: false }) {
+        Column({ space: SpaceTokens.base }) {
+          // 标题区（与同族弹窗同构：衬线标题 + 关闭）
+          Row({ space: SpaceTokens.sm }) {
+            Column({ space: 2 }) {
+              Text('帖子数据')
+                .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
+                .fontWeight(TypeTokens.headline.weight)
+                .lineHeight(TypeTokens.headline.lineHeight)
+                .fontColor(ColorTokens.primary)
+              Text('仅你自己可见')
+                .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+                .fontColor(ColorTokens.secondary)
+            }
+            .layoutWeight(1)
+            .alignItems(HorizontalAlign.Start)
+            Pressable({
+              visualHeight: IconTokens.compact,
+              touchTargetHeight: LayoutTokens.minTouchTarget,
+              action: (): void => { this.onClose(); },
+            }) {
+              Image(resolveActionIcon('close'))
+                .width(IconTokens.compact)
+                .height(IconTokens.compact)
+                .fillColor(ColorTokens.secondary)
+            }
           }
           .width('100%')
           .alignItems(VerticalAlign.Center)
 
-          this.hairline()
+          if (this.loading && this.stats === null) {
+            Column({ space: SpaceTokens.sm }) {
+              LoadingProgress().width(22).height(22).color(ColorTokens.brand)
+              Text('正在汇总这篇帖子的数据…')
+                .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+                .fontColor(ColorTokens.secondary)
+            }
+            .width('100%')
+            .alignItems(HorizontalAlign.Center)
+            .padding({ top: SpaceTokens.lg, bottom: SpaceTokens.lg })
+          } else if (this.stats !== null) {
+            // Hero：累计浏览
+            Column({ space: 2 }) {
+              Text(formatCount(this.stats.viewCount))
+                .fontSize(TypeTokens.display.size).fontFamily(TypeTokens.fontFamilySerif)
+                .fontWeight(TypeTokens.display.weight)
+                .lineHeight(TypeTokens.display.lineHeight)
+                .fontColor(ColorTokens.primary)
+              Text('累计浏览')
+                .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+                .fontColor(ColorTokens.secondary)
+            }
+            .width('100%')
+            .alignItems(HorizontalAlign.Center)
 
-          // 流量转化：曝光为漏斗顶端，三行比例条共用同一分母
-          this.sectionHeader('流量转化', this.clickRateText())
-          Column({ space: SpaceTokens.sm }) {
-            this.funnelRow('曝光', this.stats?.expose ?? 0, this.funnelMax(this.stats))
-            this.funnelRow('点击', this.stats?.click ?? 0, this.funnelMax(this.stats))
-            this.funnelRow('浏览', this.stats?.viewCount ?? 0, this.funnelMax(this.stats))
-          }
-          .width('100%')
-        } else {
-          // 错误 / 空态
-          Column({ space: SpaceTokens.base }) {
-            Text(this.error !== '' ? ('加载失败：' + this.error) : '暂无数据')
-              .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
-              .fontColor(ColorTokens.secondary)
-              .textAlign(TextAlign.Center)
-            if (this.error !== '') {
-              Pressable({
-                visualHeight: 30,
-                touchTargetHeight: LayoutTokens.minTouchTarget,
-                action: (): void => { this.onRetry(); },
-              }) {
-                Text('重试')
-                  .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-                  .fontWeight(TypeTokens.headline.weight)
-                  .fontColor(ColorTokens.onBrand)
-                  .backgroundColor(ColorTokens.brand)
-                  .borderRadius(RadiusTokens.pill)
-                  .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: 6, bottom: 6 })
+            this.hairline()
+
+            // 互动表现：三列 + 竖向细分隔线
+            this.sectionHeader('互动表现', '')
+            Row() {
+              this.interactCell(resolveActionIcon('like'), this.stats.upCount, '顶')
+              Divider()
+                .vertical(true)
+                .strokeWidth(LayoutTokens.hairlineWidth)
+                .color(ColorTokens.separator)
+                .height(30)
+              this.interactCell(resolveActionIcon('bookmark'), this.stats.bookmarkCount, '收藏')
+              Divider()
+                .vertical(true)
+                .strokeWidth(LayoutTokens.hairlineWidth)
+                .color(ColorTokens.separator)
+                .height(30)
+              this.interactCell(resolveActionIcon('comment'), this.stats.commentCount, '评论')
+            }
+            .width('100%')
+            .alignItems(VerticalAlign.Center)
+
+            this.hairline()
+
+            // 流量转化：曝光为漏斗顶端，三行比例条共用同一分母
+            this.sectionHeader('流量转化', this.clickRateText())
+            Column({ space: SpaceTokens.sm }) {
+              this.funnelRow('曝光', this.stats.expose, this.funnelMax())
+              this.funnelRow('点击', this.stats.click, this.funnelMax())
+              this.funnelRow('浏览', this.stats.viewCount, this.funnelMax())
+            }
+            .width('100%')
+          } else {
+            // 错误 / 空态
+            Column({ space: SpaceTokens.base }) {
+              Text(this.error !== '' ? ('加载失败：' + this.error) : '暂无数据')
+                .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
+                .fontColor(ColorTokens.secondary)
+                .textAlign(TextAlign.Center)
+              if (this.error !== '') {
+                Pressable({
+                  visualHeight: 30,
+                  touchTargetHeight: LayoutTokens.minTouchTarget,
+                  action: (): void => { this.onRetry(); },
+                }) {
+                  Text('重试')
+                    .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+                    .fontWeight(TypeTokens.headline.weight)
+                    .fontColor(ColorTokens.onBrand)
+                    .backgroundColor(ColorTokens.brand)
+                    .borderRadius(RadiusTokens.pill)
+                    .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: 6, bottom: 6 })
+                }
               }
             }
+            .width('100%')
+            .alignItems(HorizontalAlign.Center)
+            .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
           }
-          .width('100%')
-          .alignItems(HorizontalAlign.Center)
-          .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
         }
+        .width('100%')
       }
-      .width('100%')
     }
+    .width('100%')
+    .height('100%')
   }
 }
