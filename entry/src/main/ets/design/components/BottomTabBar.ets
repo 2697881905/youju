@@ -173,7 +173,7 @@ export struct BottomTabBar {
         }
         Text(item.title)
           .fontSize(TypeTokens.navLabel.size).fontFamily(TypeTokens.fontFamily)
-          .fontColor(this.isActive(index) ? ColorTokens.brand : ColorTokens.secondary)
+          .fontColor(this.isActive(index) ? ColorTokens.brand : ColorTokens.icon)
       }
       .width(LayoutTokens.tabBarItemWidth)
       .height(LayoutTokens.tabBarItemHeight)
