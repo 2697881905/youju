@@ -1,5 +1,6 @@
 import { BackButton } from '../design/components/BackButton';
 import { ColorTokens } from '../design/tokens/color';
+import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
@@ -23,24 +24,38 @@ export struct DetailToolbar {
         .layoutWeight(1)
         .textAlign(TextAlign.Center)
       Row({ space: SpaceTokens.xs }) {
-        Image(resolveActionIcon('share'))
-          .width(20)
-          .height(20)
-          .opacity(0.82)
-          .onClick((): void => { this.onShare(); })
-          .fillColor(ColorTokens.secondary)
-        Image(resolveActionIcon('more'))
-          .width(20)
-          .height(20)
-          .opacity(0.82)
-          .onClick((): void => { this.onMore(); })
-          .fillColor(ColorTokens.secondary)
+        // 每个动作独立 44×44 命中区，图标 24vp：间距由命中区自身的居中留白承担，
+        // 不再靠 Row 的 space 直接贴图标（旧版 20vp 图标 + 4vp 间距，视觉过挤且命中区不足）。
+        Row() {
+          Image(resolveActionIcon('share'))
+            .width(IconTokens.standard)
+            .height(IconTokens.standard)
+            .fillColor(ColorTokens.secondary)
+            .draggable(false)
+        }
+        .width(LayoutTokens.minTouchTarget)
+        .height(LayoutTokens.minTouchTarget)
+        .justifyContent(FlexAlign.Center)
+        .alignItems(VerticalAlign.Center)
+        .accessibilityText('分享')
+        .onClick((): void => { this.onShare(); })
+
+        Row() {
+          Image(resolveActionIcon('more'))
+            .width(IconTokens.standard)
+            .height(IconTokens.standard)
+            .fillColor(ColorTokens.secondary)
+            .draggable(false)
+        }
+        .width(LayoutTokens.minTouchTarget)
+        .height(LayoutTokens.minTouchTarget)
+        .justifyContent(FlexAlign.Center)
+        .alignItems(VerticalAlign.Center)
+        .accessibilityText('更多操作')
+        .onClick((): void => { this.onMore(); })
       }
-      .width(LayoutTokens.minTouchTarget * 2 + SpaceTokens.xs)
       .height(LayoutTokens.minTouchTarget)
-      .justifyContent(FlexAlign.Center)
       .alignItems(VerticalAlign.Center)
-      .accessibilityText('分享和更多操作')
     }
     .width('100%')
     .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.sm, bottom: SpaceTokens.xs })
