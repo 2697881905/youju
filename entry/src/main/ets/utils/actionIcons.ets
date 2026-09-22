@@ -12,6 +12,7 @@ const ACTION_ICONS: Map<string, Resource> = new Map<string, Resource>([
   ['bookmark', $r('app.media.action_bookmark')],
   ['bookmarkActive', $r('app.media.action_bookmark_active')],
   ['share', $r('app.media.action_share')],
+  ['more', $r('app.media.action_more')],
   ['send', $r('app.media.action_send')],
   ['follow', $r('app.media.action_follow')],
   // 通知类型

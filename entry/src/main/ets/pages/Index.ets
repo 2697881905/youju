@@ -11,7 +11,7 @@ import { Tag } from '../models/types';
 import { safeShowToast } from '../utils/toast';
 import { PublishMode, PublishModeSheet } from '../components/PublishModeSheet';
 import { LayoutTokens } from '../design/tokens/space';
-import { bottomNavInset, DOCK_WIDTH_SMALL, DOCK_BOTTOM_MARGIN_BASE, DOCK_SIDE_MARGIN_MIN } from '../utils/cardTokens';
+import { bottomNavInset, DOCK_WIDTH_SMALL, DOCK_BOTTOM_MARGIN_BASE, DOCK_SIDE_MARGIN_MIN, DOCK_GRADIENT_MASK_HEIGHT, DOCK_MATERIAL_TYPE, DOCK_MATERIAL_LEVEL } from '../utils/cardTokens';
 import { RadiusTokens } from '../design/tokens/radius';
 import { ColorTokens } from '../design/tokens/color';
 import { ShadowTokens } from '../design/tokens/shadow';
@@ -593,10 +593,10 @@ struct Index {
       barWidth: { smallWidth: DOCK_WIDTH_SMALL, mediumWidth: 420, largeWidth: 560 },
       barSideMargin: DOCK_SIDE_MARGIN_MIN,
       barBottomMargin: DOCK_BOTTOM_MARGIN_BASE + bottomNavInset(),
-      gradientMask: { maskColor: $r('app.color.bar_gradient_mask'), maskHeight: 92 },
+      gradientMask: { maskColor: $r('app.color.bar_gradient_mask'), maskHeight: DOCK_GRADIENT_MASK_HEIGHT },
       systemMaterialEffect: {
-        materialType: 101,
-        materialLevel: 10,
+        materialType: DOCK_MATERIAL_TYPE,
+        materialLevel: DOCK_MATERIAL_LEVEL,
       },
     })
     .scrollable(false)                       // 禁止页面主体左右滑动切换 Tab，仅点击底部页签切换

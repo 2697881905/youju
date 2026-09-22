@@ -11,14 +11,12 @@ import { postDeletionStore } from '../utils/postDeletionStore';
 import { PostCard } from './PostCard';
 import { TagNav } from './TagNav';
 import { emitTabSwitch, openPostDetail, PostDetailIntent } from '../utils/nav';
-import { cardRectOf, CardRect, getMainNavStack, UserProfileNavParams } from '../utils/navigationTransition';
 import { safeShowToast } from '../utils/toast';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { EmptyState } from '../design/components/EmptyState';
 import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
 import { Pressable } from '../design/motion/Pressable';
 import { DailyPostDeck } from './DailyPostDeck';
-import { PostDetailView } from '../pages/PostDetailView';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
@@ -41,20 +39,6 @@ const TAGS_MAX_RETRY: number = 3;
 // 今日一帖每日精选篇数固定为 10 条（一次拉齐，读完即完成态）
 const DAILY_PICK_LIMIT: number = 10;
 
-// 一镜到底 hero 飞行姿态：初始＝卡片封面帧（scale/x/y），1/0/0＝就位
-class FlyPose {
-  scale: number = 1;
-  x: number = 0;
-  y: number = 0;
-  constructor(scale: number, x: number, y: number) {
-    this.scale = scale;
-    this.x = x;
-    this.y = y;
-  }
-}
-
-type FlyPhase = 'idle' | 'opening' | 'open' | 'closing';
-
 const SORT_KEYS: SortKey[] = ['hot', 'latest', 'recommend'];
 const FEED_SEGMENTS: SegmentedItem[] = [
   { key: 'recommend', label: '推荐' },
@@ -67,8 +51,8 @@ const FEED_SEGMENTS: SegmentedItem[] = [
 // 计日统一按北京时间（UTC+8），与后端 dailyKey 的 Asia/Shanghai 口径一致，设备处于任意时区均不偏移。
 const DAILY_ISSUE_ORIGIN: string = '2026-09-11';
 const DAILY_TZ_OFFSET_MS: number = 8 * 60 * 60 * 1000;
-// 每日一帖详情采用竖屏阅读比例；卡面与详情是两个独立的展示容器。
-const DAILY_DETAIL_MEDIA_RATIO: number = LayoutTokens.cardMediaAspectRatio;
+// 每日卡面媒体展示比例（与 DECK_MEDIA_RATIO 一致）：一镜到底飞行目标同比例
+const DAILY_DECK_MEDIA_RATIO: number = 4 / 3;
 
 // —— 会话级信息流缓存：切 Tab 回来先展示缓存再后台刷新，避免白屏重拉（P2 性能优化）——
 // key = feedMode|tag|sort；仅缓存首屏（page=1），TTL 120s；账号切换/发帖后整体失效
@@ -97,28 +81,6 @@ export struct HomeTab {
   @State needLogin: boolean = false; // 关注流且未登录的引导态
   @State followingCount: number = 0; // 关注流的关注数缓存（空态 A/B 区分）
   @State dailyDeckVersion: number = 0;
-  // —— 「一镜到底」（bindContentCover + 顶层覆盖层）——
-  // 详情先挂载，覆盖层再从源卡片媒体帧移动到详情媒体帧。列表和详情自身不做
-  // 尺寸动画，避免整页缩放造成内容重排和首帧闪烁。
-  @State detailOpen: boolean = false;          // 全屏模态详情展示开关
-  @State openPostIntent: PostDetailIntent | null = null; // 当前打开帖子的意图（含 cover/aspect）
-  @State flyVisible: boolean = false;          // 覆盖层渲染开关
-  @State flyScale: number = 1;
-  @State flyX: number = 0;
-  @State flyY: number = 0;
-  private cardRect: CardRect | null = null;    // 源卡片媒体块屏幕帧（vp，窗口坐标）
-  private mediaRect: CardRect | null = null;   // 详情媒体区屏幕帧（vp，窗口坐标）
-  private modalOriginX: number = 0;            // 模态容器左上（vp，窗口坐标，onAreaChange 回报）
-  private modalOriginY: number = 0;
-  private modalOriginReported: boolean = false;
-  private fly0: FlyPose | null = null;         // 打开初始帧姿态（相对模态容器）
-  @State flyPhase: FlyPhase = 'idle';          // 转场状态，防止打开/关闭竞态
-  private closeRequested: boolean = false;      // 打开过程中返回时，动画结束后立即反向
-  // 详情内容盖「是否真的在屏上」：由 bindContentCover 的 onAppear/onDisappear 维护。
-  // 用它而不是 detailOpen 来判断「详情是否开着」——
-  // detailOpen 是 @State 意向值，模态被系统关掉/状态机残留时它可能与实际不符，
-  // 一旦陈旧为真，openDetailModal 的守卫就会永久吞掉点击（卡片点不动）。
-  private coverOnScreen: boolean = false;
   // 监听登录态：登录成功后 authToken 就绪，若处于关注流且列表空则自动补加载
   @StorageLink('authToken') @Watch('onTokenReady') token: string = '';
   // 监听登录账号：切换账号（老张↔小美互测）或登出时，清空点赞缓存并重建首页 feed，
@@ -347,31 +309,6 @@ export struct HomeTab {
     }
   }
 
-  // —— 首页分段栏：沉浸光感 ——
-  // 华为应用商店同款沉浸光感，已收敛进 SegmentedControl 组件（immersive 属性）：
-  // - API 26+（未来）：原生 backgroundSystemMaterial(uiMaterial.ImmersiveMaterial)。
-  //   当前 SDK 6.1.1(24) 无该声明，升级 API 26 SDK 后在组件内替换（见 SegmentedControl.ets 文件头注释）。
-  // - API 23~25（当前）：backdropBlur(20) + 半透明底 + 1px 高光边框 + 滑块悬浮投影，模拟伪沉浸光感。
-  //   不引入第三方库，backdropBlur 为 ArkUI 系统原生 API。
-  // - API 20~22：backdropBlur / 通用属性均可用，样式正常、无崩溃。
-  @Builder
-  feedSegmentBar() {
-    SegmentedControl({
-      items: FEED_SEGMENTS,
-      selectedIndex: $feedIndex,
-      itemWidth: 66,
-      fillWidth: false,
-      immersive: true,
-      onSelect: (idx: number): void => {
-        const mode: FeedMode = FEED_MODE_IDX_MAP[idx];
-        this.switchFeed(mode);
-      },
-    })
-      .alignSelf(ItemAlign.Start)
-      // 置顶于全宽的 TagNav 圈子栏之上：TagNav 透明占位区不再拦截本控件的点击。
-      .zIndex(3)
-  }
-
   private async fetch(reset: boolean): Promise<void> {
     if (this.loading) {
       return;
@@ -487,233 +424,6 @@ export struct HomeTab {
     };
   }
 
-  // —— 进入详情：bindContentCover 全屏模态（一镜到底）——
-  // 先记录源媒体帧，再挂载详情。详情媒体区布局完成后，覆盖层从源帧归位到目标帧。
-  // 详情模态状态机的统一复位点：任何「详情不该再开着」的时刻都调它，
-  // 保证 openDetailModal 的守卫不会因为残留状态永久吞掉点击（卡片点不动）。
-  private resetDetailModalState(): void {
-    this.detailOpen = false;
-    this.coverOnScreen = false;
-    this.flyPhase = 'idle';
-    this.flyVisible = false;
-    this.closeRequested = false;
-  }
-
-  private openDetailModal(postId: number, mediaId: string, intent: PostDetailIntent | null): void {
-    // 只有「详情确实在屏上」时才忽略重复点击。
-    // 不能只看 detailOpen / flyPhase：转场状态机只要有一条回调链断掉（归位测量回调没来、
-    // 模态被系统手势关掉、关闭动画没跑完就被销毁），残留状态就会让守卫永久吞掉点击，
-    // 表现为「快速开关几个帖子后卡片点不动」。
-    if (this.detailOpen && this.coverOnScreen) {
-      return;
-    }
-    // 到这里说明屏上没有详情：任何残留状态都复位后继续打开。
-    if (this.detailOpen || this.flyPhase !== 'idle') {
-      this.resetDetailModalState();
-    }
-    this.openPostIntent = intent;
-    openPostDetail(String(postId), intent ?? undefined);
-    // 源卡片媒体块屏幕帧（vp）；纯文字卡没有媒体帧，走普通详情进入。
-    this.cardRect = mediaId.length > 0 ? cardRectOf(mediaId) : null;
-    this.mediaRect = null;
-    this.fly0 = null;
-    this.flyVisible = false;
-    this.flyScale = 1;
-    this.flyX = 0;
-    this.flyY = 0;
-    this.modalOriginReported = false;
-    this.closeRequested = false;
-    this.flyPhase = (intent !== null && this.cardRect !== null) ? 'opening' : 'open';
-    // modalTransition 已关闭，直接挂载能让目标媒体帧尽快参与测量。
-    this.detailOpen = true;
-    // 网络失败或详情确实没有媒体时，不让转场状态永久停在 opening；页面仍可正常返回。
-    if (this.flyPhase === 'opening') {
-      setTimeout((): void => {
-        if (this.detailOpen && this.flyPhase === 'opening' && this.fly0 === null) {
-          this.flyPhase = 'open';
-          this.flyVisible = false;
-          if (this.closeRequested) {
-            this.detailOpen = false;
-            this.flyPhase = 'idle';
-          }
-        }
-      }, MotionTokens.page + 700);
-    }
-  }
-
-  // 模态容器左上回报（detailCoverModal 根 Column onAreaChange，vp）
-  private onModalOrigin(x: number, y: number): void {
-    this.modalOriginX = x;
-    this.modalOriginY = y;
-    this.modalOriginReported = true;
-    this.maybeStartFly();
-  }
-
-  // 详情媒体区屏幕帧回报（PostDetailView 媒体区 onAreaChange）
-  private onFlyMediaArea(left: number, top: number, width: number, height: number): void {
-    this.mediaRect = { left, top, width, height };
-    this.maybeStartFly();
-  }
-
-  // 等源卡帧、模态原点、详情媒体帧全部就绪后，启动封面覆盖层飞行。
-  private maybeStartFly(): void {
-    if (!this.detailOpen || this.flyPhase !== 'opening' || this.fly0 !== null) {
-      return;
-    }
-    const cr: CardRect | null = this.cardRect;
-    const mr: CardRect | null = this.mediaRect;
-    if (cr === null || mr === null || !this.modalOriginReported ||
-      cr.width <= 0 || mr.width <= 0 || mr.height <= 0) {
-      return;
-    }
-    // 覆盖层以详情媒体区为基准，按源卡片宽度等比缩放并中心对齐，避免拉伸。
-    const s: number = cr.width / mr.width;
-    const mediaX: number = mr.left - this.modalOriginX;
-    const mediaY: number = mr.top - this.modalOriginY;
-    const cardCx: number = (cr.left + cr.width / 2) - this.modalOriginX;
-    const cardCy: number = (cr.top + cr.height / 2) - this.modalOriginY;
-    const tx: number = cardCx - (mediaX + mr.width / 2);
-    const ty: number = cardCy - (mediaY + mr.height / 2);
-    this.fly0 = new FlyPose(s, tx, ty);
-    this.flyScale = s;
-    this.flyX = tx;
-    this.flyY = ty;
-    this.flyVisible = true;
-    setTimeout((): void => {
-      if (!this.detailOpen || this.fly0 === null || this.flyPhase !== 'opening') {
-        return;
-      }
-      this.getUIContext().animateTo({
-        duration: MotionTokens.container,
-        curve: MotionCurves.emphasized,
-        onFinish: (): void => {
-          if (this.closeRequested) {
-            this.closeRequested = false;
-            this.startCloseFly();
-          } else {
-            this.flyPhase = 'open';
-            this.flyVisible = false;
-          }
-        },
-      }, () => {
-        this.flyScale = 1;
-        this.flyX = 0;
-        this.flyY = 0;
-      });
-    }, 16);
-  }
-
-  // 关闭动画：覆盖层在详情媒体区全尺寸重现，再反向缩回源卡片。
-  private startCloseFly(): void {
-    if (!this.detailOpen || this.fly0 === null || this.mediaRect === null) {
-      this.detailOpen = false;
-      this.flyPhase = 'idle';
-      this.flyVisible = false;
-      return;
-    }
-    const f0: FlyPose = this.fly0;
-    this.flyPhase = 'closing';
-    this.flyScale = 1;
-    this.flyX = 0;
-    this.flyY = 0;
-    this.flyVisible = true;
-    this.getUIContext().animateTo({
-      duration: MotionTokens.container,
-      curve: MotionCurves.accelerate,
-      onFinish: (): void => {
-        this.flyPhase = 'idle';
-        this.detailOpen = false;
-        this.flyVisible = false;
-      },
-    }, () => {
-      this.flyScale = f0.scale;
-      this.flyX = f0.x;
-      this.flyY = f0.y;
-    });
-  }
-
-  private closeDetailModal(): void {
-    if (!this.detailOpen) {
-      return;
-    }
-    if (this.flyPhase === 'opening') {
-      // 不打断当前帧，等归位完成后沿同一路径反向，避免半程状态被销毁。
-      this.closeRequested = true;
-      // 看门狗：归位完成依赖封面区的测量回调，若该回调不触发（无媒体/媒体未就绪/
-      // 模态已被系统手势关掉），状态会永久卡在 'opening'，openDetailModal 开头的守卫
-      // 就会把之后所有点击吞掉 —— 表现为「测了几个帖子后卡片点不动」。
-      // 超时未归位则强制收尾，保证状态机一定能回到 idle。
-      setTimeout((): void => {
-        if (this.detailOpen && this.flyPhase === 'opening') {
-          this.resetDetailModalState();
-        }
-      }, 700) as number;
-      return;
-    }
-    if (this.flyPhase === 'closing') {
-      return;
-    }
-    this.startCloseFly();
-  }
-
-  // 全屏模态详情内容：真实详情保持原位，仅同图封面覆盖层做一镜到底。
-  @Builder
-  detailCoverModal(): void {
-    Column() {
-      PostDetailView({
-        navMode: true,
-        mediaCovered: this.flyPhase === 'opening' || this.flyPhase === 'closing',
-        onBack: (): void => { this.closeDetailModal(); },
-        // 模态内点头像：先移除一镜到底模态再 push 作者页。
-        // bindContentCover 模态覆盖在 Navigation 之上（isProhibitedRemoveByNavigation），
-        // 直接 push 的 UserProfile 会被模态遮挡导致"点了没反应"。
-        // 跳转作者页是离开详情（非返回），无需缩回动画，直接硬关闭模态保证 push 可见。
-        onOpenProfile: (userId: number): void => {
-          this.detailOpen = false;
-          this.flyPhase = 'idle';
-          this.flyVisible = false;
-          this.closeRequested = false;
-          const nav: NavPathStack | null = getMainNavStack();
-          if (nav !== null) {
-            const p: UserProfileNavParams = new UserProfileNavParams();
-            p.userId = userId;
-            nav.pushPathByName('UserProfile', p);
-          }
-        },
-        onFlyMediaArea: (left: number, top: number, width: number, height: number): void => {
-          this.onFlyMediaArea(left, top, width, height);
-        },
-      })
-        .width('100%')
-        .height('100%')
-
-      if (this.flyVisible && this.mediaRect !== null && this.modalOriginReported && this.openPostIntent !== null) {
-        Image(resolveDisplayImageUrl(this.openPostIntent.cover))
-          .width(this.mediaRect.width)
-          .height(this.mediaRect.height)
-          .position({
-            x: this.mediaRect.left - this.modalOriginX,
-            y: this.mediaRect.top - this.modalOriginY,
-          })
-          .translate({ x: this.flyX, y: this.flyY })
-          .scale({ x: this.flyScale, y: this.flyScale })
-          .objectFit(ImageFit.Cover)
-          .borderRadius(RadiusTokens.lg)
-          .clip(true)
-          .draggable(false)
-          .hitTestBehavior(HitTestMode.None)
-          .zIndex(60)
-      }
-    }
-    .width('100%')
-    .height('100%')
-    .onAreaChange((_oldValue: Area, newValue: Area): void => {
-      this.onModalOrigin(
-        newValue.globalPosition.x as number,
-        newValue.globalPosition.y as number);
-    })
-  }
-
   @Builder
   refreshBuilder(): void {
     Row({ space: SpaceTokens.inline }) {
@@ -809,10 +519,10 @@ export struct HomeTab {
         if (post.id !== undefined) {
           trackPostEvent(post.id, 'click', 'feed');
           const cover: string = this.feedCardCover(post);
-          const intent: PostDetailIntent | null = cover.length > 0
+          openPostDetail(post.id.toString(), cover.length > 0
             ? this.buildDetailIntent(cover, post, LayoutTokens.cardMediaAspectRatio)
-            : null;
-          this.openDetailModal(post.id, 'cardMedia-' + post.id, intent);
+            : undefined);
+          this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
         }
       },
     })
@@ -944,7 +654,22 @@ export struct HomeTab {
           .alignItems(VerticalAlign.Center)
 
           Stack({ alignContent: Alignment.TopStart }) {
-            this.feedSegmentBar()
+            SegmentedControl({
+              items: FEED_SEGMENTS,
+              selectedIndex: $feedIndex,
+              itemWidth: 66,
+              fillWidth: false,
+              // 描边风格：与右上角搜索按钮同款（透明底 + 细边框 + 大圆角），顶栏视觉统一
+              glass: false,
+              outlined: true,
+              onSelect: (idx: number): void => {
+                const mode: FeedMode = FEED_MODE_IDX_MAP[idx];
+                this.switchFeed(mode);
+              },
+            })
+              .alignSelf(ItemAlign.Start)
+              // 置顶于全宽的 TagNav 圈子栏之上：TagNav 透明占位区不再拦截本控件的点击。
+              .zIndex(3)
             if (this.useCircleBarOverlap()) {
               TagNav({
                 tags: this.displayTags,
@@ -1067,10 +792,10 @@ export struct HomeTab {
                   if (post.id !== undefined) {
                     trackPostEvent(post.id, 'click', 'daily');
                     const cover: string = this.dailyDeckCover(post);
-                    const intent: PostDetailIntent | null = cover.length > 0
-                      ? this.buildDetailIntent(cover, post, DAILY_DETAIL_MEDIA_RATIO)
-                      : null;
-                    this.openDetailModal(post.id, 'deckCardMedia-' + post.id, intent);
+                    openPostDetail(post.id.toString(), cover.length > 0
+                      ? this.buildDetailIntent(cover, post, DAILY_DECK_MEDIA_RATIO)
+                      : undefined);
+                    this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
                   }
                 },
               })
@@ -1098,41 +823,12 @@ export struct HomeTab {
         }
         .width('100%')
         .height('100%')
-        // 每日一帖模式不裁剪：卡堆向上抛射的飞行卡需溢出列表区穿过报头；
-        // 滚动流模式保持裁剪（Refresh/Scroll 内容不出视口）。
-        .clip(this.feedMode !== 'daily')
-        // 每日一帖模式提升列表区整体层级（与报头同为根 Column 兄弟，1001 > 1000）：
-        // 飞行卡随列表区一起盖过报头区域，向上抛射不被「有据」标题/分段栏遮挡。
-        .zIndex(this.feedMode === 'daily' ? 1001 : 0)
+        .clip(true)
         .layoutWeight(1)
       }
       .width('100%')
       .height('100%')
       .alignItems(HorizontalAlign.Start)
       .backgroundColor(ColorTokens.canvas)
-      // 「一镜到底」全屏模态详情：modalTransition NONE 关掉系统默认转场。
-      // 打开/返回均由覆盖层的显式 transform 状态机驱动，系统只负责提供全屏容器。
-      .bindContentCover(this.detailOpen, this.detailCoverModal, {
-        modalTransition: ModalTransition.NONE,
-        // 内容盖的真实在屏状态（BindOptions）：守卫以此为「详情是否开着」的判据。
-        onAppear: (): void => {
-          this.coverOnScreen = true;
-        },
-        onWillDismiss: (): void => {
-          if (this.detailOpen) {
-            this.closeDetailModal();
-          }
-        },
-        // 模态真正消失时无条件复位状态机（含 coverOnScreen）。
-        // 只在关闭动画 onFinish 里复位是不够的：任何「动画没走完就被销毁」的路径
-        // （系统手势下滑、返回键在归位途中、测量回调不触发）都会留下残留，
-        // 而守卫一旦残留就会永久吞掉点击。onWillDisappear/onDisappear 两道都挂，覆盖更全。
-        onWillDisappear: (): void => {
-          this.resetDetailModalState();
-        },
-        onDisappear: (): void => {
-          this.resetDetailModalState();
-        },
-      })
   }
 }

@@ -3,6 +3,7 @@ import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
+import { resolveActionIcon } from '../utils/actionIcons';
 
 // 详情页固定操作层不读取帖子状态，避免工具栏和详情数据加载彼此耦合。
 @Component
@@ -10,6 +11,7 @@ export struct DetailToolbar {
   @Prop title: string = '';
   onBack: () => void = (): void => {};
   onMore: () => void = (): void => {};
+  onShare: () => void = (): void => {};
 
   build() {
     Row({ space: SpaceTokens.sm }) {
@@ -20,18 +22,23 @@ export struct DetailToolbar {
         .fontColor(ColorTokens.secondary)
         .layoutWeight(1)
         .textAlign(TextAlign.Center)
-      Text('...')
-        .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
-        .fontWeight(TypeTokens.headline.weight)
-        .fontColor(ColorTokens.primary)
-        .width(LayoutTokens.minTouchTarget)
-        .height(LayoutTokens.minTouchTarget)
-        .textAlign(TextAlign.Center)
-        .backgroundColor(Color.Transparent)
-        .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-        .borderRadius(RadiusTokens.lg)
-        .accessibilityText('更多操作')
-        .onClick((): void => { this.onMore(); })
+      Row({ space: SpaceTokens.xs }) {
+        Image(resolveActionIcon('share'))
+          .width(20)
+          .height(20)
+          .opacity(0.82)
+          .onClick((): void => { this.onShare(); })
+        Image(resolveActionIcon('more'))
+          .width(20)
+          .height(20)
+          .opacity(0.82)
+          .onClick((): void => { this.onMore(); })
+      }
+      .width(LayoutTokens.minTouchTarget * 2 + SpaceTokens.xs)
+      .height(LayoutTokens.minTouchTarget)
+      .justifyContent(FlexAlign.Center)
+      .alignItems(VerticalAlign.Center)
+      .accessibilityText('分享和更多操作')
     }
     .width('100%')
     .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.sm, bottom: SpaceTokens.xs })

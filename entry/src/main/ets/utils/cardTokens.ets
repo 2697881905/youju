@@ -39,6 +39,10 @@ export const DOCK_WIDTH_SMALL: number = 300;
 export const DOCK_BOTTOM_MARGIN_BASE: number = 28;
 // barSideMargin：Dock 距屏幕侧边的最小留白
 export const DOCK_SIDE_MARGIN_MIN: number = 16;
+// 首页系统 HdsTabs.barFloatingStyle 的材质参数；详情页 Dock 只在系统组件不可用时降级。
+export const DOCK_GRADIENT_MASK_HEIGHT: number = 92;
+export const DOCK_MATERIAL_TYPE: number = 101;
+export const DOCK_MATERIAL_LEVEL: number = 10;
 
 export function bottomNavInset(): number {
   const nav: number = AppStorage.get<number>('navBarHeight') ?? 0;
