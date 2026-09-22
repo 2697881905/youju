@@ -1,18 +1,32 @@
-// 帖子详情「Navigation 壳」：承接首页卡片导航（已按需求移除所有转场动画，直接切换）。
-// 参数经 NavPathStack.pushPathByName('PostDetail', {...}) 传入，onReady 中写模块级 intent 供 PostDetailView 消费。
+// 帖子详情「Navigation 壳」：承接首页卡片导航。
+//
+// 一镜到底按官方 transitions-collection 范式实现——**本页自身从卡片帧缩放展开**
+// （scale/translate/clip/position/radius），卡片截图顶住首帧、真内容随后淡入。
+// 目标是真页面本身，因此不存在旧方案「飞完再被真内容顶一下」的二次对位。
+// 参数经 pushPathByName('PostDetail', PostDetailNavParams) 传入，onReady 里注册本页的转场动画。
+import { display } from '@kit.ArkUI';
+import { hilog } from '@kit.PerformanceAnalysisKit';
+import { image } from '@kit.ImageKit';
 import { PostDetailView } from './PostDetailView';
 import { PostDetailIntent, openPostDetail } from '../utils/nav';
-import { getMainNavStack, PostDetailNavParams, UserProfileNavParams, CardRect } from '../utils/navigationTransition';
-import { CardSnapshotLayer } from '../components/CardSnapshotLayer';
+import { getMainNavStack, PostDetailNavParams, UserProfileNavParams } from '../utils/navigationTransition';
+import { LongTakeAnim, LongTakeParams, LongTakeTransition } from '../utils/longTakeTransition';
 import { ColorTokens } from '../design/tokens/color';
+
+const TAG: string = 'PostDetailDest';
+// 详情页里充当「卡片对应节点」的组件 id：整页缩放到「该节点宽 == 卡片宽」再展开
+const HERO_ID: string = 'detailHeroMedia';
 
 @Component
 export struct PostDetailDestination {
-  // 一镜到底飞行态：onReady 收到起点帧后置真，飞行结束（onDone）置假
-  @State flying: boolean = false;
-  @State flySrc: CardRect = { left: 0, top: 0, width: 0, height: 0 };
-  @State flyCover: string = '';
-  @State flyAspect: number = 0.75;
+  // 一镜到底可动画属性（@Observed：字段变化直接驱动本页重绘）
+  @State anim: LongTakeAnim = new LongTakeAnim();
+  // 卡片截图：作为首帧顶替真内容，真内容淡入后淡出
+  @State snapShot: image.PixelMap | undefined = undefined;
+  private takeParams: LongTakeParams = new LongTakeParams();
+  private pageId: string = '';
+  private registered: boolean = false;
+
   private back(): void {
     const nav: NavPathStack | null = getMainNavStack();
     if (nav !== null) {
@@ -29,27 +43,65 @@ export struct PostDetailDestination {
     }
   }
 
+  // 注册本页的一镜到底动画（官方：目的地页自注册，key = navDestinationId）
+  private registerTransition(): void {
+    if (this.registered || this.pageId.length === 0) {
+      return;
+    }
+    this.registered = true;
+    this.anim.init(this.takeParams.cardRect);
+    LongTakeTransition.getInstance().register(this.pageId, 2000,
+      (proxy: NavigationTransitionProxy): void => {
+        const ui: UIContext = this.getUIContext();
+        const winWpx: number = display.getDefaultDisplaySync().width;
+        // 初值必须在动画开始这一刻量：此时本页已完成布局
+        this.anim.initParams(ui, HERO_ID, winWpx);
+        if (LongTakeTransition.getInstance().operation === NavigationOperation.PUSH) {
+          this.anim.doEnter(ui, proxy);
+        } else {
+          this.anim.doBack(ui, proxy);
+        }
+      });
+    hilog.info(0x0000, TAG, 'transition registered: %{public}s', this.pageId);
+  }
+
   build() {
     NavDestination() {
-      Stack() {
-        PostDetailView({
-          navMode: true,
-          mediaCovered: this.flying,
-          onBack: (): void => { this.back(); },
-          onOpenProfile: (userId: number): void => { this.openProfile(userId); },
-        })
-        if (this.flying && this.flyCover.length > 0) {
-          CardSnapshotLayer({
-            coverUrl: this.flyCover,
-            src: this.flySrc,
-            aspect: this.flyAspect,
-            targetId: 'detailHeroMedia',
-            onDone: (): void => { this.flying = false; },
+      // Stack 的 alignContent 必须是 TopStart：否则截图与内容会随高度变化被重新定位（官方注释）
+      Stack({ alignContent: Alignment.TopStart }) {
+        Stack({ alignContent: Alignment.TopStart }) {
+          // 卡片截图：落在「对应节点」位置，动画期间由 scale/position 带着一起变形
+          if (this.snapShot !== undefined) {
+            Image(this.snapShot)
+              .width('100%')
+              .objectFit(ImageFit.Auto)
+              .syncLoad(true)
+              .opacity(this.anim.snapOpacity)
+              .position({ x: this.anim.snapX, y: this.anim.snapY })
+          }
+
+          // 真内容：进场 0→1，返回 1→0
+          PostDetailView({
+            navMode: true,
+            onBack: (): void => { this.back(); },
+            onOpenProfile: (userId: number): void => { this.openProfile(userId); },
           })
+            .width('100%')
+            .height('100%')
+            .opacity(this.anim.contentOpacity)
         }
+        .width('100%')
+        // 把「对应节点」挪到卡片位置
+        .position({ x: this.anim.posX, y: this.anim.posY })
       }
-      .width('100%')
-      .height('100%')
+      .scale({ x: this.anim.scale, y: this.anim.scale })
+      .translate({ x: this.anim.tx, y: this.anim.ty })
+      .width(this.anim.clipWidth)
+      .height(this.anim.clipHeight)
+      .borderRadius(this.anim.radius)
+      .clip(true)
+      .backgroundColor(ColorTokens.canvas)
+      .expandSafeArea([SafeAreaType.SYSTEM])
     }
     .hideTitleBar(true)
     .backgroundColor(ColorTokens.canvas)
@@ -60,13 +112,16 @@ export struct PostDetailDestination {
       }
       const intent: PostDetailIntent | null = (param.intent as PostDetailIntent | null) ?? null;
       openPostDetail(String(param.postId), intent);
-      if (param.src !== null && param.src.width > 0 && intent !== null && intent.cover.length > 0) {
-        this.flySrc = param.src;
-        this.flyCover = intent.cover;
-        this.flyAspect = intent.aspect > 0 ? intent.aspect : 0.75;
-        this.flying = true;
+      const take: LongTakeParams | null = (param.longTake as LongTakeParams | null) ?? null;
+      if (take !== null && take.cardRect.width > 0) {
+        this.takeParams = take;
+        this.snapShot = take.snapshot;
+        this.pageId = ctx.navDestinationId !== undefined ? ctx.navDestinationId : '';
+        this.registerTransition();
       }
-      // undefined);
+    })
+    .onDisAppear(() => {
+      LongTakeTransition.getInstance().unregister(this.pageId);
     })
   }
 }

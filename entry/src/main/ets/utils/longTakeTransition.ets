@@ -79,6 +79,10 @@ export class LongTakeAnim {
   // 内容层相对视口的偏移：把「对应节点」挪到卡片位置
   posX: number = 0;
   posY: number = 0;
+  // 卡片截图在缩放容器内的落点（官方：= 对应节点位置；Y 再减去顶部避让区，
+  // 因为目的地开了 expandSafeArea，坐标原点在状态栏下方）
+  snapX: number = 0;
+  snapY: number = 0;
 
   private initScale: number = 1;
   private initTx: number = 0;
@@ -131,6 +135,9 @@ export class LongTakeAnim {
     this.initTy = ui.px2vp(cardTpx - ((clipHpx - clipHpx * this.initScale) / 2));
     this.initPosX = -nodeXvp;
     this.initPosY = -nodeYvp;
+    const statusBarVp: number = AppStorage.get<number>('statusBarHeight') ?? 0;
+    this.snapX = nodeXvp;
+    this.snapY = nodeYvp - statusBarVp;
     hilog.info(0x0000, TAG,
       'initParams scale=%{public}f pos=(%{public}f,%{public}f) clipH=%{public}f tx=%{public}f ty=%{public}f',
       this.initScale, this.initPosX, this.initPosY, clipHpx, this.initTx, this.initTy);
