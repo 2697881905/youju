@@ -80,6 +80,8 @@ export struct HomeTab {
   @State feedMode: FeedMode = 'recommend';
   // WaterFlow 懒加载数据源（与 posts 同步；见 utils/feedSource.ets）
   private feedSource: FeedDataSource = new FeedDataSource();
+  // 切流/刷新时把瀑布流滚回顶部（WaterFlow 会保留旧滚动偏移，不重置会停在新列表中部）
+  private feedScroller: Scroller = new Scroller();
   @State feedIndex: number = 0;
   @State needLogin: boolean = false; // 关注流且未登录的引导态
   @State followingCount: number = 0; // 关注流的关注数缓存（空态 A/B 区分）
@@ -356,6 +358,7 @@ export struct HomeTab {
       if (reset) {
         this.posts = res.list;
         this.feedSource.replaceAll(res.list);
+        this.feedScroller.scrollEdge(Edge.Top);
         // 写回会话缓存（仅首屏，供切 Tab 回来快速呈现）
         feedSessionCache.set(this.feedCacheKey(), { posts: res.list, at: Date.now() });
       } else {
@@ -603,20 +606,38 @@ export struct HomeTab {
     })
   }
 
+  // 瀑布流尾注：WaterFlowOptions.footer（原生支持，整宽），与原 feedScroll 尾注一致
+  @Builder
+  feedFooter(): void {
+    Column({ space: SpaceTokens.xs }) {
+      if (this.finished) {
+        Text('没有更多了')
+          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.caption.weight)
+          .lineHeight(TypeTokens.caption.lineHeight)
+          .letterSpacing(TypeTokens.caption.tracking)
+          .fontColor(ColorTokens.tertiary)
+          .width('100%')
+          .textAlign(TextAlign.Center)
+          .padding(SpaceTokens.base)
+      }
+      Blank().width('100%').height(barBottomReserve())
+    }
+    .width('100%')
+  }
+
   // 实验：WaterFlow + LazyForEach 信息流（替换 Scroll + ForEach 手写双列）。
   // 收益：① LazyForEach 按需创建/回收卡片，已加载卡片不再全部常驻；
   //       ② 真正瀑布流装箱（按卡片实际高度），消除奇偶分列的底部参差。
   // 关键：expandSafeArea 让容器不被底部安全区收缩——此前 WaterFlow 回退的根因。
   @Builder
   feedWaterFlow(): void {
-    WaterFlow() {
+    WaterFlow({ footer: this.feedFooter(), scroller: this.feedScroller }) {
       LazyForEach(this.feedSource, (post: Post, idx: number) => {
         FlowItem() {
           this.feedPost(post, idx)
         }
         .width('100%')
-        // 末条留出悬浮底栏让位（WaterFlow 无 footer 插槽，用末项 margin 实现）
-        .margin({ bottom: idx === this.posts.length - 1 ? barBottomReserve() : 0 })
       }, (post: Post) => 'wf-' + String(post.id ?? ''))
     }
     .columnsTemplate('1fr 1fr')
