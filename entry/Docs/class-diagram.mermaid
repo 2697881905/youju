@@ -43,14 +43,9 @@ classDiagram
     }
     AccountBindingService ..> BindingItem : returns
 
-    class HuaweiBindButton {
-      +onHuaweiBindSuccess(unionID) void
-      +onHuaweiBindFailure(error) void
-    }
     class AccountBindingPage {
       +BindingItem[] bindings
       +loadBindings() void
-      +handleBindHuawei(unionID) void
       +handleUnbind(provider) void
     }
     class SettingsPage
@@ -61,7 +56,6 @@ classDiagram
       +unbindAccount(provider) UnbindResult
     }
 
-    AccountBindingPage ..> HuaweiBindButton : uses
     AccountBindingPage ..> ApiClient : calls
     ApiClient ..> AccountRouter : HTTP /v1/account/bindings
     SettingsPage ..> AccountBindingPage : pushUrl
