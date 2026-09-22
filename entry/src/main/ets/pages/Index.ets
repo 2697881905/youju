@@ -703,6 +703,22 @@ struct Index {
       // 关闭 Navigation 内容裁剪（详情页全屏、快照转场在独立层，均不受影响）。
       .clip(false)
       .navDestination(this.pageMap)
+      // 首页卡片 → 帖子详情：取消系统默认导航转场（瞬间切页），
+      // 一镜到底飞行交给 PostDetailDestination 内的 CardSnapshotLayer 覆盖层
+      // （同 URL 封面走缓存，起点为卡片媒体块屏幕帧，不依赖截图链路）。
+      // 其余目的地与返回操作返回 undefined，走系统默认转场。
+      .customNavContentTransition((from: NavContentInfo, to: NavContentInfo,
+        operation: NavigationOperation): NavigationAnimatedTransition | undefined => {
+        if (operation === NavigationOperation.PUSH && to.name === 'PostDetail') {
+          return {
+            timeout: 600,
+            transition: (proxy: NavigationTransitionProxy): void => {
+              proxy.finishTransition();
+            },
+          };
+        }
+        return undefined;
+      })
       .width('100%')
       .height('100%')
 

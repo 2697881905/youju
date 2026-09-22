@@ -1247,6 +1247,7 @@ export struct PostDetailView {
                 this.mediaSlot()
               }
               .width('100%')
+              .id('detailHeroMedia')
               .opacity(this.mediaCovered ? 0 : 1)
               .onAreaChange((_oldValue: Area, newValue: Area): void => {
                 this.reportMediaArea(newValue);
