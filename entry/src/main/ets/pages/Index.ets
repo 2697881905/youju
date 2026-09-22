@@ -709,11 +709,14 @@ struct Index {
       // （PUSH 交 to、POP 交 from）。未注册的目的地返回 undefined，走系统默认转场。
       .customNavContentTransition((from: NavContentInfo, to: NavContentInfo,
         operation: NavigationOperation): NavigationAnimatedTransition | undefined => {
-        if (!from.navDestinationId || !to.navDestinationId) {
-          return undefined;
-        }
-        const fromParam: AnimateCallback = CustomTransition.getInstance().getAnimateParam(from.navDestinationId);
-        const toParam: AnimateCallback = CustomTransition.getInstance().getAnimateParam(to.navDestinationId);
+        // ⚠️ 官方在此处要求 from/to **都**有 navDestinationId，那条守卫成立的前提是
+        // 「源页本身也是 NavDestination」（官方示例的卡片列表页就是）。本项目源页是
+        // Navigation 的**根内容**（HomeTab 在 navBar 位），PUSH 时 from.navDestinationId 为空，
+        // 照抄这条守卫会让首页→详情的自定义转场整条失效（踩过：页面不展开变形、内容停在
+        // 0 透明度，屏幕上只剩一张放大的卡片截图）。因此这里只用 id 查表，取不到即视为未注册。
+        const toParam: AnimateCallback = CustomTransition.getInstance().getAnimateParam(to.navDestinationId ?? '');
+        const fromParam: AnimateCallback =
+          CustomTransition.getInstance().getAnimateParam(from.navDestinationId ?? '');
         // 未注册自定义转场的目的地（含返回目标）走系统默认转场
         if (fromParam.animation === undefined && toParam.animation === undefined) {
           return undefined;
