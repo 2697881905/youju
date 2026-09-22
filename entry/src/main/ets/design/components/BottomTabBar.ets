@@ -134,25 +134,25 @@ export struct BottomTabBar {
 
   @Builder
   tabIcon(item: BottomTabItem, index: number) {
-    // 功能图标为纯线条 SVG（资源内已按主题烤线色，勿 fillColor——会把 fill="none" 补成实心）。
-    // 选中态由纸面高亮（SharedSlide）+ 文字品牌色表达，图标保持主题线条不变色。
+    // 功能图标为官方填充造型（SVG 内 fill="currentColor"）→ 必须显式 fillColor，否则按默认色渲染、深色下隐身。
+    // 勿对描边风格图标（fill="none"）调用：会把轮廓补成实心。选中态仍由纸面高亮（SharedSlide）+ 文字品牌色表达。
     if (this.isActive(index)) {
       Image(item.icon)
         .width(IconTokens.tabBar)
         .height(IconTokens.tabBar)
         .scale({
-        .fillColor(ColorTokens.secondary)
           x: this.shouldReduceMotion() ? 1 : 1.08,
           y: this.shouldReduceMotion() ? 1 : 1.08,
         })
+        .fillColor(ColorTokens.secondary)
         .draggable(false)
     } else {
       Image(item.icon)
         .width(IconTokens.tabBar)
         .height(IconTokens.tabBar)
         .scale({ x: 1, y: 1 })
-        .draggable(false)
         .fillColor(ColorTokens.secondary)
+        .draggable(false)
     }
   }
 
