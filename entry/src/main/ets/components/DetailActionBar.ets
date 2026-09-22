@@ -50,6 +50,8 @@ struct DetailActionButton {
           .fontColor(this.active ? this.activeColor : ColorTokens.secondary).maxLines(1)
       }
       .height(COMPACT_ROW_HEIGHT)
+      // 固定 LTR：图标恒在文字左侧——父层镜像（Rtl）时不跟随翻转
+      .direction(Direction.Ltr)
       .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
       // 不再给活跃态铺底色：原先是 brandTint 圆角矩形，点赞/收藏点亮时会在按钮范围出现一层蒙层。
       // 状态表达只保留「图标换实心款 + 颜色变 activeColor + 数字变色」；
@@ -76,17 +78,19 @@ export struct DetailActionBar {
   @Prop bookmarkFeedbackVersion: number = 0;
   @Prop replyName: string = '';
   @State inputFocused: boolean = false;
-  // 点赞/收藏按钮组的自然宽度（未聚焦时实测一次）。聚焦时把它动画到 0，
-  // 输入框就在逐帧布局中平滑铺满整行 —— 见 focusExpand/focusCollapse 的注释。
+  // 点赞/收藏按钮组的自然宽度（未聚焦时实测一次）：输入层的让位 padding 用它计算
   @State actionsW: number = 0;
-  // 智感握姿（官方 SmartReach 范式）：底部组件随握持手跟手换边——
-  // 右手握持：输入+发送靠右、点赞/收藏靠左；左手握持：整体镜像。
+  // 智感握姿（官方 SmartReach 范式）：输入+发送 与 点赞/收藏 两组随握持手互换侧别，
+  // 且两组是**持久节点**——换边只变对齐/方向/让位 padding（全部可插值的布局属性），
+  // 在 animateTo 内连续滑动（Title 同款），无节点销毁重建、无叠化、焦点不丢。
   // holdingHandStatus 由 gripAwareness 写入（1=左手 2=右手 0=未握持/不支持，离手不触发迁移）。
   @StorageProp('holdingHandStatus') @Watch('onHoldingHandChanged') holdingHandStatus: number = 0;
-  // 输入组贴边侧：true = 输入+发送靠右（默认右手布局）；false = 靠左（左手镜像）
+  // 布局侧：true = 输入+发送靠右（默认右手布局）；false = 靠左（左手镜像）。
+  // 驱动：层1 justifyContent（点赞/收藏滑动）+ 层2 direction（发送始终靠拇指侧）。
   @State inputOnRight: boolean = true;
-  // 输入聚焦期间收到换边：先挂起、失焦后再翻转 —— 分支重排会重建输入框丢焦点
-  @State pendingOnRight: boolean = true;
+  // 让位 padding 的方向：与 inputOnRight 分开动画（450ms，慢一拍）——
+  // 发送随对齐弹簧先到位，输入框的让位/展宽随后跟上（错峰）。
+  @State padOnRight: boolean = true;
   onUp: () => void = (): void => {};
   onBookmark: () => void = (): void => {};
   onSendComment: () => void = (): void => {};
@@ -97,12 +101,14 @@ export struct DetailActionBar {
     return this.commenting && !this.inputFocused;
   }
 
-  /* 聚焦/失焦时的展开与收起：**必须包在 animateTo 里**，布局属性才会逐帧插值。
-   * 依据官方 component-collection 的「布局动效」（LayoutAnimationSample）与「尺寸变换动效」
-   * （SizeTransitionSample）：width / margin / padding 等布局属性放在 animateTo 中改，
-   * ArkUI 会每帧重新布局并插值 —— 兄弟元素的宽度与外边距一变，输入框的 layoutWeight 就跟着连续变化，
-   * 于是「输入框拉伸铺满一行」有了过渡，而不是瞬间回流。
-   */
+  // 输入层的让位宽度：点赞/收藏组自然宽 + 间距；聚焦时归零（输入框铺满整行）
+  private actionsReserve(): number {
+    return this.inputFocused ? 0 : (this.actionsW > 0 ? this.actionsW + SpaceTokens.md : 0);
+  }
+
+  /* 聚焦/失焦：折叠点赞/收藏层 + 让位 padding 归零。必须在 animateTo 内（布局属性逐帧插值）。
+   * 依据官方 component-collection 布局动效：width/padding 放进 animateTo 逐帧插值，
+   * 输入框的 layoutWeight 随让位 padding 连续变化 → 平滑铺满。 */
   private applyFocusLayout(focused: boolean): void {
     this.getUIContext().animateTo({
       duration: MotionTokens.container,
@@ -111,52 +117,6 @@ export struct DetailActionBar {
     }, (): void => {
       this.inputFocused = focused;
     });
-    // 失焦时应用聚焦期间挂起的握姿换边（换边会重建输入框，聚焦期间只能挂起）
-    if (!focused && this.pendingOnRight !== this.inputOnRight) {
-      this.applyInputSide(this.pendingOnRight);
-    }
-  }
-
-  // 握持手变化 → 输入组跟手换边（官方 SmartReach 范式：底部组件随握持手左右迁移）。
-  // 右手：输入+发送靠右、点赞/收藏靠左；左手：整体镜像。0=未握持/不支持保持当前侧。
-  onHoldingHandChanged(): void {
-    const wantRight: boolean = this.holdingHandStatus === 2;
-    if (wantRight === this.inputOnRight) {
-      this.pendingOnRight = wantRight;
-      return;
-    }
-    // 聚焦输入期间换边会重建输入框（if/else 分支重排）丢焦点，先挂起、失焦再翻转
-    if (this.inputFocused) {
-      this.pendingOnRight = wantRight;
-      return;
-    }
-    this.applyInputSide(wantRight);
-  }
-
-  private applyInputSide(right: boolean): void {
-    this.pendingOnRight = right;
-    if (right === this.inputOnRight) {
-      return;
-    }
-    // 换边动画与 Title 的握姿动画同款：interpolatingSpring 弹性弹簧（带过冲回弹），
-    // 分支重排的新旧子元素再走 gripSwapTransition 的方向性滑入/淡出。
-    this.getUIContext().animateTo({
-      duration: 350,
-      curve: curves.interpolatingSpring(0, 1, 170, 17),
-    }, (): void => {
-      this.inputOnRight = right;
-    });
-  }
-
-  // 换边转场：**纯位移**——新旧子元素沿「移动方向」弹性滑动，无任何淡入淡出。
-  // 插入：从对侧偏移滑到 0；删除：从 0 滑到偏移（同一效果双向适用）。
-  // 分支重排是销毁重建，同一节点无法连续滑动——用双向纯位移模拟整组迁移。
-  private gripSwapTransition(): TransitionEffect {
-    // 滑动方向：换到右侧布局（inputOnRight=true）→ 从左（-60）进入 / 向左（-60）退出；反之从右
-    const offset: number = this.inputOnRight ? -60 : 60;
-    return TransitionEffect
-      .translate({ x: offset })
-      .animation({ curve: curves.interpolatingSpring(0, 1, 170, 17) });
   }
 
   private collapseCancel(): void {
@@ -170,96 +130,99 @@ export struct DetailActionBar {
     });
   }
 
-  // 点赞/收藏组：整组折叠（宽度 + 透明度 + 外边距一起动画），而不是用 if 把它从布局里摘掉
-  @Builder
-  actionsGroup() {
-    Row({ space: SpaceTokens.md }) {
-      DetailActionButton({ icon: resolveActionIcon('like'), activeIcon: resolveActionIcon('likeActive'),
-        label: formatCount(this.upCount), active: this.uped, activeColor: ColorTokens.like,
-        disabled: this.upPending, feedbackVersion: this.upFeedbackVersion,
-        iconSize: 24, onAction: (): void => { this.onUp(); } })
-      DetailActionButton({ icon: resolveActionIcon('bookmark'), activeIcon: resolveActionIcon('bookmarkActive'),
-        label: formatCount(this.bookmarkCount), active: this.bookmarked, activeColor: ColorTokens.bookmark,
-        disabled: this.bookmarkPending, feedbackVersion: this.bookmarkFeedbackVersion,
-        iconSize: 24, onAction: (): void => { this.onBookmark(); } })
+  // 握持手变化 → 两组跟手换边（官方 SmartReach 范式）。两次 animateTo 错峰：
+  // 对齐/方向（发送随动、先到位）用 350 弹性弹簧（与 Title 握姿动画同款）；
+  // 输入层让位 padding 用 450 —— 发送先到，输入框随后跟上。
+  // 全程无节点重建：输入聚焦期间换边也安全（输入框带着焦点一起滑动）。
+  onHoldingHandChanged(): void {
+    const right: boolean = this.holdingHandStatus === 2;
+    if (right === this.inputOnRight) {
+      return;
     }
-    // actionsW 实测前用 'auto'（内容宽度）兜底，实测后一律走数值，保证 0 ↔ 自然宽 是纯数值插值
-    .width(this.inputFocused ? 0 : (this.actionsW > 0 ? this.actionsW : 'auto'))
-    .opacity(this.inputFocused ? 0 : 1)
-    .clip(true)
-    // 组与输入框之间的间距：镜像布局时间距朝向输入框的一侧随之翻转
-    .margin(this.inputFocused
-      ? { left: 0, right: 0 }
-      : (this.inputOnRight ? { right: SpaceTokens.md } : { left: SpaceTokens.md }))
-    .hitTestBehavior(this.inputFocused ? HitTestMode.None : HitTestMode.Default)
-    .onAreaChange((_oldValue: Area, newValue: Area): void => {
-      if (this.inputFocused) {
-        return;
-      }
-      const w: number = parseFloat(String(newValue.width));
-      if (w > 0 && Math.abs(w - this.actionsW) > 0.5) {
-        this.actionsW = w;
-      }
-    })
-    .transition(this.gripSwapTransition())
-  }
-
-  @Builder
-  inputField() {
-    GlowInput({ placeholder: this.replyName.length > 0 ? ('回复 @' + this.replyName) : '说点什么…',
-      text: $commentText, fillWidth: true, inputHeight: COMPACT_CONTROL_HEIGHT, radius: RadiusTokens.sm,
-      fontSize: 14, segmentStyle: true,
-      onFocusChanged: (focused: boolean): void => { this.applyFocusLayout(focused); },
-      onEnter: (): void => { this.onSendComment(); } })
-  }
-
-  @Builder
-  sendButton() {
-    Text('发送').height(COMPACT_CONTROL_HEIGHT)
-      .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-      .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-      .fontWeight(TypeTokens.headline.weight).fontColor(ColorTokens.onBrand)
-      .backgroundColor(ColorTokens.brand).borderRadius(RadiusTokens.pill)
-      // 间距朝输入框一侧：镜像时翻转
-      .margin(this.inputOnRight ? { left: SpaceTokens.md } : { right: SpaceTokens.md })
-      .onClick((): void => { this.onSendComment(); })
-      .transition(this.gripSwapTransition())
-  }
-
-  @Builder
-  cancelButton() {
-    // 取消键：同样折叠而不是 if 摘除（宽度固定 36，直接数值插值）
-    Row() {
-      Text('×').width(COMPACT_ROW_HEIGHT).height(COMPACT_ROW_HEIGHT)
-        .fontSize(22).textAlign(TextAlign.Center).fontColor(ColorTokens.secondary)
-        .onClick((): void => { this.collapseCancel(); this.onCancelReply(); })
-    }
-    .width(this.showCancel() ? COMPACT_ROW_HEIGHT : 0)
-    .opacity(this.showCancel() ? 1 : 0)
-    .clip(true)
-    .margin(this.showCancel()
-      ? (this.inputOnRight ? { left: SpaceTokens.md } : { right: SpaceTokens.md })
-      : { left: 0, right: 0 })
-    .hitTestBehavior(this.showCancel() ? HitTestMode.Default : HitTestMode.None)
-    .transition(this.gripSwapTransition())
+    this.getUIContext().animateTo({
+      duration: 350,
+      curve: curves.interpolatingSpring(0, 1, 170, 17),
+    }, (): void => {
+      this.inputOnRight = right;
+    });
+    this.getUIContext().animateTo({
+      duration: 450,
+      curve: MotionCurves.springInteract,
+    }, (): void => {
+      this.padOnRight = right;
+    });
   }
 
   build() {
-    // 注意：不用 Row({ space })，间距全走各子元素自己的 margin（可插值）。
-    // 智感握姿：输入组随握持手换边（右手=输入在右；左手=输入在左），
-    // 分支重排时子元素走 gripSwapTransition 淡入淡出。
-    Row() {
-      if (this.inputOnRight) {
-        this.actionsGroup()
-        this.inputField()
-        this.sendButton()
-        this.cancelButton()
-      } else {
-        this.cancelButton()
-        this.sendButton()
-        this.inputField()
-        this.actionsGroup()
+    // 两层 Stack：层1 点赞/收藏（对齐侧翻转）、层2 输入+发送+取消（让位 padding + 方向镜像）。
+    // 全部是**属性变化**（justifyContent/padding/direction），无节点销毁重建——
+    // 在 animateTo 内连续滑动（Title 同款）。
+    // 注意：不用 Row({ space })，间距全走各子元素自己的 margin（镜像时可控）。
+    Stack() {
+      // 层1：点赞/收藏组
+      Row() {
+        Row({ space: SpaceTokens.md }) {
+          DetailActionButton({ icon: resolveActionIcon('like'), activeIcon: resolveActionIcon('likeActive'),
+            label: formatCount(this.upCount), active: this.uped, activeColor: ColorTokens.like,
+            disabled: this.upPending, feedbackVersion: this.upFeedbackVersion,
+            iconSize: 24, onAction: (): void => { this.onUp(); } })
+          DetailActionButton({ icon: resolveActionIcon('bookmark'), activeIcon: resolveActionIcon('bookmarkActive'),
+            label: formatCount(this.bookmarkCount), active: this.bookmarked, activeColor: ColorTokens.bookmark,
+            disabled: this.bookmarkPending, feedbackVersion: this.bookmarkFeedbackVersion,
+            iconSize: 24, onAction: (): void => { this.onBookmark(); } })
+        }
+        .onAreaChange((_oldValue: Area, newValue: Area): void => {
+          if (this.inputFocused) {
+            return;
+          }
+          const w: number = parseFloat(String(newValue.width));
+          if (w > 0 && Math.abs(w - this.actionsW) > 0.5) {
+            this.actionsW = w;
+          }
+        })
       }
+      .width('100%')
+      .justifyContent(this.inputOnRight ? FlexAlign.Start : FlexAlign.End)
+      .opacity(this.inputFocused ? 0 : 1)
+      .hitTestBehavior(this.inputFocused ? HitTestMode.None : HitTestMode.Default)
+
+      // 层2：输入框 + 发送 + 取消键（不用 Row({space})，间距走 margin——镜像时可控）
+      Row() {
+        GlowInput({ placeholder: this.replyName.length > 0 ? ('回复 @' + this.replyName) : '说点什么…',
+          text: $commentText, fillWidth: true, inputHeight: COMPACT_CONTROL_HEIGHT, radius: RadiusTokens.sm,
+          fontSize: 14, segmentStyle: true,
+          onFocusChanged: (focused: boolean): void => { this.applyFocusLayout(focused); },
+          onEnter: (): void => { this.onSendComment(); } })
+          .layoutWeight(1)
+
+        Text('发送').height(COMPACT_CONTROL_HEIGHT)
+          .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.headline.weight).fontColor(ColorTokens.onBrand)
+          .backgroundColor(ColorTokens.brand).borderRadius(RadiusTokens.pill)
+          // 间距朝输入框一侧：镜像时翻转
+          .margin(this.inputOnRight ? { left: SpaceTokens.md } : { right: SpaceTokens.md })
+          .onClick((): void => { this.onSendComment(); })
+
+        // 取消键：宽度 36 ↔ 0 折叠（镜像时留白边朝向翻转）
+        Row() {
+          Text('×').width(COMPACT_ROW_HEIGHT).height(COMPACT_ROW_HEIGHT)
+            .fontSize(22).textAlign(TextAlign.Center).fontColor(ColorTokens.secondary)
+            .onClick((): void => { this.collapseCancel(); this.onCancelReply(); })
+        }
+        .width(this.showCancel() ? COMPACT_ROW_HEIGHT : 0)
+        .opacity(this.showCancel() ? 1 : 0)
+        .clip(true)
+        .margin(this.inputOnRight
+          ? { left: this.showCancel() ? SpaceTokens.md : 0 }
+          : { right: this.showCancel() ? SpaceTokens.md : 0 })
+      }
+      .width('100%')
+      .padding({
+        left: this.padOnRight ? this.actionsReserve() : 0,
+        right: this.padOnRight ? 0 : this.actionsReserve(),
+      })
+      .direction(this.inputOnRight ? Direction.Ltr : Direction.Rtl)
     }
     .width('100%')
     .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
@@ -270,7 +233,5 @@ export struct DetailActionBar {
     .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
     .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
     .borderRadius(RadiusTokens.none)
-    .animation({ duration: MotionTokens.container, curve: MotionCurves.springInteract,
-      expectedFrameRateRange: MotionFrameRates.default })
   }
 }
