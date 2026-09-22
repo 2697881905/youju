@@ -12,6 +12,7 @@ import { PostCard } from './PostCard';
 import { FeedDataSource } from '../utils/feedSource';
 import { TagNav } from './TagNav';
 import { emitTabSwitch, openPostDetail, PostDetailIntent } from '../utils/nav';
+import { cardRectOf, getMainNavStack, PostDetailNavParams } from '../utils/navigationTransition';
 import { safeShowToast } from '../utils/toast';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { EmptyState } from '../design/components/EmptyState';
@@ -432,6 +433,26 @@ export struct HomeTab {
     };
   }
 
+  // 卡片 → 详情：走 Navigation 的 PostDetail 目的地以启用自定义转场（一镜到底）；
+  // 起点用卡片媒体块屏幕帧，飞行由 PostDetailDestination 内的 CardSnapshotLayer 完成。
+  // Navigation 未就绪时兜底走老路由整页（无飞行）。
+  private openDetailViaNav(post: Post, aspect: number, cover: string): void {
+    if (post.id === undefined) {
+      return;
+    }
+    const nav: NavPathStack | null = getMainNavStack();
+    if (nav === null) {
+      openPostDetail(post.id.toString(), cover.length > 0 ? this.buildDetailIntent(cover, post, aspect) : undefined);
+      this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
+      return;
+    }
+    const p: PostDetailNavParams = new PostDetailNavParams();
+    p.postId = post.id;
+    p.intent = cover.length > 0 ? this.buildDetailIntent(cover, post, aspect) : null;
+    p.src = cardRectOf('cardMedia-' + post.id);
+    nav.pushPathByName('PostDetail', p);
+  }
+
   @Builder
   refreshBuilder(): void {
     Row({ space: SpaceTokens.inline }) {
@@ -526,11 +547,7 @@ export struct HomeTab {
       onOpen: () => {
         if (post.id !== undefined) {
           trackPostEvent(post.id, 'click', 'feed');
-          const cover: string = this.feedCardCover(post);
-          openPostDetail(post.id.toString(), cover.length > 0
-            ? this.buildDetailIntent(cover, post, LayoutTokens.cardMediaAspectRatio)
-            : undefined);
-          this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
+          this.openDetailViaNav(post, LayoutTokens.cardMediaAspectRatio, this.feedCardCover(post));
         }
       },
     })
@@ -845,11 +862,7 @@ export struct HomeTab {
                 onOpen: (post: DailyPost): void => {
                   if (post.id !== undefined) {
                     trackPostEvent(post.id, 'click', 'daily');
-                    const cover: string = this.dailyDeckCover(post);
-                    openPostDetail(post.id.toString(), cover.length > 0
-                      ? this.buildDetailIntent(cover, post, DAILY_DECK_MEDIA_RATIO)
-                      : undefined);
-                    this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
+                    this.openDetailViaNav(post, DAILY_DECK_MEDIA_RATIO, this.dailyDeckCover(post));
                   }
                 },
               })
