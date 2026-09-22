@@ -493,6 +493,7 @@ export struct MessagePage {
               .width(34)
               .height(34)
               .objectFit(ImageFit.Contain)
+              .fillColor(this.activeFilter === filter ? ColorTokens.brand : ColorTokens.secondary)
           }
           Text(label)
             .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
