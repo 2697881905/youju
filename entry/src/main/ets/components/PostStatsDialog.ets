@@ -6,8 +6,8 @@
 // CustomDialog 的 builder 里 open() 后不随父组件重渲染同步（面板永远停在「正在汇总」）。
 // 改为父组件 @State 驱动的 if 分支覆盖层后，@Prop 随父组件刷新，天然响应式。
 //
-// 面板材质：**outlined 描边风**（透明底 + barBorder 细描边，无玻璃模糊/流光/阴影）——
-// 数据面板是信息型弹窗，不做沉浸光感材质；与「已加入圈子」面板同语言。
+// 面板材质：**应用标准玻璃面板**（GlassBlurStyle.Floating + barSurface 兜底 + 浮层阴影，
+// 与收藏夹命名/分享面板等同族）——数据面板曾试过 outlined 透明描边风，遮罩上可视性差，已弃。
 //
 // 结构（自上而下）：
 //   标题区（serif 帖子数据 / 仅你自己可见 / 关闭）
@@ -130,7 +130,8 @@ export struct PostStatsDialog {
         .backgroundColor('rgba(0,0,0,0.35)')
         .onClick((): void => { this.onClose(); })
 
-      SpringPanel({ panelWidth: 344, panelPadding: SpaceTokens.lg, outlined: true, immersive: false }) {
+      // 应用标准玻璃面板（同族弹窗默认材质）：可视性优先，不做透明描边风
+      SpringPanel({ panelWidth: 344, panelPadding: SpaceTokens.lg }) {
         Column({ space: SpaceTokens.base }) {
           // 标题区（与同族弹窗同构：衬线标题 + 关闭）
           Row({ space: SpaceTokens.sm }) {
