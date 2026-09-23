@@ -58,6 +58,11 @@ function proxyCosStream(req: Request, res: Response, viewUrl: string): void {
 // 支持含斜杠的 key 路径（客户端可按未编码 URL 直出，规避个别 Image 栈对 %2F 编码路径的不兼容）
 // 同时保留 %2F 编码形式（decodeURIComponent 后同样可解析）
 router.use('/', (req: Request, res: Response) => {
+  // 覆盖 helmet 默认的 Cross-Origin-Resource-Policy: same-origin。
+  // 分享落地页在 youju.chat、图片在 api.youju.chat，属跨源 no-cors 加载；
+  // CORP 为 same-origin 时浏览器（含微信 WebView）会拦掉图片，仅 <img> 场景暴露，
+  // App 内 ArkUI Image 不受影响。媒体本身是私有 COS 的只读代理，放开 CORP 不新增访问面。
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   const raw: string = decodeURIComponent(req.url.split('?')[0].replace(/^\//, ''));
   if (raw.length === 0) {
     res.sendStatus(404);
