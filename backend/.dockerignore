@@ -6,4 +6,7 @@ dist
 certbot
 nginx
 nginx-static
+# 服务器上的手动备份目录与上传落盘目录：不参与构建，但会让 build context 涨到 148MB
+nginx-static.bak-*
+uploads
 backups
