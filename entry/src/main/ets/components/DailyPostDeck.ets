@@ -207,6 +207,33 @@ struct DeckSlotCard {
     .clip(true)
   }
 
+  // 反光遮罩：斜向掠射光带，模拟玻璃 / 亚克力卡面的高光反射，让封面有材质感
+  // 而不是「一张贴上去的图」。只叠在图片封面上 —— 文字海报本身已是纸色渐变。
+  //
+  // hitTestBehavior(None) 不可省：遮罩铺满整个卡面，若参与命中测试就会挡掉父层的
+  // PanGesture，卡片将完全拖不动。这与 Image.draggable(false) 是同一类坑。
+  //
+  // 峰值只给到 34% 白：再高会压掉封面主体，达不到「精致」而是「发灰」。
+  // 光带前缘在 14%、峰值 26%、38% 处收敛，形成一条有方向的斜掠高光而非整体提亮。
+  @Builder
+  sheenOverlay(): void {
+    Column()
+      .width('100%')
+      .height('100%')
+      .linearGradient({
+        angle: 125,
+        colors: [
+          ['#00FFFFFF', 0],
+          ['#2EFFFFFF', 0.14],
+          ['#57FFFFFF', 0.26],
+          ['#1FFFFFFF', 0.38],
+          ['#00FFFFFF', 0.54],
+          ['#00FFFFFF', 1],
+        ],
+      })
+      .hitTestBehavior(HitTestMode.None)
+  }
+
   // 卡面媒体区：4:3 封面（图片 + 角标 / 文字海报）。与信息条分离，
   // 「一镜到底」只飞这块媒体区，标题/作者等文字不参与缩放变形。
   @Builder
@@ -224,6 +251,9 @@ struct DeckSlotCard {
           .draggable(false)
       } else {
         this.textPoster()
+      }
+      if (this.hasMedia()) {
+        this.sheenOverlay()
       }
       if (this.hasMedia()) {
         // 角标：今日精选 · 体裁（top 12 / left 12）
