@@ -9,7 +9,6 @@ import { getUserId } from '../utils/auth';
 import { likeStore } from '../utils/likeStore';
 import { postDeletionStore } from '../utils/postDeletionStore';
 import { PostCard } from './PostCard';
-import { FeedDataSource } from '../utils/feedSource';
 import { TagNav } from './TagNav';
 import { emitTabSwitch, openPostDetail, PostDetailIntent } from '../utils/nav';
 import { cardRectOf, getMainNavStack, PostDetailNavParams, CardRect } from '../utils/navigationTransition';
@@ -71,7 +70,9 @@ const ALL_TAG: Tag = { name: '全部' };
 
 @Component
 export struct HomeTab {
-  @State posts: DailyPost[] = [];
+  // 三页（推荐/关注/每日一帖）各自独立缓存：Swiper 滑动时相邻页显示自己的内容，
+  // 未访问过的分段缓存为空 → 页内先呈现加载态（与「我的」页 postsCache 同构）。
+  @State postsCache: DailyPost[][] = [[], [], []];
   @State displayTags: Tag[] = [];
   @State tagsLoaded: boolean = false;
   @State sortIndex: number = 0;
@@ -82,10 +83,6 @@ export struct HomeTab {
   @State isRefreshing: boolean = false;
   @State error: string = '';
   @State feedMode: FeedMode = 'recommend';
-  // WaterFlow 懒加载数据源（与 posts 同步；见 utils/feedSource.ets）
-  private feedSource: FeedDataSource = new FeedDataSource();
-  // 切流/刷新时把瀑布流滚回顶部（WaterFlow 会保留旧滚动偏移，不重置会停在新列表中部）
-  private feedScroller: Scroller = new Scroller();
   @State feedIndex: number = 0;
   @State needLogin: boolean = false; // 关注流且未登录的引导态
   @State followingCount: number = 0; // 关注流的关注数缓存（空态 A/B 区分）
@@ -118,7 +115,7 @@ export struct HomeTab {
     this.refresh();
     // 订阅帖子删除事件：删除后即时从 feed 移除，避免已删帖子残留在内存列表
     this.unsubDeletion = postDeletionStore.subscribe((deletedId: number): void => {
-      this.posts = this.posts.filter((p: DailyPost) => p.id !== deletedId);
+      this.setPagePosts(this.feedIndex, this.pagePostsOf(this.feedIndex).filter((p: DailyPost) => p.id !== deletedId));
     });
   }
 
@@ -136,15 +133,29 @@ export struct HomeTab {
 
   // token 由空变为非空（登录完成）→ 关注流且列表空、无 error 时自动补加载
   onTokenReady(): void {
-    if (this.token !== '' && this.posts.length === 0 && (this.feedMode === 'following' || this.error !== '')) {
+    if (this.token !== '' && this.pagePostsOf(this.feedIndex).length === 0 && (this.feedMode === 'following' || this.error !== '')) {
       this.refresh();
     }
+  }
+
+  // 分页只读自己那份缓存：Swiper 拖动过程中相邻页显示的是它自己的内容
+  private pagePostsOf(seg: number): DailyPost[] {
+    return this.postsCache[seg] ?? [];
+  }
+
+  // 整体替换数组以触发 @State 刷新（ArkTS 不观察数组元素的原地修改）
+  private setPagePosts(seg: number, list: DailyPost[]): void {
+    const next: DailyPost[][] = [[], [], []];
+    for (let i: number = 0; i < FEED_SEGMENTS.length; i++) {
+      next[i] = i === seg ? list : this.pagePostsOf(i);
+    }
+    this.postsCache = next;
   }
 
   // 账号切换/登出：清空点赞缓存，先清空数据源（销毁旧 PostCard）→ 重拉（新账号的 myUp/upCount 重新灌入）
   onAccountSwitch(): void {
     likeStore.clear();
-    this.posts = [];
+    this.setPagePosts(this.feedIndex, []);
     this.refresh();
   }
 
@@ -156,7 +167,7 @@ export struct HomeTab {
   }
 
   onPostPublished(): void {
-    this.posts = [];
+    this.setPagePosts(this.feedIndex, []);
     feedSessionCache.clear(); // 新帖发布后旧缓存失效
     this.refresh();
   }
@@ -318,6 +329,15 @@ export struct HomeTab {
     }
   }
 
+  // 左右滑动切换由 Swiper 原生接管（跟手、相邻页可见、松手吸附）。
+  // Swiper.onChange → 这里更新 feedMode/needLogin 并懒加载该页数据。
+  private onSwiperChanged(index: number): void {
+    if (index === this.feedIndex) {
+      return;
+    }
+    this.switchFeed(FEED_MODE_IDX_MAP[index]);
+  }
+
   private async fetch(reset: boolean): Promise<void> {
     if (this.loading) {
       return;
@@ -325,7 +345,7 @@ export struct HomeTab {
     // 关注流且未登录：不发起请求，展示登录引导态
     if (this.feedMode === 'following' && this.token === '') {
       this.needLogin = true;
-      this.posts = []; // 清空上一流（推荐流）残留内容
+      this.setPagePosts(this.feedIndex, []); // 清空当前页残留内容
       return;
     }
     this.loading = true;
@@ -337,7 +357,7 @@ export struct HomeTab {
       const cacheKey: string = this.feedCacheKey();
       const cached: FeedCacheEntry | undefined = feedSessionCache.get(cacheKey);
       if (cached !== undefined && Date.now() - cached.at < FEED_CACHE_TTL && cached.posts.length > 0) {
-        this.posts = cached.posts;
+        this.setPagePosts(this.feedIndex, cached.posts);
       }
     }
     try {
@@ -345,7 +365,7 @@ export struct HomeTab {
         // 今日一帖：每日精选固定 10 条一次拉齐，不随滚动追加。
         // 读完精选即进入完成态（对齐原型「每日唯一内容」的仪式感）。
         const res = await listDailyPosts(1, DAILY_PICK_LIMIT);
-        this.posts = res.list;
+        this.setPagePosts(this.feedIndex, res.list);
         this.finished = true;
         if (reset) {
           this.dailyDeckVersion += 1;
@@ -360,14 +380,11 @@ export struct HomeTab {
           ? await listFollowingPosts({ page: this.page, limit: 20, sort, tag: this.currentTag() })
           : await listPosts({ page: this.page, limit: 20, sort, tag: this.currentTag() });
       if (reset) {
-        this.posts = res.list;
-        this.feedSource.replaceAll(res.list);
-        this.feedScroller.scrollEdge(Edge.Top);
+        this.setPagePosts(this.feedIndex, res.list);
         // 写回会话缓存（仅首屏，供切 Tab 回来快速呈现）
         feedSessionCache.set(this.feedCacheKey(), { posts: res.list, at: Date.now() });
       } else {
-        this.posts = this.posts.concat(res.list);
-        this.feedSource.append(res.list);
+        this.setPagePosts(this.feedIndex, this.pagePostsOf(this.feedIndex).concat(res.list));
       }
       if (res.list.length < 20) {
         this.finished = true;
@@ -579,6 +596,143 @@ export struct HomeTab {
     return String(issue).padStart(3, '0');
   }
 
+  // 分页内容：每个分段一页（Swiper 子项）。每页只读自己那份缓存，
+  // 因此拖动过程中相邻页显示的是它自己的内容，而非当前分段的数据；
+  // 未访问过的分段缓存为空 → 页内先呈现加载态（与「我的」页 postsCache 同构）。
+  @Builder
+  feedPage(seg: number): void {
+    Column() {
+      if (this.needLogin && seg === 1) {
+        // 未登录引导态（关注流且未登录）：不发起请求，引导登录
+        Column() {
+          EmptyState({
+            icon: resolveActionIcon('lock'),
+            title: '登录后查看你关注的人发布的帖子',
+            message: '关注的人发了什么，这里第一时间看到',
+            actionLabel: '登录',
+            onAction: (): void => {
+              this.getUIContext().getRouter().pushUrl({ url: 'pages/LoginPage' });
+            },
+          })
+        }
+        .width('100%')
+        .height('100%')
+        .justifyContent(FlexAlign.Center)
+      } else if (this.pagePostsOf(seg).length === 0 && seg !== this.feedIndex) {
+        // 相邻页缓存为空：加载态（当前页的加载/空态在下方分支处理）
+        Column() {
+          LoadingProgress().width(IconTokens.empty).height(IconTokens.empty)
+        }
+        .width('100%')
+        .height('100%')
+        .justifyContent(FlexAlign.Center)
+      } else if (this.pagePostsOf(seg).length === 0 && this.loading) {
+        Column() {
+          LoadingProgress().width(IconTokens.empty).height(IconTokens.empty)
+          Text('加载中…')
+            .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.callout.weight)
+            .lineHeight(TypeTokens.callout.lineHeight)
+            .letterSpacing(TypeTokens.callout.tracking)
+            .fontColor(ColorTokens.secondary)
+            .margin({ top: SpaceTokens.md })
+        }
+        .width('100%')
+        .height('100%')
+        .justifyContent(FlexAlign.Center)
+      } else if (this.pagePostsOf(seg).length === 0) {
+        Column() {
+          if (this.error) {
+            EmptyState({
+              icon: resolveActionIcon('warning'),
+              title: '加载失败',
+              message: this.error,
+              actionLabel: '重试',
+              onAction: (): void => { this.refresh(); },
+            })
+          } else if (seg === 1) {
+            // 关注流空态 A/B 区分：按 followingCount 判定
+            if (this.followingCount === 0) {
+              // 空态 A：未关注任何人
+              EmptyState({
+                icon: resolveActionIcon('guide'),
+                title: '你还没有关注任何人',
+                message: '去发现有趣的人，关注后这里就有内容',
+                actionLabel: '去发现',
+                onAction: (): void => {
+                  emitTabSwitch(1);
+                },
+              })
+            } else {
+              // 空态 B：关注了人但无人发帖
+              EmptyState({
+                icon: resolveActionIcon('inbox'),
+                title: '你关注的人还没有发布内容',
+                message: '去他们的主页催更吧',
+              })
+            }
+          } else if (seg === 2) {
+            EmptyState({
+              icon: resolveActionIcon('book'),
+              title: '今日一帖正在准备',
+              message: '这里会精选每天最值得讨论的一条内容',
+            })
+          } else {
+            EmptyState({
+              icon: resolveActionIcon('inbox'),
+              title: '暂无内容',
+              message: '内容出现后会显示在这里',
+            })
+          }
+        }
+        .width('100%')
+        .height('100%')
+        .justifyContent(FlexAlign.Center)
+      } else {
+        if (seg === 2) {
+          // 每日一帖禁用下拉刷新：10 帖为固定编辑部精选，下拉无意义；
+          // 且 Refresh 手势与 DailyPostDeck 的卡牌拖拽冲突
+          Column({ space: SpaceTokens.xs }) {
+            // 每日一帖：编辑部头版报头（日期/期数/EDITOR'S PICK）
+            this.dailyMasthead()
+            DailyPostDeck({
+              deckVersion: this.dailyDeckVersion,
+              posts: this.pagePostsOf(seg),
+              loading: this.loading,
+              finished: this.finished,
+              onLoadMore: (): void => { this.loadMore(); },
+              onOpen: (post: DailyPost): void => {
+                if (post.id !== undefined) {
+                  trackPostEvent(post.id, 'click', 'daily');
+                  this.openDetailViaNav(post, LayoutTokens.cardMediaAspectRatio, this.dailyDeckCover(post), 'deckCardMedia-' + post.id);
+                }
+              },
+            })
+              .width('100%')
+              .layoutWeight(1)
+          }
+          .width('100%')
+          .height('100%')
+        } else {
+          // 推荐/关注流：Scroll 显式双列（Swiper 每页独立，见 feedScroll）
+          Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
+            this.feedScroll(seg)
+          }
+          .onRefreshing(() => {
+            this.isRefreshing = true;
+            this.refresh().finally(() => {
+              this.isRefreshing = false;
+            });
+          })
+          .width('100%')
+          .height('100%')
+        }
+      }
+    }
+    .width('100%')
+    .height('100%')
+  }
+
   // 推荐/关注流单卡：PostCard + 曝光埋点（卡片出现在屏幕上即上报，去重跳过）。
   // idx 为该卡在其分列内的下标：入场错位延迟按分列索引阶梯递增（错峰 Stagger），上限截断避免末项累积延迟。
   @Builder
@@ -613,21 +767,22 @@ export struct HomeTab {
   // 两列独立排列保留瀑布流紧凑效果。必须用 Scroll：懒加载容器(WaterFlow/List)会把内容
   // 滚动终点钳制在底部非安全区之上、露出窗口底色横带截断末卡（实测 expandSafeArea /
   // ignoreLayoutSafeArea 挂容器自身均无效），Scroll 滚动范围天然到物理屏底。
+  // seg 参数：Swiper 每页只读属于自己的 postsCache[seg]，拖动时相邻页显示各自内容。
   @Builder
-  feedScroll(): void {
+  feedScroll(seg: number): void {
     Scroll() {
       Column({ space: SpaceTokens.sm }) {
         Row({ space: SpaceTokens.xs }) {
           Column({ space: SpaceTokens.xs }) {
-            ForEach(this.posts.filter((_p: Post, idx: number) => idx % 2 === 0),
+            ForEach(this.pagePostsOf(seg).filter((_p: Post, idx: number) => idx % 2 === 0),
               (post: Post, idx: number) => { this.feedPost(post, idx) },
-              (post: Post) => 'feed-even-' + String(post.id ?? ''))
+              (post: Post) => seg + '-feed-even-' + String(post.id ?? ''))
           }
           .layoutWeight(1)
           Column({ space: SpaceTokens.xs }) {
-            ForEach(this.posts.filter((_p: Post, idx: number) => idx % 2 === 1),
+            ForEach(this.pagePostsOf(seg).filter((_p: Post, idx: number) => idx % 2 === 1),
               (post: Post, idx: number) => { this.feedPost(post, idx) },
-              (post: Post) => 'feed-odd-' + String(post.id ?? ''))
+              (post: Post) => seg + '-feed-odd-' + String(post.id ?? ''))
           }
           .layoutWeight(1)
         }
@@ -667,52 +822,8 @@ export struct HomeTab {
     })
   }
 
-  // 瀑布流尾注：WaterFlowOptions.footer（原生支持，整宽），与原 feedScroll 尾注一致
-  @Builder
-  feedFooter(): void {
-    Column({ space: SpaceTokens.xs }) {
-      if (this.finished) {
-        Text('没有更多了')
-          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-          .fontWeight(TypeTokens.caption.weight)
-          .lineHeight(TypeTokens.caption.lineHeight)
-          .letterSpacing(TypeTokens.caption.tracking)
-          .fontColor(ColorTokens.tertiary)
-          .width('100%')
-          .textAlign(TextAlign.Center)
-          .padding(SpaceTokens.base)
-      }
-      Blank().width('100%').height(barBottomReserve())
-    }
-    .width('100%')
-  }
-
-  // 实验：WaterFlow + LazyForEach 信息流（替换 Scroll + ForEach 手写双列）。
-  // 收益：① LazyForEach 按需创建/回收卡片，已加载卡片不再全部常驻；
-  //       ② 真正瀑布流装箱（按卡片实际高度），消除奇偶分列的底部参差。
-  // 关键：expandSafeArea 让容器不被底部安全区收缩——此前 WaterFlow 回退的根因。
-  @Builder
-  feedWaterFlow(): void {
-    WaterFlow({ footer: this.feedFooter(), scroller: this.feedScroller }) {
-      LazyForEach(this.feedSource, (post: Post, idx: number) => {
-        FlowItem() {
-          this.feedPost(post, idx)
-        }
-        .width('100%')
-      }, (post: Post) => 'wf-' + String(post.id ?? ''))
-    }
-    .columnsTemplate('1fr 1fr')
-    .columnsGap(SpaceTokens.xs)
-    .rowsGap(SpaceTokens.xs)
-    .cachedCount(4)
-    .scrollBar(BarState.Off)
-    .width('100%')
-    .height('100%')
-    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: 5 })
-    // 实验关键：容器自身不吃底部安全区收缩，滚动终点回到物理屏底
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
-    .onReachEnd((): void => { this.loadMore(); })
-  }
+  // 瀑布流（WaterFlow + LazyForEach）在 Swiper 三页下数据源无法按页隔离，
+  // 且滚动终点被钳制在底部安全区之上；统一回退到 Scroll 双列（feedScroll）。
   build() {
     Column() {
       // 海报式编辑部头部：编号、品牌标题、主标语和栏目切换构成明确的阅读层级。
@@ -811,134 +922,22 @@ export struct HomeTab {
         .backgroundColor(ColorTokens.canvas)
         .zIndex(1000)
 
-        // 列表区与圈子栏共用同一 Stack，圈子栏始终作为玻璃浮层而不参与列表排版。
-        Stack({ alignContent: Alignment.TopStart }) {
-          if (this.needLogin) {
-          // 未登录引导态（关注流且未登录）：不发起请求，引导登录
-          Column() {
-            EmptyState({
-              icon: resolveActionIcon('lock'),
-              title: '登录后查看你关注的人发布的帖子',
-              message: '关注的人发了什么，这里第一时间看到',
-              actionLabel: '登录',
-              onAction: (): void => {
-                this.getUIContext().getRouter().pushUrl({ url: 'pages/LoginPage' });
-              },
-            })
-          }
-          .width('100%')
-          .height('100%')
-          .justifyContent(FlexAlign.Center)
-        } else if (this.posts.length === 0 && this.loading) {
-          Column() {
-            LoadingProgress().width(IconTokens.empty).height(IconTokens.empty)
-            Text('加载中…')
-              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-              .fontWeight(TypeTokens.callout.weight)
-              .lineHeight(TypeTokens.callout.lineHeight)
-              .letterSpacing(TypeTokens.callout.tracking)
-              .fontColor(ColorTokens.secondary)
-              .margin({ top: SpaceTokens.md })
-          }
-          .width('100%')
-          .height('100%')
-          .justifyContent(FlexAlign.Center)
-        } else if (this.posts.length === 0) {
-          Column() {
-            if (this.error) {
-              EmptyState({
-                icon: resolveActionIcon('warning'),
-                title: '加载失败',
-                message: this.error,
-                actionLabel: '重试',
-                onAction: (): void => { this.refresh(); },
-              })
-            } else if (this.feedMode === 'following') {
-              // 关注流空态 A/B 区分：按 followingCount 判定
-              if (this.followingCount === 0) {
-                // 空态 A：未关注任何人
-                EmptyState({
-                  icon: resolveActionIcon('guide'),
-                  title: '你还没有关注任何人',
-                  message: '去发现有趣的人，关注后这里就有内容',
-                  actionLabel: '去发现',
-                  onAction: (): void => {
-                    emitTabSwitch(1);
-                  },
-                })
-              } else {
-                // 空态 B：关注了人但无人发帖
-                EmptyState({
-                  icon: resolveActionIcon('inbox'),
-                  title: '你关注的人还没有发布内容',
-                  message: '去他们的主页催更吧',
-                })
-              }
-            } else if (this.feedMode === 'daily') {
-              EmptyState({
-                icon: resolveActionIcon('book'),
-                title: '今日一帖正在准备',
-                message: '这里会精选每天最值得讨论的一条内容',
-              })
-            } else {
-              EmptyState({
-                icon: resolveActionIcon('inbox'),
-                title: '暂无内容',
-                message: '内容出现后会显示在这里',
-              })
-            }
-          }
-          .width('100%')
-          .height('100%')
-          .justifyContent(FlexAlign.Center)
-        } else {
-          if (this.feedMode === 'daily') {
-            // 每日一帖禁用下拉刷新：10 帖为固定编辑部精选，下拉无意义；
-            // 且 Refresh 手势与 DailyPostDeck 的卡牌拖拽冲突
-            Column({ space: SpaceTokens.xs }) {
-              // 每日一帖：编辑部头版报头（日期/期数/EDITOR'S PICK）
-              this.dailyMasthead()
-              DailyPostDeck({
-                deckVersion: this.dailyDeckVersion,
-                posts: this.posts,
-                loading: this.loading,
-                finished: this.finished,
-                onLoadMore: (): void => { this.loadMore(); },
-                onOpen: (post: DailyPost): void => {
-                  if (post.id !== undefined) {
-                    trackPostEvent(post.id, 'click', 'daily');
-                    // 注意：第三个参数是「详情媒体的目标比例」，不是卡面比例——
-                    // 卡堆卡面是 4/3 横屏，但详情媒体统一 0.75（竖版），传 DAILY_DECK_MEDIA_RATIO 会把图片拉横。
-                    // 起点形状由 src 矩形决定（cardRectOf 实测），与该参数无关。
-                    this.openDetailViaNav(post, LayoutTokens.cardMediaAspectRatio, this.dailyDeckCover(post), 'deckCardMedia-' + post.id);
-                  }
-                },
-              })
-                .width('100%')
-                .layoutWeight(1)
-            }
-            .width('100%')
-            .height('100%')
-          } else {
-            // 推荐/关注流：Scroll 显式双列。懒加载容器(WaterFlow)实测把滚动终点钳制在
-            // 底部非安全区之上、露出窗口底色横带截断末卡，故统一走 Scroll（天然到物理屏底）
-            Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
-              this.feedWaterFlow()
-            }
-            .onRefreshing(() => {
-              this.isRefreshing = true;
-              this.refresh().finally(() => {
-                this.isRefreshing = false;
-              });
-            })
-            .width('100%')
-            .height('100%')
-          }
+        // 列表区：Swiper 三页分页（推荐/关注/每日一帖）。
+        // 原生 Swiper 提供跟手位移、相邻页可见、松手按速度弹性吸附（springSoft），
+        // 与「我的」页分段栏同款体验；onChange 切换当前段并懒加载该段数据。
+        Swiper() {
+          this.feedPage(0)
+          this.feedPage(1)
+          this.feedPage(2)
         }
-        }
+        .index(this.feedIndex)
+        .loop(false)                 // 到边界不循环：与分段栏两端不可再点一致
+        .indicator(false)            // 进度由分段栏承担
+        .duration(MotionTokens.container)
+        .curve(MotionCurves.springSoft)
+        .onChange((index: number): void => { this.onSwiperChanged(index); })
         .width('100%')
         .height('100%')
-        .clip(true)
         .layoutWeight(1)
       }
       .width('100%')
