@@ -113,8 +113,33 @@ app.use('/v1', exportRouter);
 app.use('/v1', pushRouter);
 // 行为埋点（POST /v1/metrics/post-event）
 app.use('/v1/metrics', metricsRouter);
+// 分享落地页的 CSP 定制：页面内的封面/头像图托管在 API 域（BACKEND_PUBLIC_URL，如
+// https://api.youju.chat），与落地页所在的主站域（youju.chat）不同源。全局 helmet 默认
+// CSP 的 img-src 'self' 会直接拦掉这类跨源 <img>，表现为落地页封面与头像留白
+// （App 内 ArkUI Image 不执行 CSP/CORP，故此前只在网页端暴露）。
+// 仅对该路径把图片源白名单放宽到 API 域，其余指令沿用 helmet 默认值。
+function apiOriginOf(url: string): string {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return '';
+  }
+}
+const shareImageOrigin = apiOriginOf(env.backendPublicUrl);
+
 // 分享落地页 SSR（GET /v1/share/post/:id、/v1/share/user/:id）：
 // 主域名 youju.chat 的 /post/*、/user/* 由 nginx 反代到此，输出带 OG 标签的 HTML。
+app.use(
+  '/v1/share',
+  helmet({
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: {
+        imgSrc: ["'self'", 'data:', ...(shareImageOrigin ? [shareImageOrigin] : [])],
+      },
+    },
+  })
+);
 app.use('/v1/share', shareRouter);
 
 // 全局错误处理（必须最后注册：捕获经 asyncHandler 转交的异步异常，避免连接挂起）

@@ -32,6 +32,11 @@ function toAbsoluteImage(url: string | null | undefined): string {
   if (u === '') {
     return '';
   }
+  // 无 COS 时的降级格式（base64 data URI）：本身就是可直接内联渲染的图，
+  // 原样返回。若落到末尾分支会被拼成 /v1/media/<超长编码串>，后端 key 校验失败 → 404。
+  if (u.startsWith('data:')) {
+    return u;
+  }
   const base = env.backendPublicUrl;
   if (u.startsWith('cos://')) {
     return base + '/v1/media/' + encodeURIComponent(u.slice('cos://'.length));
@@ -52,11 +57,14 @@ function renderPage(meta: {
   image: string;
   url: string;
   bodyImage?: string;
+  avatar?: string;
   author?: string;
   badge?: string;
 }): string {
-  const imageTag = meta.image ? `<meta property="og:image" content="${esc(meta.image)}">
-    <meta name="twitter:image" content="${esc(meta.image)}">` : '';
+  // og:image 必须是被抓取方可匿名拉取的绝对地址；data URI 微信/微博不认，退回不输出标签
+  const ogImage = /^https?:\/\//.test(meta.image) ? meta.image : '';
+  const imageTag = ogImage ? `<meta property="og:image" content="${esc(ogImage)}">
+    <meta name="twitter:image" content="${esc(ogImage)}">` : '';
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -96,7 +104,7 @@ ${imageTag}
       ${meta.badge ? `<span class="badge">${esc(meta.badge)}</span>` : ''}
       <h1>${esc(meta.title)}</h1>
       <p class="desc">${esc(meta.description)}</p>
-      ${meta.author ? `<div class="author"><img class="avatar" src="${esc(meta.bodyImage || '')}" alt="" referrerpolicy="no-referrer"><span><span class="name">${esc(meta.author)}</span><br><span class="hint">在「有据」分享</span></span></div>` : ''}
+      ${meta.author ? `<div class="author"><img class="avatar" src="${esc(meta.avatar || '')}" alt="" referrerpolicy="no-referrer"><span><span class="name">${esc(meta.author)}</span><br><span class="hint">在「有据」分享</span></span></div>` : ''}
       <a class="btn" href="https://youju.chat/">去「有据」看看</a>
     </div>
   </div>
@@ -131,6 +139,7 @@ router.get('/post/:id', async (req: Request, res: Response) => {
       image,
       url: `${SHARE_HOST}/post/${id}`,
       bodyImage: image,
+      avatar: toAbsoluteImage(post.user?.avatar),
       badge: '有据 · 帖子分享',
       author: post.user?.nickname ?? '',
     })
@@ -151,14 +160,18 @@ router.get('/user/:id', async (req: Request, res: Response) => {
   }
   const nickname = user.nickname || '有据用户';
   const avatar = toAbsoluteImage(user.avatar);
+  // 主页封面位用「个人主页背景图」，此前误用头像：正方形头像被 16:9 框拉宽裁切，
+  // 且未设置背景图的用户会看到一个无意义的横条。未设置背景图时不输出封面。
+  const background = toAbsoluteImage(user.profileBackground);
   const bio = excerpt(user.bio ?? '', 120) || `来看看 ${nickname} 在「有据」分享的经验吧`;
   res.status(200).type('html').send(
     renderPage({
       title: `${nickname} 的有据主页`,
       description: bio,
-      image: avatar,
+      image: avatar || background,
       url: `${SHARE_HOST}/user/${id}`,
-      bodyImage: avatar,
+      bodyImage: background,
+      avatar,
       badge: '有据 · 个人主页',
       author: nickname,
     })
