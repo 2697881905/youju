@@ -209,73 +209,57 @@ struct DeckSlotCard {
 
   // 玻璃板：整张卡片表面覆一层玻璃，像隔着一块通透的玻璃板看内容。
   //
-  // 配方取自项目内 HDS 沉浸光感材质的视觉参数（design/components/ImmersiveSurface.ets
-  // 用的 DUAL_EDGE_FLOW_LIGHT_WITH_BACKGROUND_MASK）。它的观感由两部分组成：
-  //   maskColors      均匀的白→蓝蒙版 —— 玻璃的介质感
-  //   edgeFlowLight   两条「边缘」流光 —— 玻璃折边的受光
-  // 要点是「中间均匀通透 + 边缘受光」，而不是在表面斜着划一道高光。之前那版 95% 的
-  // 斜向镜面光带正是「突兀」的来源，这一版整层删掉。
+  // 观感配方参考项目内 HDS 沉浸光感材质（design/components/ImmersiveSurface.ets 的
+  // DUAL_EDGE_FLOW_LIGHT_WITH_BACKGROUND_MASK）：中间均匀通透、边缘受光，而不是在
+  // 表面斜着划一道高光（斜向锐光带是「突兀」的来源，已整层删除）。
   //
-  // 为什么不直接复用 ImmersiveSurface：它静态 import @kit.UIDesignKit，需要
-  // hdsMaterial（API 23+），而每日一帖位于首页启动路径 —— 低版本会在加载阶段直接崩
-  // （「启动路径禁止静态 import hdsMaterial」，见项目记忆）。故此处用纯渐变复刻观感。
+  // 本版为**纯中性灰阶**：HDS 原始参数带一条淡蓝（maskColors 的 #86CFFF）外加冷调
+  // 加深，照搬到纸色卡片上会让整卡偏冷，这里全部改回白/黑 ——
+  //   ① 介质：均匀 10% 白，无方向（玻璃板的存在感）
+  //   ② 双边流光：顶边白 → 中部完全透明 → 底边白，只让上下折边受光
+  //   ③ 中性减光：5% 纯黑。玻璃会让透过的内容略暗，但这一步不能用冷色代替（会偏蓝）
+  //   ④ 边缘高光：20% 白描边
   //
-  // 四层：
-  //   ① 介质蒙版：12% 淡白 → 12% 淡蓝的均匀渐变，玻璃的「存在感」
-  //   ② 双边流光：顶边亮白、底边亮蓝，中间快速衰减到接近透明 —— 上下折边受光
-  //   ③ 冷调加深：整体极淡冷色，让内容像隔着玻璃（折射不中性）
-  //   ④ 边缘高光：四周 1px 描边，玻璃切边
+  // 尺寸依赖：宽高都是 100%，所以**必须**挂在一个已有确定尺寸的容器里 —— 调用点在
+  // DeckSlotCard.build 的旋转层 Stack（该 Stack 已显式 .width('100%')）。若挂在自动
+  // 尺寸的 Stack 里，百分比会向上按父约束解析、固有宽度退化为 0，遮罩尺寸与卡片不符
+  // （ImmersiveSurface 源码里专门注释过这个坑，2026-09-24 我照样踩了一次）。
   //
-  // 自带 borderRadius + clip：遮罩覆盖整卡（图 + 信息条），圆角自己收边，不依赖外层。
-  //
-  // hitTestBehavior(None) 不可省：遮罩铺满整卡，若参与命中测试会挡掉父层
-  // PanGesture，卡片将完全拖不动。与 Image.draggable(false) 是同一类坑。
+  // hitTestBehavior(None) 不可省：遮罩铺满整卡，若参与命中测试会挡掉父层 PanGesture，
+  // 卡片将完全拖不动。与 Image.draggable(false) 是同一类坑。
   @Builder
   sheenOverlay(): void {
     Stack() {
-      // ① 介质蒙版：均匀淡白 → 淡蓝
+      // ① 介质：均匀白，无方向
       Column()
         .width('100%')
         .height('100%')
-        .linearGradient({
-          angle: 135,
-          colors: [
-            ['#1FFFFFFF', 0],
-            ['#1F86CFFF', 1],
-          ],
-        })
-      // ② 双边流光：顶边亮白 → 迅速衰减 → 底边亮蓝
+        .backgroundColor('#1AFFFFFF')
+      // ② 双边流光：顶边白 → 中部透明 → 底边白
       Column()
         .width('100%')
         .height('100%')
         .linearGradient({
           angle: 170,
           colors: [
-            ['#A8FFFFFF', 0],
-            ['#2EFFFFFF', 0.045],
-            ['#0AFFFFFF', 0.14],
-            ['#08C8EFFF', 0.78],
-            ['#2E8FC8EF', 0.94],
-            ['#708FC8EF', 1],
+            ['#8CFFFFFF', 0],
+            ['#24FFFFFF', 0.05],
+            ['#00FFFFFF', 0.16],
+            ['#00FFFFFF', 0.80],
+            ['#1CFFFFFF', 0.95],
+            ['#4DFFFFFF', 1],
           ],
         })
-      // ③ 冷调加深：隔着玻璃看内容的轻微冷偏
+      // ③ 中性减光（纯黑，不带色相）
       Column()
         .width('100%')
         .height('100%')
-        .linearGradient({
-          angle: 118,
-          colors: [
-            ['#08202A38', 0],
-            ['#0F141E28', 0.6],
-            ['#14202A38', 1],
-          ],
-        })
+        .backgroundColor('#0D000000')
       // ④ 边缘高光
       Column()
         .width('100%')
         .height('100%')
-        .border({ width: 1, color: '#3DFFFFFF' })
+        .border({ width: 1, color: '#33FFFFFF' })
     }
     .width('100%')
     .height('100%')
@@ -404,6 +388,9 @@ struct DeckSlotCard {
           // 玻璃板：覆盖整张卡（封面 + 信息条），圆角与裁剪由 sheenOverlay 自理
           this.sheenOverlay()
         }
+        // 旋转层必须显式定宽：它有两个 width('100%') 的子层，自动尺寸下 Stack 的固有宽度
+        // 会退化为 0，百分比随之上溯父约束解析 → 遮罩尺寸与卡片不符（2026-09-24 踩过）
+        .width('100%')
         // 以卡片底边为轴旋转：底部锚住、上半段甩动 → 回弹/推进时是“上下角度晃动”而非纯左右平移
         .rotate({ angle: this.inFlight ? this.flyRot : this.angle(), centerX: '50%', centerY: '100%' })
         .scale({ x: this.inFlight ? 1 : this.cardScale(), y: this.inFlight ? 1 : this.cardScale() })
