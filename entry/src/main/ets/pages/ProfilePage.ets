@@ -108,7 +108,9 @@ export struct ProfilePage {
       onSystemShare: (): void => { this.systemShareProfile(); },
     }),
     alignment: DialogAlignment.Bottom,
-    customStyle: false,
+    // 与帖子分享面板（ShareSheet）一致：去掉系统 Dialog 自带背景/内边距，
+    // 由 ProfileShareSheet 自身提供卡片背景与圆角
+    customStyle: true,
     autoCancel: true,
   });
 

@@ -1,11 +1,17 @@
+// 个人主页分享面板（底部拉起式菜单栏）。
+// 骨架与帖子分享面板 ShareSheet 完全同构：抓手 + 居中标题 + 单一 elevated 主卡片 +
+// 独立「取消」卡片，外层左右/底部留边；内容区为「主页预览 + 分隔线 + 分享按钮行」。
+// 调用侧须配 alignment=Bottom + customStyle=true（由面板自身提供背景与圆角）。
 import { Avatar } from '../design/components/Avatar';
 import { Pressable } from '../design/motion/Pressable';
-import { SpringPanel } from '../design/motion/SpringPanel';
 import { ColorTokens } from '../design/tokens/color';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { RadiusTokens } from '../design/tokens/radius';
 import { TypeTokens } from '../design/tokens/type';
 import { resolveActionIcon } from '../utils/actionIcons';
+
+const AVATAR_SIZE: number = 56;
+const BUTTON_WIDTH: number = 72;
 
 export interface ProfileShareData {
   avatar: string;
@@ -42,99 +48,62 @@ export struct ProfileShareSheet {
     return value.length > 0 ? value : '在有据分享真实经验与生活灵感';
   }
 
-  build() {
-    SpringPanel({ panelWidth: 344, panelPadding: SpaceTokens.lg }) {
-      Column({ space: SpaceTokens.base }) {
-        Row() {
-          Text('分享主页')
-            .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
-            .fontWeight(TypeTokens.title.weight)
-            .fontColor(ColorTokens.primary)
-          Blank()
-          Pressable({
-            visualHeight: LayoutTokens.segmentedHeight,
-            touchTargetHeight: LayoutTokens.minTouchTarget,
-            action: (): void => { this.controller.close(); },
-          }) {
-            Text('取消')
-              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-              .fontColor(ColorTokens.secondary)
-              .height(LayoutTokens.segmentedHeight)
-              .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
-              .textAlign(TextAlign.Center)
-          }
-        }
-        .width('100%')
+  @Builder
+  divider() {
+    Divider()
+      .color(ColorTokens.separator)
+      .strokeWidth(LayoutTokens.hairlineWidth)
+  }
 
-        Column({ space: 12 }) {
-          Text('有据 · 个人主页')
-            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+  // 主页预览：头像 + 昵称/简介 + 统计 + 链接；直接铺在主卡片上（不另起下沉底色块）
+  @Builder
+  profileBlock() {
+    Column({ space: SpaceTokens.md }) {
+      Row({ space: SpaceTokens.md }) {
+        Avatar({
+          avatar: this.data().avatar,
+          name: this.data().nickname,
+          avatarSize: AVATAR_SIZE,
+        })
+        Column({ space: SpaceTokens.xs }) {
+          Text(this.data().nickname)
+            .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
             .fontWeight(TypeTokens.headline.weight)
-            .fontColor(ColorTokens.brand)
-
-          Row({ space: 12 }) {
-            Avatar({
-              avatar: this.data().avatar,
-              name: this.data().nickname,
-              avatarSize: 56,
-            })
-            Column({ space: 4 }) {
-              Text(this.data().nickname)
-                .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
-                .fontWeight(TypeTokens.headline.weight)
-                .fontColor(ColorTokens.primary)
-                .maxLines(1)
-                .textOverflow({ overflow: TextOverflow.Ellipsis })
-              Text(this.bio())
-                .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-                .fontColor(ColorTokens.secondary)
-                .maxLines(2)
-                .textOverflow({ overflow: TextOverflow.Ellipsis })
-            }
-            .layoutWeight(1)
-            .alignItems(HorizontalAlign.Start)
-          }
-          .width('100%')
-
-          Divider().color(ColorTokens.separator)
-
-          Row() {
-            this.stat(String(this.data().followingCount), '关注')
-            this.stat(String(this.data().followerCount), '粉丝')
-            this.stat(String(this.data().likeCount), '获赞')
-          }
-          .width('100%')
-
-          Text(this.data().profileUrl)
-            .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-            .fontColor(ColorTokens.tertiary)
+            .fontColor(ColorTokens.primary)
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
             .width('100%')
+          Text(this.bio())
+            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+            .fontColor(ColorTokens.secondary)
+            .maxLines(2)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .width('100%')
         }
-        .width('100%')
-        .padding(SpaceTokens.base)
-        .backgroundColor(ColorTokens.sunken)
-        .borderRadius(RadiusTokens.lg)
-
-        this.shareRow()
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
       }
       .width('100%')
-    }
-  }
 
-  // 横向分享按钮：微信/系统、链接、文案
-  @Builder
-  shareRow() {
-    Row({ space: SpaceTokens.md }) {
-      this.shareActionButton('微信 / 更多', 'shareWechat', this.onSystemShare)
-      this.shareActionButton('复制链接', 'shareLink', this.onCopyLink)
-      this.shareActionButton('复制文案', 'book', this.onCopyCardText)
+      Row() {
+        this.stat(String(this.data().followingCount), '关注')
+        this.stat(String(this.data().followerCount), '粉丝')
+        this.stat(String(this.data().likeCount), '获赞')
+      }
+      .width('100%')
+
+      Text(this.data().profileUrl)
+        .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
+        .fontColor(ColorTokens.tertiary)
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .width('100%')
     }
     .width('100%')
-    .justifyContent(FlexAlign.SpaceAround)
+    .padding({ bottom: SpaceTokens.md })
   }
 
+  // 横向分享按钮：圆形浅底图标 + 下方文字（与 ShareSheet 同款尺寸）
   @Builder
   shareActionButton(label: string, iconName: string, action: () => void) {
     Pressable({
@@ -160,15 +129,16 @@ export struct ProfileShareSheet {
           .fontColor(ColorTokens.secondary)
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .constraintSize({ maxWidth: BUTTON_WIDTH })
       }
-      .width(76)
+      .width(BUTTON_WIDTH)
       .alignItems(HorizontalAlign.Center)
     }
   }
 
   @Builder
   private stat(value: string, label: string): void {
-    Column({ space: 4 }) {
+    Column({ space: SpaceTokens.xs }) {
       Text(value)
         .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
         .fontWeight(TypeTokens.headline.weight)
@@ -179,5 +149,71 @@ export struct ProfileShareSheet {
     }
     .layoutWeight(1)
     .alignItems(HorizontalAlign.Center)
+  }
+
+  build() {
+    Column() {
+      // 主菜单卡片：抓手 + 标题 + 预览 + 分享按钮
+      Column() {
+        Row()
+          .width(36)
+          .height(4)
+          .backgroundColor(ColorTokens.separator)
+          .borderRadius(RadiusTokens.pill)
+          .margin({ top: SpaceTokens.md, bottom: SpaceTokens.sm })
+
+        Text('分享主页')
+          .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.headline.weight)
+          .fontColor(ColorTokens.secondary)
+          .width('100%')
+          .textAlign(TextAlign.Center)
+          .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.md })
+
+        this.profileBlock()
+
+        this.divider()
+
+        Row({ space: SpaceTokens.sm }) {
+          this.shareActionButton('微信 / 更多', 'shareWechat', this.onSystemShare)
+          this.shareActionButton('复制链接', 'shareLink', this.onCopyLink)
+          this.shareActionButton('复制文案', 'book', this.onCopyCardText)
+        }
+        .width('100%')
+        .justifyContent(FlexAlign.SpaceBetween)
+        .padding({ top: SpaceTokens.md, bottom: SpaceTokens.md })
+      }
+      .width('100%')
+      .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: SpaceTokens.sm })
+      .backgroundColor(ColorTokens.elevated)
+      .borderRadius(RadiusTokens.lg)
+      .clip(true)
+
+      // 取消按钮：独立卡片，居中，点击即收起
+      Column() {
+        Pressable({
+          fillWidth: true,
+          visualHeight: LayoutTokens.minTouchTarget,
+          touchTargetHeight: LayoutTokens.minTouchTarget,
+          action: (): void => {
+            this.controller.close();
+          },
+        }) {
+          Text('取消')
+            .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.headline.weight)
+            .fontColor(ColorTokens.secondary)
+            .width('100%')
+            .height(LayoutTokens.minTouchTarget)
+            .textAlign(TextAlign.Center)
+        }
+      }
+      .width('100%')
+      .backgroundColor(ColorTokens.elevated)
+      .borderRadius(RadiusTokens.lg)
+      .margin({ top: SpaceTokens.sm })
+    }
+    .width('100%')
+    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, bottom: SpaceTokens.lg })
   }
 }
