@@ -207,97 +207,80 @@ struct DeckSlotCard {
     .clip(true)
   }
 
-  // 玻璃罩：模拟卡面上覆了一层玻璃，光在其表面反射。
+  // 玻璃板：整张卡片表面覆一层玻璃，像隔着一块通透的玻璃板看内容。
   //
-  // 玻璃质感的关键不是「加白」而是「明暗对比」—— 只做提亮，加多少层都像蒙了层
-  // 白雾。五层各管一件事，各自缺了都不像玻璃：
-  //   ① 边缘晕影（径向）：中心透亮、四周因玻璃厚度而变暗。整层里唯一的「减法」，
-  //      也是「怎么调都不像玻璃」的根因 —— 之前五层全是加法
-  //   ② 冷调受光（线性）：顶部偏亮、底部偏暗，并整体带冷色偏移。玻璃折射不中性，
-  //      纯白反光会显塑料
-  //   ③ 主反射：窄而锐的镜面高光，峰值 95%。真实镜面反光接近过曝且陡起陡落，
-  //      前一版 34% 又软又淡，是「力度不够」的主因
-  //   ④ 对角次反射：与主反射接近垂直的弱反射，对应玻璃的双向反射
-  //   ⑤ 边缘高光：四周 1px 描边，玻璃切边比中心亮
+  // 配方取自项目内 HDS 沉浸光感材质的视觉参数（design/components/ImmersiveSurface.ets
+  // 用的 DUAL_EDGE_FLOW_LIGHT_WITH_BACKGROUND_MASK）。它的观感由两部分组成：
+  //   maskColors      均匀的白→蓝蒙版 —— 玻璃的介质感
+  //   edgeFlowLight   两条「边缘」流光 —— 玻璃折边的受光
+  // 要点是「中间均匀通透 + 边缘受光」，而不是在表面斜着划一道高光。之前那版 95% 的
+  // 斜向镜面光带正是「突兀」的来源，这一版整层删掉。
   //
-  // 边缘高光层刻意不设 borderRadius：遮罩顶边落在卡片外轮廓上，会被 postFace 的
-  // clip(true) 自动裁成圆角；底边在卡片内部（与信息条相接处）须保持直角，否则会
-  // 多出一道弧形亮线。
+  // 为什么不直接复用 ImmersiveSurface：它静态 import @kit.UIDesignKit，需要
+  // hdsMaterial（API 23+），而每日一帖位于首页启动路径 —— 低版本会在加载阶段直接崩
+  // （「启动路径禁止静态 import hdsMaterial」，见项目记忆）。故此处用纯渐变复刻观感。
   //
-  // hitTestBehavior(None) 不可省：遮罩铺满整个卡面，若参与命中测试会挡掉父层
+  // 四层：
+  //   ① 介质蒙版：12% 淡白 → 12% 淡蓝的均匀渐变，玻璃的「存在感」
+  //   ② 双边流光：顶边亮白、底边亮蓝，中间快速衰减到接近透明 —— 上下折边受光
+  //   ③ 冷调加深：整体极淡冷色，让内容像隔着玻璃（折射不中性）
+  //   ④ 边缘高光：四周 1px 描边，玻璃切边
+  //
+  // 自带 borderRadius + clip：遮罩覆盖整卡（图 + 信息条），圆角自己收边，不依赖外层。
+  //
+  // hitTestBehavior(None) 不可省：遮罩铺满整卡，若参与命中测试会挡掉父层
   // PanGesture，卡片将完全拖不动。与 Image.draggable(false) 是同一类坑。
   @Builder
   sheenOverlay(): void {
     Stack() {
-      // ① 边缘晕影：中心透亮 → 四周冷暗（玻璃厚度）
-      Column()
-        .width('100%')
-        .height('100%')
-        .radialGradient({
-          center: ['50%', '50%'],
-          radius: '76%',
-          colors: [
-            ['#00000000', 0],
-            ['#00000000', 0.55],
-            ['#16202A38', 0.84],
-            ['#38202A38', 1],
-          ],
-        })
-      // ② 冷调受光：顶部偏亮、底部偏暗，带一点冷色偏移
+      // ① 介质蒙版：均匀淡白 → 淡蓝
       Column()
         .width('100%')
         .height('100%')
         .linearGradient({
-          angle: 160,
+          angle: 135,
           colors: [
-            ['#26C8DCFF', 0],
-            ['#0ADCE8FF', 0.30],
-            ['#10141E28', 0.72],
-            ['#1C101A24', 1],
+            ['#1FFFFFFF', 0],
+            ['#1F86CFFF', 1],
           ],
         })
-      // ③ 主反射：窄而锐的镜面高光（陡起陡落，峰值 95%）
+      // ② 双边流光：顶边亮白 → 迅速衰减 → 底边亮蓝
+      Column()
+        .width('100%')
+        .height('100%')
+        .linearGradient({
+          angle: 170,
+          colors: [
+            ['#A8FFFFFF', 0],
+            ['#2EFFFFFF', 0.045],
+            ['#0AFFFFFF', 0.14],
+            ['#08C8EFFF', 0.78],
+            ['#2E8FC8EF', 0.94],
+            ['#708FC8EF', 1],
+          ],
+        })
+      // ③ 冷调加深：隔着玻璃看内容的轻微冷偏
       Column()
         .width('100%')
         .height('100%')
         .linearGradient({
           angle: 118,
           colors: [
-            ['#00FFFFFF', 0],
-            ['#00FFFFFF', 0.10],
-            ['#59FFFFFF', 0.155],
-            ['#E6FFFFFF', 0.20],
-            ['#F2FFFFFF', 0.235],
-            ['#8CFFFFFF', 0.275],
-            ['#1FFFFFFF', 0.325],
-            ['#00FFFFFF', 0.375],
-            ['#00FFFFFF', 1],
+            ['#08202A38', 0],
+            ['#0F141E28', 0.6],
+            ['#14202A38', 1],
           ],
         })
-      // ④ 对角次反射（峰值 54%）
+      // ④ 边缘高光
       Column()
         .width('100%')
         .height('100%')
-        .linearGradient({
-          angle: 318,
-          colors: [
-            ['#00FFFFFF', 0],
-            ['#00FFFFFF', 0.60],
-            ['#40FFFFFF', 0.70],
-            ['#8AFFFFFF', 0.775],
-            ['#2EFFFFFF', 0.85],
-            ['#00FFFFFF', 0.93],
-            ['#00FFFFFF', 1],
-          ],
-        })
-      // ⑤ 边缘高光
-      Column()
-        .width('100%')
-        .height('100%')
-        .border({ width: 1, color: '#66FFFFFF' })
+        .border({ width: 1, color: '#3DFFFFFF' })
     }
     .width('100%')
     .height('100%')
+    .borderRadius(RadiusTokens.md)
+    .clip(true)
     .hitTestBehavior(HitTestMode.None)
   }
 
@@ -318,9 +301,6 @@ struct DeckSlotCard {
           .draggable(false)
       } else {
         this.textPoster()
-      }
-      if (this.hasMedia()) {
-        this.sheenOverlay()
       }
       if (this.hasMedia()) {
         // 角标：今日精选 · 体裁（top 12 / left 12）
@@ -421,6 +401,8 @@ struct DeckSlotCard {
         // —— 旋转层：独立更慢的弹簧 → 角度滞后于位置，形成网页那种“晃动”相位差 ——
         Stack() {
           this.postFace()
+          // 玻璃板：覆盖整张卡（封面 + 信息条），圆角与裁剪由 sheenOverlay 自理
+          this.sheenOverlay()
         }
         // 以卡片底边为轴旋转：底部锚住、上半段甩动 → 回弹/推进时是“上下角度晃动”而非纯左右平移
         .rotate({ angle: this.inFlight ? this.flyRot : this.angle(), centerX: '50%', centerY: '100%' })
