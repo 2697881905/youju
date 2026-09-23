@@ -305,7 +305,13 @@ struct DeckSlotCard {
 
   @Builder
   postFace(): void {
-    Column() {
+    // 外层 Stack 只为承载玻璃板：遮罩用百分比定尺寸，必须挂在一个尺寸已确定的容器里。
+    // 不能挂在 DeckSlotCard.build 的旋转层上 —— 那个 Stack 没有显式高度，遮罩的
+    // height('100%') 会与它循环依赖并上溯父约束解析，尺寸与卡片不符（高度尤其）。
+    // postFace 这层尺寸是确定的：宽追到旋转层（已显式 100%），高由 mediaFace 的
+    // aspectRatio(4/3) 撑开，所以遮罩挂这里才拿得到正确尺寸。
+    Stack() {
+      Column() {
       // 卡面媒体区（详情页一镜到底以 componentUtils 定位此块屏幕帧作为起点，
       // 详情整页从该帧缩放展开；id 见本文件 deckCardMedia-{id}）
       this.mediaFace()
@@ -372,6 +378,10 @@ struct DeckSlotCard {
       .backgroundColor(ColorTokens.elevated)
     }
     .width('100%')
+      // 玻璃板：覆盖整卡（4:3 媒体区 + 70 高信息条）
+      this.sheenOverlay()
+    }
+    .width('100%')
     .borderRadius(RadiusTokens.md)
     .clip(true)
     // 贴地细影：对应网页 0 2px 6px rgba(46,42,32,0.08)；落地大影由外层 Stack 叠加
@@ -385,11 +395,9 @@ struct DeckSlotCard {
         // —— 旋转层：独立更慢的弹簧 → 角度滞后于位置，形成网页那种“晃动”相位差 ——
         Stack() {
           this.postFace()
-          // 玻璃板：覆盖整张卡（封面 + 信息条），圆角与裁剪由 sheenOverlay 自理
-          this.sheenOverlay()
         }
-        // 旋转层必须显式定宽：它有两个 width('100%') 的子层，自动尺寸下 Stack 的固有宽度
-        // 会退化为 0，百分比随之上溯父约束解析 → 遮罩尺寸与卡片不符（2026-09-24 踩过）
+        // 旋转层显式定宽：其子层都是 width('100%')，若无显式宽度则固有宽度退化为 0、
+        // 百分比上溯父约束解析（玻璃板已移入 postFace 内部，见该处注释）
         .width('100%')
         // 以卡片底边为轴旋转：底部锚住、上半段甩动 → 回弹/推进时是“上下角度晃动”而非纯左右平移
         .rotate({ angle: this.inFlight ? this.flyRot : this.angle(), centerX: '50%', centerY: '100%' })
