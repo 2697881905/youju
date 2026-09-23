@@ -207,67 +207,6 @@ struct DeckSlotCard {
     .clip(true)
   }
 
-  // 玻璃板：整张卡片表面覆一层玻璃，像隔着一块通透的玻璃板看内容。
-  //
-  // 观感配方参考项目内 HDS 沉浸光感材质（design/components/ImmersiveSurface.ets 的
-  // DUAL_EDGE_FLOW_LIGHT_WITH_BACKGROUND_MASK）：中间均匀通透、边缘受光，而不是在
-  // 表面斜着划一道高光（斜向锐光带是「突兀」的来源，已整层删除）。
-  //
-  // 本版为**纯中性灰阶**：HDS 原始参数带一条淡蓝（maskColors 的 #86CFFF）外加冷调
-  // 加深，照搬到纸色卡片上会让整卡偏冷，这里全部改回白/黑 ——
-  //   ① 介质：均匀 10% 白，无方向（玻璃板的存在感）
-  //   ② 双边流光：顶边白 → 中部完全透明 → 底边白，只让上下折边受光
-  //   ③ 中性减光：5% 纯黑。玻璃会让透过的内容略暗，但这一步不能用冷色代替（会偏蓝）
-  //   ④ 边缘高光：20% 白描边
-  //
-  // 尺寸依赖：宽高都是 100%，所以**必须**挂在一个已有确定尺寸的容器里 —— 调用点在
-  // DeckSlotCard.build 的旋转层 Stack（该 Stack 已显式 .width('100%')）。若挂在自动
-  // 尺寸的 Stack 里，百分比会向上按父约束解析、固有宽度退化为 0，遮罩尺寸与卡片不符
-  // （ImmersiveSurface 源码里专门注释过这个坑，2026-09-24 我照样踩了一次）。
-  //
-  // hitTestBehavior(None) 不可省：遮罩铺满整卡，若参与命中测试会挡掉父层 PanGesture，
-  // 卡片将完全拖不动。与 Image.draggable(false) 是同一类坑。
-  @Builder
-  sheenOverlay(): void {
-    Stack() {
-      // ① 介质：均匀白，无方向
-      Column()
-        .width('100%')
-        .height('100%')
-        .backgroundColor('#1AFFFFFF')
-      // ② 双边流光：顶边白 → 中部透明 → 底边白
-      Column()
-        .width('100%')
-        .height('100%')
-        .linearGradient({
-          angle: 170,
-          colors: [
-            ['#8CFFFFFF', 0],
-            ['#24FFFFFF', 0.05],
-            ['#00FFFFFF', 0.16],
-            ['#00FFFFFF', 0.80],
-            ['#1CFFFFFF', 0.95],
-            ['#4DFFFFFF', 1],
-          ],
-        })
-      // ③ 中性减光（纯黑，不带色相）
-      Column()
-        .width('100%')
-        .height('100%')
-        .backgroundColor('#0D000000')
-      // ④ 边缘高光
-      Column()
-        .width('100%')
-        .height('100%')
-        .border({ width: 1, color: '#33FFFFFF' })
-    }
-    .width('100%')
-    .height('100%')
-    .borderRadius(RadiusTokens.md)
-    .clip(true)
-    .hitTestBehavior(HitTestMode.None)
-  }
-
   // 卡面媒体区：4:3 封面（图片 + 角标 / 文字海报）。与信息条分离，
   // 「一镜到底」只飞这块媒体区，标题/作者等文字不参与缩放变形。
   @Builder
@@ -305,13 +244,7 @@ struct DeckSlotCard {
 
   @Builder
   postFace(): void {
-    // 外层 Stack 只为承载玻璃板：遮罩用百分比定尺寸，必须挂在一个尺寸已确定的容器里。
-    // 不能挂在 DeckSlotCard.build 的旋转层上 —— 那个 Stack 没有显式高度，遮罩的
-    // height('100%') 会与它循环依赖并上溯父约束解析，尺寸与卡片不符（高度尤其）。
-    // postFace 这层尺寸是确定的：宽追到旋转层（已显式 100%），高由 mediaFace 的
-    // aspectRatio(4/3) 撑开，所以遮罩挂这里才拿得到正确尺寸。
-    Stack() {
-      Column() {
+    Column() {
       // 卡面媒体区（详情页一镜到底以 componentUtils 定位此块屏幕帧作为起点，
       // 详情整页从该帧缩放展开；id 见本文件 deckCardMedia-{id}）
       this.mediaFace()
@@ -378,10 +311,6 @@ struct DeckSlotCard {
       .backgroundColor(ColorTokens.elevated)
     }
     .width('100%')
-      // 玻璃板：覆盖整卡（4:3 媒体区 + 70 高信息条）
-      this.sheenOverlay()
-    }
-    .width('100%')
     .borderRadius(RadiusTokens.md)
     .clip(true)
     // 贴地细影：对应网页 0 2px 6px rgba(46,42,32,0.08)；落地大影由外层 Stack 叠加
@@ -396,9 +325,6 @@ struct DeckSlotCard {
         Stack() {
           this.postFace()
         }
-        // 旋转层显式定宽：其子层都是 width('100%')，若无显式宽度则固有宽度退化为 0、
-        // 百分比上溯父约束解析（玻璃板已移入 postFace 内部，见该处注释）
-        .width('100%')
         // 以卡片底边为轴旋转：底部锚住、上半段甩动 → 回弹/推进时是“上下角度晃动”而非纯左右平移
         .rotate({ angle: this.inFlight ? this.flyRot : this.angle(), centerX: '50%', centerY: '100%' })
         .scale({ x: this.inFlight ? 1 : this.cardScale(), y: this.inFlight ? 1 : this.cardScale() })
