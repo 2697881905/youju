@@ -207,31 +207,77 @@ struct DeckSlotCard {
     .clip(true)
   }
 
-  // 反光遮罩：斜向掠射光带，模拟玻璃 / 亚克力卡面的高光反射，让封面有材质感
-  // 而不是「一张贴上去的图」。只叠在图片封面上 —— 文字海报本身已是纸色渐变。
+  // 玻璃罩：模拟卡面上覆了一层玻璃，光在其表面反射。
   //
-  // hitTestBehavior(None) 不可省：遮罩铺满整个卡面，若参与命中测试就会挡掉父层的
-  // PanGesture，卡片将完全拖不动。这与 Image.draggable(false) 是同一类坑。
+  // 单条光带只会像「贴了道白光」，玻璃感来自多层叠加 —— 四层缺一不可：
+  //   ① 玻璃厚度：极淡的整体冷白（4%~12%），两端略强、中部最轻（边缘比中心更「厚」）
+  //   ② 主反射：窄而锐的镜面高光，峰值 66%。这是「反光」本体，必须够亮才看得见
+  //   ③ 对角次反射：右下角弱反射（12%）。玻璃两面都在反射，少了这道就是单面贴纸
+  //   ④ 边缘高光：四周 1px 半透明白描边，玻璃的切边比中心亮
   //
-  // 峰值只给到 34% 白：再高会压掉封面主体，达不到「精致」而是「发灰」。
-  // 光带前缘在 14%、峰值 26%、38% 处收敛，形成一条有方向的斜掠高光而非整体提亮。
+  // 主反射 118° 与次反射 318° 接近垂直，对应玻璃平面上的双向反射。
+  // 只给上半圆角：图片区与下方信息条相接，底部不该有圆角亮线。
+  //
+  // hitTestBehavior(None) 不可省：遮罩铺满整个卡面，若参与命中测试会挡掉父层
+  // PanGesture，卡片将完全拖不动。与 Image.draggable(false) 是同一类坑。
   @Builder
   sheenOverlay(): void {
-    Column()
-      .width('100%')
-      .height('100%')
-      .linearGradient({
-        angle: 125,
-        colors: [
-          ['#00FFFFFF', 0],
-          ['#2EFFFFFF', 0.14],
-          ['#57FFFFFF', 0.26],
-          ['#1FFFFFFF', 0.38],
-          ['#00FFFFFF', 0.54],
-          ['#00FFFFFF', 1],
-        ],
-      })
-      .hitTestBehavior(HitTestMode.None)
+    Stack() {
+      // ① 玻璃厚度
+      Column()
+        .width('100%')
+        .height('100%')
+        .linearGradient({
+          angle: 160,
+          colors: [
+            ['#1FFFFFFF', 0],
+            ['#0AFFFFFF', 0.45],
+            ['#14FFFFFF', 1],
+          ],
+        })
+      // ② 主反射（左上 → 右下，窄而锐）
+      Column()
+        .width('100%')
+        .height('100%')
+        .linearGradient({
+          angle: 118,
+          colors: [
+            ['#00FFFFFF', 0],
+            ['#14FFFFFF', 0.08],
+            ['#66FFFFFF', 0.17],
+            ['#A8FFFFFF', 0.23],
+            ['#5CFFFFFF', 0.29],
+            ['#1AFFFFFF', 0.36],
+            ['#00FFFFFF', 0.46],
+            ['#00FFFFFF', 1],
+          ],
+        })
+      // ③ 对角次反射（右下角）
+      Column()
+        .width('100%')
+        .height('100%')
+        .linearGradient({
+          angle: 318,
+          colors: [
+            ['#00FFFFFF', 0],
+            ['#00FFFFFF', 0.66],
+            ['#1FFFFFFF', 0.80],
+            ['#0AFFFFFF', 0.92],
+            ['#00FFFFFF', 1],
+          ],
+        })
+      // ④ 边缘高光：四周 1px 半透明白描边，玻璃的切边比中心亮。
+      // 这里刻意不设 borderRadius —— 遮罩顶边落在卡片外轮廓上，会被 postFace 的
+      // clip(true) 自动裁成圆角；底边位于卡片内部（与信息条相接处），保持直角
+      // 才不会多出一道弧形亮线。
+      Column()
+        .width('100%')
+        .height('100%')
+        .border({ width: 1, color: '#2EFFFFFF' })
+    }
+    .width('100%')
+    .height('100%')
+    .hitTestBehavior(HitTestMode.None)
   }
 
   // 卡面媒体区：4:3 封面（图片 + 角标 / 文字海报）。与信息条分离，
