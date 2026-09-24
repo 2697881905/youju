@@ -17,7 +17,7 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { bottomNavInset } from '../utils/cardTokens';
 import { TypeTokens } from '../design/tokens/type';
-import { missingEssentialLabels, structuredFieldPairs, withCoverOnlyTextPoster } from '../utils/structuredFields';
+import { structuredFieldPairs, withCoverOnlyTextPoster } from '../utils/structuredFields';
 import { structuredSummaryOf } from '../utils/structuredBlocks';
 import { StructuredSummaryCard } from '../components/StructuredSummaryCard';
 import { StructuredFlowView } from '../components/StructuredFlowView';
@@ -58,8 +58,6 @@ struct PublishPreviewPage {
   @State textPosterStyleIndex: number = 0;
   @State previewImageIndex: number = 0;
   @State publishing: boolean = false;
-  // 软校验已提示过：核心字段缺失时先提示一次、不阻断，再点一次即发布
-  @State softGatePassed: boolean = false;
   @State error: string = '';
   // 四种文字海报样式的真实渲染产物（由 renderPosterPixelMap 生成），与发布产物同源。
   @State textPosterPixelMaps: image.PixelMap[] = [];
@@ -223,18 +221,9 @@ struct PublishPreviewPage {
     if (this.publishing || this.draft === null) {
       return;
     }
-    // 软校验（C-3）：核心字段缺失时先提示一次，再点一次即发布。
-    // 硬必填能立刻拉高完整率，但会压低发布率；冷启动期发布率更贵，所以选「提示 + 二次确认」。
-    if (!this.softGatePassed && this.currentStructuredDocument().blocks.length === 0) {
-      const missing: string[] = missingEssentialLabels(this.draft.structuredData, this.draft.genre);
-      if (missing.length > 0) {
-        this.softGatePassed = true;
-        safeShowToast(this.getUIContext(), {
-          message: '补全「' + missing.join('、') + '」可提升曝光，再点一次即可直接发布',
-        });
-        return;
-      }
-    }
+    // 结构化信息流是「可选表达」，不是必填项：信息块为空也一次点击直接发布。
+    // （旧的「提示 + 二次确认」软闸门已移除：它依赖 structuredData 的核心字段，
+    //   而字段输入 UI 早已不在发布链路里，导致四个体裁每次发布都被拦一次。）
     let user: User | null = null;
     try {
       user = await ensureLogin();
