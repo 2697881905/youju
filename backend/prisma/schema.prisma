@@ -94,6 +94,9 @@ model Comment {
   status      Int      @default(1) // 1-正常 0-隐藏(待审核) 2-已删除
   reportCount Int      @default(0) // 被举报累计次数
   upCount     Int      @default(0)
+  // 编辑器显式选择的 @提及 [{name, userId}]：把「@昵称」精确映射到 userId，
+  // 供展示态点击跳转（避免重名时靠昵称搜索取错人）
+  mentions    Json?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -339,6 +342,8 @@ model Message {
   content    String    @db.Text // 文本消息内容；image/video 消息存 COS viewUrl
   read       Boolean   @default(false) // 接收方是否已读
   recalledAt DateTime? // 撤回时间（双方均不可见正文，前端展示「已撤回」占位）
+  // 发送时显式选择的 @提及 [{name, userId}]：仅 text 消息使用，供展示态点击精确跳转
+  mentions   Json?
   createdAt  DateTime  @default(now())
 
   @@index([receiverId, read])            // 未读统计
