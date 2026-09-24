@@ -254,7 +254,11 @@ export struct PostCard {
         })
         // 信息区：标题 + 互动/作者 合并为一块（统一 elevated 底 + 细边框 + 圆角）
         Column({ space: this.compact ? SpaceTokens.inlineTight : SpaceTokens.sm }) {
-          PostCardTitle({ title: this.post.title ?? '', compact: this.compact })
+          PostCardTitle({
+            title: this.post.title ?? '',
+            compact: this.compact,
+            mentions: this.post.mentions ?? [],
+          })
           this.actions()
           if (this.variant === 'feed' && this.hasFooter()) {
             this.footerSlot()
