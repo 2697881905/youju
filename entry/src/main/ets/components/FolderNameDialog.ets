@@ -34,7 +34,10 @@ export struct FolderNameDialog {
   }
 
   build() {
-    SpringPanel({ panelWidth: 344, panelPadding: SpaceTokens.lg }) {
+    // solid 档：elevated 实色暖纸底 + separator 发丝描边 + cardAmbient 阴影，与应用内容卡
+    // / PostStatsDialog 同材质。输入框弹窗承载文字，不用半透明玻璃（半透明只留给
+    // 悬浮底栏/分段栏这类刻意透底的表面）。
+    SpringPanel({ panelWidth: 344, panelPadding: SpaceTokens.lg, solid: true }) {
       Column({ space: SpaceTokens.base }) {
         Row({ space: SpaceTokens.sm }) {
           Text(this.title)
