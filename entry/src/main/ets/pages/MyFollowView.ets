@@ -68,13 +68,18 @@ export struct MyFollowView {
     await this.fetch(false);
   }
 
+  // 请求序号：每次发起自增；响应回来时若序号已落后则整体丢弃（最后一次发起的请求生效）。
+  // 与 HomeTab.fetch 同一竞态（提审审计 P1-3）：加载更多在途时触发下拉刷新，旧实现
+  // refresh 先重置 page=1 再被 if (this.loading) return 静默丢弃 → 分页错位。
+  private fetchSeq: number = 0;
+
   private async fetch(reset: boolean): Promise<void> {
-    if (this.loading) {
-      return;
-    }
+    const seq: number = ++this.fetchSeq;
     if (this.targetId === 0) {
       // 导航意图丢失（takeFollowListIntent 返回 null）时不发无效请求，并给出明确失败态：
       // 否则渲染会落到空态「这里还什么都没有」，让用户误以为自己没有关注/粉丝。
+      // 序号已自增：作废在途请求，同时退出加载态（否则 loading 卡死）。
+      this.loading = false;
       this.error = '页面参数缺失，请返回重新进入';
       return;
     }
@@ -84,6 +89,9 @@ export struct MyFollowView {
       const res = this.mode === 'following'
         ? await listFollowing(this.targetId, this.page, 20)
         : await listFollowers(this.targetId, this.page, 20);
+      if (seq !== this.fetchSeq) {
+        return; // 过期响应：期间已有更新的请求发起，整体丢弃
+      }
       const data: FollowUser[] = res.list;
       if (reset) {
         this.list = data;
@@ -94,9 +102,15 @@ export struct MyFollowView {
         this.finished = true;
       }
     } catch (e) {
+      if (seq !== this.fetchSeq) {
+        return; // 过期请求的失败不覆盖新请求的状态
+      }
       this.error = (e as Error).message;
     } finally {
-      this.loading = false;
+      // 只有仍是「当前请求」才有资格退出加载态
+      if (seq === this.fetchSeq) {
+        this.loading = false;
+      }
     }
   }
 
