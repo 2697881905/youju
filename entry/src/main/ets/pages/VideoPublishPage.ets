@@ -341,6 +341,15 @@ struct VideoPublishPage {
           .backgroundColor(Color.Transparent)
           .onChange((value: string) => { this.title = value; })
         Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
+        // @提及候选：输入框「上方」的横向条（左右滑动、点选回填）
+        if (this.mentionActive) {
+          AtMentionSuggest({
+            keyword: this.mentionKeyword,
+            onPick: (c: MentionCandidate): void => { this.pickMention(c); },
+          })
+            .margin({ bottom: SpaceTokens.xs })
+            .width('100%')
+        }
         TextArea({ text: this.content, placeholder: '展开讲讲背景、过程、结论。尽量给出你踩过的坑、判断标准和适用人群。' })
           .maxLength(5000)
           .width('100%')
@@ -356,14 +365,6 @@ struct VideoPublishPage {
             this.content = value;
             this.syncMention(value);
           })
-        if (this.mentionActive) {
-          AtMentionSuggest({
-            keyword: this.mentionKeyword,
-            onPick: (c: MentionCandidate): void => { this.pickMention(c); },
-          })
-            .margin({ top: SpaceTokens.xs })
-            .width('100%')
-        }
         Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator).margin({ top: SpaceTokens.sm })
         StructuredComposer({
           document: this.structuredDocument,

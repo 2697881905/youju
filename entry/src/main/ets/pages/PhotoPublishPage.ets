@@ -345,6 +345,15 @@ struct PhotoPublishPage {
           .backgroundColor(Color.Transparent)
           .onChange((value: string) => { this.title = value; })
         Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
+        // @提及候选：输入框「上方」的横向条（左右滑动、点选回填）
+        if (this.mentionActive) {
+          AtMentionSuggest({
+            keyword: this.mentionKeyword,
+            onPick: (c: MentionCandidate): void => { this.pickMention(c); },
+          })
+            .margin({ bottom: SpaceTokens.xs })
+            .width('100%')
+        }
         TextArea({ text: this.content, placeholder: '写下简短说明，无图时会生成文字封面。' })
           .width('100%')
           .height(104)
@@ -365,14 +374,6 @@ struct PhotoPublishPage {
           .fontColor(ColorTokens.secondary)
           .width('100%')
           .textAlign(TextAlign.End)
-        if (this.mentionActive) {
-          AtMentionSuggest({
-            keyword: this.mentionKeyword,
-            onPick: (c: MentionCandidate): void => { this.pickMention(c); },
-          })
-            .margin({ top: SpaceTokens.xs })
-            .width('100%')
-        }
         Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator).margin({ top: SpaceTokens.sm })
         StructuredComposer({
           document: this.structuredDocument,
