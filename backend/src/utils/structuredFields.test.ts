@@ -50,6 +50,15 @@ describe('validateStructuredData', () => {
     expect(validateStructuredData({ pros: 'x' }, 'share')).toBe('该体裁不支持结构化字段');
   });
 
+  test('分享体裁放行内部标记 coverOnlyTextPoster（预览页发布必带）', () => {
+    expect(validateStructuredData({ coverOnlyTextPoster: false }, 'share')).toBeNull();
+    expect(validateStructuredData({ coverOnlyTextPoster: true }, 'share')).toBeNull();
+    expect(validateStructuredData({ coverOnlyTextPoster: 'yes' }, 'share')).toBe('封面样式标记格式无效');
+    // 内部标记之外的内容字段照拒
+    expect(validateStructuredData({ coverOnlyTextPoster: true, pros: 'x' }, 'share'))
+      .toBe('该体裁不支持结构化字段');
+  });
+
   test('字段长度上限', () => {
     expect(validateStructuredData({ pros: '好'.repeat(200) }, 'review')).toBeNull();
     expect(validateStructuredData({ pros: '好'.repeat(201) }, 'review')).toBe('优点最多 200 字');

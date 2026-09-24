@@ -88,20 +88,23 @@ export function validateStructuredData(input: unknown, genre?: string | null): s
   const keys = Object.keys(raw);
   const hasGenre = genre !== undefined && genre !== null && String(genre).trim().length > 0;
 
+  // 内部标记先于体裁判断处理：预览页发布会随 share 等无字段体裁带上
+  // coverOnlyTextPoster（photo 无图纯文字海报为 true），不能因此触发体裁拒绝。
+  for (const key of keys) {
+    if (INTERNAL_KEYS.includes(key) && typeof raw[key] !== 'boolean') {
+      return '封面样式标记格式无效';
+    }
+  }
+  const contentKeys = keys.filter((key) => !INTERNAL_KEYS.includes(key));
+
   if (hasGenre && genreFieldMeta(genre).length === 0) {
-    return keys.length === 0 ? null : '该体裁不支持结构化字段';
+    return contentKeys.length === 0 ? null : '该体裁不支持结构化字段';
   }
 
   const meta = hasGenre ? genreFieldMeta(genre) : ALL_FIELDS;
   const byKey = new Map<string, StructuredFieldMeta>(meta.map((m) => [m.key, m]));
 
-  for (const key of keys) {
-    if (INTERNAL_KEYS.includes(key)) {
-      if (typeof raw[key] !== 'boolean') {
-        return '封面样式标记格式无效';
-      }
-      continue;
-    }
+  for (const key of contentKeys) {
     const field = byKey.get(key);
     if (!field) {
       return `未知的结构化字段：${key}`;
