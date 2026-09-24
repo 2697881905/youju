@@ -44,10 +44,14 @@ function isPrivateOrLocalIp(ip: string | undefined): boolean {
 
 const skipLocal: (req: any) => boolean = (req: any): boolean => isPrivateOrLocalIp(req.ip);
 
-// 全站基础限流：每 IP 15 分钟 300 次（防刷接口）
+// 全站基础限流：每 IP 15 分钟 600 次（防刷接口）。
+// 原 300 次对正常客户端偏紧：私信页轮询 + 信息流埋点 + 页面/详情请求叠加后，
+// 活跃用户 15 分钟可接近甚至超过 300，配额一旦耗尽，后续所有请求都返回 429，
+// 表现为「一进私信页就提示请求过于频繁」（2026-09-24 定位）。
+// 600 = 40 次/分钟，对真人操作留有余量，对脚本刷量仍构成限制。
 export const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 300,
+  max: 600,
   standardHeaders: true,
   legacyHeaders: false,
   skip: skipLocal,

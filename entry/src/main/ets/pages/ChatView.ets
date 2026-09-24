@@ -6,7 +6,9 @@
 // - 长按消息弹出小菜单：文字=复制/删除；图片视频=保存/删除；自己发送且 5 分钟内可撤回
 //   （删除仅自己不可见；撤回双方均不可见，展示「已撤回」占位）
 // - 发送/已读后自增 dmRefreshSignal，驱动消息页会话列表与红点刷新
-import { DmMessage, User, DmSharePayload, ReportBody, ReportReason } from '../models/types';
+import { DmMessage, User, DmSharePayload, ReportBody, ReportReason, MentionCandidate, MentionRef } from '../models/types';
+import { findActiveAtMention, applyAtMention } from '../utils/atMention';
+import { AtMentionSuggest } from '../components/AtMentionSuggest';
 import { getMessages, sendMessage, markMessagesRead, uploadChatMedia, resolveDisplayImageUrl, deleteMessageForMe, recallMessage, reportUser } from '../services/api';
 import { getToken, getUserId, getCurrentUser, ensureLogin } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
@@ -80,6 +82,11 @@ export struct ChatView {
   // 输入框聚焦（约等于键盘弹起）：键盘弹出后底部导航条已被遮住，必须撤掉为它预留的
   // inset，否则输入栏会停在键盘上方一段空白处，看起来像「输入框没贴住键盘」。
   @State inputFocused: boolean = false;
+  // —— @提及（与发帖页/评论区同款）——
+  @State mentionActive: boolean = false;
+  @State mentionKeyword: string = '';
+  private mentionAt: number = -1;
+  private mentionRefs: MentionRef[] = [];
   @State showEmojiPanel: boolean = false;
   @State viewingImage: string = ''; // 全屏看图（聊天图片点开预览）
   @State viewingVideo: string = ''; // 全屏看视频（聊天视频点开自动播放）
@@ -145,13 +152,18 @@ export struct ChatView {
     this.bumpRefreshSignal();
   }
 
-  // ===== 轻量轮询：5 秒拉一次消息（MVP 无 WebSocket 推送）=====
-  // 覆盖「双方同时停留在聊天页」场景：对方撤回 / 收到新消息 5 秒内同步；
+  // ===== 轻量轮询：15 秒拉一次消息（MVP 无 WebSocket 推送）=====
+  // 覆盖「双方同时停留在聊天页」场景：对方撤回 / 收到新消息 15 秒内同步；
   // 仅在内容有变化时才重赋值列表（避免无谓的 List 重建与滚动跳动）。
+  //
+  // 间隔由 5s 放宽到 15s：全站限流是每 IP 15 分钟 600 次，5s 轮询单这一个页面就要烧掉
+  // 180 次，再叠加消息列表 / 详情 / 埋点等请求会把配额耗尽，表现为「一进私信页就提示
+  // 请求过于频繁」（2026-09-24 定位）。15s → 60 次/15min，留足余量；无 WebSocket 下
+  // 15 秒的实时性仍可接受。
   private startPolling(): void {
     this.pollTimer = setInterval((): void => {
       this.pollMessages();
-    }, 5000);
+    }, 15000);
   }
 
   private stopPolling(): void {
@@ -223,6 +235,56 @@ export struct ChatView {
     AppStorage.setOrCreate('dmRefreshSignal', cur + 1);
   }
 
+  // —— @提及（与发帖页/评论区同款：输入「@昵称」时在输入栏上方弹候选）——
+  private syncMention(text: string): void {
+    const m = findActiveAtMention(text);
+    if (m === null) {
+      if (this.mentionActive) {
+        this.mentionActive = false;
+      }
+      this.mentionKeyword = '';
+      this.mentionAt = -1;
+      return;
+    }
+    this.mentionAt = m.atIndex;
+    this.mentionKeyword = m.keyword;
+    if (!this.mentionActive) {
+      this.mentionActive = true;
+    }
+  }
+
+  // 点选候选：回填「@昵称 」。私信后端暂无 mentions 字段，此处只保证文本正确；
+  // mentionRefs 保留以便后端支持后直接透传。
+  private pickMention(c: MentionCandidate): void {
+    if (this.mentionAt < 0) {
+      return;
+    }
+    const nickname: string = c.nickname.trim();
+    if (nickname.length === 0) {
+      return;
+    }
+    this.inputText = applyAtMention(this.inputText, this.mentionAt, nickname);
+    let exists: boolean = false;
+    for (const m of this.mentionRefs) {
+      if (m.userId === c.id) {
+        exists = true;
+        break;
+      }
+    }
+    if (!exists) {
+      const next: MentionRef[] = this.mentionRefs.slice();
+      next.push({ name: nickname, userId: c.id });
+      this.mentionRefs = next;
+    }
+    this.closeMention();
+  }
+
+  private closeMention(): void {
+    this.mentionActive = false;
+    this.mentionKeyword = '';
+    this.mentionAt = -1;
+  }
+
   // 发送文字私信
   async onSend(): Promise<void> {
     this.showMediaMenu = false;
@@ -236,6 +298,8 @@ export struct ChatView {
       // 重赋值数组（避免直接 push 触发不了 @State 刷新）
       this.messages = this.messages.concat([msg]);
       this.inputText = '';
+      this.closeMention();
+      this.mentionRefs = [];
       this.bumpRefreshSignal();
       this.scrollToBottom();
     } catch (e) {
@@ -1145,6 +1209,15 @@ export struct ChatView {
           this.mediaMenu();
         }
 
+        // @提及候选：输入栏「上方」的横向条（左右滑动、点选回填）
+        if (this.mentionActive) {
+          AtMentionSuggest({
+            keyword: this.mentionKeyword,
+            onPick: (c: MentionCandidate): void => { this.pickMention(c); },
+          })
+            .margin({ bottom: SpaceTokens.xs })
+            .width('100%')
+        }
         Row({ space: 8 }) {
           Row() {
             Text('+')
@@ -1166,6 +1239,9 @@ export struct ChatView {
               placeholder: '发条消息…',
               text: $inputText,
               fillWidth: true,
+              onChange: (value: string): void => {
+                this.syncMention(value);
+              },
               onEnter: (): void => {
                 this.onSend();
               },

@@ -923,11 +923,12 @@ export struct PostDetailView {
   }
 
   // —— 评论输入 @提及 编辑辅助 ——
-  // 输入态且文尾正在输入「@昵称」时显示候选；无稳定光标 API，取全文词尾判定（与发帖页同策略）
+  // 文尾正在输入「@昵称」时显示候选（与发帖页/私信同策略：只看文本，不额外要求输入态）。
+  // 此前这里有 `if (!this.commenting) return null` 守卫，但 commenting 全文件只在
+  // onReplyComment（点「回复评论」）时置 true —— 直接在底部输入框聚焦打字时它仍是 false，
+  // 于是候选永远不弹。改为只看文本：commentText 为空时 findActiveAtMention 自身返回 null，
+  // 不需要额外的输入态守卫。
   private commentMentionMatch(): AtMentionMatch | null {
-    if (!this.commenting) {
-      return null;
-    }
     return findActiveAtMention(this.commentText);
   }
 
