@@ -10,6 +10,7 @@ import { searchMentionUsers } from '../services/api';
 import { MentionCandidate } from '../models/types';
 import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
+import { ShadowTokens } from '../design/tokens/shadow';
 import { SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 
@@ -170,8 +171,12 @@ export struct AtMentionSuggest {
     }
     .width('100%')
     .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
-    .backgroundColor(ColorTokens.barSurface)
+    // 实色底：此前用 barSurface（#70FBF8EE，alpha 仅 44% 的半透明玻璃），盖在封面图或
+    // 正文上时头像与文字几乎看不出边界、可读性差。改用 ds_elevated（#FFFCF3，与内容卡片
+    // 同底、全不透明），并补一层投影把它从底层内容里抬起来。
+    .backgroundColor(ColorTokens.elevated)
     .borderRadius(RadiusTokens.md)
+    .shadow(ShadowTokens.cardAmbient)
     .alignItems(HorizontalAlign.Start)
   }
 }
