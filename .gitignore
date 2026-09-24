@@ -4,6 +4,7 @@
 /.idea
 **/build
 /.hvigor
+.hvigor-cache-local/
 .cxx
 /.clangd
 /.clang-format
@@ -33,6 +34,15 @@ build-profile.json5
 # CodeBuddy 工具缓存（非项目源码）
 .codebuddy/
 
+# 华为 CodeArts Doer 工具缓存（含代码库索引/嵌入向量，可再生）
+.codeartsdoer/
+
+# ZCode 工具忽略配置（由 .gitignore 同步生成，属派生文件）
+.zcodeignore
+
+# 图标参考素材：官方图标库原始 SVG，可用部分已替换进 entry 资源，工程不引用
+/HarmonyOS_Icons/
+
 # 软著材料产物（脱敏后 PDF 与生成脚本不入库；仅本地留档）
 /soft_output/源代码_完整60页_合规.pdf
 /soft_output/文档_完整60页_合规.pdf
@@ -47,11 +57,9 @@ Thumbs.db
 
 # 编辑器临时记录
 .trae/
-# HyperFrames 渲染产物：体积大（单个 compiled/index.html 超 100MB）、可再生，不入库
-/hyperframes-tiktok/renders/
-/hyperframes-demo/renders/
 
 # HyperFrames 渲染产物：体积大（单个 compiled/index.html 超 100MB）、可再生，不入库
 /hyperframes-tiktok/renders/
 /hyperframes-demo/renders/
+
 /.preview
