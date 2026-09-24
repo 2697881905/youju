@@ -9,6 +9,11 @@
 # 本脚本直接管理 backend 容器，并保证：
 #   新容器健康检查通过之后才删除旧容器 —— 失败自动回滚，旧容器全程不动。
 #
+# 还会做一次 schema 对账：新镜像里的 prisma/schema.prisma 与线上库不一致时中止部署。
+# 原因：新增一列之后，不带 select 的 findMany 会连新列一起查，库里没这列就报 P2022，
+# 相关接口全部 500，而 /health 仍然返回 ok（SELECT 1 不会因为缺列失败）。
+# 2026-09-24 就这样把私信页弄挂过一次，同月更早还有 PostEvent.scene 那次。
+#
 # 注意：脚本里所有变量引用一律写成 ${VAR}。当变量后面紧跟中文或全角标点时，
 # 不加大括号会让 bash 把全角字符的首字节并入变量名（`${VAR}（` 会被解析成
 # `VAR\xef`），报 unbound variable。这类错误只在特定分支触发，极难在测试前发现。
@@ -16,6 +21,7 @@
 # 用法（在 backend/ 目录下）：
 #   bash scripts/deploy-backend.sh              # 构建新镜像并滚动替换（日常用这个）
 #   bash scripts/deploy-backend.sh --no-build   # 跳过构建，用现有 latest 镜像替换
+#   bash scripts/deploy-backend.sh --allow-drift  # 明知库与 schema 有差异仍要部署
 #
 set -euo pipefail
 
@@ -28,11 +34,13 @@ NGINX_CONTAINER="youju-nginx"
 HEALTH_RETRIES="${DEPLOY_HEALTH_RETRIES:-60}"
 
 BUILD=1
+ALLOW_DRIFT=0
 for arg in "$@"; do
   case "${arg}" in
     --no-build) BUILD=0 ;;
+    --allow-drift) ALLOW_DRIFT=1 ;;
     *)
-      echo "未知参数：${arg}（仅支持 --no-build）" >&2
+      echo "未知参数：${arg}（仅支持 --no-build / --allow-drift）" >&2
       exit 2
       ;;
   esac
@@ -114,6 +122,42 @@ if [ "${HEALTHY}" != 1 ]; then
   exit 1
 fi
 
+# --- schema 对账闸门：新镜像的 prisma schema 必须与线上库一致 ---
+# 放在「健康检查通过之后、删旧容器之前」：此时新容器已证明能起来，但线上仍在用旧容器，
+# 中止部署对用户零影响。diff 由新容器执行，所以它反映的是「新代码期望什么 vs 库里有什么」。
+echo "校验线上库与 prisma/schema.prisma 是否一致..."
+DRIFT_SQL=""
+if DRIFT_SQL=$(docker exec "${TMP_CONTAINER}" sh -c \
+  'npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --script' \
+  2>/dev/null); then
+  :
+else
+  DRIFT_SQL=""
+fi
+
+if [ -z "${DRIFT_SQL}" ]; then
+  echo "警告：无法执行 prisma migrate diff，跳过 schema 校验（请自行确认迁移已执行）" >&2
+elif printf '%s' "${DRIFT_SQL}" | grep -q 'This is an empty migration'; then
+  echo "✓ 线上库与 schema 一致"
+else
+  echo "" >&2
+  echo "✗ 线上库缺少本次代码需要的表或列，直接切换会让相关接口 500。" >&2
+  echo "  典型症状：新增列后不带 select 的 findMany 报 P2022，而 /health 依然 ok。" >&2
+  echo "" >&2
+  echo "--- 需要先执行的 DDL ---" >&2
+  printf '%s\n' "${DRIFT_SQL}" >&2
+  echo "------------------------" >&2
+  echo "" >&2
+  echo "执行完上面的 SQL 再重新部署。确认可以忽略时改用 --allow-drift。" >&2
+  if [ "${ALLOW_DRIFT}" = 1 ]; then
+    echo "（--allow-drift：忽略漂移，继续部署）" >&2
+  else
+    docker rm -f "${TMP_CONTAINER}" >/dev/null 2>&1 || true
+    echo "已中止并回滚（旧容器未受影响，线上不受影响）" >&2
+    exit 1
+  fi
+fi
+
 # --- 成功：删旧容器，把新容器改名为正式名 ---
 # 删除到改名之间有一个极短的窗口（毫秒级），期间 nginx 可能收到一两个失败请求，
 # 这是单机无负载均衡下无法完全避免的；nginx 自身有重试，实际影响可忽略。
@@ -138,7 +182,7 @@ if docker inspect "${NGINX_CONTAINER}" >/dev/null 2>&1; then
   fi
 
   echo "验证 ${NGINX_CONTAINER} 到 ${APP_CONTAINER} 的连通性..."
-  if docker exec "${NGINX_CONTAINER}" wget -qO- --timeout=6 "http://${APP_CONTAINER}:3000/health" 2>/dev/null | grep -q '"ok"'; then
+  if docker exec "${NGINX_CONTAINER}" wget -qO- --timeout=6 "http://${APP_CONTAINER}:3000/health" 2>/dev/null | grep -q '"ok":true'; then
     echo "✓ nginx 已能正常访问后端"
   else
     echo "警告：nginx 仍无法访问 ${APP_CONTAINER}，线上可能 502" >&2
