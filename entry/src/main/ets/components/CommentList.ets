@@ -8,6 +8,7 @@ import { resolveActionIcon } from '../utils/actionIcons';
 import { openUserProfile } from '../utils/nav';
 import { getUserId, getCurrentUser } from '../utils/auth';
 import { Avatar } from '../design/components/Avatar';
+import { HighlightedText } from './HighlightedText';
 
 @Component
 export struct CommentList {
@@ -304,11 +305,14 @@ export struct CommentList {
               .padding({ left: 3, right: 3, top: 0, bottom: 0 })
           }
         }
-        Text('回复 @' + parentName + '：' + (r.content ?? ''))
-          .fontSize(14).fontFamily($r('app.string.font_family'))
-          .fontColor($r('app.color.text_primary'))
-          .maxLines(3)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        // 评论正文（含「回复 @某人：」）走高亮组件：@提及 蓝可点、#话题# 棕可点。
+        // 评论模型暂无 mentions 字段，点击 @ 时退回「按昵称全站搜索」。
+        HighlightedText({
+          text: '回复 @' + parentName + '：' + (r.content ?? ''),
+          fontSize: 14,
+          lineHeight: 21,
+          maxLines: 3,
+        })
         Row({ space: 4 }) {
           Text(timeAgo(r.createdAt))
             .fontSize(11).fontFamily($r('app.string.font_family'))
@@ -353,9 +357,11 @@ export struct CommentList {
                         .padding({ left: 4, right: 4, top: 1, bottom: 1 })
                     }
                   }
-                  Text(c.content ?? '')
-                    .fontSize(15).fontFamily($r('app.string.font_family'))
-                    .fontColor($r('app.color.text_primary'))
+                  HighlightedText({
+                    text: c.content ?? '',
+                    fontSize: 15,
+                    lineHeight: 22,
+                  })
                   Row({ space: 4 }) {
                     Text(timeAgo(c.createdAt))
                       .fontSize(12).fontFamily($r('app.string.font_family'))

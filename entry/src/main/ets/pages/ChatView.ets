@@ -36,6 +36,7 @@ import { MotionCurves } from '../design/tokens/motion';
 import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
 import { ImmersiveSurface } from '../design/components/ImmersiveSurface';
 import { GlowInput } from '../design/components/GlowInput';
+import { HighlightedText } from '../components/HighlightedText';
 import { openUserProfile, takeChatIntent, openPostDetail } from '../utils/nav';
 import { getMainNavStack, PostDetailNavParams, UserProfileNavParams } from '../utils/navigationTransition';
 import { openExternalUrl } from '../utils/openExternal';
@@ -856,15 +857,20 @@ export struct ChatView {
         } else if (m.type === 'share') {
           this.shareBubble(m)
         } else {
-          Text(m.content)
-            .fontSize(15).fontFamily($r('app.string.font_family'))
-            .fontColor(ColorTokens.primary)
-            .backgroundColor(Color.Transparent)
-            .padding({ left: 12, right: 12, top: 8, bottom: 8 })
-            .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-            .borderRadius(RadiusTokens.md)
-            .constraintSize({ maxWidth: 280, minHeight: 40 })
-            .textAlign(TextAlign.Start)
+          Column() {
+            // 消息文本走高亮组件：@提及 蓝、#话题# 棕，均可点击。
+            // 私信后端暂无 mentions 字段，点击时退回「按昵称全站搜索」。
+            HighlightedText({
+              text: m.content,
+              fontSize: 15,
+              lineHeight: 22,
+            })
+          }
+          .backgroundColor(Color.Transparent)
+          .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+          .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+          .borderRadius(RadiusTokens.md)
+          .constraintSize({ maxWidth: 280, minHeight: 40 })
         }
         // 所有消息统一显示发送时间；自己发出的消息在被对方已读后追加「已读」回执
         Row({ space: 4 }) {
