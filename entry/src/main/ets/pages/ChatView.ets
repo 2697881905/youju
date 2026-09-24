@@ -77,6 +77,9 @@ export struct ChatView {
   @State sending: boolean = false;
   @State sendingMedia: boolean = false;
   @State inputText: string = '';
+  // 输入框聚焦（约等于键盘弹起）：键盘弹出后底部导航条已被遮住，必须撤掉为它预留的
+  // inset，否则输入栏会停在键盘上方一段空白处，看起来像「输入框没贴住键盘」。
+  @State inputFocused: boolean = false;
   @State showEmojiPanel: boolean = false;
   @State viewingImage: string = ''; // 全屏看图（聊天图片点开预览）
   @State viewingVideo: string = ''; // 全屏看视频（聊天视频点开自动播放）
@@ -1166,6 +1169,9 @@ export struct ChatView {
               onEnter: (): void => {
                 this.onSend();
               },
+              onFocusChanged: (focused: boolean): void => {
+                this.inputFocused = focused;
+              },
             });
           Row() {
             Text('☺')
@@ -1205,8 +1211,15 @@ export struct ChatView {
         }
       }
       .width('100%')
-      // 输入栏抬升避让三键导航条（审核问题③）；手势导航 navInset=0 不影响。
-      .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.sm, bottom: SpaceTokens.md + bottomNavInset() })
+      // 输入栏避让三键导航条（审核问题③）：仅在键盘未弹起时预留。
+      // 键盘弹出后导航条已被键盘盖住，inset 若继续留着，输入栏就会停在键盘上方一段
+      // 空白处（视觉上像输入框没贴住键盘）。手势导航 navInset 本就为 0，两种情况都不受影响。
+      .padding({
+        left: SpaceTokens.md,
+        right: SpaceTokens.md,
+        top: SpaceTokens.sm,
+        bottom: SpaceTokens.md + (this.inputFocused ? 0 : bottomNavInset()),
+      })
       .margin({ top: SpaceTokens.xs });
     }
     .width('100%')
