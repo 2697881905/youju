@@ -949,10 +949,16 @@ interface SendMessageBody {
   receiverId: number;
   content: string;
   type: string;
+  mentions?: MentionRef[];
 }
 // type: 'text' | 'image' | 'video'（image/video 时 content 传媒体 viewUrl）
-export async function sendMessage(receiverId: number, content: string, type: string = 'text'): Promise<DmMessage> {
+// mentions: 手工选中的 @提及对象；传入后后端落库，接收端可据 userId 精确跳转。
+export async function sendMessage(receiverId: number, content: string, type: string = 'text',
+  mentions?: MentionRef[]): Promise<DmMessage> {
   const body: SendMessageBody = { receiverId, content, type };
+  if (mentions && mentions.length > 0) {
+    body.mentions = mentions;
+  }
   return api.post<DmMessage>('/v1/messages', body);
 }
 

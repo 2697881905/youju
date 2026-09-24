@@ -131,6 +131,9 @@ export interface Comment {
   user?: User;
   // 楼中楼：该评论下的直接子回复（后端组装，一级评论携带）
   replies?: Comment[];
+  // 该评论显式选择的 @提及 [{name, userId}]：展示态点「@昵称」据此精确跳主页。
+  // 可选：后端该列是后来加的，历史评论为 null。
+  mentions?: MentionRef[];
 }
 
 export interface Pagination {
@@ -361,6 +364,9 @@ export interface DmMessage {
   content: string; // text 为文本；image/video 为媒体 viewUrl；share 为 DmSharePayload 的 JSON 串
   read: boolean;
   recalled?: boolean; // 已撤回（双方均不可见正文，前端展示占位文案）
+  // 该条私信显式选择的 @提及 [{name, userId}]：展示态点「@昵称」据此精确跳主页。
+  // 可选：后端该列是后来加的，历史消息为 null。
+  mentions?: MentionRef[];
   createdAt: string; // ISO
 }
 

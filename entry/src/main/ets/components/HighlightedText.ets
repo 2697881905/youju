@@ -3,10 +3,8 @@
 //   #话题# → 品牌棕（ColorTokens.brand）且可点
 // 其余文字走常规色。
 //
-// 跳转口径：三种场景的数据完整度不同，统一在这里兜底 ——
-//   · 调用方传了 mentions（帖子正文来自 post.mentions）→ 精确取 userId 跳主页
-//   · 未传（评论 / 私信，后端 Comment / Message 模型暂无 mentions 字段）
-//     → 退化为按昵称全站搜索，命中即跳、否则 toast 提示。
+// 跳转口径：调用方传了 mentions 就精确取 userId 跳主页；
+//   未命中（旧数据 mentions 为 null / 未传）时退化为按昵称全站搜索，命中即跳、否则 toast 提示。
 import { MentionRef, MentionCandidate } from '../models/types';
 import { HighlightSegment, parseHighlightSegments } from '../utils/textHighlight';
 import { searchMentionUsers } from '../services/api';
@@ -21,7 +19,7 @@ const NO_LINE_LIMIT: number = 99999;
 @Component
 export struct HighlightedText {
   @Prop text: string = '';
-  // 精确的 @提及 → userId 映射（可选）。评论/私信暂无该数据，留空即走「按昵称搜索」兜底。
+  // 精确的 @提及 → userId 映射（可选）。为空时走「按昵称搜索」兜底。
   @Prop mentions: MentionRef[] = [];
   @Prop fontSize: number = TypeTokens.body.size;
   @Prop lineHeight: number = TypeTokens.body.lineHeight;

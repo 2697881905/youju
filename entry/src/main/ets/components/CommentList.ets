@@ -306,9 +306,10 @@ export struct CommentList {
           }
         }
         // 评论正文（含「回复 @某人：」）走高亮组件：@提及 蓝可点、#话题# 棕可点。
-        // 评论模型暂无 mentions 字段，点击 @ 时退回「按昵称全站搜索」。
+        // 传 comments 自带的 mentions：精确映射到 userId；历史数据为 null 时退回「按昵称全站搜索」。
         HighlightedText({
           text: '回复 @' + parentName + '：' + (r.content ?? ''),
+          mentions: r.mentions ?? [],
           fontSize: 14,
           lineHeight: 21,
           maxLines: 3,
@@ -359,6 +360,7 @@ export struct CommentList {
                   }
                   HighlightedText({
                     text: c.content ?? '',
+                    mentions: c.mentions ?? [],
                     fontSize: 15,
                     lineHeight: 22,
                   })
