@@ -70,7 +70,10 @@ export struct FolderPickDialog {
   }
 
   build() {
-    SpringPanel({ panelWidth: 344, panelPadding: SpaceTokens.lg }) {
+    // solid 档：elevated 实色暖纸底 + separator 发丝描边 + cardAmbient 阴影，与应用内容卡
+    // / PostStatsDialog 同材质。承载文字的浮层不用半透明玻璃（半透明只留给悬浮底栏/分段栏）。
+    // 选项行的 sunken 凹陷底在实色纸上才是「凹槽」关系，玻璃底上会变成半透明叠半透明。
+    SpringPanel({ panelWidth: 344, panelPadding: SpaceTokens.lg, solid: true }) {
       Column({ space: SpaceTokens.base }) {
         Row({ space: SpaceTokens.sm }) {
           Column({ space: 2 }) {
