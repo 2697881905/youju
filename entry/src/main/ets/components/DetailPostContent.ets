@@ -62,13 +62,25 @@ export struct DetailPostContent {
     this.myVote = vote.choice;
   }
 
-  // 正文高亮分段：@提及 与 #话题# 以品牌色加粗展示（解析代价小，正文通常 < 2K）
+  // 分段配色：正文常规色 / @提及 蓝 / #话题# 品牌棕。
+  // @提及与话题原先共用 brand，用户分不清点的是「人」还是「话题」，故 mention 单列蓝色 token。
+  private colorOfSegment(type: string): ResourceColor {
+    if (type === 'text') {
+      return ColorTokens.primary;
+    }
+    if (type === 'mention') {
+      return ColorTokens.mention;
+    }
+    return ColorTokens.brand;
+  }
+
+  // 正文高亮分段：@提及 与 #话题# 以各自强调色加粗展示（解析代价小，正文通常 < 2K）
   @Builder
   private highlightBody(): void {
     Text() {
       ForEach(parseHighlightSegments(this.content), (seg: HighlightSegment) => {
         Span(seg.raw)
-          .fontColor(seg.type === 'text' ? ColorTokens.primary : ColorTokens.brand)
+          .fontColor(this.colorOfSegment(seg.type))
           .fontWeight(seg.type === 'text' ? FontWeight.Normal : FontWeight.Medium)
           .onClick(() => {
             if (seg.type === 'tag') {

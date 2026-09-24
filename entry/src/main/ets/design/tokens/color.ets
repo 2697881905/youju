@@ -17,6 +17,10 @@ export class ColorTokens {
   static readonly brandTint: ResourceColor = $r('app.color.ds_brand_tint');
   static readonly brandPress: ResourceColor = $r('app.color.ds_brand_press');
   static readonly onBrand: ResourceColor = $r('app.color.ds_on_brand');
+  // @提及专用蓝：与 #话题#（brand 棕）区分开，让用户一眼看出点的是「人」而不是「话题」。
+  // 两套色板均按 WCAG AA 校过对比度：浅色 #1A5FB4 对 ds_canvas #F6F1E3 ≈ 5.7:1；
+  // 深色 #6AA9FF 对 ds_canvas #14120C ≈ 7.8:1。
+  static readonly mention: ResourceColor = $r('app.color.ds_mention');
 
   static readonly warm: ResourceColor = $r('app.color.ds_warm');
   static readonly success: ResourceColor = $r('app.color.ds_success');
