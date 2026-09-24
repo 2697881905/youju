@@ -20,6 +20,11 @@ export struct SpringPanel {
   // radius 圆角 + 无背景模糊 + 无阴影），用于需要「与首页分段栏同语言」的弹窗。
   // 默认 false（系统玻璃面板），其余弹窗不受影响。为 true 时自动跳过流光层。
   @Prop outlined: boolean = false;
+  // solid：实色暖纸面板（应用内容卡 / PostStatsDialog 同材质）—— elevated 不透明底 +
+  // separator 1px 发丝描边 + cardAmbient 阴影，无背景模糊、无流光。用于承载文字、
+  // 需要可读性的居中弹窗；半透明玻璃只保留给悬浮底栏 / 分段栏这类刻意透底的表面。
+  // 默认 false（系统玻璃面板），其余弹窗不受影响。为 true 时自动跳过流光层。
+  @Prop solid: boolean = false;
   @StorageLink('reduceMotion') appReduceMotion: boolean = false;
   @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
   @State presented: boolean = false;
@@ -31,6 +36,39 @@ export struct SpringPanel {
     return this.reduceMotion || this.appReduceMotion || this.systemReduceMotion;
   }
 
+  // 三种材质档位的取值集中在这里，避免 build 里堆叠多层三元表达式。
+  private panelBlur(): BlurStyle {
+    if (this.solid || this.outlined) {
+      return BlurStyle.NONE;
+    }
+    return GlassBlurStyle.Floating;
+  }
+
+  private panelBackground(): ResourceColor {
+    if (this.solid) {
+      return ColorTokens.elevated;
+    }
+    if (this.outlined) {
+      return Color.Transparent;
+    }
+    return isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface;
+  }
+
+  private panelBorderWidth(): number {
+    return this.solid ? 1 : LayoutTokens.glassBorderWidth;
+  }
+
+  private panelBorderColor(): ResourceColor {
+    return this.solid ? ColorTokens.separator : ColorTokens.barBorder;
+  }
+
+  private panelShadow(): ShadowOptions {
+    if (this.solid) {
+      return ShadowTokens.cardAmbient;
+    }
+    return this.outlined ? ShadowTokens.none : ShadowTokens.floating;
+  }
+
   @Builder
   panelBody(): void {
     Column() {
@@ -38,14 +76,12 @@ export struct SpringPanel {
     }
     .width(this.panelWidth)
     .padding(this.panelPadding)
-    // outlined：不叠系统玻璃（无模糊）、不上流光底；否则保持系统玻璃 + 低端机 barSurface 兜底
-    .backgroundBlurStyle(this.outlined ? BlurStyle.NONE : GlassBlurStyle.Floating)
-    .backgroundColor(this.outlined
-      ? Color.Transparent
-      : (isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface))
-    .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+    // solid/outlined：不叠系统玻璃（无模糊）、不上流光底；玻璃档保持系统玻璃 + 低端机 barSurface 兜底
+    .backgroundBlurStyle(this.panelBlur())
+    .backgroundColor(this.panelBackground())
+    .border({ width: this.panelBorderWidth(), color: this.panelBorderColor(), style: BorderStyle.Solid })
     .borderRadius(this.radius)
-    .shadow(this.outlined ? ShadowTokens.none : ShadowTokens.floating)
+    .shadow(this.panelShadow())
     .clip(true)
     .opacity(this.shouldReduceMotion() || this.presented ? 1 : 0)
     .translate({ y: this.shouldReduceMotion() || this.presented ? 0 : SpaceTokens.xl })
@@ -69,8 +105,8 @@ export struct SpringPanel {
   build() {
     // 沉浸光感材质（浮层面板）：真机由 HdsVisualComponent 提供双边流光，模拟器降级为系统玻璃。
     // 入场编舞（opacity/translate/scale）作用于玻璃表面；流光层同步生成，视觉上像光晕先行透出。
-    // immersive=false 或 outlined=true 时跳过流光层，仅保留面板自身材质（同款尺寸/编舞）。
-    if (this.immersive && !this.outlined) {
+    // immersive=false 或 outlined/solid=true 时跳过流光层，仅保留面板自身材质（同款尺寸/编舞）。
+    if (this.immersive && !this.outlined && !this.solid) {
       ImmersiveSurface({ radius: this.radius }) {
         this.panelBody()
       }
