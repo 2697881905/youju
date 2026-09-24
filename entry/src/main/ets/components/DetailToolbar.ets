@@ -3,13 +3,11 @@ import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
-import { TypeTokens } from '../design/tokens/type';
 import { resolveActionIcon } from '../utils/actionIcons';
 
 // 详情页固定操作层不读取帖子状态，避免工具栏和详情数据加载彼此耦合。
 @Component
 export struct DetailToolbar {
-  @Prop title: string = '';
   onBack: () => void = (): void => {};
   onMore: () => void = (): void => {};
   onShare: () => void = (): void => {};
@@ -17,12 +15,9 @@ export struct DetailToolbar {
   build() {
     Row({ space: SpaceTokens.sm }) {
       BackButton({ action: (): void => { this.onBack(); } })
-      Text(this.title)
-        .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-        .fontWeight(TypeTokens.headline.weight)
-        .fontColor(ColorTokens.secondary)
-        .layoutWeight(1)
-        .textAlign(TextAlign.Center)
+      // 居中标题位保留为纯撑开空间：详情页顶部不再显示体裁标签（原先显示「经验分享」等）。
+      // 用 Blank 而非删掉该位，是为了让右侧动作组继续贴右边缘。
+      Blank()
       Row({ space: SpaceTokens.xs }) {
         // 每个动作独立 44×44 命中区，图标 24vp：间距由命中区自身的居中留白承担，
         // 不再靠 Row 的 space 直接贴图标（旧版 20vp 图标 + 4vp 间距，视觉过挤且命中区不足）。
