@@ -149,6 +149,10 @@
       "value": "#C9A47A"
     },
     {
+      "name": "ds_mention",
+      "value": "#6AA9FF"
+    },
+    {
       "name": "ds_brand_tint",
       "value": "#33C9A47A"
     },
