@@ -1250,7 +1250,6 @@ export struct PostDetailView {
       }
 
       DetailToolbar({
-        title: genreMeta(this.post?.genre).label,
         onBack: (): void => { this.navigateBack(); },
         onMore: (): void => { this.showPostActions(); },
         onShare: (): void => { this.onShare(); },
