@@ -338,12 +338,18 @@ export struct HomeTab {
     this.switchFeed(FEED_MODE_IDX_MAP[index]);
   }
 
+  // 请求序号：每次发起自增；响应回来时若序号已落后（期间又发起了新请求）则整体丢弃，
+  // 只让「最后一次发起」的请求生效。修复提审审计 P1-3：加载更多在途时触发下拉刷新，
+  // 旧实现 refresh 先重置 page=1 再被 if (this.loading) return 静默丢弃，在途 loadMore
+  // 以旧页码回包 concat → 列表重复/分页错位；同理快速切换推荐/关注时，旧响应会写进
+  // 新信息源的槽位（setPagePosts 用的是响应时刻的 feedIndex）。
+  private fetchSeq: number = 0;
+
   private async fetch(reset: boolean): Promise<void> {
-    if (this.loading) {
-      return;
-    }
-    // 关注流且未登录：不发起请求，展示登录引导态
+    const seq: number = ++this.fetchSeq;
+    // 关注流且未登录：不发起请求，展示登录引导态（序号已自增，在途请求的响应会被丢弃）
     if (this.feedMode === 'following' && this.token === '') {
+      this.loading = false;
       this.needLogin = true;
       this.setPagePosts(this.feedIndex, []); // 清空当前页残留内容
       return;
@@ -365,6 +371,9 @@ export struct HomeTab {
         // 今日一帖：每日精选固定 10 条一次拉齐，不随滚动追加。
         // 读完精选即进入完成态（对齐原型「每日唯一内容」的仪式感）。
         const res = await listDailyPosts(1, DAILY_PICK_LIMIT);
+        if (seq !== this.fetchSeq) {
+          return; // 过期响应：期间已有更新的请求发起，整体丢弃
+        }
         this.setPagePosts(this.feedIndex, res.list);
         this.finished = true;
         if (reset) {
@@ -379,6 +388,9 @@ export struct HomeTab {
         this.feedMode === 'following'
           ? await listFollowingPosts({ page: this.page, limit: 20, sort, tag: this.currentTag() })
           : await listPosts({ page: this.page, limit: 20, sort, tag: this.currentTag() });
+      if (seq !== this.fetchSeq) {
+        return; // 过期响应：丢弃，不写列表、不改 finished/页码
+      }
       if (reset) {
         this.setPagePosts(this.feedIndex, res.list);
         // 写回会话缓存（仅首屏，供切 Tab 回来快速呈现）
@@ -394,6 +406,9 @@ export struct HomeTab {
         this.loadFollowingCount();
       }
     } catch (e) {
+      if (seq !== this.fetchSeq) {
+        return; // 过期请求的失败不覆盖新请求的状态
+      }
       this.error = (e as Error).message;
       if (this.isConnError(this.error) && this.feedRetryCount < FEED_MAX_RETRY && this.feedRetryTimer === 0) {
         this.feedRetryCount += 1;
@@ -403,7 +418,10 @@ export struct HomeTab {
         }, 1500) as number;
       }
     } finally {
-      this.loading = false;
+      // 只有仍是「当前请求」才有资格退出加载态；被取代的请求不能替新请求关 loading
+      if (seq === this.fetchSeq) {
+        this.loading = false;
+      }
     }
   }
 
