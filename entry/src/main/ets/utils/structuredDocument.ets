@@ -54,7 +54,9 @@ export function structuredBlockTypesForGenre(genre?: Genre): StructuredBlockType
     case 'pitfall': return ['insight', 'steps', 'list'];
     case 'tutorial': return ['steps', 'list', 'insight'];
     case 'debate': return ['compare', 'insight', 'metric'];
-    case 'share': return ['insight', 'list'];
+    // 分享不做结构化：返回空数组，既用来隐藏发布页的编辑区，
+    // 也让切换体裁时 filterStructuredDocumentForGenre 把已有信息块清空（避免留下孤儿块）。
+    case 'share': return [];
     default: return ['insight', 'list'];
   }
 }

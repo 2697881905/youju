@@ -365,13 +365,16 @@ struct VideoPublishPage {
             this.content = value;
             this.syncMention(value);
           })
-        Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator).margin({ top: SpaceTokens.sm })
-        StructuredComposer({
-          document: this.structuredDocument,
-          genreLabel: this.genre,
-          expanded: $showFields,
-          onDocumentChange: (document: StructuredDocument): void => { this.structuredDocument = document; },
-        })
+        // 分享体裁是轻量图文：结构化区连同其上方的分隔线一起不渲染，避免卡片尾部留一条悬空细线
+        if (publishGenreMeta(this.genre).structured) {
+          Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator).margin({ top: SpaceTokens.sm })
+          StructuredComposer({
+            document: this.structuredDocument,
+            genreLabel: this.genre,
+            expanded: $showFields,
+            onDocumentChange: (document: StructuredDocument): void => { this.structuredDocument = document; },
+          })
+        }
       }
       .width('100%')
       .alignItems(HorizontalAlign.Start)
