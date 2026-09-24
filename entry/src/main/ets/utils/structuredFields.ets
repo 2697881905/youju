@@ -27,11 +27,6 @@ import { Genre, StructuredData } from '../models/types';
 //   chips     → 单行输入 / 标签行（按顿号、逗号、斜杠拆）
 export type StructuredFieldKind = 'shortText' | 'longText' | 'steps' | 'rating' | 'amount' | 'chips';
 
-// 多行输入控件（发布区）与段落块渲染（详情页）共用同一判断，避免两处各写一份
-export function isMultilineKind(kind: StructuredFieldKind): boolean {
-  return kind === 'longText' || kind === 'steps';
-}
-
 export interface StructuredFieldMeta {
   key: keyof StructuredData;
   label: string;
@@ -80,10 +75,6 @@ const DEBATE_FIELDS: StructuredFieldMeta[] = [
     hint: '分期先享受' },
 ];
 
-// 跨体裁全量字段表：每个 key 只属于一个体裁，可安全拍平用于按 key 查元数据
-const ALL_FIELDS: StructuredFieldMeta[] =
-  REVIEW_FIELDS.concat(PITFALL_FIELDS).concat(TUTORIAL_FIELDS).concat(DEBATE_FIELDS);
-
 // 该体裁的字段表；无结构化字段的体裁（分享）返回空数组
 export function genreFieldMeta(genre?: Genre): StructuredFieldMeta[] {
   switch (genre) {
@@ -98,29 +89,6 @@ export function genreFieldMeta(genre?: Genre): StructuredFieldMeta[] {
     default:
       return [];
   }
-}
-
-export function allFieldMeta(): StructuredFieldMeta[] {
-  return ALL_FIELDS;
-}
-
-export function fieldMeta(key: keyof StructuredData): StructuredFieldMeta | undefined {
-  for (const meta of ALL_FIELDS) {
-    if (meta.key === key) {
-      return meta;
-    }
-  }
-  return undefined;
-}
-
-export function fieldMaxLength(key: keyof StructuredData): number {
-  const meta: StructuredFieldMeta | undefined = fieldMeta(key);
-  return meta !== undefined ? meta.maxLength : 200;
-}
-
-export function fieldLabel(key: keyof StructuredData): string {
-  const meta: StructuredFieldMeta | undefined = fieldMeta(key);
-  return meta !== undefined ? meta.label : '';
 }
 
 // 唯一读入口。ArkTS V1 不允许以变量索引对象，必须显式 switch ——
@@ -208,21 +176,6 @@ export function collectStructuredData(data: StructuredData, genre?: Genre): Stru
     out = withStructuredField(out, meta.key, value);
   }
   return out;
-}
-
-// 软校验：列出该体裁缺失的核心字段标签（用于预览页提示，不阻断发布）
-export function missingEssentialLabels(data: StructuredData, genre?: Genre): string[] {
-  const missing: string[] = [];
-  for (const meta of genreFieldMeta(genre)) {
-    if (!meta.essential) {
-      continue;
-    }
-    const raw: string | number | undefined = readStructuredField(data, meta.key);
-    if (raw === undefined || raw === null || String(raw).trim().length === 0) {
-      missing.push(meta.label);
-    }
-  }
-  return missing;
 }
 
 // 展示用：一条结构化字段的投影。空值不产出条目 —— 改造前只过滤 undefined/null，
