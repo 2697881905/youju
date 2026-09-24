@@ -418,12 +418,15 @@ struct TextPublishPage {
           .textAlign(TextAlign.End)
         Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator).margin({ top: SpaceTokens.sm })
         this.textPosterStyleSelector()
-        StructuredComposer({
-          document: this.structuredDocument,
-          genreLabel: this.genre,
-          expanded: $showFields,
-          onDocumentChange: (document: StructuredDocument): void => { this.structuredDocument = document; },
-        })
+        // 分享体裁是轻量图文，不展示结构化信息流编辑区（见 publishGenres 的 structured 标记）
+        if (publishGenreMeta(this.genre).structured) {
+          StructuredComposer({
+            document: this.structuredDocument,
+            genreLabel: this.genre,
+            expanded: $showFields,
+            onDocumentChange: (document: StructuredDocument): void => { this.structuredDocument = document; },
+          })
+        }
       }
       .width('100%')
       .alignItems(HorizontalAlign.Start)

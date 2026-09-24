@@ -9,7 +9,7 @@ export interface StructuredTemplateMeta {
 }
 
 export const STRUCTURED_TEMPLATES: StructuredTemplateMeta[] = [
-  { key: 'insight', title: '一句结论', description: '先把最重要的判断放大', genres: ['review', 'pitfall', 'tutorial', 'debate', 'share'] },
+  { key: 'insight', title: '一句结论', description: '先把最重要的判断放大', genres: ['review', 'pitfall', 'tutorial', 'debate'] },
   { key: 'verdict', title: '数据判断', description: '关键数字 + 结论 + 适用条件', genres: ['review', 'debate'] },
   { key: 'compare', title: '选择对比', description: 'A/B 对照 + 最终建议', genres: ['debate'] },
   { key: 'guide', title: '行动指南', description: '步骤路径 + 准备清单 + 提醒', genres: ['pitfall', 'tutorial'] },
