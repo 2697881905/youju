@@ -153,7 +153,11 @@ export function withStructuredField(data: StructuredData, key: keyof StructuredD
 
 export function withCoverOnlyTextPoster(data: StructuredData, enabled: boolean): StructuredData {
   const next: StructuredData = cloneStructuredData(data);
-  next.coverOnlyTextPoster = enabled;
+  // false 是默认态，不写键：share 等无字段体裁的 structuredData 须保持为空，
+  // 否则后端按「该体裁不支持结构化字段」拒绝整次发布。
+  if (enabled) {
+    next.coverOnlyTextPoster = enabled;
+  }
   return next;
 }
 
