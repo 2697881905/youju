@@ -40,11 +40,19 @@ export struct HighlightedText {
     return ColorTokens.brand;
   }
 
+  // 跳用户主页：openUserProfile 只负责把 userId 交给 UserProfilePage（写模块变量），
+  // 真正的导航必须由调用方自己 push —— 两者缺一不可，只调前者会「什么都不发生」。
+  // 这两行的组合是全项目通行写法，见 CommentList / PostCard / MessagePage 的头像跳转。
+  private openProfile(userId: number): void {
+    openUserProfile(userId);
+    this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage' });
+  }
+
   // 点 @提及：优先用精确映射，没有则退化为按昵称搜索
   private tapMention(name: string): void {
     for (const m of this.mentions) {
       if (m.name === name && m.userId > 0) {
-        openUserProfile(m.userId);
+        this.openProfile(m.userId);
         return;
       }
     }
@@ -57,7 +65,7 @@ export struct HighlightedText {
       const hit: MentionCandidate | undefined =
         res.list.find((c: MentionCandidate): boolean => c.nickname === name);
       if (hit !== undefined) {
-        openUserProfile(hit.id);
+        this.openProfile(hit.id);
         return;
       }
     } catch (e) {
