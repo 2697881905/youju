@@ -2,6 +2,7 @@ import { prisma } from '../prisma';
 import { notifyOnComment, notifyOnCommentReply, notifyCommentMentions } from './notificationService';
 import { bumpHotScore } from './hotScoreService';
 import { MentionRef, resolveMentionRefs } from './mentionService';
+import { Prisma } from '@prisma/client';
 import { sensitiveWordService } from './sensitiveWordService';
 import { SensitiveWordError } from '../utils/errors';
 import { ValidationError } from '../utils/errors';
@@ -107,9 +108,17 @@ export async function createComment(
   if (sensitiveWordService.checkText(text)) {
     throw new SensitiveWordError();
   }
+  const mentionRefs = await resolveMentionRefs(text, explicitMentions);
   const [comment] = await prisma.$transaction([
     prisma.comment.create({
-      data: { postId, userId, content: text, parentId: parentId ?? null, isFact },
+      data: {
+        postId,
+        userId,
+        content: text,
+        parentId: parentId ?? null,
+        isFact,
+        mentions: mentionRefs.length > 0 ? (mentionRefs as unknown as Prisma.InputJsonValue) : Prisma.DbNull,
+      },
     }),
     // 维护帖子评论数（与删除时 decrement 配对，避免评论数失真）
     prisma.post.update({ where: { id: postId }, data: { commentCount: { increment: 1 } } }),

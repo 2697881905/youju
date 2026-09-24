@@ -3,6 +3,8 @@
 import { prisma } from '../prisma';
 import { DmPolicy } from './privacyService';
 import { DELETED_NICKNAME } from '../utils/userView';
+import { Prisma } from '@prisma/client';
+import { MentionRef, resolveMentionRefs } from './mentionService';
 
 // 私信领域自定义错误（与 FollowError / AccountError 同构）
 export class MessageError extends Error {
@@ -40,6 +42,9 @@ export interface DmMessage {
   content: string;
   read: boolean;
   recalled: boolean; // 是否已撤回（撤回后 content 置空，双方均不可见正文）
+  // 发送时显式选择的 @提及 [{name, userId}]：供展示态点击精确跳转（重名不误跳）。
+  // 可选：历史消息落库时没有该列，读取时统一兜底成空数组。
+  mentions?: MentionRef[];
   createdAt: string; // ISO
 }
 
@@ -155,6 +160,7 @@ export async function sendMessage(
   receiverId: number,
   content: string,
   type: string = 'text',
+  explicitMentions?: unknown,
 ): Promise<DmMessage> {
   const msgType: string = MSG_TYPES.indexOf(type) >= 0 ? type : 'text';
   const raw: string = (content ?? '').trim();
@@ -183,8 +189,17 @@ export async function sendMessage(
     }
   }
   await assertCanMessage(senderId, receiverId);
+  // @提及 仅文本消息有意义；与帖子 / 评论同构落库，供展示态点击精确跳转
+  const mentionRefs: MentionRef[] =
+    msgType === 'text' ? await resolveMentionRefs(raw, explicitMentions) : [];
   const msg = await prisma.message.create({
-    data: { senderId, receiverId, type: msgType, content: raw },
+    data: {
+      senderId,
+      receiverId,
+      type: msgType,
+      content: raw,
+      mentions: mentionRefs.length > 0 ? (mentionRefs as unknown as Prisma.InputJsonValue) : Prisma.DbNull,
+    },
   });
   return {
     id: msg.id,
@@ -194,6 +209,7 @@ export async function sendMessage(
     content: msg.content,
     read: msg.read,
     recalled: false,
+    mentions: (msg.mentions ?? []) as unknown as MentionRef[],
     createdAt: msg.createdAt.toISOString(),
   };
 }
@@ -309,6 +325,7 @@ export async function getMessages(
       content: m.recalledAt ? '' : m.content,
       read: m.read,
       recalled: !!m.recalledAt,
+      mentions: (m.mentions ?? []) as unknown as MentionRef[],
       createdAt: m.createdAt.toISOString(),
     }));
 }

@@ -68,7 +68,21 @@ router.post('/', auth, async (req: AuthRequest, res: Response) => {
     if (!Number.isInteger(receiverId) || receiverId <= 0) {
       return fail(res, CODE.BAD_REQUEST, '缺少有效的接收者', 400);
     }
-    const msg = await messageService.sendMessage(req.userId!, receiverId, content, type);
+    // 编辑器显式 @提及（精确 userId，防重名误跳转）：可选，仅 text 消息有意义
+    const mentions = req.body?.mentions;
+    if (mentions !== undefined && mentions !== null) {
+      if (!Array.isArray(mentions) || mentions.length > 20) {
+        return fail(res, CODE.BAD_REQUEST, 'mentions 格式无效', 400);
+      }
+      for (const item of mentions as Array<Record<string, unknown>>) {
+        if (typeof item !== 'object' || item === null ||
+          typeof item.name !== 'string' || item.name.length < 2 || item.name.length > 20 ||
+          typeof item.userId !== 'number' || !Number.isInteger(item.userId) || item.userId <= 0) {
+          return fail(res, CODE.BAD_REQUEST, 'mentions 格式无效', 400);
+        }
+      }
+    }
+    const msg = await messageService.sendMessage(req.userId!, receiverId, content, type, mentions);
     return ok(res, msg);
   } catch (e) {
     if (e instanceof messageService.MessageError) {
