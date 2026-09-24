@@ -254,8 +254,8 @@ export struct ChatView {
     }
   }
 
-  // 点选候选：回填「@昵称 」。私信后端暂无 mentions 字段，此处只保证文本正确；
-  // mentionRefs 保留以便后端支持后直接透传。
+  // 点选候选：回填「@昵称 」，并把 {name,userId} 收集到 mentionRefs，
+  // 发送时随消息一并提交，接收端据此精确跳转主页。
   private pickMention(c: MentionCandidate): void {
     if (this.mentionAt < 0) {
       return;
@@ -294,8 +294,10 @@ export struct ChatView {
       return;
     }
     this.sending = true;
+    // 本次发送使用的提及对象；仅在发送成功后清空，失败时保留以便重试。
+    const refs: MentionRef[] = this.mentionRefs;
     try {
-      const msg: DmMessage = await sendMessage(this.peerId, text, 'text');
+      const msg: DmMessage = await sendMessage(this.peerId, text, 'text', refs);
       // 重赋值数组（避免直接 push 触发不了 @State 刷新）
       this.messages = this.messages.concat([msg]);
       this.inputText = '';
@@ -859,9 +861,10 @@ export struct ChatView {
         } else {
           Column() {
             // 消息文本走高亮组件：@提及 蓝、#话题# 棕，均可点击。
-            // 私信后端暂无 mentions 字段，点击时退回「按昵称全站搜索」。
+            // 传消息自带的 mentions：精确映射到 userId；历史数据为 null 时退回「按昵称全站搜索」。
             HighlightedText({
               text: m.content,
+              mentions: m.mentions ?? [],
               fontSize: 15,
               lineHeight: 22,
             })
