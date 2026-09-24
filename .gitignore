@@ -39,6 +39,8 @@ build-profile.json5
 
 # ZCode 工具忽略配置（由 .gitignore 同步生成，属派生文件）
 .zcodeignore
+# ZCode 会话状态（plans/plan-sess_*.md 等，工具自身产物）
+.zcode/
 
 # 图标参考素材：官方图标库原始 SVG，可用部分已替换进 entry 资源，工程不引用
 /HarmonyOS_Icons/
