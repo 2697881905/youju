@@ -7,7 +7,7 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { debateVoteStore } from '../utils/debateVoteStore';
-import { doesTextFitInPoster } from '../utils/textPoster';
+import { doesTextFitInPoster } from '../utils/poster/posterRender';
 import { ShadowTokens } from '../design/tokens/shadow';
 import { HighlightSegment, parseHighlightSegments } from '../utils/textHighlight';
 import { openCircleDetail, openUserProfile } from '../utils/nav';

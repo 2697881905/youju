@@ -8,7 +8,7 @@ import { fileIo } from '@kit.CoreFileKit';
 import { http } from '@kit.NetworkKit';
 import { buildPostShareUrl, downloadToSandbox } from './share';
 import { BASE_URL } from '../services/api';
-import { splitLines, makeColor, drawText } from './textPoster';
+import { splitLines, makeColor, drawText } from './poster/posterText';
 
 const CARD_WIDTH: number = 1080;
 const CARD_HEIGHT: number = 1440;
