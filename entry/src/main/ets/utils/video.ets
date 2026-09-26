@@ -173,13 +173,3 @@ export async function packVideoCoverBytes(pixel: image.PixelMap): Promise<ArrayB
     await packer.release();
   }
 }
-
-// 兼容已有调用：抓取首帧并压缩为 jpeg（质量 80%）二进制，用于上传。
-export async function captureVideoCoverBytes(uri: string): Promise<ArrayBuffer> {
-  const pixel: image.PixelMap = await captureVideoCover(uri);
-  try {
-    return await packVideoCoverBytes(pixel);
-  } finally {
-    await pixel.release();
-  }
-}

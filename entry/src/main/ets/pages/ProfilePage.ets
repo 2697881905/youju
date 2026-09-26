@@ -880,9 +880,6 @@ export struct ProfilePage {
             .width(LayoutTokens.segmentedHeight)
             .height(LayoutTokens.segmentedHeight)
             .justifyContent(FlexAlign.Center)
-            .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-            .borderRadius(RadiusTokens.lg)
-            .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 4 })
             .accessibilityText('分享主页')
           }
         }
@@ -902,9 +899,6 @@ export struct ProfilePage {
           .width(LayoutTokens.segmentedHeight)
           .height(LayoutTokens.segmentedHeight)
           .justifyContent(FlexAlign.Center)
-          .backgroundColor(Color.Transparent)
-          .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-          .borderRadius(RadiusTokens.lg)
         }
       }
       .width('100%')

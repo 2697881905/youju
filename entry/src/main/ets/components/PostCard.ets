@@ -20,7 +20,6 @@ export struct PostCard {
   // 首页信息流以更高的信息密度呈现；个人页等场景维持默认尺寸。
   @Prop compact: boolean = false;
   // 所有帖子列表共用同一张信息流卡片；管理页可保留统计展示但关闭点赞写操作。
-  @Prop variant: 'feed' | 'draft' | 'preview' = 'feed';
   @Prop allowLike: boolean = true;
   @Prop showStats: boolean = true;
   @Prop showAuthor: boolean = true;
@@ -260,7 +259,7 @@ export struct PostCard {
             mentions: this.post.mentions ?? [],
           })
           this.actions()
-          if (this.variant === 'feed' && this.hasFooter()) {
+          if (this.hasFooter()) {
             this.footerSlot()
           }
         }

@@ -121,16 +121,6 @@ export function listPostDrafts(ownerId: number): SavedPostDraft[] {
     .sort((a: SavedPostDraft, b: SavedPostDraft): number => b.updatedAt - a.updatedAt);
 }
 
-export function getPostDraft(ownerId: number, id: string): SavedPostDraft | null {
-  const owner: string = String(ownerId);
-  for (const draft of allDrafts()) {
-    if (draft.ownerId === owner && draft.id === id) {
-      return draft;
-    }
-  }
-  return null;
-}
-
 export function savePostDraft(ownerId: number, draft: PublishDraft, existingId?: string): SavedPostDraft {
   const now: number = Date.now();
   const owner: string = String(ownerId);
