@@ -19,20 +19,17 @@ import {
   POSTER_THUMB_SCALE, POSTER_WIDTH, TextPosterStyleOption, resolveTextPosterStyle,
 } from './posterTokens';
 import {
-  PosterTypeset, createPosterFont, drawSpacedText, drawText, makeColor, measureTextWidth,
+  PosterTypeset, createPosterFont, drawText, makeColor, measureTextWidth,
   posterFirstBaseline, posterLabelReserve, typesetPosterBody,
 } from './posterText';
 
 const POSTER_UPLOAD_TIMEOUT: number = 15000;
 const POSTER_PLACEHOLDER: string = '写下你的观点，让更多人看见。';
-const FILM_MICRO_LABEL: string = 'FILM · NO.01';
-const FILM_MICRO_TRACKING: number = 6;
 
 // 记忆点相对参数（全部相对文字区，改 box 不用动这里）
 const DETAIL_GAP_PAPER_TOP: number = 56;   // 素纸：页脚第一条细线距文字区底
 const DETAIL_GAP_PAPER_BOTTOM: number = 66; // 素纸：页脚第二条细线（与上一条相距 10）
 const DETAIL_INSET_FILM_LINE: number = 24;  // 胶片：左侧竖线在文字区左外侧 24
-const DETAIL_GAP_FILM_LABEL: number = 52;   // 胶片：顶部微标签基线在文字区上方 52
 const DETAIL_GAP_KRAFT: number = 56;        // 牛皮纸：上下实线距文字区各 56
 const DETAIL_INSET_STICKY_BAR: number = 24; // 便利贴：强调条在文字区左外侧 24
 const DETAIL_WIDTH_STICKY_BAR: number = 4;
@@ -82,14 +79,13 @@ function drawPaperDetail(canvas: drawing.Canvas, pen: drawing.Pen, style: TextPo
     style.boxRight, style.boxBottom + DETAIL_GAP_PAPER_BOTTOM, 0.5, makeColor(31, ink[0], ink[1], ink[2]));
 }
 
-// 胶片：左侧一条 1px 暖金竖线 + 顶部微型片号（片头/片尾字幕卡语言，不画齿孔）
-function drawFilmDetail(canvas: drawing.Canvas, brush: drawing.Brush, pen: drawing.Pen, style: TextPosterStyleOption): void {
+// 胶片：左侧一条 1px 暖金竖线（片头/片尾字幕卡语言）。
+// 刻意不画齿孔、也不加「FILM · NO.01」这类片号微标签 —— 那是写死的假编号，
+// 缩到信息流 330px 宽后只剩约 8px 纯糊，且会让胶片成为唯二超过「每款只 1 个记忆点」的款。
+function drawFilmDetail(canvas: drawing.Canvas, pen: drawing.Pen, style: TextPosterStyleOption): void {
   const accent: number[] = style.accentRgb;
   const lineX: number = style.boxLeft - DETAIL_INSET_FILM_LINE;
   strokeLine(canvas, pen, lineX, style.boxTop, lineX, style.boxBottom, 1, makeColor(179, accent[0], accent[1], accent[2]));
-  const microFont: drawing.Font = createPosterFont(POSTER_FOOT_SIZE, 'label');
-  drawSpacedText(canvas, brush, microFont, FILM_MICRO_LABEL, style.boxLeft,
-    style.boxTop - DETAIL_GAP_FILM_LABEL, makeColor(107, accent[0], accent[1], accent[2]), FILM_MICRO_TRACKING);
 }
 
 // 牛皮纸：文字区上下各一条 1px 实线（信纸抬头 / 落款线）
@@ -112,7 +108,7 @@ function drawStickyDetail(canvas: drawing.Canvas, brush: drawing.Brush, style: T
 function drawStyleDetail(canvas: drawing.Canvas, brush: drawing.Brush, pen: drawing.Pen, style: TextPosterStyleOption): void {
   switch (style.texture) {
     case 'film':
-      drawFilmDetail(canvas, brush, pen, style);
+      drawFilmDetail(canvas, pen, style);
       break;
     case 'kraft':
       drawKraftDetail(canvas, pen, style);
