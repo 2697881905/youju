@@ -23,6 +23,9 @@ const BYPASS = process.env.SKIP_STALE_CHECK === '1' || process.env.SKIP_STALE_CH
 // 判据 B 阈值：单文件净删除 150 行以上，且删除量 ≥ 新增量的 3 倍
 const B_MIN_DELETIONS = 150;
 const B_DEL_RATIO = 3;
+// 整文件删除另用一个低得多的门槛：删掉整个文件本身就是「最猛的回退形态」，
+// 一个 30 行的源文件被删掉也值得确认一次。
+const B_MIN_DELETED_FILE = 30;
 
 function git(args, opts) {
   const o = Object.assign({ encoding: 'utf8' }, opts || {});
@@ -31,7 +34,9 @@ function git(args, opts) {
 
 function gitSafe(args, opts) {
   try {
-    return git(args, opts);
+    // stdio 第三位 ignore：git 对不存在的路径会往 stderr 打 fatal，不能让它漏到报告里
+    const o = Object.assign({ encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }, opts || {});
+    return execFileSync('git', args, o).toString().trim();
   } catch (e) {
     return '';
   }
@@ -68,7 +73,13 @@ function main() {
     .split('\n')
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
-  if (staged.length === 0) process.exit(0);
+  // 整文件删除单独取：它们在 --diff-filter=ACMR 之外，若只按「改动文件」判据 B
+  // 就会漏掉「旧版把整个文件吃掉」这种最猛的回退形态。
+  const deleted = gitSafe(['diff', '--cached', '--name-only', '--diff-filter=D'])
+    .split('\n')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  if (staged.length === 0 && deleted.length === 0) process.exit(0);
 
   const worktrees = listWorktrees(repoRoot);
   const numstat = gitSafe(['diff', '--cached', '--numstat']);
@@ -107,7 +118,16 @@ function main() {
     // 判据 B：净删除式大回退
     const st = statOf.get(file);
     if (st !== undefined && st.del >= B_MIN_DELETIONS && st.del >= B_DEL_RATIO * Math.max(st.ins, 1)) {
-      hitsB.push({ file, ins: st.ins, del: st.del });
+      hitsB.push({ file, ins: st.ins, del: st.del, whole: false });
+    }
+  }
+
+  // 判据 B（续）：整文件删除 —— 删除即 ins=0、del=原行数
+  for (const file of deleted) {
+    const oldText = gitSafe(['show', 'HEAD:' + file]);
+    const del = oldText.length === 0 ? 0 : oldText.split('\n').length;
+    if (del >= B_MIN_DELETED_FILE) {
+      hitsB.push({ file, ins: 0, del: del, whole: true });
     }
   }
 
@@ -131,13 +151,23 @@ function main() {
   }
 
   if (hitsB.length > 0) {
+    const shrunk = hitsB.filter((h) => !h.whole);
+    const removed = hitsB.filter((h) => h.whole);
     console.error('');
-    console.error(`【判据 B】单文件净删除 ≥ ${B_MIN_DELETIONS} 行且删除 ≥ 新增的 ${B_DEL_RATIO} 倍：`);
-    for (const h of hitsB) {
-      console.error(`  · ${h.file}   -${h.del} 行 / +${h.ins} 行`);
+    if (shrunk.length > 0) {
+      console.error(`【判据 B】单文件净删除 ≥ ${B_MIN_DELETIONS} 行且删除 ≥ 新增的 ${B_DEL_RATIO} 倍：`);
+      for (const h of shrunk) {
+        console.error(`  · ${h.file}   -${h.del} 行 / +${h.ins} 行`);
+      }
+    }
+    if (removed.length > 0) {
+      console.error(`【判据 B】整文件被删除（≥ ${B_MIN_DELETED_FILE} 行）——这是最猛的回退形态：`);
+      for (const h of removed) {
+        console.error(`  · ${h.file}   -${h.del} 行（整个文件消失）`);
+      }
     }
     console.error('');
-    console.error('  这类「大段删除」可能是旧版覆盖，也可能是有意的死代码清理。');
+    console.error('  这类删除可能是旧版覆盖，也可能是有意的死代码清理 —— 请确认后再放行。');
   }
 
   // 判据 C：取证，打印内容来自哪些提交
