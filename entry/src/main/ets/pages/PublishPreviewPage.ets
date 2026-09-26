@@ -5,7 +5,9 @@ import { Genre, StructuredData, StructuredDocument, User } from '../models/types
 import { PublishDraft } from '../utils/publishDraft';
 import { savePostDraft, SavedPostDraft } from '../utils/postDraftStore';
 import { publishFlowStore } from '../utils/publishFlowStore';
-import { uploadTextPoster, renderPosterPixelMap, isSerifTypefaceReady, TEXT_POSTER_ASPECT_RATIO, TEXT_POSTER_STYLES, TextPosterStyleOption } from '../utils/textPoster';
+import { uploadTextPoster, renderPosterPixelMap } from '../utils/poster/posterRender';
+import { isSerifTypefaceReady } from '../utils/poster/posterText';
+import { TEXT_POSTER_ASPECT_RATIO, TEXT_POSTER_STYLES, TextPosterStyleOption } from '../utils/poster/posterTokens';
 import { image } from '@kit.ImageKit';
 import { safeShowToast } from '../utils/toast';
 import { VideoPlayer } from '../components/VideoPlayer';

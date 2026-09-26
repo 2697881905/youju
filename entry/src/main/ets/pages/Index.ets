@@ -22,7 +22,7 @@ import { publishFlowStore } from '../utils/publishFlowStore';
 import { AppTab, subscribeTabSwitch } from '../utils/nav';
 import { setMainNavStack, setSharedUiContext } from '../utils/navigationTransition';
 import { AnimateCallback, CustomTransition } from '../utils/longTake/customNavigationUtils';
-import { setSerifTypeface, setSerifBodyTypeface } from '../utils/textPoster';
+import { setSerifTypeface, setSerifBodyTypeface } from '../utils/poster/posterText';
 import { drawing } from '@kit.ArkGraphics2D';
 import { HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
 import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';

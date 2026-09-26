@@ -25,11 +25,24 @@ import { PublishTagPanel } from '../components/PublishTagPanel';
 import { PUBLISH_GENRES, publishGenreMeta } from '../utils/publishGenres';
 import { PublishGenreSection } from '../components/PublishGenreSection';
 import { PublishTopBar } from '../components/PublishTopBar';
-import { resolveTextPosterStyle, TEXT_POSTER_STYLES, TextPosterStyleOption } from '../utils/textPoster';
+import { resolveTextPosterStyle, posterBucketOf, TEXT_POSTER_STYLES, TextPosterStyleOption } from '../utils/poster/posterTokens';
+import { renderPosterThumbnail } from '../utils/poster/posterRender';
+import { isSerifTypefaceReady } from '../utils/poster/posterText';
+import { image } from '@kit.ImageKit';
 
 const MAX_SELECTED_TAGS: number = 3;
 const MAX_LONG_FORM_CONTENT_LENGTH: number = 5000;
 const DRAFT_PROGRESS_TOTAL: number = 3;
+
+// 样式选择器缩略图：3:4 小图（60×80），选的时候看到什么、发出来就是什么。
+// 重绘闸门：缩略图只依赖「标题 + 正文字长所在档」，只有这两者变化才重画；
+// 再叠一层防抖，避免每次按键都触发 4 张主线程栅格化。
+const POSTER_THUMB_WIDTH: number = 60;
+const POSTER_THUMB_HEIGHT: number = 80;
+const POSTER_THUMB_CHIP_HEIGHT: number = 108;
+const POSTER_THUMB_DEBOUNCE: number = 250;
+const POSTER_THUMB_FONT_RETRY_MAX: number = 10;
+const POSTER_THUMB_FONT_RETRY_INTERVAL: number = 200;
 
 @Entry
 @Component
@@ -41,7 +54,8 @@ struct TextPublishPage {
   @State content: string = '';
   @State sd: StructuredData = {};
   @State structuredDocument: StructuredDocument = emptyStructuredDocument();
-  @State textPosterStyle: string = 'film';
+  // 默认款：素纸（暖纸 + 纯排印，最克制、最像书页，也最像 App 里的东西）
+  @State textPosterStyle: string = 'paper';
   @State tags: Tag[] = [];
   // 结构化区默认展开：它是产品核心特色，藏在折叠里等于没有（覆盖率的最大杀手）
   @State showFields: boolean = true;
@@ -52,6 +66,16 @@ struct TextPublishPage {
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
   @State categoryList: string[] = [];
   @State tagsByCategory: Record<string, Tag[]> = {};
+  // —— 文字海报样式缩略图 ——
+  // 与发布产物同源（renderPosterThumbnail → renderPosterPixelMap），只是倍率 0.22。
+  @State posterThumbs: image.PixelMap[] = [];
+  // 递增版本号：PixelMap 数组是引用类型，整体替换后配合版本号可靠触发刷新。
+  @State posterThumbVersion: number = 0;
+  private thumbTitle: string = '';
+  private thumbBucket: number = -1;
+  private thumbTimer: number = 0;
+  private thumbDisposed: boolean = false;
+  private thumbFontAttempt: number = 0;
   // —— 正文 @提及 选择器 ——
   @State mentionActive: boolean = false;
   @State mentionKeyword: string = '';
@@ -85,11 +109,97 @@ struct TextPublishPage {
       this.applyPublishSession(session);
     });
     this.applyPublishSession(publishFlowStore.getSession());
+    this.scheduleThumbnails();
   }
 
   aboutToDisappear(): void {
     this.unsubscribePublishFlow();
     this.unsubscribePublishFlow = () => {};
+    this.thumbDisposed = true;
+    if (this.thumbTimer !== 0) {
+      clearTimeout(this.thumbTimer);
+      this.thumbTimer = 0;
+    }
+    this.releaseThumbnails();
+  }
+
+  // ───────────────────────── 海报样式缩略图 ─────────────────────────
+
+  private scheduleThumbnails(): void {
+    if (this.thumbDisposed) {
+      return;
+    }
+    if (this.thumbTimer !== 0) {
+      clearTimeout(this.thumbTimer);
+      this.thumbTimer = 0;
+    }
+    this.thumbTimer = setTimeout((): void => {
+      this.thumbTimer = 0;
+      this.refreshThumbnails();
+    }, POSTER_THUMB_DEBOUNCE) as number;
+  }
+
+  private refreshThumbnails(): void {
+    if (this.thumbDisposed) {
+      return;
+    }
+    const title: string = this.title.trim();
+    const bucket: number = posterBucketOf(this.content);
+    // 只有「标题」或「正文字长所在档」变了，画面才可能变 —— 否则直接跳过这次重绘
+    if (title === this.thumbTitle && bucket === this.thumbBucket && this.posterThumbs.length > 0) {
+      return;
+    }
+    // 衬线字体（Index.ets 启动时注册）未就绪：先不画，否则会用系统字体渲染出与发布产物不一致的一版
+    if (!isSerifTypefaceReady()) {
+      this.retryThumbsForFont(0);
+      return;
+    }
+    this.releaseThumbnails();
+    const maps: image.PixelMap[] = [];
+    for (const style of TEXT_POSTER_STYLES) {
+      try {
+        maps.push(renderPosterThumbnail(title, this.content, style.key));
+      } catch (e) {
+        // 单一样式渲染失败不阻断其余样式；该位置回退为纯色占位
+      }
+    }
+    if (this.thumbDisposed) {
+      for (const map of maps) {
+        map.release().catch((): void => {});
+      }
+      return;
+    }
+    this.thumbTitle = title;
+    this.thumbBucket = bucket;
+    this.posterThumbs = maps;
+    this.posterThumbVersion = this.posterThumbVersion + 1;
+  }
+
+  private releaseThumbnails(): void {
+    for (const map of this.posterThumbs) {
+      map.release().catch((): void => {});
+    }
+    if (this.posterThumbs.length > 0) {
+      this.posterThumbs = [];
+    }
+  }
+
+  // 字体未就绪时轮询等待，就绪后重绘一次；超过上限则放弃（保持纯色占位）。
+  private retryThumbsForFont(attempt: number): void {
+    if (this.thumbDisposed || attempt >= POSTER_THUMB_FONT_RETRY_MAX) {
+      return;
+    }
+    this.thumbFontAttempt = attempt;
+    setTimeout((): void => {
+      if (this.thumbDisposed) {
+        return;
+      }
+      if (isSerifTypefaceReady()) {
+        this.refreshThumbnails();
+      } else {
+        this.retryThumbsForFont(attempt + 1);
+      }
+    }, POSTER_THUMB_FONT_RETRY_INTERVAL) as number;
   }
 
   private onUserChange(): void {
@@ -250,6 +360,7 @@ struct TextPublishPage {
       name: m.name,
       userId: m.userId,
     })) : [];
+    this.scheduleThumbnails();
   }
 
   private applyPublishSession(session: PublishSession): void {
@@ -285,13 +396,14 @@ struct TextPublishPage {
     this.content = '';
     this.sd = {};
     this.structuredDocument = emptyStructuredDocument();
-    this.textPosterStyle = 'film';
+    this.textPosterStyle = 'paper';
     this.editingSavedDraftId = '';
     this.showFields = true;
     this.showGenreMenu = false;
     this.showTagPanel = false;
     this.mentionRefs = [];
     this.closeMention();
+    this.scheduleThumbnails();
   }
 
   private currentGenreHint(): string {
@@ -309,29 +421,53 @@ struct TextPublishPage {
     this.showGenreMenu = false;
   }
 
+  // 单片缩略图：与发布产物同源渲染，选中态用品牌色描边 + 标签变色（图片本身不能加底色）
   @Builder
-  posterStyleChip(style: TextPosterStyleOption): void {
+  posterStyleThumb(index: number, style: TextPosterStyleOption): void {
+    Stack({ alignContent: Alignment.Center }) {
+      if (index < this.posterThumbs.length) {
+        Image(this.posterThumbs[index])
+          .width(POSTER_THUMB_WIDTH)
+          .height(POSTER_THUMB_HEIGHT)
+          .objectFit(ImageFit.Cover)
+          .interpolation(ImageInterpolation.High)
+          .draggable(false)
+      } else {
+        // 缩略图未就绪（衬线字体未注册 / 正在防抖重绘）：用款式底色占位，避免闪白
+        Column()
+          .width(POSTER_THUMB_WIDTH)
+          .height(POSTER_THUMB_HEIGHT)
+          .backgroundColor(style.background)
+      }
+    }
+    .width(POSTER_THUMB_WIDTH)
+    .height(POSTER_THUMB_HEIGHT)
+    .borderRadius(RadiusTokens.xs)
+    .clip(true)
+    .border({
+      width: this.textPosterStyle === style.key ? 2 : LayoutTokens.glassBorderWidth,
+      color: this.textPosterStyle === style.key ? ColorTokens.brand : ColorTokens.separator,
+      style: BorderStyle.Solid,
+    })
+  }
+
+  @Builder
+  posterStyleChip(index: number, style: TextPosterStyleOption): void {
     Pressable({
-      visualHeight: LayoutTokens.segmentedHeight,
+      visualHeight: POSTER_THUMB_CHIP_HEIGHT,
       action: (): void => { this.textPosterStyle = style.key; },
     }) {
-      Row({ space: SpaceTokens.xs }) {
-        Column()
-          .width(20)
-          .height(20)
-          .backgroundColor(style.accent)
-          .borderRadius(RadiusTokens.xs)
+      Column({ space: SpaceTokens.inlineTight }) {
+        this.posterStyleThumb(index, style)
         Text(style.label)
-          .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-          .fontWeight(this.textPosterStyle === style.key ? TypeTokens.headline.weight : TypeTokens.callout.weight)
-          .lineHeight(TypeTokens.callout.lineHeight)
-          .fontColor(this.textPosterStyle === style.key ? ColorTokens.onBrand : ColorTokens.primary)
+          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(this.textPosterStyle === style.key ? TypeTokens.headline.weight : TypeTokens.caption.weight)
+          .lineHeight(TypeTokens.caption.lineHeight)
+          .fontColor(this.textPosterStyle === style.key ? ColorTokens.brand : ColorTokens.secondary)
       }
-      .height(LayoutTokens.segmentedHeight)
-      .padding({ left: SpaceTokens.item, right: SpaceTokens.item })
-      .backgroundColor(this.textPosterStyle === style.key ? ColorTokens.brand : ColorTokens.barSurface)
-      .borderRadius(RadiusTokens.sm)
-      .alignItems(VerticalAlign.Center)
+      .height(POSTER_THUMB_CHIP_HEIGHT)
+      .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs })
+      .alignItems(HorizontalAlign.Center)
     }
   }
 
@@ -346,11 +482,13 @@ struct TextPublishPage {
         .width('100%')
       Scroll() {
         Row({ space: SpaceTokens.sm }) {
-          ForEach(TEXT_POSTER_STYLES, (style: TextPosterStyleOption) => {
-            this.posterStyleChip(style)
-          }, (style: TextPosterStyleOption) => style.key)
+          // key 带上缩略图版本号：PixelMap 数组被整体替换时强制重建 Image，否则会留在旧帧
+          ForEach(TEXT_POSTER_STYLES, (style: TextPosterStyleOption, index: number) => {
+            this.posterStyleChip(index, style)
+          }, (style: TextPosterStyleOption) => style.key + '_' + this.posterThumbVersion)
         }
         .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs })
+        .alignItems(VerticalAlign.Top)
       }
       .scrollable(ScrollDirection.Horizontal)
       .scrollBar(BarState.Off)
@@ -385,7 +523,7 @@ struct TextPublishPage {
           .fontColor(ColorTokens.primary)
           .placeholderColor(ColorTokens.quaternary)
           .backgroundColor(Color.Transparent)
-          .onChange((value: string) => { this.title = value; })
+          .onChange((value: string) => { this.title = value; this.scheduleThumbnails(); })
         Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
         // @提及候选：输入框「上方」的横向条（左右滑动、点选回填）
         if (this.mentionActive) {
@@ -410,6 +548,7 @@ struct TextPublishPage {
           .onChange((value: string) => {
             this.content = value;
             this.syncMention(value);
+            this.scheduleThumbnails();
           })
         Text(this.content.length + '/' + MAX_LONG_FORM_CONTENT_LENGTH)
           .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
