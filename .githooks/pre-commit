@@ -1,0 +1,20 @@
+#!/bin/sh
+# 提交前护栏：拦截「旧支线内容回写主检出」。
+# 由 `git config core.hooksPath .githooks` 启用（仓库级配置，一次设置）。
+# 旁路：SKIP_STALE_CHECK=1 git commit ...
+#
+# 相对路径 .githooks 是相对当前工作目录解析的 —— 每个 worktree 都检出同一份
+# .githooks/，因此在任何 worktree 里提交都会命中同一个检查脚本。
+
+ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+[ -z "$ROOT" ] && exit 0
+[ -f "$ROOT/scripts/check-stale-overwrite.mjs" ] || exit 0
+
+for N in node "$HOME/.workbuddy/binaries/node/versions/22.22.2-3/bin/node" /opt/homebrew/bin/node /usr/local/bin/node; do
+  if command -v "$N" >/dev/null 2>&1; then
+    exec "$N" "$ROOT/scripts/check-stale-overwrite.mjs"
+  fi
+done
+
+echo "[stale-overwrite] 未找到 node，跳过检查（建议手动跑 node scripts/check-stale-overwrite.mjs）" >&2
+exit 0
