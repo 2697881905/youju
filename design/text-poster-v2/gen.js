@@ -123,9 +123,17 @@ function wrapText(content, size, maxWidth, maxLines) {
       const ch = para[i];
       if (line.length === 0 && NO_LINE_START.indexOf(ch) >= 0 && out.length > 0
         && !out[out.length - 1].paraEnd) {
-        // 标点落在行首 → 挂到上一行末尾（允许该行轻微超宽）；不跨段回挂
+        // 标点落在行首 → 把上一行最后一个字一起「追出」到本行（标准追い出し），
+        // 不用「把标点吸进上一行」的写法 —— 那会让该行超出 maxWidth 并顶破安全边距。
         const prev = out[out.length - 1];
-        prev.text += ch;
+        if (prev.text.length > 1) {
+          const moved = prev.text.slice(-1);
+          prev.text = prev.text.slice(0, -1);
+          line = moved + ch;
+        } else {
+          line = ch; // 上一行只剩一个字：只能让标点起行，避免整行被推空
+        }
+        lineWidth = measure(line, size);
         continue;
       }
       const w = charWidth(ch, size);
@@ -139,10 +147,12 @@ function wrapText(content, size, maxWidth, maxLines) {
           line = moved + ch;
           lineWidth = measure(line, size);
         } else if (NO_LINE_START.indexOf(ch) >= 0) {
-          // 标点不能起行 → 吸进本行
-          out.push({ text: line + ch, paraEnd: false });
-          line = '';
-          lineWidth = 0;
+          // 标点不能起行：把本行最后一个字与标点一起追出到下一行，保证不超出 maxWidth
+          const moved = line.slice(-1);
+          const kept = line.slice(0, -1);
+          if (kept.length > 0) out.push({ text: kept, paraEnd: false });
+          line = moved + ch;
+          lineWidth = measure(line, size);
         } else {
           out.push({ text: line, paraEnd: false });
           line = ch;
@@ -399,8 +409,20 @@ async function main() {
   for (const style of STYLES) {
     // 短句版（含小标签）
     produced.push(await toPng(svgOf(style, SAMPLES.short), `${style.label}-短句.png`));
-    // 长文版（不画 title，只有主视觉 + 落款）
-    produced.push(await toPng(svgOf(style, SAMPLES.long), `${style.label}-长文.png`));
+    // 长文版：默认「严守 C6」（主视觉 ≥72px，超出部分截断加 …），与 ④ 里的不守版本对比
+    produced.push(await toPng(svgOf(style, SAMPLES.long, { strictC6: true }), `${style.label}-长文.png`));
+  }
+
+  // 便利贴备选色：Apple 便签 6 色体系的低饱和版，供 Q4 拍板
+  const STICKY_ALT = [
+    { key: 'pink', label: '粉', bg: '#EBD9D6', ink: '#2A2118', accent: '#C08F88' },
+    { key: 'blue', label: '蓝', bg: '#D6E2EA', ink: '#1F262B', accent: '#7E9DAF' },
+    { key: 'green', label: '绿', bg: '#D8E4D4', ink: '#222616', accent: '#8AA37E' },
+    { key: 'gray', label: '灰', bg: '#E2DED4', ink: '#2A2620', accent: '#A79E8C' },
+  ];
+  for (const alt of STICKY_ALT) {
+    const s = Object.assign({}, STYLES[3], { bg: alt.bg, ink: alt.ink, accent: alt.accent });
+    produced.push(await toPng(svgOf(s, SAMPLES.short), `便利贴备选-${alt.label}.png`));
   }
 
   // 素纸：标题处理的 3 个变体，供拍板
@@ -409,11 +431,10 @@ async function main() {
     '素纸-短句B-无小标签.png'));
   produced.push(await toPng(svgOf(paper, SAMPLES.short, { quoteGlyph: true }),
     '素纸-短句C-带引号.png'));
-  produced.push(await toPng(svgOf(paper, SAMPLES.long, { labelText: SAMPLES.long.title }),
+  produced.push(await toPng(svgOf(paper, SAMPLES.long, { strictC6: true, labelText: SAMPLES.long.title }),
     '素纸-长文B-保留标题.png'));
-  // C6 取舍演示：严格守住「主视觉 ≥ 72px」，宁可截断（更小字号 vs 更少字）
-  produced.push(await toPng(svgOf(paper, SAMPLES.long, { strictC6: true }),
-    '素纸-长文C-C6严格截断.png'));
+  // 与上面默认的「守 C6」对比：不守限制，用 64px 把全文排满
+  produced.push(await toPng(svgOf(paper, SAMPLES.long), '素纸-长文C-不守C6排满.png'));
 
   // ── 缩略图仲裁图 ──
   // 4 列 × 3 行：短句 / 长文 / 抹掉细节后的灰阶长文。底色用信息流卡片底 #FFFCF3，
@@ -428,8 +449,11 @@ async function main() {
   const thumbs = [];
   for (let i = 0; i < STYLES.length; i++) {
     thumbs.push({ row: 0, col: i, svg: svgOf(STYLES[i], SAMPLES.short) });
-    thumbs.push({ row: 1, col: i, svg: svgOf(STYLES[i], SAMPLES.long) });
-    thumbs.push({ row: 2, col: i, svg: svgOf(STYLES[i], SAMPLES.long, { hideDetail: true }), gray: true });
+    thumbs.push({ row: 1, col: i, svg: svgOf(STYLES[i], SAMPLES.long, { strictC6: true }) });
+    thumbs.push({
+      row: 2, col: i, gray: true,
+      svg: svgOf(STYLES[i], SAMPLES.long, { strictC6: true, hideDetail: true }),
+    });
   }
   const composites = [];
   for (const th of thumbs) {
