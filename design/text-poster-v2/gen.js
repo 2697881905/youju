@@ -265,11 +265,9 @@ function detail(style, box, opts) {
         line(l, 1186, r, 1186, style.ink, 0.5, 0.12),
       ].join('');
     case 'film':
-      // 记忆点：左侧一条 1px 暖金竖线 + 顶部微型片号
-      return [
-        line(l - 24, t, l - 24, b, style.accent, 1, 0.7),
-        text(l, t - 52, 'FILM · NO.01', 26, { fam: SANS, fill: style.accent, opacity: 0.42, ls: 6, fw: 400 }),
-      ].join('');
+      // 记忆点：左侧一条 1px 暖金竖线（片头/片尾字幕卡语言）
+      // 刻意不加「FILM · NO.01」这类片号微标签：写死的假编号，缩到 330px 只剩约 8px 纯糊
+      return line(l - 24, t, l - 24, b, style.accent, 1, 0.7);
     case 'kraft':
       // 记忆点：正文区上下各一条 1px 实线（信纸抬头 / 落款线）。留出与标签的呼吸间距
       return [
@@ -471,10 +469,11 @@ async function main() {
   }).composite(composites).png().toFile(path.join(OUT, '缩略图仲裁.png'));
   produced.push(path.join(OUT, '缩略图仲裁.png'));
 
-  // 同时导出 SVG 便于微调
+  // 同时导出 SVG 便于微调。注意必须与上面 PNG 用**同一套选项**，
+  // 否则 SVG 会停留在「不守 C6」的旧排版上，与 PNG 对不上（曾踩过）。
   for (const style of STYLES) {
     fs.writeFileSync(path.join(OUT, `${style.label}-短句.svg`), svgOf(style, SAMPLES.short));
-    fs.writeFileSync(path.join(OUT, `${style.label}-长文.svg`), svgOf(style, SAMPLES.long));
+    fs.writeFileSync(path.join(OUT, `${style.label}-长文.svg`), svgOf(style, SAMPLES.long, { strictC6: true }));
   }
 
   console.log('生成完成：');

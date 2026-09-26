@@ -66,22 +66,6 @@ export function drawText(canvas: drawing.Canvas, brush: drawing.Brush, font: dra
   canvas.drawTextBlob(blob, x, y);
 }
 
-/**
- * 带字距的文本绘制：drawing.Font 没有 letterSpacing API，只能逐字定位。
- * 返回实际绘制宽度（供需要精确布局的调用方使用）。
- */
-export function drawSpacedText(canvas: drawing.Canvas, brush: drawing.Brush, font: drawing.Font, value: string, x: number, y: number, color: common2D.Color, tracking: number): number {
-  let cursor: number = x;
-  let i: number = 0;
-  while (i < value.length) {
-    const unit: PosterCodeUnit = readChar(value, i);
-    drawText(canvas, brush, font, unit.ch, cursor, y, color);
-    cursor += measureTextWidth(unit.ch, font) + tracking;
-    i += unit.size;
-  }
-  return cursor - x;
-}
-
 // 逐「码点」读取：代理对（emoji 等）必须整体取出，否则会画出半个字形的乱码。
 // 不用 String.codePointAt / fromCodePoint，避免引入额外 API 面。
 interface PosterCodeUnit {
