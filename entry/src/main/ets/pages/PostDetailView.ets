@@ -43,6 +43,7 @@ import { curves, window } from '@kit.ArkUI';
 import { DetailToolbar } from '../components/DetailToolbar';
 import { DetailMediaCarousel } from '../components/DetailMediaCarousel';
 import { ImageViewer } from '../components/ImageViewer';
+import { OVERLAY_GUARD_POST_DETAIL, registerOverlayBackGuard, unregisterOverlayBackGuard } from '../utils/overlayBackGuard';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { DetailPostHeader } from '../components/DetailPostHeader';
 import { DetailPostContent } from '../components/DetailPostContent';
@@ -314,6 +315,13 @@ export struct PostDetailView {
       AppStorage.setOrCreate<boolean>(KEY_GRIP_ON_RIGHT, right);
     }
     this.load();
+    // 页内覆盖层（图片查看器 / 分享卡预览 / 数据面板）的返回拦截：
+    // 它们是 if 分支渲染的页内图层，不由路由或 Navigation 托管，系统返回手势不会先关它们，
+    // 而是直接 pop 掉整页 —— 首页卡片走 openDetailViaNav 把详情页 push 进 Navigation 栈，
+    // 表现就是「看图后返回一下回到首页」。登记守卫，交由两套壳的返回拦截先消费一次。
+    registerOverlayBackGuard(OVERLAY_GUARD_POST_DETAIL,
+      (): boolean => this.hasPageOverlay(),
+      (): void => { this.closeTopPageOverlay(); });
   }
 
   // 读取系统栏高度（全屏布局下顶部内容需避让），并监听 avoidAreaChange：
@@ -352,6 +360,8 @@ export struct PostDetailView {
   }
 
   aboutToDisappear(): void {
+    // 注销返回守卫：回调闭包持有本页实例，不成对注销会拖住已销毁的页面
+    unregisterOverlayBackGuard(OVERLAY_GUARD_POST_DETAIL);
     // 智感握姿退订（详情页关闭即退订，官方功耗建议）
     stopGripTracking();
     if (this.navSourceWin) {
@@ -752,6 +762,24 @@ export struct PostDetailView {
       this.shareCardPreview.release().catch((): void => {});
       this.shareCardPreview = null;
     }
+  }
+
+  // 是否有页内覆盖层打开（返回手势要先关它们，而不是退出详情页）
+  private hasPageOverlay(): boolean {
+    return this.viewingImage.length > 0 || this.shareCardPreview !== null || this.statsPanelShow;
+  }
+
+  // 关掉最上层那个覆盖层。层级从高到低：图片查看器(999) → 分享卡预览(200) → 数据面板。
+  private closeTopPageOverlay(): void {
+    if (this.viewingImage.length > 0) {
+      this.viewingImage = '';
+      return;
+    }
+    if (this.shareCardPreview !== null) {
+      this.closeShareCardPreview();
+      return;
+    }
+    this.statsPanelShow = false;
   }
 
   // 辩论投票：乐观更新票数
