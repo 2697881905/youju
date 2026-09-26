@@ -5,6 +5,12 @@ import { MotionCurves } from '../design/tokens/motion';
 // 交互：单击任意处或右上角按钮关闭；双击或双指捏合缩放（1x~4x）；
 // 内容超出视口时单指拖动平移（1x 长图也能上下滑动翻看，边界 clamp），缩放回到 1x 时自动复位。
 // 使用方式：由父容器以全屏覆盖方式渲染（if 分支 + zIndex，或 bindContentCover）。
+//
+// ⚠️ 本组件自身**不处理返回手势**：它是页内图层，不由路由或 Navigation 托管，
+// 不登记守卫的话，返回手势会直接退出宿主页（不是先关查看器）。
+// 宿主必须在 aboutToAppear 用 utils/overlayBackGuard 的 registerOverlayBackGuard 登记
+// 「打开中 → 关掉」的守卫，并在 aboutToDisappear 注销；双壳的拦截分别接在
+// @Entry 的 onBackPress 与 NavDestination 的 onBackPressed 上。
 @Component
 export struct ImageViewer {
   @Prop url: string = '';

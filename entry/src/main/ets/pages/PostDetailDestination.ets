@@ -16,6 +16,7 @@ import { getMainNavStack, PostDetailNavParams, UserProfileNavParams } from '../u
 import { CustomTransition } from '../utils/longTake/customNavigationUtils';
 import { LongTakeAnimationProperties, LongTakeParams } from '../utils/longTake/longTakeAnimationProperties';
 import { ColorTokens } from '../design/tokens/color';
+import { consumeOverlayBack } from '../utils/overlayBackGuard';
 
 const TAG: string = 'PostDetailDest';
 // 转场超时：超时由框架兜底结束，避免动画异常时页面卡住不放行
@@ -39,6 +40,11 @@ export struct PostDetailDestination {
   private rootHeight_vp: number = 0;
 
   private back(): void {
+    // 页内覆盖层（图片查看器 / 分享卡预览 / 数据面板）打开时，页内返回按钮先关覆盖层，
+    // 与系统返回手势保持一致（系统手势的拦截见下面的 onBackPressed）
+    if (consumeOverlayBack()) {
+      return;
+    }
     const nav: NavPathStack | null = getMainNavStack();
     if (nav !== null) {
       nav.pop(false);
@@ -152,6 +158,9 @@ export struct PostDetailDestination {
     }
     .hideTitleBar(true)
     .backgroundColor(ColorTokens.canvas)
+    // 系统返回手势/返回键：页内覆盖层打开时先关覆盖层（返回 true = 已处理，不执行默认 pop）。
+    // Navigation 壳取代了 router 壳的 onBackPress —— 两者都要接，见 DetailPage.ets。
+    .onBackPressed((): boolean => consumeOverlayBack())
     .onReady((ctx: NavDestinationContext) => {
       const param: PostDetailNavParams = ctx.pathInfo.param as PostDetailNavParams;
       if (param === undefined || param === null || typeof param.postId !== 'number') {

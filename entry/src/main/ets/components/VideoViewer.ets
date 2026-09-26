@@ -6,7 +6,9 @@ import { ImmersiveSurface } from '../design/components/ImmersiveSurface';
 // 全屏视频查看器（自绘现代播放条，替代系统 controls 旧样式）：
 // - 打开即自动播放，画面 Contain 完整展示；不用系统控制器（其样式老旧且带边框线）
 // - 底部玻璃质感播放条：播放/暂停 + 进度滑杆 + 时间；播放中 3s 自动隐藏，点按画面切换显隐
-// - 右上角关闭；返回手势由宿主页面 onBackPress 消费（关闭查看器而非退出聊天页）
+// - 右上角关闭；返回手势由宿主在 utils/overlayBackGuard 登记守卫后，经双壳的返回拦截
+//   （@Entry 的 onBackPress / NavDestination 的 onBackPressed）消费 —— 关闭查看器而非退出聊天页。
+//   注意不能把 onBackPress 写在本组件或共享的 ChatView 里：它只对 @Entry 组件生效。
 @Component
 export struct VideoViewer {
   @Prop url: string = '';

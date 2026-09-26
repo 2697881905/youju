@@ -20,6 +20,7 @@ import { AvatarView } from '../components/AvatarView';
 import { ReportDialog } from '../components/ReportDialog';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { ImageViewer } from '../components/ImageViewer';
+import { OVERLAY_GUARD_CHAT, registerOverlayBackGuard, unregisterOverlayBackGuard } from '../utils/overlayBackGuard';
 import { VideoViewer } from '../components/VideoViewer';
 import { KeyboardAvoidMode } from '@kit.ArkUI';
 import { common } from '@kit.AbilityKit';
@@ -124,6 +125,10 @@ export struct ChatView {
       this.loading = false;
       this.error = this.peerId > 0 ? '请先登录后查看私信' : '会话参数缺失，请返回消息列表重新进入';
     }
+    // 页内全屏查看器（图片 / 视频）的返回拦截：登记守卫，交由两套壳的返回拦截先消费一次
+    registerOverlayBackGuard(OVERLAY_GUARD_CHAT,
+      (): boolean => this.hasPageOverlay(),
+      (): void => { this.closeTopPageOverlay(); });
   }
 
   // 记录进入前的键盘避让模式，切到 RESIZE（内容区缩放而非整体上移），离页还原，
@@ -139,6 +144,8 @@ export struct ChatView {
   }
 
   aboutToDisappear(): void {
+    // 注销返回守卫：回调闭包持有本页实例，不成对注销会拖住已销毁的页面
+    unregisterOverlayBackGuard(OVERLAY_GUARD_CHAT);
     this.stopPolling();
     if (this.originalKeyboardMode !== null) {
       try {
@@ -192,17 +199,20 @@ export struct ChatView {
     }
   }
 
-  // 返回手势/返回键：全屏查看器（图片/视频）打开时先关闭查看器，而非退出聊天页
-  onBackPress(): boolean {
+  // 页内全屏查看器（视频 / 图片）是否打开 —— 供返回守卫判断。
+  // 关掉它的动作由两套壳的返回拦截触发（ChatPage.onBackPress / ChatDestination.onBackPressed）。
+  private hasPageOverlay(): boolean {
+    return this.viewingVideo.length > 0 || this.viewingImage.length > 0;
+  }
+
+  // 关掉最上层查看器：视频层压过图片层，所以视频优先。
+  // 仅在 hasPageOverlay() 为真时被调用，因此末尾可直接清空 viewingImage。
+  private closeTopPageOverlay(): void {
     if (this.viewingVideo.length > 0) {
       this.viewingVideo = '';
-      return true;
+      return;
     }
-    if (this.viewingImage.length > 0) {
-      this.viewingImage = '';
-      return true;
-    }
-    return false;
+    this.viewingImage = '';
   }
 
   // 页面重新显示时静默拉取最新消息（已有消息时不显示 Loading）：
