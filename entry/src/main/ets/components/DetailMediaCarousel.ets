@@ -4,10 +4,10 @@ import { RadiusTokens } from '../design/tokens/radius';
 // 详情媒体阅读是纯展示边界，页面保留全屏查看和数据加载状态。
 //
 // 预览比例规则（单一事实源，判据 = 宽/高，3:4 = 0.75 为界）：
-//   · 宽/高 < 3:4（比 3:4 更竖长，如 9:16）→ 容器钳到 3:4，ImageFit.Contain：
-//     图完整可见、居中，左右露出 sunken 底色（留白，不裁剪、不变形）；
+//   · 宽/高 < 3:4（比 3:4 更竖长，如 9:16）→ 容器钳到 3:4，ImageFit.Cover：
+//     居中裁剪、铺满框（不拉伸变形，超出框的上下部分被裁掉，不留白边）；
 //   · 宽/高 ≥ 3:4（1:1 / 4:3 / 16:9 …）→ 容器 = 图片真实比例，横向不设上限；
-//     此时框比例 == 图比例，Contain 即满框，无裁切、无缩放变形；
+//     此时框比例 == 图比例，Cover 即满框，无裁切、无缩放变形；
 //   · 恰好等于 3:4 归入「保持原比例」组（同样满框）；
 //   · 解码失败 / 尺寸异常（w≤0、h≤0、NaN）→ 兜底 3:4。
 // 逐图生效：容器比例跟随当前页，滑动切换按 250ms 动画过渡。
@@ -76,9 +76,9 @@ export struct DetailMediaCarousel {
             Image(url)
               .width('100%')
               .height('100%')
-              // 统一 Contain：被钳到 3:4 的竖长图左右留白、完整显示；
-              // 未钳制的图容器比例 == 图比例，Contain 即满框（无需 Cover 裁切分支）
-              .objectFit(ImageFit.Contain)
+              // 统一 Cover：被钳到 3:4 的竖长图居中裁剪、铺满框（不拉伸变形）；
+              // 未钳制的图容器比例 == 图比例，Cover 即满框不裁切
+              .objectFit(ImageFit.Cover)
               .backgroundColor(ColorTokens.sunken)
               .borderRadius(RadiusTokens.lg)
               // 图在 Swiper 内：Image 默认 draggable=true，长按后横向拖动会被系统拖拽接管，
