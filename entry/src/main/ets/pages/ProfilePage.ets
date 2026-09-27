@@ -15,6 +15,7 @@ import { resolveSettingsIcon } from '../utils/settingsIcons';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { buildProfileShareText, buildProfileShareUrl, copyToClipboard, EXTERNAL_SHARE_ENABLED, shareProfileToSystem } from '../utils/share';
 import { PostCollectionState } from '../components/PostCollectionState';
+import { EmptyState } from '../design/components/EmptyState';
 import { ProfileShareSheet } from '../components/ProfileShareSheet';
 import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
 import { ProfileHeader } from '../components/ProfileHeader';
@@ -778,13 +779,52 @@ export struct ProfilePage {
     })
   }
 
+  // 未登录时各分段的标题（登录引导用）：比一句通用文案更能说明「登录后能看到什么」
+  private loginPromptTitle(seg: number): string {
+    if (seg === 1 && this.bookmarkSubTab === 1) {
+      return '登录后查看你的收藏夹';
+    }
+    if (seg === 0) {
+      return '登录后查看你的发布';
+    }
+    if (seg === 1) {
+      return '登录后查看你的收藏';
+    }
+    if (seg === 2) {
+      return '登录后查看你赞过的';
+    }
+    return '登录后查看你的评论';
+  }
+
+  // 未登录时的分段内容：给登录引导，**不**用「还没有…」空态 ——
+  // 那是在断言「你没有内容」，而真相是「我们不知道你有什么」（未登录根本拉不到数据）。
+  // 布局与 PostCollectionState 一致：满高居中。
+  @Builder
+  loginGate(seg: number): void {
+    Column() {
+      EmptyState({
+        icon: resolveActionIcon('lock'),
+        title: this.loginPromptTitle(seg),
+        message: '登录后你的发布、收藏、赞过与评论都会汇总在这里',
+        actionLabel: '登录',
+        onAction: (): void => { this.getUIContext().getRouter().pushUrl({ url: 'pages/LoginPage' }); },
+      })
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+  }
+
   // 分页内容：每个分段一页。每页只读自己那份缓存，因此拖动过程中相邻页显示的是它自己的内容，
   // 而不是当前分段的数据；未访问过的分段缓存为空，页内会先呈现加载态。
   @Builder
   segmentPage(seg: number) {
     Column() {
-      // 「我收藏 → 收藏夹」子视图（子分段栏 + 双列卡片流），优先于帖子网格渲染
-      if (seg === 1 && this.bookmarkSubTab === 1) {
+      // 未登录优先：既不该显示「还没有…」，也不该转圈等一个永远不会来的响应
+      if (!this.isLoggedIn()) {
+        this.loginGate(seg)
+      } else if (seg === 1 && this.bookmarkSubTab === 1) {
+        // 「我收藏 → 收藏夹」子视图（子分段栏 + 双列卡片流），优先于帖子网格渲染
         this.foldersView()
       } else if (this.pagePostsOf(seg).length === 0 && (seg !== this.tabIdx || !this.ready || this.loading)) {
         PostCollectionState({ loading: true })

@@ -501,6 +501,14 @@ struct Index {
   // 阻止 HdsTabs 切换到发布占位页（不再"先切走再弹回"，消除横向闪烁动画）。
   private handleTabBarClick(index: number): void {
     if (index === 2) {
+      // 未登录：在这里就拦住，直接引导登录，**不**弹发布方式弹窗、更不入发布页。
+      // 旧实现缺这道闸门 —— 登录跳转发生在发布页内部（ImagePicker/VideoPicker/预览页的
+      // ensureLogin 把 LoginPage 压在发布页之上），用户取消登录返回时露出的就是发布页，
+      // 而不是主页（用户反馈的实际现象）。
+      if (getToken() === '') {
+        this.getUIContext().getRouter().pushUrl({ url: 'pages/LoginPage' });
+        return;
+      }
       this.showPublishModeDialog();
       return;
     }
