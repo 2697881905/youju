@@ -16,11 +16,15 @@ import { getMainNavStack, PostDetailNavParams, UserProfileNavParams } from '../u
 import { CustomTransition } from '../utils/longTake/customNavigationUtils';
 import { LongTakeAnimationProperties, LongTakeParams } from '../utils/longTake/longTakeAnimationProperties';
 import { ColorTokens } from '../design/tokens/color';
+import { RadiusTokens } from '../design/tokens/radius';
 import { consumeOverlayBack } from '../utils/overlayBackGuard';
 
 const TAG: string = 'PostDetailDest';
 // 转场超时：超时由框架兜底结束，避免动画异常时页面卡住不放行
 const TRANSITION_TIMEOUT_MS: number = 2000;
+// 视频媒体圆角：与 PostDetailView.videoFace 的 borderRadius(12) 对齐。
+// 用作截图圆角过渡的终点（图片媒体的终点是 RadiusTokens.lg）。
+const VIDEO_MEDIA_RADIUS: number = 12;
 // 详情页里充当「卡片对应节点」的组件 id：整页缩放到「该节点宽 == 卡片宽」再展开。
 // 主 id = 真实内容里的媒体 Stack；回退 id = 加载壳里的占位（数据异步时先量到的是它），
 // 两个 id 不能同名 —— 同名会被编译器判 duplicate id（发布构建实测报 WARN）。
@@ -33,6 +37,8 @@ export struct PostDetailDestination {
   // 卡片截图：作为首帧顶替真内容，真内容接管后淡出
   @State snapShotImage: image.PixelMap | undefined = undefined;
   private takeParams: LongTakeParams = new LongTakeParams();
+  // 截图圆角过渡的终点（详情媒体圆角）：onReady 读到 intent 后按视频/图片确定
+  private mediaRadius: number = RadiusTokens.lg;
   private pageId: string = '';
   private registered: boolean = false;
   // 窗口尺寸变化的基准（vp）：变化后已缓存的初值作废，退回系统默认转场
@@ -70,7 +76,8 @@ export struct PostDetailDestination {
     this.registered = true;
     try {
       this.longTakeAnimationProperties.init(this.takeParams.cardRect,
-        DETAIL_HERO_ID, DETAIL_HERO_SHELL_ID, PAGE_ROOT_ID, this.takeParams.cardId);
+        DETAIL_HERO_ID, DETAIL_HERO_SHELL_ID, PAGE_ROOT_ID, this.takeParams.cardId,
+        this.takeParams.cardRadius, this.mediaRadius);
       CustomTransition.getInstance().registerNavParam(this.pageId, TRANSITION_TIMEOUT_MS,
         (transitionProxy: NavigationTransitionProxy): void => {
           // 初值必须在动画开始这一刻量：此时本页已完成布局
@@ -104,19 +111,6 @@ export struct PostDetailDestination {
       // Stack 的 alignContent 必须是 TopStart：否则截图与内容会随高度变化被重新定位（官方注释）
       Stack({ alignContent: Alignment.TopStart }) {
         Stack({ alignContent: Alignment.TopStart }) {
-          // 卡片截图：落在「对应节点」位置，动画期间由 scale/position 带着一起变形
-          if (this.snapShotImage !== undefined) {
-            Image(this.snapShotImage)
-              .width('100%')
-              .objectFit(ImageFit.Auto)
-              .syncLoad(true)
-              .opacity(this.longTakeAnimationProperties.snapShotOpacity)
-              .position({
-                x: this.longTakeAnimationProperties.snapShotPositionX,
-                y: this.longTakeAnimationProperties.snapShotPositionY
-              })
-          }
-
           // 真内容：进场 0→1，返回 1→0
           PostDetailView({
             navMode: true,
@@ -129,6 +123,34 @@ export struct PostDetailDestination {
           })
             .size({ width: '100%', height: '100%' })
             .opacity(this.longTakeAnimationProperties.postPageOpacity)
+
+          // 卡片截图：落在「对应节点」位置，动画期间由 scale/position 带着一起变形。
+          // 必须声明在真内容**之后**（绘制在其上）：真内容根容器带不透明纸面底色，
+          // postPageOpacity 在 ~150ms 就升到 1，截图若在下层会被整页底色盖住；
+          // 而真媒体要等首帧就绪才淡入（heroOpacity=0 期间媒体位透明），
+          // 于是「卡片飞行途中媒体位露出米白纸面」= 海报变白闪一下。
+          // 截图居顶后整帧（含媒体位）都由卡片图顶住，等真媒体就绪（onHeroReady）
+          // 再与真内容同刻交接淡出：不露底色，也不与真内容产生双影。
+          // 尺寸：按「对应节点实测宽」渲染（snapShotWidth）—— 截图是卡片原尺寸拷贝，
+          // 这样起点与卡片 1:1、终点与媒体位像素对齐（用页宽会整体大 ~1.1 倍，落点溢出后瞬移）。
+          // 圆角：截图自带（snapShotRadius，随转场从卡片圆角过渡到媒体圆角）——
+          // 只靠外层裁切窗口的圆角，窗口放大后截图的直角边会暴露（飞行中"圆角变直角"）。
+          // hitTestBehavior(None)：截图不参与触摸测试 —— 顶层不拦点击，
+          // 交接后 opacity=0 也不会挡住媒体/正文的点击与滚动。
+          if (this.snapShotImage !== undefined) {
+            Image(this.snapShotImage)
+              .width(this.longTakeAnimationProperties.snapShotWidth)
+              .objectFit(ImageFit.Auto)
+              .syncLoad(true)
+              .borderRadius(this.longTakeAnimationProperties.snapShotRadius)
+              .clip(true)
+              .opacity(this.longTakeAnimationProperties.snapShotOpacity)
+              .position({
+                x: this.longTakeAnimationProperties.snapShotPositionX,
+                y: this.longTakeAnimationProperties.snapShotPositionY
+              })
+              .hitTestBehavior(HitTestMode.None)
+          }
         }
         .width('100%')
         .id(PAGE_ROOT_ID)
@@ -167,6 +189,8 @@ export struct PostDetailDestination {
         return;
       }
       const intent: PostDetailIntent | null = (param.intent as PostDetailIntent | null) ?? null;
+      // 截图圆角的过渡终点 = 真媒体圆角（对齐后交接时圆角不跳变）
+      this.mediaRadius = (intent !== null && intent.isVideo) ? VIDEO_MEDIA_RADIUS : RadiusTokens.lg;
       openPostDetail(String(param.postId), intent);
       const take: LongTakeParams | null = (param.longTake as LongTakeParams | null) ?? null;
       if (take !== null && take.cardRect.width > 0) {

@@ -496,7 +496,8 @@ export struct HomeTab {
   // Navigation 未就绪时兜底走老路由整页（无飞行）。
   // cardId：用于截图与测量起点的卡片组件 id。信息流是整卡（feedCard-{id}），
   // 每日一帖卡堆沿用媒体块 id（deckCardMedia-{id}）。
-  private openDetailViaNav(post: Post, aspect: number, cover: string, cardId: string): void {
+  // cardRadius：卡片容器圆角（vp）—— 截图的起始圆角，飞行中过渡到媒体圆角。
+  private openDetailViaNav(post: Post, aspect: number, cover: string, cardId: string, cardRadius: number): void {
     if (post.id === undefined) {
       return;
     }
@@ -513,6 +514,7 @@ export struct HomeTab {
     // 官方做法：先截卡片图顶住首帧，再 push；截图失败则退化为纯布局变形（转场照走）
     const take: LongTakeParams = new LongTakeParams();
     take.cardId = cardId;
+    take.cardRadius = cardRadius;
     if (rect !== null) {
       take.cardRect = rect;
     }
@@ -760,7 +762,9 @@ export struct HomeTab {
               onOpen: (post: DailyPost): void => {
                 if (post.id !== undefined) {
                   trackPostEvent(post.id, 'click', 'daily');
-                  this.openDetailViaNav(post, LayoutTokens.cardMediaAspectRatio, this.dailyDeckCover(post), 'deckCardMedia-' + post.id);
+                  // 飞行目标比例 = 卡面比例（4:3，与 DECK_MEDIA_RATIO 一致）；
+                  // 圆角 = 卡堆卡容器圆角（RadiusTokens.md）
+                  this.openDetailViaNav(post, DAILY_DECK_MEDIA_RATIO, this.dailyDeckCover(post), 'deckCardMedia-' + post.id, RadiusTokens.md);
                 }
               },
             })
@@ -799,7 +803,8 @@ export struct HomeTab {
       onOpen: () => {
         if (post.id !== undefined) {
           trackPostEvent(post.id, 'click', 'feed');
-          this.openDetailViaNav(post, LayoutTokens.cardMediaAspectRatio, this.feedCardCover(post), 'feedCard-' + post.id);
+          // 圆角 = 信息流卡片容器圆角（compact 卡走 RadiusTokens.xs）
+          this.openDetailViaNav(post, LayoutTokens.cardMediaAspectRatio, this.feedCardCover(post), 'feedCard-' + post.id, RadiusTokens.xs);
         }
       },
     })
@@ -1015,6 +1020,12 @@ export struct HomeTab {
         .width('100%')
         .height('100%')
         .layoutWeight(1)
+        // 每日一帖不裁剪：Swiper 默认裁切子节点，卡堆向上拖动/抛射的卡片需溢出列表区穿过报头；
+        // 滚动流模式保持裁剪（Refresh/Scroll 内容不出视口）—— 与旧列表区实现保持同一策略。
+        .clip(this.feedMode !== 'daily')
+        // 每日一帖提升列表区整体层级（与报头同为根 Column 兄弟，1001 > 报头 1000）：
+        // 卡片随列表区一起盖过报头区域，向上拖动/抛出不被「有据」标题与分段栏遮挡。
+        .zIndex(this.feedMode === 'daily' ? 1001 : 0)
       }
       .width('100%')
       .height('100%')
