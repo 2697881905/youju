@@ -427,13 +427,14 @@ struct PublishPreviewPage {
             .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.inlineTight, bottom: SpaceTokens.inlineTight })
             .backgroundColor('#99000000')
             .borderRadius(RadiusTokens.pill)
-            .margin({ right: SpaceTokens.sm, bottom: SpaceTokens.sm })
+            // 媒体贴卡片边缘后，角标距边缘只剩 8vp 会太挤，提到 md(12) 保持呼吸感
+            .margin({ right: SpaceTokens.md, bottom: SpaceTokens.md })
         }
       }
         .width('100%')
         .aspectRatio(LayoutTokens.cardMediaAspectRatio)
         .backgroundColor(ColorTokens.sunken)
-        .borderRadius(RadiusTokens.md)
+        // 与海报分支一致：媒体铺满卡片，圆角交给 GlassPanel 的 clip(true)
         .clip(true)
     } else {
       Swiper() {
@@ -443,11 +444,15 @@ struct PublishPreviewPage {
       }
       .width('100%')
       .aspectRatio(TEXT_POSTER_ASPECT_RATIO)
+      // 兜底底色 = 当前款海报的底板色：稳态被海报像素图完全覆盖、看不见，
+      // 只在渲染未就绪的瞬间防闪白（占位块本身也已用同色）。
+      .backgroundColor(TEXT_POSTER_STYLES[this.textPosterStyleIndex].background)
       .indicator(true)
       .loop(false)
       .index(this.textPosterStyleIndex)
       .onChange((index: number): void => { this.selectTextPosterStyle(index); })
-      .borderRadius(RadiusTokens.md)
+      // 不设 borderRadius：海报铺满卡片，顶部圆角由 GlassPanel 的 clip(true) 按卡片半径裁切。
+      // 若这里再圆 RadiusTokens.md(14)，会在两上角露出卡片底色的一条月牙形缝隙。
       .clip(true)
     }
   }
@@ -462,63 +467,76 @@ struct PublishPreviewPage {
 
   @Builder
   postPreview(draft: PublishDraft): void {
-    GlassPanel({ panelPadding: SpaceTokens.md, radius: RadiusTokens.lg }) {
-      Column({ space: SpaceTokens.md }) {
+    // 卡面媒体（海报 / 图片）铺满卡片：GlassPanel 不设内边距，内边距下移到文字区。
+    // 这样媒体贴到卡片边缘并共用卡片圆角（GlassPanel 自带 clip(true)），
+    // 不再有一圈卡片底色把海报包在中间；视频封面在卡片外渲染，不受影响。
+    GlassPanel({ panelPadding: SpaceTokens.none, radius: RadiusTokens.lg }) {
+      Column({ space: SpaceTokens.none }) {
         if (!draft.videoUrl || draft.videoUrl.length === 0) {
           this.coverPreview(draft)
         }
-        Row({ space: SpaceTokens.sm }) {
-          Text(genreLabel(draft.genre))
-            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-            .fontWeight(TypeTokens.headline.weight)
-            .lineHeight(TypeTokens.caption.lineHeight)
-            .fontColor(ColorTokens.brand)
-            .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.inlineTight, bottom: SpaceTokens.inlineTight })
-            .backgroundColor(ColorTokens.brandTint)
-            .borderRadius(RadiusTokens.sm)
-          if (draft.videoUrl && draft.videoUrl.length > 0) {
-            Text('含视频')
+        // 文字区自带 12vp 内边距：有媒体时它就是媒体与体裁胶囊之间的 12vp 间距；
+        // 无媒体（视频帖）时它就是卡片的上内边距 —— 两种情况都与改动前一致。
+        Column({ space: SpaceTokens.md }) {
+          Row({ space: SpaceTokens.sm }) {
+            Text(genreLabel(draft.genre))
               .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-              .fontColor(ColorTokens.secondary)
-          }
-          if (draft.images.length > 1) {
-            Text('含 ' + draft.images.length + ' 张图片')
-              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-              .fontColor(ColorTokens.secondary)
-          }
-        }
-        Text(draft.title)
-          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.title.weight)
-          .lineHeight(TypeTokens.title.lineHeight)
-          .fontColor(ColorTokens.primary)
-        if (draft.content.trim().length > 0) {
-          Text(draft.content)
-            .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
-            .fontWeight(TypeTokens.body.weight)
-            .lineHeight(TypeTokens.body.lineHeight)
-            .fontColor(ColorTokens.secondary)
-            .maxLines(8)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-        }
-        if (draft.tags.length > 0) {
-          Flex({
-            wrap: FlexWrap.Wrap,
-            space: { main: LengthMetrics.px(SpaceTokens.inline), cross: LengthMetrics.px(SpaceTokens.inline) },
-          }) {
-            ForEach(draft.tags, (tag: string) => {
-              Text('# ' + tag)
+              .fontWeight(TypeTokens.headline.weight)
+              .lineHeight(TypeTokens.caption.lineHeight)
+              .fontColor(ColorTokens.brand)
+              .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.inlineTight, bottom: SpaceTokens.inlineTight })
+              .backgroundColor(ColorTokens.brandTint)
+              .borderRadius(RadiusTokens.sm)
+            if (draft.videoUrl && draft.videoUrl.length > 0) {
+              Text('含视频')
                 .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-                .fontWeight(TypeTokens.caption.weight)
-                .lineHeight(TypeTokens.caption.lineHeight)
-                .fontColor(ColorTokens.brand)
-                .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.inlineTight, bottom: SpaceTokens.inlineTight })
-                .backgroundColor(ColorTokens.subtle)
-                .borderRadius(RadiusTokens.sm)
-            }, (tag: string) => tag)
+                .fontColor(ColorTokens.secondary)
+            }
+            if (draft.images.length > 1) {
+              Text('含 ' + draft.images.length + ' 张图片')
+                .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+                .fontColor(ColorTokens.secondary)
+            }
           }
-          .width('100%')
+          Text(draft.title)
+            .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
+            .fontWeight(TypeTokens.title.weight)
+            .lineHeight(TypeTokens.title.lineHeight)
+            .fontColor(ColorTokens.primary)
+          if (draft.content.trim().length > 0) {
+            Text(draft.content)
+              .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
+              .fontWeight(TypeTokens.body.weight)
+              .lineHeight(TypeTokens.body.lineHeight)
+              .fontColor(ColorTokens.secondary)
+              .maxLines(8)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+          }
+          if (draft.tags.length > 0) {
+            Flex({
+              wrap: FlexWrap.Wrap,
+              space: { main: LengthMetrics.px(SpaceTokens.inline), cross: LengthMetrics.px(SpaceTokens.inline) },
+            }) {
+              ForEach(draft.tags, (tag: string) => {
+                Text('# ' + tag)
+                  .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+                  .fontWeight(TypeTokens.caption.weight)
+                  .lineHeight(TypeTokens.caption.lineHeight)
+                  .fontColor(ColorTokens.brand)
+                  .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.inlineTight, bottom: SpaceTokens.inlineTight })
+                  .backgroundColor(ColorTokens.subtle)
+                  .borderRadius(RadiusTokens.sm)
+              }, (tag: string) => tag)
+            }
+            .width('100%')
+          }
         }
+        .width('100%')
+        .padding({
+          left: SpaceTokens.md, right: SpaceTokens.md,
+          top: SpaceTokens.md, bottom: SpaceTokens.md,
+        })
+        .alignItems(HorizontalAlign.Start)
       }
       .width('100%')
       .alignItems(HorizontalAlign.Start)
