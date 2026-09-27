@@ -1074,7 +1074,15 @@ export struct PostDetailView {
   @Builder
   videoFace(): void {
     Column() {
-      VideoPlayer({ src: this.videoUrl, poster: this.videoCover })
+      VideoPlayer({
+        src: this.videoUrl,
+        poster: this.videoCover,
+        // 关键接线：视频帖此前没有任何「媒体可显示」信号，hero 只能等 900ms 兜底计时器
+        // （计时器还在 getPost 返回之后才起算）→ 进详情后媒体位空白约 1 秒。
+        // 现在封面解码完成 / 视频首帧就绪 / 出错任一发生即放行（VideoPlayer 内已做只发一次；
+        // markHeroReady 自身幂等；转场侧的截图交接有 MIN 300ms 下限保护，早调用不会抢跳）。
+        onReady: (): void => { this.markHeroReady(); },
+      })
     }
     .width('100%')
     .aspectRatio(this.transitionAspect() > 0 ? this.transitionAspect() : this.videoAspectRatio)
