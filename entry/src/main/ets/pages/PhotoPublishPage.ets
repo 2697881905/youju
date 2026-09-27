@@ -81,6 +81,14 @@ struct PhotoPublishPage {
   }
 
   aboutToAppear(): void {
+    // 登录闸门（纵深防御）：发布页只该从 Index 底栏进入，而未登录在那边已被拦住。
+    // 这里是第二道 —— 将来若新增入口直接 push 本页，也不允许带着空登录态进来。
+    // 用 replaceUrl 而非 push：本页从路由栈里被替换掉，用户取消登录返回时落到主页，
+    // 而不是露出发布页半成品（旧行为即「发布页内部的 ensureLogin 把登录页压在它之上」）。
+    if (getUserId() === 0) {
+      this.getUIContext().getRouter().replaceUrl({ url: 'pages/LoginPage' });
+      return;
+    }
     this.loadTags();
     this.unsubscribePublishFlow();
     this.unsubscribePublishFlow = publishFlowStore.subscribe((session: PublishSession): void => {
