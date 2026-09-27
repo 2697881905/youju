@@ -58,6 +58,8 @@ export struct ProfilePage {
   @State followerCount: number = 0;
   @State totalLikes: number = 0; // 获赞总数
   @State tabIdx: number = 0; // 0 我发布, 1 我收藏, 2 我赞过, 3 我评论
+  // 分段滑块跟手位置：Swiper 滚动（拖动/吸附）中喂入的连续索引；-1 = 未滚动
+  @State slidePosition: number = -1;
   // 四个分段各自的列表缓存。分页要求每一页都能立刻拿到"自己的"内容：
   // 只保留当前分段的列表，会让相邻页在拖动过程中显示当前分段的数据。
   @State postsCache: Post[][] = [[], [], [], []];
@@ -969,16 +971,38 @@ export struct ProfilePage {
       .duration(this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.container)
       .curve(MotionCurves.springSoft)
       .onChange((index: number): void => { this.onTabChange(index); })
+      // 拖动/吸附逐帧联动滑块（1:1 跟手，见 slidePosition 注释）
+      .onContentDidScroll((selectedIndex: number, index: number, position: number, _mainAxisLength: number): void => {
+        // 只取当前选中页的回报（selectedIndex 在整段滚动中恒定）：
+        // 连续索引 = index - position，官方语义 position 为 index 页相对主轴起始的位移比例
+        if (index !== selectedIndex) {
+          return;
+        }
+        const continuous: number = selectedIndex - position;
+        this.slidePosition = Math.max(0, Math.min(PROFILE_SEGMENTS.length - 1, continuous));
+      })
+      .onAnimationEnd((): void => {
+        // 吸附收尾：已回到整数位才清除跟手覆盖（回落整数索引，数值一致无跳变）；
+        // 中途被打断的动画保持浮点覆盖，避免滑块闪跳回旧位置
+        if (Math.abs(this.slidePosition - Math.round(this.slidePosition)) < 0.01) {
+          this.slidePosition = -1;
+        }
+      })
       .width('100%')
       .height('100%')
 
       SegmentedControl({
         items: PROFILE_SEGMENTS,
         selectedIndex: $tabIdx,
+        slidePosition: this.slidePosition,
         itemWidth: 67,
         // 沉浸光感（华为应用商店同款）：玻璃底 + backdropBlur + 高光边框 + 滑块悬浮投影
         immersive: true,
-        onSelect: (idx: number): void => { this.onTabChange(idx); },
+        onSelect: (idx: number): void => {
+          // 点击立即落整数位（弹性动画由 SharedSlide 整数分支承担）
+          this.slidePosition = idx;
+          this.onTabChange(idx);
+        },
       })
       .margin({
         left: SpaceTokens.sm,        right: SpaceTokens.sm,

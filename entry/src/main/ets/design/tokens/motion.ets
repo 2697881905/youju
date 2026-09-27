@@ -3,6 +3,8 @@ import { curves } from '@kit.ArkUI';
 // design token: motion. 仅 transform/opacity 消费这些参数。
 export class MotionTokens {
   static readonly instant: number = 100;
+  // 逐帧跟手：不做补间、属性即时生效（Swiper 联动等逐帧驱动的连续位移，避免滑块滞后于手势）
+  static readonly none: number = 0;
   static readonly fast: number = 140;
   static readonly base: number = 220;
   static readonly slow: number = 320;

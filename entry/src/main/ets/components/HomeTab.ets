@@ -91,6 +91,8 @@ export struct HomeTab {
   @State error: string = '';
   @State feedMode: FeedMode = 'recommend';
   @State feedIndex: number = 0;
+  // 分段滑块跟手位置：Swiper 滚动（拖动/吸附）中喂入的连续索引；-1 = 未滚动
+  @State slidePosition: number = -1;
   @State needLogin: boolean = false; // 关注流且未登录的引导态
   // 关注流的关注数缓存（空态 A/B 区分）。取值三态，见 FOLLOWING_COUNT_* 常量：
   // 保留上次取到的真实值，切回关注 Tab 时不会先闪加载态（关注数极少变，够用）。
@@ -938,12 +940,15 @@ export struct HomeTab {
             SegmentedControl({
               items: FEED_SEGMENTS,
               selectedIndex: $feedIndex,
+              slidePosition: this.slidePosition,
               itemWidth: 66,
               fillWidth: false,
               // 描边风格：与右上角搜索按钮同款（透明底 + 细边框 + 大圆角），顶栏视觉统一
               glass: false,
               outlined: true,
               onSelect: (idx: number): void => {
+                // 点击立即落整数位（弹性动画由 SharedSlide 整数分支承担）
+                this.slidePosition = idx;
                 const mode: FeedMode = FEED_MODE_IDX_MAP[idx];
                 this.switchFeed(mode);
               },
@@ -990,6 +995,23 @@ export struct HomeTab {
         .duration(MotionTokens.container)
         .curve(MotionCurves.springSoft)
         .onChange((index: number): void => { this.onSwiperChanged(index); })
+        // 拖动/吸附逐帧联动滑块（1:1 跟手，见 slidePosition 注释）
+        .onContentDidScroll((selectedIndex: number, index: number, position: number, _mainAxisLength: number): void => {
+          // 只取当前选中页的回报（selectedIndex 在整段滚动中恒定）：
+          // 连续索引 = index - position，官方语义 position 为 index 页相对主轴起始的位移比例
+          if (index !== selectedIndex) {
+            return;
+          }
+          const continuous: number = selectedIndex - position;
+          this.slidePosition = Math.max(0, Math.min(FEED_SEGMENTS.length - 1, continuous));
+        })
+        .onAnimationEnd((): void => {
+          // 吸附收尾：已回到整数位才清除跟手覆盖（回落整数索引，数值一致无跳变）；
+          // 中途被打断的动画保持浮点覆盖，避免滑块闪跳回旧位置
+          if (Math.abs(this.slidePosition - Math.round(this.slidePosition)) < 0.01) {
+            this.slidePosition = -1;
+          }
+        })
         .width('100%')
         .height('100%')
         .layoutWeight(1)

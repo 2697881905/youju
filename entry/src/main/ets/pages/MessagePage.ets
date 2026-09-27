@@ -54,6 +54,8 @@ export struct MessagePage {
   // ===== 私信 =====
   @State dmTab: string = 'notif'; // 'notif' | 'dm'
   @State dmTabIndex: number = 0;
+  // 分段滑块跟手位置：Swiper 滚动（拖动/吸附）中喂入的连续索引；-1 = 未滚动
+  @State slidePosition: number = -1;
   @State tabPulse: boolean = false;
   @State conversations: Conversation[] = [];
   @State dmLoading: boolean = true;
@@ -700,10 +702,15 @@ export struct MessagePage {
       SegmentedControl({
         items: MESSAGE_SEGMENTS,
         selectedIndex: $dmTabIndex,
+        slidePosition: this.slidePosition,
         itemWidth: 88,
         // 沉浸光感（华为应用商店同款）：玻璃底 + backdropBlur + 高光边框 + 滑块悬浮投影
         immersive: true,
-        onSelect: (idx: number): void => { this.switchDmTab(idx); },
+        onSelect: (idx: number): void => {
+          // 点击立即落整数位（弹性动画由 SharedSlide 整数分支承担）
+          this.slidePosition = idx;
+          this.switchDmTab(idx);
+        },
       })
       .margin({ left: SpaceTokens.sm, right: SpaceTokens.sm, bottom: SpaceTokens.sm })
       // 分段控件保持固定尺寸；切换反馈只改变透明度，避免 Tab 状态切换时高度跳变。
@@ -840,6 +847,23 @@ export struct MessagePage {
         .onChange((index: number): void => {
           hilog.info(0x0000, 'MessagePage', '分段页切换 index=%{public}s', String(index));
           this.switchDmTab(index);
+        })
+        // 拖动/吸附逐帧联动滑块（1:1 跟手，见 slidePosition 注释）
+        .onContentDidScroll((selectedIndex: number, index: number, position: number, _mainAxisLength: number): void => {
+          // 只取当前选中页的回报（selectedIndex 在整段滚动中恒定）：
+          // 连续索引 = index - position，官方语义 position 为 index 页相对主轴起始的位移比例
+          if (index !== selectedIndex) {
+            return;
+          }
+          const continuous: number = selectedIndex - position;
+          this.slidePosition = Math.max(0, Math.min(MESSAGE_SEGMENTS.length - 1, continuous));
+        })
+        .onAnimationEnd((): void => {
+          // 吸附收尾：已回到整数位才清除跟手覆盖（回落整数索引，数值一致无跳变）；
+          // 中途被打断的动画保持浮点覆盖，避免滑块闪跳回旧位置
+          if (Math.abs(this.slidePosition - Math.round(this.slidePosition)) < 0.01) {
+            this.slidePosition = -1;
+          }
         })
         .layoutWeight(1)          // 顶栏与分段栏之外的剩余高度全部给分页区
         .width('100%')

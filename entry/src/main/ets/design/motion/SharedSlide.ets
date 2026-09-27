@@ -44,6 +44,12 @@ export struct SharedSlide {
     return this.reduceMotion || this.appReduceMotion || this.systemReduceMotion;
   }
 
+  // 逐帧跟手：浮点索引（Swiper 拖动/吸附过程中的连续位置）不做补间，逐帧即时贴合手势；
+  // 整数索引（点击切换）保留弹性动画（springInteract 过冲回弹）
+  private isTracking(): boolean {
+    return Math.abs(this.selectedIndex - Math.round(this.selectedIndex)) > 0.001;
+  }
+
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
       Column()
@@ -60,7 +66,7 @@ export struct SharedSlide {
           y: this.pressed && !this.shouldReduceMotion() ? MotionTokens.pressSlideScale : 1,
         })
         .animation({
-          duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.base,
+          duration: (this.shouldReduceMotion() || this.isTracking()) ? MotionTokens.none : MotionTokens.base,
           curve: this.shouldReduceMotion() ? MotionCurves.standard : MotionCurves.springInteract,
         })
     }
