@@ -10,6 +10,10 @@ export struct DetailMediaCarousel {
   // 卡片一镜到底时锁定源卡片比例，避免首图解码后详情媒体高度突然跳变。
   // 普通详情入口传 0，继续使用图片真实比例。
   @Prop initialAspect: number = 0;
+  // 一镜到底的**阅读**比例（转场结束后媒体框的展示比例；0 = 不切换）。
+  // 与 initialAspect（飞行目标框比例）解耦：飞行段锁卡面比例让截图落点严丝合缝，
+  // 首图就绪交接时再平滑切到阅读比例（如卡堆卡面 4:3 → 阅读 3:4，竖图不被压横）。
+  @Prop readingAspect: number = 0;
   // 每日一帖卡面是 Cover 裁切，详情阅读时保留原图完整内容。
   @Prop preserveContent: boolean = false;
   onOpenImage: (url: string) => void = (_url: string): void => {};
@@ -44,6 +48,23 @@ export struct DetailMediaCarousel {
     }
   }
 
+  // 一镜到底交接：把锁定在「飞行目标比例」（initialAspect）上的媒体框平滑归位到
+  // **首图真实比例**（与滑动切换后 onChange 的行为一致；真实比例未知时才回退阅读比例）。
+  // 不能长期停在锁定比例上：1:1 图片进详情被展示成 3:4、滑动一次才"恢复"，
+  // 就是停在锁定值上造成的（用户实测）。用 animateTo 包住，让框高变化与页面
+  // 随之的布局联动（正文移动）一起进入动画，而不是硬跳一帧。
+  private applyReadingAspect(): void {
+    const real: number = this.ratios[0] ?? 0;
+    const target: number = real > 0 ? this.clampRatio(real)
+      : (this.readingAspect > 0 ? this.clampRatio(this.readingAspect) : 0);
+    if (!(target > 0) || Math.abs(target - this.currentRatio) < 0.01) {
+      return;
+    }
+    this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, (): void => {
+      this.currentRatio = target;
+    });
+  }
+
   build() {
     if (this.images.length > 0) {
       Stack({ alignContent: Alignment.BottomEnd }) {
@@ -71,9 +92,13 @@ export struct DetailMediaCarousel {
                     this.currentRatio = ratio;
                   }
                 }
-                if (index === 0 && !this.firstReadyFired && this.onFirstReady !== null) {
+                if (index === 0 && !this.firstReadyFired) {
                   this.firstReadyFired = true;
-                  this.onFirstReady();
+                  if (this.onFirstReady !== null) {
+                    this.onFirstReady();
+                  }
+                  // 交接同帧：媒体框从「飞行目标比例」平滑归位到首图真实比例
+                  this.applyReadingAspect();
                 }
               })
               .onClick((): void => { this.onOpenImage(url); })

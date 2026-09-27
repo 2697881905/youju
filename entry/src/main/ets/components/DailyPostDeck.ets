@@ -68,6 +68,9 @@ struct DeckSlotCard {
   // 拖动进行中：跟手阶段位移/旋转不做补间（逐帧 1:1 贴合手势）；
   // 若保留槽位弹簧，则每帧都会重定向一个 320ms 弹簧动画 → 掉帧 + 卡片拖尾不跟手
   @Prop dragging: boolean = false;
+  // 推进/抛出收尾窗口（与 deck 的 advancing 同源）：窗口内继续缓存整卡纹理，
+  // 让被抛出的飞行卡与其余卡的槽位弹簧收尾都走纹理合成（见 renderGroup 注释）
+  @Prop advancing: boolean = false;
   @Prop rise: number = 1;            // 入场仪式 0→1：顶卡升起 + 下层淡入
   // —— 飞行模式（旧顶卡被推进时独立抛射到屏外，对应原型 S.FL）——
   @Prop inFlight: boolean = false;   // true：本卡不再参与堆叠，仅按飞行参数渲染
@@ -352,6 +355,14 @@ struct DeckSlotCard {
         // 圆角对齐卡面；阴影挂在旋转层上 → 随卡片一起旋转，不再衬出“摆正的叠层影”
         .borderRadius(RadiusTokens.md)
         .shadow({ radius: 26, color: '#302E2A1C', offsetY: 9 })
+        // 跟手 / 抛出飞行 / 推进收尾期间，把整卡（含模糊底图 / 阴影 / 文字）合并为
+        // 一张离屏纹理再合成：卡面有两张图（其中一张 blur(26) + High 插值）与阴影，
+        // 逐帧变换时若不缓存，每帧都要重新光栅化 → 拖拽与抛出掉帧（本轮修的主因）。
+        // 静止态关闭：一镜到底的卡面截图（getComponentSnapshot 截的就是这棵子树）
+        // 在含图像效果属性时可能异常（官方文档提示），保持与原来完全一致；
+        // 截图只发生在点击时，而推进窗口内点击被 openActivePost 直接忽略、
+        // 拖拽与点击互斥、松手当帧 dragging 落回 false —— 截图不会落在开启时刻。
+        .renderGroup(this.dragging || this.inFlight || this.advancing)
         .animation({
           // 拖动中不补间（0ms）：角度逐帧直贴手势，避免逐帧重定向弹簧 → 掉帧与角度拖尾；
           // 松手后 dragging=false，恢复槽位旋转弹簧（各层错峰摆动）
@@ -980,6 +991,7 @@ export struct DailyPostDeck {
                 dragOffsetX: this.dragOffsetX,
                 dragOffsetY: this.dragOffsetY,
                 dragging: this.dragging,
+                advancing: this.advancing,
                 rise: this.animRise,
               })
             }, (post: DailyPost) => String(post.id ?? 'deck-' + post.title?.slice(0, 12)))
@@ -994,6 +1006,7 @@ export struct DailyPostDeck {
                 dragOffsetX: this.dragOffsetX,
                 dragOffsetY: this.dragOffsetY,
                 dragging: this.dragging,
+                advancing: this.advancing,
                 rise: 1,
                 inFlight: true,
                 flyX: this.flyX,

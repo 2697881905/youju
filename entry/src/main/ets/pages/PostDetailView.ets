@@ -62,7 +62,7 @@ export const DETAIL_HERO_ID: string = 'detailHeroMedia';
 // 加载壳里的媒体占位 id：**必须与真实 hero 不同名** —— 两个分支虽然互斥，
 // 但同名会被编译器判 duplicate id（发布构建实测报 WARN），且壳与真内容短暂共存时
 // getFrameNodeById 会取到不确定节点。数据是异步的，转场开始那一刻只有壳，
-// 量不到真实 hero 就回退量这个壳占位（宽高由 intent.aspect 决定，与真实 hero 一致）。
+// 量不到真实 hero 就回退量这个壳占位（宽高由飞行目标框比例 flightAspect 决定，与真实 hero 一致）。
 export const DETAIL_HERO_SHELL_ID: string = 'detailHeroShellMedia';
 
 
@@ -199,14 +199,23 @@ export struct PostDetailView {
     return this.isDeletedAuthor() ? '' : (this.post?.user?.avatar ?? '');
   }
 
-  // 一镜到底（navMode）下，详情媒体沿用卡片传入的比例：整页缩放展开需要
-  // 「媒体高度在转场期间稳定」，否则首图解码出真实比例时会二次跳位；
+  // 一镜到底（navMode）下，详情媒体框的**阅读**比例（转场结束后长期生效）：
+  // 整页缩放展开需要「媒体高度在转场期间稳定」，否则首图解码出真实比例时会二次跳位；
   // 普通 router 入口返回 0，媒体按真实比例展示。
-  private transitionAspect(): number {
+  private readingAspect(): number {
     if (!this.navMode || this.intent === null || !(this.intent.aspect > 0)) {
       return 0;
     }
     return this.intent.aspect;
+  }
+
+  // 一镜到底的**飞行目标框**比例（转场进行时生效）：= 卡面比例，让截图落点严丝合缝。
+  // 与阅读比例解耦（如卡堆：卡面 4:3、阅读 3:4，同一个值无法两全）；
+  // 未提供时回退阅读比例。真媒体首帧就绪后，媒体框再从该比例平滑过渡到阅读比例
+  // （图片轮播见 DetailMediaCarousel 的 applyReadingAspect，视频见 videoBoxAspect）。
+  private flightAspect(): number {
+    const fa: number = this.intent?.flightAspect ?? 0;
+    return fa > 0 ? fa : this.readingAspect();
   }
 
   private openAuthorProfile(): void {
@@ -1075,6 +1084,14 @@ export struct PostDetailView {
     return this.animMediaEnter();
   }
 
+  // 视频媒体框比例：飞行段用「飞行目标框」比例（与截图落点一致）；
+  // 首帧就绪（mediaReady，随 markHeroReady 的 animateTo 一起）后过渡到阅读比例 /
+  // 视频真实比例 —— 视频不接管轮播的 initialAspect，这里显式分阶段。
+  private videoBoxAspect(): number {
+    const phaseAspect: number = this.mediaReady ? this.readingAspect() : this.flightAspect();
+    return phaseAspect > 0 ? phaseAspect : this.videoAspectRatio;
+  }
+
   // 媒体进入：仅透明度淡入（无缩放），避免加载完成切媒体时"缩一下"。
   @Builder
   videoFace(): void {
@@ -1090,7 +1107,7 @@ export struct PostDetailView {
       })
     }
     .width('100%')
-    .aspectRatio(this.transitionAspect() > 0 ? this.transitionAspect() : this.videoAspectRatio)
+    .aspectRatio(this.videoBoxAspect())
     .backgroundColor(Color.Black)
     .borderRadius(12)
     .clip(true)
@@ -1102,8 +1119,11 @@ export struct PostDetailView {
     DetailMediaCarousel({
       images: this.images,
       activeIndex: $activeImageIndex,
-      initialAspect: this.transitionAspect(),
-      preserveContent: this.transitionAspect() > 1,
+      // 飞行段锁「飞行目标框」比例（截图落点严丝合缝）；
+      // 首图就绪后轮播自己平滑切到 readingAspect（竖图不被压横）
+      initialAspect: this.flightAspect(),
+      readingAspect: this.readingAspect(),
+      preserveContent: this.readingAspect() > 1,
       onFirstReady: (): void => { this.markHeroReady(); },
       onOpenImage: (url: string): void => { this.viewingImage = url; },
     })
@@ -1150,7 +1170,7 @@ export struct PostDetailView {
   // 也不会先闪一下 LoadingProgress；真实内容返回后复用相同布局，媒体帧不会跳位。
   @Builder
   transitionLoadingShell(): void {
-    if (this.intent !== null && this.transitionAspect() > 0) {
+    if (this.intent !== null && this.flightAspect() > 0) {
       Column({ space: 16 }) {
         DetailPostHeader({
           title: this.intent.title,
@@ -1164,14 +1184,14 @@ export struct PostDetailView {
         })
         // 这个盒子只承担一个职责：给一镜到底提供**可量的「对应节点」**
         // （转场开始那一刻就要量它的宽高与位置，量不到动画整体不出现）。
-        // 因此它必须与真实 hero 同比例（transitionAspect），但**不能画任何东西**：
+        // 因此它必须与真实 hero 同比例（飞行目标框比例 flightAspect），但**不能画任何东西**：
         // 卡片截图位于内容层**之下**，这里一旦有底色就会把截图盖住
         // （观感变成「卡片图 → 灰块 → 照片」）；不加 opacity 也免得赌
         // 「完全透明是否被渲染层裁掉」这种实现细节——空盒子照样能量。
         // id 用独立的 DETAIL_HERO_SHELL_ID：与真实 hero 不同名（防 duplicate id）。
         Stack()
           .width('100%')
-          .aspectRatio(this.transitionAspect())
+          .aspectRatio(this.flightAspect())
           .id(DETAIL_HERO_SHELL_ID)
       }
       .padding(16)
