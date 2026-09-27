@@ -65,3 +65,9 @@ Thumbs.db
 /hyperframes-demo/renders/
 
 /.preview
+
+# 应用图标改版时的原图备份（PNG 原图，仅本地回滚用）
+/.icon_backup/
+
+# 一次性任务产出（临时文档/样张，非项目源码）
+/output/
