@@ -198,6 +198,11 @@ export struct DetailActionBar {
       .hitTestBehavior(this.inputFocused ? HitTestMode.None : HitTestMode.Default)
 
       // 层2：输入框 + 发送 + 取消键（不用 Row({space})，间距走 margin——镜像时可控）
+      // hitTestBehavior：层2 全宽且绘制在层1之上，未聚焦时其「让位 padding」区域正好
+      // 罩住点赞/收藏按钮——Default 命中后会阻塞兄弟节点（层1），点击全被这层 padding
+      // 吃掉（按钮无响应、无 toast 无请求）。None = 自身不参与命中且不阻塞兄弟，
+      // 让位区穿透到层1按钮，子节点（输入框/发送/取消）照常可点。
+      // 聚焦时回 Default：输入框铺满整行，挡住 opacity=0 但仍挂载的层1，防幽灵点赞。
       Row() {
         GlowInput({ placeholder: this.replyName.length > 0 ? ('回复 @' + this.replyName) : '说点什么…',
           text: $commentText, fillWidth: true, inputHeight: COMPACT_CONTROL_HEIGHT, radius: RadiusTokens.sm,
@@ -234,6 +239,7 @@ export struct DetailActionBar {
         right: this.padOnRight ? 0 : this.actionsReserve(),
       })
       .direction(this.inputOnRight ? Direction.Ltr : Direction.Rtl)
+      .hitTestBehavior(this.inputFocused ? HitTestMode.Default : HitTestMode.None)
     }
     .width('100%')
     .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.sm, bottom: SpaceTokens.sm })

@@ -23,7 +23,12 @@ export interface PostDetailIntent {
   authorName: string;
   authorAvatar: string;
   createdAt: string;
+  // 阅读比例（宽/高）：转场结束后详情媒体框的展示比例（如 3:4）。
   aspect: number;
+  // 一镜到底「飞行目标框」比例（宽/高）：飞行落点框的比例 = 卡面比例（如卡堆 4:3）。
+  // 与 aspect（阅读比例）解耦：卡面 4:3 而阅读 3:4 时同一个值无法两全——
+  // 用 4:3 当阅读比例会把竖向图片压成横屏（反复踩过）。未提供 / ≤0 → 回退 aspect。
+  flightAspect?: number;
   isVideo: boolean;
 }
 

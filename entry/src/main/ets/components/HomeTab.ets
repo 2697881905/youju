@@ -55,7 +55,10 @@ const FEED_SEGMENTS: SegmentedItem[] = [
 // 计日统一按北京时间（UTC+8），与后端 dailyKey 的 Asia/Shanghai 口径一致，设备处于任意时区均不偏移。
 const DAILY_ISSUE_ORIGIN: string = '2026-09-11';
 const DAILY_TZ_OFFSET_MS: number = 8 * 60 * 60 * 1000;
-// 每日卡面媒体展示比例（与 DECK_MEDIA_RATIO 一致）：一镜到底飞行目标同比例
+// 每日卡堆卡面的媒体比例（与 DECK_MEDIA_RATIO 一致）：只作为一镜到底的
+// **飞行目标框比例**（intent.flightAspect）传入 —— 落点与卡面严丝合缝；
+// **不要**传给 intent.aspect（阅读比例）：那是转场结束后媒体框的展示比例，
+// 用 4:3 会把竖向图片压进横屏框（反复踩过）。
 const DAILY_DECK_MEDIA_RATIO: number = 4 / 3;
 
 // —— 会话级信息流缓存：切 Tab 回来先展示缓存再后台刷新，避免白屏重拉（P2 性能优化）——
@@ -476,7 +479,9 @@ export struct HomeTab {
     return raw.length > 0 ? resolveDisplayImageUrl(raw) : '';
   }
 
-  private buildDetailIntent(cover: string, p: Post, aspect: number): PostDetailIntent {
+  // aspect = 阅读比例（转场结束后媒体框的展示比例）；flightAspect = 飞行目标框比例（= 卡面比例）。
+  // 两者通常相同；卡堆卡面 4:3、阅读 3:4，必须分开传（同一个值无法两全）。
+  private buildDetailIntent(cover: string, p: Post, aspect: number, flightAspect: number): PostDetailIntent {
     return {
       cover: cover,
       title: p.title ?? '',
@@ -486,6 +491,7 @@ export struct HomeTab {
       authorAvatar: p.user?.avatar ?? '',
       createdAt: p.createdAt ?? '',
       aspect: aspect,
+      flightAspect: flightAspect,
       isVideo: ((p.videoUrl ?? '') as string).length > 0,
     };
   }
@@ -499,19 +505,21 @@ export struct HomeTab {
   // （deckCardMedia-{id}）。只飞媒体块、不飞整卡：标题/互动区不参与缩放变形，
   // 与卡堆口径一致，也避免「整卡缩到 3:4 媒体框」的比例跳变。
   // cardRadius：飞行物自身的圆角（vp）—— 截图的起始圆角，飞行中过渡到详情媒体圆角。
-  private openDetailViaNav(post: Post, aspect: number, cover: string, cardId: string, cardRadius: number): void {
+  // flightAspect：飞行目标框比例（卡面比例）；aspect 只作阅读比例（两者同源时传同一个值）。
+  private openDetailViaNav(post: Post, aspect: number, cover: string, cardId: string, cardRadius: number,
+    flightAspect: number): void {
     if (post.id === undefined) {
       return;
     }
     const nav: NavPathStack | null = getMainNavStack();
     if (nav === null) {
-      openPostDetail(post.id.toString(), cover.length > 0 ? this.buildDetailIntent(cover, post, aspect) : undefined);
+      openPostDetail(post.id.toString(), cover.length > 0 ? this.buildDetailIntent(cover, post, aspect, flightAspect) : undefined);
       this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
       return;
     }
     const p: PostDetailNavParams = new PostDetailNavParams();
     p.postId = post.id;
-    p.intent = cover.length > 0 ? this.buildDetailIntent(cover, post, aspect) : null;
+    p.intent = cover.length > 0 ? this.buildDetailIntent(cover, post, aspect, flightAspect) : null;
     const rect: CardRect | null = cardRectOf(cardId);
     // 官方做法：先截飞行物图顶住首帧，再 push；截图失败则退化为纯布局变形（转场照走）
     const take: LongTakeParams = new LongTakeParams();
@@ -764,9 +772,11 @@ export struct HomeTab {
               onOpen: (post: DailyPost): void => {
                 if (post.id !== undefined) {
                   trackPostEvent(post.id, 'click', 'daily');
-                  // 飞行目标比例 = 卡面比例（4:3，与 DECK_MEDIA_RATIO 一致）；
+                  // 阅读比例 = 标准 3:4（竖向图片不被压横）；飞行目标比例 = 卡面 4:3
+                  // （落点与卡面严丝合缝，真图就绪交接时再平滑过渡到阅读比例）。
                   // 圆角 = 卡堆卡容器圆角（RadiusTokens.md）
-                  this.openDetailViaNav(post, DAILY_DECK_MEDIA_RATIO, this.dailyDeckCover(post), 'deckCardMedia-' + post.id, RadiusTokens.md);
+                  this.openDetailViaNav(post, LayoutTokens.cardMediaAspectRatio, this.dailyDeckCover(post), 'deckCardMedia-' + post.id,
+                    RadiusTokens.md, DAILY_DECK_MEDIA_RATIO);
                 }
               },
             })
@@ -808,7 +818,9 @@ export struct HomeTab {
           // 飞行物 = 3:4 封面海报本身（PostCardMedia.coverFace 挂着 cardMedia-{id}）；
           // 圆角 = 该封面 Image 的圆角 —— compact 卡封面与卡片容器同为 RadiusTokens.xs。
           // 标题/互动区不参与缩放变形（与卡堆「只飞媒体块」口径一致）。
-          this.openDetailViaNav(post, LayoutTokens.cardMediaAspectRatio, this.feedCardCover(post), 'cardMedia-' + post.id, RadiusTokens.xs);
+          // 信息流卡面与阅读框同为 3:4：飞行/阅读比例传同一个值。
+          this.openDetailViaNav(post, LayoutTokens.cardMediaAspectRatio, this.feedCardCover(post), 'cardMedia-' + post.id,
+            RadiusTokens.xs, LayoutTokens.cardMediaAspectRatio);
         }
       },
     })
