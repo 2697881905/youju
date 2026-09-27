@@ -68,6 +68,13 @@ const FEED_CACHE_TTL: number = 120000;
 const feedSessionCache: Map<string, FeedCacheEntry> = new Map<string, FeedCacheEntry>();
 const ALL_TAG: Tag = { name: '全部' };
 
+// —— 关注流空态 A/B 的判别哨兵 ——
+// 空态 A（你还没有关注任何人）与 B（你关注的人还没有发布内容）靠「关注数」区分，
+// 而关注数是异步取的。判别依据没到齐时**不能**用一个看起来合理的默认值（0）下结论，
+// 否则进关注 Tab 会先闪一下 A 再变成 B（用户实测的闪烁）。
+const FOLLOWING_COUNT_UNKNOWN: number = -1; // 还没取到 → 渲染加载态
+const FOLLOWING_COUNT_FAILED: number = -2;  // 取数失败 → 渲染中性空态（A/B 两个文案都在断言，都不能用）
+
 @Component
 export struct HomeTab {
   // 三页（推荐/关注/每日一帖）各自独立缓存：Swiper 滑动时相邻页显示自己的内容，
@@ -85,7 +92,9 @@ export struct HomeTab {
   @State feedMode: FeedMode = 'recommend';
   @State feedIndex: number = 0;
   @State needLogin: boolean = false; // 关注流且未登录的引导态
-  @State followingCount: number = 0; // 关注流的关注数缓存（空态 A/B 区分）
+  // 关注流的关注数缓存（空态 A/B 区分）。取值三态，见 FOLLOWING_COUNT_* 常量：
+  // 保留上次取到的真实值，切回关注 Tab 时不会先闪加载态（关注数极少变，够用）。
+  @State followingCount: number = FOLLOWING_COUNT_UNKNOWN;
   @State dailyDeckVersion: number = 0;
   // 监听登录态：登录成功后 authToken 就绪，若处于关注流且列表空则自动补加载
   @StorageLink('authToken') @Watch('onTokenReady') token: string = '';
@@ -156,6 +165,8 @@ export struct HomeTab {
   onAccountSwitch(): void {
     likeStore.clear();
     this.setPagePosts(this.feedIndex, []);
+    // 换账号：上一个账号的关注数与当前账号无关，必须退回「未知」而不是 0
+    this.followingCount = FOLLOWING_COUNT_UNKNOWN;
     this.refresh();
   }
 
@@ -274,7 +285,9 @@ export struct HomeTab {
   async refresh(): Promise<void> {
     this.page = 1;
     this.finished = false;
-    this.followingCount = 0; // 重置关注流空态缓存
+    // 这里刻意**不**重置 followingCount：它是空态 A/B 的判别依据，置成 0 就等于断言
+    // 「未关注任何人」，真实值到达前会先闪一下错误的空态。保留上次取到的真实值，
+    // 换账号时才由 onAccountSwitch 重置为 UNKNOWN。
     this.feedRetryCount = 0; // 手动刷新/切换信息源时重置重试计数
     await this.fetch(true);
   }
@@ -430,14 +443,18 @@ export struct HomeTab {
     try {
       const id: number = getUserId();
       if (id === 0) {
+        // 未登录：没有「关注数」这回事（此时页面走 needLogin 引导态，本值不会被用来判空态）
         this.followingCount = 0;
         return;
       }
       const profile = await getUserProfile(id);
       this.followingCount = profile.followingCount;
     } catch (e) {
-      // 计数失败不阻断，默认按空态 A 处理
-      this.followingCount = 0;
+      // 取数失败：不要拿 0 冒充「未关注任何人」—— 那是在断言一件我们并不知道的事。
+      // 已有上次的真实值时保留（不降级），否则标记 FAILED 走中性空态。
+      if (this.followingCount === FOLLOWING_COUNT_UNKNOWN) {
+        this.followingCount = FOLLOWING_COUNT_FAILED;
+      }
     }
   }
 
@@ -669,8 +686,27 @@ export struct HomeTab {
               onAction: (): void => { this.refresh(); },
             })
           } else if (seg === 1) {
-            // 关注流空态 A/B 区分：按 followingCount 判定
-            if (this.followingCount === 0) {
+            // 关注流空态 A/B 区分：判别依据是异步取到的「关注数」，所以必须等它到齐再下结论。
+            // 旧实现把它默认成 0 且每次 refresh() 都重置为 0 → 进关注 Tab 先闪一下
+            //「你还没有关注任何人」，真实值到了再变成「你关注的人还没有发布内容」。
+            if (this.followingCount === FOLLOWING_COUNT_UNKNOWN) {
+              // 判别依据未就绪：给加载态，而不是拿默认值冒充结论
+              Column() {
+                LoadingProgress().width(IconTokens.empty).height(IconTokens.empty)
+              }
+              .width('100%')
+              .height('100%')
+              .justifyContent(FlexAlign.Center)
+            } else if (this.followingCount === FOLLOWING_COUNT_FAILED) {
+              // 取数失败：这时「有没有关注人」并不知道，A/B 两个文案都是在断言，改用中性文案
+              EmptyState({
+                icon: resolveActionIcon('inbox'),
+                title: '这里还没有内容',
+                message: '稍后下拉刷新，或去发现感兴趣的人',
+                actionLabel: '刷新',
+                onAction: (): void => { this.refresh(); },
+              })
+            } else if (this.followingCount === 0) {
               // 空态 A：未关注任何人
               EmptyState({
                 icon: resolveActionIcon('guide'),
