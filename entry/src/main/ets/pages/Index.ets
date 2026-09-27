@@ -319,10 +319,10 @@ struct Index {
     if (!this.authExpiredAt) {
       return;
     }
-    // 区分文案：本地有 token 说明是会话过期；无 token 是匿名用户触发了需登录的操作
-    const hadToken: boolean = getToken().length > 0;
+    // 能走到这里必然是「本地曾有 token 但服务端判定失效」—— 匿名访客的 401 已在 api.ets
+    // 的 markAuthExpired 里被拦掉（不打标记），那种情况交给各入口/目标页自己的登录闸门。
     clearSession();
-    safeShowToast(this.getUIContext(), { message: hadToken ? '登录已过期，请重新登录' : '请先登录后重试' });
+    safeShowToast(this.getUIContext(), { message: '登录已过期，请重新登录' });
     try {
       const r = this.getUIContext().getRouter();
       const state = r.getState();
