@@ -129,6 +129,10 @@
       "value": "#EDE5CF"
     },
     {
+      "name": "ds_panel",
+      "value": "#F5EFDE"
+    },
+    {
       "name": "ds_text_primary",
       "value": "#161410"
     },

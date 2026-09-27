@@ -4,6 +4,11 @@ export class ColorTokens {
   static readonly elevated: ResourceColor = $r('app.color.ds_elevated');
   static readonly subtle: ResourceColor = $r('app.color.ds_subtle');
   static readonly sunken: ResourceColor = $r('app.color.ds_sunken');
+  // 次级内容面板底：比卡片底（elevated）深一档、比 sunken 浅得多的暖米黄。
+  // 用途：媒体下方的信息条 / 需要「看得出是一块面板」但不想厚重的区域。
+  // 浅色 #F5EFDE（对卡片底 ≈1.12:1，看得见但不厚重）；深色 #262017（比卡片底略亮，
+  // 是「微微抬起的面板」而不是一个黑洞 —— sunken 的 #0E0C08 在深色下就偏黑了）。
+  static readonly panel: ResourceColor = $r('app.color.ds_panel');
 
   static readonly primary: ResourceColor = $r('app.color.ds_text_primary');
   static readonly secondary: ResourceColor = $r('app.color.ds_text_secondary');
