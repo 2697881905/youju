@@ -44,6 +44,9 @@ export struct SegmentedControl {
   // 沉浸光感模式（华为应用商店分段栏同款）：玻璃底 + backdropBlur + 高光边框 + 滑块悬浮投影，
   // 并自动关闭按压/长按光斑；内部按 API 分级降级（见文件头 IMMERSIVE_* 注释）
   @Prop immersive: boolean = false;
+  // Swiper 联动跟手位置：滚动（拖动/吸附）中由页面喂入的连续（浮点）索引，1:1 跟手；
+  // -1 表示未在滚动（回退 activeIndex()，点击切换仍走弹性动画）
+  @Prop slidePosition: number = -1;
   @StorageLink('reduceMotion') appReduceMotion: boolean = false;
   @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
   onSelect?: (index: number) => void = undefined;
@@ -202,7 +205,8 @@ export struct SegmentedControl {
     Stack({ alignContent: Alignment.Center }) {
       // 分段滑块：immersive/outlined/glass 用纸面高亮；默认 elevated
       SharedSlide({
-        selectedIndex: this.activeIndex(),
+        // 跟手位置优先：滚动中喂入的连续（浮点）索引；未滚动时回退整数选中索引
+        selectedIndex: this.slidePosition >= 0 ? this.slidePosition : this.activeIndex(),
         itemCount: this.items.length,
         controlHeight: LayoutTokens.segmentedHeight,
         // 滑块内缩量与容器 padding 一致，滑块高度/圆角按同心原则收进容器（不超出分段栏）
