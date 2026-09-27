@@ -41,6 +41,9 @@ export class LongTakeParams {
   // 卡片在屏幕上的帧（vp），由源页实测
   cardRect: CardRect = { left: 0, top: 0, width: 0, height: 0 };
   snapshot: image.PixelMap | undefined = undefined;
+  // 源卡片圆角（vp）：截图进场从这里过渡到媒体圆角，避免飞行途中
+  // 「截图方角 → 真图圆角」的跳变；0 = 未提供（回退 RADIUS_CARD）。
+  cardRadius: number = 0;
 }
 
 @Observed
@@ -51,6 +54,14 @@ export class LongTakeAnimationProperties {
   // 页面只是少一段动画，而不会停在「内容 0 透明度 + 截图铺满屏」的坏状态（踩过）。
   snapShotOpacity: number = 0; // 卡片截图：进场 1→0（真内容接管）；返回 0→1
   postPageOpacity: number = 1; // 目的地真内容：进场 0→1
+  // 截图展示宽度（vp）= 对应节点（详情媒体位）实测宽：截图是卡片的原尺寸拷贝，
+  // 按节点宽渲染才能「起点与卡片 1:1、终点与媒体位像素对齐」；
+  // 用页宽 100% 会整体大 ~1.1 倍：落点右/下溢出，交接真图时"瞬移"一下。
+  snapShotWidth: number = 0;
+  // 截图自身圆角（vp）：进场随转场从源卡片圆角过渡到媒体圆角。
+  // 不设圆角时飞行中露出的是截图直角边——可见圆角只来自外层裁切窗口，
+  // 窗口随转场放大后圆角边缘与截图错开，直角暴露（观感「圆角变直角」）。
+  snapShotRadius: number = RADIUS_CARD;
   scaleValue: number = 1;
   translateX: number = 0;
   translateY: number = 0;
@@ -70,6 +81,9 @@ export class LongTakeAnimationProperties {
   private initClipHeight: Dimension = '100%';
   private initPositionValueX: number = 0;
   private initPositionValueY: number = 0;
+  // 截图圆角过渡的两端：源卡片（截图起点）与媒体位（截图终点），init 时记录
+  private cardRadiusValue: number = RADIUS_CARD;
+  private mediaRadiusValue: number = RADIUS_CARD;
 
   // 源页/目的地约定的组件 id 与卡片帧，init 时一次性记录
   private clickedCardId: string = '';
@@ -91,14 +105,19 @@ export class LongTakeAnimationProperties {
    * destNodeId：详情页里充当「卡片对应节点」的组件 id（整页缩放到「该节点宽 == 卡片宽」）
    * destNodeFallbackId：对应节点的回退 id（加载壳占位，几何与真实 hero 一致）
    * rootNodeId：页面根组件 id（用来量出页面内容原点，见 initParams 注释）
+   * cardRadius：源卡片圆角（截图圆角过渡的起点）
+   * mediaRadius：详情媒体圆角（截图圆角过渡的终点）
    */
   init(cardItemInfo_vp: CardRect, destNodeId: string,
-    destNodeFallbackId: string, rootNodeId: string, clickedCardId: string): void {
+    destNodeFallbackId: string, rootNodeId: string, clickedCardId: string,
+    cardRadius: number, mediaRadius: number): void {
     this.cardItemInfo_vp = cardItemInfo_vp;
     this.destNodeId = destNodeId;
     this.destNodeFallbackId = destNodeFallbackId;
     this.rootNodeId = rootNodeId;
     this.clickedCardId = clickedCardId;
+    this.cardRadiusValue = cardRadius > 0 ? cardRadius : RADIUS_CARD;
+    this.mediaRadiusValue = mediaRadius > 0 ? mediaRadius : RADIUS_CARD;
   }
 
   // 框架在转场开始时调用（官方同名的单一入口）：PUSH 走进场、POP 走返回
@@ -170,6 +189,10 @@ export class LongTakeAnimationProperties {
     }
     this.geometryValid = true;
 
+    // 截图展示宽度 = 对应节点实测宽：截图是卡片的原尺寸拷贝，
+    // 按节点宽渲染才能「起点与卡片 1:1、终点与媒体位像素对齐」。
+    this.snapShotWidth = ui.px2vp(nodeWidth_px);
+
     this.initScale = cardWidth_px / nodeWidth_px;
     this.initClipWidth = '100%';
     const clipHeight_px: number = cardHeight_px / Math.max(this.initScale, 0.0001);
@@ -210,9 +233,10 @@ export class LongTakeAnimationProperties {
     this.positionXValue = this.initPositionValueX;
     this.positionYValue = this.initPositionValueY;
     // 起始不透明度**显式赋值**（不依赖字段初值，见字段处注释）：
-    // 截图先顶住首帧，真内容从 0 淡入
+    // 截图先顶住首帧，真内容从 0 淡入；截图圆角从源卡片圆角起步
     this.postPageOpacity = 0;
     this.snapShotOpacity = 1;
+    this.snapShotRadius = this.cardRadiusValue;
 
     const animationCount: number = ++this.animationCount;
     ui.animateTo({
@@ -233,6 +257,8 @@ export class LongTakeAnimationProperties {
       this.positionXValue = 0;
       this.positionYValue = 0;
       this.radius = RADIUS_EXPANDED;
+      // 截图圆角同步过渡到媒体圆角：交接真图时圆角一致，不再"变回圆角"
+      this.snapShotRadius = this.mediaRadiusValue;
     });
 
     ui.animateTo({ delay: CONTENT_FADE_DELAY_MS, duration: CONTENT_FADE_MS, curve: Curve.Sharp }, () => {
@@ -295,6 +321,8 @@ export class LongTakeAnimationProperties {
       this.positionXValue = this.initPositionValueX;
       this.positionYValue = this.initPositionValueY;
       this.radius = RADIUS_CARD;
+      // 收回时截图圆角回到源卡片圆角（截图是返回途中的载体）
+      this.snapShotRadius = this.cardRadiusValue;
     });
 
     ui.animateTo({ duration: 50, delay: 150, curve: Curve.Friction }, () => {
@@ -317,6 +345,7 @@ export class LongTakeAnimationProperties {
     this.radius = 0;
     this.snapShotOpacity = 0;
     this.postPageOpacity = 1;
+    this.snapShotRadius = this.mediaRadiusValue;
   }
 
   // 几何是否可用：目的地页在窗口尺寸变化时据此决定是否退系统默认转场
