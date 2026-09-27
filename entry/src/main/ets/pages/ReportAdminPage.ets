@@ -234,8 +234,10 @@ function aggregateGroups(items: AdminReportItem[]): ReportGroup[] {
   return groups;
 }
 
-// ArkTS 禁对象展开：就地改字段必须显式全字段拷贝
-function copyReport(it: AdminReportItem, status: string, banned: boolean): AdminReportItem {
+// ArkTS 禁对象展开：就地改字段必须显式全字段拷贝。
+// status 收窄成联合类型：AdminReportItem.status 是 'pending' | 'resolved' | 'dismissed'，
+// 参数写成 string 会编译不过（string 不能赋给该联合类型）。
+function copyReport(it: AdminReportItem, status: 'pending' | 'resolved' | 'dismissed', banned: boolean): AdminReportItem {
   return {
     id: it.id,
     reporterId: it.reporterId,
@@ -835,7 +837,9 @@ export struct ReportAdminPage {
   // 列表尾部：可点的加载更多 / 已全部加载（不必依赖滚到底才触发）
   @Builder
   listFooter(): void {
-    Pressable({ fillWidth: true, action: (): void => { this.loadMore(); } }) {
+    // disabled 是 Pressable 自己的 @Prop，必须走构造参数；
+    // 写成 `Pressable({...}){...}.disabled(x)` 会被当成通用属性 → 编译不过
+    Pressable({ fillWidth: true, disabled: this.finished, action: (): void => { this.loadMore(); } }) {
       Row({ space: SpaceTokens.sm }) {
         if (this.loading) {
           LoadingProgress().width(IconTokens.compact).height(IconTokens.compact)
@@ -859,7 +863,6 @@ export struct ReportAdminPage {
       .justifyContent(FlexAlign.Center)
       .padding({ top: SpaceTokens.base, bottom: SpaceTokens.base })
     }
-    .disabled(this.finished)
   }
 
   @Builder
