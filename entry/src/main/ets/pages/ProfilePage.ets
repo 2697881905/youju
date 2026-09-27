@@ -426,6 +426,17 @@ export struct ProfilePage {
     this.getUIContext().getRouter().pushUrl({ url: 'pages/MyFollowPage' });
   }
 
+  // 关注/粉丝数字块（头部：始终渲染，未登录也点得到）：
+  // **不能静默吞掉点击**（无提示、无跳转，用户以为界面坏了）—— 与其它需登录入口一致，
+  // 未登录就地引导登录。
+  private goFollowOrLogin(mode: string): void {
+    if (this.isLoggedIn()) {
+      this.goFollow(mode);
+      return;
+    }
+    this.getUIContext().getRouter().pushUrl({ url: 'pages/LoginPage' });
+  }
+
   private shareProfile(): void {
     if (!EXTERNAL_SHARE_ENABLED) {
       return;
@@ -770,8 +781,8 @@ export struct ProfilePage {
       followerCount: this.followerCount,
       totalLikes: this.totalLikes,
       onBackground: onBackground,
-      onOpenFollowing: (): void => { if (this.isLoggedIn()) { this.goFollow('following'); } },
-      onOpenFollowers: (): void => { if (this.isLoggedIn()) { this.goFollow('followers'); } },
+      onOpenFollowing: (): void => { this.goFollowOrLogin('following'); },
+      onOpenFollowers: (): void => { this.goFollowOrLogin('followers'); },
       onEdit: (): void => { this.getUIContext().getRouter().pushUrl({ url: 'pages/EditProfilePage' }); },
       onOpenDrafts: (): void => { this.getUIContext().getRouter().pushUrl({ url: 'pages/DraftBoxPage' }); },
       onOpenTrash: (): void => { this.getUIContext().getRouter().pushUrl({ url: 'pages/TrashBoxPage' }); },
