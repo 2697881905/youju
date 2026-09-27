@@ -26,6 +26,7 @@ import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
+import { getUserId } from '../utils/auth';
 
 const PAGE_SIZE: number = 20;
 // 聚合卡上最多并列展示几个举报理由 / 举报人（其余折成「等 N 类 / 等 N 人」）
@@ -292,6 +293,12 @@ export struct ReportAdminPage {
   private fetchSeq: number = 0;
 
   aboutToAppear(): void {
+    // 登录闸门：举报账本需要登录态 + 管理员权限，未登录连 401/403 都分不清（只会是空壳）。
+    // 用 replaceUrl 把本页从路由栈里替换掉 —— 取消登录返回时落到**入口页**（设置页）。
+    if (getUserId() === 0) {
+      this.getUIContext().getRouter().replaceUrl({ url: 'pages/LoginPage' });
+      return;
+    }
     this.load(true);
   }
 

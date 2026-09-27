@@ -5,9 +5,9 @@
 //    不再提供「去绑定华为」入口——重复绑定会覆盖 User.unionID，存在串号风险。
 // 入口：设置页 → 账号绑定。遵循现有深色主题与 safeShowToast 提示风格。
 
-import { BindingItem, Provider, User } from '../models/types';
+import { BindingItem, Provider } from '../models/types';
 import { listBindings, unbindAccount } from '../services/api';
-import { ensureLogin } from '../utils/auth';
+import { getUserId } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { CARD_RADIUS, CARD_SHADOW } from '../utils/cardTokens';
@@ -23,20 +23,18 @@ struct AccountBindingPage {
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
 
   aboutToAppear(): void {
+    // 登录闸门：账号绑定天然以「已登录」为前提。用 replaceUrl 把本页从路由栈里替换掉 ——
+    // 用户取消登录返回时落到**入口页**（设置页），而不是露出本页（旧行为：本页留在栈里，
+    // 由 init() 里的 ensureLogin 把登录页压在自己之上，取消后停在本页）。
+    if (getUserId() === 0) {
+      this.getUIContext().getRouter().replaceUrl({ url: 'pages/LoginPage' });
+      return;
+    }
     this.init();
   }
 
   private async init(): Promise<void> {
-    // 确保有登录态（沿用现有 ensureLogin），再拉取绑定列表
-    try {
-      const u: User | null = await ensureLogin();
-      if (!u) {
-        // 无登录态：ensureLogin 已跳 LoginPage，不再拉列表
-        return;
-      }
-    } catch (e) {
-      // 登录失败不阻断渲染；列表接口会因缺 token 返回 401，由 loadBindings 的 catch 提示
-    }
+    // 登录闸门已在 aboutToAppear 前置（未登录根本走不到这里），此处只负责拉绑定列表。
     await this.loadBindings();
   }
 

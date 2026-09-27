@@ -22,6 +22,12 @@ struct DraftBoxPage {
   private unsubscribeDrafts: () => void = () => {};
 
   aboutToAppear(): void {
+    // 登录闸门：草稿按 userId 归档，未登录（userId=0）看到的是「暂无草稿」——一个假结论。
+    // 用 replaceUrl 把本页从路由栈里替换掉 —— 取消登录返回时落到**入口页**（我的页）。
+    if (getUserId() === 0) {
+      this.getUIContext().getRouter().replaceUrl({ url: 'pages/LoginPage' });
+      return;
+    }
     this.unsubscribeDrafts();
     this.unsubscribeDrafts = subscribePostDrafts((): void => { this.reload(); });
     this.reload();

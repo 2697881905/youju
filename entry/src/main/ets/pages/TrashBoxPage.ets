@@ -11,6 +11,7 @@ import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { PostCard } from '../components/PostCard';
 import { openPostDetail } from '../utils/nav';
+import { getUserId } from '../utils/auth';
 
 @Entry
 @Component
@@ -21,6 +22,13 @@ struct TrashBoxPage {
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
 
   aboutToAppear(): void {
+    // 登录闸门：废纸篓是「我自己的数据」，未登录进来只会是「加载失败」空壳。
+    // 用 replaceUrl 把本页从路由栈里替换掉 —— 取消登录返回时落到**入口页**（我的页），
+    // 而不是露出本页（旧行为：本页留在栈里，返回时停在这里）。
+    if (getUserId() === 0) {
+      this.getUIContext().getRouter().replaceUrl({ url: 'pages/LoginPage' });
+      return;
+    }
     this.reload();
   }
 

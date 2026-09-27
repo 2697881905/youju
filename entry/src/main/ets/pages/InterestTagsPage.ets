@@ -15,6 +15,7 @@ import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
+import { getUserId } from '../utils/auth';
 
 @Entry
 @Component
@@ -27,6 +28,12 @@ export struct InterestTagsPage {
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
 
   aboutToAppear(): void {
+    // 登录闸门：我关注的标签挂在账号上（/v1/auth/me/followed-tags），未登录进来只是「加载失败」。
+    // 用 replaceUrl 把本页从路由栈里替换掉 —— 取消登录返回时落到**入口页**。
+    if (getUserId() === 0) {
+      this.getUIContext().getRouter().replaceUrl({ url: 'pages/LoginPage' });
+      return;
+    }
     this.loadAll();
   }
 
