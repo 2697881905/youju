@@ -536,9 +536,10 @@ struct PublishPreviewPage {
           }
         }
         .width('100%')
-        // 信息条用暖纸深一档的米黄（ds_sunken = #EDE5CF / 深色 #0E0C08）与卡片底
-        // (ds_elevated) 拉开层次；配一道向上的柔光投影，让它像压在封面之上的独立纸片。
-        .backgroundColor(ColorTokens.sunken)
+        // 信息条用暖纸色板里的「次级面板底」ds_panel（浅色 #F5EFDE 淡米黄 /
+        // 深色 #262017），比卡片底深一档、看得见但不厚重；配一道向上的柔光投影，
+        // 让它像压在封面之上的独立纸片。
+        .backgroundColor(ColorTokens.panel)
         .shadow(ShadowTokens.stripTop)
         .padding({
           left: SpaceTokens.md, right: SpaceTokens.md,
