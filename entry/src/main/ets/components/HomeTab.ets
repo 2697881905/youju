@@ -491,12 +491,14 @@ export struct HomeTab {
   }
 
   // 卡片 → 详情：走 Navigation 的 PostDetail 目的地以启用自定义转场（一镜到底）；
-  // 变形由 PostDetailDestination 自身完成（官方范式：整页从卡片帧缩放展开），
-  // 本处只负责「截整卡图 + 量卡片帧」并随参数传出。
+  // 变形由 PostDetailDestination 自身完成（官方范式：整页从飞行物帧缩放展开），
+  // 本处只负责「截飞行物图 + 量它的屏幕帧」并随参数传出。
   // Navigation 未就绪时兜底走老路由整页（无飞行）。
-  // cardId：用于截图与测量起点的卡片组件 id。信息流是整卡（feedCard-{id}），
-  // 每日一帖卡堆沿用媒体块 id（deckCardMedia-{id}）。
-  // cardRadius：卡片容器圆角（vp）—— 截图的起始圆角，飞行中过渡到媒体圆角。
+  // cardId：用于截图与测量起点的组件 id，两支都是**媒体块** —— 信息流是 3:4 封面
+  // （cardMedia-{id}，见 PostCard/PostCardMedia.coverFace），每日一帖是卡堆媒体块
+  // （deckCardMedia-{id}）。只飞媒体块、不飞整卡：标题/互动区不参与缩放变形，
+  // 与卡堆口径一致，也避免「整卡缩到 3:4 媒体框」的比例跳变。
+  // cardRadius：飞行物自身的圆角（vp）—— 截图的起始圆角，飞行中过渡到详情媒体圆角。
   private openDetailViaNav(post: Post, aspect: number, cover: string, cardId: string, cardRadius: number): void {
     if (post.id === undefined) {
       return;
@@ -511,7 +513,7 @@ export struct HomeTab {
     p.postId = post.id;
     p.intent = cover.length > 0 ? this.buildDetailIntent(cover, post, aspect) : null;
     const rect: CardRect | null = cardRectOf(cardId);
-    // 官方做法：先截卡片图顶住首帧，再 push；截图失败则退化为纯布局变形（转场照走）
+    // 官方做法：先截飞行物图顶住首帧，再 push；截图失败则退化为纯布局变形（转场照走）
     const take: LongTakeParams = new LongTakeParams();
     take.cardId = cardId;
     take.cardRadius = cardRadius;
@@ -803,13 +805,14 @@ export struct HomeTab {
       onOpen: () => {
         if (post.id !== undefined) {
           trackPostEvent(post.id, 'click', 'feed');
-          // 圆角 = 信息流卡片容器圆角（compact 卡走 RadiusTokens.xs）
-          this.openDetailViaNav(post, LayoutTokens.cardMediaAspectRatio, this.feedCardCover(post), 'feedCard-' + post.id, RadiusTokens.xs);
+          // 飞行物 = 3:4 封面海报本身（PostCardMedia.coverFace 挂着 cardMedia-{id}）；
+          // 圆角 = 该封面 Image 的圆角 —— compact 卡封面与卡片容器同为 RadiusTokens.xs。
+          // 标题/互动区不参与缩放变形（与卡堆「只飞媒体块」口径一致）。
+          this.openDetailViaNav(post, LayoutTokens.cardMediaAspectRatio, this.feedCardCover(post), 'cardMedia-' + post.id, RadiusTokens.xs);
         }
       },
     })
-      // 整卡 id：一镜到底的截图与测量起点（官方做法是截整卡，不是只截图）
-      .id('feedCard-' + post.id)
+      // 不再挂整卡 id：截图与测量起点由封面块自带 id 承担（PostCardMedia：cardMedia-{id}）
       .transition(
         TransitionEffect.OPACITY
           .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate, delay: Math.min(idx, 6) * MotionTokens.stagger })

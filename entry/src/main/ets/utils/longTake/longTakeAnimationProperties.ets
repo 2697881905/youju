@@ -36,7 +36,7 @@ const SNAPSHOT_FADE_MS: number = 180;
 // 官方用 SnapShotImage 这个静态类持有 PixelMap 跨页传递；本项目改为随 push 参数传递，
 // 类型明确、不留全局态（截图失败时 snapshot 为 undefined，退化为纯布局变形）。
 export class LongTakeParams {
-  // 飞行物组件 id（信息流为整卡 feedCard-{id}，每日一帖卡堆为 deckCardMedia-{id}）
+  // 飞行物组件 id（信息流为 3:4 封面 cardMedia-{id}，每日一帖卡堆为 deckCardMedia-{id}）
   cardId: string = '';
   // 卡片在屏幕上的帧（vp），由源页实测
   cardRect: CardRect = { left: 0, top: 0, width: 0, height: 0 };
