@@ -17,6 +17,7 @@ import { DesignButton } from '../design/components/DesignButton';
 import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
+import { ShadowTokens } from '../design/tokens/shadow';
 import { bottomNavInset } from '../utils/cardTokens';
 import { TypeTokens } from '../design/tokens/type';
 import { structuredFieldPairs, withCoverOnlyTextPoster } from '../utils/structuredFields';
@@ -485,7 +486,10 @@ struct PublishPreviewPage {
               .lineHeight(TypeTokens.caption.lineHeight)
               .fontColor(ColorTokens.brand)
               .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.inlineTight, bottom: SpaceTokens.inlineTight })
-              .backgroundColor(ColorTokens.brandTint)
+              // 信息条底是米黄 ds_sunken，比原来的卡片底深一档：若继续用 10% 的 brandTint，
+              // 品牌棕文字对比度会掉到 3.7:1（12px 文字 AA 要 4.5）；换 subtle(=#F7F1E4) 后
+              // 回到 4.6:1，且与标签胶囊同底色 —— 整条信息条的胶囊语言统一。
+              .backgroundColor(ColorTokens.subtle)
               .borderRadius(RadiusTokens.sm)
             if (draft.videoUrl && draft.videoUrl.length > 0) {
               Text('含视频')
@@ -532,6 +536,10 @@ struct PublishPreviewPage {
           }
         }
         .width('100%')
+        // 信息条用暖纸深一档的米黄（ds_sunken = #EDE5CF / 深色 #0E0C08）与卡片底
+        // (ds_elevated) 拉开层次；配一道向上的柔光投影，让它像压在封面之上的独立纸片。
+        .backgroundColor(ColorTokens.sunken)
+        .shadow(ShadowTokens.stripTop)
         .padding({
           left: SpaceTokens.md, right: SpaceTokens.md,
           top: SpaceTokens.md, bottom: SpaceTokens.md,
