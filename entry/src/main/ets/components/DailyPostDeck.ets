@@ -65,6 +65,9 @@ struct DeckSlotCard {
   @Prop deckWidth: number = 0;       // 用于退场飞出距离
   @Prop dragOffsetX: number = 0;     // 顶卡跟手位移 X → 下层视差跟随
   @Prop dragOffsetY: number = 0;     // 顶卡跟手位移 Y：自由拖动，竖直方向同样跟手
+  // 拖动进行中：跟手阶段位移/旋转不做补间（逐帧 1:1 贴合手势）；
+  // 若保留槽位弹簧，则每帧都会重定向一个 320ms 弹簧动画 → 掉帧 + 卡片拖尾不跟手
+  @Prop dragging: boolean = false;
   @Prop rise: number = 1;            // 入场仪式 0→1：顶卡升起 + 下层淡入
   // —— 飞行模式（旧顶卡被推进时独立抛射到屏外，对应原型 S.FL）——
   @Prop inFlight: boolean = false;   // true：本卡不再参与堆叠，仅按飞行参数渲染
@@ -349,10 +352,14 @@ struct DeckSlotCard {
         // 圆角对齐卡面；阴影挂在旋转层上 → 随卡片一起旋转，不再衬出“摆正的叠层影”
         .borderRadius(RadiusTokens.md)
         .shadow({ radius: 26, color: '#302E2A1C', offsetY: 9 })
-        .animation({ duration: MotionTokens.slow,
+        .animation({
+          // 拖动中不补间（0ms）：角度逐帧直贴手势，避免逐帧重定向弹簧 → 掉帧与角度拖尾；
+          // 松手后 dragging=false，恢复槽位旋转弹簧（各层错峰摆动）
+          duration: this.dragging ? MotionTokens.none : MotionTokens.slow,
           curve: this.inFlight ? MotionCurves.springRelease
             : DECK_ROT_SPRING[Math.min(Math.max(this.curDepth(), 0), DECK_ROT_SPRING.length - 1)],
-          expectedFrameRateRange: MotionFrameRates.default })
+          expectedFrameRateRange: MotionFrameRates.default,
+        })
       }
       .width('88%')
       // 自由拖动：X/Y 同源跟手；飞行卡沿「丢出单位向量」在 X、Y 上并行抛射
@@ -362,10 +369,13 @@ struct DeckSlotCard {
       })
       .opacity(this.inFlight ? 1 : this.cardOpacity())
       .zIndex(this.inFlight ? 30 : 10 - this.curDepth())
-      .animation({ duration: MotionTokens.slow,
+      .animation({
+        // 同上：拖动中位移 1:1 直贴（不补间）；松手后恢复各卡槽位弹簧回弹/推进
+        duration: this.dragging ? MotionTokens.none : MotionTokens.slow,
         curve: this.inFlight ? MotionCurves.springRelease
           : DECK_SPRING[Math.min(Math.max(this.curDepth(), 0), DECK_SPRING.length - 1)],
-        expectedFrameRateRange: MotionFrameRates.default })
+        expectedFrameRateRange: MotionFrameRates.default,
+      })
     }
   }
 }
@@ -383,6 +393,12 @@ export struct DailyPostDeck {
   @State @Watch('onExposureSourceChanged') activeIndex: number = 0;
   @State dragOffsetX: number = 0;    // 跟手位移 X（双向：右为正、左为负）
   @State dragOffsetY: number = 0;    // 跟手位移 Y（双向：下为正、上为负）→ 不再局限于左右滑动
+  // 拖动进行中：跟手阶段各卡不补间（逐帧 1:1 直贴手势，避免逐帧重定向弹簧的掉帧/拖尾）；
+  // 松手（onTopPanEnd）先落回 false，回弹/推进的位移变化重新交由各卡槽位弹簧补间
+  @State dragging: boolean = false;
+  // 堆影保持隐去的窗口：拖起后立即隐去，顶卡视觉归位（弹簧尾段）后才淡回（见 holdShadowUntilSettled）
+  @State shadowHold: boolean = false;
+  private shadowHoldTimer: number = 0;
   @State advancing: boolean = false;
   @State deckWidth: number = 0;
   // 飞行卡（对应原型 S.FL）：被推进的旧顶卡独立抛射到屏外，全程可见
@@ -427,6 +443,10 @@ export struct DailyPostDeck {
       clearInterval(this.cdTimer);
       this.cdTimer = 0;
     }
+    if (this.shadowHoldTimer !== 0) {
+      clearTimeout(this.shadowHoldTimer);
+      this.shadowHoldTimer = 0;
+    }
     // H-9：清理 advance/resetDrag 的延时回调，避免组件销毁后回调访问失效状态
     for (const t of this.pendingTimers) {
       clearTimeout(t);
@@ -460,6 +480,8 @@ export struct DailyPostDeck {
     this.activeIndex = 0;
     this.dragOffsetX = 0;
     this.dragOffsetY = 0;
+    this.dragging = false;
+    this.cancelShadowHold();
     this.advancing = false;
     this.flyPost = null;
 
@@ -531,13 +553,46 @@ export struct DailyPostDeck {
 
   // 堆底影淡出（0→1）：顶卡被拖拽/推进时隐去整体厚度影，
   // 避免顶卡移开后原地露出「残留虚卡」；回弹/复位后随卡片一起恢复。
-  // 拖过卡宽 30% 即完全淡出（早于丢出阈值 38%，丢出全程无残留）。
+  // 阈值收紧到卡宽 5%（≈15vp）：只要顶卡真被挪开就隐去 —— 30% 阈值下顶卡只挪开一点时，
+  // 后方卡形影层会从边上露出（看起来像卡堆后多了一张「透明卡」）。
   private deckShadowFade(): number {
     const width: number = Math.max(this.deckWidth, 1);
     const drag: number = Math.sqrt(this.dragOffsetX * this.dragOffsetX + this.dragOffsetY * this.dragOffsetY);
-    const dragFade: number = Math.min(1, drag / (width * 0.30));
-    // 推进（顶卡飞出 + 下层滑入）期间保持淡出，新顶卡归位后再恢复
-    return this.advancing ? 1 : dragFade;
+    // 拖动中立即隐去；推进 / 回弹收尾窗口（shadowHold）内保持隐去，等顶卡视觉归位再淡回
+    if (this.advancing || this.shadowHold) {
+      return 1;
+    }
+    return Math.min(1, drag / (width * 0.05));
+  }
+
+  // 松手后保持堆影隐去，直到顶卡的弹簧尾段走完（≈400ms）再柔和淡回。
+  // 关键：状态位移（dragOffset）在松手瞬间就归零，但顶卡视觉上还要回弹一段；
+  // 若此时影子就亮回，会在顶卡还没回正时露出卡形影层 → 「透明卡」观感。
+  private holdShadowUntilSettled(): void {
+    if (this.shadowHoldTimer !== 0) {
+      clearTimeout(this.shadowHoldTimer);
+    }
+    this.shadowHold = true;
+    this.shadowHoldTimer = setTimeout((): void => {
+      this.shadowHoldTimer = 0;
+      // 用 animateTo 走一段标准曲线淡回：影子是柔和淡入而不是突然跳出
+      this.getUIContext().animateTo({
+        duration: MotionTokens.base,
+        curve: MotionCurves.standard,
+        expectedFrameRateRange: MotionFrameRates.default,
+      }, (): void => {
+        this.shadowHold = false;
+      });
+    }, 400) as number;
+  }
+
+  // 重新抓起卡片：取消上一轮的回弹淡回，堆影随拖动立即隐去（避免「透明卡」再次露边）
+  private cancelShadowHold(): void {
+    if (this.shadowHoldTimer !== 0) {
+      clearTimeout(this.shadowHoldTimer);
+      this.shadowHoldTimer = 0;
+    }
+    this.shadowHold = false;
   }
 
   // 统一登记延时回调：组件销毁时统一清理，避免回调访问已销毁的状态（H-9）
@@ -639,12 +694,27 @@ export struct DailyPostDeck {
     }
     // 推进闸门再收紧：新顶卡弹簧（response 0.30s）约 90% 就位时即可解锁下一张，
     // 飞行卡仍按 460ms 独立抛射销毁（不改动）。
-    this.schedule((): void => { this.advancing = false; }, 400);
+    // 解除闸门时让堆影柔和淡回（animateTo）：闸门直接落回会让影层在新顶卡刚归位时突然跳出
+    this.schedule((): void => {
+      this.getUIContext().animateTo({
+        duration: MotionTokens.base,
+        curve: MotionCurves.standard,
+        expectedFrameRateRange: MotionFrameRates.default,
+      }, (): void => {
+        this.advancing = false;
+      });
+    }, 400);
   }
 
   private onTopPanUpdate(event: GestureEvent): void {
     if (this.advancing || this.doneVisible) {
       return;
+    }
+    // 进入跟手态：此后逐帧位移/角度不补间（仅首次置位，避免每帧写状态）
+    if (!this.dragging) {
+      this.dragging = true;
+      // 重新抓起：取消上一轮的回弹淡回，堆影随拖动立即隐去
+      this.cancelShadowHold();
     }
     // 双向跟手：X 右正左负、Y 下正上负（对应原型 S.x 可正可负）——四个方向都跟手
     this.dragOffsetX = event.offsetX;
@@ -652,6 +722,8 @@ export struct DailyPostDeck {
   }
 
   private onTopPanEnd(event?: GestureEvent): void {
+    // 先落回弹簧态：后续回弹/推进（含 throwOut 同步清零跟手位移）要走各卡槽位弹簧
+    this.dragging = false;
     if (this.advancing || this.doneVisible) {
       return;
     }
@@ -672,8 +744,13 @@ export struct DailyPostDeck {
     // 轻甩：速度够大且已有明确拖动 → 不等阈值直接丢出
     const fling: boolean = speed > DECK_FLING_MIN_VEL && committed;
     if (this.outProgress(px, py) >= 1 || fling) {
+      // 丢出路径：推进闸门（advancing）已覆盖堆影隐藏与收尾淡回（见 throwOut）
       this.throwOut(px, py);
       return;
+    }
+    // 回弹路径：顶卡确有位移时堆影保持隐去，等弹簧尾段走完再淡回（位移极小时无需，避免影子闪一下）
+    if (real > width * 0.04) {
+      this.holdShadowUntilSettled();
     }
     // 未过阈值：按松手速度回弹——速度越快过冲越大、晃动越明显
     this.resetDrag(vx, vy);
@@ -902,6 +979,7 @@ export struct DailyPostDeck {
                 deckWidth: this.deckWidth,
                 dragOffsetX: this.dragOffsetX,
                 dragOffsetY: this.dragOffsetY,
+                dragging: this.dragging,
                 rise: this.animRise,
               })
             }, (post: DailyPost) => String(post.id ?? 'deck-' + post.title?.slice(0, 12)))
@@ -915,6 +993,7 @@ export struct DailyPostDeck {
                 deckWidth: this.deckWidth,
                 dragOffsetX: this.dragOffsetX,
                 dragOffsetY: this.dragOffsetY,
+                dragging: this.dragging,
                 rise: 1,
                 inFlight: true,
                 flyX: this.flyX,
