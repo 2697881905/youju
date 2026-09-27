@@ -7,6 +7,7 @@ import { openPostDetail } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 import { FolderPickDialog } from '../components/FolderPickDialog';
 import { FolderNameDialog } from '../components/FolderNameDialog';
+import { getUserId } from '../utils/auth';
 
 @Entry
 @Component
@@ -27,6 +28,12 @@ export struct BookmarkFolderDetailPage {
   private moveNameDialog: CustomDialogController | null = null;
 
   aboutToAppear(): void {
+    // 登录闸门：收藏夹内容属于「我自己的数据」，未登录进来只会是「加载失败」空壳。
+    // 用 replaceUrl 把本页从路由栈里替换掉 —— 取消登录返回时落到**入口页**（我的页）。
+    if (getUserId() === 0) {
+      this.getUIContext().getRouter().replaceUrl({ url: 'pages/LoginPage' });
+      return;
+    }
     const params = this.getUIContext().getRouter().getParams() as Record<string, string> | undefined;
     this.folderId = Number(params?.folderId ?? 0);
     this.folderName = params?.folderName ?? '收藏夹';

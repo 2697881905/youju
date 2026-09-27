@@ -4,7 +4,7 @@
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { image } from '@kit.ImageKit';
 import { http } from '@kit.NetworkKit';
-import { getCurrentUser, setSession, ensureLogin, getToken } from '../utils/auth';
+import { getCurrentUser, setSession, ensureLogin, getToken, getUserId } from '../utils/auth';
 import { updateMe, getUploadSignature, getUserProfile, resolveUploadPutUrl, toStoredMediaRef } from '../services/api';
 import { compressAvatar, CompressedImage } from '../utils/image';
 import { safeShowToast } from '../utils/toast';
@@ -62,6 +62,12 @@ export struct EditProfilePage {
   private pendingProfileBackgroundImage: CompressedImage | null = null;
 
   aboutToAppear(): void {
+    // 登录闸门：编辑资料只对自己有意义，未登录进来是一张空表单（保存必然 401）。
+    // 用 replaceUrl 把本页从路由栈里替换掉 —— 取消登录返回时落到**入口页**（我的页）。
+    if (getUserId() === 0) {
+      this.getUIContext().getRouter().replaceUrl({ url: 'pages/LoginPage' });
+      return;
+    }
     const u: User | null = getCurrentUser();
     if (u) {
       this.nickname = u.nickname ?? '';

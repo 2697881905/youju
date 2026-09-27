@@ -6,6 +6,7 @@ import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { CARD_RADIUS, CARD_SHADOW } from '../utils/cardTokens';
 import { BackButton } from '../design/components/BackButton';
+import { getUserId } from '../utils/auth';
 
 interface PrefRow {
   key: string;
@@ -30,6 +31,12 @@ export struct NotificationSettingsPage {
   ];
 
   aboutToAppear(): void {
+    // 登录闸门：通知偏好是「我自己的账号设置」，未登录进来只会是「加载失败」空壳。
+    // 用 replaceUrl 把本页从路由栈里替换掉 —— 取消登录返回时落到**入口页**（设置页）。
+    if (getUserId() === 0) {
+      this.getUIContext().getRouter().replaceUrl({ url: 'pages/LoginPage' });
+      return;
+    }
     this.loadPrefs();
   }
 

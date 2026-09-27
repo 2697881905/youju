@@ -8,6 +8,7 @@ import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { BackButton } from '../design/components/BackButton';
+import { getUserId } from '../utils/auth';
 
 // 举报理由 → 中文标签
 function reasonLabel(reason: ReportReason): string {
@@ -97,6 +98,12 @@ struct ModerationPage {
   });
 
   aboutToAppear(): void {
+    // 登录闸门：审核台需要登录态 + 管理员权限，未登录连 401/403 都分不清（只会是空壳）。
+    // 用 replaceUrl 把本页从路由栈里替换掉 —— 取消登录返回时落到**入口页**（设置页）。
+    if (getUserId() === 0) {
+      this.getUIContext().getRouter().replaceUrl({ url: 'pages/LoginPage' });
+      return;
+    }
     this.load();
   }
 

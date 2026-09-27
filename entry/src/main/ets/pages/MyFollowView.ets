@@ -5,6 +5,7 @@ import { buildPageTransition } from '../utils/styles';
 import { BackButton } from '../design/components/BackButton';
 import { openUserProfile, takeFollowListIntent } from '../utils/nav';
 import { getMainNavStack, UserProfileNavParams } from '../utils/navigationTransition';
+import { getUserId } from '../utils/auth';
 
 // 我的关注/粉丝「主体视图」：router 壳（pages/MyFollowPage）与 Navigation 壳
 // （pages/MyFollowDestination）共用。差异点收敛为注入回调：
@@ -36,6 +37,12 @@ export struct MyFollowView {
   }
 
   aboutToAppear(): void {
+    // 登录闸门：关注/粉丝是「我的人际关系」，未登录进来只会是「加载失败」空壳。
+    // 用 replaceUrl 把本页从路由栈里替换掉 —— 取消登录返回时落到**入口页**（我的页）。
+    if (getUserId() === 0) {
+      this.getUIContext().getRouter().replaceUrl({ url: 'pages/LoginPage' });
+      return;
+    }
     this.resolveParams();
     this.loadAll();
   }

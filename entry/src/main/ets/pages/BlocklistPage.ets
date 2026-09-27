@@ -16,6 +16,7 @@ import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
+import { getUserId } from '../utils/auth';
 
 // 危险操作按钮底色：ds_danger(#FF3B30) 的 ~10% 透明度，与 ds_brand_tint 同 alpha 约定
 const DANGER_TINT: string = '#1AFF3B30';
@@ -31,6 +32,13 @@ export struct BlocklistPage {
   private pagination: Pagination = { page: 1, limit: 20, total: 0 };
 
   aboutToAppear(): void {
+    // 登录闸门：拉黑名单是「我自己的数据」，未登录进来只会是「加载失败」空壳。
+    // 一律用 replaceUrl —— 把本页从路由栈里替换掉，用户取消登录返回时落到**入口页**
+    // （设置页），而不是露出本页（旧行为：本页留在栈里，返回时停在这里）。
+    if (getUserId() === 0) {
+      this.getUIContext().getRouter().replaceUrl({ url: 'pages/LoginPage' });
+      return;
+    }
     this.loadFirst();
   }
 
