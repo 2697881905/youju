@@ -9,16 +9,29 @@ export struct VideoPlayer {
   @Prop poster: string | PixelMap = '';
   // 可选：传入后点击（视频/播放按钮）不再内联播放，而是回调由父级打开全屏查看器。
   onOpen: (() => void) | null = null;
-  // 视频就绪回调（onPrepared/onError 触发）：一镜到底详情页据此放行 hero 撤离。
+  // 「媒体可显示」回调：封面解码完成 / 视频首帧就绪（onPrepared）/ 出错 —— 三者只发一次。
+  // 一镜到底详情页据此放行 hero：视频帖没有真正的「首帧图」事件，只能靠封面来定这个时点。
+  // （此前详情页没接这个回调，只能等 900ms 兜底计时器 → 进详情后媒体位空白约 1 秒。）
   onReady: (() => void) | null = null;
   private controller: VideoController = new VideoController();
   @State playing: boolean = false;
   // 是否已开始过播放：播放后再暂停显示 Video 真实画面（而非封面），避免打断观看
   private hasStarted: boolean = false;
+  // onReady 只发一次：封面解码 / 首帧就绪 / 出错三个触发源会互相竞争，先到者生效
+  private readyFired: boolean = false;
+
+  private notifyReady(): void {
+    if (this.readyFired) {
+      return;
+    }
+    this.readyFired = true;
+    this.onReady?.();
+  }
 
   private onSourceChanged(): void {
     this.playing = false;
     this.hasStarted = false;
+    this.readyFired = false;
   }
 
   private togglePlayback(): void {
@@ -68,8 +81,8 @@ export struct VideoPlayer {
           .autoPlay(false)
           // 短视频预览必须同时填满容器宽高；比例不一致时裁掉边缘，不能留黑边。
           .objectFit(ImageFit.Cover)
-          .onPrepared((): void => { this.onReady?.(); })
-          .onError((): void => { this.onReady?.(); })
+          .onPrepared((): void => { this.notifyReady(); })
+          .onError((): void => { this.notifyReady(); })
           .onStart((): void => {
             this.playing = true;
             this.hasStarted = true;
@@ -86,6 +99,12 @@ export struct VideoPlayer {
             .objectFit(ImageFit.Cover)
             .backgroundColor('#000000')
             .draggable(false)
+            // 封面解码完成即放行 hero：这张图与信息流卡片用的是同一个 URL，通常已在
+            // Image 缓存里，onComplete 会比视频 onPrepared 早得多 —— 详情页因此能在
+            // 首帧就把封面显示出来，不必等兜底计时器。
+            // 这里刻意**不加** .syncLoad(true)：URL 命中缓存时它没用，未命中时会用
+            // 同步解码阻塞主线程（一镜到底动画正在跑），得不偿失。
+            .onComplete((): void => { this.notifyReady(); })
         }
 
         if (!this.playing) {
