@@ -17,7 +17,6 @@ import { DesignButton } from '../design/components/DesignButton';
 import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
-import { ShadowTokens } from '../design/tokens/shadow';
 import { bottomNavInset } from '../utils/cardTokens';
 import { TypeTokens } from '../design/tokens/type';
 import { structuredFieldPairs, withCoverOnlyTextPoster } from '../utils/structuredFields';
@@ -41,6 +40,13 @@ const TEXT_POSTER_PREVIEW_SCALE: number = 1;
 // 字体未就绪时的兜底重绘：最多轮询 10 次、每次间隔 200ms（最多 ~2s）。
 const TEXT_POSTER_FONT_RETRY_MAX: number = 10;
 const TEXT_POSTER_FONT_RETRY_INTERVAL: number = 200;
+
+// 信息条顶部的内投影：媒体在上方投下的柔光。只画在信息条内部，不压封面底边。
+// 两个 stop 用同一个 RGB、只差 alpha（8% → 0）—— 若渐变终点写透明黑，
+// 插值过程会经过灰调，浅米黄底上会显出一层脏灰。
+const STRIP_TOP_SHADE_HEIGHT: number = 10;
+const STRIP_TOP_SHADE_COLOR: string = '#143A2A14';
+const STRIP_TOP_SHADE_TRANSPARENT: string = '#003A2A14';
 
 type PreviewField = [string, string];
 
@@ -476,76 +482,86 @@ struct PublishPreviewPage {
         if (!draft.videoUrl || draft.videoUrl.length === 0) {
           this.coverPreview(draft)
         }
-        // 文字区自带 12vp 内边距：有媒体时它就是媒体与体裁胶囊之间的 12vp 间距；
-        // 无媒体（视频帖）时它就是卡片的上内边距 —— 两种情况都与改动前一致。
-        Column({ space: SpaceTokens.md }) {
-          Row({ space: SpaceTokens.sm }) {
-            Text(genreLabel(draft.genre))
-              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-              .fontWeight(TypeTokens.headline.weight)
-              .lineHeight(TypeTokens.caption.lineHeight)
-              .fontColor(ColorTokens.brand)
-              .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.inlineTight, bottom: SpaceTokens.inlineTight })
-              // 信息条底是米黄 ds_sunken，比原来的卡片底深一档：若继续用 10% 的 brandTint，
-              // 品牌棕文字对比度会掉到 3.7:1（12px 文字 AA 要 4.5）；换 subtle(=#F7F1E4) 后
-              // 回到 4.6:1，且与标签胶囊同底色 —— 整条信息条的胶囊语言统一。
-              .backgroundColor(ColorTokens.subtle)
-              .borderRadius(RadiusTokens.sm)
-            if (draft.videoUrl && draft.videoUrl.length > 0) {
-              Text('含视频')
-                .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-                .fontColor(ColorTokens.secondary)
-            }
-            if (draft.images.length > 1) {
-              Text('含 ' + draft.images.length + ' 张图片')
-                .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-                .fontColor(ColorTokens.secondary)
-            }
-          }
-          Text(draft.title)
-            .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
-            .fontWeight(TypeTokens.title.weight)
-            .lineHeight(TypeTokens.title.lineHeight)
-            .fontColor(ColorTokens.primary)
-          if (draft.content.trim().length > 0) {
-            Text(draft.content)
-              .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
-              .fontWeight(TypeTokens.body.weight)
-              .lineHeight(TypeTokens.body.lineHeight)
-              .fontColor(ColorTokens.secondary)
-              .maxLines(8)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-          }
-          if (draft.tags.length > 0) {
-            Flex({
-              wrap: FlexWrap.Wrap,
-              space: { main: LengthMetrics.px(SpaceTokens.inline), cross: LengthMetrics.px(SpaceTokens.inline) },
-            }) {
-              ForEach(draft.tags, (tag: string) => {
-                Text('# ' + tag)
-                  .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-                  .fontWeight(TypeTokens.caption.weight)
-                  .lineHeight(TypeTokens.caption.lineHeight)
-                  .fontColor(ColorTokens.brand)
-                  .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.inlineTight, bottom: SpaceTokens.inlineTight })
-                  .backgroundColor(ColorTokens.subtle)
-                  .borderRadius(RadiusTokens.sm)
-              }, (tag: string) => tag)
-            }
+        // 信息条：面板底 + 顶部内投影。媒体在上方，光影只落在信息条**内部**，
+        // 封面上不留任何东西（此前用向上外投影会压到封面底边，已移除）。
+        Stack({ alignContent: Alignment.TopStart }) {
+          Row()
             .width('100%')
+            .height(STRIP_TOP_SHADE_HEIGHT)
+            .linearGradient({
+              angle: 180,
+              colors: [[STRIP_TOP_SHADE_COLOR, 0], [STRIP_TOP_SHADE_TRANSPARENT, 1]],
+            })
+          // 文字区自带 12vp 内边距：有媒体时它就是媒体与体裁胶囊之间的 12vp 间距；
+          // 无媒体（视频帖）时它就是卡片的上内边距 —— 两种情况都与改动前一致。
+          Column({ space: SpaceTokens.md }) {
+            Row({ space: SpaceTokens.sm }) {
+              Text(genreLabel(draft.genre))
+                .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+                .fontWeight(TypeTokens.headline.weight)
+                .lineHeight(TypeTokens.caption.lineHeight)
+                .fontColor(ColorTokens.brand)
+                .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.inlineTight, bottom: SpaceTokens.inlineTight })
+                // 信息条底是淡米黄 ds_panel，比原来的卡片底深一档：若继续用 10% 的 brandTint，
+                // 品牌棕文字对比度会掉到 4.0:1 以下（12px 文字 AA 要 4.5）；
+                // 换 subtle(#F7F1E4) 后回到 4.6:1，且与标签胶囊同底色 —— 胶囊语言统一。
+                .backgroundColor(ColorTokens.subtle)
+                .borderRadius(RadiusTokens.sm)
+              if (draft.videoUrl && draft.videoUrl.length > 0) {
+                Text('含视频')
+                  .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+                  .fontColor(ColorTokens.secondary)
+              }
+              if (draft.images.length > 1) {
+                Text('含 ' + draft.images.length + ' 张图片')
+                  .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+                  .fontColor(ColorTokens.secondary)
+              }
+            }
+            Text(draft.title)
+              .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
+              .fontWeight(TypeTokens.title.weight)
+              .lineHeight(TypeTokens.title.lineHeight)
+              .fontColor(ColorTokens.primary)
+            if (draft.content.trim().length > 0) {
+              Text(draft.content)
+                .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
+                .fontWeight(TypeTokens.body.weight)
+                .lineHeight(TypeTokens.body.lineHeight)
+                .fontColor(ColorTokens.secondary)
+                .maxLines(8)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+            }
+            if (draft.tags.length > 0) {
+              Flex({
+                wrap: FlexWrap.Wrap,
+                space: { main: LengthMetrics.px(SpaceTokens.inline), cross: LengthMetrics.px(SpaceTokens.inline) },
+              }) {
+                ForEach(draft.tags, (tag: string) => {
+                  Text('# ' + tag)
+                    .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+                    .fontWeight(TypeTokens.caption.weight)
+                    .lineHeight(TypeTokens.caption.lineHeight)
+                    .fontColor(ColorTokens.brand)
+                    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.inlineTight, bottom: SpaceTokens.inlineTight })
+                    .backgroundColor(ColorTokens.subtle)
+                    .borderRadius(RadiusTokens.sm)
+                }, (tag: string) => tag)
+              }
+              .width('100%')
+            }
           }
+          .width('100%')
+          .padding({
+            left: SpaceTokens.md, right: SpaceTokens.md,
+            top: SpaceTokens.md, bottom: SpaceTokens.md,
+          })
+          .alignItems(HorizontalAlign.Start)
         }
         .width('100%')
-        // 信息条用暖纸色板里的「次级面板底」ds_panel（浅色 #F5EFDE 淡米黄 /
-        // 深色 #262017），比卡片底深一档、看得见但不厚重；配一道向上的柔光投影，
-        // 让它像压在封面之上的独立纸片。
+        // 信息条底用暖纸色板里的「次级面板底」ds_panel（浅色 #F5EFDE 淡米黄 /
+        // 深色 #262017），比卡片底深一档、看得见但不厚重。
         .backgroundColor(ColorTokens.panel)
-        .shadow(ShadowTokens.stripTop)
-        .padding({
-          left: SpaceTokens.md, right: SpaceTokens.md,
-          top: SpaceTokens.md, bottom: SpaceTokens.md,
-        })
-        .alignItems(HorizontalAlign.Start)
       }
       .width('100%')
       .alignItems(HorizontalAlign.Start)
