@@ -1,7 +1,7 @@
 // 设置页：分区结构（账号与安全 / 隐私 / 通用 / 关于）+ 退出登录 + 账号注销。
 // 覆盖全部设置功能：编辑资料、账号绑定、内容审核台、拉黑管理、数据导出、隐私设置、通知设置、清除缓存、关于、隐私政策。
 
-import { getIsAdmin, clearSession } from '../utils/auth';
+import { getIsAdmin, clearSession, getUserId } from '../utils/auth';
 import { deactivateAccount, clearSearchHistory, exportUserData } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 import { toggleDarkMode, setFollowSystem, setReduceMotion } from '../utils/theme';
@@ -16,6 +16,10 @@ import { shareUserDataExport } from '../utils/dataExport';
 @Component
 export struct SettingsPage {
   @State isAdmin: boolean = getIsAdmin();
+  // 登录态（持久化）：用于控制「退出登录 / 账号注销」这类对访客毫无意义的行显隐。
+  // 用 @StorageLink 而不是 getUserId() —— 登录成功后返回本页，页面不会重建，
+  // 只有 StorageLink 能触发刷新。
+  @StorageLink('authUserId') authUserId: string = '';
   @StorageLink('isDarkMode') darkMode: boolean = false;
   @StorageLink('followSystem') followSystem: boolean = true;
   @StorageLink('reduceMotion') reduceMotion: boolean = false;
@@ -38,6 +42,33 @@ export struct SettingsPage {
     } catch (e) {
       // 读取失败维持 0
     }
+  }
+
+  // 是否已登录（响应式读取，登录/登出后本页立即跟上）
+  private loggedIn(): boolean {
+    const v: string = (this.authUserId ?? '') as string;
+    return v.length > 0 && v !== '0';
+  }
+
+  // 需登录的**页面型**设置项统一入口：未登录时不进目标页，就地引导登录。
+  // 这里用 push（不是 replaceUrl）—— 设置页要留在路由栈里，登录或取消登录返回后仍在设置页。
+  // 目标页自身也有一道 aboutToAppear 闸门（replaceUrl 兜底），两条一起才覆盖所有入口。
+  private openGated(url: string): void {
+    if (getUserId() === 0) {
+      this.getUIContext().getRouter().pushUrl({ url: 'pages/LoginPage' });
+      return;
+    }
+    this.getUIContext().getRouter().pushUrl({ url: url });
+  }
+
+  // 需登录的**就地动作**（不跳页，如数据导出）：返回 false 表示已被拦截，调用方直接放弃。
+  private gatedActionPassed(): boolean {
+    if (getUserId() === 0) {
+      safeShowToast(this.getUIContext(), { message: '请先登录后再使用' });
+      this.getUIContext().getRouter().pushUrl({ url: 'pages/LoginPage' });
+      return false;
+    }
+    return true;
   }
 
   // 退出登录：二次确认 → 清态 + 跳登录页 + toast
@@ -94,6 +125,12 @@ export struct SettingsPage {
       message: '将清除搜索历史等本地缓存数据，不影响你的帖子与账号。',
       primaryButton: { value: '取消', action: (): void => {} },
       secondaryButton: { value: '确定清除', action: async (): Promise<void> => {
+        // 访客没有服务端搜索历史（该接口需鉴权，未登录调用必然 401）→ 直接按「已清除」收尾，
+        // 不为清一个空缓存把人踢去登录页。
+        if (getUserId() === 0) {
+          safeShowToast(this.getUIContext(), { message: '缓存已清除' });
+          return;
+        }
         try {
           await clearSearchHistory();
           safeShowToast(this.getUIContext(), { message: '缓存已清除' });
@@ -214,21 +251,23 @@ export struct SettingsPage {
               .alignSelf(ItemAlign.Start)
               .padding({ left: 4 });
             this.sectionRow('phone', '账号绑定', (): void => {
-              this.getUIContext().getRouter().pushUrl({ url: 'pages/AccountBindingPage' });
+              this.openGated('pages/AccountBindingPage');
             });
             if (this.isAdmin) {
               this.sectionRow('shield', '内容审核台', (): void => {
-                this.getUIContext().getRouter().pushUrl({ url: 'pages/ModerationPage' });
+                this.openGated('pages/ModerationPage');
               });
               this.sectionRow('book', '举报账本', (): void => {
-                this.getUIContext().getRouter().pushUrl({ url: 'pages/ReportAdminPage' });
+                this.openGated('pages/ReportAdminPage');
               });
             }
             this.sectionRow('block', '拉黑管理', (): void => {
-              this.getUIContext().getRouter().pushUrl({ url: 'pages/BlocklistPage' });
+              this.openGated('pages/BlocklistPage');
             });
             this.sectionRow('export', '数据导出', (): void => {
-              this.onExportDataClick();
+              if (this.gatedActionPassed()) {
+                this.onExportDataClick();
+              }
             });
           }
           .width('100%');
@@ -241,10 +280,10 @@ export struct SettingsPage {
               .alignSelf(ItemAlign.Start)
               .padding({ left: 4 });
             this.sectionRow('lock', '隐私设置', (): void => {
-              this.getUIContext().getRouter().pushUrl({ url: 'pages/PrivacySettingsPage' });
+              this.openGated('pages/PrivacySettingsPage');
             });
             this.sectionRow('bell', '通知设置', (): void => {
-              this.getUIContext().getRouter().pushUrl({ url: 'pages/NotificationSettingsPage' });
+              this.openGated('pages/NotificationSettingsPage');
             });
           }
           .width('100%');
@@ -362,45 +401,49 @@ export struct SettingsPage {
           }
           .width('100%');
 
-          // 退出登录（红色文字行，卡片风格）
-          Row({ space: 12 }) {
-            Image(resolveSettingsIcon('logout'))
-              .width(22).height(22)
-              .objectFit(ImageFit.Contain)
-              .fillColor($r('app.color.ds_icon'))
-            Text('退出登录')
-              .fontSize(16).fontFamily($r('app.string.font_family'))
-              .fontColor($r('app.color.semantic_red'))
-              .layoutWeight(1);
-            Image(resolveSettingsIcon('chevronRight'))
-              .width(18).height(18)
-              .objectFit(ImageFit.Contain)
-              .fillColor($r('app.color.ds_icon'))
-          }
-          .width('100%')
-          .padding({ left: 16, right: 16, top: 14, bottom: 14 })
-          .backgroundColor($r('app.color.card_bg'))
-          .borderRadius(CARD_RADIUS)
-          .shadow(CARD_SHADOW)
-          .onClick(() => { this.onLogoutClick(); });
+          // 退出登录 / 账号注销：对访客毫无意义（没有会话可退、没有账号可注销），
+          // 未登录时整块不渲染 —— 而不是点下去再报「请先登录」。
+          if (this.loggedIn()) {
+            // 退出登录（红色文字行，卡片风格）
+            Row({ space: 12 }) {
+              Image(resolveSettingsIcon('logout'))
+                .width(22).height(22)
+                .objectFit(ImageFit.Contain)
+                .fillColor($r('app.color.ds_icon'))
+              Text('退出登录')
+                .fontSize(16).fontFamily($r('app.string.font_family'))
+                .fontColor($r('app.color.semantic_red'))
+                .layoutWeight(1);
+              Image(resolveSettingsIcon('chevronRight'))
+                .width(18).height(18)
+                .objectFit(ImageFit.Contain)
+                .fillColor($r('app.color.ds_icon'))
+            }
+            .width('100%')
+            .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+            .backgroundColor($r('app.color.card_bg'))
+            .borderRadius(CARD_RADIUS)
+            .shadow(CARD_SHADOW)
+            .onClick(() => { this.onLogoutClick(); });
 
-          // 高风险操作保持次要层级，并随内容滚动，避免覆盖其它设置项。
-          Row({ space: 12 }) {
-            Image(resolveSettingsIcon('trash'))
-              .width(22).height(22)
-              .objectFit(ImageFit.Contain)
-              .fillColor($r('app.color.ds_icon'))
-            Text('账号注销')
-              .fontSize(16).fontFamily($r('app.string.font_family'))
-              .fontColor($r('app.color.semantic_red'))
-              .layoutWeight(1)
+            // 高风险操作保持次要层级，并随内容滚动，避免覆盖其它设置项。
+            Row({ space: 12 }) {
+              Image(resolveSettingsIcon('trash'))
+                .width(22).height(22)
+                .objectFit(ImageFit.Contain)
+                .fillColor($r('app.color.ds_icon'))
+              Text('账号注销')
+                .fontSize(16).fontFamily($r('app.string.font_family'))
+                .fontColor($r('app.color.semantic_red'))
+                .layoutWeight(1)
+            }
+            .width('100%')
+            .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+            .backgroundColor($r('app.color.card_bg'))
+            .borderRadius(CARD_RADIUS)
+            .shadow(CARD_SHADOW)
+            .onClick(() => { this.onDeactivateClick(); });
           }
-          .width('100%')
-          .padding({ left: 16, right: 16, top: 14, bottom: 14 })
-          .backgroundColor($r('app.color.card_bg'))
-          .borderRadius(CARD_RADIUS)
-          .shadow(CARD_SHADOW)
-          .onClick(() => { this.onDeactivateClick(); });
         }
         .width('100%')
         .padding({ left: 16, right: 16, top: 8, bottom: 16 });
