@@ -64,7 +64,27 @@ function isNetworkConnectionError(message: string): boolean {
 const AUTH_EXPIRED_KEY: string = 'authExpiredAt';
 let lastAuthExpiredMarkAt: number = 0;
 
+// 本地是否持有登录态。request 与 markAuthExpired 共用同一处读取口径，
+// 保证「打标记」与「拼 Authorization 头」判断的是同一件事。
+function hasLocalToken(): boolean {
+  return ((AppStorage.get<string>('authToken') ?? '') as string).length > 0;
+}
+
+// 401 的统一文案：**会话过期**（本地有 token，服务端判失效）与**需登录**（匿名访客触碰
+// 鉴权操作）是两回事，文案必须能分辨，页面 catch 里也能给出可理解的提示。
+function unauthorizedMessage(): string {
+  return hasLocalToken() ? '登录已过期，请重新登录' : '请先登录';
+}
+
 function markAuthExpired(): void {
+  // 匿名访客（本地无 token）的 401 **不是**会话过期，而是「这个动作需要登录」。
+  // 这种 401 绝不能走全局引导：Index 收到标记后会 pushUrl 登录页，而此刻用户正处在某个
+  // 内层页（设置项 / 列表页 / 详情页），登录页就凭空压在内层页之上 —— 取消后落回内层页
+  // 而不是入口页（用户实测现象）。匿名场景一律交由「入口 / 目标页自身的登录闸门」引导，
+  // 本函数只管真会话过期。
+  if (!hasLocalToken()) {
+    return;
+  }
   const now: number = Date.now();
   if (now - lastAuthExpiredMarkAt < 2000) {
     return;
@@ -104,7 +124,7 @@ async function request<T>(method: string, path: string, body?: Object): Promise<
         // 由 Index 监听后清登录态并引导重新登录（避免用户"看起来还登录着"却处处失败）
         if (result.code === 401 && !isAuthEndpoint(path)) {
           markAuthExpired();
-          throw new Error('登录已过期，请重新登录');
+          throw new Error(unauthorizedMessage());
         }
         throw new Error(result.message || '请求失败');
       }
@@ -113,7 +133,7 @@ async function request<T>(method: string, path: string, body?: Object): Promise<
     // fallback：非 JSON 响应或无 code 字段
     if (resp.responseCode === 401 && !isAuthEndpoint(path)) {
       markAuthExpired();
-      throw new Error('登录已过期，请重新登录');
+      throw new Error(unauthorizedMessage());
     }
     if (resp.responseCode !== 200) {
       throw new Error('HTTP ' + resp.responseCode);
