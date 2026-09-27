@@ -145,7 +145,12 @@ export struct PostDetailView {
   @State commentReportId: number = 0;
   @State viewingImage: string = ''; // 全屏看图
   @State shareCardPreview: image.PixelMap | null = null; // 分享卡图 App 内预览
-  @State statusBarHeight: number = 0; // 全屏布局下顶部避让状态栏
+  // 顶部避让状态栏：用「构造时即就位」的全局值（Index 启动时写入 AppStorage），
+  // 不能本页异步测量——一镜到底在转场开始那一刻量「媒体位」的落点，若 padding
+  // 晚一帧才从 0 变为状态栏高度，整页会在量测之后整体下移一个状态栏高度：
+  // 海报落点偏高、交接真图时"瞬移下来"（本轮修的残余偏移）。
+  // 与 LoginView / 圈子页等 20+ 页保持一致（同一 AppStorage 键）。
+  @StorageLink('statusBarHeight') statusBarHeight: number = 0;
   // 系统栏测量来源（挂着 avoidAreaChange 监听，页面销毁时注销）
   private navSourceWin: window.Window | undefined = undefined;
   // 收藏夹选择（收藏时归类）

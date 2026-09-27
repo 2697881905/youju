@@ -36,7 +36,7 @@ const SNAPSHOT_FADE_MS: number = 180;
 // 官方用 SnapShotImage 这个静态类持有 PixelMap 跨页传递；本项目改为随 push 参数传递，
 // 类型明确、不留全局态（截图失败时 snapshot 为 undefined，退化为纯布局变形）。
 export class LongTakeParams {
-  // 卡片（信息流为整卡 feedCard-{id}，每日一帖卡堆为 deckCardMedia-{id}）组件 id
+  // 飞行物组件 id（信息流为整卡 feedCard-{id}，每日一帖卡堆为 deckCardMedia-{id}）
   cardId: string = '';
   // 卡片在屏幕上的帧（vp），由源页实测
   cardRect: CardRect = { left: 0, top: 0, width: 0, height: 0 };
@@ -200,7 +200,13 @@ export class LongTakeAnimationProperties {
 
     const rootPositionX_px: number = ui.vp2px(rootPositionX_vp);
     const rootPositionY_px: number = ui.vp2px(rootPositionY_vp);
-    this.initTranslateX = ui.px2vp(cardLeft_px - rootPositionX_px - (rootWidth_px - cardWidth_px) / 2);
+    // 水平位移：把「对应节点」的左上角对齐到卡片左边缘。
+    // 官方式子减 (rootW - cardW)/2，隐含前提是「节点宽 == 窗口宽」（媒体满幅）：
+    // 本项目媒体位两侧各内缩 16vp（nodeW = 页宽 - 32），窗口比卡片宽 rootW/nodeW 倍，
+    // 照搬会让落点整体左移 (rootW·s - cardW)/2（信息流卡 ≈8vp、卡堆 ≈16vp）——
+    // 进场首帧偏左被飞行掩盖，返回收尾定格时可见（轻微偏左后瞬移到卡片原位）。
+    // 用一般式：节点宽 == 窗口宽时与官方式子完全等价。
+    this.initTranslateX = ui.px2vp(cardLeft_px - rootPositionX_px - rootWidth_px * (1 - this.initScale) / 2);
     this.initTranslateY =
       ui.px2vp(cardTop_px - rootPositionY_px - (clipHeight_px - clipHeight_px * this.initScale) / 2);
 
