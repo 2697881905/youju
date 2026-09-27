@@ -1123,7 +1123,6 @@ export struct PostDetailView {
       // 首图就绪后轮播自己平滑切到 readingAspect（竖图不被压横）
       initialAspect: this.flightAspect(),
       readingAspect: this.readingAspect(),
-      preserveContent: this.readingAspect() > 1,
       onFirstReady: (): void => { this.markHeroReady(); },
       onOpenImage: (url: string): void => { this.viewingImage = url; },
     })

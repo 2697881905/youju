@@ -2,7 +2,15 @@ import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
 
 // 详情媒体阅读是纯展示边界，页面保留全屏查看和数据加载状态。
-// 图片按真实比例自适应渲染：宽度撑满、高度随当前页图片比例变化（clamp 后），不再 3:4 裁切。
+//
+// 预览比例规则（单一事实源，判据 = 宽/高，3:4 = 0.75 为界）：
+//   · 宽/高 < 3:4（比 3:4 更竖长，如 9:16）→ 容器钳到 3:4，ImageFit.Contain：
+//     图完整可见、居中，左右露出 sunken 底色（留白，不裁剪、不变形）；
+//   · 宽/高 ≥ 3:4（1:1 / 4:3 / 16:9 …）→ 容器 = 图片真实比例，横向不设上限；
+//     此时框比例 == 图比例，Contain 即满框，无裁切、无缩放变形；
+//   · 恰好等于 3:4 归入「保持原比例」组（同样满框）；
+//   · 解码失败 / 尺寸异常（w≤0、h≤0、NaN）→ 兜底 3:4。
+// 逐图生效：容器比例跟随当前页，滑动切换按 250ms 动画过渡。
 @Component
 export struct DetailMediaCarousel {
   @Prop images: string[] = [];
@@ -14,8 +22,6 @@ export struct DetailMediaCarousel {
   // 与 initialAspect（飞行目标框比例）解耦：飞行段锁卡面比例让截图落点严丝合缝，
   // 首图就绪交接时再平滑切到阅读比例（如卡堆卡面 4:3 → 阅读 3:4，竖图不被压横）。
   @Prop readingAspect: number = 0;
-  // 每日一帖卡面是 Cover 裁切，详情阅读时保留原图完整内容。
-  @Prop preserveContent: boolean = false;
   onOpenImage: (url: string) => void = (_url: string): void => {};
   // 首图解码完成回调：一镜到底详情页据此从 hero 切到真实轮播（图片命中缓存通常即时触发）
   onFirstReady: (() => void) | null = null;
@@ -26,18 +32,15 @@ export struct DetailMediaCarousel {
   // 当前展示比例：默认 3:4 占位，加载完成或切换页后按真实比例更新
   @State currentRatio: number = 0.75;
 
-  private static readonly MIN_RATIO: number = 0.5; // 最高 2:1 竖长
-  private static readonly MAX_RATIO: number = 1.6; // 最宽 1.6:1 横宽
+  // 竖长下限：比 3:4 更竖长（宽/高 < 0.75）一律钳到 3:4；横向不设上限（16:9 等保持原比例）。
+  private static readonly MIN_RATIO: number = 3 / 4;
 
   private clampRatio(ratio: number): number {
     if (!(ratio > 0)) {
-      return 0.75;
+      return DetailMediaCarousel.MIN_RATIO;
     }
     if (ratio < DetailMediaCarousel.MIN_RATIO) {
       return DetailMediaCarousel.MIN_RATIO;
-    }
-    if (ratio > DetailMediaCarousel.MAX_RATIO) {
-      return DetailMediaCarousel.MAX_RATIO;
     }
     return ratio;
   }
@@ -73,7 +76,9 @@ export struct DetailMediaCarousel {
             Image(url)
               .width('100%')
               .height('100%')
-              .objectFit(this.preserveContent ? ImageFit.Contain : ImageFit.Cover)
+              // 统一 Contain：被钳到 3:4 的竖长图左右留白、完整显示；
+              // 未钳制的图容器比例 == 图比例，Contain 即满框（无需 Cover 裁切分支）
+              .objectFit(ImageFit.Contain)
               .backgroundColor(ColorTokens.sunken)
               .borderRadius(RadiusTokens.lg)
               // 图在 Swiper 内：Image 默认 draggable=true，长按后横向拖动会被系统拖拽接管，
