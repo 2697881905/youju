@@ -52,6 +52,7 @@ import { DetailActionBar } from '../components/DetailActionBar';
 import { AtMentionSuggest } from '../components/AtMentionSuggest';
 import { findActiveAtMention, applyAtMention, AtMentionMatch } from '../utils/atMention';
 import { barBottomReserve } from '../utils/cardTokens';
+import { refreshBottomNavInset } from '../utils/navMode';
 import { SpaceTokens } from '../design/tokens/space';
 import { FALLBACK_VIDEO_ASPECT_RATIO, normalizeVideoAspectRatio } from '../utils/video';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
@@ -368,6 +369,8 @@ export struct PostDetailView {
       this.statusBarHeight = this.getUIContext().px2vp(sys.topRect.height);
       AppStorage.setOrCreate<number>('navBarHeight',
         Math.max(this.getUIContext().px2vp(sys.bottomRect.height), this.getUIContext().px2vp(indicator.bottomRect.height)));
+      // navBarHeight 变了，底部避让量随之重算（三键/手势切换或分屏时导航区高度变化）
+      refreshBottomNavInset();
     } catch (e) {
       // 单独一次测量失败不影响已生效值
     }

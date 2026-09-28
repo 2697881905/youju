@@ -2,7 +2,7 @@
 import { RadiusTokens } from '../design/tokens/radius';
 import { ShadowTokens } from '../design/tokens/shadow';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
-import { NAV_MODE_KEY, NAV_BUTTON_BAR_HEIGHT_KEY, NAV_MODE_THREE_BUTTON, NAV_MODE_GESTURE, NAV_MODE_FLOATING_BALL } from './navMode';
+import { bottomNavInset as computeNavInset } from './navMode';
 
 export const CARD_RADIUS: number = RadiusTokens.lg;
 export const CARD_PADDING: number = SpaceTokens.base;
@@ -23,43 +23,17 @@ export function barBottomReserve(): number {
   return LayoutTokens.floatingBarReserve + nav;
 }
 
-// 底部导航条避让（审核问题③ + 本次 AGC 反馈「详情页底栏被三键导航遮挡」）：
-// 三键导航设备上系统导航条占据屏幕底部区域，贴底交互控件必须整体抬高避让，
-// 否则被审核判定「底部控件抬高避让小于 28vp」。
-// 双信号判别（详见 utils/navMode.ets）：
-//   ① 权威：settings 'float_navigation_info' 的 showType（0=三键 / 1=悬浮球 / -1=手势），
-//      三键时还给出 region 真实栏高（px→vp），无启发式；
-//   ② 兜底：navBarHeight（= max(TYPE_SYSTEM, TYPE_NAVIGATION_INDICATOR) 的 bottomRect，vp）
-//      高度阈值判别 —— 三键≈28-42vp、手势指示条≈16-24vp，区间不重叠，阈值取 24。
-//   ①不可用（键缺失/非华为 ROM/模拟器）时退回②，行为与历史版本一致。
-// 数据刷新：navBarHeight 由 Index 启动测量 + PostDetailView avoidAreaChange 监听实时刷新；
-// navMode 由 EntryAbility 启动时经 navMode.initNavModeWatcher 注册 settings 监听实时刷新。
-// 三键时再加 10vp 呼吸空间（真机实测贴上沿仍显挤）。手势/悬浮球返回 0（维持原布局）。
-// 阈值与呼吸间隔导出给 DetailActionBar 等响应式消费方复用，避免魔法数分叉。
-export const GESTURE_INDICATOR_MAX: number = 24;
-export const NAV_INSET_EXTRA: number = 10;
-
-// 当前是否三键导航（settings 判别优先；键缺失时退回高度阈值判别）
-export function isThreeButtonNav(): boolean {
-  const mode: string = (AppStorage.get<string>(NAV_MODE_KEY) ?? '');
-  if (mode === NAV_MODE_GESTURE || mode === NAV_MODE_FLOATING_BALL) {
-    return false;
-  }
-  if (mode === NAV_MODE_THREE_BUTTON) {
-    return true;
-  }
-  return (AppStorage.get<number>('navBarHeight') ?? 0) > GESTURE_INDICATOR_MAX;
-}
-
+// 底部导航条避让（审核问题③ + AGC「详情页底栏被三键导航遮挡」）：
+// 判别与计算已统一迁移到 utils/navMode.ets —— settings 'float_navigation_info' 权威判别
+// （showType 0=三键 / 1=悬浮球 / -1=手势，region 给出真实栏高）+ 避让区高度阈值兜底
+// （手势条约 16-24vp、三键条约 28-42vp，阈值 24）+ 三键 10vp 呼吸。本文件只保留旧入口，
+// 免改 6 处既有调用点。
+// ⚠️ 响应式消费方（随导航方式切换要立即重排的贴底栏）**不要**用 bottomNavInset()：
+//    普通函数读 AppStorage 不建立 UI 绑定。应 @StorageLink('bottomNavInsetVp') 并在
+//    build 属性里**直接读该变量**（见 DetailActionBar；只在 build 里挂 link 不读变量
+//    等于没挂 —— ArkUI 只为「初始渲染时被读过的状态变量」建立更新绑定，两次实测踩坑）。
 export function bottomNavInset(): number {
-  if (isThreeButtonNav()) {
-    // 三键：settings 给出的真实栏高与避让区测量取大者，再加 10vp 呼吸
-    const bar: number = AppStorage.get<number>(NAV_BUTTON_BAR_HEIGHT_KEY) ?? 0;
-    const nav: number = AppStorage.get<number>('navBarHeight') ?? 0;
-    return Math.max(bar, nav) + NAV_INSET_EXTRA;
-  }
-  // 手势导航条 / 悬浮球：底部无系统栏遮挡，维持原布局
-  return 0;
+  return computeNavInset();
 }
 
 // —— 悬浮 Dock 几何（首页 HdsTabs 悬浮条 与 详情页 Dock 共用；改这里两处同步）——

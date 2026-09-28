@@ -2,7 +2,7 @@ import { AbilityConstant, UIAbility, Want, ConfigurationConstant, Configuration 
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 import settings from '@ohos.settings';
-import { initNavModeWatcher, refreshNavMode, bumpNavInsetVersion } from '../utils/navMode';
+import { initNavModeWatcher, refreshNavMode, refreshBottomNavInset } from '../utils/navMode';
 import { initThemeContext, loadThemeFromPrefs, applyLaunchTheme, applySystemFollowMode, isDarkMode } from '../utils/theme';
 
 const DOMAIN = 0x0000;
@@ -135,9 +135,9 @@ export default class EntryAbility extends UIAbility {
     this.syncSystemMotionPreference();
     // 导航方式可能在后台被切换（设置里切三键/手势后返回应用）：avoidAreaChange 在后台
     // 切换时不派发，且后台期的 AppStorage 写入不足以驱动可见重渲染 → 前台恢复时强制
-    // 重读配置 + bump 版本号，让挂了 @StorageLink('navInsetVersion') 的贴底栏立即抬高。
+    // 重读配置并重算避让量，挂了 @StorageLink('bottomNavInsetVp') 的贴底栏立即抬高。
     refreshNavMode(this.context);
-    bumpNavInsetVersion();
+    refreshBottomNavInset();
     // 前台恢复时直读系统当前深浅（后台切换深浅时 onConfigurationUpdate 可能不派发，
     // 缓存的 systemDark 是旧值 → 界面不跟随。用 context.config 保证拿到最新并走完整应用链路）
     const sysDark: boolean = Number(this.context.config.colorMode) === ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
