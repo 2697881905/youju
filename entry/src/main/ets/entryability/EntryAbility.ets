@@ -2,6 +2,7 @@ import { AbilityConstant, UIAbility, Want, ConfigurationConstant, Configuration 
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 import settings from '@ohos.settings';
+import { initNavModeWatcher } from '../utils/navMode';
 import { initThemeContext, loadThemeFromPrefs, applyLaunchTheme, applySystemFollowMode, isDarkMode } from '../utils/theme';
 
 const DOMAIN = 0x0000;
@@ -56,6 +57,9 @@ export default class EntryAbility extends UIAbility {
   onWindowStageCreate(windowStage: window.WindowStage): void {
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onWindowStageCreate');
     this.winStage = windowStage;
+    // 导航方式检测（三键/悬浮球/手势）：settings 'float_navigation_info' + 变化监听。
+    // 尽早初始化，保证首帧前 AppStorage 已有 navMode；内部全兜底，任何失败不影响启动。
+    initNavModeWatcher(this.context);
     windowStage.loadContent('pages/Index', (err) => {
       if (err.code) {
         hilog.error(DOMAIN, 'testTag', 'Failed to load the content. Cause: %{public}s', JSON.stringify(err));
