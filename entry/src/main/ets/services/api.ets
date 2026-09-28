@@ -426,18 +426,9 @@ export async function cancelUpComment(id: number): Promise<void> {
   await api.del<null>('/v1/comments/' + id + '/up');
 }
 
-// POST /v1/push/register（上报华为推送设备 Token；未登录时后端拒，但此处在调用前已判登录）
-interface PushRegisterBody {
-  token: string;
-  deviceId?: string;
-}
-export async function registerPushToken(token: string, deviceId?: string): Promise<void> {
-  const body: PushRegisterBody = { token };
-  if (deviceId) {
-    body.deviceId = deviceId;
-  }
-  await api.post<null>('/v1/push/register', body);
-}
+// 华为推送（HMS Push）设备 Token 注册：本期（v1.0.0）未接线，计划下一版本实现。
+// 届时恢复 registerPushToken(token, deviceId) → POST /v1/push/register，并在登录成功/冷启动处调用；
+// 后端路由（routes/push.ts）与 huaweiPush 服务已就绪，缺的只是客户端取 token 并上报这一步。
 
 // ===== 互动 =====
 // POST/DELETE /v1/posts/:id/up
