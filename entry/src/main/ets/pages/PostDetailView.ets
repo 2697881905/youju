@@ -736,14 +736,15 @@ export struct PostDetailView {
     this.shareController.close();
   }
 
-  // ===== 长按正文 → 复制全文 =====
+  // ===== 长按标题/正文 → 复制标题 / 复制正文 =====
 
   private closeContentMenu(): void {
-    this.contentMenuVisible = false;
+    this.contentMenuTarget = '';
   }
 
-  // 长按定位：菜单卡片中心对准按压手指位置（跟手），并钳制在内容区边界内不溢出屏幕
-  private openContentMenu(event: GestureEvent): void {
+  // 长按定位：菜单卡片中心对准按压手指位置（跟手），并钳制在内容区边界内不溢出屏幕。
+  // target：'title'=复制标题 / 'content'=复制正文，决定菜单项与复制范围。
+  private openContentMenu(target: string, event: GestureEvent): void {
     // 兜底中心点（fingerList 理论上必有值，防御性处理）
     let gx: number = this.contentAreaGlobalX + this.contentAreaWidth / 2;
     let gy: number = this.contentAreaGlobalY + this.contentAreaHeight / 2;
@@ -761,16 +762,15 @@ export struct PostDetailView {
     const maxY: number = Math.max(8, this.contentAreaHeight - cardH - 8);
     this.contentMenuX = Math.max(8, Math.min(maxX, lx - cardW / 2));
     this.contentMenuY = Math.max(8, Math.min(maxY, ly - cardH / 2));
-    this.contentMenuVisible = true;
+    this.contentMenuTarget = target;
   }
 
-  // 全文纯文本：标题 + 结构化信息（V2 文档优先，旧帖回退字段投影）+ 正文
-  private postFullText(): string {
+  // 正文纯文本：结构化信息（V2 文档优先，旧帖回退字段投影）+ 正文，不含标题
+  private postContentText(): string {
     if (!this.post) {
       return '';
     }
-    return postPlainTextOf(
-      this.post.title ?? '',
+    return postContentTextOf(
       this.post.content ?? '',
       this.post.structuredDocument ?? null,
       this.fields,
@@ -779,14 +779,27 @@ export struct PostDetailView {
 
   private copyPostContent(): void {
     this.closeContentMenu();
-    const text: string = this.postFullText();
+    const text: string = this.postContentText();
     if (text.length === 0) {
       safeShowToast(this.getUIContext(), { message: '没有可复制的内容' });
       return;
     }
     try {
       copyToClipboard(text);
-      safeShowToast(this.getUIContext(), { message: '全文已复制，去粘贴吧' });
+      safeShowToast(this.getUIContext(), { message: '正文已复制，去粘贴吧' });
+    } catch (e) {
+      safeShowToast(this.getUIContext(), { message: '复制失败，请重试' });
+    }
+  }
+
+  private copyPostTitle(): void {
+    this.closeContentMenu();
+    if (!this.post) {
+      return;
+    }
+    try {
+      copyToClipboard(this.post.title ?? '');
+      safeShowToast(this.getUIContext(), { message: '标题已复制' });
     } catch (e) {
       safeShowToast(this.getUIContext(), { message: '复制失败，请重试' });
     }
@@ -855,7 +868,7 @@ export struct PostDetailView {
   // 是否有页内覆盖层打开（返回手势要先关它们，而不是退出详情页）
   private hasPageOverlay(): boolean {
     return this.viewingImage.length > 0 || this.shareCardPreview !== null || this.statsPanelShow
-      || this.contentMenuVisible;
+      || this.contentMenuTarget.length > 0;
   }
 
   // 关掉最上层那个覆盖层。层级从高到低：图片查看器(999) → 分享卡预览(200) → 数据面板(210) → 长按菜单。
@@ -868,7 +881,7 @@ export struct PostDetailView {
       this.closeShareCardPreview();
       return;
     }
-    if (this.contentMenuVisible) {
+    if (this.contentMenuTarget.length > 0) {
       this.closeContentMenu();
       return;
     }
@@ -1229,12 +1242,20 @@ export struct PostDetailView {
       .onClick(() => { action(); })
   }
 
-  // 长按正文菜单浮层：全屏透明遮罩（点击关闭）+ 卡片按按压点定位（跟手）+ 轻量进场动效
+  // 长按标题/正文菜单浮层：全屏透明遮罩（点击关闭）+ 卡片按按压点定位（跟手）+ 轻量进场动效。
+  // 菜单项随长按目标切换：标题 → 复制标题；正文 → 复制正文。
   @Builder
   private contentActionSheet(): void {
     Column() {
       Column() {
-        this.contentMenuRow('复制全文', (): void => { this.copyPostContent(); })
+        this.contentMenuRow(this.contentMenuTarget === 'title' ? '复制标题' : '复制正文',
+          (): void => {
+            if (this.contentMenuTarget === 'title') {
+              this.copyPostTitle();
+            } else {
+              this.copyPostContent();
+            }
+          })
       }
       .width(148)
       .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
@@ -1481,6 +1502,7 @@ export struct PostDetailView {
                 authorAvatar: this.authorAvatar(),
                 createdAt: this.post.createdAt,
                 onOpenAuthor: (): void => { this.openAuthorProfile(); },
+                onLongPressTitle: (event: GestureEvent): void => { this.openContentMenu('title', event); },
               })
                 .transition(this.animLayerEnter(80))
 
@@ -1506,11 +1528,12 @@ export struct PostDetailView {
                 onVote: (choice: string): void => { this.onDebateVote(choice); },
               })
                 .transition(this.animLayerEnter(120))
-                // 长按弹出「复制全文」菜单：标准 LongPressGesture 与正文 Span 的 onClick
-                // （话题/提及跳转）正确共存；长按识别成功后系统自动取消单击。
+                // 长按弹出「复制正文」菜单（不含标题，标题在头部单独长按复制）：
+                // 标准 LongPressGesture 与正文 Span 的 onClick（话题/提及跳转）正确共存；
+                // 长按识别成功后系统自动取消单击。
                 .gesture(
                   LongPressGesture({ repeat: false, duration: 400 })
-                    .onAction((event: GestureEvent): void => { this.openContentMenu(event); })
+                    .onAction((event: GestureEvent): void => { this.openContentMenu('content', event); })
                 )
 
               DetailCommentsSection({
@@ -1567,8 +1590,8 @@ export struct PostDetailView {
           .width('100%')
           .zIndex(1)
 
-          // 长按正文菜单浮层：置于 Stack 最上层，遮罩点击关闭
-          if (this.contentMenuVisible) {
+          // 长按标题/正文菜单浮层：置于 Stack 最上层，遮罩点击关闭
+          if (this.contentMenuTarget.length > 0) {
             this.contentActionSheet()
           }
         }
