@@ -34,8 +34,6 @@ import { bottomNavInset } from '../utils/cardTokens';
 import { RadiusTokens } from '../design/tokens/radius';
 import { TypeTokens } from '../design/tokens/type';
 import { MotionCurves } from '../design/tokens/motion';
-import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
-import { ImmersiveSurface } from '../design/components/ImmersiveSurface';
 import { GlowInput } from '../design/components/GlowInput';
 import { HighlightedText } from '../components/HighlightedText';
 import { openUserProfile, takeChatIntent, openPostDetail } from '../utils/nav';
@@ -578,53 +576,50 @@ export struct ChatView {
     .borderRadius(RadiusTokens.lg)
   }
 
-  // 「+」媒体菜单：发送图片 / 发送视频（样式与表情面板一致）
+  // 「+」媒体菜单：发送图片 / 发送视频（样式与表情面板一致：搜索框规格，无流光）
   @Builder
   mediaMenu() {
-    ImmersiveSurface({ radius: RadiusTokens.md }) {
-      Column({ space: SpaceTokens.xs }) {
-        Row({ space: SpaceTokens.sm }) {
-          Text('🖼️')
-            .fontSize(18)
-          Text('发送图片')
-            .fontSize(15).fontFamily($r('app.string.font_family'))
-            .fontColor(ColorTokens.primary)
-          Blank()
-        }
-        .width('100%')
-        .height(LayoutTokens.minTouchTarget)
-        .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-        .alignItems(VerticalAlign.Center)
-        .accessibilityText('发送图片')
-        .onClick(() => {
-          this.sendImage();
-        });
-
-        Row({ space: SpaceTokens.sm }) {
-          Text('🎬')
-            .fontSize(18)
-          Text('发送视频')
-            .fontSize(15).fontFamily($r('app.string.font_family'))
-            .fontColor(ColorTokens.primary)
-          Blank()
-        }
-        .width('100%')
-        .height(LayoutTokens.minTouchTarget)
-        .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-        .alignItems(VerticalAlign.Center)
-        .accessibilityText('发送视频')
-        .onClick(() => {
-          this.sendVideo();
-        });
+    Column({ space: SpaceTokens.xs }) {
+      Row({ space: SpaceTokens.sm }) {
+        Text('🖼️')
+          .fontSize(18)
+        Text('发送图片')
+          .fontSize(15).fontFamily($r('app.string.font_family'))
+          .fontColor(ColorTokens.primary)
+        Blank()
       }
       .width('100%')
-      .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
-      .backgroundBlurStyle(GlassBlurStyle.Floating)
-      .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
-      .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-      .borderRadius(RadiusTokens.md)
-      .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 3 });
+      .height(LayoutTokens.minTouchTarget)
+      .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+      .alignItems(VerticalAlign.Center)
+      .accessibilityText('发送图片')
+      .onClick(() => {
+        this.sendImage();
+      });
+
+      Row({ space: SpaceTokens.sm }) {
+        Text('🎬')
+          .fontSize(18)
+        Text('发送视频')
+          .fontSize(15).fontFamily($r('app.string.font_family'))
+          .fontColor(ColorTokens.primary)
+        Blank()
+      }
+      .width('100%')
+      .height(LayoutTokens.minTouchTarget)
+      .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+      .alignItems(VerticalAlign.Center)
+      .accessibilityText('发送视频')
+      .onClick(() => {
+        this.sendVideo();
+      });
     }
+    .width('100%')
+    .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
+    .backgroundColor('#20FFFFFF')
+    .backdropBlur(20)
+    .border({ width: 1, color: '#30FFFFFF', style: BorderStyle.Solid })
+    .borderRadius(RadiusTokens.lg)
   }
 
   // ===== 长按消息小菜单：复制 / 保存 / 删除 / 撤回 =====
