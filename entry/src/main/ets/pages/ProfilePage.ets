@@ -871,10 +871,8 @@ export struct ProfilePage {
               }
               .width('100%')
               .alignItems(VerticalAlign.Top)
-              Column() {
-                Blank().width('100%').height(barBottomReserve())
-              }
-              .width('100%')
+              // 列表底部：finished 时显示「没有更多了」，并保留悬浮底栏避让占位
+              this.postFooter()
             }
             .width('100%')
             // constraintSize minHeight 撑满视口：内容不足一屏时从顶部贴齐（规避 Scroll 内容垂直居中）
