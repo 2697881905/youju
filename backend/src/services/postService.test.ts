@@ -1,4 +1,4 @@
-import { listPosts, getPost, listLikedPosts, listCommentedPosts } from './postService';
+import { listPosts, getPost, listLikedPosts, listCommentedPosts, listBookmarks } from './postService';
 import { prisma } from '../prisma';
 
 // mock searchService：listPosts 收到 keyword 后转交相关度排序，无需真实检索逻辑
@@ -28,6 +28,7 @@ jest.mock('../prisma', () => ({
     bookmark: {
       findFirst: jest.fn(),
       findMany: jest.fn(),
+      count: jest.fn(),
     },
     debateVote: {
       findMany: jest.fn().mockResolvedValue([]),
@@ -65,6 +66,7 @@ const mockedUpFindMany = prisma.up.findMany as jest.Mock;
 const mockedUpCount = prisma.up.count as jest.Mock;
 const mockedBmFindFirst = prisma.bookmark.findFirst as jest.Mock;
 const mockedBmFindMany = prisma.bookmark.findMany as jest.Mock;
+const mockedBmCount = prisma.bookmark.count as jest.Mock;
 const mockedCommentGroupBy = prisma.comment.groupBy as jest.Mock;
 const mockedCommentFindMany = prisma.comment.findMany as jest.Mock;
 
@@ -376,7 +378,9 @@ describe('listLikedPosts - 我赞过的帖子', () => {
     // up.findMany 分页参数正确
     expect(mockedUpFindMany).toHaveBeenCalledTimes(1);
     const fmArg = mockedUpFindMany.mock.calls[0][0];
-    expect(fmArg.where).toEqual({ userId: 7 });
+    // 关键：必须过滤掉已删除（废纸篓）/未发布的帖子，否则「我赞过」会残留已删帖
+    expect(fmArg.where).toEqual({ userId: 7, post: { deletedAt: null, status: 1 } });
+    expect(mockedUpCount).toHaveBeenCalledWith({ where: { userId: 7, post: { deletedAt: null, status: 1 } } });
     expect(fmArg.orderBy).toEqual({ createdAt: 'desc' });
     expect(fmArg.skip).toBe(10);
     expect(fmArg.take).toBe(10);
@@ -397,51 +401,86 @@ describe('listLikedPosts - 我赞过的帖子', () => {
   });
 });
 
-describe('listCommentedPosts - 我评论过的帖子（去重）', () => {
+describe('listCommentedPosts - 我评论过的帖子（去重 + 过滤已删除帖）', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   it('同一帖多次评论只出现一次，且按最新评论时间倒序保序', async () => {
-    // 用户 7 评论过：post 1(评论a/b) + post 2(评论c) + post 3(评论d)
     // groupBy 返回 3 个去重 postId，按 _max.createdAt 倒序：3,1,2
-    mockedCommentGroupBy
-      .mockResolvedValueOnce([
-        { postId: 3, _max: { createdAt: new Date('2024-03-01') } },
-        { postId: 1, _max: { createdAt: new Date('2024-02-01') } },
-        { postId: 2, _max: { createdAt: new Date('2024-01-01') } },
-      ])
-      // 计数 groupBy（不依赖分页）
-      .mockResolvedValueOnce([
-        { postId: 3 },
-        { postId: 1 },
-        { postId: 2 },
-      ]);
-    mockedFindMany.mockResolvedValue([
-      { id: 1, user: { id: 1, nickname: 'A' } },
-      { id: 2, user: { id: 2, nickname: 'B' } },
-      { id: 3, user: { id: 3, nickname: 'C' } },
+    mockedCommentGroupBy.mockResolvedValueOnce([
+      { postId: 3, _max: { createdAt: new Date('2024-03-01') } },
+      { postId: 1, _max: { createdAt: new Date('2024-02-01') } },
+      { postId: 2, _max: { createdAt: new Date('2024-01-01') } },
     ]);
+    mockedFindMany
+      // 第一次：可见性过滤（三帖均可见）
+      .mockResolvedValueOnce([{ id: 3 }, { id: 1 }, { id: 2 }])
+      // 第二次：取分页后的帖子详情
+      .mockResolvedValueOnce([
+        { id: 1, user: { id: 1, nickname: 'A' } },
+        { id: 2, user: { id: 2, nickname: 'B' } },
+        { id: 3, user: { id: 3, nickname: 'C' } },
+      ]);
 
     const res = await listCommentedPosts(7, 1, 20);
 
-    // findMany 用 in 查询三个去重 postId
-    expect(mockedFindMany).toHaveBeenCalledTimes(1);
-    expect(mockedFindMany.mock.calls[0][0].where.id).toEqual({ in: [3, 1, 2] });
+    // 可见性查询必须带「已发布且未进废纸篓」条件
+    const visArg = mockedFindMany.mock.calls[0][0];
+    expect(visArg.where).toEqual({ id: { in: [3, 1, 2] }, deletedAt: null, status: 1 });
+    expect(visArg.select).toEqual({ id: true });
     // 返回顺序与 groupBy 顺序一致（3,1,2），而非 findMany 原始顺序
     expect(res.list.map((p) => p.id)).toEqual([3, 1, 2]);
     expect(res.list[0].user).toEqual({ id: 3, nickname: 'C' });
     expect(res.pagination.total).toBe(3);
   });
 
+  it('已删除（废纸篓）的帖子不出现在「我评论过」，且 total 同步排除', async () => {
+    mockedCommentGroupBy.mockResolvedValueOnce([
+      { postId: 3, _max: { createdAt: new Date('2024-03-01') } },
+      { postId: 1, _max: { createdAt: new Date('2024-02-01') } },
+      { postId: 2, _max: { createdAt: new Date('2024-01-01') } },
+    ]);
+    // post 2 已被作者删除 → 可见性查询只返回 3、1
+    mockedFindMany
+      .mockResolvedValueOnce([{ id: 3 }, { id: 1 }])
+      .mockResolvedValueOnce([
+        { id: 1, user: { id: 1, nickname: 'A' } },
+        { id: 3, user: { id: 3, nickname: 'C' } },
+      ]);
+
+    const res = await listCommentedPosts(7, 1, 20);
+
+    expect(res.list.map((p) => p.id)).toEqual([3, 1]);
+    expect(res.pagination.total).toBe(2);
+  });
+
   it('某页无评论时返回空数组', async () => {
-    mockedCommentGroupBy
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([]);
-    mockedFindMany.mockResolvedValue([]);
+    mockedCommentGroupBy.mockResolvedValueOnce([]);
 
     const res = await listCommentedPosts(7, 99, 20);
     expect(res.list).toEqual([]);
     expect(res.pagination.total).toBe(0);
+  });
+});
+
+describe('listBookmarks - 我收藏的帖子（过滤已删除帖）', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('查询必须带「帖子可见」条件，避免已删帖残留在「我收藏」', async () => {
+    mockedBmFindMany.mockResolvedValue([
+      { postId: 5, post: { id: 5, user: { id: 5, nickname: 'E' } } },
+    ]);
+    mockedBmCount.mockResolvedValue(1);
+
+    const res = await listBookmarks(7, 1, 20);
+
+    const where = { userId: 7, post: { deletedAt: null, status: 1 } };
+    expect(mockedBmFindMany.mock.calls[0][0].where).toEqual(where);
+    expect(mockedBmCount).toHaveBeenCalledWith({ where });
+    expect(res.list).toHaveLength(1);
+    expect(res.pagination.total).toBe(1);
   });
 });
