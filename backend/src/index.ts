@@ -25,6 +25,15 @@ if (!env.corsOrigin) {
   console.warn('[安全警示] CORS_ORIGIN 未配置，当前允许所有来源跨域（仅开发期）。');
 }
 
+// 非生产模式的显著告警：此时「开放登录」与「本地直传」均启用，属高危形态。
+// 一旦被误部署到公网，任何人可用任意 openId 换取该账号令牌（身份冒充）。
+// 生产部署务必设置 NODE_ENV=production（仓库 Dockerfile 已内置）。
+if (!env.isProduction) {
+  console.warn(
+    `[安全警示] 当前为非生产模式（NODE_ENV=${env.nodeEnv}）：开放登录 /v1/auth/login 与本地直传 /v1/upload/local 处于启用状态，请勿用于公网部署。`
+  );
+}
+
 // 显式监听 IPv4，确保 DevEco 模拟器通过 hdc rport 转发到 127.0.0.1 时可达。
 app.listen(env.port, '0.0.0.0', () => {
   console.log(`有据 API listening on http://0.0.0.0:${env.port}`);
