@@ -763,9 +763,11 @@ export async function listBookmarks(userId: number, page: number = 1, limit: num
   const p = Math.max(1, Number(page));
   const l = Math.min(50, Math.max(1, Number(limit)));
   const skip = (p - 1) * l;
+  // 仅统计仍可见的帖子：作者删除后进废纸篓（deletedAt 非空）或未发布的，不应出现在「我收藏」
+  const where = { userId, post: { deletedAt: null, status: 1 } };
   const [rows, total] = await Promise.all([
     prisma.bookmark.findMany({
-      where: { userId },
+      where,
       orderBy: { createdAt: 'desc' },
       skip,
       take: l,
@@ -775,7 +777,7 @@ export async function listBookmarks(userId: number, page: number = 1, limit: num
         },
       },
     }),
-    prisma.bookmark.count({ where: { userId } }),
+    prisma.bookmark.count({ where }),
   ]);
   const list = rows.map((r) => ({ ...r.post, user: publicUserView(r.post.user) }));
   return { list, pagination: { page: p, limit: l, total } };
@@ -786,9 +788,11 @@ export async function listLikedPosts(userId: number, page: number = 1, limit: nu
   const p = Math.max(1, Number(page));
   const l = Math.min(50, Math.max(1, Number(limit)));
   const skip = (p - 1) * l;
+  // 仅统计仍可见的帖子：作者删除后进废纸篓（deletedAt 非空）或未发布的，不应出现在「我赞过」
+  const where = { userId, post: { deletedAt: null, status: 1 } };
   const [rows, total] = await Promise.all([
     prisma.up.findMany({
-      where: { userId },
+      where,
       orderBy: { createdAt: 'desc' },
       skip,
       take: l,
@@ -798,7 +802,7 @@ export async function listLikedPosts(userId: number, page: number = 1, limit: nu
         },
       },
     }),
-    prisma.up.count({ where: { userId } }),
+    prisma.up.count({ where }),
   ]);
   const list = rows.map((r) => ({ ...r.post, user: publicUserView(r.post.user) }));
   return { list, pagination: { page: p, limit: l, total } };
@@ -809,30 +813,34 @@ export async function listCommentedPosts(userId: number, page: number = 1, limit
   const p = Math.max(1, Number(page));
   const l = Math.min(50, Math.max(1, Number(limit)));
   const skip = (p - 1) * l;
-  // 先按 postId 分组聚合，取每组最新评论时间用于排序分页（同一帖多次评论只算一条）
+  // 1) 按 postId 分组聚合，取每组最新评论时间，得到去重且按时间倒序的帖子 id
   const grouped = await prisma.comment.groupBy({
     by: ['postId'],
     where: { userId },
     _max: { createdAt: true },
     orderBy: { _max: { createdAt: 'desc' } },
-    skip,
-    take: l,
   });
-  const postIds: number[] = grouped.map((g) => g.postId);
-  const [posts, total] = await Promise.all([
-    prisma.post.findMany({
-      where: { id: { in: postIds } },
-      include: { user: { select: USER_PUBLIC_SELECT } },
-    }),
-    // 去重后的帖子总数（不依赖分页，直接 groupBy 计数）
-    prisma.comment.groupBy({ by: ['postId'], where: { userId } }).then((r) => r.length),
-  ]);
-  // findMany 不保证 id 顺序，按分组顺序（最新评论时间倒序）重排
+  // 2) 过滤掉已被作者删除（进废纸篓）或未发布的帖子，保证「我评论过」与详情可见性一致。
+  //    必须在「可见集合」上分页：否则被删帖会挤占页码，导致总数与翻页对不上。
+  const orderedIds: number[] = grouped.map((g) => g.postId);
+  const visible = orderedIds.length === 0 ? [] : await prisma.post.findMany({
+    where: { id: { in: orderedIds }, deletedAt: null, status: 1 },
+    select: { id: true },
+  });
+  const visibleSet = new Set(visible.map((v) => v.id));
+  const visibleIds = orderedIds.filter((id) => visibleSet.has(id));
+  const total = visibleIds.length;
+  const pageIds = visibleIds.slice(skip, skip + l);
+  const pagePosts = pageIds.length === 0 ? [] : await prisma.post.findMany({
+    where: { id: { in: pageIds } },
+    include: { user: { select: USER_PUBLIC_SELECT } },
+  });
+  // findMany 不保证 id 顺序，按分页顺序（最新评论时间倒序）重排
   const orderMap: Record<number, number> = {};
-  for (let i = 0; i < postIds.length; i++) {
-    orderMap[postIds[i]] = i;
+  for (let i = 0; i < pageIds.length; i++) {
+    orderMap[pageIds[i]] = i;
   }
-  const sorted = posts.slice().sort((a, b) => {
+  const sorted = pagePosts.slice().sort((a, b) => {
     const ai = orderMap[a.id] ?? Number.MAX_SAFE_INTEGER;
     const bi = orderMap[b.id] ?? Number.MAX_SAFE_INTEGER;
     return ai - bi;
