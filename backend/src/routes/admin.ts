@@ -12,6 +12,7 @@ import * as moderationService from '../services/moderationService';
 import * as reportService from '../services/reportService';
 import { notifySystem } from '../services/notificationService';
 import { recomputeAllHotScores } from '../services/hotScoreService';
+import { parsePage, parseLimit } from '../utils/pagination';
 
 import { asyncHandler } from '../middleware/asyncHandler';
 
@@ -22,8 +23,8 @@ router.use(auth, adminAuth);
 
 // GET /v1/admin/posts/pending?page=&limit= — 待审核帖子列表
 router.get('/posts/pending', asyncHandler(async (req: AuthRequest, res: Response) => {
-  const page = req.query.page ? Number(req.query.page) : 1;
-  const limit = req.query.limit ? Number(req.query.limit) : 20;
+  const page = parsePage(req.query.page);
+  const limit = parseLimit(req.query.limit, 20);
   const data = await moderationService.listPendingPosts(page, limit);
   return ok(res, data);
 }));
@@ -49,8 +50,8 @@ router.post('/posts/:id/moderate', asyncHandler(async (req: AuthRequest, res: Re
 
 // GET /v1/admin/reports?page=&limit=&status= — 举报记录列表
 router.get('/reports', asyncHandler(async (req: AuthRequest, res: Response) => {
-  const page = req.query.page ? Number(req.query.page) : 1;
-  const limit = req.query.limit ? Number(req.query.limit) : 20;
+  const page = parsePage(req.query.page);
+  const limit = parseLimit(req.query.limit, 20);
   const status = req.query.status ? String(req.query.status) : undefined;
   const data = await reportService.listReports(page, limit, status);
   return ok(res, data);
@@ -104,7 +105,8 @@ router.post('/reports/resolve', asyncHandler(async (req: AuthRequest, res: Respo
   return ok(res, null, '已处理');
 }));
 
-// POST /v1/admin/recompute-hot —— 运营干预：全量重算热度分（调参/修正数据后手动触发）
+// POST /v1/admin/recompute-hot —— 运维/后台专用接口：全量重算热度分（调参、修数后手动触发）。
+// 前端无 UI 入口，需带管理员 token 直接调用；由 adminAuth 保证权限。
 router.post('/recompute-hot', asyncHandler(async (req: AuthRequest, res: Response) => {
   const count = await recomputeAllHotScores();
   return ok(res, { count }, '热榜已重算');

@@ -30,6 +30,26 @@ export function errorHandler(
     return;
   }
 
+  // Prisma 校验/约束类错误：本质是「客户端输入问题」，映射为 4xx，
+  // 避免因调用方传入非法参数（如 NaN 分页）被误报为 500 并污染 5xx 日志。
+  if (err?.name === 'PrismaClientValidationError') {
+    res.status(400).json({ code: CODE.BAD_REQUEST, data: null, message: '请求参数不合法' });
+    return;
+  }
+  const prismaCode: string | undefined = typeof err?.code === 'string' ? err.code : undefined;
+  if (prismaCode === 'P2002') {
+    res.status(409).json({ code: CODE.CONFLICT, data: null, message: '重复操作' });
+    return;
+  }
+  if (prismaCode === 'P2025') {
+    res.status(404).json({ code: CODE.NOT_FOUND, data: null, message: '记录不存在' });
+    return;
+  }
+  if (prismaCode === 'P2003') {
+    res.status(400).json({ code: CODE.BAD_REQUEST, data: null, message: '关联数据无效' });
+    return;
+  }
+
   const rawStatus = typeof err?.status === 'number' ? err.status : undefined;
   const status =
     rawStatus && rawStatus >= 400 && rawStatus < 600 ? rawStatus : 500;

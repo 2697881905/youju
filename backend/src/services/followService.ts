@@ -65,9 +65,13 @@ export async function followUser(viewerId: number, rawTargetId: string): Promise
   notifyOnFollow(targetId, viewerId).catch(() => {});
 }
 
-// 取消关注（deleteMany 幂等，未关注也不报错）
+// 取消关注（幂等：未关注也不报错；但目标用户不存在时返回 404，与 followUser 行为对齐）
 export async function unfollowUser(viewerId: number, rawTargetId: string): Promise<void> {
   const targetId = resolveTargetId(rawTargetId, viewerId);
+  const target = await prisma.user.findUnique({ where: { id: targetId }, select: { id: true } });
+  if (!target) {
+    throw new FollowError('用户不存在', 404, 404);
+  }
   await prisma.follow.deleteMany({
     where: { followerId: viewerId, followingId: targetId },
   });

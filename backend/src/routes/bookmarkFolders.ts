@@ -6,6 +6,7 @@ import { auth, AuthRequest } from '../middleware/auth';
 import { asyncHandler } from '../middleware/asyncHandler';
 import * as folderService from '../services/bookmarkFolderService';
 import { ValidationError } from '../utils/errors';
+import { parsePage, parseLimit } from '../utils/pagination';
 
 const router = Router();
 
@@ -50,8 +51,8 @@ router.get('/:id/posts', auth, asyncHandler(async (req: AuthRequest, res: Respon
     throw new ValidationError('收藏夹 ID 无效');
   }
   // 分页参数必须透传给服务层：否则前端翻页永远拿第一页（E2E D1 缺陷）
-  const page = Number(req.query.page) || 1;
-  const limit = Number(req.query.limit) || 20;
+  const page = parsePage(req.query.page);
+  const limit = parseLimit(req.query.limit, 20);
   const data = await folderService.listFolderPosts(req.userId!, folderId, page, limit);
   return ok(res, data);
 }));
