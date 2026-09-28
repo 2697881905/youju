@@ -1,3 +1,6 @@
+// 华为推送 Token 注册路由（POST /v1/push/register）
+// ⚠️ 现状（v1.0.0）：后端已就绪，但客户端尚未接线（api.ets 的 registerPushToken 本期未启用），
+// 因此实际不会有 token 落库、系统推送不会到达；计划下一版本在登录/冷启动处补上 token 上报。
 import { Router, Response } from 'express';
 import { ok, fail, internalError, CODE } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
