@@ -1,0 +1,20 @@
+[Unit]
+Description=有据后端 Git 自动部署（拉取 main 并滚动部署）
+Documentation=file:///home/ubuntu/youju/backend/DEPLOY.md
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# ⚠️ 若服务器用户名/路径不同，改 User / Group / WorkingDirectory / Environment / ExecStart 四处
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/youju
+Environment=REPO_DIR=/home/ubuntu/youju
+Environment=BRANCH=main
+# systemd 默认 PATH 较窄，显式给出以确保能找到 docker / docker-compose
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/home/ubuntu/youju/backend/scripts/auto-deploy.sh
+# 构建 + 健康检查留足时间；低优先级，避免抢占线上服务 CPU
+TimeoutStartSec=1800
+Nice=10

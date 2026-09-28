@@ -90,4 +90,57 @@ docker compose -f docker-compose.prod.yml up -d --build backend
 - `nginx/conf.d/80.conf`：ACME 校验 + 80→443 跳转（默认启用）
 - `nginx/443.conf`：TLS 终止 + 反代（签发证书后 cp 进 conf.d 启用）
 - `env.prod.example`：生产环境变量模板
+- `scripts/deploy-backend.sh`：滚动部署（构建镜像 → 新容器健康检查 → 替换旧容器 → 失败回滚 → schema 对账）
+- `scripts/auto-deploy.sh` + `scripts/systemd/`：Git 自动部署（见下节）
 - 运行期会在服务器生成 `certbot/conf`、`certbot/web`、`.env`（均不提交）
+
+---
+
+## 十三、自动部署（Git → 生产，可选）
+
+目标：`git push` 到 `main` 后自动上线，且**完整保留** `deploy-backend.sh` 的健康检查、失败回滚与 schema 对账。
+
+机制：服务器上的 **systemd timer 每 2 分钟** 执行一次 `git fetch`；发现新的 `origin/main` 提交时 fast-forward 拉取并滚动部署；无变化则静默退出。
+
+### 安装（在服务器执行一次）
+
+```bash
+cd ~/youju/backend
+chmod +x scripts/auto-deploy.sh
+sudo cp scripts/systemd/youju-autodeploy.service scripts/systemd/youju-autodeploy.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now youju-autodeploy.timer
+systemctl list-timers youju-autodeploy.timer
+```
+
+> 若服务器用户名 / 仓库路径不是 `ubuntu` / `/home/ubuntu/youju`，先改 `youju-autodeploy.service` 中的 `User`、`Group`、`WorkingDirectory`、`Environment=REPO_DIR=`、`ExecStart` 五处。
+
+### 前置检查（重要）
+
+自动部署在 systemd 中**非交互**运行，必须先确认 `git fetch` 不需要输入凭据：
+
+```bash
+sudo -u ubuntu git -C ~/youju fetch origin main && echo "非交互 fetch OK"
+```
+
+若失败：给 `ubuntu` 用户配置一个对仓库只读的 SSH Deploy Key（GitHub → Settings → Deploy keys），或把 remote 换成带 token 的 HTTPS。
+
+### 常用操作
+
+```bash
+sudo systemctl start youju-autodeploy.service               # 立即检查并部署一次
+journalctl -u youju-autodeploy.service -n 100 --no-pager     # 查看部署日志
+systemctl list-timers youju-autodeploy.timer                 # 查看下次触发时间
+```
+
+### 行为与保护
+
+- `flock` 并发保护：上一次部署未结束时本次跳过。
+- **已跟踪文件**有未提交改动 → 拒绝部署（不会覆盖服务器上的手工修改）；未跟踪文件（如服务器生成的 `certbot/`、`uploads/`）不影响部署。
+- 仅 fast-forward，不产生自动合并提交。
+- **部署失败**：回退检出到原提交，并把该提交记入 `~/.local/state/youju-autodeploy/last-failed`，**不再每 2 分钟重试**（避免反复构建）。修好后推一个新提交即自动恢复；或删除该文件后手动 `systemctl start` 重试。
+- 部署成功记录于 `~/.local/state/youju-autodeploy/last-deployed`。
+
+### 想要「推完即刻上线」（可选）
+
+2 分钟轮询是刻意折中：无入站端口、无密钥下发，最坏延迟 2 分钟。若需秒级，可改为 GitHub Webhook 触发（服务器加一个小 HTTP 服务校验 `X-Hub-Signature-256` 后调 `sudo systemctl start youju-autodeploy.service`）；代价是新增一个入站端口与一个校验密钥，安全面比轮询大。
