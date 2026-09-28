@@ -2,6 +2,7 @@
 // 与拉黑的区别：单向（仅 viewer 侧过滤），latest/following 流保留，作者主页/搜索仍可见。
 // 结构仿 blockService.ts，保持幂等与错误处理一致。
 import { prisma } from '../prisma';
+import { isUniqueViolation } from '../utils/prismaErrors';
 
 export class DislikeError extends Error {
   constructor(message: string) {
@@ -18,7 +19,7 @@ export async function dislikeUser(userId: number, dislikedId: number): Promise<v
   try {
     await prisma.dislike.create({ data: { userId, dislikedId } });
   } catch (e: any) {
-    if (e?.code === 'P2002') {
+    if (isUniqueViolation(e)) {
       // 已存在（unique 冲突）→ 幂等，不报错
       return;
     }

@@ -1,6 +1,7 @@
 import { prisma } from '../prisma';
 import { notifyOnInteract } from './notificationService';
 import { bumpHotScore } from './hotScoreService';
+import { isUniqueViolation } from '../utils/prismaErrors';
 
 // 顶帖子（幂等：唯一约束 userId+postId）
 export async function upPost(postId: number, userId: number) {
@@ -11,7 +12,7 @@ export async function upPost(postId: number, userId: number) {
       prisma.post.update({ where: { id: postId }, data: { upCount: { increment: 1 } } }),
     ]);
   } catch (e: any) {
-    if (e?.code === 'P2002') return; // 并发重复顶：唯一约束冲突，视为已顶，不重复计数
+    if (isUniqueViolation(e)) return; // 并发重复顶：唯一约束冲突，视为已顶，不重复计数
     throw e;
   }
   // 热度信号增量更新（失败不影响主流程）
@@ -39,7 +40,7 @@ export async function bookmarkPost(postId: number, userId: number, folderId?: nu
       prisma.post.update({ where: { id: postId }, data: { bookmarkCount: { increment: 1 } } }),
     ]);
   } catch (e: any) {
-    if (e?.code === 'P2002') return; // 并发重复收藏：唯一约束冲突，视为已收藏，不重复计数
+    if (isUniqueViolation(e)) return; // 并发重复收藏：唯一约束冲突，视为已收藏，不重复计数
     throw e;
   }
   // 触发通知：收藏了帖子（自己藏自己不发；失败不影响主流程）
