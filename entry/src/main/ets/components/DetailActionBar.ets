@@ -10,6 +10,7 @@ import { curves } from '@kit.ArkUI';
 import { Pressable } from '../design/motion/Pressable';
 import { GlowInput } from '../design/components/GlowInput';
 import { GlassBlurStyle, isImmersiveLightSenseSupported } from '../utils/immersiveMaterial';
+import { bottomNavInset } from '../utils/cardTokens';
 
 // 评论态压缩：视觉高度下调，触控目标由 Pressable touchTargetHeight 保持 44 不变
 const COMPACT_CONTROL_HEIGHT: number = 32; // 输入框 / 发送键视觉高
@@ -78,6 +79,11 @@ export struct DetailActionBar {
   @Prop bookmarkFeedbackVersion: number = 0;
   @Prop replyName: string = '';
   @State inputFocused: boolean = false;
+  // 三键导航避让（AGC 反馈：详情页底栏被三键导航遮挡）：navMode / navBarHeight 任一变化
+  // 都驱动本组件重渲染 → build 里的 bottomNavInset() 拿到最新值。普通函数读 AppStorage
+  // 不建立响应依赖，必须挂 @StorageLink（与 PostDetailView 的 statusBarHeight 同款惯例）。
+  @StorageLink('navMode') navMode: string = '';
+  @StorageLink('navBarHeight') navBarHeight: number = 0;
   // 点赞/收藏按钮组的自然宽度（未聚焦时实测一次）：输入层的让位 padding 用它计算
   @State actionsW: number = 0;
   // 智感握姿（官方 SmartReach 范式）：输入+发送 与 点赞/收藏 两组随握持手互换侧别，
@@ -242,7 +248,11 @@ export struct DetailActionBar {
       .hitTestBehavior(this.inputFocused ? HitTestMode.Default : HitTestMode.None)
     }
     .width('100%')
-    .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+    // 底部避让三键导航栏：栏体玻璃延伸到导航条之下，内容整体抬高 bottomNavInset()
+    // （三键 = 真实栏高 + 10vp 呼吸；手势 / 悬浮球 = 0 维持原设计，见 utils/navMode.ets）。
+    // 键盘弹起后导航条已被键盘盖住 → 聚焦态归零，输入栏贴键盘不留缝（ChatView 同款口径）。
+    .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.sm,
+      bottom: SpaceTokens.sm + (this.inputFocused ? 0 : bottomNavInset()) })
     // 毛玻璃底栏：GlassBlurStyle.Floating = BACKGROUND_THICK 通透厚玻璃——
     // 自带系统着色与半透明，重糊但略微透出底部内容；API 23+ 纯材质，
     // 低端机回落 barSurface 实底；玻璃描边勾出栏体边界。
