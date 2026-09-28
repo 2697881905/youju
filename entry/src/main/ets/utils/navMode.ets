@@ -42,8 +42,9 @@ export const BOTTOM_NAV_INSET_KEY: string = 'bottomNavInsetVp';
 
 // 高度阈值兜底判别：手势导航条约 16-24vp、三键导航条约 28-42vp，区间不重叠
 export const GESTURE_INDICATOR_MAX: number = 24;
-// 三键避让的额外呼吸空间（真机实测贴上沿仍显挤）
-export const NAV_INSET_EXTRA: number = 10;
+// 三键避让的额外呼吸空间（vp）。初版 10 被反馈「抬得有点多」（2026-09-28 用户实测），
+// 降 3vp（云手机密度 3.125 下 ≈10px）：总避让 ≈27.8+7=34.8vp，仍高于审核 28vp 线。
+export const NAV_INSET_EXTRA: number = 7;
 
 interface NavigationButtonInfo {
   showType: number; // -1 未显示(手势) / 0 三键 / 1 悬浮球
