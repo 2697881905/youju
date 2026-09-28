@@ -45,11 +45,15 @@ if ! git fetch --prune "${REMOTE}" "${BRANCH}" >/dev/null 2>&1; then
   exit 1
 fi
 
-LOCAL_SHA="$(git rev-parse HEAD)"
 REMOTE_SHA="$(git rev-parse "${REMOTE}/${BRANCH}")"
+LOCAL_SHA="$(git rev-parse HEAD)"
+# 判定依据用「上次成功部署的 SHA」，而不是本地 HEAD：
+# 若有人手动 git pull 过，HEAD 会追平远端，按 HEAD 判断就会静默跳过那次提交的部署（真实踩过）。
+# 首次运行（无记录）时会部署一次并把当前远端 SHA 记为已部署，属正常的一次性开销。
+DEPLOYED_SHA="$(cat "${STATE_DIR}/last-deployed" 2>/dev/null || true)"
 
-if [ "${LOCAL_SHA}" = "${REMOTE_SHA}" ]; then
-  exit 0   # 无新提交：静默退出
+if [ "${DEPLOYED_SHA}" = "${REMOTE_SHA}" ]; then
+  exit 0   # 远端提交已部署过：静默退出
 fi
 
 # --- 3) 上次失败的提交不重复重试，避免反复构建 ---
@@ -59,7 +63,7 @@ if [ -f "${STATE_DIR}/last-failed" ] && [ "$(cat "${STATE_DIR}/last-failed")" = 
   exit 1
 fi
 
-log "发现新提交：${LOCAL_SHA:0:7} -> ${REMOTE_SHA:0:7}"
+log "发现待部署提交：${DEPLOYED_SHA:-<未记录>} -> ${REMOTE_SHA:0:7}（本地 HEAD ${LOCAL_SHA:0:7}）"
 
 # --- 4) 已跟踪文件必须干净 ---
 # 只看「已跟踪文件」：未跟踪文件（服务器生成的 certbot/、uploads/ 等）不会与 fast-forward 冲突，

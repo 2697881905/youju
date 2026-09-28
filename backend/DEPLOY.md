@@ -138,8 +138,10 @@ systemctl list-timers youju-autodeploy.timer                 # 查看下次触�
 - `flock` 并发保护：上一次部署未结束时本次跳过。
 - **已跟踪文件**有未提交改动 → 拒绝部署（不会覆盖服务器上的手工修改）；未跟踪文件（如服务器生成的 `certbot/`、`uploads/`）不影响部署。
 - 仅 fast-forward，不产生自动合并提交。
+- 是否需要部署，以**上次成功部署的 SHA**（`~/.local/state/youju-autodeploy/last-deployed`）为准，而**不是本地 HEAD**。原因：若在服务器上手动执行过 `git pull`，HEAD 会追平远端，按 HEAD 判断会把那次提交**静默跳过**（本项目真实发生过一次）。首次运行无记录时会部署一次。
 - **部署失败**：回退检出到原提交，并把该提交记入 `~/.local/state/youju-autodeploy/last-failed`，**不再每 2 分钟重试**（避免反复构建）。修好后推一个新提交即自动恢复；或删除该文件后手动 `systemctl start` 重试。
 - 部署成功记录于 `~/.local/state/youju-autodeploy/last-deployed`。
+- ⚠️ 不要在服务器上手动 `git pull` 后就以为已上线——那只更新了代码，**没有构建与重启**。需要某次提交立即上线时，用 `sudo systemctl start youju-autodeploy.service`（或 `bash scripts/deploy-backend.sh`）。
 
 ### 想要「推完即刻上线」（可选）
 
