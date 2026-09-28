@@ -25,6 +25,12 @@ export struct PostCard {
   @Prop showAuthor: boolean = true;
   // 创作者面板基础：个人主页「我发布」场景展示浏览数（其余列表默认不显示）
   @Prop showBrowses: boolean = false;
+  // 「一镜到底」飞行 id 前缀：**仅走 Navigation 一镜到底的列表面传入**（首页信息流
+  // 'cardMedia-'）。其余 7 个 PostCard 场景（我发布/搜索/圈子/他人主页等都是 router
+  // 详情）保持默认 ''——不挂 id。⚠️ 全窗口按 id 查矩形的 getRectangleById 不区分页面，
+  // 多个列表面挂同一个 cardMedia-{id} 时会量到别的面的节点：复现路径「进『我的』Tab
+  // 开过帖 → 回首页点同一帖」海报从屏幕外/错误起点起飞（2026-09-29 用户实测）。
+  @Prop mediaTag: string = '';
 
   onOpen?: () => void = undefined;
   onCancelBookmark?: (id: number) => void = undefined;
@@ -156,10 +162,12 @@ export struct PostCard {
     return typeof this.post.id === 'number' ? this.post.id : undefined;
   }
 
-  // 「一镜到底」取帧/定位用组件 id（componentUtils.getRectangleById）
+  // 「一镜到底」取帧/定位用组件 id（componentUtils.getRectangleById）。
+  // mediaTag 为空（非一镜到底列表面）时不挂 id，避免跨列表面同帖 id 撞车。
   private cardMediaId(): string {
     const pid: number | undefined = this.postId();
-    return (this.hasCover() && pid !== undefined) ? 'cardMedia-' + pid : '';
+    return (this.hasCover() && pid !== undefined && this.mediaTag.length > 0)
+      ? this.mediaTag + pid : '';
   }
 
   private coverImage(): string {

@@ -811,6 +811,9 @@ export struct HomeTab {
   feedPost(post: Post, idx: number): void {
     PostCard({
       post: post,
+      // 首页信息流是唯一走 Navigation 一镜到底的 PostCard 面：挂飞行 id 前缀
+      // （其余 PostCard 列表面默认不挂，防跨面同帖 id 撞车量错飞行起点）
+      mediaTag: 'cardMedia-',
       compact: true,
       onOpen: () => {
         if (post.id !== undefined) {
