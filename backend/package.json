@@ -8,6 +8,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "test": "jest",
+    "test:smoke": "node scripts/full-chain-check.mjs",
     "prisma:generate": "prisma generate",
     "prisma:db-push": "prisma db push",
     "seed:tags": "tsx prisma/seed.ts",
