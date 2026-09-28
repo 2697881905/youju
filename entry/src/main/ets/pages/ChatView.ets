@@ -539,9 +539,10 @@ export struct ChatView {
 
   @Builder
   emojiPanel() {
-    // 搜索框样式（GlowInput segmentStyle 同款规格）：#20FFFFFF 底 + backdropBlur(20)
-    // + 1px #30FFFFFF 高光边框 + lg 圆角。不再包 ImmersiveSurface —— HDS 双边流光按
+    // 搜索框样式（GlowInput segmentStyle 同款规格）：磨砂底 + backdropBlur(20)
+    // + 1px 高光描边 + lg 圆角。不再包 ImmersiveSurface —— HDS 双边流光按
     // 用户要求移除；该组件其它 6 处调用方（mediaMenu 等）不受影响。
+    // 配色走 ds_overlay 深浅成对 token：写死的白透明叠浅色米白底不可辨（QA D3）。
     Grid() {
       ForEach(
         this.emojiOptions,
@@ -570,9 +571,9 @@ export struct ChatView {
     .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.Spring)
     .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs, bottom: SpaceTokens.xs })
-    .backgroundColor('#20FFFFFF')
+    .backgroundColor($r('app.color.ds_overlay'))
     .backdropBlur(20)
-    .border({ width: 1, color: '#30FFFFFF', style: BorderStyle.Solid })
+    .border({ width: 1, color: $r('app.color.ds_overlay_border'), style: BorderStyle.Solid })
     .borderRadius(RadiusTokens.lg)
   }
 
@@ -616,9 +617,9 @@ export struct ChatView {
     }
     .width('100%')
     .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
-    .backgroundColor('#20FFFFFF')
+    .backgroundColor($r('app.color.ds_overlay'))
     .backdropBlur(20)
-    .border({ width: 1, color: '#30FFFFFF', style: BorderStyle.Solid })
+    .border({ width: 1, color: $r('app.color.ds_overlay_border'), style: BorderStyle.Solid })
     .borderRadius(RadiusTokens.lg)
   }
 

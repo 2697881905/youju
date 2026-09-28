@@ -133,6 +133,14 @@
       "value": "#F5EFDE"
     },
     {
+      "name": "ds_overlay",
+      "value": "#1A14120C"
+    },
+    {
+      "name": "ds_overlay_border",
+      "value": "#2914120C"
+    },
+    {
       "name": "ds_text_primary",
       "value": "#161410"
     },
