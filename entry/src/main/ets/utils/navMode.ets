@@ -1,4 +1,4 @@
-// 系统导航方式检测（三键导航 / 悬浮球 / 手势导航条）
+// 系统导航方式检测（三键导航 / 悬浮球 / 手势导航条）+ 底部避让量计算
 //
 // 判断依据（HarmonyOS 无公开「导航方式」直读 API，采用两层信号融合）：
 //  1) 权威信号：系统在 settings 的 USER_PROPERTY 域维护键 'float_navigation_info'，
@@ -12,12 +12,14 @@
 //     高度阈值 >24vp 判三键 —— 手势导航条约 16-24vp、三键导航条约 28-42vp，区间不重叠。
 //     settings 键缺失（模拟器 / 部分云手机 / 非华为 ROM）时退回此判据，行为与历史版本一致。
 //
-// 兼容性要点：
-//  - registerKeyObserver 的变化回调内重读重写 AppStorage：用户在系统设置里切换导航方式后
-//    免重启即时生效；
-//  - 读取 / 解析 / 注册任何一步失败都静默降级到兜底判据，不外抛、不影响启动；
-//  - region 高度 px→vp 用 display 屏幕密度换算，不依赖 UIContext；
-//  - 悬浮球模式底部没有系统栏，与手势同样按「无避让」处理。
+// 响应式约定（两次实测踩坑后定稿）：
+//  消费方必须 @StorageLink(BOTTOM_NAV_INSET_KEY) 并在 build 属性里**直接读该状态变量**
+//  （见 DetailActionBar）。⚠️ 只挂 link 而不在 build 里读变量是无效的 —— ArkUI 只为
+//  「初始渲染时被读过的状态变量」建立更新绑定，变量不进 build，刷新全是空操作。
+//  重算并写回 BOTTOM_NAV_INSET_KEY 的三个刷新点：
+//   · settings 观察者回调（系统设置里切换导航方式，实时）
+//   · EntryAbility.onForeground（后台切换导航方式后回前台 —— avoidAreaChange 不派发，实测）
+//   · PostDetailView.applyWindowInsets（avoidAreaChange / 页面重测 navBarHeight 时）
 
 import settings from '@ohos.settings';
 import display from '@ohos.display';
@@ -29,17 +31,19 @@ const TAG: string = 'navMode';
 const DOMAIN: number = 0x0000;
 const FLOAT_NAVIGATION_INFO_KEY: string = 'float_navigation_info';
 
-// AppStorage 键与模式值（cardTokens.bottomNavInset 消费）
 export const NAV_MODE_KEY: string = 'navMode';
 export const NAV_MODE_GESTURE: string = 'gesture';
 export const NAV_MODE_THREE_BUTTON: string = 'three-button';
 export const NAV_MODE_FLOATING_BALL: string = 'floating-ball';
-// 三键栏高度（vp）：来自 settings region[3]，bottomNavInset 取它与避让区测量的大者
+// 三键栏高度（vp）：来自 settings region[3]
 export const NAV_BUTTON_BAR_HEIGHT_KEY: string = 'navButtonBarHeight';
-// 避让参数版本号：每次导航方式/高度刷新都递增（Date.now）。消费方 @StorageLink 它来
-// 强制重渲染 —— 实测「在后台切换导航方式 → 回前台」时 avoidAreaChange 不派发、后台期
-// 的 AppStorage 写入不足以驱动可见重渲染，必须用前台显式 bump 兜底（2026-09-28 真机日志）。
-export const NAV_INSET_VERSION_KEY: string = 'navInsetVersion';
+// 底部避让量（vp）：响应式消费方 @StorageLink 此键，并在 build 属性里直接读变量
+export const BOTTOM_NAV_INSET_KEY: string = 'bottomNavInsetVp';
+
+// 高度阈值兜底判别：手势导航条约 16-24vp、三键导航条约 28-42vp，区间不重叠
+export const GESTURE_INDICATOR_MAX: number = 24;
+// 三键避让的额外呼吸空间（真机实测贴上沿仍显挤）
+export const NAV_INSET_EXTRA: number = 10;
 
 interface NavigationButtonInfo {
   showType: number; // -1 未显示(手势) / 0 三键 / 1 悬浮球
@@ -48,10 +52,41 @@ interface NavigationButtonInfo {
 
 let watcherStarted: boolean = false;
 
-// 强制刷新避让参数的消费方：版本号恒变（时间戳），@StorageLink 它的组件必然重渲染，
-// build 里的 bottomNavInset() 随即读到最新 AppStorage 值。
-export function bumpNavInsetVersion(): void {
-  AppStorage.setOrCreate<number>(NAV_INSET_VERSION_KEY, Date.now());
+// 当前是否三键导航（settings 判别优先；键缺失时退回高度阈值判别）
+export function isThreeButtonNav(): boolean {
+  const mode: string = (AppStorage.get<string>(NAV_MODE_KEY) ?? '');
+  if (mode === NAV_MODE_GESTURE || mode === NAV_MODE_FLOATING_BALL) {
+    return false;
+  }
+  if (mode === NAV_MODE_THREE_BUTTON) {
+    return true;
+  }
+  return (AppStorage.get<number>('navBarHeight') ?? 0) > GESTURE_INDICATOR_MAX;
+}
+
+// 计算当前底部避让量（vp）：三键 = max(settings 真实栏高, 避让区测量) + 呼吸；
+// 手势导航条 / 悬浮球 / 未知 → 0（维持原布局，永不劣化）
+export function computeBottomNavInset(): number {
+  if (!isThreeButtonNav()) {
+    return 0;
+  }
+  const bar: number = AppStorage.get<number>(NAV_BUTTON_BAR_HEIGHT_KEY) ?? 0;
+  const nav: number = AppStorage.get<number>('navBarHeight') ?? 0;
+  return Math.max(bar, nav) + NAV_INSET_EXTRA;
+}
+
+// 重算避让量并写回 AppStorage（@StorageLink 的消费方随即重渲染）。
+export function refreshBottomNavInset(): void {
+  AppStorage.setOrCreate<number>(BOTTOM_NAV_INSET_KEY, computeBottomNavInset());
+}
+
+// 非响应式消费方（既有 5 处调用点）：读 AppStorage 现值，尚未初始化时现算
+export function bottomNavInset(): number {
+  const cached: number = AppStorage.get<number>(BOTTOM_NAV_INSET_KEY) ?? -1;
+  if (cached >= 0) {
+    return cached;
+  }
+  return computeBottomNavInset();
 }
 
 // 应用启动时调用一次（EntryAbility.onWindowStageCreate）。幂等：重复调用不再注册。
@@ -61,12 +96,13 @@ export function initNavModeWatcher(context: common.Context): void {
   }
   watcherStarted = true;
   refreshNavMode(context);
+  refreshBottomNavInset();
   try {
     const ok: boolean = settings.registerKeyObserver(context, FLOAT_NAVIGATION_INFO_KEY,
       settings.domainName.USER_PROPERTY, (_err: BusinessError): void => {
-        // 导航方式在系统设置里被切换 → 重读重写 + bump；消费方经 @StorageLink 即时响应，免重启
+        // 导航方式在系统设置里被切换 → 重读重算；消费方经 @StorageLink 即时响应，免重启
         refreshNavMode(context);
-        bumpNavInsetVersion();
+        refreshBottomNavInset();
       });
     if (!ok) {
       // 注册失败：保留首读结果，消费方继续走高度阈值兜底
@@ -77,7 +113,7 @@ export function initNavModeWatcher(context: common.Context): void {
   }
 }
 
-// 重读系统导航配置并归一化 → AppStorage（不 bump 版本号；需要强制重渲染的调用方自己 bump）。
+// 重读系统导航配置并归一化 → AppStorage（不含避让量，那由 refreshBottomNavInset 负责）。
 // 任何失败静默降级（保持原值/未知）。EntryAbility.onForeground 也会调用它：
 // 「在后台切换导航方式 → 回前台」时 avoidAreaChange 不派发，靠这里补读最新配置。
 export function refreshNavMode(context: common.Context): void {

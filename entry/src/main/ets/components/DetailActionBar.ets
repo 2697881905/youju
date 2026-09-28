@@ -10,7 +10,7 @@ import { curves } from '@kit.ArkUI';
 import { Pressable } from '../design/motion/Pressable';
 import { GlowInput } from '../design/components/GlowInput';
 import { GlassBlurStyle, isImmersiveLightSenseSupported } from '../utils/immersiveMaterial';
-import { bottomNavInset } from '../utils/cardTokens';
+import { BOTTOM_NAV_INSET_KEY } from '../utils/navMode';
 
 // 评论态压缩：视觉高度下调，触控目标由 Pressable touchTargetHeight 保持 44 不变
 const COMPACT_CONTROL_HEIGHT: number = 32; // 输入框 / 发送键视觉高
@@ -79,12 +79,13 @@ export struct DetailActionBar {
   @Prop bookmarkFeedbackVersion: number = 0;
   @Prop replyName: string = '';
   @State inputFocused: boolean = false;
-  // 三键导航避让（AGC 反馈：详情页底栏被三键导航遮挡）：只挂 navInsetVersion 这一个
-  // 响应源 —— 它在「settings 观察者回调」与「应用回前台（EntryAbility.onForeground）」时
-  // 都会递增，恒变必触发重渲染，build 里的 bottomNavInset() 随即读到最新 AppStorage 值。
-  // 实测后台期切换导航方式时 avoidAreaChange 不派发、普通函数读 AppStorage 也不建立
-  // 响应依赖，必须靠这个恒变版本号兜底（2026-09-28 真机日志）。
-  @StorageLink('navInsetVersion') navInsetVersion: number = 0;
+  // 三键导航避让（AGC 反馈：详情页底栏被三键导航遮挡）：
+  // 直接 @StorageLink 避让量，并在下方 padding 属性里**读变量本身** —— 这样才算建立了
+  // UI 绑定。前两版挂 navMode / navInsetVersion 但 build 从不读它们 → ArkUI 不会为
+  // 「初始渲染时没被读过的状态变量」建立更新绑定，刷新全是空操作（两次实测不生效的根因）。
+  // 值的刷新点：settings 观察者回调 / EntryAbility.onForeground / avoidAreaChange 重测
+  // （见 utils/navMode.ets 的 refreshBottomNavInset）。
+  @StorageLink('bottomNavInsetVp') bottomInsetVp: number = 0;
   // 点赞/收藏按钮组的自然宽度（未聚焦时实测一次）：输入层的让位 padding 用它计算
   @State actionsW: number = 0;
   // 智感握姿（官方 SmartReach 范式）：输入+发送 与 点赞/收藏 两组随握持手互换侧别，
@@ -249,11 +250,11 @@ export struct DetailActionBar {
       .hitTestBehavior(this.inputFocused ? HitTestMode.Default : HitTestMode.None)
     }
     .width('100%')
-    // 底部避让三键导航栏：栏体玻璃延伸到导航条之下，内容整体抬高 bottomNavInset()
+    // 底部避让三键导航栏：栏体玻璃延伸到导航条之下，内容整体抬高避让量
     // （三键 = 真实栏高 + 10vp 呼吸；手势 / 悬浮球 = 0 维持原设计，见 utils/navMode.ets）。
     // 键盘弹起后导航条已被键盘盖住 → 聚焦态归零，输入栏贴键盘不留缝（ChatView 同款口径）。
     .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.sm,
-      bottom: SpaceTokens.sm + (this.inputFocused ? 0 : bottomNavInset()) })
+      bottom: SpaceTokens.sm + (this.inputFocused ? 0 : this.bottomInsetVp) })
     // 毛玻璃底栏：GlassBlurStyle.Floating = BACKGROUND_THICK 通透厚玻璃——
     // 自带系统着色与半透明，重糊但略微透出底部内容；API 23+ 纯材质，
     // 低端机回落 barSurface 实底；玻璃描边勾出栏体边界。
