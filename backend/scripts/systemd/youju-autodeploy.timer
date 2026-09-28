@@ -1,0 +1,14 @@
+[Unit]
+Description=每 2 分钟检查一次 origin/main 是否有新提交
+
+[Timer]
+OnBootSec=2min
+# 上一次执行结束后 2 分钟再跑（Type=oneshot 不会重入，天然避免叠跑）
+OnUnitActiveSec=2min
+AccuracySec=15s
+# 服务器重启期间错过的检查，开机后补跑一次
+Persistent=true
+Unit=youju-autodeploy.service
+
+[Install]
+WantedBy=timers.target

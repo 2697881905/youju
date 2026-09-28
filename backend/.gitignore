@@ -4,5 +4,7 @@ dist/
 *.log
 uploads/
 backups/
+# Let's Encrypt 证书/私钥（服务器运行期生成，绝不能入库）
+certbot/
 deploy/.env.production
 deploy/backups/
