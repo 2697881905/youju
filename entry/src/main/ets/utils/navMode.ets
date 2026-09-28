@@ -36,6 +36,10 @@ export const NAV_MODE_THREE_BUTTON: string = 'three-button';
 export const NAV_MODE_FLOATING_BALL: string = 'floating-ball';
 // 三键栏高度（vp）：来自 settings region[3]，bottomNavInset 取它与避让区测量的大者
 export const NAV_BUTTON_BAR_HEIGHT_KEY: string = 'navButtonBarHeight';
+// 避让参数版本号：每次导航方式/高度刷新都递增（Date.now）。消费方 @StorageLink 它来
+// 强制重渲染 —— 实测「在后台切换导航方式 → 回前台」时 avoidAreaChange 不派发、后台期
+// 的 AppStorage 写入不足以驱动可见重渲染，必须用前台显式 bump 兜底（2026-09-28 真机日志）。
+export const NAV_INSET_VERSION_KEY: string = 'navInsetVersion';
 
 interface NavigationButtonInfo {
   showType: number; // -1 未显示(手势) / 0 三键 / 1 悬浮球
@@ -43,6 +47,12 @@ interface NavigationButtonInfo {
 }
 
 let watcherStarted: boolean = false;
+
+// 强制刷新避让参数的消费方：版本号恒变（时间戳），@StorageLink 它的组件必然重渲染，
+// build 里的 bottomNavInset() 随即读到最新 AppStorage 值。
+export function bumpNavInsetVersion(): void {
+  AppStorage.setOrCreate<number>(NAV_INSET_VERSION_KEY, Date.now());
+}
 
 // 应用启动时调用一次（EntryAbility.onWindowStageCreate）。幂等：重复调用不再注册。
 export function initNavModeWatcher(context: common.Context): void {
@@ -54,8 +64,9 @@ export function initNavModeWatcher(context: common.Context): void {
   try {
     const ok: boolean = settings.registerKeyObserver(context, FLOAT_NAVIGATION_INFO_KEY,
       settings.domainName.USER_PROPERTY, (_err: BusinessError): void => {
-        // 导航方式在系统设置里被切换 → 重读重写；消费方经 @StorageLink 即时响应，免重启
+        // 导航方式在系统设置里被切换 → 重读重写 + bump；消费方经 @StorageLink 即时响应，免重启
         refreshNavMode(context);
+        bumpNavInsetVersion();
       });
     if (!ok) {
       // 注册失败：保留首读结果，消费方继续走高度阈值兜底
@@ -66,8 +77,10 @@ export function initNavModeWatcher(context: common.Context): void {
   }
 }
 
-// 读取并归一化当前导航方式 → AppStorage。任何失败静默降级（保持原值/未知）。
-function refreshNavMode(context: common.Context): void {
+// 重读系统导航配置并归一化 → AppStorage（不 bump 版本号；需要强制重渲染的调用方自己 bump）。
+// 任何失败静默降级（保持原值/未知）。EntryAbility.onForeground 也会调用它：
+// 「在后台切换导航方式 → 回前台」时 avoidAreaChange 不派发，靠这里补读最新配置。
+export function refreshNavMode(context: common.Context): void {
   try {
     const raw: string = settings.getValueSync(context, FLOAT_NAVIGATION_INFO_KEY, '',
       settings.domainName.USER_PROPERTY);
@@ -90,7 +103,7 @@ function refreshNavMode(context: common.Context): void {
       const barVp: number = density > 0 ? barPx / density : 0;
       AppStorage.setOrCreate<number>(NAV_BUTTON_BAR_HEIGHT_KEY, barVp);
       AppStorage.setOrCreate<string>(NAV_MODE_KEY, NAV_MODE_THREE_BUTTON);
-      hilog.info(DOMAIN, TAG, 'nav mode: three-button, bar=%{public}fvp', barVp);
+      hilog.info(DOMAIN, TAG, 'nav mode: three-button, bar=%{public}svp', barVp.toFixed(2));
       return;
     }
     if (showType === 1) {

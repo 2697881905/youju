@@ -79,11 +79,12 @@ export struct DetailActionBar {
   @Prop bookmarkFeedbackVersion: number = 0;
   @Prop replyName: string = '';
   @State inputFocused: boolean = false;
-  // 三键导航避让（AGC 反馈：详情页底栏被三键导航遮挡）：navMode / navBarHeight 任一变化
-  // 都驱动本组件重渲染 → build 里的 bottomNavInset() 拿到最新值。普通函数读 AppStorage
-  // 不建立响应依赖，必须挂 @StorageLink（与 PostDetailView 的 statusBarHeight 同款惯例）。
-  @StorageLink('navMode') navMode: string = '';
-  @StorageLink('navBarHeight') navBarHeight: number = 0;
+  // 三键导航避让（AGC 反馈：详情页底栏被三键导航遮挡）：只挂 navInsetVersion 这一个
+  // 响应源 —— 它在「settings 观察者回调」与「应用回前台（EntryAbility.onForeground）」时
+  // 都会递增，恒变必触发重渲染，build 里的 bottomNavInset() 随即读到最新 AppStorage 值。
+  // 实测后台期切换导航方式时 avoidAreaChange 不派发、普通函数读 AppStorage 也不建立
+  // 响应依赖，必须靠这个恒变版本号兜底（2026-09-28 真机日志）。
+  @StorageLink('navInsetVersion') navInsetVersion: number = 0;
   // 点赞/收藏按钮组的自然宽度（未聚焦时实测一次）：输入层的让位 padding 用它计算
   @State actionsW: number = 0;
   // 智感握姿（官方 SmartReach 范式）：输入+发送 与 点赞/收藏 两组随握持手互换侧别，
