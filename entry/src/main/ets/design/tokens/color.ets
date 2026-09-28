@@ -9,6 +9,12 @@ export class ColorTokens {
   // 浅色 #F5EFDE（对卡片底 ≈1.12:1，看得见但不厚重）；深色 #262017（比卡片底略亮，
   // 是「微微抬起的面板」而不是一个黑洞 —— sunken 的 #0E0C08 在深色下就偏黑了）。
   static readonly panel: ResourceColor = $r('app.color.ds_panel');
+  // 悬浮面板的磨砂底/描边（深浅成对）：叠在页面底上要「看得出是一块面板」。
+  // 浅色 = 暖黑低透明（叠米白底呈深一档磨砂）；深色 = 白低透明（叠近黑底呈亮一档磨砂）。
+  // 用途：私信表情面板 / 媒体菜单 —— 写死的 #20FFFFFF 在浅色米白底上不可辨（QA D3）。
+  // 消费方式：backdropBlur + backgroundColor(overlay) + border(overlayBorder)。
+  static readonly overlay: ResourceColor = $r('app.color.ds_overlay');
+  static readonly overlayBorder: ResourceColor = $r('app.color.ds_overlay_border');
 
   static readonly primary: ResourceColor = $r('app.color.ds_text_primary');
   static readonly secondary: ResourceColor = $r('app.color.ds_text_secondary');
