@@ -199,12 +199,6 @@ export function setPrivacyAgreed(): void {
   AppStorage.setOrCreate('privacyAgreed', '1');
 }
 
-// 华为登录结果落地：语义化封装 setSession，供 LoginPage 在拿到 LoginResult 后调用。
-// 与 openId 登录共用同一套登录态（F2：直接调 setSession 复用）。
-export function loginByHuaweiResult(result: LoginResult): void {
-  setSession(result.token, result.user);
-}
-
 // ===== Token 硬件加密持久化（F-004，替代明文 Preferences）=====
 // JWT 为 ASCII 文本，用 charCode 做 Uint8Array 互转即可，避免引入额外编码依赖。
 const TOKEN_ALIAS: string = 'youju_auth_token';

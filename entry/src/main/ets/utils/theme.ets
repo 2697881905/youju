@@ -149,10 +149,6 @@ export function isFollowSystem(): boolean {
   return (AppStorage.get<boolean>('followSystem') ?? true) as boolean;
 }
 
-export function isReduceMotion(): boolean {
-  return (AppStorage.get<boolean>('reduceMotion') ?? false) as boolean;
-}
-
 export function setReduceMotion(reduceMotion: boolean): void {
   AppStorage.setOrCreate('reduceMotion', reduceMotion);
   saveReduceMotion(reduceMotion);

@@ -194,37 +194,6 @@ export struct SettingsPage {
     .onClick(() => { onTap(); });
   }
 
-  @Builder
-  toggleRow(icon: string, title: string, desc: string, isOn: boolean, onChange: (on: boolean) => void, enabled: boolean = true): void {
-    Row({ space: 12 }) {
-      Image(resolveSettingsIcon(icon))
-        .width(22).height(22)
-        .objectFit(ImageFit.Contain)
-        .fillColor($r('app.color.ds_icon'))
-      Column({ space: 2 }) {
-        Text(title)
-          .fontSize(16).fontFamily($r('app.string.font_family'))
-          .fontColor($r('app.color.text_primary'))
-        Text(desc)
-          .fontSize(12).fontFamily($r('app.string.font_family'))
-          .fontColor($r('app.color.text_secondary'))
-      }
-      .alignItems(HorizontalAlign.Start)
-      .layoutWeight(1)
-      Toggle({ type: ToggleType.Switch, isOn: isOn })
-        .enabled(enabled)
-        .opacity(enabled ? 1 : 0.4)
-        .onChange((on: boolean) => {
-          onChange(on);
-        })
-    }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 14, bottom: 14 })
-    .backgroundColor($r('app.color.card_bg'))
-    .borderRadius(CARD_RADIUS)
-    .shadow(CARD_SHADOW)
-  }
-
   build() {
     Column() {
       // 顶栏
