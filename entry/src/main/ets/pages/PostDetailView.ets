@@ -148,12 +148,12 @@ export struct PostDetailView {
   @State commentReportId: number = 0;
   @State viewingImage: string = ''; // 全屏看图
   @State shareCardPreview: image.PixelMap | null = null; // 分享卡图 App 内预览
-  // ===== 长按标题/正文小菜单：复制标题 / 复制正文（自绘浮层，替代 bindContextMenu）=====
-  // bindContextMenu(ResponseType.LongPress) 会被正文 @提及/#话题 Span 的 onClick 竞争掉，
-  // 长按无响应（同 ChatView 消息菜单的结论）；改用标准 LongPressGesture + 遮罩浮层菜单。
-  // 复制范围按长按目标分开：'content'=复制正文（结构化信息+正文，不含标题，挂正文组件）；
-  // 'title'=复制标题（挂头部标题 Text，作者行/标签不触发）。''=菜单未弹出。
-  @State contentMenuTarget: string = '';
+  // ===== 长按结构化内容小菜单：复制正文（自绘浮层，替代 bindContextMenu）=====
+  // 标题与正文 Text 已开启系统文本选择复制（copyOption，见 DetailPostHeader / DetailPostContent），
+  // 长按它们走原生选择；「复制正文」长按菜单只挂结构化卡片（DetailPostContent 内部），
+  // 不与正文文本选择的长按竞争。bindContextMenu 会被子组件 onClick 竞争掉（同 ChatView
+  // 消息菜单的结论），故用自绘遮罩浮层。
+  @State contentMenuVisible: boolean = false;
   @State contentMenuX: number = 0; // 菜单卡片左上角 x（内容区 Stack 本地坐标，按按压点定位）
   @State contentMenuY: number = 0; // 菜单卡片左上角 y
   // 内容区 Stack 的全局原点与尺寸：按压点全局坐标 → 本地坐标换算 & 边界钳制依赖它
@@ -457,6 +457,8 @@ export struct PostDetailView {
       if (p.id !== undefined) {
         likeStore.syncFromServer(p.id, this.interaction.uped, this.interaction.upCount);
       }
+      // 浏览信号：详情已打开（后端 viewCount 已去重自增），列表页收到后静默刷新卡片浏览数
+      AppStorage.setOrCreate('postViewSignal', Date.now());
       this.fields = this.buildFields(p);
       this.images = this.imagesOf(p);
       this.videoUrl = resolveDisplayImageUrl(p.videoUrl ?? '');
@@ -736,15 +738,15 @@ export struct PostDetailView {
     this.shareController.close();
   }
 
-  // ===== 长按标题/正文 → 复制标题 / 复制正文 =====
+  // ===== 长按结构化内容 → 复制正文 =====
 
   private closeContentMenu(): void {
-    this.contentMenuTarget = '';
+    this.contentMenuVisible = false;
   }
 
-  // 长按定位：菜单卡片中心对准按压手指位置（跟手），并钳制在内容区边界内不溢出屏幕。
-  // target：'title'=复制标题 / 'content'=复制正文，决定菜单项与复制范围。
-  private openContentMenu(target: string, event: GestureEvent): void {
+  // 长按定位：菜单显示在长按内容的**上方**（卡片底边距按压点 10vp，不遮住被长按的文字），
+  // 水平中心对准按压点；贴近内容区顶部放不下时翻转到按压点下方；均钳制在内容区边界内。
+  private openContentMenu(event: GestureEvent): void {
     // 兜底中心点（fingerList 理论上必有值，防御性处理）
     let gx: number = this.contentAreaGlobalX + this.contentAreaWidth / 2;
     let gy: number = this.contentAreaGlobalY + this.contentAreaHeight / 2;
@@ -758,11 +760,17 @@ export struct PostDetailView {
     // 单行菜单卡片（行高 42 + 上下内边距 8）
     const cardW: number = 148;
     const cardH: number = 50;
+    const gap: number = 10;
     const maxX: number = Math.max(8, this.contentAreaWidth - cardW - 8);
     const maxY: number = Math.max(8, this.contentAreaHeight - cardH - 8);
     this.contentMenuX = Math.max(8, Math.min(maxX, lx - cardW / 2));
-    this.contentMenuY = Math.max(8, Math.min(maxY, ly - cardH / 2));
-    this.contentMenuTarget = target;
+    let y: number = ly - cardH - gap;
+    if (y < 8) {
+      // 上方放不下（长按位置贴近内容区顶部）：翻转到按压点下方
+      y = ly + gap;
+    }
+    this.contentMenuY = Math.max(8, Math.min(maxY, y));
+    this.contentMenuVisible = true;
   }
 
   // 正文纯文本：结构化信息（V2 文档优先，旧帖回退字段投影）+ 正文，不含标题
@@ -787,19 +795,6 @@ export struct PostDetailView {
     try {
       copyToClipboard(text);
       safeShowToast(this.getUIContext(), { message: '正文已复制，去粘贴吧' });
-    } catch (e) {
-      safeShowToast(this.getUIContext(), { message: '复制失败，请重试' });
-    }
-  }
-
-  private copyPostTitle(): void {
-    this.closeContentMenu();
-    if (!this.post) {
-      return;
-    }
-    try {
-      copyToClipboard(this.post.title ?? '');
-      safeShowToast(this.getUIContext(), { message: '标题已复制' });
     } catch (e) {
       safeShowToast(this.getUIContext(), { message: '复制失败，请重试' });
     }
@@ -868,7 +863,7 @@ export struct PostDetailView {
   // 是否有页内覆盖层打开（返回手势要先关它们，而不是退出详情页）
   private hasPageOverlay(): boolean {
     return this.viewingImage.length > 0 || this.shareCardPreview !== null || this.statsPanelShow
-      || this.contentMenuTarget.length > 0;
+      || this.contentMenuVisible;
   }
 
   // 关掉最上层那个覆盖层。层级从高到低：图片查看器(999) → 分享卡预览(200) → 数据面板(210) → 长按菜单。
@@ -881,7 +876,7 @@ export struct PostDetailView {
       this.closeShareCardPreview();
       return;
     }
-    if (this.contentMenuTarget.length > 0) {
+    if (this.contentMenuVisible) {
       this.closeContentMenu();
       return;
     }
@@ -1242,20 +1237,12 @@ export struct PostDetailView {
       .onClick(() => { action(); })
   }
 
-  // 长按标题/正文菜单浮层：全屏透明遮罩（点击关闭）+ 卡片按按压点定位（跟手）+ 轻量进场动效。
-  // 菜单项随长按目标切换：标题 → 复制标题；正文 → 复制正文。
+  // 长按结构化内容菜单浮层：全屏透明遮罩（点击关闭）+ 卡片显示在长按内容上方 + 轻量进场动效
   @Builder
   private contentActionSheet(): void {
     Column() {
       Column() {
-        this.contentMenuRow(this.contentMenuTarget === 'title' ? '复制标题' : '复制正文',
-          (): void => {
-            if (this.contentMenuTarget === 'title') {
-              this.copyPostTitle();
-            } else {
-              this.copyPostContent();
-            }
-          })
+        this.contentMenuRow('复制正文', (): void => { this.copyPostContent(); })
       }
       .width(148)
       .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
@@ -1502,7 +1489,6 @@ export struct PostDetailView {
                 authorAvatar: this.authorAvatar(),
                 createdAt: this.post.createdAt,
                 onOpenAuthor: (): void => { this.openAuthorProfile(); },
-                onLongPressTitle: (event: GestureEvent): void => { this.openContentMenu('title', event); },
               })
                 .transition(this.animLayerEnter(80))
 
@@ -1526,15 +1512,10 @@ export struct PostDetailView {
                 votePostId: this.post.id ?? 0,
                 mentions: this.post.mentions ?? [],
                 onVote: (choice: string): void => { this.onDebateVote(choice); },
+                // 长按结构化卡片弹「复制正文」菜单（正文 Text 自带系统文本选择，见组件内说明）
+                onLongPressContent: (event: GestureEvent): void => { this.openContentMenu(event); },
               })
                 .transition(this.animLayerEnter(120))
-                // 长按弹出「复制正文」菜单（不含标题，标题在头部单独长按复制）：
-                // 标准 LongPressGesture 与正文 Span 的 onClick（话题/提及跳转）正确共存；
-                // 长按识别成功后系统自动取消单击。
-                .gesture(
-                  LongPressGesture({ repeat: false, duration: 400 })
-                    .onAction((event: GestureEvent): void => { this.openContentMenu('content', event); })
-                )
 
               DetailCommentsSection({
                 comments: this.post.comments ?? [],
@@ -1590,8 +1571,8 @@ export struct PostDetailView {
           .width('100%')
           .zIndex(1)
 
-          // 长按标题/正文菜单浮层：置于 Stack 最上层，遮罩点击关闭
-          if (this.contentMenuTarget.length > 0) {
+          // 长按结构化内容菜单浮层：置于 Stack 最上层，遮罩点击关闭
+          if (this.contentMenuVisible) {
             this.contentActionSheet()
           }
         }
