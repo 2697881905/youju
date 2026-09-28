@@ -1,7 +1,7 @@
 // 个人主页（我的）：头像/昵称 + 关注/粉丝入口 + 我发布/我收藏 双 Tab + 帖子网格
 
 import { Post, User, UserProfile, BookmarkFolderItem } from '../models/types';
-import { listPosts, listMyBookmarks, listMyLikedPosts, listMyCommentedPosts, getUserProfile, cancelBookmarkPost, resolveDisplayImageUrl, listBookmarkFolders } from '../services/api';
+import { listPosts, listMyBookmarks, listMyLikedPosts, listMyCommentedPosts, getUserProfile, cancelBookmarkPost, resolveDisplayImageUrl, listBookmarkFolders, trackPostEvent } from '../services/api';
 import { PostCard } from '../components/PostCard';
 import { getCurrentUser } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
@@ -82,6 +82,9 @@ export struct ProfilePage {
   // 切到本页时重新拉取列表，使「我赞过/我收藏」在跨页点赞、取消收藏后即时刷新。
   @StorageLink('activeTab') @Watch('onActiveTab') activeTab: number = 0;
   @StorageLink('authToken') @Watch('onTokenReady') token: string = '';
+  // 详情页浏览信号：每次打开帖子详情递增（PostDetailView.load 落笔）。收到后静默刷新
+  // 「我发布」—— 卡片浏览数即时，返回列表不再要切 Tab/下拉（QA 浏览量审计「卡片不即时」）。
+  @StorageProp('postViewSignal') @Watch('onPostViewSignal') postViewSignal: number = 0;
   // 响应式列数（按屏幕宽度 2/3/4 列自适应）
   @State gridColumns: number = 2;
   @State gridTemplate: string = '1fr 1fr';
@@ -335,6 +338,14 @@ export struct ProfilePage {
       };
     } catch (e) {
       // 计数失败不影响主列表
+    }
+  }
+
+  // 浏览信号到达：静默刷新「我发布」分段（stale-while-revalidate，无感知）。
+  // 其余分段不显示浏览数，不刷新。
+  private onPostViewSignal(): void {
+    if (this.tabIdx === 0) {
+      this.refresh();
     }
   }
 
@@ -757,6 +768,9 @@ export struct ProfilePage {
       showBrowses: this.tabIdx === 0,
       onOpen: () => {
         if (post.id !== undefined) {
+          // 点击埋点（漏斗口径对齐，QA 审计）：此前 profile 入口不上报 click，
+          // 数据面板「曝光→点击→浏览」会出现浏览>点击的倒挂观感
+          trackPostEvent(post.id, 'click', 'profile');
           const id = post.id.toString();
           openPostDetail(id);
           this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
