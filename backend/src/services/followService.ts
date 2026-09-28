@@ -3,6 +3,7 @@ import { notifyOnFollow } from './notificationService';
 import { DELETED_NICKNAME } from '../utils/userView';
 import * as blockService from './blockService';
 import * as dislikeService from './dislikeService';
+import { isUniqueViolation } from '../utils/prismaErrors';
 
 // 关注领域自定义错误（与 accountBindingService 的 AccountError 同构）
 export class FollowError extends Error {
@@ -56,7 +57,7 @@ export async function followUser(viewerId: number, rawTargetId: string): Promise
   try {
     await prisma.follow.create({ data: { followerId: viewerId, followingId: targetId } });
   } catch (e: any) {
-    if (e?.code === 'P2002') {
+    if (isUniqueViolation(e)) {
       return;
     }
     throw e;

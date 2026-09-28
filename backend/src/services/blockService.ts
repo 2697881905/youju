@@ -1,6 +1,7 @@
 // 拉黑/静音管理：用户可将他人加入黑名单，阻止对方互动。
 // MVP 仅实现 CRUD（拉黑/取消拉黑/列表/查询），互动阻止后续单独迭代。
 import { prisma } from '../prisma';
+import { isUniqueViolation } from '../utils/prismaErrors';
 
 export class BlockError extends Error {
   constructor(message: string) {
@@ -17,7 +18,7 @@ export async function blockUser(userId: number, blockedId: number): Promise<void
   try {
     await prisma.blocklist.create({ data: { userId, blockedId } });
   } catch (e: any) {
-    if (e?.code === 'P2002') {
+    if (isUniqueViolation(e)) {
       // 已存在（unique 冲突）→ 幂等，不报错
       return;
     }
