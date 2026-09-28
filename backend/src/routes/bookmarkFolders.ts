@@ -49,7 +49,10 @@ router.get('/:id/posts', auth, asyncHandler(async (req: AuthRequest, res: Respon
   if (!Number.isInteger(folderId) || folderId <= 0) {
     throw new ValidationError('收藏夹 ID 无效');
   }
-  const data = await folderService.listFolderPosts(req.userId!, folderId);
+  // 分页参数必须透传给服务层：否则前端翻页永远拿第一页（E2E D1 缺陷）
+  const page = Number(req.query.page) || 1;
+  const limit = Number(req.query.limit) || 20;
+  const data = await folderService.listFolderPosts(req.userId!, folderId, page, limit);
   return ok(res, data);
 }));
 
