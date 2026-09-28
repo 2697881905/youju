@@ -548,15 +548,18 @@ export struct ChatView {
       ForEach(
         this.emojiOptions,
         (emoji: string) => {
-          Text(emoji)
-            .fontSize(24)
-            .width('100%')
-            .height(40)
-            .textAlign(TextAlign.Center)
-            .borderRadius(RadiusTokens.sm)
-            .onClick(() => {
-              this.appendEmoji(emoji);
-            });
+          // ⚠️ Grid 的直接子组件只能是 GridItem
+          GridItem() {
+            Text(emoji)
+              .fontSize(24)
+              .width('100%')
+              .height(40)
+              .textAlign(TextAlign.Center)
+              .borderRadius(RadiusTokens.sm)
+              .onClick(() => {
+                this.appendEmoji(emoji);
+              });
+          }
         },
         (emoji: string) => emoji,
       )
