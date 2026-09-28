@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { ok, fail, CODE } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
 import * as searchService from '../services/searchService';
+import { parseLimit } from '../utils/pagination';
 
 // 搜索历史 / 热搜词路由，挂在 /v1/search 下
 import { asyncHandler } from '../middleware/asyncHandler';
@@ -20,7 +21,7 @@ router.post('/history', auth, asyncHandler(async (req: AuthRequest, res: Respons
 
 // 搜索历史列表：GET /v1/search/history?limit=10
 router.get('/history', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const limit = req.query.limit ? Number(req.query.limit) : 10;
+  const limit = parseLimit(req.query.limit, 10);
   const list = await searchService.listSearchHistory(req.userId!, limit);
   return ok(res, { list });
 }));
@@ -33,7 +34,7 @@ router.delete('/history', auth, asyncHandler(async (req: AuthRequest, res: Respo
 
 // 热搜词列表：GET /v1/search/hot?limit=10
 router.get('/hot', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const limit = req.query.limit ? Number(req.query.limit) : 10;
+  const limit = parseLimit(req.query.limit, 10);
   const list = await searchService.listHotKeywords(limit);
   return ok(res, { list });
 }));
@@ -45,7 +46,7 @@ router.get('/suggest', asyncHandler(async (req: AuthRequest, res: Response) => {
   if (keyword.length === 0) {
     return ok(res, { list: [] });
   }
-  const limit = req.query.limit ? Number(req.query.limit) : 8;
+  const limit = parseLimit(req.query.limit, 8);
   const list = await searchService.suggestKeywords(keyword, limit);
   return ok(res, { list });
 }));
@@ -57,7 +58,7 @@ router.get('/users', auth, asyncHandler(async (req: AuthRequest, res: Response) 
   const keyword = String(req.query.keyword ?? '').trim().slice(0, 32);
   const scope: 'following' | 'all' =
     String(req.query.scope ?? 'following') === 'all' ? 'all' : 'following';
-  const limit = req.query.limit ? Number(req.query.limit) : 20;
+  const limit = parseLimit(req.query.limit, 20);
   const list = await searchService.searchMentionUsers(req.userId!, keyword, scope, limit);
   return ok(res, { list });
 }));

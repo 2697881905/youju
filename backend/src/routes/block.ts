@@ -3,6 +3,7 @@ import { Router, Response } from 'express';
 import { ok, fail, internalError, CODE } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
 import * as blockService from '../services/blockService';
+import { parsePage, parseLimit } from '../utils/pagination';
 
 import { asyncHandler } from '../middleware/asyncHandler';
 
@@ -11,8 +12,8 @@ const router = Router();
 // GET /v1/me/blocklist?page=1&limit=20  拉黑列表（分页）
 router.get('/me/blocklist', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   try {
-    const page = req.query.page ? Number(req.query.page) : 1;
-    const limit = req.query.limit ? Number(req.query.limit) : 20;
+    const page = parsePage(req.query.page);
+    const limit = parseLimit(req.query.limit, 20);
     const data = await blockService.listBlocked(req.userId!, page, limit);
     return ok(res, data);
   } catch (e) {

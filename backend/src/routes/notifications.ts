@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { ok, fail, CODE } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
 import * as notificationService from '../services/notificationService';
+import { parsePage, parseLimit } from '../utils/pagination';
 
 // 该路由挂在 /v1 下，路径为完整路径
 import { asyncHandler } from '../middleware/asyncHandler';
@@ -10,8 +11,8 @@ const router = Router();
 
 // 通知列表：GET /v1/notifications?page=1&limit=20
 router.get('/notifications', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const page = req.query.page ? Number(req.query.page) : 1;
-  const limit = req.query.limit ? Number(req.query.limit) : 20;
+  const page = parsePage(req.query.page);
+  const limit = parseLimit(req.query.limit, 20);
   const data = await notificationService.listForUser(req.userId!, { page, limit });
   return ok(res, data);
 }));

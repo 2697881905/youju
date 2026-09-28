@@ -8,6 +8,7 @@ import { SensitiveWordError, ValidationError } from '../utils/errors';
 import { getAccessiblePublishedPost } from '../services/accessControl';
 import { validateStructuredData } from '../utils/structuredFields';
 import { validateStructuredDocument } from '../utils/structuredDocument';
+import { parsePage, parseLimit } from '../utils/pagination';
 
 import { asyncHandler } from '../middleware/asyncHandler';
 
@@ -30,8 +31,8 @@ router.get('/', asyncHandler(async (req: AuthRequest, res: Response) => {
   const { page, limit, sort, tag, author, keyword } = req.query;
   const viewerId = await resolveOptionalUserId(req);
   const data = await postService.listPosts({
-    page: page ? Number(page) : 1,
-    limit: limit ? Number(limit) : 20,
+    page: parsePage(page),
+    limit: parseLimit(limit, 20),
     sort: (sort as postService.SortType) ?? 'latest',
     tag: tag as string | undefined,
     author: author ? Number(author) : undefined,
@@ -47,8 +48,8 @@ router.get('/', asyncHandler(async (req: AuthRequest, res: Response) => {
 router.get('/following', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const { page, limit, sort, tag, keyword } = req.query;
   const data = await postService.listPosts({
-    page: page ? Number(page) : 1,
-    limit: limit ? Number(limit) : 20,
+    page: parsePage(page),
+    limit: parseLimit(limit, 20),
     sort: (sort as postService.SortType) ?? 'latest',
     tag: tag as string | undefined,
     keyword: keyword as string | undefined,
@@ -63,8 +64,8 @@ router.get('/following', auth, asyncHandler(async (req: AuthRequest, res: Respon
 router.get('/daily', asyncHandler(async (req: AuthRequest, res: Response) => {
   const viewerId = await resolveOptionalUserId(req);
   const data = await postService.listDailyPosts({
-    page: req.query.page ? Number(req.query.page) : 1,
-    limit: req.query.limit ? Number(req.query.limit) : 10,
+    page: parsePage(req.query.page),
+    limit: parseLimit(req.query.limit, 10),
     viewerId,
   });
   return ok(res, data);
@@ -72,8 +73,8 @@ router.get('/daily', asyncHandler(async (req: AuthRequest, res: Response) => {
 
 // 我的废纸篓：必须在 /:id 之前注册，避免被解析成帖子 ID。
 router.get('/trash', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const page = req.query.page ? Number(req.query.page) : 1;
-  const limit = req.query.limit ? Number(req.query.limit) : 20;
+  const page = parsePage(req.query.page);
+  const limit = parseLimit(req.query.limit, 20);
   return ok(res, await postService.listTrashedPosts(req.userId!, page, limit));
 }));
 

@@ -142,5 +142,11 @@ app.use(
 );
 app.use('/v1/share', shareRouter);
 
+// 未匹配的 /v1 路由统一返回 JSON 404。
+// 否则会落到 Express 默认处理，返回 HTML 格式的 "Cannot GET ..."，前端按 JSON 解析会拿不到 code/message。
+app.use('/v1', (_req, res) => {
+  res.status(404).json({ code: 404, data: null, message: '接口不存在' });
+});
+
 // 全局错误处理（必须最后注册：捕获经 asyncHandler 转交的异步异常，避免连接挂起）
 app.use(errorHandler);

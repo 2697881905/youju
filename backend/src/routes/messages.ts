@@ -3,6 +3,7 @@ import { Router, Response } from 'express';
 import { ok, fail, internalError, CODE } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
 import * as messageService from '../services/messageService';
+import { parsePage } from '../utils/pagination';
 
 const router = Router();
 
@@ -40,7 +41,7 @@ router.get('/unread', auth, async (req: AuthRequest, res: Response) => {
 router.get('/:userId', auth, async (req: AuthRequest, res: Response) => {
   try {
     const peerId = resolvePeerId(req.params.userId, req.userId!);
-    const page = Math.max(1, Number(req.query.page ?? 1));
+    const page = parsePage(req.query.page);
     const list = await messageService.getMessages(req.userId!, peerId, page, 30);
     return ok(res, { list });
   } catch (e) {

@@ -7,6 +7,7 @@ import * as reportService from '../services/reportService';
 import { notifyOnCommentUp } from '../services/notificationService';
 import { SensitiveWordError, ValidationError } from '../utils/errors';
 import { getAccessiblePublishedPost } from '../services/accessControl';
+import { parsePage, parseLimit } from '../utils/pagination';
 
 // 该路由挂在 /v1 下，因此路径为完整路径
 import { asyncHandler } from '../middleware/asyncHandler';
@@ -31,8 +32,9 @@ router.get('/posts/:id/comments', asyncHandler(async (req: AuthRequest, res: Res
   if (!(await getAccessiblePublishedPost(postId, viewerId))) {
     return fail(res, CODE.NOT_FOUND, '帖子不存在', 404);
   }
-  const page = req.query.page ? Number(req.query.page) : 1;
-  const data = await commentService.listComments(postId, page);
+  const page = parsePage(req.query.page);
+  const limit = parseLimit(req.query.limit, 50);
+  const data = await commentService.listComments(postId, page, limit);
   return ok(res, data);
 }));
 

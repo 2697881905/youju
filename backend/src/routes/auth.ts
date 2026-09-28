@@ -9,6 +9,7 @@ import * as postService from '../services/postService';
 import * as tagService from '../services/tagService';
 
 import { asyncHandler } from '../middleware/asyncHandler';
+import { parsePage, parseLimit } from '../utils/pagination';
 
 const router = Router();
 
@@ -104,8 +105,8 @@ router.post('/me/deactivate', auth, asyncHandler(async (req: AuthRequest, res: R
 // 我的收藏帖子列表（分页）
 // GET /v1/auth/me/bookmarks?page=1&limit=20
 router.get('/me/bookmarks', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const page = req.query.page ? Number(req.query.page) : 1;
-  const limit = req.query.limit ? Number(req.query.limit) : 20;
+  const page = parsePage(req.query.page);
+  const limit = parseLimit(req.query.limit, 20);
   const data = await postService.listBookmarks(req.userId!, page, limit);
   return ok(res, data);
 }));
@@ -113,8 +114,8 @@ router.get('/me/bookmarks', auth, asyncHandler(async (req: AuthRequest, res: Res
 // 我赞过的帖子列表（分页）
 // GET /v1/auth/me/likes?page=1&limit=20
 router.get('/me/likes', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const page = req.query.page ? Number(req.query.page) : 1;
-  const limit = req.query.limit ? Number(req.query.limit) : 20;
+  const page = parsePage(req.query.page);
+  const limit = parseLimit(req.query.limit, 20);
   const data = await postService.listLikedPosts(req.userId!, page, limit);
   return ok(res, data);
 }));
@@ -122,8 +123,8 @@ router.get('/me/likes', auth, asyncHandler(async (req: AuthRequest, res: Respons
 // 我评论过的帖子列表（按帖子去重，分页）
 // GET /v1/auth/me/commented?page=1&limit=20
 router.get('/me/commented', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const page = req.query.page ? Number(req.query.page) : 1;
-  const limit = req.query.limit ? Number(req.query.limit) : 20;
+  const page = parsePage(req.query.page);
+  const limit = parseLimit(req.query.limit, 20);
   const data = await postService.listCommentedPosts(req.userId!, page, limit);
   return ok(res, data);
 }));
