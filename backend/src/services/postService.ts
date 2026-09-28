@@ -7,6 +7,7 @@ import { getExcludedAuthorIds, canViewerSeeAuthorPosts, getDislikedAuthorIds } f
 import { searchPosts } from './searchService';
 import { createNotification } from './notificationService';
 import { buildCommentTree } from './commentService';
+import { bumpHotScore } from './hotScoreService';
 import { MentionRef, resolveMentionRefs } from './mentionService';
 import { env } from '../config/env';
 import { enqueueMediaDeletion } from './mediaDeletionService';
@@ -422,6 +423,44 @@ export async function listDailyPosts(params: DailyListParams = {}) {
 }
 
 // 帖子详情（含楼中楼评论树：一级评论按顶数降序，子回复按时间升序，仅返回 status=1 的正常评论）。
+// 浏览计数（数据面板/热度信号）：详情打开计 1 次；同一登录用户 1 小时内重复打开
+// 同一帖不重复计（防刷新灌水，PostEvent 'view' 行做时间窗去重标记）；游客无法识别
+// 身份，不参与去重。计数成功后补热度分 —— 浏览信号即时进热榜（此前要等下一次
+// 点赞/评论才被重算，QA 审计「热度滞后」）。异步 fire-and-forget，失败静默。
+const VIEW_ACTION: string = 'view';
+const VIEW_DEDUP_WINDOW_MS: number = 60 * 60 * 1000;
+// 同 (用户,帖) 的计数任务串行化：并发打开时后到者能看到先到者写入的去重标记
+const pendingViewJobs = new Map<string, Promise<void>>();
+
+function countPostView(postId: number, viewerId?: number): void {
+  const key = `${viewerId ?? 0}:${postId}`;
+  const prev: Promise<void> = pendingViewJobs.get(key) ?? Promise.resolve();
+  const next = prev.then(async (): Promise<void> => {
+    if (viewerId !== undefined && viewerId > 0) {
+      const since = new Date(Date.now() - VIEW_DEDUP_WINDOW_MS);
+      const recent = await prisma.postEvent.findFirst({
+        where: { postId, userId: viewerId, action: VIEW_ACTION, createdAt: { gte: since } },
+        select: { id: true },
+      });
+      if (recent) {
+        return; // 时间窗内已计过
+      }
+      // 先写去重标记再自增：并发打开时后到者能看到先到者的标记
+      await prisma.postEvent.create({
+        data: { postId, userId: viewerId, action: VIEW_ACTION, scene: 'detail' },
+      });
+    }
+    await prisma.post.update({ where: { id: postId }, data: { viewCount: { increment: 1 } } });
+    await bumpHotScore(postId).catch(() => { /* 热度分失败不影响计数 */ });
+  }).catch(() => { /* 浏览计数失败静默，不阻断详情返回 */ });
+  pendingViewJobs.set(key, next);
+  next.finally(() => {
+    if (pendingViewJobs.get(key) === next) {
+      pendingViewJobs.delete(key);
+    }
+  });
+}
+
 // 已移入废纸篓的帖子仅允许原作者通过带登录态的详情请求查看，其他访问仍返回不存在。
 // viewerId 可选：传入时并发查 Up/Bookmark 记录，给返回体附加 myUp / myBookmark
 // （当前登录用户对该帖的互动态，纯增量字段，不影响原有结构；缺失则不附加）。
@@ -449,8 +488,8 @@ export async function getPost(id: number, viewerId?: number) {
   if (post.status !== 1 && viewerId !== post.userId && !isAdmin) {
     return null;
   }
-  // 浏览计数（数据面板/热度信号）：异步自增，失败不阻断详情返回
-  prisma.post.update({ where: { id }, data: { viewCount: { increment: 1 } } }).catch(() => {});
+  // 浏览计数（数据面板/热度信号）：去重 + 热度分即时更新，失败不阻断详情返回
+  countPostView(id, viewerId);
   // 楼中楼评论：一次取足量扁平评论（按顶数降序，混排一级/子回复），再组装成树
   const rawComments = await prisma.comment.findMany({
     where: { postId: id, status: 1 },

@@ -88,12 +88,21 @@ async function mainPhase(): Promise<void> {
   const feed = await api('GET', '/v1/posts?page=1&limit=20&sort=latest', B.token);
   const feedIds: number[] = (data(feed)?.items ?? data(feed)?.list ?? []).map((x: any) => Number(x.id));
   rec('B 拉帖子列表包含 A 的新帖', feed.status === 200 && feedIds.includes(postId));
+  // ---- 浏览计数（去重口径：同登录用户 1h 内同帖只计 1 次；游客/不同用户各计 1 次）----
+  const viewBase = (await prisma.post.findUnique({ where: { id: postId } }))?.viewCount ?? -1;
   const d1 = await api('GET', `/v1/posts/${postId}`, B.token);
-  const d2 = await api('GET', `/v1/posts/${postId}`, B.token);
-  const view1 = Number(data(d1)?.viewCount ?? data(d1)?.views ?? -1);
-  const view2 = Number(data(d2)?.viewCount ?? data(d2)?.views ?? -1);
   rec('B 读详情（可访问）', d1.status === 200 && Number(data(d1)?.id) === postId);
-  rec('详情浏览计数随访问递增', view2 === view1 + 1, `view ${view1} -> ${view2}`);
+  await api('GET', `/v1/posts/${postId}`, B.token);
+  await api('GET', `/v1/posts/${postId}`, B.token);
+  await new Promise((r) => setTimeout(r, 800));
+  const viewB = (await prisma.post.findUnique({ where: { id: postId } }))?.viewCount ?? -1;
+  rec('防灌水：B 重复打开仅计 1 次', viewB === viewBase + 1, `view ${viewBase} -> ${viewB}`);
+  await api('GET', `/v1/posts/${postId}`, A.token);
+  await new Promise((r) => setTimeout(r, 800));
+  const viewA = (await prisma.post.findUnique({ where: { id: postId } }))?.viewCount ?? -1;
+  rec('不同用户打开再计 1 次', viewA === viewB + 1, `view ${viewB} -> ${viewA}`);
+  const viewEvt = await prisma.postEvent.count({ where: { postId, action: 'view', userId: B.id } });
+  rec('DB: B 的 view 事件恰好 1 行（去重标记）', viewEvt === 1);
 
   // ---- 点赞 ----
   const up1 = await api('POST', `/v1/posts/${postId}/up`, B.token);
