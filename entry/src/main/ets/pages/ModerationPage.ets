@@ -8,7 +8,7 @@ import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { BackButton } from '../design/components/BackButton';
-import { getUserId } from '../utils/auth';
+import { getUserId, getIsAdmin } from '../utils/auth';
 
 // 举报理由 → 中文标签
 function reasonLabel(reason: ReportReason): string {
@@ -102,6 +102,12 @@ struct ModerationPage {
     // 用 replaceUrl 把本页从路由栈里替换掉 —— 取消登录返回时落到**入口页**（设置页）。
     if (getUserId() === 0) {
       this.getUIContext().getRouter().replaceUrl({ url: 'pages/LoginPage' });
+      return;
+    }
+    // 管理员闸门（E2E 审计 D2）：登录 ≠ 管理员。普通用户误入（通知深链等）直接退回，
+    // 不渲染管理 UI、不发 /v1/admin 请求（后端虽会 403，前端不该把管理界面暴露出去）。
+    if (!getIsAdmin()) {
+      this.getUIContext().getRouter().back();
       return;
     }
     this.load();

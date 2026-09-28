@@ -15,7 +15,7 @@ import {
   getConversations,
   getDmUnreadCount,
 } from '../services/api';
-import { getToken, getUserId, getCurrentUser } from '../utils/auth';
+import { getToken, getUserId, getCurrentUser, getIsAdmin } from '../utils/auth';
 import { barBottomReserve } from '../utils/cardTokens';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
@@ -37,7 +37,6 @@ const MESSAGE_SEGMENTS: SegmentedItem[] = [
   { key: 'dm', label: '私信' },
 ];
 
-@Entry
 @Component
 export struct MessagePage {
   @State list: NotificationItem[] = [];
@@ -413,8 +412,10 @@ export struct MessagePage {
     }
     // 置顶的「举报中心」系统消息 → 直达举报账本（新文案「举报中心：有 N 条举报待处理」；
     // 兼容早期文案「收到新举报…」的历史置顶通知）；作者收到的「审核中」置顶通知
-    // 仍走下方 postId 跳原帖详情（普通用户不会收到举报警报，故不会误入账本）。
-    if (item.pinned === true && ((item.content ?? '').startsWith('举报中心') || (item.content ?? '').includes('收到新举报'))) {
+    // 仍走下方 postId 跳原帖详情。⚠️ 仅管理员可入（E2E 审计 D2）：普通用户收到历史
+    // 置顶举报通知时不得被带进管理页（管理页自身也有 admin 闸门兜底）。
+    if (getIsAdmin() && item.pinned === true &&
+      ((item.content ?? '').startsWith('举报中心') || (item.content ?? '').includes('收到新举报'))) {
       this.getUIContext().getRouter().pushUrl({ url: 'pages/ReportAdminPage' });
       return;
     }
