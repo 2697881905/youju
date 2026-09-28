@@ -54,8 +54,10 @@ import { findActiveAtMention, applyAtMention, AtMentionMatch } from '../utils/at
 import { barBottomReserve } from '../utils/cardTokens';
 import { refreshBottomNavInset } from '../utils/navMode';
 import { SpaceTokens } from '../design/tokens/space';
+import { RadiusTokens } from '../design/tokens/radius';
 import { FALLBACK_VIDEO_ASPECT_RATIO, normalizeVideoAspectRatio } from '../utils/video';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
+import { postContentTextOf } from '../utils/postPlainText';
 
 // ── 一镜到底的「对应节点」id（PostDetailDestination 也会引用，单一出处防漂移）──
 // 真实内容里的媒体 Stack：整页缩放到「该节点宽 == 卡片宽」再展开。
@@ -146,6 +148,19 @@ export struct PostDetailView {
   @State commentReportId: number = 0;
   @State viewingImage: string = ''; // 全屏看图
   @State shareCardPreview: image.PixelMap | null = null; // 分享卡图 App 内预览
+  // ===== 长按标题/正文小菜单：复制标题 / 复制正文（自绘浮层，替代 bindContextMenu）=====
+  // bindContextMenu(ResponseType.LongPress) 会被正文 @提及/#话题 Span 的 onClick 竞争掉，
+  // 长按无响应（同 ChatView 消息菜单的结论）；改用标准 LongPressGesture + 遮罩浮层菜单。
+  // 复制范围按长按目标分开：'content'=复制正文（结构化信息+正文，不含标题，挂正文组件）；
+  // 'title'=复制标题（挂头部标题 Text，作者行/标签不触发）。''=菜单未弹出。
+  @State contentMenuTarget: string = '';
+  @State contentMenuX: number = 0; // 菜单卡片左上角 x（内容区 Stack 本地坐标，按按压点定位）
+  @State contentMenuY: number = 0; // 菜单卡片左上角 y
+  // 内容区 Stack 的全局原点与尺寸：按压点全局坐标 → 本地坐标换算 & 边界钳制依赖它
+  private contentAreaGlobalX: number = 0;
+  private contentAreaGlobalY: number = 0;
+  private contentAreaWidth: number = 0;
+  private contentAreaHeight: number = 0;
   // 顶部避让状态栏：用「构造时即就位」的全局值（Index 启动时写入 AppStorage），
   // 不能本页异步测量——一镜到底在转场开始那一刻量「媒体位」的落点，若 padding
   // 晚一帧才从 0 变为状态栏高度，整页会在量测之后整体下移一个状态栏高度：
@@ -721,6 +736,62 @@ export struct PostDetailView {
     this.shareController.close();
   }
 
+  // ===== 长按正文 → 复制全文 =====
+
+  private closeContentMenu(): void {
+    this.contentMenuVisible = false;
+  }
+
+  // 长按定位：菜单卡片中心对准按压手指位置（跟手），并钳制在内容区边界内不溢出屏幕
+  private openContentMenu(event: GestureEvent): void {
+    // 兜底中心点（fingerList 理论上必有值，防御性处理）
+    let gx: number = this.contentAreaGlobalX + this.contentAreaWidth / 2;
+    let gy: number = this.contentAreaGlobalY + this.contentAreaHeight / 2;
+    if (event.fingerList.length > 0) {
+      gx = event.fingerList[0].globalX;
+      gy = event.fingerList[0].globalY;
+    }
+    // 全局坐标 → 内容区 Stack 本地坐标
+    const lx: number = gx - this.contentAreaGlobalX;
+    const ly: number = gy - this.contentAreaGlobalY;
+    // 单行菜单卡片（行高 42 + 上下内边距 8）
+    const cardW: number = 148;
+    const cardH: number = 50;
+    const maxX: number = Math.max(8, this.contentAreaWidth - cardW - 8);
+    const maxY: number = Math.max(8, this.contentAreaHeight - cardH - 8);
+    this.contentMenuX = Math.max(8, Math.min(maxX, lx - cardW / 2));
+    this.contentMenuY = Math.max(8, Math.min(maxY, ly - cardH / 2));
+    this.contentMenuVisible = true;
+  }
+
+  // 全文纯文本：标题 + 结构化信息（V2 文档优先，旧帖回退字段投影）+ 正文
+  private postFullText(): string {
+    if (!this.post) {
+      return '';
+    }
+    return postPlainTextOf(
+      this.post.title ?? '',
+      this.post.content ?? '',
+      this.post.structuredDocument ?? null,
+      this.fields,
+    );
+  }
+
+  private copyPostContent(): void {
+    this.closeContentMenu();
+    const text: string = this.postFullText();
+    if (text.length === 0) {
+      safeShowToast(this.getUIContext(), { message: '没有可复制的内容' });
+      return;
+    }
+    try {
+      copyToClipboard(text);
+      safeShowToast(this.getUIContext(), { message: '全文已复制，去粘贴吧' });
+    } catch (e) {
+      safeShowToast(this.getUIContext(), { message: '复制失败，请重试' });
+    }
+  }
+
   // 系统分享占位：真实域名确定后接入 @ohos.application.SystemShareKit 系统分享面板
   private async doSystemShare(): Promise<void> {
     this.shareController.close();
@@ -783,10 +854,11 @@ export struct PostDetailView {
 
   // 是否有页内覆盖层打开（返回手势要先关它们，而不是退出详情页）
   private hasPageOverlay(): boolean {
-    return this.viewingImage.length > 0 || this.shareCardPreview !== null || this.statsPanelShow;
+    return this.viewingImage.length > 0 || this.shareCardPreview !== null || this.statsPanelShow
+      || this.contentMenuVisible;
   }
 
-  // 关掉最上层那个覆盖层。层级从高到低：图片查看器(999) → 分享卡预览(200) → 数据面板。
+  // 关掉最上层那个覆盖层。层级从高到低：图片查看器(999) → 分享卡预览(200) → 数据面板(210) → 长按菜单。
   private closeTopPageOverlay(): void {
     if (this.viewingImage.length > 0) {
       this.viewingImage = '';
@@ -794,6 +866,10 @@ export struct PostDetailView {
     }
     if (this.shareCardPreview !== null) {
       this.closeShareCardPreview();
+      return;
+    }
+    if (this.contentMenuVisible) {
+      this.closeContentMenu();
       return;
     }
     this.statsPanelShow = false;
@@ -1141,6 +1217,49 @@ export struct PostDetailView {
     }
   }
 
+  @Builder
+  private contentMenuRow(label: string, action: () => void): void {
+    Text(label)
+      .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
+      .fontWeight(TypeTokens.headline.weight)
+      .fontColor(ColorTokens.primary)
+      .width('100%')
+      .height(42)
+      .textAlign(TextAlign.Center)
+      .onClick(() => { action(); })
+  }
+
+  // 长按正文菜单浮层：全屏透明遮罩（点击关闭）+ 卡片按按压点定位（跟手）+ 轻量进场动效
+  @Builder
+  private contentActionSheet(): void {
+    Column() {
+      Column() {
+        this.contentMenuRow('复制全文', (): void => { this.copyPostContent(); })
+      }
+      .width(148)
+      .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
+      .backgroundColor(ColorTokens.elevated)
+      .borderRadius(RadiusTokens.md)
+      .clip(true)
+      .shadow({ radius: 20, color: ColorTokens.barShadow, offsetY: 6 })
+      // 按压点定位（openContentMenu 已把坐标钳制在内容区边界内，不溢出屏幕）
+      .position({ x: this.contentMenuX, y: this.contentMenuY })
+      // 进/出场：淡入 + 轻微缩放（0.94→1），只动 transform/opacity 保证性能
+      .transition(
+        TransitionEffect.opacity(0)
+          .combine(TransitionEffect.scale({ x: 0.94, y: 0.94 }))
+          .animation({ duration: 180, curve: MotionCurves.standard })
+      )
+    }
+    .width('100%')
+    .height('100%')
+    // 透明遮罩：视觉上无灰色覆盖，但仍捕获点击以关闭菜单
+    .backgroundColor(Color.Transparent)
+    // 盖过底部互动栏（zIndex 1）：菜单打开时点互动栏先关菜单，不误触发点赞/评论
+    .zIndex(2)
+    .onClick((): void => { this.closeContentMenu(); })
+  }
+
   // 一镜到底（navMode）下 hero 的可见性：真媒体首帧就绪前**保持透明**，
   // 让下层的卡片截图透出来顶住媒体位。若直接显示，轮播图自带的 sunken 灰底会盖住截图，
   // 观感就是「卡片图 → 灰块 → 照片」闪一下（本轮修的跳动主因）。
@@ -1387,6 +1506,12 @@ export struct PostDetailView {
                 onVote: (choice: string): void => { this.onDebateVote(choice); },
               })
                 .transition(this.animLayerEnter(120))
+                // 长按弹出「复制全文」菜单：标准 LongPressGesture 与正文 Span 的 onClick
+                // （话题/提及跳转）正确共存；长按识别成功后系统自动取消单击。
+                .gesture(
+                  LongPressGesture({ repeat: false, duration: 400 })
+                    .onAction((event: GestureEvent): void => { this.openContentMenu(event); })
+                )
 
               DetailCommentsSection({
                 comments: this.post.comments ?? [],
@@ -1441,9 +1566,21 @@ export struct PostDetailView {
           }
           .width('100%')
           .zIndex(1)
+
+          // 长按正文菜单浮层：置于 Stack 最上层，遮罩点击关闭
+          if (this.contentMenuVisible) {
+            this.contentActionSheet()
+          }
         }
         .layoutWeight(1)
         .width('100%')
+        // 采集内容区全局原点与尺寸：长按菜单按压点定位的坐标换算与边界钳制依赖它
+        .onAreaChange((_old: Area, area: Area): void => {
+          this.contentAreaGlobalX = area.globalPosition.x as number;
+          this.contentAreaGlobalY = area.globalPosition.y as number;
+          this.contentAreaWidth = area.width as number;
+          this.contentAreaHeight = area.height as number;
+        })
       }
     }
     .width('100%')
