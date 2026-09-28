@@ -98,10 +98,23 @@ export struct ChatView {
   private listScroller: Scroller = new Scroller();
   private originalKeyboardMode: KeyboardAvoidMode | null = null;
   private pollTimer: number = -1; // 轻量轮询定时器（对方撤回/新消息同步）
+  // 表情库：~100 个常用表情（笑脸/情绪 → 手势 → 爱心/符号 → 常用物件），顺序即面板排列。
+  // ⚠️ ForEach 的 key 是表情本身，数据必须唯一，不得重复。
   private readonly emojiOptions: string[] = [
-    '😀', '😄', '😂', '🥰', '😍', '🥺', '😏', '🤔',
-    '😎', '🤣', '😊', '😢', '😡', '👍', '👎', '❤️',
-    '🔥', '🎉', '✨', '👏',
+    '😀', '😄', '😅', '😂', '🤣', '😊', '😇', '🙂',
+    '😉', '😍', '🥰', '😘', '😗', '😙', '😚', '😋',
+    '😛', '😝', '🤪', '🤨', '🧐', '🤓', '😎', '🥳',
+    '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '😣',
+    '😖', '😫', '😩', '🥺', '😢', '😭', '🤔', '😤',
+    '😠', '😡', '🤬', '🤯', '😳',
+    '👍', '👎', '👌', '✌️', '🤞', '🤟', '🤘',
+    '👏', '🙌', '🤝', '🙏', '💪', '👋', '🤙',
+    '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍',
+    '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘',
+    '💝', '✨',
+    '🔥', '🎉', '🎊', '🎁', '🌹', '🌸', '🌺', '🌻',
+    '🌈', '⭐', '🌙', '☀️', '⚡', '☔', '❄️', '☕',
+    '🍀', '🎈', '🎂', '🍉', '🍓', '🐶', '🐱', '💯',
   ];
 
   aboutToAppear(): void {
@@ -523,41 +536,43 @@ export struct ChatView {
 
   private appendEmoji(emoji: string): void {
     this.inputText = this.inputText + emoji;
-    this.showEmojiPanel = false;
+    // 面板保持打开：连续选多个表情不打断；收起走 ☺ 切换 / 「+」互斥切换
   }
 
   @Builder
   emojiPanel() {
-    ImmersiveSurface({ radius: RadiusTokens.md }) {
-      Scroll() {
-        Row({ space: SpaceTokens.sm }) {
-          ForEach(
-            this.emojiOptions,
-            (emoji: string) => {
-              Text(emoji)
-                .fontSize(22)
-                .width(36)
-                .height(36)
-                .textAlign(TextAlign.Center)
-                .borderRadius(RadiusTokens.sm)
-                .onClick(() => {
-                  this.appendEmoji(emoji);
-                });
-            },
-            (emoji: string) => emoji,
-          )
-        }
-        .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs, bottom: SpaceTokens.xs })
-      }
-      .scrollable(ScrollDirection.Horizontal)
-      .scrollBar(BarState.Off)
-      .edgeEffect(EdgeEffect.Spring)
-      .backgroundBlurStyle(GlassBlurStyle.Floating)
-      .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
-      .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-      .borderRadius(RadiusTokens.md)
-      .shadow({ radius: 10, color: ColorTokens.barShadow, offsetY: 3 });
+    // 搜索框样式（GlowInput segmentStyle 同款规格）：#20FFFFFF 底 + backdropBlur(20)
+    // + 1px #30FFFFFF 高光边框 + lg 圆角。不再包 ImmersiveSurface —— HDS 双边流光按
+    // 用户要求移除；该组件其它 6 处调用方（mediaMenu 等）不受影响。
+    Grid() {
+      ForEach(
+        this.emojiOptions,
+        (emoji: string) => {
+          Text(emoji)
+            .fontSize(24)
+            .width('100%')
+            .height(40)
+            .textAlign(TextAlign.Center)
+            .borderRadius(RadiusTokens.sm)
+            .onClick(() => {
+              this.appendEmoji(emoji);
+            });
+        },
+        (emoji: string) => emoji,
+      )
     }
+    .columnsTemplate('1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr')
+    .columnsGap(SpaceTokens.xs)
+    .rowsGap(SpaceTokens.xs)
+    // 一屏约 5 行（行高 40 + 行距 4），其余纵向滚动
+    .height(216)
+    .scrollBar(BarState.Off)
+    .edgeEffect(EdgeEffect.Spring)
+    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs, bottom: SpaceTokens.xs })
+    .backgroundColor('#20FFFFFF')
+    .backdropBlur(20)
+    .border({ width: 1, color: '#30FFFFFF', style: BorderStyle.Solid })
+    .borderRadius(RadiusTokens.lg)
   }
 
   // 「+」媒体菜单：发送图片 / 发送视频（样式与表情面板一致）
