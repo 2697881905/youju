@@ -11,7 +11,4 @@ export class GlassTokens {
   static readonly SEGMENT_BORDER: ResourceColor = '#30FFFFFF';
   // 普通模式底色（非分段玻璃时 GlowInput 的系统玻璃方案底色）
   static readonly NORMAL_BG: ResourceColor = ColorTokens.barSurface;
-  // —— API 26+ 搜索框规范尺寸 ——
-  static readonly SEARCH_HEIGHT: number = 40;
-  static readonly SEARCH_RADIUS: number = 18;
 }

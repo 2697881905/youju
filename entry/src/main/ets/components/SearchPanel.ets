@@ -134,19 +134,14 @@ export struct SearchPanel {
     }
   }
 
-  // 搜索框：ArkUI 原生 Search + **构造上必然可见**的原生质感样式。
-  // systemMaterial 实验在真机上始终未渲染（应用级开关已开、参数对齐官方样例仍不可见），
-  // 三轮尝试后放弃材质路线——改为实底材质 + 柔和投影，全设备（API 20-26）一致显示。
-  // 实验实现保留在 git 历史（584cb87/0c534b1），工具链成熟后可恢复。
+  // 搜索框：ArkUI 原生 Search 组件，**纯默认样式**。
+  // 工程 targetSdk 已升 26 —— Search 的默认背景材质/圆角/阴影即 H7 原生设计，
+  // 由系统按设备版本渲染；此前「老样式」观感源于旧 targetSdk 24 编译 + 自拍覆盖值。
+  // 除字体统一与布局拉伸外不做任何样式覆盖（原生感 = 不覆盖）。
   @Builder
   searchInput(): void {
     Search({ placeholder: '搜索你关心的经验和问题', value: this.keyword })
-      .height(40)
-      .borderRadius(24)
       .layoutWeight(1)
-      .backgroundColor(ColorTokens.elevated)
-      .shadow({ radius: 12, color: '#14000000', offsetY: 2 })
-      .placeholderColor(ColorTokens.tertiary)
       .placeholderFont({ family: TypeTokens.fontFamily })
       .textFont({ family: TypeTokens.fontFamily })
       .onChange((v: string): void => { this.debounceSuggest(v); })
