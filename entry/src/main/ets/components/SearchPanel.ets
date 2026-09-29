@@ -119,14 +119,20 @@ export struct SearchPanel {
     return rows * LayoutTokens.segmentedHeight + (rows - 1) * SpaceTokens.sm;
   }
 
-  // 搜索框：ArkUI 原生 Search 组件 —— 默认样式即系统质感（背景材质/圆角/阴影随系统
-  // 版本自动演进，鸿蒙 6 上自带系统级投影），不做任何自绘材质叠加。
+  // 搜索框：ArkUI 原生 Search 组件 + H7 原生观感定制。
+  // ⚠️ 内置组件的默认样式按**编译期 SDK** 冻结：本工程 compatibleSdk=6.0.0(20)，
+  // 在 HarmonyOS 7 机型（Pocket 2 实测）上 Search 默认渲染 6.x 老样式，与当下华为
+  // 原生应用搜索框不符 —— 故显式定制为 H7 观感：无描边全圆角胶囊 + 柔和投影 + 材质底。
   @Builder
   searchInput(): void {
     Search({ placeholder: '搜索你关心的经验和问题', value: this.keyword })
-      .height(LayoutTokens.segmentedHeight)
+      .height(40)
+      .borderRadius(20)
+      .backgroundColor(ColorTokens.elevated)
+      .placeholderColor(ColorTokens.tertiary)
+      .shadow({ radius: 12, color: '#14000000', offsetY: 2 })
       .layoutWeight(1)
-      // 仅统一应用字体；其余保持组件默认（系统配色与图标）
+      // 仅统一应用字体；图标与清除按钮保持系统默认
       .placeholderFont({ family: TypeTokens.fontFamily })
       .textFont({ family: TypeTokens.fontFamily })
       .onChange((v: string): void => {
