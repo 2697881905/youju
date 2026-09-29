@@ -120,7 +120,8 @@ export struct SearchPanel {
     return rows * LayoutTokens.segmentedHeight + (rows - 1) * SpaceTokens.sm;
   }
 
-  // 聚焦流光输入框：键入（聚焦）点亮原生流光，失焦熄灭；分段栏同款玻璃样式
+  // 搜索框：鸿蒙 6 沉浸光感原生材质（双边流光常显，对齐官方「沉浸式搜索栏」样例；
+  // 不支持光感的设备自动跳过，保留分段栏同款玻璃底）+ 键入联想/回车搜索
   @Builder
   searchInput(): void {
     GlowInput({
@@ -129,6 +130,8 @@ export struct SearchPanel {
       fillWidth: true,
       // 分段栏同款：半透明白玻璃底 + backdropBlur + 1px 高光边框 + lg 圆角
       segmentStyle: true,
+      // 沉浸光感原生材质（HdsVisualComponent 双边流光，API 23+ 生效）
+      immersive: true,
       onChange: (v: string): void => { this.debounceSuggest(v); },
       onEnter: (): void => { this.doSearch(); },
       onFocusChanged: (focus: boolean): void => {
