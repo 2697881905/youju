@@ -98,9 +98,9 @@ export struct NotificationSettingsPage {
             .height(40)
             .color($r('app.color.text_secondary'));
         }
-        .layoutWeight(1)
         .width('100%')
-        .justifyContent(FlexAlign.Center);
+        .alignItems(HorizontalAlign.Center)
+        .padding({ top: 24 });
       } else if (this.loadError) {
         Column() {
           Text('加载失败')
@@ -117,9 +117,9 @@ export struct NotificationSettingsPage {
               this.loadPrefs();
             });
         }
-        .layoutWeight(1)
         .width('100%')
-        .justifyContent(FlexAlign.Center);
+        .alignItems(HorizontalAlign.Center)
+        .padding({ top: 24 });
       } else {
         Scroll() {
           Column({ space: 10 }) {
@@ -160,6 +160,7 @@ export struct NotificationSettingsPage {
     .width('100%')
     .padding({ top: this.statusBarHeight })
     .height('100%')
+    .justifyContent(FlexAlign.Start)
     .backgroundColor($r('app.color.bg_primary'))
     .transition(buildPageTransition())
   }
