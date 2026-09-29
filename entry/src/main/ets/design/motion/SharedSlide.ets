@@ -17,9 +17,6 @@ export struct SharedSlide {
   @Prop slideShadow: ShadowOptions = ShadowTokens.cardContact;
   // 按压态：滑块缩小的弹性形变（华为应用商店同款按压反馈），松手后 spring 回弹
   @Prop pressed: boolean = false;
-  @Prop reduceMotion: boolean = false;
-  @StorageLink('reduceMotion') appReduceMotion: boolean = false;
-  @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
   @State containerWidth: number = 0;
 
   private safeCount(): number {
@@ -40,10 +37,6 @@ export struct SharedSlide {
     return safeIndex * this.slotWidth() + (this.slotWidth() - this.pillWidth()) / 2;
   }
 
-  private shouldReduceMotion(): boolean {
-    return this.reduceMotion || this.appReduceMotion || this.systemReduceMotion;
-  }
-
   // 逐帧跟手：浮点索引（Swiper 拖动/吸附过程中的连续位置）不做补间，逐帧即时贴合手势；
   // 整数索引（点击切换）保留弹性动画（springInteract 过冲回弹）
   private isTracking(): boolean {
@@ -62,12 +55,12 @@ export struct SharedSlide {
         .shadow(this.slideShadow)
         // 华为应用商店同款按压反馈：按下滑块轻微缩小，松手 spring 过冲回弹
         .scale({
-          x: this.pressed && !this.shouldReduceMotion() ? MotionTokens.pressSlideScale : 1,
-          y: this.pressed && !this.shouldReduceMotion() ? MotionTokens.pressSlideScale : 1,
+          x: this.pressed ? MotionTokens.pressSlideScale : 1,
+          y: this.pressed ? MotionTokens.pressSlideScale : 1,
         })
         .animation({
-          duration: (this.shouldReduceMotion() || this.isTracking()) ? MotionTokens.none : MotionTokens.base,
-          curve: this.shouldReduceMotion() ? MotionCurves.standard : MotionCurves.springInteract,
+          duration: this.isTracking() ? MotionTokens.none : MotionTokens.base,
+          curve: MotionCurves.springInteract,
         })
     }
     .width('100%')

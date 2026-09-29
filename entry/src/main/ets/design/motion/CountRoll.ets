@@ -7,11 +7,8 @@ import { TypeTokens } from '../tokens/type';
 export struct CountRoll {
   @Prop @Watch('onValueChange') value: number = 0;
   @Prop prefix: string = '';
-  @Prop reduceMotion: boolean = false;
   @Prop textSize: number = TypeTokens.caption.size;
   @Prop textColor: ResourceColor = ColorTokens.tertiary;
-  @StorageLink('reduceMotion') appReduceMotion: boolean = false;
-  @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
   @State displayValue: number = 0;
   @State contentOpacity: number = 1;
   @State contentOffset: number = 0;
@@ -28,15 +25,7 @@ export struct CountRoll {
     }
   }
 
-  private shouldReduceMotion(): boolean {
-    return this.reduceMotion || this.appReduceMotion || this.systemReduceMotion;
-  }
-
   private onValueChange(): void {
-    if (this.shouldReduceMotion()) {
-      this.displayValue = this.value;
-      return;
-    }
     if (this.updateTimer !== 0) {
       clearTimeout(this.updateTimer);
     }

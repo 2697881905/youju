@@ -11,7 +11,6 @@ import { preferences } from '@kit.ArkData';
 const PREF_NAME = 'youju_theme';
 const KEY_FOLLOW_SYSTEM = 'followSystem';
 const KEY_IS_DARK = 'isDarkMode';
-const KEY_REDUCE_MOTION = 'reduceMotion';
 
 let _appContext: common.ApplicationContext | null = null;
 let _prefs: preferences.Preferences | null = null;
@@ -76,10 +75,8 @@ export function loadThemeFromPrefs(): void {
   try {
     const follow: boolean = _prefs.getSync(KEY_FOLLOW_SYSTEM, true) as boolean;
     const dark: boolean = _prefs.getSync(KEY_IS_DARK, false) as boolean;
-    const reduceMotion: boolean = _prefs.getSync(KEY_REDUCE_MOTION, false) as boolean;
     AppStorage.setOrCreate('followSystem', follow);
     AppStorage.setOrCreate('isDarkMode', dark);
-    AppStorage.setOrCreate('reduceMotion', reduceMotion);
   } catch (e) {
   }
 }
@@ -101,17 +98,6 @@ function saveIsDark(dark: boolean): void {
   }
   try {
     _prefs.putSync(KEY_IS_DARK, dark);
-    _prefs.flushSync();
-  } catch (e) {
-  }
-}
-
-function saveReduceMotion(reduceMotion: boolean): void {
-  if (_prefs === null) {
-    return;
-  }
-  try {
-    _prefs.putSync(KEY_REDUCE_MOTION, reduceMotion);
     _prefs.flushSync();
   } catch (e) {
   }
@@ -147,11 +133,6 @@ export function isDarkMode(): boolean {
 
 export function isFollowSystem(): boolean {
   return (AppStorage.get<boolean>('followSystem') ?? true) as boolean;
-}
-
-export function setReduceMotion(reduceMotion: boolean): void {
-  AppStorage.setOrCreate('reduceMotion', reduceMotion);
-  saveReduceMotion(reduceMotion);
 }
 
 export function toggleDarkMode(dark: boolean): void {

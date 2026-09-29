@@ -11,7 +11,6 @@ export struct EmptyState {
   @Prop title: string = '';
   @Prop message: string = '';
   @Prop actionLabel: string = '';
-  @Prop reduceMotion: boolean = false;
   onAction: () => void = () => {};
 
   private safeTitle(): string {
@@ -52,7 +51,7 @@ export struct EmptyState {
       }
 
       if (this.safeActionLabel().length > 0) {
-        Pressable({ reduceMotion: this.reduceMotion, action: this.onAction }) {
+        Pressable({ action: this.onAction }) {
           Row() {
             Text(this.safeActionLabel())
               .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)

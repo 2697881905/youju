@@ -120,8 +120,6 @@ export struct CircleTab {
   // Blank 弹性推底必须用显式数值 minHeight，否则卡片无法贴底。
   @State scrollViewportHeight: number = 0;
   @State ringDragging: boolean = false;
-  @StorageLink('reduceMotion') @Watch('onReduceMotionChanged') appReduceMotion: boolean = false;
-  @StorageLink('systemReduceMotion') @Watch('onReduceMotionChanged') systemReduceMotion: boolean = false;
   @StorageLink('authNickname') authNickname: string = '';
   @StorageLink('authAvatar') authAvatar: string = '';
   // 星系中心头像：以 authAvatar（登录响应缓存，可能有缺）为初始值，
@@ -204,24 +202,6 @@ export struct CircleTab {
       this.centeredName = '';
       this.error = '';
       this.loading = false;
-    }
-  }
-
-  private shouldReduceMotion(): boolean {
-    return this.appReduceMotion || this.systemReduceMotion;
-  }
-
-  // 减弱动效开关变化时立即收敛星环状态。
-  // 此前没有任何监听：关掉开关后要等到重进页面或点一次星系背景，星环才可能恢复自转，
-  // 配合旧的 autoOrbitRunning 残留问题就是「星环不转了」且看起来永远修不好。
-  private onReduceMotionChanged(): void {
-    if (this.shouldReduceMotion()) {
-      this.stopAutoOrbit();
-      this.stopInertia();
-      return;
-    }
-    if (this.activeTab === 1 && this.circles.length > 0 && this.centeredName.length === 0) {
-      this.resumeAllOrbits();
     }
   }
 
@@ -401,12 +381,6 @@ export struct CircleTab {
     if (this.autoOrbitRunning) {
       return;
     }
-    if (this.shouldReduceMotion()) {
-      // 减弱动效开启时星环不自转（用户偏好优先），但要留下可诊断痕迹
-      hilog.info(0x0000, 'CircleTab', '星环自转未启动：减弱动效开启 app=%{public}s system=%{public}s',
-        String(this.appReduceMotion), String(this.systemReduceMotion));
-      return;
-    }
     if (this.circles.length === 0) {
       return;
     }
@@ -415,15 +389,6 @@ export struct CircleTab {
     const tick = (): void => {
       if (!this.autoOrbitRunning) {
         this.autoOrbitTimer = 0;
-        return;
-      }
-      if (this.shouldReduceMotion()) {
-        // 必须走 stopAutoOrbit 复位 autoOrbitRunning：
-        // 旧实现只把 autoOrbitTimer 置 0 就 return，autoOrbitRunning 留真，
-        // 之后 startAutoOrbit 会被开头那句 `if (this.autoOrbitRunning) return` 永久挡住 ——
-        // 关掉减弱动效后星环也回不来，只能靠重进页面（initData 里的 stopAutoOrbit）偶然恢复。
-        hilog.info(0x0000, 'CircleTab', '星环自转中止：运行中检测到减弱动效开启');
-        this.stopAutoOrbit();
         return;
       }
       const speed: number = 0.16;
@@ -487,18 +452,11 @@ export struct CircleTab {
     if (this.centeredName.length > 0) {
       this.centeredName = '';
       this.clearFocusReturnTimer();
-      if (this.shouldReduceMotion()) {
+      // 等 Logo 回到暂停时保存的圆环位置，再恢复三环旋转。
+      this.focusReturnTimer = setTimeout(() => {
+        this.focusReturnTimer = 0;
         this.resumeAllOrbits();
-      } else {
-        // 等 Logo 回到暂停时保存的圆环位置，再恢复三环旋转。
-        this.focusReturnTimer = setTimeout(() => {
-          this.focusReturnTimer = 0;
-          this.resumeAllOrbits();
-        }, MotionTokens.emphasis) as number;
-      }
-      return;
-    }
-    if (this.shouldReduceMotion()) {
+      }, MotionTokens.emphasis) as number;
       return;
     }
     if (this.autoOrbitEnabled[0] && this.autoOrbitEnabled[1] && this.autoOrbitEnabled[2]) {
@@ -509,7 +467,7 @@ export struct CircleTab {
 
   // ArkUI 没有浏览器 rAF；以 16ms 任务帧等价实现速度衰减，且仅更新 transform 所需的角度状态。
   private startInertia(): void {
-    if (this.shouldReduceMotion() || Math.abs(this.inertiaVelocity) < 0.08) {
+    if (Math.abs(this.inertiaVelocity) < 0.08) {
       this.syncSelectedFromRing(this.activeRing);
       return;
     }
@@ -676,7 +634,6 @@ export struct CircleTab {
       selectedName: this.selectedName,
       centeredName: this.centeredName,
       ringDragging: this.ringDragging,
-      reduceMotion: this.shouldReduceMotion(),
       avatar: this.selfAvatar,
       nickname: this.authNickname,
       onPlanet: (name: string): void => { this.onPlanetPressed(name); },

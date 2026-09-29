@@ -4,7 +4,7 @@
 import { getIsAdmin, clearSession, getUserId } from '../utils/auth';
 import { deactivateAccount, clearSearchHistory, exportUserData } from '../services/api';
 import { safeShowToast } from '../utils/toast';
-import { toggleDarkMode, setFollowSystem, setReduceMotion } from '../utils/theme';
+import { toggleDarkMode, setFollowSystem } from '../utils/theme';
 import { buildPageTransition } from '../utils/styles';
 import { CARD_RADIUS, CARD_SHADOW } from '../utils/cardTokens';
 import { resolveSettingsIcon } from '../utils/settingsIcons';
@@ -22,7 +22,6 @@ export struct SettingsPage {
   @StorageLink('authUserId') authUserId: string = '';
   @StorageLink('isDarkMode') darkMode: boolean = false;
   @StorageLink('followSystem') followSystem: boolean = true;
-  @StorageLink('reduceMotion') reduceMotion: boolean = false;
   @State statusBarHeight: number = 0;
 
   aboutToAppear(): void {
@@ -223,10 +222,7 @@ export struct SettingsPage {
               this.openGated('pages/AccountBindingPage');
             });
             if (this.isAdmin) {
-              this.sectionRow('shield', '内容审核台', (): void => {
-                this.openGated('pages/ModerationPage');
-              });
-              this.sectionRow('book', '举报账本', (): void => {
+              this.sectionRow('book', '举报中心', (): void => {
                 this.openGated('pages/ReportAdminPage');
               });
             }
@@ -314,32 +310,6 @@ export struct SettingsPage {
                 .opacity(!this.followSystem ? 1 : 0.4)
                 .onChange((on: boolean): void => {
                   toggleDarkMode(on);
-                })
-            }
-            .width('100%')
-            .padding({ left: 16, right: 16, top: 14, bottom: 14 })
-            .backgroundColor($r('app.color.card_bg'))
-            .borderRadius(CARD_RADIUS)
-            .shadow(CARD_SHADOW)
-
-            Row({ space: 12 }) {
-              Image(resolveSettingsIcon('system'))
-                .width(22).height(22)
-                .objectFit(ImageFit.Contain)
-                .fillColor($r('app.color.ds_icon'))
-              Column({ space: 2 }) {
-                Text('减少动态效果')
-                  .fontSize(16).fontFamily($r('app.string.font_family'))
-                  .fontColor($r('app.color.text_primary'))
-                Text('使用更轻的界面过渡')
-                  .fontSize(12).fontFamily($r('app.string.font_family'))
-                  .fontColor($r('app.color.text_secondary'))
-              }
-              .alignItems(HorizontalAlign.Start)
-              .layoutWeight(1)
-              Toggle({ type: ToggleType.Switch, isOn: this.reduceMotion })
-                .onChange((on: boolean): void => {
-                  setReduceMotion(on);
                 })
             }
             .width('100%')

@@ -30,8 +30,6 @@ export struct BottomTabBar {
   @State hoverIndex: number = -1;
   @State barPressed: boolean = false;
   @State barWidth: number = 0;
-  @StorageLink('reduceMotion') appReduceMotion: boolean = false;
-  @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
   private longPressTimer: number = 0;
 
   // 卸载时清掉在途的长按定时器：否则回调会在已销毁的组件上写状态。
@@ -62,10 +60,6 @@ export struct BottomTabBar {
 
   private selectedIndex(): number {
     return this.scrubbing && this.hoverIndex >= 0 ? this.hoverIndex : this.currentIndex;
-  }
-
-  private shouldReduceMotion(): boolean {
-    return this.appReduceMotion || this.systemReduceMotion;
   }
 
   private clampGlow(x: number): number {
@@ -141,8 +135,8 @@ export struct BottomTabBar {
         .width(IconTokens.tabBar)
         .height(IconTokens.tabBar)
         .scale({
-          x: this.shouldReduceMotion() ? 1 : 1.08,
-          y: this.shouldReduceMotion() ? 1 : 1.08,
+          x: 1.08,
+          y: 1.08,
         })
         .fillColor(ColorTokens.icon)
         .draggable(false)
@@ -181,11 +175,11 @@ export struct BottomTabBar {
       .borderRadius(RadiusTokens.lg)
       .backgroundColor(Color.Transparent)
       .scale({
-        x: this.isActive(index) || this.shouldReduceMotion() ? 1 : 0.96,
-        y: this.isActive(index) || this.shouldReduceMotion() ? 1 : 0.96,
+        x: this.isActive(index) ? 1 : 0.96,
+        y: this.isActive(index) ? 1 : 0.96,
       })
       .animation({
-        duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.base,
+        duration: MotionTokens.base,
         curve: MotionCurves.standard,
       })
     }
@@ -238,7 +232,6 @@ export struct BottomTabBar {
           radius: RadiusTokens.lg,
           // 选中项是一层轻薄的纸面高亮，保留背景内容的透光感。
           fill: $r('app.color.bar_selection_surface'),
-          reduceMotion: this.shouldReduceMotion(),
         })
       }
       .width('100%')
@@ -266,11 +259,11 @@ export struct BottomTabBar {
     .shadow({ radius: 18, color: ColorTokens.barShadow, offsetY: 8 })
     .clip(true)
     .scale({
-      x: this.barPressed && !this.shouldReduceMotion() ? 0.994 : 1,
-      y: this.barPressed && !this.shouldReduceMotion() ? 0.98 : 1,
+      x: this.barPressed ? 0.994 : 1,
+      y: this.barPressed ? 0.98 : 1,
     })
     .animation({
-      duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.fast,
+      duration: MotionTokens.fast,
       curve: MotionCurves.standard,
     })
     .onAreaChange((_old: Area, area: Area) => {

@@ -15,8 +15,6 @@ export struct DesignButton {
   @Prop fillWidth: boolean = false;
   @Prop visualHeight: number = LayoutTokens.minTouchTarget;
   @Prop cornerRadius: number = 0;
-  @StorageLink('reduceMotion') appReduceMotion: boolean = false;
-  @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
   @State readyPulse: boolean = false;
   private pulseTimer: number = 0;
   action?: () => void = undefined;
@@ -58,12 +56,8 @@ export struct DesignButton {
     }
   }
 
-  private shouldReduceMotion(): boolean {
-    return this.appReduceMotion || this.systemReduceMotion;
-  }
-
   private onDisabledChanged(): void {
-    if (this.disabled || this.shouldReduceMotion()) {
+    if (this.disabled) {
       this.readyPulse = false;
       return;
     }
@@ -82,7 +76,6 @@ export struct DesignButton {
       disabled: this.disabled,
       fillWidth: this.fillWidth,
       visualHeight: this.visualHeight,
-      reduceMotion: this.shouldReduceMotion(),
       action: () => {
         if (this.action !== undefined) {
           this.action();
@@ -113,12 +106,12 @@ export struct DesignButton {
         })
         .opacity(this.disabled ? 0.45 : 1)
         .scale({
-          x: this.readyPulse && !this.shouldReduceMotion() ? 1.03 : 1,
-          y: this.readyPulse && !this.shouldReduceMotion() ? 1.03 : 1,
+          x: this.readyPulse ? 1.03 : 1,
+          y: this.readyPulse ? 1.03 : 1,
         })
-        .translate({ y: this.readyPulse && !this.shouldReduceMotion() ? -SpaceTokens.inlineTight : 0 })
+        .translate({ y: this.readyPulse ? -SpaceTokens.inlineTight : 0 })
         .animation({
-          duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.fast,
+          duration: MotionTokens.fast,
           curve: MotionCurves.standard,
         })
     }

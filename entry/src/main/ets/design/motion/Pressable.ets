@@ -5,13 +5,10 @@ import { LayoutTokens } from '../tokens/space';
 export struct Pressable {
   @BuilderParam content: () => void = this.emptyContent;
   @Prop disabled: boolean = false;
-  @Prop reduceMotion: boolean = false;
   @Prop fillWidth: boolean = false;
   @Prop fullResponseRegion: boolean = false;
   @Prop visualHeight: number = 0;
   @Prop touchTargetHeight: number = LayoutTokens.minTouchTarget;
-  @StorageLink('reduceMotion') appReduceMotion: boolean = false;
-  @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
   action: () => void = () => {};
 
   @Builder
@@ -19,10 +16,6 @@ export struct Pressable {
 
   private touchOffset(): number {
     return this.visualHeight > 0 ? (this.visualHeight - this.touchTargetHeight) / 2 : 0;
-  }
-
-  private shouldReduceMotion(): boolean {
-    return this.reduceMotion || this.appReduceMotion || this.systemReduceMotion;
   }
 
   build() {
@@ -36,7 +29,7 @@ export struct Pressable {
       width: '100%',
       height: this.fullResponseRegion ? '100%' : this.touchTargetHeight,
     })
-    .animation({ duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.fast, curve: MotionCurves.standard })
+    .animation({ duration: MotionTokens.fast, curve: MotionCurves.standard })
     .stateStyles({
       normal: {
         .opacity(1)
@@ -45,8 +38,8 @@ export struct Pressable {
       pressed: {
         .opacity(this.disabled ? 1 : MotionTokens.pressOpacity)
         .scale({
-          x: this.disabled || this.shouldReduceMotion() ? 1 : MotionTokens.pressScale,
-          y: this.disabled || this.shouldReduceMotion() ? 1 : MotionTokens.pressScale,
+          x: this.disabled ? 1 : MotionTokens.pressScale,
+          y: this.disabled ? 1 : MotionTokens.pressScale,
         })
       }
     })

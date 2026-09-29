@@ -18,23 +18,7 @@ export default class EntryAbility extends UIAbility {
     // 统一由 applyLaunchTheme 应用主题：跟随系统时显式交还系统接管，
     // 清除历史残留的强制模式，避免与 isDarkMode 标记错位（浅色 app + 深色底栏）。
     applyLaunchTheme();
-    this.syncSystemMotionPreference();
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onCreate');
-  }
-
-  // 系统动画缩放为 0 时，设计原语统一退化为瞬时/透明度反馈。
-  // 读取失败时保持用户在应用内设置的偏好，不阻断启动。
-  private syncSystemMotionPreference(): void {
-    AppStorage.setOrCreate('systemReduceMotion', false);
-    settings.getValue(this.context, settings.display.ANIMATOR_DURATION_SCALE)
-      .then((value: string): void => {
-        // 空字符串（设置项未配置）不能误判为缩放 0：Number('') === 0 会让全局动画被错误冻结。
-        // 仅当明确读到数值且等于 0 时才视为“减动”；其余（含空/NaN/正常缩放）保持默认 false（不冻结）。
-        const scale: number = Number(value);
-        const reduce: boolean = value !== '' && !isNaN(scale) && scale === 0;
-        AppStorage.setOrCreate('systemReduceMotion', reduce);
-      })
-      .catch((): void => {});
   }
 
   onConfigurationUpdate(newConfig: Configuration): void {
@@ -132,7 +116,6 @@ export default class EntryAbility extends UIAbility {
   }
 
   onForeground(): void {
-    this.syncSystemMotionPreference();
     // 导航方式可能在后台被切换（设置里切三键/手势后返回应用）：avoidAreaChange 在后台
     // 切换时不派发，且后台期的 AppStorage 写入不足以驱动可见重渲染 → 前台恢复时强制
     // 重读配置并重算避让量，挂了 @StorageLink('bottomNavInsetVp') 的贴底栏立即抬高。

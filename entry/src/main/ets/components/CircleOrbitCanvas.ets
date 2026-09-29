@@ -44,7 +44,6 @@ export struct CircleOrbitCanvas {
   @Prop selectedName: string = '';
   @Prop centeredName: string = '';
   @Prop ringDragging: boolean = false;
-  @Prop reduceMotion: boolean = false;
   @Prop avatar: string = '';
   @Prop nickname: string = '';
   onPlanet: (name: string) => void = (_name: string): void => {};
@@ -113,7 +112,6 @@ export struct CircleOrbitCanvas {
       selectedName: this.selectedName,
       centeredName: this.centeredName,
       ringDragging: this.ringDragging,
-      reduceMotion: this.reduceMotion,
       onPlanet: (name: string): void => { this.onPlanet(name); },
     })
   }
@@ -193,7 +191,6 @@ struct OrbitRingLayer {
   @Prop selectedName: string = '';
   @Prop centeredName: string = '';
   @Prop ringDragging: boolean = false;
-  @Prop reduceMotion: boolean = false;
   onPlanet: (name: string) => void = (_name: string): void => {};
 
   build() {
@@ -208,7 +205,7 @@ struct OrbitRingLayer {
         .opacity(0.82)
         .position({ x: this.galaxySize / 2 - this.radius, y: this.galaxySize / 2 - this.radius })
         .rotate({ angle: this.ringAngle, centerX: '50%', centerY: '50%' })
-        .animation({ duration: this.reduceMotion || this.ringDragging ? MotionTokens.instant : MotionTokens.fast, curve: MotionCurves.standard })
+        .animation({ duration: this.ringDragging ? MotionTokens.instant : MotionTokens.fast, curve: MotionCurves.standard })
         .hitTestBehavior(HitTestMode.None)
       ForEach(this.circles, (circle: OrbitCircleItem) => {
         OrbitPlanet({
@@ -221,7 +218,6 @@ struct OrbitRingLayer {
           radius: this.radius,
           baseAngle: circle.baseAngle,
           ringAngle: this.ringAngle,
-          reduceMotion: this.reduceMotion,
           onPlanet: (name: string): void => { this.onPlanet(name); },
         })
       }, (circle: OrbitCircleItem) => circle.name)
@@ -244,7 +240,6 @@ struct OrbitPlanet {
   @Prop radius: number = 0;
   @Prop baseAngle: number = 0;
   @Prop ringAngle: number = 0;
-  @Prop reduceMotion: boolean = false;
   @State firstRippleScale: number = 0.72;
   @State firstRippleOpacity: number = 0;
   @State secondRippleScale: number = 0.72;
@@ -303,11 +298,6 @@ struct OrbitPlanet {
 
   private scheduleRipple(): void {
     this.stopRipple();
-    if (this.reduceMotion) {
-      this.firstRippleScale = 1.12;
-      this.firstRippleOpacity = 0.22;
-      return;
-    }
     this.rippleArrivalTimer = setTimeout(() => {
       this.rippleArrivalTimer = 0;
       this.playRippleCycle();
@@ -336,7 +326,7 @@ struct OrbitPlanet {
   }
 
   private playRippleCycle(): void {
-    if (!this.isCentered() || this.reduceMotion) {
+    if (!this.isCentered()) {
       return;
     }
     this.animateRipple(true);
@@ -406,9 +396,9 @@ struct OrbitPlanet {
       .height(PLANET_ICON_HIT_SIZE)
       .position({ x: (PLANET_BOX_WIDTH - PLANET_ICON_HIT_SIZE) / 2, y: 0 })
       .scale({ x: this.isSelected() ? 1.12 : 1, y: this.isSelected() ? 1.12 : 1 })
-      .animation({ duration: this.reduceMotion ? MotionTokens.instant : MotionTokens.base, curve: MotionCurves.standard })
+      .animation({ duration: MotionTokens.base, curve: MotionCurves.standard })
       .translate({ x: this.focusTranslateX(), y: this.focusTranslateY() })
-      .animation({ duration: this.reduceMotion ? MotionTokens.instant : MotionTokens.emphasis, curve: MotionCurves.springSoft })
+      .animation({ duration: MotionTokens.emphasis, curve: MotionCurves.springSoft })
       .onClick((): void => { this.onPlanet(this.name); })
       Column({ space: SpaceTokens.inlineTight }) {
         Text(this.name)
@@ -437,7 +427,7 @@ struct OrbitPlanet {
     .height(PLANET_BOX_HEIGHT)
     .hitTestBehavior(HitTestMode.Transparent)
     .opacity(this.isSelected() ? 1 : 0.76)
-    .animation({ duration: this.reduceMotion ? MotionTokens.instant : MotionTokens.base, curve: MotionCurves.standard })
+    .animation({ duration: MotionTokens.base, curve: MotionCurves.standard })
     .position({ x: 0, y: 0 })
     .translate({ x: this.left(), y: this.top() })
   }

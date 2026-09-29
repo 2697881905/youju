@@ -13,7 +13,6 @@ export struct SpringPanel {
   @Prop panelWidth: number = 344;
   @Prop panelPadding: number = SpaceTokens.lg;
   @Prop radius: number = RadiusTokens.lg;
-  @Prop reduceMotion: boolean = false;
   // 沉浸光感开关：true 时包 HdsVisualComponent 双边流光；false 仅使用系统玻璃（无流光）。
   @Prop immersive: boolean = true;
   // outlined：面板本身也走项目的描边规格（透明底 + glassBorderWidth 细描边 barBorder +
@@ -25,16 +24,10 @@ export struct SpringPanel {
   // 需要可读性的居中弹窗；半透明玻璃只保留给悬浮底栏 / 分段栏这类刻意透底的表面。
   // 默认 false（系统玻璃面板），其余弹窗不受影响。为 true 时自动跳过流光层。
   @Prop solid: boolean = false;
-  @StorageLink('reduceMotion') appReduceMotion: boolean = false;
-  @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
   @State presented: boolean = false;
 
   @Builder
   emptyContent(): void {}
-
-  private shouldReduceMotion(): boolean {
-    return this.reduceMotion || this.appReduceMotion || this.systemReduceMotion;
-  }
 
   // 三种材质档位的取值集中在这里，避免 build 里堆叠多层三元表达式。
   private panelBlur(): BlurStyle {
@@ -83,14 +76,14 @@ export struct SpringPanel {
     .borderRadius(this.radius)
     .shadow(this.panelShadow())
     .clip(true)
-    .opacity(this.shouldReduceMotion() || this.presented ? 1 : 0)
-    .translate({ y: this.shouldReduceMotion() || this.presented ? 0 : SpaceTokens.xl })
+    .opacity(this.presented ? 1 : 0)
+    .translate({ y: this.presented ? 0 : SpaceTokens.xl })
     .scale({
-      x: this.shouldReduceMotion() || this.presented ? 1 : MotionTokens.enterScale,
-      y: this.shouldReduceMotion() || this.presented ? 1 : MotionTokens.enterScale,
+      x: this.presented ? 1 : MotionTokens.enterScale,
+      y: this.presented ? 1 : MotionTokens.enterScale,
     })
     .animation({
-      duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.container,
+      duration: MotionTokens.container,
       curve: MotionCurves.springSoft,
     })
     .onAppear((): void => {

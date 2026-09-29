@@ -51,8 +51,6 @@ export struct SegmentedControl {
   // Swiper 联动跟手位置：滚动（拖动/吸附）中由页面喂入的连续（浮点）索引，1:1 跟手；
   // -1 表示未在滚动（回退 activeIndex()，点击切换仍走弹性动画）
   @Prop slidePosition: number = -1;
-  @StorageLink('reduceMotion') appReduceMotion: boolean = false;
-  @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
   onSelect?: (index: number) => void = undefined;
   @State scrubbing: boolean = false;
   @State hoverIndex: number = -1;
@@ -82,10 +80,6 @@ export struct SegmentedControl {
     if (this.onSelect !== undefined) {
       this.onSelect(index);
     }
-  }
-
-  private shouldReduceMotion(): boolean {
-    return this.appReduceMotion || this.systemReduceMotion;
   }
 
   private activeIndex(): number {
@@ -185,13 +179,13 @@ export struct SegmentedControl {
       .opacity(!this.immersive && this.glowEnabled && this.barPressed ? (this.scrubbing ? 0.92 : 0.55) : 0)
       // 按压光斑弹性放大：模拟底部栏的点光源响应
       .scale({
-        x: !this.immersive && this.glowEnabled && this.barPressed && !this.shouldReduceMotion() ? 1.18 : 1,
-        y: !this.immersive && this.glowEnabled && this.barPressed && !this.shouldReduceMotion() ? 1.18 : 1,
+        x: !this.immersive && this.glowEnabled && this.barPressed ? 1.18 : 1,
+        y: !this.immersive && this.glowEnabled && this.barPressed ? 1.18 : 1,
       })
       .hitTestBehavior(HitTestMode.None)
       .animation({
-        duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.base,
-        curve: this.shouldReduceMotion() ? MotionCurves.standard : MotionCurves.spring,
+        duration: MotionTokens.base,
+        curve: MotionCurves.spring,
       })
   }
 
@@ -222,7 +216,6 @@ export struct SegmentedControl {
         slideShadow: this.immersive ? IMMERSIVE_SLIDE_SHADOW : this.slideShadow,
         // 华为应用商店同款：按下滑块缩小，松手 spring 回弹
         pressed: this.barPressed,
-        reduceMotion: this.shouldReduceMotion(),
       })
       Row({ space: SpaceTokens.none }) {
         ForEach(
@@ -233,7 +226,6 @@ export struct SegmentedControl {
                 fillWidth: this.fillWidth,
                 visualHeight: LayoutTokens.segmentedHeight,
                 touchTargetHeight: LayoutTokens.minTouchTarget,
-                reduceMotion: this.shouldReduceMotion(),
                 action: () => { this.onItemClick(index); },
               }) {
                 Text(item.label)
@@ -250,7 +242,7 @@ export struct SegmentedControl {
                   .backgroundColor(Color.Transparent)
                   .borderRadius(RadiusTokens.sm)
                   .animation({
-                    duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.fast,
+                    duration: MotionTokens.fast,
                     curve: MotionCurves.standard,
                   })
               }
@@ -295,12 +287,12 @@ export struct SegmentedControl {
     .clip(true)
     // 按压反馈（底部栏同款灵动感）：弹性回弹曲线（spring 过冲）+ 更明显的整栏下沉
     .scale({
-      x: this.barPressed && !this.shouldReduceMotion() ? 0.99 : 1,
-      y: this.barPressed && !this.shouldReduceMotion() ? 0.97 : 1,
+      x: this.barPressed ? 0.99 : 1,
+      y: this.barPressed ? 0.97 : 1,
     })
     .animation({
-      duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.base,
-      curve: this.shouldReduceMotion() ? MotionCurves.standard : MotionCurves.spring,
+      duration: MotionTokens.base,
+      curve: MotionCurves.spring,
     })
     .onAreaChange((_old: Area, area: Area) => {
       this.controlWidth = area.width as number;
