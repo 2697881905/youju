@@ -5,7 +5,8 @@ import { listPosts, listMyBookmarks, listMyLikedPosts, listMyCommentedPosts, get
 import { PostCard } from '../components/PostCard';
 import { getCurrentUser } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
-import { openFollowList, openPostDetail } from '../utils/nav';
+import { openFollowList } from '../utils/nav';
+import { openPostDetailViaNav, postDetailCoverOf } from '../utils/longTake/openPostDetailNav';
 import { observeGridColumns, gridColumnTemplate } from '../utils/responsive';
 import { barBottomReserve } from '../utils/cardTokens';
 import { common } from '@kit.AbilityKit';
@@ -760,20 +761,25 @@ export struct ProfilePage {
   }
 
   @Builder
-  profilePostCard(post: Post): void {
+  profilePostCard(post: Post, seg: number): void {
     PostCard({
       post: post,
       compact: true,
       // 创作者面板基础：「我发布」网格展示浏览数（其他列表保持原样）
       showBrowses: this.tabIdx === 0,
+      // 一镜到底飞行 id：前缀带分段号 —— Swiper 四页常驻，同一帖可同时挂在两个分段，
+      // 不带分段号会在 ProfilePage 内部复刻跨面 id 撞车；也绝不能与首页 cardMedia- 同前缀
+      mediaTag: 'profileMedia' + seg + '-',
       onOpen: () => {
         if (post.id !== undefined) {
           // 点击埋点（漏斗口径对齐，QA 审计）：此前 profile 入口不上报 click，
           // 数据面板「曝光→点击→浏览」会出现浏览>点击的倒挂观感
           trackPostEvent(post.id, 'click', 'profile');
-          const id = post.id.toString();
-          openPostDetail(id);
-          this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
+          // 一镜到底：与首页同构的 3:4 卡面 → 飞行/阅读比例同值；圆角对齐 compact 封面 xs。
+          // 共享发起器内部：Navigation 未就绪/量不到帧时兜底 router 整页，点击绝不吞。
+          openPostDetailViaNav(this.getUIContext(), post, LayoutTokens.cardMediaAspectRatio,
+            postDetailCoverOf(post), 'profileMedia' + seg + '-' + post.id, RadiusTokens.xs,
+            LayoutTokens.cardMediaAspectRatio);
         }
       },
       onCancelBookmark: this.tabIdx === 1
@@ -872,13 +878,13 @@ export struct ProfilePage {
               Row({ space: SpaceTokens.xs }) {
                 Column({ space: SpaceTokens.xs }) {
                   ForEach(this.pagePostsOf(seg).filter((_post: Post, idx: number) => idx % 2 === 0), (post: Post) => {
-                    this.profilePostCard(post)
+                    this.profilePostCard(post, seg)
                   }, (post: Post) => seg + '-left-' + (post.id ?? ''))
                 }
                 .layoutWeight(1)
                 Column({ space: SpaceTokens.xs }) {
                   ForEach(this.pagePostsOf(seg).filter((_post: Post, idx: number) => idx % 2 === 1), (post: Post) => {
-                    this.profilePostCard(post)
+                    this.profilePostCard(post, seg)
                   }, (post: Post) => seg + '-right-' + (post.id ?? ''))
                 }
                 .layoutWeight(1)
