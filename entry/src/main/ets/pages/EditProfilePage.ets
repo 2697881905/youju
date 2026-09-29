@@ -454,6 +454,9 @@ export struct EditProfilePage {
               selectedIndex: $genderIndex,
               // 沉浸光感（华为应用商店同款）：玻璃底 + backdropBlur + 高光边框 + 滑块悬浮投影
               immersive: true,
+              // 选中滑块用系统蓝（用户要求「男」不再是浅棕）：选中项文字配白保证对比度
+              slideFill: '#0A59F7',
+              activeLabelColor: Color.White,
               onSelect: (index: number): void => { this.selectGender(index); },
             })
           }
