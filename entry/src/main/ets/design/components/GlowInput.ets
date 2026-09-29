@@ -1,13 +1,15 @@
-// GlowInput —— 统一输入框（**已按产品要求移除聚焦流光**）
+// GlowInput —— 统一输入框（沉浸光感为**可选增强**，默认关闭）
 //
-// 历史：曾用 HdsVisualComponent + DUAL_EDGE_FLOW_LIGHT_WITH_BACKGROUND_MASK 在聚焦时
-// 点亮鸿蒙沉浸光感「双边流光」。现全部输入框（搜索框、评论/聊天输入、编辑资料、
-// 收藏夹命名、分享到私信…）统一去掉该效果，因此这里也一并移除了流光层与相关依赖。
-// 文件名/组件名保留 GlowInput（7 处调用方不动），仅作历史命名。
+// 历史：曾内置聚焦流光（HdsVisualComponent + DUAL_EDGE_FLOW_LIGHT_WITH_BACKGROUND_MASK），
+// 后按产品要求全局移除（eadadf5）。2026-09-29 搜索栏要求恢复鸿蒙 6 沉浸光感原生材质
+// （对齐官方「多设备新闻阅读界面」样例的沉浸式搜索栏：材质常显，不随聚焦开关），
+// 故以 @Prop immersive 开关形式恢复——**仅显式传入的调用方生效**，其余 7 处调用方零变化。
 //
-// 现在的视觉：系统玻璃（backgroundBlurStyle）+ 主题描边 + 圆角，与 API 版本无关；
-// segmentStyle=true 时用「分段栏同款」半透明白玻璃底 + backdropBlur + 1px 高光边框。
-// 聚焦不再有额外高亮（流光已移除）。
+// 两种视觉：
+//   immersive=false（默认）→ 系统玻璃（backgroundBlurStyle）+ 主题描边 + 圆角，与 API 无关；
+//   segmentStyle=true      → 「分段栏同款」半透明白玻璃底 + backdropBlur + 1px 高光边框 + lg 圆角；
+//   immersive=true         → 在上述任一底色下叠原生双边流光（不支持光感的设备自动跳过，
+//                             保留底色，视觉与现在一致、绝不白屏——同 ImmersiveSurface 降级策略）。
 //
 // 布局模式：
 //   fillWidth=true  → 根 Stack 参与 flex 拉伸（.layoutWeight(1)），用于 Row 内
@@ -15,15 +17,12 @@
 //   fillWidth=false → 根 Stack 占满父容器宽度（.width('100%')），用于 Column 内
 //                    独立成行的输入框（命名弹窗/发布标题/编辑资料…）
 //
-// 用法：
-//   GlowInput({
-//     placeholder: '说点什么…',
-//     text: $commentText,
-//     fillWidth: true,
-//     onEnter: (): void => { this.onSend(); },
-//   })
+// 流光层放在 TextInput **下层**：输入文字可读性优先，光晕透过半透明玻璃底透出；
+// 尺寸用根 Stack onAreaChange 实测驱动（同尺寸铁律：不用 width/height('100%')，
+// 避免自动尺寸 Stack 撑满父容器——发布弹窗全屏发光的根因）。
 
-import { GlassBlurStyle } from '../../utils/immersiveMaterial';
+import { HdsSceneController, HdsSceneType, HdsVisualComponent } from '@kit.UIDesignKit';
+import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../../utils/immersiveMaterial';
 import { ColorTokens } from '../tokens/color';
 import { RadiusTokens } from '../tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../tokens/space';
@@ -48,6 +47,9 @@ export struct GlowInput {
   // 分段栏同款样式（搜索框试点）：半透明白玻璃底 + backdropBlur + 1px 高光边框 + lg 圆角，
   // 与 SegmentedControl immersive 完全同规格，视觉上输入框与分段栏属于同一材质体系
   @Prop segmentStyle: boolean = false;
+  // 沉浸光感原生材质（鸿蒙 6 双边流光）：仅显式传入的调用方生效（当前唯一：搜索面板搜索框）。
+  // 材质常显（对齐官方样例），不支持光感的设备自动跳过——流光层不渲染，底色不变。
+  @Prop immersive: boolean = false;
   // 最大输入长度（0=不限）
   @Prop maxLength: number = 0;
   onChange?: (value: string) => void = undefined;
@@ -55,8 +57,49 @@ export struct GlowInput {
   // 聚焦/失焦变化透出（如搜索面板需在再次聚焦时恢复联想词）
   onFocusChanged?: (focused: boolean) => void = undefined;
 
+  // 流光层像素尺寸：由根 Stack onAreaChange 实测驱动（同尺寸铁律，不用 '100%'——
+  // 自动尺寸 Stack 会按父约束解析百分比，弹窗场景曾撑满整屏）。
+  @State inputW: number = 0;
+  @State inputH: number = 0;
+
+  // HdsSceneController @since 6.0.2(22)：API 20/21 上构造函数不存在。
+  // 惰性创建，且仅在 immersive && isImmersiveLightSenseSupported()（API 23+）路径下使用——
+  // 低版本设备/未开启沉浸的调用方永远不会触碰构造，避免字段初始化即崩。
+  private glowController: HdsSceneController | null = null;
+
+  // 惰性获取控制器：只在 API 23+ 路径下触发 new，低版本设备不会执行。
+  private getGlowController(): HdsSceneController {
+    if (this.glowController === null) {
+      this.glowController = new HdsSceneController();
+    }
+    return this.glowController;
+  }
+
+  aboutToAppear(): void {
+    if (this.immersive && isImmersiveLightSenseSupported()) {
+      this.getGlowController().setSceneParams({
+        backgroundMaskColors: ['#1EFFFFFF', '#1E86CFFF'],
+        firstEdgeFlowLight: { startPos: 0, endPos: 0.5, color: '#C4FFFFFF' },
+        secondEdgeFlowLight: { startPos: 0, endPos: -0.5, color: '#8FC8EFFF' },
+      });
+    }
+  }
+
   build() {
     Stack({ alignContent: Alignment.Center }) {
+      // 原生流光层：仅 immersive 且支持光感时渲染；置于 TextInput 下层
+      // （文字可读性优先，光晕透过半透明玻璃底透出）+ 触摸透传，不遮挡输入交互。
+      // 尺寸实测：Root Stack onAreaChange（layoutWeight 拉伸下内层量测会偏小，见文件头）。
+      if (this.immersive && isImmersiveLightSenseSupported() && this.inputW > 0 && this.inputH > 0) {
+        HdsVisualComponent()
+          .scene(HdsSceneType.DUAL_EDGE_FLOW_LIGHT_WITH_BACKGROUND_MASK, this.getGlowController())
+          .width(this.inputW)
+          .height(this.inputH)
+          .borderRadius(this.segmentStyle ? RadiusTokens.lg : this.radius)
+          .clip(true)
+          .hitTestBehavior(HitTestMode.Transparent)
+      }
+
       TextInput({ placeholder: this.placeholder, text: this.text })
         .fontFamily(TypeTokens.fontFamily)
         // 固定 LTR：父层握姿镜像（Rtl）时输入内容仍从左排版，中文不被挤到右边
@@ -99,6 +142,16 @@ export struct GlowInput {
     .layoutWeight(this.fillWidth ? 1 : 0)
     .width(this.fillWidth ? 'auto' : '100%')
     .height(this.inputHeight)
+    // 流光层实测尺寸来源：layoutWeight 拉伸下根 Stack 拿到最终分配尺寸
+    // （内层 TextInput '100%' 量到的可能偏小——搜索框流光「尺寸太小」的历史根因）。
+    .onAreaChange((_oldValue: Area, newValue: Area): void => {
+      const w: number = parseFloat(String(newValue.width));
+      const h: number = parseFloat(String(newValue.height));
+      if (w > 0 && h > 0 && (w !== this.inputW || h !== this.inputH)) {
+        this.inputW = w;
+        this.inputH = h;
+      }
+    })
   }
 
   private notifyFocus(focus: boolean): void {
