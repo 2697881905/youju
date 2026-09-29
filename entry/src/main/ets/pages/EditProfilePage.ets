@@ -19,7 +19,6 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { EditableProfilePreview } from '../components/EditableProfilePreview';
-import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
 
 const GENDER_OPTIONS: SegmentedItem[] = [
   { key: 'male', label: '男' },
@@ -429,15 +428,14 @@ export struct EditProfilePage {
               .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
               .fontWeight(TypeTokens.callout.weight).fontColor(ColorTokens.primary)
               .alignSelf(ItemAlign.Start);
-            TextArea({ placeholder: '介绍一下自己吧（选填）', text: this.bio })
-              .fontFamily(TypeTokens.fontFamily).fontColor(ColorTokens.primary)
-              .width('100%')
-              .height(104)
-              .backgroundBlurStyle(GlassBlurStyle.Card)
-              .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.elevated)
-              .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-              .borderRadius(RadiusTokens.lg)
-              .onChange((v: string) => { this.bio = v; });
+            // 与昵称输入框同款（GlowInput 普通模式 + lg 圆角）：SDK 26 下 TextArea/TextInput
+            // 默认渲染已有代差，手工对齐不可靠，直接共用同一组件保证观感一致
+            GlowInput({
+              placeholder: '介绍一下自己吧（选填）',
+              text: $bio,
+              fillWidth: false,
+              radius: RadiusTokens.lg,
+            });
             Text(this.bio.length + '/100')
               .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
               .fontColor(ColorTokens.tertiary)
