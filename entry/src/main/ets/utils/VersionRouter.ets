@@ -1,6 +1,7 @@
 // VersionRouter —— 按设备 API 版本给出搜索面板的实现版本。
 // systemMaterial（动态模糊融合）@since API 26；HdsTabs 浮动样式借用 @since 6.1.0(23)；
 // 其余版本走 GlowInput 手工玻璃。
+// 版本判断用 deviceInfo.sdkApiVersion 直接比较（apiAvailable 编译期校验上限 25，26 过不了）。
 
 import { deviceInfo } from '@kit.BasicServicesKit';
 
@@ -11,6 +12,8 @@ export enum SearchPanelVersion {
 }
 
 export function getSearchPanelVersion(): SearchPanelVersion {
+  // ⚠️ 不用 deviceInfo.apiAvailable(26)：本工具链的编译期校验只放行 1~25，26 会被判非法。
+  // 直接比 sdkApiVersion（运行时数值比较，无编译校验问题）。
   const api: number = deviceInfo.sdkApiVersion;
   if (api >= 26) {
     return SearchPanelVersion.API_26;
