@@ -1,7 +1,6 @@
 import { listSearchHistory, clearSearchHistory, listHotKeywords, listSearchSuggest } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 import { BackButton } from '../design/components/BackButton';
-import { GlowInput } from '../design/components/GlowInput';
 import { GlassPanel } from '../design/components/GlassPanel';
 import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
@@ -120,34 +119,37 @@ export struct SearchPanel {
     return rows * LayoutTokens.segmentedHeight + (rows - 1) * SpaceTokens.sm;
   }
 
-  // 搜索框：鸿蒙 6 沉浸光感原生材质（双边流光常显，对齐官方「沉浸式搜索栏」样例；
-  // 不支持光感的设备自动跳过，保留分段栏同款玻璃底）+ 键入联想/回车搜索
+  // 搜索框：ArkUI 原生 Search 组件 —— 默认样式即系统质感（背景材质/圆角/阴影随系统
+  // 版本自动演进，鸿蒙 6 上自带系统级投影），不做任何自绘材质叠加。
   @Builder
   searchInput(): void {
-    GlowInput({
-      placeholder: '搜索你关心的经验和问题',
-      text: $keyword,
-      fillWidth: true,
-      // 分段栏同款：半透明白玻璃底 + backdropBlur + 1px 高光边框 + lg 圆角
-      segmentStyle: true,
-      // 沉浸光感原生材质（HdsVisualComponent 双边流光，API 23+ 生效）
-      immersive: true,
-      onChange: (v: string): void => { this.debounceSuggest(v); },
-      onEnter: (): void => { this.doSearch(); },
-      onFocusChanged: (focus: boolean): void => {
-        this.inputFocused = focus;
-        if (focus) {
-          // 聚焦时恢复联想：失焦清空了 suggestions，若有已输入关键词则重新拉取
-          const kw: string = this.keyword.trim();
-          if (kw.length > 0) {
-            this.debounceSuggest(kw);
-          }
-        } else {
-          // 失焦（返回键收起键盘等）清空联想，避免与历史/热词卡片粘连
-          this.clearSuggestions();
+    Search({ placeholder: '搜索你关心的经验和问题', value: this.keyword })
+      .height(LayoutTokens.segmentedHeight)
+      .layoutWeight(1)
+      // 仅统一应用字体；其余保持组件默认（系统配色与图标）
+      .placeholderFont({ family: TypeTokens.fontFamily })
+      .textFont({ family: TypeTokens.fontFamily })
+      .onChange((v: string): void => {
+        this.keyword = v;
+        this.debounceSuggest(v);
+      })
+      .onSubmit((v: string): void => {
+        this.keyword = v;
+        this.doSearch();
+      })
+      .onFocus((): void => {
+        this.inputFocused = true;
+        // 聚焦时恢复联想：失焦清空了 suggestions，若有已输入关键词则重新拉取
+        const kw: string = this.keyword.trim();
+        if (kw.length > 0) {
+          this.debounceSuggest(kw);
         }
-      },
-    })
+      })
+      .onBlur((): void => {
+        // 失焦（返回键收起键盘等）清空联想，避免与历史/热词卡片粘连
+        this.inputFocused = false;
+        this.clearSuggestions();
+      })
   }
 
   // 选项胶囊：首页分段栏 outlined 同款（透明底 + 细边框 + 大圆角 + 无阴影），高度与分段栏一致
