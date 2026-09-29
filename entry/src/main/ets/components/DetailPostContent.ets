@@ -32,6 +32,10 @@ export struct DetailPostContent {
   // 正文 @提及 → 用户映射（后端按 userId 解析入库），命中时点击跳转用户主页
   @Prop mentions: MentionRef[] = [];
   onVote: (choice: string) => void = (_choice: string): void => {};
+  // 长按结构化卡片回调：详情页弹「复制正文」菜单。只挂结构化卡片（见 build）——
+  // 正文 Text 已开启系统文本选择复制（copyOption），长按正文走原生选择，
+  // 外层长按菜单不得与之竞争；标题同理在 DetailPostHeader 单独开启。
+  onLongPressContent: (event: GestureEvent) => void = (_event: GestureEvent): void => {};
   @State planAVotes: number = 0;
   @State planBVotes: number = 0;
   @State myVote: string = '';
@@ -74,6 +78,12 @@ export struct DetailPostContent {
     return ColorTokens.brand;
   }
 
+  // 长按结构化卡片 → 详情页「复制正文」菜单（三处结构化分支共用，见 build）
+  private contentLongPress(): LongPressGestureInterface {
+    return LongPressGesture({ repeat: false, duration: 400 })
+      .onAction((event: GestureEvent): void => { this.onLongPressContent(event); });
+  }
+
   // 正文高亮分段：@提及 与 #话题# 以各自强调色加粗展示（解析代价小，正文通常 < 2K）
   @Builder
   private highlightBody(): void {
@@ -96,6 +106,10 @@ export struct DetailPostContent {
     .lineHeight(32)
     .width('100%')
     .textAlign(TextAlign.Start)
+    // 长按正文 → 系统文本选择，可选字复制/全选（官方文档：copyOption 设为
+    // InApp/LocalDevice 时长按弹出文本选择菜单）。Span 的 onClick 保留，点击仍可跳话题/用户。
+    .copyOption(CopyOptions.LocalDevice)
+    .selectedBackgroundColor(ColorTokens.brandTint)
   }
 
   // 点击 #话题# → 圈子详情
@@ -221,12 +235,15 @@ export struct DetailPostContent {
       // V2 用完整视觉信息流；历史帖子继续走旧字段投影，不要求数据迁移后才能阅读。
       if (this.structuredDocument !== null && this.structuredDocument.blocks.length > 0) {
         StructuredFlowView({ document: this.structuredDocument })
+          .gesture(this.contentLongPress())
       } else {
         StructuredSummaryCard({
           summary: structuredSummaryFromPairs(this.pairs, this.genre),
           compact: false,
         })
+          .gesture(this.contentLongPress())
         StructuredFieldBlock({ pairs: this.bodyPairs() })
+          .gesture(this.contentLongPress())
       }
       if (this.genre === 'debate') {
         this.debatePanel();
