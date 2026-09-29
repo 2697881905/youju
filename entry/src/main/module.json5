@@ -51,6 +51,12 @@
       {
         "name": "client_id",
         "value": "6917613566723435312"
+      },
+      {
+        // 应用级沉浸系统材质开关（API 26）：非 Dialog/Toast 的组件（如 Search）要显式
+        // enable 才会渲染 systemMaterial —— 官方 multi-news-read 样例同款配置
+        "name": "ohos.arkui.UIMaterial.state",
+        "value": "enable"
       }
     ],
     "requestPermissions": [
