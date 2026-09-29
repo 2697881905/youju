@@ -221,9 +221,11 @@ function primaryBlockOf(document: StructuredDocument): StructuredBlock | null {
   return null;
 }
 
-export function structuredSummaryFromDocument(document: StructuredDocument | undefined,
+export function structuredSummaryFromDocument(document: StructuredDocument | null | undefined,
   genre?: string): StructuredSummary | null {
-  if (document === undefined || document.schemaVersion !== 2) {
+  // 后端 JSON 会把缺失字段序列化成 null（不是 undefined）：只判 undefined 会漏，
+  // 紧接着读 document.schemaVersion 就是「Cannot read property schemaVersion of null」。
+  if (document === undefined || document === null || document.schemaVersion !== 2) {
     return null;
   }
   const block: StructuredBlock | null = primaryBlockOf(document);
@@ -267,7 +269,7 @@ export function structuredSummaryFromDocument(document: StructuredDocument | und
 
 // 双读兼容：V2 是主路径；历史帖子没有 V2 时才投影旧 structuredData。
 export function structuredSummaryOf(data: StructuredData | undefined, genre?: Genre,
-  document?: StructuredDocument): StructuredSummary | null {
+  document?: StructuredDocument | null): StructuredSummary | null {
   const v2: StructuredSummary | null = structuredSummaryFromDocument(document, genre);
   return v2 !== null ? v2 : structuredSummaryFromPairs(structuredFieldPairs(data, genre), genre);
 }
