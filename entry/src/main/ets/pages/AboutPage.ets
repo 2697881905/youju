@@ -2,6 +2,7 @@
 
 import { common } from '@kit.AbilityKit';
 import { buildPageTransition } from '../utils/styles';
+import { RadiusTokens } from '../design/tokens/radius';
 import { BackButton } from '../design/components/BackButton';
 
 @Entry
@@ -33,12 +34,13 @@ export struct AboutPage {
 
       Scroll() {
         Column({ space: 20 }) {
-          // 应用图标：与登录页同一资源（$r('app.media.logo')）
+          // 应用图标：与登录页同一资源（$r('app.media.logo')）、同款圆角（RadiusTokens.lg）
           // 此前是通用线条图标占位，关于页的品牌信息是审核常规核对项。
           Column() {
             Image($r('app.media.logo'))
-              .width(48)
-              .height(48);
+              .width(72)
+              .height(72)
+              .borderRadius(RadiusTokens.lg);
             Text('有据')
               .fontSize(22).fontFamily($r('app.string.font_family'))
               .fontWeight(FontWeight.Bold)
