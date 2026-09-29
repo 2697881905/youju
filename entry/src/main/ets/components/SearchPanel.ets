@@ -1,10 +1,6 @@
 import { listSearchHistory, clearSearchHistory, listHotKeywords, listSearchSuggest } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 import { BackButton } from '../design/components/BackButton';
-import { GlowInput } from '../design/components/GlowInput';
-import { GlowInput_Api26 } from '../design/components/GlowInput_Api26';
-import { GlowInput_Api23 } from '../design/components/GlowInput_Api23';
-import { getSearchPanelVersion, SearchPanelVersion } from '../utils/VersionRouter';
 import { GlassPanel } from '../design/components/GlassPanel';
 import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
@@ -100,28 +96,7 @@ export struct SearchPanel {
     return rows * LayoutTokens.segmentedHeight + (rows - 1) * SpaceTokens.sm;
   }
 
-  // —— 搜索框：按设备 API 版本三分支（VersionRouter），三实现共用统一参数契约
-  // （design/components/SearchInputTypes.ets 的 SearchInputProps）——
-
-  // 本设备的搜索框实现版本（组件构造时确定一次）
-  private version: SearchPanelVersion = getSearchPanelVersion();
-
-  // 联想拉取（不做防抖）：Api26/Api23 输入组件内置防抖后才回调；legacy 路径先走 debounceSuggest
-  private fetchSuggest(value: string): void {
-    const kw: string = value.trim();
-    if (kw.length === 0) {
-      this.suggestions = [];
-      return;
-    }
-    listSearchSuggest(kw)
-      .then((list: string[]): void => {
-        this.suggestions = list;
-      })
-      .catch((e: Error): void => {
-        this.suggestions = [];
-      });
-  }
-
+  // 输入防抖拉取联想（300ms；失败/无结果静默清空）
   private debounceSuggest(value: string): void {
     if (this.suggestTimer !== 0) {
       clearTimeout(this.suggestTimer);
@@ -133,7 +108,14 @@ export struct SearchPanel {
     }
     this.suggestTimer = setTimeout((): void => {
       this.suggestTimer = 0;
-      this.fetchSuggest(value);
+      const kw: string = value.trim();
+      listSearchSuggest(kw)
+        .then((list: string[]): void => {
+          this.suggestions = list;
+        })
+        .catch((e: Error): void => {
+          this.suggestions = [];
+        });
     }, 300) as number;
   }
 
@@ -152,43 +134,28 @@ export struct SearchPanel {
     }
   }
 
-  // API 26+：GlowInput_Api26（Search + systemMaterial 系统材质，动态模糊融合）
-  // API 23-25：GlowInput_Api23（HdsTabs 浮动栏借用系统材质）
-  // API 22-：GlowInput（segmentStyle 手工玻璃）
-  // 三实现共用统一参数契约（SearchInputProps）；26/23 变体内置 300ms 防抖，
-  // 回调已防抖 → 走即时 fetchSuggest；legacy 无内置防抖 → 走 debounceSuggest。
+  // 搜索框：ArkUI 原生 Search + **构造上必然可见**的原生质感样式。
+  // systemMaterial 实验在真机上始终未渲染（应用级开关已开、参数对齐官方样例仍不可见），
+  // 三轮尝试后放弃材质路线——改为实底材质 + 柔和投影，全设备（API 20-26）一致显示。
+  // 实验实现保留在 git 历史（584cb87/0c534b1），工具链成熟后可恢复。
   @Builder
   searchInput(): void {
-    if (this.version === SearchPanelVersion.API_26) {
-      GlowInput_Api26({
-        placeholder: '搜索你关心的经验和问题',
-        text: $keyword,
-        fillWidth: true,
-        debounceMs: 300,
-        onChange: (v: string): void => { this.fetchSuggest(v); },
-        onEnter: (): void => { this.doSearch(); },
-        onFocusChanged: (focused: boolean): void => { this.handleInputFocus(focused); },
+    Search({ placeholder: '搜索你关心的经验和问题', value: this.keyword })
+      .height(40)
+      .borderRadius(24)
+      .layoutWeight(1)
+      .backgroundColor(ColorTokens.elevated)
+      .shadow({ radius: 12, color: '#14000000', offsetY: 2 })
+      .placeholderColor(ColorTokens.tertiary)
+      .placeholderFont({ family: TypeTokens.fontFamily })
+      .textFont({ family: TypeTokens.fontFamily })
+      .onChange((v: string): void => { this.debounceSuggest(v); })
+      .onSubmit((v: string): void => {
+        this.keyword = v;
+        this.doSearch();
       })
-    } else if (this.version === SearchPanelVersion.API_23) {
-      GlowInput_Api23({
-        placeholder: '搜索你关心的经验和问题',
-        text: $keyword,
-        fillWidth: true,
-        onChange: (v: string): void => { this.fetchSuggest(v); },
-        onEnter: (): void => { this.doSearch(); },
-        onFocusChanged: (focused: boolean): void => { this.handleInputFocus(focused); },
-      })
-    } else {
-      GlowInput({
-        placeholder: '搜索你关心的经验和问题',
-        text: $keyword,
-        fillWidth: true,
-        segmentStyle: true,
-        onChange: (v: string): void => { this.debounceSuggest(v); },
-        onEnter: (): void => { this.doSearch(); },
-        onFocusChanged: (focused: boolean): void => { this.handleInputFocus(focused); },
-      })
-    }
+      .onFocus((): void => { this.handleInputFocus(true); })
+      .onBlur((): void => { this.handleInputFocus(false); })
   }
 
   // 选项胶囊：首页分段栏 outlined 同款（透明底 + 细边框 + 大圆角 + 无阴影），高度与分段栏一致
