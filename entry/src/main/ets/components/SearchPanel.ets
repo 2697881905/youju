@@ -1,6 +1,7 @@
 import { listSearchHistory, clearSearchHistory, listHotKeywords, listSearchSuggest } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 import { BackButton } from '../design/components/BackButton';
+import { GlowInput } from '../design/components/GlowInput';
 import { GlassPanel } from '../design/components/GlassPanel';
 import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
@@ -119,43 +120,31 @@ export struct SearchPanel {
     return rows * LayoutTokens.segmentedHeight + (rows - 1) * SpaceTokens.sm;
   }
 
-  // 搜索框：ArkUI 原生 Search 组件 + H7 原生观感定制。
-  // ⚠️ 内置组件的默认样式按**编译期 SDK** 冻结：本工程 compatibleSdk=6.0.0(20)，
-  // 在 HarmonyOS 7 机型（Pocket 2 实测）上 Search 默认渲染 6.x 老样式，与当下华为
-  // 原生应用搜索框不符 —— 故显式定制为 H7 观感：无描边全圆角胶囊 + 柔和投影 + 材质底。
+  // 聚焦流光输入框：键入（聚焦）点亮原生流光，失焦熄灭；分段栏同款玻璃样式
   @Builder
   searchInput(): void {
-    Search({ placeholder: '搜索你关心的经验和问题', value: this.keyword })
-      .height(40)
-      .borderRadius(20)
-      .backgroundColor(ColorTokens.elevated)
-      .placeholderColor(ColorTokens.tertiary)
-      .shadow({ radius: 12, color: '#14000000', offsetY: 2 })
-      .layoutWeight(1)
-      // 仅统一应用字体；图标与清除按钮保持系统默认
-      .placeholderFont({ family: TypeTokens.fontFamily })
-      .textFont({ family: TypeTokens.fontFamily })
-      .onChange((v: string): void => {
-        this.keyword = v;
-        this.debounceSuggest(v);
-      })
-      .onSubmit((v: string): void => {
-        this.keyword = v;
-        this.doSearch();
-      })
-      .onFocus((): void => {
-        this.inputFocused = true;
-        // 聚焦时恢复联想：失焦清空了 suggestions，若有已输入关键词则重新拉取
-        const kw: string = this.keyword.trim();
-        if (kw.length > 0) {
-          this.debounceSuggest(kw);
+    GlowInput({
+      placeholder: '搜索你关心的经验和问题',
+      text: $keyword,
+      fillWidth: true,
+      // 分段栏同款：半透明白玻璃底 + backdropBlur + 1px 高光边框 + lg 圆角
+      segmentStyle: true,
+      onChange: (v: string): void => { this.debounceSuggest(v); },
+      onEnter: (): void => { this.doSearch(); },
+      onFocusChanged: (focus: boolean): void => {
+        this.inputFocused = focus;
+        if (focus) {
+          // 聚焦时恢复联想：失焦清空了 suggestions，若有已输入关键词则重新拉取
+          const kw: string = this.keyword.trim();
+          if (kw.length > 0) {
+            this.debounceSuggest(kw);
+          }
+        } else {
+          // 失焦（返回键收起键盘等）清空联想，避免与历史/热词卡片粘连
+          this.clearSuggestions();
         }
-      })
-      .onBlur((): void => {
-        // 失焦（返回键收起键盘等）清空联想，避免与历史/热词卡片粘连
-        this.inputFocused = false;
-        this.clearSuggestions();
-      })
+      },
+    })
   }
 
   // 选项胶囊：首页分段栏 outlined 同款（透明底 + 细边框 + 大圆角 + 无阴影），高度与分段栏一致
