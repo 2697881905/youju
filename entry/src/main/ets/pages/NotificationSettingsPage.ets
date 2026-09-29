@@ -98,9 +98,9 @@ export struct NotificationSettingsPage {
             .height(40)
             .color($r('app.color.text_secondary'));
         }
+        .layoutWeight(1)
         .width('100%')
-        .alignItems(HorizontalAlign.Center)
-        .padding({ top: 24 });
+        .justifyContent(FlexAlign.Center);
       } else if (this.loadError) {
         Column() {
           Text('加载失败')
@@ -117,9 +117,9 @@ export struct NotificationSettingsPage {
               this.loadPrefs();
             });
         }
+        .layoutWeight(1)
         .width('100%')
-        .alignItems(HorizontalAlign.Center)
-        .padding({ top: 24 });
+        .justifyContent(FlexAlign.Center);
       } else {
         Scroll() {
           Column({ space: 10 }) {
@@ -151,7 +151,9 @@ export struct NotificationSettingsPage {
             });
           }
           .width('100%')
-          .padding({ left: 16, right: 16, top: 8, bottom: 32 });
+          .padding({ left: 16, right: 16, top: 8, bottom: 32 })
+          // 内容不足一屏时撑满视口：Scroll 默认会把不足一屏的子内容垂直居中，撑满即钉在顶部
+          .constraintSize({ minHeight: '100%' });
         }
         .layoutWeight(1)
         .width('100%');
@@ -160,7 +162,6 @@ export struct NotificationSettingsPage {
     .width('100%')
     .padding({ top: this.statusBarHeight })
     .height('100%')
-    .justifyContent(FlexAlign.Start)
     .backgroundColor($r('app.color.bg_primary'))
     .transition(buildPageTransition())
   }
