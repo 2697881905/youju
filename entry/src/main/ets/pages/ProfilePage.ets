@@ -77,8 +77,6 @@ export struct ProfilePage {
   @State error: string = '';
   @State ready: boolean = false;
   @State profilePresented: boolean = false;
-  @StorageLink('reduceMotion') reduceMotion: boolean = false;
-  @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
   // 当前激活的底部 Tab（由 Index 经 AppStorage 广播），用于感知「我的」页是否可见，
   // 切到本页时重新拉取列表，使「我赞过/我收藏」在跨页点赞、取消收藏后即时刷新。
   @StorageLink('activeTab') @Watch('onActiveTab') activeTab: number = 0;
@@ -163,19 +161,11 @@ export struct ProfilePage {
     }
   }
 
-  private shouldReduceMotion(): boolean {
-    return this.reduceMotion || this.systemReduceMotion;
-  }
-
   // 每次真正进入“我的”页后再揭示资料区，避免 TabContent 预创建时在后台消耗动效。
   private presentProfile(): void {
     this.profilePresented = false;
     if (this.profileEntranceTimer !== 0) {
       clearTimeout(this.profileEntranceTimer);
-    }
-    if (this.shouldReduceMotion()) {
-      this.profilePresented = true;
-      return;
     }
     this.profileEntranceTimer = setTimeout((): void => {
       this.getUIContext().animateTo({ duration: MotionTokens.page, curve: MotionCurves.emphasized }, () => {
@@ -1012,14 +1002,14 @@ export struct ProfilePage {
       }
       }
       .width('100%')
-      .opacity(this.shouldReduceMotion() || this.profilePresented ? 1 : 0)
-      .translate({ y: this.shouldReduceMotion() || this.profilePresented ? 0 : SpaceTokens.xl })
+      .opacity(this.profilePresented ? 1 : 0)
+      .translate({ y: this.profilePresented ? 0 : SpaceTokens.xl })
       .scale({
-        x: this.shouldReduceMotion() || this.profilePresented ? 1 : MotionTokens.enterScale,
-        y: this.shouldReduceMotion() || this.profilePresented ? 1 : MotionTokens.enterScale,
+        x: this.profilePresented ? 1 : MotionTokens.enterScale,
+        y: this.profilePresented ? 1 : MotionTokens.enterScale,
       })
       .animation({
-        duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.page,
+        duration: MotionTokens.page,
         curve: MotionCurves.emphasized,
       })
 
@@ -1037,7 +1027,7 @@ export struct ProfilePage {
       .index(this.tabIdx)
       .loop(false)                 // 到边界不循环：与分段栏两端不可再点一致
       .indicator(false)            // 进度点由分段栏承担
-      .duration(this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.container)
+      .duration(MotionTokens.container)
       .curve(MotionCurves.springSoft)
       .onChange((index: number): void => { this.onTabChange(index); })
       // 拖动/吸附逐帧联动滑块（1:1 跟手，见 slidePosition 注释）

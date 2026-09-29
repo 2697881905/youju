@@ -13,9 +13,6 @@ export struct BaseCard {
   @Prop radius: number = RadiusTokens.lg;
   @Prop elevation: CardElevation = 1;
   @Prop pressable: boolean = false;
-  @Prop reduceMotion: boolean = false;
-  @StorageLink('reduceMotion') appReduceMotion: boolean = false;
-  @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
   action: () => void = () => {};
 
   @Builder
@@ -30,10 +27,6 @@ export struct BaseCard {
       return ShadowTokens.none;
     }
     return this.elevation === 2 ? ShadowTokens.floating : ShadowTokens.cardAmbient;
-  }
-
-  private shouldReduceMotion(): boolean {
-    return this.reduceMotion || this.appReduceMotion || this.systemReduceMotion;
   }
 
   build() {
@@ -53,7 +46,7 @@ export struct BaseCard {
       .borderRadius(this.radius)
       .shadow(this.ambientShadow())
     .animation({
-      duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.fast,
+      duration: MotionTokens.fast,
       curve: MotionCurves.standard,
     })
     .stateStyles({
@@ -64,8 +57,8 @@ export struct BaseCard {
       pressed: {
         .opacity(this.pressable ? MotionTokens.pressOpacity : 1)
         .scale({
-          x: this.pressable && !this.shouldReduceMotion() ? MotionTokens.pressScale : 1,
-          y: this.pressable && !this.shouldReduceMotion() ? MotionTokens.pressScale : 1,
+          x: this.pressable ? MotionTokens.pressScale : 1,
+          y: this.pressable ? MotionTokens.pressScale : 1,
         })
       }
     })

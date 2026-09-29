@@ -27,14 +27,11 @@ struct DetailActionButton {
   @Prop @Watch('onFeedbackChanged') feedbackVersion: number = 0;
   @Prop iconSize: number = 22;
   @State confirmationScale: number = 1;
-  @StorageLink('reduceMotion') appReduceMotion: boolean = false;
-  @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
   onAction: () => void = (): void => {};
   private resetTimer: number = 0;
   aboutToDisappear(): void { if (this.resetTimer !== 0) clearTimeout(this.resetTimer); }
-  private reduceMotion(): boolean { return this.appReduceMotion || this.systemReduceMotion; }
   private onFeedbackChanged(): void {
-    if (this.feedbackVersion === 0 || this.reduceMotion()) return;
+    if (this.feedbackVersion === 0) return;
     if (this.resetTimer !== 0) clearTimeout(this.resetTimer);
     this.confirmationScale = MotionTokens.successScale;
     this.resetTimer = setTimeout((): void => {
@@ -59,7 +56,7 @@ struct DetailActionButton {
       // 按压反馈由外层 Pressable 的 stateStyles（透明度 + 缩放）承担，不需要底色。
       .opacity(this.disabled ? 0.55 : 1)
       .scale({ x: this.confirmationScale, y: this.confirmationScale })
-      .animation({ duration: this.reduceMotion() ? MotionTokens.instant : MotionTokens.control,
+      .animation({ duration: MotionTokens.control,
         curve: MotionCurves.springBounce, expectedFrameRateRange: MotionFrameRates.default })
     }
   }

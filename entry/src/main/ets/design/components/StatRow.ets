@@ -19,16 +19,10 @@ export struct StatRow {
   onLike?: () => void = undefined;
   // 点赞成功反馈：图标弹性缩放脉冲（GSAP 风格 Yoyo），与 pressed 缩放互不冲突
   @State animLikePulse: number = 1;
-  @StorageLink('reduceMotion') appReduceMotion: boolean = false;
-  @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
-
-  private reduceMotion(): boolean {
-    return this.appReduceMotion || this.systemReduceMotion;
-  }
 
   // 点赞态翻转（乐观更新广播回写）时播放：1 → successScale → 1 的一次往返弹性脉冲
   private onLikedChanged(): void {
-    if (!this.liked || this.reduceMotion()) {
+    if (!this.liked) {
       return;
     }
     this.getUIContext().animateTo({

@@ -50,8 +50,6 @@ export struct EditProfilePage {
   @State followerCount: number = 0;
   @State totalLikes: number = 0;
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
-  @StorageLink('reduceMotion') reduceMotion: boolean = false;
-  @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
   private entranceTimer: number = 0;
   private saveReturnTimer: number = 0;
   private originalNickname: string = '';
@@ -81,16 +79,12 @@ export struct EditProfilePage {
     // 旧安装包本地从未存过 bio/gender，打开时从后端补全，避免再次手动重填
     this.syncFromServer();
     this.contentPresented = false;
-    if (this.shouldReduceMotion()) {
-      this.contentPresented = true;
-    } else {
-      this.entranceTimer = setTimeout((): void => {
-        this.getUIContext().animateTo({ duration: MotionTokens.container, curve: MotionCurves.emphasized }, () => {
-          this.contentPresented = true;
-        });
-        this.entranceTimer = 0;
-      }, MotionTokens.instant) as number;
-    }
+    this.entranceTimer = setTimeout((): void => {
+      this.getUIContext().animateTo({ duration: MotionTokens.container, curve: MotionCurves.emphasized }, () => {
+        this.contentPresented = true;
+      });
+      this.entranceTimer = 0;
+    }, MotionTokens.instant) as number;
   }
 
   aboutToDisappear(): void {
@@ -102,10 +96,6 @@ export struct EditProfilePage {
       clearTimeout(this.saveReturnTimer);
       this.saveReturnTimer = 0;
     }
-  }
-
-  private shouldReduceMotion(): boolean {
-    return this.reduceMotion || this.systemReduceMotion;
   }
 
   private failureMessage(error: Error): string {
@@ -342,7 +332,7 @@ export struct EditProfilePage {
       this.saveReturnTimer = setTimeout((): void => {
         this.getUIContext().getRouter().back();
         this.saveReturnTimer = 0;
-      }, this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.container) as number;
+      }, MotionTokens.container) as number;
     } catch (e) {
       this.backgroundStatus = this.profileBackgroundPending ? '保存失败' : this.backgroundStatus;
       safeShowToast(this.getUIContext(), { message: '保存失败：' + this.failureMessage(e) });
@@ -369,8 +359,8 @@ export struct EditProfilePage {
           .fontColor(this.saving ? ColorTokens.secondary : (this.saveSucceeded ? ColorTokens.success : (this.hasUnsavedChanges() ? ColorTokens.brand : ColorTokens.tertiary)))
           .width(56)
           .textAlign(TextAlign.Center)
-          .scale({ x: this.saveSucceeded && !this.shouldReduceMotion() ? MotionTokens.successScale : 1, y: this.saveSucceeded && !this.shouldReduceMotion() ? MotionTokens.successScale : 1 })
-          .animation({ duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.emphasis, curve: MotionCurves.springSoft })
+          .scale({ x: this.saveSucceeded ? MotionTokens.successScale : 1, y: this.saveSucceeded ? MotionTokens.successScale : 1 })
+          .animation({ duration: MotionTokens.emphasis, curve: MotionCurves.springSoft })
           .opacity(this.saving || this.saveSucceeded || this.hasUnsavedChanges() ? 1 : 0.45)
           .onClick(() => { if (this.hasUnsavedChanges()) { this.onSave(); } });
       }
@@ -398,8 +388,8 @@ export struct EditProfilePage {
               onPickBackground: (): void => { this.onPickProfileBackground(); },
               onPickAvatar: (): void => { this.onPickAvatar(); },
             })
-            .scale({ x: this.uploadingProfileBackground && !this.shouldReduceMotion() ? MotionTokens.enterScale : 1, y: this.uploadingProfileBackground && !this.shouldReduceMotion() ? MotionTokens.enterScale : 1 })
-            .animation({ duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.control, curve: MotionCurves.standard });
+            .scale({ x: this.uploadingProfileBackground ? MotionTokens.enterScale : 1, y: this.uploadingProfileBackground ? MotionTokens.enterScale : 1 })
+            .animation({ duration: MotionTokens.control, curve: MotionCurves.standard });
           }
           .width('100%');
 
@@ -468,9 +458,9 @@ export struct EditProfilePage {
       }
       .layoutWeight(1)
       .width('100%')
-      .opacity(this.shouldReduceMotion() || this.contentPresented ? 1 : 0)
-      .translate({ y: this.shouldReduceMotion() || this.contentPresented ? 0 : 16 })
-      .animation({ duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.container, curve: MotionCurves.emphasized });
+      .opacity(this.contentPresented ? 1 : 0)
+      .translate({ y: this.contentPresented ? 0 : 16 })
+      .animation({ duration: MotionTokens.container, curve: MotionCurves.emphasized });
     }
     .width('100%')
     .padding({ top: this.statusBarHeight })

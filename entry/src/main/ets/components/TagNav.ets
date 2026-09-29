@@ -23,8 +23,6 @@ export struct TagNav {
   @State showDropdown: boolean = false;
   @State filterName: string = '';
   @State menuIconsRaised: boolean = false;
-  @StorageLink('reduceMotion') appReduceMotion: boolean = false;
-  @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
 
   private get displayTags(): Tag[] {
     if (this.filterName.length === 0) {
@@ -50,10 +48,6 @@ export struct TagNav {
     return Math.min(rows * LayoutTokens.minTouchTarget + gaps + SpaceTokens.sm * 2, 320);
   }
 
-  private shouldReduceMotion(): boolean {
-    return this.appReduceMotion || this.systemReduceMotion;
-  }
-
   private selectedLabel(): string {
     const selected: Tag | undefined = this.tags[this.selectedIndex];
     const name: string = selected?.name ?? '';
@@ -63,10 +57,6 @@ export struct TagNav {
   private setDropdownVisible(visible: boolean): void {
     if (!visible) {
       this.menuIconsRaised = false;
-    }
-    if (this.shouldReduceMotion()) {
-      this.showDropdown = visible;
-      return;
     }
     this.getUIContext().animateTo({ duration: MotionTokens.base, curve: MotionCurves.decelerate }, () => {
       this.showDropdown = visible;
@@ -186,13 +176,13 @@ export struct TagNav {
                 .width(IconTokens.compact)
                 .height(IconTokens.compact)
                 .scale({
-                  x: this.shouldReduceMotion() || this.menuIconsRaised ? 1 : 0.88,
-                  y: this.shouldReduceMotion() || this.menuIconsRaised ? 1 : 0.88,
+                  x: this.menuIconsRaised ? 1 : 0.88,
+                  y: this.menuIconsRaised ? 1 : 0.88,
                 })
-                .translate({ y: this.shouldReduceMotion() || this.menuIconsRaised ? 0 : SpaceTokens.xs })
+                .translate({ y: this.menuIconsRaised ? 0 : SpaceTokens.xs })
                 .animation({
-                  duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.base,
-                  delay: this.shouldReduceMotion() ? 0 : Math.min(index, 6) * MotionTokens.stagger,
+                  duration: MotionTokens.base,
+                  delay: Math.min(index, 6) * MotionTokens.stagger,
                   curve: MotionCurves.spring,
                 })
                 Text(t.name ?? '')
@@ -250,9 +240,7 @@ export struct TagNav {
         .clip(true)
         .zIndex(1)
         .onAppear(() => {
-          if (!this.shouldReduceMotion()) {
-            this.menuIconsRaised = true;
-          }
+          this.menuIconsRaised = true;
         })
         .transition(TransitionEffect.OPACITY
           .animation({ duration: MotionTokens.base, curve: MotionCurves.decelerate })
@@ -275,9 +263,7 @@ export struct TagNav {
       .clip(true)
       .zIndex(1)
       .onAppear(() => {
-        if (!this.shouldReduceMotion()) {
-          this.menuIconsRaised = true;
-        }
+        this.menuIconsRaised = true;
       })
       .transition(TransitionEffect.OPACITY
         .animation({ duration: MotionTokens.base, curve: MotionCurves.decelerate })
@@ -317,7 +303,7 @@ export struct TagNav {
     })
     .zIndex(10)
     .animation({
-      duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.base,
+      duration: MotionTokens.base,
       curve: MotionCurves.decelerate,
     })
   }

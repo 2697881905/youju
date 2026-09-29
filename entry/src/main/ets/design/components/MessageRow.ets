@@ -21,8 +21,6 @@ export struct MessageRow {
   @Prop unreadCount: number = 0;
   @Prop titleMaxLines: number = 1;
   @Prop subtitleMaxLines: number = 1;
-  @StorageLink('reduceMotion') appReduceMotion: boolean = false;
-  @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
 
   action?: () => void = undefined;
   avatarAction?: () => void = undefined;
@@ -52,10 +50,6 @@ export struct MessageRow {
       return '99+';
     }
     return String(this.unreadCount);
-  }
-
-  private shouldReduceMotion(): boolean {
-    return this.appReduceMotion || this.systemReduceMotion;
   }
 
   @Builder
@@ -122,11 +116,11 @@ export struct MessageRow {
           .fill(ColorTokens.danger)
           .opacity(this.unread ? 1 : 0)
           .scale({
-            x: this.unread && !this.shouldReduceMotion() ? 1 : 0,
-            y: this.unread && !this.shouldReduceMotion() ? 1 : 0,
+            x: this.unread ? 1 : 0,
+            y: this.unread ? 1 : 0,
           })
           .animation({
-            duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.fast,
+            duration: MotionTokens.fast,
             curve: MotionCurves.spring,
           })
       }

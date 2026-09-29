@@ -64,8 +64,6 @@ export struct UserProfileView {
     width: 344,
   });
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
-  @StorageLink('reduceMotion') reduceMotion: boolean = false;
-  @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
   private profileEntranceTimer: number = 0;
   private followPulseTimer: number = 0;
   // 订阅帖子删除事件：该作者帖子被删除后，本页网格即时移除（不依赖刷新/重进）
@@ -96,10 +94,6 @@ export struct UserProfileView {
     }
   }
 
-  private shouldReduceMotion(): boolean {
-    return this.reduceMotion || this.systemReduceMotion;
-  }
-
   private backAction(): void {
     if (this.onBack !== undefined) { this.onBack(); return; }
     this.getUIContext().getRouter().back();
@@ -110,10 +104,6 @@ export struct UserProfileView {
     if (this.profileEntranceTimer !== 0) {
       clearTimeout(this.profileEntranceTimer);
     }
-    if (this.shouldReduceMotion()) {
-      this.profilePresented = true;
-      return;
-    }
     this.profileEntranceTimer = setTimeout((): void => {
       this.getUIContext().animateTo({ duration: MotionTokens.page, curve: MotionCurves.emphasized }, () => {
         this.profilePresented = true;
@@ -123,9 +113,6 @@ export struct UserProfileView {
   }
 
   private playFollowConfirmation(): void {
-    if (this.shouldReduceMotion()) {
-      return;
-    }
     if (this.followPulseTimer !== 0) {
       clearTimeout(this.followPulseTimer);
     }
@@ -514,7 +501,7 @@ export struct UserProfileView {
               .borderRadius(RadiusTokens.floatingBar)
               .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
               .scale({ x: this.followPulse ? MotionTokens.successScale : 1, y: this.followPulse ? MotionTokens.successScale : 1 })
-              .animation({ duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.emphasis, curve: MotionCurves.springSoft });
+              .animation({ duration: MotionTokens.emphasis, curve: MotionCurves.springSoft });
           }
           }
           .layoutWeight(1)
@@ -547,14 +534,14 @@ export struct UserProfileView {
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
-    .opacity(this.shouldReduceMotion() || this.profilePresented ? 1 : 0)
-    .translate({ y: this.shouldReduceMotion() || this.profilePresented ? 0 : SpaceTokens.xl })
+    .opacity(this.profilePresented ? 1 : 0)
+    .translate({ y: this.profilePresented ? 0 : SpaceTokens.xl })
     .scale({
-      x: this.shouldReduceMotion() || this.profilePresented ? 1 : MotionTokens.enterScale,
-      y: this.shouldReduceMotion() || this.profilePresented ? 1 : MotionTokens.enterScale,
+      x: this.profilePresented ? 1 : MotionTokens.enterScale,
+      y: this.profilePresented ? 1 : MotionTokens.enterScale,
     })
     .animation({
-      duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.page,
+      duration: MotionTokens.page,
       curve: MotionCurves.emphasized,
     });
   }
