@@ -1,8 +1,10 @@
 import { listSearchHistory, clearSearchHistory, listHotKeywords, listSearchSuggest } from '../services/api';
 import { safeShowToast } from '../utils/toast';
-import { deviceInfo } from '@kit.BasicServicesKit';
-import { uiMaterial } from '@kit.ArkUI';
 import { BackButton } from '../design/components/BackButton';
+import { GlowInput } from '../design/components/GlowInput';
+import { GlowInput_Api26 } from '../design/components/GlowInput_Api26';
+import { GlowInput_Api23 } from '../design/components/GlowInput_Api23';
+import { getSearchPanelVersion, SearchPanelVersion } from '../utils/VersionRouter';
 import { GlassPanel } from '../design/components/GlassPanel';
 import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
@@ -62,29 +64,6 @@ export struct SearchPanel {
     this.onKeywordSelect(kw);
   }
 
-  // 输入防抖拉取联想（300ms；失败/无结果静默清空）
-  private debounceSuggest(value: string): void {
-    if (this.suggestTimer !== 0) {
-      clearTimeout(this.suggestTimer);
-      this.suggestTimer = 0;
-    }
-    const kw: string = value.trim();
-    if (kw.length === 0) {
-      this.suggestions = [];
-      return;
-    }
-    this.suggestTimer = setTimeout((): void => {
-      this.suggestTimer = 0;
-      listSearchSuggest(kw)
-        .then((list: string[]): void => {
-          this.suggestions = list;
-        })
-        .catch((e: Error): void => {
-          this.suggestions = [];
-        });
-    }, 300) as number;
-  }
-
   private clearSuggestions(): void {
     if (this.suggestTimer !== 0) {
       clearTimeout(this.suggestTimer);
@@ -121,87 +100,94 @@ export struct SearchPanel {
     return rows * LayoutTokens.segmentedHeight + (rows - 1) * SpaceTokens.sm;
   }
 
-  // —— 搜索框：ArkUI 原生 Search + API 26 系统材质（systemMaterial 动态模糊融合）——
+  // —— 搜索框：按设备 API 版本三分支（VersionRouter），三实现共用统一参数契约
+  // （design/components/SearchInputTypes.ets 的 SearchInputProps）——
 
-  // 系统材质可用性：systemMaterial 属性 @since API 26，兼容下限 20 的运行时**没有该方法**，
-  // 链式调用会直接崩 —— 必须按 sdkApiVersion 分支；材质本体还需设备支持 ImmersiveMaterial。
-  private useSystemMaterial(): boolean {
-    if (deviceInfo.sdkApiVersion < 26) {
-      return false;
+  // 本设备的搜索框实现版本（组件构造时确定一次）
+  private version: SearchPanelVersion = getSearchPanelVersion();
+
+  // 联想拉取（不做防抖）：Api26/Api23 输入组件内置防抖后才回调；legacy 路径先走 debounceSuggest
+  private fetchSuggest(value: string): void {
+    const kw: string = value.trim();
+    if (kw.length === 0) {
+      this.suggestions = [];
+      return;
     }
-    return uiMaterial.isImmersiveMaterialSupported();
+    listSearchSuggest(kw)
+      .then((list: string[]): void => {
+        this.suggestions = list;
+      })
+      .catch((e: Error): void => {
+        this.suggestions = [];
+      });
   }
 
-  // 材质对象惰性构造（单例）：new ImmersiveMaterial 也是 @since 26 的符号，
-  // 老运行时不能在字段初始化时触碰 —— 同 ImmersiveSurface 的 HdsSceneController 模式。
-  private searchMaterial: uiMaterial.ImmersiveMaterial | null = null;
-
-  private getSearchMaterial(): uiMaterial.ImmersiveMaterial {
-    if (this.searchMaterial === null) {
-      // REGULAR 常规厚度 + 系统自带投影（applyShadow 默认 true）；材质底色随系统深浅色。
-      this.searchMaterial = new uiMaterial.ImmersiveMaterial({ style: uiMaterial.ImmersiveStyle.REGULAR });
+  private debounceSuggest(value: string): void {
+    if (this.suggestTimer !== 0) {
+      clearTimeout(this.suggestTimer);
+      this.suggestTimer = 0;
     }
-    return this.searchMaterial;
+    if (value.trim().length === 0) {
+      this.suggestions = [];
+      return;
+    }
+    this.suggestTimer = setTimeout((): void => {
+      this.suggestTimer = 0;
+      this.fetchSuggest(value);
+    }, 300) as number;
   }
 
-  private handleSearchChange(v: string): void {
-    this.keyword = v;
-    this.debounceSuggest(v);
-  }
-
-  private handleSearchSubmit(v: string): void {
-    this.keyword = v;
-    this.doSearch();
-  }
-
-  private handleSearchFocus(): void {
-    this.inputFocused = true;
-    // 聚焦时恢复联想：失焦清空了 suggestions，若有已输入关键词则重新拉取
-    const kw: string = this.keyword.trim();
-    if (kw.length > 0) {
-      this.debounceSuggest(kw);
+  // 输入框聚焦/失焦共用处理（历史/热词卡片的显隐由 inputFocused 驱动）
+  private handleInputFocus(focused: boolean): void {
+    this.inputFocused = focused;
+    if (focused) {
+      // 聚焦时恢复联想：失焦清空了 suggestions，若有已输入关键词则重新拉取
+      const kw: string = this.keyword.trim();
+      if (kw.length > 0) {
+        this.debounceSuggest(kw);
+      }
+    } else {
+      // 失焦（返回键收起键盘等）清空联想，避免与历史/热词卡片粘连
+      this.clearSuggestions();
     }
   }
 
-  private handleSearchBlur(): void {
-    // 失焦（返回键收起键盘等）清空联想，避免与历史/热词卡片粘连
-    this.inputFocused = false;
-    this.clearSuggestions();
-  }
-
-  // Search 公共属性：@Builder 里无法复用属性链（ArkTS 限制），26+/老设备两分支各自成链，
-  // 事件回调共用上述私有方法。仅统一应用字体；图标/清除按钮保持系统默认。
+  // API 26+：GlowInput_Api26（Search + systemMaterial 系统材质，动态模糊融合）
+  // API 23-25：GlowInput_Api23（HdsTabs 浮动栏借用系统材质）
+  // API 22-：GlowInput（segmentStyle 手工玻璃）
+  // 三实现共用统一参数契约（SearchInputProps）；26/23 变体内置 300ms 防抖，
+  // 回调已防抖 → 走即时 fetchSuggest；legacy 无内置防抖 → 走 debounceSuggest。
   @Builder
   searchInput(): void {
-    if (this.useSystemMaterial()) {
-      // API 26+：systemMaterial 系统材质接管背景/描边/阴影 —— 不再叠 backgroundColor/border/shadow
-      Search({ placeholder: '搜索你关心的经验和问题', value: this.keyword })
-        .height(40)
-        .borderRadius(20)
-        .layoutWeight(1)
-        .placeholderFont({ family: TypeTokens.fontFamily })
-        .textFont({ family: TypeTokens.fontFamily })
-        .placeholderColor(ColorTokens.tertiary)
-        .systemMaterial(this.getSearchMaterial())
-        .onChange((v: string): void => { this.handleSearchChange(v); })
-        .onSubmit((v: string): void => { this.handleSearchSubmit(v); })
-        .onFocus((): void => { this.handleSearchFocus(); })
-        .onBlur((): void => { this.handleSearchBlur(); })
+    if (this.version === SearchPanelVersion.API_26) {
+      GlowInput_Api26({
+        placeholder: '搜索你关心的经验和问题',
+        text: $keyword,
+        fillWidth: true,
+        debounceMs: 300,
+        onChange: (v: string): void => { this.fetchSuggest(v); },
+        onEnter: (): void => { this.doSearch(); },
+        onFocusChanged: (focused: boolean): void => { this.handleInputFocus(focused); },
+      })
+    } else if (this.version === SearchPanelVersion.API_23) {
+      GlowInput_Api23({
+        placeholder: '搜索你关心的经验和问题',
+        text: $keyword,
+        fillWidth: true,
+        onChange: (v: string): void => { this.fetchSuggest(v); },
+        onEnter: (): void => { this.doSearch(); },
+        onFocusChanged: (focused: boolean): void => { this.handleInputFocus(focused); },
+      })
     } else {
-      // API 20-25 老设备：H7 观感定制（无描边胶囊 + 柔和投影），无系统材质
-      Search({ placeholder: '搜索你关心的经验和问题', value: this.keyword })
-        .height(40)
-        .borderRadius(20)
-        .layoutWeight(1)
-        .placeholderFont({ family: TypeTokens.fontFamily })
-        .textFont({ family: TypeTokens.fontFamily })
-        .placeholderColor(ColorTokens.tertiary)
-        .backgroundColor(ColorTokens.elevated)
-        .shadow({ radius: 12, color: '#14000000', offsetY: 2 })
-        .onChange((v: string): void => { this.handleSearchChange(v); })
-        .onSubmit((v: string): void => { this.handleSearchSubmit(v); })
-        .onFocus((): void => { this.handleSearchFocus(); })
-        .onBlur((): void => { this.handleSearchBlur(); })
+      GlowInput({
+        placeholder: '搜索你关心的经验和问题',
+        text: $keyword,
+        fillWidth: true,
+        segmentStyle: true,
+        onChange: (v: string): void => { this.debounceSuggest(v); },
+        onEnter: (): void => { this.doSearch(); },
+        onFocusChanged: (focused: boolean): void => { this.handleInputFocus(focused); },
+      })
     }
   }
 

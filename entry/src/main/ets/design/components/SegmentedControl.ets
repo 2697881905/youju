@@ -1,6 +1,7 @@
 import { Pressable } from '../motion/Pressable';
 import { SharedSlide } from '../motion/SharedSlide';
 import { ColorTokens } from '../tokens/color';
+import { GlassTokens } from '../tokens/GlassTokens';
 import { MotionCurves, MotionTokens } from '../tokens/motion';
 import { RadiusTokens } from '../tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../tokens/space';
@@ -18,9 +19,7 @@ export interface SegmentedItem {
 //   .backgroundSystemMaterial(new uiMaterial.ImmersiveMaterial({
 //     style: uiMaterial.ImmersiveStyle.THIN, interactive: true, applyShadow: true, colorInvert: true }))
 // API 23~25（当前）：半透明白玻璃底 + backdropBlur 伪沉浸 + 1px 高光边框（系统原生，无第三方库）。
-const IMMERSIVE_GLASS_BG: ResourceColor = '#20FFFFFF';
-const IMMERSIVE_GLASS_BLUR: number = 20;
-const IMMERSIVE_GLASS_BORDER: ResourceColor = '#30FFFFFF';
+// 玻璃常量与 GlowInput 共享：统一在 design/tokens/GlassTokens.ets 维护（GlassTokens.SEGMENT_*）。
 // 选中滑块悬浮投影（参照华为应用商店分段栏）：加重的柔和投影，突出滑块浮起感
 const IMMERSIVE_SLIDE_SHADOW: ShadowOptions = { radius: 14, color: '#33000000', offsetY: 4 };
 
@@ -261,7 +260,7 @@ export struct SegmentedControl {
     .height(LayoutTokens.segmentedHeight)
     .padding(SpaceTokens.xs / 2)
     // immersive：backdropBlur 伪沉浸（API 26+ 升级后替换为 backgroundSystemMaterial，见文件头注释）
-    .backdropBlur(this.immersive ? IMMERSIVE_GLASS_BLUR : 0)
+    .backdropBlur(this.immersive ? GlassTokens.SEGMENT_BLUR : 0)
     .backgroundBlurStyle(!this.immersive && this.glass ? GlassBlurStyle.Floating : BlurStyle.NONE)
     // 底/边框/阴影按风格分发：
     // - immersive → 半透明白玻璃底 + 1px 高光边框 + lg 圆角 + 无整栏阴影（滑块自带悬浮投影）
@@ -269,14 +268,14 @@ export struct SegmentedControl {
     // - glass     → 系统材质渲染透明底 / 低端机 barSurface + 细边框 + floatingBar 圆角 + 柔和阴影
     // - 默认      → 纯色 sunken 底、无边框
     .backgroundColor(this.immersive
-      ? IMMERSIVE_GLASS_BG
+      ? GlassTokens.SEGMENT_BG
       : (this.outlined
         ? Color.Transparent
         : (this.glass ? (isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface) : ColorTokens.sunken)))
     .borderRadius(this.immersive ? RadiusTokens.lg : (this.outlined ? RadiusTokens.lg : (this.glass ? RadiusTokens.floatingBar : RadiusTokens.sm)))
     .border({
       width: this.immersive ? 1 : (this.outlined || this.glass ? LayoutTokens.glassBorderWidth : 0),
-      color: this.immersive ? IMMERSIVE_GLASS_BORDER : (this.outlined || this.glass ? ColorTokens.barBorder : Color.Transparent),
+      color: this.immersive ? GlassTokens.SEGMENT_BORDER : (this.outlined || this.glass ? ColorTokens.barBorder : Color.Transparent),
       style: BorderStyle.Solid,
     })
     .shadow({
