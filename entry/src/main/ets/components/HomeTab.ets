@@ -10,11 +10,8 @@ import { likeStore } from '../utils/likeStore';
 import { postDeletionStore } from '../utils/postDeletionStore';
 import { PostCard } from './PostCard';
 import { TagNav } from './TagNav';
-import { emitTabSwitch, openPostDetail, PostDetailIntent } from '../utils/nav';
-import { cardRectOf, getMainNavStack, PostDetailNavParams, CardRect } from '../utils/navigationTransition';
-import { LongTakeParams } from '../utils/longTake/longTakeAnimationProperties';
-import { image } from '@kit.ImageKit';
-import { BusinessError } from '@kit.BasicServicesKit';
+import { emitTabSwitch } from '../utils/nav';
+import { openPostDetailViaNav, postDetailCoverOf } from '../utils/longTake/openPostDetailNav';
 import { safeShowToast } from '../utils/toast';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { EmptyState } from '../design/components/EmptyState';
@@ -464,102 +461,16 @@ export struct HomeTab {
   }
 
   // —— 「一镜到底」意图组装 ——
-  // 每日一帖卡面展示图口径：与 DeckSlotCard.hasMedia()/mediaUrl() 一致（视频封面优先，其次封面）
+  // 每日一帖卡面展示图口径：与 DeckSlotCard.hasMedia()/mediaUrl() 一致（视频封面优先，其次封面）。
+  // （信息流/「我的」等 Post 表面的封面口径与发起器已抽到 utils/longTake/openPostDetailNav.ets 共享）
   private dailyDeckCover(p: DailyPost): string {
     const raw: string = (p.videoCover ?? '').length > 0 ? (p.videoCover ?? '') : (p.coverImage ?? '');
     return raw.length > 0 ? resolveDisplayImageUrl(raw) : '';
   }
 
-  // 推荐/关注流卡面展示图口径：与 PostCardMedia 展示一致（视频→视频封面||封面；图片→封面）
-  private feedCardCover(p: Post): string {
-    const coverRaw: string = typeof p.coverImage === 'string' ? p.coverImage : '';
-    const vCover: string = typeof p.videoCover === 'string' ? p.videoCover : '';
-    const vUrl: string = typeof p.videoUrl === 'string' ? p.videoUrl : '';
-    const raw: string = vUrl.length > 0 ? (vCover.length > 0 ? vCover : coverRaw) : coverRaw;
-    return raw.length > 0 ? resolveDisplayImageUrl(raw) : '';
-  }
-
-  // aspect = 阅读比例（转场结束后媒体框的展示比例）；flightAspect = 飞行目标框比例（= 卡面比例）。
-  // 两者通常相同；卡堆卡面 4:3、阅读 3:4，必须分开传（同一个值无法两全）。
-  private buildDetailIntent(cover: string, p: Post, aspect: number, flightAspect: number): PostDetailIntent {
-    return {
-      cover: cover,
-      title: p.title ?? '',
-      genre: p.genre ?? '',
-      tags: p.tags ?? [],
-      authorName: p.user?.nickname ?? '',
-      authorAvatar: p.user?.avatar ?? '',
-      createdAt: p.createdAt ?? '',
-      aspect: aspect,
-      flightAspect: flightAspect,
-      isVideo: ((p.videoUrl ?? '') as string).length > 0,
-    };
-  }
-
-  // 卡片 → 详情：走 Navigation 的 PostDetail 目的地以启用自定义转场（一镜到底）；
-  // 变形由 PostDetailDestination 自身完成（官方范式：整页从飞行物帧缩放展开），
-  // 本处只负责「截飞行物图 + 量它的屏幕帧」并随参数传出。
-  // Navigation 未就绪时兜底走老路由整页（无飞行）。
-  // cardId：用于截图与测量起点的组件 id，两支都是**媒体块** —— 信息流是 3:4 封面
-  // （cardMedia-{id}，见 PostCard/PostCardMedia.coverFace），每日一帖是卡堆媒体块
-  // （deckCardMedia-{id}）。只飞媒体块、不飞整卡：标题/互动区不参与缩放变形，
-  // 与卡堆口径一致，也避免「整卡缩到 3:4 媒体框」的比例跳变。
-  // cardRadius：飞行物自身的圆角（vp）—— 截图的起始圆角，飞行中过渡到详情媒体圆角。
-  // flightAspect：飞行目标框比例（卡面比例）；aspect 只作阅读比例（两者同源时传同一个值）。
-  private openDetailViaNav(post: Post, aspect: number, cover: string, cardId: string, cardRadius: number,
-    flightAspect: number): void {
-    if (post.id === undefined) {
-      return;
-    }
-    const nav: NavPathStack | null = getMainNavStack();
-    if (nav === null) {
-      openPostDetail(post.id.toString(), cover.length > 0 ? this.buildDetailIntent(cover, post, aspect, flightAspect) : undefined);
-      this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
-      return;
-    }
-    const p: PostDetailNavParams = new PostDetailNavParams();
-    p.postId = post.id;
-    p.intent = cover.length > 0 ? this.buildDetailIntent(cover, post, aspect, flightAspect) : null;
-    const rect: CardRect | null = cardRectOf(cardId);
-    // 官方做法：先截飞行物图顶住首帧，再 push；截图失败则退化为纯布局变形（转场照走）
-    const take: LongTakeParams = new LongTakeParams();
-    take.cardId = cardId;
-    take.cardRadius = cardRadius;
-    if (rect !== null) {
-      take.cardRect = rect;
-    }
-    p.longTake = take;
-    // 量不到卡片帧：没有起点就没有飞行，但**点击绝不能被吞掉** —— 立刻推进去
-    if (rect === null) {
-      nav.pushPathByName('PostDetail', p);
-      return;
-    }
-    // 截图是异步的，且 id 不存在时回调不保证触发（踩过：卡堆 id 少拼 post.id，
-    // 结果 push 永远等不到回调，表现为「点了没反应」）。因此加一次性放行 + 超时兜底，
-    // 保证任何异常路径下都会完成跳转（最差只是没有截图、退化为纯布局变形）。
-    let pushed: boolean = false;
-    const pushOnce: () => void = (): void => {
-      if (pushed) {
-        return;
-      }
-      pushed = true;
-      nav.pushPathByName('PostDetail', p);
-    };
-    setTimeout(pushOnce, 100);
-    try {
-      // UIContext 形态（@since 12）：全局 componentSnapshot.get 自 API 18 起已废弃，
-      // @useinstead 即此形态；官方示例同样走 UIContext。
-      this.getUIContext().getComponentSnapshot().get(cardId,
-        (err: BusinessError, pixelMap: image.PixelMap): void => {
-          if (!err && pixelMap !== undefined) {
-            take.snapshot = pixelMap;
-          }
-          pushOnce();
-        });
-    } catch (e) {
-      pushOnce();
-    }
-  }
+  // 卡片 → 详情：走 Navigation 的 PostDetail 目的地以启用自定义转场（一镜到底）。
+  // 发起逻辑已抽到 utils/longTake/openPostDetailNav.ets（openPostDetailViaNav），
+  // 与「我的」四分段共享；此处仅保留卡堆特有的 DailyPost 封面口径。
 
   @Builder
   refreshBuilder(): void {
@@ -775,7 +686,7 @@ export struct HomeTab {
                   // 阅读比例 = 标准 3:4（竖向图片不被压横）；飞行目标比例 = 卡面 4:3
                   // （落点与卡面严丝合缝，真图就绪交接时再平滑过渡到阅读比例）。
                   // 圆角 = 卡堆卡容器圆角（RadiusTokens.md）
-                  this.openDetailViaNav(post, LayoutTokens.cardMediaAspectRatio, this.dailyDeckCover(post), 'deckCardMedia-' + post.id,
+                  openPostDetailViaNav(this.getUIContext(), post, LayoutTokens.cardMediaAspectRatio, this.dailyDeckCover(post), 'deckCardMedia-' + post.id,
                     RadiusTokens.md, DAILY_DECK_MEDIA_RATIO);
                 }
               },
@@ -822,7 +733,7 @@ export struct HomeTab {
           // 圆角 = 该封面 Image 的圆角 —— compact 卡封面与卡片容器同为 RadiusTokens.xs。
           // 标题/互动区不参与缩放变形（与卡堆「只飞媒体块」口径一致）。
           // 信息流卡面与阅读框同为 3:4：飞行/阅读比例传同一个值。
-          this.openDetailViaNav(post, LayoutTokens.cardMediaAspectRatio, this.feedCardCover(post), 'cardMedia-' + post.id,
+          openPostDetailViaNav(this.getUIContext(), post, LayoutTokens.cardMediaAspectRatio, postDetailCoverOf(post), 'cardMedia-' + post.id,
             RadiusTokens.xs, LayoutTokens.cardMediaAspectRatio);
         }
       },
