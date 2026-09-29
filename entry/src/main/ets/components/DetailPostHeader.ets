@@ -22,8 +22,6 @@ export struct DetailPostHeader {
   // true = 右手握持（整组居右）；false = 左手/未知/不支持（默认居左）
   @StorageProp('gripOnRight') gripOnRight: boolean = false;
   onOpenAuthor: () => void = (): void => {};
-  // 长按标题回调：详情页用于弹出「复制标题」菜单（与长按正文的复制互不混入）；缺省无动作
-  onLongPressTitle: (event: GestureEvent) => void = (_event: GestureEvent): void => {};
 
   build() {
     Column({ space: SpaceTokens.sm }) {
@@ -36,12 +34,11 @@ export struct DetailPostHeader {
         // textAlign 是瞬变属性无法插值——长标题折行占满父宽时换边会跳变，属已知取舍。
         .constraintSize({ maxWidth: '100%' })
         .textAlign(this.gripOnRight ? TextAlign.End : TextAlign.Start)
-        // 长按标题 → 复制标题：只挂在标题 Text 上（作者行/标签不触发）；
-        // 标准 LongPressGesture 与父级手势、单击均正确共存。
-        .gesture(
-          LongPressGesture({ repeat: false, duration: 400 })
-            .onAction((event: GestureEvent): void => { this.onLongPressTitle(event); })
-        )
+        // 长按标题 → 系统文本选择，可选字复制/全选。官方文档：copyOption 设为
+        // InApp/LocalDevice 时「长按文本，会弹出文本选择菜单，可选中文本并进行复制、全选操作」。
+        // 选中底色用品牌暖色 token（selectedBackgroundColor，API 14+），贴合主题。
+        .copyOption(CopyOptions.LocalDevice)
+        .selectedBackgroundColor(ColorTokens.brandTint)
       Row({ space: 4 }) {
         Image(this.genreIcon)
           .width(14)
