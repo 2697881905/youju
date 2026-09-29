@@ -24,15 +24,11 @@
 //   })
 
 import { GlassBlurStyle } from '../../utils/immersiveMaterial';
+import { GlassTokens } from '../tokens/GlassTokens';
 import { ColorTokens } from '../tokens/color';
 import { RadiusTokens } from '../tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../tokens/space';
 import { TypeTokens } from '../tokens/type';
-
-// —— 分段栏同款参数（与 SegmentedControl.ets 顶部 IMMERSIVE_* 完全同值）——
-const SEGMENT_GLASS_BG: ResourceColor = '#20FFFFFF';
-const SEGMENT_GLASS_BLUR: number = 20;
-const SEGMENT_GLASS_BORDER: ResourceColor = '#30FFFFFF';
 
 @Component
 export struct GlowInput {
@@ -71,11 +67,11 @@ export struct GlowInput {
         // 分段栏同款（segmentStyle）：backdropBlur 伪沉浸 + 半透明白玻璃底 + 1px 高光边框 + lg 圆角；
         // 普通模式维持系统玻璃（backgroundBlurStyle）方案
         .backgroundBlurStyle(this.segmentStyle ? BlurStyle.NONE : GlassBlurStyle.Floating)
-        .backdropBlur(this.segmentStyle ? SEGMENT_GLASS_BLUR : 0)
-        .backgroundColor(this.segmentStyle ? SEGMENT_GLASS_BG : ColorTokens.barSurface)
+        .backdropBlur(this.segmentStyle ? GlassTokens.SEGMENT_BLUR : 0)
+        .backgroundColor(this.segmentStyle ? GlassTokens.SEGMENT_BG : ColorTokens.barSurface)
         .border({
           width: 1,
-          color: this.segmentStyle ? SEGMENT_GLASS_BORDER : ColorTokens.barBorder,
+          color: this.segmentStyle ? GlassTokens.SEGMENT_BORDER : ColorTokens.barBorder,
           style: BorderStyle.Solid,
         })
         .borderRadius(this.segmentStyle ? RadiusTokens.lg : this.radius)
