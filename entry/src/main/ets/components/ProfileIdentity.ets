@@ -25,7 +25,8 @@ export struct ProfileIdentity {
   }
 
   private genderSurface(): ResourceColor {
-    return this.gender === 1 ? '#0A59F7' : this.gender === 2 ? '#FFF0F5' : ColorTokens.sunken;
+    // #3B82F6：介于浅蓝（太淡）与 #0A59F7（太深）之间的中饱和品牌蓝
+    return this.gender === 1 ? '#3B82F6' : this.gender === 2 ? '#FFF0F5' : ColorTokens.sunken;
   }
 
   build() {
