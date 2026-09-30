@@ -9,6 +9,8 @@ import { TypeTokens } from '../design/tokens/type';
 export struct DetailCommentsSection {
   @Prop comments: Comment[] = [];
   @Prop commentCount: number = 0;
+  // 通知跳转定位的目标评论 id（>0 时该条短暂高亮，见 CommentList）
+  @Prop highlightCommentId: number = 0;
   onReportComment: (commentId: number) => void = (_commentId: number): void => {};
   onReplyComment: (comment: Comment) => void = (_comment: Comment): void => {};
 
@@ -21,6 +23,7 @@ export struct DetailCommentsSection {
         .fontColor(ColorTokens.primary)
       CommentList({
         comments: this.comments,
+        highlightCommentId: this.highlightCommentId,
         reportCommentHandler: (commentId: number): void => { this.onReportComment(commentId); },
         onReplyComment: (cmt: Comment): void => { this.onReplyComment(cmt); },
       })

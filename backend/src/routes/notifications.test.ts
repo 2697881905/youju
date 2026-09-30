@@ -28,6 +28,9 @@ jest.mock('../prisma', () => ({
       findUnique: jest.fn(),
       findMany: jest.fn(),
     },
+    comment: {
+      findUnique: jest.fn(),
+    },
     user: {
       findUnique: jest.fn().mockResolvedValue({ deletedAt: null }),
       findMany: jest.fn(),
@@ -254,20 +257,22 @@ describe('GET/POST /v1/notifications', () => {
 describe('触发辅助函数', () => {
   it('notifyOnComment：自己评论自己不发通知', async () => {
     mockPrisma.post.findUnique.mockResolvedValue({ userId: 1 });
-    await notificationService.notifyOnComment(10, 1);
+    await notificationService.notifyOnComment(10, 1, 88);
     expect(mockPrisma.notification.create).not.toHaveBeenCalled();
   });
 
-  it('notifyOnComment：他人评论自己帖子则发通知（含昵称文案）', async () => {
+  it('notifyOnComment：他人评论自己帖子则发通知（含昵称文案 + 评论 id 定位）', async () => {
     mockPrisma.post.findUnique.mockResolvedValue({ userId: 1 });
     mockPrisma.user.findUnique.mockResolvedValue({ nickname: '张三' });
     mockPrisma.notification.create.mockResolvedValue({});
-    await notificationService.notifyOnComment(10, 2);
+    await notificationService.notifyOnComment(10, 2, 88);
     expect(mockPrisma.notification.create).toHaveBeenCalledTimes(1);
     const arg = mockPrisma.notification.create.mock.calls[0][0];
     expect(arg.data.userId).toBe(1);
     expect(arg.data.actorId).toBe(2);
     expect(arg.data.type).toBe('comment');
+    expect(arg.data.postId).toBe(10);
+    expect(arg.data.commentId).toBe(88);
     expect(arg.data.content).toBe('张三 评论了你的帖子');
   });
 
@@ -286,5 +291,96 @@ describe('触发辅助函数', () => {
     mockPrisma.post.findUnique.mockResolvedValue({ userId: 5 });
     await notificationService.notifyOnInteract(10, 5, 'bookmark');
     expect(mockPrisma.notification.create).not.toHaveBeenCalled();
+  });
+
+  it('notifyOnCommentReply：自己回复自己不发通知', async () => {
+    await notificationService.notifyOnCommentReply(10, 2, 2, 89);
+    expect(mockPrisma.notification.create).not.toHaveBeenCalled();
+  });
+
+  it('notifyOnCommentReply：他人回复我的评论 → 发通知（含文案/postId/回复id）', async () => {
+    mockPrisma.post.findUnique.mockResolvedValue({ userId: 3 }); // 帖子作者是第三人，与被回复人不同
+    mockPrisma.user.findUnique.mockResolvedValue({ nickname: '李四' });
+    mockPrisma.notification.create.mockResolvedValue({});
+    await notificationService.notifyOnCommentReply(10, 2, 1, 89);
+    expect(mockPrisma.notification.create).toHaveBeenCalledTimes(1);
+    const arg = mockPrisma.notification.create.mock.calls[0][0];
+    expect(arg.data.userId).toBe(1);
+    expect(arg.data.actorId).toBe(2);
+    expect(arg.data.type).toBe('comment');
+    expect(arg.data.postId).toBe(10);
+    expect(arg.data.commentId).toBe(89);
+    expect(arg.data.content).toBe('李四 回复了你的评论');
+  });
+
+  it('notifyOnCommentReply：被回复人即帖子作者 → 不重复发（已有「评论了你的帖子」）', async () => {
+    mockPrisma.post.findUnique.mockResolvedValue({ userId: 1 });
+    await notificationService.notifyOnCommentReply(10, 2, 1, 89);
+    expect(mockPrisma.notification.create).not.toHaveBeenCalled();
+  });
+
+  it('notifyOnCommentUp：他人赞我的评论 → 通知带 postId + commentId（点击定位该评论）', async () => {
+    mockPrisma.comment.findUnique.mockResolvedValue({ userId: 1, postId: 10 });
+    mockPrisma.user.findUnique.mockResolvedValue({ nickname: '李四' });
+    mockPrisma.notification.create.mockResolvedValue({});
+    await notificationService.notifyOnCommentUp(88, 3);
+    expect(mockPrisma.notification.create).toHaveBeenCalledTimes(1);
+    const arg = mockPrisma.notification.create.mock.calls[0][0];
+    expect(arg.data.userId).toBe(1);
+    expect(arg.data.type).toBe('up');
+    expect(arg.data.postId).toBe(10);
+    expect(arg.data.commentId).toBe(88);
+    expect(arg.data.content).toBe('李四 赞了你的评论');
+  });
+
+  it('notifyOnCommentUp：自己赞自己评论不发通知', async () => {
+    mockPrisma.comment.findUnique.mockResolvedValue({ userId: 3, postId: 10 });
+    await notificationService.notifyOnCommentUp(88, 3);
+    expect(mockPrisma.notification.create).not.toHaveBeenCalled();
+  });
+
+  it('notifySystem：评论类系统消息同时落 postId + commentId（点击精准定位）', async () => {
+    mockPrisma.notification.create.mockResolvedValue({});
+    await notificationService.notifySystem(5, '你的评论未通过审核', 10, undefined, 88);
+    expect(mockPrisma.notification.create).toHaveBeenCalledTimes(1);
+    const arg = mockPrisma.notification.create.mock.calls[0][0];
+    expect(arg.data.userId).toBe(5);
+    expect(arg.data.type).toBe('system');
+    expect(arg.data.postId).toBe(10);
+    expect(arg.data.commentId).toBe(88);
+    expect(arg.data.content).toBe('你的评论未通过审核');
+  });
+
+  it('notifyCommentMentions：@提及 发 mention 通知并携带 commentId（点击可定位到该评论）', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ nickname: '张三' });
+    mockPrisma.notification.create.mockResolvedValue({});
+    await notificationService.notifyCommentMentions(10, 88, 2, '谢谢 @张三', new Set<number>([2]), [{ name: '张三', userId: 1 }]);
+    expect(mockPrisma.notification.create).toHaveBeenCalledTimes(1);
+    const arg = mockPrisma.notification.create.mock.calls[0][0];
+    expect(arg.data.userId).toBe(1);
+    expect(arg.data.actorId).toBe(2);
+    expect(arg.data.type).toBe('mention');
+    expect(arg.data.postId).toBe(10);
+    expect(arg.data.commentId).toBe(88);
+    expect(arg.data.content).toBe('张三 在评论中提到了你');
+  });
+
+  it('notifyCommentMentions：排除集命中时不发通知（自己/帖子作者不重复打扰）', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ nickname: '张三' });
+    await notificationService.notifyCommentMentions(10, 88, 3, '@张三 你好', new Set<number>([3, 1]), [{ name: '张三', userId: 1 }]);
+    expect(mockPrisma.notification.create).not.toHaveBeenCalled();
+  });
+
+  it('notifyOnCommentReply：被回复人 userId 恰等于帖子 ID → 仍正常发通知（旧「拿帖子ID比对」bug 回归）', async () => {
+    // 回归场景：postId=7、被回复人 userId=7（非帖子作者），旧实现会误判为「作者已通知」而漏发
+    mockPrisma.post.findUnique.mockResolvedValue({ userId: 3 });
+    mockPrisma.user.findUnique.mockResolvedValue({ nickname: '王五' });
+    mockPrisma.notification.create.mockResolvedValue({});
+    await notificationService.notifyOnCommentReply(7, 2, 7, 89);
+    expect(mockPrisma.notification.create).toHaveBeenCalledTimes(1);
+    const arg = mockPrisma.notification.create.mock.calls[0][0];
+    expect(arg.data.userId).toBe(7);
+    expect(arg.data.commentId).toBe(89);
+    expect(arg.data.content).toBe('王五 回复了你的评论');
   });
 });

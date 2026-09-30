@@ -19,7 +19,8 @@ import { common } from '@kit.AbilityKit';
 import { window } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { publishFlowStore } from '../utils/publishFlowStore';
-import { AppTab, subscribeTabSwitch } from '../utils/nav';
+import { AppTab, subscribeTabSwitch, emitTabSwitch, openPostDetail, openPostDetailAtComment } from '../utils/nav';
+import { takePushRoute, syncPushToken, requestNotificationPermission } from '../utils/push';
 import { setMainNavStack, setSharedUiContext } from '../utils/navigationTransition';
 import { AnimateCallback, CustomTransition } from '../utils/longTake/customNavigationUtils';
 import { setSerifTypeface, setSerifBodyTypeface } from '../utils/poster/posterText';
@@ -152,6 +153,10 @@ struct Index {
   @StorageLink('circleOnboardingPendingUserId') @Watch('onCircleOnboardingPendingChanged') circleOnboardingPendingUserId: string = '';
   // 登录态过期标记：api.ets 在服务端 401（非登录接口）时写入，本页统一清态 + 提示 + 引导重登
   @StorageLink('authExpiredAt') @Watch('onAuthExpired') authExpiredAt: number = 0;
+  // 通知点击带来的待处理路由序号（值 payload 在 AppStorage['pendingPushRoute']）。
+  // 用单调递增的序号而非 payload 本身做信号：连点两条同类通知时值可能相同，
+  // AppStorage 对同值写入不派发变更，必须有序号才会触发回调。
+  @StorageLink('pushRouteSeq') @Watch('onPushRouteChanged') pushRouteSeq: number = 0;
   @State showCircleOnboarding: boolean = false;
   @State onboardingTags: Tag[] = [];
   @State onboardingSelectedNames: string[] = [];
@@ -304,6 +309,52 @@ struct Index {
     this.validateStartupSession();
     this.refreshUnread();
     this.maybeShowCircleOnboarding();
+    this.initPushCapabilities();
+    // 冷启动若来自通知点击，路由意图在 Index 挂载前已由 EntryAbility 写入 AppStorage，此处补消费
+    this.consumePendingPushRoute();
+  }
+
+  // 登录后启用推送：先申请通知权限（未授权时系统不把 Push 消息展示进通知栏），再上报本机 Token。
+  // 两者都异步且失败静默 —— 取不到 token 只影响推送，不波及主流程。
+  private initPushCapabilities(): void {
+    const ctx = this.getUIContext().getHostContext();
+    if (ctx !== undefined && ctx !== null) {
+      requestNotificationPermission(ctx as common.UIAbilityContext);
+    }
+    syncPushToken();
+  }
+
+  // 消费通知点击带来的路由意图（一次性取出即清空）
+  private consumePendingPushRoute(): void {
+    const route = takePushRoute();
+    if (route === null) {
+      return;
+    }
+    if (route.postId > 0) {
+      // @提及带 commentId 时定位到具体评论，其余进详情顶部
+      if (route.commentId > 0) {
+        openPostDetailAtComment(String(route.postId), route.commentId);
+      } else {
+        openPostDetail(String(route.postId));
+      }
+      try {
+        this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
+      } catch (e) {
+        hilog.warn(0x0000, 'push', '通知跳转详情页失败 %{public}s', JSON.stringify(e));
+      }
+      return;
+    }
+    // 无关联帖子（关注 / 系统通知）：落到消息 Tab
+    emitTabSwitch(3);
+  }
+
+  private onPushRouteChanged(): void {
+    // 启动流程未走完时 Tab 容器还没就绪，先不跳：pendingPushRoute 保留着，
+    // 由 startInit 兜底消费；已就绪则该走 @Watch 的实时路径（热启动点通知）。
+    if (!this.launchComplete) {
+      return;
+    }
+    this.consumePendingPushRoute();
   }
 
   private onCircleOnboardingPendingChanged(): void {

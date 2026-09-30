@@ -103,6 +103,31 @@
 - 视频：`Post.videoUrl` / `videoCover`（与 `images` 互斥），强制走 COS、≤50MB 服务端兜底；`PostCardMedia` 封面 + 三角角标；`DetailPage` 用 `VideoPlayer`。
 - 发布三分页共享 `publishFlowStore` / `PublishDraft`；`Index.openPublish` 按 mode 跳转；`DraftBoxPage` 按类型分流。
 
+### 华为推送（Push Kit）
+
+链路：`createNotification`（notificationService）→ `pushToUser`（services/huaweiPush）→ Push Kit v3 REST + 设备 Token（PushToken 表）+ 审计（PushLog 表）。
+
+| 环节 | 位置 | 说明 |
+| --- | --- | --- |
+| Token 上报 | `POST /v1/push/register` | 客户端 `pushService.getToken()` 后上报；同 token 换号会自动迁移归属 |
+| Token 解绑 | `DELETE /v1/push/token?token=` | 登出/注销前调用，参数走 query（http DELETE 带 body 不稳定） |
+| 下发 | `services/huaweiPush.ts` | v3 `/v3/{projectId}/messages:send` + 服务账号 JWT（PS256） |
+| 点击跳转 | `EntryAbility.onCreate/onNewWant` → `utils/push.ets` → `Index` | `clickAction.data` 平铺进 `want.parameters`，含 `type/postId/commentId/nid` |
+| 前端上报时机 | `Index.initPushCapabilities` | 登录后：先申请通知权限，再上报 Token |
+
+⚠️ 协议口径（踩过的坑）：**别用 Android HMS Push 那套**（`v1/{appId}` + OAuth client_credentials + `android.notification.click_action`）—— HarmonyOS 5 起已废弃 OAuth 2.0 开放鉴权，且消息体结构是 `payload/target/pushOptions`。
+
+配置（`backend/.env` + 服务账号凭据文件，后者放服务器本地、**禁止入库**）：
+
+| 项 | 取值 |
+| --- | --- |
+| `HUAWEI_PUSH_PROJECT_ID` | AGC → 项目设置 → 项目 ID |
+| `HUAWEI_PUSH_SERVICE_ACCOUNT_PATH` | 容器内 `/app/agc-service-account.json`（宿主机只读挂载） |
+| `HUAWEI_PUSH_CATEGORY` | 已申请「服务与通讯」自分类权益 → `IM`；未申请 → `MARKETING`（否则单设备每日被限到 2 条） |
+| `HUAWEI_PUSH_TEST_MESSAGE` | 调测期 `true`（每项目每日 1000 条、不触发频控）；**上线必须 `false`** |
+
+部署注意：`agc-service-account.json` 经 `.dockerignore` 排除，`docker-compose.prod.yml` 与 `deploy-backend.sh` 各自只读挂载，不存在时会打印提示并静默降级。
+
 ### 品牌与合规
 - 品牌 Logo 三件套（手绘彩色 SVG）：`brand_harmony`（#1677FF / #5AA5FF）、`brand_huawei`（#E8112D / #B00B20）、`brand_wechat`（#07C160 / #2FCB79）；`utils/brandIcons.ets` 提供 `brandIconRes` / `brandTileTint`，`AccountBindingPage` 用 `providerTile`。
 - 合规页：`PrivacyPage`、`UserAgreementPage`、`PrivacySettingsPage`（个性化推荐开关）、`InterestTagsPage`（查看 / 删除用于推荐的兴趣标签）。

@@ -12,7 +12,7 @@
 import { NotificationItem } from '../models/types';
 import { listNotifications, markNotificationRead, getUnreadCount } from '../services/api';
 import { getToken, getIsAdmin } from '../utils/auth';
-import { openPostDetail } from '../utils/nav';
+import { openPostDetail, openPostDetailAtComment } from '../utils/nav';
 import { timeAgo } from '../utils/format';
 import { notifIconRes } from '../utils/actionIcons';
 import { buildPageTransition } from '../utils/styles';
@@ -90,6 +90,7 @@ export struct SystemNoticePage {
           type: it.type,
           actor: it.actor,
           postId: it.postId,
+          commentId: it.commentId,
           content: it.content,
           read: true,
           pinned: it.pinned ?? false,
@@ -121,12 +122,19 @@ export struct SystemNoticePage {
     AppStorage.setOrCreate('systemNoticeRefreshSignal', cur + 1);
   }
 
-  // 点单条：带 postId（审核结果类）跳原帖详情；纯回执（如「你的举报已处理」带 postId 时同样可跳）
+  // 点单条：带 postId（审核结果/举报回执类）跳原帖详情；
+  // 带 commentId（评论类审核结果/回执）精准定位到该条评论（已下架评论不可见时退回帖子顶部）
   private onRowClick(item: NotificationItem): void {
-    if (item.postId !== undefined && item.postId !== null) {
-      openPostDetail(String(item.postId));
-      this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
+    if (item.postId === undefined || item.postId === null) {
+      return;
     }
+    const cid: number | null | undefined = item.commentId;
+    if (cid !== undefined && cid !== null && cid > 0) {
+      openPostDetailAtComment(String(item.postId), cid);
+    } else {
+      openPostDetail(String(item.postId));
+    }
+    this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
   }
 
   @Builder

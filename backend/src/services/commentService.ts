@@ -93,7 +93,7 @@ export async function createComment(
   if (text.length === 0 || text.length > 2000) {
     throw new ValidationError('评论长度需在 1-2000 字');
   }
-  let parentRef: { userId: number; postUserId: number } | null = null;
+  let parentRef: { userId: number } | null = null;
   if (parentId !== undefined && parentId !== null) {
     const parent = await prisma.comment.findUnique({
       where: { id: parentId },
@@ -102,8 +102,11 @@ export async function createComment(
     if (!parent || parent.postId !== postId || parent.status !== 1) {
       throw new ValidationError('父评论不存在或不属于当前帖子');
     }
-    parentRef = { userId: parent.userId, postUserId: postId };
+    parentRef = { userId: parent.userId };
   }
+  // 帖子作者：@提及排除集需要真实作者 userId（作者已收到「评论了你的帖子」，不再重复发提及通知）
+  const postAuthor = await prisma.post.findUnique({ where: { id: postId }, select: { userId: true } });
+  const postAuthorId = postAuthor?.userId ?? null;
   // 敏感词前置检测
   if (sensitiveWordService.checkText(text)) {
     throw new SensitiveWordError();
@@ -124,10 +127,11 @@ export async function createComment(
     prisma.post.update({ where: { id: postId }, data: { commentCount: { increment: 1 } } }),
   ]);
   // 触发通知：评论完成后通知帖子作者（自己评自己不发；失败不影响主流程）
-  notifyOnComment(postId, userId).catch(() => {});
+  // 带 comment.id：点通知可精准定位到这条评论
+  notifyOnComment(postId, userId, comment.id).catch(() => {});
   // 楼中楼回复：额外通知被回复的评论作者（排除自己/帖子作者重复；失败不影响主流程）
   if (parentRef !== null) {
-    notifyOnCommentReply(postId, userId, parentRef).catch(() => {});
+    notifyOnCommentReply(postId, userId, parentRef.userId, comment.id).catch(() => {});
   }
   // 评论内容 @提及：显式选择（编辑器 @ 面板，精确 userId）优先，重名用户不会被误@；
   // 未提供显式列表时通知回退按昵称解析（兼容老客户端/手输场景）。
@@ -143,17 +147,23 @@ export async function createComment(
       // 提及解析失败不阻断评论主流程（通知缺失可接受）
     }
   }
-  notifyCommentMentions(postId, userId, text, commentNotifyExcludes(userId, parentRef), explicitMentionRefs).catch(() => {});
+  notifyCommentMentions(postId, comment.id, userId, text, commentNotifyExcludes(userId, postAuthorId, parentRef), explicitMentionRefs).catch(() => {});
   // 评论数变化 → 热度信号增量更新
   bumpHotScore(postId).catch(() => {});
   return comment;
 }
 
 // @提及排除集：自己 + 帖子作者 + 被回复的评论作者（避免与 comment/reply 通知重复打扰）
-function commentNotifyExcludes(actorId: number, parentRef: { userId: number; postUserId: number } | null): ReadonlySet<number> {
+function commentNotifyExcludes(
+  actorId: number,
+  postAuthorId: number | null,
+  parentRef: { userId: number } | null
+): ReadonlySet<number> {
   const set = new Set<number>([actorId]);
+  if (postAuthorId !== null) {
+    set.add(postAuthorId);
+  }
   if (parentRef !== null) {
-    set.add(parentRef.postUserId);
     set.add(parentRef.userId);
   }
   return set;

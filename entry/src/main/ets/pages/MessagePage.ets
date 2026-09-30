@@ -9,7 +9,7 @@
 
 import { NotificationItem, NotificationType, Conversation } from '../models/types';
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import { openChat, openPostDetail, openUserProfile } from '../utils/nav';
+import { openChat, openPostDetail, openPostDetailAtComment, openUserProfile } from '../utils/nav';
 import {
   listNotifications,
   getUnreadCount,
@@ -434,6 +434,7 @@ export struct MessagePage {
           type: cur.type,
           actor: cur.actor,
           postId: cur.postId,
+          commentId: cur.commentId,
           content: cur.content,
           read: true,
           pinned: cur.pinned ?? false,
@@ -464,7 +465,8 @@ export struct MessagePage {
       // 用后端权威未读数校正（本地乐观可能与服务器有偏差）
       this.refreshUnread();
     }
-    // 点击单条跳转：新增关注 → 该用户（actor）主页；带 postId 的通知（赞/收藏/评论）→ 原帖详情
+    // 点击单条跳转：新增关注 → 该用户（actor）主页；带 postId 的通知（赞/收藏/评论）→ 原帖详情，
+    // 带 commentId 的（@提及）→ 详情页滚动定位到该评论并高亮
     // （举报中心类通知已从普通行收敛为上方常驻入口，跳转见 onReportCenterClick）
     if (item.type === 'follow' && item.actor !== undefined && item.actor !== null && item.actor.id) {
       openUserProfile(item.actor.id);
@@ -472,7 +474,12 @@ export struct MessagePage {
       return;
     }
     if (item.postId !== undefined && item.postId !== null) {
-      openPostDetail(String(item.postId));
+      const cid: number | null | undefined = item.commentId;
+      if (cid !== undefined && cid !== null && cid > 0) {
+        openPostDetailAtComment(String(item.postId), cid);
+      } else {
+        openPostDetail(String(item.postId));
+      }
       this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
     }
   }
@@ -638,6 +645,7 @@ export struct MessagePage {
           type: cur.type,
           actor: cur.actor,
           postId: cur.postId,
+          commentId: cur.commentId,
           content: cur.content,
           read: true,
           pinned: cur.pinned ?? false,

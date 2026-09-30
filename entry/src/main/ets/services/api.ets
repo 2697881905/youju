@@ -455,9 +455,22 @@ export async function cancelUpComment(id: number): Promise<void> {
   await api.del<null>('/v1/comments/' + id + '/up');
 }
 
-// 华为推送（HMS Push）设备 Token 注册：本期（v1.0.0）未接线，计划下一版本实现。
-// 届时恢复 registerPushToken(token, deviceId) → POST /v1/push/register，并在登录成功/冷启动处调用；
-// 后端路由（routes/push.ts）与 huaweiPush 服务已就绪，缺的只是客户端取 token 并上报这一步。
+// ===== 华为推送（Push Kit）设备 Token =====
+interface PushTokenBody {
+  token: string;
+}
+
+// POST /v1/push/register：上报本机推送 Token 并绑定到当前账号。
+// 同一 token 会被后端迁移归属（换号登录时先解绑他人再绑定自己），重复上报幂等。
+export async function registerPushToken(token: string): Promise<void> {
+  const body: PushTokenBody = { token: token };
+  await api.post<null>('/v1/push/register', body);
+}
+
+// DELETE /v1/push/token：登出/注销前解绑，避免继续给本机下发他人动态通知。
+export async function unregisterPushToken(token: string): Promise<void> {
+  await api.del<null>('/v1/push/token?token=' + encodeURIComponent(token));
+}
 
 // ===== 互动 =====
 // POST/DELETE /v1/posts/:id/up

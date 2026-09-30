@@ -203,8 +203,9 @@ model Notification {
   id        Int      @id @default(autoincrement())
   userId    Int      // 接收者（被通知人）
   actorId   Int?     // 触发者（系统消息为 null）
-  type      String   @db.VarChar(20)   // 'comment' | 'up' | 'bookmark' | 'follow' | 'system'
+  type      String   @db.VarChar(20)   // 'comment' | 'up' | 'bookmark' | 'follow' | 'mention' | 'system'
   postId    Int?     // 关联帖子（系统消息为 null）
+  commentId Int?     // 关联评论（@提及通知用：点击定位到该评论；其余类型为 null）
   content   String   @db.VarChar(255)  // 服务端预渲染展示文案
   read      Boolean  @default(false)
   pinned    Boolean  @default(false)   // 置顶（举报受理/审核通知等系统重要消息，列表恒在最前）

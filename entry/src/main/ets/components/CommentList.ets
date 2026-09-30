@@ -10,9 +10,17 @@ import { getUserId, getCurrentUser } from '../utils/auth';
 import { Avatar } from '../design/components/Avatar';
 import { HighlightedText } from './HighlightedText';
 
+// 评论锚点 id：详情页「通知 → 跳转到具体评论」按 id 量矩形并滚动定位。
+// 单一出处：CommentList（挂 id）与 PostDetailView（取矩形）共用，防止命名漂移。
+export function commentAnchorId(id: number): string {
+  return 'detail_cmt_' + id;
+}
+
 @Component
 export struct CommentList {
   @Prop comments: Comment[] = [];
+  // 待定位评论 id（>0 时该条短暂高亮；由详情页滚动到位后置位、延时清除）
+  @Prop highlightCommentId: number = 0;
   // 举报回调（由 DetailPage 传入，打开 ReportDialog）
   reportCommentHandler: (commentId: number) => void = (_id: number) => {};
   // P1-1 楼中楼：点击评论下「回复」时上报该评论（上层构建回复目标）
@@ -68,6 +76,11 @@ export struct CommentList {
       return true;
     }
     return false;
+  }
+
+  // 该条是否为「通知跳转定位」的目标评论（短暂高亮）
+  private isHighlighted(c: Comment): boolean {
+    return c.id !== undefined && this.highlightCommentId > 0 && c.id === this.highlightCommentId;
   }
 
   // 取评论当前展示点赞数（优先本地乐观态）
@@ -328,6 +341,9 @@ export struct CommentList {
     }
     .width('100%')
     .alignItems(VerticalAlign.Top)
+    .backgroundColor(this.isHighlighted(r) ? $r('app.color.ds_brand_tint') : Color.Transparent)
+    .borderRadius(8)
+    .id(commentAnchorId(r.id ?? 0))
   }
 
   build() {
@@ -401,6 +417,9 @@ export struct CommentList {
             }
             .width('100%')
             .alignItems(HorizontalAlign.Start)
+            .backgroundColor(this.isHighlighted(c) ? $r('app.color.ds_brand_tint') : Color.Transparent)
+            .borderRadius(10)
+            .id(commentAnchorId(c.id ?? 0))
           },
           (c: Comment) => c.id?.toString() ?? ''
         )

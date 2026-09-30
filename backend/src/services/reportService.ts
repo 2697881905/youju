@@ -97,6 +97,8 @@ export async function createReport(
   let targetExists = false;
   let targetUserId = 0;
   let targetTitle = '';
+  // 评论目标的所属帖子 id：评论类系统通知带上「帖子 + 评论」以便点击精准定位
+  let targetCommentPostId: number | null = null;
 
   if (params.targetType === 'post') {
     const post = await prisma.post.findUnique({
@@ -127,7 +129,7 @@ export async function createReport(
   } else {
     const comment = await prisma.comment.findUnique({
       where: { id: params.targetId },
-      select: { id: true, userId: true, content: true },
+      select: { id: true, userId: true, content: true, postId: true },
     });
     if (!comment) {
       const err = new Error('评论不存在');
@@ -136,6 +138,7 @@ export async function createReport(
     }
     targetExists = true;
     targetUserId = comment.userId;
+    targetCommentPostId = comment.postId;
   }
 
   // 3. 创建举报、递增计数与自动下架必须原子完成，避免留下不可重试的半状态。
@@ -216,11 +219,13 @@ export async function createReport(
         true
       ).catch(() => {});
     } else {
+      // 评论类：带「所属帖子 + 评论 id」，点击通知可精准定位到该评论（下架态不可见时退回帖子顶部）
       await notifySystem(
         targetUserId,
         '你的评论因被举报正在审核中',
-        null,
-        true
+        targetCommentPostId,
+        true,
+        params.targetId
       ).catch(() => {});
     }
   }
@@ -265,6 +270,8 @@ export async function resolveReportsByTarget(
     let authorId = 0;
     let title = '';
     let notifyPostId: number | null = null;
+    // 评论目标的评论 id：系统通知带上「帖子 + 评论」，点击精准定位到该条评论
+    let notifyCommentId: number | null = null;
     let isContent = false;
     let contentStatus = 1;
     if (targetType === 'post') {
@@ -294,6 +301,7 @@ export async function resolveReportsByTarget(
       }
       authorId = comment.userId ?? 0;
       notifyPostId = comment.postId;
+      notifyCommentId = comment.id;
       isContent = true;
       contentStatus = comment.status;
     } else {
@@ -367,6 +375,7 @@ export async function resolveReportsByTarget(
       authorId,
       title,
       notifyPostId,
+      notifyCommentId,
       isContent,
       restored,
       reporterIds: reporterRows.map((r) => r.reporterId),
@@ -380,10 +389,10 @@ export async function resolveReportsByTarget(
     if (action === 'resolved') {
       const base = targetType === 'post' ? `你的帖子《${outcome.title}》未通过审核` : '你的评论未通过审核';
       const content = trimmedReason.length > 0 ? `${base}，原因：${trimmedReason}` : base;
-      await notifySystem(outcome.authorId, content, outcome.notifyPostId).catch(() => {});
+      await notifySystem(outcome.authorId, content, outcome.notifyPostId, undefined, outcome.notifyCommentId).catch(() => {});
     } else if (outcome.restored) {
       const content = targetType === 'post' ? `你的帖子《${outcome.title}》已通过审核` : '你的评论已通过审核';
-      await notifySystem(outcome.authorId, content, outcome.notifyPostId).catch(() => {});
+      await notifySystem(outcome.authorId, content, outcome.notifyPostId, undefined, outcome.notifyCommentId).catch(() => {});
     }
   }
   // 2b. 举报人：成立/驳回都告知「已处理」（不透露结论）；restore 不涉及举报流转 → 不发；
@@ -393,7 +402,7 @@ export async function resolveReportsByTarget(
       if (rid === outcome.authorId) {
         continue;
       }
-      await notifySystem(rid, '你的举报已处理', outcome.notifyPostId).catch(() => {});
+      await notifySystem(rid, '你的举报已处理', outcome.notifyPostId, undefined, outcome.notifyCommentId).catch(() => {});
     }
   }
 

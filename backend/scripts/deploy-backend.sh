@@ -82,6 +82,17 @@ fi
 # --- 清理可能残留的临时容器 ---
 docker rm -f "${TMP_CONTAINER}" >/dev/null 2>&1 || true
 
+# --- Push Kit 服务账号凭据（含 RSA 私钥）：不入镜像，运行时只读挂载 ---
+# 文件不存在时跳过挂载 —— 若照挂，docker 会把挂点建成一个空目录，
+# 进程读到的就不是密钥，推送会静默降级且没有任何报错（日志里只有「读取凭据失败」）。
+PUSH_SA_MOUNT=""
+if [ -f agc-service-account.json ]; then
+  PUSH_SA_MOUNT="-v $(pwd)/agc-service-account.json:/app/agc-service-account.json:ro"
+  echo "挂载推送凭据：agc-service-account.json"
+else
+  echo "提示：未找到 agc-service-account.json，本次部署后推送仍不可用（通知照常落库）"
+fi
+
 # --- 起新容器（临时名）。旧容器继续对外服务，此时两个容器同时在网内 ---
 echo "启动新容器：${TMP_CONTAINER}"
 docker run -d --name "${TMP_CONTAINER}" \
@@ -89,6 +100,7 @@ docker run -d --name "${TMP_CONTAINER}" \
   --network "${NET}" \
   --memory 1g \
   --env-file .env \
+  ${PUSH_SA_MOUNT} \
   -e NODE_OPTIONS=--max-old-space-size=512 \
   "${IMAGE}" >/dev/null
 

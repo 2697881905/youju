@@ -1,6 +1,6 @@
-// 华为推送 Token 注册路由（POST /v1/push/register）
-// ⚠️ 现状（v1.0.0）：后端已就绪，但客户端尚未接线（api.ets 的 registerPushToken 本期未启用），
-// 因此实际不会有 token 落库、系统推送不会到达；计划下一版本在登录/冷启动处补上 token 上报。
+// 华为推送 Token 注册路由（POST /v1/push/register、DELETE /v1/push/token）
+// 客户端在登录成功 / 冷启动会话恢复后调用 getToken() 取设备 Token 并上报；
+// 登出或注销账号前调用 DELETE 解绑，避免给已登出的设备继续下发他人动态通知。
 import { Router, Response } from 'express';
 import { ok, fail, internalError, CODE } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
@@ -32,6 +32,22 @@ router.post('/push/register', auth, asyncHandler(async (req: AuthRequest, res: R
     return ok(res, null, '已注册');
   } catch (e) {
     return internalError(res, 'push.register', e);
+  }
+}));
+
+// 解绑推送 Token：DELETE /v1/push/token?token=xxx
+// token 走 query 而非 body：HarmonyOS 的 http DELETE 带 body 行为不稳定，且无需额外校验。
+// 只删自己的记录（多设备互不干扰）；token 为空视为已解绑，返回成功保证登出流程不被卡住。
+router.delete('/push/token', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const t = typeof req.query.token === 'string' ? req.query.token.trim() : '';
+  if (t === '') {
+    return ok(res, null, '已解绑');
+  }
+  try {
+    await prisma.pushToken.deleteMany({ where: { token: t, userId: req.userId! } });
+    return ok(res, null, '已解绑');
+  } catch (e) {
+    return internalError(res, 'push.unregister', e);
   }
 }));
 

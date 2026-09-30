@@ -1,85 +1,167 @@
+import { sign, constants } from 'crypto';
+import { readFileSync } from 'fs';
 import { prisma } from '../prisma';
 import { env } from '../config/env';
 
-// 华为推送服务客户端（Push Kit）。
+// 华为推送服务客户端（Push Kit REST API v3）。
 // 设计：凭证缺失时整体降级为 no-op，绝不阻断主流程 —— 通知仍正常落库，只是不弹系统推送。
-// 真实设备推送需在 AGC 开启「推送服务」并配置对应应用 APP ID / APP SECRET（见 env.huaweiPush）。
+//
+// ⚠️ 协议口径（与旧版 Android HMS Push 完全不同，别混用）：
+//   URL     POST https://push-api.cloud.huawei.com/v3/{projectId}/messages:send
+//   Header  Authorization: Bearer <服务账号 JWT>   push-type: 0
+//   Body    payload.notification / target.token / pushOptions
+//   HarmonyOS 5 起已废弃 OAuth 2.0 client_credentials 鉴权，必须使用服务账号 JWT。
 
-interface CachedToken {
+// 通知点击后透传给客户端的业务数据（落 want.parameters，客户端据此自行跳转）
+export interface PushMessageData {
+  type?: string;
+  postId?: number | null;
+  // 关联评论 id：客户端点推送后定位到具体评论（见前端 utils/push.ets PushRoute）
+  commentId?: number | null;
+  nid?: number;
+}
+
+interface ServiceAccountCreds {
+  projectId: string;
+  keyId: string;
+  privateKey: string;
+  subAccount: string;
+  tokenUri: string;
+}
+
+interface CachedJwt {
   token: string;
   expireAt: number; // 毫秒时间戳
 }
 
-let cachedToken: CachedToken | null = null;
+const DEFAULT_TOKEN_URI = 'https://oauth-login.cloud.huawei.com/oauth2/v3/token';
+// 单次下发最多携带 1000 个 Push Token（超出会被服务端拒绝）
+const MAX_TOKENS_PER_SEND = 1000;
 
-// 是否已配置推送凭证（前端调用前可据此跳过注册）
+// 凭据读取结果缓存：undefined = 尚未读取，null = 读取失败（后续不再重试，避免每次推送都读盘/报错）
+let credsCache: ServiceAccountCreds | null | undefined = undefined;
+let jwtCache: CachedJwt | null = null;
+
+function base64Url(input: Buffer | string): string {
+  const buf: Buffer = typeof input === 'string' ? Buffer.from(input, 'utf8') : input;
+  return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+// 读取 AGC 服务账号凭据文件。私钥不入库，只走本地文件路径。
+function loadCreds(): ServiceAccountCreds | null {
+  if (credsCache !== undefined) {
+    return credsCache;
+  }
+  const cfg = env.huaweiPush;
+  if (cfg.projectId === '') {
+    console.warn('[huaweiPush] HUAWEI_PUSH_PROJECT_ID 未配置，推送降级为 no-op');
+    credsCache = null;
+    return null;
+  }
+  try {
+    const raw = JSON.parse(readFileSync(cfg.serviceAccountPath, 'utf8')) as Record<string, string>;
+    const keyId: string = raw['key_id'] ?? '';
+    const privateKey: string = raw['private_key'] ?? '';
+    const subAccount: string = raw['sub_account'] ?? '';
+    if (keyId === '' || privateKey === '' || subAccount === '') {
+      throw new Error('凭据文件缺少 key_id / private_key / sub_account');
+    }
+    credsCache = {
+      projectId: raw['project_id'] || cfg.projectId,
+      keyId,
+      privateKey,
+      subAccount,
+      tokenUri: raw['token_uri'] || DEFAULT_TOKEN_URI,
+    };
+    return credsCache;
+  } catch (e) {
+    console.warn(`[huaweiPush] 读取服务账号凭据失败（${cfg.serviceAccountPath}）：${(e as Error).message}`);
+    credsCache = null;
+    return null;
+  }
+}
+
+// 是否已具备推送条件（供上层判断是否跳过无用调用）
 export function isPushConfigured(): boolean {
-  return env.huaweiPush.appId !== '' && env.huaweiPush.appSecret !== '';
+  return loadCreds() !== null;
 }
 
-// 获取华为推送 access_token（client_credentials），内存缓存至过期前 5 分钟
-async function getAccessToken(): Promise<string> {
-  const now = Date.now();
-  if (cachedToken && cachedToken.expireAt > now) {
-    return cachedToken.token;
-  }
-  const { appId, appSecret, tokenUrl } = env.huaweiPush;
-  const body = new URLSearchParams({
-    grant_type: 'client_credentials',
-    client_id: appId,
-    client_secret: appSecret,
+// 生成服务账号鉴权 JWT：PS256（SHA256withRSA/PSS），Header 带 kid，Payload 带 iss/aud/iat/exp。
+// 注意是 PSS 填充而非 PKCS#1 v1.5 —— 用错会在调用 REST API 时返回鉴权失败。
+function createJwt(c: ServiceAccountCreds): string {
+  const iat: number = Math.floor(Date.now() / 1000);
+  const exp: number = iat + 3600;
+  const header: string = base64Url(JSON.stringify({ kid: c.keyId, typ: 'JWT', alg: 'PS256' }));
+  const payload: string = base64Url(JSON.stringify({ aud: c.tokenUri, iss: c.subAccount, exp, iat }));
+  const signingInput: string = `${header}.${payload}`;
+  const signature: Buffer = sign('sha256', Buffer.from(signingInput, 'utf8'), {
+    key: c.privateKey,
+    padding: constants.RSA_PKCS1_PSS_PADDING,
+    saltLength: constants.RSA_PSS_SALTLEN_DIGEST,
   });
-  const resp = await fetch(tokenUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
-  });
-  if (!resp.ok) {
-    throw new Error(`华为推送鉴权失败: ${resp.status}`);
-  }
-  const data = (await resp.json()) as { access_token?: string; expires_in?: number };
-  if (!data.access_token) {
-    throw new Error('华为推送鉴权返回无 access_token');
-  }
-  // expires_in 单位秒，提前 5 分钟过期以留余量
-  const ttl = (data.expires_in ?? 3600) * 1000 - 5 * 60 * 1000;
-  cachedToken = { token: data.access_token, expireAt: now + ttl };
-  return data.access_token;
+  return `${signingInput}.${base64Url(signature)}`;
 }
 
-// 向一组设备 token 下发通知（单次上限 1000 个，超出由调用方分批）
-async function sendToTokens(tokens: string[], title: string, body: string): Promise<void> {
-  const { appId, apiUrl } = env.huaweiPush;
-  const accessToken = await getAccessToken();
-  const payload = {
-    validate_only: false,
-    message: {
-      token: tokens,
-      notification: { title, body },
-      android: {
-        notification: {
-          // type=1：点击通知打开应用（AGC 可进一步配置 deepLink 直达具体页）
-          click_action: { type: 1 },
+// 取可用的 Bearer 令牌（JWT 本身），JWT 有效期 1 小时，缓存至剩余 5 分钟时重建
+function getAuthToken(creds: ServiceAccountCreds): string {
+  if (jwtCache !== null && jwtCache.expireAt > Date.now()) {
+    return jwtCache.token;
+  }
+  const token: string = createJwt(creds);
+  jwtCache = { token, expireAt: Date.now() + 55 * 60 * 1000 };
+  return token;
+}
+
+// 向一批设备 token 下发通知消息（上限 1000 个，超出由调用方分批）
+async function sendToTokens(
+  tokens: string[],
+  title: string,
+  body: string,
+  data: PushMessageData,
+): Promise<void> {
+  const creds: ServiceAccountCreds | null = loadCreds();
+  if (creds === null) {
+    return;
+  }
+  const cfg = env.huaweiPush;
+  const reqBody = {
+    payload: {
+      notification: {
+        category: cfg.category,
+        title,
+        body,
+        clickAction: {
+          // actionType 0 = 打开应用首页。业务路由走 data 透传：客户端在
+          // UIAbility 的 onCreate / onNewWant 里读 want.parameters 后自行跳转，
+          // 无需在 module.json5 配 skills / uris（配错反而点不开）。
+          actionType: 0,
+          data,
         },
       },
     },
+    target: { token: tokens },
+    pushOptions: {
+      ttl: cfg.ttl,
+      // 调测消息：true 时不受「未申请自分类权益的单设备每日 2 条」频控限制。生产务必为 false。
+      testMessage: cfg.testMessage,
+    },
   };
-  const resp = await fetch(`${apiUrl}/v1/${appId}/messages:send`, {
+  const resp = await fetch(`${cfg.apiUrl}/v3/${cfg.projectId}/messages:send`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: `Bearer ${getAuthToken(creds)}`,
+      'push-type': '0',
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(reqBody),
   });
   if (!resp.ok) {
-    const text = await resp.text();
+    const text: string = await resp.text();
     throw new Error(`华为推送下发失败: ${resp.status} ${text}`);
   }
 }
 
-// 给某用户的所有设备下发推送（无 token / 未配置时静默返回，失败仅记录不抛出）
-// 成功/失败均落 PushLog 审计（token 脱敏存储）
+// token 脱敏后落库，避免 PushLog 里存明文设备地址
 function maskToken(token: string): string {
   if (token.length <= 16) {
     return token.substring(0, 6) + '…';
@@ -87,7 +169,14 @@ function maskToken(token: string): string {
   return token.substring(0, 8) + '…' + token.substring(token.length - 8);
 }
 
-export async function pushToUser(userId: number, title: string, body: string): Promise<void> {
+// 给某用户的所有设备下发推送（无 token / 未配置时静默返回，失败仅记录不抛出）
+// 成功/失败均落 PushLog 审计。
+export async function pushToUser(
+  userId: number,
+  title: string,
+  body: string,
+  data: PushMessageData = {},
+): Promise<void> {
   if (!isPushConfigured()) return;
   try {
     const rows = await prisma.pushToken.findMany({
@@ -95,18 +184,29 @@ export async function pushToUser(userId: number, title: string, body: string): P
       select: { token: true },
     });
     if (rows.length === 0) return;
-    const list = rows.map((r) => r.token);
-    for (let i = 0; i < list.length; i += 1000) {
-      const batch = list.slice(i, i + 1000);
-      const logRows = batch.map((token) => ({ userId, token: maskToken(token), title, body: body ?? null, data: undefined, status: 'sent' as string, error: null as string | null }));
+    const list: string[] = rows.map((r) => r.token);
+    // PushLog.data 是 Json 列：Prisma 的 InputJsonValue 不接受 Record<string, unknown>，
+    // 用 JSON 往返得到可赋值的结构（顺带保证落库内容一定可序列化）。
+    const logData = JSON.parse(JSON.stringify(data));
+    for (let i = 0; i < list.length; i += MAX_TOKENS_PER_SEND) {
+      const batch: string[] = list.slice(i, i + MAX_TOKENS_PER_SEND);
+      const logRows = batch.map((token) => ({
+        userId,
+        token: maskToken(token),
+        title,
+        body,
+        data: logData,
+        status: 'sent' as string,
+        error: null as string | null,
+      }));
       try {
-        await sendToTokens(batch, title, body);
+        await sendToTokens(batch, title, body, data);
         await prisma.pushLog.createMany({ data: logRows }).catch(() => {});
       } catch (e) {
-        const err = String((e as Error).message ?? e).slice(0, 500);
-        await prisma.pushLog.createMany({
-          data: logRows.map((r) => ({ ...r, status: 'failed', error: err })),
-        }).catch(() => {});
+        const err: string = String((e as Error).message ?? e).slice(0, 500);
+        await prisma.pushLog
+          .createMany({ data: logRows.map((r) => ({ ...r, status: 'failed', error: err })) })
+          .catch(() => {});
       }
     }
   } catch (e) {

@@ -4,6 +4,7 @@ import { window } from '@kit.ArkUI';
 import settings from '@ohos.settings';
 import { initNavModeWatcher, refreshNavMode, refreshBottomNavInset } from '../utils/navMode';
 import { initThemeContext, loadThemeFromPrefs, applyLaunchTheme, applySystemFollowMode, isDarkMode } from '../utils/theme';
+import { enqueuePushRoute, readPushRoute } from '../utils/push';
 
 const DOMAIN = 0x0000;
 
@@ -18,7 +19,25 @@ export default class EntryAbility extends UIAbility {
     // 统一由 applyLaunchTheme 应用主题：跟随系统时显式交还系统接管，
     // 清除历史残留的强制模式，避免与 isDarkMode 标记错位（浅色 app + 深色底栏）。
     applyLaunchTheme();
+    // 冷启动可能来自「点击通知」：把服务端透传的路由意图落盘，等 Index 就绪后消费跳转。
+    this.consumePushWant(want);
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onCreate');
+  }
+
+  // 应用已在前台/后台存活时点击通知走这里（单实例模式）。不重走 onCreate，
+  // 只更新待处理路由信号，由 Index 的监听回调消费。
+  onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam): void {
+    this.consumePushWant(want);
+    hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onNewWant');
+  }
+
+  // 取出的推送意图写入 AppStorage 并递增序号。非推送来源（普通冷启动）时 readPushRoute 返回 null。
+  private consumePushWant(want: Want): void {
+    const route = readPushRoute(want);
+    if (route === null) {
+      return;
+    }
+    enqueuePushRoute(route);
   }
 
   onConfigurationUpdate(newConfig: Configuration): void {

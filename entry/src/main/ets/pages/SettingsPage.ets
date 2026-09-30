@@ -2,6 +2,7 @@
 // 覆盖全部设置功能：编辑资料、账号绑定、内容审核台、拉黑管理、数据导出、隐私设置、通知设置、清除缓存、关于、隐私政策。
 
 import { getIsAdmin, clearSession, getUserId } from '../utils/auth';
+import { clearPushToken } from '../utils/push';
 import { deactivateAccount, clearSearchHistory, exportUserData } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 import { toggleDarkMode, setFollowSystem } from '../utils/theme';
@@ -79,6 +80,9 @@ export struct SettingsPage {
       secondaryButton: {
         value: '确定退出', fontColor: $r('app.color.semantic_red'),
         action: (): void => {
+          // 先解绑推送 Token：解绑请求依赖鉴权 Header，必须在 clearSession 之前发出。
+          // 失败也不阻断登出（内部已兜底），最多残留旧绑定，换号登录时会随 register 迁移。
+          clearPushToken();
           clearSession();
           AppStorage.setOrCreate('authIsAdmin', false);
           safeShowToast(this.getUIContext(), { message: '已退出登录' });
@@ -108,6 +112,7 @@ export struct SettingsPage {
   private async doDeactivate(): Promise<void> {
     try {
       await deactivateAccount();
+      clearPushToken();
       clearSession();
       AppStorage.setOrCreate('authIsAdmin', false);
       safeShowToast(this.getUIContext(), { message: '账号已注销' });
@@ -280,6 +285,11 @@ export struct SettingsPage {
               .layoutWeight(1)
               Toggle({ type: ToggleType.Switch, isOn: this.followSystem })
                 .onChange((on: boolean): void => {
+                  // isOn 程序化变更（AppStorage 链接回写）同样会回派 onChange：
+                  // 值与应用内当前状态一致即为回声，过滤掉，避免重复落盘/重置判重标记。
+                  if (on === this.followSystem) {
+                    return;
+                  }
                   setFollowSystem(on);
                 })
             }
@@ -309,6 +319,14 @@ export struct SettingsPage {
                 .enabled(!this.followSystem)
                 .opacity(!this.followSystem ? 1 : 0.4)
                 .onChange((on: boolean): void => {
+                  // 关键：isDarkMode 会随系统深浅变化被程序化改写，而 ArkUI 对程序化
+                  // 变更（含开关禁用态）同样回派 onChange。若不拦截，toggleDarkMode 会把
+                  // 应用钉成显式颜色模式（setColorMode），此后系统深浅切换不再派发
+                  // onConfigurationUpdate —— 表现为「只有第一次跟随系统生效，再改需杀进程」。
+                  // 仅当跟随系统关闭、且确为用户手势（值≠应用内当前状态）时才真正切换。
+                  if (this.followSystem || on === this.darkMode) {
+                    return;
+                  }
                   toggleDarkMode(on);
                 })
             }

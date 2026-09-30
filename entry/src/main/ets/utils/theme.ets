@@ -15,10 +15,14 @@ const KEY_IS_DARK = 'isDarkMode';
 let _appContext: common.ApplicationContext | null = null;
 let _prefs: preferences.Preferences | null = null;
 
-// 最近一次显式应用的颜色模式（防 setColorMode → onConfigurationUpdate 回派 → setColorMode 死循环。
+// 最近一次应用的颜色模式（防 setColorMode → onConfigurationUpdate 回派 → setColorMode 死循环。
 // API24 上 setColorMode 每次调用都会回派一次配置回调，须按值去重才可终止递归）。
-const COLOR_MODE_NONE: number = -1;
-let _lastAppliedMode: number = COLOR_MODE_NONE;
+// 哨兵值必须与 COLOR_MODE_NOT_SET(-1) 区分开：两者同值会造成两个坏结果 ——
+// 1) 启动时「交还系统」（NOT_SET）被当成重复应用而跳过；
+// 2) setColorMode 失败回退记账到哨兵后，后续所有 NOT_SET 目标被永久跳过，
+//    应用被钉在旧的显式模式上（系统深浅切换不再派发回调，需杀进程才恢复）。
+const COLOR_MODE_UNSET: number = -999;
+let _lastAppliedMode: number = COLOR_MODE_UNSET;
 
 // 上次看到的系统深浅（用于识别「系统真正切换」而非 setColorMode 回派的同值回调）
 let _lastSysDark: boolean | null = null;
@@ -34,7 +38,7 @@ function applyMode(colorMode: number): void {
     _appContext.setColorMode(colorMode);
   } catch (e) {
     // setColorMode 失败：回退记账，允许下次相同目标重试
-    _lastAppliedMode = COLOR_MODE_NONE;
+    _lastAppliedMode = COLOR_MODE_UNSET;
   }
 }
 
