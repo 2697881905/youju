@@ -194,7 +194,9 @@ export interface StructuredFieldPair {
   essential: boolean;
 }
 
-export function structuredFieldPairs(data: StructuredData | undefined, genre?: Genre): StructuredFieldPair[] {
+// 入参含 null：后端 JSON 把缺失字段序列化成 null（不是 undefined），类型上必须一并声明，
+// 否则调用方（Post.structuredData）在改类型后不兼容，且 null 会被误当成「有值」。
+export function structuredFieldPairs(data: StructuredData | null | undefined, genre?: Genre): StructuredFieldPair[] {
   const out: StructuredFieldPair[] = [];
   if (data === undefined || data === null) {
     return out;
