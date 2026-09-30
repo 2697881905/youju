@@ -20,6 +20,7 @@ export interface CreateNotificationInput {
   actorId?: number | null; // 触发者（系统消息为 null）
   type: NotificationType;
   postId?: number | null;
+  commentId?: number | null; // 关联评论（@提及通知用于「点击定位到该评论」）
   content: string;
   pinned?: boolean; // 置顶（举报受理/审核等系统重要消息，列表恒在最前）
 }
@@ -31,6 +32,7 @@ export interface NotificationItem {
   actorId: number | null;
   type: string;
   postId: number | null;
+  commentId: number | null;
   content: string;
   read: boolean;
   pinned: boolean;
@@ -49,20 +51,27 @@ export async function createNotification(input: CreateNotificationInput): Promis
   const allowed = await isNotificationAllowed(input.userId, input.type);
   if (!allowed) return;
 
-  await prisma.notification.create({
+  const created = await prisma.notification.create({
     data: {
       userId: input.userId,
       actorId: input.actorId ?? null,
       type: input.type,
       postId: input.postId ?? null,
+      commentId: input.commentId ?? null,
       content: input.content,
       read: false,
       pinned: input.pinned ?? false,
     },
   });
 
-  // 华为推送：通知落库后下发系统推送（未配置凭证 / 无设备 token 时静默降级，绝不阻断）
-  pushToUser(input.userId, pushTitle(input.type), input.content).catch(() => {});
+  // 华为推送：通知落库后下发系统推送（未配置凭证 / 无设备 token 时静默降级，绝不阻断）。
+  // data 随通知点击透传回客户端（want.parameters），客户端据此跳详情页而非只开首页。
+  pushToUser(input.userId, pushTitle(input.type), input.content, {
+    type: input.type,
+    postId: input.postId ?? null,
+    commentId: input.commentId ?? null,
+    nid: created.id,
+  }).catch(() => {});
 }
 
 // 推送标题按通知类型本地化（正文复用预渲染 content）
@@ -170,6 +179,7 @@ export async function listForUser(
       actorId: n.actorId,
       type: n.type,
       postId: n.postId,
+      commentId: n.commentId,
       content: n.content,
       read: n.read,
       pinned: n.pinned,
@@ -210,11 +220,13 @@ export async function markAllRead(userId: number): Promise<number> {
 // ===== 安全触发辅助（供评论/互动服务调用，绝不阻断主流程） =====
 
 // 评论中 @提及：命中真实用户则发 mention 通知
+// commentId：被提及评论的 id，随通知落库（前端点通知据此定位到该评论）
 // excludeIds：自己/帖子作者/被回复的评论作者等已收过通知的对象，避免重复打扰
 // mentionRefs：编辑器显式选择（精确到 userId，调用方已用 resolveMentionRefs 校验）——
 //   提供时仅通知选择到的用户（重名用户不会被误@）；缺失时回退按昵称解析（兼容老客户端/手输场景）
 export async function notifyCommentMentions(
   postId: number,
+  commentId: number,
   actorId: number,
   content: string,
   excludeIds: ReadonlySet<number>,
@@ -237,6 +249,7 @@ export async function notifyCommentMentions(
         actorId,
         type: 'mention',
         postId,
+        commentId,
         content: `${nickname} 在评论中提到了你`,
       });
     }
@@ -264,13 +277,15 @@ export async function notifyCommentMentions(
       actorId,
       type: 'mention',
       postId,
+      commentId,
       content: `${nickname} 在评论中提到了你`,
     });
   }
 }
 
 // 评论：通知帖子作者（自己评论自己不发通知）
-export async function notifyOnComment(postId: number, actorId: number): Promise<void> {
+// commentId：新评论 id，随通知落库（点击通知精准定位到该条评论）
+export async function notifyOnComment(postId: number, actorId: number, commentId: number): Promise<void> {
   const post = await prisma.post.findUnique({ where: { id: postId }, select: { userId: true } });
   if (!post || post.userId === actorId) return;
   const actor = await prisma.user.findUnique({
@@ -283,28 +298,35 @@ export async function notifyOnComment(postId: number, actorId: number): Promise<
     actorId,
     type: 'comment',
     postId,
+    commentId,
     content: `${nickname} 评论了你的帖子`,
   });
 }
 
 // 楼中楼回复：通知被回复的评论作者（自己回复自己不发；
 // 若被回复人恰为帖子作者，则已有「评论了你的帖子」通知，不重复打扰）
+// commentId：新回复的 id，随通知落库（点击通知精准定位到该条回复）
 export async function notifyOnCommentReply(
   postId: number,
   actorId: number,
-  parent: { userId: number | null; postUserId: number }
+  parentUserId: number | null,
+  commentId: number
 ): Promise<void> {
-  if (parent.userId === null || parent.userId === actorId || parent.userId === parent.postUserId) return;
+  if (parentUserId === null || parentUserId === actorId) return; // 自己回复自己不发通知
+  // 被回复人是否即帖子作者：需查帖子真实作者（不能拿帖子 ID 比对）
+  const post = await prisma.post.findUnique({ where: { id: postId }, select: { userId: true } });
+  if (!post || post.userId === parentUserId) return; // 作者已有「评论了你的帖子」，不重复打扰
   const actor = await prisma.user.findUnique({
     where: { id: actorId },
     select: { nickname: true },
   });
   const nickname = actor?.nickname ?? '有人';
   await createNotification({
-    userId: parent.userId,
+    userId: parentUserId,
     actorId,
     type: 'comment',
     postId,
+    commentId,
     content: `${nickname} 回复了你的评论`,
   });
 }
@@ -332,7 +354,8 @@ export async function notifyOnInteract(
   });
 }
 
-// 评论点赞（顶评论）：通知评论作者（自己顶自己评论不发；postId 带上以便跳转定位）
+// 评论点赞（顶评论）：通知评论作者（自己顶自己评论不发）
+// postId + commentId 都带上：点击通知精准定位到该条评论
 export async function notifyOnCommentUp(commentId: number, actorId: number): Promise<void> {
   const comment = await prisma.comment.findUnique({
     where: { id: commentId },
@@ -349,6 +372,7 @@ export async function notifyOnCommentUp(commentId: number, actorId: number): Pro
     actorId,
     type: 'up',
     postId: comment.postId,
+    commentId,
     content: `${nickname} 赞了你的评论`,
   });
 }
@@ -371,11 +395,13 @@ export async function notifyOnFollow(receiverId: number, actorId: number): Promi
 // 系统通知（actorId=null, type='system'）
 // 用于：帖子被举报下架 → 通知作者；审核通过/拒绝 → 通知作者；举报处理完成 → 通知举报人。
 // pinned 为 true 时该通知在消息中心恒置顶（举报受理/审核等重要系统消息）。
+// commentId：评论类系统消息（评论被下架/审核结果/举报回执）的精准定位目标。
 export async function notifySystem(
   userId: number,
   content: string,
   postId?: number | null,
-  pinned?: boolean
+  pinned?: boolean,
+  commentId?: number | null
 ): Promise<void> {
   await createNotification({
     userId,
@@ -383,6 +409,7 @@ export async function notifySystem(
     type: 'system',
     content,
     postId: postId ?? null,
+    commentId: commentId ?? null,
     pinned: pinned ?? false,
   });
 }

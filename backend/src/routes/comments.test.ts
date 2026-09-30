@@ -60,6 +60,7 @@ jest.mock('../services/notificationService', () => ({
 
 import { prisma } from '../prisma';
 import { sensitiveWordService } from '../services/sensitiveWordService';
+import * as notificationService from '../services/notificationService';
 const mockPrisma = prisma as any;
 const mockCheckText = sensitiveWordService.checkText as jest.Mock;
 
@@ -197,6 +198,11 @@ describe('POST /v1/posts/:id/comments（评论）', () => {
         }),
       })
     );
+    // @提及/评论通知都必须携带「新评论 id」（88）：前端点通知据此定位到该评论
+    const mockMentions = notificationService.notifyCommentMentions as jest.Mock;
+    expect(mockMentions).toHaveBeenCalledWith(1, 88, TEST_USER_ID, '正常评论', expect.any(Set), undefined);
+    const mockNotifyComment = notificationService.notifyOnComment as jest.Mock;
+    expect(mockNotifyComment).toHaveBeenCalledWith(1, TEST_USER_ID, 88);
   });
 
   it('带 parentId 的楼中楼评论 → 200', async () => {
@@ -227,6 +233,10 @@ describe('POST /v1/posts/:id/comments（评论）', () => {
         }),
       })
     );
+    // 回复通知：第三个参数必须是「被回复评论的作者 userId」（fixture 中父评论 userId=2），而非帖子 ID；
+    // 第四个参数是新回复的评论 id（fixture 中 id=89），点击通知据此精准定位
+    const mockNotifyReply = notificationService.notifyOnCommentReply as jest.Mock;
+    expect(mockNotifyReply).toHaveBeenCalledWith(1, TEST_USER_ID, 2, 89);
   });
 
   it('私密帖子对其他用户不可评论', async () => {

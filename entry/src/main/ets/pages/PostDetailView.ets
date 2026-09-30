@@ -26,7 +26,7 @@ import { ReportDialog } from '../components/ReportDialog';
 import { FolderPickDialog } from '../components/FolderPickDialog';
 import { FolderNameDialog } from '../components/FolderNameDialog';
 import { PostStatsDialog } from '../components/PostStatsDialog';
-import { openUserProfile, openVideoPlayer, takePostDetailId, takePostDetailIntent, PostDetailIntent } from '../utils/nav';
+import { openUserProfile, openVideoPlayer, takePostDetailId, takePostDetailCommentId, takePostDetailIntent, PostDetailIntent } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 import { getUserId, getToken } from '../utils/auth';
 import { startGripTracking, stopGripTracking, KEY_GRIP_ON_RIGHT } from '../utils/gripAwareness';
@@ -49,6 +49,7 @@ import { VideoPlayer } from '../components/VideoPlayer';
 import { DetailPostHeader } from '../components/DetailPostHeader';
 import { DetailPostContent } from '../components/DetailPostContent';
 import { DetailCommentsSection } from '../components/DetailCommentsSection';
+import { commentAnchorId } from '../components/CommentList';
 import { DetailActionBar } from '../components/DetailActionBar';
 import { AtMentionSuggest } from '../components/AtMentionSuggest';
 import { findActiveAtMention, applyAtMention, AtMentionMatch } from '../utils/atMention';
@@ -73,6 +74,8 @@ export const DETAIL_HERO_ID: string = 'detailHeroMedia';
 // getFrameNodeById 会取到不确定节点。数据是异步的，转场开始那一刻只有壳，
 // 量不到真实 hero 就回退量这个壳占位（宽高由飞行目标框比例 flightAspect 决定，与真实 hero 一致）。
 export const DETAIL_HERO_SHELL_ID: string = 'detailHeroShellMedia';
+// 详情内容滚动视口 id：通知「跳转到具体评论」时量取视口矩形，换算滚动目标偏移
+const DETAIL_CONTENT_SCROLL_ID: string = 'detailContentScroll';
 
 
 // 底部互动使用不可变快照。每次替换顶层 @State，保证 ArkUI 当帧重新渲染计数和选中态。
@@ -133,6 +136,11 @@ export struct PostDetailView {
   @State postId: string = '';
   // 「一镜到底」意图：卡片进入时携带的展示快照（cover 非空才有一镜到底）
   @State intent: PostDetailIntent | null = null;
+  // 「通知 → 跳转到具体评论」：待定位评论 id（>0 时加载完滚动定位并短暂高亮）
+  @State targetCommentId: number = 0;
+  @State highlightCommentId: number = 0;
+  // 详情内容滚动器：定位评论时按目标偏移平滑滚动
+  private detailScroller: Scroller = new Scroller();
   @State post: PostWithComments | null = null;
   @State fields: StructuredFieldPair[] = [];
   @State images: string[] = [];
@@ -357,6 +365,8 @@ export struct PostDetailView {
     this.loadWindowInsets();
     this.intent = takePostDetailIntent();
     this.postId = takePostDetailId().trim();
+    // 通知「跳转到这条评论」：读取待定位评论 id（0 = 普通进入，不定位）
+    this.targetCommentId = takePostDetailCommentId();
     // 智感握姿：订阅握持手原始状态（holdingHandStatus），由本页派生 gripOnRight 并带过渡提交
     startGripTracking();
     // @StorageProp 初始化不触发 @Watch：进入页面时若系统已握持左手/右手
@@ -504,7 +514,62 @@ export struct PostDetailView {
       if (this.navMode && this.post !== null) {
         setTimeout((): void => { this.markHeroReady(); }, 900);
       }
+      // 通知「跳转到这条评论」：内容渲染后滚动定位（量测晚于数据赋值，方法内自带重试）
+      if (this.post !== null && this.targetCommentId > 0) {
+        this.locateTargetComment(0);
+      }
     }
+  }
+
+  // 通知「跳转到这条评论」：量取评论锚点与滚动视口矩形，换算目标偏移后平滑滚动，
+  // 并把该条短暂高亮。评论随详情接口一起返回，加载完成即可定位；组件量测晚于数据赋值，
+  // 按「320ms 起、失败重试 2 次」的节奏补偿；始终量不到（评论不在返回窗口内）则放弃，
+  // 停留在帖子顶部，与旧行为一致（不阻断、不报错）。
+  private locateTargetComment(attempt: number): void {
+    const cid: number = this.targetCommentId;
+    if (cid <= 0) {
+      return;
+    }
+    setTimeout((): void => {
+      // 目标已变（页面重载/二次跳转）→ 放弃本次定位，避免滚到错误位置
+      if (this.targetCommentId !== cid) {
+        return;
+      }
+      let deltaVp: number = Number.NaN;
+      try {
+        const utils = this.getUIContext().getComponentUtils();
+        const commentRect = utils.getRectangleById(commentAnchorId(cid));
+        const scrollRect = utils.getRectangleById(DETAIL_CONTENT_SCROLL_ID);
+        if (commentRect && scrollRect) {
+          deltaVp = this.getUIContext().px2vp(
+            (commentRect.windowOffset?.y ?? 0) - (scrollRect.windowOffset?.y ?? 0)
+          );
+        }
+      } catch (e) {
+        deltaVp = Number.NaN;
+      }
+      if (isNaN(deltaVp)) {
+        if (attempt < 2) {
+          this.locateTargetComment(attempt + 1);
+        }
+        return;
+      }
+      // 评论当前在视口内的相对偏移 + 已滚动量 = 目标绝对偏移；上留 12vp 呼吸空间
+      const target: number = Math.max(0, this.detailScroller.currentOffset().yOffset + deltaVp - 12);
+      this.detailScroller.scrollTo({
+        xOffset: 0,
+        yOffset: target,
+        animation: { duration: 360, curve: Curve.EaseOut },
+      });
+      this.targetCommentId = 0;
+      this.highlightCommentId = cid;
+      // 高亮只做「一眼定位」，随后撤下（瞬时切换，不做颜色动画）
+      setTimeout((): void => {
+        if (this.highlightCommentId === cid) {
+          this.highlightCommentId = 0;
+        }
+      }, 2600);
+    }, attempt === 0 ? 320 : 480);
   }
 
   // 账号切换/登出：已登录则重新加载本帖，以服务器为准校准点赞/收藏/投票态；
@@ -1491,7 +1556,7 @@ export struct PostDetailView {
         .justifyContent(FlexAlign.Center)
       } else if (this.post) {
         Stack({ alignContent: Alignment.Bottom }) {
-          Scroll() {
+          Scroll(this.detailScroller) {
             Column({ space: 16 }) {
               // 待审核横幅（作者查看自己 status=0 帖子时显示）
               if (this.post.status === 0 && this.post.userId === getUserId()) {
@@ -1546,6 +1611,7 @@ export struct PostDetailView {
               DetailCommentsSection({
                 comments: this.post.comments ?? [],
                 commentCount: this.post.commentCount ?? 0,
+                highlightCommentId: this.highlightCommentId,
                 onReportComment: (commentId: number): void => { this.openCommentReport(commentId); },
                 onReplyComment: (comment: Comment): void => { this.onReplyComment(comment); },
               })
@@ -1561,6 +1627,7 @@ export struct PostDetailView {
           }
           .width('100%')
           .height('100%')
+          .id(DETAIL_CONTENT_SCROLL_ID)
 
           // @提及候选 + 底部互动栏：评论输入态下输入「@昵称」时在栏上方弹候选，点选回填精确 userId
           Column() {

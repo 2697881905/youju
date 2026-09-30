@@ -21,6 +21,9 @@ backend/.env
 *.jks
 # AGC 配置含 client_secret/api_key（明文密钥，由 AGC 后台重新下载，勿入库）
 **/agconnect-services.json
+# Push Kit 服务账号凭据（含 RSA 私钥，用于签发 JWT；由 AGC 后台重新下载，勿入库）
+**/agc-service-account.json
+backend/keys/
 
 # 本地签名材料（含测试用 keystore/证书/描述文件，由 AGC 正式材料替换）
 entry/material/

@@ -41,6 +41,8 @@ export interface PostDetailIntent {
 
 let detailPostId: string = '';
 let postDetailIntent: PostDetailIntent | null = null;
+// 待定位评论 id（>0 = 详情页加载完成后滚动到该评论并高亮；0 = 普通打开）
+let detailCommentId: number = 0;
 let targetUserId: number = 0;
 let searchKeyword: string = '';
 let circleDetailName: string = '';
@@ -51,11 +53,25 @@ let videoPlayerIntent: VideoPlayerIntent | null = null;
 export function openPostDetail(id: string, intent?: PostDetailIntent): void {
   detailPostId = id;
   postDetailIntent = intent ?? null;
+  detailCommentId = 0; // 普通进入不定位评论（定位入口见 openPostDetailAtComment）
+}
+
+// 通知 →「跳转到具体某条评论」：沿用 openPostDetail 通道，额外记录待定位评论 id，
+// 详情页加载完评论后读取一次（takePostDetailCommentId）并滚动高亮。
+export function openPostDetailAtComment(id: string, commentId: number): void {
+  openPostDetail(id);
+  detailCommentId = commentId;
 }
 
 export function takePostDetailId(): string {
   const id: string = detailPostId;
   detailPostId = '';
+  return id;
+}
+
+export function takePostDetailCommentId(): number {
+  const id: number = detailCommentId;
+  detailCommentId = 0;
   return id;
 }
 

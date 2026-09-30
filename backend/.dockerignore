@@ -2,6 +2,8 @@ node_modules
 dist
 .env
 .env.*
+# Push Kit 服务账号凭据（含 RSA 私钥）：不入镜像，运行时以只读卷挂载
+agc-service-account.json
 *.log
 certbot
 nginx

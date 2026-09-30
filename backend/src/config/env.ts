@@ -3,6 +3,9 @@ import path from 'path';
 
 dotenv.config();
 
+const NODE_ENV: string = process.env.NODE_ENV ?? 'development';
+const IS_PRODUCTION: boolean = NODE_ENV === 'production';
+
 // 百分比配置的容错解析：非法值回退 100（全量），并钳制到 [0, 100]。
 function clampPercent(raw: string | undefined): number {
   const value = Number(raw);
@@ -23,8 +26,8 @@ function clampPositiveInt(raw: string | undefined, fallback: number): number {
 
 export const env = {
   port: Number(process.env.PORT ?? 3000),
-  nodeEnv: process.env.NODE_ENV ?? 'development',
-  isProduction: (process.env.NODE_ENV ?? 'development') === 'production',
+  nodeEnv: NODE_ENV,
+  isProduction: IS_PRODUCTION,
   databaseUrl: process.env.DATABASE_URL ?? '',
   jwtSecret: process.env.JWT_SECRET ?? '',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '30d',
@@ -52,15 +55,28 @@ export const env = {
   uploadsDir: process.env.UPLOADS_DIR ?? path.resolve(process.cwd(), 'uploads'),
   // 视频上传体积上限（字节）。前端拦截 + 后端 token 接口二次兜底，防直传 COS 绕过客户端限制。
   maxVideoSizeBytes: Number(process.env.MAX_VIDEO_SIZE_MB ?? 50) * 1024 * 1024,
-  // 华为推送服务（Push Kit）凭证。留空 = 未配置 → 所有推送静默降级（不阻断通知落库）。
-  // 真实设备推送需在 AGC 开启「推送服务」并填入对应应用的 APP ID 与 APP SECRET。
+  // 华为推送服务（Push Kit REST API v3）。凭证缺失 → 所有推送静默降级（不阻断通知落库）。
+  // ⚠️ HarmonyOS 5+ 已废弃 OAuth 2.0 client_credentials 鉴权，改为「服务账号 JWT 直签」：
+  //    AGC → 用户与访问 → API 密钥 → Connect API → Service Account（开发者级）→ 下载凭据 JSON。
+  //    凭据文件含私钥，禁止入库 —— 放到服务器本地路径，由 serviceAccountPath 指向。
   huaweiPush: {
-    appId: process.env.HUAWEI_PUSH_APP_ID ?? '',
-    appSecret: process.env.HUAWEI_PUSH_APP_SECRET ?? '',
-    // 鉴权与下发端点（默认华为官方，一般无需改动）
-    tokenUrl:
-      process.env.HUAWEI_PUSH_TOKEN_URL ?? 'https://oauth-login.cloud.huawei.com/oauth2/v3/token',
+    // 项目 ID（v3 接口路径参数）：AGC → 项目设置 → 项目 ID
+    projectId: process.env.HUAWEI_PUSH_PROJECT_ID ?? '',
+    // 服务账号凭据 JSON 的绝对路径（默认 backend/agc-service-account.json）
+    serviceAccountPath:
+      process.env.HUAWEI_PUSH_SERVICE_ACCOUNT_PATH ??
+      path.resolve(process.cwd(), 'agc-service-account.json'),
+    // 下行端点（一般无需改动）
     apiUrl: process.env.HUAWEI_PUSH_API_URL ?? 'https://push-api.cloud.huawei.com',
+    // 通知消息自分类：评论/点赞/关注属「服务与通讯类」，用 IM。
+    // ⚠️ 未申请「通知消息自分类权益」时华为一律按资讯营销类（MARKETING）处理并限流
+    //    （普通应用单设备每日 2 条），此时应显式配 HUAWEI_PUSH_CATEGORY=MARKETING 与实际口径一致。
+    category: process.env.HUAWEI_PUSH_CATEGORY ?? 'IM',
+    // 调测消息：true 时不触发上述频控（每项目每日上限 1000 条）。默认非生产环境开启。
+    // ⚠️ 上线前务必确认生产环境为 false，否则调试配额耗尽后消息被丢弃。
+    testMessage: (process.env.HUAWEI_PUSH_TEST_MESSAGE ?? (IS_PRODUCTION ? 'false' : 'true')) === 'true',
+    // 离线消息缓存时长（秒），默认 24 小时
+    ttl: Number(process.env.HUAWEI_PUSH_TTL ?? 86400),
   },
   // 华为账号登录（Account Kit）凭证。留空 = 真实华为登录不可用（前端授权后后端换 token 失败）。
   huaweiAccount: {

@@ -26,6 +26,11 @@ services:
       - mysql
     expose:
       - "3000"
+    # Push Kit 服务账号凭据（含 RSA 私钥）：不进镜像，运行时只读挂载。
+    # ⚠️ 宿主机上必须先放好该文件 —— 不存在时 docker 会把挂点建成一个空目录，
+    #    进程读到的就不是密钥了（推送会静默降级）。
+    volumes:
+      - ./agc-service-account.json:/app/agc-service-account.json:ro
     environment:
       - NODE_OPTIONS=--max-old-space-size=512
     deploy:

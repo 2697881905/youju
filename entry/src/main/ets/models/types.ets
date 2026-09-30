@@ -198,6 +198,8 @@ export interface NotificationItem {
   type?: NotificationType;
   actor?: User | null;
   postId?: number | null;
+  // 关联评论（@提及通知点开时定位到该评论；其余类型 / 历史数据为 null → 只打开帖子）
+  commentId?: number | null;
   content?: string;
   read?: boolean;
   pinned?: boolean; // 置顶（举报受理/审核等系统消息恒在列表最前）
