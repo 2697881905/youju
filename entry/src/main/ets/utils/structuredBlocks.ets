@@ -268,7 +268,7 @@ export function structuredSummaryFromDocument(document: StructuredDocument | nul
 }
 
 // 双读兼容：V2 是主路径；历史帖子没有 V2 时才投影旧 structuredData。
-export function structuredSummaryOf(data: StructuredData | undefined, genre?: Genre,
+export function structuredSummaryOf(data: StructuredData | null | undefined, genre?: Genre,
   document?: StructuredDocument | null): StructuredSummary | null {
   const v2: StructuredSummary | null = structuredSummaryFromDocument(document, genre);
   return v2 !== null ? v2 : structuredSummaryFromPairs(structuredFieldPairs(data, genre), genre);
