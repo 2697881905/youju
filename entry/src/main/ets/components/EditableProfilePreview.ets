@@ -81,12 +81,13 @@ export struct EditableProfilePreview {
             Text(this.genderText())
               .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
               .fontWeight(TypeTokens.overline.weight)
+              // 与 ProfileIdentity 的性别徽章同款配色（男=淡蓝底蓝字），改色需两处同步
               .fontColor(this.selectedGender === '1'
-                ? ColorTokens.brand
+                ? '#2563EB'
                 : this.selectedGender === '2' ? '#D94F87' : ColorTokens.secondary)
               .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.inlineTight, bottom: SpaceTokens.inlineTight })
               .backgroundColor(this.selectedGender === '1'
-                ? ColorTokens.brandTint
+                ? '#E8F0FF'
                 : this.selectedGender === '2' ? '#FFF0F5' : ColorTokens.sunken)
               .borderRadius(RadiusTokens.pill)
           }
