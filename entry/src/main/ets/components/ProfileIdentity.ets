@@ -20,13 +20,12 @@ export struct ProfileIdentity {
   }
 
   private genderColor(): ResourceColor {
-    // 男=实心品牌蓝底白字（用户反馈浅蓝徽章太淡）；女=粉；保密=中性
-    return this.gender === 1 ? ColorTokens.onBrand : this.gender === 2 ? '#D94F87' : ColorTokens.secondary;
+    // 男=淡蓝底蓝字（用户定稿）；文字用 #2563EB 保证浅底上的辨识度
+    return this.gender === 1 ? '#2563EB' : this.gender === 2 ? '#D94F87' : ColorTokens.secondary;
   }
 
   private genderSurface(): ResourceColor {
-    // #3B82F6：介于浅蓝（太淡）与 #0A59F7（太深）之间的中饱和品牌蓝
-    return this.gender === 1 ? '#3B82F6' : this.gender === 2 ? '#FFF0F5' : ColorTokens.sunken;
+    return this.gender === 1 ? '#E8F0FF' : this.gender === 2 ? '#FFF0F5' : ColorTokens.sunken;
   }
 
   build() {
