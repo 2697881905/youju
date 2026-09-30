@@ -1,14 +1,16 @@
-// 举报账本（admin）：**按被举报对象聚合**的台账 + 处置（成立/驳回）+ 用户封禁/解封。
+// 举报中心（admin）：**唯一处置台** —— 按被举报对象聚合的台账 + 内容状态裁决
+// （成立并下架 / 驳回并恢复 / 改判恢复）+ 作者封禁/解封。原「内容审核台」已并入本页，不再有第二处入口。
 //
 // 为什么聚合：后端 `resolveTargetReports(targetType, targetId, action)` 的语义是
 // 「处理该目标的**全部** pending 举报」，而旧实现一条举报一张卡、按钮写「成立/驳回」，
 // 审核员根本不知道自己这一下会连带处理掉同对象的其它举报。聚合后「一张卡 = 一个被举报
 // 对象」，按钮的作用范围与 UI 终于对上了。
 //
-// 数据：GET  /v1/admin/reports?page=&limit=&status=   （返回逐条举报，本页在前端聚合）
+// 数据：GET  /v1/admin/reports?page=&limit=&status=   （返回逐条举报，本页在前端聚合；含
+//        目标内容状态 targetStatus 与作者信息，供卡片直接渲染「下架/发布」与「封禁作者」）
 // 操作：POST /v1/admin/reports/resolve                （作用于该对象的全部 pending 举报）
 //       POST /v1/admin/users/:id/ban | /unban
-import { AdminReportItem, ReportTargetType } from '../models/types';
+import { AdminReportItem, ReportAction, ReportTargetType } from '../models/types';
 import { ListResult, listAdminReports, resolveTargetReports, banUser, unbanUser } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 import { timeAgo } from '../utils/format';
@@ -16,6 +18,7 @@ import { buildPageTransition } from '../utils/styles';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { openPostDetail, openUserProfile } from '../utils/nav';
 import { bottomNavInset } from '../utils/cardTokens';
+import { Avatar } from '../design/components/Avatar';
 import { BackButton } from '../design/components/BackButton';
 import { BaseCard } from '../design/components/BaseCard';
 import { DesignButton } from '../design/components/DesignButton';
@@ -100,10 +103,13 @@ interface ReportGroup {
   reporters: string[];         // 去重昵称（最多 MAX_REPORTERS 个）
   reporterTotal: number;       // 去重后的举报人总数
   description: string;         // 最新一条非空补充说明
-  targetBanned: boolean;
   targetTitle: string;         // 帖子标题
   commentContent: string;
-  targetNickname: string;
+  targetNickname: string;      // user 目标昵称
+  targetStatus: number | null; // 目标内容当前状态（0 下架 / 1 发布 / 2 旧拒绝）；user 目标 null
+  authorId: number | null;     // 内容作者（user 目标 = 自身；作者已注销时 null）
+  authorNickname: string;
+  authorAvatar: string;
 }
 
 function newGroup(key: string, it: AdminReportItem): ReportGroup {
@@ -121,10 +127,13 @@ function newGroup(key: string, it: AdminReportItem): ReportGroup {
     reporters: [],
     reporterTotal: 0,
     description: '',
-    targetBanned: false,
     targetTitle: '',
     commentContent: '',
     targetNickname: '',
+    targetStatus: it.targetStatus ?? null,
+    authorId: it.authorId ?? null,
+    authorNickname: '',
+    authorAvatar: '',
   };
 }
 
@@ -173,9 +182,6 @@ function mergeReport(g: ReportGroup, it: AdminReportItem): void {
   }
   addReason(g, it.reason);
   addReporter(g, it.reporter?.nickname ?? '');
-  if (it.targetBanned === true) {
-    g.targetBanned = true;
-  }
   if (g.targetTitle.length === 0 && it.postTitle !== undefined && it.postTitle !== null) {
     g.targetTitle = it.postTitle;
   }
@@ -187,6 +193,19 @@ function mergeReport(g: ReportGroup, it: AdminReportItem): void {
   }
   if (g.targetPostId <= 0 && (it.targetPostId ?? 0) > 0) {
     g.targetPostId = it.targetPostId ?? 0;
+  }
+  // 目标级字段（同一目标的各条举报取值相同，取首个非空即可）
+  if (g.targetStatus === null && it.targetStatus !== undefined && it.targetStatus !== null) {
+    g.targetStatus = it.targetStatus;
+  }
+  if (g.authorId === null && it.authorId !== undefined && it.authorId !== null) {
+    g.authorId = it.authorId;
+  }
+  if (g.authorNickname.length === 0 && it.authorNickname !== undefined && it.authorNickname !== null) {
+    g.authorNickname = it.authorNickname;
+  }
+  if (g.authorAvatar.length === 0 && it.authorAvatar !== undefined && it.authorAvatar !== null) {
+    g.authorAvatar = it.authorAvatar;
   }
 }
 
@@ -238,7 +257,7 @@ function aggregateGroups(items: AdminReportItem[]): ReportGroup[] {
 // ArkTS 禁对象展开：就地改字段必须显式全字段拷贝。
 // status 收窄成联合类型：AdminReportItem.status 是 'pending' | 'resolved' | 'dismissed'，
 // 参数写成 string 会编译不过（string 不能赋给该联合类型）。
-function copyReport(it: AdminReportItem, status: 'pending' | 'resolved' | 'dismissed', banned: boolean): AdminReportItem {
+function copyReport(it: AdminReportItem, status: 'pending' | 'resolved' | 'dismissed', targetStatus: number | null): AdminReportItem {
   return {
     id: it.id,
     reporterId: it.reporterId,
@@ -252,9 +271,35 @@ function copyReport(it: AdminReportItem, status: 'pending' | 'resolved' | 'dismi
     postTitle: it.postTitle,
     commentContent: it.commentContent,
     targetNickname: it.targetNickname,
-    targetBanned: banned,
+    targetBanned: it.targetBanned,
     targetPostId: it.targetPostId,
+    targetStatus: targetStatus,
+    authorId: it.authorId,
+    authorNickname: it.authorNickname,
+    authorAvatar: it.authorAvatar,
+    authorBanned: it.authorBanned,
   };
+}
+
+// 处置成功后就地回写一条举报（不等重拉，列表要立刻反映新状态）：
+// - 内容状态是目标级属性：同一目标的所有行共享 targetStatus
+//   （resolved → 0 下架；dismissed 仅 0→1 恢复；restore → 1；user 目标保持 null）
+// - 举报状态只随本次处置流转 pending 行（restore 不改举报状态）
+function patchReport(it: AdminReportItem, action: ReportAction): AdminReportItem {
+  const isContent: boolean = it.targetType !== 'user';
+  let ts: number | null = it.targetStatus ?? null;
+  if (isContent && action === 'resolved') {
+    ts = 0;
+  } else if (isContent && action === 'dismissed' && ts === 0) {
+    ts = 1;
+  } else if (isContent && action === 'restore') {
+    ts = 1;
+  }
+  let st: 'pending' | 'resolved' | 'dismissed' = it.status;
+  if (it.status === 'pending' && action !== 'restore') {
+    st = action === 'resolved' ? 'resolved' : 'dismissed';
+  }
+  return copyReport(it, st, ts);
 }
 
 // ───────────────────────── 筛选 ─────────────────────────
@@ -270,6 +315,60 @@ const FILTERS: FilterTab[] = [
   { key: 'resolved', label: '已成立' },
   { key: 'dismissed', label: '已驳回' },
 ];
+
+// 成立理由弹窗（自原内容审核台的驳回弹窗并入）：理由选填，填写后随「未通过审核」通知发给作者
+@CustomDialog
+struct ResolveReasonDialog {
+  controller: CustomDialogController;
+  onSubmit: (reason: string) => void = (_r: string) => {};
+
+  @State reason: string = '';
+
+  build() {
+    Column({ space: SpaceTokens.md }) {
+      Text('成立理由')
+        .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamily)
+        .fontWeight(TypeTokens.headline.weight)
+        .lineHeight(TypeTokens.headline.lineHeight)
+        .fontColor(ColorTokens.primary)
+        .width('100%')
+      Text('选填；填写后随「未通过审核」通知发给作者，留空则只提示未通过。')
+        .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+        .lineHeight(TypeTokens.caption.lineHeight)
+        .fontColor(ColorTokens.secondary)
+        .width('100%')
+      TextArea({ placeholder: '例如：含广告推广内容', text: this.reason })
+        .height(96)
+        .maxLength(200)
+        .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+        .fontColor(ColorTokens.primary)
+        .backgroundColor(ColorTokens.sunken)
+        .borderRadius(RadiusTokens.md)
+        .onChange((v: string) => {
+          this.reason = v;
+        })
+      Row({ space: SpaceTokens.md }) {
+        DesignButton({ label: '取消', variant: 'outlined', fillWidth: true, action: (): void => { this.controller.close(); } })
+          .layoutWeight(1)
+        DesignButton({
+          label: '确认成立',
+          variant: 'primary',
+          fillWidth: true,
+          action: (): void => {
+            const r: string = this.reason.trim();
+            this.controller.close();
+            this.onSubmit(r);
+          },
+        })
+          .layoutWeight(1)
+      }
+      .width('100%')
+    }
+    .padding(SpaceTokens.lg)
+    .backgroundColor(ColorTokens.elevated)
+    .borderRadius(RadiusTokens.lg)
+  }
+}
 
 @Entry
 @Component
@@ -287,13 +386,29 @@ export struct ReportAdminPage {
   // 防重复提交：值为正在处理的那张聚合卡的 key（空串 = 空闲）
   @State processingKey: string = '';
   @State total: number = 0; // 服务端返回的举报总条数（当前筛选）
+  // 已封禁作者 id（含 user 目标自身）：列表只读不改，封禁/解封后就地维护这一份，
+  // 刷新时按服务端返回的 authorBanned 重新对齐
+  @State bannedAuthorIds: number[] = [];
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
   // 请求序号：过期响应整体丢弃（与 974f859 的 HomeTab 同方案）。
   // 旧实现用 `if (this.loading) return` 守卫，正在加载时点筛选会被静默吞掉。
   private fetchSeq: number = 0;
 
+  // 成立理由弹窗：动作行 → 范围确认 → 本弹窗 → doResolve(resolved, reason)
+  private pendingResolveType: ReportTargetType = 'post';
+  private pendingResolveId: number = 0;
+  private resolveController: CustomDialogController = new CustomDialogController({
+    builder: ResolveReasonDialog({
+      onSubmit: (reason: string): void => {
+        this.doResolve(this.pendingResolveType, this.pendingResolveId, 'resolved', reason);
+      },
+    }),
+    alignment: DialogAlignment.Center,
+    customStyle: false,
+  });
+
   aboutToAppear(): void {
-    // 登录闸门：举报账本需要登录态 + 管理员权限，未登录连 401/403 都分不清（只会是空壳）。
+    // 登录闸门：举报中心需要登录态 + 管理员权限，未登录连 401/403 都分不清（只会是空壳）。
     // 用 replaceUrl 把本页从路由栈里替换掉 —— 取消登录返回时落到**入口页**（设置页）。
     if (getUserId() === 0) {
       this.getUIContext().getRouter().replaceUrl({ url: 'pages/LoginPage' });
@@ -359,6 +474,7 @@ export struct ReportAdminPage {
       this.total = res.pagination.total;
       this.finished = list.length < PAGE_SIZE;
       this.forbidden = false;
+      this.syncBannedAuthorIds();
       this.recomputeGroups();
     } catch (e) {
       if (seq !== this.fetchSeq) {
@@ -396,6 +512,66 @@ export struct ReportAdminPage {
     });
   }
 
+  // ───────────────────────── 状态判定 ─────────────────────────
+
+  // 按服务端返回的 authorBanned 重建封禁名单（下拉刷新/重新进页时对齐；
+  // user 目标的 authorId = 目标自身，因此用户卡也走这一份）
+  private syncBannedAuthorIds(): void {
+    const ids: number[] = [];
+    for (const it of this.items) {
+      const aid: number | null | undefined = it.authorId;
+      if (aid !== undefined && aid !== null && it.authorBanned === true && ids.indexOf(aid) < 0) {
+        ids.push(aid);
+      }
+    }
+    this.bannedAuthorIds = ids;
+  }
+
+  private isAuthorBanned(g: ReportGroup): boolean {
+    return g.authorId !== null && this.bannedAuthorIds.indexOf(g.authorId) >= 0;
+  }
+
+  // 内容是否处于下架态（仅 post/comment；user 目标无内容）
+  private isTakenDown(g: ReportGroup): boolean {
+    return g.targetType !== 'user' && g.targetStatus === 0;
+  }
+
+  // 可恢复展示：已成立（无待处理举报）且内容确实处于下架态
+  private canRestore(g: ReportGroup): boolean {
+    return g.status === 'resolved' && g.pendingCount === 0 && this.isTakenDown(g);
+  }
+
+  // 目标内容状态文案：0 下架 / 1 发布；2 为旧审核台拒绝的存量（保持隐藏、无恢复入口）
+  private contentStatusLabel(g: ReportGroup): string {
+    if (g.targetStatus === 0) {
+      return '已下架';
+    }
+    if (g.targetStatus === 1) {
+      return '已发布';
+    }
+    return '已隐藏';
+  }
+
+  // 封禁对象：user 目标 = 自身；post/comment = 内容作者（作者已注销时无对象）
+  private canBan(g: ReportGroup): boolean {
+    if (g.targetType === 'user') {
+      return g.targetId > 0;
+    }
+    return g.authorId !== null && g.authorId > 0;
+  }
+
+  private banTargetId(g: ReportGroup): number {
+    return g.targetType === 'user' ? g.targetId : (g.authorId ?? 0);
+  }
+
+  private banButtonLabel(g: ReportGroup): string {
+    const banned: boolean = this.isAuthorBanned(g);
+    if (g.targetType === 'user') {
+      return banned ? '解封' : '封禁';
+    }
+    return banned ? '解封作者' : '封禁作者';
+  }
+
   // ───────────────────────── 显示文案 ─────────────────────────
 
   private reasonsText(g: ReportGroup): string {
@@ -427,12 +603,13 @@ export struct ReportAdminPage {
     return g.pendingCount > 1 ? '待处理 · ' + g.pendingCount : '待处理';
   }
 
-  // 「一条举报」与「该对象全部举报」的区分：处置前告知作用范围
+  // 「一条举报」与「该对象全部举报」的区分：处置前告知作用范围（成立会一并下架内容并通知作者）
   private resolveScopeText(g: ReportGroup): string {
+    const tail: string = g.targetType === 'user' ? '' : '，内容将被下架并通知作者';
     if (g.pendingCount > 1) {
-      return '该被举报内容的 ' + g.pendingCount + ' 条待处理举报会一并标记为「已成立」。确认吗？';
+      return '该被举报对象的 ' + g.pendingCount + ' 条待处理举报会一并标记为「已成立」' + tail + '。确认吗？';
     }
-    return '该举报会被标记为「已成立」。确认吗？';
+    return '该举报会被标记为「已成立」' + tail + '。确认吗？';
   }
 
   // ───────────────────────── 直达被举报对象 ─────────────────────────
@@ -473,8 +650,15 @@ export struct ReportAdminPage {
 
   // ───────────────────────── 处置 ─────────────────────────
 
-  // 「成立」影响面大（会连带处理该对象的全部待处理举报），走二次确认；
-  // 「驳回」是低风险快操作，直接提交。
+  // 处置会改变待处理举报数（后端已同步「举报中心」置顶消息）→ 广播给消息页重拉列表，
+  // 否则入口会停在上次新举报时的「有 N 条举报待处理」（用户报障：处理完了还显示有）
+  private bumpReportCenterRefresh(): void {
+    const cur: number = (AppStorage.get<number>('reportCenterRefreshSignal') ?? 0) as number;
+    AppStorage.setOrCreate('reportCenterRefreshSignal', cur + 1);
+  }
+
+  // 「成立」影响面大（会连带处理该对象的全部待处理举报、下架内容并通知作者），
+  // 走「范围确认 → 成立理由」两步；「驳回」「恢复展示」直接提交。
   private confirmResolve(g: ReportGroup): void {
     this.getUIContext().showAlertDialog({
       title: '标记举报成立',
@@ -483,24 +667,38 @@ export struct ReportAdminPage {
       secondaryButton: {
         value: '成立',
         fontColor: ColorTokens.danger,
-        action: (): void => { this.doResolve(g, 'resolved'); },
+        action: (): void => {
+          this.pendingResolveType = g.targetType;
+          this.pendingResolveId = g.targetId;
+          this.resolveController.open();
+        },
       },
     });
   }
 
-  private async doResolve(g: ReportGroup, action: 'resolved' | 'dismissed'): Promise<void> {
+  // 三动作统一入口：resolved 成立并下架 / dismissed 驳回举报（内容被下架则一并恢复）/ restore 改判恢复。
+  // reason 仅 resolved 时随「未通过审核」通知发给作者。
+  private async doResolve(
+    targetType: ReportTargetType,
+    targetId: number,
+    action: ReportAction,
+    reason?: string
+  ): Promise<void> {
     if (this.processingKey.length > 0) {
       return;
     }
-    this.processingKey = g.key;
+    this.processingKey = targetType + '#' + String(targetId);
     try {
-      await resolveTargetReports(g.targetType, g.targetId, action);
-      safeShowToast(this.getUIContext(), { message: action === 'resolved' ? '已标记成立' : '已驳回' });
-      // 就地更新状态，而不是从列表里移除 —— 账本要留得住刚处置的记录
+      await resolveTargetReports(targetType, targetId, action, reason);
+      // 后端已把「举报中心」置顶消息的待处理数同步到最新 → 广播给消息页重拉列表
+      this.bumpReportCenterRefresh();
+      const tip: string = action === 'resolved' ? '已成立并下架' : (action === 'dismissed' ? '已驳回举报' : '已恢复展示');
+      safeShowToast(this.getUIContext(), { message: tip });
+      // 就地更新状态，而不是从列表里移除 —— 台账要留得住刚处置的记录
       const next: AdminReportItem[] = [];
       for (const it of this.items) {
-        if (it.targetType === g.targetType && it.targetId === g.targetId && it.status === 'pending') {
-          next.push(copyReport(it, action, it.targetBanned === true));
+        if (it.targetType === targetType && it.targetId === targetId) {
+          next.push(patchReport(it, action));
         } else {
           next.push(it);
         }
@@ -515,12 +713,20 @@ export struct ReportAdminPage {
   }
 
   private confirmBan(g: ReportGroup): void {
-    const ban: boolean = !g.targetBanned;
+    if (!this.canBan(g)) {
+      safeShowToast(this.getUIContext(), { message: '无法获取作者信息' });
+      return;
+    }
+    const ban: boolean = !this.isAuthorBanned(g);
+    const isUserTarget: boolean = g.targetType === 'user';
+    const who: string = isUserTarget
+      ? (g.targetNickname.length > 0 ? g.targetNickname : '该用户')
+      : (g.authorNickname.length > 0 ? g.authorNickname : '该作者');
     this.getUIContext().showAlertDialog({
-      title: ban ? '封禁该用户' : '解封该用户',
+      title: ban ? (isUserTarget ? '封禁该用户' : '封禁作者') : (isUserTarget ? '解封该用户' : '解封作者'),
       message: ban
-        ? '封禁后该用户将无法登录与发布内容。确定封禁吗？'
-        : '解封后该用户可恢复正常使用。确定解封吗？',
+        ? '封禁后 ' + who + ' 将无法登录与发布内容。确定封禁吗？'
+        : '解封后 ' + who + ' 可恢复正常使用。确定解封吗？',
       primaryButton: { value: '取消', action: (): void => {} },
       secondaryButton: {
         value: ban ? '封禁' : '解封',
@@ -534,29 +740,46 @@ export struct ReportAdminPage {
     if (this.processingKey.length > 0) {
       return;
     }
+    const userId: number = this.banTargetId(g);
+    if (userId <= 0) {
+      safeShowToast(this.getUIContext(), { message: '无法获取作者信息' });
+      return;
+    }
     this.processingKey = g.key;
     try {
       if (ban) {
-        await banUser(g.targetId);
+        await banUser(userId);
       } else {
-        await unbanUser(g.targetId);
+        await unbanUser(userId);
       }
+      // 就地维护封禁名单：该作者名下所有卡片立即反映新状态
+      const next: number[] = this.bannedAuthorIds.slice();
+      const at: number = next.indexOf(userId);
+      if (ban && at < 0) {
+        next.push(userId);
+      } else if (!ban && at >= 0) {
+        next.splice(at, 1);
+      }
+      this.bannedAuthorIds = next;
       safeShowToast(this.getUIContext(), { message: ban ? '已封禁' : '已解封' });
-      const next: AdminReportItem[] = [];
-      for (const it of this.items) {
-        if (it.targetType === g.targetType && it.targetId === g.targetId) {
-          next.push(copyReport(it, it.status, ban));
-        } else {
-          next.push(it);
-        }
-      }
-      this.items = next;
-      this.recomputeGroups();
     } catch (e) {
       safeShowToast(this.getUIContext(), { message: (e as Error).message });
     } finally {
       this.processingKey = '';
     }
+  }
+
+  // 作者行整行可点：进作者主页（与「查看用户主页」同路，走 UserProfilePage）
+  private openAuthor(g: ReportGroup): void {
+    if (this.processingKey.length > 0) {
+      return;
+    }
+    const authorId: number = this.banTargetId(g);
+    if (authorId <= 0) {
+      return;
+    }
+    openUserProfile(authorId);
+    this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage' });
   }
 
   // ───────────────────────── 视图 ─────────────────────────
@@ -566,7 +789,7 @@ export struct ReportAdminPage {
     Row() {
       BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
       Blank()
-      Text('举报账本')
+      Text('举报中心')
         .fontSize(TypeTokens.title.size)
         .fontFamily(TypeTokens.fontFamilySerif)
         .fontWeight(TypeTokens.title.weight)
@@ -647,6 +870,78 @@ export struct ReportAdminPage {
     .alignItems(VerticalAlign.Center)
   }
 
+  // 内容状态标签（post/comment）：已下架 = danger 圆点 / 已发布 = brand 圆点 / 其余（存量 2）= 中性
+  @Builder
+  contentStatusPill(g: ReportGroup): void {
+    Row({ space: SpaceTokens.xs }) {
+      Column()
+        .width(6)
+        .height(6)
+        .borderRadius(RadiusTokens.pill)
+        .backgroundColor(
+          g.targetStatus === 0 ? ColorTokens.danger : (g.targetStatus === 1 ? ColorTokens.brand : ColorTokens.tertiary)
+        )
+      Text(this.contentStatusLabel(g))
+        .fontSize(TypeTokens.overline.size)
+        .fontFamily(TypeTokens.fontFamily)
+        .fontWeight(TypeTokens.overline.weight)
+        .fontColor(ColorTokens.primary)
+    }
+    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: 3, bottom: 3 })
+    .backgroundColor(ColorTokens.subtle)
+    .borderRadius(RadiusTokens.pill)
+    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  bannedChip(): void {
+    Row({ space: SpaceTokens.xs }) {
+      Column()
+        .width(6)
+        .height(6)
+        .borderRadius(RadiusTokens.pill)
+        .backgroundColor(ColorTokens.danger)
+      Text('已封禁')
+        .fontSize(TypeTokens.overline.size)
+        .fontFamily(TypeTokens.fontFamily)
+        .fontWeight(TypeTokens.overline.weight)
+        .fontColor(ColorTokens.primary)
+    }
+    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: 2, bottom: 2 })
+    .backgroundColor(ColorTokens.subtle)
+    .borderRadius(RadiusTokens.xs)
+    .alignItems(VerticalAlign.Center)
+  }
+
+  // 作者行（post/comment 目标）：头像 + 昵称 + 封禁标记；整行可点进作者主页
+  @Builder
+  authorRow(g: ReportGroup): void {
+    if (this.canBan(g)) {
+      Row({ space: SpaceTokens.sm }) {
+        Avatar({
+          avatar: g.authorAvatar,
+          name: g.authorNickname,
+          avatarSize: IconTokens.avatarCompact,
+        })
+        Text(g.authorNickname.length > 0 ? g.authorNickname : ('用户 #' + String(g.authorId ?? 0)))
+          .fontSize(TypeTokens.callout.size)
+          .fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.headline.weight)
+          .lineHeight(TypeTokens.callout.lineHeight)
+          .fontColor(ColorTokens.primary)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .layoutWeight(1)
+        if (this.isAuthorBanned(g)) {
+          this.bannedChip()
+        }
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+      .onClick((): void => { this.openAuthor(g); })
+    }
+  }
+
   // 被举报内容（帖子标题 / 评论 / 昵称）：卡片主角
   @Builder
   targetLine(g: ReportGroup): void {
@@ -676,22 +971,8 @@ export struct ReportAdminPage {
           .fontFamily(TypeTokens.fontFamily)
           .fontWeight(FontWeight.Medium)
           .fontColor(ColorTokens.primary)
-        if (g.targetBanned) {
-          Row({ space: SpaceTokens.xs }) {
-            Column()
-              .width(6)
-              .height(6)
-              .borderRadius(RadiusTokens.pill)
-              .backgroundColor(ColorTokens.danger)
-            Text('已封禁')
-              .fontSize(TypeTokens.overline.size)
-              .fontFamily(TypeTokens.fontFamily)
-              .fontColor(ColorTokens.primary)
-          }
-          .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: 2, bottom: 2 })
-          .backgroundColor(ColorTokens.subtle)
-          .borderRadius(RadiusTokens.xs)
-          .alignItems(VerticalAlign.Center)
+        if (this.isAuthorBanned(g)) {
+          this.bannedChip()
         }
       }
       .alignItems(VerticalAlign.Center)
@@ -753,14 +1034,14 @@ export struct ReportAdminPage {
           .fontColor(ColorTokens.tertiary)
       } else if (g.pendingCount > 0) {
         DesignButton({
-          label: '驳回',
+          label: '驳回举报',
           variant: 'outlined',
           visualHeight: 34,
           disabled: this.processingKey.length > 0,
-          action: (): void => { this.doResolve(g, 'dismissed'); },
+          action: (): void => { this.doResolve(g.targetType, g.targetId, 'dismissed'); },
         })
         DesignButton({
-          label: '成立',
+          label: '成立并下架',
           variant: 'primary',
           visualHeight: 34,
           disabled: this.processingKey.length > 0,
@@ -779,11 +1060,21 @@ export struct ReportAdminPage {
             .fontColor(ColorTokens.tertiary)
         }
         .alignItems(VerticalAlign.Center)
+        // 已成立但内容仍处于下架态（误判/作者申诉）→ 提供改判恢复入口（仅内容，不改举报状态）
+        if (this.canRestore(g)) {
+          DesignButton({
+            label: '恢复展示',
+            variant: 'outlined',
+            visualHeight: 34,
+            disabled: this.processingKey.length > 0,
+            action: (): void => { this.doResolve(g.targetType, g.targetId, 'restore'); },
+          })
+        }
       }
       Blank()
-      if (g.targetType === 'user') {
+      if (this.canBan(g) && this.processingKey !== g.key) {
         DesignButton({
-          label: g.targetBanned ? '解封' : '封禁',
+          label: this.banButtonLabel(g),
           variant: 'outlined',
           visualHeight: 34,
           disabled: this.processingKey.length > 0,
@@ -799,10 +1090,13 @@ export struct ReportAdminPage {
   groupCard(g: ReportGroup): void {
     BaseCard({ cardPadding: SpaceTokens.md, radius: RadiusTokens.lg, elevation: 1 }) {
       Column({ space: SpaceTokens.sm }) {
-        // ① 身份行：类型 + 状态 + 最新举报时间
+        // ① 身份行：类型 + 举报状态 + 内容状态 + 最新举报时间
         Row({ space: SpaceTokens.sm }) {
           this.typePill(g)
           this.statusPill(g)
+          if (g.targetType !== 'user') {
+            this.contentStatusPill(g)
+          }
           Blank()
           Text(timeAgo(g.newestAt))
             .fontSize(TypeTokens.overline.size)
@@ -835,11 +1129,16 @@ export struct ReportAdminPage {
           .alignItems(HorizontalAlign.Start)
         }
 
+        // ③ 作者行（post/comment 目标）：封禁决策的对象（用户卡由 targetLine 自身呈现）
+        if (g.targetType !== 'user') {
+          this.authorRow(g)
+        }
+
         Divider()
           .height(LayoutTokens.hairlineWidth)
           .color(ColorTokens.separator)
 
-        // ③ 动作行
+        // ④ 动作行
         this.actionRow(g)
       }
       .width('100%')
@@ -898,7 +1197,7 @@ export struct ReportAdminPage {
   loadingState(): void {
     Column({ space: SpaceTokens.sm }) {
       LoadingProgress().width(IconTokens.empty).height(IconTokens.empty)
-      Text('正在加载举报台账')
+      Text('正在加载举报中心')
         .fontSize(TypeTokens.callout.size)
         .fontFamily(TypeTokens.fontFamily)
         .fontColor(ColorTokens.secondary)
@@ -916,7 +1215,7 @@ export struct ReportAdminPage {
       EmptyState({
         icon: resolveActionIcon('lock'),
         title: '无管理员权限',
-        message: '请用管理员账号登录后查看举报台账',
+        message: '请用管理员账号登录后查看举报中心',
       })
     } else if (this.groups.length === 0) {
       EmptyState({
@@ -928,9 +1227,10 @@ export struct ReportAdminPage {
       })
     } else {
       Column({ space: SpaceTokens.md }) {
+        // key 必须含会变字段：处置状态 / 内容状态 / 封禁态（任一变化都要重建卡片）
         ForEach(this.groups, (g: ReportGroup) => {
           this.groupCard(g)
-        }, (g: ReportGroup) => g.key + '#' + String(g.reportCount) + '#' + g.status)
+        }, (g: ReportGroup) => g.key + '#' + String(g.reportCount) + '#' + g.status + '#' + String(g.targetStatus ?? -1) + '#' + (this.isAuthorBanned(g) ? 'b' : 'n'))
         this.listFooter()
       }
       .width('100%')

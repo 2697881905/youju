@@ -33,6 +33,7 @@ import { CircleDetailDestination } from './CircleDetailDestination';
 import { ChatDestination } from './ChatDestination';
 import { MyFollowDestination } from './MyFollowDestination';
 import { LoginDestination } from './LoginDestination';
+import { VideoPlayerDestination } from './VideoPlayerDestination';
 
 // 底部页签数据项（含发布占位 tab）。发布 tab 也走同一 builder，展示 + 图标。
 interface IndexTabItem {
@@ -531,6 +532,9 @@ struct Index {
       MyFollowDestination()
     } else if (name === 'Login') {
       LoginDestination()
+    } else if (name === 'VideoPlayer') {
+      // 独立视频播放器页：帖子等入口点击视频后进入（详情页不再内嵌播放器浮层）
+      VideoPlayerDestination()
     }
   }
 

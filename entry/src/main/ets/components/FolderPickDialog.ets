@@ -1,4 +1,4 @@
-// 收藏时选择收藏夹弹窗：未分类 + 已有收藏夹 + 新建收藏夹入口
+// 收藏夹选择弹窗：已有收藏夹 + 新建收藏夹入口（移动归类模式首行另有「未分类」）
 import { SpringPanel } from '../design/motion/SpringPanel';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { ColorTokens } from '../design/tokens/color';
@@ -19,11 +19,17 @@ interface FolderPickOption {
 export struct FolderPickDialog {
   controller: CustomDialogController;
   folders: BookmarkFolderItem[] = [];
+  // 收藏后归类模式：帖子已完成收藏，弹窗只做可选归类——仅列已有收藏夹与新建入口，
+  // 直接关闭弹窗即保持未分类。默认（移动归类）模式首行仍为「未分类」（移出收藏夹）。
+  afterBookmark: boolean = false;
   onPick: (folderId: number) => void = (_folderId: number): void => {};
   onNewFolder: () => void = (): void => {};
 
   private options(): FolderPickOption[] {
-    const opts: FolderPickOption[] = [{ id: 0, name: '未分类', count: 0 }];
+    const opts: FolderPickOption[] = [];
+    if (!this.afterBookmark) {
+      opts.push({ id: 0, name: '未分类', count: 0 });
+    }
     for (const f of this.folders) {
       opts.push({ id: f.id, name: f.name, count: f.count });
     }
@@ -82,7 +88,7 @@ export struct FolderPickDialog {
               .fontWeight(TypeTokens.headline.weight)
               .lineHeight(TypeTokens.headline.lineHeight)
               .fontColor(ColorTokens.primary)
-            Text('选择收藏夹，可按分类整理')
+            Text(this.afterBookmark ? '已收藏，可放入收藏夹归类' : '选择收藏夹，可按分类整理')
               .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
               .fontColor(ColorTokens.secondary)
           }

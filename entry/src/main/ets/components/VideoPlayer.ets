@@ -99,6 +99,9 @@ export struct VideoPlayer {
             .objectFit(ImageFit.Cover)
             .backgroundColor('#000000')
             .draggable(false)
+            // 封面必须自己接点击：Image 默认吃掉触摸且不向下透传，此前只有悬浮播放按钮
+            // （叠在封面之上）能点到，点封面本身无反应。点击语义与按钮一致（togglePlayback）。
+            .onClick((): void => { this.togglePlayback(); })
             // 封面解码完成即放行 hero：这张图与信息流卡片用的是同一个 URL，通常已在
             // Image 缓存里，onComplete 会比视频 onPrepared 早得多 —— 详情页因此能在
             // 首帧就把封面显示出来，不必等兜底计时器。

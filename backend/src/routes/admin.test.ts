@@ -1,5 +1,6 @@
-// admin 路由集成测试：admin 鉴权 + moderatePost 审核流转
-// 覆盖：缺 token → 401；非 admin → 403；GET /posts/pending；POST /posts/:id/moderate（approve/reject）
+// admin 路由集成测试：admin 鉴权 + 举报中心统一处置（/reports 列表 + /reports/resolve 三动作）
+// 覆盖：缺 token → 401；非 admin → 403；GET /reports；POST /reports/resolve（resolved/dismissed/restore + 负例）；
+//       旧审核台接口 /posts/pending、/posts/:id/moderate 已下线 → 404 护栏
 import express from 'express';
 import * as http from 'http';
 import jwt from 'jsonwebtoken';
@@ -8,7 +9,7 @@ import adminRouter from './admin';
 import { env } from '../config/env';
 import { CODE } from '../utils/response';
 
-// mock prisma（reportService + moderationService 依赖）
+// mock prisma（reportService 依赖）
 jest.mock('../prisma', () => ({
   prisma: {
     post: {
@@ -16,10 +17,12 @@ jest.mock('../prisma', () => ({
       findMany: jest.fn(),
       count: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
     comment: {
       findUnique: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
     report: {
       create: jest.fn(),
@@ -29,6 +32,8 @@ jest.mock('../prisma', () => ({
     },
     notification: {
       create: jest.fn(),
+      findFirst: jest.fn().mockResolvedValue(null),
+      update: jest.fn(),
     },
     user: {
       findUnique: jest.fn().mockResolvedValue({ deletedAt: null }),
@@ -114,104 +119,128 @@ function req(
 
 describe('admin 路由鉴权', () => {
   it('缺 Authorization → UNAUTHORIZED(401)', async () => {
-    const res = await req('GET', '/v1/admin/posts/pending');
+    const res = await req('GET', '/v1/admin/reports');
     expect(res.status).toBe(401);
     expect(res.json.code).toBe(CODE.UNAUTHORIZED);
   });
 
   it('非 admin 用户 → FORBIDDEN(403)', async () => {
     // userId=999 不在 adminUserIds 中
-    const res = await req('GET', '/v1/admin/posts/pending', undefined, authHeader(999));
+    const res = await req('GET', '/v1/admin/reports', undefined, authHeader(999));
     expect(res.status).toBe(403);
     expect(res.json.code).toBe(CODE.FORBIDDEN);
   });
 });
 
-describe('GET /v1/admin/posts/pending', () => {
-  it('admin 用户获取待审核列表', async () => {
-    // 确保 env.adminUserIds 包含 userId=1（.env 或默认）
-    // 测试环境可能未配置 ADMIN_USER_IDS，动态注入
-    const originalAdminIds = env.adminUserIds;
+describe('旧内容审核台接口已下线（合并进举报中心）', () => {
+  it('GET /v1/admin/posts/pending → 404（接口已移除）', async () => {
     (env as any).adminUserIds = [1];
+    const res = await req('GET', '/v1/admin/posts/pending', undefined, authHeader(1));
+    expect(res.status).toBe(404);
+  });
 
-    mockPrisma.post.findMany.mockResolvedValue([
-      {
-        id: 1,
-        title: '待审帖',
-        status: 0,
-        userId: 10,
-        reportCount: 3,
-        user: { id: 10, nickname: '作者', avatar: null },
-      },
-    ]);
-    // Report 与 Post 无 Prisma 关系，审核列表改为按 targetType/targetId 单独查举报
-    mockPrisma.report.findMany.mockResolvedValue([
-      { id: 100, targetType: 'post', targetId: 1, reason: 'spam', description: null, status: 'pending', reporterId: 20 },
-    ]);
-    mockPrisma.user.findMany.mockResolvedValue([{ id: 20, nickname: '举报人A' }]);
-    mockPrisma.post.count.mockResolvedValue(1);
-
-    const res = await req('GET', '/v1/admin/posts/pending?page=1&limit=20', undefined, authHeader(1));
-    expect(res.status).toBe(200);
-    expect(res.json.code).toBe(0);
-    expect(res.json.data.list.length).toBe(1);
-    expect(mockPrisma.post.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { status: 0 },
-        orderBy: { createdAt: 'desc' },
-        include: { user: { select: { id: true, nickname: true, avatar: true } } },
-      })
-    );
-    // 待审帖子应携带举报列表，供前端展示举报理由
-    expect(Array.isArray(res.json.data.list[0].reports)).toBe(true);
-    expect(res.json.data.list[0].reports[0].reason).toBe('spam');
-    expect(res.json.data.list[0].reports[0].reporter.nickname).toBe('举报人A');
-
-    (env as any).adminUserIds = originalAdminIds;
+  it('POST /v1/admin/posts/1/moderate → 404（接口已移除）', async () => {
+    (env as any).adminUserIds = [1];
+    const res = await req('POST', '/v1/admin/posts/1/moderate', { action: 'approve' }, authHeader(1));
+    expect(res.status).toBe(404);
   });
 });
 
-describe('POST /v1/admin/posts/:id/moderate', () => {
+describe('POST /v1/admin/reports/resolve', () => {
   beforeEach(() => {
     (env as any).adminUserIds = [1];
+    // 事务：直接把 tx 指向同一批 mock（形态与 reportService.test 一致）
+    mockPrisma.$transaction.mockImplementation((cb: any) => cb(mockPrisma));
+    mockPrisma.report.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.report.findMany.mockResolvedValue([{ reporterId: 2 }]);
+    mockPrisma.report.count.mockResolvedValue(0);
+    mockPrisma.post.findUnique.mockResolvedValue({ id: 1, userId: 10, title: '待审帖', status: 0 });
+    mockPrisma.post.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.notification.create.mockResolvedValue({});
+    mockPrisma.notification.findFirst.mockResolvedValue(null);
   });
 
-  it('action 无效 → 400', async () => {
-    const res = await req('POST', '/v1/admin/posts/1/moderate', { action: 'invalid' }, authHeader(1));
-    expect(res.status).toBe(400);
-    expect(res.json.code).toBe(CODE.BAD_REQUEST);
+  it('参数非法 → 400（targetType / targetId / action）', async () => {
+    const bad1 = await req(
+      'POST',
+      '/v1/admin/reports/resolve',
+      { targetType: 'xxx', targetId: 1, action: 'resolved' },
+      authHeader(1)
+    );
+    expect(bad1.status).toBe(400);
+    expect(bad1.json.code).toBe(CODE.BAD_REQUEST);
+
+    const bad2 = await req(
+      'POST',
+      '/v1/admin/reports/resolve',
+      { targetType: 'post', targetId: 0, action: 'resolved' },
+      authHeader(1)
+    );
+    expect(bad2.status).toBe(400);
+
+    const bad3 = await req(
+      'POST',
+      '/v1/admin/reports/resolve',
+      { targetType: 'post', targetId: 1, action: 'approve' },
+      authHeader(1)
+    );
+    expect(bad3.status).toBe(400);
+    expect(bad3.json.message).toContain('resolved');
   });
 
-  it('approve 帖子不存在 → 404', async () => {
+  it('目标不存在 → 404', async () => {
     mockPrisma.post.findUnique.mockResolvedValue(null);
-    const res = await req('POST', '/v1/admin/posts/999/moderate', { action: 'approve' }, authHeader(1));
+    const res = await req(
+      'POST',
+      '/v1/admin/reports/resolve',
+      { targetType: 'post', targetId: 999, action: 'resolved' },
+      authHeader(1)
+    );
     expect(res.status).toBe(404);
     expect(res.json.code).toBe(CODE.NOT_FOUND);
   });
 
-  it('approve 非待审状态 → 400', async () => {
-    mockPrisma.post.findUnique.mockResolvedValue({ id: 1, userId: 10, title: '已发布', status: 1 });
-    const res = await req('POST', '/v1/admin/posts/1/moderate', { action: 'approve' }, authHeader(1));
-    expect(res.status).toBe(400);
-    expect(res.json.code).toBe(CODE.BAD_REQUEST);
-    expect(res.json.message).toContain('不在待审核状态');
-  });
-
-  it('approve 成功：status→1 + reports→dismissed + 通知作者', async () => {
-    mockPrisma.post.findUnique.mockResolvedValue({ id: 1, userId: 10, title: '待审帖', status: 0 });
-    mockPrisma.post.update.mockResolvedValue({});
-    mockPrisma.report.updateMany.mockResolvedValue({ count: 2 });
-    mockPrisma.report.findMany.mockResolvedValue([{ reporterId: 2 }, { reporterId: 3 }]);
-    mockPrisma.notification.create.mockResolvedValue({});
-
-    const res = await req('POST', '/v1/admin/posts/1/moderate', { action: 'approve' }, authHeader(1));
+  it('resolved 成功：举报→resolved + 内容下架 + 通知作者（含原因）与举报人', async () => {
+    const res = await req(
+      'POST',
+      '/v1/admin/reports/resolve',
+      { targetType: 'post', targetId: 1, action: 'resolved', reason: '含广告推广' },
+      authHeader(1)
+    );
     expect(res.status).toBe(200);
     expect(res.json.code).toBe(0);
-    expect(res.json.message).toBe('审核完成');
+    expect(res.json.message).toBe('已处理');
 
-    // 帖子 status → 1
-    const postUpdateCall = mockPrisma.post.update.mock.calls[0][0];
-    expect(postUpdateCall.data.status).toBe(1);
+    // 举报记录 → resolved
+    expect(mockPrisma.report.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { targetType: 'post', targetId: 1, status: 'pending' },
+        data: { status: 'resolved', resolvedAt: expect.any(Date) },
+      })
+    );
+
+    // 内容 → 下架（status=0）
+    expect(mockPrisma.post.updateMany).toHaveBeenCalledWith({ where: { id: 1 }, data: { status: 0 } });
+
+    // 作者收「未通过审核，原因：…」+ 举报人收「你的举报已处理」= 2 条
+    expect(mockPrisma.notification.create).toHaveBeenCalledTimes(2);
+    const authorNotif = mockPrisma.notification.create.mock.calls[0][0];
+    expect(authorNotif.data.userId).toBe(10);
+    expect(authorNotif.data.content).toContain('未通过审核');
+    expect(authorNotif.data.content).toContain('含广告推广');
+
+    // 处置后按真实待处理数回写「举报中心」置顶消息（清零 → 文案更新且熄灭未读）
+    expect(mockPrisma.report.count).toHaveBeenCalledWith({ where: { status: 'pending' } });
+  });
+
+  it('dismissed 成功：举报→dismissed + 内容恢复（0→1）+ 通知作者已通过审核', async () => {
+    const res = await req(
+      'POST',
+      '/v1/admin/reports/resolve',
+      { targetType: 'post', targetId: 1, action: 'dismissed' },
+      authHeader(1)
+    );
+    expect(res.status).toBe(200);
 
     // 举报记录 → dismissed
     expect(mockPrisma.report.updateMany).toHaveBeenCalledWith(
@@ -220,41 +249,74 @@ describe('POST /v1/admin/posts/:id/moderate', () => {
       })
     );
 
-    // 通知作者"已通过审核" + 通知举报人"已处理"（2 个举报人）= 3 次
-    expect(mockPrisma.notification.create).toHaveBeenCalledTimes(3);
+    // 内容因举报被下架 → 驳回时一并恢复（修「驳回后内容滞留」）
+    expect(mockPrisma.post.updateMany).toHaveBeenCalledWith({ where: { id: 1, status: 0 }, data: { status: 1 } });
+
+    // 作者收「已通过审核」
     const authorNotif = mockPrisma.notification.create.mock.calls[0][0];
     expect(authorNotif.data.userId).toBe(10);
     expect(authorNotif.data.content).toContain('已通过审核');
   });
 
-  it('reject 成功：status→2 + reports→resolved + 通知作者含原因', async () => {
-    mockPrisma.post.findUnique.mockResolvedValue({ id: 1, userId: 10, title: '待审帖', status: 0 });
-    mockPrisma.post.update.mockResolvedValue({});
-    mockPrisma.report.updateMany.mockResolvedValue({ count: 1 });
-    mockPrisma.report.findMany.mockResolvedValue([{ reporterId: 2 }]);
-    mockPrisma.notification.create.mockResolvedValue({});
-
+  it('dismissed：内容本就未下架 → 不发作者通知（仅举报人收「已处理」）', async () => {
+    mockPrisma.post.findUnique.mockResolvedValue({ id: 1, userId: 10, title: '已发布帖', status: 1 });
     const res = await req(
       'POST',
-      '/v1/admin/posts/1/moderate',
-      { action: 'reject', reason: '内容违规' },
+      '/v1/admin/reports/resolve',
+      { targetType: 'post', targetId: 1, action: 'dismissed' },
       authHeader(1)
     );
     expect(res.status).toBe(200);
+    expect(mockPrisma.post.updateMany).not.toHaveBeenCalled();
+    expect(mockPrisma.notification.create).toHaveBeenCalledTimes(1);
+    const onlyNotif = mockPrisma.notification.create.mock.calls[0][0];
+    expect(onlyNotif.data.userId).toBe(2);
+    expect(onlyNotif.data.content).toBe('你的举报已处理');
+  });
 
-    const postUpdateCall = mockPrisma.post.update.mock.calls[0][0];
-    expect(postUpdateCall.data.status).toBe(2);
-
-    // 举报记录 → resolved
-    expect(mockPrisma.report.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: { status: 'resolved', resolvedAt: expect.any(Date) },
-      })
+  it('restore：内容恢复且不改举报状态；有 pending 举报 → 400', async () => {
+    const okRes = await req(
+      'POST',
+      '/v1/admin/reports/resolve',
+      { targetType: 'post', targetId: 1, action: 'restore' },
+      authHeader(1)
     );
+    expect(okRes.status).toBe(200);
+    // 不动举报状态、不通知举报人；仅作者收「已通过审核」
+    expect(mockPrisma.report.updateMany).not.toHaveBeenCalled();
+    expect(mockPrisma.post.updateMany).toHaveBeenCalledWith({ where: { id: 1, status: 0 }, data: { status: 1 } });
+    expect(mockPrisma.notification.create).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.notification.create.mock.calls[0][0].data.userId).toBe(10);
 
-    // 通知作者"未通过审核" + 原因
-    const authorNotif = mockPrisma.notification.create.mock.calls[0][0];
-    expect(authorNotif.data.content).toContain('未通过审核');
-    expect(authorNotif.data.content).toContain('内容违规');
+    mockPrisma.report.count.mockResolvedValue(2);
+    const bad = await req(
+      'POST',
+      '/v1/admin/reports/resolve',
+      { targetType: 'post', targetId: 1, action: 'restore' },
+      authHeader(1)
+    );
+    expect(bad.status).toBe(400);
+    expect(bad.json.message).toContain('仍有待处理举报');
+  });
+
+  it('restore 负例：user 目标 → 400（不支持）；内容未下架 → 400（无需恢复）', async () => {
+    const userRes = await req(
+      'POST',
+      '/v1/admin/reports/resolve',
+      { targetType: 'user', targetId: 5, action: 'restore' },
+      authHeader(1)
+    );
+    expect(userRes.status).toBe(400);
+    expect(userRes.json.message).toContain('不支持');
+
+    mockPrisma.post.findUnique.mockResolvedValue({ id: 1, userId: 10, title: '已发布帖', status: 1 });
+    const notDown = await req(
+      'POST',
+      '/v1/admin/reports/resolve',
+      { targetType: 'post', targetId: 1, action: 'restore' },
+      authHeader(1)
+    );
+    expect(notDown.status).toBe(400);
+    expect(notDown.json.message).toContain('无需恢复');
   });
 });

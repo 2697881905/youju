@@ -9,6 +9,7 @@ import {
   cancelUpPost,
   bookmarkPost,
   cancelBookmarkPost,
+  moveBookmarkFolder,
   listBookmarkFolders,
   createBookmarkFolder,
   deletePost,
@@ -25,7 +26,7 @@ import { ReportDialog } from '../components/ReportDialog';
 import { FolderPickDialog } from '../components/FolderPickDialog';
 import { FolderNameDialog } from '../components/FolderNameDialog';
 import { PostStatsDialog } from '../components/PostStatsDialog';
-import { openUserProfile, takePostDetailId, takePostDetailIntent, PostDetailIntent } from '../utils/nav';
+import { openUserProfile, openVideoPlayer, takePostDetailId, takePostDetailIntent, PostDetailIntent } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 import { getUserId, getToken } from '../utils/auth';
 import { startGripTracking, stopGripTracking, KEY_GRIP_ON_RIGHT } from '../utils/gripAwareness';
@@ -58,6 +59,11 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { FALLBACK_VIDEO_ASPECT_RATIO, normalizeVideoAspectRatio } from '../utils/video';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { postContentTextOf } from '../utils/postPlainText';
+import { hilog } from '@kit.PerformanceAnalysisKit';
+
+// 分享卡片链路的诊断输出统一走 hilog：console.* 在 H7 真机不进 hilog，抓日志会看不到。
+const SHARE_CARD_DOMAIN: number = 0x0000;
+const SHARE_CARD_TAG: string = 'shareCard';
 
 // ── 一镜到底的「对应节点」id（PostDetailDestination 也会引用，单一出处防漂移）──
 // 真实内容里的媒体 Stack：整页缩放到「该节点宽 == 卡片宽」再展开。
@@ -115,6 +121,9 @@ export struct PostDetailView {
   @Prop navMode: boolean = false;
   onBack?: () => void = undefined;                    // Navigation 壳：navStack.pop()
   onOpenProfile?: (userId: number) => void = undefined; // Navigation 壳：pushPathByName('UserProfile')
+  // 点视频 → 独立播放器页：Navigation 壳注入（pushPathByName('VideoPlayer')）；
+  // 未注入（router 壳）时本页自行 router.pushUrl('pages/VideoPlayerPage')。
+  onOpenVideo?: (url: string, poster: string) => void = undefined;
   // Navigation 壳 + 一镜到底：真媒体首帧画出来时回调一次。
   // 目的地页据此把「卡片截图」淡出——截图顶住媒体位，直到真内容能接手，避免中途露灰底/空白。
   onHeroReady?: () => void = undefined;
@@ -245,6 +254,20 @@ export struct PostDetailView {
     }
     openUserProfile(authorId);
     this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage' });
+  }
+
+  // 独立播放器页（与作者主页同款双壳分发）：Navigation 壳注入 onOpenVideo 走主栈 push，
+  // router 壳经 utils/nav 意图通道 + router.pushUrl。播放器页是独立页面，不在此处叠浮层。
+  private openPlayerPage(): void {
+    if (this.videoUrl.length === 0) {
+      return;
+    }
+    if (this.onOpenVideo !== undefined) {
+      this.onOpenVideo(this.videoUrl, this.videoCover);
+      return;
+    }
+    openVideoPlayer(this.videoUrl, this.videoCover);
+    this.getUIContext().getRouter().pushUrl({ url: 'pages/VideoPlayerPage' });
   }
 
   // 统一返回入口：模态/Navigation 壳走 onBack（动画关闭/栈 pop），router 壳普通返回
@@ -576,44 +599,44 @@ export struct PostDetailView {
       }
       return;
     }
-    // 收藏：弹出收藏夹选择（加载收藏夹列表；加载失败时回退直接收藏到未分类）
-    this.bookmarkPending = true;
-    try {
-      const folders = await listBookmarkFolders();
-      this.folderPickFolders = folders;
-      this.openFolderPick();
-    } catch (e) {
-      // 加载收藏夹失败 → 直接收藏（未分类），保证收藏主流程可用
-      this.setInteraction(previous.uped, previous.upCount, true, previous.bookmarkCount + 1);
-      this.bookmarkFeedbackVersion = this.bookmarkFeedbackVersion + 1;
-      try {
-        await bookmarkPost(id);
-      } catch (err) {
-        this.setInteraction(previous.uped, previous.upCount, previous.bookmarked, previous.bookmarkCount);
-        safeShowToast(this.getUIContext(), { message: '操作失败，请先登录' });
-      }
-    } finally {
-      this.bookmarkPending = false;
-    }
-  }
-
-  // 收藏夹选择结果：folderId=0 未分类；>0 归入指定收藏夹
-  private async onFolderPick(folderId: number): Promise<void> {
-    const id = this.post?.id;
-    if (id === undefined) {
-      return;
-    }
-    const previous: DetailInteractionState = this.interaction;
+    // 收藏：点击即完成收藏（未分类），随即弹出收藏夹选择供可选归类（关闭弹窗=不放进收藏夹）。
+    // 不再「先选夹再收藏」——收藏主流程不依赖弹窗；收藏夹列表与收藏请求并行拉取，弹窗尽快出现。
     this.bookmarkPending = true;
     this.setInteraction(previous.uped, previous.upCount, true, previous.bookmarkCount + 1);
     this.bookmarkFeedbackVersion = this.bookmarkFeedbackVersion + 1;
+    const foldersTask: Promise<BookmarkFolderItem[] | null> = listBookmarkFolders()
+      .then((list: BookmarkFolderItem[]): BookmarkFolderItem[] | null => list)
+      .catch((): BookmarkFolderItem[] | null => null);
     try {
-      await bookmarkPost(id, folderId > 0 ? folderId : undefined);
+      await bookmarkPost(id);
     } catch (e) {
       this.setInteraction(previous.uped, previous.upCount, previous.bookmarked, previous.bookmarkCount);
       safeShowToast(this.getUIContext(), { message: '操作失败，请先登录' });
-    } finally {
       this.bookmarkPending = false;
+      return;
+    }
+    this.bookmarkPending = false;
+    // 收藏夹列表加载失败不算收藏失败：帖子已进未分类，仅跳过归类弹窗
+    const folders: BookmarkFolderItem[] | null = await foldersTask;
+    if (folders !== null) {
+      this.folderPickFolders = folders;
+      this.openFolderPick();
+    }
+  }
+
+  // 归类结果：>0 移入指定收藏夹（弹窗不列「未分类」行，关闭弹窗即保持未分类，无需请求）
+  private async onFolderPick(folderId: number): Promise<void> {
+    if (folderId <= 0) {
+      return;
+    }
+    const id = this.post?.id;
+    if (id === undefined || !this.interaction.bookmarked) {
+      return; // 弹窗期间已取消收藏：忽略归类
+    }
+    try {
+      await moveBookmarkFolder(id, folderId);
+    } catch (e) {
+      safeShowToast(this.getUIContext(), { message: (e as Error).message });
     }
   }
 
@@ -632,24 +655,19 @@ export struct PostDetailView {
     this.folderNameDialog.open();
   }
 
-  // 新建收藏夹后直接收藏到该夹
+  // 新建收藏夹后归入该夹（帖子已在收藏态，走移动；弹窗期间恰已取消收藏则仅建夹不归入）
   private async onCreateFolderAndBookmark(name: string): Promise<void> {
     const id = this.post?.id;
     if (id === undefined) {
       return;
     }
-    const previous: DetailInteractionState = this.interaction;
-    this.bookmarkPending = true;
-    this.setInteraction(previous.uped, previous.upCount, true, previous.bookmarkCount + 1);
-    this.bookmarkFeedbackVersion = this.bookmarkFeedbackVersion + 1;
     try {
       const folder = await createBookmarkFolder(name);
-      await bookmarkPost(id, folder.id);
+      if (this.interaction.bookmarked) {
+        await moveBookmarkFolder(id, folder.id);
+      }
     } catch (e) {
-      this.setInteraction(previous.uped, previous.upCount, previous.bookmarked, previous.bookmarkCount);
       safeShowToast(this.getUIContext(), { message: (e as Error).message });
-    } finally {
-      this.bookmarkPending = false;
     }
   }
 
@@ -657,6 +675,7 @@ export struct PostDetailView {
     this.folderPickController = new CustomDialogController({
       builder: FolderPickDialog({
         folders: this.folderPickFolders,
+        afterBookmark: true,
         onPick: (folderId: number): void => { this.onFolderPick(folderId); },
         onNewFolder: (): void => { this.onNewFolderFromPick(); },
       }),
@@ -835,10 +854,15 @@ export struct PostDetailView {
         cover,
       );
       const source: image.ImageSource = image.createImageSource(bytes);
-      const pixelMap: image.PixelMap = source.createPixelMapSync();
-      this.shareCardPreview = pixelMap;
+      try {
+        this.shareCardPreview = source.createPixelMapSync();
+      } finally {
+        // ImageSource 只用于解码一次，立即释放（否则每点一次分享都留一份句柄）
+        source.release().catch((): void => {});
+      }
     } catch (e) {
-      console.error('[shareCard] DetailPage 分享卡片异常: ' + ((e as Error).message ?? JSON.stringify(e)));
+      hilog.error(SHARE_CARD_DOMAIN, SHARE_CARD_TAG, 'DetailPage 分享卡片异常: %{public}s',
+        String((e as Error).message ?? e));
       safeShowToast(this.getUIContext(), { message: '卡片生成失败，请重试' });
     }
   }
@@ -1186,6 +1210,8 @@ export struct PostDetailView {
       VideoPlayer({
         src: this.videoUrl,
         poster: this.videoCover,
+        // 视频帖点击媒体区/播放按钮 → 独立播放器页（不再内联播放暂停、不再页内浮层）
+        onOpen: (): void => { this.openPlayerPage(); },
         // 关键接线：视频帖此前没有任何「媒体可显示」信号，hero 只能等 900ms 兜底计时器
         // （计时器还在 getPost 返回之后才起算）→ 进详情后媒体位空白约 1 秒。
         // 现在封面解码完成 / 视频首帧就绪 / 出错任一发生即放行（VideoPlayer 内已做只发一次；

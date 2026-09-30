@@ -11,6 +11,13 @@ export interface FollowListIntent {
   mode: 'following' | 'followers';
 }
 
+// 独立视频播放器页意图：router 壳（pages/VideoPlayerPage）据此取播放参数。
+// Navigation 壳走 pushPathByName('VideoPlayer', VideoPlayerNavParams)，不经此通道。
+export interface VideoPlayerIntent {
+  url: string;
+  poster: string;
+}
+
 // 「一镜到底」意图：卡片进入详情页时携带的展示快照。
 // cover 为 resolveDisplayImageUrl 后的展示 URL，空串 = 无媒体 → 详情页走原转场。
 // aspect 为详情媒体目标展示比例（宽/高）；卡面源帧由实际组件矩形单独测量。
@@ -39,6 +46,7 @@ let searchKeyword: string = '';
 let circleDetailName: string = '';
 let chatIntent: ChatIntent | null = null;
 let followListIntent: FollowListIntent | null = null;
+let videoPlayerIntent: VideoPlayerIntent | null = null;
 
 export function openPostDetail(id: string, intent?: PostDetailIntent): void {
   detailPostId = id;
@@ -104,6 +112,16 @@ export function openFollowList(intent: FollowListIntent): void {
 export function takeFollowListIntent(): FollowListIntent | null {
   const intent: FollowListIntent | null = followListIntent;
   followListIntent = null;
+  return intent;
+}
+
+export function openVideoPlayer(url: string, poster: string): void {
+  videoPlayerIntent = { url: url, poster: poster };
+}
+
+export function takeVideoPlayerIntent(): VideoPlayerIntent | null {
+  const intent: VideoPlayerIntent | null = videoPlayerIntent;
+  videoPlayerIntent = null;
   return intent;
 }
 

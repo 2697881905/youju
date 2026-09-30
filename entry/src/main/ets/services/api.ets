@@ -1,6 +1,6 @@
 import { http } from '@kit.NetworkKit';
 import { BUILD_MODE_NAME, DEBUG } from '../utils/buildMode';
-import { Post, DailyPost, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody, PendingPost, ModerateAction, NotificationPrefs, BlockUser, PrivacySettingsData, UserExportData, DebateVoteResult, Conversation, DmMessage, DmSharePayload, AdminReportItem, ReportTargetType, BookmarkFolderItem, MentionRef, MentionCandidate, StructuredDocument } from '../models/types';
+import { Post, DailyPost, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody, ReportAction, NotificationPrefs, BlockUser, PrivacySettingsData, UserExportData, DebateVoteResult, Conversation, DmMessage, DmSharePayload, AdminReportItem, ReportTargetType, BookmarkFolderItem, MentionRef, MentionCandidate, StructuredDocument } from '../models/types';
 
 // 以构建期布尔 DEBUG 为准选择后端地址（调试包 true → 本地，released → 生产）。
 const BUILD_MODE: string = BUILD_MODE_NAME;
@@ -39,6 +39,35 @@ export function resolveDisplayImageUrl(url: string): string {
     return url;
   }
   return url;
+}
+
+interface MediaPlayUrlData {
+  url?: string;
+}
+
+// 视频播放直读地址：GET /v1/media/sign?key=... → COS 签名直读 URL。
+// 起播对带宽敏感：后端字节流代理受服务器出口带宽限制（实测 ~0.5MB/s），
+// 而客户端直连 COS 可达 ~6MB/s —— 起播等待从数秒降到数百毫秒。图片等小资源仍走代理。
+export async function getMediaPlayUrl(key: string): Promise<string> {
+  const res: MediaPlayUrlData = await api.get<MediaPlayUrlData>('/v1/media/sign?key=' + encodeURIComponent(key));
+  return res !== null && res !== undefined && res.url !== undefined && res.url.length > 0 ? res.url : '';
+}
+
+// 播放源解析：cos:// 引用优先换直读签名（换失败回退字节流代理，慢但可用）；
+// 其余来源（本地文件、外链）按展示口径直出。
+export async function resolvePlayableMediaUrl(url: string): Promise<string> {
+  if (!url.startsWith('cos://')) {
+    return resolveDisplayImageUrl(url);
+  }
+  try {
+    const direct: string = await getMediaPlayUrl(url.slice('cos://'.length));
+    if (direct.length > 0) {
+      return direct;
+    }
+  } catch (e) {
+    // 签名失败不阻断播放：回退字节流代理
+  }
+  return resolveDisplayImageUrl(url);
 }
 
 // token 由 utils/auth.ts 统一管理（PersistentStorage 持久化），request 直接从 AppStorage 读取。
@@ -659,9 +688,10 @@ export function unbindAccount(provider: Provider): Promise<UnbindResult> {
 }
 
 // ===== 消息通知 =====
-// GET /v1/notifications?page=&limit=（当前用户通知列表，分页）
-export function listNotifications(page: number = 1, limit: number = 20): Promise<ListResult<NotificationItem>> {
-  const path = '/v1/notifications' + toQuery([['page', page], ['limit', limit]]);
+// GET /v1/notifications?page=&limit=&type=（当前用户通知列表，分页）
+// type 可选：按类型筛选（服务端白名单校验，非法值忽略）；「系统通知」收纳页传 'system'
+export function listNotifications(page: number = 1, limit: number = 20, type?: string): Promise<ListResult<NotificationItem>> {
+  const path = '/v1/notifications' + toQuery([['page', page], ['limit', limit], ['type', type]]);
   return api.get<ListResult<NotificationItem>>(path);
 }
 
@@ -814,26 +844,8 @@ export async function reportUser(id: number, body: ReportBody): Promise<void> {
   await api.post<null>('/v1/users/' + id + '/report', body);
 }
 
-// ===== 内容审核（admin） =====
-// GET /v1/admin/posts/pending?page=&limit= 待审核帖子列表（含举报记录）
-export function getPendingPosts(page: number = 1, limit: number = 20): Promise<ListResult<PendingPost>> {
-  const path: string = '/v1/admin/posts/pending' + toQuery([['page', page], ['limit', limit]]);
-  return api.get<ListResult<PendingPost>>(path);
-}
-
-// POST /v1/admin/posts/:id/moderate 请求体
-export interface ModerateBody {
-  action: ModerateAction;
-  reason?: string;
-}
-
-// POST /v1/admin/posts/:id/moderate {action: approve|reject, reason?}
-export async function moderatePost(id: number, action: ModerateAction, reason?: string): Promise<void> {
-  const body: ModerateBody = { action, reason };
-  await api.post<null>('/v1/admin/posts/' + id + '/moderate', body);
-}
-
-// GET /v1/admin/reports?page=&limit=&status= 举报台账列表（举报账本页）
+// ===== 内容治理（admin）=====
+// GET /v1/admin/reports?page=&limit=&status= 举报台账列表（举报中心 · 唯一处置台）
 export function listAdminReports(
   page: number = 1,
   limit: number = 20,
@@ -847,19 +859,26 @@ export function listAdminReports(
   return api.get<ListResult<AdminReportItem>>(path);
 }
 
-// POST /v1/admin/reports/resolve 处理某目标的全部 pending 举报（标记成立/驳回）
+// POST /v1/admin/reports/resolve 处置某目标：对该目标的全部 pending 举报与内容状态一次性裁决
+// action：resolved 成立并下架 / dismissed 驳回举报（内容因举报被下架则一并恢复）/ restore 改判恢复
+// reason：仅 resolved 使用，随「未通过审核」通知发给作者（空串不提交该字段）
 export interface ResolveReportsBody {
   targetType: ReportTargetType;
   targetId: number;
-  action: 'resolved' | 'dismissed';
+  action: ReportAction;
+  reason?: string;
 }
 
 export async function resolveTargetReports(
   targetType: ReportTargetType,
   targetId: number,
-  action: 'resolved' | 'dismissed'
+  action: ReportAction,
+  reason?: string
 ): Promise<void> {
   const body: ResolveReportsBody = { targetType, targetId, action };
+  if (reason !== undefined && reason.trim().length > 0) {
+    body.reason = reason.trim();
+  }
   await api.post<null>('/v1/admin/reports/resolve', body);
 }
 

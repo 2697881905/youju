@@ -1,18 +1,31 @@
 // 私信聊天「Navigation 壳」：承接 Navigation 内跳入聊天页的导航（pushPathByName('Chat', ...)）。
 // 跳转方已在 push 前写入 openChat intent，onReady 内 ChatView.aboutToAppear 消费，故无需在壳层处理。
 import { ChatView } from './ChatView';
-import { getMainNavStack } from '../utils/navigationTransition';
+import { getMainNavStack, VideoPlayerNavParams } from '../utils/navigationTransition';
 import { ColorTokens } from '../design/tokens/color';
 import { consumeOverlayBack } from '../utils/overlayBackGuard';
 
 @Component
 export struct ChatDestination {
+  // 点聊天视频 → 独立播放器页（与帖子视频同一个页面，解耦于聊天页自身状态）
+  private openVideo(url: string, poster: string): void {
+    const nav: NavPathStack | null = getMainNavStack();
+    if (nav === null) {
+      return;
+    }
+    const p: VideoPlayerNavParams = new VideoPlayerNavParams();
+    p.url = url;
+    p.poster = poster;
+    nav.pushPathByName('VideoPlayer', p);
+  }
+
   build() {
     NavDestination() {
       ChatView({
         navMode: true,
+        onOpenVideo: (url: string, poster: string): void => { this.openVideo(url, poster); },
         onBack: (): void => {
-          // 页内全屏查看器（图片/视频）打开时，页内返回按钮先关查看器，
+          // 页内全屏查看器（图片）打开时，页内返回按钮先关查看器，
           // 与系统返回手势保持一致（系统手势的拦截见下面的 onBackPressed）
           if (consumeOverlayBack()) {
             return;

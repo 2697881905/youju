@@ -171,6 +171,41 @@ describe('GET/POST /v1/notifications', () => {
     );
   });
 
+  it('GET /notifications?type=system → 按类型筛选（AND 合并，不覆盖帖子有效性约束）', async () => {
+    mockPrisma.notification.findMany.mockResolvedValue([
+      { id: 5, userId: 1, actorId: null, type: 'system', postId: null, content: '你的帖子《x》已通过审核', read: false, createdAt: new Date() },
+    ]);
+    mockPrisma.post.findMany.mockResolvedValue([]);
+    mockPrisma.notification.count.mockResolvedValue(1);
+
+    const res = await req('GET', '/v1/notifications?page=1&limit=20&type=system', undefined, authHeader());
+    expect(res.status).toBe(200);
+    expect(res.json.data.list[0].type).toBe('system');
+    expect(mockPrisma.notification.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          AND: [
+            { userId: TEST_USER_ID, type: { notIn: ['comment', 'up', 'bookmark', 'mention'] } },
+            { type: 'system' },
+          ],
+        },
+      }),
+    );
+  });
+
+  it('GET /notifications?type=非法值 → 忽略类型筛选（优雅降级为不过滤）', async () => {
+    mockPrisma.notification.findMany.mockResolvedValue([]);
+    mockPrisma.notification.count.mockResolvedValue(0);
+
+    const res = await req('GET', '/v1/notifications?page=1&limit=20&type=hack', undefined, authHeader());
+    expect(res.status).toBe(200);
+    expect(mockPrisma.notification.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: TEST_USER_ID, type: { notIn: ['comment', 'up', 'bookmark', 'mention'] } },
+      }),
+    );
+  });
+
   it('GET /unread-count → 返回未读数（同样过滤已删除帖子的通知）', async () => {
     // 无任何帖子类通知 → visiblePostIds 为空 → 仅保留非帖子类通知的未读数
     mockPrisma.notification.findMany.mockResolvedValue([]);

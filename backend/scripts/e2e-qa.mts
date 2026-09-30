@@ -286,12 +286,17 @@ async function adminPhase(): Promise<void> {
   const me = await api('GET', '/v1/auth/me', A.token);
   rec('A 的 login/me 响应带 isAdmin=true（ADMIN_USER_IDS 生效）', data(me)?.isAdmin === true);
 
-  const pendingA = await api('GET', '/v1/admin/posts/pending', A.token);
-  rec('管理员拉待审核列表 → 200', pendingA.status === 200);
   const reportsA = await api('GET', '/v1/admin/reports', A.token);
   rec('管理员拉举报列表 → 200', reportsA.status === 200);
-  const pendingB = await api('GET', '/v1/admin/posts/pending', B.token);
-  rec('普通用户拉管理列表 → 403', pendingB.status === 403);
+  const reportsB = await api('GET', '/v1/admin/reports', B.token);
+  rec('普通用户拉管理列表 → 403', reportsB.status === 403);
+  // 举报中心统一处置动作冒烟：驳回一条用户举报（不产生内容/可见性变更）
+  const resolveDismiss = await api('POST', '/v1/admin/reports/resolve', A.token, {
+    targetType: 'user',
+    targetId: A.id,
+    action: 'dismissed',
+  });
+  rec('管理员处置用户举报（驳回）→ 200', resolveDismiss.status === 200);
   const banB = await api('POST', `/v1/admin/users/${B.id}/ban`, A.token, {});
   rec('管理员封禁普通用户 → 200', banB.status === 200);
   const bMe = await api('GET', '/v1/auth/me', B.token);

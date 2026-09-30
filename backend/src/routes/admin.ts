@@ -1,16 +1,15 @@
-// admin 审核 API 路由（统一 auth + adminAuth 前置中间件）
-// GET  /v1/admin/posts/pending      待审核帖子列表
-// POST /v1/admin/posts/:id/moderate 审核帖子（approve/reject）
-// GET  /v1/admin/reports            举报记录列表
+// admin 处置 API 路由（统一 auth + adminAuth 前置中间件）
+// GET  /v1/admin/reports             举报记录列表（处置台数据源，含内容状态与作者）
+// POST /v1/admin/reports/resolve     处置某目标：resolved 成立并下架 / dismissed 驳回并恢复 / restore 改判恢复
+// POST /v1/admin/users/:id/ban|unban 封禁 / 解封用户
+// POST /v1/admin/recompute-hot       运维专用：全量重算热度分
 import { Router, Response } from 'express';
 import { ok, fail, CODE } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
 import { adminAuth } from '../middleware/adminAuth';
 import { prisma } from '../prisma';
 import { env } from '../config/env';
-import * as moderationService from '../services/moderationService';
 import * as reportService from '../services/reportService';
-import { notifySystem } from '../services/notificationService';
 import { recomputeAllHotScores } from '../services/hotScoreService';
 import { parsePage, parseLimit } from '../utils/pagination';
 
@@ -20,33 +19,6 @@ const router = Router();
 
 // 所有 admin 路由统一使用 auth + adminAuth
 router.use(auth, adminAuth);
-
-// GET /v1/admin/posts/pending?page=&limit= — 待审核帖子列表
-router.get('/posts/pending', asyncHandler(async (req: AuthRequest, res: Response) => {
-  const page = parsePage(req.query.page);
-  const limit = parseLimit(req.query.limit, 20);
-  const data = await moderationService.listPendingPosts(page, limit);
-  return ok(res, data);
-}));
-
-// POST /v1/admin/posts/:id/moderate — 审核帖子
-router.post('/posts/:id/moderate', asyncHandler(async (req: AuthRequest, res: Response) => {
-  const postId = Number(req.params.id);
-  if (!postId) return fail(res, CODE.BAD_REQUEST, '无效帖子ID');
-  const { action, reason } = req.body ?? {};
-  if (!action || !['approve', 'reject'].includes(action)) {
-    return fail(res, CODE.BAD_REQUEST, 'action 必须为 approve 或 reject');
-  }
-  try {
-    await moderationService.moderatePost(postId, action as 'approve' | 'reject', reason);
-    return ok(res, null, '审核完成');
-  } catch (e: any) {
-    if (e.reason === 'not_found') return fail(res, CODE.NOT_FOUND, '帖子不存在', 404);
-    if (e.reason === 'invalid_status')
-      return fail(res, CODE.BAD_REQUEST, '该帖子不在待审核状态');
-    return fail(res, CODE.SERVER_ERROR, '审核失败', 500);
-  }
-}));
 
 // GET /v1/admin/reports?page=&limit=&status= — 举报记录列表
 router.get('/reports', asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -80,27 +52,37 @@ router.post('/users/:id/unban', asyncHandler(async (req: AuthRequest, res: Respo
   return ok(res, null, '已解封');
 }));
 
-// POST /v1/admin/reports/resolve — 批量处理某目标的全部 pending 举报（台账处置台）
-// body: { targetType: 'post'|'comment'|'user', targetId, action: 'resolved'|'dismissed' }
+// POST /v1/admin/reports/resolve — 处置台统一动作：对该目标的全部 pending 举报与内容状态一次性裁决
+// body: { targetType: 'post'|'comment'|'user', targetId, action: 'resolved'|'dismissed'|'restore', reason? }
+//   - resolved  成立并下架（通知作者未通过审核）
+//   - dismissed 驳回举报（内容若因举报被下架则一并恢复）
+//   - restore   改判/误封恢复（仅内容，需无 pending 举报）
+// 通知（作者 / 举报人）已下沉到 service，与本路由不再重复发送。
 router.post('/reports/resolve', asyncHandler(async (req: AuthRequest, res: Response) => {
-  const { targetType, targetId, action } = req.body ?? {};
+  const { targetType, targetId, action, reason } = req.body ?? {};
   if (!['post', 'comment', 'user'].includes(targetType)) {
     return fail(res, CODE.BAD_REQUEST, 'targetType 必须为 post/comment/user');
   }
   const id = Number(targetId);
   if (!id || isNaN(id)) return fail(res, CODE.BAD_REQUEST, '无效目标ID');
-  if (!['resolved', 'dismissed'].includes(action)) {
-    return fail(res, CODE.BAD_REQUEST, 'action 必须为 resolved 或 dismissed');
+  if (!['resolved', 'dismissed', 'restore'].includes(action)) {
+    return fail(res, CODE.BAD_REQUEST, 'action 必须为 resolved、dismissed 或 restore');
   }
+  const trimmedReason: string | undefined =
+    typeof reason === 'string' && reason.trim().length > 0 ? reason.trim().slice(0, 200) : undefined;
   try {
-    await reportService.resolveReportsByTarget(targetType, id, action as 'resolved' | 'dismissed');
-  } catch (e) {
+    await reportService.resolveReportsByTarget(
+      targetType,
+      id,
+      action as 'resolved' | 'dismissed' | 'restore',
+      trimmedReason
+    );
+  } catch (e: any) {
+    if (e?.reason === 'not_found') return fail(res, CODE.NOT_FOUND, '目标不存在', 404);
+    if (e?.reason === 'has_pending') return fail(res, CODE.BAD_REQUEST, '该内容仍有待处理举报，请先处置举报');
+    if (e?.reason === 'not_taken_down') return fail(res, CODE.BAD_REQUEST, '该内容当前未下架，无需恢复');
+    if (e?.reason === 'invalid_target') return fail(res, CODE.BAD_REQUEST, '用户举报不支持该操作');
     return fail(res, CODE.SERVER_ERROR, '处理失败', 500);
-  }
-  // 事务后通知举报人（外部副作用，失败不阻断：台账状态已标记完成）
-  const reporterIds = await reportService.getReporterIdsByTarget(targetType, id);
-  for (const rid of reporterIds) {
-    await notifySystem(rid, '你的举报已处理', targetType === 'post' ? id : null).catch(() => {});
   }
   return ok(res, null, '已处理');
 }));

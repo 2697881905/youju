@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
-import { getCosViewUrl, isValidMediaKey } from '../services/uploadService';
+import { getCosPlayUrl, getCosViewUrl, isValidMediaKey } from '../services/uploadService';
+import { ok, fail, CODE } from '../utils/response';
 import * as https from 'https';
 
 // 私有 COS 媒体代理。业务数据只保存 cos://key，客户端每次加载时由此路由换取 5 分钟 GET 签名。
@@ -54,6 +55,25 @@ function proxyCosStream(req: Request, res: Response, viewUrl: string): void {
   };
   fetch(viewUrl, 0);
 }
+
+// 视频播放直读签名：GET /v1/media/sign?key=<key> → { url: COS 签名直读地址 }
+// 视频（大文件、起播敏感）由客户端拿签名后直连 COS 取流，绕开后端字节流代理的出口带宽瓶颈
+// （实测代理 ~0.5MB/s vs COS 直读 ~6MB/s，直接影响起播等待）。签名有效期 30 分钟，
+// 覆盖一次完整播放；图片等小资源继续走下方代理（有 host 兼容性与缓存收益）。
+// 访问模型与代理一致（公开只读、需合法 key），不额外扩大暴露面。
+// ⚠️ 必须注册在下面的 catch-all（router.use('/', ...)）之前，否则会被代理分支吞掉。
+router.get('/sign', (req: Request, res: Response) => {
+  const key: string = decodeURIComponent(String(req.query.key ?? ''));
+  if (key.length === 0 || !isValidMediaKey(key)) {
+    return fail(res, CODE.NOT_FOUND, '媒体不存在', 404);
+  }
+  try {
+    return ok(res, { url: getCosPlayUrl(key) });
+  } catch (error) {
+    console.error('[media.sign]', error);
+    return fail(res, CODE.NOT_FOUND, '媒体不可用', 404);
+  }
+});
 
 // 支持含斜杠的 key 路径（客户端可按未编码 URL 直出，规避个别 Image 栈对 %2F 编码路径的不兼容）
 // 同时保留 %2F 编码形式（decodeURIComponent 后同样可解析）

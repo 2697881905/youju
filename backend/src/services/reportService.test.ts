@@ -17,10 +17,12 @@ jest.mock('../prisma', () => ({
     post: {
       findUnique: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
     comment: {
       findUnique: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
     user: {
       findUnique: jest.fn(),
@@ -308,52 +310,169 @@ describe('listReportsByTarget / resolveReportsByTarget / getReporterIdsByTarget'
     );
   });
 
-  it('resolveReportsByTarget 成立举报：事务内更新报告状态并下架帖子', async () => {
-    const txReport = { updateMany: jest.fn().mockResolvedValue({ count: 2 }) };
-    const txPost = { updateMany: jest.fn().mockResolvedValue({ count: 1 }) };
-    const txComment = { updateMany: jest.fn().mockResolvedValue({ count: 1 }) };
-    (mockPrisma.$transaction as jest.Mock).mockImplementation(
-      async (cb: (tx: any) => Promise<void>) => cb({ report: txReport, post: txPost, comment: txComment })
-    );
-    await resolveReportsByTarget('post', 1, 'resolved');
-    expect(txReport.updateMany).toHaveBeenCalledWith(
+  // 构造事务 tx mock：统一入口需要 findUnique（目标快照）+ updateMany（状态流转）+ count/findMany
+  function makeTx(opts: { postStatus?: number; commentStatus?: number; pendingCount?: number; reporters?: number[] } = {}): any {
+    return {
+      post: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 1, userId: 10, title: '测试帖子', status: opts.postStatus ?? 0,
+        }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      comment: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 7, userId: 11, postId: 5, status: opts.commentStatus ?? 0,
+        }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      user: { findUnique: jest.fn().mockResolvedValue({ id: 30 }) },
+      report: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        count: jest.fn().mockResolvedValue(opts.pendingCount ?? 0),
+        findMany: jest.fn().mockResolvedValue((opts.reporters ?? [2]).map((rid) => ({ reporterId: rid }))),
+      },
+    };
+  }
+
+  function useTx(tx: any): void {
+    (mockPrisma.$transaction as jest.Mock).mockImplementation(async (cb: (t: any) => Promise<void>) => cb(tx));
+  }
+
+  it('resolved（post）：举报→resolved + 内容下架 + 作者收「未通过审核（原因）」+ 举报人收「已处理」', async () => {
+    const tx = makeTx();
+    useTx(tx);
+    await resolveReportsByTarget('post', 1, 'resolved', '含广告推广');
+
+    expect(tx.report.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { targetType: 'post', targetId: 1, status: 'pending' },
         data: { status: 'resolved', resolvedAt: expect.any(Date) },
       })
     );
-    expect(txPost.updateMany).toHaveBeenCalledWith({ where: { id: 1 }, data: { status: 0 } });
-    expect(txComment.updateMany).not.toHaveBeenCalled();
+    // 成立即下架（0），不写 2
+    expect(tx.post.updateMany).toHaveBeenCalledWith({ where: { id: 1 }, data: { status: 0 } });
+    expect(tx.comment.updateMany).not.toHaveBeenCalled();
+
+    // 作者通知（含原因）+ 举报人通知 = 2 条
+    expect(mockPrisma.notification.create).toHaveBeenCalledTimes(2);
+    const authorNotif = mockPrisma.notification.create.mock.calls[0][0];
+    expect(authorNotif.data.userId).toBe(10);
+    expect(authorNotif.data.content).toBe('你的帖子《测试帖子》未通过审核，原因：含广告推广');
+    const reporterNotif = mockPrisma.notification.create.mock.calls[1][0];
+    expect(reporterNotif.data.userId).toBe(2);
+    expect(reporterNotif.data.content).toBe('你的举报已处理');
   });
 
-  it('resolveReportsByTarget 成立举报：下架评论（comment 目标）', async () => {
-    const txReport = { updateMany: jest.fn().mockResolvedValue({ count: 1 }) };
-    const txPost = { updateMany: jest.fn().mockResolvedValue({ count: 0 }) };
-    const txComment = { updateMany: jest.fn().mockResolvedValue({ count: 1 }) };
-    (mockPrisma.$transaction as jest.Mock).mockImplementation(
-      async (cb: (tx: any) => Promise<void>) => cb({ report: txReport, post: txPost, comment: txComment })
-    );
+  it('resolved（comment）：下架评论 + 作者通知挂到所属帖子', async () => {
+    const tx = makeTx();
+    useTx(tx);
     await resolveReportsByTarget('comment', 7, 'resolved');
-    expect(txComment.updateMany).toHaveBeenCalledWith({ where: { id: 7 }, data: { status: 0 } });
-    expect(txPost.updateMany).not.toHaveBeenCalled();
+
+    expect(tx.comment.updateMany).toHaveBeenCalledWith({ where: { id: 7 }, data: { status: 0 } });
+    expect(tx.post.updateMany).not.toHaveBeenCalled();
+    const authorNotif = mockPrisma.notification.create.mock.calls[0][0];
+    expect(authorNotif.data.userId).toBe(11);
+    expect(authorNotif.data.content).toBe('你的评论未通过审核');
+    expect(authorNotif.data.postId).toBe(5);
   });
 
-  it('resolveReportsByTarget 驳回举报：仅更新报告状态，不下架内容', async () => {
-    const txReport = { updateMany: jest.fn().mockResolvedValue({ count: 1 }) };
-    const txPost = { updateMany: jest.fn().mockResolvedValue({ count: 0 }) };
-    const txComment = { updateMany: jest.fn().mockResolvedValue({ count: 0 }) };
-    (mockPrisma.$transaction as jest.Mock).mockImplementation(
-      async (cb: (tx: any) => Promise<void>) => cb({ report: txReport, post: txPost, comment: txComment })
-    );
+  it('dismissed：举报驳回 + 内容从下架恢复（0→1）+ 作者收「已通过审核」', async () => {
+    const tx = makeTx({ postStatus: 0 });
+    useTx(tx);
     await resolveReportsByTarget('post', 1, 'dismissed');
-    expect(txReport.updateMany).toHaveBeenCalledWith(
+
+    expect(tx.report.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { targetType: 'post', targetId: 1, status: 'pending' },
         data: { status: 'dismissed', resolvedAt: expect.any(Date) },
       })
     );
-    expect(txPost.updateMany).not.toHaveBeenCalled();
-    expect(txComment.updateMany).not.toHaveBeenCalled();
+    // 修「驳回后内容滞留在处置台之外」：一并恢复展示
+    expect(tx.post.updateMany).toHaveBeenCalledWith({ where: { id: 1, status: 0 }, data: { status: 1 } });
+    const authorNotif = mockPrisma.notification.create.mock.calls[0][0];
+    expect(authorNotif.data.userId).toBe(10);
+    expect(authorNotif.data.content).toBe('你的帖子《测试帖子》已通过审核');
+  });
+
+  it('dismissed：内容本就未下架 → 不碰内容、不发作者通知（仅举报人收「已处理」）', async () => {
+    const tx = makeTx({ postStatus: 1 });
+    useTx(tx);
+    await resolveReportsByTarget('post', 1, 'dismissed');
+
+    expect(tx.post.updateMany).not.toHaveBeenCalled();
+    expect(mockPrisma.notification.create).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.notification.create.mock.calls[0][0].data.userId).toBe(2);
+  });
+
+  it('dismissed：举报人即作者 → 只发作者一条（自举报不重复打扰）', async () => {
+    const tx = makeTx({ postStatus: 0, reporters: [10] });
+    useTx(tx);
+    await resolveReportsByTarget('post', 1, 'dismissed');
+
+    expect(mockPrisma.notification.create).toHaveBeenCalledTimes(1);
+    const onlyNotif = mockPrisma.notification.create.mock.calls[0][0];
+    expect(onlyNotif.data.userId).toBe(10);
+    expect(onlyNotif.data.content).toBe('你的帖子《测试帖子》已通过审核');
+  });
+
+  it('restore：仅恢复内容（0→1）+ 作者收「已通过审核」；不改举报状态、不通知举报人', async () => {
+    const tx = makeTx({ postStatus: 0 });
+    useTx(tx);
+    await resolveReportsByTarget('post', 1, 'restore');
+
+    expect(tx.report.updateMany).not.toHaveBeenCalled();
+    expect(tx.post.updateMany).toHaveBeenCalledWith({ where: { id: 1, status: 0 }, data: { status: 1 } });
+    expect(mockPrisma.notification.create).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.notification.create.mock.calls[0][0].data.userId).toBe(10);
+  });
+
+  it('restore：仍有 pending 举报 → 拒绝且不改内容', async () => {
+    const tx = makeTx({ pendingCount: 1 });
+    useTx(tx);
+    await expect(resolveReportsByTarget('post', 1, 'restore')).rejects.toMatchObject({ reason: 'has_pending' });
+    expect(tx.post.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('restore：user 目标不支持 / 内容未下架 → 各自拒绝', async () => {
+    const txUser = makeTx();
+    useTx(txUser);
+    await expect(resolveReportsByTarget('user', 30, 'restore')).rejects.toMatchObject({ reason: 'invalid_target' });
+
+    const txDown = makeTx({ postStatus: 1 });
+    useTx(txDown);
+    await expect(resolveReportsByTarget('post', 1, 'restore')).rejects.toMatchObject({ reason: 'not_taken_down' });
+  });
+
+  it('resolved（user）：不碰内容、无作者通知，举报人仍收「已处理」', async () => {
+    const tx = makeTx();
+    useTx(tx);
+    await resolveReportsByTarget('user', 30, 'resolved');
+
+    expect(tx.post.updateMany).not.toHaveBeenCalled();
+    expect(tx.comment.updateMany).not.toHaveBeenCalled();
+    expect(mockPrisma.notification.create).toHaveBeenCalledTimes(1);
+    const onlyNotif = mockPrisma.notification.create.mock.calls[0][0];
+    expect(onlyNotif.data.userId).toBe(2);
+    expect(onlyNotif.data.content).toBe('你的举报已处理');
+    expect(onlyNotif.data.postId).toBeNull();
+  });
+
+  it('处置后同步「举报中心」：待处理清零 → 文案改「暂无待处理举报」并熄灭未读', async () => {
+    const tx = makeTx();
+    useTx(tx);
+    mockPrisma.report.count.mockResolvedValue(0);
+    mockPrisma.notification.findFirst.mockResolvedValue({
+      id: 55, userId: 99, type: 'system', pinned: true, content: '举报中心：有 1 条举报待处理',
+    });
+    mockPrisma.notification.update.mockResolvedValue({});
+
+    await resolveReportsByTarget('post', 1, 'dismissed');
+
+    // 处置后按真实待处理数回写：缺这一步消息中心会一直挂着旧数字（用户报障）
+    expect(mockPrisma.report.count).toHaveBeenCalledWith({ where: { status: 'pending' } });
+    expect(mockPrisma.notification.update).toHaveBeenCalledWith({
+      where: { id: 55 },
+      data: { content: '举报中心：暂无待处理举报', pinned: true, read: true },
+    });
   });
 
   it('getReporterIdsByTarget 返回举报人 ID 数组', async () => {
