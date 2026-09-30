@@ -20,11 +20,12 @@ export struct ProfileIdentity {
   }
 
   private genderColor(): ResourceColor {
-    return this.gender === 1 ? ColorTokens.brand : this.gender === 2 ? '#D94F87' : ColorTokens.secondary;
+    // 男=系统蓝（用户要求，原暖棕 brand 与「性别=蓝」的通用认知不符）；女=粉；保密=中性
+    return this.gender === 1 ? '#0A59F7' : this.gender === 2 ? '#D94F87' : ColorTokens.secondary;
   }
 
   private genderSurface(): ResourceColor {
-    return this.gender === 1 ? ColorTokens.brandTint : this.gender === 2 ? '#FFF0F5' : ColorTokens.sunken;
+    return this.gender === 1 ? '#E8F0FF' : this.gender === 2 ? '#FFF0F5' : ColorTokens.sunken;
   }
 
   build() {
