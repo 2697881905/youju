@@ -89,6 +89,7 @@ struct TextPublishPage {
     if (this.title.trim().length > 0) {
       done += 1;
     }
+
     if (this.content.trim().length > 0) {
       done += 1;
     }

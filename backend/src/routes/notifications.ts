@@ -9,11 +9,13 @@ import { asyncHandler } from '../middleware/asyncHandler';
 
 const router = Router();
 
-// 通知列表：GET /v1/notifications?page=1&limit=20
+// 通知列表：GET /v1/notifications?page=1&limit=20&type=system
+// type 可选（前端「系统通知」收纳页只取 system 消息）：白名单由服务端校验，非法值忽略（不过滤）
 router.get('/notifications', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const page = parsePage(req.query.page);
   const limit = parseLimit(req.query.limit, 20);
-  const data = await notificationService.listForUser(req.userId!, { page, limit });
+  const type = typeof req.query.type === 'string' ? req.query.type : undefined;
+  const data = await notificationService.listForUser(req.userId!, { page, limit, type });
   return ok(res, data);
 }));
 

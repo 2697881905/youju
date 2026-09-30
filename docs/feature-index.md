@@ -71,7 +71,7 @@
 | 我的 | `ProfilePage`、`EditProfilePage`、`UserProfilePage`、`MyFollowPage`、`BlocklistPage`、`BookmarkFolderPage`、`BookmarkFolderDetailPage` |
 | 账号 | `LoginPage`、`AccountBindingPage` |
 | 设置与合规 | `SettingsPage`、`PrivacySettingsPage`、`PrivacyPage`、`UserAgreementPage`、`AboutPage` |
-| 治理 | `ModerationPage`、`ReportAdminPage` |
+| 治理 | `ReportAdminPage`（举报中心 · 唯一处置台；原 `ModerationPage` 内容审核台已并入，2026-09-29 下线） |
 | 设计预览 | ~~`FoundationPreviewPage`、`ParchmentPreviewPage`~~ 已删除（2026-09-15） |
 
 ## 三、功能模块

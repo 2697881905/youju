@@ -1,4 +1,7 @@
 // 消息通知中心（真实数据：后端 /v1/notifications）
+// - 三类互动筛选：赞和收藏（默认，无「全部」视图）/ 新增关注 / 评论（含 @提及）
+// - 常驻入口：举报中心（管理员，唯一处置台）、系统通知（所有用户，审核结果/举报回执），
+//   两者不随筛选过滤；系统类通知不在互动筛选列表里出现
 // - 列表渲染（下拉刷新 / 触底加载更多 / 未读圆点 / 点击已读并跳详情）
 // - 空态 / 错误态（重试）
 // - 顶部「全部已读」
@@ -14,6 +17,7 @@ import {
   markAllRead,
   getConversations,
   getDmUnreadCount,
+  listAdminReports,
 } from '../services/api';
 import { getToken, getUserId, getCurrentUser, getIsAdmin } from '../utils/auth';
 import { barBottomReserve } from '../utils/cardTokens';
@@ -49,7 +53,7 @@ export struct MessagePage {
   @StorageLink('unreadMessageCount') unreadCount: number = 0;
   // 监听登录态：LoginPage 自动登录后 authToken 就绪，此页才加载（aboutToAppear 可能在登录前已跑过）
   @StorageLink('authToken') @Watch('onTokenReady') token: string = '';
-  @State activeFilter: string = 'all'; // 'all' | 'up_bookmark' | 'follow' | 'comment'
+  @State activeFilter: string = 'up_bookmark'; // 'up_bookmark' | 'follow' | 'comment'（无「全部」视图，默认赞和收藏）
   // ===== 私信 =====
   @State dmTab: string = 'notif'; // 'notif' | 'dm'
   @State dmTabIndex: number = 0;
@@ -63,6 +67,11 @@ export struct MessagePage {
   @StorageLink('unreadDmCount') dmUnread: number = 0;
   // 聊天页发送/已读后自增，触发本页刷新会话列表与未读
   @StorageLink('dmRefreshSignal') @Watch('onDmRefreshSignal') dmRefreshSignal: number = 0;
+  // 系统通知页标读完成后自增 → 本页重拉列表，入口红点与预览即时回落
+  @StorageLink('systemNoticeRefreshSignal') @Watch('onSystemNoticeRefreshSignal') systemNoticeRefreshSignal: number = 0;
+  // 举报处置/内容审核后自增（后端已同步「举报中心」置顶消息的待处理数）
+  // → 本页重拉列表，举报中心入口的文案即时刷新
+  @StorageLink('reportCenterRefreshSignal') @Watch('onReportCenterRefreshSignal') reportCenterRefreshSignal: number = 0;
   // 订阅登录账号：切换账号（如老张↔小美互测）时重拉通知与私信，
   // 否则 TabContent 内组件被保留，残留上一个账号的通知/会话与红点。
   @StorageLink('authUserId') @Watch('onUserChange') uid: string = '';
@@ -70,26 +79,47 @@ export struct MessagePage {
   @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
   private tabPulseTimer: number = 0;
 
+  // 归口「系统通知」入口的 system 消息：审核结果（已通过/未通过审核）、举报回执
+  // （因被举报正在审核中 / 你的举报已处理）等都在内 —— 三类互动视图不展示系统通知，
+  // 这里是它们唯一的收纳处（进页可读、可清未读）。
+  // ⚠️ 管理员的「举报中心：有 N 条举报待处理」归口上面的举报中心入口，不在此重复。
+  private isSystemNotice(item: NotificationItem): boolean {
+    if (item.type !== 'system') {
+      return false;
+    }
+    return !(getIsAdmin() && this.isReportCenterItem(item));
+  }
+
+  // 「举报中心」置顶消息判定：作为常驻入口（reportCenterEntry）的副标题/时间数据来源
+  private isReportCenterItem(item: NotificationItem): boolean {
+    if (item.pinned !== true) {
+      return false;
+    }
+    const content: string = item.content ?? '';
+    return content.startsWith('举报中心') || content.includes('收到新举报');
+  }
+
   // 根据当前筛选条件过滤列表（方法调用，避免 ArkTS getter 在 build() 中不稳定）
   private getFilteredList(): NotificationItem[] {
     const list: NotificationItem[] = this.list;
     if (!list) {
       return [];
     }
-    if (this.activeFilter === 'all') {
-      return list;
-    }
+    // 只有三类互动视图（无「全部」）：系统类（审核/举报回执）天然不在任何筛选里出现；
+    // 管理员的举报链路另见上方常驻入口（reportCenterEntry）。
+    // @提及（评论中提到了你）并入「评论」——提及只发生在评论区，单独放会无处可看。
+    const filter: string = this.activeFilter;
     return list.filter((item: NotificationItem) => {
-      if (this.activeFilter === 'up_bookmark') {
+      if (filter === 'up_bookmark') {
         return item.type === 'up' || item.type === 'bookmark';
       }
-      if (this.activeFilter === 'follow') {
+      if (filter === 'follow') {
         return item.type === 'follow';
       }
-      if (this.activeFilter === 'comment') {
-        return item.type === 'comment';
+      if (filter === 'comment') {
+        return item.type === 'comment' || item.type === 'mention';
       }
-      return true;
+      return false;
     });
   }
 
@@ -147,6 +177,22 @@ export struct MessagePage {
     }
   }
 
+  // 从系统通知页返回（该页进入即把系统通知全标已读）→ 重拉列表，
+  // 让「系统通知」入口的红点与预览在不切页的情况下即时刷新
+  onSystemNoticeRefreshSignal(): void {
+    if (this.token !== '') {
+      this.loadFirst();
+    }
+  }
+
+  // 举报处置 / 内容审核后（后端已把「举报中心」待处理数写回置顶消息）→ 重拉列表，
+  // 举报中心入口的文案（有 N 条待处理 / 暂无待处理）即时刷新
+  onReportCenterRefreshSignal(): void {
+    if (this.token !== '') {
+      this.loadFirst();
+    }
+  }
+
   // 切换登录账号（登出/切换虚拟账号）→ 立即重拉通知与私信，避免 TabContent 内组件残留；
   // 登出（无有效用户）→ 清空所有消息数据，杜绝未登录时展示上一账号的通知/会话/红点。
   onUserChange(): void {
@@ -173,9 +219,10 @@ export struct MessagePage {
     this.loading = false;
     this.dmLoading = false;
     this.refreshing = false;
-    this.activeFilter = 'all';
+    this.activeFilter = 'up_bookmark';
     this.unreadCount = 0;
     this.dmUnread = 0;
+    this.reportCenterPending = -1;
   }
 
   // 按通知类型统计未读数（仅统计已加载列表中的未读项），用于各分区红点
@@ -227,6 +274,8 @@ export struct MessagePage {
     this.page = 1;
     this.hasMore = true;
     await this.refreshUnread();
+    // 举报中心入口的待处理数（管理员）：与列表同一轮拉取，处置返回后经刷新信号一并刷新
+    this.loadReportCenterPending();
     await this.loadDmUnread();
     try {
       const res = await listNotifications(1, 20);
@@ -374,33 +423,38 @@ export struct MessagePage {
     }
   }
 
+  // 本地乐观标记已读：就地替换该条 + 递减未读计数，立即驱动红点/角标消失（不必等网络）
+  private markReadOptimistic(id: number): void {
+    const next: NotificationItem[] = this.list.slice();
+    for (let i = 0; i < next.length; i++) {
+      if (next[i].id === id) {
+        const cur: NotificationItem = next[i];
+        next[i] = {
+          id: cur.id,
+          type: cur.type,
+          actor: cur.actor,
+          postId: cur.postId,
+          content: cur.content,
+          read: true,
+          pinned: cur.pinned ?? false,
+          createdAt: cur.createdAt,
+        };
+        break;
+      }
+    }
+    this.list = next;
+    if (this.unreadCount > 0) {
+      this.unreadCount = this.unreadCount - 1;
+    }
+  }
+
   // 点击单条：本地乐观标记已读（立即驱动红点消失）→ 后台同步后端 → 按类型跳转
   async onItemClick(item: NotificationItem): Promise<void> {
     if (item.read !== true && item.id !== undefined) {
       const id: number = item.id;
       // 先乐观更新本地（list + unreadMessageCount），立即隐藏红点，避免等待网络；
       // 否则网络慢时红点迟迟不消失，切花 Tab 重建后才看到。
-      const next: NotificationItem[] = this.list.slice();
-      for (let i = 0; i < next.length; i++) {
-        if (next[i].id === id) {
-          const cur: NotificationItem = next[i];
-          next[i] = {
-            id: cur.id,
-            type: cur.type,
-            actor: cur.actor,
-            postId: cur.postId,
-            content: cur.content,
-            read: true,
-            pinned: cur.pinned ?? false,
-            createdAt: cur.createdAt,
-          };
-          break;
-        }
-      }
-      this.list = next;
-      if (this.unreadCount > 0) {
-        this.unreadCount = this.unreadCount - 1;
-      }
+      this.markReadOptimistic(id);
       // 标记失败不影响已删除的红点与跳转
       try {
         await markNotificationRead(id);
@@ -410,16 +464,8 @@ export struct MessagePage {
       // 用后端权威未读数校正（本地乐观可能与服务器有偏差）
       this.refreshUnread();
     }
-    // 置顶的「举报中心」系统消息 → 直达举报账本（新文案「举报中心：有 N 条举报待处理」；
-    // 兼容早期文案「收到新举报…」的历史置顶通知）；作者收到的「审核中」置顶通知
-    // 仍走下方 postId 跳原帖详情。⚠️ 仅管理员可入（E2E 审计 D2）：普通用户收到历史
-    // 置顶举报通知时不得被带进管理页（管理页自身也有 admin 闸门兜底）。
-    if (getIsAdmin() && item.pinned === true &&
-      ((item.content ?? '').startsWith('举报中心') || (item.content ?? '').includes('收到新举报'))) {
-      this.getUIContext().getRouter().pushUrl({ url: 'pages/ReportAdminPage' });
-      return;
-    }
     // 点击单条跳转：新增关注 → 该用户（actor）主页；带 postId 的通知（赞/收藏/评论）→ 原帖详情
+    // （举报中心类通知已从普通行收敛为上方常驻入口，跳转见 onReportCenterClick）
     if (item.type === 'follow' && item.actor !== undefined && item.actor !== null && item.actor.id) {
       openUserProfile(item.actor.id);
       this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage' });
@@ -429,6 +475,154 @@ export struct MessagePage {
       openPostDetail(String(item.postId));
       this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
     }
+  }
+
+  // ===== 举报中心（管理员）=====
+  // 整条举报链路的通知（举报中心待处理数、被举报审核中、举报已处理回执）不再作为
+  // 普通行，收敛为通知列表上方一条常驻入口：切换「赞和收藏/新增关注/评论」筛选时
+  // 始终置顶可见，不随筛选消失。
+  // 待处理数（-1 = 未就绪/非管理员）取自举报台账接口的真实计数，不读置顶消息里的旧文案
+  @State reportCenterPending: number = -1;
+
+  // 拉取举报台账的待处理总数（仅管理员；失败静默，退回通知文案展示）
+  async loadReportCenterPending(): Promise<void> {
+    if (!getIsAdmin()) {
+      return;
+    }
+    try {
+      const res = await listAdminReports(1, 1, 'pending');
+      this.reportCenterPending = res.pagination.total;
+    } catch (e) {
+      // 忽略：入口退回通知文案，不阻断消息列表
+    }
+  }
+
+  private reportCenterItem(): NotificationItem | undefined {
+    for (const it of this.list) {
+      if (this.isReportCenterItem(it)) {
+        return it;
+      }
+    }
+    return undefined;
+  }
+
+  // 入口副标题：以举报台账的实时待处理数为准（服务端真实数据），不依赖置顶消息里的旧文案
+  // —— 通知文案只在「新举报产生 / 处置回写」时更新，历史上漏更新的行会让入口一直显示旧数字。
+  // 计数未就绪（请求失败/非管理员）时退回通知文案，再退回通用说明。
+  private reportCenterSubtitle(): string {
+    if (this.reportCenterPending >= 0) {
+      return this.reportCenterPending > 0
+        ? '有 ' + String(this.reportCenterPending) + ' 条举报待处理'
+        : '暂无待处理举报';
+    }
+    const it: NotificationItem | undefined = this.reportCenterItem();
+    if (it === undefined) {
+      return '查看举报台账与处置记录';
+    }
+    const content: string = it.content ?? '';
+    if (content.startsWith('举报中心：')) {
+      return content.substring('举报中心：'.length);
+    }
+    return content;
+  }
+
+  private reportCenterTime(): string {
+    const it: NotificationItem | undefined = this.reportCenterItem();
+    return it === undefined ? '' : this.formatTime(it.createdAt);
+  }
+
+  private reportCenterUnread(): boolean {
+    // 入口红点只跟随「举报中心」这条通知本身：其余举报回执/审核中消息归口系统通知入口
+    const it: NotificationItem | undefined = this.reportCenterItem();
+    return it !== undefined && it.read !== true;
+  }
+
+  // 点击入口：先把「举报中心」通知乐观标为已读（立刻消红点），再进举报中心。
+  // 管理员闸门由入口的渲染条件（getIsAdmin）与举报中心页自身兜底，这里不重复判断。
+  async onReportCenterClick(): Promise<void> {
+    const it: NotificationItem | undefined = this.reportCenterItem();
+    if (it !== undefined && it.read !== true && it.id !== undefined) {
+      const id: number = it.id;
+      this.markReadOptimistic(id);
+      try {
+        await markNotificationRead(id);
+      } catch (e) {
+        // 忽略：下次进入消息页拉取会以服务器为准
+      }
+      this.refreshUnread();
+    }
+    this.getUIContext().getRouter().pushUrl({ url: 'pages/ReportAdminPage' });
+  }
+
+  // ===== 系统通知（所有登录用户）=====
+  // 三类互动视图之外的 system 消息（审核结果、举报回执等）在此有唯一入口：
+  // 点开进「系统通知」页可读；该页进入即全部标读，返回时经刷新信号让本页入口红点即时回落。
+  private systemNoticeItem(): NotificationItem | undefined {
+    for (const it of this.list) {
+      if (this.isSystemNotice(it)) {
+        return it;
+      }
+    }
+    return undefined;
+  }
+
+  private systemNoticeSubtitle(): string {
+    const it: NotificationItem | undefined = this.systemNoticeItem();
+    return it === undefined ? '暂无系统通知' : (it.content ?? '');
+  }
+
+  private systemNoticeTime(): string {
+    const it: NotificationItem | undefined = this.systemNoticeItem();
+    return it === undefined ? '' : this.formatTime(it.createdAt);
+  }
+
+  private systemNoticeUnread(): boolean {
+    for (const it of this.list) {
+      if (this.isSystemNotice(it) && it.read !== true) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  onSystemNoticeClick(): void {
+    this.getUIContext().getRouter().pushUrl({ url: 'pages/SystemNoticePage' });
+  }
+
+  // 系统通知常驻入口（与举报中心入口同款 MessageRow 样式）
+  @Builder
+  systemNoticeEntry() {
+    MessageRow({
+      title: '系统通知',
+      subtitle: this.systemNoticeSubtitle(),
+      time: this.systemNoticeTime(),
+      useIcon: true,
+      icon: notifIconRes('system'),
+      unread: this.systemNoticeUnread(),
+      titleMaxLines: 1,
+      subtitleMaxLines: 1,
+      action: (): void => {
+        this.onSystemNoticeClick();
+      },
+    })
+  }
+
+  // 举报中心常驻入口（图标与设置页「举报中心」一致，指向同一页）
+  @Builder
+  reportCenterEntry() {
+    MessageRow({
+      title: '举报中心',
+      subtitle: this.reportCenterSubtitle(),
+      time: this.reportCenterTime(),
+      useIcon: true,
+      icon: resolveActionIcon('book'),
+      unread: this.reportCenterUnread(),
+      titleMaxLines: 1,
+      subtitleMaxLines: 1,
+      action: (): void => {
+        this.onReportCenterClick();
+      },
+    })
   }
 
   // 全部已读
@@ -483,7 +677,8 @@ export struct MessagePage {
         touchTargetHeight: LayoutTokens.minTouchTarget,
         fillWidth: true,
         action: (): void => {
-          this.activeFilter = this.activeFilter === filter ? 'all' : filter;
+          // 无「全部」视图：点击当前项保持选中（不再回落为未选中态）
+          this.activeFilter = filter;
         },
       }) {
         Column({ space: SpaceTokens.inline }) {
@@ -592,7 +787,10 @@ export struct MessagePage {
                   this.conversationRow(c)
                 }
               },
-              (c: Conversation) => String(c.peer.id),
+              // key 必须包含 unreadCount：同一坑见通知列表（key 带 read）。
+              // 聊天页返回后重拉会话，未读已清零但 key 不变时 ForEach 复用旧行，
+              // MessageRow.unreadCount 不刷新 → 会话红点残留不消失。
+              (c: Conversation) => String(c.peer.id) + '-' + String(c.unreadCount),
             )
             // 底部预留：为悬浮底栏与系统手势区让出滚动空间
             Column() {
@@ -733,7 +931,7 @@ export struct MessagePage {
             Row({ space: SpaceTokens.none }) {
               this.notificationShortcut('up_bookmark', '赞和收藏', resolveActionIcon('like'), this.unreadCountOf(['up', 'bookmark']))
               this.notificationShortcut('follow', '新增关注', resolveActionIcon('follow'), this.unreadCountOf(['follow']))
-              this.notificationShortcut('comment', '评论', resolveActionIcon('comment'), this.unreadCountOf(['comment']))
+              this.notificationShortcut('comment', '评论', resolveActionIcon('comment'), this.unreadCountOf(['comment', 'mention']))
             }
             .width('100%')
             .padding({
@@ -742,6 +940,22 @@ export struct MessagePage {
               top: SpaceTokens.inlineTight,
               bottom: SpaceTokens.item,
             })
+
+            // 举报中心（管理员）：常驻置顶在通知列表之上，不随上方筛选过滤/消失
+            if (getIsAdmin()) {
+              Column() {
+                this.reportCenterEntry()
+              }
+              .width('100%')
+              .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+            }
+
+            // 系统通知：三类互动视图之外的 system 消息（审核结果/举报回执）唯一入口，同样常驻
+            Column() {
+              this.systemNoticeEntry()
+            }
+            .width('100%')
+            .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
 
             if (this.loading && this.list.length === 0) {
               Column() {
@@ -770,10 +984,12 @@ export struct MessagePage {
               .layoutWeight(1)
               .width('100%')
               .justifyContent(FlexAlign.Center)
-            } else if (this.list.length === 0) {
+            } else if (this.getFilteredList().length === 0) {
+              // 展示侧为空（含：没有该类型通知、或管理员的通知只剩已收敛到
+              // 举报中心入口的消息）→ 给空态而不是留一块空白
               Column() {
                 EmptyState({
-                  title: this.activeFilter === 'all' ? '暂无新消息' : '暂无此类通知',
+                  title: '暂无此类通知',
                   message: '新的互动会显示在这里',
                 })
               }

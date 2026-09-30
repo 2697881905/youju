@@ -11,6 +11,9 @@ export type NotificationType = 'comment' | 'up' | 'bookmark' | 'follow' | 'menti
 
 // 依赖帖子的通知类型：帖子被删除（软删除/彻底删除）后，这类通知不应再出现在通知中心
 const POST_RELATED_TYPES = ['comment', 'up', 'bookmark', 'mention'];
+// 列表可选的类型筛选白名单（前端「系统通知」收纳页只取 system 消息）；
+// 非法/未知类型忽略（不过滤），与分页参数「优雅降级」的既有约定一致。
+const FILTERABLE_TYPES = ['comment', 'up', 'bookmark', 'follow', 'mention', 'system'];
 
 export interface CreateNotificationInput {
   userId: number; // 接收者
@@ -114,16 +117,21 @@ async function visibleWhere(userId: number): Promise<any> {
 }
 
 // 用户通知列表（分页，按时间倒序，含触发者信息）
+// - type 可选：按通知类型筛选（白名单外忽略），与帖子有效性过滤按 AND 合并，
+//   避免直接覆盖 visibleWhere 里可能存在的 type 约束（如 { type: { notIn: POST_RELATED_TYPES } }）。
 // 设计取舍：Notification 不建 @relation，actor 昵称/头像用单独查询按需补全，避免 Prisma include 推断为 never。
 export async function listForUser(
   userId: number,
-  params: { page?: number; limit?: number } = {},
+  params: { page?: number; limit?: number; type?: string } = {},
 ): Promise<ListResult> {
   const page = Math.max(1, Number(params.page ?? 1));
   const limit = Math.min(50, Math.max(1, Number(params.limit ?? 20)));
   const skip = (page - 1) * limit;
 
-  const where = await visibleWhere(userId);
+  const baseWhere = await visibleWhere(userId);
+  const typeFilter: string =
+    typeof params.type === 'string' && FILTERABLE_TYPES.indexOf(params.type) >= 0 ? params.type : '';
+  const where = typeFilter.length > 0 ? { AND: [baseWhere, { type: typeFilter }] } : baseWhere;
   const [rows, total] = await Promise.all([
     prisma.notification.findMany({
       where,

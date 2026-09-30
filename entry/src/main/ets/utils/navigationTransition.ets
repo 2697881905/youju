@@ -89,5 +89,11 @@ export class UserProfileNavParams {
   userId: number = 0;
 }
 
+// 独立视频播放器页跳转参数（pushPathByName('VideoPlayer', ...)）
+export class VideoPlayerNavParams {
+  url: string = '';
+  poster: string = '';
+}
+
 // 无参 navDestination 跳转占位（pushPathByName 的 param 需要显式类型，禁止裸字面量）
 export class EmptyNavParams {};

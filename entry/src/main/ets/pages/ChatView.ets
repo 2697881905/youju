@@ -21,7 +21,6 @@ import { ReportDialog } from '../components/ReportDialog';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { ImageViewer } from '../components/ImageViewer';
 import { OVERLAY_GUARD_CHAT, registerOverlayBackGuard, unregisterOverlayBackGuard } from '../utils/overlayBackGuard';
-import { VideoViewer } from '../components/VideoViewer';
 import { KeyboardAvoidMode } from '@kit.ArkUI';
 import { common } from '@kit.AbilityKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
@@ -36,7 +35,7 @@ import { TypeTokens } from '../design/tokens/type';
 import { MotionCurves } from '../design/tokens/motion';
 import { GlowInput } from '../design/components/GlowInput';
 import { HighlightedText } from '../components/HighlightedText';
-import { openUserProfile, takeChatIntent, openPostDetail } from '../utils/nav';
+import { openUserProfile, openVideoPlayer, takeChatIntent, openPostDetail } from '../utils/nav';
 import { getMainNavStack, PostDetailNavParams, UserProfileNavParams } from '../utils/navigationTransition';
 import { openExternalUrl } from '../utils/openExternal';
 
@@ -56,6 +55,9 @@ const NO_MENU_MSG: DmMessage = {
 export struct ChatView {
   @Prop navMode: boolean = false;
   onBack?: () => void = undefined;
+  // 点聊天视频 → 独立播放器页：Navigation 壳注入（pushPathByName('VideoPlayer')）；
+  // 未注入（router 壳）时本组件自行走 utils/nav 意图通道 + router.pushUrl。
+  onOpenVideo?: (url: string, poster: string) => void = undefined;
   @State peerId: number = 0;
   @State peerName: string = '';
   @State peerAvatar: string = '';
@@ -89,7 +91,6 @@ export struct ChatView {
   private mentionRefs: MentionRef[] = [];
   @State showEmojiPanel: boolean = false;
   @State viewingImage: string = ''; // 全屏看图（聊天图片点开预览）
-  @State viewingVideo: string = ''; // 全屏看视频（聊天视频点开自动播放）
   @State showMediaMenu: boolean = false;
   @State error: string = '';
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
@@ -210,20 +211,29 @@ export struct ChatView {
     }
   }
 
-  // 页内全屏查看器（视频 / 图片）是否打开 —— 供返回守卫判断。
+  // 页内全屏查看器（图片）是否打开 —— 供返回守卫判断。
   // 关掉它的动作由两套壳的返回拦截触发（ChatPage.onBackPress / ChatDestination.onBackPressed）。
   private hasPageOverlay(): boolean {
-    return this.viewingVideo.length > 0 || this.viewingImage.length > 0;
+    return this.viewingImage.length > 0;
   }
 
-  // 关掉最上层查看器：视频层压过图片层，所以视频优先。
-  // 仅在 hasPageOverlay() 为真时被调用，因此末尾可直接清空 viewingImage。
+  // 关掉最上层查看器（图片查看器是聊天页唯一的页内浮层）
   private closeTopPageOverlay(): void {
-    if (this.viewingVideo.length > 0) {
-      this.viewingVideo = '';
+    this.viewingImage = '';
+  }
+
+  // 独立播放器页（解耦：聊天视频不再以页内浮层播放）：
+  // Navigation 壳注入 onOpenVideo 走主栈 push；router 壳经 utils/nav 意图 + router.pushUrl。
+  private openPlayerPage(url: string): void {
+    if (url.length === 0) {
       return;
     }
-    this.viewingImage = '';
+    if (this.onOpenVideo !== undefined) {
+      this.onOpenVideo(url, '');
+      return;
+    }
+    openVideoPlayer(url, '');
+    this.getUIContext().getRouter().pushUrl({ url: 'pages/VideoPlayerPage' });
   }
 
   // 页面重新显示时静默拉取最新消息（已有消息时不显示 Loading）：
@@ -848,8 +858,8 @@ export struct ChatView {
               this.viewingImage = m.content;
             })
         } else if (m.type === 'video') {
-          // 气泡内仅展示封面+播放入口；点击不内联播放，而是放大全屏并自动播放（底部带播放条）
-          VideoPlayer({ src: m.content, poster: m.content, onOpen: (): void => { this.viewingVideo = m.content; } })
+          // 气泡内仅展示封面+播放入口；点击进入独立播放器页（与帖子视频同一入口，页内不播放）
+          VideoPlayer({ src: m.content, poster: m.content, onOpen: (): void => { this.openPlayerPage(m.content); } })
             .width(200)
             .aspectRatio(1.2)
             .borderRadius(RadiusTokens.md)
@@ -1118,13 +1128,8 @@ export struct ChatView {
         })
       }
 
-      // 全屏视频查看器：打开即自动播放，底部系统播放条（进度/暂停/时长）
-      if (this.viewingVideo.length > 0) {
-        VideoViewer({
-          url: this.viewingVideo,
-          onClose: (): void => { this.viewingVideo = ''; },
-        })
-      }
+      // 视频播放已解耦为独立页面（VideoPlayerPage / Navigation 'VideoPlayer'），
+      // 聊天页不再内嵌播放器浮层。
 
       // 顶栏
       Row() {

@@ -880,6 +880,8 @@ export struct HomeTab {
               // 描边风格：与右上角搜索按钮同款（透明底 + 细边框 + 大圆角），顶栏视觉统一
               glass: false,
               outlined: true,
+              // 关闭按压/长按光斑：首页顶栏为透明描边风格，光斑在这块纸面上过于抢眼
+              glowEnabled: false,
               onSelect: (idx: number): void => {
                 // 点击立即落整数位（弹性动画由 SharedSlide 整数分支承担）
                 this.slidePosition = idx;

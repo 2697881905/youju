@@ -12,7 +12,7 @@ import { BusinessError } from '@kit.BasicServicesKit';
 import { image } from '@kit.ImageKit';
 import { PostDetailView, DETAIL_HERO_ID, DETAIL_HERO_SHELL_ID } from './PostDetailView';
 import { PostDetailIntent, openPostDetail } from '../utils/nav';
-import { getMainNavStack, PostDetailNavParams, UserProfileNavParams } from '../utils/navigationTransition';
+import { getMainNavStack, PostDetailNavParams, UserProfileNavParams, VideoPlayerNavParams } from '../utils/navigationTransition';
 import { CustomTransition } from '../utils/longTake/customNavigationUtils';
 import { LongTakeAnimationProperties, LongTakeParams } from '../utils/longTake/longTakeAnimationProperties';
 import { ColorTokens } from '../design/tokens/color';
@@ -66,6 +66,18 @@ export struct PostDetailDestination {
     }
   }
 
+  // 点视频 → 独立播放器页（push 进主栈，返回由 Navigation 自身 pop，详情页不再内嵌播放器）
+  private openVideo(url: string, poster: string): void {
+    const nav: NavPathStack | null = getMainNavStack();
+    if (nav === null) {
+      return;
+    }
+    const p: VideoPlayerNavParams = new VideoPlayerNavParams();
+    p.url = url;
+    p.poster = poster;
+    nav.pushPathByName('VideoPlayer', p);
+  }
+
   /* 注册本页的一镜到底动画（官方：目的地页自注册，key = navDestinationId）
    * 官方做法是整段 try/catch：注册/量测出异常时落回终态，绝不让页面停在半途。
    */
@@ -116,6 +128,7 @@ export struct PostDetailDestination {
             navMode: true,
             onBack: (): void => { this.back(); },
             onOpenProfile: (userId: number): void => { this.openProfile(userId); },
+            onOpenVideo: (url: string, poster: string): void => { this.openVideo(url, poster); },
             // 真媒体首帧就绪 → 淡出卡片截图（交接，不是"闪一下"）
             onHeroReady: (): void => {
               this.longTakeAnimationProperties.onHeroReady(this.getUIContext());

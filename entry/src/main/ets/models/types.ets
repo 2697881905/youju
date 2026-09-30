@@ -10,6 +10,7 @@ export interface User {
   bio?: string;
   followTags?: string[];
   isAdmin?: boolean;
+  status?: number; // 账号状态（0=封禁）；仅管理侧接口（待审列表等）返回，用于显示「已封禁」/解封
   deleted?: boolean; // 已注销（后端软删匿名化标记）
   privacyPolicyVersion?: string; // 已同意的隐私政策版本（服务端留存）
   privacyAgreedAt?: string; // 同意时间（ISO 字符串）
@@ -95,8 +96,10 @@ export interface Post {
   images?: string[];
   genre?: Genre;
   tags?: string[];
-  structuredData?: StructuredData;
-  structuredDocument?: StructuredDocument;
+  // 结构化内容：后端 JSON 把缺失字段序列化成 null（不是 undefined），故类型必须含 null ——
+  // 只写 `?: T` 会让「读属性」看起来安全，运行时却撞 null（分享卡片曾因此整条链路失败）。
+  structuredData?: StructuredData | null;
+  structuredDocument?: StructuredDocument | null;
   // 正文 @提及 解析结果（后端入库，前端点击跳转用户主页）
   mentions?: MentionRef[];
   upCount?: number;
@@ -256,37 +259,13 @@ export interface ReportBody {
 // 举报目标类型
 export type ReportTargetType = 'post' | 'comment' | 'user';
 
-// 举报人快照（GET /v1/admin/posts/pending 随 reports 返回）
-export interface ReportReporter {
-  nickname?: string;
-}
-
-// 举报记录项（GET /v1/admin/posts/pending 随待审帖子返回；reporter 昵称来自 include）
-export interface ReportItem {
-  id?: number;
-  reporterId?: number;
-  targetType?: ReportTargetType;
-  targetId?: number;
-  reason?: ReportReason;
-  description?: string;
-  status?: string;
-  createdAt?: string;
-  reporter?: ReportReporter;
-}
-
-// 待审帖子（继承 Post + 携带举报列表，供审核台决策）
-export interface PendingPost extends Post {
-  reports: ReportItem[];
-  reportCount?: number;
-}
-
 // 举报人快照（admin 台账随举报记录返回，仅昵称）
 export interface AdminReporter {
   nickname?: string | null;
 }
 
-// 举报台账项（GET /v1/admin/reports，供举报账本页渲染）
-// 后端附带：举报人昵称 + 目标摘要（帖子标题/评论内容/用户昵称）+ 用户封禁状态
+// 举报中心台账项（GET /v1/admin/reports，唯一处置台渲染）
+// 后端附带：举报人昵称 + 目标摘要（帖子标题/评论内容/用户昵称）+ 目标内容状态 + 作者信息
 export interface AdminReportItem {
   id: number;
   reporterId: number;
@@ -302,10 +281,17 @@ export interface AdminReportItem {
   targetNickname?: string | null;
   targetBanned?: boolean | null;
   targetPostId?: number | null; // 目标所属帖子 id（post 目标=自身；comment 目标=所属帖；user 目标=null）
+  // 目标内容当前状态（post/comment 的 status：0 下架 / 1 发布；user 目标 = null）
+  targetStatus?: number | null;
+  // 内容作者（user 目标 = 自身；post/comment = 内容作者；作者已注销时可能为 null）
+  authorId?: number | null;
+  authorNickname?: string | null;
+  authorAvatar?: string | null;
+  authorBanned?: boolean | null;
 }
 
-// 审核动作
-export type ModerateAction = 'approve' | 'reject';
+// 处置动作（POST /v1/admin/reports/resolve）：成立并下架 / 驳回举报（并恢复内容）/ 改判恢复
+export type ReportAction = 'resolved' | 'dismissed' | 'restore';
 
 // ===== 通知偏好 =====
 // 通知偏好（对应后端 GET/PUT /v1/me/notification-prefs）

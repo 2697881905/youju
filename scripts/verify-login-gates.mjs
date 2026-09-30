@@ -26,7 +26,6 @@ const GATED_PAGES = [
   'DraftBoxPage.ets',
   'EditProfilePage.ets',
   'InterestTagsPage.ets',
-  'ModerationPage.ets',
   'MyFollowView.ets',
   'NotificationSettingsPage.ets',
   'PhotoPublishPage.ets',

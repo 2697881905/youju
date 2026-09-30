@@ -18,6 +18,9 @@ export type UploadFolder = 'avatars' | 'backgrounds' | 'posts' | 'video';
 
 const COS_MEDIA_REF_PREFIX = 'cos://';
 const COS_VIEW_URL_EXPIRES_SECONDS = 300;
+// 视频直读播放签名有效期：播放器整个播放周期（含拖动进度）都复用同一 URL，
+// 5 分钟会在长一点的视频播到一半时过期；30 分钟覆盖短视频（≤50MB）完整观看。
+const COS_PLAY_URL_EXPIRES_SECONDS = 1800;
 
 export function toStoredMediaRef(signature: UploadSignature): string {
   return signature.mediaRef;
@@ -126,7 +129,7 @@ function cosUploadSignature(contentType: string, folder: UploadFolder): Promise<
   });
 }
 
-export function getCosViewUrl(key: string): string {
+export function getCosViewUrl(key: string, expiresSeconds: number = COS_VIEW_URL_EXPIRES_SECONDS): string {
   if (!isCosConfigured() || !isValidMediaKey(key)) {
     throw new Error('COS 媒体读取配置无效');
   }
@@ -137,8 +140,15 @@ export function getCosViewUrl(key: string): string {
     Key: key,
     Method: 'GET',
     Sign: true,
-    Expires: COS_VIEW_URL_EXPIRES_SECONDS,
+    Expires: expiresSeconds,
   });
+}
+
+// 视频播放直读签名（GET /v1/media/sign）：客户端拿它直连 COS 取流。
+// 起因：后端字节流代理（/v1/media/:key）把视频流量压在后端出口上（实测 ~0.5MB/s，
+// 同一文件 COS 直读可到 ~6MB/s），起播要等数秒；直读把这条带宽瓶颈绕开。
+export function getCosPlayUrl(key: string): string {
+  return getCosViewUrl(key, COS_PLAY_URL_EXPIRES_SECONDS);
 }
 
 export async function deleteCosObjects(keys: string[]): Promise<void> {
