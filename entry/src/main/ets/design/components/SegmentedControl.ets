@@ -43,11 +43,6 @@ export struct SegmentedControl {
   // 沉浸光感模式（华为应用商店分段栏同款）：玻璃底 + backdropBlur + 高光边框 + 滑块悬浮投影，
   // 并自动关闭按压/长按光斑；内部按 API 分级降级（见文件头 IMMERSIVE_* 注释）
   @Prop immersive: boolean = false;
-  // 选中滑块自定义底色：空串 = 按风格默认（immersive/outlined/glass 纸面高亮、默认 elevated）。
-  // 场景：编辑资料性别选择要「男=蓝」等语义色（2026-09-29 用户要求）。
-  @Prop slideFill: ResourceColor = '';
-  // 选中项文字颜色：空串 = ColorTokens.primary（默认）。滑块为深色语义色（如蓝）时配白字。
-  @Prop activeLabelColor: ResourceColor = '';
   // Swiper 联动跟手位置：滚动（拖动/吸附）中由页面喂入的连续（浮点）索引，1:1 跟手；
   // -1 表示未在滚动（回退 activeIndex()，点击切换仍走弹性动画）
   @Prop slidePosition: number = -1;
@@ -210,9 +205,7 @@ export struct SegmentedControl {
         // 滑块内缩量与容器 padding 一致，滑块高度/圆角按同心原则收进容器（不超出分段栏）
         inset: SpaceTokens.xs / 2,
         radius: RadiusTokens.lg - SpaceTokens.xs / 2,
-        fill: this.slideFill !== ''
-          ? this.slideFill
-          : (this.immersive || this.outlined || this.glass ? ColorTokens.barSelectionSurface : ColorTokens.elevated),
+        fill: this.immersive || this.outlined || this.glass ? ColorTokens.barSelectionSurface : ColorTokens.elevated,
         slideShadow: this.immersive ? IMMERSIVE_SLIDE_SHADOW : this.slideShadow,
         // 华为应用商店同款：按下滑块缩小，松手 spring 回弹
         pressed: this.barPressed,
@@ -233,9 +226,7 @@ export struct SegmentedControl {
                   .fontWeight(this.activeIndex() === index ? TypeTokens.headline.weight : TypeTokens.callout.weight)
                   .lineHeight(TypeTokens.callout.lineHeight)
                   .letterSpacing(TypeTokens.callout.tracking)
-                  .fontColor(this.activeIndex() === index
-                    ? (this.activeLabelColor !== '' ? this.activeLabelColor : ColorTokens.primary)
-                    : ColorTokens.secondary)
+                  .fontColor(this.activeIndex() === index ? ColorTokens.primary : ColorTokens.secondary)
                   .width(this.fillWidth ? '100%' : this.itemWidth)
                   .height(LayoutTokens.segmentedHeight - SpaceTokens.xs)
                   .textAlign(TextAlign.Center)
