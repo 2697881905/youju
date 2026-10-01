@@ -127,7 +127,7 @@ async function sendToTokens(
   const reqBody = {
     payload: {
       notification: {
-        category: cfg.category,
+        category: resolveCategory(data.type),
         title,
         body,
         clickAction: {
@@ -159,6 +159,24 @@ async function sendToTokens(
     const text: string = await resp.text();
     throw new Error(`华为推送下发失败: ${resp.status} ${text}`);
   }
+}
+
+// 通知类型 → 华为「通知消息自分类」category。
+// ⚠️ 必须与 AGC 已申请并通过的自分类权益逐项对应：传一个未开通的 category 不会报错，
+//    华为会静默降级归到资讯营销类（MARKETING，单设备每日 2 条限流），表面看只是"收不到"。
+//    项目已申请：SUBSCRIPTION（订阅·社交动态）。评论/赞/收藏/@提及/关注都走这一类。
+//    私信申请了 IM，但站内私信目前尚未接推送，确认后再补映射到这里的 'dm'。
+//    系统通知（举报受理/审核结果）未申请对应权益，老实退回默认兜底（MARKETING）。
+const CATEGORY_BY_NOTIFY_TYPE: Record<string, string> = {
+  comment: 'SUBSCRIPTION',
+  up: 'SUBSCRIPTION',
+  bookmark: 'SUBSCRIPTION',
+  mention: 'SUBSCRIPTION',
+  follow: 'SUBSCRIPTION',
+};
+
+function resolveCategory(notifyType: string | undefined): string {
+  return (notifyType !== undefined ? CATEGORY_BY_NOTIFY_TYPE[notifyType] : undefined) ?? env.huaweiPush.category;
 }
 
 // token 脱敏后落库，避免 PushLog 里存明文设备地址
