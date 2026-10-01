@@ -267,6 +267,9 @@ struct Index {
     if (this.launchComplete && getToken() !== '') {
       this.refreshUnread();
       this.maybeShowCircleOnboarding();
+      // 登录/切号返回首页时补推送初始化：冷启动为访客时 startInit 会跳过推送注册，
+      // 这里兜住「游客 → 应用内登录」路径（syncPushToken 幂等，已上报则空跑）
+      this.initPushCapabilities();
     }
   }
 
