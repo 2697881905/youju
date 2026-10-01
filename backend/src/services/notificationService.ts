@@ -66,7 +66,7 @@ export async function createNotification(input: CreateNotificationInput): Promis
 
   // 华为推送：通知落库后下发系统推送（未配置凭证 / 无设备 token 时静默降级，绝不阻断）。
   // data 随通知点击透传回客户端（want.parameters），客户端据此跳详情页而非只开首页。
-  pushToUser(input.userId, pushTitle(input.type), input.content, {
+  pushToUser(input.userId, pushTitle(input.type), toPushBody(input.type, input.content), {
     type: input.type,
     postId: input.postId ?? null,
     commentId: input.commentId ?? null,
@@ -92,6 +92,20 @@ function pushTitle(type: string): string {
     default:
       return '有据';
   }
+}
+
+// 推送文案 ≠ 通知中心文案。
+// 站内通知中心保持中性措辞（用户在 App 内阅读，不需要额外关系标签）；
+// 推送侧必须体现社交关系 —— 华为「订阅（社交动态类）」分类的要求，且要与 AGC 提交的
+// 自分类权益申请示例口径一致，否则复审时可能被质疑「实际下发内容与申请不符」。
+function toPushBody(type: string, content: string): string {
+  if (type === 'comment' || type === 'up' || type === 'bookmark' || type === 'mention') {
+    return `好友 ${content}`;
+  }
+  if (type === 'follow') {
+    return `新粉丝 ${content}`;
+  }
+  return content;
 }
 
 // 用户帖子类通知中，帖子仍有效（存在且未移入废纸篓）的 postId 集合

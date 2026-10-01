@@ -123,8 +123,16 @@
 | --- | --- |
 | `HUAWEI_PUSH_PROJECT_ID` | AGC → 项目设置 → 项目 ID |
 | `HUAWEI_PUSH_SERVICE_ACCOUNT_PATH` | 容器内 `/app/agc-service-account.json`（宿主机只读挂载） |
-| `HUAWEI_PUSH_CATEGORY` | 已申请「服务与通讯」自分类权益 → `IM`；未申请 → `MARKETING`（否则单设备每日被限到 2 条） |
+| `HUAWEI_PUSH_CATEGORY` | **仅兜底**：未被 `CATEGORY_BY_NOTIFY_TYPE` 覆盖的类型用它，默认 `MARKETING` |
 | `HUAWEI_PUSH_TEST_MESSAGE` | 调测期 `true`（每项目每日 1000 条、不触发频控）；**上线必须 `false`** |
+
+**category 按通知类型区分**（写在 `services/huaweiPush.ts` 的 `CATEGORY_BY_NOTIFY_TYPE`，不要改成全局单一值）：评论 / 赞 / 收藏 / @提及 / 关注 → `SUBSCRIPTION`；私信 → `IM`（待私信接入推送后启用）；其余落兜底。
+
+⚠️ 传一个 AGC **未**授予权益的 category 不报错，华为会静默降级归到资讯营销类（单设备每日 2 条）——表现为「部分通知收不到」但没有任何失败记录，很难查。新增分类前先在 AGC 确认权益已批。
+
+**推送文案 ≠ 通知中心文案**（`notificationService.toPushBody`）：站内保持中性措辞，推送侧加社交前缀（`好友 …` / `新粉丝 …`），以满足华为「订阅·社交动态类」分类要求并与 AGC 提交的申请的示例口径一致。改文案前先看这条，别顺手统一成一套。
+
+上线前自检：`node scripts/check-push.mjs`（校验凭据 → PS256 签名 → v3 试发，三步全绿才说明服务端配对了）。
 
 部署注意：`agc-service-account.json` 经 `.dockerignore` 排除，`docker-compose.prod.yml` 与 `deploy-backend.sh` 各自只读挂载，不存在时会打印提示并静默降级。
 

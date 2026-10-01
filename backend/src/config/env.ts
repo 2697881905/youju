@@ -68,10 +68,11 @@ export const env = {
       path.resolve(process.cwd(), 'agc-service-account.json'),
     // 下行端点（一般无需改动）
     apiUrl: process.env.HUAWEI_PUSH_API_URL ?? 'https://push-api.cloud.huawei.com',
-    // 通知消息自分类：评论/点赞/关注属「服务与通讯类」，用 IM。
-    // ⚠️ 未申请「通知消息自分类权益」时华为一律按资讯营销类（MARKETING）处理并限流
-    //    （普通应用单设备每日 2 条），此时应显式配 HUAWEI_PUSH_CATEGORY=MARKETING 与实际口径一致。
-    category: process.env.HUAWEI_PUSH_CATEGORY ?? 'IM',
+    // 兜底 category：未被 huaweiPush 的 CATEGORY_BY_NOTIFY_TYPE 映射覆盖的通知类型用它。
+    // ⚠️ 传一个 AGC 未授予权益的 category 不会报错，华为会静默把它降级归到资讯营销类
+    //    （单设备每日 2 条限流）。与其自欺欺人地填 IM，不如显式填 MARKETING ——
+    //    行为与华为的实际处理一致，排查时不用再怀疑"到底发出去的是哪一类"。
+    category: process.env.HUAWEI_PUSH_CATEGORY ?? 'MARKETING',
     // 调测消息：true 时不触发上述频控（每项目每日上限 1000 条）。默认非生产环境开启。
     // ⚠️ 上线前务必确认生产环境为 false，否则调试配额耗尽后消息被丢弃。
     testMessage: (process.env.HUAWEI_PUSH_TEST_MESSAGE ?? (IS_PRODUCTION ? 'false' : 'true')) === 'true',
