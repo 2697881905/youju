@@ -160,7 +160,17 @@ else
   printf '%s\n' "${DRIFT_SQL}" >&2
   echo "------------------------" >&2
   echo "" >&2
-  echo "执行完上面的 SQL 再重新部署。确认可以忽略时改用 --allow-drift。" >&2
+  echo "执行方式（直接复制这一行即可）：" >&2
+  echo "    docker run --rm --network ${NET} --env-file .env -v $(pwd)/prisma:/app/prisma ${IMAGE} npx prisma db push" >&2
+  echo "" >&2
+  # ⚠️ 别在旧容器里执行 prisma db push：旧容器里的 schema.prisma 是上一版代码，
+  #   与新代码要求的库结构对不上，它会拿旧 schema 去比对，结论永远是「已同步」，
+  #   实际缺的列一点没补 —— 于是这里每次都拦、每次都白跑一趟（2026-10-01）。
+  #   上面的行用新镜像跑 + 把宿主机最新的 prisma/ 挂进去，比对的才是新 schema。
+  echo "⚠️ 别用「docker exec youju-backend npx prisma db push」：旧容器里的 schema 是上一版的，" >&2
+  echo "   它会拿旧 schema 去比对，永远报「already in sync」，缺的列其实一条都没补。" >&2
+  echo "" >&2
+  echo "执行完再重新部署。确认可以忽略时改用 --allow-drift。" >&2
   if [ "${ALLOW_DRIFT}" = 1 ]; then
     echo "（--allow-drift：忽略漂移，继续部署）" >&2
   else
