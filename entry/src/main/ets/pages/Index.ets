@@ -6,7 +6,7 @@ import { CircleOnboarding } from '../components/CircleOnboarding';
 import { MessagePage } from './MessagePage';
 import { ProfilePage } from './ProfilePage';
 import { initAuthStorage, getToken, getUserId, setPrivacyAgreed, isPrivacyAgreed, clearSession, PRIVACY_POLICY_VERSION } from '../utils/auth';
-import { getUnreadCount, getDmUnreadCount, getMe, recordPrivacyConsent, followTag, listTags } from '../services/api';
+import { getUnreadCount, getDmUnreadCount, getMe, recordPrivacyConsent, followTag, listTags, getPost, PostWithComments } from '../services/api';
 import { Tag } from '../models/types';
 import { safeShowToast } from '../utils/toast';
 import { PublishMode, PublishModeSheet } from '../components/PublishModeSheet';
@@ -23,6 +23,8 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { publishFlowStore } from '../utils/publishFlowStore';
 import { AppTab, subscribeTabSwitch, emitTabSwitch, openPostDetail, openPostDetailAtComment } from '../utils/nav';
 import { takePushRoute, syncPushToken, requestNotificationPermission } from '../utils/push';
+import { readClipboardPostId, markClipboardIdHandled } from '../utils/clipboardJump';
+import { ClipboardPostSheet, ClipboardPostPayload } from '../components/ClipboardPostSheet';
 import { setMainNavStack, setSharedUiContext } from '../utils/navigationTransition';
 import { AnimateCallback, CustomTransition } from '../utils/longTake/customNavigationUtils';
 import { setSerifTypeface, setSerifBodyTypeface } from '../utils/poster/posterText';
@@ -241,6 +243,14 @@ struct Index {
   // 用单调递增的序号而非 payload 本身做信号：连点两条同类通知时值可能相同，
   // AppStorage 对同值写入不派发变更，必须有序号才会触发回调。
   @StorageLink('pushRouteSeq') @Watch('onPushRouteChanged') pushRouteSeq: number = 0;
+  // 剪贴板分享链接检查信号（EntryAbility.onForeground 递增）：暖前台回切时重新检测。
+  // 冷启动的检测点在 continueLaunchFlow / agreePrivacy（挂载后一次性触发）。
+  @StorageLink('clipboardCheckSeq') @Watch('onClipboardCheckSeq') clipboardCheckSeq: number = 0;
+  // 剪贴板命中的帖子（确认面板数据）。id > 0 = 面板展示中，期间忽略重复检查信号。
+  @State clipboardPostId: number = 0;
+  @State clipboardPostTitle: string = '';
+  @State clipboardAuthorName: string = '';
+  private clipboardBusy: boolean = false;
   @State showCircleOnboarding: boolean = false;
   @State onboardingTags: Tag[] = [];
   @State onboardingSelectedNames: string[] = [];
@@ -266,6 +276,19 @@ struct Index {
     }),
     alignment: DialogAlignment.Center,
     customStyle: true,
+  });
+  // 剪贴板分享链接确认面板：命中 youju.chat/post/{id} 后由用户决定是否打开
+  private clipboardSheetController: CustomDialogController = new CustomDialogController({
+    builder: ClipboardPostSheet({
+      getPayload: (): ClipboardPostPayload | null => this.clipboardPayload(),
+      onOpen: (): void => { this.openClipboardPost(); },
+      onIgnore: (): void => { this.dismissClipboardPost(); },
+    }),
+    alignment: DialogAlignment.Bottom,
+    customStyle: true,
+    autoCancel: true,
+    // 点击面板外/返回键关闭同样视为「忽略」：本会话内不再对该链接打扰
+    cancel: (): void => { this.dismissClipboardPost(); },
   });
   private privacyConsentController: CustomDialogController = new CustomDialogController({
     builder: PrivacyConsentDialog({
@@ -443,6 +466,83 @@ struct Index {
     this.consumePendingPushRoute();
   }
 
+  // ===== 剪贴板分享链接：抖音式「复制打开有据」 =====
+  // 链接只来自我们自己生成的分享文案（youju.chat/post/{id}）；命中后先弹确认面板，
+  // 用户点「打开帖子」才跳转 —— 不静默读取跳转；同一链接本会话内只打扰一次。
+
+  private clipboardPayload(): ClipboardPostPayload | null {
+    if (this.clipboardPostId <= 0) {
+      return null;
+    }
+    const payload: ClipboardPostPayload = {
+      postId: this.clipboardPostId,
+      title: this.clipboardPostTitle,
+      authorName: this.clipboardAuthorName,
+    };
+    return payload;
+  }
+
+  private onClipboardCheckSeq(): void {
+    // 启动流程未走完（或隐私未同意）不检测：冷启动由 continueLaunchFlow/agreePrivacy 统一触发
+    if (!this.launchComplete || !isPrivacyAgreed()) {
+      return;
+    }
+    this.checkClipboardPostLink();
+  }
+
+  private async checkClipboardPostLink(): Promise<void> {
+    if (this.clipboardBusy || this.clipboardPostId > 0) {
+      return;
+    }
+    const id: number = await readClipboardPostId();
+    // 异步窗口内可能已被处理（重复信号 / 面板已打开）
+    if (id <= 0 || this.clipboardBusy || this.clipboardPostId > 0) {
+      return;
+    }
+    this.clipboardBusy = true;
+    try {
+      const post: PostWithComments = await getPost(id);
+      this.clipboardPostId = id;
+      this.clipboardPostTitle = post.title ?? '';
+      this.clipboardAuthorName = post.user?.nickname ?? '有据用户';
+      this.clipboardSheetController.open();
+    } catch (e) {
+      // 帖子已删除 / 无权访问 / 网络失败：本会话不再对同一链接重复打扰
+      markClipboardIdHandled(id);
+    } finally {
+      this.clipboardBusy = false;
+    }
+  }
+
+  private openClipboardPost(): void {
+    const id: number = this.clipboardPostId;
+    this.dismissClipboardPost();
+    if (id <= 0) {
+      return;
+    }
+    // 与通知点击跳转同一通道：意图通道 openPostDetail + router 推 DetailPage
+    openPostDetail(String(id));
+    try {
+      this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
+    } catch (e) {
+      hilog.warn(0x0000, 'Index', '剪贴板跳转详情页失败 %{public}s', JSON.stringify(e));
+    }
+  }
+
+  private dismissClipboardPost(): void {
+    markClipboardIdHandled(this.clipboardPostId);
+    this.clipboardPostId = 0;
+    this.clipboardSheetController.close();
+  }
+
+  // 启动就绪后的剪贴板检查：有待消费的通知跳转意图时让位（本次跳过，回前台信号会再来）
+  private checkClipboardPostLinkAfterStart(): void {
+    if ((AppStorage.get<string>('pendingPushRoute') ?? '') !== '') {
+      return;
+    }
+    this.checkClipboardPostLink();
+  }
+
   private onCircleOnboardingPendingChanged(): void {
     if (!this.launchComplete) {
       return;
@@ -485,6 +585,8 @@ struct Index {
       return;
     }
     this.startInit();
+    // 冷启动剪贴板分享链接检查（首启同意隐私后走 agreePrivacy 的同名钩子）
+    this.checkClipboardPostLinkAfterStart();
   }
 
   private maybeShowCircleOnboarding(): void {
@@ -595,6 +697,8 @@ struct Index {
     }
     this.privacyDialogShown = false;
     this.startInit();
+    // 首启刚同意隐私：此刻起才允许读剪贴板，补一次检查（此前红线是「告知—同意前处理」）
+    this.checkClipboardPostLinkAfterStart();
   }
 
   private declinePrivacy(): void {

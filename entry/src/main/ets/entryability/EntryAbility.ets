@@ -152,6 +152,10 @@ export default class EntryAbility extends UIAbility {
     }
     // 主题可能已变（后台切换/手动开闭深色），重设导航条/状态栏背景色
     this.applySystemBarColor();
+    // 暖前台回切：触发一次剪贴板分享链接检查（Index @Watch 消费；冷启动由 Index 侧显式触发，
+    // 此处首次递增发生在 Index 挂载前后皆可，节流与去重由 utils/clipboardJump.ets 收口）
+    const clipSeq: number = (AppStorage.get<number>('clipboardCheckSeq') ?? 0) as number;
+    AppStorage.setOrCreate('clipboardCheckSeq', clipSeq + 1);
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onForeground');
   }
 
