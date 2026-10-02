@@ -494,7 +494,11 @@ struct Index {
     if (this.clipboardBusy || this.clipboardPostId > 0) {
       return;
     }
-    const id: number = await readClipboardPostId();
+    const ctx = this.getUIContext().getHostContext();
+    if (ctx === undefined || ctx === null) {
+      return;
+    }
+    const id: number = await readClipboardPostId(ctx as common.UIAbilityContext);
     // 异步窗口内可能已被处理（重复信号 / 面板已打开）
     if (id <= 0 || this.clipboardBusy || this.clipboardPostId > 0) {
       return;
