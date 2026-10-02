@@ -37,6 +37,7 @@ import { structuredFieldPairs, pairValueOf, StructuredFieldPair } from '../utils
 import { ShareSheet } from '../components/ShareSheet';
 import { ShareToDmSheet } from '../components/ShareToDmSheet';
 import { buildPostShareText, buildPostShareUrl, copyToClipboard, EXTERNAL_SHARE_ENABLED, DM_SHARE_ENABLED, sharePostToSystem } from '../utils/share';
+import { markClipboardIdHandled } from '../utils/clipboardJump';
 import { generateShareCardBytes } from '../utils/shareCard';
 import { structuredSummaryOf, StructuredSummary } from '../utils/structuredBlocks';
 import { image } from '@kit.ImageKit';
@@ -801,6 +802,8 @@ export struct PostDetailView {
     }
     try {
       copyToClipboard(buildPostShareText(this.authorName(), this.post.title ?? '', this.post.tags ?? [], this.post.id));
+      // 应用内刚复制过的链接不再参与剪贴板检查：避免自己复制完回前台被提示打开同一帖子
+      markClipboardIdHandled(this.post.id);
       safeShowToast(this.getUIContext(), { message: '文案已复制，去粘贴给好友吧' });
     } catch (e) {
       safeShowToast(this.getUIContext(), { message: '复制失败，请重试' });
