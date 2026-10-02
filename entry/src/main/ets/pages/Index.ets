@@ -10,13 +10,16 @@ import { getUnreadCount, getDmUnreadCount, getMe, recordPrivacyConsent, followTa
 import { Tag } from '../models/types';
 import { safeShowToast } from '../utils/toast';
 import { PublishMode, PublishModeSheet } from '../components/PublishModeSheet';
-import { LayoutTokens } from '../design/tokens/space';
+import { SpringPanel } from '../design/motion/SpringPanel';
+import { Pressable } from '../design/motion/Pressable';
+import { DesignButton } from '../design/components/DesignButton';
+import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { bottomNavInset, DOCK_WIDTH_SMALL, DOCK_BOTTOM_MARGIN_BASE, DOCK_SIDE_MARGIN_MIN, DOCK_GRADIENT_MASK_HEIGHT, DOCK_MATERIAL_TYPE, DOCK_MATERIAL_LEVEL } from '../utils/cardTokens';
 import { RadiusTokens } from '../design/tokens/radius';
 import { ColorTokens } from '../design/tokens/color';
-import { ShadowTokens } from '../design/tokens/shadow';
+import { TypeTokens } from '../design/tokens/type';
 import { common } from '@kit.AbilityKit';
-import { window } from '@kit.ArkUI';
+import { window, display } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { publishFlowStore } from '../utils/publishFlowStore';
 import { AppTab, subscribeTabSwitch, emitTabSwitch, openPostDetail, openPostDetailAtComment } from '../utils/nav';
@@ -26,7 +29,7 @@ import { AnimateCallback, CustomTransition } from '../utils/longTake/customNavig
 import { setSerifTypeface, setSerifBodyTypeface } from '../utils/poster/posterText';
 import { drawing } from '@kit.ArkGraphics2D';
 import { HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
-import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
+import { isImmersiveLightSenseSupported } from '../utils/immersiveMaterial';
 import { BottomTabBar } from '../design/components/BottomTabBar';
 import { PostDetailDestination } from './PostDetailDestination';
 import { UserProfileDestination } from './UserProfileDestination';
@@ -44,6 +47,22 @@ interface IndexTabItem {
   color?: ResourceColor;
 }
 
+// 首启/更新隐私同意弹窗。
+// 样式层完全对齐应用设计系统，面板规格与 PublishModeSheet / FolderNameDialog 同规格
+// （panelWidth 344 / panelPadding lg / radius lg / solid 实色档）：
+//   · 材质走 solid 档（elevated 实色暖纸底 + separator 1px 发丝描边 + cardAmbient 阴影）。
+//     承载合规正文的浮层不用半透明玻璃 —— 玻璃底会让正文对比度随背景漂移，
+//     且 docs/feature-index.md 已实测「大面积承载正文不适合 outlined/透明底」。
+//   · 正文与链接落在 solid 底上的实测对比度（WCAG）：
+//     浅色 primary 17.9:1 / secondary 11.0:1 / brand 5.1:1；
+//     深色 primary 15.1:1 / secondary 8.1:1 / brand 7.6:1。全部 AA 及以上。
+//   · 底部两键：主键 brand 实色 + onBrand 字（浅 5.2:1 / 深 8.2:1），
+//     次键透明底 + separator 描边 + secondary 字（浅 11.0:1 / 深 8.1:1），
+//     不再用 iOS 亮红（旧实现 semantic_red 在浅色玻璃底上仅 3.1:1，不达 AA）。
+//     两键均走 Pressable，触控热区 44vp（minTouchTarget），与全站按钮一致。
+//   · 正文放 Scroll 并按屏高封顶（maxBodyHeightVp），长文滚动不塌陷、
+//     标题与按钮行常驻可见；面板宽度按屏宽封顶 344、下限 280，适配小屏与大屏。
+// 仅调整样式层：打开/关闭、协议跳转、同意/不同意行为与回调签名均未改动。
 @CustomDialog
 struct PrivacyConsentDialog {
   controller: CustomDialogController;
@@ -53,87 +72,144 @@ struct PrivacyConsentDialog {
   onAgree: () => void = (): void => {};
   onDecline: () => void = (): void => {};
 
-  build() {
-    // 已去掉 ImmersiveSurface 流光层，仅保留系统玻璃拟态面板。
-    // 注意：customStyle 弹窗的最终尺寸由 builder 内容决定，controller.width 不约束内容层，
-    // 因此必须在顶层 Column 上显式给定宽度（320vp），否则子元素（长文本）会撑满全屏宽、两侧贴边。
-    Column({ space: 12 }) {
-      Text(this.getIsUpdate() ? '隐私政策更新' : '隐私政策与用户协议')
-        .fontSize(17)
-        .fontWeight(600)
-        .fontFamily('Noto Serif SC')
-        .fontColor($r('app.color.text_primary'))
-        .textAlign(TextAlign.Center)
-      Text(this.getIsUpdate()
-        ? '我们的隐私政策已更新，请阅读并重新同意以继续使用。'
-        : '欢迎使用有据。我们仅在为你提供内容推荐、账号安全等必要服务时收集相关信息。')
-        .fontSize(13)
-        .fontFamily('Noto Serif SC')
-        .fontColor($r('app.color.text_secondary'))
-        .lineHeight(19)
-      Row({ space: 4 }) {
-        Text('点击查看')
-          .fontSize(13)
-          .fontFamily('Noto Serif SC')
-          .fontColor($r('app.color.text_secondary'))
-        Text('《隐私政策》')
-          .fontSize(13)
-          .fontFamily('Noto Serif SC')
-          .fontColor($r('app.color.brand_primary'))
-          .onClick((): void => { this.onReadPrivacy(); })
-        Text('和')
-          .fontSize(13)
-          .fontFamily('Noto Serif SC')
-          .fontColor($r('app.color.text_secondary'))
-        Text('《用户协议》')
-          .fontSize(13)
-          .fontFamily('Noto Serif SC')
-          .fontColor($r('app.color.brand_primary'))
-          .onClick((): void => { this.onReadAgreement(); })
+  // 屏宽（vp）：面板宽度基准。px→vp 走 densityPixels 除法（与 utils/navMode.ets 同法，
+  // 不依赖 px2vp 的 UIContext 形态 —— 那是 @since 22，高于工程下限 20）。
+  // 取不到时按应用标准宽度 344 兜底。
+  private screenWidthVp(): number {
+    try {
+      const d: number = display.getDefaultDisplaySync().densityPixels;
+      const w: number = display.getDefaultDisplaySync().width;
+      return d > 0 && w > 0 ? w / d : 344;
+    } catch (e) {
+      return 344;
+    }
+  }
+
+  // 面板宽度：标准 344；窄屏按屏宽留边不溢出，宽屏不再无限拉伸。
+  private panelWidth(): number {
+    const w: number = this.screenWidthVp();
+    return Math.max(280, Math.min(344, w - 48));
+  }
+
+  // 正文区最大高度（vp）：约屏高 1/3 封顶，保证标题与按钮行始终留在可视区内。
+  private maxBodyHeightVp(): number {
+    try {
+      const d: number = display.getDefaultDisplaySync().densityPixels;
+      const h: number = display.getDefaultDisplaySync().height;
+      if (d <= 0 || h <= 0) {
+        return 240;
       }
-      .justifyContent(FlexAlign.Center)
-      Row({ space: 12 }) {
-        Button('不同意')
-          .layoutWeight(1)
-          .fontSize(14)
-          .height(40)
-          .fontFamily('Noto Serif SC')
-          .fontColor($r('app.color.semantic_red'))
-          // 与首页分段栏「容器」完全一致：恒透明底 + 细描边 + 大圆角 + 无阴影
-          .backgroundColor(Color.Transparent)
-          .border({ width: LayoutTokens.glassBorderWidth, color: $r('app.color.bar_border'), style: BorderStyle.Solid })
-          .borderRadius(RadiusTokens.lg)
-          .clip(true)
-          .onClick((): void => {
-            this.controller.close();
-            this.onDecline();
+      return Math.max(160, Math.round(h / d / 3));
+    } catch (e) {
+      return 240;
+    }
+  }
+
+  @Builder
+  policyLink(label: string, action: () => void): void {
+    // 条款链接与 LoginView 底部「《用户协议》/《隐私政策》」同语言：brand 色 + headline 字重，
+    // 不加下划线（应用内链接统一不装饰，避免与正文混淆）。
+    Text(label)
+      .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+      .fontWeight(TypeTokens.headline.weight)
+      .lineHeight(TypeTokens.callout.lineHeight)
+      .fontColor(ColorTokens.brand)
+      .onClick((): void => {
+        action();
+      })
+  }
+
+  build() {
+    SpringPanel({ panelWidth: this.panelWidth(), panelPadding: SpaceTokens.lg, solid: true }) {
+      Column({ space: SpaceTokens.base }) {
+        // 标题：衬线 + headline 字级（与 PublishModeSheet / FolderNameDialog 弹窗标题同规格）
+        Text(this.getIsUpdate() ? '隐私政策更新' : '隐私政策与用户协议')
+          .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
+          .fontWeight(TypeTokens.headline.weight)
+          .lineHeight(TypeTokens.headline.lineHeight)
+          .fontColor(ColorTokens.primary)
+          .width('100%')
+          .textAlign(TextAlign.Center)
+
+        // 正文 + 条款链接：可滚动区，长文本滚动时标题/按钮不塌陷
+        Scroll() {
+          Column({ space: SpaceTokens.md }) {
+            Text(this.getIsUpdate()
+              ? '我们的隐私政策已更新，请阅读并重新同意以继续使用。'
+              : '欢迎使用有据。我们仅在为你提供内容推荐、账号安全等必要服务时收集相关信息。')
+              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+              .fontWeight(TypeTokens.callout.weight)
+              .lineHeight(TypeTokens.callout.lineHeight)
+              .fontColor(ColorTokens.secondary)
+              .width('100%')
+
+            // 链接区：Flex 换行容器，窄屏/大字体下链接换行而不溢出
+            Flex({ wrap: FlexWrap.Wrap }) {
+              Text('点击查看')
+                .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+                .fontWeight(TypeTokens.callout.weight)
+                .lineHeight(TypeTokens.callout.lineHeight)
+                .fontColor(ColorTokens.tertiary)
+              this.policyLink('《隐私政策》', (): void => { this.onReadPrivacy(); })
+              Text('和')
+                .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+                .fontWeight(TypeTokens.callout.weight)
+                .lineHeight(TypeTokens.callout.lineHeight)
+                .fontColor(ColorTokens.tertiary)
+              this.policyLink('《用户协议》', (): void => { this.onReadAgreement(); })
+            }
+            .width('100%')
+          }
+          .width('100%')
+          .alignItems(HorizontalAlign.Start)
+        }
+        .width('100%')
+        .constraintSize({ maxHeight: this.maxBodyHeightVp() })
+        .scrollBar(BarState.Auto)
+
+        // 底部操作：主次分明。同意 = brand 实色主键（DesignButton primary）；
+        // 不同意 = 次键。这里不用 DesignButton('outlined')：它在 elevated 实色底上会拿到
+        // barBorder（#BFFFFCF3 压 #FFFCF3 ≈ 1.07:1，描边等于不可见 —— 见
+        // docs/home-segmented-control-style-audit.md §5.2），故按 PublishModeSheet 的
+        // 「elevated 底走 separator」约定自绘，形状仍取 pill 与主键同族。
+        Row({ space: SpaceTokens.md }) {
+          Pressable({
+            fillWidth: true,
+            visualHeight: LayoutTokens.minTouchTarget,
+            action: (): void => {
+              this.controller.close();
+              this.onDecline();
+            },
+          }) {
+            Text('不同意')
+              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+              .fontWeight(TypeTokens.headline.weight)
+              .lineHeight(TypeTokens.callout.lineHeight)
+              .fontColor(ColorTokens.secondary)
+              .width('100%')
+              .height(LayoutTokens.minTouchTarget)
+              .textAlign(TextAlign.Center)
+              .backgroundColor(Color.Transparent)
+              .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
+              .borderRadius(RadiusTokens.pill)
+          }
+            .layoutWeight(1)
+
+          DesignButton({
+            label: '同意并继续',
+            fillWidth: true,
+            visualHeight: LayoutTokens.minTouchTarget,
+            action: (): void => {
+              this.controller.close();
+              this.onAgree();
+            },
           })
-        Button('同意并继续')
-          .layoutWeight(1)
-          .fontSize(14)
-          .height(40)
-          .fontFamily('Noto Serif SC')
-          .fontColor($r('app.color.ds_brand'))
-          // 与首页分段栏「选中滑块」完全一致：纸面高亮 + 大圆角 + 无边框 + 细接触阴影
-          .backgroundColor(ColorTokens.barSelectionSurface)
-          .borderRadius(RadiusTokens.lg)
-          .shadow(ShadowTokens.cardContact)
-          .clip(true)
-          .onClick((): void => {
-            this.controller.close();
-            this.onAgree();
-          })
+            .layoutWeight(1)
+        }
+        .width('100%')
       }
       .width('100%')
-      }
-      .width(320)
-      .padding(16)
-      // 玻璃拟态：半透明暖白 + 背景模糊，透出底下内容形成毛玻璃质感
-      .backgroundBlurStyle(GlassBlurStyle.Dialog)
-      .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : $r('app.color.glass_overlay_heavy'))
-      .border({ width: LayoutTokens.glassBorderWidth, color: $r('app.color.glass_border'), style: BorderStyle.Solid })
-      .borderRadius(16)
-      .shadow({ radius: 16, color: $r('app.color.bar_shadow'), offsetY: 4 })
+    }
   }
 }
 
@@ -202,7 +278,6 @@ struct Index {
     }),
     alignment: DialogAlignment.Center,
     customStyle: true,
-    width: 320,
   });
 
   private bottomTabItems(): IndexTabItem[] {
