@@ -5,6 +5,7 @@ import { DmPolicy } from './privacyService';
 import { DELETED_NICKNAME } from '../utils/userView';
 import { Prisma } from '@prisma/client';
 import { MentionRef, resolveMentionRefs } from './mentionService';
+import { pushToUser } from './huaweiPush';
 
 // 私信领域自定义错误（与 FollowError / AccountError 同构）
 export class MessageError extends Error {
@@ -201,6 +202,9 @@ export async function sendMessage(
       mentions: mentionRefs.length > 0 ? (mentionRefs as unknown as Prisma.InputJsonValue) : Prisma.DbNull,
     },
   });
+  // 私信推送：接收方不在线时靠系统通知触达。fire-and-forget ——
+  // 推送失败不能影响「消息已发送」这个事实（用户此时已经看到消息发出去了）。
+  void pushDmNotification(senderId, receiverId);
   return {
     id: msg.id,
     senderId: msg.senderId,
@@ -212,6 +216,27 @@ export async function sendMessage(
     mentions: (msg.mentions ?? []) as unknown as MentionRef[],
     createdAt: msg.createdAt.toISOString(),
   };
+}
+
+// 私信 → 系统推送（category=IM，权益已通过）。
+// ⚠️ 文案与 AGC 已通过的自分类申请示例严格一致（标题「新私信」/ 正文「好友XX给你发来一条私信」）。
+//    想改成显示内容摘要（官方 IM 模板是 `$用户名称$:$消息内容$`）前，先确认要不要同步改申请内容。
+async function pushDmNotification(senderId: number, receiverId: number): Promise<void> {
+  try {
+    const sender = await prisma.user.findUnique({
+      where: { id: senderId },
+      select: { nickname: true },
+    });
+    const nickname: string = sender?.nickname ?? '有人';
+    await pushToUser(receiverId, '新私信', `好友${nickname}给你发来一条私信`, {
+      type: 'dm',
+      peerId: senderId,
+      peerName: nickname,
+    });
+  } catch (e) {
+    // 推送失败只记日志：不阻断发送流程，也不抛给路由层
+    console.warn('[messageService] 私信推送失败:', (e as Error).message);
+  }
 }
 
 // 会话列表：每对联系人取最近一条消息为代表，按最近活跃时间倒序；附对方资料与未读数

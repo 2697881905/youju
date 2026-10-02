@@ -21,7 +21,7 @@ import { common } from '@kit.AbilityKit';
 import { window, display } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { publishFlowStore } from '../utils/publishFlowStore';
-import { AppTab, subscribeTabSwitch, emitTabSwitch, openPostDetail, openPostDetailAtComment } from '../utils/nav';
+import { AppTab, subscribeTabSwitch, emitTabSwitch, openPostDetail, openPostDetailAtComment, openChat } from '../utils/nav';
 import { takePushRoute, syncPushToken, requestNotificationPermission } from '../utils/push';
 import { readClipboardPostId, markClipboardIdHandled } from '../utils/clipboardJump';
 import { ClipboardPostSheet, ClipboardPostPayload } from '../components/ClipboardPostSheet';
@@ -437,6 +437,16 @@ struct Index {
   private consumePendingPushRoute(): void {
     const route = takePushRoute();
     if (route === null) {
+      return;
+    }
+    if (route.type === 'dm' && route.peerId > 0) {
+      // 私信：直接进会话页，peer 头像缺失交给 ChatView 走占位
+      openChat({ peerId: route.peerId, peerName: route.peerName, peerAvatar: '' });
+      try {
+        this.getUIContext().getRouter().pushUrl({ url: 'pages/ChatPage' });
+      } catch (e) {
+        hilog.warn(0x0000, 'push', '通知跳转私信页失败 %{public}s', JSON.stringify(e));
+      }
       return;
     }
     if (route.postId > 0) {
