@@ -11,7 +11,6 @@ import { Tag } from '../models/types';
 import { safeShowToast } from '../utils/toast';
 import { PublishMode, PublishModeSheet } from '../components/PublishModeSheet';
 import { SpringPanel } from '../design/motion/SpringPanel';
-import { Pressable } from '../design/motion/Pressable';
 import { DesignButton } from '../design/components/DesignButton';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { bottomNavInset, DOCK_WIDTH_SMALL, DOCK_BOTTOM_MARGIN_BASE, DOCK_SIDE_MARGIN_MIN, DOCK_GRADIENT_MASK_HEIGHT, DOCK_MATERIAL_TYPE, DOCK_MATERIAL_LEVEL } from '../utils/cardTokens';
@@ -56,10 +55,9 @@ interface IndexTabItem {
 //   · 正文与链接落在 solid 底上的实测对比度（WCAG）：
 //     浅色 primary 17.9:1 / secondary 11.0:1 / brand 5.1:1；
 //     深色 primary 15.1:1 / secondary 8.1:1 / brand 7.6:1。全部 AA 及以上。
-//   · 底部两键：主键 brand 实色 + onBrand 字（浅 5.2:1 / 深 8.2:1），
-//     次键透明底 + separator 描边 + secondary 字（浅 11.0:1 / 深 8.1:1），
+//   · 底部两键：主键 DesignButton primary（brand 实色 + onBrand 字，浅 5.2:1 / 深 8.2:1），
+//     次键自绘（透明底 + separator 描边 + secondary 字，浅 11.0:1 / 深 8.1:1），
 //     不再用 iOS 亮红（旧实现 semantic_red 在浅色玻璃底上仅 3.1:1，不达 AA）。
-//     两键均走 Pressable，触控热区 44vp（minTouchTarget），与全站按钮一致。
 //   · 正文放 Scroll 并按屏高封顶（maxBodyHeightVp），长文滚动不塌陷、
 //     标题与按钮行常驻可见；面板宽度按屏宽封顶 344、下限 280，适配小屏与大屏。
 // 仅调整样式层：打开/关闭、协议跳转、同意/不同意行为与回调签名均未改动。
@@ -167,33 +165,43 @@ struct PrivacyConsentDialog {
         .constraintSize({ maxHeight: this.maxBodyHeightVp() })
         .scrollBar(BarState.Auto)
 
-        // 底部操作：主次分明。同意 = brand 实色主键（DesignButton primary）；
-        // 不同意 = 次键。这里不用 DesignButton('outlined')：它在 elevated 实色底上会拿到
-        // barBorder（#BFFFFCF3 压 #FFFCF3 ≈ 1.07:1，描边等于不可见 —— 见
-        // docs/home-segmented-control-style-audit.md §5.2），故按 PublishModeSheet 的
-        // 「elevated 底走 separator」约定自绘，形状仍取 pill 与主键同族。
+        // 底部操作：主次分明。
+        // ⚠️ 写法约束（ArkTS 解析规则，报 10505001）：自定义组件若带尾随闭包
+        // `Foo({...}) { ... }`，闭包后**不能再接属性链**。Pressable / SpringPanel 都属此类，
+        // 不能写成 `Pressable({...}){...}.layoutWeight(1)`（本项目 ReportAdminPage.ets:1153
+        // 已记过同一条坑）。DesignButton 走构造参数、无尾随闭包，故可以链式挂 layoutWeight。
+        //   · 同意 = DesignButton primary：brand 实色 + onBrand 字（浅 5.2:1 / 深 8.2:1），
+        //     填充与面板 5.1:1 / 7.6:1，主键辨识度足够。
+        //   · 不同意 = 自绘：透明底 + separator 描边 + secondary 字。
+        //     不用 DesignButton('outlined'/'glass')：二者在 elevated 实色底上的描边
+        //     分别只有 1.07:1 与 1.09:1（barBorder / separator 压 elevated），
+        //     等于看不见 —— 见 docs/home-segmented-control-style-audit.md §5.2。
+        //     按压反馈用 Text.stateStyles（同 SettingsPage.ets:189 写法）。
         Row({ space: SpaceTokens.md }) {
-          Pressable({
-            fillWidth: true,
-            visualHeight: LayoutTokens.minTouchTarget,
-            action: (): void => {
+          Text('不同意')
+            .layoutWeight(1)
+            .height(LayoutTokens.minTouchTarget)
+            .textAlign(TextAlign.Center)
+            .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.headline.weight)
+            .lineHeight(TypeTokens.callout.lineHeight)
+            .fontColor(ColorTokens.secondary)
+            .backgroundColor(Color.Transparent)
+            .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
+            .borderRadius(RadiusTokens.pill)
+            .stateStyles({
+              normal: {
+                .opacity(1)
+              },
+              pressed: {
+                .opacity(0.7)
+                .scale({ x: 0.97, y: 0.97 })
+              }
+            })
+            .onClick((): void => {
               this.controller.close();
               this.onDecline();
-            },
-          }) {
-            Text('不同意')
-              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-              .fontWeight(TypeTokens.headline.weight)
-              .lineHeight(TypeTokens.callout.lineHeight)
-              .fontColor(ColorTokens.secondary)
-              .width('100%')
-              .height(LayoutTokens.minTouchTarget)
-              .textAlign(TextAlign.Center)
-              .backgroundColor(Color.Transparent)
-              .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
-              .borderRadius(RadiusTokens.pill)
-          }
-            .layoutWeight(1)
+            })
 
           DesignButton({
             label: '同意并继续',
