@@ -3,7 +3,7 @@
 // 是否打开由用户在确认面板上决定（不静默跳转）。30s 节流避免每次回前台
 // 都触发系统的「读取剪贴板」提示骚扰用户。
 import pasteboard from '@ohos.pasteboard';
-import { abilityAccessCtrl, bundleManager, common, Permissions } from '@kit.AbilityKit';
+import { abilityAccessCtrl, bundleManager, common, PermissionRequestResult, Permissions } from '@kit.AbilityKit';
 
 const CHECK_THROTTLE_MS: number = 30 * 1000;
 const PASTEBOARD_PERMISSION: Permissions = 'ohos.permission.READ_PASTEBOARD';
@@ -29,7 +29,8 @@ async function ensurePasteboardReadPermission(ctx: common.UIAbilityContext): Pro
     // 查询失败不阻断：继续尝试走申请弹窗
   }
   try {
-    const result: abilityAccessCtrl.PermissionRequestResult = await atManager.requestPermissionsFromUser(
+    // PermissionRequestResult 是 @ohos.abilityAccessCtrl 的顶层类型导出（非命名空间成员）
+    const result: PermissionRequestResult = await atManager.requestPermissionsFromUser(
       ctx, [PASTEBOARD_PERMISSION]);
     return result.authResults.length > 0 && result.authResults[0] === abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED;
   } catch (e) {
