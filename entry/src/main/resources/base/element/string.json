@@ -31,6 +31,10 @@
     {
       "name": "permission_gesture_reason",
       "value": "用于识别握持姿态，将操作按钮调整至握持手侧，便于单手使用"
+    },
+    {
+      "name": "permission_pasteboard_reason",
+      "value": "在你复制了有据帖子分享链接后，识别链接并提示是否打开对应帖子"
     }
   ]
 }

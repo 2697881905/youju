@@ -3,7 +3,6 @@
 // 外层左右/底部留边；调用侧须配 alignment=Bottom + customStyle=true。
 // 合规考量：剪贴板命中后必须由用户确认才跳转，不静默打开；「忽略」与点击
 // 面板外区域都会让该链接本会话内不再打扰（由调用侧 markClipboardIdHandled 承担）。
-import { Pressable } from '../design/motion/Pressable';
 import { DesignButton } from '../design/components/DesignButton';
 import { ColorTokens } from '../design/tokens/color';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
@@ -85,27 +84,34 @@ export struct ClipboardPostSheet {
 
         Row({ space: SpaceTokens.sm }) {
           // 次键自绘：elevated 底上 DesignButton outlined 变体的描边对比度 ≈1.1:1（不可见），
-          // 与隐私弹窗次键同款——透明底 + separator 描边 + secondary 字
-          Pressable({
-            fillWidth: true,
-            visualHeight: LayoutTokens.minTouchTarget,
-            touchTargetHeight: LayoutTokens.minTouchTarget,
-            action: (): void => { this.onIgnore(); },
-          }) {
-            Text('忽略')
-              .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
-              .fontWeight(TypeTokens.headline.weight)
-              .fontColor(ColorTokens.secondary)
-              .height(LayoutTokens.minTouchTarget)
-              .textAlign(TextAlign.Center)
-              .backgroundColor(Color.Transparent)
-              .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.separator, style: BorderStyle.Solid })
-              .borderRadius(RadiusTokens.lg)
-          }
-          .layoutWeight(1)
+          // 与隐私弹窗次键同款——透明底 + separator 描边 + secondary 字。
+          // 用内置 Text（可链式 layoutWeight）+ stateStyles 按压反馈：Pressable 尾随闭包
+          // 与属性链不能共存（ArkTS 编译错误 10505001，见 Index 隐私弹窗同款写法）。
+          Text('忽略')
+            .layoutWeight(1)
+            .height(LayoutTokens.minTouchTarget)
+            .textAlign(TextAlign.Center)
+            .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.headline.weight)
+            .fontColor(ColorTokens.secondary)
+            .backgroundColor(Color.Transparent)
+            .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
+            .borderRadius(RadiusTokens.lg)
+            .stateStyles({
+              normal: {
+                .opacity(1)
+              },
+              pressed: {
+                .opacity(0.7)
+                .scale({ x: 0.97, y: 0.97 })
+              }
+            })
+            .onClick((): void => { this.onIgnore(); })
 
           DesignButton({
             label: '打开帖子',
+            fillWidth: true,
+            visualHeight: LayoutTokens.minTouchTarget,
             action: (): void => { this.onOpen(); },
           })
             .layoutWeight(1)
