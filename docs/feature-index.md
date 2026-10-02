@@ -112,7 +112,8 @@
 | Token 上报 | `POST /v1/push/register` | 客户端 `pushService.getToken()` 后上报；同 token 换号会自动迁移归属 |
 | Token 解绑 | `DELETE /v1/push/token?token=` | 登出/注销前调用，参数走 query（http DELETE 带 body 不稳定） |
 | 下发 | `services/huaweiPush.ts` | v3 `/v3/{projectId}/messages:send` + 服务账号 JWT（PS256） |
-| 点击跳转 | `EntryAbility.onCreate/onNewWant` → `utils/push.ets` → `Index` | `clickAction.data` 平铺进 `want.parameters`，含 `type/postId/commentId/nid` |
+| 点击跳转 | `EntryAbility.onCreate/onNewWant` → `utils/push.ets` → `Index` | `clickAction.data` 平铺进 `want.parameters`，含 `type/postId/commentId/nid`（私信另带 `peerId/peerName`） |
+| 私信下发 | `messageService.pushDmNotification` | 落库后 fire-and-forget；`type=dm` → 前端直开 `ChatPage` |
 | 前端上报时机 | `Index.initPushCapabilities` | 登录后：先申请通知权限，再上报 Token |
 
 ⚠️ 协议口径（踩过的坑）：**别用 Android HMS Push 那套**（`v1/{appId}` + OAuth client_credentials + `android.notification.click_action`）—— HarmonyOS 5 起已废弃 OAuth 2.0 开放鉴权，且消息体结构是 `payload/target/pushOptions`。
@@ -126,7 +127,7 @@
 | `HUAWEI_PUSH_CATEGORY` | **仅兜底**：未被 `CATEGORY_BY_NOTIFY_TYPE` 覆盖的类型用它，默认 `MARKETING` |
 | `HUAWEI_PUSH_TEST_MESSAGE` | 调测期 `true`（每项目每日 1000 条、不触发频控）；**上线必须 `false`** |
 
-**category 按通知类型区分**（写在 `services/huaweiPush.ts` 的 `CATEGORY_BY_NOTIFY_TYPE`，不要改成全局单一值）：评论 / 赞 / 收藏 / @提及 / 关注 → `SUBSCRIPTION`；私信 → `IM`（待私信接入推送后启用）；其余落兜底。
+**category 按通知类型区分**（写在 `services/huaweiPush.ts` 的 `CATEGORY_BY_NOTIFY_TYPE`，不要改成全局单一值）：私信 → `IM`（权益已通过）；评论 / 赞 / 收藏 / @提及 / 关注 → `SUBSCRIPTION`（权益审核中，未通过前会被华为降级成 MARKETING、单设备每日 2 条）；其余落兜底。改这张表前先去 AGC → 推送服务 → 自分类权益 确认状态。
 
 ⚠️ 传一个 AGC **未**授予权益的 category 不报错，华为会静默降级归到资讯营销类（单设备每日 2 条）——表现为「部分通知收不到」但没有任何失败记录，很难查。新增分类前先在 AGC 确认权益已批。
 
