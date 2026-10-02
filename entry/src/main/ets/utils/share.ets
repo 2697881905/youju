@@ -20,6 +20,26 @@ export function buildPostShareUrl(postId: number): string {
   return SHARE_BASE + '/post/' + String(postId);
 }
 
+// 抖音式分享文案：`复制打开有据，看看「{帖主}的帖子」{标题} #标签… {链接}`。
+// 标题/标签可缺省（对应段自动省略），链接始终收尾；作者名缺省回退「有据用户」。
+// 标题按抖音惯例直接接在「」之后；标签与链接前各留一个空格。
+export function buildPostShareText(authorNickname: string, title: string, tags: string[], postId: number): string {
+  const name: string = authorNickname && authorNickname.length > 0 ? authorNickname : '有据用户';
+  let text: string = '复制打开有据，看看「' + name + '的帖子」';
+  const cleanTitle: string = title.trim();
+  if (cleanTitle.length > 0) {
+    text += cleanTitle;
+  }
+  const tagText: string = tags
+    .filter((t: string): boolean => t.trim().length > 0)
+    .map((t: string): string => '#' + t.trim())
+    .join(' ');
+  if (tagText.length > 0) {
+    text += ' ' + tagText;
+  }
+  return text + ' ' + buildPostShareUrl(postId);
+}
+
 // 个人主页分享链接：主站根域 + /user/{id}
 export function buildProfileShareUrl(userId: number): string {
   return SHARE_BASE + '/user/' + String(userId);

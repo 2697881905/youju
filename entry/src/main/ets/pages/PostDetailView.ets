@@ -36,7 +36,7 @@ import { debateVoteStore, DebateVoteInfo } from '../utils/debateVoteStore';
 import { structuredFieldPairs, pairValueOf, StructuredFieldPair } from '../utils/structuredFields';
 import { ShareSheet } from '../components/ShareSheet';
 import { ShareToDmSheet } from '../components/ShareToDmSheet';
-import { buildPostShareUrl, copyToClipboard, EXTERNAL_SHARE_ENABLED, DM_SHARE_ENABLED, sharePostToSystem } from '../utils/share';
+import { buildPostShareText, buildPostShareUrl, copyToClipboard, EXTERNAL_SHARE_ENABLED, DM_SHARE_ENABLED, sharePostToSystem } from '../utils/share';
 import { generateShareCardBytes } from '../utils/shareCard';
 import { structuredSummaryOf, StructuredSummary } from '../utils/structuredBlocks';
 import { image } from '@kit.ImageKit';
@@ -794,14 +794,14 @@ export struct PostDetailView {
     };
   }
 
-  // 复制帖子分享链接到剪贴板（占位域名，待真实域名确定后改 utils/share.ets 的 SHARE_BASE）
+  // 复制抖音式分享文案（帖主 + 标题 + 标签 + 链接）到剪贴板
   private doShareLink(): void {
     if (!this.post || this.post.id === undefined) {
       return;
     }
     try {
-      copyToClipboard(buildPostShareUrl(this.post.id));
-      safeShowToast(this.getUIContext(), { message: '链接已复制，去粘贴给好友吧' });
+      copyToClipboard(buildPostShareText(this.authorName(), this.post.title ?? '', this.post.tags ?? [], this.post.id));
+      safeShowToast(this.getUIContext(), { message: '文案已复制，去粘贴给好友吧' });
     } catch (e) {
       safeShowToast(this.getUIContext(), { message: '复制失败，请重试' });
     }
