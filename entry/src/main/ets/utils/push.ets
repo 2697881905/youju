@@ -13,10 +13,12 @@ const PUSH_TAG: string = 'push';
 
 // 推送点击带来的路由意图（服务端 clickAction.data 透传）
 export interface PushRoute {
-  type: string; // 通知类型：comment / up / mention / bookmark / follow / system
+  type: string; // 通知类型：comment / up / mention / bookmark / follow / system / dm
   postId: number; // 关联帖子，0 = 无
   commentId: number; // 关联评论，0 = 无
   nid: number; // 通知记录 id
+  peerId: number; // 私信：对方 userId，0 = 非私信
+  peerName: string; // 私信：对方昵称（会话页靠 intent 渲染，只给 id 拿不到名字）
 }
 
 // 进程内去重：冷启动上报过一次后，登录成功回调不必重复打同一请求。
@@ -127,6 +129,8 @@ export function readPushRoute(want: Want | undefined): PushRoute | null {
     postId: toInt(source['postId']),
     commentId: toInt(source['commentId']),
     nid: toInt(source['nid']),
+    peerId: toInt(source['peerId']),
+    peerName: typeof source['peerName'] === 'string' ? source['peerName'] : '',
   };
 }
 

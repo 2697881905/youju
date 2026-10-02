@@ -19,6 +19,8 @@ export interface PushMessageData {
   // 关联评论 id：客户端点推送后定位到具体评论（见前端 utils/push.ets PushRoute）
   commentId?: number | null;
   nid?: number;
+  peerId?: number; // 私信：对方 userId，点击直达会话页
+  peerName?: string; // 私信：对方昵称。会话页靠 intent 渲染，只给 id 拿不到名字
 }
 
 interface ServiceAccountCreds {
@@ -164,15 +166,17 @@ async function sendToTokens(
 // 通知类型 → 华为「通知消息自分类」category。
 // ⚠️ 必须与 AGC 已申请并通过的自分类权益逐项对应：传一个未开通的 category 不会报错，
 //    华为会静默降级归到资讯营销类（MARKETING，单设备每日 2 条限流），表面看只是"收不到"。
-//    项目已申请：SUBSCRIPTION（订阅·社交动态）。评论/赞/收藏/@提及/关注都走这一类。
-//    私信申请了 IM，但站内私信目前尚未接推送，确认后再补映射到这里的 'dm'。
+//    项目已申请并通过：IM（即时聊天，用于私信）、SUBSCRIPTION（订阅·社交动态，审核中）。
+//    评论/赞/收藏/@提及/关注都走 SUBSCRIPTION；私信走 IM。
 //    系统通知（举报受理/审核结果）未申请对应权益，老实退回默认兜底（MARKETING）。
+//    ⚠️ SUBSCRIPTION 当前还在审核中，未通过前社交互动会被华为降级成 MARKETING（每日 2 条）。
 const CATEGORY_BY_NOTIFY_TYPE: Record<string, string> = {
   comment: 'SUBSCRIPTION',
   up: 'SUBSCRIPTION',
   bookmark: 'SUBSCRIPTION',
   mention: 'SUBSCRIPTION',
   follow: 'SUBSCRIPTION',
+  dm: 'IM',
 };
 
 function resolveCategory(notifyType: string | undefined): string {
