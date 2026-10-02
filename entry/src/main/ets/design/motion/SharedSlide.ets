@@ -58,9 +58,13 @@ export struct SharedSlide {
           x: this.pressed ? MotionTokens.pressSlideScale : 1,
           y: this.pressed ? MotionTokens.pressSlideScale : 1,
         })
+        // 跟手分支必须用 duration 可控的线性曲线：springMotion 是物理弹簧，
+        // 动画时长由 response(0.6s) 与初速度决定、忽略 duration —— duration:0 不会瞬时生效，
+        // 逐帧喂入会变成 0.6s 弹簧逐帧追赶，滑块弹性滞后于手指（不跟手）。
+        // 整数索引（点击切换）保留 springMotion 弹性动画（时长由弹簧参数自算）。
         .animation({
           duration: this.isTracking() ? MotionTokens.none : MotionTokens.base,
-          curve: MotionCurves.springInteract,
+          curve: this.isTracking() ? Curve.Linear : MotionCurves.springInteract,
         })
     }
     .width('100%')
