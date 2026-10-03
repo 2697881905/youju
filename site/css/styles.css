@@ -116,16 +116,8 @@ section{position:relative}
 .immersive-stage .device,.grip-stage .device{width:min(360px,74vw)}
 .device--dark{background:#1E2226;box-shadow:0 30px 90px rgba(0,0,0,.55),0 2px 10px rgba(0,0,0,.4)}
 
-/* 沉浸光感：循坏游走的光点 + 指尖 */
-.glow-cursor{position:absolute;top:0;left:0;z-index:2;width:220px;height:220px;margin:-110px 0 0 -110px;pointer-events:none;will-change:transform}
-.glow-cursor::before{content:"";position:absolute;inset:0;border-radius:50%;
-  background:radial-gradient(circle,rgba(120,180,255,.5),rgba(120,180,255,.14) 42%,rgba(120,180,255,0) 68%);
-  mix-blend-mode:screen}
-.glow-cursor::after{content:"";position:absolute;top:50%;left:50%;width:13px;height:13px;margin:-6.5px 0 0 -6.5px;border-radius:50%;
-  background:#EAF4FF;box-shadow:0 0 16px 5px rgba(140,190,255,.75)}
-
-/* 智感握姿：真实录屏演示（界面随握姿镜像重排） */
-.grip-video{width:100%;aspect-ratio:720/1553;object-fit:cover;display:block}
+/* 真实录屏演示视频（沉浸光感 / 智感握姿共用）：对齐截图比例，视口裁剪 */
+.device-video{width:100%;aspect-ratio:720/1553;object-fit:cover;display:block}
 
 /* ---------- 下载 ---------- */
 .download{padding:clamp(70px,9vw,120px) 0 clamp(90px,12vw,150px);background:var(--ink);color:var(--text-inv);text-align:center}
@@ -160,5 +152,5 @@ section{position:relative}
 
 /* ---------- 动效降级 ---------- */
 @media(prefers-reduced-motion:reduce){
-  .glow-cursor{display:none}
+  .device-video{aspect-ratio:auto}
 }

@@ -29,12 +29,24 @@
       syncNav();
     }, {rootMargin:'0px 0px -92% 0px'});
     darkZones.forEach(function(z){ io.observe(z); });
+
+    /* 演示视频：进入视口才播放，离开即暂停（节省流量与性能） */
+    var vids = document.querySelectorAll('.device-video');
+    if(vids.length){
+      var vio = new IntersectionObserver(function(entries){
+        entries.forEach(function(e){
+          if(e.isIntersecting){ if(!reduce) e.target.play().catch(function(){}); }
+          else{ e.target.pause(); }
+        });
+      }, {threshold:.25});
+      vids.forEach(function(v){ vio.observe(v); });
+    }
   }
 
   /* ---------- 降级：无 GSAP 或用户偏好减少动效 ---------- */
   if(!hasGSAP || reduce){
     root.classList.remove('js-motion');
-    document.querySelectorAll('.grip-video').forEach(function(v){
+    document.querySelectorAll('.device-video').forEach(function(v){
       v.removeAttribute('autoplay');
       v.pause();
     });
@@ -54,17 +66,7 @@
     }
   });
 
-  /* ---------- 沉浸光感：光点沿界面循环游走（光随指动） ---------- */
-  var glow = document.querySelector('.glow-cursor');
-  if(glow){
-    gsap.timeline({repeat:-1, defaults:{ease:'sine.inOut', duration:1.7}})
-      .fromTo(glow, {xPercent:-42, yPercent:-72}, {xPercent:32, yPercent:-18})
-      .to(glow, {xPercent:56, yPercent:52})
-      .to(glow, {xPercent:-28, yPercent:76, duration:2})
-      .to(glow, {xPercent:-42, yPercent:-72});
-  }
-
-  /* 智感握姿使用真实录屏循环播放（grip-demo.mp4，autoplay/loop/muted），无需 JS 驱动 */
+  /* 沉浸光感 / 智感握姿均使用真实录屏循环播放（light-demo.mp4 / grip-demo.mp4），JS 只做视口播放控制 */
 
   window.addEventListener('load', function(){ ScrollTrigger.refresh(); });
 })();
