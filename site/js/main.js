@@ -94,7 +94,7 @@
   });
 
   /* ---------- 3. 截图滚动视差 + Hero 设备呼吸浮动 ---------- */
-  gsap.utils.toArray('.feature .device, .scene .device').forEach(function(d){
+  gsap.utils.toArray('.scene .device').forEach(function(d){
     gsap.fromTo(d, {y:38}, {
       y:-38, ease:'none',
       scrollTrigger:{trigger:d, start:'top bottom', end:'bottom top', scrub:.5}
@@ -102,7 +102,56 @@
   });
   gsap.to('.hero__visual .device', {y:-11, duration:3.2, ease:'sine.inOut', repeat:-1, yoyo:true});
 
-  /* ---------- 4. 共享元素转场：场景截图点击放大（Flip） ---------- */
+  /* ---------- 4. 核心能力图库：条目切换 + 设备屏 Flip 共享转场 ---------- */
+  /* 无 GSAP / reduced-motion 时已在上方降级返回：js-motion 类被移除，
+     CSS 回退为「四条目 + 四屏全部可见」的静态布局，内容完整可读。 */
+  var gallery = document.getElementById('gallery');
+  if(gallery){
+    var gItems = Array.prototype.slice.call(gallery.querySelectorAll('.gallery__item'));
+    var gDevices = Array.prototype.slice.call(gallery.querySelectorAll('.gallery__stage .device'));
+    var gActive = 0;
+    var gBusy = false;
+    gallery.classList.add('is-enhanced');
+
+    function gApply(idx){
+      gItems.forEach(function(it, i){
+        it.classList.toggle('is-active', i === idx);
+        it.querySelector('.gallery__tab').setAttribute('aria-expanded', i === idx ? 'true' : 'false');
+      });
+      gDevices.forEach(function(d, i){ d.classList.toggle('is-active', i === idx); });
+      gActive = idx;
+    }
+
+    gItems.forEach(function(item){
+      item.querySelector('.gallery__tab').addEventListener('click', function(){
+        var idx = parseInt(item.getAttribute('data-idx'), 10);
+        if(gBusy || isNaN(idx) || idx === gActive) return;
+        var dir = idx > gActive ? 1 : -1;
+        var desc = item.querySelector('.gallery__desc');
+        gBusy = true;
+        setTimeout(function(){ gBusy = false; }, 700);
+        if(hasFlip){
+          var state = Flip.getState(gDevices);
+          gApply(idx);
+          Flip.from(state, {
+            duration:.65, ease:'power3.inOut', absolute:true,
+            onEnter:function(els){ gsap.fromTo(els, {opacity:0, y:26*dir, scale:.97}, {opacity:1, y:0, scale:1, duration:.6, ease:'power3.out'}); },
+            onLeave:function(els){ gsap.to(els, {opacity:0, y:-26*dir, scale:.97, duration:.6, ease:'power2.in'}); },
+            onComplete:function(){ ScrollTrigger.refresh(); }
+          });
+        }else{
+          gApply(idx);
+        }
+        if(desc){ gsap.fromTo(desc, {opacity:0, y:10}, {opacity:1, y:0, duration:.45, ease:'power2.out'}); }
+        var rect = gDevices[idx].getBoundingClientRect();
+        if(rect.bottom < 80 || rect.top > window.innerHeight - 80){
+          gDevices[idx].scrollIntoView({behavior:'smooth', block:'center'});
+        }
+      });
+    });
+  }
+
+  /* ---------- 5. 共享元素转场：截图点击放大（场景 / 核心能力 / 下载）（Flip） ---------- */
   if(hasFlip){
     var zoom = document.getElementById('zoom');
     var stage = document.getElementById('zoomStage');
@@ -110,8 +159,8 @@
     var closeBtn = document.getElementById('zoomClose');
     var current = null, ghost = null;
 
-    document.querySelectorAll('.scene .device__screen').forEach(function(screen){
-      var card = screen.closest('.scene');
+    document.querySelectorAll('.scene .device__screen, .gallery__stage .device__screen, .download .device__screen').forEach(function(screen){
+      var card = screen.closest('.scene') || screen.closest('.device');
       card.classList.add('is-zoomable');
       card.setAttribute('role', 'button');
       card.setAttribute('tabindex', '0');
