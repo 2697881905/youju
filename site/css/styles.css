@@ -77,7 +77,9 @@ section{position:relative}
   box-shadow:0 24px 70px rgba(11,12,14,.16),0 2px 10px rgba(11,12,14,.10)}
 .device--hero{width:min(380px,82vw)}
 .device__screen{position:relative;border-radius:36px;overflow:hidden;background:#fff}
-.device__screen::before{content:"";position:absolute;top:12px;left:50%;transform:translateX(-50%);width:76px;height:22px;border-radius:12px;background:#0A0B0C;z-index:3}
+/* 华为标志性三挖孔（左上角：小-大-小，中心对齐） */
+.device__screen::before{content:"";position:absolute;top:18px;left:22px;width:10px;height:10px;border-radius:50%;background:#0A0B0C;z-index:3;
+  box-shadow:16px -2.5px 0 2.5px #0A0B0C,32px 0 0 #0A0B0C}
 .device__screen img{width:100%;height:auto}
 
 /* ---------- 核心能力 ---------- */
@@ -105,12 +107,12 @@ section{position:relative}
 .hkit--flip .hkit__copy{order:2}
 .hkit--flip .hkit__stage{order:1}
 .hkit__tag{display:inline-block;font-size:13px;font-weight:700;letter-spacing:.14em;color:#6FAAFF;border:1px solid var(--line-inv);border-radius:99px;padding:7px 16px;margin-bottom:26px}
-.hkit__steps{position:relative;min-height:7.2em}
-.hkit__step{position:absolute;inset:0;font-size:clamp(19px,2.1vw,25px);font-weight:700;line-height:1.5;color:var(--text-inv-2);transition:color .5s}
-.hkit__step.is-active{color:var(--text-inv)}
-/* 降级：无 GSAP / reduced-motion 时三句文案纵向静排 */
-.hkit__steps.steps-static .hkit__step{position:static;color:var(--text-inv)}
-.hkit__steps.steps-static .hkit__step:not(:first-child){display:none}
+.hkit__copy h3{font-size:clamp(22px,2.6vw,32px)}
+.hkit__desc{margin-top:16px;font-size:15.5px;color:var(--text-inv-2);max-width:26em}
+.hkit__points{display:flex;gap:10px;margin-top:24px;list-style:none;flex-wrap:wrap}
+.hkit__points li{font-size:13px;color:#6FAAFF;border:1px solid var(--line-inv);border-radius:99px;padding:6px 15px}
+.hkit__hand-state{margin-top:24px;font-size:14px;color:var(--text-inv-2)}
+.hkit__hand-state span{display:inline-block;min-width:2.6em;color:#6FAAFF;font-weight:700}
 .hkit__stage{position:relative;display:flex;justify-content:center}
 
 /* 舞台通用 */
@@ -118,23 +120,21 @@ section{position:relative}
 .immersive-stage .device,.grip-stage .device{width:min(360px,74vw)}
 .device--dark{background:#1E2226;box-shadow:0 30px 90px rgba(0,0,0,.55),0 2px 10px rgba(0,0,0,.4)}
 
-/* 沉浸光感：光斑 + 边缘高光带 */
-.stage-glow{position:absolute;top:50%;left:50%;width:340px;height:340px;margin:-170px 0 0 -170px;border-radius:50%;z-index:2;pointer-events:none;
-  background:radial-gradient(circle,rgba(96,168,255,.5),rgba(96,168,255,.12) 45%,rgba(96,168,255,0) 68%);
-  mix-blend-mode:screen;will-change:transform}
-.stage-glint{position:absolute;inset:0;z-index:2;pointer-events:none;mix-blend-mode:screen;
-  background:linear-gradient(115deg,rgba(255,255,255,0) 30%,rgba(190,220,255,.28) 50%,rgba(255,255,255,0) 70%);
-  transform:translateX(-120%);will-change:transform}
+/* 沉浸光感：循坏游走的光点 + 指尖 */
+.glow-cursor{position:absolute;top:0;left:0;z-index:2;width:220px;height:220px;margin:-110px 0 0 -110px;pointer-events:none;will-change:transform}
+.glow-cursor::before{content:"";position:absolute;inset:0;border-radius:50%;
+  background:radial-gradient(circle,rgba(120,180,255,.5),rgba(120,180,255,.14) 42%,rgba(120,180,255,0) 68%);
+  mix-blend-mode:screen}
+.glow-cursor::after{content:"";position:absolute;top:50%;left:50%;width:13px;height:13px;margin:-6.5px 0 0 -6.5px;border-radius:50%;
+  background:#EAF4FF;box-shadow:0 0 16px 5px rgba(140,190,255,.75)}
 
-/* 智感握姿：模拟高频操作面板 */
-.grip-panel{position:absolute;left:50%;bottom:88px;z-index:3;width:78%;transform:translateX(-50%);
-  display:flex;align-items:center;gap:10px;padding:9px 10px 9px 16px;border-radius:99px;
-  background:rgba(28,32,38,.72);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
-  border:1px solid rgba(255,255,255,.14);box-shadow:0 12px 34px rgba(0,0,0,.45);
+/* 智感握姿：发送按钮 + 手形指示（盖在截图原生按钮上方） */
+.grip-send{position:absolute;right:4%;bottom:3.4%;z-index:3;
+  background:var(--accent);color:#fff;font-size:12.5px;font-weight:600;letter-spacing:.05em;
+  padding:8px 17px;border-radius:20px;box-shadow:0 8px 22px rgba(29,111,255,.5);
   will-change:transform}
-.grip-panel__field{flex:1;font-size:12.5px;color:#AEB4BB}
-.grip-panel__send{width:30px;height:30px;border-radius:50%;background:var(--accent);position:relative;flex:0 0 auto}
-.grip-panel__send::after{content:"";position:absolute;top:50%;left:50%;transform:translate(-42%,-50%);border-left:8px solid #fff;border-top:5px solid transparent;border-bottom:5px solid transparent}
+.grip-hand{position:absolute;right:.6%;bottom:-4.5%;z-index:4;width:58px;pointer-events:none;will-change:transform;
+  filter:drop-shadow(0 6px 14px rgba(0,0,0,.35))}
 
 /* ---------- 下载 ---------- */
 .download{padding:clamp(70px,9vw,120px) 0 clamp(90px,12vw,150px);background:var(--ink);color:var(--text-inv);text-align:center}
@@ -162,15 +162,13 @@ section{position:relative}
   .hkit{grid-template-columns:1fr;gap:44px}
   .hkit__copy{order:1!important}
   .hkit__stage{order:2!important}
-  .hkit__steps{min-height:9em}
 }
 @media(max-width:560px){
   .scene .device{width:min(250px,66vw)}
-  .hkit__steps{min-height:11.5em}
 }
 
 /* ---------- 动效降级 ---------- */
 @media(prefers-reduced-motion:reduce){
-  .stage-glow,.stage-glint{display:none}
-  .grip-panel{transform:translateX(-50%)}
+  .glow-cursor,.grip-hand{display:none}
+  .grip-send{right:4%}
 }
