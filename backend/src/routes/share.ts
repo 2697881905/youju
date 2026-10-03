@@ -60,6 +60,7 @@ function renderPage(meta: {
   avatar?: string;
   author?: string;
   badge?: string;
+  deepLink?: string;
 }): string {
   // og:image 必须是被抓取方可匿名拉取的绝对地址；data URI 微信/微博不认，退回不输出标签
   const ogImage = /^https?:\/\//.test(meta.image) ? meta.image : '';
@@ -105,10 +106,37 @@ ${imageTag}
       <h1>${esc(meta.title)}</h1>
       <p class="desc">${esc(meta.description)}</p>
       ${meta.author ? `<div class="author"><img class="avatar" src="${esc(meta.avatar || '')}" alt="" referrerpolicy="no-referrer"><span><span class="name">${esc(meta.author)}</span><br><span class="hint">在「有据」分享</span></span></div>` : ''}
-      <a class="btn" href="https://youju.chat/">去「有据」看看</a>
+      <a class="btn" id="openAppBtn" href="https://youju.chat/">去「有据」看看</a>
     </div>
   </div>
   <div class="note" style="position:fixed;bottom:14px;left:0;right:0;text-align:center">有据 · 真实生活经验社区</div>
+  <script>
+  (function () {
+    // 「去有据看看」按钮接入应用拉起（Deep Link）：点击先尝试 youju:// 链接唤起有据 App
+    // （module.json5 skills 声明了 scheme: youju，系统弹「打开」确认或直达）；
+    // 未拉起（App 未安装 / 微信等 webview 拦截 scheme）时回落到原行为——打开官网首页。
+    // JS 禁用时 <a> 的 href 兜底，页面行为与接入前一致。deepLink 只由本文件用数字 id 拼出。
+    var deepLink = '${esc(meta.deepLink ?? '')}';
+    if (deepLink === '') { return; }
+    var btn = document.getElementById('openAppBtn');
+    if (!btn) { return; }
+    btn.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      var gone = false;
+      var markGone = function () { gone = true; };
+      document.addEventListener('visibilitychange', markGone);
+      window.addEventListener('pagehide', markGone);
+      window.location.href = deepLink;
+      setTimeout(function () {
+        document.removeEventListener('visibilitychange', markGone);
+        window.removeEventListener('pagehide', markGone);
+        if (!gone && !document.hidden) {
+          window.location.href = 'https://youju.chat/';
+        }
+      }, 1500);
+    });
+  })();
+  </script>
 </body>
 </html>`;
 }
@@ -142,6 +170,7 @@ router.get('/post/:id', async (req: Request, res: Response) => {
       avatar: toAbsoluteImage(post.user?.avatar),
       badge: '有据 · 帖子分享',
       author: post.user?.nickname ?? '',
+      deepLink: 'youju://post/' + id,
     })
   );
 });
@@ -174,6 +203,7 @@ router.get('/user/:id', async (req: Request, res: Response) => {
       avatar,
       badge: '有据 · 个人主页',
       author: nickname,
+      deepLink: 'youju://user/' + id,
     })
   );
 });
