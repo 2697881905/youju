@@ -60,24 +60,24 @@
       .to(glow, {xPercent:-42, yPercent:-72});
   }
 
-  /* ---------- 智感握姿：发送按钮随左右手循环迁移 ---------- */
+  /* ---------- 智感握姿：发送按钮随左右手循环迁移（新截图按钮初始在左侧） ---------- */
   var send = document.querySelector('.grip-send');
   var hand = document.querySelector('.grip-hand');
   var state = document.getElementById('handState');
   if(send && hand){
-    // 按钮从右侧 4% 移到左侧 4% 所需的 x 位移（随屏幕宽度自适应）
+    // 按钮从左侧 3.5% 移到右侧 4% 所需的 x 位移（随屏幕宽度自适应）
     function gripShift(){
       var screen = send.closest('.device__screen');
-      return -(screen.clientWidth - send.offsetWidth - screen.clientWidth * 0.08);
+      return screen.clientWidth - send.offsetWidth - screen.clientWidth * 0.075;
     }
     gsap.timeline({repeat:-1, repeatRefresh:true, repeatDelay:.8, defaults:{ease:'power3.inOut'}})
       .to([send, hand], {x:function(){return gripShift();}, duration:1.1})
-      .call(function(){ if(state) state.textContent = '左手'; }, null, .55)
+      .call(function(){ if(state) state.textContent = '右手'; }, null, .55)
       .to(send, {scale:.93, duration:.16, yoyo:true, repeat:1, ease:'power2.out'}, '+=.3')
       .to(hand, {y:4, duration:.16, yoyo:true, repeat:1, ease:'power2.out'}, '<')
       .to({}, {duration:.8})
       .to([send, hand], {x:0, duration:1.1})
-      .call(function(){ if(state) state.textContent = '右手'; }, null, '-=.55');
+      .call(function(){ if(state) state.textContent = '左手'; }, null, '-=.55');
   }
 
   window.addEventListener('load', function(){ ScrollTrigger.refresh(); });
