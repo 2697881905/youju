@@ -76,6 +76,8 @@ export struct MessagePage {
   @Link @Watch('onDmTabChanged') dmTabIndex: number;
   // 分段滑块跟手位置：Swiper 滚动（拖动/吸附）中喂入的连续索引；-1 = 未滚动
   @Link slidePosition: number;
+  // 分页区实测宽度（vp）：onGestureSwipe 的 currentOffset 是 vp 位移，换算连续索引要用
+  @State swiperWidth: number = 0;
   // 分段切换的轻微透明反馈（标题栏分段栏用）
   @Link tabPulse: boolean;
   // 标题栏「全部已读」按钮 → 本页执行（递增序号触发 @Watch）
@@ -1082,6 +1084,21 @@ export struct MessagePage {
           }
           const continuous: number = selectedIndex - position;
           this.slidePosition = Math.max(0, Math.min(MESSAGE_SEGMENTS.length - 1, continuous));
+        })
+        // 拖拽逐帧跟手：手势拖动的每一帧（onContentDidScroll 在手势拖动期不保证回调，
+        // 吸附/程序化动画帧仍由它覆盖）——连续索引 = index - currentOffset/页宽
+        .onGestureSwipe((index: number, event: SwiperAnimationEvent): void => {
+          if (this.swiperWidth <= 0) {
+            return;
+          }
+          const continuous: number = index - event.currentOffset / this.swiperWidth;
+          this.slidePosition = Math.max(0, Math.min(MESSAGE_SEGMENTS.length - 1, continuous));
+        })
+        .onAreaChange((_old: Area, area: Area): void => {
+          const w: number = parseFloat(String(area.width));
+          if (w > 0 && Math.abs(w - this.swiperWidth) > 0.5) {
+            this.swiperWidth = w;
+          }
         })
         .onAnimationEnd((): void => {
           // 吸附收尾：已回到整数位才清除跟手覆盖（回落整数索引，数值一致无跳变）；
