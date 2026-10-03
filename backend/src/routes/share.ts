@@ -88,21 +88,21 @@ ${imageTag}
 <meta name="robots" content="index,follow">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:-apple-system,'PingFang SC','Noto Sans SC',system-ui,sans-serif;background:#FFFFFF;color:#111827;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:14px}
-  .card{width:min(400px,100%);background:#FFFFFF;border:1px solid rgba(17,24,39,.08);border-radius:16px;overflow:hidden;box-shadow:0 16px 48px rgba(17,24,39,.12)}
-  /* 封面占卡高 70%：网页卡比卡图多出按钮等元素，按典型正文高度折算约 9:17 */
-  .cover{width:100%;aspect-ratio:9/17;object-fit:cover;display:block;background:#F3F4F6}
+  body{font-family:-apple-system,'PingFang SC','Noto Sans SC',system-ui,sans-serif;background:#FFFFFF;color:#111827;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;gap:14px}
+  /* 卡片整体 3:4（与 App 分享卡图 1080×1440 同比例）且完整落在视口内；
+     封面 flex-basis 70% = 卡图同款占比；按钮/备案号在卡片外部容器 */
+  .card{width:min(360px,100%);aspect-ratio:3/4;display:flex;flex-direction:column;background:#FFFFFF;border:1px solid rgba(17,24,39,.08);border-radius:16px;overflow:hidden;box-shadow:0 16px 48px rgba(17,24,39,.12)}
+  .cover{width:100%;aspect-ratio:15/14;object-fit:cover;display:block;background:#F3F4F6;flex:none}
   .cover-fallback{display:flex;align-items:center;justify-content:center;background:#8A6548}
-  .cover-fallback span{font-size:44px;font-weight:700;color:#FFFFFF;font-family:'Noto Serif SC',Songti SC,serif}
-  .body{padding:20px 18px 16px}
-  h1{font-size:20px;line-height:1.4;font-weight:700;color:#111827;margin-bottom:10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  p.desc{font-size:14px;line-height:1.7;color:#6B7280;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  .footer{display:flex;align-items:center;gap:10px;margin-top:16px}
-  .avatar{width:38px;height:38px;border-radius:50%;object-fit:cover;background:#F3F4F6;flex:none}
-  /* 窄屏（360vp）下品牌行 nowrap 会挤占作者名：名字单行省略而非换行 */
-  .name{font-size:14px;color:#111827;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-  .brand{margin-left:auto;font-size:11px;color:#8A6548;white-space:nowrap;flex:none}
-  .btn{display:block;margin-top:16px;text-align:center;background:#111827;color:#FFFFFF;font-size:15px;font-weight:600;padding:13px 0;border-radius:12px;text-decoration:none}
+  .cover-fallback span{font-size:40px;font-weight:700;color:#FFFFFF;font-family:'Noto Serif SC',Songti SC,serif}
+  .body{flex:1;min-height:0;display:flex;flex-direction:column;padding:10px 16px 12px;overflow:hidden}
+  h1{font-size:16px;line-height:1.35;font-weight:700;color:#111827;margin-bottom:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  p.desc{font-size:12px;line-height:1.55;color:#6B7280;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+  .footer{display:flex;align-items:center;gap:8px;margin-top:auto}
+  .avatar{width:26px;height:26px;border-radius:50%;object-fit:cover;background:#F3F4F6;flex:none}
+  .name{font-size:12px;color:#111827;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .brand{margin-left:auto;font-size:10px;color:#8A6548;white-space:nowrap;flex:none}
+  .btn{width:min(360px,100%);text-align:center;background:#111827;color:#FFFFFF;font-size:15px;font-weight:600;padding:13px 0;border-radius:12px;text-decoration:none;flex:none}
   .icp{font-size:11px;text-align:center}
   .icp a{color:#9CA3AF;text-decoration:none}
 </style>
@@ -114,9 +114,9 @@ ${imageTag}
       <h1>${esc(meta.title)}</h1>
       <p class="desc">${esc(meta.description)}</p>
       ${meta.author ? `<div class="footer"><img class="avatar" src="${esc(meta.avatar || '')}" alt="" referrerpolicy="no-referrer"><span class="name">${esc(meta.author)}</span><span class="brand">有据 · 真实经验，有据可循</span></div>` : `<div class="footer"><span class="brand">有据 · 真实经验，有据可循</span></div>`}
-      <a class="btn" id="openAppBtn" href="https://youju.chat/">去「有据」看看</a>
     </div>
   </div>
+  <a class="btn" id="openAppBtn" href="https://youju.chat/">去「有据」看看</a>
   <div class="icp"><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">陕ICP备2026014636号-3</a></div>
   <script>
   (function () {
