@@ -98,7 +98,7 @@ ${imageTag}
   p.desc{font-size:14px;line-height:1.7;color:#6B7280;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .footer{display:flex;align-items:center;gap:10px;margin-top:16px}
   .avatar{width:38px;height:38px;border-radius:50%;object-fit:cover;background:#F3F4F6;flex:none}
-  .author .name{font-size:14px;color:#111827;font-weight:600}
+  .author .name{font-size:14px;color:#111827;font-weight:600;white-space:nowrap}
   .brand{margin-left:auto;font-size:12px;color:#8A6548;white-space:nowrap}
   .btn{display:block;margin-top:16px;text-align:center;background:#111827;color:#FFFFFF;font-size:15px;font-weight:600;padding:13px 0;border-radius:12px;text-decoration:none}
   .icp{margin-top:14px;padding-top:12px;border-top:1px solid rgba(17,24,39,.06);font-size:11px;text-align:center}
