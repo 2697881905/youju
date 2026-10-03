@@ -63,6 +63,8 @@ export struct ProfilePage {
   @Link @Watch('onTabIdxChanged') tabIdx: number; // 0 我发布, 1 我收藏, 2 我赞过, 3 我评论
   // 分段滑块跟手位置：Swiper 滚动（拖动/吸附）中喂入的连续索引；-1 = 未滚动
   @Link slidePosition: number;
+  // 分页区实测宽度（vp）：onGestureSwipe 的 currentOffset 是 vp 位移，换算连续索引要用
+  @State swiperWidth: number = 0;
   // 标题栏分享按钮 → 本页分享流程的信号：递增序号触发 @Watch，
   // 分享弹层 / 文案 / 剪贴板逻辑仍全部留在本页（Index 只负责发起）。
   @Link @Watch('onShareRequested') profileShareSeq: number;
@@ -911,6 +913,21 @@ export struct ProfilePage {
         }
         const continuous: number = selectedIndex - position;
         this.slidePosition = Math.max(0, Math.min(PROFILE_SEGMENTS.length - 1, continuous));
+      })
+      // 拖拽逐帧跟手：手势拖动的每一帧（onContentDidScroll 在手势拖动期不保证回调，
+      // 吸附/程序化动画帧仍由它覆盖）——连续索引 = index - currentOffset/页宽
+      .onGestureSwipe((index: number, event: SwiperAnimationEvent): void => {
+        if (this.swiperWidth <= 0) {
+          return;
+        }
+        const continuous: number = index - event.currentOffset / this.swiperWidth;
+        this.slidePosition = Math.max(0, Math.min(PROFILE_SEGMENTS.length - 1, continuous));
+      })
+      .onAreaChange((_old: Area, area: Area): void => {
+        const w: number = parseFloat(String(area.width));
+        if (w > 0 && Math.abs(w - this.swiperWidth) > 0.5) {
+          this.swiperWidth = w;
+        }
       })
       .onAnimationEnd((): void => {
         // 吸附收尾：已回到整数位才清除跟手覆盖（回落整数索引，数值一致无跳变）；
