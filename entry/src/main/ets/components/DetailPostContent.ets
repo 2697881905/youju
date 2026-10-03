@@ -91,7 +91,7 @@ export struct DetailPostContent {
       ForEach(parseHighlightSegments(this.content), (seg: HighlightSegment) => {
         Span(seg.raw)
           .fontColor(this.colorOfSegment(seg.type))
-          .fontWeight(seg.type === 'text' ? FontWeight.Normal : FontWeight.Medium)
+          .fontWeight(FontWeight.Bold)
           .onClick(() => {
             if (seg.type === 'tag') {
               this.goCircle(seg.name);
@@ -101,7 +101,10 @@ export struct DetailPostContent {
           })
       }, (seg: HighlightSegment) => seg.type + ':' + seg.raw + ':' + seg.name)
     }
-    .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamilySerifBody)
+    // 正文加粗：工程只打包 NotoSerifSC 的 Regular/Bold 两套字形（无 Medium），
+    // Body 字族绑的是 Regular——要真粗体字形必须切到 Bold 字族；
+    // 在 Regular 字族上设 fontWeight 只会伪粗或被忽略（familyName 只绑一个字体文件）。
+    .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamilySerif)
     .fontColor(ColorTokens.primary)
     .lineHeight(32)
     .width('100%')
