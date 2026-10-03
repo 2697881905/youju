@@ -14,7 +14,7 @@ import { GRID_GAP, GRID_PADDING } from '../utils/cardTokens';
 import { common } from '@kit.AbilityKit';
 import { EmptyState } from '../design/components/EmptyState';
 import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
-import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
+import { isSystemMaterialActive, TopButtonMaterialModifier } from '../utils/immersiveMaterial';
 import { BackButton } from '../design/components/BackButton';
 import { GlowInput } from '../design/components/GlowInput';
 import { Skeleton } from '../design/motion/Skeleton';
@@ -41,6 +41,11 @@ struct SearchResultPage {
   @State error: string = '';
   @State finished: boolean = false;
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
+  // 标题栏实测高度（vp）：内容驱动回写（同「我的」顶栏 profileHeroHeight 的做法）；
+  // 实测到齐前走估算兜底，避免首帧标题栏高度与内容错位
+  @State resultsBarHeight: number = 0;
+  // 系统材质修饰器（沉浸光感）：标题栏内输入框/返回键共用（低版本设备门禁自动跳过）
+  private titleBarMaterial: TopButtonMaterialModifier = new TopButtonMaterialModifier();
   @State isRefreshing: boolean = false;
   @State pageNum: number = 1;
   @State sortIndex: number = 0;
@@ -194,13 +199,24 @@ struct SearchResultPage {
         this.doSearch(this.keyword);
       },
     })
+      // 沉浸光感：标题栏内由系统材质接管输入框表面（低版本自动跳过，保留流光兜底）
+      .attributeModifier(this.titleBarMaterial)
   }
 
-  build() {
+  // 标题栏高度：实测值到齐前用估算兜底（状态栏 + 工具栏行 44+8 + 计数/排序行 36+6）
+  private resultsTitleBarHeight(): number {
+    return this.resultsBarHeight > 0 ? this.resultsBarHeight : this.statusBarHeight + 94;
+  }
+
+  // 标题栏：玻璃搜索工具栏（返回 + 流光输入框 + 清除）+ 结果计数 + 最新/最热 分段栏。
+  // 迁入 Navigation 标题栏与搜索探索页同构——沉浸光感 uiMaterial 的官方生效区域；
+  // 沉浸式布局下系统不代为避让状态栏，由标题栏自行下移（padding top statusBarHeight）。
+  @Builder
+  private resultsTitleBar(): void {
     Column() {
-      // 与搜索探索页一致的玻璃搜索工具栏。
       Row({ space: SpaceTokens.inline }) {
         BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
+          .attributeModifier(this.titleBarMaterial)
 
         this.searchInput()
 
@@ -222,7 +238,7 @@ struct SearchResultPage {
         }
       }
       .width('100%')
-      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs, bottom: SpaceTokens.xs })
       .alignItems(VerticalAlign.Center)
 
       Row() {
@@ -235,16 +251,54 @@ struct SearchResultPage {
           selectedIndex: $sortIndex,
           itemWidth: 54,
           fillWidth: false,
-          // 沉浸光感（华为应用商店同款）：玻璃底 + backdropBlur + 高光边框 + 滑块悬浮投影
-          immersive: true,
+          // 与 Index 标题栏分段栏同配置：标题栏为沉浸光感 uiMaterial 生效区域，
+          // 系统材质接管表面（低版本门禁不通过则回退沉浸玻璃/描边分发）
+          immersive: !isSystemMaterialActive(),
+          outlined: isSystemMaterialActive(),
+          glowEnabled: false,
+          useSystemMaterial: true,
           onSelect: (index: number): void => { this.onSortChange(index); },
         })
       }
       .width('100%')
-      .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.sm })
+      .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: 0, bottom: SpaceTokens.xs })
       .alignItems(VerticalAlign.Center)
+    }
+    .width('100%')
+    .padding({ top: this.statusBarHeight })
+    .onAreaChange((_old: Area, area: Area): void => {
+      // 标题栏高度内容驱动回写（同「我的」顶栏 profileHeroHeight 的做法），
+      // 实测值到齐前 height 走估算，避免首帧标题栏与内容错位
+      const h: number = parseFloat(String(area.height));
+      if (h > 0 && Math.abs(h - this.resultsBarHeight) > 0.5) {
+        this.resultsBarHeight = h;
+      }
+    })
+  }
 
-      // 三态主体
+  build() {
+    Navigation() {
+      Column() {
+        this.resultsBody()
+      }
+      .width('100%')
+      .height('100%')
+      .alignItems(HorizontalAlign.Start)
+    }
+    .hideTitleBar(false)
+    .title({
+      builder: this.resultsTitleBar,
+      height: this.resultsTitleBarHeight(),
+    }, { barStyle: BarStyle.STANDARD, backgroundColor: $r('app.color.bg_primary') })
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('app.color.bg_primary'))
+    .transition(buildPageTransition())
+  }
+
+  // 三态主体：加载骨架 / 失败重试 / 空态 / 结果网格（原 build 内容整体下沉为内容区）
+  @Builder
+  resultsBody(): void {
       if (this.searchList.length === 0 && this.loading) {
         Column() {
           this.resultSkeleton()
@@ -328,12 +382,5 @@ struct SearchResultPage {
         .layoutWeight(1)
         .width('100%')
       }
-    }
-    .width('100%')
-    .padding({ top: this.statusBarHeight })
-    .height('100%')
-    .alignItems(HorizontalAlign.Start)
-    .backgroundColor($r('app.color.bg_primary'))
-    .transition(buildPageTransition())
   }
 }
