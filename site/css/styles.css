@@ -80,15 +80,27 @@ section{position:relative}
 /* 状态栏与挖孔由截图自带，设备框不再叠加 */
 .device__screen img{width:100%;height:auto}
 
-/* ---------- 核心能力 ---------- */
+/* ---------- 核心能力（图库式：左列条目 + 右侧大屏，Flip 共享转场） ---------- */
 .features{padding:clamp(80px,12vw,150px) 0;background:var(--paper)}
-.feature{display:grid;grid-template-columns:5fr 6fr;gap:clamp(36px,6vw,88px);align-items:center;padding:clamp(36px,5vw,72px) 0}
-.feature--flip .feature__copy{order:2}
-.feature--flip .feature__visual{order:1}
-.feature__num{font-size:14px;font-weight:700;letter-spacing:.2em;color:var(--accent)}
-.feature__copy h3{margin-top:14px;font-size:clamp(24px,3vw,36px)}
-.feature__copy p{margin-top:16px;font-size:16px;color:var(--text-2);max-width:28em}
-.feature__visual{display:flex;justify-content:center}
+.gallery{display:grid;grid-template-columns:5fr 6fr;gap:clamp(36px,6vw,88px);align-items:start}
+.gallery__item{padding:22px 0;border-top:1px solid var(--line)}
+.gallery__item:first-child{border-top:0;padding-top:0}
+.gallery__tab{display:flex;align-items:baseline;gap:16px;width:100%;background:none;border:0;padding:0;font:inherit;color:var(--text-1);text-align:left;cursor:default}
+.is-enhanced .gallery__tab{cursor:pointer}
+.gallery__num{font-size:13px;font-weight:700;letter-spacing:.2em;color:var(--text-2);transition:color .3s}
+.gallery__ttl{font-size:clamp(20px,2.4vw,27px);font-weight:900;letter-spacing:-.02em;line-height:1.25;opacity:.4;transition:opacity .3s}
+.is-enhanced .gallery__tab:hover .gallery__ttl{opacity:.75}
+.gallery__item.is-active .gallery__num{color:var(--accent)}
+.gallery__item.is-active .gallery__ttl{opacity:1}
+.gallery__desc{margin-top:12px;font-size:15.5px;color:var(--text-2);max-width:28em}
+.gallery.is-enhanced .gallery__item:not(.is-active) .gallery__desc{display:none}
+.gallery__stage{display:flex;flex-direction:column;align-items:center;gap:36px}
+.is-enhanced .gallery__stage{gap:0}
+/* js-motion（head 内联脚本确认可动画）下只显示当前屏；GSAP 缺失/降级时移除该类 → 四屏全部可见 */
+.js-motion .gallery__stage .device:not(.is-active){display:none}
+.gallery__stage .device{width:min(340px,80vw)}
+.device.is-zoomable{cursor:pointer}
+.device.is-zoomable:focus-visible{outline:2px solid var(--accent);outline-offset:6px}
 
 /* ---------- 使用场景 ---------- */
 .scenes{padding:clamp(80px,12vw,150px) 0;background:var(--paper-2)}
@@ -156,9 +168,8 @@ section{position:relative}
   .hero__copy{text-align:center}
   .hero__sub{margin-inline:auto}
   .hero__actions{justify-content:center}
-  .feature{grid-template-columns:1fr;gap:36px}
-  .feature__copy{order:1!important}
-  .feature__visual{order:2!important}
+  .gallery{grid-template-columns:1fr;gap:44px}
+  .gallery__ttl{font-size:19px}
   .hkit{grid-template-columns:1fr;gap:44px}
   .hkit__copy{order:1!important}
   .hkit__stage{order:2!important}
