@@ -1586,34 +1586,35 @@ export struct PostDetailView {
               })
                 .transition(this.animLayerEnter(80))
 
-              // 媒体区（视频/轮播）：真实媒体直接展示。这个 id 是「一镜到底的对应节点」——
-              // 目的地页把它缩放/挪移到卡片帧，因此加载壳里的占位必须挂同一个 id。
-              Stack() {
-                this.mediaSlot()
-              }
-              .width('100%')
-              .id(DETAIL_HERO_ID)
-              .opacity(this.heroOpacity())
+              // 媒体+正文编为一组（组内间距 8）：图/视频紧贴正文。
+              // 不用负 margin——Column({ space }) 对负 margin 不生效（实测间距无变化）；
+              // 组外与 标题/评论区 之间仍是父容器的 16，两层间距互不干扰。
+              Column({ space: 8 }) {
+                // 媒体区（视频/轮播）：真实媒体直接展示。这个 id 是「一镜到底的对应节点」——
+                // 目的地页把它缩放/挪移到卡片帧，因此加载壳里的占位必须挂同一个 id。
+                Stack() {
+                  this.mediaSlot()
+                }
+                .width('100%')
+                .id(DETAIL_HERO_ID)
+                .opacity(this.heroOpacity())
 
-              DetailPostContent({
-                pairs: this.fields,
-                structuredDocument: this.post.structuredDocument ?? null,
-                genre: this.post.genre ?? '',
-                content: this.post.content ?? '',
-                coverOnlyTextPoster: this.post.structuredData?.coverOnlyTextPoster ?? false,
-                planA: this.planTextOf('方案A'),
-                planB: this.planTextOf('方案B'),
-                votePostId: this.post.id ?? 0,
-                mentions: this.post.mentions ?? [],
-                onVote: (choice: string): void => { this.onDebateVote(choice); },
-                // 长按结构化卡片弹「复制正文」菜单（正文 Text 自带系统文本选择，见组件内说明）
-                onLongPressContent: (event: GestureEvent): void => { this.openContentMenu(event); },
-              })
-                // 收紧媒体↔正文接缝：父 Column space=16 对所有子项一视同仁，
-                // 这里单独把正文上提 8，让图/视频到正文的间距减半（16→8），
-                // 正文↔评论区仍保持 16 不受影响。
-                .margin({ top: -8 })
-                .transition(this.animLayerEnter(120))
+                DetailPostContent({
+                  pairs: this.fields,
+                  structuredDocument: this.post.structuredDocument ?? null,
+                  genre: this.post.genre ?? '',
+                  content: this.post.content ?? '',
+                  coverOnlyTextPoster: this.post.structuredData?.coverOnlyTextPoster ?? false,
+                  planA: this.planTextOf('方案A'),
+                  planB: this.planTextOf('方案B'),
+                  votePostId: this.post.id ?? 0,
+                  mentions: this.post.mentions ?? [],
+                  onVote: (choice: string): void => { this.onDebateVote(choice); },
+                  // 长按结构化卡片弹「复制正文」菜单（正文 Text 自带系统文本选择，见组件内说明）
+                  onLongPressContent: (event: GestureEvent): void => { this.openContentMenu(event); },
+                })
+                  .transition(this.animLayerEnter(120))
+              }
 
               DetailCommentsSection({
                 comments: this.post.comments ?? [],
