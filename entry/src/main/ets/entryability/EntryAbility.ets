@@ -92,7 +92,7 @@ export default class EntryAbility extends UIAbility {
   // 顶部/底部系统栏区域的底色治理（窗口为全屏沉浸式：setWindowLayoutFullScreen(true)）：
   // - 手势导航下 navigationBarColor 不生效（官方论坛确认，仅三键导航可着色），该区域默认
   //   透传「窗口背景色」，而窗口背景默认黑色 → 全屏内容未铺满物理屏底时底部露出黑带，截断卡片。
-  // - 正确做法：窗口背景色 = 主题画布色（与 ColorTokens.canvas 浅 #F6F1E3 / 深 #14120C 一致），
+  // - 正确做法：窗口背景色 = 主题画布色（与 ColorTokens.canvas 浅 #FFFFFF / 深 #121212 一致），
   //   两条系统栏都设透明，让页面背景与内容一路铺到物理屏上下沿，消除上下横带。
   // - 各页负责自己让出状态栏高度（pages/Index 统一写 AppStorage['statusBarHeight']，
   //   路由页在根节点或顶栏加 padding），否则全屏下标题会被状态栏区域盖住。
@@ -101,8 +101,8 @@ export default class EntryAbility extends UIAbility {
       return;
     }
     const dark: boolean = isDarkMode();
-    // 与 ColorTokens.canvas（浅 #F6F1E3 / 深 #14120C）保持一致
-    const barColor: string = dark ? '#FF14120C' : '#FFF6F1E3';
+    // 与 ColorTokens.canvas（浅 #FFFFFF / 深 #121212）保持一致
+    const barColor: string = dark ? '#FF121212' : '#FFFFFFFF';
     // 状态栏/导航条内容色必须显式跟随应用主题（审核问题④：仅设背景色时内容由系统按
     // 「系统深浅」自选，应用内主题与系统深浅不一致时就出现浅底白字/深底黑字（对比度 1.1 < 3）。
     // 纯黑/纯白 vs 画布色对比度均 > 15，稳过 ≥3 要求。

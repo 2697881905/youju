@@ -43,10 +43,10 @@ const TEXT_POSTER_FONT_RETRY_INTERVAL: number = 200;
 
 // 信息条顶部的内投影：媒体在上方投下的柔光。只画在信息条内部，不压封面底边。
 // 两个 stop 用同一个 RGB、只差 alpha（8% → 0）—— 若渐变终点写透明黑，
-// 插值过程会经过灰调，浅米黄底上会显出一层脏灰。
+// 插值过程会经过灰调，纯白底上会显出一层脏灰。
 const STRIP_TOP_SHADE_HEIGHT: number = 10;
-const STRIP_TOP_SHADE_COLOR: string = '#143A2A14';
-const STRIP_TOP_SHADE_TRANSPARENT: string = '#003A2A14';
+const STRIP_TOP_SHADE_COLOR: string = '#1417171A';
+const STRIP_TOP_SHADE_TRANSPARENT: string = '#0017171A';
 
 type PreviewField = [string, string];
 

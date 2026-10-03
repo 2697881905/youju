@@ -2,59 +2,59 @@
   "color": [
     {
       "name": "start_window_background",
-      "value": "#14120C"
+      "value": "#121212"
     },
     {
       "name": "brand_primary",
-      "value": "#C9A47A"
+      "value": "#0A84FF"
     },
     {
       "name": "bg_primary",
-      "value": "#14120C"
+      "value": "#121212"
     },
     {
       "name": "bg_secondary",
-      "value": "#1C1912"
+      "value": "#1E1E1E"
     },
     {
       "name": "card_bg",
-      "value": "#1C1912"
+      "value": "#1E1E1E"
     },
     {
       "name": "text_primary",
-      "value": "#F3EEDF"
+      "value": "#F2F2F4"
     },
     {
       "name": "text_secondary",
-      "value": "#B9B09A"
+      "value": "#A8A8AE"
     },
     {
       "name": "text_tertiary",
-      "value": "#9C937C"
+      "value": "#8E8E95"
     },
     {
       "name": "divider",
-      "value": "#3A3120"
+      "value": "#38383C"
     },
     {
       "name": "glass_card_bg",
-      "value": "#1C1912"
+      "value": "#1E1E1E"
     },
     {
       "name": "glass_border",
-      "value": "#4A412C"
+      "value": "#3A3A3F"
     },
     {
       "name": "glass_overlay_light",
-      "value": "#A614120C"
+      "value": "#A6121212"
     },
     {
       "name": "glass_overlay_heavy",
-      "value": "#CC14120C"
+      "value": "#CC121212"
     },
     {
       "name": "glass_bar_bg",
-      "value": "#B314120C"
+      "value": "#B3121212"
     },
     {
       "name": "semantic_red",
@@ -70,15 +70,15 @@
     },
     {
       "name": "surface_elevated",
-      "value": "#221E15"
+      "value": "#232326"
     },
     {
       "name": "control_bg",
-      "value": "#2A251A"
+      "value": "#2C2C30"
     },
     {
       "name": "surface_selected",
-      "value": "#33C9A47A"
+      "value": "#330A84FF"
     },
     {
       "name": "warning_surface",
@@ -86,11 +86,11 @@
     },
     {
       "name": "bar_surface",
-      "value": "#591C1912"
+      "value": "#59121212"
     },
     {
       "name": "bar_border",
-      "value": "#523A3120"
+      "value": "#5245454B"
     },
     {
       "name": "bar_shadow",
@@ -98,35 +98,35 @@
     },
     {
       "name": "bar_selection_surface",
-      "value": "#332A251A"
+      "value": "#332E2E32"
     },
     {
       "name": "bar_selection_border",
-      "value": "#524A412C"
+      "value": "#5245454B"
     },
     {
       "name": "bar_selection_shadow",
-      "value": "#5CC9A47A"
+      "value": "#5C0A84FF"
     },
     {
       "name": "ds_canvas",
-      "value": "#14120C"
+      "value": "#121212"
     },
     {
       "name": "ds_elevated",
-      "value": "#1C1912"
+      "value": "#1E1E1E"
     },
     {
       "name": "ds_subtle",
-      "value": "#221E15"
+      "value": "#232326"
     },
     {
       "name": "ds_sunken",
-      "value": "#0E0C08"
+      "value": "#0D0D0F"
     },
     {
       "name": "ds_panel",
-      "value": "#262017"
+      "value": "#28282C"
     },
     {
       "name": "ds_overlay",
@@ -138,11 +138,11 @@
     },
     {
       "name": "ds_text_primary",
-      "value": "#F3EEDF"
+      "value": "#F2F2F4"
     },
     {
       "name": "ds_text_secondary",
-      "value": "#B9B09A"
+      "value": "#A8A8AE"
     },
     {
       "name": "ds_icon",
@@ -150,31 +150,31 @@
     },
     {
       "name": "ds_text_tertiary",
-      "value": "#9C937C"
+      "value": "#8E8E95"
     },
     {
       "name": "ds_text_quaternary",
-      "value": "#8A8372"
+      "value": "#77777E"
     },
     {
       "name": "ds_brand",
-      "value": "#C9A47A"
+      "value": "#0A84FF"
     },
     {
       "name": "ds_mention",
-      "value": "#6AA9FF"
+      "value": "#7D7AFF"
     },
     {
       "name": "ds_brand_tint",
-      "value": "#33C9A47A"
+      "value": "#330A84FF"
     },
     {
       "name": "ds_brand_press",
-      "value": "#D6B88E"
+      "value": "#3D9BFF"
     },
     {
       "name": "ds_on_brand",
-      "value": "#101010"
+      "value": "#FFFFFF"
     },
     {
       "name": "ds_warm",
@@ -198,19 +198,19 @@
     },
     {
       "name": "ds_separator",
-      "value": "#3D4A412C"
+      "value": "#4D545458"
     },
     {
       "name": "ds_skeleton_base",
-      "value": "#2A251A"
+      "value": "#2A2A2F"
     },
     {
       "name": "ds_skeleton_highlight",
-      "value": "#38301F"
+      "value": "#35353B"
     },
     {
       "name": "account_tile_harmony",
-      "value": "#3D8A6548"
+      "value": "#3D0A84FF"
     },
     {
       "name": "account_tile_huawei",
@@ -223,6 +223,18 @@
     {
       "name": "bar_gradient_mask",
       "value": "#662A2F36"
+    },
+    {
+      "name": "glass_segment_bg",
+      "value": "#20FFFFFF"
+    },
+    {
+      "name": "glass_segment_border",
+      "value": "#24FFFFFF"
+    },
+    {
+      "name": "glow_tint",
+      "value": "#4D0A84FF"
     }
   ]
 }

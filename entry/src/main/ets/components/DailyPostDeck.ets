@@ -193,7 +193,7 @@ struct DeckSlotCard {
         .fontWeight(TypeTokens.overline.weight)
         .letterSpacing(4)
         .fontColor(ColorTokens.brand)
-        .border({ width: 1, color: '#578A6548', style: BorderStyle.Solid })
+        .border({ width: 1, color: '#570066CC', style: BorderStyle.Solid })
         .borderRadius(RadiusTokens.pill)
         .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.inlineTight, bottom: SpaceTokens.inlineTight })
       Text(this.post.title ?? this.post.content ?? '一条值得读的经验')
@@ -209,7 +209,7 @@ struct DeckSlotCard {
     .width('100%')
     .height('100%')
     .justifyContent(FlexAlign.Center)
-    .linearGradient({ angle: 160, colors: [['#FFFCF3', 0], ['#F3EAD8', 1]] })
+    .linearGradient({ angle: 160, colors: [['#FFFFFF', 0], ['#F7F7F8', 1]] })
     .clip(true)
   }
 
@@ -254,8 +254,8 @@ struct DeckSlotCard {
         Text('今日精选 · ' + this.genreLabel(this.post.genre))
           .fontSize(10).fontFamily(TypeTokens.fontFamily)
           .letterSpacing(2)
-          .fontColor('rgba(255, 252, 243, 0.92)')
-          .backgroundColor('#56161410')
+          .fontColor('rgba(255, 255, 255, 0.92)')
+          .backgroundColor('#5617171A')
           .borderRadius(RadiusTokens.pill)
           .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: 3, bottom: 3 })
           .margin({ left: 12, top: 12 })
@@ -324,7 +324,7 @@ struct DeckSlotCard {
           .fontWeight(600)
           .letterSpacing(2)
           .fontColor(ColorTokens.brand)
-          .border({ width: 1, color: '#578A6548', style: BorderStyle.Solid })
+          .border({ width: 1, color: '#570066CC', style: BorderStyle.Solid })
           .borderRadius(RadiusTokens.pill)
           .padding({ left: 9, right: 9, top: 3, bottom: 3 })
       }
@@ -338,7 +338,7 @@ struct DeckSlotCard {
     .borderRadius(RadiusTokens.md)
     .clip(true)
     // 贴地细影：对应网页 0 2px 6px rgba(46,42,32,0.08)；落地大影由外层 Stack 叠加
-    .shadow({ radius: 3, color: '#142E2A20', offsetY: 2 })
+    .shadow({ radius: 3, color: '#141A1A1E', offsetY: 2 })
   }
 
   build() {
@@ -354,7 +354,7 @@ struct DeckSlotCard {
         .scale({ x: this.inFlight ? 1 : this.cardScale(), y: this.inFlight ? 1 : this.cardScale() })
         // 圆角对齐卡面；阴影挂在旋转层上 → 随卡片一起旋转，不再衬出“摆正的叠层影”
         .borderRadius(RadiusTokens.md)
-        .shadow({ radius: 26, color: '#302E2A1C', offsetY: 9 })
+        .shadow({ radius: 26, color: '#30202024', offsetY: 9 })
         // 跟手 / 抛出飞行 / 推进收尾期间，把整卡（含模糊底图 / 阴影 / 文字）合并为
         // 一张离屏纹理再合成：卡面有两张图（其中一张 blur(26) + High 插值）与阴影，
         // 逐帧变换时若不缓存，每帧都要重新光栅化 → 拖拽与抛出掉帧（本轮修的主因）。
@@ -850,7 +850,7 @@ export struct DailyPostDeck {
       Column()
         .width('100%')
         .aspectRatio(DECK_MEDIA_RATIO)
-        .linearGradient({ angle: 110, colors: [['#EDE5CF', 0.3], ['#F7F1E4', 0.42], ['#EDE5CF', 0.54]] })
+        .linearGradient({ angle: 110, colors: [['#E9E9EC', 0.3], ['#F2F2F4', 0.42], ['#E9E9EC', 0.54]] })
       Column({ space: SpaceTokens.xs }) {
         Row().width('70%').height(16).borderRadius(4).backgroundColor(ColorTokens.skeletonBase)
         Row().width('45%').height(10).borderRadius(4).backgroundColor(ColorTokens.skeletonBase)
@@ -875,7 +875,7 @@ export struct DailyPostDeck {
         Column()
           .width(92).height(92)
           .borderRadius(RadiusTokens.pill)
-          .border({ width: 2, color: '#998A6548', style: BorderStyle.Solid })
+          .border({ width: 2, color: '#990066CC', style: BorderStyle.Solid })
           .scale({ x: this.animStamp, y: this.animStamp })
           .opacity(this.animStamp)
         Text('已 读')
@@ -969,16 +969,16 @@ export struct DailyPostDeck {
               Column()
                 .width('100%')
                 .aspectRatio(DECK_MEDIA_RATIO)
-                .backgroundColor('#0DFFFCF3')
+                .backgroundColor('#0DFFFFFF')
               Column()
                 .width('100%')
                 .height(70)
-                .backgroundColor('#0DFFFCF3')
+                .backgroundColor('#0DFFFFFF')
             }
             .width('88%')
             .borderRadius(RadiusTokens.md)
             .clip(true)
-            .shadow({ radius: 34, color: '#452E2A20', offsetY: 16 })
+            .shadow({ radius: 34, color: '#45202026', offsetY: 16 })
             .zIndex(0)
             .opacity(this.animRise * (1 - this.deckShadowFade()))
 
@@ -1052,7 +1052,7 @@ export struct DailyPostDeck {
                 .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
                 .borderRadius(RadiusTokens.pill)
                 .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.inlineTight, bottom: SpaceTokens.inlineTight })
-                .backgroundColor('#CCFFFCF3')
+                .backgroundColor('#CCFFFFFF')
             }
           }
           .width('100%')

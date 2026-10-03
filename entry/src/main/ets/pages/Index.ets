@@ -355,7 +355,7 @@ struct Index {
 
   private bottomTabItems(): IndexTabItem[] {
     return [
-      { key: 'home', title: '首页', icon: $r('app.media.nav_home'), color: '#8A6548' },
+      { key: 'home', title: '首页', icon: $r('app.media.nav_home'), color: $r('app.color.ds_brand') },
       { key: 'circle', title: '圈子', icon: $r('app.media.nav_circle'), color: '#34C759' },
       { key: 'publish', title: '发布', icon: $r('app.media.nav_publish'), color: '#FF9500' },
       { key: 'message', title: '消息', icon: $r('app.media.nav_message'), color: '#AF52DE' },

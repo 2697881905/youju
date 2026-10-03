@@ -2,59 +2,59 @@
   "color": [
     {
       "name": "start_window_background",
-      "value": "#F6F1E3"
+      "value": "#FFFFFF"
     },
     {
       "name": "brand_primary",
-      "value": "#8A6548"
+      "value": "#0066CC"
     },
     {
       "name": "bg_primary",
-      "value": "#F6F1E3"
+      "value": "#FFFFFF"
     },
     {
       "name": "bg_secondary",
-      "value": "#FFFCF3"
+      "value": "#F7F7F8"
     },
     {
       "name": "card_bg",
-      "value": "#FFFCF3"
+      "value": "#F7F7F8"
     },
     {
       "name": "text_primary",
-      "value": "#161410"
+      "value": "#17171A"
     },
     {
       "name": "text_secondary",
-      "value": "#403B2F"
+      "value": "#5A5A60"
     },
     {
       "name": "text_tertiary",
-      "value": "#6E6655"
+      "value": "#85858B"
     },
     {
       "name": "divider",
-      "value": "#E4DCC6"
+      "value": "#E5E5EA"
     },
     {
       "name": "glass_card_bg",
-      "value": "#FFFCF3"
+      "value": "#F7F7F8"
     },
     {
       "name": "glass_border",
-      "value": "#D8CEB2"
+      "value": "#E0E0E5"
     },
     {
       "name": "glass_overlay_light",
-      "value": "#E5F6F1E3"
+      "value": "#E5FFFFFF"
     },
     {
       "name": "glass_overlay_heavy",
-      "value": "#D9F6F1E3"
+      "value": "#D9FFFFFF"
     },
     {
       "name": "glass_bar_bg",
-      "value": "#E5F6F1E3"
+      "value": "#E5FFFFFF"
     },
     {
       "name": "semantic_red",
@@ -70,15 +70,15 @@
     },
     {
       "name": "surface_elevated",
-      "value": "#FFFCF3"
+      "value": "#F2F2F4"
     },
     {
       "name": "control_bg",
-      "value": "#EFE7D2"
+      "value": "#EDEDF0"
     },
     {
       "name": "surface_selected",
-      "value": "#1A8A6548"
+      "value": "#1A0066CC"
     },
     {
       "name": "warning_surface",
@@ -86,95 +86,95 @@
     },
     {
       "name": "bar_surface",
-      "value": "#70FBF8EE"
+      "value": "#70FFFFFF"
     },
     {
       "name": "bar_border",
-      "value": "#BFFFFCF3"
+      "value": "#66C4C4CA"
     },
     {
       "name": "bar_shadow",
-      "value": "#2E2A2010"
+      "value": "#2E1A1A1E"
     },
     {
       "name": "bar_gradient_mask",
-      "value": "#66F1F3F5"
+      "value": "#66F2F2F5"
     },
     {
       "name": "bar_selection_surface",
-      "value": "#99FFFCF3"
+      "value": "#99EFEFF2"
     },
     {
       "name": "bar_selection_border",
-      "value": "#E6FFFCF3"
+      "value": "#66C4C4CA"
     },
     {
       "name": "bar_selection_shadow",
-      "value": "#2E8A6548"
+      "value": "#2E0066CC"
     },
     {
       "name": "ds_canvas",
-      "value": "#F6F1E3"
+      "value": "#FFFFFF"
     },
     {
       "name": "ds_elevated",
-      "value": "#FFFCF3"
+      "value": "#F7F7F8"
     },
     {
       "name": "ds_subtle",
-      "value": "#F7F1E4"
+      "value": "#F2F2F4"
     },
     {
       "name": "ds_sunken",
-      "value": "#EDE5CF"
+      "value": "#E9E9EC"
     },
     {
       "name": "ds_panel",
-      "value": "#F5EFDE"
+      "value": "#EFEFF2"
     },
     {
       "name": "ds_overlay",
-      "value": "#1A14120C"
+      "value": "#1A17171A"
     },
     {
       "name": "ds_overlay_border",
-      "value": "#2914120C"
+      "value": "#2917171A"
     },
     {
       "name": "ds_text_primary",
-      "value": "#161410"
+      "value": "#17171A"
     },
     {
       "name": "ds_text_secondary",
-      "value": "#3F3A2E"
+      "value": "#5A5A60"
     },
     {
       "name": "ds_icon",
-      "value": "#3F3A2E"
+      "value": "#3C3C43"
     },
     {
       "name": "ds_text_tertiary",
-      "value": "#6A6353"
+      "value": "#85858B"
     },
     {
       "name": "ds_text_quaternary",
-      "value": "#7A7260"
+      "value": "#9E9EA3"
     },
     {
       "name": "ds_brand",
-      "value": "#8A6548"
+      "value": "#0066CC"
     },
     {
       "name": "ds_mention",
-      "value": "#1A5FB4"
+      "value": "#5856D6"
     },
     {
       "name": "ds_brand_tint",
-      "value": "#1A8A6548"
+      "value": "#1A0066CC"
     },
     {
       "name": "ds_brand_press",
-      "value": "#6F4F38"
+      "value": "#0055BB"
     },
     {
       "name": "ds_on_brand",
@@ -202,19 +202,19 @@
     },
     {
       "name": "ds_separator",
-      "value": "#24E4DCC6"
+      "value": "#333C3C43"
     },
     {
       "name": "ds_skeleton_base",
-      "value": "#E8E0CC"
+      "value": "#E8E8EC"
     },
     {
       "name": "ds_skeleton_highlight",
-      "value": "#FFFCF3"
+      "value": "#F8F8FA"
     },
     {
       "name": "account_tile_harmony",
-      "value": "#1A8A6548"
+      "value": "#1A0066CC"
     },
     {
       "name": "account_tile_huawei",
@@ -223,6 +223,18 @@
     {
       "name": "account_tile_wechat",
       "value": "#1407C160"
+    },
+    {
+      "name": "glass_segment_bg",
+      "value": "#1A3C3C43"
+    },
+    {
+      "name": "glass_segment_border",
+      "value": "#2E3C3C43"
+    },
+    {
+      "name": "glow_tint",
+      "value": "#330066CC"
     }
   ]
 }

@@ -5,10 +5,11 @@
 import { ColorTokens } from './color';
 
 export class GlassTokens {
-  // segmentStyle 玻璃材质（与分段栏共享）：半透明白底 + backdropBlur + 1px 高光描边
-  static readonly SEGMENT_BG: ResourceColor = '#20FFFFFF';
+  // segmentStyle 玻璃材质（与分段栏共享）：白底上「白玻璃+白高光」失效——
+  // 浅色改烟灰玻璃+灰描边（走资源随深浅切换），深色保持白玻璃+白高光
+  static readonly SEGMENT_BG: ResourceColor = $r('app.color.glass_segment_bg');
   static readonly SEGMENT_BLUR: number = 20;
-  static readonly SEGMENT_BORDER: ResourceColor = '#30FFFFFF';
+  static readonly SEGMENT_BORDER: ResourceColor = $r('app.color.glass_segment_border');
   // 普通模式底色（非分段玻璃时 GlowInput 的系统玻璃方案底色）
   static readonly NORMAL_BG: ResourceColor = ColorTokens.barSurface;
 }
