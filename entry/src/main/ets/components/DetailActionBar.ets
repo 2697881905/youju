@@ -209,9 +209,14 @@ export struct DetailActionBar {
       // 让位区穿透到层1按钮，子节点（输入框/发送/取消）照常可点。
       // 聚焦时回 Default：输入框铺满整行，挡住 opacity=0 但仍挂载的层1，防幽灵点赞。
       Row() {
+        // 输入框走「输入框配方」（系统玻璃 + barSurface 半透明白底 + barBorder 描边，
+        // 与聊天输入同款）。原 segmentStyle 的「分段栏深灰玻璃 + 自带 backdropBlur」
+        // 会在底栏玻璃上叠第二层模糊（玻璃摞玻璃发浊），且该分支强制 lg 圆角、
+        // 无视传入的 radius——全项目 segmentStyle:true 此处是唯一调用点，切换零外溢，
+        // 传参 radius(RadiusTokens.sm) 至此才真正生效（32vp 紧凑高度更匹配）。
         GlowInput({ placeholder: this.replyName.length > 0 ? ('回复 @' + this.replyName) : '说点什么…',
           text: $commentText, fillWidth: true, inputHeight: COMPACT_CONTROL_HEIGHT, radius: RadiusTokens.sm,
-          fontSize: 14, segmentStyle: true,
+          fontSize: 14, segmentStyle: false,
           onFocusChanged: (focused: boolean): void => { this.applyFocusLayout(focused); },
           onEnter: (): void => { this.onSendComment(); } })
           .layoutWeight(1)
@@ -252,10 +257,12 @@ export struct DetailActionBar {
     // 键盘弹起后导航条已被键盘盖住 → 聚焦态归零，输入栏贴键盘不留缝（ChatView 同款口径）。
     .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.sm,
       bottom: SpaceTokens.sm + (this.inputFocused ? 0 : this.bottomInsetVp) })
-    // 毛玻璃底栏：GlassBlurStyle.Floating = BACKGROUND_THICK 通透厚玻璃——
-    // 自带系统着色与半透明，重糊但略微透出底部内容；API 23+ 纯材质，
-    // 低端机回落 barSurface 实底；玻璃描边勾出栏体边界。
-    .backgroundBlurStyle(GlassBlurStyle.Floating)
+    // 毛玻璃底栏（2026-10-03 微调）：GlassBlurStyle.Card = BACKGROUND_REGULAR 中等模糊——
+    // 比原 Floating(THICK) 减薄一档，向沉浸光感「最薄」的既定偏好靠拢；官方定位即
+    // 「内容卡片/半透明信息区：保留文字可读性」（栏上有输入文字与计数，不宜更薄的 THIN）。
+    // API 23+ 纯材质（透明底交给系统着色），低端机回落 barSurface 实底；
+    // 玻璃描边勾出栏体边界（barBorder 与主 TabBar 同一 token，观感成套）。
+    .backgroundBlurStyle(GlassBlurStyle.Card)
     .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
     .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
     .borderRadius(RadiusTokens.none)

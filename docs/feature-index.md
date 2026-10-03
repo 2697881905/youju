@@ -86,10 +86,20 @@
 
 ### 沉浸光感 · 顶栏迁入 Navigation 标题栏（2026-10-03）
 - `uiMaterial` 轨（通用属性 `systemMaterial`）**只在 Navigation/NavDestination 标题栏或系统底部 TabBar 生效**，内容区设置完全不渲染（官方 FAQ 生效范围）。
-- 首页(0) / 我的(4) 的整块顶栏驻留标题栏（`BarStyle.STANDARD` 占位 + 画布底色）；材质生效时**撤掉自绘兜底**（`backdropBlur` / `backgroundBlurStyle` / 自绘 `shadow`），否则遮挡或叠加。
+- **已完成改造**：首页 / 我的 / 消息（主 Navigation 按 Tab 分支）、搜索面板与圈子详情、帖子详情（后三者组件自带 Navigation，router 壳与 NavDestination 壳共用一份实现）。
+- 顶栏整体驻留标题栏（`BarStyle.STANDARD` 占位 + 画布底色）；材质生效时**撤掉自绘兜底**（`backdropBlur` / `backgroundBlurStyle` / 自绘边框 / 自绘 `shadow`），否则遮挡或叠成实心毛玻璃、双圈描边。
 - 低版本（API < 26）经 `deviceInfo.apiAvailable('26.0.0')` **字面量 if 门禁**自动回退描边/玻璃样式；统一入口 `utils/immersiveMaterial.ets`（`TopButtonMaterialModifier` / `isSystemMaterialActive()`）。
-- 我的页：分享/设置、编辑资料、草稿箱/废纸篓、主分段栏同源材质；资料区高度 `onAreaChange` 实测回写栏高。
-- 完整实践与踩坑记录（生效范围、兼容保护、兜底让位、状态上移、栏高与状态栏避让、语法坑自查清单）：见 `docs/immersive-light-integration.md`。
+- 组件侧统一 `useSystemMaterial` 范式（`SegmentedControl` / `TagNav` / `DesignButton`）；尾随闭包组件（`Pressable`）材质挂内层表面节点。
+- 帖子详情（2026-10-03）：`PostDetailView` 组件自带 Navigation，原 `DetailToolbar`（返回/分享/更多）内联进标题栏 Builder 后按「删干净」原则删除；分享/更多为原生 Row 表面，`attributeModifier` 直挂 44×44 节点 + lg 圆角定形，BackButton 交由 enable 自动材质。三个全屏覆盖层（看图/分享卡/数据面板）必须盖过标题栏 → 移到 Navigation 之外的 Stack 兄弟层，并各自补回状态栏偏移。栏高固定（token 直算）。底部互动栏未动（不在 `systemMaterial` 生效范围，优化方案见下方小节）。
+- 栏高：固定内容用 token 计算；内容驱动（我的页资料区、圈子详情三行顶栏）用 `onAreaChange` 实测回写 + 首帧估算兜底。状态栏避让只出现在标题栏一处。
+- **教程（可复用方法论 + 模板 + 自查清单）**：`docs/tutorial-titlebar-immersive-light.md`；踩坑记录见 `docs/immersive-light-integration.md`。
+
+### 沉浸光感 · 帖子详情底部栏（DetailActionBar）配色微调（2026-10-03 已实施）
+- **不可行路径（结论保留）**：`systemMaterial`（uiMaterial 轨）在此位置**不渲染**——底部互动栏既非 Navigation/NavDestination 标题栏也非系统底部 TabBar（官方 FAQ 生效范围）；改成系统 TabBar / NavDestination toolbar 属产品结构重构且承载不了输入框 + 握姿换边 + 键盘联动，不建议。
+- **已实施微调 ①（栏体减薄一档）**：`backgroundBlurStyle` 从 `GlassBlurStyle.Floating`(BACKGROUND_THICK) 改为 `GlassBlurStyle.Card`(BACKGROUND_REGULAR)——向「最薄」既定偏好靠拢，官方定位即「保留文字可读性」；API 23+ 透明底 / 低版本 `barSurface` 兜底、1vp `barBorder` 描边（与主 TabBar 同 token）、三键避让均不动。
+- **已实施微调 ②（输入框配方统一）**：`GlowInput` 从 `segmentStyle: true`（分段栏深灰玻璃 + 自带 backdropBlur，在底栏玻璃上叠第二层模糊发浊）切为默认配方（系统玻璃 + `barSurface` 半透明白底 + `barBorder` 描边，与聊天输入同款）。`segmentStyle:true` 全项目仅此一处调用，切换零外溢；附带修正 segment 分支强制 lg 圆角、无视传入 `radius(sm)` 的隐藏行为。
+- **真机待验**：Card 档比 THICK 透出更多内容，深色模式下亮色内容透过底栏可能压低输入文字对比度——不满意一行回退 `GlassBlurStyle.Floating`。
+- **可选 C（不建议，留档）**：包 `ImmersiveSurface` 加 HDS 双边流光。用户近期已多次拍板移除流光（ChatView emoji 面板、VideoViewer、两个弹窗「要最薄」）；且底栏全宽 + 动态高度（聚焦展开/握姿换边/@提及候选），流光测尺寸需 `explicitWidth/Height` 兜底，复杂度高收益低。
 
 ### 每日一帖
 - `HomeTab` 第三分段，`DAILY_PICK_LIMIT = 10` 一次拉齐、读完即完成态；禁用下拉刷新（与卡牌拖拽冲突）。
@@ -149,3 +159,13 @@
 - 品牌 Logo 三件套（手绘彩色 SVG）：`brand_harmony`（#1677FF / #5AA5FF）、`brand_huawei`（#E8112D / #B00B20）、`brand_wechat`（#07C160 / #2FCB79）；`utils/brandIcons.ets` 提供 `brandIconRes` / `brandTileTint`，`AccountBindingPage` 用 `providerTile`。
 - 合规页：`PrivacyPage`、`UserAgreementPage`、`PrivacySettingsPage`（个性化推荐开关）、`InterestTagsPage`（查看 / 删除用于推荐的兴趣标签）。
 - `EntryAbility`：状态栏 / 导航栏内容色随应用主题；`utils/dataExport.ets` 数据导出（分段错误标记 + hilog）。
+
+### 登录态持久化（`utils/sessionStore.ets`，2026-10-03）
+
+会话（token + 用户资料 + `privacyAgreed`）**不走 PersistentStorage**，改存 dataPreferences 独立文件 `youju_session`（应用级 preferences 目录）。真机实测（Mate70，2026-10-03）：覆盖安装（`hdc install -r` / DevEco Run）后的冷启动，PersistentStorage 读不回旧 `persistent_storage` 文件（AppStorage 全回默认值，偶发首启黑屏挂死），用户随后任意一次持久化键写入（如重新同意隐私弹窗）会把默认值整份刷回磁盘 → token/用户信息被清空（「重装后账号必掉」）；Asset Store 同样被覆盖安装清空，无法兜底。机制：
+
+- `EntryAbility.onCreate` 最先 `initSessionStore`：同步读文件水合 AppStorage（键名与旧 persistProp 一致，消费方零改动）；会话键此后只是普通 AppStorage 键。
+- 写入统一走 `saveSessionSnapshot()`（putSync + flushSync 即时落盘）：`setSession` / `clearSession` / `setPrivacyAgreed` / CircleTab 头像回写（`persistSessionSnapshot`）。
+- 旧 `persistent_storage` 文件首启一次性迁移（token+userId 成对才迁，XML 解析在 sessionStore 内）。
+- token 仍异步双写 Asset Store（安全加固副本），但不再参与冷启动恢复（覆盖安装会被系统清空，且单 token 无 userId 成不了会话）；Asset 同步 API 曾在启动路径挂死，已全部改异步。
+- 未读红点 / 圈子引导标记仍留 PersistentStorage（丢失无碍，重新拉取即可）。

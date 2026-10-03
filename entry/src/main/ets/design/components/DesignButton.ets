@@ -4,6 +4,7 @@ import { MotionCurves, MotionTokens } from '../tokens/motion';
 import { RadiusTokens } from '../tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../tokens/space';
 import { TypeTokens } from '../tokens/type';
+import { isSystemMaterialActive, TopButtonMaterialModifier } from '../../utils/immersiveMaterial';
 
 export type DesignButtonVariant = 'primary' | 'ghost' | 'glass' | 'outlined';
 
@@ -15,6 +16,10 @@ export struct DesignButton {
   @Prop fillWidth: boolean = false;
   @Prop visualHeight: number = LayoutTokens.minTouchTarget;
   @Prop cornerRadius: number = 0;
+  // 沉浸光感：驻留 Navigation 标题栏时由系统材质接管按钮表面（低版本门禁自动跳过，保留原描边样式）。
+  // 与 SegmentedControl / TagNav 的 useSystemMaterial 同一范式。
+  @Prop useSystemMaterial: boolean = false;
+  private materialModifier: TopButtonMaterialModifier = new TopButtonMaterialModifier();
   @State readyPulse: boolean = false;
   private pulseTimer: number = 0;
   action?: () => void = undefined;
@@ -94,7 +99,10 @@ export struct DesignButton {
         .textAlign(TextAlign.Center)
         .backgroundColor(this.isPrimary() ? ColorTokens.brand : (this.isGlass() ? ColorTokens.elevated : Color.Transparent))
         .border({
-          width: this.isPrimary() ? 0 : LayoutTokens.glassBorderWidth,
+          // 材质生效时自绘描边让位（材质已接管表面，自绘边框会叠成第二圈描边）
+          width: (this.useSystemMaterial && isSystemMaterialActive())
+            ? 0
+            : (this.isPrimary() ? 0 : LayoutTokens.glassBorderWidth),
           color: this.isGlass() ? ColorTokens.separator : (this.isOutlined() ? ColorTokens.barBorder : ColorTokens.brand),
           style: BorderStyle.Solid,
         })
@@ -114,6 +122,9 @@ export struct DesignButton {
           duration: MotionTokens.fast,
           curve: MotionCurves.standard,
         })
+        // 沉浸光感：材质挂在按钮表面节点上（Pressable 尾随闭包之后不能再接属性链，
+        // 与首页搜索按钮把材质挂在内层 Row 同一做法）；低版本门禁自动跳过
+        .attributeModifier(this.useSystemMaterial ? this.materialModifier : undefined)
     }
   }
 }

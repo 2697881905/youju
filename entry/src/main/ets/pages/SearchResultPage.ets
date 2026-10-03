@@ -1,4 +1,4 @@
-// 帖子关键词搜索结果页：顶栏(返回+可改搜索框+清除✕+结果计数) + 2列Grid(复用PostCard) + 三态(加载/空/失败)
+// 帖子关键词搜索结果页：顶栏(原生返回键+原生搜索框+结果计数) + 2列Grid(复用PostCard) + 三态(加载/空/失败)
 // 数据来源：searchPosts（services/api.ets，复用 /v1/posts 端点）
 // 点击跳转详情：照抄 HomeTab 父级 GridItem().onClick 包裹模式（PostCard 自身不处理点击）
 
@@ -15,14 +15,15 @@ import { common } from '@kit.AbilityKit';
 import { EmptyState } from '../design/components/EmptyState';
 import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
 import { isSystemMaterialActive, TopButtonMaterialModifier } from '../utils/immersiveMaterial';
-import { BackButton } from '../design/components/BackButton';
-import { GlowInput } from '../design/components/GlowInput';
 import { Skeleton } from '../design/motion/Skeleton';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
+
+// 搜索框 / 返回按钮的标准控件高度：与搜索探索页（SearchPanel）完全一致
+const SEARCH_FIELD_HEIGHT: number = 40;
 
 const SEARCH_SORTS: SegmentedItem[] = [
   { key: 'latest', label: '最新' },
@@ -188,58 +189,62 @@ struct SearchResultPage {
     .padding({ left: GRID_PADDING, right: GRID_PADDING, top: SpaceTokens.item })
   }
 
-  // 聚焦流光输入框：键入（聚焦）点亮原生流光，失焦熄灭
+  // 工具栏行：系统原生返回按钮 + 系统原生搜索框（集成搜索按钮 + 原生清除 ×）——与搜索探索页样式统一
   @Builder
-  searchInput(): void {
-    GlowInput({
-      placeholder: '搜索',
-      text: $keyword,
-      fillWidth: true,
-      onEnter: (): void => {
-        this.doSearch(this.keyword);
-      },
-    })
-      // 沉浸光感：标题栏内由系统材质接管输入框表面（低版本自动跳过，保留流光兜底）
+  searchToolbar(): void {
+    Row({ space: SpaceTokens.inline }) {
+      // 返回：系统原生 Button 组件（低版本保留细描边兜底，材质生效时由系统接管表面）
+      Button({ type: ButtonType.Normal, stateEffect: true }) {
+        Image(resolveActionIcon('back'))
+          .width(IconTokens.small)
+          .height(IconTokens.small)
+          .fillColor(ColorTokens.icon)
+      }
+      .width(SEARCH_FIELD_HEIGHT)
+      .height(SEARCH_FIELD_HEIGHT)
+      // 视觉与搜索框同高，触控热区仍保持 44（与全局 minTouchTarget 一致）
+      .responseRegion({
+        x: (SEARCH_FIELD_HEIGHT - LayoutTokens.minTouchTarget) / 2,
+        y: (SEARCH_FIELD_HEIGHT - LayoutTokens.minTouchTarget) / 2,
+        width: LayoutTokens.minTouchTarget,
+        height: LayoutTokens.minTouchTarget,
+      })
+      .backgroundColor(Color.Transparent)
+      .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+      .borderRadius(RadiusTokens.lg)
       .attributeModifier(this.titleBarMaterial)
+      .accessibilityText('返回')
+      .onClick((): void => { this.getUIContext().getRouter().back(); })
+
+      // 系统原生搜索框：集成搜索按钮（searchButton），清除 × 亦为原生自带 —— 不再自绘清除按钮
+      Search({ placeholder: '搜索', value: this.keyword })
+        .layoutWeight(1)
+        .height(SEARCH_FIELD_HEIGHT)
+        .searchButton('搜索')
+        // 底色写在材质之前 —— 材质生效时由系统强制清除为透明（官方行为），低版本则作为兜底底色
+        .backgroundColor($r('sys.color.comp_background_tertiary'))
+        // 沉浸光感：标题栏内由系统材质接管搜索框表面（低版本自动跳过，保留系统默认样式）
+        .attributeModifier(this.titleBarMaterial)
+        .onChange((v: string): void => { this.keyword = v; })
+        .onSubmit((v: string): void => { this.doSearch(v); })
+    }
+    .width('100%')
+    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs, bottom: SpaceTokens.xs })
+    .alignItems(VerticalAlign.Center)
   }
 
-  // 标题栏高度：实测值到齐前用估算兜底（状态栏 + 工具栏行 44+8 + 计数/排序行 36+6）
+  // 标题栏高度：实测值到齐前用估算兜底（状态栏 + 工具栏行 40+8 + 计数/排序行 36+4）
   private resultsTitleBarHeight(): number {
-    return this.resultsBarHeight > 0 ? this.resultsBarHeight : this.statusBarHeight + 94;
+    return this.resultsBarHeight > 0 ? this.resultsBarHeight : this.statusBarHeight + 88;
   }
 
-  // 标题栏：玻璃搜索工具栏（返回 + 流光输入框 + 清除）+ 结果计数 + 最新/最热 分段栏。
+  // 标题栏：搜索工具栏（原生返回键 + 原生搜索框，与搜索探索页样式统一）+ 结果计数 + 最新/最热 分段栏。
   // 迁入 Navigation 标题栏与搜索探索页同构——沉浸光感 uiMaterial 的官方生效区域；
   // 沉浸式布局下系统不代为避让状态栏，由标题栏自行下移（padding top statusBarHeight）。
   @Builder
   private resultsTitleBar(): void {
     Column() {
-      Row({ space: SpaceTokens.inline }) {
-        BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
-          .attributeModifier(this.titleBarMaterial)
-
-        this.searchInput()
-
-        if (this.keyword !== '') {
-          Row() {
-            Image(resolveActionIcon('close'))
-              .width(IconTokens.compact)
-              .height(IconTokens.compact)
-              .fillColor(ColorTokens.icon)
-          }
-          .width(LayoutTokens.minTouchTarget)
-          .height(LayoutTokens.minTouchTarget)
-          .justifyContent(FlexAlign.Center)
-          .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-          .borderRadius(RadiusTokens.lg)
-            .onClick(() => {
-              this.keyword = '';
-            })
-        }
-      }
-      .width('100%')
-      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs, bottom: SpaceTokens.xs })
-      .alignItems(VerticalAlign.Center)
+      this.searchToolbar()
 
       Row() {
         Text(this.loading ? '正在查找相关帖子' : ('找到 ' + this.total + ' 篇内容'))

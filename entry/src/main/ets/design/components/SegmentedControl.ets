@@ -7,7 +7,7 @@ import { RadiusTokens } from '../tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../tokens/space';
 import { TypeTokens } from '../tokens/type';
 import { ShadowTokens } from '../tokens/shadow';
-import { isImmersiveLightSenseSupported, GlassBlurStyle, TopButtonMaterialModifier } from '../../utils/immersiveMaterial';
+import { isImmersiveLightSenseSupported, isSystemMaterialActive, GlassBlurStyle, TopButtonMaterialModifier } from '../../utils/immersiveMaterial';
 
 export interface SegmentedItem {
   key: string;
@@ -275,7 +275,10 @@ export struct SegmentedControl {
         : (this.glass ? (isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface) : ColorTokens.sunken)))
     .borderRadius(this.immersive ? RadiusTokens.lg : (this.outlined ? RadiusTokens.lg : (this.glass ? RadiusTokens.floatingBar : RadiusTokens.sm)))
     .border({
-      width: this.immersive ? 1 : (this.outlined || this.glass ? LayoutTokens.glassBorderWidth : 0),
+      // 材质生效时自绘描边让位（材质已接管底/边框/阴影，自绘边框会叠成第二圈）——与 DesignButton 同一规则
+      width: (this.useSystemMaterial && isSystemMaterialActive())
+        ? 0
+        : (this.immersive ? 1 : (this.outlined || this.glass ? LayoutTokens.glassBorderWidth : 0)),
       color: this.immersive ? GlassTokens.SEGMENT_BORDER : (this.outlined || this.glass ? ColorTokens.barBorder : Color.Transparent),
       style: BorderStyle.Solid,
     })

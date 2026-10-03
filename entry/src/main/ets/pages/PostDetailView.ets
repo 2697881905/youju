@@ -2,6 +2,8 @@
 import { buildPageTransition, buildFadePageTransition } from '../utils/styles';
 import { TypeTokens } from '../design/tokens/type';
 import { ColorTokens } from '../design/tokens/color';
+import { BackButton } from '../design/components/BackButton';
+import { IconTokens } from '../design/tokens/icon';
 import {
   getPost,
   createComment,
@@ -42,7 +44,6 @@ import { generateShareCardBytes } from '../utils/shareCard';
 import { structuredSummaryOf, StructuredSummary } from '../utils/structuredBlocks';
 import { image } from '@kit.ImageKit';
 import { curves, window } from '@kit.ArkUI';
-import { DetailToolbar } from '../components/DetailToolbar';
 import { DetailMediaCarousel } from '../components/DetailMediaCarousel';
 import { ImageViewer } from '../components/ImageViewer';
 import { OVERLAY_GUARD_POST_DETAIL, registerOverlayBackGuard, unregisterOverlayBackGuard } from '../utils/overlayBackGuard';
@@ -56,11 +57,13 @@ import { AtMentionSuggest } from '../components/AtMentionSuggest';
 import { findActiveAtMention, applyAtMention, AtMentionMatch } from '../utils/atMention';
 import { barBottomReserve } from '../utils/cardTokens';
 import { refreshBottomNavInset } from '../utils/navMode';
-import { SpaceTokens } from '../design/tokens/space';
+import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { RadiusTokens } from '../design/tokens/radius';
 import { FALLBACK_VIDEO_ASPECT_RATIO, normalizeVideoAspectRatio } from '../utils/video';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { postContentTextOf } from '../utils/postPlainText';
+import { resolveActionIcon } from '../utils/actionIcons';
+import { TopButtonMaterialModifier } from '../utils/immersiveMaterial';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 
 // 分享卡片链路的诊断输出统一走 hilog：console.* 在 H7 真机不进 hilog，抓日志会看不到。
@@ -185,6 +188,9 @@ export struct PostDetailView {
   // 海报落点偏高、交接真图时"瞬移下来"（本轮修的残余偏移）。
   // 与 LoginView / 圈子页等 20+ 页保持一致（同一 AppStorage 键）。
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
+  // 顶栏（返回/分享/更多）驻留 Navigation 标题栏后的动作按钮材质（沉浸光感官方生效区域）。
+  // 低版本（API < 26）门禁不通过 → 材质自动跳过，按钮保持原透明图标观感。
+  private detailActionMaterial: TopButtonMaterialModifier = new TopButtonMaterialModifier();
   // 系统栏测量来源（挂着 avoidAreaChange 监听，页面销毁时注销）
   private navSourceWin: window.Window | undefined = undefined;
   // 收藏夹选择（收藏时归类）
@@ -915,10 +921,10 @@ export struct PostDetailView {
     try {
       const bytes: ArrayBuffer = await generateShareCardBytes(
         this.getUIContext(),
-        this.post.id,
         this.post.title ?? '',
         this.shareCardExcerpt(),
         this.authorName(),
+        resolveDisplayImageUrl(this.authorAvatar()),
         cover,
       );
       const source: image.ImageSource = image.createImageSource(bytes);
@@ -1450,9 +1456,98 @@ export struct PostDetailView {
       .animation({ duration: 1, curve: MotionCurves.linear });
   }
 
+  // 顶栏迁入标题栏后的栏高：状态栏 + 上间距(sm) + 44 触控行 + 下间距(xs)。
+  // 与 detailTitleBar 的行内边距严格同源；内容固定（图标按钮，无折行/媒体等不定因素），
+  // 按教程 Step 3「固定内容用 token 表达式直算」，无需 onAreaChange 实测回写。
+  private detailTitleBarHeight(): number {
+    return this.statusBarHeight + SpaceTokens.sm + LayoutTokens.minTouchTarget + SpaceTokens.xs;
+  }
+
+  // 标题栏：原 DetailToolbar（返回 + 分享 + 更多）整体驻留于此。
+  // 为什么迁：通用属性 systemMaterial（沉浸光感）只在 Navigation/NavDestination 标题栏
+  // 生效，内容区设置不报错但完全不渲染（官方 FAQ 生效范围），详见
+  // docs/tutorial-titlebar-immersive-light.md。结构约定：
+  // - 根节点单容器；全屏布局下标题栏不代为避让状态栏 → 根容器手动下移（避让只此一处，
+  //   内容区根容器不再加状态栏 padding）；
+  // - 分享/更多是原生 Row 表面：材质直接 attributeModifier 挂 44×44 节点，lg 圆角给材质
+  //   定形（低版本无材质时透明圆角无观感差异）；按钮无自绘底/边框/阴影，无需让位处理；
+  // - 返回键 BackButton 是尾随闭包组件（Pressable），闭包后不能再接属性链 → 材质无法从
+  //   外部挂到内层表面，与圈子详情标题栏同口径：纯图标无自绘样式，交由应用级 enable 自动材质。
+  @Builder
+  detailTitleBar(): void {
+    Column() {
+      Row({ space: SpaceTokens.sm }) {
+        BackButton({ action: (): void => { this.navigateBack(); } })
+        // 居中标题位保留为纯撑开空间：让右侧动作组继续贴右边缘（与原 DetailToolbar 一致）
+        Blank()
+        Row({ space: SpaceTokens.xs }) {
+          // 每个动作独立 44×44 命中区，图标 24vp（与原 DetailToolbar 相同的规格）
+          Row() {
+            Image(resolveActionIcon('share'))
+              .width(IconTokens.standard)
+              .height(IconTokens.standard)
+              .fillColor(ColorTokens.icon)
+              .draggable(false)
+          }
+          .width(LayoutTokens.minTouchTarget)
+          .height(LayoutTokens.minTouchTarget)
+          .justifyContent(FlexAlign.Center)
+          .alignItems(VerticalAlign.Center)
+          .borderRadius(RadiusTokens.lg)
+          .attributeModifier(this.detailActionMaterial)
+          .accessibilityText('分享')
+          .onClick((): void => { this.onShare(); })
+
+          Row() {
+            Image(resolveActionIcon('more'))
+              .width(IconTokens.standard)
+              .height(IconTokens.standard)
+              .fillColor(ColorTokens.icon)
+              .draggable(false)
+          }
+          .width(LayoutTokens.minTouchTarget)
+          .height(LayoutTokens.minTouchTarget)
+          .justifyContent(FlexAlign.Center)
+          .alignItems(VerticalAlign.Center)
+          .borderRadius(RadiusTokens.lg)
+          .attributeModifier(this.detailActionMaterial)
+          .accessibilityText('更多操作')
+          .onClick((): void => { this.showPostActions(); })
+        }
+        .height(LayoutTokens.minTouchTarget)
+        .alignItems(VerticalAlign.Center)
+      }
+      .width('100%')
+      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.sm, bottom: SpaceTokens.xs })
+    }
+    .width('100%')
+    // 手动避让状态栏（含在栏高内）；与行内边距分放两层节点，避免同节点 padding 互相覆盖
+    .padding({ top: this.statusBarHeight })
+  }
 
   build() {
-    Column() {
+    Stack() {
+      Navigation() {
+        Column() {
+          this.detailBody()
+        }
+        .width('100%')
+        .height('100%')
+      }
+      .title({
+        builder: this.detailTitleBar,
+        height: this.detailTitleBarHeight(),
+      }, { barStyle: BarStyle.STANDARD, backgroundColor: ColorTokens.canvas })
+      .width('100%')
+      .height('100%')
+
+      // —— 全屏覆盖层（if 分支渲染）：必须盖过标题栏与状态栏 ——
+      // STANDARD 标题栏为占位式，Navigation 内容区从栏下开始：覆盖层若留在内容区会被压到
+      // 栏下、盖不住顶栏（且顶栏返回键会在看图时绕过覆盖层返回拦截），故全部迁到 Navigation
+      // 之外作为 Stack 兄弟节点（叠放，不挤占布局）。根容器的状态栏避让已移交标题栏
+      // （避让只此一处）→ 覆盖层内容自行补回状态栏下移量，保持与迁移前一致的内容落点
+      // （数据面板为居中卡片，无需补偿）。
+
       // 分享卡图全屏预览（无系统依赖，可截图/复制链接带走）
       if (this.shareCardPreview !== null) {
         Stack({ alignContent: Alignment.TopEnd }) {
@@ -1492,9 +1587,12 @@ export struct PostDetailView {
             .width('88%')
             .margin({ top: 16, bottom: 32 })
           }
+          // 整组内容（标题+卡图+按钮）在预览层内垂直居中：卡图 88% 宽在竖屏上只占一半高度，
+          // 顶对齐会让下方留出一大块空（右上角 X 由 Stack 的 TopEnd 单独定位，不受影响）
           .width('100%')
-          .justifyContent(FlexAlign.Start)
-          .padding({ top: 24 })
+          .height('100%')
+          .justifyContent(FlexAlign.Center)
+          .padding({ top: 24, bottom: 24 })
 
           Text('X')
             .fontSize(18).fontFamily($r('app.string.font_family'))
@@ -1507,15 +1605,19 @@ export struct PostDetailView {
         .width('100%')
         .height('100%')
         .backgroundColor('#E8000000')
+        .padding({ top: this.statusBarHeight })
         .zIndex(200)
       }
 
-      // 全屏图片查看器：支持双击/双指缩放、拖动平移、单击或按钮关闭
+      // 全屏图片查看器：支持双击/双指缩放、拖动平移、单击或按钮关闭。
+      // 外层补状态栏 padding：关闭按钮 position(top:16) 的落点与迁移前一致（避让已由
+      // 标题栏接管，组件内不再自带该偏移）。
       if (this.viewingImage.length > 0) {
         ImageViewer({
           url: this.viewingImage,
           onClose: (): void => { this.viewingImage = ''; },
         })
+          .padding({ top: this.statusBarHeight })
       }
 
       // 帖子数据面板（作者侧）：页内覆盖层（if 分支渲染，同 ImageViewer 惯例）。
@@ -1533,167 +1635,165 @@ export struct PostDetailView {
           .position({ x: 0, y: 0 })
           .zIndex(210)
       }
-
-      DetailToolbar({
-        onBack: (): void => { this.navigateBack(); },
-        onMore: (): void => { this.showPostActions(); },
-        onShare: (): void => { this.onShare(); },
-      })
-        .zIndex(10)
-
-      if (this.loading) {
-        this.transitionLoadingShell()
-      } else if (this.error) {
-        Column() {
-          Text(this.error)
-            .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-            .fontWeight(TypeTokens.callout.weight)
-            .lineHeight(TypeTokens.callout.lineHeight)
-            .fontColor(ColorTokens.secondary)
-          Button('重试')
-            .margin({ top: 16 })
-            .onClick(() => this.load())
-        }
-        .layoutWeight(1)
-        .width('100%')
-        .justifyContent(FlexAlign.Center)
-      } else if (this.post) {
-        Stack({ alignContent: Alignment.Bottom }) {
-          Scroll(this.detailScroller) {
-            Column({ space: 16 }) {
-              // 待审核横幅（作者查看自己 status=0 帖子时显示）
-              if (this.post.status === 0 && this.post.userId === getUserId()) {
-                Row({ space: 8 }) {
-                  Text('该帖子正在审核中，仅你自己可见')
-                    .fontSize(13).fontFamily($r('app.string.font_family'))
-                    .fontColor('#FF9500')
-                }
-                .width('100%')
-                .padding({ left: 12, right: 12, top: 8, bottom: 8 })
-                .backgroundColor($r('app.color.warning_surface'))
-                .borderRadius(8)
-              }
-
-              DetailPostHeader({
-                title: this.post.title ?? '',
-                genreLabel: genreMeta(this.post.genre).label,
-                genreIcon: genreMeta(this.post.genre).iconRes,
-                tags: this.post.tags ?? [],
-                authorName: this.authorName(),
-                authorAvatar: this.authorAvatar(),
-                createdAt: this.post.createdAt,
-                onOpenAuthor: (): void => { this.openAuthorProfile(); },
-              })
-                .transition(this.animLayerEnter(80))
-
-              // 媒体+正文编为一组（组内间距 8）：图/视频紧贴正文。
-              // 不用负 margin——Column({ space }) 对负 margin 不生效（实测间距无变化）；
-              // 组外与 标题/评论区 之间仍是父容器的 16，两层间距互不干扰。
-              Column({ space: 8 }) {
-                // 媒体区（视频/轮播）：真实媒体直接展示。这个 id 是「一镜到底的对应节点」——
-                // 目的地页把它缩放/挪移到卡片帧，因此加载壳里的占位必须挂同一个 id。
-                Stack() {
-                  this.mediaSlot()
-                }
-                .width('100%')
-                .id(DETAIL_HERO_ID)
-                .opacity(this.heroOpacity())
-
-                DetailPostContent({
-                  pairs: this.fields,
-                  structuredDocument: this.post.structuredDocument ?? null,
-                  genre: this.post.genre ?? '',
-                  content: this.post.content ?? '',
-                  coverOnlyTextPoster: this.post.structuredData?.coverOnlyTextPoster ?? false,
-                  planA: this.planTextOf('方案A'),
-                  planB: this.planTextOf('方案B'),
-                  votePostId: this.post.id ?? 0,
-                  mentions: this.post.mentions ?? [],
-                  onVote: (choice: string): void => { this.onDebateVote(choice); },
-                  // 长按结构化卡片弹「复制正文」菜单（正文 Text 自带系统文本选择，见组件内说明）
-                  onLongPressContent: (event: GestureEvent): void => { this.openContentMenu(event); },
-                })
-                  .transition(this.animLayerEnter(120))
-              }
-
-              DetailCommentsSection({
-                comments: this.post.comments ?? [],
-                commentCount: this.post.commentCount ?? 0,
-                highlightCommentId: this.highlightCommentId,
-                onReportComment: (commentId: number): void => { this.openCommentReport(commentId); },
-                onReplyComment: (comment: Comment): void => { this.onReplyComment(comment); },
-              })
-                .transition(this.animLayerEnter(180))
-
-              // 真实滚动内容占位，末尾评论可完整滑出悬浮互动栏下方。
-              Blank()
-                .width('100%')
-                .height(barBottomReserve())
-            }
-            .padding(16)
-            .width('100%')
-          }
-          .width('100%')
-          .height('100%')
-          .id(DETAIL_CONTENT_SCROLL_ID)
-
-          // @提及候选 + 底部互动栏：评论输入态下输入「@昵称」时在栏上方弹候选，点选回填精确 userId
-          Column() {
-            if (this.commentMentionMatch() !== null) {
-              Column() {
-                AtMentionSuggest({
-                  keyword: this.commentMentionKeyword(),
-                  onPick: (c: MentionCandidate): void => { this.pickCommentMention(c); },
-                })
-                  .width('100%')
-              }
-              .width('100%')
-              .padding({ left: 12, right: 12, bottom: 8 })
-            }
-            DetailActionBar({
-              commenting: $commenting,
-              commentText: $commentText,
-              upCount: this.interaction.upCount,
-              bookmarkCount: this.interaction.bookmarkCount,
-              uped: this.interaction.uped,
-              bookmarked: this.interaction.bookmarked,
-              upPending: this.upPending,
-              bookmarkPending: this.bookmarkPending,
-              upFeedbackVersion: this.upFeedbackVersion,
-              bookmarkFeedbackVersion: this.bookmarkFeedbackVersion,
-              onUp: (): void => { this.onUp(); },
-              onBookmark: (): void => { this.onBookmark(); },
-              onSendComment: (): void => { this.onSendComment(); },
-              replyName: this.replyTargetName,
-              onCancelReply: (): void => { this.onCancelReply(); },
-            })
-              .transition(this.animLayerEnter(80))
-          }
-          .width('100%')
-          .zIndex(1)
-
-          // 长按结构化内容菜单浮层：置于 Stack 最上层，遮罩点击关闭
-          if (this.contentMenuVisible) {
-            this.contentActionSheet()
-          }
-        }
-        .layoutWeight(1)
-        .width('100%')
-        // 采集内容区全局原点与尺寸：长按菜单按压点定位的坐标换算与边界钳制依赖它
-        .onAreaChange((_old: Area, area: Area): void => {
-          this.contentAreaGlobalX = area.globalPosition.x as number;
-          this.contentAreaGlobalY = area.globalPosition.y as number;
-          this.contentAreaWidth = area.width as number;
-          this.contentAreaHeight = area.height as number;
-        })
-      }
     }
     .width('100%')
     .height('100%')
-    .padding({ top: this.statusBarHeight })
     .backgroundColor($r('app.color.bg_primary'))
     // Navigation 壳和 bindContentCover 模态都由外层的明确转场状态机负责，
     // 页面本身不再叠加 fade/scale，避免与封面飞行产生双重动效。
     .transition(this.navMode ? this.navNoopTransition() : this.pageEnterTransition())
+  }
+
+  // 详情主体（加载壳 / 错误 / 帖子内容）：原 build 根 Column 的三分支原样平移进
+  // Navigation 内容区（仅换壳，内部结构零改动）。状态栏避让已移交标题栏，
+  // 内容区不再持有 padding({ top: statusBarHeight })。
+  @Builder
+  detailBody(): void {
+    if (this.loading) {
+      this.transitionLoadingShell()
+    } else if (this.error) {
+      Column() {
+        Text(this.error)
+          .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.callout.weight)
+          .lineHeight(TypeTokens.callout.lineHeight)
+          .fontColor(ColorTokens.secondary)
+        Button('重试')
+          .margin({ top: 16 })
+          .onClick(() => this.load())
+      }
+      .layoutWeight(1)
+      .width('100%')
+      .justifyContent(FlexAlign.Center)
+    } else if (this.post) {
+      Stack({ alignContent: Alignment.Bottom }) {
+        Scroll(this.detailScroller) {
+          Column({ space: 16 }) {
+            // 待审核横幅（作者查看自己 status=0 帖子时显示）
+            if (this.post.status === 0 && this.post.userId === getUserId()) {
+              Row({ space: 8 }) {
+                Text('该帖子正在审核中，仅你自己可见')
+                  .fontSize(13).fontFamily($r('app.string.font_family'))
+                  .fontColor('#FF9500')
+              }
+              .width('100%')
+              .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+              .backgroundColor($r('app.color.warning_surface'))
+              .borderRadius(8)
+            }
+
+            DetailPostHeader({
+              title: this.post.title ?? '',
+              genreLabel: genreMeta(this.post.genre).label,
+              genreIcon: genreMeta(this.post.genre).iconRes,
+              tags: this.post.tags ?? [],
+              authorName: this.authorName(),
+              authorAvatar: this.authorAvatar(),
+              createdAt: this.post.createdAt,
+              onOpenAuthor: (): void => { this.openAuthorProfile(); },
+            })
+              .transition(this.animLayerEnter(80))
+
+            // 媒体+正文编为一组（组内间距 8）：图/视频紧贴正文。
+            // 不用负 margin——Column({ space }) 对负 margin 不生效（实测间距无变化）；
+            // 组外与 标题/评论区 之间仍是父容器的 16，两层间距互不干扰。
+            Column({ space: 8 }) {
+              // 媒体区（视频/轮播）：真实媒体直接展示。这个 id 是「一镜到底的对应节点」——
+              // 目的地页把它缩放/挪移到卡片帧，因此加载壳里的占位必须挂同一个 id。
+              Stack() {
+                this.mediaSlot()
+              }
+              .width('100%')
+              .id(DETAIL_HERO_ID)
+              .opacity(this.heroOpacity())
+
+              DetailPostContent({
+                pairs: this.fields,
+                structuredDocument: this.post.structuredDocument ?? null,
+                genre: this.post.genre ?? '',
+                content: this.post.content ?? '',
+                coverOnlyTextPoster: this.post.structuredData?.coverOnlyTextPoster ?? false,
+                planA: this.planTextOf('方案A'),
+                planB: this.planTextOf('方案B'),
+                votePostId: this.post.id ?? 0,
+                mentions: this.post.mentions ?? [],
+                onVote: (choice: string): void => { this.onDebateVote(choice); },
+                // 长按结构化卡片弹「复制正文」菜单（正文 Text 自带系统文本选择，见组件内说明）
+                onLongPressContent: (event: GestureEvent): void => { this.openContentMenu(event); },
+              })
+                .transition(this.animLayerEnter(120))
+            }
+
+            DetailCommentsSection({
+              comments: this.post.comments ?? [],
+              commentCount: this.post.commentCount ?? 0,
+              highlightCommentId: this.highlightCommentId,
+              onReportComment: (commentId: number): void => { this.openCommentReport(commentId); },
+              onReplyComment: (comment: Comment): void => { this.onReplyComment(comment); },
+            })
+              .transition(this.animLayerEnter(180))
+
+            // 真实滚动内容占位，末尾评论可完整滑出悬浮互动栏下方。
+            Blank()
+              .width('100%')
+              .height(barBottomReserve())
+          }
+          .padding(16)
+          .width('100%')
+        }
+        .width('100%')
+        .height('100%')
+        .id(DETAIL_CONTENT_SCROLL_ID)
+
+        // @提及候选 + 底部互动栏：评论输入态下输入「@昵称」时在栏上方弹候选，点选回填精确 userId
+        Column() {
+          if (this.commentMentionMatch() !== null) {
+            Column() {
+              AtMentionSuggest({
+                keyword: this.commentMentionKeyword(),
+                onPick: (c: MentionCandidate): void => { this.pickCommentMention(c); },
+              })
+                .width('100%')
+            }
+            .width('100%')
+            .padding({ left: 12, right: 12, bottom: 8 })
+          }
+          DetailActionBar({
+            commenting: $commenting,
+            commentText: $commentText,
+            upCount: this.interaction.upCount,
+            bookmarkCount: this.interaction.bookmarkCount,
+            uped: this.interaction.uped,
+            bookmarked: this.interaction.bookmarked,
+            upPending: this.upPending,
+            bookmarkPending: this.bookmarkPending,
+            upFeedbackVersion: this.upFeedbackVersion,
+            bookmarkFeedbackVersion: this.bookmarkFeedbackVersion,
+            onUp: (): void => { this.onUp(); },
+            onBookmark: (): void => { this.onBookmark(); },
+            onSendComment: (): void => { this.onSendComment(); },
+            replyName: this.replyTargetName,
+            onCancelReply: (): void => { this.onCancelReply(); },
+          })
+            .transition(this.animLayerEnter(80))
+        }
+        .width('100%')
+        .zIndex(1)
+
+        // 长按结构化内容菜单浮层：置于 Stack 最上层，遮罩点击关闭
+        if (this.contentMenuVisible) {
+          this.contentActionSheet()
+        }
+      }
+      .layoutWeight(1)
+      .width('100%')
+      // 采集内容区全局原点与尺寸：长按菜单按压点定位的坐标换算与边界钳制依赖它
+      .onAreaChange((_old: Area, area: Area): void => {
+        this.contentAreaGlobalX = area.globalPosition.x as number;
+        this.contentAreaGlobalY = area.globalPosition.y as number;
+        this.contentAreaWidth = area.width as number;
+        this.contentAreaHeight = area.height as number;
+      })
+    }
   }
 }
