@@ -119,13 +119,22 @@ section{position:relative}
 /* 真实录屏演示视频（沉浸光感 / 智感握姿）：按视频自身 20:9 比例撑开设备框，不裁剪 */
 .device-video{width:100%;height:auto;display:block}
 
-/* ---------- 下载 ---------- */
-.download{padding:clamp(70px,9vw,120px) 0 clamp(90px,12vw,150px);background:var(--ink);color:var(--text-inv);text-align:center}
-.download__icon{margin:0 auto 28px;border-radius:22px;box-shadow:0 18px 50px rgba(29,111,255,.28)}
+/* ---------- 下载（左文右图：登录页 = 打开有据的第一屏） ---------- */
+.download{padding:clamp(70px,9vw,120px) 0 clamp(90px,12vw,150px);background:var(--ink);color:var(--text-inv)}
+.download__grid{display:grid;grid-template-columns:6fr 5fr;gap:clamp(40px,6vw,88px);align-items:center}
+.download__copy{text-align:left}
+.download__icon{width:72px;height:72px;border-radius:17px;margin-bottom:24px;box-shadow:0 18px 50px rgba(29,111,255,.28)}
 .download h2{font-size:clamp(32px,4.6vw,54px)}
 .download__meta{margin-top:14px;font-size:14px;color:var(--text-inv-2);letter-spacing:.08em}
-.download__actions{margin-top:36px}
-.download__slogan{margin-top:30px;font-size:13px;color:var(--text-inv-2);letter-spacing:.2em}
+.download__actions{margin-top:32px}
+.download__slogan{margin-top:26px;font-size:13px;color:var(--text-inv-2);letter-spacing:.2em}
+.download__visual{display:flex;justify-content:center}
+.download .device{width:min(310px,72vw)}
+@media(max-width:900px){
+  .download__grid{grid-template-columns:1fr;gap:44px}
+  .download__copy{text-align:center}
+  .download__icon{margin-inline:auto}
+}
 
 /* ---------- Footer ---------- */
 .footer{padding:30px 0;background:var(--ink-3);color:var(--text-inv-2)}
