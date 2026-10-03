@@ -116,8 +116,8 @@ section{position:relative}
 .immersive-stage .device,.grip-stage .device{width:min(360px,74vw)}
 .device--dark{background:#1E2226;box-shadow:0 30px 90px rgba(0,0,0,.55),0 2px 10px rgba(0,0,0,.4)}
 
-/* 真实录屏演示视频（沉浸光感 / 智感握姿共用）：对齐截图比例，视口裁剪 */
-.device-video{width:100%;aspect-ratio:720/1553;object-fit:cover;display:block}
+/* 真实录屏演示视频（沉浸光感 / 智感握姿）：按视频自身 20:9 比例撑开设备框，不裁剪 */
+.device-video{width:100%;height:auto;display:block}
 
 /* ---------- 下载 ---------- */
 .download{padding:clamp(70px,9vw,120px) 0 clamp(90px,12vw,150px);background:var(--ink);color:var(--text-inv);text-align:center}
@@ -152,5 +152,5 @@ section{position:relative}
 
 /* ---------- 动效降级 ---------- */
 @media(prefers-reduced-motion:reduce){
-  .device-video{aspect-ratio:auto}
+  .device-video{width:100%}
 }
