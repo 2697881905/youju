@@ -112,29 +112,31 @@ ${imageTag}
   <div class="note" style="position:fixed;bottom:14px;left:0;right:0;text-align:center">有据 · 真实生活经验社区</div>
   <script>
   (function () {
-    // 「去有据看看」按钮接入应用拉起（Deep Link）：点击先尝试 youju:// 链接唤起有据 App
-    // （module.json5 skills 声明了 scheme: youju，系统弹「打开」确认或直达）；
-    // 未拉起（App 未安装 / 微信等 webview 拦截 scheme）时回落到原行为——打开官网首页。
-    // JS 禁用时 <a> 的 href 兜底，页面行为与接入前一致。deepLink 只由本文件用数字 id 拼出。
+    // 「去有据看看」按钮接入应用拉起（Deep Link）。两个实测结论（2026-10-03 真机）：
+    // 1) 鸿蒙浏览器只认【用户对 scheme href 锚点的原生点击】——preventDefault 后再
+    //    location.href / window.open 跳 youju:// 会被静默丢弃，系统连确认框都不弹；
+    // 2) App 侧 skills 必须含 entity.system.browsable，否则浏览器隐式 Want 匹配不上。
+    // 故做法：加载后把 <a> 的 href 换成 youju:// 链接，点击原生放行，由系统弹
+    // 「打开 App」确认框；拉起成功则页面失活，3 秒仍可见（未安装/被拦截/未确认）
+    // 回落到原行为——打开官网首页。JS 禁用时 href 保持官网链接，行为与接入前一致。
     var deepLink = '${esc(meta.deepLink ?? '')}';
     if (deepLink === '') { return; }
     var btn = document.getElementById('openAppBtn');
     if (!btn) { return; }
-    btn.addEventListener('click', function (ev) {
-      ev.preventDefault();
-      var gone = false;
-      var markGone = function () { gone = true; };
-      document.addEventListener('visibilitychange', markGone);
-      window.addEventListener('pagehide', markGone);
-      window.location.href = deepLink;
+    btn.href = deepLink;
+    var gone = false;
+    btn.addEventListener('click', function () {
+      gone = false;
       setTimeout(function () {
-        document.removeEventListener('visibilitychange', markGone);
-        window.removeEventListener('pagehide', markGone);
         if (!gone && !document.hidden) {
           window.location.href = 'https://youju.chat/';
         }
-      }, 1500);
+      }, 3000);
     });
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) { gone = true; }
+    });
+    window.addEventListener('pagehide', function () { gone = true; });
   })();
   </script>
 </body>
