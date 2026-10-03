@@ -168,13 +168,13 @@ export struct SegmentedControl {
         center: [LayoutTokens.tabBarGlowSize / 2, LayoutTokens.segmentedHeight / 2],
         radius: LayoutTokens.tabBarGlowSize / 2,
         colors: [
-          [ColorTokens.glassWhite, 0.0],
-          [ColorTokens.brandTint, 0.18],
-          [ColorTokens.glassGlowMedium, 0.5],
+          [ColorTokens.glowTint, 0.0],
+          [ColorTokens.glowTint, 0.35],
           [ColorTokens.glassClear, 1.0],
         ],
       })
-      .blendMode(BlendMode.SCREEN)
+      // 白底迁移：SCREEN 混合在纯白底上数学不可见（白+任何值=白），
+      // 改 normal 混合 + 品牌蓝低透明光斑（glow_tint 随深浅模式切换）
       .position({ x: this.glowX - LayoutTokens.tabBarGlowSize / 2, y: 0 })
       // 沉浸光感模式强制关闭光斑：长按高光会干扰玻璃观感
       .opacity(!this.immersive && this.glowEnabled && this.barPressed ? (this.scrubbing ? 0.92 : 0.55) : 0)

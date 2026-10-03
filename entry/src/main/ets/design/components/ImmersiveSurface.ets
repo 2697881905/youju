@@ -30,11 +30,12 @@ export struct ImmersiveSurface {
   @Prop surfaceHeight: Length = 'auto';
   // 流光自带背景蒙层颜色：透过玻璃呈现环境光色。透明度宜克制（约 10%~14%），
   // 避免盖过页面主色；数组内按渐变起止顺序排列（透出后呈柔和环境色）。
-  @Prop maskColors: Array<ResourceColor> = ['#1EFFFFFF', '#1E86CFFF'];
+  // 白底迁移：蒙层尾色从冷蓝改为品牌蓝低透明（目测微调项，以真机沉浸头图观感为准）。
+  @Prop maskColors: Array<ResourceColor> = ['#1EFFFFFF', '#260066CC'];
   // 两条边流光颜色：窄表面（搜索框 44vp）光带细，需要较高亮度才明显；
   // 大面板边缘同样适用，配合 ADAPTIVE 光感不刺眼。
   @Prop edgeColor: ResourceColor = '#C4FFFFFF';
-  @Prop edgeColor2: ResourceColor = '#8FC8EFFF';
+  @Prop edgeColor2: ResourceColor = '#8F5FA8FF';
   // 强制定尺寸（px/vp 数值）：测量不可靠的弹性场景（layoutWeight 拉伸）直接指定实际宽高，
   // 同时作用于外层 Stack 与流光层，避免流光按未拉伸尺寸绘制。
   @Prop explicitWidth: number = 0;
