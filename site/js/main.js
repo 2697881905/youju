@@ -55,14 +55,16 @@
 
   gsap.registerPlugin(ScrollTrigger);
 
-  /* ---------- 入场 reveal ---------- */
+  /* ---------- 入场 reveal（双向循环：进入淡入 / 向上滚回淡出复位） ---------- */
   var reveals = document.querySelectorAll('[data-reveal]');
   gsap.set(reveals, {y:36});
   ScrollTrigger.batch(reveals, {
     start:'top 88%',
-    once:true,
     onEnter:function(batch){
       gsap.to(batch, {autoAlpha:1, y:0, duration:.9, ease:'power3.out', stagger:.08, overwrite:true});
+    },
+    onLeaveBack:function(batch){
+      gsap.to(batch, {autoAlpha:0, y:36, duration:.45, ease:'power2.in', stagger:.04, overwrite:true});
     }
   });
 
