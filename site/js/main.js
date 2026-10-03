@@ -34,6 +34,10 @@
   /* ---------- 降级：无 GSAP 或用户偏好减少动效 ---------- */
   if(!hasGSAP || reduce){
     root.classList.remove('js-motion');
+    document.querySelectorAll('.grip-video').forEach(function(v){
+      v.removeAttribute('autoplay');
+      v.pause();
+    });
     return;
   }
 
@@ -60,25 +64,7 @@
       .to(glow, {xPercent:-42, yPercent:-72});
   }
 
-  /* ---------- 智感握姿：发送按钮随左右手循环迁移（新截图按钮初始在左侧） ---------- */
-  var send = document.querySelector('.grip-send');
-  var hand = document.querySelector('.grip-hand');
-  var state = document.getElementById('handState');
-  if(send && hand){
-    // 按钮从左侧 3.5% 移到右侧 4% 所需的 x 位移（随屏幕宽度自适应）
-    function gripShift(){
-      var screen = send.closest('.device__screen');
-      return screen.clientWidth - send.offsetWidth - screen.clientWidth * 0.075;
-    }
-    gsap.timeline({repeat:-1, repeatRefresh:true, repeatDelay:.8, defaults:{ease:'power3.inOut'}})
-      .to([send, hand], {x:function(){return gripShift();}, duration:1.1})
-      .call(function(){ if(state) state.textContent = '右手'; }, null, .55)
-      .to(send, {scale:.93, duration:.16, yoyo:true, repeat:1, ease:'power2.out'}, '+=.3')
-      .to(hand, {y:4, duration:.16, yoyo:true, repeat:1, ease:'power2.out'}, '<')
-      .to({}, {duration:.8})
-      .to([send, hand], {x:0, duration:1.1})
-      .call(function(){ if(state) state.textContent = '左手'; }, null, '-=.55');
-  }
+  /* 智感握姿使用真实录屏循环播放（grip-demo.mp4，autoplay/loop/muted），无需 JS 驱动 */
 
   window.addEventListener('load', function(){ ScrollTrigger.refresh(); });
 })();
