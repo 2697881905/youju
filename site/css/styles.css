@@ -1,0 +1,176 @@
+/* ============================================================
+   有据 SUBSTANTIATE · 官网样式系统
+   黑白主基调 + 品牌蓝强调 · Apple 节奏 × HarmonyOS 7 材质语言
+   ============================================================ */
+
+:root{
+  /* 色板 */
+  --ink:#0B0C0E; --ink-2:#16181B; --ink-3:#060708;
+  --paper:#FFFFFF; --paper-2:#F5F6F7;
+  --text-1:#16181B; --text-2:#6B7076;
+  --text-inv:#F4F5F6; --text-inv-2:#9BA0A6;
+  --accent:#1D6FFF; --accent-dim:rgba(29,111,255,.12);
+  --line:rgba(0,0,0,.08); --line-inv:rgba(255,255,255,.12);
+  /* 字体 */
+  --font:system-ui,-apple-system,'HarmonyOS Sans SC','PingFang SC','Noto Sans SC','Microsoft YaHei',sans-serif;
+  /* 曲线 */
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{font-family:var(--font);color:var(--text-1);background:var(--paper);line-height:1.65;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+img{display:block;max-width:100%}
+a{color:inherit;text-decoration:none}
+h1,h2,h3{line-height:1.15;letter-spacing:-.02em;font-weight:900}
+
+.container{width:min(1120px,92vw);margin-inline:auto}
+section{position:relative}
+
+/* 无 JS / CDN 失败 / reduced-motion 时内容必须可见：
+   仅在 html.js-motion（head 内联脚本确认可动画后才添加）下隐藏 reveal 元素 */
+.js-motion [data-reveal]{opacity:0}
+
+/* ---------- 文字与标签 ---------- */
+.eyebrow{display:inline-block;font-size:13px;font-weight:700;letter-spacing:.14em;color:var(--accent);margin-bottom:18px}
+.eyebrow--dark{color:#6FAAFF}
+.section-head{max-width:640px;margin-bottom:clamp(56px,8vw,96px)}
+.section-head h2{font-size:clamp(30px,4.6vw,52px)}
+.section-head__sub{margin-top:18px;font-size:17px;color:var(--text-2);max-width:34em}
+.section-head--dark h2{color:var(--text-inv)}
+.section-head--dark .section-head__sub{color:var(--text-inv-2)}
+
+/* ---------- 按钮 ---------- */
+.btn{display:inline-flex;align-items:center;gap:8px;height:48px;padding:0 26px;border-radius:12px;font-size:15px;font-weight:600;transition:transform .3s var(--ease),box-shadow .3s,background .3s,color .3s}
+.btn--primary{background:var(--accent);color:#fff}
+.btn--primary:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(29,111,255,.35)}
+.btn--primary:active{transform:translateY(0) scale(.98)}
+.btn--ghost{border:1px solid var(--line);color:var(--text-1)}
+.btn--ghost:hover{border-color:var(--text-1)}
+.btn--lg{height:56px;padding:0 34px;font-size:16px;border-radius:14px}
+
+/* ---------- 导航 ---------- */
+.nav{position:fixed;top:0;left:0;right:0;z-index:50;padding:14px 0;transition:background .4s,box-shadow .4s,color .4s}
+.nav__inner{display:flex;align-items:center;justify-content:space-between}
+.nav__brand{display:flex;align-items:center;gap:10px;font-weight:900;font-size:18px;letter-spacing:-.01em}
+.nav__logo{border-radius:7px}
+.nav__links{display:flex;align-items:center;gap:30px}
+.nav__links a{font-size:14px;font-weight:500;color:inherit;opacity:.72;transition:opacity .25s}
+.nav__links a:hover{opacity:1}
+.nav__cta{border:1px solid currentColor;padding:7px 18px;border-radius:99px;opacity:1!important}
+.nav.is-scrolled{background:rgba(255,255,255,.72);backdrop-filter:blur(18px) saturate(170%);-webkit-backdrop-filter:blur(18px) saturate(170%);box-shadow:0 1px 0 var(--line)}
+.nav.nav-invert{color:var(--text-inv)}
+.nav.nav-invert.is-scrolled{background:rgba(11,12,14,.6);box-shadow:0 1px 0 var(--line-inv)}
+@media(max-width:760px){.nav__links a:not(.nav__cta){display:none}}
+
+/* ---------- Hero ---------- */
+.hero{padding:clamp(140px,18vh,190px) 0 clamp(64px,9vw,110px);background:var(--paper)}
+.hero__grid{display:grid;grid-template-columns:5fr 6fr;gap:clamp(40px,6vw,88px);align-items:center}
+.hero__title{font-size:clamp(42px,6.6vw,80px)}
+.hero__sub{margin-top:26px;font-size:clamp(16px,1.6vw,19px);color:var(--text-2);max-width:30em}
+.hero__actions{margin-top:36px;display:flex;gap:14px;flex-wrap:wrap}
+.hero__visual{display:flex;justify-content:center}
+
+/* ---------- 设备框 ---------- */
+.device{position:relative;width:min(340px,78vw);border-radius:46px;padding:10px;background:#151719;
+  box-shadow:0 24px 70px rgba(11,12,14,.16),0 2px 10px rgba(11,12,14,.10)}
+.device--hero{width:min(380px,82vw)}
+.device__screen{position:relative;border-radius:36px;overflow:hidden;background:#fff}
+.device__screen::before{content:"";position:absolute;top:12px;left:50%;transform:translateX(-50%);width:76px;height:22px;border-radius:12px;background:#0A0B0C;z-index:3}
+.device__screen img{width:100%;height:auto}
+
+/* ---------- 核心能力 ---------- */
+.features{padding:clamp(80px,12vw,150px) 0;background:var(--paper)}
+.feature{display:grid;grid-template-columns:5fr 6fr;gap:clamp(36px,6vw,88px);align-items:center;padding:clamp(36px,5vw,72px) 0}
+.feature--flip .feature__copy{order:2}
+.feature--flip .feature__visual{order:1}
+.feature__num{font-size:14px;font-weight:700;letter-spacing:.2em;color:var(--accent)}
+.feature__copy h3{margin-top:14px;font-size:clamp(24px,3vw,36px)}
+.feature__copy p{margin-top:16px;font-size:16px;color:var(--text-2);max-width:28em}
+.feature__visual{display:flex;justify-content:center}
+
+/* ---------- 使用场景 ---------- */
+.scenes{padding:clamp(80px,12vw,150px) 0;background:var(--paper-2)}
+.scenes__grid{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(24px,3vw,44px)}
+.scene{display:flex;flex-direction:column;align-items:center;text-align:center}
+.scene .device{width:min(260px,70vw)}
+.scene h3{margin-top:28px;font-size:20px}
+.scene p{margin-top:8px;font-size:14.5px;color:var(--text-2);max-width:22em}
+@media(max-width:900px){.scenes__grid{grid-template-columns:1fr;row-gap:64px}}
+
+/* ---------- HarmonyOS 7 章节（黑底）---------- */
+.harmony{padding:clamp(96px,13vw,170px) 0 clamp(60px,8vw,110px);background:var(--ink);color:var(--text-inv)}
+.hkit{display:grid;grid-template-columns:4fr 7fr;gap:clamp(36px,5vw,80px);align-items:center;padding:clamp(40px,6vw,88px) 0}
+.hkit--flip .hkit__copy{order:2}
+.hkit--flip .hkit__stage{order:1}
+.hkit__tag{display:inline-block;font-size:13px;font-weight:700;letter-spacing:.14em;color:#6FAAFF;border:1px solid var(--line-inv);border-radius:99px;padding:7px 16px;margin-bottom:26px}
+.hkit__steps{position:relative;min-height:7.2em}
+.hkit__step{position:absolute;inset:0;font-size:clamp(19px,2.1vw,25px);font-weight:700;line-height:1.5;color:var(--text-inv-2);transition:color .5s}
+.hkit__step.is-active{color:var(--text-inv)}
+/* 降级：无 GSAP / reduced-motion 时三句文案纵向静排 */
+.hkit__steps.steps-static .hkit__step{position:static;color:var(--text-inv)}
+.hkit__steps.steps-static .hkit__step:not(:first-child){display:none}
+.hkit__stage{position:relative;display:flex;justify-content:center}
+
+/* 舞台通用 */
+.immersive-stage,.grip-stage{padding:24px 0}
+.immersive-stage .device,.grip-stage .device{width:min(360px,74vw)}
+.device--dark{background:#1E2226;box-shadow:0 30px 90px rgba(0,0,0,.55),0 2px 10px rgba(0,0,0,.4)}
+
+/* 沉浸光感：光斑 + 边缘高光带 */
+.stage-glow{position:absolute;top:50%;left:50%;width:340px;height:340px;margin:-170px 0 0 -170px;border-radius:50%;z-index:2;pointer-events:none;
+  background:radial-gradient(circle,rgba(96,168,255,.5),rgba(96,168,255,.12) 45%,rgba(96,168,255,0) 68%);
+  mix-blend-mode:screen;will-change:transform}
+.stage-glint{position:absolute;inset:0;z-index:2;pointer-events:none;mix-blend-mode:screen;
+  background:linear-gradient(115deg,rgba(255,255,255,0) 30%,rgba(190,220,255,.28) 50%,rgba(255,255,255,0) 70%);
+  transform:translateX(-120%);will-change:transform}
+
+/* 智感握姿：模拟高频操作面板 */
+.grip-panel{position:absolute;left:50%;bottom:88px;z-index:3;width:78%;transform:translateX(-50%);
+  display:flex;align-items:center;gap:10px;padding:9px 10px 9px 16px;border-radius:99px;
+  background:rgba(28,32,38,.72);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border:1px solid rgba(255,255,255,.14);box-shadow:0 12px 34px rgba(0,0,0,.45);
+  will-change:transform}
+.grip-panel__field{flex:1;font-size:12.5px;color:#AEB4BB}
+.grip-panel__send{width:30px;height:30px;border-radius:50%;background:var(--accent);position:relative;flex:0 0 auto}
+.grip-panel__send::after{content:"";position:absolute;top:50%;left:50%;transform:translate(-42%,-50%);border-left:8px solid #fff;border-top:5px solid transparent;border-bottom:5px solid transparent}
+
+/* ---------- 下载 ---------- */
+.download{padding:clamp(70px,9vw,120px) 0 clamp(90px,12vw,150px);background:var(--ink);color:var(--text-inv);text-align:center}
+.download__icon{margin:0 auto 28px;border-radius:22px;box-shadow:0 18px 50px rgba(29,111,255,.28)}
+.download h2{font-size:clamp(32px,4.6vw,54px)}
+.download__meta{margin-top:14px;font-size:14px;color:var(--text-inv-2);letter-spacing:.08em}
+.download__actions{margin-top:36px}
+.download__slogan{margin-top:30px;font-size:13px;color:var(--text-inv-2);letter-spacing:.2em}
+
+/* ---------- Footer ---------- */
+.footer{padding:30px 0;background:var(--ink-3);color:var(--text-inv-2)}
+.footer__inner{display:flex;align-items:center;justify-content:center;gap:8px 22px;flex-wrap:wrap;font-size:12.5px}
+.footer a{transition:color .25s}
+.footer a:hover{color:var(--text-inv)}
+
+/* ---------- 响应式 ---------- */
+@media(max-width:900px){
+  .hero__grid{grid-template-columns:1fr;gap:56px}
+  .hero__copy{text-align:center}
+  .hero__sub{margin-inline:auto}
+  .hero__actions{justify-content:center}
+  .feature{grid-template-columns:1fr;gap:36px}
+  .feature__copy{order:1!important}
+  .feature__visual{order:2!important}
+  .hkit{grid-template-columns:1fr;gap:44px}
+  .hkit__copy{order:1!important}
+  .hkit__stage{order:2!important}
+  .hkit__steps{min-height:9em}
+}
+@media(max-width:560px){
+  .scene .device{width:min(250px,66vw)}
+  .hkit__steps{min-height:11.5em}
+}
+
+/* ---------- 动效降级 ---------- */
+@media(prefers-reduced-motion:reduce){
+  .stage-glow,.stage-glint{display:none}
+  .grip-panel{transform:translateX(-50%)}
+}
