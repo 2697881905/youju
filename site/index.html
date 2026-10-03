@@ -218,8 +218,17 @@
   </div>
 </footer>
 
+<div class="zoom" id="zoom" hidden>
+  <div class="zoom__backdrop" id="zoomBackdrop"></div>
+  <div class="zoom__stage" id="zoomStage"></div>
+  <button class="zoom__close" id="zoomClose" aria-label="关闭查看">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+  </button>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/Flip.min.js" defer></script>
 <script src="js/main.js" defer></script>
 </body>
 </html>

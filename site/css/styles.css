@@ -150,6 +150,25 @@ section{position:relative}
   .scene .device{width:min(250px,66vw)}
 }
 
+/* ---------- 标题逐字揭示（mask 内上浮） ---------- */
+.split-ln{display:block;overflow:hidden}
+.split-cx{display:inline-block;overflow:hidden;vertical-align:top}
+.split-cx>span{display:inline-block;will-change:transform}
+
+/* ---------- 共享元素转场：点击场景截图放大 ---------- */
+.scene.is-zoomable{cursor:pointer}
+.scene.is-zoomable:focus-visible{outline:2px solid var(--accent);outline-offset:6px;border-radius:24px}
+.zoom{position:fixed;inset:0;z-index:100;display:grid;place-items:center}
+.zoom[hidden]{display:none}
+.zoom__backdrop{position:absolute;inset:0;background:rgba(6,8,12,.88);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);opacity:0}
+.zoom__stage{position:relative;z-index:1;width:min(430px,88vw)}
+.zoom__stage .device__screen{border-radius:34px;box-shadow:0 40px 120px rgba(0,0,0,.62)}
+.zoom__close{position:absolute;top:22px;right:22px;z-index:2;width:44px;height:44px;display:grid;place-items:center;
+  border:1px solid var(--line-inv);border-radius:50%;background:transparent;color:var(--text-inv);cursor:pointer;
+  transition:transform .3s var(--ease),background .3s}
+.zoom__close:hover{transform:rotate(90deg);background:rgba(255,255,255,.1)}
+.zoom__close svg{width:20px;height:20px}
+
 /* ---------- 动效降级 ---------- */
 @media(prefers-reduced-motion:reduce){
   .device-video{width:100%}
