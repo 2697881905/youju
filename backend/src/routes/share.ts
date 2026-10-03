@@ -51,8 +51,8 @@ function toAbsoluteImage(url: string | null | undefined): string {
 }
 
 // 落地页模板（纯 inline，无外部资源）。视觉对齐 App 内分享卡图（utils/shareCard.ets）：
-// 白卡 + 大封面(15:14) + 标题/两行摘要 + 左下角头像作者行 + 右下角品牌，备案号收进卡内
-// （原 nginx sub_filter 注入的视口底部白条已随本次改造移除）。
+// 白卡 + 大封面（占卡高 70%，App 卡图同比例）+ 标题/两行摘要 + 左下角头像作者行 + 右下角品牌；
+// 备案号在卡片外部容器（页面级，卡下方居中），原 nginx sub_filter 注入的底部白条已移除。
 function renderPage(meta: {
   title: string;
   description: string;
@@ -88,9 +88,10 @@ ${imageTag}
 <meta name="robots" content="index,follow">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:-apple-system,'PingFang SC','Noto Sans SC',system-ui,sans-serif;background:#FFFFFF;color:#111827;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  body{font-family:-apple-system,'PingFang SC','Noto Sans SC',system-ui,sans-serif;background:#FFFFFF;color:#111827;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:14px}
   .card{width:min(400px,100%);background:#FFFFFF;border:1px solid rgba(17,24,39,.08);border-radius:16px;overflow:hidden;box-shadow:0 16px 48px rgba(17,24,39,.12)}
-  .cover{width:100%;aspect-ratio:1080/1008;object-fit:cover;display:block;background:#F3F4F6}
+  /* 封面占卡高 70%：网页卡比卡图多出按钮等元素，按典型正文高度折算约 9:17 */
+  .cover{width:100%;aspect-ratio:9/17;object-fit:cover;display:block;background:#F3F4F6}
   .cover-fallback{display:flex;align-items:center;justify-content:center;background:#8A6548}
   .cover-fallback span{font-size:44px;font-weight:700;color:#FFFFFF;font-family:'Noto Serif SC',Songti SC,serif}
   .body{padding:20px 18px 16px}
@@ -102,7 +103,7 @@ ${imageTag}
   .name{font-size:14px;color:#111827;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
   .brand{margin-left:auto;font-size:11px;color:#8A6548;white-space:nowrap;flex:none}
   .btn{display:block;margin-top:16px;text-align:center;background:#111827;color:#FFFFFF;font-size:15px;font-weight:600;padding:13px 0;border-radius:12px;text-decoration:none}
-  .icp{margin-top:14px;padding-top:12px;border-top:1px solid rgba(17,24,39,.06);font-size:11px;text-align:center}
+  .icp{font-size:11px;text-align:center}
   .icp a{color:#9CA3AF;text-decoration:none}
 </style>
 </head>
@@ -114,9 +115,9 @@ ${imageTag}
       <p class="desc">${esc(meta.description)}</p>
       ${meta.author ? `<div class="footer"><img class="avatar" src="${esc(meta.avatar || '')}" alt="" referrerpolicy="no-referrer"><span class="name">${esc(meta.author)}</span><span class="brand">有据 · 真实经验，有据可循</span></div>` : `<div class="footer"><span class="brand">有据 · 真实经验，有据可循</span></div>`}
       <a class="btn" id="openAppBtn" href="https://youju.chat/">去「有据」看看</a>
-      <div class="icp"><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">陕ICP备2026014636号-3</a></div>
     </div>
   </div>
+  <div class="icp"><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">陕ICP备2026014636号-3</a></div>
   <script>
   (function () {
     // 「去有据看看」按钮接入应用拉起（Deep Link）。两个实测结论（2026-10-03 真机）：
