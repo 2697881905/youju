@@ -134,6 +134,14 @@ section{position:relative}
   .download__grid{grid-template-columns:1fr;gap:44px}
   .download__copy{text-align:center}
   .download__icon{margin-inline:auto}
+  /* letter-spacing 会在末字符后多留一份间距，居中文本因此偏半格：
+     正字距偏左（补 padding-left）、负字距偏右（补 padding-right）。
+     box-sizing:border-box 下不会撑出横向滚动。 */
+  .hero__copy .eyebrow{padding-left:.14em}
+  .hero__copy h1{padding-right:.02em}
+  .download__copy h2{padding-right:.02em}
+  .download__meta{padding-left:.08em}
+  .download__slogan{padding-left:.2em}
 }
 
 /* ---------- Footer ---------- */
