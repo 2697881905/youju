@@ -1609,6 +1609,10 @@ export struct PostDetailView {
                 // 长按结构化卡片弹「复制正文」菜单（正文 Text 自带系统文本选择，见组件内说明）
                 onLongPressContent: (event: GestureEvent): void => { this.openContentMenu(event); },
               })
+                // 收紧媒体↔正文接缝：父 Column space=16 对所有子项一视同仁，
+                // 这里单独把正文上提 8，让图/视频到正文的间距减半（16→8），
+                // 正文↔评论区仍保持 16 不受影响。
+                .margin({ top: -8 })
                 .transition(this.animLayerEnter(120))
 
               DetailCommentsSection({
