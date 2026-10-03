@@ -240,13 +240,19 @@ export struct DetailPostContent {
         StructuredFlowView({ document: this.structuredDocument })
           .gesture(this.contentLongPress())
       } else {
-        StructuredSummaryCard({
-          summary: structuredSummaryFromPairs(this.pairs, this.genre),
-          compact: false,
-        })
-          .gesture(this.contentLongPress())
-        StructuredFieldBlock({ pairs: this.bodyPairs() })
-          .gesture(this.contentLongPress())
+        // ⚠️ 字段为空时这两个组件 build 出来是"零节点"，但仍占用父/根 Column 的子槽位——
+        // space 会照插不误（父 16 + 根 20×2 ≈ 56vp），普通图文/视频帖媒体与正文之间
+        // 因此多出一大段空白（结构化帖 FlowView 有真实内容，无此问题）。
+        // 必须整段跳过，让它们连槽位都不占。
+        if (this.pairs.length > 0) {
+          StructuredSummaryCard({
+            summary: structuredSummaryFromPairs(this.pairs, this.genre),
+            compact: false,
+          })
+            .gesture(this.contentLongPress())
+          StructuredFieldBlock({ pairs: this.bodyPairs() })
+            .gesture(this.contentLongPress())
+        }
       }
       if (this.genre === 'debate') {
         this.debatePanel();
