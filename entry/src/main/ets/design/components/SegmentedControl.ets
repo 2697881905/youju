@@ -7,7 +7,7 @@ import { RadiusTokens } from '../tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../tokens/space';
 import { TypeTokens } from '../tokens/type';
 import { ShadowTokens } from '../tokens/shadow';
-import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../../utils/immersiveMaterial';
+import { isImmersiveLightSenseSupported, GlassBlurStyle, TopButtonMaterialModifier } from '../../utils/immersiveMaterial';
 
 export interface SegmentedItem {
   key: string;
@@ -43,6 +43,10 @@ export struct SegmentedControl {
   // 沉浸光感模式（华为应用商店分段栏同款）：玻璃底 + backdropBlur + 高光边框 + 滑块悬浮投影，
   // 并自动关闭按压/长按光斑；内部按 API 分级降级（见文件头 IMMERSIVE_* 注释）
   @Prop immersive: boolean = false;
+  // 系统材质（沉浸光感 @since 26.0.0）：驻留 Navigation 标题栏时挂到整栏表面，
+  // 由系统材质接管背景/边框/阴影（低版本设备门禁不通过，保留上面的风格分发）。
+  // 注：属性名不能叫 systemMaterial —— 与 ArkUI 内置通用属性同名会与 CustomComponent 基类冲突。
+  @Prop useSystemMaterial: boolean = false;
   // Swiper 联动跟手位置：滚动（拖动/吸附）中由页面喂入的连续（浮点）索引，1:1 跟手；
   // -1 表示未在滚动（回退 activeIndex()，点击切换仍走弹性动画）
   @Prop slidePosition: number = -1;
@@ -53,6 +57,8 @@ export struct SegmentedControl {
   @State glowX: number = 0;
   @State barPressed: boolean = false;
   private longPressTimer: number = 0;
+  // 系统材质修饰器（沉浸光感）：只创建实例，低版本设备由修饰器内部的门禁自动跳过。
+  private materialModifier: TopButtonMaterialModifier = new TopButtonMaterialModifier();
 
   // 卸载时清掉在途的长按/扫选定时器：否则回调会在已销毁的组件上写 hoverIndex 等状态。
   aboutToDisappear(): void {
@@ -251,6 +257,9 @@ export struct SegmentedControl {
     .width(this.fillWidth ? '100%' : this.intrinsicWidth())
     .height(LayoutTokens.segmentedHeight)
     .padding(SpaceTokens.xs / 2)
+    // 沉浸光感（systemMaterial @since 26.0.0）：驻留标题栏时由系统材质接管底/边框/阴影；
+    // 低版本设备门禁不通过 → 保留下方按风格分发的原有样式（见 utils/immersiveMaterial.ets）
+    .attributeModifier(this.useSystemMaterial ? this.materialModifier : undefined)
     // immersive：backdropBlur 伪沉浸（API 26+ 升级后替换为 backgroundSystemMaterial，见文件头注释）
     .backdropBlur(this.immersive ? GlassTokens.SEGMENT_BLUR : 0)
     .backgroundBlurStyle(!this.immersive && this.glass ? GlassBlurStyle.Floating : BlurStyle.NONE)

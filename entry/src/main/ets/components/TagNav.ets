@@ -9,26 +9,37 @@ import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
-import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
+import { isImmersiveLightSenseSupported, GlassBlurStyle, TopButtonMaterialModifier } from '../utils/immersiveMaterial';
 import { ImmersiveSurface } from '../design/components/ImmersiveSurface';
+
+// 点外关闭遮罩高度：从面板底部一直铺到屏幕下方（沿用旧就地展开实现的固定值）。
+const DROPDOWN_MASK_HEIGHT: number = 2000;
 
 @Component
 export struct TagNav {
   @Prop tags: Tag[] = [];
   @Link selectedIndex: number;
+  // 下拉展开态：由宿主共享 —— 标题栏 chip 与内容区面板是两个实例，靠它同步开合。
+  @Link dropdownVisible: boolean;
   // 首页紧凑模式仅压缩视觉尺寸，Pressable 仍保持 44vp 触控热区。
   @Prop compact: boolean = false;
   @Prop glass: boolean = false;
   @Prop dropdownOnly: boolean = false;
-  @State showDropdown: boolean = false;
-  @State filterName: string = '';
+  // —— 拆分布局（顶栏整体迁入 Navigation 标题栏后的两张形态）——
+  // 默认（panelOnly=false）：只渲染「圈子」下拉按钮，渲染在标题栏内，可挂系统材质；
+  // panelOnly=true：只渲染展开面板 + 点外关闭遮罩，渲染在内容区顶部，向下覆盖信息流。
+  @Prop panelOnly: boolean = false;
+  // 系统材质（沉浸光感，@since 26.0.0）：挂在标题栏内的 chip 表面，低版本设备自动跳过。
+  // 注：属性名不能叫 systemMaterial —— 与 ArkUI 内置通用属性同名会与 CustomComponent 基类冲突。
+  @Prop useSystemMaterial: boolean = false;
   @State menuIconsRaised: boolean = false;
 
-  private get displayTags(): Tag[] {
-    if (this.filterName.length === 0) {
-      return this.tags;
-    }
-    return this.tags.filter((t: Tag) => (t.name ?? '') === this.filterName);
+  private chipMaterialModifier: TopButtonMaterialModifier = new TopButtonMaterialModifier();
+
+  // 面板里高亮项 = 当前选中的圈子：用共享的 selectedIndex 推导
+  // （面板随开合挂载/卸载，不能依赖实例内状态，否则重开后面板高亮丢失）。
+  private selectedName(): string {
+    return this.tags[this.selectedIndex]?.name ?? '';
   }
 
   private chipItems(): ChipItem[] {
@@ -59,7 +70,7 @@ export struct TagNav {
       this.menuIconsRaised = false;
     }
     this.getUIContext().animateTo({ duration: MotionTokens.base, curve: MotionCurves.decelerate }, () => {
-      this.showDropdown = visible;
+      this.dropdownVisible = visible;
     });
   }
 
@@ -87,7 +98,7 @@ export struct TagNav {
         Pressable({
           visualHeight: LayoutTokens.segmentedHeight,
           touchTargetHeight: LayoutTokens.minTouchTarget,
-          action: () => { this.setDropdownVisible(true); },
+          action: () => { this.setDropdownVisible(!this.dropdownVisible); },
         }) {
           Row({ space: this.dropdownOnly ? SpaceTokens.xs : SpaceTokens.none }) {
             if (this.dropdownOnly) {
@@ -112,6 +123,9 @@ export struct TagNav {
           .backgroundColor(Color.Transparent)
           .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
           .borderRadius(RadiusTokens.lg)
+          // 沉浸光感（systemMaterial，@since 26.0.0）：驻留标题栏时由系统材质接管表面；
+          // 低版本设备门禁不通过 → 保留上面的细描边样式（见 utils/immersiveMaterial.ets）。
+          .attributeModifier(this.useSystemMaterial ? this.chipMaterialModifier : undefined)
         }
       }
       .margin({
@@ -169,8 +183,8 @@ export struct TagNav {
                   TagIcon({
                     name: t.name ?? '',
                     iconSize: IconTokens.compact,
-                    tint: this.filterName === t.name ? ColorTokens.brand : ColorTokens.primary,
-                    colorful: this.filterName !== t.name,
+                    tint: this.selectedName() === t.name ? ColorTokens.brand : ColorTokens.primary,
+                    colorful: this.selectedName() !== t.name,
                   })
                 }
                 .width(IconTokens.compact)
@@ -188,7 +202,7 @@ export struct TagNav {
                 Text(t.name ?? '')
                   .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
                   .fontWeight(TypeTokens.callout.weight)
-                  .fontColor(this.filterName === t.name ? ColorTokens.brand : ColorTokens.primary)
+                  .fontColor(this.selectedName() === t.name ? ColorTokens.brand : ColorTokens.primary)
                   .layoutWeight(1)
                   .maxLines(1)
                   .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -197,7 +211,6 @@ export struct TagNav {
               .height(LayoutTokens.minTouchTarget)
               .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
               .onClick(() => {
-                this.filterName = t.name ?? '';
                 this.setDropdownVisible(false);
                 // 找到对应 tag 的 index
                 const idx = this.tags.indexOf(t);
@@ -218,20 +231,18 @@ export struct TagNav {
     }
   }
 
-  // 展开态菜单容器：玻璃/非玻璃两种材质分支
+  // 展开态菜单容器：玻璃/非玻璃两种材质分支。
+  // 迁入标题栏后，面板由内容区宿主渲染、贴在内容区顶部（y=0，紧随标题栏之下），
+  // 因此不再需要「分段栏高度」偏移与负边距撑高（原就地展开的排版技巧已随拆分移除）。
   @Builder
   dropdownMenu() {
     if (this.glass) {
-      // 菜单位于分段栏（推荐/关注/每日一帖）之下，向下覆盖帖子区域。
-      // 用 margin-top 下移（而非 position）：margin 参与外层 Stack 测量，
-      // 流光层才能由 onAreaChange 贴合整个展开区域；编舞加在玻璃内层。
       ImmersiveSurface({ radius: RadiusTokens.floatingBar }) {
         Column() {
           this.dropdownGrid()
         }
         .height(this.dropdownHeight())
         .width('100%')
-        .margin({ top: LayoutTokens.segmentedHeight })
         .backgroundBlurStyle(GlassBlurStyle.Floating)
         .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
         .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
@@ -250,13 +261,12 @@ export struct TagNav {
             .animation({ duration: MotionTokens.base, curve: MotionCurves.decelerate })))
       }
     } else {
-      // 菜单位于分段栏（推荐/关注/每日一帖）之下，避免与其重合
       Column() {
         this.dropdownGrid()
       }
       .height(this.dropdownHeight())
       .width('100%')
-      .position({ x: 0, y: LayoutTokens.segmentedHeight })
+      .position({ x: 0, y: 0 })
       .backgroundColor(ColorTokens.elevated)
       .borderRadius(RadiusTokens.sm)
       .shadow({ radius: SpaceTokens.sm, color: ColorTokens.shadowPopover, offsetY: 2 })
@@ -275,36 +285,27 @@ export struct TagNav {
   }
 
   build() {
-    // 外层始终只占一行高度；展开菜单作为 Stack 叠层覆盖下方帖子，不参与列表排版。
-    Stack({ alignContent: Alignment.TopStart }) {
-      // 标签横向滚动 + 下拉按钮
-      if (!this.showDropdown) {
-        this.chipBar()
-      }
-
-      // 展开态菜单下移到分段栏之下，并向下覆盖帖子区域。
-      if (this.showDropdown) {
-        // 点击菜单外部收回：透明遮罩从菜单底部延伸到屏幕下方（zIndex 低于菜单，不挡菜单点击）
+    if (this.panelOnly) {
+      // 面板形态（渲染在内容区宿主）：贴内容区顶部、向下覆盖信息流；透明遮罩点外关闭。
+      // 遮罩铺到屏幕下方；外框高度覆盖到遮罩底部，保证整块遮罩都落在父节点范围内
+      // （ArkUI 触摸只命中父节点区域内的子节点，超出部分点不到）。
+      Stack({ alignContent: Alignment.TopStart }) {
         Column()
           .width('100%')
-          .height(2000)
-          .position({ x: 0, y: this.dropdownHeight() + LayoutTokens.segmentedHeight })
+          .height(DROPDOWN_MASK_HEIGHT)
+          .position({ x: 0, y: this.dropdownHeight() })
           .backgroundColor(Color.Transparent)
           .onClick((): void => { this.setDropdownVisible(false); })
           .zIndex(0)
         this.dropdownMenu()
       }
+      .width('100%')
+      .height(this.dropdownHeight() + DROPDOWN_MASK_HEIGHT)
+      .position({ x: 0, y: 0 })
+      .zIndex(10)
+    } else {
+      // 按钮形态（渲染在 Navigation 标题栏）：只出「圈子」chip
+      this.chipBar()
     }
-    // 展开时保留完整绘制高度（分段栏 + 菜单）；负边距抵消额外高度，帖子流仍从收起态位置开始。
-    .height(this.showDropdown ? this.dropdownHeight() + LayoutTokens.segmentedHeight : LayoutTokens.segmentedHeight)
-    .width('100%')
-    .margin({
-      bottom: this.showDropdown ? -this.dropdownHeight() : 0,
-    })
-    .zIndex(10)
-    .animation({
-      duration: MotionTokens.base,
-      curve: MotionCurves.decelerate,
-    })
   }
 }

@@ -1,0 +1,86 @@
+[
+  {
+    "file": "preview-01-home.png",
+    "jpg_fallback": "preview-01-home.jpg",
+    "size": [
+      1080,
+      1920
+    ],
+    "format": "PNG",
+    "color_mode": "RGB",
+    "brand_asset": "source/logo.png",
+    "source": "source/home.jpg",
+    "status": "draft_pending_capture",
+    "missing_capture": "首页需替换测试内容"
+  },
+  {
+    "file": "preview-02-structured.png",
+    "jpg_fallback": "preview-02-structured.jpg",
+    "size": [
+      1080,
+      1920
+    ],
+    "format": "PNG",
+    "color_mode": "RGB",
+    "brand_asset": "source/logo.png",
+    "source": "source/composer.jpg",
+    "status": "draft_pending_capture",
+    "missing_capture": "编辑页为未填写状态"
+  },
+  {
+    "file": "preview-03-detail.png",
+    "jpg_fallback": "preview-03-detail.jpg",
+    "size": [
+      1080,
+      1920
+    ],
+    "format": "PNG",
+    "color_mode": "RGB",
+    "brand_asset": "source/logo.png",
+    "source": "source/detail.jpg",
+    "status": "draft_pending_capture",
+    "missing_capture": "详情页需替换测试内容"
+  },
+  {
+    "file": "preview-04-circles.png",
+    "jpg_fallback": "preview-04-circles.jpg",
+    "size": [
+      1080,
+      1920
+    ],
+    "format": "PNG",
+    "color_mode": "RGB",
+    "brand_asset": "source/logo.png",
+    "source": "source/circles.jpg",
+    "status": "draft_pending_capture",
+    "missing_capture": "圈子需替换测试数据"
+  },
+  {
+    "file": "preview-05-daily.png",
+    "jpg_fallback": "preview-05-daily.jpg",
+    "size": [
+      1080,
+      1920
+    ],
+    "format": "PNG",
+    "color_mode": "RGB",
+    "brand_asset": "source/logo.png",
+    "source": "source/daily.jpg",
+    "status": "draft_pending_capture",
+    "missing_capture": "每日内容需替换测试数据"
+  },
+  {
+    "file": "preview-06-messages.png",
+    "jpg_fallback": "preview-06-messages.jpg",
+    "size": [
+      1080,
+      1920
+    ],
+    "format": "PNG",
+    "color_mode": "RGB",
+    "brand_asset": "source/logo.png",
+    "source": "source/messages.jpg",
+    "status": "draft_pending_capture",
+    "missing_capture": "消息页需替换测试数据"
+  }
+]

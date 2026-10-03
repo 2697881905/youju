@@ -7,9 +7,12 @@ import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
-import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
+import { isImmersiveLightSenseSupported, GlassBlurStyle, TopButtonMaterialModifier, isSystemMaterialActive } from '../utils/immersiveMaterial';
 
 // 个人资料区只负责呈现与操作意图；页面决定跳转、分享和数据加载等领域行为。
+// 本组件当前唯一宿主是 Navigation 标题栏（首页/我的顶栏迁入方案）——
+// 因此三处按钮（编辑资料 / 草稿箱 / 废纸篓）直接挂系统材质（uiMaterial 沉浸光感，
+// 仅标题栏等官方生效区域会渲染；低版本设备门禁不通过时保留原玻璃/描边样式）。
 @Component
 export struct ProfileHeader {
   @Prop avatar: string = '';
@@ -28,6 +31,8 @@ export struct ProfileHeader {
   onOpenDrafts: () => void = (): void => {};
   onOpenTrash: () => void = (): void => {};
   onLogin: () => void = (): void => {};
+
+  private materialModifier: TopButtonMaterialModifier = new TopButtonMaterialModifier();
 
   build() {
     Column() {
@@ -69,11 +74,19 @@ export struct ProfileHeader {
             .width(76)
             .height(LayoutTokens.segmentedHeight)
             .textAlign(TextAlign.Center)
-            .backgroundBlurStyle(GlassBlurStyle.Press)
+            // 材质生效时撤掉自绘毛玻璃与阴影：背景模糊会遮挡材质（官方 FAQ），自绘阴影会与材质阴影叠加；
+            // 低版本（材质不生效）保留原玻璃底 + 阴影样式。
+            .backgroundBlurStyle(isSystemMaterialActive() ? BlurStyle.NONE : GlassBlurStyle.Press)
             .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : (this.isLoggedIn ? ColorTokens.barSurface : ColorTokens.brandTint))
             .border({ width: LayoutTokens.glassBorderWidth, color: this.isLoggedIn ? ColorTokens.barBorder : ColorTokens.brand, style: BorderStyle.Solid })
             .borderRadius(RadiusTokens.floatingBar)
-            .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
+            .shadow({
+              radius: isSystemMaterialActive() ? 0 : 12,
+              color: isSystemMaterialActive() ? Color.Transparent : ColorTokens.barShadow,
+              offsetY: isSystemMaterialActive() ? 0 : 4,
+            })
+            // 沉浸光感：标题栏内由系统材质接管表面（低版本自动跳过，保留上面的玻璃/描边样式）
+            .attributeModifier(this.materialModifier)
         }
       }
       .width('100%')
@@ -104,11 +117,19 @@ export struct ProfileHeader {
             .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
             .alignItems(VerticalAlign.Center)
             .justifyContent(FlexAlign.Center)
-            .backgroundBlurStyle(GlassBlurStyle.Press)
+            // 材质生效时撤掉自绘毛玻璃与阴影：背景模糊会遮挡材质（官方 FAQ），自绘阴影会与材质阴影叠加；
+            // 低版本（材质不生效）保留原玻璃底 + 阴影样式。
+            .backgroundBlurStyle(isSystemMaterialActive() ? BlurStyle.NONE : GlassBlurStyle.Press)
             .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
             .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
             .borderRadius(RadiusTokens.floatingBar)
-            .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
+            .shadow({
+              radius: isSystemMaterialActive() ? 0 : 12,
+              color: isSystemMaterialActive() ? Color.Transparent : ColorTokens.barShadow,
+              offsetY: isSystemMaterialActive() ? 0 : 4,
+            })
+            // 沉浸光感：标题栏内由系统材质接管表面（低版本自动跳过，保留上面的玻璃/描边样式）
+            .attributeModifier(this.materialModifier)
           }
         }
         .layoutWeight(1)
@@ -135,11 +156,19 @@ export struct ProfileHeader {
             .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
             .alignItems(VerticalAlign.Center)
             .justifyContent(FlexAlign.Center)
-            .backgroundBlurStyle(GlassBlurStyle.Press)
+            // 材质生效时撤掉自绘毛玻璃与阴影：背景模糊会遮挡材质（官方 FAQ），自绘阴影会与材质阴影叠加；
+            // 低版本（材质不生效）保留原玻璃底 + 阴影样式。
+            .backgroundBlurStyle(isSystemMaterialActive() ? BlurStyle.NONE : GlassBlurStyle.Press)
             .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
             .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
             .borderRadius(RadiusTokens.floatingBar)
-            .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
+            .shadow({
+              radius: isSystemMaterialActive() ? 0 : 12,
+              color: isSystemMaterialActive() ? Color.Transparent : ColorTokens.barShadow,
+              offsetY: isSystemMaterialActive() ? 0 : 4,
+            })
+            // 沉浸光感：标题栏内由系统材质接管表面（低版本自动跳过，保留上面的玻璃/描边样式）
+            .attributeModifier(this.materialModifier)
           }
         }
         .layoutWeight(1)

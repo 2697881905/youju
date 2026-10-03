@@ -44,7 +44,7 @@
             "name": "ohos.extension.backup",
             "resource": "$profile:backup_config"
           }
-        ],
+        ]
       }
     ],
     "metadata": [
@@ -64,32 +64,30 @@
         "name": "ohos.permission.INTERNET",
         "reason": "$string:permission_internet_reason",
         "usedScene": {
+          "when": "always",
           "abilities": [
             "EntryAbility"
-          ],
-          "when": "always"
+          ]
         }
       },
       {
         "name": "ohos.permission.DETECT_GESTURE",
         "reason": "$string:permission_gesture_reason",
         "usedScene": {
+          "when": "inuse",
           "abilities": [
             "EntryAbility"
-          ],
-          "when": "inuse"
+          ]
         }
       },
       {
-        // API12+ 后台读剪贴板（抖音式「复制打开有据」跳转链接）—— user_grant：
-        // 首次检测到剪贴板检查时机时由系统弹窗授权，拒绝则功能静默降级
         "name": "ohos.permission.READ_PASTEBOARD",
         "reason": "$string:permission_pasteboard_reason",
         "usedScene": {
+          "when": "inuse",
           "abilities": [
             "EntryAbility"
-          ],
-          "when": "inuse"
+          ]
         }
       }
     ]

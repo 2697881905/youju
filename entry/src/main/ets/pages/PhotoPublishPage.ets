@@ -46,7 +46,6 @@ struct PhotoPublishPage {
   @State tags: Tag[] = [];
   // 结构化区默认展开：它是产品核心特色，藏在折叠里等于没有（覆盖率的最大杀手）
   @State showFields: boolean = true;
-  @State showGenreMenu: boolean = false;
   @State showTagPanel: boolean = false;
   @State editingSavedDraftId: string = '';
   @State imagePickerRequest: number = 0;
@@ -250,7 +249,6 @@ struct PhotoPublishPage {
     this.images = [...draft.images];
     this.editingSavedDraftId = savedDraftId;
     this.showFields = true;
-    this.showGenreMenu = false;
     this.showTagPanel = false;
     this.closeMention();
     this.mentionRefs = draft.mentions !== undefined ? draft.mentions.map((m: MentionRef): MentionRef => ({
@@ -298,7 +296,6 @@ struct PhotoPublishPage {
     this.images = [];
     this.editingSavedDraftId = '';
     this.showFields = true;
-    this.showGenreMenu = false;
     this.showTagPanel = false;
     this.mentionRefs = [];
     this.closeMention();
@@ -316,7 +313,6 @@ struct PhotoPublishPage {
     this.genreIndex = index;
     this.genre = nextGenre;
     this.structuredDocument = filterStructuredDocumentForGenre(this.structuredDocument, nextGenre);
-    this.showGenreMenu = false;
   }
 
   @Builder
@@ -326,7 +322,6 @@ struct PhotoPublishPage {
         PublishGenreSection({
           genre: this.genre,
           genreIndex: this.genreIndex,
-          menuVisible: $showGenreMenu,
           onSelectGenre: (index: number): void => { this.selectGenre(index); },
           onOpenTags: (): void => { this.showTagPanel = true; },
         })

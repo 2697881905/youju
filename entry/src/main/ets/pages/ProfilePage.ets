@@ -5,21 +5,18 @@ import { listPosts, listMyBookmarks, listMyLikedPosts, listMyCommentedPosts, get
 import { PostCard } from '../components/PostCard';
 import { getCurrentUser } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
-import { openFollowList } from '../utils/nav';
 import { openPostDetailViaNav, postDetailCoverOf } from '../utils/longTake/openPostDetailNav';
 import { observeGridColumns, gridColumnTemplate } from '../utils/responsive';
 import { barBottomReserve } from '../utils/cardTokens';
 import { common } from '@kit.AbilityKit';
 import { likeStore } from '../utils/likeStore';
 import { postDeletionStore } from '../utils/postDeletionStore';
-import { resolveSettingsIcon } from '../utils/settingsIcons';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { buildProfileShareText, buildProfileShareUrl, copyToClipboard, EXTERNAL_SHARE_ENABLED, shareProfileToSystem } from '../utils/share';
 import { PostCollectionState } from '../components/PostCollectionState';
 import { EmptyState } from '../design/components/EmptyState';
 import { ProfileShareSheet } from '../components/ProfileShareSheet';
 import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
-import { ProfileHeader } from '../components/ProfileHeader';
 import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
@@ -28,7 +25,9 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 
-const PROFILE_SEGMENTS: SegmentedItem[] = [
+// 主分段：我发布 / 我收藏 / 我赞过 / 我评论（导出给 Index 的标题栏渲染；
+// 标题栏与本页 Swiper 通过 Index 持有的 @Link 共享选中态）。
+export const PROFILE_SEGMENTS: SegmentedItem[] = [
   { key: 'published', label: '我发布' },
   { key: 'bookmarks', label: '我收藏' },
   { key: 'liked', label: '我赞过' },
@@ -43,7 +42,9 @@ const BOOKMARK_SEGMENTS: SegmentedItem[] = [
 
 @Component
 export struct ProfilePage {
-  @State user: User = {};
+  // —— 顶栏（我的/分享/设置 + 资料区 + 主分段栏）迁入 Navigation 标题栏后，
+  // 以下状态由 Index 持有、这里 @Link 共用（标题栏渲染资料区与分段，列表据此联动）——
+  @Link user: User;
 
   // 订阅登录态资料字段：编辑资料页 setSession 会写回 authNickname/avatar/bio/gender，
   // 此处 @Watch 即时触发把最新值同步到 this.user，规避 TabContent 内 router.back 不触发
@@ -56,12 +57,15 @@ export struct ProfilePage {
   // 订阅登录账号：切换账号（如老张↔小美互测）时重拉「我的」资料/计数/帖子，
   // 否则 TabContent 内组件被保留，残留上一个账号的关注/粉丝数、帖子列表。
   @StorageLink('authUserId') @Watch('onUserChange') uid: string = '';
-  @State followingCount: number = 0;
-  @State followerCount: number = 0;
-  @State totalLikes: number = 0; // 获赞总数
-  @State tabIdx: number = 0; // 0 我发布, 1 我收藏, 2 我赞过, 3 我评论
+  @Link followingCount: number;
+  @Link followerCount: number;
+  @Link totalLikes: number; // 获赞总数
+  @Link @Watch('onTabIdxChanged') tabIdx: number; // 0 我发布, 1 我收藏, 2 我赞过, 3 我评论
   // 分段滑块跟手位置：Swiper 滚动（拖动/吸附）中喂入的连续索引；-1 = 未滚动
-  @State slidePosition: number = -1;
+  @Link slidePosition: number;
+  // 标题栏分享按钮 → 本页分享流程的信号：递增序号触发 @Watch，
+  // 分享弹层 / 文案 / 剪贴板逻辑仍全部留在本页（Index 只负责发起）。
+  @Link @Watch('onShareRequested') profileShareSeq: number;
   // 四个分段各自的列表缓存。分页要求每一页都能立刻拿到"自己的"内容：
   // 只保留当前分段的列表，会让相邻页在拖动过程中显示当前分段的数据。
   @State postsCache: Post[][] = [[], [], [], []];
@@ -76,7 +80,8 @@ export struct ProfilePage {
   @State isRefreshing: boolean = false;
   @State error: string = '';
   @State ready: boolean = false;
-  @State profilePresented: boolean = false;
+  // 资料区入场动效（资料区已在标题栏内渲染）：由本页在真正进入「我的」页时置位
+  @Link profilePresented: boolean;
   // 当前激活的底部 Tab（由 Index 经 AppStorage 广播），用于感知「我的」页是否可见，
   // 切到本页时重新拉取列表，使「我赞过/我收藏」在跨页点赞、取消收藏后即时刷新。
   @StorageLink('activeTab') @Watch('onActiveTab') activeTab: number = 0;
@@ -418,25 +423,9 @@ export struct ProfilePage {
     }
   }
 
-  // 跳关注/粉丝列表页
-  private goFollow(mode: string): void {
-    const uid: number = this.user.id ?? 0;
-    if (uid === 0) {
-      return;
-    }
-    openFollowList({ userId: uid, mode: mode === 'followers' ? 'followers' : 'following' });
-    this.getUIContext().getRouter().pushUrl({ url: 'pages/MyFollowPage' });
-  }
-
-  // 关注/粉丝数字块（头部：始终渲染，未登录也点得到）：
-  // **不能静默吞掉点击**（无提示、无跳转，用户以为界面坏了）—— 与其它需登录入口一致，
-  // 未登录就地引导登录。
-  private goFollowOrLogin(mode: string): void {
-    if (this.isLoggedIn()) {
-      this.goFollow(mode);
-      return;
-    }
-    this.getUIContext().getRouter().pushUrl({ url: 'pages/LoginPage' });
+  // 标题栏分享按钮触发（信号递增 → @Watch）：分享弹层/文案/系统分享仍全部在本页完成
+  onShareRequested(): void {
+    this.shareProfile();
   }
 
   private shareProfile(): void {
@@ -480,14 +469,9 @@ export struct ProfilePage {
     }
   }
 
-  onTabChange(idx: number): void {
-    // 分段栏点击与 Swiper 分页滑动共用这一个入口：两条路径最终都落到这里，
-    // 所以滑块移动与页面位移天然同步，不会一个先到一个后到。
-    // 注意 SegmentedControl 会先写入双向绑定的 tabIdx，再触发 onSelect，
-    // 因此不能把“索引相同”当作无需刷新，否则只会切换选中态而继续显示旧分段数据。
-    if (this.tabIdx !== idx) {
-      this.tabIdx = idx;
-    }
+  // 主分段变更（标题栏点击 / Swiper 滑动共用）：统一由 @Watch(tabIdx) 触发加载。
+  // 两条路径都只写 tabIdx（同值写入不触发 @Watch），刷新因此不会重复。
+  onTabIdxChanged(): void {
     this.refresh();
   }
 
@@ -778,28 +762,6 @@ export struct ProfilePage {
     })
   }
 
-  @Builder
-  profileHeader(onBackground: boolean): void {
-    ProfileHeader({
-      avatar: this.user.avatar ?? '',
-      name: this.isLoggedIn() ? (this.user.nickname ?? '有据用户') : '未登录',
-      gender: this.user.gender ?? 0,
-      bio: this.isLoggedIn() ? (this.user.bio ?? '') : '登录后查看与发布你的内容',
-      userId: this.user.id ?? 0,
-      isLoggedIn: this.isLoggedIn(),
-      followingCount: this.followingCount,
-      followerCount: this.followerCount,
-      totalLikes: this.totalLikes,
-      onBackground: onBackground,
-      onOpenFollowing: (): void => { this.goFollowOrLogin('following'); },
-      onOpenFollowers: (): void => { this.goFollowOrLogin('followers'); },
-      onEdit: (): void => { this.getUIContext().getRouter().pushUrl({ url: 'pages/EditProfilePage' }); },
-      onOpenDrafts: (): void => { this.getUIContext().getRouter().pushUrl({ url: 'pages/DraftBoxPage' }); },
-      onOpenTrash: (): void => { this.getUIContext().getRouter().pushUrl({ url: 'pages/TrashBoxPage' }); },
-      onLogin: (): void => { this.getUIContext().getRouter().pushUrl({ url: 'pages/LoginPage' }); },
-    })
-  }
-
   // 未登录时各分段的标题（登录引导用）：比一句通用文案更能说明「登录后能看到什么」
   private loginPromptTitle(seg: number): string {
     if (seg === 1 && this.bookmarkSubTab === 1) {
@@ -890,8 +852,9 @@ export struct ProfilePage {
             .padding({
               left: SpaceTokens.sm,
               right: SpaceTokens.sm,
-              // 主分段悬浮于顶部；「我收藏」额外悬浮子分段，内容需让出两层分段栏高度
-              top: LayoutTokens.segmentedHeight + SpaceTokens.md + (seg === 1 ? LayoutTokens.segmentedHeight + 2 * SpaceTokens.xs : 0),
+              // 主分段栏已迁入标题栏，内容区顶部不再需要为它让位；
+              // 「我收藏」子分段仍悬浮在内容区顶部，该分段需让出一层子分段栏高度。
+              top: SpaceTokens.md + (seg === 1 ? LayoutTokens.segmentedHeight + 2 * SpaceTokens.xs : 0),
               bottom: SpaceTokens.md,
             })
           }
@@ -917,103 +880,8 @@ export struct ProfilePage {
 
   build() {
     Column() {
-      // 顶栏
-      Row({ space: SpaceTokens.sm }) {
-        Text('我的')
-          .fontSize(TypeTokens.titleSerif.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.titleSerif.weight)
-          .lineHeight(TypeTokens.titleSerif.lineHeight)
-          .alignSelf(ItemAlign.Start)
-          .fontColor(ColorTokens.primary)
-        Blank()
-        if (EXTERNAL_SHARE_ENABLED) {
-          Pressable({
-            visualHeight: LayoutTokens.segmentedHeight,
-            touchTargetHeight: LayoutTokens.minTouchTarget,
-            action: (): void => { this.shareProfile(); },
-          }) {
-            Row() {
-              Image(resolveActionIcon('share'))
-                .width(IconTokens.small)
-                .height(IconTokens.small)
-                .fillColor(ColorTokens.icon)
-            }
-            .width(LayoutTokens.segmentedHeight)
-            .height(LayoutTokens.segmentedHeight)
-            .justifyContent(FlexAlign.Center)
-            .accessibilityText('分享主页')
-          }
-        }
-        Pressable({
-          visualHeight: LayoutTokens.segmentedHeight,
-          touchTargetHeight: LayoutTokens.minTouchTarget,
-          action: (): void => {
-            this.getUIContext().getRouter().pushUrl({ url: 'pages/SettingsPage' });
-          },
-        }) {
-          Row() {
-            Image(resolveSettingsIcon('gear'))
-              .width(IconTokens.small)
-              .height(IconTokens.small)
-              .fillColor(ColorTokens.icon)
-          }
-          .width(LayoutTokens.segmentedHeight)
-          .height(LayoutTokens.segmentedHeight)
-          .justifyContent(FlexAlign.Center)
-        }
-      }
-      .width('100%')
-      .padding({
-        left: SpaceTokens.sm,
-        right: SpaceTokens.sm,
-        top: SpaceTokens.xs,
-        bottom: SpaceTokens.xs,
-      })
-
-      // 有背景图时，资料内容叠加在 16:10 图片之上；没有时维持紧凑布局。
-      Column() {
-      if (this.user.profileBackground) {
-        Column() {
-          Stack() {
-            Image(resolveDisplayImageUrl(this.user.profileBackground))
-              .width('100%')
-              .height('100%')
-              .objectFit(ImageFit.Cover);
-            Column() {
-              this.profileHeader(true);
-            }
-            .width('100%')
-            .height('100%')
-            .justifyContent(FlexAlign.End)
-            .backgroundColor('#52000000');
-          }
-          .width('100%')
-          .aspectRatio(16 / 10)
-          .borderRadius(RadiusTokens.lg)
-          .clip(true);
-        }
-        .width('100%')
-        .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs, bottom: SpaceTokens.xs });
-      } else {
-        Column() {
-          this.profileHeader(false);
-        }
-        .width('100%');
-      }
-      }
-      .width('100%')
-      .opacity(this.profilePresented ? 1 : 0)
-      .translate({ y: this.profilePresented ? 0 : SpaceTokens.xl })
-      .scale({
-        x: this.profilePresented ? 1 : MotionTokens.enterScale,
-        y: this.profilePresented ? 1 : MotionTokens.enterScale,
-      })
-      .animation({
-        duration: MotionTokens.page,
-        curve: MotionCurves.emphasized,
-      })
-
-      // 列表区与分段栏共享同一滚动空间，帖子上滑时可进入分段栏下方。
+      // 顶栏（我的/分享/设置）+ 资料区 + 主分段栏已整体迁入 Navigation 标题栏
+      // （uiMaterial 沉浸光感的官方生效区域）；这里只剩列表本体 + 「我收藏」子分段浮层。
       Stack({ alignContent: Alignment.TopStart }) {
       // 四个分段做成真正的分页：内容跟手位移、松手按速度吸附，与消息页同一套系统实现。
       // 前提是每一页都能立刻拿到「自己的」内容 —— 列表已按分段各自缓存（postsCache）。
@@ -1029,7 +897,11 @@ export struct ProfilePage {
       .indicator(false)            // 进度点由分段栏承担
       .duration(MotionTokens.container)
       .curve(MotionCurves.springSoft)
-      .onChange((index: number): void => { this.onTabChange(index); })
+      .onChange((index: number): void => {
+        // Swiper 落页 → 只写 tabIdx（同值写入不触发 @Watch）；
+        // 信息源加载与滑块跟手分别由 @Watch(tabIdx) 与 slidePosition 承担。
+        this.tabIdx = index;
+      })
       // 拖动/吸附逐帧联动滑块（1:1 跟手，见 slidePosition 注释）
       .onContentDidScroll((selectedIndex: number, index: number, position: number, _mainAxisLength: number): void => {
         // 只取当前选中页的回报（selectedIndex 在整段滚动中恒定）：
@@ -1050,26 +922,8 @@ export struct ProfilePage {
       .width('100%')
       .height('100%')
 
-      SegmentedControl({
-        items: PROFILE_SEGMENTS,
-        selectedIndex: $tabIdx,
-        slidePosition: this.slidePosition,
-        itemWidth: 67,
-        // 沉浸光感（华为应用商店同款）：玻璃底 + backdropBlur + 高光边框 + 滑块悬浮投影
-        immersive: true,
-        onSelect: (idx: number): void => {
-          // 点击立即落整数位（弹性动画由 SharedSlide 整数分支承担）
-          this.slidePosition = idx;
-          this.onTabChange(idx);
-        },
-      })
-      .margin({
-        left: SpaceTokens.sm,        right: SpaceTokens.sm,
-        top: SpaceTokens.xs,
-      })
-      .zIndex(1)
-
-      // 「我收藏」子分段（帖子 | 收藏夹）：悬浮于主分段下方、恒常显示（列表为空也可见切换入口）
+      // 「我收藏」子分段（帖子 | 收藏夹）：悬浮于内容区顶部、恒常显示
+      // （主分段栏已迁入 Navigation 标题栏，这里不再需要为它让位）
       if (this.tabIdx === 1) {
         Column() {
           this.bookmarkSubSegment()
@@ -1080,12 +934,11 @@ export struct ProfilePage {
           right: SpaceTokens.sm,
           top: SpaceTokens.xs,
         })
-        .margin({ top: SpaceTokens.xs + LayoutTokens.segmentedHeight + SpaceTokens.xs })
         .zIndex(1)
       }
-      }
-      .layoutWeight(1)
-      .width('100%')
+    }
+    .layoutWeight(1)
+    .width('100%')
     }
     .width('100%').height('100%')
     .backgroundColor(ColorTokens.canvas)

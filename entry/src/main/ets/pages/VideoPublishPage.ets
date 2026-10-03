@@ -47,7 +47,6 @@ struct VideoPublishPage {
   @State tags: Tag[] = [];
   // 结构化区默认展开：它是产品核心特色，藏在折叠里等于没有（覆盖率的最大杀手）
   @State showFields: boolean = true;
-  @State showGenreMenu: boolean = false;
   @State showTagPanel: boolean = false;
   @State editingSavedDraftId: string = '';
   @StorageLink('authUserId') @Watch('onUserChange') uid: string = '';
@@ -251,7 +250,6 @@ struct VideoPublishPage {
     this.videoAspectRatio = draft.videoAspectRatio ?? FALLBACK_VIDEO_ASPECT_RATIO;
     this.editingSavedDraftId = savedDraftId;
     this.showFields = true;
-    this.showGenreMenu = false;
     this.showTagPanel = false;
     this.closeMention();
     this.mentionRefs = draft.mentions !== undefined ? draft.mentions.map((m: MentionRef): MentionRef => ({
@@ -298,7 +296,6 @@ struct VideoPublishPage {
     this.videoAspectRatio = FALLBACK_VIDEO_ASPECT_RATIO;
     this.editingSavedDraftId = '';
     this.showFields = true;
-    this.showGenreMenu = false;
     this.showTagPanel = false;
     this.mentionRefs = [];
     this.closeMention();
@@ -316,7 +313,6 @@ struct VideoPublishPage {
     this.genreIndex = index;
     this.genre = nextGenre;
     this.structuredDocument = filterStructuredDocumentForGenre(this.structuredDocument, nextGenre);
-    this.showGenreMenu = false;
   }
 
   @Builder
@@ -326,7 +322,6 @@ struct VideoPublishPage {
         PublishGenreSection({
           genre: this.genre,
           genreIndex: this.genreIndex,
-          menuVisible: $showGenreMenu,
           onSelectGenre: (index: number): void => { this.selectGenre(index); },
           onOpenTags: (): void => { this.showTagPanel = true; },
         })
