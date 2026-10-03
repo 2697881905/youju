@@ -30,26 +30,26 @@ export struct LoginView {
 
   build() {
     Stack() {
-      // ── 品牌氛围光晕：两道柔和径向渐变叠加在浅棕底色上，营造暖金视觉基调 ──
+      // ── 品牌氛围光晕：两道柔和径向渐变叠加在白色底色上，营造品牌蓝视觉基调（呼应图标蓝书）──
       Column()
         .width('100%')
         .height('100%')
         .backgroundColor($r('app.color.ds_canvas'))
-      // 右上方暖金光晕
+      // 右上方品牌蓝光晕
       Column()
         .width(300)
         .height(300)
         .borderRadius(150)
-        .backgroundColor($r('app.color.ds_warm'))
+        .backgroundColor($r('app.color.ds_brand'))
         .opacity(0.07)
         .position({ right: -80, top: -40 })
         .blur(80)
-      // 左下方暖金色光晕（与 logo 中橙色点缀呼应）
+      // 左下方品牌蓝光晕
       Column()
         .width(220)
         .height(220)
         .borderRadius(110)
-        .backgroundColor($r('app.color.ds_warm'))
+        .backgroundColor($r('app.color.ds_brand'))
         .opacity(0.04)
         .position({ left: -60, bottom: 120 })
         .blur(60)
