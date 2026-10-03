@@ -11,14 +11,16 @@ import { getToken } from './auth';
 const PUSH_DOMAIN: number = 0x0000;
 const PUSH_TAG: string = 'push';
 
-// 推送点击带来的路由意图（服务端 clickAction.data 透传）
+// 推送点击带来的路由意图（服务端 clickAction.data 透传）；
+// youju:// deep link（分享落地页拉起）解析后也复用同一结构走待处理路由通道。
 export interface PushRoute {
-  type: string; // 通知类型：comment / up / mention / bookmark / follow / system / dm
+  type: string; // 通知类型：comment / up / mention / bookmark / follow / system / dm；deep link：post / user
   postId: number; // 关联帖子，0 = 无
   commentId: number; // 关联评论，0 = 无
   nid: number; // 通知记录 id
   peerId: number; // 私信：对方 userId，0 = 非私信
   peerName: string; // 私信：对方昵称（会话页靠 intent 渲染，只给 id 拿不到名字）
+  userId: number; // deep link：youju://user/{id} 打开他人主页，0 = 无
 }
 
 // 进程内去重：冷启动上报过一次后，登录成功回调不必重复打同一请求。
@@ -131,7 +133,36 @@ export function readPushRoute(want: Want | undefined): PushRoute | null {
     nid: toInt(source['nid']),
     peerId: toInt(source['peerId']),
     peerName: typeof source['peerName'] === 'string' ? source['peerName'] : '',
+    userId: 0, // 推送载荷不携带 userId，deep link 专属字段
   };
+}
+
+// ===== youju:// Deep Link 解析（分享落地页「去有据看看」按钮拉起）=====
+// 网页侧无法调用应用内的 openLink API，落地页按钮直接跳转 youju://post/{id} / youju://user/{id}，
+// 系统按 module.json5 的 skills（scheme: youju）把意图送进本应用（want.uri 携带原始链接）。
+// 解析结果复用推送的待处理路由通道（enqueuePushRoute/takePushRoute）——Index 的 @Watch
+// 消费逻辑零改动即可跳转，避免再造一套 AppStorage 信号。解析不出的链接一律返回 null 静默忽略。
+export function readDeepLinkRoute(want: Want | undefined): PushRoute | null {
+  const uri: string = want?.uri ?? '';
+  if (!uri.startsWith('youju://')) {
+    return null;
+  }
+  const path: string = uri.slice('youju://'.length).split('?')[0].replace(/\/+$/, '');
+  const segs: string[] = path.split('/').filter((s: string): boolean => s.length > 0);
+  if (segs.length !== 2) {
+    return null;
+  }
+  const id: number = parseInt(segs[1], 10);
+  if (isNaN(id) || id <= 0) {
+    return null;
+  }
+  if (segs[0] === 'post') {
+    return { type: 'post', postId: id, commentId: 0, nid: 0, peerId: 0, peerName: '', userId: 0 };
+  }
+  if (segs[0] === 'user') {
+    return { type: 'user', postId: 0, commentId: 0, nid: 0, peerId: 0, peerName: '', userId: id };
+  }
+  return null;
 }
 
 // 由 EntryAbility 调用：塞入待处理路由并递增 seq，用于触发 Index 的 @Watch 回调。

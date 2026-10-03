@@ -549,7 +549,14 @@ export struct DailyPostDeck {
     this.trackActiveExpose();
   }
 
+  // 完成态不实例化任何卡片：切分段回来自动重置时 activeIndex 已归零，若仍按扇位建卡，
+  // 扇形层（DECK_FAN_X 左移）会越出根 Stack 内容区、落进完成态覆盖层盖不住的左右
+  // 12vp 内边距环 → 屏幕左缘露出卡边（冷启动直接恢复完成态同理）。
+  // replay 先落 doneVisible=false 再复位 activeIndex，不受影响。
   private visiblePosts(): DailyPost[] {
+    if (this.doneVisible) {
+      return [];
+    }
     return this.posts.slice(this.activeIndex, this.activeIndex + DECK_VISIBLE);
   }
 

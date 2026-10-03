@@ -19,6 +19,7 @@ import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
+import { isSystemMaterialActive } from '../utils/immersiveMaterial';
 import { common } from '@kit.AbilityKit';
 
 const FEED_SEGMENTS: SegmentedItem[] = [
@@ -48,6 +49,9 @@ export struct CircleDetailView {
   @State gridColumns: number = 2;
   @State gridTemplate: string = '1fr 1fr';
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
+  // 标题栏（导航行 + 圈子信息行 + 最新/热门分段栏与加入圈子按钮）驻留 Navigation 标题栏 ——
+  // uiMaterial 沉浸光感的官方生效区域；栏高由内容实测回写（首帧用估算兜底）。
+  @State titleBarContentHeight: number = 0;
   private listVersion: number = 0;
   private unregisterColumns: () => void = () => {};
 
@@ -210,18 +214,24 @@ export struct CircleDetailView {
     this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
   }
 
-  @Builder
-  refreshBuilder(): void {
-    Row({ space: SpaceTokens.inline }) {
-      LoadingProgress().width(IconTokens.compact).height(IconTokens.compact)
-      Text('刷新中…')
-        .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-        .fontWeight(TypeTokens.caption.weight)
-        .fontColor(ColorTokens.secondary)
-    }
+  // 标题栏首帧估算：与 Builder 三行的内边距/控件高度同源（实测回写后不再使用）
+  private circleTitleBarEstimate(): number {
+    const navRow: number = SpaceTokens.md + LayoutTokens.minTouchTarget + SpaceTokens.sm;
+    const infoRow: number = SpaceTokens.sm
+      + TypeTokens.display.lineHeight + SpaceTokens.inlineTight + TypeTokens.callout.lineHeight
+      + SpaceTokens.item;
+    const segRow: number = LayoutTokens.minTouchTarget + SpaceTokens.sm;
+    return this.statusBarHeight + navRow + infoRow + segRow;
   }
 
-  build() {
+  private circleTitleBarHeight(): number {
+    return this.titleBarContentHeight > 0 ? this.titleBarContentHeight : this.circleTitleBarEstimate();
+  }
+
+  // 标题栏：原页头整体驻留于此（导航行 + 圈子信息行 + 最新/热门分段栏与加入圈子按钮）。
+  // 全屏沉浸式布局下标题栏不代为避让状态栏：由本 Builder 手动下移（与首页/搜索页标题栏同一写法）。
+  @Builder
+  circleTitleBar(): void {
     Column() {
       Row() {
         BackButton({ action: (): void => { this.backAction(); } })
@@ -272,91 +282,129 @@ export struct CircleDetailView {
           selectedIndex: $sortIndex,
           itemWidth: 64,
           fillWidth: false,
-          // 沉浸光感（华为应用商店同款）：玻璃底 + backdropBlur + 高光边框 + 滑块悬浮投影
-          immersive: true,
+          // 与首页/我的页标题栏同配置：材质生效时用描边底（透明，让系统材质完整透出）；
+          // 低版本保留原「华为应用商店同款」沉浸玻璃 —— 它的 backdropBlur 会遮挡材质，二者互斥。
+          immersive: !isSystemMaterialActive(),
+          outlined: isSystemMaterialActive(),
+          glowEnabled: false,
+          // 沉浸光感：驻留标题栏，由系统材质接管整栏表面
+          useSystemMaterial: true,
           onSelect: (index: number): void => { this.switchSort(index); },
         })
         Blank()
+        // 加入/退出圈子：驻留标题栏，由系统材质接管按钮表面（低版本回退原描边样式）
         DesignButton({
           label: this.joined ? '退出圈子' : '加入圈子',
           variant: 'outlined',
           disabled: this.joining,
+          useSystemMaterial: true,
           action: (): void => { this.toggleJoin(); },
         })
       }
       .width('100%')
       .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, bottom: SpaceTokens.sm })
       .alignItems(VerticalAlign.Center)
-
-      if (this.posts.length === 0 && this.loading) {
-        Column({ space: SpaceTokens.item }) {
-          LoadingProgress().width(IconTokens.empty).height(IconTokens.empty)
-          Text('正在加载帖子')
-            .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-            .fontWeight(TypeTokens.callout.weight)
-            .fontColor(ColorTokens.secondary)
-        }
-        .layoutWeight(1)
-        .width('100%')
-        .justifyContent(FlexAlign.Center)
-      } else if (this.posts.length === 0) {
-        Column() {
-          EmptyState({
-            title: this.error ? '加载失败' : '这个圈子还没有帖子',
-            message: this.error ? this.error : '第一篇相关内容发布后会显示在这里',
-            actionLabel: this.error ? '重试' : '',
-            onAction: (): void => { this.refresh(); },
-          })
-        }
-        .layoutWeight(1)
-        .width('100%')
-        .justifyContent(FlexAlign.Center)
-      } else {
-        Refresh({ refreshing: this.refreshing, builder: this.refreshBuilder }) {
-          Grid() {
-            ForEach(this.posts, (post: Post, index: number) => {
-              GridItem() {
-                Reveal({ index: index % 5 }) {
-                  PostCard({ post: post, compact: true, onOpen: (): void => { this.openPost(post); } })
-                }
-              }
-            }, (post: Post) => this.circleName + '-' + (post.id?.toString() ?? ''))
-            if (this.finished) {
-              GridItem() {
-                Text('没有更多了')
-                  .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-                  .fontWeight(TypeTokens.caption.weight)
-                  .fontColor(ColorTokens.tertiary)
-                  .width('100%')
-                  .textAlign(TextAlign.Center)
-                  .padding(SpaceTokens.base)
-              }
-              .columnStart(0)
-              .columnEnd(this.gridColumns - 1)
-            }
-          }
-          .columnsTemplate(this.gridTemplate)
-          .columnsGap(GRID_GAP)
-          .rowsGap(GRID_GAP)
-          .padding({ left: GRID_PADDING, right: GRID_PADDING, top: GRID_PADDING, bottom: GRID_PADDING })
-          .onScrollIndex((_start: number, end: number) => {
-            if (end >= this.posts.length - 1) {
-              this.loadMore();
-            }
-          })
-        }
-        .onRefreshing(() => {
-          this.refreshing = true;
-          this.refresh().finally(() => { this.refreshing = false; });
-        })
-        .layoutWeight(1)
-        .width('100%')
-      }
     }
     .width('100%')
-    .height('100%')
+    // 手动避让状态栏（含在栏高内），实测高度供 .title({ height }) 使用
     .padding({ top: this.statusBarHeight })
-    .backgroundColor(ColorTokens.canvas)
-    .alignItems(HorizontalAlign.Start)
+    .onAreaChange((_old: Area, area: Area): void => {
+      const h: number = parseFloat(String(area.height));
+      if (h > 0 && Math.abs(h - this.titleBarContentHeight) > 0.5) {
+        this.titleBarContentHeight = h;
+      }
+    })
+  }
+
+  @Builder
+  refreshBuilder(): void {
+    Row({ space: SpaceTokens.inline }) {
+      LoadingProgress().width(IconTokens.compact).height(IconTokens.compact)
+      Text('刷新中…')
+        .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+        .fontWeight(TypeTokens.caption.weight)
+        .fontColor(ColorTokens.secondary)
+    }
+  }
+
+  build() {
+    Navigation() {
+      Column() {
+        if (this.posts.length === 0 && this.loading) {
+          Column({ space: SpaceTokens.item }) {
+            LoadingProgress().width(IconTokens.empty).height(IconTokens.empty)
+            Text('正在加载帖子')
+              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+              .fontWeight(TypeTokens.callout.weight)
+              .fontColor(ColorTokens.secondary)
+          }
+          .layoutWeight(1)
+          .width('100%')
+          .justifyContent(FlexAlign.Center)
+        } else if (this.posts.length === 0) {
+          Column() {
+            EmptyState({
+              title: this.error ? '加载失败' : '这个圈子还没有帖子',
+              message: this.error ? this.error : '第一篇相关内容发布后会显示在这里',
+              actionLabel: this.error ? '重试' : '',
+              onAction: (): void => { this.refresh(); },
+            })
+          }
+          .layoutWeight(1)
+          .width('100%')
+          .justifyContent(FlexAlign.Center)
+        } else {
+          Refresh({ refreshing: this.refreshing, builder: this.refreshBuilder }) {
+            Grid() {
+              ForEach(this.posts, (post: Post, index: number) => {
+                GridItem() {
+                  Reveal({ index: index % 5 }) {
+                    PostCard({ post: post, compact: true, onOpen: (): void => { this.openPost(post); } })
+                  }
+                }
+              }, (post: Post) => this.circleName + '-' + (post.id?.toString() ?? ''))
+              if (this.finished) {
+                GridItem() {
+                  Text('没有更多了')
+                    .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+                    .fontWeight(TypeTokens.caption.weight)
+                    .fontColor(ColorTokens.tertiary)
+                    .width('100%')
+                    .textAlign(TextAlign.Center)
+                    .padding(SpaceTokens.base)
+                }
+                .columnStart(0)
+                .columnEnd(this.gridColumns - 1)
+              }
+            }
+            .columnsTemplate(this.gridTemplate)
+            .columnsGap(GRID_GAP)
+            .rowsGap(GRID_GAP)
+            .padding({ left: GRID_PADDING, right: GRID_PADDING, top: GRID_PADDING, bottom: GRID_PADDING })
+            .onScrollIndex((_start: number, end: number) => {
+              if (end >= this.posts.length - 1) {
+                this.loadMore();
+              }
+            })
+          }
+          .onRefreshing(() => {
+            this.refreshing = true;
+            this.refresh().finally(() => { this.refreshing = false; });
+          })
+          .layoutWeight(1)
+          .width('100%')
+        }
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor(ColorTokens.canvas)
+      .alignItems(HorizontalAlign.Start)
+    }
+    .title({
+      builder: this.circleTitleBar,
+      height: this.circleTitleBarHeight(),
+    }, { barStyle: BarStyle.STANDARD, backgroundColor: ColorTokens.canvas })
+    .width('100%')
+    .height('100%')
   }
 }

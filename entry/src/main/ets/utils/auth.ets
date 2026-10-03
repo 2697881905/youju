@@ -7,6 +7,7 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { getSharedUiContext } from './navigationTransition';
 import { BUILD_MODE_NAME } from './buildMode';
 import { asset } from '@kit.AssetStoreKit';
+import { saveSessionSnapshot } from './sessionStore';
 // BUILD_MODE_NAME 由构建期生成，类型为字面量（'debug'/'release'）。
 // 严格模式（assembleHap）下与字面量比较会触发 "no overlap" 报错，转成 string 再比较。
 const BUILD_MODE: string = BUILD_MODE_NAME;
@@ -15,21 +16,15 @@ const BUILD_MODE: string = BUILD_MODE_NAME;
 // 前端弹窗"同意"时上报此版本，后端据其对齐并判断是否需要重新征求。
 export const PRIVACY_POLICY_VERSION: string = '1.1.0';
 
-// 进程级持久化（基于 Preferences，重启/重进页面不丢）。必须在任何 AppStorage 读写前注册一次。
-// 注意：authToken 走硬件加密 Asset Store（见文件末尾 saveTokenToAsset），但**同时双写 Preferences**
-// 作为重装兜底——HarmonyOS 覆盖安装会清空部分安全存储（Asset Store），只留 Preferences 时
-// 会导致「每次装新包都要重新登录」。Preferences 兜底可在 Asset Store 恢复失败时还原会话。
-PersistentStorage.persistProp('authToken', '');
-PersistentStorage.persistProp('authUserId', '');
-PersistentStorage.persistProp('authNickname', '');
-PersistentStorage.persistProp('authAvatar', '');
-PersistentStorage.persistProp('authProfileBackground', '');
-PersistentStorage.persistProp('authBio', '');        // 个人简介（编辑资料回写，避免再进需重填）
-PersistentStorage.persistProp('authGender', 0);      // 性别：0=保密/未设 1=男 2=女
-PersistentStorage.persistProp('authIsAdmin', false); // 管理员标识（后端 env.adminUserIds 计算，登录时落地）
+// 登录态持久化已迁出 PersistentStorage → utils/sessionStore.ets（dataPreferences 独立文件）。
+// 真机实测（2026-10）：覆盖安装（hdc install -r / DevEco Run）后的冷启动，PersistentStorage
+// 读不回旧文件（AppStorage 全回默认值），用户一旦写入（如重同意隐私弹窗）就把默认值整份刷回
+// 磁盘，token/用户信息被清空 → 「覆盖安装后账号必掉」。会话键改为普通 AppStorage 键，
+// 由 sessionStore 在 EntryAbility.onCreate 最早水合、在 setSession/clearSession 显式落盘。
+// 这里仅保留非关键 UI 态（未读红点/圈子引导标记）继续走 PersistentStorage——它们即使被
+// 重置也只影响红点/引导弹窗，重新拉取即可。
 PersistentStorage.persistProp('unreadMessageCount', 0); // 消息 Tab 未读红点
 PersistentStorage.persistProp('unreadDmCount', 0); // 私信未读红点（与通知红点合并显示）
-PersistentStorage.persistProp('privacyAgreed', '0'); // 首启隐私协议同意标记（'1'=已同意）
 PersistentStorage.persistProp('circleOnboardingPendingUserId', '');
 
 export function getToken(): string {
@@ -69,7 +64,10 @@ export function setSession(token: string, user: User): void {
   AppStorage.setOrCreate('authBio', user.bio ?? '');
   AppStorage.setOrCreate('authGender', user.gender ?? 0);
   AppStorage.setOrCreate('authIsAdmin', user.isAdmin ? true : false);
-  // token 落地到硬件加密 Asset Store（替代明文 Preferences），防沙箱/备份提取
+  // 会话整份落盘（dataPreferences，flushSync 即时写盘）：登录后立刻杀进程也不丢。
+  saveSessionSnapshot();
+  // token 另存硬件加密 Asset Store（安全加固，防沙箱/备份提取明文）。
+  // 异步执行：Asset 同步 API 曾在启动路径挂死（覆盖安装后首启黑屏），登录路径也不再阻塞 UI。
   saveTokenToAsset(token);
 }
 
@@ -95,7 +93,15 @@ export function clearSession(): void {
   // 上一账号的未读数（隐私观感问题，审核会实际点）。
   AppStorage.setOrCreate('unreadMessageCount', 0);
   AppStorage.setOrCreate('unreadDmCount', 0);
+  // 快照落盘：token/用户字段清空，privacyAgreed 保留（登出不撤销隐私同意）。
+  saveSessionSnapshot();
   clearTokenFromAsset();
+}
+
+// 会话字段的非登录入口变更（如 CircleTab 拉到头像后回写 authAvatar）也要落盘，
+// 否则冷启动恢复的是旧值。统一走快照，调用方在 AppStorage 写完后调用即可。
+export function persistSessionSnapshot(): void {
+  saveSessionSnapshot();
 }
 
 // 确保登录态：有登录态直接返回当前用户；无登录态则跳到 LoginPage 由用户显式登录，并返回 null。
@@ -148,45 +154,12 @@ export async function loginWithDevStub2(): Promise<LoginResult> {
 }
 
 // 幂等兜底：确保在 AppStorage 读写前已注册持久化（Index aboutToAppear 调用一次）。
+// 仅覆盖仍走 PersistentStorage 的非关键 UI 态；登录态的水合在 EntryAbility.onCreate
+// 由 sessionStore.initSessionStore 完成（早于本调用），此处不再触碰会话键。
 export function initAuthStorage(): void {
-  // 注意：authToken 双写（Asset Store + Preferences），此处注册让 Preferences 兜底落地
-  PersistentStorage.persistProp('authToken', '');
-  PersistentStorage.persistProp('authUserId', '');
-  PersistentStorage.persistProp('authNickname', '');
-  PersistentStorage.persistProp('authAvatar', '');
-  PersistentStorage.persistProp('authProfileBackground', '');
-  PersistentStorage.persistProp('authBio', '');
-  PersistentStorage.persistProp('authGender', 0);
-  PersistentStorage.persistProp('authIsAdmin', false);
   PersistentStorage.persistProp('unreadMessageCount', 0);
   PersistentStorage.persistProp('unreadDmCount', 0);
-  PersistentStorage.persistProp('privacyAgreed', '0');
   PersistentStorage.persistProp('circleOnboardingPendingUserId', '');
-  // 冷启动恢复登录态：Asset Store 优先，Preferences 兜底（重装后 Asset 可能被清）。
-  // 双写保证覆盖安装/进程重启后不丢会话，免除"每次部署都要重新登录"。
-  const restoredToken: string = loadTokenFromAsset() || ((AppStorage.get<string>('authToken') ?? '') as string);
-  const uid: string = (AppStorage.get<string>('authUserId') ?? '') as string;
-  if (restoredToken && uid !== '') {
-    // 完整会话：token + userId 配套
-    AppStorage.setOrCreate('authToken', restoredToken);
-    // 若本次实为 Preferences 兜底恢复（Asset 丢失），回写 Asset Store 恢复双写一致
-    saveTokenToAsset(restoredToken);
-  } else if (restoredToken && uid === '') {
-    // 幽灵会话：token 在但 userId 缺失（如应用数据被清后 token 幸存）→ 整体丢弃，保持游客态
-    AppStorage.setOrCreate('authToken', '');
-    clearTokenFromAsset();
-  } else if (!restoredToken && uid !== '') {
-    // 会话断裂：userId 残留但 token 恢复失败（重装后 Asset/Preferences 均清空）→ 清理残留用户态，
-    // 避免"未登录却显示个性化内容"的半登录态
-    AppStorage.setOrCreate('authToken', '');
-    AppStorage.setOrCreate('authUserId', '');
-    AppStorage.setOrCreate('authNickname', '');
-    AppStorage.setOrCreate('authAvatar', '');
-    AppStorage.setOrCreate('authProfileBackground', '');
-    AppStorage.setOrCreate('authBio', '');
-    AppStorage.setOrCreate('authGender', 0);
-    AppStorage.setOrCreate('authIsAdmin', false);
-  }
 }
 
 // 首启隐私协议：是否已同意（'1'=已同意）。未同意则 Index 弹窗拦截。
@@ -194,12 +167,18 @@ export function isPrivacyAgreed(): boolean {
   return (AppStorage.get<string>('privacyAgreed') ?? '0') === '1';
 }
 
-// 首启隐私协议：标记为已同意并持久化（PersistentStorage 自动落盘）。
+// 首启隐私协议：标记为已同意并持久化（随会话快照一并落盘，重装后不重弹）。
 export function setPrivacyAgreed(): void {
   AppStorage.setOrCreate('privacyAgreed', '1');
+  saveSessionSnapshot();
 }
 
-// ===== Token 硬件加密持久化（F-004，替代明文 Preferences）=====
+// ===== Token 硬件加密副本（F-004 安全加固）=====
+// 定位变化：启动恢复已改走 sessionStore（dataPreferences，覆盖安装后仍可靠），Asset Store
+// 在覆盖安装时会被系统清空、且只存 token 无 userId（单 token 无法成会话），故不再参与冷启动
+// 恢复。保留写入作为安全加固副本：沙箱文件被提取时拿不到明文 token。
+// 全部异步执行：Asset 同步 API（querySync/addSync）曾在覆盖安装后的启动路径挂死（黑屏），
+// 登录/登出路径同样不让 UI 等它。
 // JWT 为 ASCII 文本，用 charCode 做 Uint8Array 互转即可，避免引入额外编码依赖。
 const TOKEN_ALIAS: string = 'youju_auth_token';
 
@@ -211,17 +190,9 @@ function tokenToBytes(s: string): Uint8Array {
   return arr;
 }
 
-function bytesToToken(u: Uint8Array): string {
-  let s: string = '';
-  for (let i = 0; i < u.length; i++) {
-    s += String.fromCharCode(u[i]);
-  }
-  return s;
-}
-
 // 写入 Asset Store：先删后增，保证重复写入（如刷新 token）幂等。
-// 设备未解锁 / 模拟器不支持时退化为仅内存态，不阻断登录。
-function saveTokenToAsset(token: string): void {
+// 设备未解锁 / 模拟器不支持时静默失败，不阻断登录。
+async function saveTokenToAsset(token: string): Promise<void> {
   if (!token) {
     return;
   }
@@ -229,7 +200,7 @@ function saveTokenToAsset(token: string): void {
     const delQuery: asset.AssetMap = new Map();
     delQuery.set(asset.Tag.ALIAS, tokenToBytes(TOKEN_ALIAS));
     try {
-      asset.removeSync(delQuery);
+      await asset.remove(delQuery);
     } catch (e) {
       // alias 尚未存在时 remove 抛错，忽略
     }
@@ -238,37 +209,17 @@ function saveTokenToAsset(token: string): void {
     attrs.set(asset.Tag.SECRET, tokenToBytes(token));
     attrs.set(asset.Tag.ACCESSIBILITY, asset.Accessibility.DEVICE_UNLOCKED);
     attrs.set(asset.Tag.IS_PERSISTENT, true);
-    asset.addSync(attrs);
+    await asset.add(attrs);
   } catch (e) {
     console.error('[auth] saveTokenToAsset failed:', e);
   }
 }
 
-// 从 Asset Store 读取 token（冷启动恢复），失败或无记录时返回空串。
-function loadTokenFromAsset(): string {
+async function clearTokenFromAsset(): Promise<void> {
   try {
     const query: asset.AssetMap = new Map();
     query.set(asset.Tag.ALIAS, tokenToBytes(TOKEN_ALIAS));
-    // 默认查询只保证返回属性；恢复会话需要显式请求包含 SECRET 的完整结果。
-    query.set(asset.Tag.RETURN_TYPE, asset.ReturnType.ALL);
-    const res: asset.AssetMap[] = asset.querySync(query);
-    if (res.length > 0) {
-      const secret: Object | undefined = res[0].get(asset.Tag.SECRET);
-      if (secret instanceof Uint8Array) {
-        return bytesToToken(secret);
-      }
-    }
-  } catch (e) {
-    console.error('[auth] loadTokenFromAsset failed:', e);
-  }
-  return '';
-}
-
-function clearTokenFromAsset(): void {
-  try {
-    const query: asset.AssetMap = new Map();
-    query.set(asset.Tag.ALIAS, tokenToBytes(TOKEN_ALIAS));
-    asset.removeSync(query);
+    await asset.remove(query);
   } catch (e) {
     // 已不存在时忽略
   }

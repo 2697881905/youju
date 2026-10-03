@@ -3,8 +3,9 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 import settings from '@ohos.settings';
 import { initNavModeWatcher, refreshNavMode, refreshBottomNavInset } from '../utils/navMode';
+import { initSessionStore } from '../utils/sessionStore';
 import { initThemeContext, loadThemeFromPrefs, applyLaunchTheme, applySystemFollowMode, isDarkMode } from '../utils/theme';
-import { enqueuePushRoute, readPushRoute } from '../utils/push';
+import { enqueuePushRoute, readPushRoute, readDeepLinkRoute } from '../utils/push';
 
 const DOMAIN = 0x0000;
 
@@ -12,6 +13,10 @@ export default class EntryAbility extends UIAbility {
   // 主窗口引用：主题切换时重设导航条/状态栏背景
   private winStage: window.WindowStage | null = null;
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
+    // 登录态水合必须最先执行：早于任何页面/模块的 AppStorage 读取。
+    // PersistentStorage 在覆盖安装后的冷启动读不回旧文件（详见 utils/sessionStore.ets 头注释），
+    // 会话改由 dataPreferences 独立文件恢复；此处传双上下文（应用级存会话，ability 级定位旧文件迁移）。
+    initSessionStore(this.context.getApplicationContext(), this.context);
     initThemeContext(this.context.getApplicationContext());
     loadThemeFromPrefs();
     const sysDark: boolean = Number(this.context.config.colorMode) === ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
@@ -31,13 +36,19 @@ export default class EntryAbility extends UIAbility {
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onNewWant');
   }
 
-  // 取出的推送意图写入 AppStorage 并递增序号。非推送来源（普通冷启动）时 readPushRoute 返回 null。
+  // 取出的推送意图写入 AppStorage 并递增序号。非推送来源（普通冷启动）时 readPushRoute 返回 null，
+  // 再试 youju:// deep link（分享落地页「去有据看看」按钮拉起）——两者共用待处理路由通道，
+  // Index 侧消费逻辑不变（冷启动由 startInit 补消费，热启动由 Index 的 @Watch 实时消费）。
   private consumePushWant(want: Want): void {
     const route = readPushRoute(want);
-    if (route === null) {
+    if (route !== null) {
+      enqueuePushRoute(route);
       return;
     }
-    enqueuePushRoute(route);
+    const link = readDeepLinkRoute(want);
+    if (link !== null) {
+      enqueuePushRoute(link);
+    }
   }
 
   onConfigurationUpdate(newConfig: Configuration): void {

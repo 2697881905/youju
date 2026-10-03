@@ -4,7 +4,7 @@
 import { Tag } from '../models/types';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { listTags, listFollowedTags, getUserProfile } from '../services/api';
-import { getToken, getUserId, getCurrentUser } from '../utils/auth';
+import { getToken, getUserId, getCurrentUser, persistSessionSnapshot } from '../utils/auth';
 import { likeStore } from '../utils/likeStore';
 import { barBottomReserve } from '../utils/cardTokens';
 import { CountRoll } from '../design/motion/CountRoll';
@@ -224,6 +224,8 @@ export struct CircleTab {
       this.selfAvatar = avatar;
       if (avatar.length > 0 && this.authAvatar.length === 0) {
         AppStorage.setOrCreate<string>('authAvatar', avatar);
+        // authAvatar 已不在 PersistentStorage（会话键走 sessionStore 落盘），回写后需显式快照
+        persistSessionSnapshot();
       }
     } catch (e) {
       this.selfAvatar = this.authAvatar;

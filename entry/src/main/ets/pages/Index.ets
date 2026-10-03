@@ -33,7 +33,7 @@ import { common } from '@kit.AbilityKit';
 import { window, display } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { publishFlowStore } from '../utils/publishFlowStore';
-import { AppTab, subscribeTabSwitch, emitTabSwitch, openPostDetail, openPostDetailAtComment, openChat, openFollowList } from '../utils/nav';
+import { AppTab, subscribeTabSwitch, emitTabSwitch, openPostDetail, openPostDetailAtComment, openChat, openFollowList, openUserProfile } from '../utils/nav';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { takePushRoute, syncPushToken, requestNotificationPermission } from '../utils/push';
 import { readClipboardPostId, markClipboardIdHandled } from '../utils/clipboardJump';
@@ -455,6 +455,9 @@ struct Index {
     // 访客可浏览首页/圈子等公开内容；登录仅用于发布/私信/个人中心等需鉴权操作。
     // 未登录不再强制弹出登录页，避免“进首页即强制登录”的体验；登录态就绪时再补拉个人数据。
     if (getToken() === '') {
+      // 访客也可能经 youju:// 分享链接（落地页「去有据看看」按钮）或通知点击冷启动：
+      // 帖子/主页内容公开，路由意图的消费不依赖登录态——否则访客冷启动的直达意图会被静默丢掉
+      this.consumePendingPushRoute();
       return;
     }
     this.validateStartupSession();
@@ -488,6 +491,16 @@ struct Index {
         this.getUIContext().getRouter().pushUrl({ url: 'pages/ChatPage' });
       } catch (e) {
         hilog.warn(0x0000, 'push', '通知跳转私信页失败 %{public}s', JSON.stringify(e));
+      }
+      return;
+    }
+    if (route.userId > 0) {
+      // deep link youju://user/{id}（分享落地页拉起）：与站内点击头像同通道进他人主页
+      openUserProfile(route.userId);
+      try {
+        this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage' });
+      } catch (e) {
+        hilog.warn(0x0000, 'push', '链接拉起用户主页失败 %{public}s', JSON.stringify(e));
       }
       return;
     }

@@ -1,4 +1,4 @@
-// 分享卡片：离屏绘制一张竖版图文卡片（封面 + 标题 + 简介 + 作者 + 品牌 + 二维码），
+// 分享卡片：离屏绘制一张竖版图文卡片（大封面 70% + 标题 + 简介 + 左下角作者头像 + 品牌），
 // 返回 JPEG 字节，供 App 内预览与分享使用。
 // 注意：本文件不申请任何权限、不写系统相册；需要保存到相册请走 utils/mediaSave.ets 的免权限通道。
 //
@@ -8,36 +8,38 @@ import { drawing, common2D } from '@kit.ArkGraphics2D';
 import { image } from '@kit.ImageKit';
 import { common } from '@kit.AbilityKit';
 import { fileIo } from '@kit.CoreFileKit';
-import { http } from '@kit.NetworkKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import { buildPostShareUrl, downloadToSandbox } from './share';
-import { BASE_URL } from '../services/api';
-import { splitLines, makeColor, drawText } from './poster/posterText';
+import { downloadToSandbox } from './share';
+import { splitLines, makeColor, drawText, createPosterFont } from './poster/posterText';
 
 const TAG: string = 'shareCard';
 const LOG_DOMAIN: number = 0x0000;
 
 const CARD_WIDTH: number = 1080;
 const CARD_HEIGHT: number = 1440;
-const COVER_HEIGHT: number = 620;
+// 封面占卡 70%（840 → 1008）：大图为主；下方 432px 容纳标题(≤2行)+正文(≤2行)+底行
+const COVER_HEIGHT: number = 1008;
 const MAX_TITLE_LINES: number = 2;
-const MAX_BODY_LINES: number = 3;
+const MAX_BODY_LINES: number = 2;
 const TEXT_WIDTH: number = 920;
 const TEXT_LEFT: number = 72;
+// 底行头像规格：左下角圆形头像 + 作者名，右下角品牌
+const AVATAR_SIZE: number = 72;
+const AVATAR_MARGIN: number = 40;
 // 有据品牌色：纸感浅棕 #8A6548、深墨 #111827、灰 #6B7280（与 design/tokens 保持一致）
 const ACCENT: number[] = [138, 101, 72];
 const INK: number[] = [17, 24, 39];
 const GRAY: number[] = [107, 114, 128];
 
-// 下载封面并解码为 PixelMap；失败返回 null（卡片降级为无封面样式）。
-// 取用后立即删除临时封面文件（避免残留小文件干扰系统分享面板预览）。
-async function loadCoverPixelMap(context: common.UIAbilityContext, coverUrl: string): Promise<image.PixelMap | null> {
-  if (coverUrl.length === 0) {
+// 下载远程图（封面/头像共用）并解码为 PixelMap；失败返回 null（调用方各自降级）。
+// 取用后立即删除临时文件（避免残留小文件）。
+async function loadRemotePixelMap(context: common.UIAbilityContext, url: string): Promise<image.PixelMap | null> {
+  if (url.length === 0) {
     return null;
   }
   let tmpPath: string = '';
   try {
-    const uri: string = await downloadToSandbox(context, coverUrl);
+    const uri: string = await downloadToSandbox(context, url);
     tmpPath = uri.startsWith('file://') ? uri.slice('file://'.length) : uri;
     // 经文件描述符建源：createImageSource(uri) 在部分 SDK 会返回 undefined（见 utils/image.ets 同结论）
     const file: fileIo.File = fileIo.openSync(tmpPath, fileIo.OpenMode.READ_ONLY);
@@ -48,7 +50,7 @@ async function loadCoverPixelMap(context: common.UIAbilityContext, coverUrl: str
       fileIo.closeSync(file);
     }
   } catch (e) {
-    hilog.warn(LOG_DOMAIN, TAG, '封面加载失败，降级为无封面: %{public}s', String((e as Error).message ?? e));
+    hilog.warn(LOG_DOMAIN, TAG, '远程图加载失败: %{public}s', String((e as Error).message ?? e));
     return null;
   } finally {
     if (tmpPath.length > 0) {
@@ -112,41 +114,42 @@ function safeSplitLines(text: string, font: drawing.Font, maxWidth: number, maxL
   }
 }
 
-// 下载分享落地页二维码并**内存解码**为 PixelMap；失败返回 null（卡片降级无二维码）。
-// 不走文件落盘：createImageSource 读 2KB 小文件会触发 FileSourceStream
-// desiredSize(10000)>fileSize 异常；直接以 ArrayBuffer 建源即可绕开。
-async function loadQrPixelMap(postId: number): Promise<image.PixelMap | null> {
-  const client: http.HttpRequest = http.createHttp();
-  try {
-    const resp: http.HttpResponse = await client.request(
-      BASE_URL + '/v1/share/qr/post/' + String(postId),
-      {
-        method: http.RequestMethod.GET,
-        expectDataType: http.HttpDataType.ARRAY_BUFFER,
-        connectTimeout: 15000,
-        readTimeout: 15000,
-      },
-    );
-    if (resp.responseCode !== 200 || resp.result === undefined) {
-      throw new Error('二维码下载 HTTP ' + String(resp.responseCode));
-    }
-    const source: image.ImageSource = image.createImageSource(resp.result as ArrayBuffer);
-    return source.createPixelMapSync();
-  } catch (e) {
-    hilog.warn(LOG_DOMAIN, TAG, '二维码加载失败，降级为无码: %{public}s', String((e as Error).message ?? e));
-    return null;
-  } finally {
-    client.destroy();
+// 左下角作者头像：圆形裁切画头像；无头像/加载失败降级为品牌底 + 昵称首字（与站内一致）
+function drawAvatarBlock(canvas: drawing.Canvas, brush: drawing.Brush,
+  avatar: image.PixelMap | null, authorName: string): void {
+  const left: number = TEXT_LEFT;
+  const top: number = CARD_HEIGHT - AVATAR_MARGIN - AVATAR_SIZE;
+  canvas.save();
+  const bounds: common2D.Rect = { left: left, top: top, right: left + AVATAR_SIZE, bottom: top + AVATAR_SIZE };
+  canvas.clipRoundRect(new drawing.RoundRect(bounds, AVATAR_SIZE / 2, AVATAR_SIZE / 2));
+  if (avatar !== null) {
+    // 头像可能是任意比例：以短边居中裁方后画进圆形区域
+    const info: image.ImageInfo = avatar.getImageInfoSync();
+    const side: number = Math.min(info.size.width, info.size.height);
+    const sx: number = Math.floor((info.size.width - side) / 2);
+    const sy: number = Math.floor((info.size.height - side) / 2);
+    canvas.drawImageRectWithSrc(avatar,
+      { left: sx, top: sy, right: sx + side, bottom: sy + side }, bounds);
+  } else {
+    brush.setColor(makeColor(255, 243, 234, 216));
+    canvas.attachBrush(brush);
+    canvas.drawCircle(left + AVATAR_SIZE / 2, top + AVATAR_SIZE / 2, AVATAR_SIZE / 2);
+    const initial: string = (authorName.length > 0 ? authorName : '有据').slice(0, 1);
+    const font: drawing.Font = createPosterFont(34, 'hero');
+    const w: number = font.measureText(initial, drawing.TextEncoding.TEXT_ENCODING_UTF8);
+    drawText(canvas, brush, font, initial, left + (AVATAR_SIZE - w) / 2, top + AVATAR_SIZE / 2 + 12,
+      makeColor(255, ACCENT[0], ACCENT[1], ACCENT[2]));
   }
+  canvas.restore();
 }
 
 // 底层绘制：任一环节抛错都会带上 stage 前缀，日志能直接指出失败环节。
 async function createCardBytes(
   context: common.UIAbilityContext,
-  postId: number,
   title: string,
   content: string,
   authorName: string,
+  authorAvatarUrl: string,
   coverUrl: string,
 ): Promise<ArrayBuffer> {
   let stage: string = 'stage1:createPixelMap';
@@ -170,7 +173,7 @@ async function createCardBytes(
 
     // 顶部封面区（加载/裁切失败一律降级为品牌色块）
     stage = 'stage4:cover';
-    const cover: image.PixelMap | null = await loadCoverPixelMap(context, coverUrl);
+    const cover: image.PixelMap | null = await loadRemotePixelMap(context, coverUrl);
     try {
       drawCover(canvas, brush, cover);
     } catch (e) {
@@ -185,75 +188,57 @@ async function createCardBytes(
       }
     }
 
-    // 标题（最多 2 行，粗体深墨）
+    // 标题（最多 2 行，粗体深墨）：封面占 70% 后文字区收紧，字号行距相应缩小
     stage = 'stage5:title';
     const titleFont: drawing.Font = new drawing.Font();
-    titleFont.setSize(64);
+    titleFont.setSize(52);
     titleFont.enableEmbolden(true);
     const titleLines: string[] = safeSplitLines(title, titleFont, TEXT_WIDTH, MAX_TITLE_LINES);
-    const titleLineHeight: number = 64 + 18;
-    let cursorY: number = COVER_HEIGHT + 96 + titleLineHeight;
+    const titleLineHeight: number = 52 + 14;
+    let cursorY: number = COVER_HEIGHT + 44 + titleLineHeight;
     for (const line of titleLines) {
       drawText(canvas, brush, titleFont, line, TEXT_LEFT, cursorY, makeColor(255, INK[0], INK[1], INK[2]));
       cursorY += titleLineHeight;
     }
 
-    // 正文简介（最多 3 行，灰色）
+    // 正文简介（最多 2 行，灰色；超长由 splitLines 截断并在末行补 …）
     stage = 'stage6:body';
     const bodyFont: drawing.Font = new drawing.Font();
-    bodyFont.setSize(40);
+    bodyFont.setSize(32);
     const bodyLines: string[] = safeSplitLines(content, bodyFont, TEXT_WIDTH, MAX_BODY_LINES);
-    const bodyLineHeight: number = 40 + 20;
-    cursorY += 30;
+    const bodyLineHeight: number = 32 + 14;
+    cursorY += 18;
     for (const line of bodyLines) {
       drawText(canvas, brush, bodyFont, line, TEXT_LEFT, cursorY, makeColor(255, GRAY[0], GRAY[1], GRAY[2]));
       cursorY += bodyLineHeight;
     }
 
-    // 底部作者 + 品牌
+    // 底行：左下角圆形头像 + 作者名，右下角品牌（无头像/加载失败降级为首字圆标）
     stage = 'stage7:footer';
+    const avatar: image.PixelMap | null = await loadRemotePixelMap(context, authorAvatarUrl);
+    drawAvatarBlock(canvas, brush, avatar, authorName);
+    if (avatar !== null) {
+      try {
+        await avatar.release();
+      } catch (e) {
+        hilog.warn(LOG_DOMAIN, TAG, '头像 PixelMap 释放失败: %{public}s', String((e as Error).message ?? e));
+      }
+    }
     const authorFont: drawing.Font = new drawing.Font();
     authorFont.setSize(40);
     authorFont.enableEmbolden(true);
     const authorText: string = authorName.length > 0 ? authorName : '有据用户';
-    drawText(canvas, brush, authorFont, authorText, TEXT_LEFT, CARD_HEIGHT - 148,
+    drawText(canvas, brush, authorFont, authorText, TEXT_LEFT + AVATAR_SIZE + 22, CARD_HEIGHT - 62,
       makeColor(255, INK[0], INK[1], INK[2]));
     const brandFont: drawing.Font = new drawing.Font();
     brandFont.setSize(36);
     const brandText: string = '有据 · 真实经验，有据可循';
     const brandWidth: number = brandFont.measureText(brandText, drawing.TextEncoding.TEXT_ENCODING_UTF8);
-    drawText(canvas, brush, brandFont, brandText, CARD_WIDTH - TEXT_LEFT - brandWidth, CARD_HEIGHT - 148,
+    drawText(canvas, brush, brandFont, brandText, CARD_WIDTH - TEXT_LEFT - brandWidth, CARD_HEIGHT - 62,
       makeColor(255, ACCENT[0], ACCENT[1], ACCENT[2]));
 
-    // 底部链接
-    const linkFont: drawing.Font = new drawing.Font();
-    linkFont.setSize(32);
-    drawText(canvas, brush, linkFont, buildPostShareUrl(postId), TEXT_LEFT, CARD_HEIGHT - 84,
-      makeColor(255, GRAY[0], GRAY[1], GRAY[2]));
-
-    // 右下角二维码：扫一扫直达落地页（卡图 + 扫码 = 微信发图也能跳转）
-    stage = 'stage8:qr';
-    try {
-      const qr: image.PixelMap | null = await loadQrPixelMap(postId);
-      if (qr !== null) {
-        const qrInfo: image.ImageInfo = qr.getImageInfoSync();
-        const qrSize: number = 224;
-        const qrX: number = CARD_WIDTH - TEXT_LEFT - qrSize;
-        const qrY: number = CARD_HEIGHT - 328;
-        canvas.drawImageRectWithSrc(
-          qr,
-          { left: 0, top: 0, right: qrInfo.size.width, bottom: qrInfo.size.height },
-          { left: qrX, top: qrY, right: qrX + qrSize, bottom: qrY + qrSize },
-        );
-        await qr.release();
-      }
-    } catch (e) {
-      // 二维码绘制失败不影响整卡（降级为无码）
-      hilog.warn(LOG_DOMAIN, TAG, 'stage8:qr %{public}s', String((e as Error).message ?? e));
-    }
-
     // 编码：JPEG 失败回退 PNG（个别机型/格式组合下 JPEG 编码会失败，宁可图大也不失败）
-    stage = 'stage9:encode';
+    stage = 'stage8:encode';
     const packer: image.ImagePacker = image.createImagePacker();
     try {
       try {
@@ -283,16 +268,16 @@ async function createCardBytes(
 // 不触碰系统相册/分享弹窗（本设备系统扩展不可用，故分享走「预览+复制链接」路径）。
 export async function generateShareCardBytes(
   uiContext: UIContext,
-  postId: number,
   title: string,
   content: string,
   authorName: string,
+  authorAvatarUrl: string,
   coverUrl: string,
 ): Promise<ArrayBuffer> {
   const context: common.UIAbilityContext = uiContext.getHostContext() as common.UIAbilityContext;
-  hilog.info(LOG_DOMAIN, TAG, '开始生成卡片 postId=%{public}d 有封面=%{public}s', postId,
-    coverUrl.length > 0 ? 'yes' : 'no');
-  const bytes: ArrayBuffer = await createCardBytes(context, postId, title, content, authorName, coverUrl);
+  hilog.info(LOG_DOMAIN, TAG, '开始生成卡片 有头像=%{public}s 有封面=%{public}s',
+    authorAvatarUrl.length > 0 ? 'yes' : 'no', coverUrl.length > 0 ? 'yes' : 'no');
+  const bytes: ArrayBuffer = await createCardBytes(context, title, content, authorName, authorAvatarUrl, coverUrl);
   hilog.info(LOG_DOMAIN, TAG, '卡片编码完成 字节数=%{public}d', bytes.byteLength);
   return bytes;
 }
