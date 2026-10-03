@@ -50,7 +50,9 @@ function toAbsoluteImage(url: string | null | undefined): string {
   return base + '/v1/media/' + encodeURIComponent(u);
 }
 
-// 极简预览页模板（纯 inline，无外部资源）
+// 落地页模板（纯 inline，无外部资源）。视觉对齐 App 内分享卡图（utils/shareCard.ets）：
+// 白卡 + 大封面(15:14) + 标题/两行摘要 + 左下角头像作者行 + 右下角品牌，备案号收进卡内
+// （原 nginx sub_filter 注入的视口底部白条已随本次改造移除）。
 function renderPage(meta: {
   title: string;
   description: string;
@@ -59,13 +61,16 @@ function renderPage(meta: {
   bodyImage?: string;
   avatar?: string;
   author?: string;
-  badge?: string;
   deepLink?: string;
 }): string {
   // og:image 必须是被抓取方可匿名拉取的绝对地址；data URI 微信/微博不认，退回不输出标签
   const ogImage = /^https?:\/\//.test(meta.image) ? meta.image : '';
   const imageTag = ogImage ? `<meta property="og:image" content="${esc(ogImage)}">
     <meta name="twitter:image" content="${esc(ogImage)}">` : '';
+  // 封面缺省兜底与 App 卡图 drawCover 同款：品牌色块 + 白字「有据」
+  const coverBlock = meta.bodyImage
+    ? `<img class="cover" src="${esc(meta.bodyImage)}" alt="" referrerpolicy="no-referrer">`
+    : `<div class="cover cover-fallback"><span>有据</span></div>`;
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -83,33 +88,34 @@ ${imageTag}
 <meta name="robots" content="index,follow">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:-apple-system,'PingFang SC','Noto Sans SC',system-ui,sans-serif;background:#F4EFE6;color:#26221A;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-  .card{width:min(520px,100%);background:#FFFDF8;border:1px solid rgba(38,34,26,.08);border-radius:20px;overflow:hidden;box-shadow:0 12px 40px rgba(38,34,26,.08)}
-  .cover{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;background:#E8E2D6}
-  .body{padding:24px 26px 28px}
-  .badge{display:inline-block;font-size:12px;letter-spacing:.14em;color:#8A6D3B;background:#F3EAD8;padding:4px 12px;border-radius:99px;margin-bottom:14px}
-  h1{font-size:22px;line-height:1.4;font-weight:700;color:#26221A;margin-bottom:12px}
-  p.desc{font-size:15px;line-height:1.7;color:#6B6353}
-  .author{display:flex;align-items:center;gap:10px;margin-top:18px;padding-top:16px;border-top:1px solid rgba(38,34,26,.08)}
-  .avatar{width:34px;height:34px;border-radius:50%;object-fit:cover;background:#E8E2D6}
-  .author .name{font-size:14px;color:#26221A;font-weight:600}
-  .author .hint{font-size:12px;color:#8A8372}
-  .btn{display:block;margin-top:18px;text-align:center;background:#26221A;color:#F4EFE6;font-size:15px;font-weight:600;padding:13px 0;border-radius:12px;text-decoration:none}
-  .note{margin-top:12px;font-size:12px;color:#A39A88;text-align:center}
+  body{font-family:-apple-system,'PingFang SC','Noto Sans SC',system-ui,sans-serif;background:#FFFFFF;color:#111827;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .card{width:min(400px,100%);background:#FFFFFF;border:1px solid rgba(17,24,39,.08);border-radius:16px;overflow:hidden;box-shadow:0 16px 48px rgba(17,24,39,.12)}
+  .cover{width:100%;aspect-ratio:1080/1008;object-fit:cover;display:block;background:#F3F4F6}
+  .cover-fallback{display:flex;align-items:center;justify-content:center;background:#8A6548}
+  .cover-fallback span{font-size:44px;font-weight:700;color:#FFFFFF;font-family:'Noto Serif SC',Songti SC,serif}
+  .body{padding:20px 22px 18px}
+  h1{font-size:20px;line-height:1.4;font-weight:700;color:#111827;margin-bottom:10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  p.desc{font-size:14px;line-height:1.7;color:#6B7280;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .footer{display:flex;align-items:center;gap:10px;margin-top:16px}
+  .avatar{width:38px;height:38px;border-radius:50%;object-fit:cover;background:#F3F4F6;flex:none}
+  .author .name{font-size:14px;color:#111827;font-weight:600}
+  .brand{margin-left:auto;font-size:12px;color:#8A6548;white-space:nowrap}
+  .btn{display:block;margin-top:16px;text-align:center;background:#111827;color:#FFFFFF;font-size:15px;font-weight:600;padding:13px 0;border-radius:12px;text-decoration:none}
+  .icp{margin-top:14px;padding-top:12px;border-top:1px solid rgba(17,24,39,.06);font-size:11px;text-align:center}
+  .icp a{color:#9CA3AF;text-decoration:none}
 </style>
 </head>
 <body>
   <div class="card">
-    ${meta.bodyImage ? `<img class="cover" src="${esc(meta.bodyImage)}" alt="" referrerpolicy="no-referrer">` : ''}
+    ${coverBlock}
     <div class="body">
-      ${meta.badge ? `<span class="badge">${esc(meta.badge)}</span>` : ''}
       <h1>${esc(meta.title)}</h1>
       <p class="desc">${esc(meta.description)}</p>
-      ${meta.author ? `<div class="author"><img class="avatar" src="${esc(meta.avatar || '')}" alt="" referrerpolicy="no-referrer"><span><span class="name">${esc(meta.author)}</span><br><span class="hint">在「有据」分享</span></span></div>` : ''}
+      ${meta.author ? `<div class="footer"><img class="avatar" src="${esc(meta.avatar || '')}" alt="" referrerpolicy="no-referrer"><span class="author"><span class="name">${esc(meta.author)}</span></span><span class="brand">有据 · 真实经验，有据可循</span></div>` : `<div class="footer"><span class="brand">有据 · 真实经验，有据可循</span></div>`}
       <a class="btn" id="openAppBtn" href="https://youju.chat/">去「有据」看看</a>
+      <div class="icp"><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">陕ICP备2026014636号-3</a></div>
     </div>
   </div>
-  <div class="note" style="position:fixed;bottom:14px;left:0;right:0;text-align:center">有据 · 真实生活经验社区</div>
   <script>
   (function () {
     // 「去有据看看」按钮接入应用拉起（Deep Link）。两个实测结论（2026-10-03 真机）：
@@ -170,7 +176,6 @@ router.get('/post/:id', async (req: Request, res: Response) => {
       url: `${SHARE_HOST}/post/${id}`,
       bodyImage: image,
       avatar: toAbsoluteImage(post.user?.avatar),
-      badge: '有据 · 帖子分享',
       author: post.user?.nickname ?? '',
       deepLink: 'youju://post/' + id,
     })
@@ -203,7 +208,6 @@ router.get('/user/:id', async (req: Request, res: Response) => {
       url: `${SHARE_HOST}/user/${id}`,
       bodyImage: background,
       avatar,
-      badge: '有据 · 个人主页',
       author: nickname,
       deepLink: 'youju://user/' + id,
     })
