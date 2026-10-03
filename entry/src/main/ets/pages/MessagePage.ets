@@ -26,7 +26,7 @@ import { buildPageTransition } from '../utils/styles';
 import { notifIconRes, resolveActionIcon } from '../utils/actionIcons';
 import { EmptyState } from '../design/components/EmptyState';
 import { MessageRow } from '../design/components/MessageRow';
-import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
+import { SegmentedItem } from '../design/components/SegmentedControl';
 import { Pressable } from '../design/motion/Pressable';
 import { Reveal } from '../design/motion/Reveal';
 import { ColorTokens } from '../design/tokens/color';
@@ -36,13 +36,28 @@ import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { TypeTokens } from '../design/tokens/type';
 
-const MESSAGE_SEGMENTS: SegmentedItem[] = [
+// 消息分段：通知 | 私信（导出给 Index 的标题栏渲染；本页 Swiper 与之共享选中态）
+export const MESSAGE_SEGMENTS: SegmentedItem[] = [
   { key: 'notif', label: '通知' },
   { key: 'dm', label: '私信' },
 ];
 
+// 三类互动快捷筛选（内容区顶部，切换通知列表的过滤视图）
+interface MessageShortcut {
+  key: string;
+  label: string;
+  icon: string;
+}
+
+const MESSAGE_SHORTCUTS: MessageShortcut[] = [
+  { key: 'up_bookmark', label: '赞和收藏', icon: 'like' },
+  { key: 'follow', label: '新增关注', icon: 'follow' },
+  { key: 'comment', label: '评论', icon: 'comment' },
+];
+
 @Component
 export struct MessagePage {
+  // list 变化时无需额外同步：三类快捷筛选未读数在渲染时直接由 unreadCountOf() 计算
   @State list: NotificationItem[] = [];
   @State loading: boolean = true;
   @State error: string = '';
@@ -53,13 +68,18 @@ export struct MessagePage {
   @StorageLink('unreadMessageCount') unreadCount: number = 0;
   // 监听登录态：LoginPage 自动登录后 authToken 就绪，此页才加载（aboutToAppear 可能在登录前已跑过）
   @StorageLink('authToken') @Watch('onTokenReady') token: string = '';
-  @State activeFilter: string = 'up_bookmark'; // 'up_bookmark' | 'follow' | 'comment'（无「全部」视图，默认赞和收藏）
+  // 三类快捷筛选选中项（内容区顶部，无「全部」视图，默认赞和收藏）
+  @State activeFilter: string = 'up_bookmark';
   // ===== 私信 =====
   @State dmTab: string = 'notif'; // 'notif' | 'dm'
-  @State dmTabIndex: number = 0;
+  // 分段选中（通知/私信）与滑块跟手位置：由 Index 的标题栏分段栏读写，本页 Swiper 联动
+  @Link @Watch('onDmTabChanged') dmTabIndex: number;
   // 分段滑块跟手位置：Swiper 滚动（拖动/吸附）中喂入的连续索引；-1 = 未滚动
-  @State slidePosition: number = -1;
-  @State tabPulse: boolean = false;
+  @Link slidePosition: number;
+  // 分段切换的轻微透明反馈（标题栏分段栏用）
+  @Link tabPulse: boolean;
+  // 标题栏「全部已读」按钮 → 本页执行（递增序号触发 @Watch）
+  @Link @Watch('onMarkAllRequested') markAllSeq: number;
   @State conversations: Conversation[] = [];
   @State dmLoading: boolean = true;
   @State dmError: string = '';
@@ -596,6 +616,25 @@ export struct MessagePage {
     this.getUIContext().getRouter().pushUrl({ url: 'pages/SystemNoticePage' });
   }
 
+  // 置顶入口（举报中心 + 系统通知）：渲染在列表内容的最前面，
+  // 「置顶但不固定」—— 随列表一起滚动，而不是钉在视口顶部常驻。
+  @Builder
+  pinnedEntries() {
+    // 举报中心（管理员，唯一处置台）
+    if (getIsAdmin()) {
+      Column() {
+        this.reportCenterEntry()
+      }
+      .width('100%')
+    }
+
+    // 系统通知：三类互动视图之外的 system 消息（审核结果/举报回执）唯一入口
+    Column() {
+      this.systemNoticeEntry()
+    }
+    .width('100%')
+  }
+
   // 系统通知常驻入口（与举报中心入口同款 MessageRow 样式）
   @Builder
   systemNoticeEntry() {
@@ -665,20 +704,28 @@ export struct MessagePage {
     return notifIconRes(type);
   }
 
-  private switchDmTab(index: number): void {
-    const tab: string = index === 1 ? 'dm' : 'notif';
-    this.dmTabIndex = index;
-    if (this.dmTab !== tab) {
-      this.dmTab = tab;
-      this.playTabFeedback();
-      if (tab === 'dm') {
-        this.loadConversations();
-      }
+  // 分段切换（标题栏点击 / Swiper 落页共用）：统一由 @Watch(dmTabIndex) 触发。
+  // 两条路径都只写 dmTabIndex（同值写入不触发 @Watch），加载因此不会重复。
+  onDmTabChanged(): void {
+    const tab: string = this.dmTabIndex === 1 ? 'dm' : 'notif';
+    if (this.dmTab === tab) {
+      return;
+    }
+    this.dmTab = tab;
+    this.playTabFeedback();
+    if (tab === 'dm') {
+      this.loadConversations();
     }
   }
 
+  // 标题栏「全部已读」按钮触发（信号递增 → @Watch）
+  onMarkAllRequested(): void {
+    this.onMarkAll();
+  }
+
+  // 单个快捷筛选块（内容区顶部；未读数直接由已加载列表统计）
   @Builder
-  notificationShortcut(filter: string, label: string, icon: Resource, unread: number) {
+  notificationShortcut(shortcut: MessageShortcut, unread: number) {
     Column() {
       Pressable({
         visualHeight: 34 + TypeTokens.callout.lineHeight + SpaceTokens.inline,
@@ -686,7 +733,7 @@ export struct MessagePage {
         fillWidth: true,
         action: (): void => {
           // 无「全部」视图：点击当前项保持选中（不再回落为未选中态）
-          this.activeFilter = filter;
+          this.activeFilter = shortcut.key;
         },
       }) {
         Column({ space: SpaceTokens.inline }) {
@@ -695,27 +742,33 @@ export struct MessagePage {
             position: BadgePosition.RightTop,
             style: { badgeColor: ColorTokens.danger },
           }) {
-            Image(icon)
+            Image(resolveActionIcon(shortcut.icon))
               .width(34)
               .height(34)
               .objectFit(ImageFit.Contain)
-              .fillColor(this.activeFilter === filter ? ColorTokens.brand : ColorTokens.icon)
+              .fillColor(this.activeFilter === shortcut.key ? ColorTokens.brand : ColorTokens.icon)
           }
-          Text(label)
+          Text(shortcut.label)
             .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-            .fontWeight(this.activeFilter === filter ? TypeTokens.headline.weight : TypeTokens.overline.weight)
+            .fontWeight(this.activeFilter === shortcut.key ? TypeTokens.headline.weight : TypeTokens.overline.weight)
             .lineHeight(TypeTokens.overline.lineHeight)
             .letterSpacing(TypeTokens.overline.tracking)
-            .fontColor(this.activeFilter === filter ? ColorTokens.brand : ColorTokens.icon)
+            .fontColor(this.activeFilter === shortcut.key ? ColorTokens.brand : ColorTokens.icon)
             .maxLines(1)
         }
         .width('100%')
         .alignItems(HorizontalAlign.Center)
         .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
-        .backgroundColor(this.activeFilter === filter ? ColorTokens.brandTint : Color.Transparent)
+        .backgroundColor(this.activeFilter === shortcut.key ? ColorTokens.brandTint : Color.Transparent)
         .borderRadius(RadiusTokens.md)
-        .scale({ x: this.activeFilter === filter && !this.shouldReduceMotion() ? 1.03 : 1, y: this.activeFilter === filter && !this.shouldReduceMotion() ? 1.03 : 1 })
-        .animation({ duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.control, curve: MotionCurves.springSoft })
+        .scale({
+          x: this.activeFilter === shortcut.key && !this.shouldReduceMotion() ? 1.03 : 1,
+          y: this.activeFilter === shortcut.key && !this.shouldReduceMotion() ? 1.03 : 1,
+        })
+        .animation({
+          duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.control,
+          curve: MotionCurves.springSoft,
+        })
       }
     }
     .layoutWeight(1)
@@ -861,69 +914,8 @@ export struct MessagePage {
 
   build() {
     Column() {
-      // 顶栏
-      Row() {
-        Text('消息')
-          .fontSize(TypeTokens.titleSerif.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.titleSerif.weight)
-          .lineHeight(TypeTokens.titleSerif.lineHeight)
-          .alignSelf(ItemAlign.Start)
-          .layoutWeight(1)
-          .fontColor(ColorTokens.primary)
-        if (this.dmTab === 'notif') {
-          Pressable({
-            visualHeight: LayoutTokens.minTouchTarget,
-            touchTargetHeight: LayoutTokens.minTouchTarget,
-            action: (): void => {
-              this.onMarkAll();
-            },
-          }) {
-            Text('全部已读')
-              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-              .fontWeight(TypeTokens.headline.weight)
-              .lineHeight(TypeTokens.callout.lineHeight)
-              .letterSpacing(TypeTokens.callout.tracking)
-              .fontColor(ColorTokens.brand)
-              .height(LayoutTokens.minTouchTarget)
-              .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
-              .textAlign(TextAlign.Center)
-              .accessibilityText('全部已读')
-          }
-        }
-      }
-      .width('100%')
-      // 固定顶栏高度，避免切换 Tab 时整块回弹：
-      // 「全部已读」只在通知页渲染（44 高），私信页没有 → 不固定高度时本行会从
-      // max(32, 44)=44 掉到 32，下方分段栏随之整体上移 12vp。
-      // 44(触控目标) + xs×2(上下内边距) = 52，与通知页现状一致。
-      .height(LayoutTokens.minTouchTarget + SpaceTokens.xs * 2)
-      // 标题贴顶（与首页有据同一水平线），左右留白与首页标题一致(sm)
-      .padding({
-        left: SpaceTokens.sm,
-        right: SpaceTokens.sm,
-        top: SpaceTokens.xs,
-        bottom: SpaceTokens.xs,
-      })
-
-      // 分段：通知 | 私信
-      SegmentedControl({
-        items: MESSAGE_SEGMENTS,
-        selectedIndex: $dmTabIndex,
-        slidePosition: this.slidePosition,
-        itemWidth: 88,
-        // 沉浸光感（华为应用商店同款）：玻璃底 + backdropBlur + 高光边框 + 滑块悬浮投影
-        immersive: true,
-        onSelect: (idx: number): void => {
-          // 点击立即落整数位（弹性动画由 SharedSlide 整数分支承担）
-          this.slidePosition = idx;
-          this.switchDmTab(idx);
-        },
-      })
-      .margin({ left: SpaceTokens.sm, right: SpaceTokens.sm, bottom: SpaceTokens.sm })
-      // 分段控件保持固定尺寸；切换反馈只改变透明度，避免 Tab 状态切换时高度跳变。
-      .opacity(this.tabPulse ? 0.96 : 1)
-      .animation({ duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.control, curve: MotionCurves.springSoft })
-
+      // 顶栏（消息 + 全部已读）、分段栏（通知/私信）、三类快捷筛选已整体迁入
+      // Navigation 标题栏（uiMaterial 沉浸光感的官方生效区域）；这里只剩内容区。
       if (this.token === '') {
         // 未登录（游客）：不展示任何个人化消息内容，提供手动登录入口（不做自动跳转）
         this.guestState()
@@ -935,11 +927,16 @@ export struct MessagePage {
           // 页 1：通知。内容整体包一层定高 Column：
           // 内部各态用的是 layoutWeight(1) 撑满，在 Swiper 分页里必须先有确定高度的父容器。
           Column() {
-            // 快捷入口：三类通知共用可选中图标块。
+            // 三类快捷筛选（赞和收藏/新增关注/评论）：内容区顶部，切换过滤视图
             Row({ space: SpaceTokens.none }) {
-              this.notificationShortcut('up_bookmark', '赞和收藏', resolveActionIcon('like'), this.unreadCountOf(['up', 'bookmark']))
-              this.notificationShortcut('follow', '新增关注', resolveActionIcon('follow'), this.unreadCountOf(['follow']))
-              this.notificationShortcut('comment', '评论', resolveActionIcon('comment'), this.unreadCountOf(['comment', 'mention']))
+              ForEach(MESSAGE_SHORTCUTS, (s: MessageShortcut) => {
+                this.notificationShortcut(
+                  s,
+                  s.key === 'up_bookmark' ? this.unreadCountOf(['up', 'bookmark'])
+                    : s.key === 'follow' ? this.unreadCountOf(['follow'])
+                      : this.unreadCountOf(['comment', 'mention']),
+                )
+              }, (s: MessageShortcut) => s.key)
             }
             .width('100%')
             .padding({
@@ -948,22 +945,6 @@ export struct MessagePage {
               top: SpaceTokens.inlineTight,
               bottom: SpaceTokens.item,
             })
-
-            // 举报中心（管理员）：常驻置顶在通知列表之上，不随上方筛选过滤/消失
-            if (getIsAdmin()) {
-              Column() {
-                this.reportCenterEntry()
-              }
-              .width('100%')
-              .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
-            }
-
-            // 系统通知：三类互动视图之外的 system 消息（审核结果/举报回执）唯一入口，同样常驻
-            Column() {
-              this.systemNoticeEntry()
-            }
-            .width('100%')
-            .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
 
             if (this.loading && this.list.length === 0) {
               Column() {
@@ -994,22 +975,39 @@ export struct MessagePage {
               .justifyContent(FlexAlign.Center)
             } else if (this.getFilteredList().length === 0) {
               // 展示侧为空（含：没有该类型通知、或管理员的通知只剩已收敛到
-              // 举报中心入口的消息）→ 给空态而不是留一块空白
-              Column() {
-                EmptyState({
-                  title: '暂无此类通知',
-                  message: '新的互动会显示在这里',
+              // 举报中心入口的消息）→ 空态，但常驻入口仍要可点
+              Scroll() {
+                Column({ space: SpaceTokens.none }) {
+                  this.pinnedEntries()
+                  Column() {
+                    EmptyState({
+                      title: '暂无此类通知',
+                      message: '新的互动会显示在这里',
+                    })
+                  }
+                  .width('100%')
+                  .constraintSize({ minHeight: 320 })
+                  .justifyContent(FlexAlign.Center)
+                }
+                .width('100%')
+                .constraintSize({ minHeight: '100%' })
+                .padding({
+                  left: SpaceTokens.sm,
+                  right: SpaceTokens.sm,
+                  bottom: SpaceTokens.sm,
                 })
               }
-              .layoutWeight(1)
+              .scrollable(ScrollDirection.Vertical)
               .width('100%')
-              .justifyContent(FlexAlign.Center)
+              .layoutWeight(1)
             } else {
               Refresh({ refreshing: $$this.refreshing, offset: 80, friction: 48 }) {
               // 通知列表：Scroll 单列（懒加载 List 会把滚动终点钳制在底部非安全区之上，
               // 露出窗口底色横带截断末行；Scroll 滚动范围天然到物理屏底）
               Scroll() {
               Column({ space: SpaceTokens.none }) {
+              // 置顶入口（举报中心/系统通知）：位于列表最前，随列表一起滚动（不固定）
+              this.pinnedEntries()
               ForEach(
                     this.getFilteredList(),
                     (item: NotificationItem, idx: number) => {
@@ -1071,7 +1069,9 @@ export struct MessagePage {
         .curve(MotionCurves.springSoft)
         .onChange((index: number): void => {
           hilog.info(0x0000, 'MessagePage', '分段页切换 index=%{public}s', String(index));
-          this.switchDmTab(index);
+          // 只写共享的 dmTabIndex（同值写入不触发 @Watch）；
+          // 分段切换的实际动作由 @Watch('onDmTabChanged') 统一承接（标题栏点击走同一入口）
+          this.dmTabIndex = index;
         })
         // 拖动/吸附逐帧联动滑块（1:1 跟手，见 slidePosition 注释）
         .onContentDidScroll((selectedIndex: number, index: number, position: number, _mainAxisLength: number): void => {
@@ -1090,7 +1090,7 @@ export struct MessagePage {
             this.slidePosition = -1;
           }
         })
-        .layoutWeight(1)          // 顶栏与分段栏之外的剩余高度全部给分页区
+        .layoutWeight(1)          // 标题栏之外的剩余高度全部给分页区
         .width('100%')
       }
     }

@@ -1,20 +1,32 @@
 import { listSearchHistory, clearSearchHistory, listHotKeywords, listSearchSuggest } from '../services/api';
 import { safeShowToast } from '../utils/toast';
-import { BackButton } from '../design/components/BackButton';
 import { GlassPanel } from '../design/components/GlassPanel';
 import { Pressable } from '../design/motion/Pressable';
+import { resolveActionIcon } from '../utils/actionIcons';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
+import { TopButtonMaterialModifier } from '../utils/immersiveMaterial';
+
+// 搜索框 / 返回按钮的标准控件高度：与系统搜索栏一致。
+// 原生 Search 不显式定高时整体偏高（且返回按钮会跟着放大），故统一收敛到标准值。
+const SEARCH_FIELD_HEIGHT: number = 40;
 
 // 首页内的搜索探索页：玻璃工具栏 + 最近搜索 + 双列热搜。
 // 选项胶囊/格子复用首页「推荐/关注」分段栏的 outlined 风格：透明底 + 细边框 + 大圆角 + 无阴影。
+// 顶部工具栏（返回 + 搜索框 + 搜索按钮）驻留 Navigation 标题栏 —— uiMaterial 沉浸光感的官方生效区域；
+// 下方联想/最近搜索/热搜为内容区。
 @Component
 export struct SearchPanel {
   onKeywordSelect: (keyword: string) => void = (keyword: string) => {};
   onCancel: () => void = () => {};
+
+  // 全屏沉浸式布局下标题栏不代为避让状态栏：由标题栏 Builder 手动下移
+  @StorageLink('statusBarHeight') statusBarHeight: number = 0;
+  // 系统材质修饰器（沉浸光感）：标题栏内的搜索框与返回按钮共用（低版本自动跳过）
+  private titleBarMaterial: TopButtonMaterialModifier = new TopButtonMaterialModifier();
 
   @State keyword: string = '';
   @State suggestions: string[] = []; // 搜索联想（输入时防抖拉取）
@@ -137,13 +149,21 @@ export struct SearchPanel {
   // 搜索框：ArkUI 原生 Search 组件，**纯默认样式**。
   // 工程 targetSdk 已升 26 —— Search 的默认背景材质/圆角/阴影即 H7 原生设计，
   // 由系统按设备版本渲染；此前「老样式」观感源于旧 targetSdk 24 编译 + 自拍覆盖值。
-  // 除字体统一与布局拉伸外不做任何样式覆盖（原生感 = 不覆盖）。
+  // 现在只保留两处必要覆盖：① 高度取标准控件高度（原生默认偏高）；② 底色写在材质之前
+  // （让系统材质把它清除为透明，避免与 Search 自带默认材质叠加成双层玻璃）。
   @Builder
   searchInput(): void {
+    // 系统原生搜索框：集成搜索按钮（searchButton）——不再另放一颗方形搜索按钮。
+    // 排版完全用系统默认（不做字体覆盖）；高度取标准控件高度。
     Search({ placeholder: '搜索你关心的经验和问题', value: this.keyword })
       .layoutWeight(1)
-      .placeholderFont({ family: TypeTokens.fontFamily })
-      .textFont({ family: TypeTokens.fontFamily })
+      .height(SEARCH_FIELD_HEIGHT)
+      .searchButton('搜索')
+      // 关键：底色写在材质之前 —— 材质生效时由系统强制清除为透明（官方行为），
+      // 避免「Search 自带默认材质 + 我们叠加的材质」双层玻璃；低版本则作为兜底底色。
+      .backgroundColor($r('sys.color.comp_background_tertiary'))
+      // 沉浸光感：标题栏内由系统材质接管搜索框表面（低版本自动跳过，保留系统默认样式）
+      .attributeModifier(this.titleBarMaterial)
       .onChange((v: string): void => { this.debounceSuggest(v); })
       .onSubmit((v: string): void => {
         this.keyword = v;
@@ -182,30 +202,57 @@ export struct SearchPanel {
     }
   }
 
-  build() {
-    Column() {
-      Row({ space: SpaceTokens.inline }) {
-        BackButton({ action: (): void => { this.onCancel(); } })
+  // 标题栏总高：状态栏 + 上下内边距（各 xs 4）+ 标准控件高度
+  private searchTitleBarHeight(): number {
+    return this.statusBarHeight + SpaceTokens.xs * 2 + SEARCH_FIELD_HEIGHT;
+  }
 
-        this.searchInput()
-
-        Row() {
-          Image($r('app.media.empty_search'))
-            .width(IconTokens.small)
-            .height(IconTokens.small)
-            .fillColor(ColorTokens.icon)
-        }
-        .width(LayoutTokens.minTouchTarget)
-        .height(LayoutTokens.minTouchTarget)
-        .justifyContent(FlexAlign.Center)
-        .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-        .borderRadius(RadiusTokens.lg)
-        .onClick((): void => { this.doSearch(); })
+  // 标题栏：返回 + 系统原生搜索框（集成搜索按钮）——原顶部工具栏整体驻留于此
+  @Builder
+  private searchTitleBar(): void {
+    Row({ space: SpaceTokens.inline }) {
+      // 返回：系统原生 Button 组件（低版本保留细描边兜底，材质生效时由系统接管表面）。
+      // 尺寸与搜索框统一为标准控件高度。
+      Button({ type: ButtonType.Normal, stateEffect: true }) {
+        Image(resolveActionIcon('back'))
+          .width(IconTokens.small)
+          .height(IconTokens.small)
+          .fillColor(ColorTokens.icon)
       }
-      .width('100%')
-      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.sm, bottom: SpaceTokens.item })
+      .width(SEARCH_FIELD_HEIGHT)
+      .height(SEARCH_FIELD_HEIGHT)
+      // 视觉与搜索框同高，触控热区仍保持 44（与全局 minTouchTarget 一致）
+      .responseRegion({
+        x: (SEARCH_FIELD_HEIGHT - LayoutTokens.minTouchTarget) / 2,
+        y: (SEARCH_FIELD_HEIGHT - LayoutTokens.minTouchTarget) / 2,
+        width: LayoutTokens.minTouchTarget,
+        height: LayoutTokens.minTouchTarget,
+      })
+      .backgroundColor(Color.Transparent)
+      .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+      .borderRadius(RadiusTokens.lg)
+      .attributeModifier(this.titleBarMaterial)
+      .accessibilityText('返回')
+      .onClick((): void => { this.onCancel(); })
 
-      if (this.loadingState) {
+      this.searchInput()
+    }
+    .width('100%')
+    // 不锁定行高：由搜索框原生高度 + 内边距决定（内容区即原生尺寸）。
+    // 标题栏总高 = 状态栏 + 内边距 + 搜索框高度，与 Builder 的实际高度严格一致。
+    .height(this.searchTitleBarHeight())
+    .padding({
+      left: SpaceTokens.sm,
+      right: SpaceTokens.sm,
+      top: this.statusBarHeight + SpaceTokens.xs,
+      bottom: SpaceTokens.xs,
+    })
+  }
+
+  build() {
+    Navigation() {
+      Column() {
+        if (this.loadingState) {
         Column() {
           LoadingProgress().width(IconTokens.empty).height(IconTokens.empty)
         }
@@ -367,9 +414,17 @@ export struct SearchPanel {
         .width('100%')
         .alignItems(HorizontalAlign.Start)
       }
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor(ColorTokens.canvas)
     }
+    .hideTitleBar(false)
+    .title({
+      builder: this.searchTitleBar,
+      height: this.searchTitleBarHeight(),
+    }, { barStyle: BarStyle.STANDARD, backgroundColor: ColorTokens.canvas })
     .width('100%')
     .height('100%')
-    .backgroundColor(ColorTokens.canvas)
   }
 }

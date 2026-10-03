@@ -77,11 +77,19 @@
 ## 三、功能模块
 
 ### 首页（`components/HomeTab.ets`）
-- 海报式编辑部头部：品牌块（有据 / SUBSTANTIATE / 标语）+ 搜索按钮（跳 `SearchPanelPage`）。
-- 分段栏「推荐 / 关注 / 每日一帖」（`FEED_SEGMENTS`，`outlined` 规格）。
-- 推荐流右侧叠挂 `TagNav`（`compact + dropdownOnly`）圈子下拉按钮，两者共用同一行 `Stack`（`zIndex` 3 vs 2）。
+- **顶栏已整体迁入 Navigation 标题栏**（2026-10-03）：品牌块（有据 / SUBSTANTIATE / 标语）+ 搜索按钮 + 分段栏 + 圈子 chip 全部驻留标题栏，统一挂系统材质（沉浸光感，见下方专节）。
+- 分段栏「推荐 / 关注 / 每日一帖」（`FEED_SEGMENTS`，`outlined` 规格 + `useSystemMaterial`）。
+- 圈子 `TagNav` 拆为两形态：chip 在标题栏（可挂材质），下拉面板 + 点外关闭遮罩在内容区顶部（`panelOnly`），靠共享 `dropdownVisible` 同步。
+- 顶栏状态由 `Index` 持有、本组件 `@Link` 共用；标题栏写入 `feedIndex` 由 `@Watch('onFeedIndexChanged')` 承接信息源加载。
 - 关注流未登录走 `EmptyState` 登录引导；列表全部用 `Scroll`（沉浸全屏下的约定）。
 - 会话缓存 `feedSessionCache`（key = `feedMode|tag|sort`，每日一帖不缓存）。
+
+### 沉浸光感 · 顶栏迁入 Navigation 标题栏（2026-10-03）
+- `uiMaterial` 轨（通用属性 `systemMaterial`）**只在 Navigation/NavDestination 标题栏或系统底部 TabBar 生效**，内容区设置完全不渲染（官方 FAQ 生效范围）。
+- 首页(0) / 我的(4) 的整块顶栏驻留标题栏（`BarStyle.STANDARD` 占位 + 画布底色）；材质生效时**撤掉自绘兜底**（`backdropBlur` / `backgroundBlurStyle` / 自绘 `shadow`），否则遮挡或叠加。
+- 低版本（API < 26）经 `deviceInfo.apiAvailable('26.0.0')` **字面量 if 门禁**自动回退描边/玻璃样式；统一入口 `utils/immersiveMaterial.ets`（`TopButtonMaterialModifier` / `isSystemMaterialActive()`）。
+- 我的页：分享/设置、编辑资料、草稿箱/废纸篓、主分段栏同源材质；资料区高度 `onAreaChange` 实测回写栏高。
+- 完整实践与踩坑记录（生效范围、兼容保护、兜底让位、状态上移、栏高与状态栏避让、语法坑自查清单）：见 `docs/immersive-light-integration.md`。
 
 ### 每日一帖
 - `HomeTab` 第三分段，`DAILY_PICK_LIMIT = 10` 一次拉齐、读完即完成态；禁用下拉刷新（与卡牌拖拽冲突）。

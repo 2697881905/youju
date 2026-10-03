@@ -15,8 +15,7 @@ import { openPostDetailViaNav, postDetailCoverOf } from '../utils/longTake/openP
 import { safeShowToast } from '../utils/toast';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { EmptyState } from '../design/components/EmptyState';
-import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
-import { Pressable } from '../design/motion/Pressable';
+import { SegmentedItem } from '../design/components/SegmentedControl';
 import { DailyPostDeck } from './DailyPostDeck';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
@@ -28,7 +27,8 @@ import { barBottomReserve } from '../utils/cardTokens';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 
 type SortKey = 'hot' | 'latest' | 'recommend';
-type FeedMode = 'recommend' | 'following' | 'daily';
+// 信息源模式：导出给 Index 的标题栏共用（@Link 的类型必须与 HomeTab 完全一致）。
+export type FeedMode = 'recommend' | 'following' | 'daily';
 
 // FeedMode → 分段索引 的映射（用于顶栏 ForEach 选中态比较）
 const FEED_MODE_IDX_MAP: FeedMode[] = ['recommend', 'following', 'daily'];
@@ -41,7 +41,8 @@ const TAGS_MAX_RETRY: number = 3;
 const DAILY_PICK_LIMIT: number = 10;
 
 const SORT_KEYS: SortKey[] = ['hot', 'latest', 'recommend'];
-const FEED_SEGMENTS: SegmentedItem[] = [
+// 分段栏数据：导出给 Index 的标题栏渲染（key 与 FeedMode 一一对应，FEED_MODE_IDX_MAP 同序）。
+export const FEED_SEGMENTS: SegmentedItem[] = [
   { key: 'recommend', label: '推荐' },
   { key: 'following', label: '关注' },
   { key: 'daily', label: '每日一帖' },
@@ -80,19 +81,24 @@ export struct HomeTab {
   // 三页（推荐/关注/每日一帖）各自独立缓存：Swiper 滑动时相邻页显示自己的内容，
   // 未访问过的分段缓存为空 → 页内先呈现加载态（与「我的」页 postsCache 同构）。
   @State postsCache: DailyPost[][] = [[], [], []];
-  @State displayTags: Tag[] = [];
+  // —— 顶部区域迁入 Navigation 标题栏后，以下状态由 Index 持有、这里 @Link 共用 ——
+  // （标题栏的分段栏/圈子 chip 读写这些状态，信息流据此联动）
+  @Link displayTags: Tag[];
   @State tagsLoaded: boolean = false;
   @State sortIndex: number = 0;
-  @State @Watch('onTagChanged') tagIndex: number = 0;
+  @Link @Watch('onTagChanged') tagIndex: number;
   @State page: number = 1;
   @State loading: boolean = false;
   @State finished: boolean = false;
   @State isRefreshing: boolean = false;
   @State error: string = '';
-  @State feedMode: FeedMode = 'recommend';
-  @State feedIndex: number = 0;
+  @Link feedMode: FeedMode;
+  // 标题栏分段栏切换走这里写入；@Watch 负责把「外部切换」翻译成信息源加载（见 onFeedIndexChanged）
+  @Link @Watch('onFeedIndexChanged') feedIndex: number;
   // 分段滑块跟手位置：Swiper 滚动（拖动/吸附）中喂入的连续索引；-1 = 未滚动
-  @State slidePosition: number = -1;
+  @Link slidePosition: number;
+  // 圈子下拉面板开合（标题栏 chip ↔ 本页面板 共享）
+  @Link showCircleDropdown: boolean;
   @State needLogin: boolean = false; // 关注流且未登录的引导态
   // 关注流的关注数缓存（空态 A/B 区分）。取值三态，见 FOLLOWING_COUNT_* 常量：
   // 保留上次取到的真实值，切回关注 Tab 时不会先闪加载态（关注数极少变，够用）。
@@ -335,6 +341,10 @@ export struct HomeTab {
     }
     if (this.feedMode !== mode) {
       this.feedMode = mode;
+      // 圈子下拉仅在推荐流可用：离开推荐流时收起（chip 在标题栏、面板在本页，靠共享态同步）
+      if (mode !== 'recommend') {
+        this.showCircleDropdown = false;
+      }
       this.needLogin = (mode === 'following' && this.token === '');
       // 进入「每日一贴」即上报一次页面级事件，用于计算每日一贴打开率/渗透率。
       if (mode === 'daily') {
@@ -342,6 +352,15 @@ export struct HomeTab {
       }
       this.refresh();
     }
+  }
+
+  // 标题栏分段栏（Index 持有 feedIndex）写入后的联动入口：等价于点击分段栏切换信息源。
+  // 自身路径（Swiper 回调 / switchFeed 内部）写入相同值时不会触发 @Watch，因此不会重复加载。
+  onFeedIndexChanged(): void {
+    if (this.feedIndex < 0 || this.feedIndex >= FEED_MODE_IDX_MAP.length) {
+      return;
+    }
+    this.switchFeed(FEED_MODE_IDX_MAP[this.feedIndex]);
   }
 
   // 左右滑动切换由 Swiper 原生接管（跟手、相邻页可见、松手吸附）。
@@ -815,108 +834,10 @@ export struct HomeTab {
   // 瀑布流（WaterFlow + LazyForEach）在 Swiper 三页下数据源无法按页隔离，
   // 且滚动终点被钳制在底部安全区之上；统一回退到 Scroll 双列（feedScroll）。
   build() {
-    Column() {
-      // 海报式编辑部头部：编号、品牌标题、主标语和栏目切换构成明确的阅读层级。
-      Column({ space: SpaceTokens.xs }) {
-          Row() {
-            Column({ space: SpaceTokens.xs }) {
-              Row({ space: SpaceTokens.sm }) {
-                Text('有据')
-                  .fontSize(TypeTokens.titleSerif.size)
-                  .fontFamily(TypeTokens.fontFamilySerif)
-                  .fontWeight(TypeTokens.titleSerif.weight)
-                  .lineHeight(TypeTokens.titleSerif.lineHeight)
-                  .fontColor(ColorTokens.primary)
-                Text('SUBSTANTIATE')
-                  .fontSize(TypeTokens.overline.size)
-                  .fontFamily(TypeTokens.fontFamily)
-                  .fontWeight(TypeTokens.overline.weight)
-                  .fontColor(ColorTokens.tertiary)
-              }
-              Text('真实经验，有据可循')
-                .fontSize(TypeTokens.headline.size)
-                .fontFamily(TypeTokens.fontFamilySerif)
-                .fontWeight(TypeTokens.headline.weight)
-                .lineHeight(TypeTokens.headline.lineHeight)
-                .fontColor(ColorTokens.primary)
-            }
-            .alignItems(HorizontalAlign.Start)
-            .layoutWeight(1)
-            Pressable({
-              visualHeight: LayoutTokens.minTouchTarget,
-              touchTargetHeight: LayoutTokens.minTouchTarget,
-              action: (): void => {
-                // 搜索入口跳转独立搜索页（与首页解耦）
-                this.getUIContext().getRouter().pushUrl({ url: 'pages/SearchPanelPage' });
-              },
-            }) {
-              // 与 SearchPanel 右上角搜索按钮完全同款：透明底 + 细边框 + 大圆角（无实色垫底/阴影）
-              Row() {
-                Image(resolveActionIcon('search'))
-                  .width(IconTokens.small)
-                  .height(IconTokens.small)
-                  .fillColor(ColorTokens.icon)
-              }
-              .width(LayoutTokens.minTouchTarget)
-              .height(LayoutTokens.minTouchTarget)
-              .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-              .borderRadius(RadiusTokens.lg)
-              .justifyContent(FlexAlign.Center)
-              .alignItems(VerticalAlign.Center)
-              .accessibilityText('搜索')
-            }
-          }
-          .width('100%')
-          .height(LayoutTokens.titleBarHeight)
-          .alignItems(VerticalAlign.Center)
-
-          Stack({ alignContent: Alignment.TopStart }) {
-            SegmentedControl({
-              items: FEED_SEGMENTS,
-              selectedIndex: $feedIndex,
-              slidePosition: this.slidePosition,
-              itemWidth: 66,
-              fillWidth: false,
-              // 描边风格：与右上角搜索按钮同款（透明底 + 细边框 + 大圆角），顶栏视觉统一
-              glass: false,
-              outlined: true,
-              // 关闭按压/长按光斑：首页顶栏为透明描边风格，光斑在这块纸面上过于抢眼
-              glowEnabled: false,
-              onSelect: (idx: number): void => {
-                // 点击立即落整数位（弹性动画由 SharedSlide 整数分支承担）
-                this.slidePosition = idx;
-                const mode: FeedMode = FEED_MODE_IDX_MAP[idx];
-                this.switchFeed(mode);
-              },
-            })
-              .alignSelf(ItemAlign.Start)
-              // 置顶于全宽的 TagNav 圈子栏之上：TagNav 透明占位区不再拦截本控件的点击。
-              .zIndex(3)
-            if (this.useCircleBarOverlap()) {
-              TagNav({
-                tags: this.displayTags,
-                selectedIndex: $tagIndex,
-                compact: true,
-                glass: false,
-                dropdownOnly: true,
-              })
-                .width('100%')
-                .zIndex(2)
-            }
-          }
-          .width('100%')
-          .height(LayoutTokens.segmentedHeight)
-        }
-        .padding({
-          left: SpaceTokens.sm,
-          right: SpaceTokens.sm,
-          top: SpaceTokens.xs,
-          bottom: SpaceTokens.xs,
-        })
-        .width('100%')
-        .backgroundColor(ColorTokens.canvas)
-        .zIndex(1000)
-
+    // 顶部区域（品牌标题 / 搜索 / 分段栏 / 圈子按钮）已整体迁入 Navigation 标题栏
+    // —— uiMaterial 沉浸光感的官方生效区域；这里只剩信息流本体 + 圈子下拉面板宿主。
+    Stack({ alignContent: Alignment.TopStart }) {
+      Column() {
         // 列表区：Swiper 三页分页（推荐/关注/每日一帖）。
         // 原生 Swiper 提供跟手位移、相邻页可见、松手按速度弹性吸附（springSoft），
         // 与「我的」页分段栏同款体验；onChange 切换当前段并懒加载该段数据。
@@ -954,13 +875,32 @@ export struct HomeTab {
         // 每日一帖不裁剪：Swiper 默认裁切子节点，卡堆向上拖动/抛射的卡片需溢出列表区穿过报头；
         // 滚动流模式保持裁剪（Refresh/Scroll 内容不出视口）—— 与旧列表区实现保持同一策略。
         .clip(this.feedMode !== 'daily')
-        // 每日一帖提升列表区整体层级（与报头同为根 Column 兄弟，1001 > 报头 1000）：
-        // 卡片随列表区一起盖过报头区域，向上拖动/抛出不被「有据」标题与分段栏遮挡。
+        // 每日一帖提升列表区整体层级：卡片随列表区一起向上拖动/抛出，不被同层其它节点遮挡。
+        // 顶部区域已迁至 Navigation 标题栏层（STANDARD 模式下内容后绘制，
+        // 溢出裁剪关闭后飞行卡仍可越过标题栏区域——见真机回归清单）。
         .zIndex(this.feedMode === 'daily' ? 1001 : 0)
       }
       .width('100%')
       .height('100%')
       .alignItems(HorizontalAlign.Start)
       .backgroundColor(ColorTokens.canvas)
+
+      // 圈子下拉面板宿主（标题栏 chip 通过共享的 showCircleDropdown 开合）：
+      // 面板 + 点外关闭遮罩都渲染在内容区这一层，向下覆盖信息流 ——
+      // 绕开「标题栏高度固定 + 触摸只命中父节点范围内子节点」这两处限制。
+      if (this.showCircleDropdown && this.useCircleBarOverlap()) {
+        TagNav({
+          tags: this.displayTags,
+          selectedIndex: $tagIndex,
+          dropdownVisible: $showCircleDropdown,
+          compact: true,
+          glass: false,
+          dropdownOnly: true,
+          panelOnly: true,
+        })
+      }
+    }
+    .width('100%')
+    .height('100%')
   }
 }

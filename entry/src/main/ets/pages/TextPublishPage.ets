@@ -59,7 +59,6 @@ struct TextPublishPage {
   @State tags: Tag[] = [];
   // 结构化区默认展开：它是产品核心特色，藏在折叠里等于没有（覆盖率的最大杀手）
   @State showFields: boolean = true;
-  @State showGenreMenu: boolean = false;
   @State showTagPanel: boolean = false;
   @State editingSavedDraftId: string = '';
   @StorageLink('authUserId') @Watch('onUserChange') uid: string = '';
@@ -362,7 +361,6 @@ struct TextPublishPage {
     this.textPosterStyle = resolveTextPosterStyle(draft.textPosterStyle).key;
     this.editingSavedDraftId = savedDraftId;
     this.showFields = true;
-    this.showGenreMenu = false;
     this.showTagPanel = false;
     this.closeMention();
     this.mentionRefs = draft.mentions !== undefined ? draft.mentions.map((m: MentionRef): MentionRef => ({
@@ -408,7 +406,6 @@ struct TextPublishPage {
     this.textPosterStyle = 'paper';
     this.editingSavedDraftId = '';
     this.showFields = true;
-    this.showGenreMenu = false;
     this.showTagPanel = false;
     this.mentionRefs = [];
     this.closeMention();
@@ -427,7 +424,6 @@ struct TextPublishPage {
     this.genreIndex = index;
     this.genre = nextGenre;
     this.structuredDocument = filterStructuredDocumentForGenre(this.structuredDocument, nextGenre);
-    this.showGenreMenu = false;
   }
 
   // 单片缩略图：与发布产物同源渲染，选中态用品牌色描边 + 标签变色（图片本身不能加底色）
@@ -514,7 +510,6 @@ struct TextPublishPage {
         PublishGenreSection({
           genre: this.genre,
           genreIndex: this.genreIndex,
-          menuVisible: $showGenreMenu,
           onSelectGenre: (index: number): void => { this.selectGenre(index); },
           onOpenTags: (): void => { this.showTagPanel = true; },
         })
