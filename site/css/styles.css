@@ -60,10 +60,8 @@ section{position:relative}
     -webkit-background-clip:text;background-clip:text;color:transparent;
     animation:gradShift 7s ease-in-out infinite}
   .grad-text .st-char{background-image:var(--grad-img);background-size:200% 100%;
-    -webkit-background-clip:text;background-clip:text;color:transparent;
-    animation:gradShift 7s ease-in-out infinite}
+    -webkit-background-clip:text;background-clip:text;color:transparent}
   .grad-text--dark{--grad-img:linear-gradient(94deg,#6FAAFF,#EAF3FF 55%,#6FAAFF 110%)}
-  .grad-text--dark .st-char{animation-duration:8s}
   /* 拆分完成后关闭父级裁切（is-split 加在标题容器上，渐变 span 是其子级）：
      父级已无直挂文本，保留会在个别字形上产生重影 */
   .is-split .grad-text{background-image:none;-webkit-background-clip:border-box;background-clip:border-box;animation:none}
@@ -77,7 +75,7 @@ section{position:relative}
 .section-head--dark .section-head__sub{color:var(--text-inv-2)}
 
 /* ---------- 按钮 ---------- */
-.btn{display:inline-flex;align-items:center;gap:8px;height:48px;padding:0 26px;border-radius:12px;font-size:15px;font-weight:600;transition:transform .3s var(--ease),box-shadow .3s,background .3s,color .3s}
+.btn{position:relative;display:inline-flex;align-items:center;gap:8px;height:48px;padding:0 26px;border-radius:12px;font-size:15px;font-weight:600;transition:transform .3s var(--ease),box-shadow .3s,background .3s,color .3s}
 .btn--primary{background:var(--accent);color:#fff;overflow:hidden;isolation:isolate}
 .btn--primary:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(29,111,255,.35)}
 .btn--primary:active{transform:translateY(0) scale(.98)}
@@ -186,11 +184,6 @@ section{position:relative}
 .statement__text{max-width:22em;margin-inline:auto;font-size:clamp(28px,4.6vw,54px);font-weight:900;letter-spacing:-.02em;line-height:1.35}
 .statement__text .il-c{display:inline-block}
 .statement__text .il-em{color:var(--accent)}
-/* 静态呼吸：三个关键词在两种蓝之间缓慢吐纳（与滚动点亮的 opacity 互不相干） */
-@media(prefers-reduced-motion:no-preference){
-  .statement__text .il-em{animation:ilBreath 3.2s ease-in-out infinite alternate}
-}
-@keyframes ilBreath{from{color:#1D6FFF}to{color:#5E9BFF}}
 
 /* ---------- HarmonyOS 7 章节（黑底）---------- */
 .harmony{padding:clamp(96px,13vw,170px) 0 clamp(60px,8vw,110px);background:var(--ink);color:var(--text-inv)}

@@ -18,22 +18,27 @@
   /* ---------- 导航：滚动玻璃底 + 黑色章节反色（原生监听，不依赖 GSAP） ---------- */
   var nav = document.getElementById('nav');
   var scrolled = false, inDark = false;
+  var darkZones = document.querySelectorAll('.harmony, .download, .footer');
   function syncNav(){
     nav.classList.toggle('is-scrolled', scrolled);
     nav.classList.toggle('nav-invert', inDark);
   }
+  function syncDarkZone(){
+    var edge = nav.getBoundingClientRect().bottom + 20;
+    inDark = false;
+    darkZones.forEach(function(zone){
+      var r = zone.getBoundingClientRect();
+      if(r.top <= edge && r.bottom > edge){ inDark = true; }
+    });
+    syncNav();
+  }
   window.addEventListener('scroll', function(){
     scrolled = window.scrollY > 40;
-    syncNav();
+    syncDarkZone();
   }, {passive:true});
+  window.addEventListener('resize', syncDarkZone);
+  syncDarkZone();
   if('IntersectionObserver' in window){
-    var darkZones = document.querySelectorAll('.harmony, .download, .footer');
-    var io = new IntersectionObserver(function(entries){
-      inDark = entries.some(function(e){ return e.isIntersecting; });
-      syncNav();
-    }, {rootMargin:'0px 0px -92% 0px'});
-    darkZones.forEach(function(z){ io.observe(z); });
-
     /* 演示视频：进入视口才播放，离开即暂停（节省流量与性能） */
     var vids = document.querySelectorAll('.device-video');
     if(vids.length){
@@ -68,6 +73,7 @@
   if(typeof window.Lenis !== 'undefined'){
     lenis = new Lenis({duration:1.15, smoothWheel:true});
     lenis.on('scroll', ScrollTrigger.update);
+    lenis.on('scroll', syncDarkZone);
     gsap.ticker.add(function(time){ lenis.raf(time * 1000); });
     gsap.ticker.lagSmoothing(0);
     root.classList.add('has-lenis');
@@ -223,6 +229,16 @@
   /* 拆分统一在 document.fonts.ready 之后执行（避免字体加载后换行/度量错位）；
      SplitText 原生保留嵌套元素（hero 渐变 span）与 <br> 分行。 */
   var hasSplit = typeof window.SplitText !== 'undefined';
+  var fontsReady = !hasSplit;
+  function revealStaticText(){
+    /* 没有字体就绪 API 时跳过 SplitText，保留完整可读的静态文本。 */
+    gsap.set('.hero__title', {opacity:1});
+    gsap.set('.hero__sub', {opacity:1});
+    gsap.utils.toArray('h2[data-reveal], h3[data-reveal]').forEach(function(el){
+      el.removeAttribute('data-reveal');
+      gsap.set(el, {opacity:1});
+    });
+  }
   function initTitleSplits(){
     if(!hasSplit) return;
 
@@ -250,7 +266,7 @@
               /* 逐字独立补间：duration/ease 由所属路径组绑定（motionFor）、
                  时间位置随机摆放在 1.8s 窗口内（等价 stagger{amount:1.8, from:'random'}）；
                  to 九值全部写死 —— 终点零随机，丝滑收敛；每字落位即释放 will-change。
-                 入场期间暂停字符渐变 shimmer（background-position 逐帧重绘），落位后恢复 */
+                 入场期间只保留 transform / opacity，落位后释放合成层占用 */
               if(enterTl){ enterTl.kill(); }
               gsap.set(self.chars, {willChange:'transform, opacity'});
               enterTl = gsap.timeline({delay:0.2});
@@ -271,14 +287,12 @@
               });
             },
             onLeaveBack:function(){
-              /* 双向循环：滚回时回到新一轮随机姿态（fromVars 重新抽签；from 随机 / to 固定原则不变） */
+              /* 双向循环：滚回时直接落回新一轮随机初态；下一次入场仍固定归零。 */
               el._entered = false;
               if(enterTl){ enterTl.kill(); enterTl = null; }
-              gsap.to(self.chars, Object.assign(fromVars(), {
-                duration:.55, ease:'power2.in', overwrite:'auto',
-                stagger:{amount:.5, from:'random'},
-                onComplete:function(){ gsap.set(self.chars, {willChange:'auto'}); }
-              }));
+              gsap.set(self.chars, fromVars());
+              gsap.set(self.chars, {willChange:'auto'});
+              self.chars.forEach(function(c){ c.style.animationPlayState = ''; });
             }
           });
           /* 第五层-滚动：标题滚离视口时的 scrub 收场（作用在 el 容器，与 char 动画不同目标不冲突） */
@@ -351,7 +365,8 @@
       SplitText.create(slogan, {
         type:'chars', charsClass:'st-char',
         onSplit:function(self){
-          gsap.to(self.chars, {y:-7, duration:.9, ease:'sine.inOut',
+          gsap.set(self.chars, {y:function(){ return gsap.utils.random(-5, 5); }});
+          gsap.to(self.chars, {y:0, duration:.9, ease:'sine.inOut',
             stagger:{each:.07, yoyo:true, repeat:-1}});
         }
       });
@@ -405,8 +420,10 @@
               gsap.to(self.chars, {yPercent:0, opacity:1, duration:.6, ease:'power3.out', stagger:{amount:amt, from:'start'}, overwrite:true});
             },
             onLeaveBack:function(){
-              gsap.to(self.chars, {yPercent:function(){ return gsap.utils.random(40, 95); }, opacity:0,
-                duration:.4, ease:'power2.in', stagger:{amount:amt * .5, from:'end'}, overwrite:true});
+              gsap.set(self.chars, {
+                yPercent:function(){ return gsap.utils.random(40, 95); },
+                opacity:0
+              });
             }
           });
         }
@@ -414,23 +431,18 @@
     });
   }
   var galleryTextInitFn = null;   /* 图库文字动效初始化（section 7 内挂载，fonts.ready 后调用） */
-  if(hasSplit){
-    if(document.fonts && document.fonts.ready){
-      document.fonts.ready.then(function(){
-        initTitleSplits();
-        if(galleryTextInitFn){ galleryTextInitFn(); }
-      });
-    }else{
+  if(hasSplit && document.fonts && document.fonts.ready){
+    document.fonts.ready.then(function(){
+      fontsReady = true;
       initTitleSplits();
-    }
-  }else{
-    /* SplitText 缺失：解除首屏标题门控；h2/h3 保留 data-reveal 走普通淡入 */
-    gsap.set('.hero__title', {opacity:1});
-    gsap.set('.hero__sub', {opacity:1});
-    gsap.utils.toArray('h2[data-reveal], h3[data-reveal]').forEach(function(el){
-      el.removeAttribute('data-reveal');
-      gsap.set(el, {opacity:1});
+      if(galleryTextInitFn){ galleryTextInitFn(); }
     });
+  }else{
+    /* 没有 Font Loading API 时不拆分，避免字体度量未稳定就建立 mask。 */
+    hasSplit = false;
+    fontsReady = true;
+    /* SplitText 缺失：解除首屏标题门控；h2/h3 保留 data-reveal 走普通淡入 */
+    revealStaticText();
   }
 
   /* ---------- 3.5 宣言逐字点亮（GSAP 官网 highlight-word 同款：scrub 双向） ---------- */
@@ -450,7 +462,12 @@
     });
     el.innerHTML = '';
     el.appendChild(frag);
-    gsap.set(chars, {opacity:.13, y:14, rotationX:-70, transformPerspective:600});
+    gsap.set(chars, {
+      opacity:function(){ return gsap.utils.random(.08, .2); },
+      y:function(){ return gsap.utils.random(8, 22); },
+      rotationX:function(){ return gsap.utils.random(-70, -40); },
+      transformPerspective:600
+    });
     gsap.to(chars, {opacity:1, y:0, rotationX:0, stagger:.07, ease:'none',
       scrollTrigger:{trigger:el, start:'top 78%', end:'top 28%', scrub:.4}});
   });
@@ -463,7 +480,8 @@
       ScrollTrigger.create({
         trigger:el, start:'top 88%', once:true,
         onEnter:function(){
-          gsap.to(el, {duration:1.1, scrambleText:{text:finalText, chars:decodePool, speed:.35}});
+          gsap.to(el, {duration:1.1, scrambleText:{text:finalText, chars:decodePool, speed:.35},
+            onComplete:function(){ el.textContent = finalText; }});
         }
       });
     });
@@ -471,7 +489,8 @@
     var heroEyebrow = document.querySelector('.hero__copy .eyebrow');
     if(heroEyebrow){
       var heroEbText = heroEyebrow.textContent;
-      gsap.to(heroEyebrow, {duration:1.1, delay:.55, scrambleText:{text:heroEbText, chars:decodePool, speed:.35}});
+      gsap.to(heroEyebrow, {duration:1.1, delay:.55, scrambleText:{text:heroEbText, chars:decodePool, speed:.35},
+        onComplete:function(){ heroEyebrow.textContent = heroEbText; }});
     }
   }
 
@@ -484,10 +503,10 @@
   ScrollTrigger.batch(reveals, {
     start:'top 88%',
     onEnter:function(batch){
-      gsap.to(batch, {autoAlpha:1, y:0, scale:1, duration:.9, ease:'power3.out', stagger:.08, overwrite:true});
+      gsap.to(batch, {autoAlpha:1, y:0, scale:1, duration:.9, ease:'power3.out', stagger:.08, overwrite:'auto'});
     },
     onLeaveBack:function(batch){
-      gsap.to(batch, {autoAlpha:0, y:36, scale:.985, duration:.45, ease:'power2.in', stagger:.04, overwrite:true});
+      gsap.to(batch, {autoAlpha:0, y:36, scale:.985, duration:.45, ease:'power2.in', stagger:.04, overwrite:'auto'});
     }
   });
 
@@ -602,7 +621,7 @@
       if(!chars || !chars.length) return;
       gsap.set(chars, {
         yPercent:function(i){ return (i % 2 ? -70 : 110); },
-        rotationX:function(){ return gsap.utils.random(-130, -50); },
+        rotationX:function(){ return gsap.utils.random(-85, -50); },
         opacity:0
       });
       gsap.to(chars, {
@@ -613,7 +632,7 @@
     }
     function gRevealDesc(desc){
       if(gDescAnim){ if(gDescAnim.tl){ gDescAnim.tl.kill(); } gDescAnim.split.revert(); gDescAnim = null; }
-      if(!hasSplit || !desc){
+      if(!hasSplit || !fontsReady || !desc){
         if(desc){ gsap.fromTo(desc, {opacity:0, y:10}, {opacity:1, y:0, duration:.45, ease:'power2.out'}); }
         return;
       }
@@ -682,7 +701,7 @@
 
   /* ---------- 7.5 章节指示胶囊：文字共享元素（同一容器在章节间滑动换字） ---------- */
   var pill = document.getElementById('sectionPill');
-  if(pill && 'IntersectionObserver' in window){
+  if(pill){
     var pillMap = [
       {id:'features', num:'01', txt:'核心能力', dark:false},
       {id:'scenes', num:'02', txt:'使用场景', dark:false},
@@ -692,11 +711,14 @@
     var pillNum = document.getElementById('pillNum');
     var pillTxt = document.getElementById('pillTxt');
     var pillBusy = false;
+    var pillPending = null;
     var pillCurrent = null;
 
     function pillSlideTo(item){
+      pillPending = item;
       if(pillBusy) return;
       pillBusy = true;
+      pillPending = null;
       pill.classList.toggle('on-dark', item.dark);
       gsap.to(pillNum, {y:-10, opacity:0, duration:.22, ease:'power2.in', overwrite:true, onComplete:function(){
         pillNum.textContent = item.num;
@@ -705,34 +727,54 @@
       gsap.to(pillTxt, {yPercent:-130, duration:.28, ease:'power2.in', overwrite:true, onComplete:function(){
         pillTxt.textContent = item.txt;
         gsap.fromTo(pillTxt, {yPercent:130}, {yPercent:0, duration:.36, ease:'power3.out', overwrite:true,
-          onComplete:function(){ pillBusy = false; }});
+          onComplete:function(){
+            pillBusy = false;
+            if(pillPending && pillCurrent === pillPending.id && pill.classList.contains('is-on')){
+              var queued = pillPending;
+              pillPending = null;
+              pillSlideTo(queued);
+            }
+          }});
       }});
     }
 
-    var pillIO = new IntersectionObserver(function(entries){
-      entries.forEach(function(en){
-        if(!en.isIntersecting) return;
-        var id = en.target.id;
-        if(id === pillCurrent) return;
-        pillCurrent = id;
-        if(id === 'top'){ pill.classList.remove('is-on'); return; }  /* 回到首屏：胶囊退场 */
-        var item = null;
-        for(var i = 0; i < pillMap.length; i++){ if(pillMap[i].id === id){ item = pillMap[i]; break; } }
-        if(!item) return;
-        pill.classList.toggle('on-dark', item.dark);
-        if(!pill.classList.contains('is-on')){
-          /* 首次出现：内容已就位，胶囊整体浮入 */
-          pillTxt.textContent = item.txt;
-          pillNum.textContent = item.num;
-          pill.classList.add('is-on');
-          gsap.fromTo(pill, {y:14}, {y:0, duration:.5, ease:'power3.out', overwrite:true});
-        }else{
-          pillSlideTo(item);
+    function syncPillSection(){
+      var probe = window.innerHeight * .5;
+      var id = 'top';
+      var item = null;
+      pillMap.forEach(function(m){
+        var section = document.getElementById(m.id);
+        if(section && section.getBoundingClientRect().top <= probe){
+          id = m.id;
+          item = m;
         }
       });
-    }, {rootMargin:'-45% 0px -45% 0px'});
-    pillIO.observe(document.getElementById('top'));
-    pillMap.forEach(function(m){ var s = document.getElementById(m.id); if(s) pillIO.observe(s); });
+      if(id === pillCurrent) return;
+      pillCurrent = id;
+      if(id === 'top'){
+        pillPending = null;
+        pillBusy = false;
+        gsap.killTweensOf([pill, pillNum, pillTxt]);
+        pill.classList.remove('is-on');
+        return;
+      }
+      if(!item) return;
+      pill.classList.toggle('on-dark', item.dark);
+      if(!pill.classList.contains('is-on')){
+        /* 首次出现：内容已就位，胶囊整体浮入 */
+        pillPending = null;
+        pillTxt.textContent = item.txt;
+        pillNum.textContent = item.num;
+        pill.classList.add('is-on');
+        gsap.fromTo(pill, {y:14}, {y:0, duration:.5, ease:'power3.out', overwrite:true});
+      }else{
+        pillSlideTo(item);
+      }
+    }
+    window.addEventListener('scroll', syncPillSection, {passive:true});
+    window.addEventListener('resize', syncPillSection);
+    if(lenis){ lenis.on('scroll', syncPillSection); }
+    syncPillSection();
   }
 
   /* ---------- 8. 共享元素转场：截图点击放大（场景 / 核心能力 / 下载）（Flip） ---------- */
@@ -741,7 +783,7 @@
     var stage = document.getElementById('zoomStage');
     var backdrop = document.getElementById('zoomBackdrop');
     var closeBtn = document.getElementById('zoomClose');
-    var current = null, ghost = null;
+    var current = null, currentTrigger = null, ghost = null;
 
     document.querySelectorAll('.scene .device__screen, .gallery__stage .device__screen, .download .device__screen').forEach(function(screen){
       var card = screen.closest('.scene') || screen.closest('.device');
@@ -749,15 +791,16 @@
       card.setAttribute('role', 'button');
       card.setAttribute('tabindex', '0');
       card.setAttribute('aria-label', '点击查看大图');
-      card.addEventListener('click', function(){ openZoom(screen); });
+      card.addEventListener('click', function(){ openZoom(screen, card); });
       card.addEventListener('keydown', function(e){
-        if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openZoom(screen); }
+        if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openZoom(screen, card); }
       });
     });
 
-    function openZoom(screen){
+    function openZoom(screen, trigger){
       if(current) return;
       current = screen;
+      currentTrigger = trigger || null;
       if(lenis){ lenis.stop(); }   /* 放大查看时锁定页面滚动 */
       var state = Flip.getState(screen);
       ghost = screen.cloneNode(true);
@@ -773,13 +816,18 @@
     function closeZoom(){
       if(!current) return;
       var screen = current;
+      var trigger = currentTrigger;
       var state = Flip.getState(screen);
       ghost.parentNode.insertBefore(screen, ghost);
       ghost.remove();
       ghost = null;
       current = null;
+      currentTrigger = null;
       if(lenis){ lenis.start(); }
-      gsap.to(backdrop, {opacity:0, duration:.3, ease:'power2.in', onComplete:function(){ zoom.hidden = true; }});
+      gsap.to(backdrop, {opacity:0, duration:.3, ease:'power2.in', onComplete:function(){
+        zoom.hidden = true;
+        if(trigger && trigger.focus){ trigger.focus(); }
+      }});
       Flip.from(state, {duration:.7, ease:'power3.inOut', absolute:true});
     }
 
