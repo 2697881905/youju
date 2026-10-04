@@ -122,70 +122,95 @@
   gsap.fromTo('.hero__visual', {yPercent:0}, {yPercent:-32, ease:'none',
     scrollTrigger:{trigger:'.hero', start:'top top', end:'bottom top', scrub:true}});
 
-  /* ---------- 3. 标题逐字揭示（官方 SplitText：mask 裁切 + rotateX 翻入 + 模糊聚焦，双向同步） ---------- */
+  /* ---------- 3. 标题逐字揭示（SplitText mask 裁切 + 六层：路径分组大幅差异化 / 活错峰 / 丝滑收敛 / 性能开关） ---------- */
   /* 拆分统一在 document.fonts.ready 之后执行（避免字体加载后换行/度量错位）；
      SplitText 原生保留嵌套元素（hero 渐变 span）与 <br> 分行。 */
   var hasSplit = typeof window.SplitText !== 'undefined';
   function initTitleSplits(){
     if(!hasSplit) return;
 
-    /* 首屏与章节标题：逐字翻入（五层：独立姿态 / 活错峰 / 随机微扰 / 精准归位 / 入场后仍活着） */
+    /* 移动端分档：粗指针 rotateY/x/z 幅度砍半（K=0.5），模糊上限 12px */
+    var coarse = window.matchMedia('(pointer:coarse)').matches;
+    var K = coarse ? 0.5 : 1;
+    var blurMax = coarse ? 12 : 24;
+
+    /* CustomEase silk 三曲线（前段猛后段缓）；插件缺失时回退内置缓动池。
+       initTitleSplits 仅在 fonts.ready 后执行一次；create 重复调用为静默覆盖，无重复注册风险 */
+    var EASES;
+    if(typeof window.CustomEase !== 'undefined'){
+      gsap.registerPlugin(CustomEase);
+      CustomEase.create('silk', 'M0,0 C0.16,1 0.3,1 1,1');
+      CustomEase.create('silkSoft', 'M0,0 C0.2,0.75 0.4,1 1,1');
+      CustomEase.create('silkBack', 'M0,0 C0.34,1.56 0.64,1 1,1');
+      EASES = ['silk', 'silkSoft', 'silkBack'];
+    }else{
+      EASES = ['expo.out', 'power4.out', 'power3.out'];
+    }
+
+    /* from 全函数化（每次触发重新抽签，绝不与写死的 to 混用）：
+       i%3 路径分组 —— 0 下翻 / 1 侧甩 / 2 深推；其余维度统一范围随机 */
+    function fromVars(){
+      return {
+        yPercent:function(i){ return (i % 3) === 0 ? gsap.utils.random(140, 220) : gsap.utils.random(80, 150); },
+        rotationX:function(i){ return (i % 3) === 0 ? gsap.utils.random(-180, -90) : gsap.utils.random(-110, -30); },
+        rotationY:function(i){ return (i % 3) === 1 ? (i % 2 ? 1 : -1) * gsap.utils.random(40, 90) * K : gsap.utils.random(-25, 25); },
+        rotate:function(){ return gsap.utils.random(-35, 35); },
+        x:function(i){ return (i % 3) === 1 ? (i % 2 ? 1 : -1) * gsap.utils.random(60, 120) * K : gsap.utils.random(-45, 45); },
+        z:function(i){
+          var g = i % 3;
+          return gsap.utils.random((g === 2 ? -600 : -180) * K, (g === 2 ? -260 : -40) * K);
+        },
+        scale:function(i){ return (i % 3) === 2 ? gsap.utils.random(0.3, 0.6) : gsap.utils.random(0.55, 1.4); },
+        filter:function(){ return 'blur(' + gsap.utils.random(6, blurMax).toFixed(1) + 'px)'; },
+        opacity:0
+      };
+    }
+
+    /* 首屏与章节标题：逐字翻入（六层：大幅差异化姿态 / 活错峰 / 路径分组 / 丝滑收敛 / 入场后仍活着 / 性能开关） */
     document.querySelectorAll('.hero__title, h2[data-reveal], h3[data-reveal]').forEach(function(el){
       el.removeAttribute('data-reveal');
       SplitText.create(el, {
         type:'chars', mask:'chars', charsClass:'st-char',
         onSplit:function(self){
-          /* 第一~三层：初始态全面逐字随机（from 随机 / to 固定 / 时长与缓动逐字独立） */
-          var EASES = ['expo.out', 'power4.out', 'power3.out', 'back.out(1.4)', 'circ.out'];
-          gsap.set(self.chars, {
-            yPercent:function(){ return gsap.utils.random(90, 160); },
-            rotationX:function(){ return gsap.utils.random(-110, -40); },
-            rotationY:function(){ return gsap.utils.random(-25, 25); },
-            rotate:function(){ return gsap.utils.random(-12, 12); },
-            x:function(){ return gsap.utils.random(-40, 40); },
-            z:function(){ return gsap.utils.random(-260, -40); },
-            scale:function(){ return gsap.utils.random(0.6, 1.1); },
-            filter:function(){ return 'blur(' + gsap.utils.random(4, 16) + 'px)'; },
-            opacity:0,
-            transformOrigin:'50% 100%',
-            transformPerspective:600
-          });
-          gsap.set(el, {opacity:1});
+          /* 第一~三层：初始态 from 函数化抽签；性能开关随初始态一并落位
+             （透视逐字自带 —— 容器 perspective 穿不透 mask 层，char 是孙级） */
+          var fromSet = fromVars();
+          fromSet.transformOrigin = '50% 100%';
+          fromSet.transformPerspective = 800;
+          fromSet.force3D = true;
+          fromSet.backfaceVisibility = 'hidden';
+          fromSet.willChange = 'transform, opacity, filter';
+          gsap.set(self.chars, fromSet);
+          gsap.set(el, {opacity:1, transformStyle:'preserve-3d'});
           var enterTl = null;
           ScrollTrigger.create({
             trigger:el, start:'top 88%',
             onEnter:function(){
-              /* 逐字独立补间：duration 0.9~1.6 随机、ease 从调性相近池随机抽取、
-                 时间位置随机摆放在 1.2s 窗口内（等价 stagger{amount:1.2, from:'random'}）；
-                 to 值全部写死 —— 终点零随机，精准归位 */
+              /* 逐字独立补间：duration 1.2~2.2 随机、ease 从 silk 池随机抽取、
+                 时间位置随机摆放在 1.8s 窗口内（等价 stagger{amount:1.8, from:'random'}）；
+                 to 九值全部写死 —— 终点零随机，丝滑收敛；每字落位即释放 will-change */
               if(enterTl){ enterTl.kill(); }
-              enterTl = gsap.timeline({delay:0.15});
+              gsap.set(self.chars, {willChange:'transform, opacity, filter'});
+              enterTl = gsap.timeline({delay:0.2});
               self.chars.forEach(function(c){
                 enterTl.to(c, {
                   yPercent:0, rotationX:0, rotationY:0, rotate:0, x:0, z:0, scale:1,
                   filter:'blur(0px)', opacity:1,
-                  duration:gsap.utils.random(0.9, 1.6),
+                  duration:gsap.utils.random(1.2, 2.2),
                   ease:gsap.utils.random(EASES),
-                  overwrite:'auto'
-                }, gsap.utils.random(0, 1.2));
+                  overwrite:'auto',
+                  onComplete:function(){ c.style.willChange = 'auto'; }
+                }, gsap.utils.random(0, 1.8));
               });
             },
             onLeaveBack:function(){
-              /* 双向循环：滚回时回到新一轮随机姿态（from 随机 / to 固定，同一原则） */
+              /* 双向循环：滚回时回到新一轮随机姿态（fromVars 重新抽签；from 随机 / to 固定原则不变） */
               if(enterTl){ enterTl.kill(); enterTl = null; }
-              gsap.to(self.chars, {
-                yPercent:function(){ return gsap.utils.random(90, 160); },
-                rotationX:function(){ return gsap.utils.random(-110, -40); },
-                rotationY:function(){ return gsap.utils.random(-25, 25); },
-                rotate:function(){ return gsap.utils.random(-12, 12); },
-                x:function(){ return gsap.utils.random(-40, 40); },
-                z:function(){ return gsap.utils.random(-260, -40); },
-                scale:function(){ return gsap.utils.random(0.6, 1.1); },
-                filter:function(){ return 'blur(' + gsap.utils.random(4, 16) + 'px)'; },
-                opacity:0,
-                duration:.5, ease:'power2.in', overwrite:'auto',
-                stagger:{amount:.4, from:'random', ease:'power1.in'}
-              });
+              gsap.to(self.chars, Object.assign(fromVars(), {
+                duration:.55, ease:'power2.in', overwrite:'auto',
+                stagger:{amount:.5, from:'random'},
+                onComplete:function(){ gsap.set(self.chars, {willChange:'auto'}); }
+              }));
             }
           });
           /* 第五层-滚动：标题滚离视口时的 scrub 收场（作用在 el 容器，与 char 动画不同目标不冲突） */
