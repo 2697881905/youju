@@ -105,7 +105,7 @@
   gsap.timeline({defaults:{ease:'power3.out'}})
     .fromTo('.nav', {y:-18, autoAlpha:0}, {y:0, autoAlpha:1, duration:.7}, .05)
     .fromTo('.hero__copy .eyebrow', {y:26, autoAlpha:0}, {y:0, autoAlpha:1, duration:.8}, .18)
-    .fromTo('.hero__sub', {y:26, autoAlpha:0}, {y:0, autoAlpha:1, duration:.8}, .38)
+    /* hero__sub 改由逐词级联接管（initTitleSplits 内，fonts.ready 后解锁） */
     .fromTo('.hero__actions', {y:22, autoAlpha:0}, {y:0, autoAlpha:1, duration:.8}, .5)
     .fromTo('.hero__visual', {y:52, autoAlpha:0, scale:.965}, {y:0, autoAlpha:1, scale:1, duration:1.1}, .32);
 
@@ -122,96 +122,95 @@
   gsap.fromTo('.hero__visual', {yPercent:0}, {yPercent:-32, ease:'none',
     scrollTrigger:{trigger:'.hero', start:'top top', end:'bottom top', scrub:true}});
 
-  /* ---------- 3. 标题逐字揭示（SplitText mask 裁切 + 六层：路径分组大幅差异化 / 活错峰 / 丝滑收敛 / 性能开关） ---------- */
+  /* ---------- 2.8 逐字动效人格系统（i%5 五路径 × 绑定缓动；标题系统与图库共用） ----------
+     ⚠️ 性能铁律：字符只动 transform/opacity（全程合成器驱动，零逐帧栅格化）——
+     filter 每帧重栅格化是掉帧主因，严禁回加。 */
+  var coarse = window.matchMedia('(pointer:coarse)').matches;
+  var K = coarse ? 0.5 : 1;   /* 移动端：位移类维度（x / z / rotationY / skewX）砍半 */
+
+  /* CustomEase silk 三曲线（前段猛后段缓）；插件缺失时回退内置缓动 */
+  var E_SILK, E_SOFT, E_BACK;
+  if(typeof window.CustomEase !== 'undefined'){
+    gsap.registerPlugin(CustomEase);
+    CustomEase.create('silk', 'M0,0 C0.16,1 0.3,1 1,1');
+    CustomEase.create('silkSoft', 'M0,0 C0.2,0.75 0.4,1 1,1');
+    CustomEase.create('silkBack', 'M0,0 C0.34,1.56 0.64,1 1,1');
+    E_SILK = 'silk'; E_SOFT = 'silkSoft'; E_BACK = 'silkBack';
+  }else{
+    E_SILK = 'expo.out'; E_SOFT = 'power3.out'; E_BACK = 'back.out(1.6)';
+  }
+
+  /* 每组人格的时间曲线：ease 与路径绑定，动作有性格（不只是参数随机） */
+  function motionFor(i){
+    var g = i % 5;
+    if(g === 0) return { dur:[1.4, 2.2], ease:E_SILK };  /* 翻坠：长滑行 */
+    if(g === 1) return { dur:[0.9, 1.5], ease:E_SOFT };  /* 侧甩：快切 */
+    if(g === 2) return { dur:[1.6, 2.4], ease:E_SILK };  /* 深推：最深最缓 */
+    if(g === 3) return { dur:[1.0, 1.6], ease:E_BACK };  /* 弹升：必过冲 */
+    return { dur:[1.2, 1.8], ease:E_SOFT };              /* 翻牌 */
+  }
+
+  /* from 全函数化（每次触发重新抽签，绝不与写死的 to 混用）：
+     i%5 五种入场人格 —— 0 翻坠 / 1 侧甩 / 2 深推 / 3 弹升 / 4 翻牌 */
+  function fromVars(){
+    return {
+      yPercent:function(i){
+        var g = i % 5;
+        if(g === 0) return gsap.utils.random(120, 260);
+        if(g === 3) return gsap.utils.random(60, 140);
+        return gsap.utils.random(40, 120);
+      },
+      rotationX:function(i){
+        var g = i % 5;
+        if(g === 0) return gsap.utils.random(-200, -120);
+        if(g === 2) return gsap.utils.random(-60, -20);
+        if(g === 3) return gsap.utils.random(40, 90);
+        return gsap.utils.random(-90, -30);
+      },
+      rotationY:function(i){
+        var g = i % 5, s = (i % 2 ? 1 : -1);
+        if(g === 1) return s * gsap.utils.random(60, 120) * K;
+        if(g === 4) return s * gsap.utils.random(140, 200) * K;
+        return gsap.utils.random(-30, 30);
+      },
+      rotate:function(i){
+        var g = i % 5, s = (i % 2 ? 1 : -1);
+        if(g === 1) return -s * gsap.utils.random(25, 60);
+        return gsap.utils.random(-45, 45);
+      },
+      x:function(i){
+        var g = i % 5, s = (i % 2 ? 1 : -1);
+        if(g === 1) return s * gsap.utils.random(140, 260) * K;
+        if(g === 4) return s * gsap.utils.random(40, 90) * K;
+        return gsap.utils.random(-70, 70);
+      },
+      skewX:function(i){
+        var g = i % 5, s = (i % 2 ? 1 : -1);
+        if(g === 1) return s * gsap.utils.random(30, 55) * K;
+        return gsap.utils.random(-12, 12);
+      },
+      z:function(i){
+        var g = i % 5;
+        if(g === 2) return gsap.utils.random(-900, -450) * K;
+        return gsap.utils.random(-260, -40);
+      },
+      scale:function(i){
+        var g = i % 5;
+        if(g === 0) return gsap.utils.random(0.5, 0.9);
+        if(g === 2) return gsap.utils.random(0.15, 0.45);
+        if(g === 3) return gsap.utils.random(1.35, 1.9);
+        return gsap.utils.random(0.6, 1.2);
+      },
+      opacity:0
+    };
+  }
+
+  /* ---------- 3. 标题逐字揭示（SplitText mask 裁切 + 五路径人格 / 活错峰 / 丝滑收敛 / 性能开关） ---------- */
   /* 拆分统一在 document.fonts.ready 之后执行（避免字体加载后换行/度量错位）；
      SplitText 原生保留嵌套元素（hero 渐变 span）与 <br> 分行。 */
   var hasSplit = typeof window.SplitText !== 'undefined';
   function initTitleSplits(){
     if(!hasSplit) return;
-
-    /* 移动端分档：位移类维度（x / z / rotationY / skewX）砍半（K=0.5）。
-       ⚠️ 性能铁律：字符只动 transform/opacity（全程合成器驱动，零逐帧栅格化）——
-       filter 每帧重栅格化是掉帧主因，严禁回加。 */
-    var coarse = window.matchMedia('(pointer:coarse)').matches;
-    var K = coarse ? 0.5 : 1;
-
-    /* CustomEase silk 三曲线（前段猛后段缓）；插件缺失时回退内置缓动。
-       initTitleSplits 仅在 fonts.ready 后执行一次；create 重复调用为静默覆盖，无重复注册风险 */
-    var E_SILK, E_SOFT, E_BACK;
-    if(typeof window.CustomEase !== 'undefined'){
-      gsap.registerPlugin(CustomEase);
-      CustomEase.create('silk', 'M0,0 C0.16,1 0.3,1 1,1');
-      CustomEase.create('silkSoft', 'M0,0 C0.2,0.75 0.4,1 1,1');
-      CustomEase.create('silkBack', 'M0,0 C0.34,1.56 0.64,1 1,1');
-      E_SILK = 'silk'; E_SOFT = 'silkSoft'; E_BACK = 'silkBack';
-    }else{
-      E_SILK = 'expo.out'; E_SOFT = 'power3.out'; E_BACK = 'back.out(1.6)';
-    }
-
-    /* 每组人格的时间曲线：ease 与路径绑定，动作有性格（不只是参数随机） */
-    function motionFor(i){
-      var g = i % 5;
-      if(g === 0) return { dur:[1.4, 2.2], ease:E_SILK };  /* 翻坠：长滑行 */
-      if(g === 1) return { dur:[0.9, 1.5], ease:E_SOFT };  /* 侧甩：快切 */
-      if(g === 2) return { dur:[1.6, 2.4], ease:E_SILK };  /* 深推：最深最缓 */
-      if(g === 3) return { dur:[1.0, 1.6], ease:E_BACK };  /* 弹升：必过冲 */
-      return { dur:[1.2, 1.8], ease:E_SOFT };              /* 翻牌 */
-    }
-
-    /* from 全函数化（每次触发重新抽签，绝不与写死的 to 混用）：
-       i%5 五种入场人格 —— 0 翻坠 / 1 侧甩 / 2 深推 / 3 弹升 / 4 翻牌 */
-    function fromVars(){
-      return {
-        yPercent:function(i){
-          var g = i % 5;
-          if(g === 0) return gsap.utils.random(120, 260);
-          if(g === 3) return gsap.utils.random(60, 140);
-          return gsap.utils.random(40, 120);
-        },
-        rotationX:function(i){
-          var g = i % 5;
-          if(g === 0) return gsap.utils.random(-200, -120);
-          if(g === 2) return gsap.utils.random(-60, -20);
-          if(g === 3) return gsap.utils.random(40, 90);
-          return gsap.utils.random(-90, -30);
-        },
-        rotationY:function(i){
-          var g = i % 5, s = (i % 2 ? 1 : -1);
-          if(g === 1) return s * gsap.utils.random(60, 120) * K;
-          if(g === 4) return s * gsap.utils.random(140, 200) * K;
-          return gsap.utils.random(-30, 30);
-        },
-        rotate:function(i){
-          var g = i % 5, s = (i % 2 ? 1 : -1);
-          if(g === 1) return -s * gsap.utils.random(25, 60);
-          return gsap.utils.random(-45, 45);
-        },
-        x:function(i){
-          var g = i % 5, s = (i % 2 ? 1 : -1);
-          if(g === 1) return s * gsap.utils.random(140, 260) * K;
-          if(g === 4) return s * gsap.utils.random(40, 90) * K;
-          return gsap.utils.random(-70, 70);
-        },
-        skewX:function(i){
-          var g = i % 5, s = (i % 2 ? 1 : -1);
-          if(g === 1) return s * gsap.utils.random(30, 55) * K;
-          return gsap.utils.random(-12, 12);
-        },
-        z:function(i){
-          var g = i % 5;
-          if(g === 2) return gsap.utils.random(-900, -450) * K;
-          return gsap.utils.random(-260, -40);
-        },
-        scale:function(i){
-          var g = i % 5;
-          if(g === 0) return gsap.utils.random(0.5, 0.9);
-          if(g === 2) return gsap.utils.random(0.15, 0.45);
-          if(g === 3) return gsap.utils.random(1.35, 1.9);
-          return gsap.utils.random(0.6, 1.2);
-        },
-        opacity:0
-      };
-    }
 
     /* 首屏与章节标题：逐字翻入（i%5 五路径人格 / 活错峰 / 丝滑收敛 / 入场后仍活着 / 性能开关） */
     document.querySelectorAll('.hero__title, h2[data-reveal], h3[data-reveal]').forEach(function(el){
@@ -252,6 +251,9 @@
                   onComplete:function(){
                     c.style.willChange = 'auto';
                     c.style.animationPlayState = '';
+                    /* 落位弹性微回弹：站定前轻轻晃一下（与鼠标跟随 y 不同属性，不冲突） */
+                    gsap.fromTo(c, {rotation:gsap.utils.random(-5, 5)},
+                      {rotation:0, duration:.7, ease:'elastic.out(1,.45)', overwrite:'auto'});
                   }
                 }, gsap.utils.random(0, 1.8));
               });
@@ -313,16 +315,67 @@
         }
       });
     });
+
+    /* Hero 副标：字级小幅级联（中文无空格分不出词，用小幅度字 cascade 对标宣言区观感） */
+    var heroSub = document.querySelector('.hero__sub');
+    if(heroSub){
+      SplitText.create(heroSub, {
+        type:'chars', charsClass:'st-char',
+        onSplit:function(self){
+          gsap.set(self.chars, {
+            yPercent:function(){ return gsap.utils.random(50, 110); },
+            opacity:0
+          });
+          gsap.set(heroSub, {opacity:1});
+          gsap.to(self.chars, {yPercent:0, opacity:1, duration:.7, ease:'power3.out', stagger:.012, delay:.35});
+        }
+      });
+    }
+
+    /* 下载 slogan：永动字浪（相位错开的正弦起伏；合成器驱动，滚出视口零成本） */
+    var slogan = document.querySelector('.download__slogan');
+    if(slogan){
+      SplitText.create(slogan, {
+        type:'chars', charsClass:'st-char',
+        onSplit:function(self){
+          gsap.to(self.chars, {y:-7, duration:.9, ease:'sine.inOut',
+            stagger:{each:.07, yoyo:true, repeat:-1}});
+        }
+      });
+    }
+
+    /* CTA 主按钮：hover 字符波浪（仅精确指针；与磁吸/flair 分属不同元素不冲突） */
+    if(window.matchMedia('(pointer:fine)').matches){
+      document.querySelectorAll('.btn--primary .btn__label').forEach(function(label){
+        SplitText.create(label, {
+          type:'chars', charsClass:'st-char',
+          onSplit:function(self){
+            var wave = null;
+            label.closest('.btn').addEventListener('mouseenter', function(){
+              if(wave){ wave.kill(); }
+              wave = gsap.timeline()
+                .to(self.chars, {y:-6, duration:.22, ease:'power2.out', stagger:.018})
+                .to(self.chars, {y:0, duration:.55, ease:'elastic.out(1,.5)', stagger:.018}, '-=0.28');
+            });
+          }
+        });
+      });
+    }
   }
+  var galleryTextInitFn = null;   /* 图库文字动效初始化（section 7 内挂载，fonts.ready 后调用） */
   if(hasSplit){
     if(document.fonts && document.fonts.ready){
-      document.fonts.ready.then(initTitleSplits);
+      document.fonts.ready.then(function(){
+        initTitleSplits();
+        if(galleryTextInitFn){ galleryTextInitFn(); }
+      });
     }else{
       initTitleSplits();
     }
   }else{
     /* SplitText 缺失：解除首屏标题门控；h2/h3 保留 data-reveal 走普通淡入 */
     gsap.set('.hero__title', {opacity:1});
+    gsap.set('.hero__sub', {opacity:1});
     gsap.utils.toArray('h2[data-reveal], h3[data-reveal]').forEach(function(el){
       el.removeAttribute('data-reveal');
       gsap.set(el, {opacity:1});
@@ -358,7 +411,7 @@
       ScrollTrigger.create({
         trigger:el, start:'top 88%', once:true,
         onEnter:function(){
-          gsap.to(el, {duration:1.1, scrambleText:{text:finalText, chars:'有据可依更好的生活出处结构追问理性分享', speed:.35}});
+          gsap.to(el, {duration:1.1, scrambleText:{text:finalText, chars:'有据可依更好的生活出处结构追问理性分享※○△□◇◈/', speed:.35}});
         }
       });
     });
@@ -378,6 +431,31 @@
     onLeaveBack:function(batch){
       gsap.to(batch, {autoAlpha:0, y:36, scale:.985, duration:.45, ease:'power2.in', stagger:.04, overwrite:true});
     }
+  });
+
+  /* ---------- 4.5 鸿蒙特性清单：标签滑入 + 清单项左右交替切入（双向循环） ---------- */
+  gsap.utils.toArray('.hkit').forEach(function(hkit){
+    var tag = hkit.querySelector('.hkit__tag');
+    var items = hkit.querySelectorAll('.hkit__points li');
+    if(tag){ gsap.set(tag, {x:-28, skewX:-10, opacity:0}); }
+    items.forEach(function(li, i){
+      gsap.set(li, {x:(i % 2 ? 46 : -46), rotation:(i % 2 ? 2.5 : -2.5), opacity:0});
+    });
+    ScrollTrigger.create({
+      trigger:hkit, start:'top 78%',
+      onEnter:function(){
+        if(tag){ gsap.to(tag, {x:0, skewX:0, opacity:1, duration:.7, ease:'power3.out', overwrite:true}); }
+        gsap.to(items, {x:0, rotation:0, opacity:1, duration:.8, ease:'power3.out', stagger:.09, overwrite:true});
+      },
+      onLeaveBack:function(){
+        if(tag){ gsap.to(tag, {x:-28, skewX:-10, opacity:0, duration:.4, ease:'power2.in', overwrite:true}); }
+        gsap.to(items, {
+          x:function(i){ return (i % 2 ? 46 : -46); },
+          rotation:function(i){ return (i % 2 ? 2.5 : -2.5); },
+          opacity:0, duration:.45, ease:'power2.in', stagger:.04, overwrite:true
+        });
+      }
+    });
   });
 
   /* ---------- 5. 滚动视差（分层速率：场景 44 > 鸿蒙 30 > 下载 24）+ Hero 设备呼吸浮动 ---------- */
@@ -479,6 +557,46 @@
       gActive = idx;
     }
 
+    /* ---------- 7.2 图库文字动效：激活标题「盖戳」级联 + 描述逐行揭示 ---------- */
+    var gDescAnim = null;
+    function gCascadeTTL(item){
+      var chars = item._ttlChars;
+      if(!chars || !chars.length) return;
+      gsap.set(chars, {
+        yPercent:function(i){ return (i % 2 ? -70 : 110); },
+        rotationX:function(){ return gsap.utils.random(-130, -50); },
+        opacity:0
+      });
+      gsap.to(chars, {
+        yPercent:0, rotationX:0, opacity:1, duration:.55, ease:'power3.out',
+        stagger:{amount:.32, from:'random'}, overwrite:'auto',
+        onComplete:function(){ gsap.set(chars, {clearProps:'transform,opacity'}); }
+      });
+    }
+    function gRevealDesc(desc){
+      if(gDescAnim){ if(gDescAnim.tl){ gDescAnim.tl.kill(); } gDescAnim.split.revert(); gDescAnim = null; }
+      if(!hasSplit || !desc){
+        if(desc){ gsap.fromTo(desc, {opacity:0, y:10}, {opacity:1, y:0, duration:.45, ease:'power2.out'}); }
+        return;
+      }
+      var split = SplitText.create(desc, {type:'lines', mask:'lines', linesClass:'st-line'});
+      var tl = gsap.fromTo(split.lines, {yPercent:110, opacity:0},
+        {yPercent:0, opacity:1, duration:.6, ease:'power3.out', stagger:.08});
+      gDescAnim = {split:split, tl:tl};
+    }
+    /* 拆分四条标题字符（fonts.ready 后经 galleryTextInitFn 调用，供切换时级联重播） */
+    galleryTextInitFn = function(){
+      gItems.forEach(function(item){
+        var ttl = item.querySelector('.gallery__ttl');
+        if(ttl && !item._ttlChars){
+          SplitText.create(ttl, {
+            type:'chars', mask:'chars', charsClass:'st-char',
+            onSplit:function(self){ item._ttlChars = self.chars; }
+          });
+        }
+      });
+    };
+
     gItems.forEach(function(item){
       item.querySelector('.gallery__tab').addEventListener('click', function(){
         var idx = parseInt(item.getAttribute('data-idx'), 10);
@@ -501,7 +619,8 @@
           gApply(idx);
           gPlaceMarker(true);
         }
-        if(desc){ gsap.fromTo(desc, {opacity:0, y:10}, {opacity:1, y:0, duration:.45, ease:'power2.out'}); }
+        if(desc){ gRevealDesc(desc); }
+        gCascadeTTL(item);
         var rect = gDevices[idx].getBoundingClientRect();
         if(rect.bottom < 80 || rect.top > window.innerHeight - 80){
           smoothTo(gDevices[idx], true);
