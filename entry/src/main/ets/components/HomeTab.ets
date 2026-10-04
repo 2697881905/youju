@@ -24,6 +24,7 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { barBottomReserve } from '../utils/cardTokens';
+import { feedItemTransition } from '../utils/feedMotion';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 
 type SortKey = 'hot' | 'latest' | 'recommend';
@@ -760,12 +761,8 @@ export struct HomeTab {
       },
     })
       // 不再挂整卡 id：截图与测量起点由封面块自带 id 承担（PostCardMedia：cardMedia-{id}）
-      .transition(
-        TransitionEffect.OPACITY
-          .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate, delay: Math.min(idx, 6) * MotionTokens.stagger })
-          .combine(TransitionEffect.translate({ y: 14 })
-            .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate, delay: Math.min(idx, 6) * MotionTokens.stagger }))
-      )
+      // 入场错峰过渡与其余列表统一（单一出处 utils/feedMotion）
+      .transition(feedItemTransition(idx))
       .onAppear(() => {
         if (post.id !== undefined && !this.exposedIds.has(post.id)) {
           this.exposedIds.add(post.id);

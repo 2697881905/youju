@@ -1,18 +1,20 @@
+// 草稿箱：顶部标题（返回键 + 「草稿箱」）迁入 Navigation 标题栏，下方为内容区
+// （与首页/废纸篓/搜索结果页同构）。列表复用 ManagedPostFeed —— 与首页信息流同款
+// 双列布局、卡片样式与入场错峰过渡。
+//
+// 草稿的 Post 没有 id，列表的稳定 key 由草稿 id 提供，因此点击/删除回调都按 key 反查草稿。
 import { getCurrentUser, getUserId } from '../utils/auth';
 import { removePostDraft, listPostDrafts, SavedPostDraft, subscribePostDrafts } from '../utils/postDraftStore';
 import { Post } from '../models/types';
 import { safeShowToast } from '../utils/toast';
 import { BackButton } from '../design/components/BackButton';
-import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
-import { IconTokens } from '../design/tokens/icon';
-import { MotionCurves, MotionTokens } from '../design/tokens/motion';
-import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { publishFlowStore } from '../utils/publishFlowStore';
 import { PublishMode } from '../components/PublishModeSheet';
-import { PostCard } from '../components/PostCard';
+import { ManagedPostFeed } from '../components/ManagedPostFeed';
+import { buildPageTransition } from '../utils/styles';
 
 @Entry
 @Component
@@ -42,6 +44,10 @@ struct DraftBoxPage {
     this.drafts = listPostDrafts(getUserId());
   }
 
+  private draftOf(key: string): SavedPostDraft | undefined {
+    return this.drafts.find((d: SavedPostDraft): boolean => d.id === key);
+  }
+
   private continueEdit(draft: SavedPostDraft): void {
     publishFlowStore.editSavedDraft(draft.id, draft);
     const mode: PublishMode = draft.mode ?? ((draft.videoUrl !== undefined && draft.videoUrl.length > 0) ? 'video'
@@ -49,6 +55,15 @@ struct DraftBoxPage {
     const url: string = mode === 'video' ? 'pages/VideoPublishPage'
       : (mode === 'text' ? 'pages/TextPublishPage' : 'pages/PhotoPublishPage');
     this.getUIContext().getRouter().pushUrl({ url: url });
+  }
+
+  // 列表删除按钮回调（回传稳定 key = 草稿 id）
+  private removeByKey(key: string): void {
+    const draft: SavedPostDraft | undefined = this.draftOf(key);
+    if (draft === undefined) {
+      return;
+    }
+    this.remove(draft);
   }
 
   private remove(draft: SavedPostDraft): void {
@@ -91,114 +106,83 @@ struct DraftBoxPage {
     };
   }
 
+  private draftPosts(): Post[] {
+    return this.drafts.map((d: SavedPostDraft): Post => this.postForDraft(d));
+  }
+
+  private draftKeys(): string[] {
+    return this.drafts.map((d: SavedPostDraft): string => d.id);
+  }
+
+  // 标题栏内容：随页面一起迁入 Navigation 标题栏（沉浸式布局下系统不代为避让状态栏，
+  // 由标题栏自行下移；STANDARD 占位使内容区从栏下开始，内容区不再重复避让）。
   @Builder
-  draftItem(draft: SavedPostDraft): void {
-    Stack() {
-      PostCard({
-        post: this.postForDraft(draft),
-        compact: true,
-        allowLike: false,
-        showStats: false,
-        showAuthor: false,
-        onOpen: (): void => { this.continueEdit(draft); },
-      }) {
-        // 操作行并入卡片信息区，与卡片一体（右对齐删除按钮）
-        Row() {
-          Blank().layoutWeight(1)
-          Stack({ alignContent: Alignment.Center }) {
-            Pressable({
-              fillWidth: true,
-              visualHeight: IconTokens.small,
-              touchTargetHeight: LayoutTokens.minTouchTarget,
-              action: (): void => { this.remove(draft); },
-            }) {
-              Row() {
-                Image($r('app.media.set_trash'))
-                  .width(IconTokens.compact)
-                  .height(IconTokens.compact)
-                  .fillColor(ColorTokens.icon)
-              }
-              .width(28)
-              .height(IconTokens.small)
-              .justifyContent(FlexAlign.Center)
-              .backgroundColor(Color.Transparent)
-              .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-              .borderRadius(RadiusTokens.lg)
-            }
-          }
-          .width(LayoutTokens.minTouchTarget)
-          .height(IconTokens.small)
-        }
-        .width('100%')
-        .padding({ top: SpaceTokens.xs })
-        .alignItems(VerticalAlign.Center)
-      }
-      Text('草稿')
-        .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
+  draftTitleBar(): void {
+    Row({ space: SpaceTokens.sm }) {
+      BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
+      Text('草稿箱')
+        .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
         .fontWeight(TypeTokens.headline.weight)
+        .lineHeight(TypeTokens.headline.lineHeight)
         .fontColor(ColorTokens.primary)
-        .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.inlineTight, bottom: SpaceTokens.inlineTight })
-        .backgroundColor(Color.Transparent)
-        .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-        .borderRadius(RadiusTokens.lg)
-        .position({ top: SpaceTokens.sm, left: SpaceTokens.sm })
     }
     .width('100%')
-    // 列表项出现/消失过渡：ForEach key 稳定，仅被删项单独退场，其余项不重播
-    .transition(
-      TransitionEffect.OPACITY
-        .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate })
-        .combine(TransitionEffect.translate({ y: 16 })
-          .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate }))
-    )
+    .height(LayoutTokens.minTouchTarget)
+    .alignItems(VerticalAlign.Center)
+    .padding({ top: this.statusBarHeight, left: SpaceTokens.md, right: SpaceTokens.md })
+  }
+
+  private titleBarHeight(): number {
+    return this.statusBarHeight + LayoutTokens.minTouchTarget;
+  }
+
+  @Builder
+  body(): void {
+    if (this.drafts.length === 0) {
+      Column({ space: SpaceTokens.sm }) {
+        Text('暂无草稿')
+          .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.callout.weight)
+          .lineHeight(TypeTokens.callout.lineHeight)
+          .fontColor(ColorTokens.secondary)
+      }
+      .layoutWeight(1)
+      .width('100%')
+      .justifyContent(FlexAlign.Center)
+      .alignItems(HorizontalAlign.Center)
+    } else {
+      ManagedPostFeed({
+        posts: this.draftPosts(),
+        itemKeys: this.draftKeys(),
+        badgeText: '草稿',
+        deletable: true,
+        onOpen: (_post: Post, key: string): void => {
+          const draft: SavedPostDraft | undefined = this.draftOf(key);
+          if (draft !== undefined) {
+            this.continueEdit(draft);
+          }
+        },
+        onDelete: (key: string): void => { this.removeByKey(key); },
+      })
+    }
   }
 
   build() {
-    Column({ space: SpaceTokens.md }) {
-      Row({ space: SpaceTokens.sm }) {
-        BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
-        Text('草稿箱')
-          .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.headline.weight)
-          .lineHeight(TypeTokens.headline.lineHeight)
-          .fontColor(ColorTokens.primary)
+    Navigation() {
+      Column() {
+        this.body()
       }
       .width('100%')
-      .height(LayoutTokens.minTouchTarget)
-      .alignItems(VerticalAlign.Center)
-
-      if (this.drafts.length === 0) {
-        Column({ space: SpaceTokens.sm }) {
-          Text('暂无草稿')
-            .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-            .fontWeight(TypeTokens.callout.weight)
-            .lineHeight(TypeTokens.callout.lineHeight)
-            .fontColor(ColorTokens.secondary)
-        }
-        .layoutWeight(1)
-        .width('100%')
-        .justifyContent(FlexAlign.Center)
-        .alignItems(HorizontalAlign.Center)
-      } else {
-        Grid() {
-          ForEach(this.drafts, (draft: SavedPostDraft) => {
-            GridItem() {
-              this.draftItem(draft)
-            }
-          }, (draft: SavedPostDraft) => draft.id)
-        }
-        .columnsTemplate('1fr 1fr')
-        .columnsGap(SpaceTokens.sm)
-        .rowsGap(SpaceTokens.md)
-        .padding({ bottom: SpaceTokens.x3l })
-        .layoutWeight(1)
-        .width('100%')
-        .scrollBar(BarState.Off)
-      }
+      .height('100%')
     }
+    .hideTitleBar(false)
+    .title({
+      builder: this.draftTitleBar,
+      height: this.titleBarHeight(),
+    }, { barStyle: BarStyle.STANDARD, backgroundColor: ColorTokens.canvas })
     .width('100%')
     .height('100%')
-    .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: this.statusBarHeight + SpaceTokens.sm, bottom: SpaceTokens.md })
     .backgroundColor(ColorTokens.canvas)
+    .transition(buildPageTransition())
   }
 }
