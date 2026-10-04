@@ -44,6 +44,9 @@ export struct ManagedPostFeed {
   @Prop finished: boolean = false;
   // 卡片是否带删除按钮（草稿箱；废纸篓与搜索结果页为 false）
   @Prop deletable: boolean = false;
+  // 信息区是否显示互动数据行（StatRow 点赞/评论）。
+  // 首页信息流 / 废纸篓：true（帖子有真实互动数据）；草稿：false（未发布，无真实数据）。
+  @Prop showStats: boolean = true;
   // 点击卡片：回传 Post 与该单元的稳定 key（草稿场景 Post 无 id，需靠 key 反查业务对象）
   onOpen: (post: Post, key: string) => void = (): void => {};
   // 删除回调：回传该单元的稳定 key（= itemKeys 对应值）
@@ -122,12 +125,13 @@ export struct ManagedPostFeed {
   @Builder
   cellView(cell: FeedCell): void {
     Stack() {
-      // 卡片参数与首页信息流对齐：showStats / showAuthor 取默认（开），
+      // 卡片参数与首页信息流对齐（互动数据行是否显示由 showStats 控制），
       // 仅关闭点赞写操作（草稿无 id；废纸篓里的帖子已不可互动）。
       PostCard({
         post: cell.post,
         compact: true,
         allowLike: false,
+        showStats: this.showStats,
         textPosterStyle: this.posterStyleOf(cell),
         onOpen: (): void => { this.onOpen(cell.post, cell.key); },
       });
