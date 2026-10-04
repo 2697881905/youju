@@ -139,14 +139,6 @@ section{position:relative}
 /* 状态栏与挖孔由截图自带，设备框不再叠加 */
 .device__screen img{width:100%;height:auto}
 
-/* ---------- 关键词跑马灯（静态循环文字组件；无 GSAP 时静止可读） ---------- */
-.marquee{overflow:hidden;padding:clamp(18px,3vw,30px) 0;border-block:1px solid var(--line);background:var(--paper)}
-.marquee__track{display:flex;width:max-content;will-change:transform}
-.marquee__seq{white-space:nowrap;font-size:clamp(40px,6.5vw,80px);font-weight:900;letter-spacing:-.02em;line-height:1.15;color:#D9DDE2;padding-right:.4em}
-@supports (-webkit-text-stroke:1px #000){
-  .marquee__seq{color:transparent;-webkit-text-stroke:1.5px rgba(11,12,14,.30)}
-}
-
 /* ---------- 核心能力（图库式：左列条目 + 右侧大屏，Flip 共享转场） ---------- */
 .features{padding:clamp(80px,12vw,150px) 0;background:var(--paper)}
 .gallery{display:grid;grid-template-columns:5fr 6fr;gap:clamp(36px,6vw,88px);align-items:start}
