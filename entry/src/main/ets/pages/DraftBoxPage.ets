@@ -14,6 +14,7 @@ import { TypeTokens } from '../design/tokens/type';
 import { publishFlowStore } from '../utils/publishFlowStore';
 import { PublishMode } from '../components/PublishModeSheet';
 import { ManagedPostFeed } from '../components/ManagedPostFeed';
+import { resolveTextPosterStyle } from '../utils/poster/posterTokens';
 import { buildPageTransition } from '../utils/styles';
 
 @Entry
@@ -114,10 +115,12 @@ struct DraftBoxPage {
     return this.drafts.map((d: SavedPostDraft): string => d.id);
   }
 
-  // 文字海报样式 key（与 draftPosts 同序）：纯文本草稿在列表里用本地渲染海报作封面
-  // （与发布预览页同源；无该字段的历史草稿交给 resolveTextPosterStyle 兜底）
+  // 文字海报样式 key（与 draftPosts 同序）：无图草稿在列表里用本地渲染海报作封面。
+  // ⚠️ 必须经 resolveTextPosterStyle 归一化：textPosterStyle 只由**文本发布页**写入，
+  // 「照片帖但没放图」的草稿没有这个字段 —— 而预览页对这类草稿照样渲染海报（取第 0 个样式）。
+  // 若原样传 undefined/''，外层「styleKey 非空」的判断不成立 → 卡片不渲染海报封面（实测 bug）。
   private draftPosterStyles(): string[] {
-    return this.drafts.map((d: SavedPostDraft): string => d.textPosterStyle ?? '');
+    return this.drafts.map((d: SavedPostDraft): string => resolveTextPosterStyle(d.textPosterStyle).key);
   }
 
   // 标题栏内容：随页面一起迁入 Navigation 标题栏（沉浸式布局下系统不代为避让状态栏，
