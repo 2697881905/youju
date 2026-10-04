@@ -169,6 +169,7 @@
     /* 首屏与章节标题：逐字翻入（六层：大幅差异化姿态 / 活错峰 / 路径分组 / 丝滑收敛 / 入场后仍活着 / 性能开关） */
     document.querySelectorAll('.hero__title, h2[data-reveal], h3[data-reveal]').forEach(function(el){
       el.removeAttribute('data-reveal');
+      el.classList.add('is-split');
       SplitText.create(el, {
         type:'chars', mask:'chars', charsClass:'st-char',
         onSplit:function(self){
