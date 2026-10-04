@@ -129,10 +129,12 @@
   function initTitleSplits(){
     if(!hasSplit) return;
 
-    /* 移动端分档：粗指针 rotateY/x/z 幅度砍半（K=0.5），模糊上限 12px */
+    /* 移动端分档：粗指针 rotateY/x/z 幅度砍半（K=0.5）。
+       ⚠️ 性能铁律：字符只动 transform/opacity（全程合成器驱动，零逐帧栅格化）。
+       filter:blur 半径逐帧变化会强制每字符每帧重栅格化（GPU 无法缓存，视网膜 2x 下 ×4 像素量），
+       68 字并发 blur 是掉帧主因 —— 已整体退场，软焦感由 mask 裁切 + opacity 承担 */
     var coarse = window.matchMedia('(pointer:coarse)').matches;
     var K = coarse ? 0.5 : 1;
-    var blurMax = coarse ? 12 : 24;
 
     /* CustomEase silk 三曲线（前段猛后段缓）；插件缺失时回退内置缓动池。
        initTitleSplits 仅在 fonts.ready 后执行一次；create 重复调用为静默覆盖，无重复注册风险 */
@@ -161,7 +163,6 @@
           return gsap.utils.random((g === 2 ? -600 : -180) * K, (g === 2 ? -260 : -40) * K);
         },
         scale:function(i){ return (i % 3) === 2 ? gsap.utils.random(0.3, 0.6) : gsap.utils.random(0.55, 1.4); },
-        filter:function(){ return 'blur(' + gsap.utils.random(6, blurMax).toFixed(1) + 'px)'; },
         opacity:0
       };
     }
@@ -180,7 +181,6 @@
           fromSet.transformPerspective = 800;
           fromSet.force3D = true;
           fromSet.backfaceVisibility = 'hidden';
-          fromSet.willChange = 'transform, opacity, filter';
           gsap.set(self.chars, fromSet);
           gsap.set(el, {opacity:1, transformStyle:'preserve-3d'});
           var enterTl = null;
@@ -189,18 +189,23 @@
             onEnter:function(){
               /* 逐字独立补间：duration 1.2~2.2 随机、ease 从 silk 池随机抽取、
                  时间位置随机摆放在 1.8s 窗口内（等价 stagger{amount:1.8, from:'random'}）；
-                 to 九值全部写死 —— 终点零随机，丝滑收敛；每字落位即释放 will-change */
+                 to 八值全部写死 —— 终点零随机，丝滑收敛；每字落位即释放 will-change。
+                 入场期间暂停字符渐变 shimmer（background-position 逐帧重绘），落位后恢复 */
               if(enterTl){ enterTl.kill(); }
-              gsap.set(self.chars, {willChange:'transform, opacity, filter'});
+              gsap.set(self.chars, {willChange:'transform, opacity'});
               enterTl = gsap.timeline({delay:0.2});
               self.chars.forEach(function(c){
+                c.style.animationPlayState = 'paused';
                 enterTl.to(c, {
                   yPercent:0, rotationX:0, rotationY:0, rotate:0, x:0, z:0, scale:1,
-                  filter:'blur(0px)', opacity:1,
+                  opacity:1,
                   duration:gsap.utils.random(1.2, 2.2),
                   ease:gsap.utils.random(EASES),
                   overwrite:'auto',
-                  onComplete:function(){ c.style.willChange = 'auto'; }
+                  onComplete:function(){
+                    c.style.willChange = 'auto';
+                    c.style.animationPlayState = '';
+                  }
                 }, gsap.utils.random(0, 1.8));
               });
             },
