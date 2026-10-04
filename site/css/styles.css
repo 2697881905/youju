@@ -12,7 +12,7 @@
   --accent:#1D6FFF; --accent-dim:rgba(29,111,255,.12);
   --line:rgba(0,0,0,.08); --line-inv:rgba(255,255,255,.12);
   /* 字体 */
-  --font:system-ui,-apple-system,'HarmonyOS Sans SC','PingFang SC','Noto Sans SC','Microsoft YaHei',sans-serif;
+  --font:'HarmonyOS Sans','HarmonyOS Sans SC','PingFang SC','Noto Sans SC','Microsoft YaHei',sans-serif;
   /* 曲线 */
   --ease:cubic-bezier(.22,1,.36,1);
 }
