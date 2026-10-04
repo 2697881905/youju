@@ -135,40 +135,56 @@
       SplitText.create(el, {
         type:'chars', mask:'chars', charsClass:'st-char',
         onSplit:function(self){
-          /* 第一/三层：初始态全部落在每个 char 本身，函数化随机 —— 起点各不相同 */
+          /* 第一~三层：初始态全面逐字随机（from 随机 / to 固定 / 时长与缓动逐字独立） */
+          var EASES = ['expo.out', 'power4.out', 'power3.out', 'back.out(1.4)', 'circ.out'];
           gsap.set(self.chars, {
-            yPercent:function(){ return gsap.utils.random(100, 140); },
-            rotationX:function(){ return gsap.utils.random(-85, -55); },
-            z:function(){ return gsap.utils.random(-180, -60); },
-            rotate:function(){ return gsap.utils.random(-6, 6); },
-            opacity:0, filter:'blur(8px)',
+            yPercent:function(){ return gsap.utils.random(90, 160); },
+            rotationX:function(){ return gsap.utils.random(-110, -40); },
+            rotationY:function(){ return gsap.utils.random(-25, 25); },
+            rotate:function(){ return gsap.utils.random(-12, 12); },
+            x:function(){ return gsap.utils.random(-40, 40); },
+            z:function(){ return gsap.utils.random(-260, -40); },
+            scale:function(){ return gsap.utils.random(0.6, 1.1); },
+            filter:function(){ return 'blur(' + gsap.utils.random(4, 16) + 'px)'; },
+            opacity:0,
             transformOrigin:'50% 100%',
             transformPerspective:600
           });
           gsap.set(el, {opacity:1});
+          var enterTl = null;
           ScrollTrigger.create({
             trigger:el, start:'top 88%',
             onEnter:function(){
-              /* 第二层：活错峰（总错峰 0.9s + 随机顺序 + 错峰自带缓动）；
-                 第三层：每字额外延迟扰动；第四层：终点精准归位（无任何随机值） */
-              gsap.to(self.chars, {
-                yPercent:0, rotationX:0, rotate:0, z:0, opacity:1, filter:'blur(0px)',
-                duration:1.1, ease:'expo.out',
-                delay:function(i){ return 0.15 + i * 0.015 + gsap.utils.random(0, 0.08); },
-                stagger:{amount:0.9, from:'random', ease:'power2.in'},
-                overwrite:'auto'
+              /* 逐字独立补间：duration 0.9~1.6 随机、ease 从调性相近池随机抽取、
+                 时间位置随机摆放在 1.2s 窗口内（等价 stagger{amount:1.2, from:'random'}）；
+                 to 值全部写死 —— 终点零随机，精准归位 */
+              if(enterTl){ enterTl.kill(); }
+              enterTl = gsap.timeline({delay:0.15});
+              self.chars.forEach(function(c){
+                enterTl.to(c, {
+                  yPercent:0, rotationX:0, rotationY:0, rotate:0, x:0, z:0, scale:1,
+                  filter:'blur(0px)', opacity:1,
+                  duration:gsap.utils.random(0.9, 1.6),
+                  ease:gsap.utils.random(EASES),
+                  overwrite:'auto'
+                }, gsap.utils.random(0, 1.2));
               });
             },
             onLeaveBack:function(){
-              /* 双向循环：滚回时回到「新一轮随机姿态」（每轮入场方式都不同） */
+              /* 双向循环：滚回时回到新一轮随机姿态（from 随机 / to 固定，同一原则） */
+              if(enterTl){ enterTl.kill(); enterTl = null; }
               gsap.to(self.chars, {
-                yPercent:function(){ return gsap.utils.random(100, 140); },
-                rotationX:function(){ return gsap.utils.random(-85, -55); },
-                z:function(){ return gsap.utils.random(-180, -60); },
-                rotate:function(){ return gsap.utils.random(-6, 6); },
-                opacity:0, filter:'blur(8px)',
-                duration:.45, ease:'power2.in', overwrite:'auto',
-                stagger:{amount:.35, from:'random', ease:'power1.in'}
+                yPercent:function(){ return gsap.utils.random(90, 160); },
+                rotationX:function(){ return gsap.utils.random(-110, -40); },
+                rotationY:function(){ return gsap.utils.random(-25, 25); },
+                rotate:function(){ return gsap.utils.random(-12, 12); },
+                x:function(){ return gsap.utils.random(-40, 40); },
+                z:function(){ return gsap.utils.random(-260, -40); },
+                scale:function(){ return gsap.utils.random(0.6, 1.1); },
+                filter:function(){ return 'blur(' + gsap.utils.random(4, 16) + 'px)'; },
+                opacity:0,
+                duration:.5, ease:'power2.in', overwrite:'auto',
+                stagger:{amount:.4, from:'random', ease:'power1.in'}
               });
             }
           });
