@@ -116,12 +116,6 @@
     gsap.to(glow, {yPercent:26, ease:'none',
       scrollTrigger:{trigger:'.hero', start:'top top', end:'bottom top', scrub:.6}});
   }
-  var heroImg = document.querySelector('.hero__visual .device__screen img');
-  if(heroImg){
-    /* 截图 scale 1.08 留出裁切余量，滚动时在屏内轻微流动 */
-    gsap.fromTo(heroImg, {yPercent:-3.5, scale:1.08}, {yPercent:3.5, scale:1.08, ease:'none',
-      scrollTrigger:{trigger:'.hero', start:'top top', end:'bottom top', scrub:.6}});
-  }
   /* 首屏退场分层（三层深度）：光斑滞后下坠(yPercent +26) < 文案(-16) < 设备(-32) */
   gsap.fromTo('.hero__copy', {yPercent:0}, {yPercent:-16, ease:'none',
     scrollTrigger:{trigger:'.hero', start:'top top', end:'bottom top', scrub:true}});
