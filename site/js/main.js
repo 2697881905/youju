@@ -375,6 +375,18 @@
       });
     }
 
+    /* 导航品牌与链接：加载时单字级联入场（一次性波次，与 nav 容器 fromTo 衔接） */
+    document.querySelectorAll('.nav__brand span, .nav__links a').forEach(function(a, ai){
+      SplitText.create(a, {
+        type:'chars', charsClass:'st-char',
+        onSplit:function(self){
+          gsap.set(self.chars, {yPercent:function(){ return gsap.utils.random(50, 100); }, opacity:0});
+          gsap.to(self.chars, {yPercent:0, opacity:1, duration:.55, ease:'power3.out',
+            stagger:{amount:Math.min(self.chars.length * .02, .3)}, delay:.4 + ai * .08});
+        }
+      });
+    });
+
     /* 正文与清单小字：单字级联（章节副标 / 场景卡描述 / 鸿蒙特性标签、清单与描述 / 页脚，双向循环）——
        from 函数化每次触发重新抽签，to 写死收敛；小字不挂 mask（避免逐字裁切边缘），只动 yPercent/opacity；
        stagger 用动态 amount（每字 .016s，长文封顶 .6s，短词快切） */
@@ -622,6 +634,14 @@
           });
         }
       });
+      /* 初始激活卡描述：滚动到图库时播一次单字级联（once；之后的切换级联由 gRevealDesc 接管） */
+      var firstDesc = gItems[gActive] && gItems[gActive].querySelector('.gallery__desc');
+      if(firstDesc && !gDescAnim){
+        ScrollTrigger.create({
+          trigger:gItems[gActive], start:'top 80%', once:true,
+          onEnter:function(){ gRevealDesc(firstDesc); }
+        });
+      }
     };
 
     gItems.forEach(function(item){
