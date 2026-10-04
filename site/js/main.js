@@ -300,12 +300,6 @@
       scrollTrigger:{trigger:h, start:'top bottom', end:'bottom top', scrub:true}});
   });
 
-  /* ---------- 5.5 关键词跑马灯（静态循环；双拷贝 xPercent -50 无缝衔接） ---------- */
-  var marqueeTrack = document.querySelector('.marquee__track');
-  if(marqueeTrack){
-    gsap.to(marqueeTrack, {xPercent:-50, ease:'none', duration:36, repeat:-1});
-  }
-
   /* ---------- 6. 指针灵动：设备 3D 倾斜 + 主按钮磁吸（仅精确指针） ---------- */
   if(window.matchMedia('(pointer:fine)').matches){
     gsap.utils.toArray('.hero__visual .device, .scene .device, .download__visual .device').forEach(function(d){
