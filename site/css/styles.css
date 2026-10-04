@@ -39,13 +39,13 @@ section{position:relative}
 .js-motion [data-reveal]{opacity:0}
 
 /* 首屏加载编排：初始隐藏，GSAP 就绪后由 load timeline 依次拉起（降级时随 js-motion 移除而显现） */
+/* hero__title 由 SplitText 在 fonts.ready 后接管：拆分前整题隐藏，拆分后逐字驱动 */
 .js-motion .nav,
 .js-motion .hero__copy .eyebrow,
 .js-motion .hero__sub,
 .js-motion .hero__actions,
-.js-motion .hero__visual{opacity:0}
-/* 标题逐字：字符级初始隐藏（内联样式接管后失效） */
-.js-motion .split-cx>span{opacity:0}
+.js-motion .hero__visual,
+.js-motion .hero__title{opacity:0}
 
 /* ---------- 文字与标签 ---------- */
 .eyebrow{display:inline-block;font-size:13px;font-weight:700;letter-spacing:.14em;color:var(--accent);margin-bottom:18px}
@@ -269,10 +269,7 @@ section{position:relative}
   .scene .device{width:min(250px,66vw)}
 }
 
-/* ---------- 标题逐字揭示（mask 内上浮） ---------- */
-.split-ln{display:block;overflow:hidden}
-.split-cx{display:inline-block;overflow:hidden;vertical-align:top}
-.split-cx>span{display:inline-block;will-change:transform}
+/* ---------- 标题逐字揭示：由官方 SplitText 驱动（mask 裁切结构由插件生成，无需手写样式） ---------- */
 
 /* ---------- 共享元素转场：点击场景截图放大 ---------- */
 .scene.is-zoomable{cursor:pointer}
