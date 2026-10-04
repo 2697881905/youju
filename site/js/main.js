@@ -60,6 +60,8 @@
   gsap.registerPlugin(ScrollTrigger);
   var hasFlip = typeof window.Flip !== 'undefined';
   if(hasFlip){ gsap.registerPlugin(Flip); }
+  var hasScramble = typeof window.ScrambleTextPlugin !== 'undefined';
+  if(hasScramble){ gsap.registerPlugin(ScrambleTextPlugin); }
 
   /* ---------- 1. Lenis 惯性平滑滚动（自托管 js/vendor/lenis.min.js） ---------- */
   var lenis = null;
@@ -93,6 +95,12 @@
     }
   }
 
+  /* ---------- 1.5 阅读进度卷轴线（2px，滚动进度驱动） ---------- */
+  var progress = document.querySelector('.progress');
+  if(progress){
+    gsap.to(progress, {scaleX:1, ease:'none', scrollTrigger:{start:0, end:'max', scrub:.3}});
+  }
+
   /* ---------- 2. 首屏加载编排 + 氛围光斑 + 首屏截图微视差 ---------- */
   gsap.timeline({defaults:{ease:'power3.out'}})
     .fromTo('.nav', {y:-18, autoAlpha:0}, {y:0, autoAlpha:1, duration:.7}, .05)
@@ -114,6 +122,11 @@
     gsap.fromTo(heroImg, {yPercent:-3.5, scale:1.08}, {yPercent:3.5, scale:1.08, ease:'none',
       scrollTrigger:{trigger:'.hero', start:'top top', end:'bottom top', scrub:.6}});
   }
+  /* 首屏退场分层（三层深度）：光斑滞后下坠(yPercent +26) < 文案(-16) < 设备(-32) */
+  gsap.fromTo('.hero__copy', {yPercent:0}, {yPercent:-16, ease:'none',
+    scrollTrigger:{trigger:'.hero', start:'top top', end:'bottom top', scrub:true}});
+  gsap.fromTo('.hero__visual', {yPercent:0}, {yPercent:-32, ease:'none',
+    scrollTrigger:{trigger:'.hero', start:'top top', end:'bottom top', scrub:true}});
 
   /* ---------- 3. 标题逐字揭示（mask 内上浮 + 模糊聚焦，双向同步） ---------- */
   /* DOM 感知分割：保留行内元素（如 .grad-text 渐变 span），按 <br> 分行，逐字包 mask */
@@ -179,10 +192,23 @@
     });
     el.innerHTML = '';
     el.appendChild(frag);
-    gsap.set(chars, {opacity:.13});
-    gsap.to(chars, {opacity:1, stagger:.07, ease:'none',
+    gsap.set(chars, {opacity:.13, y:14});
+    gsap.to(chars, {opacity:1, y:0, stagger:.07, ease:'none',
       scrollTrigger:{trigger:el, start:'top 78%', end:'top 28%', scrub:.4}});
   });
+
+  /* ---------- 3.6 眉标解码（ScrambleText，GSAP 官网同款文字戏法；插件缺失则跳过） ---------- */
+  if(hasScramble){
+    gsap.utils.toArray('.section-head .eyebrow').forEach(function(el){
+      var finalText = el.textContent;
+      ScrollTrigger.create({
+        trigger:el, start:'top 88%', once:true,
+        onEnter:function(){
+          gsap.to(el, {duration:1.1, scrambleText:{text:finalText, chars:'有据可依更好的生活出处结构追问理性分享', speed:.35}});
+        }
+      });
+    });
+  }
 
   /* ---------- 4. 入场 reveal（双向循环，带纵向缩放） ---------- */
   var reveals = document.querySelectorAll('[data-reveal]');
@@ -197,14 +223,19 @@
     }
   });
 
-  /* ---------- 5. 滚动视差 + Hero 设备呼吸浮动 ---------- */
-  gsap.utils.toArray('.scene .device, .hkit__stage .device, .download__visual .device').forEach(function(d){
-    gsap.fromTo(d, {y:38}, {
-      y:-38, ease:'none',
-      scrollTrigger:{trigger:d, start:'top bottom', end:'bottom top', scrub:.5}
+  /* ---------- 5. 滚动视差（分层速率：场景 44 > 鸿蒙 30 > 下载 24）+ Hero 设备呼吸浮动 ---------- */
+  [['.scene .device', 44], ['.hkit__stage .device', 30], ['.download__visual .device', 24]].forEach(function(cfg){
+    gsap.utils.toArray(cfg[0]).forEach(function(d){
+      gsap.fromTo(d, {y:cfg[1]}, {y:-cfg[1], ease:'none',
+        scrollTrigger:{trigger:d, start:'top bottom', end:'bottom top', scrub:.5}});
     });
   });
   gsap.to('.hero__visual .device', {y:-11, duration:3.2, ease:'sine.inOut', repeat:-1, yoyo:true});
+  /* 大标题横向微漂移（滚动联动 ±1.2%，与逐字揭示分层不冲突） */
+  gsap.utils.toArray('.section-head h2').forEach(function(h){
+    gsap.fromTo(h, {xPercent:-1.2}, {xPercent:1.2, ease:'none',
+      scrollTrigger:{trigger:h, start:'top bottom', end:'bottom top', scrub:true}});
+  });
 
   /* ---------- 6. 指针灵动：设备 3D 倾斜 + 主按钮磁吸（仅精确指针） ---------- */
   if(window.matchMedia('(pointer:fine)').matches){
