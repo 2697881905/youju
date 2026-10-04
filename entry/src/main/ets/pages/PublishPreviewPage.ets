@@ -273,7 +273,7 @@ struct PublishPreviewPage {
           safeShowToast(this.getUIContext(), { message: '文字海报失败，已按纯文字发布：' + message });
         }
       }
-      const post = await createPost({
+      await createPost({
         title: draft.title,
         publishMode: draft.mode,
         content: draft.content,
@@ -289,7 +289,7 @@ struct PublishPreviewPage {
         coverImage: videoCover && videoCover.length > 0 ? videoCover : coverImage,
       });
       publishFlowStore.completePublish();
-      safeShowToast(this.getUIContext(), { message: '发布成功！帖子ID=' + (post.id ?? '') });
+      safeShowToast(this.getUIContext(), { message: '发布成功' });
       this.getUIContext().getRouter().back();
     } catch (e) {
       const message: string = e instanceof Error && e.message.length > 0 ? e.message : '未知错误';
@@ -308,6 +308,8 @@ struct PublishPreviewPage {
     const saved: SavedPostDraft = savePostDraft(getUserId(), draft, savedDraftId);
     publishFlowStore.setActiveDraftId(saved.id);
     safeShowToast(this.getUIContext(), { message: '草稿已保存' });
+    // 存草稿后回到编辑页，而不是停留在预览页，方便继续修改。
+    this.getUIContext().getRouter().back();
   }
 
   private posterStyleIndex(styleKey?: string): number {
