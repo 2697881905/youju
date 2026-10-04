@@ -166,6 +166,8 @@ struct DraftBoxPage {
         textPosterStyles: this.draftPosterStyles(),
         badgeText: '草稿',
         deletable: true,
+        // 草稿未发布，没有真实互动数据 → 不显示互动数据行（其余仍与首页卡片一致）
+        showStats: false,
         onOpen: (_post: Post, key: string): void => {
           const draft: SavedPostDraft | undefined = this.draftOf(key);
           if (draft !== undefined) {
