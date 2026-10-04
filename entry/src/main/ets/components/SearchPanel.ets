@@ -1,3 +1,4 @@
+import { LengthMetrics } from '@kit.ArkUI';
 import { listSearchHistory, clearSearchHistory, listHotKeywords, listSearchSuggest } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 import { GlassPanel } from '../design/components/GlassPanel';
@@ -331,20 +332,17 @@ export struct SearchPanel {
                   }
                 }
                 .width('100%')
-                Row({ space: SpaceTokens.inline }) {
-                  ForEach(this.historyList.slice(0, 3), (kw: string) => {
+                // 换行容器：胶囊按实测宽度流式断行 —— 固定「每行 3 个」时长词整行溢出、短词留大片空白
+                Flex({
+                  wrap: FlexWrap.Wrap,
+                  justifyContent: FlexAlign.Start,
+                  space: { main: LengthMetrics.vp(SpaceTokens.inline), cross: LengthMetrics.vp(SpaceTokens.md) },
+                }) {
+                  ForEach(this.historyList.slice(0, 6), (kw: string) => {
                     this.historyChip(kw)
-                  }, (kw: string) => 'history-first-' + kw)
+                  }, (kw: string) => 'history-' + kw)
                 }
                 .width('100%')
-                if (this.historyList.length > 3) {
-                  Row({ space: SpaceTokens.inline }) {
-                    ForEach(this.historyList.slice(3, 6), (kw: string) => {
-                      this.historyChip(kw)
-                    }, (kw: string) => 'history-second-' + kw)
-                  }
-                  .width('100%')
-                }
               }
               .width('100%')
               .padding(SpaceTokens.md)

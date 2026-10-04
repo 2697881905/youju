@@ -86,10 +86,10 @@
 
 ### 沉浸光感 · 顶栏迁入 Navigation 标题栏（2026-10-03）
 - `uiMaterial` 轨（通用属性 `systemMaterial`）**只在 Navigation/NavDestination 标题栏或系统底部 TabBar 生效**，内容区设置完全不渲染（官方 FAQ 生效范围）。
-- **已完成改造**：首页 / 我的 / 消息（主 Navigation 按 Tab 分支）、搜索面板与圈子详情、帖子详情（后三者组件自带 Navigation，router 壳与 NavDestination 壳共用一份实现）。
+- **已完成改造**：首页 / 圈子 / 消息 / 我的（主 Navigation 按 Tab 分支）、搜索面板与圈子详情、帖子详情（后三者组件自带 Navigation，router 壳与 NavDestination 壳共用一份实现）。
 - 顶栏整体驻留标题栏（`BarStyle.STANDARD` 占位 + 画布底色）；材质生效时**撤掉自绘兜底**（`backdropBlur` / `backgroundBlurStyle` / 自绘边框 / 自绘 `shadow`），否则遮挡或叠成实心毛玻璃、双圈描边。
 - 低版本（API < 26）经 `deviceInfo.apiAvailable('26.0.0')` **字面量 if 门禁**自动回退描边/玻璃样式；统一入口 `utils/immersiveMaterial.ets`（`TopButtonMaterialModifier` / `isSystemMaterialActive()`）。
-- 组件侧统一 `useSystemMaterial` 范式（`SegmentedControl` / `TagNav` / `DesignButton`）；尾随闭包组件（`Pressable`）材质挂内层表面节点。
+- 组件侧统一 `useSystemMaterial` 范式（`SegmentedControl` / `TagNav` / `DesignButton`）；尾随闭包组件（`Pressable`）材质挂内层表面节点；标题栏内联原生表面（圈子「已加入」药丸）按 `isSystemMaterialActive()` 让位（底/描边/阴影归零）。
 - 帖子详情（2026-10-03）：`PostDetailView` 组件自带 Navigation，原 `DetailToolbar`（返回/分享/更多）内联进标题栏 Builder 后按「删干净」原则删除；分享/更多为原生 Row 表面，`attributeModifier` 直挂 44×44 节点 + lg 圆角定形，BackButton 交由 enable 自动材质。三个全屏覆盖层（看图/分享卡/数据面板）必须盖过标题栏 → 移到 Navigation 之外的 Stack 兄弟层，并各自补回状态栏偏移。栏高固定（token 直算）。底部互动栏未动（不在 `systemMaterial` 生效范围，优化方案见下方小节）。
 - 栏高：固定内容用 token 计算；内容驱动（我的页资料区、圈子详情三行顶栏）用 `onAreaChange` 实测回写 + 首帧估算兜底。状态栏避让只出现在标题栏一处。
 - **教程（可复用方法论 + 模板 + 自查清单）**：`docs/tutorial-titlebar-immersive-light.md`；踩坑记录见 `docs/immersive-light-integration.md`。
@@ -108,7 +108,7 @@
 - 埋点：`trackDailyOpen()`（页面级进入）、`trackPostEvent(id, 'click', 'daily')`。
 
 ### 圈子（`components/CircleTab.ets`）
-- 顶部 `topBar`：「圈子」标题 + 「已加入 N 个」入口（`JoinedCirclesDialog`）。
+- **顶栏已迁入 Navigation 标题栏**（2026-10-03）：「圈子」标题 + 「已加入 N 个」药丸由 `Index.circleTitleBar` 承载（按 Tab 索引分支）；计数由 CircleTab 加载后经 `@Link circleJoinedCount` 回写（`joinedNames` 挂 `@Watch` 统一同步），点击药丸经 `circleJoinedSeq` 递增信号由 CircleTab `@Watch` 打开 `JoinedCirclesDialog`（profileShareSeq 同款接线）。
 - 中部 `CircleOrbitCanvas`：三层星环，可拖拽旋转（`ringPan` 手势），行星点击选圈。
 - 底部 `CircleSelectionCard`：选中圈资料卡（名称 / 简介 / 加入数 / 今日活跃 / 分类 + 「进入」按钮）。
 

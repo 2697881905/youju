@@ -7,14 +7,10 @@ import { listTags, listFollowedTags, getUserProfile } from '../services/api';
 import { getToken, getUserId, getCurrentUser, persistSessionSnapshot } from '../utils/auth';
 import { likeStore } from '../utils/likeStore';
 import { barBottomReserve } from '../utils/cardTokens';
-import { CountRoll } from '../design/motion/CountRoll';
-import { Pressable } from '../design/motion/Pressable';
 import { EmptyState } from '../design/components/EmptyState';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
 import { MotionTokens } from '../design/tokens/motion';
-import { RadiusTokens } from '../design/tokens/radius';
-import { ShadowTokens } from '../design/tokens/shadow';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { openCircleDetail } from '../utils/nav';
@@ -106,7 +102,13 @@ class CircleTag {
 @Component
 export struct CircleTab {
   @State circles: CircleTag[] = [];
-  @State joinedNames: string[] = [];
+  // 计数变化统一经 @Watch 回写标题栏 @Link（initData 成功/失败/切号三处都会重赋 joinedNames）
+  @State @Watch('onJoinedNamesChanged') joinedNames: string[] = [];
+  // 顶栏（「圈子」标题 + 「已加入」药丸）迁入 Navigation 标题栏后由 Index 持有：
+  // 计数经 @Link 回写标题栏；标题栏按钮点击经 seq 信号回传，由本组件 @Watch 承接弹窗
+  // （profileShareSeq 同款「点击写值、@Watch 承接动作」接线，见教程 Step 2 状态归属）。
+  @Link circleJoinedCount: number;
+  @Link @Watch('onJoinedEntryRequested') circleJoinedSeq: number;
   @State loading: boolean = false;
   @State error: string = '';
   @State selectedName: string = '';
@@ -586,44 +588,14 @@ export struct CircleTab {
     this.joinedDialogController.open();
   }
 
-  @Builder
-  topBar(): void {
-    Row({ space: SpaceTokens.sm }) {
-      Text('圈子')
-        .fontSize(TypeTokens.titleSerif.size).fontFamily(TypeTokens.fontFamilySerif)
-        .fontWeight(TypeTokens.titleSerif.weight)
-        .lineHeight(TypeTokens.titleSerif.lineHeight)
-        .alignSelf(ItemAlign.Start)
-        .fontColor(ColorTokens.primary)
-      Blank()
-      Pressable({
-        visualHeight: LayoutTokens.segmentedHeight,
-        touchTargetHeight: LayoutTokens.minTouchTarget,
-        action: (): void => { this.showJoinedList(); },
-      }) {
-        Row({ space: SpaceTokens.xs }) {
-          Text('已加入')
-            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-            .fontWeight(TypeTokens.caption.weight)
-            .fontColor(ColorTokens.secondary)
-          CountRoll({ value: this.joinedNames.length, prefix: '', textSize: TypeTokens.caption.size, textColor: ColorTokens.primary })
-          Text('个')
-            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-            .fontWeight(TypeTokens.caption.weight)
-            .fontColor(ColorTokens.secondary)
-        }
-        .height(LayoutTokens.segmentedHeight)
-        .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-        .backgroundColor(ColorTokens.subtle)
-        .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.separator, style: BorderStyle.Solid })
-        .borderRadius(RadiusTokens.pill)
-        .shadow(ShadowTokens.cardContact)
-        .alignItems(VerticalAlign.Center)
-      }
-    }
-    .width('100%')
-    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs, bottom: SpaceTokens.xs })
-    .alignItems(VerticalAlign.Center)
+  // 标题栏「已加入」药丸点击（Index 经 circleJoinedSeq 递增信号触发）
+  private onJoinedEntryRequested(): void {
+    this.showJoinedList();
+  }
+
+  // 已加入列表变化 → 回写标题栏计数（Index 的 circleTitleBar 读取）
+  private onJoinedNamesChanged(): void {
+    this.circleJoinedCount = this.joinedNames.length;
   }
 
   @Builder
@@ -663,7 +635,6 @@ export struct CircleTab {
 
   build() {
     Column() {
-      this.topBar()
       if (this.circles.length === 0 && this.loading) {
         Column({ space: SpaceTokens.md }) {
           LoadingProgress().width(IconTokens.empty).height(IconTokens.empty)

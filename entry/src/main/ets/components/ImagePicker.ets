@@ -155,7 +155,7 @@ export struct ImagePicker {
 
   build() {
     Column({ space: 8 }) {
-      Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Start, space: { main: LengthMetrics.px(8), cross: LengthMetrics.px(8) } }) {
+      Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Start, space: { main: LengthMetrics.vp(8), cross: LengthMetrics.vp(8) } }) {
         ForEach(this.items, (item: PickedImage, idx: number) => {
           Stack() {
             if (item.preview !== undefined) {

@@ -17,9 +17,11 @@ import { DesignButton } from '../design/components/DesignButton';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { bottomNavInset, DOCK_WIDTH_SMALL, DOCK_BOTTOM_MARGIN_BASE, DOCK_SIDE_MARGIN_MIN, DOCK_GRADIENT_MASK_HEIGHT, DOCK_MATERIAL_TYPE, DOCK_MATERIAL_LEVEL } from '../utils/cardTokens';
 import { RadiusTokens } from '../design/tokens/radius';
+import { ShadowTokens } from '../design/tokens/shadow';
 import { ColorTokens } from '../design/tokens/color';
 import { TypeTokens } from '../design/tokens/type';
 import { IconTokens } from '../design/tokens/icon';
+import { CountRoll } from '../design/motion/CountRoll';
 import { Pressable } from '../design/motion/Pressable';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { resolveSettingsIcon } from '../utils/settingsIcons';
@@ -304,6 +306,10 @@ struct Index {
   @State messageSlidePosition: number = -1;
   @State messageTabPulse: boolean = false;
   @State messageMarkAllSeq: number = 0;
+  // —— 「圈子」页顶栏共享状态：顶栏（圈子标题 + 已加入药丸）迁入标题栏 ——
+  // （星环画布、选中卡片等仍在 CircleTab 内容区，不经此处）
+  @State circleJoinedCount: number = 0;   // 已加入 N 个：CircleTab 加载后经 @Link 回写
+  @State circleJoinedSeq: number = 0;     // 点击药丸的递增信号，弹窗仍由 CircleTab 承接
   // 顶栏分段切换的透明反馈动画遵循系统「减弱动态效果」
   @StorageLink('reduceMotion') reduceMotion: boolean = false;
   @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
@@ -892,6 +898,8 @@ struct Index {
   private homeSearchMaterial: TopButtonMaterialModifier = new TopButtonMaterialModifier();
   // 「我的」标题栏右上角分享/设置按钮的同源材质修饰器（沉浸光感，标题栏为官方生效区域）
   private profileActionMaterial: TopButtonMaterialModifier = new TopButtonMaterialModifier();
+  // 「圈子」标题栏「已加入」药丸的同源材质修饰器（沉浸光感，标题栏为官方生效区域）
+  private circleJoinedMaterial: TopButtonMaterialModifier = new TopButtonMaterialModifier();
 
   // 标题栏总高：状态栏 + 头部上下内边距(xs×2) + 品牌行 + 行距(xs) + 分段行（与旧首页头部等高）
   private homeTitleBarHeight(): number {
@@ -900,14 +908,14 @@ struct Index {
   }
 
   // 顶栏是否显示（hideTitleBar 与内容区状态栏避让共用同一条件，保证两者同步）：
-  // 首页(0)/消息(3)/我的(4) 有顶栏，其它 Tab 与隐私壳无顶栏（仍需手动避让状态栏）。
+  // 首页(0)/圈子(1)/消息(3)/我的(4) 有顶栏，其它 Tab 与隐私壳无顶栏（仍需手动避让状态栏）。
   // 顶栏为 STANDARD 占位 → 显示时栏体已涵盖状态栏区域，内容区不能再重复加内边距。
   private mainTitleBarVisible(): boolean {
-    return (this.currentIndex === 0 || this.currentIndex === 3 || this.currentIndex === 4)
-      && this.privacyAgreed === '1';
+    return (this.currentIndex === 0 || this.currentIndex === 1 || this.currentIndex === 3
+      || this.currentIndex === 4) && this.privacyAgreed === '1';
   }
 
-  // 顶层标题栏内容：首页顶栏 / 消息页顶栏 / 我的页顶栏
+  // 顶层标题栏内容：首页顶栏 / 圈子顶栏 / 消息页顶栏 / 我的页顶栏
   // （按当前 Tab 分支；@Builder 引用不能放进三元表达式）
   @Builder
   mainTitleBar() {
@@ -915,6 +923,8 @@ struct Index {
       this.profileTitleBar()
     } else if (this.currentIndex === 3) {
       this.messageTitleBar()
+    } else if (this.currentIndex === 1) {
+      this.circleTitleBar()
     } else {
       this.homeTitleBar()
     }
@@ -928,7 +938,77 @@ struct Index {
     if (this.currentIndex === 3) {
       return this.messageTitleBarHeight();
     }
+    if (this.currentIndex === 1) {
+      return this.circleTitleBarHeight();
+    }
     return this.homeTitleBarHeight();
+  }
+
+  // 「圈子」标题栏总高：状态栏 + 顶栏行上下内边距(xs×2) + 药丸行（segmentedHeight）。
+  // 与原 CircleTab topBar 行同构：titleSerif 行高 32 < 36，行高由药丸决定。
+  private circleTitleBarHeight(): number {
+    return this.statusBarHeight + SpaceTokens.xs * 2 + LayoutTokens.segmentedHeight;
+  }
+
+  // 「圈子」标题栏：原 CircleTab 顶部「圈子」标题 + 「已加入 N 个」药丸整体驻留于此
+  // （沉浸光感官方生效区域）。计数来自 CircleTab 加载后经 @Link 回写；点击药丸经
+  // circleJoinedSeq 信号由 CircleTab @Watch 打开弹窗（profileShareSeq 同款接线）。
+  @Builder
+  circleTitleBar() {
+    // 状态栏避让必须由本 Builder 手动承担（全屏布局下标题栏不代为避让，教程 Step 3），
+    // 且要放在外层容器上：同一节点写两次 .padding 是整体覆盖（后者吞掉前者），
+    // 不能与行内边距混在一个 padding 里之外再补一条。
+    Column() {
+      Row({ space: SpaceTokens.sm }) {
+        Text('圈子')
+          .fontSize(TypeTokens.titleSerif.size).fontFamily(TypeTokens.fontFamilySerif)
+          .fontWeight(TypeTokens.titleSerif.weight)
+          .lineHeight(TypeTokens.titleSerif.lineHeight)
+          .alignSelf(ItemAlign.Start)
+          .fontColor(ColorTokens.primary)
+        Blank()
+        Pressable({
+          visualHeight: LayoutTokens.segmentedHeight,
+          touchTargetHeight: LayoutTokens.minTouchTarget,
+          action: (): void => {
+            // 递增信号 → CircleTab @Watch：JoinedCirclesDialog 仍由 CircleTab 打开
+            this.circleJoinedSeq += 1;
+          },
+        }) {
+          Row({ space: SpaceTokens.xs }) {
+            Text('已加入')
+              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+              .fontWeight(TypeTokens.caption.weight)
+              .fontColor(ColorTokens.secondary)
+            CountRoll({ value: this.circleJoinedCount, prefix: '', textSize: TypeTokens.caption.size, textColor: ColorTokens.primary })
+            Text('个')
+              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+              .fontWeight(TypeTokens.caption.weight)
+              .fontColor(ColorTokens.secondary)
+          }
+          .height(LayoutTokens.segmentedHeight)
+          .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+          // 沉浸光感：材质生效时自绘让位（底/描边/阴影归零，否则实心毛玻璃/双圈描边，
+          // 见教程案例②④），系统材质接管药丸表面；低版本门禁不通过 → 保留原样式
+          .backgroundColor(isSystemMaterialActive() ? Color.Transparent : ColorTokens.subtle)
+          .border({
+            width: isSystemMaterialActive() ? 0 : LayoutTokens.glassBorderWidth,
+            color: ColorTokens.separator,
+            style: BorderStyle.Solid,
+          })
+          .borderRadius(RadiusTokens.pill)
+          .shadow(isSystemMaterialActive() ? ShadowTokens.none : ShadowTokens.cardContact)
+          .alignItems(VerticalAlign.Center)
+          .attributeModifier(this.circleJoinedMaterial)
+        }
+      }
+      .width('100%')
+      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs, bottom: SpaceTokens.xs })
+      .alignItems(VerticalAlign.Center)
+    }
+    .width('100%')
+    // 手动避让状态栏（含在栏高 statusBarHeight + xs×2 + segmentedHeight 内；避让只此一处）
+    .padding({ top: this.statusBarHeight })
   }
 
   @Builder
@@ -1372,7 +1452,14 @@ struct Index {
     }
       .clip(false)
       .tabBar(this.tabBarBuilder(0))
-    TabContent() { CircleTab() }
+    // 「圈子」：顶栏（圈子标题 + 已加入药丸）迁入 Navigation 标题栏，这里通过 @Link 共享顶栏状态
+    // （计数由 CircleTab 加载后回写；点击药丸经 seq 信号由 CircleTab 打开弹窗）
+    TabContent() {
+      CircleTab({
+        circleJoinedCount: $circleJoinedCount,
+        circleJoinedSeq: $circleJoinedSeq,
+      })
+    }
       .tabBar(this.tabBarBuilder(1))
     // 发布占位：内容为空，点击由 handleTabBarClick 拦截弹窗，不展示任何内容。
     TabContent() { Column() {} }
@@ -1497,7 +1584,7 @@ struct Index {
           }
           .width('100%')
           .height('100%')
-          // 顶栏（首页/我的）显示时，状态栏避让已由标题栏承担（栏高含 statusBarHeight）；
+          // 顶栏（首页/圈子/消息/我的）显示时，状态栏避让已由标题栏承担（栏高含 statusBarHeight）；
           // 这里若再补一条状态栏内边距，标题栏与内容之间会多出整条状态栏高度的空白。
           // 其它 Tab / 隐私壳没有标题栏，仍需手动避让状态栏。
           .padding({ top: this.mainTitleBarVisible() ? 0 : this.statusBarHeight })
@@ -1529,8 +1616,9 @@ struct Index {
         .height('100%')
       }
       .id('mainNav')
-      // 标题栏承载首页/「我的」整块顶栏（品牌标题/搜索/分段栏/资料区等）——uiMaterial 沉浸光感的官方生效区域。
-      // 仅首页(0)/我的(4) 显示（隐私未同意时不显示）；其它 Tab 完全隐藏，不占用各页顶部布局。
+      // 标题栏承载首页/圈子/消息/「我的」整块顶栏（品牌标题/搜索/分段栏/已加入药丸/资料区等）
+      // —— uiMaterial 沉浸光感的官方生效区域。
+      // 仅首页(0)/圈子(1)/消息(3)/我的(4) 显示（隐私未同意时不显示）；其它 Tab 完全隐藏，不占用各页顶部布局。
       // barStyle: STANDARD → 顶栏占位、内容从顶栏之下开始（与旧页面头部在流内的布局同构）；
       // 底色 canvas 与旧头部一致（也作为各控件系统材质的采样底色）。
       .hideTitleBar(!this.mainTitleBarVisible())
