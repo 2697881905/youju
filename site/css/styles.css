@@ -71,7 +71,7 @@ section { position: relative; }
 .announcement__signal { width: 7px; height: 7px; border-radius: 50%; background: var(--blue-hot); box-shadow: 0 0 0 4px rgba(101, 165, 255, .16), 0 0 16px rgba(101, 165, 255, .85); }
 
 /* ---------- Navigation ---------- */
-.site-nav { position: fixed; top: 34px; left: 0; z-index: 60; width: 100%; color: var(--inverse); transition: color .35s ease, background .35s ease, box-shadow .35s ease, transform .35s var(--ease); }
+.site-nav { position: fixed; top: 0; left: 0; z-index: 60; width: 100%; color: var(--inverse); transition: color .35s ease, background .35s ease, box-shadow .35s ease, transform .35s var(--ease); }
 .site-nav.is-scrolled { background: rgba(244, 246, 248, .78); box-shadow: 0 1px 0 var(--line); backdrop-filter: blur(18px) saturate(150%); -webkit-backdrop-filter: blur(18px) saturate(150%); }
 .site-nav.is-scrolled:not(.nav-invert) { color: var(--text); }
 .site-nav.nav-invert { color: var(--inverse); }
@@ -142,7 +142,6 @@ section { position: relative; }
 
 /* ---------- Devices ---------- */
 .device { position: relative; width: min(340px, 75vw); padding: 9px; border: 1px solid rgba(255, 255, 255, .18); border-radius: 42px; background: linear-gradient(135deg, #303840, #11151a 48%, #242b34); box-shadow: 0 35px 90px rgba(0, 0, 0, .4), 0 3px 10px rgba(0, 0, 0, .25); transform-style: preserve-3d; }
-.device::before { position: absolute; top: 18px; left: 50%; z-index: 2; width: 28%; height: 18px; border-radius: 0 0 13px 13px; background: #050608; content: ''; transform: translateX(-50%); }
 .device__rim { position: absolute; inset: 4px; border: 1px solid rgba(255,255,255,.16); border-radius: 37px; pointer-events: none; }
 .device__screen { position: relative; overflow: hidden; border-radius: 34px; background: #f5f7fa; }
 .device__screen img { width: 100%; height: auto; }
@@ -301,7 +300,7 @@ section { position: relative; }
   :root { --shell: calc(100% - 36px); }
   .announcement { justify-content: space-between; gap: 10px; padding-inline: 13px; font-size: 9px; letter-spacing: .08em; }
   .announcement__signal { flex: 0 0 auto; }
-  .site-nav { top: 34px; }
+  .site-nav { top: 0; }
   .site-nav__inner { min-height: 60px; }
   .brand { min-width: 0; }
   .brand__sub { display: none; }
