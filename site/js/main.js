@@ -128,52 +128,67 @@
   gsap.fromTo('.hero__visual', {yPercent:0}, {yPercent:-32, ease:'none',
     scrollTrigger:{trigger:'.hero', start:'top top', end:'bottom top', scrub:true}});
 
-  /* ---------- 3. 标题逐字揭示（mask 内上浮 + 模糊聚焦，双向同步） ---------- */
-  /* DOM 感知分割：保留行内元素（如 .grad-text 渐变 span），按 <br> 分行，逐字包 mask */
-  function emitChars(text, target, chars){
-    Array.from(text).forEach(function(c){
-      if(/\s/.test(c)){ target.appendChild(document.createTextNode(' ')); return; }
-      var cx = document.createElement('span'); cx.className = 'split-cx';
-      var cs = document.createElement('span'); cs.textContent = c;
-      cx.appendChild(cs); target.appendChild(cx); chars.push(cs);
+  /* ---------- 3. 标题逐字揭示（官方 SplitText：mask 裁切 + rotateX 翻入 + 模糊聚焦，双向同步） ---------- */
+  /* 拆分统一在 document.fonts.ready 之后执行（避免字体加载后换行/度量错位）；
+     SplitText 原生保留嵌套元素（hero 渐变 span）与 <br> 分行。 */
+  var hasSplit = typeof window.SplitText !== 'undefined';
+  function initTitleSplits(){
+    if(!hasSplit) return;
+
+    /* 首屏与章节标题：逐字翻入（克制档 rotateX -60 / blur 8） */
+    document.querySelectorAll('.hero__title, h2[data-reveal], h3[data-reveal]').forEach(function(el){
+      el.removeAttribute('data-reveal');
+      SplitText.create(el, {
+        type:'chars', mask:'chars', charsClass:'st-char',
+        onSplit:function(self){
+          gsap.set(self.chars, {yPercent:118, rotationX:-60, opacity:0, filter:'blur(8px)', transformOrigin:'50% 100%'});
+          gsap.set(el, {opacity:1, perspective:900});
+          ScrollTrigger.create({
+            trigger:el, start:'top 88%',
+            onEnter:function(){
+              gsap.to(self.chars, {yPercent:0, rotationX:0, opacity:1, filter:'blur(0px)', duration:.9, ease:'power3.out', stagger:.02, delay:.12, overwrite:true});
+            },
+            onLeaveBack:function(){
+              gsap.to(self.chars, {yPercent:118, rotationX:-60, opacity:0, filter:'blur(8px)', duration:.4, ease:'power2.in', stagger:.01, overwrite:true});
+            }
+          });
+        }
+      });
+    });
+
+    /* 多行段落：逐行 mask 揭示（鸿蒙章节两段描述，power4.out 拉丝感） */
+    document.querySelectorAll('.hkit__desc').forEach(function(el){
+      SplitText.create(el, {
+        type:'lines', mask:'lines', linesClass:'st-line',
+        onSplit:function(self){
+          gsap.set(self.lines, {yPercent:110, opacity:0});
+          ScrollTrigger.create({
+            trigger:el, start:'top 85%',
+            onEnter:function(){
+              gsap.to(self.lines, {yPercent:0, opacity:1, duration:1, ease:'power4.out', stagger:.1, overwrite:true});
+            },
+            onLeaveBack:function(){
+              gsap.to(self.lines, {yPercent:110, opacity:0, duration:.4, ease:'power2.in', stagger:.05, overwrite:true});
+            }
+          });
+        }
+      });
     });
   }
-  document.querySelectorAll('.hero__title, h2[data-reveal], h3[data-reveal]').forEach(function(el){
-    el.removeAttribute('data-reveal');
-    var chars = [];
-    var lines = [];
-    var line = document.createElement('span'); line.className = 'split-ln';
-    function flush(){
-      if(line.childNodes.length){ lines.push(line); }
-      line = document.createElement('span'); line.className = 'split-ln';
+  if(hasSplit){
+    if(document.fonts && document.fonts.ready){
+      document.fonts.ready.then(initTitleSplits);
+    }else{
+      initTitleSplits();
     }
-    Array.prototype.slice.call(el.childNodes).forEach(function(n){
-      if(n.nodeType === 3){ emitChars(n.textContent, line, chars); }
-      else if(n.nodeType === 1 && n.tagName === 'BR'){ flush(); }
-      else if(n.nodeType === 1){
-        var clone = n.cloneNode(false);
-        line.appendChild(clone);
-        Array.prototype.slice.call(n.childNodes).forEach(function(nn){
-          if(nn.nodeType === 3){ emitChars(nn.textContent, clone, chars); }
-          else if(nn.nodeType === 1 && nn.tagName === 'BR'){ clone.appendChild(document.createElement('br')); }
-          else{ emitChars(nn.textContent, clone, chars); }
-        });
-      }
+  }else{
+    /* SplitText 缺失：解除首屏标题门控；h2/h3 保留 data-reveal 走普通淡入 */
+    gsap.set('.hero__title', {opacity:1});
+    gsap.utils.toArray('h2[data-reveal], h3[data-reveal]').forEach(function(el){
+      el.removeAttribute('data-reveal');
+      gsap.set(el, {opacity:1});
     });
-    flush();
-    el.innerHTML = '';
-    lines.forEach(function(l){ el.appendChild(l); });
-    gsap.set(chars, {yPercent:118, opacity:0, filter:'blur(8px)'});
-    ScrollTrigger.create({
-      trigger:el, start:'top 88%',
-      onEnter:function(){
-        gsap.to(chars, {yPercent:0, opacity:1, filter:'blur(0px)', duration:.9, ease:'power3.out', stagger:.02, delay:.12, overwrite:true});
-      },
-      onLeaveBack:function(){
-        gsap.to(chars, {yPercent:118, opacity:0, filter:'blur(8px)', duration:.4, ease:'power2.in', stagger:.01, overwrite:true});
-      }
-    });
-  });
+  }
 
   /* ---------- 3.5 宣言逐字点亮（GSAP 官网 highlight-word 同款：scrub 双向） ---------- */
   document.querySelectorAll('[data-illuminate]').forEach(function(el){
@@ -210,8 +225,11 @@
     });
   }
 
-  /* ---------- 4. 入场 reveal（双向循环，带纵向缩放） ---------- */
-  var reveals = document.querySelectorAll('[data-reveal]');
+  /* ---------- 4. 入场 reveal（双向循环，带纵向缩放；H2/H3 由 SplitText 单独接管，不进批量） ---------- */
+  var reveals = [];
+  document.querySelectorAll('[data-reveal]').forEach(function(el){
+    if(el.tagName !== 'H2' && el.tagName !== 'H3'){ reveals.push(el); }
+  });
   gsap.set(reveals, {y:36, scale:.985});
   ScrollTrigger.batch(reveals, {
     start:'top 88%',
