@@ -115,27 +115,73 @@
       scrollTrigger:{trigger:'.hero', start:'top top', end:'bottom top', scrub:.6}});
   }
 
-  /* ---------- 3. 标题逐字揭示（mask 内上浮，双向同步） ---------- */
+  /* ---------- 3. 标题逐字揭示（mask 内上浮 + 模糊聚焦，双向同步） ---------- */
+  /* DOM 感知分割：保留行内元素（如 .grad-text 渐变 span），按 <br> 分行，逐字包 mask */
+  function emitChars(text, target, chars){
+    Array.from(text).forEach(function(c){
+      if(/\s/.test(c)){ target.appendChild(document.createTextNode(' ')); return; }
+      var cx = document.createElement('span'); cx.className = 'split-cx';
+      var cs = document.createElement('span'); cs.textContent = c;
+      cx.appendChild(cs); target.appendChild(cx); chars.push(cs);
+    });
+  }
   document.querySelectorAll('.hero__title, h2[data-reveal], h3[data-reveal]').forEach(function(el){
     el.removeAttribute('data-reveal');
-    var lines = el.innerHTML.split(/<br\s*\/?>/i);
-    el.innerHTML = lines.map(function(part){
-      var chars = Array.from(part).map(function(c){
-        return c === ' ' ? ' ' : '<span class="split-cx"><span>' + c + '</span></span>';
-      }).join('');
-      return '<span class="split-ln">' + chars + '</span>';
-    }).join('');
-    var chars = el.querySelectorAll('.split-cx>span');
-    gsap.set(chars, {yPercent:118, opacity:0});
+    var chars = [];
+    var lines = [];
+    var line = document.createElement('span'); line.className = 'split-ln';
+    function flush(){
+      if(line.childNodes.length){ lines.push(line); }
+      line = document.createElement('span'); line.className = 'split-ln';
+    }
+    Array.prototype.slice.call(el.childNodes).forEach(function(n){
+      if(n.nodeType === 3){ emitChars(n.textContent, line, chars); }
+      else if(n.nodeType === 1 && n.tagName === 'BR'){ flush(); }
+      else if(n.nodeType === 1){
+        var clone = n.cloneNode(false);
+        line.appendChild(clone);
+        Array.prototype.slice.call(n.childNodes).forEach(function(nn){
+          if(nn.nodeType === 3){ emitChars(nn.textContent, clone, chars); }
+          else if(nn.nodeType === 1 && nn.tagName === 'BR'){ clone.appendChild(document.createElement('br')); }
+          else{ emitChars(nn.textContent, clone, chars); }
+        });
+      }
+    });
+    flush();
+    el.innerHTML = '';
+    lines.forEach(function(l){ el.appendChild(l); });
+    gsap.set(chars, {yPercent:118, opacity:0, filter:'blur(8px)'});
     ScrollTrigger.create({
       trigger:el, start:'top 88%',
       onEnter:function(){
-        gsap.to(chars, {yPercent:0, opacity:1, duration:.85, ease:'power3.out', stagger:.022, delay:.12, overwrite:true});
+        gsap.to(chars, {yPercent:0, opacity:1, filter:'blur(0px)', duration:.9, ease:'power3.out', stagger:.02, delay:.12, overwrite:true});
       },
       onLeaveBack:function(){
-        gsap.to(chars, {yPercent:118, opacity:0, duration:.4, ease:'power2.in', stagger:.012, overwrite:true});
+        gsap.to(chars, {yPercent:118, opacity:0, filter:'blur(8px)', duration:.4, ease:'power2.in', stagger:.01, overwrite:true});
       }
     });
+  });
+
+  /* ---------- 3.5 宣言逐字点亮（GSAP 官网 highlight-word 同款：scrub 双向） ---------- */
+  document.querySelectorAll('[data-illuminate]').forEach(function(el){
+    var chars = [];
+    var frag = document.createDocumentFragment();
+    Array.prototype.slice.call(el.childNodes).forEach(function(n){
+      var em = n.nodeType === 1 && n.tagName === 'EM';
+      Array.from(n.textContent || '').forEach(function(c){
+        if(/[，。、！？：；]/.test(c)){ frag.appendChild(document.createTextNode(c)); return; }  /* 标点不拆，避免行首标点 */
+        if(/\s/.test(c)){ frag.appendChild(document.createTextNode(' ')); return; }
+        var s = document.createElement('span');
+        s.className = em ? 'il-c il-em' : 'il-c';
+        s.textContent = c;
+        frag.appendChild(s); chars.push(s);
+      });
+    });
+    el.innerHTML = '';
+    el.appendChild(frag);
+    gsap.set(chars, {opacity:.13});
+    gsap.to(chars, {opacity:1, stagger:.07, ease:'none',
+      scrollTrigger:{trigger:el, start:'top 78%', end:'top 28%', scrub:.4}});
   });
 
   /* ---------- 4. 入场 reveal（双向循环，带纵向缩放） ---------- */
@@ -174,6 +220,7 @@
       d.addEventListener('mouseleave', function(){ rx(0); ry(0); });
     });
     document.querySelectorAll('.btn--primary').forEach(function(btn){
+      /* 磁吸 */
       var bx = gsap.quickTo(btn, 'x', {duration:.4, ease:'power3.out'});
       var by = gsap.quickTo(btn, 'y', {duration:.4, ease:'power3.out'});
       btn.addEventListener('mousemove', function(e){
@@ -183,6 +230,31 @@
       });
       btn.addEventListener('mouseleave', function(){
         gsap.to(btn, {x:0, y:0, duration:.7, ease:'elastic.out(1,.45)'});
+      });
+      /* flair：白色圆从指针处扩张铺满（GSAP 官网按钮同款） */
+      var flair = document.createElement('span');
+      flair.className = 'btn__flair';
+      btn.appendChild(flair);
+      function flairPos(e){
+        var r = btn.getBoundingClientRect();
+        flair.style.setProperty('--fx', (e.clientX - r.left) + 'px');
+        flair.style.setProperty('--fy', (e.clientY - r.top) + 'px');
+      }
+      btn.addEventListener('mouseenter', function(e){
+        flairPos(e);
+        gsap.to(flair, {scale:1, duration:.55, ease:'power3.out', overwrite:true});
+      });
+      btn.addEventListener('mouseleave', function(e){
+        flairPos(e);
+        gsap.to(flair, {scale:0, duration:.45, ease:'power3.in', overwrite:true});
+      });
+    });
+    /* 场景卡聚光：光斑圆心跟随指针 */
+    document.querySelectorAll('.scene').forEach(function(card){
+      card.addEventListener('mousemove', function(e){
+        var r = card.getBoundingClientRect();
+        card.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+        card.style.setProperty('--my', (e.clientY - r.top) + 'px');
       });
     });
   }
