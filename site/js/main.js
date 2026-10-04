@@ -129,23 +129,74 @@
   function initTitleSplits(){
     if(!hasSplit) return;
 
-    /* 首屏与章节标题：逐字翻入（克制档 rotateX -60 / blur 8） */
+    /* 首屏与章节标题：逐字翻入（五层：独立姿态 / 活错峰 / 随机微扰 / 精准归位 / 入场后仍活着） */
     document.querySelectorAll('.hero__title, h2[data-reveal], h3[data-reveal]').forEach(function(el){
       el.removeAttribute('data-reveal');
       SplitText.create(el, {
         type:'chars', mask:'chars', charsClass:'st-char',
         onSplit:function(self){
-          gsap.set(self.chars, {yPercent:118, rotationX:-60, opacity:0, filter:'blur(8px)', transformOrigin:'50% 100%'});
-          gsap.set(el, {opacity:1, perspective:900});
+          /* 第一/三层：初始态全部落在每个 char 本身，函数化随机 —— 起点各不相同 */
+          gsap.set(self.chars, {
+            yPercent:function(){ return gsap.utils.random(100, 140); },
+            rotationX:function(){ return gsap.utils.random(-85, -55); },
+            z:function(){ return gsap.utils.random(-180, -60); },
+            rotate:function(){ return gsap.utils.random(-6, 6); },
+            opacity:0, filter:'blur(8px)',
+            transformOrigin:'50% 100%',
+            transformPerspective:600
+          });
+          gsap.set(el, {opacity:1});
           ScrollTrigger.create({
             trigger:el, start:'top 88%',
             onEnter:function(){
-              gsap.to(self.chars, {yPercent:0, rotationX:0, opacity:1, filter:'blur(0px)', duration:.9, ease:'power3.out', stagger:.02, delay:.12, overwrite:true});
+              /* 第二层：活错峰（总错峰 0.9s + 随机顺序 + 错峰自带缓动）；
+                 第三层：每字额外延迟扰动；第四层：终点精准归位（无任何随机值） */
+              gsap.to(self.chars, {
+                yPercent:0, rotationX:0, rotate:0, z:0, opacity:1, filter:'blur(0px)',
+                duration:1.1, ease:'expo.out',
+                delay:function(i){ return 0.15 + i * 0.015 + gsap.utils.random(0, 0.08); },
+                stagger:{amount:0.9, from:'random', ease:'power2.in'},
+                overwrite:'auto'
+              });
             },
             onLeaveBack:function(){
-              gsap.to(self.chars, {yPercent:118, rotationX:-60, opacity:0, filter:'blur(8px)', duration:.4, ease:'power2.in', stagger:.01, overwrite:true});
+              /* 双向循环：滚回时回到「新一轮随机姿态」（每轮入场方式都不同） */
+              gsap.to(self.chars, {
+                yPercent:function(){ return gsap.utils.random(100, 140); },
+                rotationX:function(){ return gsap.utils.random(-85, -55); },
+                z:function(){ return gsap.utils.random(-180, -60); },
+                rotate:function(){ return gsap.utils.random(-6, 6); },
+                opacity:0, filter:'blur(8px)',
+                duration:.45, ease:'power2.in', overwrite:'auto',
+                stagger:{amount:.35, from:'random', ease:'power1.in'}
+              });
             }
           });
+          /* 第五层-滚动：标题滚离视口时的 scrub 收场（作用在 el 容器，与 char 动画不同目标不冲突） */
+          gsap.to(el, {
+            yPercent:-25, scale:.94, opacity:.5, ease:'none',
+            scrollTrigger:{trigger:el, start:'top top', end:'bottom top', scrub:1}
+          });
+          /* 第五层-鼠标：靠近光标的字符轻微抬起（仅精确指针；y(px) 与入场的 yPercent 不同属性可并存） */
+          if(window.matchMedia('(pointer:fine)').matches){
+            var charRects = null;
+            el.addEventListener('mouseenter', function(){
+              charRects = self.chars.map(function(c){ return c.getBoundingClientRect(); });
+            });
+            el.addEventListener('mousemove', function(e){
+              if(!charRects) return;
+              self.chars.forEach(function(c, i){
+                var r = charRects[i];
+                var d = Math.abs(e.clientX - (r.left + r.width / 2)) / (r.width * 3 + 1);
+                var influence = Math.max(0, 1 - d);
+                gsap.to(c, {y:-14 * influence, duration:.35, ease:'power2.out', overwrite:'auto'});
+              });
+            });
+            el.addEventListener('mouseleave', function(){
+              charRects = null;
+              gsap.to(self.chars, {y:0, duration:.5, ease:'power3.out', overwrite:'auto'});
+            });
+          }
         }
       });
     });
