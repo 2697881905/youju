@@ -51,23 +51,25 @@ section{position:relative}
 .eyebrow{display:inline-block;font-size:13px;font-weight:700;letter-spacing:.14em;color:var(--accent);margin-bottom:18px}
 .eyebrow--dark{color:#6FAAFF}
 
-/* 渐变流动文字（GSAP 官网同款；不支持 background-clip 时回退纯色，绝不变隐形） */
-.grad-text{display:inline-block;color:inherit}
+/* 渐变流动文字（GSAP 官网同款；不支持 background-clip 时回退纯色，绝不变隐形）
+   SplitText 逐字化后每个 char 是独立合成层（force3D/transform），父级 clip:text 穿不透合成层
+   → 渐变经 --grad-img 逐字下发到 .st-char 自身（background-clip 对自身 transform 恒生效） */
+.grad-text{display:inline-block;color:inherit;--grad-img:linear-gradient(94deg,#0F5AE6,#3D82FF 55%,#0F5AE6 110%)}
 @supports ((-webkit-background-clip:text) or (background-clip:text)){
-  .grad-text{background:linear-gradient(94deg,#0F5AE6,#3D82FF 55%,#0F5AE6 110%);background-size:200% 100%;
+  .grad-text{background-image:var(--grad-img);background-size:200% 100%;
     -webkit-background-clip:text;background-clip:text;color:transparent;
     animation:gradShift 7s ease-in-out infinite}
+  .grad-text .st-char{background-image:var(--grad-img);background-size:200% 100%;
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    animation:gradShift 7s ease-in-out infinite}
+  .grad-text--dark{--grad-img:linear-gradient(94deg,#6FAAFF,#EAF3FF 55%,#6FAAFF 110%)}
+  .grad-text--dark .st-char{animation-duration:8s}
+  /* 拆分完成后关闭父级裁切（is-split 加在标题容器上，渐变 span 是其子级）：
+     父级已无直挂文本，保留会在个别字形上产生重影 */
+  .is-split .grad-text{background-image:none;-webkit-background-clip:border-box;background-clip:border-box;animation:none}
 }
 @keyframes gradShift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
-@media(prefers-reduced-motion:reduce){.grad-text{animation:none}}
-
-/* 深色章节渐变变体（鸿蒙标题：浅蓝 -> 近白 流动） */
-.grad-text--dark{color:inherit}
-@supports ((-webkit-background-clip:text) or (background-clip:text)){
-  .grad-text--dark{background:linear-gradient(94deg,#6FAAFF,#EAF3FF 55%,#6FAAFF 110%);background-size:200% 100%;
-    -webkit-background-clip:text;background-clip:text;color:transparent;animation:gradShift 8s ease-in-out infinite}
-}
-@media(prefers-reduced-motion:reduce){.grad-text--dark{animation:none}}
+@media(prefers-reduced-motion:reduce){.grad-text{animation:none}.grad-text .st-char{animation:none}}
 .section-head{max-width:640px;margin-bottom:clamp(56px,8vw,96px)}
 .section-head h2{font-size:clamp(30px,4.6vw,52px)}
 .section-head__sub{margin-top:18px;font-size:17px;color:var(--text-2);max-width:34em}
@@ -126,7 +128,7 @@ section{position:relative}
   background:radial-gradient(closest-side,rgba(29,111,255,.13),rgba(29,111,255,0) 72%);pointer-events:none;z-index:0}
 .hero .container{position:relative;z-index:1}
 .hero__grid{display:grid;grid-template-columns:5fr 6fr;gap:clamp(40px,6vw,88px);align-items:center}
-.hero__title{font-size:clamp(42px,6.6vw,80px)}
+.hero__title{font-size:clamp(42px,6.6vw,80px);white-space:nowrap}
 .hero__sub{margin-top:26px;font-size:clamp(16px,1.6vw,19px);color:var(--text-2);max-width:30em}
 .hero__actions{margin-top:36px;display:flex;gap:14px;flex-wrap:wrap}
 .hero__visual{display:flex;justify-content:center}
