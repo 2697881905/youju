@@ -266,9 +266,6 @@
                   onComplete:function(){
                     c.style.willChange = 'auto';
                     c.style.animationPlayState = '';
-                    /* 落位弹性微回弹：站定前轻轻晃一下（与鼠标跟随 y 不同属性，不冲突） */
-                    gsap.fromTo(c, {rotation:gsap.utils.random(-5, 5)},
-                      {rotation:0, duration:.7, ease:'elastic.out(1,.45)', overwrite:'auto'});
                   }
                 }, gsap.utils.random(0, 1.8));
               });
@@ -397,19 +394,24 @@
       });
     }
 
-    /* 正文段落：逐行 mask 揭示（章节副标 + 场景卡描述，双向循环） */
-    document.querySelectorAll('.section-head__sub, .scene p').forEach(function(el){
+    /* 正文与清单小字：单字级联（章节副标 / 场景卡描述 / 鸿蒙特性标签与清单项，双向循环）——
+       from 函数化每次触发重新抽签，to 写死收敛；小字不挂 mask（避免逐字裁切边缘），只动 yPercent/opacity */
+    document.querySelectorAll('.section-head__sub, .scene p, .hkit__tag, .hkit__points li').forEach(function(el){
       SplitText.create(el, {
-        type:'lines', mask:'lines', linesClass:'st-line',
+        type:'chars', charsClass:'st-char',
         onSplit:function(self){
-          gsap.set(self.lines, {yPercent:110, opacity:0});
+          gsap.set(self.chars, {
+            yPercent:function(){ return gsap.utils.random(40, 95); },
+            opacity:0
+          });
           ScrollTrigger.create({
-            trigger:el, start:'top 82%',
+            trigger:el, start:'top 85%',
             onEnter:function(){
-              gsap.to(self.lines, {yPercent:0, opacity:1, duration:.9, ease:'power4.out', stagger:.09, overwrite:true});
+              gsap.to(self.chars, {yPercent:0, opacity:1, duration:.6, ease:'power3.out', stagger:.016, overwrite:true});
             },
             onLeaveBack:function(){
-              gsap.to(self.lines, {yPercent:110, opacity:0, duration:.4, ease:'power2.in', stagger:.05, overwrite:true});
+              gsap.to(self.chars, {yPercent:function(){ return gsap.utils.random(40, 95); }, opacity:0,
+                duration:.4, ease:'power2.in', stagger:.008, overwrite:true});
             }
           });
         }
@@ -494,30 +496,7 @@
     }
   });
 
-  /* ---------- 4.5 鸿蒙特性清单：标签滑入 + 清单项左右交替切入（双向循环） ---------- */
-  gsap.utils.toArray('.hkit').forEach(function(hkit){
-    var tag = hkit.querySelector('.hkit__tag');
-    var items = hkit.querySelectorAll('.hkit__points li');
-    if(tag){ gsap.set(tag, {x:-28, skewX:-10, opacity:0}); }
-    items.forEach(function(li, i){
-      gsap.set(li, {x:(i % 2 ? 46 : -46), rotation:(i % 2 ? 2.5 : -2.5), opacity:0});
-    });
-    ScrollTrigger.create({
-      trigger:hkit, start:'top 78%',
-      onEnter:function(){
-        if(tag){ gsap.to(tag, {x:0, skewX:0, opacity:1, duration:.7, ease:'power3.out', overwrite:true}); }
-        gsap.to(items, {x:0, rotation:0, opacity:1, duration:.8, ease:'power3.out', stagger:.09, overwrite:true});
-      },
-      onLeaveBack:function(){
-        if(tag){ gsap.to(tag, {x:-28, skewX:-10, opacity:0, duration:.4, ease:'power2.in', overwrite:true}); }
-        gsap.to(items, {
-          x:function(i){ return (i % 2 ? 46 : -46); },
-          rotation:function(i){ return (i % 2 ? 2.5 : -2.5); },
-          opacity:0, duration:.45, ease:'power2.in', stagger:.04, overwrite:true
-        });
-      }
-    });
-  });
+  /* ---------- 4.5 鸿蒙特性标签与清单项：已并入 initTitleSplits 的单字级联系统 ---------- */
 
   /* ---------- 5. 滚动视差（分层速率：场景 44 > 鸿蒙 30 > 下载 24）+ Hero 设备呼吸浮动 ---------- */
   [['.scene .device', 44], ['.hkit__stage .device', 30], ['.download__visual .device', 24]].forEach(function(cfg){
