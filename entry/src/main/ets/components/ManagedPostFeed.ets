@@ -85,38 +85,34 @@ export struct ManagedPostFeed {
       .position({ top: SpaceTokens.sm, left: SpaceTokens.sm })
   }
 
-  // 删除按钮：并入卡片信息区，与卡片一体（仅草稿箱启用）
+  // 删除按钮：叠在卡片**右上角**（与左上「草稿/已删除」角标成对），不占用卡片信息区 ——
+  // 信息区必须与首页卡片完全一致（标题 + 互动/作者），不能塞操作行。
   @Builder
-  deleteRow(cell: FeedCell): void {
-    Row() {
-      Blank().layoutWeight(1)
-      Stack({ alignContent: Alignment.Center }) {
-        Pressable({
-          fillWidth: true,
-          visualHeight: IconTokens.small,
-          touchTargetHeight: LayoutTokens.minTouchTarget,
-          action: (): void => { this.onDelete(cell.key); },
-        }) {
-          Row() {
-            Image($r('app.media.set_trash'))
-              .width(IconTokens.compact)
-              .height(IconTokens.compact)
-              .fillColor(ColorTokens.icon)
-          }
-          .width(28)
-          .height(IconTokens.small)
-          .justifyContent(FlexAlign.Center)
-          .backgroundColor(Color.Transparent)
-          .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-          .borderRadius(RadiusTokens.lg)
+  deleteButton(cell: FeedCell): void {
+    Stack({ alignContent: Alignment.Center }) {
+      Pressable({
+        fillWidth: true,
+        visualHeight: IconTokens.small,
+        touchTargetHeight: LayoutTokens.minTouchTarget,
+        action: (): void => { this.onDelete(cell.key); },
+      }) {
+        Row() {
+          Image($r('app.media.set_trash'))
+            .width(IconTokens.compact)
+            .height(IconTokens.compact)
+            .fillColor(ColorTokens.icon)
         }
+        .width(28)
+        .height(IconTokens.small)
+        .justifyContent(FlexAlign.Center)
+        .backgroundColor(Color.Transparent)
+        .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+        .borderRadius(RadiusTokens.lg)
       }
-      .width(LayoutTokens.minTouchTarget)
-      .height(IconTokens.small)
     }
-    .width('100%')
-    .padding({ top: SpaceTokens.xs })
-    .alignItems(VerticalAlign.Center)
+    .width(LayoutTokens.minTouchTarget)
+    .height(IconTokens.small)
+    .position({ top: SpaceTokens.sm, right: SpaceTokens.sm })
   }
 
   private posterStyleOf(cell: FeedCell): string {
@@ -126,21 +122,20 @@ export struct ManagedPostFeed {
   @Builder
   cellView(cell: FeedCell): void {
     Stack() {
+      // 卡片参数与首页信息流对齐：showStats / showAuthor 取默认（开），
+      // 仅关闭点赞写操作（草稿无 id；废纸篓里的帖子已不可互动）。
       PostCard({
         post: cell.post,
         compact: true,
         allowLike: false,
-        showStats: false,
-        showAuthor: false,
         textPosterStyle: this.posterStyleOf(cell),
         onOpen: (): void => { this.onOpen(cell.post, cell.key); },
-      }) {
-        if (this.deletable) {
-          this.deleteRow(cell)
-        }
-      };
+      });
       if (this.badgeText.length > 0) {
         this.badge()
+      }
+      if (this.deletable) {
+        this.deleteButton(cell)
       }
     }
     .width('100%')
@@ -168,12 +163,16 @@ export struct ManagedPostFeed {
         .alignItems(VerticalAlign.Top)
 
         if (this.finished) {
+          // 与首页信息流尾注同款
           Text('没有更多了')
             .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.caption.weight)
+            .lineHeight(TypeTokens.caption.lineHeight)
+            .letterSpacing(TypeTokens.caption.tracking)
             .fontColor(ColorTokens.tertiary)
             .width('100%')
             .textAlign(TextAlign.Center)
-            .padding({ top: SpaceTokens.base, bottom: SpaceTokens.sm })
+            .padding(SpaceTokens.base)
         }
 
         // 底部预留：滚动终点与页面底边之间的呼吸 / 贴底栏避让
