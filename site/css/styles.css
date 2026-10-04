@@ -50,6 +50,16 @@ section{position:relative}
 /* ---------- 文字与标签 ---------- */
 .eyebrow{display:inline-block;font-size:13px;font-weight:700;letter-spacing:.14em;color:var(--accent);margin-bottom:18px}
 .eyebrow--dark{color:#6FAAFF}
+
+/* 渐变流动文字（GSAP 官网同款；不支持 background-clip 时回退纯色，绝不变隐形） */
+.grad-text{display:inline-block;color:inherit}
+@supports ((-webkit-background-clip:text) or (background-clip:text)){
+  .grad-text{background:linear-gradient(94deg,#0F5AE6,#3D82FF 55%,#0F5AE6 110%);background-size:200% 100%;
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    animation:gradShift 7s ease-in-out infinite}
+}
+@keyframes gradShift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+@media(prefers-reduced-motion:reduce){.grad-text{animation:none}}
 .section-head{max-width:640px;margin-bottom:clamp(56px,8vw,96px)}
 .section-head h2{font-size:clamp(30px,4.6vw,52px)}
 .section-head__sub{margin-top:18px;font-size:17px;color:var(--text-2);max-width:34em}
@@ -58,9 +68,14 @@ section{position:relative}
 
 /* ---------- 按钮 ---------- */
 .btn{display:inline-flex;align-items:center;gap:8px;height:48px;padding:0 26px;border-radius:12px;font-size:15px;font-weight:600;transition:transform .3s var(--ease),box-shadow .3s,background .3s,color .3s}
-.btn--primary{background:var(--accent);color:#fff}
+.btn--primary{background:var(--accent);color:#fff;overflow:hidden;isolation:isolate}
 .btn--primary:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(29,111,255,.35)}
 .btn--primary:active{transform:translateY(0) scale(.98)}
+/* flair：hover 时白色圆从指针处扩张铺满、文字反墨色（GSAP 官网按钮同款） */
+.btn__flair{display:block;position:absolute;left:var(--fx,50%);top:var(--fy,50%);width:240%;aspect-ratio:1;border-radius:50%;
+  background:#fff;transform:translate(-50%,-50%) scale(0);pointer-events:none;z-index:0}
+.btn__label{position:relative;z-index:1;transition:color .35s}
+.btn--primary:hover .btn__label{color:var(--ink)}
 .btn--ghost{border:1px solid var(--line);color:var(--text-1)}
 .btn--ghost:hover{border-color:var(--text-1)}
 .btn--lg{height:56px;padding:0 34px;font-size:16px;border-radius:14px}
@@ -128,11 +143,21 @@ section{position:relative}
 /* ---------- 使用场景 ---------- */
 .scenes{padding:clamp(80px,12vw,150px) 0;background:var(--paper-2)}
 .scenes__grid{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(24px,3vw,44px)}
-.scene{display:flex;flex-direction:column;align-items:center;text-align:center}
+.scene{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center}
 .scene .device{width:min(260px,70vw)}
 .scene h3{margin-top:28px;font-size:20px}
 .scene p{margin-top:8px;font-size:14.5px;color:var(--text-2);max-width:22em}
+/* 指针聚光：蓝色光斑跟随鼠标（--mx/--my 由 JS 写入） */
+.scene::after{content:'';position:absolute;inset:0;border-radius:24px;pointer-events:none;opacity:0;transition:opacity .45s;
+  background:radial-gradient(520px circle at var(--mx,50%) var(--my,50%),rgba(29,111,255,.07),transparent 45%)}
+.scene:hover::after{opacity:1}
 @media(max-width:900px){.scenes__grid{grid-template-columns:1fr;row-gap:64px}}
+
+/* ---------- 社区宣言（GSAP 官网 highlight-word 同款：滚动逐字点亮，scrub 双向） ---------- */
+.statement{padding:clamp(96px,14vw,180px) 0;background:var(--paper);text-align:center}
+.statement__text{max-width:22em;margin-inline:auto;font-size:clamp(28px,4.6vw,54px);font-weight:900;letter-spacing:-.02em;line-height:1.35}
+.statement__text .il-c{display:inline-block}
+.statement__text .il-em{color:var(--accent)}
 
 /* ---------- HarmonyOS 7 章节（黑底）---------- */
 .harmony{padding:clamp(96px,13vw,170px) 0 clamp(60px,8vw,110px);background:var(--ink);color:var(--text-inv)}
@@ -156,6 +181,10 @@ section{position:relative}
 
 /* ---------- 下载（左文右图：登录页 = 打开有据的第一屏） ---------- */
 .download{padding:clamp(70px,9vw,120px) 0 clamp(90px,12vw,150px);background:var(--ink);color:var(--text-inv)}
+/* 顶部一抹品牌蓝辉光，呼应 Hero 光斑 */
+.download::before{content:'';position:absolute;top:-140px;left:50%;transform:translateX(-50%);
+  width:min(880px,92vw);height:440px;border-radius:50%;pointer-events:none;
+  background:radial-gradient(closest-side,rgba(29,111,255,.14),rgba(29,111,255,0) 72%)}
 .download__grid{display:grid;grid-template-columns:6fr 5fr;gap:clamp(40px,6vw,88px);align-items:center}
 .download__copy{text-align:left}
 .download__icon{width:72px;height:72px;border-radius:17px;margin-bottom:24px;box-shadow:0 18px 50px rgba(29,111,255,.28)}
