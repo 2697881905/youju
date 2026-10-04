@@ -129,45 +129,91 @@
   function initTitleSplits(){
     if(!hasSplit) return;
 
-    /* 移动端分档：粗指针 rotateY/x/z 幅度砍半（K=0.5）。
-       ⚠️ 性能铁律：字符只动 transform/opacity（全程合成器驱动，零逐帧栅格化）。
-       filter:blur 半径逐帧变化会强制每字符每帧重栅格化（GPU 无法缓存，视网膜 2x 下 ×4 像素量），
-       68 字并发 blur 是掉帧主因 —— 已整体退场，软焦感由 mask 裁切 + opacity 承担 */
+    /* 移动端分档：位移类维度（x / z / rotationY / skewX）砍半（K=0.5）。
+       ⚠️ 性能铁律：字符只动 transform/opacity（全程合成器驱动，零逐帧栅格化）——
+       filter 每帧重栅格化是掉帧主因，严禁回加。 */
     var coarse = window.matchMedia('(pointer:coarse)').matches;
     var K = coarse ? 0.5 : 1;
 
-    /* CustomEase silk 三曲线（前段猛后段缓）；插件缺失时回退内置缓动池。
+    /* CustomEase silk 三曲线（前段猛后段缓）；插件缺失时回退内置缓动。
        initTitleSplits 仅在 fonts.ready 后执行一次；create 重复调用为静默覆盖，无重复注册风险 */
-    var EASES;
+    var E_SILK, E_SOFT, E_BACK;
     if(typeof window.CustomEase !== 'undefined'){
       gsap.registerPlugin(CustomEase);
       CustomEase.create('silk', 'M0,0 C0.16,1 0.3,1 1,1');
       CustomEase.create('silkSoft', 'M0,0 C0.2,0.75 0.4,1 1,1');
       CustomEase.create('silkBack', 'M0,0 C0.34,1.56 0.64,1 1,1');
-      EASES = ['silk', 'silkSoft', 'silkBack'];
+      E_SILK = 'silk'; E_SOFT = 'silkSoft'; E_BACK = 'silkBack';
     }else{
-      EASES = ['expo.out', 'power4.out', 'power3.out'];
+      E_SILK = 'expo.out'; E_SOFT = 'power3.out'; E_BACK = 'back.out(1.6)';
+    }
+
+    /* 每组人格的时间曲线：ease 与路径绑定，动作有性格（不只是参数随机） */
+    function motionFor(i){
+      var g = i % 5;
+      if(g === 0) return { dur:[1.4, 2.2], ease:E_SILK };  /* 翻坠：长滑行 */
+      if(g === 1) return { dur:[0.9, 1.5], ease:E_SOFT };  /* 侧甩：快切 */
+      if(g === 2) return { dur:[1.6, 2.4], ease:E_SILK };  /* 深推：最深最缓 */
+      if(g === 3) return { dur:[1.0, 1.6], ease:E_BACK };  /* 弹升：必过冲 */
+      return { dur:[1.2, 1.8], ease:E_SOFT };              /* 翻牌 */
     }
 
     /* from 全函数化（每次触发重新抽签，绝不与写死的 to 混用）：
-       i%3 路径分组 —— 0 下翻 / 1 侧甩 / 2 深推；其余维度统一范围随机 */
+       i%5 五种入场人格 —— 0 翻坠 / 1 侧甩 / 2 深推 / 3 弹升 / 4 翻牌 */
     function fromVars(){
       return {
-        yPercent:function(i){ return (i % 3) === 0 ? gsap.utils.random(140, 220) : gsap.utils.random(80, 150); },
-        rotationX:function(i){ return (i % 3) === 0 ? gsap.utils.random(-180, -90) : gsap.utils.random(-110, -30); },
-        rotationY:function(i){ return (i % 3) === 1 ? (i % 2 ? 1 : -1) * gsap.utils.random(40, 90) * K : gsap.utils.random(-25, 25); },
-        rotate:function(){ return gsap.utils.random(-35, 35); },
-        x:function(i){ return (i % 3) === 1 ? (i % 2 ? 1 : -1) * gsap.utils.random(60, 120) * K : gsap.utils.random(-45, 45); },
-        z:function(i){
-          var g = i % 3;
-          return gsap.utils.random((g === 2 ? -600 : -180) * K, (g === 2 ? -260 : -40) * K);
+        yPercent:function(i){
+          var g = i % 5;
+          if(g === 0) return gsap.utils.random(120, 260);
+          if(g === 3) return gsap.utils.random(60, 140);
+          return gsap.utils.random(40, 120);
         },
-        scale:function(i){ return (i % 3) === 2 ? gsap.utils.random(0.3, 0.6) : gsap.utils.random(0.55, 1.4); },
+        rotationX:function(i){
+          var g = i % 5;
+          if(g === 0) return gsap.utils.random(-200, -120);
+          if(g === 2) return gsap.utils.random(-60, -20);
+          if(g === 3) return gsap.utils.random(40, 90);
+          return gsap.utils.random(-90, -30);
+        },
+        rotationY:function(i){
+          var g = i % 5, s = (i % 2 ? 1 : -1);
+          if(g === 1) return s * gsap.utils.random(60, 120) * K;
+          if(g === 4) return s * gsap.utils.random(140, 200) * K;
+          return gsap.utils.random(-30, 30);
+        },
+        rotate:function(i){
+          var g = i % 5, s = (i % 2 ? 1 : -1);
+          if(g === 1) return -s * gsap.utils.random(25, 60);
+          return gsap.utils.random(-45, 45);
+        },
+        x:function(i){
+          var g = i % 5, s = (i % 2 ? 1 : -1);
+          if(g === 1) return s * gsap.utils.random(140, 260) * K;
+          if(g === 4) return s * gsap.utils.random(40, 90) * K;
+          return gsap.utils.random(-70, 70);
+        },
+        skewX:function(i){
+          var g = i % 5, s = (i % 2 ? 1 : -1);
+          if(g === 1) return s * gsap.utils.random(30, 55) * K;
+          return gsap.utils.random(-12, 12);
+        },
+        z:function(i){
+          var g = i % 5;
+          if(g === 2) return gsap.utils.random(-900, -450) * K;
+          return gsap.utils.random(-260, -40);
+        },
+        scale:function(i){
+          var g = i % 5;
+          if(g === 0) return gsap.utils.random(0.5, 0.9);
+          if(g === 2) return gsap.utils.random(0.15, 0.45);
+          if(g === 3) return gsap.utils.random(1.35, 1.9);
+          return gsap.utils.random(0.6, 1.2);
+        },
         opacity:0
       };
     }
 
-    /* 首屏与章节标题：逐字翻入（六层：大幅差异化姿态 / 活错峰 / 路径分组 / 丝滑收敛 / 入场后仍活着 / 性能开关） */
+    /* 首屏与章节标题：逐字翻入（i%5 五路径人格 / 活错峰 / 丝滑收敛 / 入场后仍活着 / 性能开关） */
     document.querySelectorAll('.hero__title, h2[data-reveal], h3[data-reveal]').forEach(function(el){
       el.removeAttribute('data-reveal');
       el.classList.add('is-split');
@@ -187,20 +233,21 @@
           ScrollTrigger.create({
             trigger:el, start:'top 88%',
             onEnter:function(){
-              /* 逐字独立补间：duration 1.2~2.2 随机、ease 从 silk 池随机抽取、
+              /* 逐字独立补间：duration/ease 由所属路径组绑定（motionFor）、
                  时间位置随机摆放在 1.8s 窗口内（等价 stagger{amount:1.8, from:'random'}）；
-                 to 八值全部写死 —— 终点零随机，丝滑收敛；每字落位即释放 will-change。
+                 to 九值全部写死 —— 终点零随机，丝滑收敛；每字落位即释放 will-change。
                  入场期间暂停字符渐变 shimmer（background-position 逐帧重绘），落位后恢复 */
               if(enterTl){ enterTl.kill(); }
               gsap.set(self.chars, {willChange:'transform, opacity'});
               enterTl = gsap.timeline({delay:0.2});
-              self.chars.forEach(function(c){
+              self.chars.forEach(function(c, i){
                 c.style.animationPlayState = 'paused';
+                var m = motionFor(i);
                 enterTl.to(c, {
-                  yPercent:0, rotationX:0, rotationY:0, rotate:0, x:0, z:0, scale:1,
+                  yPercent:0, rotationX:0, rotationY:0, rotate:0, x:0, z:0, scale:1, skewX:0,
                   opacity:1,
-                  duration:gsap.utils.random(1.2, 2.2),
-                  ease:gsap.utils.random(EASES),
+                  duration:gsap.utils.random(m.dur[0], m.dur[1]),
+                  ease:m.ease,
                   overwrite:'auto',
                   onComplete:function(){
                     c.style.willChange = 'auto';
