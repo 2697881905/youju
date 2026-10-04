@@ -65,6 +65,8 @@ import { FALLBACK_VIDEO_ASPECT_RATIO, normalizeVideoAspectRatio } from '../utils
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { postContentTextOf } from '../utils/postPlainText';
 import { resolveActionIcon } from '../utils/actionIcons';
+import { Pressable } from '../design/motion/Pressable';
+import { SpringPanel } from '../design/motion/SpringPanel';
 import { TopButtonMaterialModifier } from '../utils/immersiveMaterial';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 
@@ -177,6 +179,9 @@ export struct PostDetailView {
   // 不与正文文本选择的长按竞争。bindContextMenu 会被子组件 onClick 竞争掉（同 ChatView
   // 消息菜单的结论），故用自绘遮罩浮层。
   @State contentMenuVisible: boolean = false;
+  // 帖子操作面板（作者侧）：页内浮层，替代系统 ActionSheet —— 后者只支持 title/icon/action，
+  // 选项样式完全不可定制（观感简陋且与项目设计语言脱节）。
+  @State postActionsVisible: boolean = false;
   @State contentMenuX: number = 0; // 菜单卡片左上角 x（内容区 Stack 本地坐标，按按压点定位）
   @State contentMenuY: number = 0; // 菜单卡片左上角 y
   // 内容区 Stack 的全局原点与尺寸：按压点全局坐标 → 本地坐标换算 & 边界钳制依赖它
@@ -963,7 +968,7 @@ export struct PostDetailView {
   // 是否有页内覆盖层打开（返回手势要先关它们，而不是退出详情页）
   private hasPageOverlay(): boolean {
     return this.viewingImage.length > 0 || this.shareCardPreview !== null || this.statsPanelShow
-      || this.contentMenuVisible;
+      || this.contentMenuVisible || this.postActionsVisible;
   }
 
   // 关掉最上层那个覆盖层。层级从高到低：图片查看器(999) → 分享卡预览(200) → 数据面板(210) → 长按菜单。
@@ -980,7 +985,11 @@ export struct PostDetailView {
       this.closeContentMenu();
       return;
     }
-    this.statsPanelShow = false;
+    if (this.statsPanelShow) {
+      this.statsPanelShow = false;
+      return;
+    }
+    this.postActionsVisible = false;
   }
 
   // 辩论投票：乐观更新票数
@@ -1087,29 +1096,8 @@ export struct PostDetailView {
     if (isOwner) {
       // 帖子在废纸篓中（软删标记非空）时，作者菜单给出「恢复 / 彻底删除」；
       // 否则维持「删除帖子」（移入废纸篓）。删除入口已从废纸篓列表卡片收进此处。
-      const inTrash: boolean = (this.post.deletedAt ?? '').length > 0;
-      if (inTrash) {
-        this.getUIContext().showActionSheet({
-          title: '操作',
-          message: '',
-          sheets: [
-            { title: '数据面板', action: (): void => { this.showPostStats(); } },
-            { title: '恢复帖子', action: (): void => { this.onRestorePost(); } },
-            { title: '彻底删除', action: (): void => { this.onPermanentlyDelete(); } },
-          ],
-          cancel: (): void => {},
-        });
-      } else {
-        this.getUIContext().showActionSheet({
-          title: '操作',
-          message: '',
-          sheets: [
-            { title: '数据面板', action: (): void => { this.showPostStats(); } },
-            { title: '删除帖子', action: (): void => { this.onDeletePost(); } },
-          ],
-          cancel: (): void => {},
-        });
-      }
+      // 选项集由 postInTrash() 在面板内分支，这里只负责打开。
+      this.postActionsVisible = true;
     } else if (EXTERNAL_SHARE_ENABLED) {
       this.getUIContext().showAlertDialog({
         title: '操作',
@@ -1425,6 +1413,114 @@ export struct PostDetailView {
     .onClick((): void => { this.closeContentMenu(); })
   }
 
+  // 帖子在废纸篓中（软删标记非空）→ 作者菜单给的选项集不同
+  private postInTrash(): boolean {
+    return (this.post?.deletedAt ?? '').length > 0;
+  }
+
+  private closePostActions(): void {
+    this.postActionsVisible = false;
+  }
+
+  // 操作项：标题 + 副标题，语言与 PublishModeSheet 的条目一致
+  //（标题 body 字号 + headline 字重；副标题 caption/tertiary；危险项标题用 danger 色）。
+  @Builder
+  private postActionRow(label: string, subtitle: string, danger: boolean, action: () => void): void {
+    Pressable({
+      fillWidth: true,
+      visualHeight: 60,
+      touchTargetHeight: LayoutTokens.minTouchTarget,
+      action: (): void => {
+        this.closePostActions();
+        action();
+      },
+    }) {
+      Row({ space: SpaceTokens.md }) {
+        Column({ space: SpaceTokens.inlineTight }) {
+          Text(label)
+            .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.headline.weight)
+            .lineHeight(TypeTokens.body.lineHeight)
+            .fontColor(danger ? ColorTokens.danger : ColorTokens.primary)
+          Text(subtitle)
+            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.caption.weight)
+            .lineHeight(TypeTokens.caption.lineHeight)
+            .fontColor(ColorTokens.tertiary)
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+      }
+      .width('100%')
+      .height(60)
+      .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
+      .alignItems(VerticalAlign.Center)
+      .backgroundColor(Color.Transparent)
+    }
+  }
+
+  // 帖子操作面板：暗色遮罩（点空白关闭）+ 居中实色面板（SpringPanel solid，与数据面板/发布方式
+  // 同材质：elevated 底 + separator 发丝描边 + cardAmbient 阴影，不透明、承载文字可读）。
+  // 选项集：未删除 = 数据面板 / 删除帖子；已删除 = 数据面板 / 恢复帖子 / 彻底删除。
+  @Builder
+  private postActionsSheet(): void {
+    Stack({ alignContent: Alignment.Center }) {
+      Column()
+        .width('100%')
+        .height('100%')
+        .backgroundColor('rgba(0,0,0,0.35)')
+        .onClick((): void => { this.closePostActions(); })
+
+      SpringPanel({ panelWidth: 344, panelPadding: SpaceTokens.lg, solid: true }) {
+        Column({ space: SpaceTokens.base }) {
+          Row() {
+            Text('操作')
+              .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
+              .fontWeight(TypeTokens.headline.weight)
+              .lineHeight(TypeTokens.headline.lineHeight)
+              .fontColor(ColorTokens.primary)
+            Blank().layoutWeight(1)
+            Pressable({
+              visualHeight: LayoutTokens.segmentedHeight,
+              touchTargetHeight: LayoutTokens.minTouchTarget,
+              action: (): void => { this.closePostActions(); },
+            }) {
+              Image(resolveActionIcon('close'))
+                .width(IconTokens.compact)
+                .height(IconTokens.compact)
+                .fillColor(ColorTokens.icon)
+            }
+          }
+          .width('100%')
+          .alignItems(VerticalAlign.Center)
+
+          // 选项容器：共用一条发丝描边 + lg 圆角，条目间 Divider（与 PublishModeSheet 同构，
+          // 也与分段栏「1 条容器描边 + 内部无边框」的语言一致）
+          Column() {
+            this.postActionRow('数据面板', '查看浏览与互动数据', false, (): void => { this.showPostStats(); })
+            Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
+            if (this.postInTrash()) {
+              this.postActionRow('恢复帖子', '重新出现在主页与信息流', false, (): void => { this.onRestorePost(); })
+              Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
+              this.postActionRow('彻底删除', '删除后无法恢复', true, (): void => { this.onPermanentlyDelete(); })
+            } else {
+              this.postActionRow('删除帖子', '先移入废纸篓，可再恢复', true, (): void => { this.onDeletePost(); })
+            }
+          }
+          .width('100%')
+          .backgroundColor(Color.Transparent)
+          .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
+          .borderRadius(RadiusTokens.lg)
+          .clip(true)
+        }
+        .width('100%')
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .zIndex(220)
+  }
+
   // 一镜到底（navMode）下 hero 的可见性：真媒体首帧就绪前**保持透明**，
   // 让下层的卡片截图透出来顶住媒体位。若直接显示，轮播图自带的 sunken 灰底会盖住截图，
   // 观感就是「卡片图 → 灰块 → 照片」闪一下（本轮修的跳动主因）。
@@ -1691,6 +1787,11 @@ export struct PostDetailView {
           .height('100%')
           .position({ x: 0, y: 0 })
           .zIndex(210)
+      }
+
+      // 帖子操作面板（作者侧）：最高层浮层，替代系统 ActionSheet
+      if (this.postActionsVisible) {
+        this.postActionsSheet()
       }
     }
     .width('100%')
