@@ -132,11 +132,11 @@ section { position: relative; }
 .principles { padding: 190px 0 210px; background: var(--paper); }
 .principles__inner { display: grid; grid-template-columns: minmax(340px, .95fr) 1.05fr; gap: 100px; align-items: start; }
 .principles__list { border-top: 1px solid var(--line); }
-.principle { position: relative; display: grid; grid-template-columns: 54px 1fr 22px; gap: 18px; align-items: start; padding: 31px 0 36px; border-bottom: 1px solid var(--line); }
-.principle__number { color: var(--blue); font-size: 13px; font-weight: 700; }
-.principle h3 { font-size: 32px; }
-.principle p { max-width: 26em; margin-top: 12px; color: var(--muted); font-size: 14px; }
-.principle b { color: var(--blue); font-size: 23px; font-weight: 400; }
+.principle { position: relative; display: grid; grid-template-columns: 54px minmax(0, 1fr) 22px; grid-template-areas: 'number title icon' '. copy icon'; gap: 8px 18px; align-items: start; padding: 31px 0 36px; border-bottom: 1px solid var(--line); }
+.principle__number { grid-area: number; color: var(--blue); font-size: 13px; font-weight: 700; }
+.principle h3 { grid-area: title; font-size: 32px; }
+.principle p { grid-area: copy; max-width: 26em; margin-top: 4px; color: var(--muted); font-size: 14px; }
+.principle b { grid-area: icon; color: var(--blue); font-size: 23px; font-weight: 400; }
 
 /* ---------- Feature workbench ---------- */
 .features { padding: 180px 0 210px; color: var(--inverse); background: var(--ink); overflow: hidden; }
