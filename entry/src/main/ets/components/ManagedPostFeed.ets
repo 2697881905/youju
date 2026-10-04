@@ -23,6 +23,8 @@ import { feedItemTransition } from '../utils/feedMotion';
 class FeedCell {
   key: string = '';
   idx: number = 0;
+  // 原数组下标：用于回查与 posts 同序的旁路字段（如 textPosterStyles）
+  srcIdx: number = 0;
   post: Post = {};
 }
 
@@ -34,6 +36,8 @@ export struct ManagedPostFeed {
   @Prop itemKeys: string[] = [];
   // 状态角标文案（'' = 不显示）：废纸篓「已删除」/ 草稿箱「草稿」
   @Prop badgeText: string = '';
+  // 文字海报样式 key（与 posts 同序，'' = 无）：纯文本草稿用本地渲染海报作封面
+  @Prop textPosterStyles: string[] = [];
   // 列表底部预留高度（页面自行决定）
   @Prop bottomPadding: number = SpaceTokens.x3l;
   // 是否已到底（显示「没有更多了」尾注）
@@ -55,6 +59,7 @@ export struct ManagedPostFeed {
         const cell: FeedCell = new FeedCell();
         cell.post = this.posts[i];
         cell.idx = colIdx;
+        cell.srcIdx = i;
         cell.key = (i < this.itemKeys.length && this.itemKeys[i].length > 0)
           ? this.itemKeys[i] : String(this.posts[i].id ?? i);
         out.push(cell);
@@ -114,6 +119,10 @@ export struct ManagedPostFeed {
     .alignItems(VerticalAlign.Center)
   }
 
+  private posterStyleOf(cell: FeedCell): string {
+    return cell.srcIdx < this.textPosterStyles.length ? this.textPosterStyles[cell.srcIdx] : '';
+  }
+
   @Builder
   cellView(cell: FeedCell): void {
     Stack() {
@@ -123,6 +132,7 @@ export struct ManagedPostFeed {
         allowLike: false,
         showStats: false,
         showAuthor: false,
+        textPosterStyle: this.posterStyleOf(cell),
         onOpen: (): void => { this.onOpen(cell.post, cell.key); },
       }) {
         if (this.deletable) {
