@@ -12,8 +12,8 @@ import { GlowInput } from '../design/components/GlowInput';
 import { GlassBlurStyle, isImmersiveLightSenseSupported } from '../utils/immersiveMaterial';
 import { BOTTOM_NAV_INSET_KEY } from '../utils/navMode';
 
-// 评论态压缩：视觉高度下调，触控目标由 Pressable touchTargetHeight 保持 44 不变
-const COMPACT_CONTROL_HEIGHT: number = 32; // 输入框 / 发送键视觉高
+// 输入框 / 发送键视觉高：对齐官方 TextInput 标准高 40（原 32 紧凑态取消）
+const COMPACT_CONTROL_HEIGHT: number = 40;
 const COMPACT_ROW_HEIGHT: number = 36;     // 操作行 / 关闭键视觉高
 
 @Component
@@ -209,23 +209,21 @@ export struct DetailActionBar {
       // 让位区穿透到层1按钮，子节点（输入框/发送/取消）照常可点。
       // 聚焦时回 Default：输入框铺满整行，挡住 opacity=0 但仍挂载的层1，防幽灵点赞。
       Row() {
-        // 输入框走「输入框配方」（系统玻璃 + barSurface 半透明白底 + barBorder 描边，
-        // 与聊天输入同款）。原 segmentStyle 的「分段栏深灰玻璃 + 自带 backdropBlur」
-        // 会在底栏玻璃上叠第二层模糊（玻璃摞玻璃发浊），且该分支强制 lg 圆角、
-        // 无视传入的 radius——全项目 segmentStyle:true 此处是唯一调用点，切换零外溢，
-        // 传参 radius(RadiusTokens.sm) 至此才真正生效（32vp 紧凑高度更匹配）。
+        // 输入框走官方原生样式（实色填充底 + 无描边 + lg 胶囊圆角，详见 GlowInput）。
+        // 不再传 radius → 走默认 lg(20)，与 40vp 高度构成胶囊。
         GlowInput({ placeholder: this.replyName.length > 0 ? ('回复 @' + this.replyName) : '说点什么…',
-          text: $commentText, fillWidth: true, inputHeight: COMPACT_CONTROL_HEIGHT, radius: RadiusTokens.sm,
+          text: $commentText, fillWidth: true, inputHeight: COMPACT_CONTROL_HEIGHT,
           fontSize: 14, segmentStyle: false,
           onFocusChanged: (focused: boolean): void => { this.applyFocusLayout(focused); },
           onEnter: (): void => { this.onSendComment(); } })
           .layoutWeight(1)
 
+        // 发送键：官方文字按钮范式（品牌色文字、无底色块），高度与输入框对齐。
+        // 对比度：brand（浅 #0066CC / 深 #0A84FF）对同级底均 ≥ 4.5:1（WCAG AA）。
         Text('发送').height(COMPACT_CONTROL_HEIGHT)
           .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-          .fontWeight(TypeTokens.headline.weight).fontColor(ColorTokens.onBrand)
-          .backgroundColor(ColorTokens.brand).borderRadius(RadiusTokens.pill)
+          .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.headline.weight).fontColor(ColorTokens.brand)
           // 间距朝输入框一侧：镜像时翻转
           .margin(this.inputOnRight ? { left: SpaceTokens.md } : { right: SpaceTokens.md })
           .onClick((): void => { this.onSendComment(); })
