@@ -1089,24 +1089,26 @@ export struct PostDetailView {
       // 否则维持「删除帖子」（移入废纸篓）。删除入口已从废纸篓列表卡片收进此处。
       const inTrash: boolean = (this.post.deletedAt ?? '').length > 0;
       if (inTrash) {
-        this.getUIContext().getPromptAction().showActionSheet({
+        this.getUIContext().showActionSheet({
           title: '操作',
+          message: '',
           sheets: [
             { title: '数据面板', action: (): void => { this.showPostStats(); } },
             { title: '恢复帖子', action: (): void => { this.onRestorePost(); } },
             { title: '彻底删除', action: (): void => { this.onPermanentlyDelete(); } },
           ],
           cancel: (): void => {},
-        }).catch((): void => {});
+        });
       } else {
-        this.getUIContext().getPromptAction().showActionSheet({
+        this.getUIContext().showActionSheet({
           title: '操作',
+          message: '',
           sheets: [
             { title: '数据面板', action: (): void => { this.showPostStats(); } },
             { title: '删除帖子', action: (): void => { this.onDeletePost(); } },
           ],
           cancel: (): void => {},
-        }).catch((): void => {});
+        });
       }
     } else if (EXTERNAL_SHARE_ENABLED) {
       this.getUIContext().showAlertDialog({
