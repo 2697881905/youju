@@ -95,6 +95,20 @@
     }
   }
 
+  /* ---------- 1.6 滚动速度倾斜：快滚时全站标题侧倾（Lenis velocity → skewX，松手回正） ---------- */
+  if(lenis){
+    var skewTos = gsap.utils.toArray('.hero__title, .section-head h2').map(function(el){
+      return gsap.quickTo(el, 'skewX', {duration:.45, ease:'power3.out'});
+    });
+    var skewSettle = null;
+    lenis.on('scroll', function(e){
+      var v = gsap.utils.clamp(-8, 8, (e.velocity || 0) * 0.05);
+      skewTos.forEach(function(q){ q(v); });
+      if(skewSettle){ clearTimeout(skewSettle); }
+      skewSettle = setTimeout(function(){ skewTos.forEach(function(q){ q(0); }); }, 160);
+    });
+  }
+
   /* ---------- 1.5 阅读进度卷轴线（2px，滚动进度驱动） ---------- */
   var progress = document.querySelector('.progress');
   if(progress){
@@ -147,7 +161,7 @@
     if(g === 1) return { dur:[0.9, 1.5], ease:E_SOFT };  /* 侧甩：快切 */
     if(g === 2) return { dur:[1.6, 2.4], ease:E_SILK };  /* 深推：最深最缓 */
     if(g === 3) return { dur:[1.0, 1.6], ease:E_BACK };  /* 弹升：必过冲 */
-    return { dur:[1.2, 1.8], ease:E_SOFT };              /* 翻牌 */
+    return { dur:[1.2, 1.8], ease:E_BACK };              /* 翻牌：过冲回正 */
   }
 
   /* from 全函数化（每次触发重新抽签，绝不与写死的 to 混用）：
@@ -162,7 +176,7 @@
       },
       rotationX:function(i){
         var g = i % 5;
-        if(g === 0) return gsap.utils.random(-200, -120);
+        if(g === 0) return gsap.utils.random(-240, -140);
         if(g === 2) return gsap.utils.random(-60, -20);
         if(g === 3) return gsap.utils.random(40, 90);
         return gsap.utils.random(-90, -30);
@@ -232,6 +246,7 @@
           ScrollTrigger.create({
             trigger:el, start:'top 88%',
             onEnter:function(){
+              el._entered = true;
               /* 逐字独立补间：duration/ease 由所属路径组绑定（motionFor）、
                  时间位置随机摆放在 1.8s 窗口内（等价 stagger{amount:1.8, from:'random'}）；
                  to 九值全部写死 —— 终点零随机，丝滑收敛；每字落位即释放 will-change。
@@ -260,6 +275,7 @@
             },
             onLeaveBack:function(){
               /* 双向循环：滚回时回到新一轮随机姿态（fromVars 重新抽签；from 随机 / to 固定原则不变） */
+              el._entered = false;
               if(enterTl){ enterTl.kill(); enterTl = null; }
               gsap.to(self.chars, Object.assign(fromVars(), {
                 duration:.55, ease:'power2.in', overwrite:'auto',
@@ -291,6 +307,25 @@
             el.addEventListener('mouseleave', function(){
               charRects = null;
               gsap.to(self.chars, {y:0, duration:.5, ease:'power3.out', overwrite:'auto'});
+            });
+          }
+
+          /* 第七层-点击：冲击波（从点击点最近的字符向外扩散；场景卡内标题除外——那里点击是打开大图） */
+          if(!el.closest('.scene')){
+            el.addEventListener('click', function(e){
+              if(!el._entered) return;
+              var idx = 0, best = Infinity;
+              self.chars.forEach(function(c, i){
+                var r = c.getBoundingClientRect();
+                var dx = e.clientX - (r.left + r.width / 2);
+                var dy = e.clientY - (r.top + r.height / 2);
+                var d = dx * dx + dy * dy;
+                if(d < best){ best = d; idx = i; }
+              });
+              gsap.fromTo(self.chars, {scale:1}, {
+                scale:1.26, duration:.2, ease:'power2.out',
+                stagger:{each:.04, from:idx}, yoyo:true, repeat:1, overwrite:'auto'
+              });
             });
           }
         }
@@ -344,9 +379,9 @@
       });
     }
 
-    /* CTA 主按钮：hover 字符波浪（仅精确指针；与磁吸/flair 分属不同元素不冲突） */
+    /* CTA 按钮：hover 字符波浪（仅精确指针；与磁吸/flair 分属不同元素不冲突） */
     if(window.matchMedia('(pointer:fine)').matches){
-      document.querySelectorAll('.btn--primary .btn__label').forEach(function(label){
+      document.querySelectorAll('.btn--primary .btn__label, .btn--ghost .btn__label').forEach(function(label){
         SplitText.create(label, {
           type:'chars', charsClass:'st-char',
           onSplit:function(self){
@@ -361,6 +396,25 @@
         });
       });
     }
+
+    /* 正文段落：逐行 mask 揭示（章节副标 + 场景卡描述，双向循环） */
+    document.querySelectorAll('.section-head__sub, .scene p').forEach(function(el){
+      SplitText.create(el, {
+        type:'lines', mask:'lines', linesClass:'st-line',
+        onSplit:function(self){
+          gsap.set(self.lines, {yPercent:110, opacity:0});
+          ScrollTrigger.create({
+            trigger:el, start:'top 82%',
+            onEnter:function(){
+              gsap.to(self.lines, {yPercent:0, opacity:1, duration:.9, ease:'power4.out', stagger:.09, overwrite:true});
+            },
+            onLeaveBack:function(){
+              gsap.to(self.lines, {yPercent:110, opacity:0, duration:.4, ease:'power2.in', stagger:.05, overwrite:true});
+            }
+          });
+        }
+      });
+    });
   }
   var galleryTextInitFn = null;   /* 图库文字动效初始化（section 7 内挂载，fonts.ready 后调用） */
   if(hasSplit){
@@ -399,22 +453,29 @@
     });
     el.innerHTML = '';
     el.appendChild(frag);
-    gsap.set(chars, {opacity:.13, y:14});
-    gsap.to(chars, {opacity:1, y:0, stagger:.07, ease:'none',
+    gsap.set(chars, {opacity:.13, y:14, rotationX:-70, transformPerspective:600});
+    gsap.to(chars, {opacity:1, y:0, rotationX:0, stagger:.07, ease:'none',
       scrollTrigger:{trigger:el, start:'top 78%', end:'top 28%', scrub:.4}});
   });
 
-  /* ---------- 3.6 眉标解码（ScrambleText，GSAP 官网同款文字戏法；插件缺失则跳过） ---------- */
+  /* ---------- 3.6 眉标/元信息解码（ScrambleText；插件缺失则跳过） ---------- */
   if(hasScramble){
-    gsap.utils.toArray('.section-head .eyebrow').forEach(function(el){
+    var decodePool = '有据可依更好的生活出处结构追问理性分享※○△□◇◈/';
+    gsap.utils.toArray('.section-head .eyebrow, .download__meta').forEach(function(el){
       var finalText = el.textContent;
       ScrollTrigger.create({
         trigger:el, start:'top 88%', once:true,
         onEnter:function(){
-          gsap.to(el, {duration:1.1, scrambleText:{text:finalText, chars:'有据可依更好的生活出处结构追问理性分享※○△□◇◈/', speed:.35}});
+          gsap.to(el, {duration:1.1, scrambleText:{text:finalText, chars:decodePool, speed:.35}});
         }
       });
     });
+    /* 首屏眉标：加载编排落位后直接解码 */
+    var heroEyebrow = document.querySelector('.hero__copy .eyebrow');
+    if(heroEyebrow){
+      var heroEbText = heroEyebrow.textContent;
+      gsap.to(heroEyebrow, {duration:1.1, delay:.55, scrambleText:{text:heroEbText, chars:decodePool, speed:.35}});
+    }
   }
 
   /* ---------- 4. 入场 reveal（双向循环，带纵向缩放；H2/H3 由 SplitText 单独接管，不进批量） ---------- */
@@ -555,6 +616,9 @@
       });
       gDevices.forEach(function(d, i){ d.classList.toggle('is-active', i === idx); });
       gActive = idx;
+      /* 序号滚动：新激活条目的编号滚入（与章节胶囊同一套语言） */
+      var num = gItems[idx].querySelector('.gallery__num');
+      if(num){ gsap.fromTo(num, {yPercent:70, opacity:0}, {yPercent:0, opacity:1, duration:.45, ease:'power3.out', overwrite:true}); }
     }
 
     /* ---------- 7.2 图库文字动效：激活标题「盖戳」级联 + 描述逐行揭示 ---------- */
