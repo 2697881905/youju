@@ -329,25 +329,6 @@
       });
     });
 
-    /* 多行段落：逐行 mask 揭示（鸿蒙章节两段描述，power4.out 拉丝感） */
-    document.querySelectorAll('.hkit__desc').forEach(function(el){
-      SplitText.create(el, {
-        type:'lines', mask:'lines', linesClass:'st-line',
-        onSplit:function(self){
-          gsap.set(self.lines, {yPercent:110, opacity:0});
-          ScrollTrigger.create({
-            trigger:el, start:'top 85%',
-            onEnter:function(){
-              gsap.to(self.lines, {yPercent:0, opacity:1, duration:1, ease:'power4.out', stagger:.1, overwrite:true});
-            },
-            onLeaveBack:function(){
-              gsap.to(self.lines, {yPercent:110, opacity:0, duration:.4, ease:'power2.in', stagger:.05, overwrite:true});
-            }
-          });
-        }
-      });
-    });
-
     /* Hero 副标：字级小幅级联（中文无空格分不出词，用小幅度字 cascade 对标宣言区观感） */
     var heroSub = document.querySelector('.hero__sub');
     if(heroSub){
@@ -394,12 +375,14 @@
       });
     }
 
-    /* 正文与清单小字：单字级联（章节副标 / 场景卡描述 / 鸿蒙特性标签与清单项，双向循环）——
-       from 函数化每次触发重新抽签，to 写死收敛；小字不挂 mask（避免逐字裁切边缘），只动 yPercent/opacity */
-    document.querySelectorAll('.section-head__sub, .scene p, .hkit__tag, .hkit__points li').forEach(function(el){
+    /* 正文与清单小字：单字级联（章节副标 / 场景卡描述 / 鸿蒙特性标签、清单与描述 / 页脚，双向循环）——
+       from 函数化每次触发重新抽签，to 写死收敛；小字不挂 mask（避免逐字裁切边缘），只动 yPercent/opacity；
+       stagger 用动态 amount（每字 .016s，长文封顶 .6s，短词快切） */
+    document.querySelectorAll('.section-head__sub, .scene p, .hkit__tag, .hkit__points li, .hkit__desc, .footer__inner span, .footer__inner a').forEach(function(el){
       SplitText.create(el, {
         type:'chars', charsClass:'st-char',
         onSplit:function(self){
+          var amt = Math.min(self.chars.length * .016, .6);
           gsap.set(self.chars, {
             yPercent:function(){ return gsap.utils.random(40, 95); },
             opacity:0
@@ -407,11 +390,11 @@
           ScrollTrigger.create({
             trigger:el, start:'top 85%',
             onEnter:function(){
-              gsap.to(self.chars, {yPercent:0, opacity:1, duration:.6, ease:'power3.out', stagger:.016, overwrite:true});
+              gsap.to(self.chars, {yPercent:0, opacity:1, duration:.6, ease:'power3.out', stagger:{amount:amt, from:'start'}, overwrite:true});
             },
             onLeaveBack:function(){
               gsap.to(self.chars, {yPercent:function(){ return gsap.utils.random(40, 95); }, opacity:0,
-                duration:.4, ease:'power2.in', stagger:.008, overwrite:true});
+                duration:.4, ease:'power2.in', stagger:{amount:amt * .5, from:'end'}, overwrite:true});
             }
           });
         }
@@ -622,9 +605,10 @@
         if(desc){ gsap.fromTo(desc, {opacity:0, y:10}, {opacity:1, y:0, duration:.45, ease:'power2.out'}); }
         return;
       }
-      var split = SplitText.create(desc, {type:'lines', mask:'lines', linesClass:'st-line'});
-      var tl = gsap.fromTo(split.lines, {yPercent:110, opacity:0},
-        {yPercent:0, opacity:1, duration:.6, ease:'power3.out', stagger:.08});
+      var split = SplitText.create(desc, {type:'chars', charsClass:'st-char'});
+      gsap.set(split.chars, {yPercent:function(){ return gsap.utils.random(40, 95); }, opacity:0});
+      var tl = gsap.to(split.chars, {yPercent:0, opacity:1, duration:.5, ease:'power3.out',
+        stagger:{amount:Math.min(split.chars.length * .014, .45), from:'start'}});
       gDescAnim = {split:split, tl:tl};
     }
     /* 拆分四条标题字符（fonts.ready 后经 galleryTextInitFn 调用，供切换时级联重播） */
