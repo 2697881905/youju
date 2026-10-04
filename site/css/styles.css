@@ -60,6 +60,14 @@ section{position:relative}
 }
 @keyframes gradShift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
 @media(prefers-reduced-motion:reduce){.grad-text{animation:none}}
+
+/* 深色章节渐变变体（鸿蒙标题：浅蓝 -> 近白 流动） */
+.grad-text--dark{color:inherit}
+@supports ((-webkit-background-clip:text) or (background-clip:text)){
+  .grad-text--dark{background:linear-gradient(94deg,#6FAAFF,#EAF3FF 55%,#6FAAFF 110%);background-size:200% 100%;
+    -webkit-background-clip:text;background-clip:text;color:transparent;animation:gradShift 8s ease-in-out infinite}
+}
+@media(prefers-reduced-motion:reduce){.grad-text--dark{animation:none}}
 .section-head{max-width:640px;margin-bottom:clamp(56px,8vw,96px)}
 .section-head h2{font-size:clamp(30px,4.6vw,52px)}
 .section-head__sub{margin-top:18px;font-size:17px;color:var(--text-2);max-width:34em}
@@ -83,6 +91,20 @@ section{position:relative}
 /* ---------- 阅读进度卷轴线（滚动进度 2px 品牌渐变，JS 无 GSAP 时保持 scaleX(0) 不可见） ---------- */
 .progress{position:fixed;top:0;left:0;right:0;height:2px;z-index:80;pointer-events:none;
   background:linear-gradient(90deg,#1D6FFF,#6FAAFF);transform:scaleX(0);transform-origin:0 50%}
+
+/* ---------- 章节指示胶囊（文字共享元素：同一容器在章节间滑动换字，跨黑章节反色） ---------- */
+.section-pill{position:fixed;left:0;right:0;bottom:26px;margin-inline:auto;width:max-content;z-index:60;
+  display:flex;align-items:center;gap:10px;padding:9px 18px;border-radius:99px;
+  background:rgba(255,255,255,.78);backdrop-filter:blur(14px) saturate(160%);-webkit-backdrop-filter:blur(14px) saturate(160%);
+  box-shadow:0 1px 0 var(--line),0 10px 30px rgba(11,12,14,.10);
+  font-size:12.5px;font-weight:700;letter-spacing:.12em;color:var(--text-1);
+  opacity:0;pointer-events:none;transition:opacity .4s,background .4s,color .4s,box-shadow .4s}
+.section-pill.is-on{opacity:1}
+.section-pill.on-dark{background:rgba(11,12,14,.62);color:var(--text-inv);box-shadow:0 1px 0 var(--line-inv),0 10px 30px rgba(0,0,0,.35)}
+.section-pill__num{display:inline-block;color:var(--accent);font-variant-numeric:tabular-nums;letter-spacing:.18em}
+.on-dark .section-pill__num{color:#6FAAFF}
+.section-pill__mask{display:block;overflow:hidden;height:1.35em}
+.section-pill__txt{display:block;line-height:1.35}
 
 /* ---------- 导航 ---------- */
 .nav{position:fixed;top:0;left:0;right:0;z-index:50;padding:14px 0;transition:background .4s,box-shadow .4s,color .4s}
@@ -116,6 +138,14 @@ section{position:relative}
 .device__screen{position:relative;border-radius:36px;overflow:hidden;background:#fff}
 /* 状态栏与挖孔由截图自带，设备框不再叠加 */
 .device__screen img{width:100%;height:auto}
+
+/* ---------- 关键词跑马灯（静态循环文字组件；无 GSAP 时静止可读） ---------- */
+.marquee{overflow:hidden;padding:clamp(18px,3vw,30px) 0;border-block:1px solid var(--line);background:var(--paper)}
+.marquee__track{display:flex;width:max-content;will-change:transform}
+.marquee__seq{white-space:nowrap;font-size:clamp(40px,6.5vw,80px);font-weight:900;letter-spacing:-.02em;line-height:1.15;color:#D9DDE2;padding-right:.4em}
+@supports (-webkit-text-stroke:1px #000){
+  .marquee__seq{color:transparent;-webkit-text-stroke:1.5px rgba(11,12,14,.30)}
+}
 
 /* ---------- 核心能力（图库式：左列条目 + 右侧大屏，Flip 共享转场） ---------- */
 .features{padding:clamp(80px,12vw,150px) 0;background:var(--paper)}
@@ -162,6 +192,11 @@ section{position:relative}
 .statement__text{max-width:22em;margin-inline:auto;font-size:clamp(28px,4.6vw,54px);font-weight:900;letter-spacing:-.02em;line-height:1.35}
 .statement__text .il-c{display:inline-block}
 .statement__text .il-em{color:var(--accent)}
+/* 静态呼吸：三个关键词在两种蓝之间缓慢吐纳（与滚动点亮的 opacity 互不相干） */
+@media(prefers-reduced-motion:no-preference){
+  .statement__text .il-em{animation:ilBreath 3.2s ease-in-out infinite alternate}
+}
+@keyframes ilBreath{from{color:#1D6FFF}to{color:#5E9BFF}}
 
 /* ---------- HarmonyOS 7 章节（黑底）---------- */
 .harmony{padding:clamp(96px,13vw,170px) 0 clamp(60px,8vw,110px);background:var(--ink);color:var(--text-inv)}

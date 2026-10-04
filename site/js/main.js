@@ -237,6 +237,12 @@
       scrollTrigger:{trigger:h, start:'top bottom', end:'bottom top', scrub:true}});
   });
 
+  /* ---------- 5.5 关键词跑马灯（静态循环；双拷贝 xPercent -50 无缝衔接） ---------- */
+  var marqueeTrack = document.querySelector('.marquee__track');
+  if(marqueeTrack){
+    gsap.to(marqueeTrack, {xPercent:-50, ease:'none', duration:36, repeat:-1});
+  }
+
   /* ---------- 6. 指针灵动：设备 3D 倾斜 + 主按钮磁吸（仅精确指针） ---------- */
   if(window.matchMedia('(pointer:fine)').matches){
     gsap.utils.toArray('.hero__visual .device, .scene .device, .download__visual .device').forEach(function(d){
@@ -355,6 +361,61 @@
     gPlaceMarker(false);
     window.addEventListener('resize', function(){ gPlaceMarker(false); });
     window.addEventListener('load', function(){ gPlaceMarker(false); });
+  }
+
+  /* ---------- 7.5 章节指示胶囊：文字共享元素（同一容器在章节间滑动换字） ---------- */
+  var pill = document.getElementById('sectionPill');
+  if(pill && 'IntersectionObserver' in window){
+    var pillMap = [
+      {id:'features', num:'01', txt:'核心能力', dark:false},
+      {id:'scenes', num:'02', txt:'使用场景', dark:false},
+      {id:'harmonyos', num:'03', txt:'鸿蒙原生', dark:true},
+      {id:'download', num:'04', txt:'下载有据', dark:true}
+    ];
+    var pillNum = document.getElementById('pillNum');
+    var pillTxt = document.getElementById('pillTxt');
+    var pillBusy = false;
+    var pillCurrent = null;
+
+    function pillSlideTo(item){
+      if(pillBusy) return;
+      pillBusy = true;
+      pill.classList.toggle('on-dark', item.dark);
+      gsap.to(pillNum, {y:-10, opacity:0, duration:.22, ease:'power2.in', overwrite:true, onComplete:function(){
+        pillNum.textContent = item.num;
+        gsap.fromTo(pillNum, {y:10, opacity:0}, {y:0, opacity:1, duration:.3, ease:'power3.out', overwrite:true});
+      }});
+      gsap.to(pillTxt, {yPercent:-130, duration:.28, ease:'power2.in', overwrite:true, onComplete:function(){
+        pillTxt.textContent = item.txt;
+        gsap.fromTo(pillTxt, {yPercent:130}, {yPercent:0, duration:.36, ease:'power3.out', overwrite:true,
+          onComplete:function(){ pillBusy = false; }});
+      }});
+    }
+
+    var pillIO = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        if(!en.isIntersecting) return;
+        var id = en.target.id;
+        if(id === pillCurrent) return;
+        pillCurrent = id;
+        if(id === 'top'){ pill.classList.remove('is-on'); return; }  /* 回到首屏：胶囊退场 */
+        var item = null;
+        for(var i = 0; i < pillMap.length; i++){ if(pillMap[i].id === id){ item = pillMap[i]; break; } }
+        if(!item) return;
+        pill.classList.toggle('on-dark', item.dark);
+        if(!pill.classList.contains('is-on')){
+          /* 首次出现：内容已就位，胶囊整体浮入 */
+          pillTxt.textContent = item.txt;
+          pillNum.textContent = item.num;
+          pill.classList.add('is-on');
+          gsap.fromTo(pill, {y:14}, {y:0, duration:.5, ease:'power3.out', overwrite:true});
+        }else{
+          pillSlideTo(item);
+        }
+      });
+    }, {rootMargin:'-45% 0px -45% 0px'});
+    pillIO.observe(document.getElementById('top'));
+    pillMap.forEach(function(m){ var s = document.getElementById(m.id); if(s) pillIO.observe(s); });
   }
 
   /* ---------- 8. 共享元素转场：截图点击放大（场景 / 核心能力 / 下载）（Flip） ---------- */
