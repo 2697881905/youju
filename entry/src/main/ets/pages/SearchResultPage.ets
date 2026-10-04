@@ -1,17 +1,15 @@
-// 帖子关键词搜索结果页：顶栏(原生返回键+原生搜索框+结果计数) + 2列Grid(复用PostCard) + 三态(加载/空/失败)
+// 帖子关键词搜索结果页：顶栏(原生返回键+原生搜索框+结果计数) + 首页同款双列卡片列表 + 三态(加载/空/失败)
 // 数据来源：searchPosts（services/api.ets，复用 /v1/posts 端点）
-// 点击跳转详情：照抄 HomeTab 父级 GridItem().onClick 包裹模式（PostCard 自身不处理点击）
+// 列表与废纸篓 / 草稿箱共用 ManagedPostFeed —— 双列布局、卡片样式、入场错峰过渡同一出处
 
 import { Post } from '../models/types';
 import { searchPosts, trackPostEvent } from '../services/api';
-import { PostCard } from '../components/PostCard';
+import { ManagedPostFeed } from '../components/ManagedPostFeed';
 import { openPostDetail, takeSearchKeyword } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { resolveActionIcon } from '../utils/actionIcons';
-import { observeGridColumns, gridColumnTemplate } from '../utils/responsive';
 import { GRID_GAP, GRID_PADDING } from '../utils/cardTokens';
-import { common } from '@kit.AbilityKit';
 import { EmptyState } from '../design/components/EmptyState';
 import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
 import { isSystemMaterialActive, TopButtonMaterialModifier } from '../utils/immersiveMaterial';
@@ -51,25 +49,10 @@ struct SearchResultPage {
   @State pageNum: number = 1;
   @State sortIndex: number = 0;
   private readonly limitNum: number = 10;
-  // 响应式列数（按屏幕宽度 2/3/4 列自适应）
-  @State gridColumns: number = 2;
-  @State gridTemplate: string = '1fr 1fr';
-  private unregisterColumns: () => void = () => {};
 
   aboutToAppear(): void {
     this.keyword = takeSearchKeyword();
-    this.unregisterColumns = observeGridColumns(
-      this.getUIContext().getHostContext() as common.Context,
-      (cols: number): void => {
-        this.gridColumns = cols;
-        this.gridTemplate = gridColumnTemplate(cols);
-      }
-    );
     this.refresh();
-  }
-
-  aboutToDisappear(): void {
-    this.unregisterColumns();
   }
 
   // 重置并加载第一页
@@ -105,6 +88,11 @@ struct SearchResultPage {
     }
     this.sortIndex = index;
     this.refresh();
+  }
+
+  // 列表稳定 key（PostCard 一镜到底未启用，仅用于 ForEach 复用）
+  private searchKeys(): string[] {
+    return this.searchList.map((p: Post): string => String(p.id ?? ''));
   }
 
   // 跳详情：照抄 HomeTab 父级包裹模式
@@ -336,46 +324,15 @@ struct SearchResultPage {
         .width('100%')
         .justifyContent(FlexAlign.Center)
       } else {
-        // 结果列表
+        // 结果列表：与首页信息流同款双列布局 + 卡片样式 + 入场错峰过渡（ManagedPostFeed）
         Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
-          Grid() {
-            ForEach(
-              this.searchList,
-              (post: Post) => {
-                GridItem() {
-                  PostCard({
-                    post: post,
-                    // 多列网格小卡用紧凑档（xs 圆角），避免默认大圆角与半宽卡片失调
-                    compact: true,
-                    onOpen: () => {
-                      this.goDetail(post);
-                    },
-                  })
-                }
-              },
-              (post: Post) => post.id?.toString() ?? ''
-            )
-            if (this.finished) {
-              GridItem() {
-                Text('没有更多了')
-                  .fontSize(12).fontFamily($r('app.string.font_family'))
-                  .fontColor($r('app.color.text_secondary'))
-                  .width('100%')
-                  .textAlign(TextAlign.Center)
-                  .padding(16)
-              }
-              .columnStart(0)
-              .columnEnd(this.gridColumns - 1)
-            }
-          }
-          .columnsTemplate(this.gridTemplate)
-          .columnsGap(GRID_GAP)
-          .rowsGap(GRID_GAP)
-          .padding(GRID_PADDING)
-          .onScrollIndex((_start: number, end: number) => {
-            if (end >= this.searchList.length - 1) {
-              this.loadMore();
-            }
+          ManagedPostFeed({
+            posts: this.searchList,
+            itemKeys: this.searchKeys(),
+            finished: this.finished,
+            bottomPadding: SpaceTokens.x3l,
+            onOpen: (post: Post, _key: string): void => { this.goDetail(post); },
+            onReachEnd: (): void => { this.loadMore(); },
           })
         }
         .onRefreshing(() => {

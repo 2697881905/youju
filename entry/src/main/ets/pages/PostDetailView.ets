@@ -15,6 +15,8 @@ import {
   listBookmarkFolders,
   createBookmarkFolder,
   deletePost,
+  restorePost,
+  permanentlyDeletePost,
   voteDebate,
   reportPost,
   reportComment,
@@ -1038,21 +1040,74 @@ export struct PostDetailView {
     });
   }
 
-  // 弹出帖子操作菜单：作者可见删除+编辑，他人可见举报+分享
+  // 恢复帖子（仅废纸篓中的帖子）：二次确认 → 恢复 → 返回列表
+  private onRestorePost(): void {
+    if (!this.post || this.post.id === undefined) return;
+    const id: number = this.post.id;
+    this.getUIContext().showAlertDialog({
+      title: '恢复帖子？',
+      message: '恢复后帖子会重新出现在你的主页与信息流中。',
+      primaryButton: { value: '取消', action: (): void => {} },
+      secondaryButton: { value: '恢复', action: (): void => {
+        restorePost(id).then((): void => {
+          safeShowToast(this.getUIContext(), { message: '帖子已恢复' });
+          this.navigateBack();
+        }).catch((e: Error): void => {
+          safeShowToast(this.getUIContext(), { message: e.message });
+        });
+      } },
+    });
+  }
+
+  // 彻底删除（仅废纸篓中的帖子）：不可恢复，同时广播删除事件清列表
+  private onPermanentlyDelete(): void {
+    if (!this.post || this.post.id === undefined) return;
+    const id: number = this.post.id;
+    this.getUIContext().showAlertDialog({
+      title: '彻底删除帖子？',
+      message: '彻底删除后无法恢复，帖子相关评论和互动也会被清除。',
+      primaryButton: { value: '取消', action: (): void => {} },
+      secondaryButton: { value: '彻底删除', fontColor: ColorTokens.danger, action: (): void => {
+        permanentlyDeletePost(id).then((): void => {
+          postDeletionStore.notifyDeleted(id);
+          safeShowToast(this.getUIContext(), { message: '帖子已彻底删除' });
+          this.navigateBack();
+        }).catch((e: Error): void => {
+          safeShowToast(this.getUIContext(), { message: e.message });
+        });
+      } },
+    });
+  }
+
+  // 弹出帖子操作菜单：作者可见数据面板 +（恢复·彻底删除 | 删除帖子），他人可见举报+分享。
+  // 作者侧用 ActionSheet —— AlertDialog 最多两个按钮，容纳不下「数据面板 + 恢复 + 彻底删除」。
   private showPostActions(): void {
     if (!this.post) return;
     const isOwner: boolean = this.post.userId === getUserId();
     if (isOwner) {
-      this.getUIContext().showAlertDialog({
-        title: '操作',
-        message: '',
-        primaryButton: { value: '数据面板', action: (): void => { this.showPostStats(); } },
-        secondaryButton: {
-          value: '删除帖子',
-          fontColor: $r('app.color.semantic_red'),
-          action: (): void => { this.onDeletePost(); },
-        },
-      });
+      // 帖子在废纸篓中（软删标记非空）时，作者菜单给出「恢复 / 彻底删除」；
+      // 否则维持「删除帖子」（移入废纸篓）。删除入口已从废纸篓列表卡片收进此处。
+      const inTrash: boolean = (this.post.deletedAt ?? '').length > 0;
+      if (inTrash) {
+        this.getUIContext().getPromptAction().showActionSheet({
+          title: '操作',
+          sheets: [
+            { title: '数据面板', action: (): void => { this.showPostStats(); } },
+            { title: '恢复帖子', action: (): void => { this.onRestorePost(); } },
+            { title: '彻底删除', action: (): void => { this.onPermanentlyDelete(); } },
+          ],
+          cancel: (): void => {},
+        }).catch((): void => {});
+      } else {
+        this.getUIContext().getPromptAction().showActionSheet({
+          title: '操作',
+          sheets: [
+            { title: '数据面板', action: (): void => { this.showPostStats(); } },
+            { title: '删除帖子', action: (): void => { this.onDeletePost(); } },
+          ],
+          cancel: (): void => {},
+        }).catch((): void => {});
+      }
     } else if (EXTERNAL_SHARE_ENABLED) {
       this.getUIContext().showAlertDialog({
         title: '操作',
