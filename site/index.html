@@ -37,17 +37,18 @@
 </nav>
 
 <header class="hero" id="top">
+  <div class="hero__glow" aria-hidden="true"></div>
   <div class="container hero__grid">
     <div class="hero__copy">
-      <p class="eyebrow" data-reveal>HarmonyOS NEXT · 理性内容分享社区</p>
-      <h1 class="hero__title" data-reveal>有据可依，<br>更好的生活。</h1>
-      <p class="hero__sub" data-reveal>有据，一个面向大众的理性内容分享社区。测评、避坑、教程与心得 —— 每一条经验都有出处、有结构、经得起追问。</p>
-      <div class="hero__actions" data-reveal>
+      <p class="eyebrow">HarmonyOS NEXT · 理性内容分享社区</p>
+      <h1 class="hero__title">有据可依，<br>更好的生活。</h1>
+      <p class="hero__sub">有据，一个面向大众的理性内容分享社区。测评、避坑、教程与心得 —— 每一条经验都有出处、有结构、经得起追问。</p>
+      <div class="hero__actions">
         <a class="btn btn--primary" href="https://appgallery.huawei.com/app/detail?id=com.youju.app" target="_blank" rel="noopener">AppGallery 免费下载</a>
         <a class="btn btn--ghost" href="#features">了解核心能力</a>
       </div>
     </div>
-    <div class="hero__visual" data-reveal>
+    <div class="hero__visual">
       <figure class="device device--hero">
         <div class="device__screen">
           <img src="assets/home.webp" alt="有据首页：双列瀑布流推荐真实经验" width="720" height="1553">
@@ -68,6 +69,7 @@
 
       <div class="gallery" id="gallery">
         <div class="gallery__panel" data-reveal>
+          <span class="gallery__marker" aria-hidden="true"></span>
           <div class="gallery__item is-active" data-idx="0">
             <button class="gallery__tab" type="button" aria-expanded="true">
               <span class="gallery__num">01</span>
@@ -156,7 +158,7 @@
       </div>
 
       <div class="hkit">
-        <div class="hkit__copy">
+        <div class="hkit__copy" data-reveal>
           <p class="hkit__tag">沉浸光感</p>
           <h3>光，会回应你的指尖</h3>
           <p class="hkit__desc">玻璃底栏悬浮于内容之上，光经过的地方随之亮起 —— 材质拥有光影层级，界面通透而有纵深。</p>
@@ -166,7 +168,7 @@
             <li>通透材质</li>
           </ul>
         </div>
-        <div class="hkit__stage immersive-stage">
+        <div class="hkit__stage immersive-stage" data-reveal>
           <figure class="device device--dark">
             <div class="device__screen">
               <video class="device-video" src="assets/light-demo.mp4" autoplay loop muted playsinline width="680" height="1528"></video>
@@ -176,12 +178,12 @@
       </div>
 
       <div class="hkit hkit--flip">
-        <div class="hkit__copy">
+        <div class="hkit__copy" data-reveal>
           <p class="hkit__tag">智感握姿</p>
           <h3>轻轻一握，界面贴合掌心</h3>
           <p class="hkit__desc">HarmonyOS 7 的智感握姿：握姿一变，标题、作者栏与发送键都会随掌心重新归位 —— 左手右手，都顺手。</p>
         </div>
-        <div class="hkit__stage grip-stage">
+        <div class="hkit__stage grip-stage" data-reveal>
           <figure class="device device--dark">
             <div class="device__screen">
               <video class="device-video" src="assets/grip-demo.mp4" autoplay loop muted playsinline width="680" height="1532"></video>
@@ -233,6 +235,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/Flip.min.js" defer></script>
+<script src="js/vendor/lenis.min.js" defer></script>
 <script src="js/main.js" defer></script>
 </body>
 </html>

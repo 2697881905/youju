@@ -1,7 +1,11 @@
 /* ============================================================
-   有据官网动效 · GSAP + ScrollTrigger
-   - 入场 reveal：滚动触发（ScrollTrigger.batch）
-   - 沉浸光感 / 智感握姿：自动循环动画（不依赖滚动方向，桌面移动一致）
+   有据官网动效 · GSAP + ScrollTrigger + Flip + Lenis
+   - Lenis 惯性平滑滚动（桌面滚轮丝滑；触屏保持原生）
+   - 首屏加载编排：导航 → eyebrow → 副标 → 按钮 → 设备
+   - 入场 reveal（双向循环）、标题逐字揭示
+   - 图库式核心能力：条目切换 Flip 共享转场 + 选中胶囊跟随
+   - 截图点击放大（Flip）
+   - 指针灵动：设备 3D 倾斜、主按钮磁吸（仅精确指针）
    - 降级链路：head 内联脚本仅在「非 reduced-motion」时挂 js-motion 类；
      GSAP 缺失或 reduce 时此处移除该类，内容零动画但完整可读。
    ============================================================ */
@@ -57,8 +61,62 @@
   var hasFlip = typeof window.Flip !== 'undefined';
   if(hasFlip){ gsap.registerPlugin(Flip); }
 
-  /* ---------- 1. 标题逐字揭示（mask 内上浮，与 reveal 双向同步） ---------- */
-  document.querySelectorAll('h1[data-reveal], h2[data-reveal], h3[data-reveal]').forEach(function(el){
+  /* ---------- 1. Lenis 惯性平滑滚动（自托管 js/vendor/lenis.min.js） ---------- */
+  var lenis = null;
+  if(typeof window.Lenis !== 'undefined'){
+    lenis = new Lenis({duration:1.15, smoothWheel:true});
+    lenis.on('scroll', ScrollTrigger.update);
+    gsap.ticker.add(function(time){ lenis.raf(time * 1000); });
+    gsap.ticker.lagSmoothing(0);
+    root.classList.add('has-lenis');
+    /* 页内锚点改走 lenis.scrollTo（带导航高度补偿） */
+    document.querySelectorAll('a[href^="#"]').forEach(function(a){
+      a.addEventListener('click', function(e){
+        e.preventDefault();
+        var href = a.getAttribute('href');
+        if(href.length > 1){
+          var t = document.querySelector(href);
+          if(t){ lenis.scrollTo(t, {offset:-72}); }
+        }else{
+          lenis.scrollTo(0);
+        }
+      });
+    });
+  }
+  function smoothTo(el, center){
+    if(!el) return;
+    if(lenis){
+      var offset = center ? -(window.innerHeight - el.offsetHeight) / 2 : -72;
+      lenis.scrollTo(el, {offset:offset});
+    }else{
+      el.scrollIntoView({behavior:'smooth', block:center ? 'center' : 'start'});
+    }
+  }
+
+  /* ---------- 2. 首屏加载编排 + 氛围光斑 + 首屏截图微视差 ---------- */
+  gsap.timeline({defaults:{ease:'power3.out'}})
+    .fromTo('.nav', {y:-18, autoAlpha:0}, {y:0, autoAlpha:1, duration:.7}, .05)
+    .fromTo('.hero__copy .eyebrow', {y:26, autoAlpha:0}, {y:0, autoAlpha:1, duration:.8}, .18)
+    .fromTo('.hero__sub', {y:26, autoAlpha:0}, {y:0, autoAlpha:1, duration:.8}, .38)
+    .fromTo('.hero__actions', {y:22, autoAlpha:0}, {y:0, autoAlpha:1, duration:.8}, .5)
+    .fromTo('.hero__visual', {y:52, autoAlpha:0, scale:.965}, {y:0, autoAlpha:1, scale:1, duration:1.1}, .32);
+
+  var glow = document.querySelector('.hero__glow');
+  if(glow){
+    /* 漂移：y 走无限循环；滚动：yPercent 走 scrub（两者不同属性，可叠加） */
+    gsap.to(glow, {x:46, y:-34, scale:1.12, duration:8.5, ease:'sine.inOut', repeat:-1, yoyo:true});
+    gsap.to(glow, {yPercent:26, ease:'none',
+      scrollTrigger:{trigger:'.hero', start:'top top', end:'bottom top', scrub:.6}});
+  }
+  var heroImg = document.querySelector('.hero__visual .device__screen img');
+  if(heroImg){
+    /* 截图 scale 1.08 留出裁切余量，滚动时在屏内轻微流动 */
+    gsap.fromTo(heroImg, {yPercent:-3.5, scale:1.08}, {yPercent:3.5, scale:1.08, ease:'none',
+      scrollTrigger:{trigger:'.hero', start:'top top', end:'bottom top', scrub:.6}});
+  }
+
+  /* ---------- 3. 标题逐字揭示（mask 内上浮，双向同步） ---------- */
+  document.querySelectorAll('.hero__title, h2[data-reveal], h3[data-reveal]').forEach(function(el){
     el.removeAttribute('data-reveal');
     var lines = el.innerHTML.split(/<br\s*\/?>/i);
     el.innerHTML = lines.map(function(part){
@@ -72,7 +130,7 @@
     ScrollTrigger.create({
       trigger:el, start:'top 88%',
       onEnter:function(){
-        gsap.to(chars, {yPercent:0, opacity:1, duration:.85, ease:'power3.out', stagger:.022, overwrite:true});
+        gsap.to(chars, {yPercent:0, opacity:1, duration:.85, ease:'power3.out', stagger:.022, delay:.12, overwrite:true});
       },
       onLeaveBack:function(){
         gsap.to(chars, {yPercent:118, opacity:0, duration:.4, ease:'power2.in', stagger:.012, overwrite:true});
@@ -80,21 +138,21 @@
     });
   });
 
-  /* ---------- 2. 入场 reveal（双向循环） ---------- */
+  /* ---------- 4. 入场 reveal（双向循环，带纵向缩放） ---------- */
   var reveals = document.querySelectorAll('[data-reveal]');
-  gsap.set(reveals, {y:36});
+  gsap.set(reveals, {y:36, scale:.985});
   ScrollTrigger.batch(reveals, {
     start:'top 88%',
     onEnter:function(batch){
-      gsap.to(batch, {autoAlpha:1, y:0, duration:.9, ease:'power3.out', stagger:.08, overwrite:true});
+      gsap.to(batch, {autoAlpha:1, y:0, scale:1, duration:.9, ease:'power3.out', stagger:.08, overwrite:true});
     },
     onLeaveBack:function(batch){
-      gsap.to(batch, {autoAlpha:0, y:36, duration:.45, ease:'power2.in', stagger:.04, overwrite:true});
+      gsap.to(batch, {autoAlpha:0, y:36, scale:.985, duration:.45, ease:'power2.in', stagger:.04, overwrite:true});
     }
   });
 
-  /* ---------- 3. 截图滚动视差 + Hero 设备呼吸浮动 ---------- */
-  gsap.utils.toArray('.scene .device').forEach(function(d){
+  /* ---------- 5. 滚动视差 + Hero 设备呼吸浮动 ---------- */
+  gsap.utils.toArray('.scene .device, .hkit__stage .device, .download__visual .device').forEach(function(d){
     gsap.fromTo(d, {y:38}, {
       y:-38, ease:'none',
       scrollTrigger:{trigger:d, start:'top bottom', end:'bottom top', scrub:.5}
@@ -102,16 +160,55 @@
   });
   gsap.to('.hero__visual .device', {y:-11, duration:3.2, ease:'sine.inOut', repeat:-1, yoyo:true});
 
-  /* ---------- 4. 核心能力图库：条目切换 + 设备屏 Flip 共享转场 ---------- */
+  /* ---------- 6. 指针灵动：设备 3D 倾斜 + 主按钮磁吸（仅精确指针） ---------- */
+  if(window.matchMedia('(pointer:fine)').matches){
+    gsap.utils.toArray('.hero__visual .device, .scene .device, .download__visual .device').forEach(function(d){
+      gsap.set(d, {transformPerspective:900});
+      var rx = gsap.quickTo(d, 'rotationX', {duration:.6, ease:'power3.out'});
+      var ry = gsap.quickTo(d, 'rotationY', {duration:.6, ease:'power3.out'});
+      d.addEventListener('mousemove', function(e){
+        var r = d.getBoundingClientRect();
+        ry(((e.clientX - r.left) / r.width - .5) * 10);
+        rx(-((e.clientY - r.top) / r.height - .5) * 8);
+      });
+      d.addEventListener('mouseleave', function(){ rx(0); ry(0); });
+    });
+    document.querySelectorAll('.btn--primary').forEach(function(btn){
+      var bx = gsap.quickTo(btn, 'x', {duration:.4, ease:'power3.out'});
+      var by = gsap.quickTo(btn, 'y', {duration:.4, ease:'power3.out'});
+      btn.addEventListener('mousemove', function(e){
+        var r = btn.getBoundingClientRect();
+        bx((e.clientX - r.left - r.width / 2) * .18);
+        by((e.clientY - r.top - r.height / 2) * .3 - 2);
+      });
+      btn.addEventListener('mouseleave', function(){
+        gsap.to(btn, {x:0, y:0, duration:.7, ease:'elastic.out(1,.45)'});
+      });
+    });
+  }
+
+  /* ---------- 7. 核心能力图库：条目切换 + 设备屏 Flip 共享转场 + 选中胶囊跟随 ---------- */
   /* 无 GSAP / reduced-motion 时已在上方降级返回：js-motion 类被移除，
      CSS 回退为「四条目 + 四屏全部可见」的静态布局，内容完整可读。 */
   var gallery = document.getElementById('gallery');
   if(gallery){
+    var gPanel = gallery.querySelector('.gallery__panel');
+    var gMarker = gallery.querySelector('.gallery__marker');
     var gItems = Array.prototype.slice.call(gallery.querySelectorAll('.gallery__item'));
     var gDevices = Array.prototype.slice.call(gallery.querySelectorAll('.gallery__stage .device'));
     var gActive = 0;
     var gBusy = false;
     gallery.classList.add('is-enhanced');
+
+    function gPlaceMarker(animate){
+      if(!gMarker || !gItems[gActive]) return;
+      var tab = gItems[gActive].querySelector('.gallery__tab');
+      var pr = gPanel.getBoundingClientRect();
+      var tr = tab.getBoundingClientRect();
+      var y = tr.top - pr.top - 8, h = tr.height + 16;
+      if(animate){ gsap.to(gMarker, {y:y, height:h, duration:.5, ease:'power3.out'}); }
+      else{ gsap.set(gMarker, {y:y, height:h}); }
+    }
 
     function gApply(idx){
       gItems.forEach(function(it, i){
@@ -133,6 +230,7 @@
         if(hasFlip){
           var state = Flip.getState(gDevices);
           gApply(idx);
+          gPlaceMarker(true);
           Flip.from(state, {
             duration:.65, ease:'power3.inOut', absolute:true,
             onEnter:function(els){ gsap.fromTo(els, {opacity:0, y:26*dir, scale:.97}, {opacity:1, y:0, scale:1, duration:.6, ease:'power3.out'}); },
@@ -141,17 +239,22 @@
           });
         }else{
           gApply(idx);
+          gPlaceMarker(true);
         }
         if(desc){ gsap.fromTo(desc, {opacity:0, y:10}, {opacity:1, y:0, duration:.45, ease:'power2.out'}); }
         var rect = gDevices[idx].getBoundingClientRect();
         if(rect.bottom < 80 || rect.top > window.innerHeight - 80){
-          gDevices[idx].scrollIntoView({behavior:'smooth', block:'center'});
+          smoothTo(gDevices[idx], true);
         }
       });
     });
+
+    gPlaceMarker(false);
+    window.addEventListener('resize', function(){ gPlaceMarker(false); });
+    window.addEventListener('load', function(){ gPlaceMarker(false); });
   }
 
-  /* ---------- 5. 共享元素转场：截图点击放大（场景 / 核心能力 / 下载）（Flip） ---------- */
+  /* ---------- 8. 共享元素转场：截图点击放大（场景 / 核心能力 / 下载）（Flip） ---------- */
   if(hasFlip){
     var zoom = document.getElementById('zoom');
     var stage = document.getElementById('zoomStage');
@@ -174,6 +277,7 @@
     function openZoom(screen){
       if(current) return;
       current = screen;
+      if(lenis){ lenis.stop(); }   /* 放大查看时锁定页面滚动 */
       var state = Flip.getState(screen);
       ghost = screen.cloneNode(true);
       ghost.style.visibility = 'hidden';
@@ -193,6 +297,7 @@
       ghost.remove();
       ghost = null;
       current = null;
+      if(lenis){ lenis.start(); }
       gsap.to(backdrop, {opacity:0, duration:.3, ease:'power2.in', onComplete:function(){ zoom.hidden = true; }});
       Flip.from(state, {duration:.7, ease:'power3.inOut', absolute:true});
     }
