@@ -114,6 +114,12 @@ struct DraftBoxPage {
     return this.drafts.map((d: SavedPostDraft): string => d.id);
   }
 
+  // 文字海报样式 key（与 draftPosts 同序）：纯文本草稿在列表里用本地渲染海报作封面
+  // （与发布预览页同源；无该字段的历史草稿交给 resolveTextPosterStyle 兜底）
+  private draftPosterStyles(): string[] {
+    return this.drafts.map((d: SavedPostDraft): string => d.textPosterStyle ?? '');
+  }
+
   // 标题栏内容：随页面一起迁入 Navigation 标题栏（沉浸式布局下系统不代为避让状态栏，
   // 由标题栏自行下移；STANDARD 占位使内容区从栏下开始，内容区不再重复避让）。
   @Builder
@@ -154,6 +160,7 @@ struct DraftBoxPage {
       ManagedPostFeed({
         posts: this.draftPosts(),
         itemKeys: this.draftKeys(),
+        textPosterStyles: this.draftPosterStyles(),
         badgeText: '草稿',
         deletable: true,
         onOpen: (_post: Post, key: string): void => {

@@ -5,6 +5,7 @@ import { likeStore } from '../utils/likeStore';
 import { StatRow } from '../design/components/StatRow';
 import { PostCardAuthor } from './PostCardAuthor';
 import { PostCardMedia } from './PostCardMedia';
+import { TextPosterCover } from './TextPosterCover';
 import { PostCardTitle } from './PostCardTitle';
 import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
@@ -31,6 +32,9 @@ export struct PostCard {
   // 多个列表面挂同一个 cardMedia-{id} 时会量到别的面的节点：复现路径「进『我的』Tab
   // 开过帖 → 回首页点同一帖」海报从屏幕外/错误起点起飞（2026-09-29 用户实测）。
   @Prop mediaTag: string = '';
+  // 文字海报样式 key（草稿专用）：无图无视频时，用本地现渲染的文字海报作封面
+  // （首页/搜索的文本帖发布时已把海报上传成 coverImage，不需要它，默认 ''）。
+  @Prop textPosterStyle: string = '';
 
   onOpen?: () => void = undefined;
   onCancelBookmark?: (id: number) => void = undefined;
@@ -252,13 +256,24 @@ export struct PostCard {
       action: () => { this.openCard(); },
     }) {
       Column({ space: SpaceTokens.none }) {
-        PostCardMedia({
-          imageUrl: this.coverImage(),
-          videoUrl: this.post.videoUrl ?? '',
-          videoCover: this.post.videoCover ?? '',
-          compact: this.compact,
-          mediaId: this.cardMediaId(),
-        })
+        // 无图无视频的纯文本卡：有海报样式就用本地渲染的文字海报作封面（草稿场景，与预览页同源）；
+        // 其余一律走 PostCardMedia（图片/视频封面），口径不变。
+        if (!this.hasCover() && this.textPosterStyle.length > 0) {
+          TextPosterCover({
+            title: this.post.title ?? '',
+            content: this.post.content ?? '',
+            styleKey: this.textPosterStyle,
+            compact: this.compact,
+          })
+        } else {
+          PostCardMedia({
+            imageUrl: this.coverImage(),
+            videoUrl: this.post.videoUrl ?? '',
+            videoCover: this.post.videoCover ?? '',
+            compact: this.compact,
+            mediaId: this.cardMediaId(),
+          })
+        }
         // 信息区：标题 + 互动/作者 合并为一块（统一 elevated 底 + 细边框 + 圆角）
         Column({ space: this.compact ? SpaceTokens.inlineTight : SpaceTokens.sm }) {
           PostCardTitle({
