@@ -20,6 +20,12 @@
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+/* Lenis 惯性平滑滚动（1.3.x 推荐样式；类由 Lenis 自动挂到 <html>） */
+html.has-lenis{scroll-behavior:auto}
+html.lenis,html.lenis body{height:auto}
+.lenis.lenis-smooth{scroll-behavior:auto!important}
+.lenis.lenis-stopped{overflow:hidden}
 body{font-family:var(--font);color:var(--text-1);background:var(--paper);line-height:1.65;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 img{display:block;max-width:100%}
 a{color:inherit;text-decoration:none}
@@ -31,6 +37,15 @@ section{position:relative}
 /* 无 JS / CDN 失败 / reduced-motion 时内容必须可见：
    仅在 html.js-motion（head 内联脚本确认可动画后才添加）下隐藏 reveal 元素 */
 .js-motion [data-reveal]{opacity:0}
+
+/* 首屏加载编排：初始隐藏，GSAP 就绪后由 load timeline 依次拉起（降级时随 js-motion 移除而显现） */
+.js-motion .nav,
+.js-motion .hero__copy .eyebrow,
+.js-motion .hero__sub,
+.js-motion .hero__actions,
+.js-motion .hero__visual{opacity:0}
+/* 标题逐字：字符级初始隐藏（内联样式接管后失效） */
+.js-motion .split-cx>span{opacity:0}
 
 /* ---------- 文字与标签 ---------- */
 .eyebrow{display:inline-block;font-size:13px;font-weight:700;letter-spacing:.14em;color:var(--accent);margin-bottom:18px}
@@ -65,7 +80,10 @@ section{position:relative}
 @media(max-width:760px){.nav__links a:not(.nav__cta){display:none}}
 
 /* ---------- Hero ---------- */
-.hero{padding:clamp(140px,18vh,190px) 0 clamp(64px,9vw,110px);background:var(--paper)}
+.hero{position:relative;padding:clamp(140px,18vh,190px) 0 clamp(64px,9vw,110px);background:var(--paper)}
+.hero__glow{position:absolute;top:6%;right:-8%;width:min(720px,72vw);aspect-ratio:1;border-radius:50%;
+  background:radial-gradient(closest-side,rgba(29,111,255,.13),rgba(29,111,255,0) 72%);pointer-events:none;z-index:0}
+.hero .container{position:relative;z-index:1}
 .hero__grid{display:grid;grid-template-columns:5fr 6fr;gap:clamp(40px,6vw,88px);align-items:center}
 .hero__title{font-size:clamp(42px,6.6vw,80px)}
 .hero__sub{margin-top:26px;font-size:clamp(16px,1.6vw,19px);color:var(--text-2);max-width:30em}
@@ -83,7 +101,12 @@ section{position:relative}
 /* ---------- 核心能力（图库式：左列条目 + 右侧大屏，Flip 共享转场） ---------- */
 .features{padding:clamp(80px,12vw,150px) 0;background:var(--paper)}
 .gallery{display:grid;grid-template-columns:5fr 6fr;gap:clamp(36px,6vw,88px);align-items:start}
-.gallery__item{padding:22px 0;border-top:1px solid var(--line)}
+.gallery__panel{position:relative}
+.gallery__item{position:relative;z-index:1;padding:22px 0;border-top:1px solid var(--line)}
+/* 选中态胶囊：JS 测量活动条目后用 GSAP 滑动跟随（又一层共享元素动效） */
+.gallery__marker{position:absolute;left:-18px;width:calc(100% + 36px);top:0;height:0;border-radius:16px;
+  background:var(--accent-dim);opacity:0;pointer-events:none}
+.gallery.is-enhanced .gallery__marker{opacity:1}
 .gallery__item:first-child{border-top:0;padding-top:0}
 .gallery__tab{display:flex;align-items:baseline;gap:16px;width:100%;background:none;border:0;padding:0;font:inherit;color:var(--text-1);text-align:left;cursor:default}
 .is-enhanced .gallery__tab{cursor:pointer}
