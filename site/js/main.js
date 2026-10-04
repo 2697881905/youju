@@ -176,15 +176,15 @@
       },
       rotationX:function(i){
         var g = i % 5;
-        if(g === 0) return gsap.utils.random(-240, -140);
+        if(g === 0) return gsap.utils.random(-85, -60);
         if(g === 2) return gsap.utils.random(-60, -20);
-        if(g === 3) return gsap.utils.random(40, 90);
-        return gsap.utils.random(-90, -30);
+        if(g === 3) return gsap.utils.random(40, 85);
+        return gsap.utils.random(-85, -30);
       },
       rotationY:function(i){
         var g = i % 5, s = (i % 2 ? 1 : -1);
-        if(g === 1) return s * gsap.utils.random(60, 120) * K;
-        if(g === 4) return s * gsap.utils.random(140, 200) * K;
+        if(g === 1) return s * gsap.utils.random(55, 85) * K;
+        if(g === 4) return s * gsap.utils.random(60, 85) * K;
         return gsap.utils.random(-30, 30);
       },
       rotate:function(i){
