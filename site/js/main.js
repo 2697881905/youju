@@ -96,10 +96,6 @@
     });
   }
 
-  /* ---------- Navigation progress ---------- */
-  var progress = document.querySelector('.scroll-progress');
-  if(progress) gsap.to(progress, {scaleX:1, ease:'none', scrollTrigger:{start:0, end:'max', scrub:.25}});
-
   /* ---------- Hero entrance and atmosphere ---------- */
   gsap.timeline({defaults:{ease:'power3.out'}})
     .fromTo('.site-nav', {y:-18, autoAlpha:0}, {y:0, autoAlpha:1, duration:.65}, .05)
@@ -107,10 +103,6 @@
     .fromTo('.hero__lead, .hero__actions', {y:26, autoAlpha:0}, {y:0, autoAlpha:1, duration:.8, stagger:.1}, .42)
     .fromTo('.hero__stage', {y:50, autoAlpha:0, scale:.94}, {y:0, autoAlpha:1, scale:1, duration:1.1}, .24)
     .fromTo('.hero__rail', {y:12, autoAlpha:0}, {y:0, autoAlpha:1, duration:.55}, .9);
-  gsap.to('.hero__ring--one', {rotation:360, duration:28, repeat:-1, ease:'none'});
-  gsap.to('.hero__ring--two', {rotation:-360, duration:21, repeat:-1, ease:'none'});
-  gsap.to('.hero__beam', {x:100, duration:8, repeat:-1, yoyo:true, ease:'sine.inOut'});
-  gsap.to('.download__orbit', {rotation:372, duration:26, repeat:-1, ease:'none'});
   gsap.to('.hero__stage', {yPercent:-16, ease:'none', scrollTrigger:{trigger:'.hero', start:'top top', end:'bottom top', scrub:.8}});
   gsap.to('.hero__copy', {yPercent:-8, ease:'none', scrollTrigger:{trigger:'.hero', start:'top top', end:'bottom top', scrub:.8}});
 
@@ -238,18 +230,35 @@
     var each = options && options.each || (typewriter ? (chars.length > 48 ? .034 : .045) : (chars.length > 48 ? .022 : .032));
     gsap.set(chars, {
       display:'inline-block',
-      x:function(){ return gsap.utils.random(typewriter ? -.6 : -2, typewriter ? .6 : 2); },
-      yPercent:function(){ return gsap.utils.random(0, typewriter ? 1 : 4); },
-      scale:function(){ return gsap.utils.random(typewriter ? .985 : .96,1); },
+      x:function(){ return gsap.utils.random(typewriter ? -2.6 : -2, typewriter ? 2.6 : 2); },
+      yPercent:function(){ return gsap.utils.random(typewriter ? 6 : 0, typewriter ? 14 : 4); },
+      scale:function(){ return gsap.utils.random(typewriter ? .96 : .96, typewriter ? .985 : 1); },
       opacity:function(){ return gsap.utils.random(0,.04); }
     });
     var enter=function(){
       gsap.set(chars, {willChange:'transform, opacity'});
-      gsap.to(chars, {
-        x:0, yPercent:0, scale:1, opacity:1, duration:typewriter ? .14 : .1, ease:'none', delay:options && options.delay || 0,
-        stagger:{each:each, from:options && options.from || 'start'}, overwrite:'auto',
-        onComplete:function(){ gsap.set(chars,{willChange:'auto'}); }
-      });
+      if(typewriter){
+        var typing = gsap.timeline({
+          onStart:function(){ element.classList.add('is-typing'); },
+          onComplete:function(){ element.classList.remove('is-typing'); gsap.set(chars,{willChange:'auto'}); }
+        });
+        var cursor = options && options.delay || 0;
+        var breathEvery = Math.round(gsap.utils.random(6,10));
+        chars.forEach(function(char, index){
+          var glyph = char.textContent || '';
+          var punctuation = /[，。！？；：、,.!?;:]/.test(glyph);
+          cursor += gsap.utils.random(.026,.052);
+          if(index && index % breathEvery === 0) cursor += gsap.utils.random(.028,.07);
+          if(punctuation) cursor += gsap.utils.random(.1,.24);
+          typing.to(char, {x:0, yPercent:0, scale:1, opacity:1, duration:gsap.utils.random(.075,.145), ease:'power2.out', overwrite:'auto'}, cursor);
+        });
+      }else{
+        gsap.to(chars, {
+          x:0, yPercent:0, scale:1, opacity:1, duration:.1, ease:'none', delay:options && options.delay || 0,
+          stagger:{each:each, from:options && options.from || 'start'}, overwrite:'auto',
+          onComplete:function(){ gsap.set(chars,{willChange:'auto'}); }
+        });
+      }
     };
     if(options && options.immediate){ enter(); }
     else element._typingTrigger = ScrollTrigger.create({trigger:element, start:'top 88%', once:true, onEnter:enter});
@@ -260,8 +269,8 @@
     splitHeading(document.querySelector('.hero__title'), {immediate:true, delay:.2});
     splitHeading(document.querySelector('.statement__text'), {statement:true, interactive:true});
     gsap.utils.toArray('.section-heading h2, .scenes__intro h2, .harmony__copy h3, .download h2, .principle h3, .scene-panel__copy h3').forEach(function(element){ splitHeading(element, {interactive:true}); });
-    gsap.utils.toArray('.hero__lead, .section-heading > p:last-child, .scenes__intro > p:last-child, .principle p, .feature-workbench__copy p, .scene-panel__copy p, .harmony__copy p, .download__copy > p:last-of-type, .footer__top > span').forEach(function(element){ cascadeText(element, {typewriter:true}); });
-    gsap.utils.toArray('.principle__number, .feature-tab > span, .feature-tab strong, .feature-workbench__hint, .feature-workbench__copy > span, .scene-panel__copy > span, .scene-panel__copy > b, .harmony__copy > span, .hero__stage-note span, .hero__stage-note strong, .hero__rail span, .footer__top > a:last-child > span, .footer__bottom > *, .announcement__label, .download__orbit').forEach(function(element){ cascadeText(element, {}); });
+    gsap.utils.toArray('.hero__lead, .section-heading > p:last-child, .scenes__intro > p:last-child, .principle p, .feature-workbench__copy p, .scene-panel__copy p, .harmony__copy p, .download__copy > p:last-of-type').forEach(function(element){ cascadeText(element, {typewriter:true}); });
+    gsap.utils.toArray('.principle__number, .feature-tab > span, .feature-tab strong, .feature-workbench__hint, .feature-workbench__copy > span, .scene-panel__copy > span, .scene-panel__copy > b, .harmony__copy > span, .hero__stage-note span, .hero__stage-note strong, .hero__rail span, .announcement__label').forEach(function(element){ cascadeText(element, {}); });
     gsap.utils.toArray('.brand__name, .site-nav__links a, .nav-action span, .nav-toggle span, .mobile-menu a > span, .button span, .quiet-link span').forEach(function(element, index){ cascadeText(element, {from:'start', delay:index*.03}); });
     if(finePointer){
       gsap.utils.toArray('.button span, .nav-action span, .quiet-link span').forEach(function(label){
@@ -351,18 +360,17 @@
   /* ---------- Continuous horizontal story ---------- */
   var scenes = document.querySelector('.scenes');
   var track = document.querySelector('.scenes__track');
-  var sceneProgress = document.querySelector('.scenes__progress span');
   if(scenes && track){
     ScrollTrigger.matchMedia({
       '(min-width: 901px)': function(){
-        var horizontal = gsap.to(track, {x:function(){ return -(track.scrollWidth - window.innerWidth); }, ease:'none', scrollTrigger:{trigger:scenes, start:'top top', end:function(){ return '+=' + Math.max(1700, track.scrollWidth - window.innerWidth + 260); }, scrub:1, pin:true, anticipatePin:1, onUpdate:function(self){ if(sceneProgress) gsap.set(sceneProgress, {scaleX:self.progress}); }}});
+        var horizontal = gsap.to(track, {x:function(){ return -(track.scrollWidth - window.innerWidth); }, ease:'none', scrollTrigger:{trigger:scenes, start:'top top', end:function(){ return '+=' + Math.max(1700, track.scrollWidth - window.innerWidth + 260); }, scrub:1, pin:true, anticipatePin:1}});
         gsap.utils.toArray('.scene-panel').forEach(function(panel){
           gsap.fromTo(panel.querySelector('.scene-panel__copy'), {x:90, autoAlpha:.2}, {x:0, autoAlpha:1, ease:'none', scrollTrigger:{trigger:panel, containerAnimation:horizontal, start:'left 78%', end:'left 38%', scrub:.7}});
           gsap.fromTo(panel.querySelector('.device'), {scale:.78, rotation:panel.classList.contains('scene-panel--white') ? -8 : 8, autoAlpha:.55}, {scale:1, rotation:0, autoAlpha:1, ease:'none', scrollTrigger:{trigger:panel, containerAnimation:horizontal, start:'left 82%', end:'left 35%', scrub:.8}});
         });
         return function(){ if(horizontal.scrollTrigger) horizontal.scrollTrigger.kill(); horizontal.kill(); gsap.set(track, {clearProps:'transform'}); };
       },
-      '(max-width: 900px)': function(){ gsap.set(track, {clearProps:'transform'}); if(sceneProgress) gsap.set(sceneProgress, {scaleX:1}); }
+      '(max-width: 900px)': function(){ gsap.set(track, {clearProps:'transform'}); }
     });
   }
 
