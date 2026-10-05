@@ -280,15 +280,17 @@
               ghost.style.transform = 'translate(' + rect.x.toFixed(1) + 'px,' + rect.y.toFixed(1) + 'px)';
               ghost.style.opacity = .92;
             });
+            var letterDur = gsap.utils.random(.024, .036);
+            var pyDur = py.length * letterDur;
             py.split('').forEach(function(letter, li){
-              typing.call(function(){ ghost.textContent = py.slice(0, li + 1); });
-              cursor += gsap.utils.random(.024, .036);
+              typing.call(function(){ ghost.textContent = py.slice(0, li + 1); }, cursor + li * letterDur);
             });
-            if(punctuation) cursor += gsap.utils.random(.08, .18);
+            if(punctuation) cursor += gsap.utils.random(.06, .12);
             if(index && index % breathEvery === 0) cursor += gsap.utils.random(.028, .07);
-            typing.to(char, {x:0, yPercent:0, scale:1, opacity:1, duration:gsap.utils.random(.09,.15), ease:'power2.out', overwrite:'auto'}, cursor);
-            typing.to(ghost, {opacity:0, duration:.08, ease:'none'}, cursor);
-            cursor += .025;
+            /* 汉字与拼音同步成形：拼音打完的瞬间汉字恰好落定，无二次上屏 */
+            typing.to(char, {x:0, yPercent:0, scale:1, opacity:1, duration:pyDur + .05, ease:'power1.in', overwrite:'auto'}, cursor);
+            typing.set(ghost, {opacity:0}, cursor + pyDur);
+            cursor += pyDur + .025;
           }else{
             cursor += gsap.utils.random(.026,.052);
             if(index && index % breathEvery === 0) cursor += gsap.utils.random(.028,.07);
