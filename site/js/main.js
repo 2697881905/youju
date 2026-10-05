@@ -218,6 +218,12 @@
     if(options && options.interactive !== false) pointerAndClick(element, chars);
   }
 
+  var hasPinyin = typeof window.pinyinPro !== 'undefined' && typeof window.pinyinPro.pinyin === 'function';
+  function pinyinOf(glyph){
+    try{ return window.pinyinPro.pinyin(glyph, {toneType:'none', type:'array'})[0] || ''; }
+    catch(e){ return ''; }
+  }
+
   function cascadeText(element, options){
     if(!element || !hasSplit || element.dataset.motionSplit) return;
     if(element._typingTrigger) element._typingTrigger.kill();
@@ -228,6 +234,7 @@
     var chars = split.chars || [];
     if(!chars.length) return;
     var each = options && options.each || (typewriter ? (chars.length > 48 ? .034 : .045) : (chars.length > 48 ? .022 : .032));
+    var caret = null, ghost = null, charRects = null;
     gsap.set(chars, {
       display:'inline-block',
       x:function(){ return gsap.utils.random(typewriter ? -2.6 : -2, typewriter ? 2.6 : 2); },
@@ -239,18 +246,55 @@
       gsap.set(chars, {willChange:'transform, opacity'});
       if(typewriter){
         var typing = gsap.timeline({
-          onStart:function(){ element.classList.add('is-typing'); },
-          onComplete:function(){ element.classList.remove('is-typing'); gsap.set(chars,{willChange:'auto'}); }
+          onStart:function(){
+            element.classList.add('is-typing');
+            charRects = chars.map(function(char){ return { x:char.offsetLeft, y:char.offsetTop, w:char.offsetWidth, h:char.offsetHeight }; });
+            caret = document.createElement('span'); caret.className='type-caret';
+            ghost = document.createElement('span'); ghost.className='pinyin-ghost';
+            element.appendChild(caret); element.appendChild(ghost);
+          },
+          onComplete:function(){
+            element.classList.remove('is-typing');
+            gsap.set(chars,{willChange:'auto'});
+            if(caret && caret.parentNode) caret.parentNode.removeChild(caret);
+            if(ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
+            caret = ghost = null;
+          }
         });
         var cursor = options && options.delay || 0;
         var breathEvery = Math.round(gsap.utils.random(6,10));
         chars.forEach(function(char, index){
           var glyph = char.textContent || '';
           var punctuation = /[，。！？；：、,.!?;:]/.test(glyph);
-          cursor += gsap.utils.random(.026,.052);
-          if(index && index % breathEvery === 0) cursor += gsap.utils.random(.028,.07);
-          if(punctuation) cursor += gsap.utils.random(.1,.24);
-          typing.to(char, {x:0, yPercent:0, scale:1, opacity:1, duration:gsap.utils.random(.075,.145), ease:'power2.out', overwrite:'auto'}, cursor);
+          var py = (pinyinOf && /[\u4e00-\u9fff]/.test(glyph)) ? pinyinOf(glyph) : '';
+          typing.call(function(){
+            var rect = charRects[index];
+            caret.style.height = Math.max(12, rect.h * .8).toFixed(1) + 'px';
+            caret.style.transform = 'translate(' + rect.x.toFixed(1) + 'px,' + (rect.y + rect.h * .1).toFixed(1) + 'px)';
+          });
+          if(py){
+            typing.call(function(){
+              var rect = charRects[index];
+              ghost.style.width = rect.w.toFixed(1) + 'px';
+              ghost.style.height = rect.h.toFixed(1) + 'px';
+              ghost.style.transform = 'translate(' + rect.x.toFixed(1) + 'px,' + rect.y.toFixed(1) + 'px)';
+              ghost.style.opacity = .92;
+            });
+            py.split('').forEach(function(letter, li){
+              typing.call(function(){ ghost.textContent = py.slice(0, li + 1); });
+              cursor += gsap.utils.random(.024, .036);
+            });
+            if(punctuation) cursor += gsap.utils.random(.08, .18);
+            if(index && index % breathEvery === 0) cursor += gsap.utils.random(.028, .07);
+            typing.to(char, {x:0, yPercent:0, scale:1, opacity:1, duration:gsap.utils.random(.09,.15), ease:'power2.out', overwrite:'auto'}, cursor);
+            typing.to(ghost, {opacity:0, duration:.08, ease:'none'}, cursor);
+            cursor += .025;
+          }else{
+            cursor += gsap.utils.random(.026,.052);
+            if(index && index % breathEvery === 0) cursor += gsap.utils.random(.028,.07);
+            if(punctuation) cursor += gsap.utils.random(.1,.24);
+            typing.to(char, {x:0, yPercent:0, scale:1, opacity:1, duration:gsap.utils.random(.075,.145), ease:'power2.out', overwrite:'auto'}, cursor);
+          }
         });
       }else{
         gsap.to(chars, {
