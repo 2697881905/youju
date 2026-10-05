@@ -228,14 +228,24 @@
 
   function cascadeText(element, options){
     if(!element || !hasSplit || element.dataset.motionSplit) return;
+    if(element._typingTrigger) element._typingTrigger.kill();
     element.dataset.motionSplit='true';
+    element.classList.add('typing-text');
     var split = new window.SplitText(element, {type:'chars', charsClass:'st-char', ignore:'br'});
     var chars = split.chars || [];
     if(!chars.length) return;
-    var amount=Math.min(chars.length*.018,.7);
-    gsap.set(chars, {display:'inline-block', yPercent:function(){ return gsap.utils.random(40,100); }, opacity:0});
-    var enter=function(){ gsap.set(chars, {willChange:'transform, opacity'}); gsap.to(chars, {yPercent:0, opacity:1, duration:.62, ease:easeSoft, delay:options && options.delay || 0, stagger:{amount:amount, from:options && options.from || 'start'}, overwrite:'auto', onComplete:function(){ gsap.set(chars,{willChange:'auto'}); }}); };
-    ScrollTrigger.create({trigger:element, start:'top 88%', onEnter:enter});
+    var each = options && options.each || (chars.length > 48 ? .022 : .032);
+    gsap.set(chars, {display:'inline-block', x:function(){ return gsap.utils.random(-2,2); }, yPercent:function(){ return gsap.utils.random(0,4); }, scale:function(){ return gsap.utils.random(.96,1); }, opacity:function(){ return gsap.utils.random(0,.04); }});
+    var enter=function(){
+      gsap.set(chars, {willChange:'transform, opacity'});
+      gsap.to(chars, {
+        x:0, yPercent:0, scale:1, opacity:1, duration:.1, ease:'none', delay:options && options.delay || 0,
+        stagger:{each:each, from:options && options.from || 'start'}, overwrite:'auto',
+        onComplete:function(){ gsap.set(chars,{willChange:'auto'}); }
+      });
+    };
+    if(options && options.immediate){ enter(); }
+    else element._typingTrigger = ScrollTrigger.create({trigger:element, start:'top 88%', once:true, onEnter:enter});
   }
 
   function initType(){
@@ -243,8 +253,8 @@
     splitHeading(document.querySelector('.hero__title'), {immediate:true, delay:.2});
     splitHeading(document.querySelector('.statement__text'), {statement:true, interactive:true});
     gsap.utils.toArray('.section-heading h2, .scenes__intro h2, .harmony__copy h3, .download h2, .principle h3, .scene-panel__copy h3').forEach(function(element){ splitHeading(element, {interactive:true}); });
-    gsap.utils.toArray('.hero__lead, .section-heading > p:last-child, .principle p, .principle__number, .feature-tab strong, .feature-workbench__hint, .feature-workbench__copy > span, .feature-workbench__copy p, .scene-panel__copy > span, .scene-panel__copy > b, .scene-panel__copy p, .harmony__copy > span, .harmony__copy p, .hero__stage-note span, .hero__stage-note strong, .hero__rail span, .download__copy > p:last-of-type, .footer__top > span, .footer__bottom > *').forEach(function(element){ cascadeText(element, {}); });
-    gsap.utils.toArray('.brand__name, .site-nav__links a, .nav-action span, .nav-toggle span, .button span, .quiet-link span').forEach(function(element, index){ cascadeText(element, {from:'start', delay:index*.03}); });
+    gsap.utils.toArray('.hero__lead, .section-heading > p:last-child, .principle p, .principle__number, .feature-tab > span, .feature-tab strong, .feature-workbench__hint, .feature-workbench__copy > span, .feature-workbench__copy p, .scene-panel__copy > span, .scene-panel__copy > b, .scene-panel__copy p, .harmony__copy > span, .harmony__copy p, .hero__stage-note span, .hero__stage-note strong, .hero__rail span, .download__copy > p:last-of-type, .footer__top > span, .footer__top > a:last-child > span, .footer__bottom > *, .announcement__label, .download__orbit').forEach(function(element){ cascadeText(element, {}); });
+    gsap.utils.toArray('.brand__name, .site-nav__links a, .nav-action span, .nav-toggle span, .mobile-menu a > span, .button span, .quiet-link span').forEach(function(element, index){ cascadeText(element, {from:'start', delay:index*.03}); });
     if(finePointer){
       gsap.utils.toArray('.button span, .nav-action span, .quiet-link span').forEach(function(label){
         var chars=label.querySelectorAll('.st-char');
@@ -260,9 +270,9 @@
       var pool='有据可依更好的生活出处结构追问理性分享※○△□◇◈/';
       gsap.utils.toArray('.eyebrow > span').forEach(function(element){
         var finalText=element.textContent;
-        ScrollTrigger.create({trigger:element, start:'top 88%', once:true, onEnter:function(){ gsap.to(element, {duration:1, scrambleText:{text:finalText, chars:pool, speed:.35}, onComplete:function(){ element.textContent=finalText; }}); }});
+        ScrollTrigger.create({trigger:element, start:'top 88%', once:true, onEnter:function(){ gsap.to(element, {duration:1, scrambleText:{text:finalText, chars:pool, speed:.35}, onComplete:function(){ element.textContent=finalText; cascadeText(element, {immediate:true, each:.04}); }}); }});
       });
-    }
+    }else gsap.utils.toArray('.eyebrow > span').forEach(function(element){ cascadeText(element, {each:.04}); });
   }
   if(document.fonts && document.fonts.ready){ document.fonts.ready.then(function(){ initType(); ScrollTrigger.refresh(); }); } else initType();
 
