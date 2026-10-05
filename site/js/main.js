@@ -213,7 +213,16 @@
     }else{
       gsap.set(chars, Object.assign(charFrom(), {display:'inline-block', transformOrigin:'50% 100%', transformPerspective:800, force3D:true, backfaceVisibility:'hidden'}));
       var enter;
-      ScrollTrigger.create({trigger:element, start:'top 86%', onEnter:function(){ if(enter) enter.kill(); enter=animateChars(chars, {}); }});
+      ScrollTrigger.create({
+        trigger:element, start:'top 86%',
+        onEnter:function(){ if(enter) enter.kill(); enter=animateChars(chars, {}); },
+        onLeaveBack:function(){
+          /* 双向循环：滚回上方重抽 from 姿态，再次进入时重播 */
+          if(enter){ enter.kill(); enter=null; }
+          gsap.set(chars, Object.assign(charFrom(), {display:'inline-block', transformOrigin:'50% 100%', transformPerspective:800, force3D:true, backfaceVisibility:'hidden'}));
+          chars.forEach(function(c){ c.style.willChange='auto'; });
+        }
+      });
     }
     if(options && options.interactive !== false) pointerAndClick(element, chars);
   }
@@ -234,7 +243,23 @@
     var chars = split.chars || [];
     if(!chars.length) return;
     var each = options && options.each || (typewriter ? (chars.length > 48 ? .034 : .045) : (chars.length > 48 ? .022 : .032));
-    var caret = null, ghost = null, charRects = null;
+    var caret = null, ghost = null, charRects = null, typing = null;
+    function resetPose(){
+      gsap.set(chars, {
+        display:'inline-block',
+        x:function(){ return gsap.utils.random(typewriter ? -2.6 : -2, typewriter ? 2.6 : 2); },
+        yPercent:function(){ return gsap.utils.random(typewriter ? 6 : 0, typewriter ? 14 : 4); },
+        scale:function(){ return gsap.utils.random(typewriter ? .96 : .96, typewriter ? .985 : 1); },
+        opacity:0,
+        willChange:'auto'
+      });
+    }
+    function cleanupExtras(){
+      if(caret && caret.parentNode) caret.parentNode.removeChild(caret);
+      if(ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
+      caret = ghost = null;
+      element.classList.remove('is-typing');
+    }
     gsap.set(chars, {
       display:'inline-block',
       x:function(){ return gsap.utils.random(typewriter ? -2.6 : -2, typewriter ? 2.6 : 2); },
@@ -243,9 +268,11 @@
       opacity:function(){ return gsap.utils.random(0,.04); }
     });
     var enter=function(){
+      if(typing){ typing.kill(); typing = null; }
+      cleanupExtras();
       gsap.set(chars, {willChange:'transform, opacity'});
       if(typewriter){
-        var typing = gsap.timeline({
+        typing = gsap.timeline({
           onStart:function(){
             element.classList.add('is-typing');
             charRects = chars.map(function(char){ return { x:char.offsetLeft, y:char.offsetTop, w:char.offsetWidth, h:char.offsetHeight }; });
@@ -307,7 +334,16 @@
       }
     };
     if(options && options.immediate){ enter(); }
-    else element._typingTrigger = ScrollTrigger.create({trigger:element, start:'top 88%', once:true, onEnter:enter});
+    else element._typingTrigger = ScrollTrigger.create({
+      trigger:element, start:'top 88%',
+      onEnter:enter,
+      onLeaveBack:function(){
+        /* 双向循环：滚回上方复位为未打字态，再次进入时重播 */
+        if(typing){ typing.kill(); typing = null; }
+        cleanupExtras();
+        resetPose();
+      }
+    });
   }
 
   function initType(){
@@ -339,9 +375,9 @@
   }
   if(document.fonts && document.fonts.ready){ document.fonts.ready.then(function(){ initType(); ScrollTrigger.refresh(); }); } else initType();
 
-  /* ---------- Reveals ---------- */
+  /* ---------- Reveals（toggleActions 第 4 位 reverse：滚回上方倒放复位） ---------- */
   gsap.utils.toArray('.reveal, [data-reveal]').forEach(function(element){
-    gsap.fromTo(element, {y:38, autoAlpha:0}, {y:0, autoAlpha:1, duration:.85, ease:easeLift, scrollTrigger:{trigger:element, start:'top 86%', toggleActions:'play none none none', onEnter:function(){ gsap.set(element, {willChange:'transform, opacity'}); }}, onStart:function(){ gsap.set(element, {willChange:'transform, opacity'}); }, onComplete:function(){ gsap.set(element, {willChange:'auto'}); }});
+    gsap.fromTo(element, {y:38, autoAlpha:0}, {y:0, autoAlpha:1, duration:.85, ease:easeLift, scrollTrigger:{trigger:element, start:'top 86%', toggleActions:'play none none reverse', onEnter:function(){ gsap.set(element, {willChange:'transform, opacity'}); }}, onStart:function(){ gsap.set(element, {willChange:'transform, opacity'}); }, onComplete:function(){ gsap.set(element, {willChange:'auto'}); }});
   });
 
   /* ---------- Product tabs ---------- */
