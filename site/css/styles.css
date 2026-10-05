@@ -74,7 +74,8 @@ section { position: relative; }
 .mobile-menu { position: absolute; top: 100%; right: 0; left: 0; display: grid; max-height: 0; padding: 0 calc((100vw - var(--shell)) / 2); overflow: hidden; color: var(--inverse); background: rgba(7, 9, 12, .96); transition: max-height .5s var(--ease), padding-block .5s var(--ease); }
 .mobile-menu.is-open { visibility: visible; max-height: 420px; padding-block: 8px 20px; }
 .mobile-menu a { display: flex; align-items: center; justify-content: space-between; padding: 16px 0; border-bottom: 1px solid var(--line-light); font-size: 17px; }
-.mobile-menu a span { color: var(--blue-light); font-size: 12px; }
+.mobile-menu a > span:not(.mobile-menu__label) { color: var(--blue-light); font-size: 12px; }
+.mobile-menu__label { color: inherit; font-size: inherit; }
 
 /* ---------- Shared type ---------- */
 .eyebrow { display: flex; align-items: center; gap: 12px; margin-bottom: 26px; color: var(--blue); font-size: 12px; font-weight: 700; }
