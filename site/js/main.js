@@ -230,16 +230,23 @@
     if(!element || !hasSplit || element.dataset.motionSplit) return;
     if(element._typingTrigger) element._typingTrigger.kill();
     element.dataset.motionSplit='true';
-    element.classList.add('typing-text');
+    var typewriter = options && options.typewriter;
+    if(typewriter) element.classList.add('typewriter-copy');
     var split = new window.SplitText(element, {type:'chars', charsClass:'st-char', ignore:'br'});
     var chars = split.chars || [];
     if(!chars.length) return;
-    var each = options && options.each || (chars.length > 48 ? .022 : .032);
-    gsap.set(chars, {display:'inline-block', x:function(){ return gsap.utils.random(-2,2); }, yPercent:function(){ return gsap.utils.random(0,4); }, scale:function(){ return gsap.utils.random(.96,1); }, opacity:function(){ return gsap.utils.random(0,.04); }});
+    var each = options && options.each || (typewriter ? (chars.length > 48 ? .034 : .045) : (chars.length > 48 ? .022 : .032));
+    gsap.set(chars, {
+      display:'inline-block',
+      x:function(){ return gsap.utils.random(typewriter ? -.6 : -2, typewriter ? .6 : 2); },
+      yPercent:function(){ return gsap.utils.random(0, typewriter ? 1 : 4); },
+      scale:function(){ return gsap.utils.random(typewriter ? .985 : .96,1); },
+      opacity:function(){ return gsap.utils.random(0,.04); }
+    });
     var enter=function(){
       gsap.set(chars, {willChange:'transform, opacity'});
       gsap.to(chars, {
-        x:0, yPercent:0, scale:1, opacity:1, duration:.1, ease:'none', delay:options && options.delay || 0,
+        x:0, yPercent:0, scale:1, opacity:1, duration:typewriter ? .14 : .1, ease:'none', delay:options && options.delay || 0,
         stagger:{each:each, from:options && options.from || 'start'}, overwrite:'auto',
         onComplete:function(){ gsap.set(chars,{willChange:'auto'}); }
       });
@@ -253,7 +260,8 @@
     splitHeading(document.querySelector('.hero__title'), {immediate:true, delay:.2});
     splitHeading(document.querySelector('.statement__text'), {statement:true, interactive:true});
     gsap.utils.toArray('.section-heading h2, .scenes__intro h2, .harmony__copy h3, .download h2, .principle h3, .scene-panel__copy h3').forEach(function(element){ splitHeading(element, {interactive:true}); });
-    gsap.utils.toArray('.hero__lead, .section-heading > p:last-child, .scenes__intro > p:last-child, .principle p, .principle__number, .feature-tab > span, .feature-tab strong, .feature-workbench__hint, .feature-workbench__copy > span, .feature-workbench__copy p, .scene-panel__copy > span, .scene-panel__copy > b, .scene-panel__copy p, .harmony__copy > span, .harmony__copy p, .hero__stage-note span, .hero__stage-note strong, .hero__rail span, .download__copy > p:last-of-type, .footer__top > span, .footer__top > a:last-child > span, .footer__bottom > *, .announcement__label, .download__orbit').forEach(function(element){ cascadeText(element, {}); });
+    gsap.utils.toArray('.hero__lead, .section-heading > p:last-child, .scenes__intro > p:last-child, .principle p, .feature-workbench__copy p, .scene-panel__copy p, .harmony__copy p, .download__copy > p:last-of-type, .footer__top > span').forEach(function(element){ cascadeText(element, {typewriter:true}); });
+    gsap.utils.toArray('.principle__number, .feature-tab > span, .feature-tab strong, .feature-workbench__hint, .feature-workbench__copy > span, .scene-panel__copy > span, .scene-panel__copy > b, .harmony__copy > span, .hero__stage-note span, .hero__stage-note strong, .hero__rail span, .footer__top > a:last-child > span, .footer__bottom > *, .announcement__label, .download__orbit').forEach(function(element){ cascadeText(element, {}); });
     gsap.utils.toArray('.brand__name, .site-nav__links a, .nav-action span, .nav-toggle span, .mobile-menu a > span, .button span, .quiet-link span').forEach(function(element, index){ cascadeText(element, {from:'start', delay:index*.03}); });
     if(finePointer){
       gsap.utils.toArray('.button span, .nav-action span, .quiet-link span').forEach(function(label){
@@ -296,8 +304,8 @@
     if(featureNumber) featureNumber.textContent = String(index + 1).padStart(2, '0');
     if(featureDescription){
       featureDescription.textContent = featureDescriptions[index];
-      featureDescription.removeAttribute('data-motion-split');
-      cascadeText(featureDescription, {});
+        featureDescription.removeAttribute('data-motion-split');
+        cascadeText(featureDescription, {typewriter:true});
     }
     if(featureNumber) gsap.fromTo(featureNumber, {y:-8, opacity:.35}, {y:0, opacity:1, duration:.45, ease:easeBack, overwrite:true});
     var activeLabel = featureTabs[index] && featureTabs[index].querySelectorAll('.st-char');
