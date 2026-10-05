@@ -187,6 +187,8 @@ section { position: relative; }
 .download__visual { position: relative; display: grid; place-items: center; min-height: 560px; }
 .footer { color: var(--inverse-muted); background: var(--ink); }
 .footer a:hover { color: var(--blue-light); }
+.footer__beian { margin: 0; padding: 12px 20px 16px; text-align: center; font-size: 11px; }
+.footer__beian a { color: var(--inverse-muted); }
 .announcement { display: flex; align-items: center; justify-content: center; gap: 14px; min-height: 42px; padding: 8px 20px; color: #dfe8f8; background: #122544; font-size: 12px; }
 .announcement a { color: var(--blue-light); font-weight: 700; }
 .announcement__signal { width: 7px; height: 7px; border-radius: 50%; background: var(--blue-light); box-shadow: 0 0 0 4px rgba(117, 168, 255, .16); }
