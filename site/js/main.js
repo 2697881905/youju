@@ -273,10 +273,6 @@
           onStart:function(){
             element.classList.add('is-typing');
             charRects = chars.map(function(char){ return { x:char.offsetLeft, y:char.offsetTop, w:char.offsetWidth, h:char.offsetHeight }; });
-            /* 惰性创建且复用：restart 会重新触发 onStart，重复 append 会产生多个光标 */
-            if(!caret){ caret = document.createElement('span'); caret.className='type-caret'; element.appendChild(caret); }
-            if(!ghost){ ghost = document.createElement('span'); ghost.className='pinyin-ghost'; element.appendChild(ghost); }
-            ghost.style.opacity = 0;
           },
           onComplete:cleanupExtras,
           onReverseComplete:function(){ cleanupExtras(); }
@@ -288,12 +284,15 @@
           var punctuation = /[，。！？；：、,.!?;:]/.test(glyph);
           var py = (pinyinOf && /[\u4e00-\u9fff]/.test(glyph)) ? pinyinOf(glyph) : '';
           typing.call(function(){
+            /* 光标在此处惰性诞生（首次打字位置），restart 复用同一节点——杜绝多光标 */
+            if(!caret){ caret = document.createElement('span'); caret.className='type-caret'; element.appendChild(caret); }
             var rect = charRects[index];
             caret.style.height = Math.max(12, rect.h * .8).toFixed(1) + 'px';
             caret.style.transform = 'translate(' + rect.x.toFixed(1) + 'px,' + (rect.y + rect.h * .1).toFixed(1) + 'px)';
           });
           if(py){
             typing.call(function(){
+              if(!ghost){ ghost = document.createElement('span'); ghost.className='pinyin-ghost'; element.appendChild(ghost); }
               var rect = charRects[index];
               ghost.style.width = rect.w.toFixed(1) + 'px';
               ghost.style.height = rect.h.toFixed(1) + 'px';
@@ -339,7 +338,9 @@
     splitHeading(document.querySelector('.hero__title'), {immediate:true, delay:.2});
     splitHeading(document.querySelector('.statement__text'), {statement:true, interactive:true});
     gsap.utils.toArray('.section-heading h2, .scenes__intro h2, .harmony__copy h3, .download h2, .principle h3, .scene-panel__copy h3').forEach(function(element){ splitHeading(element, {interactive:true}); });
-    gsap.utils.toArray('.hero__lead, .section-heading > p:last-child, .scenes__intro > p:last-child, .principle p, .feature-workbench__copy p, .scene-panel__copy p, .harmony__copy p, .download__copy > p:last-of-type').forEach(function(element){ cascadeText(element, {typewriter:true}); });
+    gsap.utils.toArray('.hero__lead, .section-heading > p:last-child, .scenes__intro > p:last-child, .feature-workbench__copy p, .scene-panel__copy p, .harmony__copy p, .download__copy > p:last-of-type').forEach(function(element){ cascadeText(element, {typewriter:true}); });
+    /* 并排三卡打字错峰依次进行，避免多光标同屏闪烁 */
+    gsap.utils.toArray('.principle p').forEach(function(element, index){ cascadeText(element, {typewriter:true, delay:index * 1.15}); });
     gsap.utils.toArray('.feature-tab > span, .feature-tab strong, .feature-workbench__copy > span, .scene-panel__copy > b, .announcement__label').forEach(function(element){ cascadeText(element, {}); });
     gsap.utils.toArray('.brand__name, .site-nav__links a, .nav-action span, .nav-toggle span, .mobile-menu a > span, .button span, .quiet-link span').forEach(function(element, index){ cascadeText(element, {from:'start', delay:index*.03}); });
     if(finePointer){
