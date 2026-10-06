@@ -208,20 +208,42 @@
       gsap.set(chars, {display:'inline-block', transformOrigin:'50% 100%', transformPerspective:800, force3D:true, backfaceVisibility:'hidden', x:0, z:0, rotationY:0, rotate:0, skewX:0, scale:1, opacity:function(){ return gsap.utils.random(.1,.22); }, y:function(){ return gsap.utils.random(10,24); }, rotationX:function(){ return gsap.utils.random(-72,-42); }});
       gsap.to(chars, {x:0, z:0, rotationY:0, rotate:0, skewX:0, scale:1, opacity:1, y:0, rotationX:0, stagger:.055, ease:'none', scrollTrigger:{trigger:element, start:'top 82%', end:'top 30%', scrub:.45}});
     }else if(options && options.immediate){
-      gsap.set(chars, Object.assign(charFrom(), {display:'inline-block', transformOrigin:'50% 100%', transformPerspective:800, force3D:true, backfaceVisibility:'hidden'}));
-      animateChars(chars, {delay:options.delay || .16});
+      var enterI = null;
+      var applyFromI = function(){
+        gsap.set(chars, Object.assign(charFrom(), {display:'inline-block', transformOrigin:'50% 100%', transformPerspective:800, force3D:true, backfaceVisibility:'hidden'}));
+      };
+      applyFromI();
+      var playCharsI = function(){
+        if(enterI && enterI.progress() >= 1){ enterI.restart(); }
+        else if(enterI && enterI.reversed()){ enterI.play(); }
+        else if(!enterI){ enterI = animateChars(chars, {delay:options.delay || .16}); }
+      };
+      var rewindCharsI = function(){ if(enterI && enterI.progress() > 0){ enterI.reverse(); } };
+      playCharsI();
+      /* 首屏标题同样四向：滚出上方倒放复位，滚回重播 */
+      ScrollTrigger.create({
+        trigger:element, start:'top 96%',
+        onEnter:playCharsI, onEnterBack:playCharsI,
+        onLeave:rewindCharsI, onLeaveBack:rewindCharsI
+      });
     }else{
-      gsap.set(chars, Object.assign(charFrom(), {display:'inline-block', transformOrigin:'50% 100%', transformPerspective:800, force3D:true, backfaceVisibility:'hidden'}));
-      var enter;
+      var enter = null;
+      var applyFrom = function(){
+        gsap.set(chars, Object.assign(charFrom(), {display:'inline-block', transformOrigin:'50% 100%', transformPerspective:800, force3D:true, backfaceVisibility:'hidden'}));
+        chars.forEach(function(c){ c.style.willChange='auto'; });
+      };
+      applyFrom();
+      var playChars = function(){
+        if(enter && enter.progress() >= 1){ enter.restart(); }
+        else if(enter && enter.reversed()){ enter.play(); }
+        else if(!enter){ enter = animateChars(chars, {}); }
+      };
+      var rewindChars = function(){ if(enter && enter.progress() > 0){ enter.reverse(); } };
+      /* 四向跟随滑动：任意方向进入视口正放，任意方向离开倒放复位 */
       ScrollTrigger.create({
         trigger:element, start:'top 86%',
-        onEnter:function(){ if(enter) enter.kill(); enter=animateChars(chars, {}); },
-        onLeaveBack:function(){
-          /* 双向循环：滚回上方重抽 from 姿态，再次进入时重播 */
-          if(enter){ enter.kill(); enter=null; }
-          gsap.set(chars, Object.assign(charFrom(), {display:'inline-block', transformOrigin:'50% 100%', transformPerspective:800, force3D:true, backfaceVisibility:'hidden'}));
-          chars.forEach(function(c){ c.style.willChange='auto'; });
-        }
+        onEnter:playChars, onEnterBack:playChars,
+        onLeave:rewindChars, onLeaveBack:rewindChars
       });
     }
     if(options && options.interactive !== false) pointerAndClick(element, chars);
@@ -267,27 +289,30 @@
       scale:function(){ return gsap.utils.random(typewriter ? .96 : .96, typewriter ? .985 : 1); },
       opacity:function(){ return gsap.utils.random(0,.04); }
     });
-    var enter=function(){
-      if(typing){ typing.kill(); typing = null; }
-      cleanupExtras();
-      gsap.set(chars, {willChange:'transform, opacity'});
-      if(typewriter){
-        typing = gsap.timeline({
-          onStart:function(){
-            element.classList.add('is-typing');
-            charRects = chars.map(function(char){ return { x:char.offsetLeft, y:char.offsetTop, w:char.offsetWidth, h:char.offsetHeight }; });
-            caret = document.createElement('span'); caret.className='type-caret';
-            ghost = document.createElement('span'); ghost.className='pinyin-ghost';
-            element.appendChild(caret); element.appendChild(ghost);
-          },
-          onComplete:function(){
-            element.classList.remove('is-typing');
-            gsap.set(chars,{willChange:'auto'});
-            if(caret && caret.parentNode) caret.parentNode.removeChild(caret);
-            if(ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
-            caret = ghost = null;
-          }
-        });
+    var playType = function(){
+      if(typing && typing.progress() >= 1){ cleanupExtras(); typing.restart(); }
+      else if(typing && typing.reversed()){ typing.play(); }
+      else if(!typing){
+        cleanupExtras();
+        gsap.set(chars, {willChange:'transform, opacity'});
+        if(typewriter){
+          typing = gsap.timeline({
+            onStart:function(){
+              element.classList.add('is-typing');
+              charRects = chars.map(function(char){ return { x:char.offsetLeft, y:char.offsetTop, w:char.offsetWidth, h:char.offsetHeight }; });
+              caret = document.createElement('span'); caret.className='type-caret';
+              ghost = document.createElement('span'); ghost.className='pinyin-ghost';
+              element.appendChild(caret); element.appendChild(ghost);
+            },
+            onComplete:function(){
+              element.classList.remove('is-typing');
+              gsap.set(chars,{willChange:'auto'});
+              if(caret && caret.parentNode) caret.parentNode.removeChild(caret);
+              if(ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
+              caret = ghost = null;
+            },
+            onReverseComplete:function(){ cleanupExtras(); }
+          });
         var cursor = options && options.delay || 0;
         var breathEvery = Math.round(gsap.utils.random(6,10));
         chars.forEach(function(char, index){
@@ -326,23 +351,22 @@
           }
         });
       }else{
-        gsap.to(chars, {
-          x:0, yPercent:0, scale:1, opacity:1, duration:.1, ease:'none', delay:options && options.delay || 0,
-          stagger:{each:each, from:options && options.from || 'start'}, overwrite:'auto',
-          onComplete:function(){ gsap.set(chars,{willChange:'auto'}); }
+        typing = gsap.timeline({delay:options && options.delay || 0});
+        typing.to(chars, {
+          x:0, yPercent:0, scale:1, opacity:1, duration:.1, ease:'none',
+          stagger:{each:each, from:options && options.from || 'start'}, overwrite:'auto'
         });
+        typing.eventCallback('onComplete', function(){ gsap.set(chars,{willChange:'auto'}); });
       }
-    };
-    if(options && options.immediate){ enter(); }
+    }
+  };
+    var rewindType = function(){ if(typing && typing.progress() > 0){ typing.reverse(); } };
+    if(options && options.immediate){ playType(); }
     else element._typingTrigger = ScrollTrigger.create({
       trigger:element, start:'top 88%',
-      onEnter:enter,
-      onLeaveBack:function(){
-        /* 双向循环：滚回上方复位为未打字态，再次进入时重播 */
-        if(typing){ typing.kill(); typing = null; }
-        cleanupExtras();
-        resetPose();
-      }
+      /* 四向跟随滑动：任意方向进入视口正放/重播，任意方向离开倒放复位 */
+      onEnter:playType, onEnterBack:playType,
+      onLeave:rewindType, onLeaveBack:rewindType
     });
   }
 
@@ -375,9 +399,9 @@
   }
   if(document.fonts && document.fonts.ready){ document.fonts.ready.then(function(){ initType(); ScrollTrigger.refresh(); }); } else initType();
 
-  /* ---------- Reveals（toggleActions 第 4 位 reverse：滚回上方倒放复位） ---------- */
+  /* ---------- Reveals（四向：进入正放，从上方滚回重播，离开倒放复位） ---------- */
   gsap.utils.toArray('.reveal, [data-reveal]').forEach(function(element){
-    gsap.fromTo(element, {y:38, autoAlpha:0}, {y:0, autoAlpha:1, duration:.85, ease:easeLift, scrollTrigger:{trigger:element, start:'top 86%', toggleActions:'play none none reverse', onEnter:function(){ gsap.set(element, {willChange:'transform, opacity'}); }}, onStart:function(){ gsap.set(element, {willChange:'transform, opacity'}); }, onComplete:function(){ gsap.set(element, {willChange:'auto'}); }});
+    gsap.fromTo(element, {y:38, autoAlpha:0}, {y:0, autoAlpha:1, duration:.85, ease:easeLift, scrollTrigger:{trigger:element, start:'top 86%', toggleActions:'play none play reverse', onEnter:function(){ gsap.set(element, {willChange:'transform, opacity'}); }}, onStart:function(){ gsap.set(element, {willChange:'transform, opacity'}); }, onComplete:function(){ gsap.set(element, {willChange:'auto'}); }});
   });
 
   /* ---------- Product tabs ---------- */
