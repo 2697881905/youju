@@ -44,6 +44,11 @@ function isPrivateOrLocalIp(ip: string | undefined): boolean {
 
 const skipLocal: (req: any) => boolean = (req: any): boolean => isPrivateOrLocalIp(req.ip);
 
+// 测试环境（jest 默认 NODE_ENV=test）跳过业务限流：测试会真实连续命中对应路由，
+// 被限流误伤会弄脏断言；部署环境 NODE_ENV=production，生产行为不受影响。
+const skipTest: (req: any) => boolean = (req: any): boolean =>
+  process.env.NODE_ENV === 'test' || skipLocal(req);
+
 // 全站基础限流：每 IP 15 分钟 600 次（防刷接口）。
 // 原 300 次对正常客户端偏紧：私信页轮询 + 信息流埋点 + 页面/详情请求叠加后，
 // 活跃用户 15 分钟可接近甚至超过 300，配额一旦耗尽，后续所有请求都返回 429，
@@ -88,4 +93,56 @@ export const metricsLimiter = rateLimit({
   skip: skipLocal,
   handler,
 });
+
+// 搜索联想（匿名可调）：单请求并发 3 个 DB 查询，全局限流下仍可被放大为 DB 压力。
+// 每 IP 每分钟 60 次：真人输入联想远低于此，脚本批量探测打不动。
+export const suggestLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipTest,
+  handler,
+});
+
+// —— 内容生产端点 per-user 限流（必须挂在 auth 之后，按 req.userId 计数）——
+// globalLimiter 按 IP 计数：同 IP 多账号互不影响、换 IP 即绕过；这三个封口
+// 「单账号高频刷量/骚扰」（换 IP 无效，因为同一账号就是同一把钥匙）。阈值即产品口径：
+//   私信 30 条/分钟——正常聊天远打不到，脚本轰炸被挡（接收方另有 dmPolicy + 拉黑兜底）；
+//   发帖  5 条/分钟——发布是重操作（敏感词检测 + 结构化字段），真人不可能触达；
+//   评论 10 条/分钟——热烈讨论留足余量，纯灌水被挡。
+function userKey(req: any): string {
+  return 'u' + String(req.userId ?? 0);
+}
+
+export const dmLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userKey,
+  skip: skipTest,
+  handler,
+});
+
+export const postCreateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userKey,
+  skip: skipTest,
+  handler,
+});
+
+export const commentLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userKey,
+  skip: skipTest,
+  handler,
+});
+
 

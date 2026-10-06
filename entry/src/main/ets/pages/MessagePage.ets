@@ -290,7 +290,13 @@ export struct MessagePage {
     return y + '-' + (m < 10 ? '0' + m : m) + '-' + (dd < 10 ? '0' + dd : dd);
   }
 
+  // 列表请求序号：loadFirst 与 loadMore 共用；响应回来时序号已落后则整体丢弃。
+  // 竞态：loadMore（页2）在途时账号切换/信号触发 loadFirst → loadFirst 回包覆盖列表
+  // 但 loadMore 回包把 page 写成 2 → 下一页请求直接跳到页3，页2 的通知永久缺失。
+  private listSeq: number = 0;
+
   async loadFirst(): Promise<void> {
+    const seq: number = ++this.listSeq;
     this.loading = true;
     this.error = '';
     this.page = 1;
@@ -301,10 +307,16 @@ export struct MessagePage {
     await this.loadDmUnread();
     try {
       const res = await listNotifications(1, 20);
+      if (seq !== this.listSeq) {
+        return; // 过期响应：期间已有更新的请求发起，整体丢弃
+      }
       this.list = res.list;
       this.hasMore = res.pagination.total > res.list.length;
       this.loading = false;
     } catch (e) {
+      if (seq !== this.listSeq) {
+        return; // 过期请求的失败不覆盖新请求的状态
+      }
       this.error = (e as Error).message || '加载失败';
       this.loading = false;
     }
@@ -314,10 +326,14 @@ export struct MessagePage {
     if (!this.hasMore || this.loading) {
       return;
     }
+    const seq: number = ++this.listSeq;
     this.loading = true;
     try {
       const next: number = this.page + 1;
       const res = await listNotifications(next, 20);
+      if (seq !== this.listSeq) {
+        return; // 过期响应：期间 loadFirst 已重置列表，丢弃（避免旧页 append 进新列表）
+      }
       if (res.list.length > 0) {
         this.list = this.list.concat(res.list);
         this.page = next;
@@ -327,6 +343,9 @@ export struct MessagePage {
       }
       this.loading = false;
     } catch (e) {
+      if (seq !== this.listSeq) {
+        return;
+      }
       this.loading = false;
     }
   }

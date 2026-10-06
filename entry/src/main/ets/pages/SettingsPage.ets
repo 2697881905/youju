@@ -7,7 +7,7 @@ import { deactivateAccount, clearSearchHistory, exportUserData } from '../servic
 import { safeShowToast } from '../utils/toast';
 import { toggleDarkMode, setFollowSystem } from '../utils/theme';
 import { buildPageTransition } from '../utils/styles';
-import { CARD_RADIUS, CARD_SHADOW } from '../utils/cardTokens';
+import { CARD_RADIUS } from '../utils/cardTokens';
 import { resolveSettingsIcon } from '../utils/settingsIcons';
 import { window } from '@kit.ArkUI';
 import { BackButton } from '../design/components/BackButton';
@@ -167,35 +167,25 @@ export struct SettingsPage {
 
   @Builder
   sectionRow(icon: string, title: string, onTap: () => void): void {
-    Row({ space: 12 }) {
-      Image(resolveSettingsIcon(icon))
-        .width(22).height(22)
-        .objectFit(ImageFit.Contain)
-        .fillColor($r('app.color.ds_icon'))
-      Text(title)
-        .fontSize(16).fontFamily($r('app.string.font_family'))
-        .fontColor($r('app.color.text_primary'))
-        .layoutWeight(1);
-      Image(resolveSettingsIcon('chevronRight'))
-        .width(18).height(18)
-        .objectFit(ImageFit.Contain)
-        .fillColor($r('app.color.ds_icon'))
-    }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 14, bottom: 14 })
-    .backgroundColor($r('app.color.card_bg'))
-    .borderRadius(CARD_RADIUS)
-    .shadow(CARD_SHADOW)
-    .stateStyles({
-      normal: {
-        .opacity(1)
-      },
-      pressed: {
-        .opacity(0.7)
-        .scale({ x: 0.97, y: 0.97 })
+    ListItem() {
+      Row({ space: 12 }) {
+        Image(resolveSettingsIcon(icon))
+          .width(22).height(22)
+          .objectFit(ImageFit.Contain)
+          .fillColor($r('app.color.ds_icon'))
+        Text(title)
+          .fontSize(16).fontFamily($r('app.string.font_family'))
+          .fontColor($r('app.color.text_primary'))
+          .layoutWeight(1);
+        Image(resolveSettingsIcon('chevronRight'))
+          .width(18).height(18)
+          .objectFit(ImageFit.Contain)
+          .fillColor($r('app.color.ds_icon'))
       }
-    })
-    .onClick(() => { onTap(); });
+      .width('100%')
+      .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+      .onClick(() => { onTap(); })
+    }
   }
 
   build() {
@@ -214,60 +204,67 @@ export struct SettingsPage {
       .width('100%')
       .padding({ top: 12, bottom: 8 });
 
-      Scroll() {
-        Column({ space: 24 }) {
-          // ===== 账号与安全 =====
-          Column({ space: 10 }) {
-            Text('账号与安全')
-              .fontSize(13).fontFamily($r('app.string.font_family'))
-              .fontColor($r('app.color.text_secondary'))
-              .alignSelf(ItemAlign.Start)
-              .padding({ left: 4 });
-            this.sectionRow('phone', '账号绑定', (): void => {
-              this.openGated('pages/AccountBindingPage');
-            });
-            if (this.isAdmin) {
-              this.sectionRow('book', '举报中心', (): void => {
-                this.openGated('pages/ReportAdminPage');
-              });
+      List({ space: 8 }) {
+        // ===== 账号与安全 =====
+        ListItem() {
+          Text('账号与安全')
+            .fontSize(13).fontFamily($r('app.string.font_family'))
+            .fontColor($r('app.color.text_secondary'))
+            .padding({ left: 16, top: 8 })
+        }
+
+        ListItemGroup() {
+          this.sectionRow('phone', '账号绑定', (): void => {
+            this.openGated('pages/AccountBindingPage');
+          })
+          if (this.isAdmin) {
+            this.sectionRow('book', '举报中心', (): void => {
+              this.openGated('pages/ReportAdminPage');
+            })
+          }
+          this.sectionRow('block', '拉黑管理', (): void => {
+            this.openGated('pages/BlocklistPage');
+          })
+          this.sectionRow('export', '数据导出', (): void => {
+            if (this.gatedActionPassed()) {
+              this.onExportDataClick();
             }
-            this.sectionRow('block', '拉黑管理', (): void => {
-              this.openGated('pages/BlocklistPage');
-            });
-            this.sectionRow('export', '数据导出', (): void => {
-              if (this.gatedActionPassed()) {
-                this.onExportDataClick();
-              }
-            });
-          }
-          .width('100%');
+          })
+        }
+        .borderRadius(CARD_RADIUS)
+        .backgroundColor($r('app.color.card_bg'))
+        .clip(true)
 
-          // ===== 隐私 =====
-          Column({ space: 10 }) {
-            Text('隐私')
-              .fontSize(13).fontFamily($r('app.string.font_family'))
-              .fontColor($r('app.color.text_secondary'))
-              .alignSelf(ItemAlign.Start)
-              .padding({ left: 4 });
-            this.sectionRow('lock', '隐私设置', (): void => {
-              this.openGated('pages/PrivacySettingsPage');
-            });
-            this.sectionRow('bell', '通知设置', (): void => {
-              this.openGated('pages/NotificationSettingsPage');
-            });
-          }
-          .width('100%');
+        // ===== 隐私 =====
+        ListItem() {
+          Text('隐私')
+            .fontSize(13).fontFamily($r('app.string.font_family'))
+            .fontColor($r('app.color.text_secondary'))
+            .padding({ left: 16, top: 8 })
+        }
 
-          // ===== 通用 =====
-          Column({ space: 10 }) {
-            Text('通用')
-              .fontSize(13).fontFamily($r('app.string.font_family'))
-              .fontColor($r('app.color.text_secondary'))
-              .alignSelf(ItemAlign.Start)
-              .padding({ left: 4 });
+        ListItemGroup() {
+          this.sectionRow('lock', '隐私设置', (): void => {
+            this.openGated('pages/PrivacySettingsPage');
+          })
+          this.sectionRow('bell', '通知设置', (): void => {
+            this.openGated('pages/NotificationSettingsPage');
+          })
+        }
+        .borderRadius(CARD_RADIUS)
+        .backgroundColor($r('app.color.card_bg'))
+        .clip(true)
 
-            // 跟随系统（内联，直接绑 this.followSystem 才能响应变化；
-            // 走 @Builder 的 isOn 是值快照不会刷新，会让开关卡在旧状态）
+        // ===== 通用 =====
+        ListItem() {
+          Text('通用')
+            .fontSize(13).fontFamily($r('app.string.font_family'))
+            .fontColor($r('app.color.text_secondary'))
+            .padding({ left: 16, top: 8 })
+        }
+
+        ListItemGroup() {
+          ListItem() {
             Row({ space: 12 }) {
               Image(resolveSettingsIcon('system'))
                 .width(22).height(22)
@@ -285,8 +282,6 @@ export struct SettingsPage {
               .layoutWeight(1)
               Toggle({ type: ToggleType.Switch, isOn: this.followSystem })
                 .onChange((on: boolean): void => {
-                  // isOn 程序化变更（AppStorage 链接回写）同样会回派 onChange：
-                  // 值与应用内当前状态一致即为回声，过滤掉，避免重复落盘/重置判重标记。
                   if (on === this.followSystem) {
                     return;
                   }
@@ -295,11 +290,9 @@ export struct SettingsPage {
             }
             .width('100%')
             .padding({ left: 16, right: 16, top: 14, bottom: 14 })
-            .backgroundColor($r('app.color.card_bg'))
-            .borderRadius(CARD_RADIUS)
-            .shadow(CARD_SHADOW)
+          }
 
-            // 深色模式（内联，直接绑 this.followSystem；跟随系统开时禁用）
+          ListItem() {
             Row({ space: 12 }) {
               Image(resolveSettingsIcon('dark'))
                 .width(22).height(22)
@@ -319,11 +312,6 @@ export struct SettingsPage {
                 .enabled(!this.followSystem)
                 .opacity(!this.followSystem ? 1 : 0.4)
                 .onChange((on: boolean): void => {
-                  // 关键：isDarkMode 会随系统深浅变化被程序化改写，而 ArkUI 对程序化
-                  // 变更（含开关禁用态）同样回派 onChange。若不拦截，toggleDarkMode 会把
-                  // 应用钉成显式颜色模式（setColorMode），此后系统深浅切换不再派发
-                  // onConfigurationUpdate —— 表现为「只有第一次跟随系统生效，再改需杀进程」。
-                  // 仅当跟随系统关闭、且确为用户手势（值≠应用内当前状态）时才真正切换。
                   if (this.followSystem || on === this.darkMode) {
                     return;
                   }
@@ -332,81 +320,83 @@ export struct SettingsPage {
             }
             .width('100%')
             .padding({ left: 16, right: 16, top: 14, bottom: 14 })
-            .backgroundColor($r('app.color.card_bg'))
-            .borderRadius(CARD_RADIUS)
-            .shadow(CARD_SHADOW)
-
-            this.sectionRow('trash', '清除缓存', (): void => {
-              this.onClearCacheClick();
-            });
           }
-          .width('100%');
 
-          // ===== 关于 =====
-          Column({ space: 10 }) {
-            Text('关于')
-              .fontSize(13).fontFamily($r('app.string.font_family'))
-              .fontColor($r('app.color.text_secondary'))
-              .alignSelf(ItemAlign.Start)
-              .padding({ left: 4 });
-            this.sectionRow('book', '关于有据 · 版本 1.0.0', (): void => {
-              this.getUIContext().getRouter().pushUrl({ url: 'pages/AboutPage' });
-            });
-            this.sectionRow('policy', '隐私政策', (): void => {
-              this.getUIContext().getRouter().pushUrl({ url: 'pages/PrivacyPage' });
-            });
-          }
-          .width('100%');
-
-          // 退出登录 / 账号注销：对访客毫无意义（没有会话可退、没有账号可注销），
-          // 未登录时整块不渲染 —— 而不是点下去再报「请先登录」。
-          if (this.loggedIn()) {
-            // 退出登录（红色文字行，卡片风格）
-            Row({ space: 12 }) {
-              Image(resolveSettingsIcon('logout'))
-                .width(22).height(22)
-                .objectFit(ImageFit.Contain)
-                .fillColor($r('app.color.ds_icon'))
-              Text('退出登录')
-                .fontSize(16).fontFamily($r('app.string.font_family'))
-                .fontColor($r('app.color.semantic_red'))
-                .layoutWeight(1);
-              Image(resolveSettingsIcon('chevronRight'))
-                .width(18).height(18)
-                .objectFit(ImageFit.Contain)
-                .fillColor($r('app.color.ds_icon'))
-            }
-            .width('100%')
-            .padding({ left: 16, right: 16, top: 14, bottom: 14 })
-            .backgroundColor($r('app.color.card_bg'))
-            .borderRadius(CARD_RADIUS)
-            .shadow(CARD_SHADOW)
-            .onClick(() => { this.onLogoutClick(); });
-
-            // 高风险操作保持次要层级，并随内容滚动，避免覆盖其它设置项。
-            Row({ space: 12 }) {
-              Image(resolveSettingsIcon('trash'))
-                .width(22).height(22)
-                .objectFit(ImageFit.Contain)
-                .fillColor($r('app.color.ds_icon'))
-              Text('账号注销')
-                .fontSize(16).fontFamily($r('app.string.font_family'))
-                .fontColor($r('app.color.semantic_red'))
-                .layoutWeight(1)
-            }
-            .width('100%')
-            .padding({ left: 16, right: 16, top: 14, bottom: 14 })
-            .backgroundColor($r('app.color.card_bg'))
-            .borderRadius(CARD_RADIUS)
-            .shadow(CARD_SHADOW)
-            .onClick(() => { this.onDeactivateClick(); });
-          }
+          this.sectionRow('trash', '清除缓存', (): void => {
+            this.onClearCacheClick();
+          })
         }
-        .width('100%')
-        .padding({ left: 16, right: 16, top: 8, bottom: 16 });
+        .borderRadius(CARD_RADIUS)
+        .backgroundColor($r('app.color.card_bg'))
+        .clip(true)
+
+        // ===== 关于 =====
+        ListItem() {
+          Text('关于')
+            .fontSize(13).fontFamily($r('app.string.font_family'))
+            .fontColor($r('app.color.text_secondary'))
+            .padding({ left: 16, top: 8 })
+        }
+
+        ListItemGroup() {
+          this.sectionRow('book', '关于有据 · 版本 1.0.0', (): void => {
+            this.getUIContext().getRouter().pushUrl({ url: 'pages/AboutPage' });
+          })
+          this.sectionRow('policy', '隐私政策', (): void => {
+            this.getUIContext().getRouter().pushUrl({ url: 'pages/PrivacyPage' });
+          })
+        }
+        .borderRadius(CARD_RADIUS)
+        .backgroundColor($r('app.color.card_bg'))
+        .clip(true)
+
+        // ===== 退出登录 / 账号注销 =====
+        if (this.loggedIn()) {
+          ListItemGroup() {
+            ListItem() {
+              Row({ space: 12 }) {
+                Image(resolveSettingsIcon('logout'))
+                  .width(22).height(22)
+                  .objectFit(ImageFit.Contain)
+                  .fillColor($r('app.color.ds_icon'))
+                Text('退出登录')
+                  .fontSize(16).fontFamily($r('app.string.font_family'))
+                  .fontColor($r('app.color.semantic_red'))
+                  .layoutWeight(1);
+                Image(resolveSettingsIcon('chevronRight'))
+                  .width(18).height(18)
+                  .objectFit(ImageFit.Contain)
+                  .fillColor($r('app.color.ds_icon'))
+              }
+              .width('100%')
+              .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+              .onClick(() => { this.onLogoutClick(); })
+            }
+
+            ListItem() {
+              Row({ space: 12 }) {
+                Image(resolveSettingsIcon('trash'))
+                  .width(22).height(22)
+                  .objectFit(ImageFit.Contain)
+                  .fillColor($r('app.color.ds_icon'))
+                Text('账号注销')
+                  .fontSize(16).fontFamily($r('app.string.font_family'))
+                  .fontColor($r('app.color.semantic_red'))
+                  .layoutWeight(1);
+              }
+              .width('100%')
+              .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+              .onClick(() => { this.onDeactivateClick(); })
+            }
+          }
+          .borderRadius(CARD_RADIUS)
+          .backgroundColor($r('app.color.card_bg'))
+          .clip(true)
+        }
       }
       .layoutWeight(1)
-      .width('100%');
+      .width('100%')
+      .padding({ left: 16, right: 16, top: 8, bottom: 16 });
     }
     .width('100%')
     .height('100%')

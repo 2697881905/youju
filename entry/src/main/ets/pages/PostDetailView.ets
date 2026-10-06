@@ -148,6 +148,9 @@ export struct PostDetailView {
   // 详情内容滚动器：定位评论时按目标偏移平滑滚动
   private detailScroller: Scroller = new Scroller();
   @State post: PostWithComments | null = null;
+  // 评论区计数独立快照：与 interaction 同理，评论删除走顶层替换 @State 才能当帧刷新；
+  // 直接改 post.commentCount 这类嵌套属性刷新不稳定，会出现「删了评论但计数不变」。
+  @State commentCount: number = 0;
   @State fields: StructuredFieldPair[] = [];
   @State images: string[] = [];
   @State videoUrl: string = '';
@@ -487,6 +490,7 @@ export struct PostDetailView {
         return;
       }
       this.post = p;
+      this.commentCount = p.commentCount ?? 0;
       // 依据后端返回的 myUp/myBookmark 初始化互动态，确保已点赞/已收藏帖进入详情时
       // 高亮态正确（避免初始 false 导致再次点击「顶」重复 upPost 造成 upCount 膨胀）。
       this.interaction = new DetailInteractionState(
@@ -1081,7 +1085,7 @@ export struct PostDetailView {
 
   // 是否本帖作者（菜单选项集按此分流）
   private isPostOwner(): boolean {
-    return this.post !== undefined && this.post.userId === getUserId();
+    return this.post != null && this.post.userId === getUserId();
   }
 
   // 帖子操作菜单（作者 / 他人共用）：官方 Menu + MenuItem，挂在标题栏「更多」按钮上。
@@ -1269,6 +1273,46 @@ export struct PostDetailView {
     this.replyTargetId = 0;
     this.replyTargetName = '';
     this.clearCommentMentions();
+  }
+
+  // 评论删除成功的父级同步：CommentList 只 splice 自己的 @Prop 深拷贝，若不同步 post，
+  // 评论计数不减（互动栏/评论区头部与服务端不一致），且 post 被重赋值时已删行会复活。
+  // 计数按「本次 UI 树中移除的条数」扣减：一级评论连带其可见 replies；服务端按实际
+  // 删除条数扣减，差额（不可见的孙级/被隐藏回复）由下次 load() 以服务器为准校准。
+  private onCommentDeleted(c: Comment): void {
+    const post = this.post;
+    if (!post || c.id === undefined) {
+      return;
+    }
+    const id: number = c.id;
+    const oldComments: Comment[] = post.comments ?? [];
+    const nextComments: Comment[] = [];
+    let removedCount: number = 0;
+    for (const root of oldComments) {
+      if (root.id === id) {
+        removedCount += 1 + (root.replies?.length ?? 0);
+        continue;
+      }
+      const replies: Comment[] | undefined = root.replies;
+      if (replies !== undefined && replies.length > 0) {
+        const idx: number = replies.findIndex((r: Comment): boolean => r.id === id);
+        if (idx >= 0) {
+          const nextReplies: Comment[] = replies.slice();
+          nextReplies.splice(idx, 1);
+          root.replies = nextReplies;
+          removedCount += 1;
+        }
+      }
+      nextComments.push(root);
+    }
+    // ArkUI V1 对 @State 对象「嵌套属性」直接赋值刷新不稳定（本项目点赞已改用
+    // DetailInteractionState 顶层快照、跨组件用 likeStore，同理）。post.comments 仍需
+    // 同步写回（防止父级重渲染时已删行复活），显示计数则走顶层替换的 commentCount
+    // 快照触发重渲染——否则评论行已消失但「评论 N」计数不变。
+    const nextCount: number = Math.max(0, (post.commentCount ?? 0) - removedCount);
+    post.comments = nextComments;
+    post.commentCount = nextCount;
+    this.commentCount = nextCount;
   }
 
   // 详情页「分层进入」转场：媒体区先到（无延迟的缩放淡入），标题/正文/评论区按
@@ -1771,10 +1815,11 @@ export struct PostDetailView {
 
             DetailCommentsSection({
               comments: this.post.comments ?? [],
-              commentCount: this.post.commentCount ?? 0,
+              commentCount: this.commentCount,
               highlightCommentId: this.highlightCommentId,
               onReportComment: (commentId: number): void => { this.openCommentReport(commentId); },
               onReplyComment: (comment: Comment): void => { this.onReplyComment(comment); },
+              onDeletedComment: (comment: Comment): void => { this.onCommentDeleted(comment); },
             })
               .transition(this.animLayerEnter(180))
 

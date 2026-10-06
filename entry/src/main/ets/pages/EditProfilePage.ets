@@ -4,6 +4,7 @@
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { image } from '@kit.ImageKit';
 import { http } from '@kit.NetworkKit';
+import { SegmentButton, SegmentButtonOptions, SegmentButtonTextItem, ItemRestriction } from '@kit.ArkUI';
 import { getCurrentUser, setSession, ensureLogin, getToken, getUserId } from '../utils/auth';
 import { updateMe, getUploadSignature, getUserProfile, resolveUploadPutUrl, toStoredMediaRef } from '../services/api';
 import { compressAvatar, CompressedImage } from '../utils/image';
@@ -11,8 +12,6 @@ import { safeShowToast } from '../utils/toast';
 import { User, UserProfile } from '../models/types';
 import { buildPageTransition } from '../utils/styles';
 import { BackButton } from '../design/components/BackButton';
-import { GlowInput } from '../design/components/GlowInput';
-import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
 import { ColorTokens } from '../design/tokens/color';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { RadiusTokens } from '../design/tokens/radius';
@@ -20,11 +19,6 @@ import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { EditableProfilePreview } from '../components/EditableProfilePreview';
 
-const GENDER_OPTIONS: SegmentedItem[] = [
-  { key: 'male', label: '男' },
-  { key: 'female', label: '女' },
-  { key: 'private', label: '保密' },
-];
 
 @Entry
 @Component
@@ -32,7 +26,15 @@ export struct EditProfilePage {
   @State nickname: string = '';
   @State bio: string = '';
   @State selectedGender: string = '1'; // '1'=男 '2'=女 '0'=保密
-  @State genderIndex: number = 2;
+  @State @Watch('onGenderIndexesChange') genderIndexes: number[] = [2];
+  // 官方 SegmentButton（tab 样式）：三档性别，选中态由 selectedIndexes 双向同步
+  @State genderOptions: SegmentButtonOptions = SegmentButtonOptions.tab({
+    buttons: [
+      { text: '男' },
+      { text: '女' },
+      { text: '保密' },
+    ] as ItemRestriction<SegmentButtonTextItem>,
+  });
   @State avatar: string = ''; // 当前头像 URL 或 base64 data URI（COS 不可用时降级）
   @State avatarPreview: image.PixelMap | null = null; // 选图后的本地即时预览（不依赖网络/COS）
   @State avatarPending: boolean = false;
@@ -70,7 +72,7 @@ export struct EditProfilePage {
       this.nickname = u.nickname ?? '';
       this.bio = u.bio ?? '';
       this.selectedGender = u.gender ? String(u.gender) : '0';
-      this.genderIndex = this.selectedGender === '1' ? 0 : (this.selectedGender === '2' ? 1 : 2);
+      this.genderIndexes = [this.selectedGender === '1' ? 0 : (this.selectedGender === '2' ? 1 : 2)];
       this.avatar = u.avatar ?? '';
       this.profileBackground = u.profileBackground ?? '';
       this.profileId = u.id ?? 0;
@@ -129,9 +131,9 @@ export struct EditProfilePage {
     });
   }
 
-  private selectGender(index: number): void {
-    this.genderIndex = index;
-    this.selectedGender = index === 0 ? '1' : (index === 1 ? '2' : '0');
+  private onGenderIndexesChange(): void {
+    const idx: number = this.genderIndexes.length > 0 ? this.genderIndexes[0] : 2;
+    this.selectedGender = idx === 0 ? '1' : (idx === 1 ? '2' : '0');
   }
 
   // 从后端拉取最新资料补全 bio/gender（网络失败则保留本地缓存，不阻断编辑）
@@ -145,7 +147,7 @@ export struct EditProfilePage {
       const p: UserProfile = await getUserProfile(id);
       this.bio = p.bio ?? this.bio;
       this.selectedGender = p.gender ? String(p.gender) : '0';
-      this.genderIndex = this.selectedGender === '1' ? 0 : (this.selectedGender === '2' ? 1 : 2);
+      this.genderIndexes = [this.selectedGender === '1' ? 0 : (this.selectedGender === '2' ? 1 : 2)];
       this.profileBackground = p.profileBackground ?? this.profileBackground;
       this.profileId = p.id;
       this.followingCount = p.followingCount;
@@ -399,12 +401,17 @@ export struct EditProfilePage {
               .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
               .fontWeight(TypeTokens.callout.weight).fontColor(ColorTokens.primary)
               .alignSelf(ItemAlign.Start);
-            GlowInput({
-              placeholder: '请输入昵称',
-              text: $nickname,
-              fillWidth: false,
-              radius: RadiusTokens.lg,
-            });
+            // 官方原生 TextInput：实色填充底（subtle）+ lg 胶囊圆角，与页面既有输入观感一致
+            TextInput({ placeholder: '请输入昵称', text: this.nickname })
+              .direction(Direction.Ltr)
+              .fontSize(16).fontFamily(TypeTokens.fontFamily)
+              .lineHeight(23.2)
+              .fontColor(ColorTokens.primary)
+              .width('100%').height(40)
+              .backgroundColor(ColorTokens.subtle)
+              .borderRadius(RadiusTokens.lg)
+              .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: 0, bottom: 0 })
+              .onChange((v: string): void => { this.nickname = v; });
             Text(this.nickname.trim().length + '/20')
               .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
               .fontColor(ColorTokens.tertiary)
@@ -418,14 +425,17 @@ export struct EditProfilePage {
               .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
               .fontWeight(TypeTokens.callout.weight).fontColor(ColorTokens.primary)
               .alignSelf(ItemAlign.Start);
-            // 与昵称输入框同款（GlowInput 普通模式 + lg 圆角）：SDK 26 下 TextArea/TextInput
-            // 默认渲染已有代差，手工对齐不可靠，直接共用同一组件保证观感一致
-            GlowInput({
-              placeholder: '介绍一下自己吧（选填）',
-              text: $bio,
-              fillWidth: false,
-              radius: RadiusTokens.lg,
-            });
+            // 官方原生 TextArea：多行输入，实色填充底（subtle）+ lg 圆角，上下留内边距避免首行贴边
+            TextArea({ placeholder: '介绍一下自己吧（选填）', text: this.bio })
+              .direction(Direction.Ltr)
+              .fontSize(16).fontFamily(TypeTokens.fontFamily)
+              .lineHeight(23.2)
+              .fontColor(ColorTokens.primary)
+              .width('100%').height(96)
+              .backgroundColor(ColorTokens.subtle)
+              .borderRadius(RadiusTokens.lg)
+              .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+              .onChange((v: string): void => { this.bio = v; });
             Text(this.bio.length + '/100')
               .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
               .fontColor(ColorTokens.tertiary)
@@ -439,12 +449,10 @@ export struct EditProfilePage {
               .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
               .fontWeight(TypeTokens.callout.weight).fontColor(ColorTokens.primary)
               .alignSelf(ItemAlign.Start);
-            SegmentedControl({
-              items: GENDER_OPTIONS,
-              selectedIndex: $genderIndex,
-              // 沉浸光感（华为应用商店同款）：玻璃底 + backdropBlur + 高光边框 + 滑块悬浮投影
-              immersive: true,
-              onSelect: (index: number): void => { this.selectGender(index); },
+            SegmentButton({
+              options: this.genderOptions,
+              selectedIndexes: $genderIndexes,
+
             })
           }
           .width('100%');

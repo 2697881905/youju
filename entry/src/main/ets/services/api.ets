@@ -29,6 +29,10 @@ export function resolveDisplayImageUrl(url: string): string {
     // 且 COS 属同一桶，生产代理同样可读；本地联调数据/文字走本地后端，图片统一 HTTPS 直出。
     return 'https://api.youju.chat/v1/media/' + key;
   }
+  // 后端媒体白名单归一化后的本地调试媒体引用（/uploads/ 相对路径，无主机）→ 回 BASE_URL
+  if (url.startsWith('/uploads/')) {
+    return BASE_URL + url;
+  }
   // 历史数据可能落库了已失效的宿主 LAN IP（如 192.168.1.100），一律按当前 BASE_URL 重写；
   // 该改写优先于 release 判断（release 下 BASE_URL=生产；debug 下=本地联调后端）
   const match: RegExpMatchArray | null = url.match(/^https?:\/\/[^/]+(\/uploads\/.*)$/);
@@ -127,13 +131,18 @@ function isAuthEndpoint(path: string): boolean {
   return path.startsWith('/v1/auth/');
 }
 
-async function request<T>(method: string, path: string, body?: Object): Promise<T> {
+async function request<T>(method: string, path: string, body?: Object, extraHeaders?: Record<string, string>): Promise<T> {
   const url = BASE_URL + path;
   const req = http.createHttp();
   const token: string = (AppStorage.get<string>('authToken') ?? '') as string;
   const header: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) {
     header['Authorization'] = 'Bearer ' + token;
+  }
+  if (extraHeaders) {
+    for (const key of Object.keys(extraHeaders)) {
+      header[key] = extraHeaders[key];
+    }
   }
   try {
     const resp = await req.request(url, {
@@ -189,7 +198,7 @@ interface ApiClient {
   get: <T>(path: string) => Promise<T>;
   post: <T>(path: string, body?: Object) => Promise<T>;
   put: <T>(path: string, body?: Object) => Promise<T>;
-  del: <T>(path: string) => Promise<T>;
+  del: <T>(path: string, headers?: Record<string, string>) => Promise<T>;
   patch: <T>(path: string, body?: Object) => Promise<T>;
 }
 
@@ -197,7 +206,8 @@ export const api: ApiClient = {
   get: <T>(path: string): Promise<T> => request<T>(http.RequestMethod.GET, path),
   post: <T>(path: string, body?: Object): Promise<T> => request<T>(http.RequestMethod.POST, path, body),
   put: <T>(path: string, body?: Object): Promise<T> => request<T>(http.RequestMethod.PUT, path, body),
-  del: <T>(path: string): Promise<T> => request<T>(http.RequestMethod.DELETE, path),
+  del: <T>(path: string, headers?: Record<string, string>): Promise<T> =>
+    request<T>(http.RequestMethod.DELETE, path, undefined, headers),
   patch: <T>(path: string, body?: Object): Promise<T> => request<T>('PATCH', path, body),
 };
 
@@ -468,8 +478,10 @@ export async function registerPushToken(token: string): Promise<void> {
 }
 
 // DELETE /v1/push/token：登出/注销前解绑，避免继续给本机下发他人动态通知。
+// token 走 X-Push-Token 头而非 query：设备 token 属于可下发推送的凭据，query 会落入
+// 服务器/代理访问日志（后端兼容读取 query，客户端升级完成后移除）。
 export async function unregisterPushToken(token: string): Promise<void> {
-  await api.del<null>('/v1/push/token?token=' + encodeURIComponent(token));
+  await api.del<null>('/v1/push/token', { 'X-Push-Token': token });
 }
 
 // ===== 互动 =====
@@ -545,6 +557,9 @@ export function listFolderPosts(id: number, page: number, limit: number): Promis
 // POST /v1/metrics/post-event
 // scene 用于区分来源场景（daily=每日一贴 / feed=推荐关注流），
 // 否则各信息流的曝光与点击会混在一起，无法归因到具体场景。
+// ⚠️ 口径（2026-10-05）：埋点仅登录用户写入——服务端已收紧为强制鉴权（匿名写入的唯一
+// 效果是无需账号即可刷量污染作者数据面板），客户端未登录时静默不发（避免 401 噪音）。
+// 口径变化：作者面板的曝光/点击从「含游客」变为「仅登录用户」；游客浏览仍计入 viewCount。
 export type TrackScene = 'daily' | 'feed' | 'hot' | 'search' | 'circle' | 'profile';
 
 interface PostEventBody {
@@ -559,6 +574,9 @@ interface PageEventBody {
 }
 
 export function trackPostEvent(postId: number, action: 'expose' | 'click', scene?: TrackScene): void {
+  if (((AppStorage.get<string>('authToken') ?? '') as string) === '') {
+    return; // 未登录：埋点不写入（服务端同口径），静默跳过
+  }
   const body: PostEventBody = { postId: postId, action: action };
   if (scene !== undefined && scene.length > 0) {
     body.scene = scene;
@@ -568,6 +586,9 @@ export function trackPostEvent(postId: number, action: 'expose' | 'click', scene
 
 // 页面级事件：进入「每日一贴」。无帖子维度，故不携带 postId。
 export function trackDailyOpen(): void {
+  if (((AppStorage.get<string>('authToken') ?? '') as string) === '') {
+    return; // 未登录：同 trackPostEvent 口径
+  }
   const body: PageEventBody = { action: 'daily_open', scene: 'daily' };
   api.post<null>('/v1/metrics/post-event', body).catch(() => {});
 }

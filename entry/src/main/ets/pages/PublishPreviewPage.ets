@@ -299,17 +299,24 @@ struct PublishPreviewPage {
     }
   }
 
+  // 存草稿：把当前预览内容持久化为草稿，并把草稿 id 同步给编辑页（下次保存覆盖同一份），
+  // 然后按需求自动跳转回发布编辑界面继续修改。
   private saveCurrentDraft(): void {
     if (this.draft === null) {
       return;
     }
-    const draft: PublishDraft = this.currentDraft();
-    const savedDraftId: string = publishFlowStore.getSession().activeDraftId;
-    const saved: SavedPostDraft = savePostDraft(getUserId(), draft, savedDraftId);
-    publishFlowStore.setActiveDraftId(saved.id);
-    safeShowToast(this.getUIContext(), { message: '草稿已保存' });
-    // 存草稿后回到编辑页，而不是停留在预览页，方便继续修改。
-    this.getUIContext().getRouter().back();
+    try {
+      const activeDraftId: string = publishFlowStore.getSession().activeDraftId;
+      const saved: SavedPostDraft = savePostDraft(getUserId(), this.currentDraft(), activeDraftId);
+      // intent='sync'：编辑页据此持有最新草稿 id，避免「存草稿 → 返回 → 再存」产出重复草稿。
+      publishFlowStore.setActiveDraftId(saved.id);
+      safeShowToast(this.getUIContext(), { message: '草稿已保存' });
+      // 需求：执行存草稿后，由预览页自动跳转回发布编辑界面（预览页由编辑页 pushUrl 打开，back 即返回）。
+      this.getUIContext().getRouter().back();
+    } catch (e) {
+      const message: string = e instanceof Error && e.message.length > 0 ? e.message : '未知错误';
+      safeShowToast(this.getUIContext(), { message: '草稿保存失败：' + message });
+    }
   }
 
   private posterStyleIndex(styleKey?: string): number {

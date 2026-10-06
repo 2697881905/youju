@@ -13,6 +13,8 @@ export struct DetailCommentsSection {
   @Prop highlightCommentId: number = 0;
   onReportComment: (commentId: number) => void = (_commentId: number): void => {};
   onReplyComment: (comment: Comment) => void = (_comment: Comment): void => {};
+  // 删除成功回调（CommentList → 详情页，同步 post.comments / commentCount）
+  onDeletedComment: (comment: Comment) => void = (_comment: Comment): void => {};
 
   build() {
     Column({ space: SpaceTokens.item }) {
@@ -26,6 +28,7 @@ export struct DetailCommentsSection {
         highlightCommentId: this.highlightCommentId,
         reportCommentHandler: (commentId: number): void => { this.onReportComment(commentId); },
         onReplyComment: (cmt: Comment): void => { this.onReplyComment(cmt); },
+        onDeleted: (cmt: Comment): void => { this.onDeletedComment(cmt); },
       })
     }
     .width('100%')

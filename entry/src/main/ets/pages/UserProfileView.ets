@@ -15,11 +15,12 @@ import { buildPageTransition } from '../utils/styles';
 import { ColorTokens } from '../design/tokens/color';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { RadiusTokens } from '../design/tokens/radius';
+import { ShadowTokens } from '../design/tokens/shadow';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { TypeTokens } from '../design/tokens/type';
 import { BackButton } from '../design/components/BackButton';
 import { PostCollectionState } from '../components/PostCollectionState';
-import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
+import { isImmersiveLightSenseSupported, isSystemMaterialActive, GlassBlurStyle, TopButtonMaterialModifier } from '../utils/immersiveMaterial';
 
 // 关注态局部补丁（乐观更新时只传要改的字段）
 interface ProfileFollowPatch {
@@ -64,6 +65,10 @@ export struct UserProfileView {
     width: 344,
   });
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
+  // 标题栏（导航行 + 资料区）驻留 Navigation 标题栏后：资料区高度实测回写（内容驱动，
+  // 首帧用与 Builder 同源的估算兜底，见教程模板 E）；关注/私信按钮由系统材质接管表面。
+  @State titleBarProfileHeight: number = 0;
+  private followActionMaterial: TopButtonMaterialModifier = new TopButtonMaterialModifier();
   private profileEntranceTimer: number = 0;
   private followPulseTimer: number = 0;
   // 订阅帖子删除事件：该作者帖子被删除后，本页网格即时移除（不依赖刷新/重进）
@@ -167,11 +172,16 @@ export struct UserProfileView {
     await this.fetch(false);
   }
 
+  // 请求序号：每次发起自增；响应回来时若序号已落后则整体丢弃（最后一次发起的请求生效）。
+  // 与 HomeTab.fetch 同一竞态（提审审计 P1-3）：加载更多在途时下拉刷新，旧实现
+  // refresh 先重置 page=1 再被 if (this.loading) return 静默丢弃 → 旧页回包 concat、结果重复。
+  private fetchSeq: number = 0;
+
   private async fetch(reset: boolean): Promise<void> {
-    if (this.loading) {
-      return;
-    }
+    const seq: number = ++this.fetchSeq;
     if (this.targetId === 0) {
+      // 序号已自增：作废在途请求；不发无效请求
+      this.loading = false;
       return;
     }
     this.loading = true;
@@ -179,6 +189,9 @@ export struct UserProfileView {
     try {
       const res = await listPosts({ page: this.page, limit: 20, sort: 'latest', author: this.targetId });
       const list: Post[] = res.list;
+      if (seq !== this.fetchSeq) {
+        return; // 过期响应：期间已有更新的请求发起，整体丢弃
+      }
       if (reset) {
         this.posts = list;
       } else {
@@ -188,9 +201,19 @@ export struct UserProfileView {
         this.finished = true;
       }
     } catch (e) {
+      if (seq !== this.fetchSeq) {
+        return; // 过期请求的失败不覆盖新请求的状态
+      }
+      // 分页回滚：loadMore 先 +1 再请求，失败不回滚会让失败那一页被静默跳过
+      if (!reset && this.page > 1) {
+        this.page -= 1;
+      }
       this.error = (e as Error).message;
     } finally {
-      this.loading = false;
+      // 只有仍是「当前请求」才有资格退出加载态
+      if (seq === this.fetchSeq) {
+        this.loading = false;
+      }
     }
   }
 
@@ -284,7 +307,13 @@ export struct UserProfileView {
       openPostDetail(pid);
       const stack = getMainNavStack();
       if (this.navMode && stack !== null) {
-        stack.pushPathByName('PostDetail', new PostDetailNavParams());
+        // ⚠️ postId 必须显式赋值：PostDetailNavParams.postId 默认 0（非 undefined），
+        // 目的地 onReady 的 typeof 守卫对 0 放行，openPostDetail(String(0)) 会把意图通道里
+        // 已设好的正确 id 覆盖成 "0" → getPost(0) → 「帖子不存在」。此通道是唯一出处，
+        // 意图通道的值会被目的地重写，单靠 openPostDetail(pid) 带不上参数。
+        const p: PostDetailNavParams = new PostDetailNavParams();
+        p.postId = post.id;
+        stack.pushPathByName('PostDetail', p);
       } else {
         this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
       }
@@ -315,6 +344,90 @@ export struct UserProfileView {
   // 是否本人的主页（本人不显示关注/私信按钮）
   private isSelf(): boolean {
     return this.targetId === getUserId();
+  }
+
+  // 资料区首帧估算（与 profileInformation 行结构同源；onAreaChange 实测后不再使用）：
+  // ProfileIdentity 固定高 146 + 统计行(36 + 底部 sm) + 关注/私信按钮行(36 + 底部 xs，
+  // 注销用户/本人主页不显示)。背景图变体走 16:10 卡片，实测值下一帧即纠正。
+  private profileBlockEstimate(): number {
+    const stats: number = LayoutTokens.segmentedHeight + SpaceTokens.sm;
+    const actions: number = (!this.profile.deleted && !this.isSelf())
+      ? LayoutTokens.segmentedHeight + SpaceTokens.xs : 0;
+    return 146 + stats + actions;
+  }
+
+  // 标题栏总高：状态栏 + 导航行(top 12 + 44 + bottom 8) + 资料区（非就绪态仅导航行）
+  private userProfileTitleBarHeight(): number {
+    const profile: number = this.ready
+      ? (this.titleBarProfileHeight > 0 ? this.titleBarProfileHeight : this.profileBlockEstimate())
+      : 0;
+    return this.statusBarHeight + SpaceTokens.md + LayoutTokens.minTouchTarget + SpaceTokens.sm + profile;
+  }
+
+  // 标题栏：导航行（返回 + 昵称 + ⋯ 菜单）+ 资料区（身份/统计/关注私信按钮，含背景图
+  // 变体与入场动效）整体驻留——用户指定边界为「关注/私信按钮及其以上区域」。
+  // 全屏布局下状态栏避让由本 Builder 的外层节点手动承担（同一节点写两次 .padding 是
+  // 整体覆盖，行内边距必须留在内层行上）；bindMenu 系统菜单全页面生效，可直接驻留。
+  @Builder
+  userProfileTitleBar(): void {
+    Column() {
+      Row() {
+        BackButton({ action: (): void => { this.backAction(); } })
+        Text(this.profile.deleted ? '已注销用户' : (this.profile.nickname !== '' ? this.profile.nickname : '用户主页'))
+          .fontSize(17).fontFamily($r('app.string.font_family')).fontWeight(600).layoutWeight(1).textAlign(TextAlign.Center);
+        if (!this.profile.deleted && !this.isSelf()) {
+          Text('⋯')
+            .width(44).height(44).textAlign(TextAlign.Center).fontSize(22)
+            .fontColor($r('app.color.text_primary'))
+            .bindMenu([
+              { value: this.profile.isBlocked === true ? '取消拉黑' : '拉黑该作者', action: (): void => { this.onBlockClick(); } },
+              { value: this.profile.isDisliked === true ? '取消不喜欢' : '不喜欢该作者', action: (): void => { this.onDislikeClick(); } },
+              { value: '举报该用户', action: (): void => { this.onReportClick(); } },
+            ])
+        } else {
+          Text('').width(44)
+        }
+      }
+      .width('100%').padding({ left: 16, right: 16, top: 12, bottom: 8 });
+
+      // 资料区整体驻留；高度实测回写供 .title({ height }) 使用（阈值防抖，模板 E）
+      if (this.ready) {
+        Column() {
+          if (this.profile.profileBackground && !this.profile.deleted) {
+            Stack() {
+              Image(resolveDisplayImageUrl(this.profile.profileBackground))
+                .width('100%')
+                .height('100%')
+                .objectFit(ImageFit.Cover);
+              Column() {
+                this.profileInformation(true);
+              }
+              .width('100%')
+              .height('100%')
+              .justifyContent(FlexAlign.End)
+              .backgroundColor('#52000000');
+            }
+            .width('100%')
+            .aspectRatio(16 / 10)
+            .borderRadius(10)
+            .clip(true)
+            .margin({ left: 8, right: 8, bottom: 8 });
+          } else {
+            this.profileInformation(false);
+          }
+        }
+        .width('100%')
+        .onAreaChange((_old: Area, area: Area): void => {
+          const h: number = parseFloat(String(area.height));
+          if (h > 0 && Math.abs(h - this.titleBarProfileHeight) > 0.5) {
+            this.titleBarProfileHeight = h;
+          }
+        })
+      }
+    }
+    .width('100%')
+    // 手动避让状态栏（含在栏高内；避让只此一处——内容区根节点不再重复加）
+    .padding({ top: this.statusBarHeight })
   }
 
   // 发起私信：使用短暂导航意图传递对端信息，跳转聊天页。
@@ -495,11 +608,15 @@ export struct UserProfileView {
               .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
               .fontWeight(TypeTokens.headline.weight)
               .fontColor(this.profile.isFollowing ? ColorTokens.secondary : ColorTokens.primary)
-              .backgroundBlurStyle(GlassBlurStyle.Press)
+              // 沉浸光感（驻留标题栏后）：材质生效时自绘让位——blur 置 NONE（背景模糊遮挡
+              // 材质，官方 FAQ）、描边/阴影归零（否则实心毛玻璃/双圈描边/脏阴影），系统材质
+              // 接管表面；低版本门禁不通过 → 保留原 HDS 玻璃兜底（blur + barSurface + 描边）
+              .backgroundBlurStyle(isSystemMaterialActive() ? BlurStyle.NONE : GlassBlurStyle.Press)
               .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
-              .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+              .border({ width: isSystemMaterialActive() ? 0 : LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
               .borderRadius(RadiusTokens.floatingBar)
-              .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
+              .shadow(isSystemMaterialActive() ? ShadowTokens.none : { radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
+              .attributeModifier(this.followActionMaterial)
               .scale({ x: this.followPulse ? MotionTokens.successScale : 1, y: this.followPulse ? MotionTokens.successScale : 1 })
               .animation({ duration: MotionTokens.emphasis, curve: MotionCurves.springSoft });
           }
@@ -519,11 +636,13 @@ export struct UserProfileView {
               .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
               .fontWeight(TypeTokens.headline.weight)
               .fontColor(ColorTokens.primary)
-              .backgroundBlurStyle(GlassBlurStyle.Press)
+              // 与关注按钮同一套材质让位规则（见上方注释）
+              .backgroundBlurStyle(isSystemMaterialActive() ? BlurStyle.NONE : GlassBlurStyle.Press)
               .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
-              .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+              .border({ width: isSystemMaterialActive() ? 0 : LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
               .borderRadius(RadiusTokens.floatingBar)
-              .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 });
+              .shadow(isSystemMaterialActive() ? ShadowTokens.none : { radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
+              .attributeModifier(this.followActionMaterial);
           }
           }
           .layoutWeight(1)
@@ -555,186 +674,159 @@ export struct UserProfileView {
   }
 
   build() {
-    Column() {
-      // 顶栏
-      Row() {
-        BackButton({ action: (): void => { this.backAction(); } })
-        Text(this.profile.deleted ? '已注销用户' : (this.profile.nickname !== '' ? this.profile.nickname : '用户主页'))
-          .fontSize(17).fontFamily($r('app.string.font_family')).fontWeight(600).layoutWeight(1).textAlign(TextAlign.Center);
-        if (!this.profile.deleted && !this.isSelf()) {
-          Text('⋯')
-            .width(44).height(44).textAlign(TextAlign.Center).fontSize(22)
-            .fontColor($r('app.color.text_primary'))
-            .bindMenu([
-              { value: this.profile.isBlocked === true ? '取消拉黑' : '拉黑该作者', action: (): void => { this.onBlockClick(); } },
-              { value: this.profile.isDisliked === true ? '取消不喜欢' : '不喜欢该作者', action: (): void => { this.onDislikeClick(); } },
-              { value: '举报该用户', action: (): void => { this.onReportClick(); } },
-            ])
-        } else {
-          Text('').width(44)
-        }
+    Navigation() {
+      Column() {
+        this.userProfileContent()
       }
-      .width('100%').padding({ left: 16, right: 16, top: 12, bottom: 8 });
+      .width('100%')
+      .height('100%')
+      .backgroundColor($r('app.color.bg_primary'))
+    }
+    .title({
+      builder: this.userProfileTitleBar,
+      height: this.userProfileTitleBarHeight(),
+    }, { barStyle: BarStyle.STANDARD, backgroundColor: ColorTokens.canvas })
+    .width('100%')
+    .height('100%')
+    .transition(buildPageTransition())
+  }
 
-      if (!this.ready) {
-        if (getToken() === '' || getUserId() <= 0) {
-          // 未登录：展示手动登录入口（不自动跳转，避免登录页返回死循环）；
-          // 登录成功后 onTokenReady 监听到 token 变化会自动触发 loadAll。
-          Column({ space: SpaceTokens.sm }) {
-            Text('登录后可查看用户主页、关注与私信')
-              .fontSize(TypeTokens.body.size)
-              .fontFamily(TypeTokens.fontFamily)
-              .fontColor($r('app.color.text_secondary'))
+  // 内容区（标题栏之下）：未就绪三分支 + 帖子网格（原 build 内容整体平移，仅换壳；
+  // 导航行与资料区已迁入标题栏，状态栏避让随之移交，内容区不再持有 statusBar padding）
+  @Builder
+  userProfileContent(): void {
+    if (!this.ready) {
+      if (getToken() === '' || getUserId() <= 0) {
+        // 未登录：展示手动登录入口（不自动跳转，避免登录页返回死循环）；
+        // 登录成功后 onTokenReady 监听到 token 变化会自动触发 loadAll。
+        Column({ space: SpaceTokens.sm }) {
+          Text('登录后可查看用户主页、关注与私信')
+            .fontSize(TypeTokens.body.size)
+            .fontFamily(TypeTokens.fontFamily)
+            .fontColor($r('app.color.text_secondary'))
+            .textAlign(TextAlign.Center)
+            .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+          Pressable({
+            fillWidth: false,
+            visualHeight: LayoutTokens.segmentedHeight,
+            touchTargetHeight: LayoutTokens.minTouchTarget,
+            action: (): void => {
+              const stack = getMainNavStack();
+              if (this.navMode && stack !== null) {
+                stack.pushPathByName('Login', new EmptyNavParams());
+              } else {
+                this.getUIContext().getRouter().pushUrl({ url: 'pages/LoginPage' });
+              }
+            },
+          }) {
+            Text('去登录')
+              .width(120)
+              .height(LayoutTokens.segmentedHeight)
               .textAlign(TextAlign.Center)
-              .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
-            Pressable({
-              fillWidth: false,
-              visualHeight: LayoutTokens.segmentedHeight,
-              touchTargetHeight: LayoutTokens.minTouchTarget,
-              action: (): void => {
-                const stack = getMainNavStack();
-                if (this.navMode && stack !== null) {
-                  stack.pushPathByName('Login', new EmptyNavParams());
-                } else {
-                  this.getUIContext().getRouter().pushUrl({ url: 'pages/LoginPage' });
-                }
-              },
-            }) {
-              Text('去登录')
-                .width(120)
-                .height(LayoutTokens.segmentedHeight)
-                .textAlign(TextAlign.Center)
-                .fontSize(TypeTokens.callout.size)
-                .fontFamily(TypeTokens.fontFamily)
-                .fontWeight(TypeTokens.headline.weight)
-                .fontColor(ColorTokens.primary)
-                .backgroundBlurStyle(GlassBlurStyle.Press)
-                .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
-                .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-                .borderRadius(RadiusTokens.floatingBar);
-            }
-          }
-          .layoutWeight(1)
-          .width('100%')
-          .justifyContent(FlexAlign.Center);
-        } else if (this.targetId <= 0) {
-          // 已是登录态但目标用户 id 缺失（takeUserProfileId() 未设置）：
-          // 此前会落进下面的 Loading 分支永久转圈，这里显式给出出口。
-          Column({ space: SpaceTokens.sm }) {
-            Text('页面参数缺失，请返回重新进入')
-              .fontSize(TypeTokens.body.size)
+              .fontSize(TypeTokens.callout.size)
               .fontFamily(TypeTokens.fontFamily)
-              .fontColor($r('app.color.text_secondary'))
-              .textAlign(TextAlign.Center)
-              .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
-            Pressable({
-              fillWidth: false,
-              visualHeight: LayoutTokens.segmentedHeight,
-              touchTargetHeight: LayoutTokens.minTouchTarget,
-              action: (): void => { this.backAction(); },
-            }) {
-              Text('返回')
-                .width(120)
-                .height(LayoutTokens.segmentedHeight)
-                .textAlign(TextAlign.Center)
-                .fontSize(TypeTokens.callout.size)
-                .fontFamily(TypeTokens.fontFamily)
-                .fontWeight(TypeTokens.headline.weight)
-                .fontColor(ColorTokens.primary)
-                .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-                .borderRadius(RadiusTokens.lg);
-            }
+              .fontWeight(TypeTokens.headline.weight)
+              .fontColor(ColorTokens.primary)
+              .backgroundBlurStyle(GlassBlurStyle.Press)
+              .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
+              .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+              .borderRadius(RadiusTokens.floatingBar);
           }
-          .layoutWeight(1)
-          .width('100%')
-          .justifyContent(FlexAlign.Center);
-        } else {
-          Column() {
-            LoadingProgress().width(28).height(28);
-            Text('加载中…').fontSize(13).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary')).margin({ top: 10 });
-          }
-          .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
         }
+        .layoutWeight(1)
+        .width('100%')
+        .justifyContent(FlexAlign.Center);
+      } else if (this.targetId <= 0) {
+        // 已是登录态但目标用户 id 缺失（takeUserProfileId() 未设置）：
+        // 此前会落进下面的 Loading 分支永久转圈，这里显式给出出口。
+        Column({ space: SpaceTokens.sm }) {
+          Text('页面参数缺失，请返回重新进入')
+            .fontSize(TypeTokens.body.size)
+            .fontFamily(TypeTokens.fontFamily)
+            .fontColor($r('app.color.text_secondary'))
+            .textAlign(TextAlign.Center)
+            .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+          Pressable({
+            fillWidth: false,
+            visualHeight: LayoutTokens.segmentedHeight,
+            touchTargetHeight: LayoutTokens.minTouchTarget,
+            action: (): void => { this.backAction(); },
+          }) {
+            Text('返回')
+              .width(120)
+              .height(LayoutTokens.segmentedHeight)
+              .textAlign(TextAlign.Center)
+              .fontSize(TypeTokens.callout.size)
+              .fontFamily(TypeTokens.fontFamily)
+              .fontWeight(TypeTokens.headline.weight)
+              .fontColor(ColorTokens.primary)
+              .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+              .borderRadius(RadiusTokens.lg);
+          }
+        }
+        .layoutWeight(1)
+        .width('100%')
+        .justifyContent(FlexAlign.Center);
       } else {
-        // 背景图作为资料区底图；头像、资料、统计和操作在同一张资料卡上叠加显示。
-        if (this.profile.profileBackground && !this.profile.deleted) {
-          Stack() {
-            Image(resolveDisplayImageUrl(this.profile.profileBackground))
-              .width('100%')
-              .height('100%')
-              .objectFit(ImageFit.Cover);
-            Column() {
-              this.profileInformation(true);
-            }
-            .width('100%')
-            .height('100%')
-            .justifyContent(FlexAlign.End)
-            .backgroundColor('#52000000');
-          }
-          .width('100%')
-          .aspectRatio(16 / 10)
-          .borderRadius(10)
-          .clip(true)
-          .margin({ left: 8, right: 8, bottom: 8 });
-        } else {
-          this.profileInformation(false);
+        Column() {
+          LoadingProgress().width(28).height(28);
+          Text('加载中…').fontSize(13).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary')).margin({ top: 10 });
         }
-
-        // 帖子网格
-        if (this.posts.length === 0 && this.loading) {
-          PostCollectionState({ loading: true })
-            .layoutWeight(1);
-        } else if (this.posts.length === 0) {
-          PostCollectionState({
-            error: this.error,
-            emptyTitle: 'TA 还没有发布过帖子',
-            onRetry: (): void => { this.refresh(); },
-          })
-            .layoutWeight(1);
-        } else {
-          Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
-            Grid() {
-              ForEach(this.posts, (post: Post) => {
-                GridItem() {
-                  PostCard({
-                    post: post,
-                    // 两列网格小卡用紧凑档（xs 圆角/小字号），与「我的」主页一致；
-                    // 默认大圆角(lg)在半宽卡片上与图片比例失调
-                    compact: true,
-                    onOpen: () => {
-                      this.goDetail(post);
-                    },
-                  });
-                }
-              }, (post: Post) => post.id !== undefined ? post.id.toString() : '');
-              if (this.finished) {
-                GridItem() {
-                  Text('没有更多了')
-                    .fontSize(12).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary'))
-                    .width('100%').textAlign(TextAlign.Center).padding(16);
-                }
-                .columnStart(0).columnEnd(1);
+        .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
+      }
+    } else {
+      // 帖子网格（资料区已随导航行迁入标题栏，见 userProfileTitleBar）
+      if (this.posts.length === 0 && this.loading) {
+        PostCollectionState({ loading: true })
+          .layoutWeight(1);
+      } else if (this.posts.length === 0) {
+        PostCollectionState({
+          error: this.error,
+          emptyTitle: 'TA 还没有发布过帖子',
+          onRetry: (): void => { this.refresh(); },
+        })
+          .layoutWeight(1);
+      } else {
+        Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
+          Grid() {
+            ForEach(this.posts, (post: Post) => {
+              GridItem() {
+                PostCard({
+                  post: post,
+                  // 两列网格小卡用紧凑档（xs 圆角/小字号），与「我的」主页一致；
+                  // 默认大圆角(lg)在半宽卡片上与图片比例失调
+                  compact: true,
+                  onOpen: () => {
+                    this.goDetail(post);
+                  },
+                });
               }
+            }, (post: Post) => post.id !== undefined ? post.id.toString() : '');
+            if (this.finished) {
+              GridItem() {
+                Text('没有更多了')
+                  .fontSize(12).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary'))
+                  .width('100%').textAlign(TextAlign.Center).padding(16);
+              }
+              .columnStart(0).columnEnd(1);
             }
-            .columnsTemplate('1fr 1fr')
-            .columnsGap(12).rowsGap(12).padding(12)
-            .onScrollIndex((_start: number, end: number) => {
-              if (end >= this.posts.length - 1) {
-                this.loadMore();
-              }
-            });
           }
-          .onRefreshing(() => {
-            this.isRefreshing = true;
-            this.refresh().finally(() => {
-              this.isRefreshing = false;
-            });
-          })
-          .layoutWeight(1).width('100%');
+          .columnsTemplate('1fr 1fr')
+          .columnsGap(12).rowsGap(12).padding(12)
+          .onScrollIndex((_start: number, end: number) => {
+            if (end >= this.posts.length - 1) {
+              this.loadMore();
+            }
+          });
         }
+        .onRefreshing(() => {
+          this.isRefreshing = true;
+          this.refresh().finally(() => {
+            this.isRefreshing = false;
+          });
+        })
+        .layoutWeight(1).width('100%');
       }
     }
-    .width('100%').padding({ top: this.statusBarHeight }).height('100%').backgroundColor($r('app.color.bg_primary'))
-    .transition(buildPageTransition())
   }
 }

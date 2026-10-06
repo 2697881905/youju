@@ -9,6 +9,7 @@ import { createNotification } from './notificationService';
 import { buildCommentTree } from './commentService';
 import { bumpHotScore } from './hotScoreService';
 import { MentionRef, resolveMentionRefs } from './mentionService';
+import { normalizeMediaRefInput } from '../utils/mediaRef';
 import { env } from '../config/env';
 import { enqueueMediaDeletion } from './mediaDeletionService';
 import {
@@ -498,10 +499,14 @@ export async function getPost(id: number, viewerId?: number) {
     include: { user: { select: USER_PUBLIC_SELECT } },
   });
   const comments = buildCommentTree(rawComments.map((c) => ({ ...c, user: publicUserView(c.user) })));
+  // 评论数以「可见评论(status=1)的实际条数」为准：举报下架/历史删除可能让
+  // Post.commentCount 字段虚高（评论区已空却仍显示旧计数），详情页每次以实际纠正。
+  const visibleCommentCount = await prisma.comment.count({ where: { postId: id, status: 1 } });
   if (!viewerId) {
     return {
       ...post,
       user: publicUserView(post.user),
+      commentCount: visibleCommentCount,
       comments,
     };
   }
@@ -513,6 +518,7 @@ export async function getPost(id: number, viewerId?: number) {
   return {
     ...post,
     user: publicUserView(post.user),
+    commentCount: visibleCommentCount,
     comments,
     myUp: !!up,
     myBookmark: !!bm,
@@ -594,6 +600,32 @@ export async function createPost(data: any, userId: number) {
   if (sensitiveWordService.checkText(fullText)) {
     throw new SensitiveWordError();
   }
+  // 媒体引用白名单：帖图/封面/视频只接受本系统上传体系产出的引用（cos:// 或 /uploads/）。
+  // 任意外链会在浏览者客户端被自动 GET（跟踪打点/强制请求），拒绝入库（utils/mediaRef.ts）。
+  if (Array.isArray(data.images)) {
+    const images: string[] = [];
+    for (const img of data.images) {
+      const r = normalizeMediaRefInput(img);
+      if (!r.ok) throw new ValidationError('图片引用无效');
+      images.push(r.ref);
+    }
+    data.images = images;
+  }
+  if (data.coverImage !== undefined && data.coverImage !== null) {
+    const r = normalizeMediaRefInput(data.coverImage);
+    if (!r.ok) throw new ValidationError('封面引用无效');
+    data.coverImage = r.ref;
+  }
+  if (data.videoUrl !== undefined && data.videoUrl !== null) {
+    const r = normalizeMediaRefInput(data.videoUrl);
+    if (!r.ok) throw new ValidationError('视频地址无效');
+    data.videoUrl = r.ref;
+  }
+  if (data.videoCover !== undefined && data.videoCover !== null) {
+    const r = normalizeMediaRefInput(data.videoCover);
+    if (!r.ok) throw new ValidationError('视频封面引用无效');
+    data.videoCover = r.ref;
+  }
   const mergedTags = await mergeTopicTags(data.tags ?? [], data.content ?? '');
   const mentionRefs = await resolveMentionRefs(data.content ?? '', data.mentions);
   return prisma.post.create({
@@ -617,6 +649,16 @@ export async function createPost(data: any, userId: number) {
   }).then(async (post) => {
     // @提及 与 话题标记告一段落：提及通知失败不影响发布主流程
     notifyMentions(mentionRefs, post.id, userId, post.title).catch(() => {});
+    // 标签使用计数：仅对 Tag 表实际存在的话题 +1（updateMany 对不存在的名字是空操作，
+    // 不制造垃圾行）。listTags / dailyInterestTags 按 useCount 排序，此前该列从未被写入，
+    // 排序信号恒为种子序，新热门话题浮不出来。
+    const tags = post.tags as unknown;
+    if (Array.isArray(tags)) {
+      const names = tags.filter((t): t is string => typeof t === 'string');
+      if (names.length > 0) {
+        await prisma.tag.updateMany({ where: { name: { in: names } }, data: { useCount: { increment: 1 } } }).catch(() => {});
+      }
+    }
     return post;
   });
 }
@@ -739,6 +781,32 @@ export async function updatePost(id: number, userId: number, input: UpdatePostIn
     (typeof input.videoAspectRatio !== 'number' || !Number.isFinite(input.videoAspectRatio) || input.videoAspectRatio < 0.45 || input.videoAspectRatio > 2.2)) {
     throw new ValidationError('视频比例格式无效');
   }
+  // 媒体引用白名单（与 createPost 同款）：外链会在浏览者客户端被自动 GET，拒绝入库；
+  // 本地模式带主机的绝对 /uploads/ URL 归一化为相对路径
+  if (Array.isArray(input.images)) {
+    const images: string[] = [];
+    for (const img of input.images) {
+      const r = normalizeMediaRefInput(img);
+      if (!r.ok) throw new ValidationError('图片引用无效');
+      images.push(r.ref);
+    }
+    input.images = images;
+  }
+  if (input.coverImage !== undefined && input.coverImage !== null) {
+    const r = normalizeMediaRefInput(input.coverImage);
+    if (!r.ok) throw new ValidationError('封面引用无效');
+    input.coverImage = r.ref;
+  }
+  if (input.videoUrl !== undefined && input.videoUrl !== null) {
+    const r = normalizeMediaRefInput(input.videoUrl);
+    if (!r.ok) throw new ValidationError('视频地址无效');
+    input.videoUrl = r.ref;
+  }
+  if (input.videoCover !== undefined && input.videoCover !== null) {
+    const r = normalizeMediaRefInput(input.videoCover);
+    if (!r.ok) throw new ValidationError('视频封面引用无效');
+    input.videoCover = r.ref;
+  }
   if (sensitiveWordService.checkText(nextTitle + ' ' + (nextContent ?? ''))) {
     throw new SensitiveWordError();
   }
@@ -776,9 +844,33 @@ export async function updatePost(id: number, userId: number, input: UpdatePostIn
   }
 
   const updated = await prisma.post.update({ where: { id }, data });
-  // @提及通知（正文变化时）：按入库映射推送，失败不阻断编辑
+  // @提及通知（正文变化时）：只对**新增**的提及发通知——旧提及在发布/上次编辑时已收到，
+  // 每次编辑全量重发等于通知轰炸（反复编辑可持续骚扰同批人）。
+  // post.mentions 为 Json 列，入库形状 [{name, userId}]（resolveMentionRefs 写入）。
   if (input.content !== undefined) {
-    notifyMentions(mentionRefs, id, userId, updated.title).catch(() => {});
+    const oldMentionIds = new Set<number>(
+      Array.isArray(post.mentions)
+        ? (post.mentions as Array<{ userId?: number }>).map((m) => Number(m.userId))
+        : []
+    );
+    const freshMentions = mentionRefs.filter((m) => !oldMentionIds.has(m.userId));
+    notifyMentions(freshMentions, id, userId, updated.title).catch(() => {});
+  }
+  // 标签使用计数：编辑换标签时旧减新增（仅 Tag 表存在的话题；减侧带 useCount>0 防负数）
+  if (data.tags !== undefined) {
+    const oldTags: string[] = Array.isArray(post.tags) ? (post.tags as string[]) : [];
+    const newTags: string[] = Array.isArray(data.tags) ? (data.tags as string[]) : [];
+    const removed = oldTags.filter((t) => !newTags.includes(t));
+    const added = newTags.filter((t) => !oldTags.includes(t));
+    if (removed.length > 0) {
+      await prisma.tag.updateMany({
+        where: { name: { in: removed }, useCount: { gt: 0 } },
+        data: { useCount: { decrement: 1 } },
+      }).catch(() => {});
+    }
+    if (added.length > 0) {
+      await prisma.tag.updateMany({ where: { name: { in: added } }, data: { useCount: { increment: 1 } } }).catch(() => {});
+    }
   }
   return { ok: true, post: updated };
 }

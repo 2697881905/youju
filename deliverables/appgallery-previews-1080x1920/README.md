@@ -1,28 +1,26 @@
-# 有据 AppGallery 预览图草稿
+# 有据 AppGallery 预览图
 
-这套文件按 1080×1920、9:16、RGB 导出，主交付为无损 PNG，同时提供高质量 JPG 兼容版本。
+当前版本按 `1080×1920`、`9:16`、RGB 输出，主交付为 PNG，同时提供高质量 JPG 备用。海报外部采用新版 App 的白底、近黑宋体标题、蓝色强调和浅灰细边；手机截图使用本轮提供的 `1320×2848` 原图，按原比例一次缩放并加圆角。
 
-顶部品牌图标使用你确认的 App 图标 `source/logo.png`（`/Users/itxiaobai/Pictures/有据UI/有据Logo2.png`）。
+顶部图标使用 `source/logo.png`，来源为确认的 App 图标 `/Users/itxiaobai/Pictures/有据UI/有据Logo2.png`。海报不再使用上一版米白和暖棕主导的视觉。
 
-## 当前状态
+## 当前 6 张
 
-这是“真实截图版式草稿”，脚本只使用 `source/` 中的真实 App 截图，不绘制来源徽章、证伪标签、投票结果或隐私设置控件。每张标题现在只描述对应截图中实际可见的页面能力。
+- `preview-01-home.png`：首页，推荐/关注/每日一帖
+- `preview-02-structured.png`：结构化发布，优缺点与推荐指数字段
+- `preview-03-search.png`：搜索你关心的经验和问题
+- `preview-04-circles.png`：圈子地图，按问题找到主题圈子
+- `preview-05-daily.png`：每日一帖，今日精选卡片
+- `preview-06-share-card.png`：分享卡片，整理并分享经验
 
-当前附件仍包含测试数据或未填写状态，正式提审前需要替换为干净的公开内容：
+本轮没有使用登录页、编辑资料页、私信页、空的圈子详情页或数据面板。当前截图仍包含测试头像、测试帖子、品牌搜索词和空编辑字段，正式提审前需要替换为可公开展示的内容。
 
-- `preview-01-home.png`：首页需替换测试帖子
-- `preview-02-structured.png`：结构化发布页目前是未填写状态
-- `preview-03-detail.png`：帖子详情页需替换测试内容
-- `preview-04-circles.png`：圈子页需替换测试账号和人数
-- `preview-05-daily.png`：每日一帖需替换测试封面和标题
-- `preview-06-messages.png`：当前展示的是消息中心；隐私设置页需另行补拍后才能宣传隐私控制
+`manifest.json` 记录每张图的 PNG/JPG 文件、尺寸、色彩模式和对应真实截图。上传时优先选 PNG；若商店文件大小受限，再使用同名 JPG。
 
-当前标题与截图一一对应：推荐/关注首页、结构化发布、帖子详情、圈子地图、每日一帖、消息中心。旧版命名文件已移入 `legacy/`，不用于提审。
-
-补齐截图后，在 `source/` 替换对应文件并重新运行：
+重新生成：
 
 ```bash
 python3 deliverables/appgallery-previews-1080x1920/generate_previews.py
 ```
 
-`manifest.json` 记录每张图的尺寸、色彩模式、PNG/JPG 文件和真实来源。当前版本没有来源标注/证伪功能，首图不会宣称“每条经验都有来源”。
+上一版截图和旧命名输出保存在 `legacy/`，不用于上传。

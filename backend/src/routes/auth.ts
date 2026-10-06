@@ -10,6 +10,7 @@ import * as tagService from '../services/tagService';
 
 import { asyncHandler } from '../middleware/asyncHandler';
 import { parsePage, parseLimit } from '../utils/pagination';
+import { normalizeMediaRefInput } from '../utils/mediaRef';
 
 const router = Router();
 
@@ -91,6 +92,16 @@ router.patch('/privacy-consent', auth, asyncHandler(async (req: AuthRequest, res
 // PUT /v1/auth/me  |  PUT /v1/users/me
 router.put('/me', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const { nickname, avatar, profileBackground, bio, gender } = req.body ?? {};
+  // 资料媒体走本系统上传体系（EditProfile 上传后回填 cos:// 或 /uploads/ 引用）；
+  // 头像/背景会被其他用户客户端自动加载，任意外链 = 跟踪打点，拒绝。
+  // （登录态的华为头像由服务端从华为接口回填，不经此处，不受影响。）
+  if (avatar !== undefined && avatar !== null && (avatar as string) !== '' && !normalizeMediaRefInput(avatar).ok) {
+    return fail(res, CODE.BAD_REQUEST, '头像引用无效');
+  }
+  if (profileBackground !== undefined && profileBackground !== null &&
+    (profileBackground as string) !== '' && !normalizeMediaRefInput(profileBackground).ok) {
+    return fail(res, CODE.BAD_REQUEST, '背景图引用无效');
+  }
   const user = await updateProfile(req.userId!, nickname, avatar, profileBackground, bio, gender);
   return ok(res, user);
 }));

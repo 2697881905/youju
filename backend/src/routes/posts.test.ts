@@ -38,6 +38,7 @@ jest.mock('../prisma', () => ({
     // getPost 楼中楼：评论改为独立查询后由 buildCommentTree 组装（测试用空列表即可）
     comment: {
       findMany: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0),
     },
     user: {
       findUnique: jest.fn().mockResolvedValue({ status: 1, deletedAt: null }),
@@ -227,7 +228,8 @@ describe('POST /v1/posts（发帖）', () => {
     const accepted = await req(
       'POST',
       '/v1/posts',
-      { title: '竖屏视频', genre: 'share', publishMode: 'video', videoUrl: 'https://example.com/video.mp4', videoAspectRatio: 0.5625 },
+      // 媒体引用白名单（utils/mediaRef.ts）：客户端落库形态是 cos:// 引用，外链会被拒绝
+      { title: '竖屏视频', genre: 'share', publishMode: 'video', videoUrl: 'cos://video/2026/01/9f1c3b2e-1111-4222-8333-444455556666', videoAspectRatio: 0.5625 },
       authHeader()
     );
     expect(accepted.status).toBe(200);

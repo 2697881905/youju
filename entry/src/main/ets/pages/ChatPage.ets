@@ -15,6 +15,14 @@ struct ChatPage {
     return consumeOverlayBack();
   }
 
+  // 页面重新显示（router 返回）→ 递增刷新信号：ChatView @Watch 承接静默重拉。
+  // ChatView 是 @Component，onPageShow 写在里面永远不会被调用（同 onBackPress 的坑）；
+  // Navigation 壳的对应触发见 ChatDestination.onShown。
+  onPageShow(): void {
+    AppStorage.setOrCreate<number>('chatRefreshSignal',
+      (AppStorage.get<number>('chatRefreshSignal') ?? 0) + 1);
+  }
+
   build() {
     Stack() {
       ChatView({ navMode: false })

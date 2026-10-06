@@ -41,7 +41,8 @@ export async function followUser(viewerId: number, rawTargetId: string): Promise
     throw new FollowError('不能关注自己', 400, 400);
   }
   const target = await prisma.user.findUnique({ where: { id: targetId } });
-  if (!target) {
+  if (!target || target.status === 0 || target.deletedAt) {
+    // 封禁/已注销账号不可被关注（否则会为无效账号建立关系并写入站内通知）
     throw new FollowError('用户不存在', 404, 404);
   }
   // 隐私：对方关闭「允许关注」则拒绝

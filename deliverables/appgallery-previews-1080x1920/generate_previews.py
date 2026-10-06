@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
-"""Build the 1080x1920 AppGallery preview drafts from real app screenshots.
-
-The source screenshots are intentionally kept as the only UI content. This
-script adds presentation chrome around them, but never invents in-app fields,
-badges, votes, or privacy controls.
-"""
+"""Build 1080x1920 AppGallery preview posters from real app screenshots."""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import Sequence
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
@@ -19,27 +14,28 @@ ROOT = Path(__file__).resolve().parent
 SOURCE = ROOT / "source"
 OUT = ROOT
 WIDTH, HEIGHT = 1080, 1920
-BG = "#F6F1E3"
-CARD = "#FFFCF3"
-INK = "#1C1912"
-WARM = "#8A6548"
-BLUE = "#1A5FB4"
-BLUE_LIGHT = "#DDEBFA"
-MUTED = "#746E63"
-FRAME = "#151820"
+
+# The refreshed app UI is white, near-black, and blue. Keep the poster chrome
+# in the same visual system so the screenshot feels like part of the product.
+BG = "#FFFFFF"
+INK = "#111214"
+BLUE = "#0066CC"
+BLUE_DARK = "#0055AA"
+MUTED = "#68707A"
+LINE = "#E5E6E8"
+FRAME = "#FFFFFF"
 
 FONT_SERIF = "/System/Library/Fonts/Supplemental/Songti.ttc"
 FONT_SANS = "/System/Library/Fonts/STHeiti Medium.ttc"
-FONT_SANS_LIGHT = "/System/Library/Fonts/STHeiti Light.ttc"
 
 
 def font(path: str, size: int) -> ImageFont.FreeTypeFont:
     return ImageFont.truetype(path, size=size, index=0)
 
 
-def text(draw: ImageDraw.ImageDraw, xy: tuple[int, int], value: str, size: int,
-         fill: str = INK, serif: bool = False, anchor: str = "la",
-         spacing: int = 0) -> None:
+def draw_text(draw: ImageDraw.ImageDraw, xy: tuple[int, int], value: str, size: int,
+              fill: str = INK, serif: bool = False, anchor: str = "la",
+              spacing: int = 0) -> None:
     draw.text(
         xy,
         value,
@@ -50,131 +46,104 @@ def text(draw: ImageDraw.ImageDraw, xy: tuple[int, int], value: str, size: int,
     )
 
 
-def fit_text(draw: ImageDraw.ImageDraw, value: str, max_width: int,
-             start_size: int, serif: bool = False) -> tuple[str, int]:
-    """Return a two-line split only when the complete line would overflow."""
-    current = start_size
-    family = FONT_SERIF if serif else FONT_SANS
-    while current >= 30 and draw.textbbox((0, 0), value, font=font(family, current))[2] > max_width:
-        current -= 2
-    if current >= 30:
-        return value, current
-    midpoint = max(1, len(value) // 2)
-    return value[:midpoint] + "\n" + value[midpoint:], start_size
-
-
 def rounded_mask(size: tuple[int, int], radius: int) -> Image.Image:
     mask = Image.new("L", size, 0)
-    ImageDraw.Draw(mask).rounded_rectangle((0, 0, size[0] - 1, size[1] - 1), radius=radius, fill=255)
+    ImageDraw.Draw(mask).rounded_rectangle(
+        (0, 0, size[0] - 1, size[1] - 1), radius=radius, fill=255
+    )
     return mask
 
 
-def paste_rounded(canvas: Image.Image, image: Image.Image, box: tuple[int, int, int, int],
-                  radius: int) -> None:
-    x, y, w, h = box
-    # The phone viewport is calculated from the source aspect ratio, so a
-    # direct resize avoids ImageOps.fit introducing a second crop or stretch.
-    resized = image.convert("RGB").resize((w, h), Image.Resampling.LANCZOS)
-    canvas.paste(resized, (x, y), rounded_mask((w, h), radius))
+def rgb_image(image: Image.Image) -> Image.Image:
+    """Composite RGBA source pixels over white before RGB export."""
+    if image.mode == "RGBA":
+        canvas = Image.new("RGB", image.size, BG)
+        canvas.paste(image, mask=image.getchannel("A"))
+        return canvas
+    return image.convert("RGB")
 
 
-def draw_soft_shadow(canvas: Image.Image, box: tuple[int, int, int, int], radius: int,
-                     offset: tuple[int, int] = (0, 18), alpha: int = 48) -> None:
-    x, y, w, h = box
+def paste_rounded(canvas: Image.Image, image: Image.Image,
+                  box: tuple[int, int, int, int], radius: int) -> None:
+    x, y, width, height = box
+    # Scale exactly once from the original 1320x2848 capture. This avoids the
+    # soft, jagged result caused by a crop followed by a second fit operation.
+    resized = rgb_image(image).resize((width, height), Image.Resampling.LANCZOS)
+    canvas.paste(resized, (x, y), rounded_mask((width, height), radius))
+
+
+def draw_soft_shadow(canvas: Image.Image, box: tuple[int, int, int, int],
+                     radius: int) -> None:
+    x, y, width, height = box
     layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
-    mask = rounded_mask((w, h), radius).filter(ImageFilter.GaussianBlur(20))
-    shadow = Image.new("RGBA", (w, h), (28, 25, 18, alpha))
-    layer.paste(shadow, (x + offset[0], y + offset[1]), mask)
+    mask = rounded_mask((width, height), radius).filter(ImageFilter.GaussianBlur(24))
+    shadow = Image.new("RGBA", (width, height), (25, 51, 89, 30))
+    layer.paste(shadow, (x, y + 20), mask)
     canvas.alpha_composite(layer)
 
 
-def crop_source(name: str, crop: tuple[int, int, int, int]) -> Image.Image:
-    image = Image.open(SOURCE / name).convert("RGB")
-    return image.crop(crop)
+def draw_phone(canvas: Image.Image, source: Image.Image, x: int, y: int,
+               width: int) -> None:
+    inner_width = width - 32
+    inner_height = round(inner_width * source.height / source.width)
+    height = inner_height + 32
+    draw_soft_shadow(canvas, (x, y, width, height), 50)
 
-
-def phone(canvas: Image.Image, source: Image.Image, x: int, y: int, w: int,
-          h: int | None = None) -> None:
-    inner_w = w - 28
-    inner_h = round(inner_w * source.height / source.width)
-    h = inner_h + 28 if h is None else h
-    draw_soft_shadow(canvas, (x, y, w, h), 46)
-    frame = Image.new("RGB", (w, h), FRAME)
-    paste_rounded(frame, source, (14, 14, w - 28, h - 28), 36)
+    frame = Image.new("RGB", (width, height), FRAME)
+    paste_rounded(frame, source, (16, 16, inner_width, inner_height), 40)
     frame_draw = ImageDraw.Draw(frame)
-    frame_draw.rounded_rectangle((8, 8, w - 9, h - 9), radius=44, outline="#FFFFFF", width=3)
-    canvas.paste(frame, (x, y), rounded_mask((w, h), 46))
+    frame_draw.rounded_rectangle(
+        (8, 8, width - 9, height - 9), radius=48, outline=LINE, width=3
+    )
+    canvas.paste(frame, (x, y), rounded_mask((width, height), 50))
 
 
-def inset(canvas: Image.Image, source: Image.Image, crop: tuple[int, int, int, int],
-          box: tuple[int, int, int, int], caption: str) -> None:
-    x, y, w, h = box
-    draw_soft_shadow(canvas, (x, y, w, h), 24, offset=(0, 8), alpha=36)
-    card = Image.new("RGB", (w, h), CARD)
-    crop_image = source.crop(crop)
-    paste_rounded(card, crop_image, (10, 10, w - 20, h - 44), 18)
-    card_draw = ImageDraw.Draw(card)
-    card_draw.rounded_rectangle((10, 10, w - 11, h - 45), radius=18, outline=BLUE, width=4)
-    text(card_draw, (w // 2, h - 21), caption, 20, fill=WARM, anchor="mm")
-    canvas.paste(card, (x, y), rounded_mask((w, h), 24))
-
-
-def arrow(draw: ImageDraw.ImageDraw, start: tuple[int, int], end: tuple[int, int]) -> None:
-    draw.line((start[0], start[1], end[0], end[1]), fill=BLUE, width=4)
-    ex, ey = end
-    draw.polygon([(ex, ey), (ex - 18, ey - 8), (ex - 15, ey + 10)], fill=BLUE)
-
-
-def header(canvas: Image.Image, number: str) -> None:
+def draw_header(canvas: Image.Image, number: str) -> None:
     draw = ImageDraw.Draw(canvas)
-    logo = Image.open(SOURCE / "logo.png").convert("RGB").resize((64, 64), Image.Resampling.LANCZOS)
-    canvas.paste(logo, (72, 68), rounded_mask((64, 64), 16))
-    text(draw, (154, 86), "有据", 38, fill=INK, serif=True, anchor="lm")
-    text(draw, (154, 123), "SUBSTANTIATE", 14, fill=MUTED, anchor="lm", spacing=3)
-    text(draw, (1008, 94), number, 22, fill=WARM, anchor="rm")
+    logo = rgb_image(Image.open(SOURCE / "logo.png")).resize(
+        (64, 64), Image.Resampling.LANCZOS
+    )
+    canvas.paste(logo, (72, 68), rounded_mask((64, 64), 18))
+    draw_text(draw, (154, 86), "有据", 38, serif=True, anchor="lm")
+    draw_text(draw, (154, 123), "SUBSTANTIATE", 14, fill=MUTED, anchor="lm", spacing=3)
+    draw_text(draw, (1008, 94), number, 22, fill=BLUE, anchor="rm")
 
 
-def title_block(canvas: Image.Image, title_lines: Sequence[str], subtitle: str) -> None:
+def draw_title(canvas: Image.Image, title: str, subtitle: str) -> None:
     draw = ImageDraw.Draw(canvas)
-    y = 230
-    for line in title_lines:
-        text(draw, (72, y), line, 82, fill=INK, serif=True)
-        y += 96
-    text(draw, (74, y + 16), subtitle, 30, fill=WARM)
+    title_y = 218
+    size = 78
+    while size > 54 and draw.textbbox(
+        (72, title_y), title, font=font(FONT_SERIF, size)
+    )[2] > 1008:
+        size -= 2
+    draw_text(draw, (72, title_y), title, size, serif=True)
+    # A short blue rule ties the poster copy to the app's blue interaction
+    # color without adding another decorative object to the screenshot.
+    draw.rounded_rectangle((74, 326, 88, 356), radius=7, fill=BLUE)
+    draw_text(draw, (104, 323), subtitle, 30, fill=BLUE_DARK)
 
 
-def footer(canvas: Image.Image, status: str | None = None) -> None:
+def draw_footer(canvas: Image.Image) -> None:
     draw = ImageDraw.Draw(canvas)
-    draw.line((72, 1854, 1008, 1854), fill="#D8CEBD", width=2)
-    text(draw, (72, 1882), "真实经验，有据可循", 26, fill=WARM, serif=True)
-    text(draw, (1008, 1884), "鸿蒙原生应用", 20, fill=MUTED, anchor="ra")
-    # Capture readiness belongs in manifest.json, not in the store artwork.
+    draw.line((72, 1854, 1008, 1854), fill=LINE, width=2)
+    draw_text(draw, (72, 1882), "真实经验，有据可循", 26, serif=True)
+    draw_text(draw, (1008, 1884), "鸿蒙原生应用", 20, fill=MUTED, anchor="ra")
 
 
-def build_page(number: str, title_lines: Sequence[str], subtitle: str, source_name: str,
-              crop: tuple[int, int, int, int] | None, status: str | None,
-              inset_crop: tuple[int, int, int, int] | None = None,
-              inset_caption: str | None = None,
-              title_color: str = INK) -> Image.Image:
+def build_page(number: str, title: str, subtitle: str, source_name: str) -> Image.Image:
     canvas = Image.new("RGBA", (WIDTH, HEIGHT), BG)
-    header(canvas, number)
-    title_block(canvas, title_lines, subtitle)
-    source = Image.open(SOURCE / source_name).convert("RGB")
-    visible = source if crop is None else source.crop(crop)
-    # Keep the source screenshot's 1136:2690 ratio and give it enough area
-    # to remain legible in the AppGallery thumbnail.
-    phone(canvas, visible, 230, 410, 620)
-    draw = ImageDraw.Draw(canvas)
-    if inset_crop and inset_caption:
-        inset(canvas, source, inset_crop, (758, 1182, 250, 230), inset_caption)
-        arrow(draw, (754, 1288), (704, 1328))
-    footer(canvas, status)
+    draw_header(canvas, number)
+    draw_title(canvas, title, subtitle)
+    source = rgb_image(Image.open(SOURCE / source_name))
+    # The new source captures are 1320x2848. Keep their exact ratio and make
+    # one large viewport so small UI labels survive store thumbnail scaling.
+    draw_phone(canvas, source, 200, 400, 680)
+    draw_footer(canvas)
     return canvas.convert("RGB")
 
 
-def save(image: Image.Image, filename: str) -> None:
-    # PNG is the master export; keep the JPG fallback at maximum quality for
-    # stores that reject larger lossless files.
+def save_jpg(image: Image.Image, filename: str) -> None:
     image.save(
         OUT / filename,
         format="JPEG",
@@ -186,72 +155,59 @@ def save(image: Image.Image, filename: str) -> None:
 
 
 def main() -> None:
-    pages = [
+    pages: Sequence[dict[str, str]] = [
         {
             "number": "01 / 06",
             "stem": "preview-01-home",
-            "title": ["推荐、关注、每日一帖"],
-            "subtitle": "首页把想看的内容放在一起",
-            "source": "home.jpg",
-            "crop": None,
-            "status": "首页需替换测试内容",
+            "title": "真实经验，一屏浏览",
+            "subtitle": "推荐、关注、每日一帖，首页集中查看",
+            "source": "home.png",
         },
         {
             "number": "02 / 06",
             "stem": "preview-02-structured",
-            "title": ["结构化发布，逐步写清"],
-            "subtitle": "从体裁、圈子到信息流，按步骤组织内容",
-            "source": "composer.jpg",
-            "crop": None,
-            "status": "编辑页为未填写状态",
+            "title": "结构化发布，逐步写清",
+            "subtitle": "优缺点与推荐指数，按信息块组织",
+            "source": "structured.png",
         },
         {
             "number": "03 / 06",
-            "stem": "preview-03-detail",
-            "title": ["帖子详情，边看边互动"],
-            "subtitle": "正文、作者、点赞与评论，都在一页",
-            "source": "detail.jpg",
-            "crop": None,
-            "status": "详情页需替换测试内容",
+            "stem": "preview-03-search",
+            "title": "搜一下，先找到问题答案",
+            "subtitle": "搜索你关心的经验和问题",
+            "source": "search.png",
         },
         {
             "number": "04 / 06",
             "stem": "preview-04-circles",
-            "title": ["圈子地图，按问题查"],
-            "subtitle": "手机数码、健康习惯等主题，就近找到同题的人",
-            "source": "circles.jpg",
-            "crop": None,
-            "status": "圈子需替换测试数据",
+            "title": "按问题，找到对应圈子",
+            "subtitle": "手机数码、电脑装机、健康习惯等主题",
+            "source": "circles.png",
         },
         {
             "number": "05 / 06",
             "stem": "preview-05-daily",
-            "title": ["每日一帖，读一个经验"],
-            "subtitle": "今日精选卡片，几分钟看完一条内容",
-            "source": "daily.jpg",
-            "crop": None,
-            "status": "每日内容需替换测试数据",
+            "title": "每天一帖，读一个经验",
+            "subtitle": "今日精选卡片，随手翻完一条内容",
+            "source": "daily.png",
         },
         {
             "number": "06 / 06",
-            "stem": "preview-06-messages",
-            "title": ["消息中心，一处查看"],
-            "subtitle": "点赞、关注、评论与系统通知，集中处理",
-            "source": "messages.jpg",
-            "crop": None,
-            "status": "消息页需替换测试数据",
+            "stem": "preview-06-share-card",
+            "title": "一张卡片，分享经验",
+            "subtitle": "把有据内容整理成可分享的卡片",
+            "source": "share-card.png",
         },
     ]
 
     manifest = []
     for page in pages:
         image = build_page(
-            page["number"], page["title"], page["subtitle"], page["source"],
-            page["crop"], page["status"], page.get("inset"), page.get("inset_caption"),
+            page["number"], page["title"], page["subtitle"], page["source"]
         )
         jpg_name = page["stem"] + ".jpg"
         png_name = page["stem"] + ".png"
-        save(image, jpg_name)
+        save_jpg(image, jpg_name)
         image.save(OUT / png_name, format="PNG", optimize=True)
         manifest.append({
             "file": png_name,
@@ -261,10 +217,12 @@ def main() -> None:
             "color_mode": "RGB",
             "brand_asset": "source/logo.png",
             "source": "source/" + page["source"],
-            "status": "draft_pending_capture",
-            "missing_capture": page["status"],
+            "status": "draft_pending_content_review",
         })
-    (OUT / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
+
+    (OUT / "manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n"
+    )
     print(f"generated {len(pages)} previews in {OUT}")
 
 

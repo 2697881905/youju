@@ -86,13 +86,27 @@
 
 ### 沉浸光感 · 顶栏迁入 Navigation 标题栏（2026-10-03）
 - `uiMaterial` 轨（通用属性 `systemMaterial`）**只在 Navigation/NavDestination 标题栏或系统底部 TabBar 生效**，内容区设置完全不渲染（官方 FAQ 生效范围）。
-- **已完成改造**：首页 / 圈子 / 消息 / 我的（主 Navigation 按 Tab 分支）、搜索面板与圈子详情、帖子详情（后三者组件自带 Navigation，router 壳与 NavDestination 壳共用一份实现）。
+- **已完成改造**：首页 / 圈子 / 消息 / 我的（主 Navigation 按 Tab 分支）、搜索面板与圈子详情、帖子详情、他人主页（后四者组件自带 Navigation，router 壳与 NavDestination 壳共用一份实现）。
 - 顶栏整体驻留标题栏（`BarStyle.STANDARD` 占位 + 画布底色）；材质生效时**撤掉自绘兜底**（`backdropBlur` / `backgroundBlurStyle` / 自绘边框 / 自绘 `shadow`），否则遮挡或叠成实心毛玻璃、双圈描边。
 - 低版本（API < 26）经 `deviceInfo.apiAvailable('26.0.0')` **字面量 if 门禁**自动回退描边/玻璃样式；统一入口 `utils/immersiveMaterial.ets`（`TopButtonMaterialModifier` / `isSystemMaterialActive()`）。
 - 组件侧统一 `useSystemMaterial` 范式（`SegmentedControl` / `TagNav` / `DesignButton`）；尾随闭包组件（`Pressable`）材质挂内层表面节点；标题栏内联原生表面（圈子「已加入」药丸）按 `isSystemMaterialActive()` 让位（底/描边/阴影归零）。
 - 帖子详情（2026-10-03）：`PostDetailView` 组件自带 Navigation，原 `DetailToolbar`（返回/分享/更多）内联进标题栏 Builder 后按「删干净」原则删除；分享/更多为原生 Row 表面，`attributeModifier` 直挂 44×44 节点 + lg 圆角定形，BackButton 交由 enable 自动材质。三个全屏覆盖层（看图/分享卡/数据面板）必须盖过标题栏 → 移到 Navigation 之外的 Stack 兄弟层，并各自补回状态栏偏移。栏高固定（token 直算）。底部互动栏未动（不在 `systemMaterial` 生效范围，优化方案见下方小节）。
+- 他人主页（2026-10-03）：`UserProfileView` 组件自带 Navigation，标题栏 = 导航行（返回/昵称/⋯菜单）+ 资料区整体（ProfileIdentity/统计/关注私信按钮，含背景图 16:10 卡片变体与入场动效，与「我的」页 hero 驻留同款）；资料区高度内容驱动 → `onAreaChange` 实测回写 `titleBarProfileHeight` + 同源估算兜底（ProfileIdentity 固定 146）。关注/私信按钮材质生效时让位（blur→NONE、描边/阴影归零），低版本保留 HDS 玻璃；bindMenu 系统菜单全页面生效可直接驻留。内容区仅剩未就绪三分支 + 帖子网格。⚠️ 坑：`pushPathByName('PostDetail', params)` 必须显式赋 `postId`——`PostDetailNavParams.postId` 默认 0（非 undefined），目的地 onReady 曾用 `typeof` 守卫对 0 放行并用 `openPostDetail(String(0))` 覆盖意图通道里的正确 id（点帖子报「帖子不存在」的根因，2026-10-03 修复：调用方显式赋值 + 目的地对 `postId <= 0` 提前返回不再覆盖）。
 - 栏高：固定内容用 token 计算；内容驱动（我的页资料区、圈子详情三行顶栏）用 `onAreaChange` 实测回写 + 首帧估算兜底。状态栏避让只出现在标题栏一处。
 - **教程（可复用方法论 + 模板 + 自查清单）**：`docs/tutorial-titlebar-immersive-light.md`；踩坑记录见 `docs/immersive-light-integration.md`。
+
+### 全链路代码审查（2026-10-05，客户端 8 项 + 后端 12 项修复）
+客户端（列表竞态与状态同步为主）：SearchResultPage / UserProfileView / MessagePage 补齐 HomeTab 同款 fetchSeq 竞态防护（loadMore 在途时刷新被静默丢弃 → 结果重复/页码跳页）；HomeTab / MyFollowView / ReportAdminPage / SearchResultPage / UserProfileView loadMore 失败页码回滚（否则失败页被静默跳过）；MyFollowView ForEach key 补 isFollowing（否则关注/回关乐观更新 UI 不生效）；HomeTab onAccountSwitch 清 feedSessionCache（跨账号残留上一账号首屏）；CommentList 删除评论新增 onDeleted 回调链同步父级 comments/commentCount；ChatView 死 onPageShow（@Component 上不生效）改为双壳信号接线（ChatPage.onPageShow / ChatDestination.onShown → chatRefreshSignal）；push.ets readPushRoute 对 type 做白名单（本地恶意应用可伪造 dm 深链钓鱼）；api.del 支持自定义 header。
+后端：upload 预签名视频 size 必填 + 图片 20MB 上限（原 size 缺省跳过校验 → 任意大文件直传 COS）；辩论改票加乐观锁（并发双击票数双扣）；举报 dismissed 仅在「关闭了 pending 且从未被 resolved 裁决」时恢复内容（否则驳回新举报可复活已裁决下架内容）；分享落地页复用 canViewerSeeAuthorPosts + 用户页封禁 404（SSR 曾绕过全部可见性规则）；posts create/update mentions ≤20 + updatePost 仅对新增提及发通知（通知/推送轰炸）；deleteComment 递归级联全部后代（含孙级与 status=0 隐藏评论，防 commentCount 虚高）+ 帖主可删评论；评论点赞并发双击 P2002 幂等兜底；followUser 拒绝封禁/注销账号；tags 路由 tagName ≤20 且必须存在；push token 解绑改 X-Push-Token 头（query 落访问日志）；会话未读 groupBy 补 recalledAt: null 与全局未读同口径；Tag.useCount 发布 +1 / 编辑增减（此前从未写入，标签排序信号失效）；搜索联想加独立限流。
+**未修复留档**（需要产品决策/独立立项）：无——原留档四项已全部落地（per-user 限流、埋点口径见上节；token 落盘加固与媒体 URL 白名单见下节）。
+
+### Token 落盘加固 + 媒体 URL 白名单（2026-10-05，原留档两项落地）
+- **Token 落盘加固**（`utils/sessionStore.ets`）：prefs 不再存明文 token，改为 `authTokenEnc` = token 与「设备 **ODID** + 每次写入的 12 字节随机 nonce」绑定的 SHA-256 keystream 异或遮蔽（同步实现，冷启动水合零时序风险）。安全边界：跨设备提取/还原备份防住（ODID 不同解不开）；同设备 root **不设防**（内存明文同样暴露，遮蔽无意义）——硬件级加固由 auth.ets 的 Asset Store 副本互补。**为什么不用 Asset 做恢复源**：实测覆盖安装会清空 Asset，恢复链路依赖 prefs 才能保住「覆盖安装不掉账号」；恢复路径必须同步完成（水合早于首帧）。兼容链路：旧版本明文键读取后立即转存密文并删除；更早的 persistent_storage 迁移路径不变；恢复出厂（ODID 重置）→ 解密失败 → 静默登出（合理降级）。
+- **媒体 URL 白名单**（`backend/src/utils/mediaRef.ts` + 测试）：帖图/封面/视频/私信媒体/资料背景的**写路径**只接受本系统上传体系引用——`cos://<key>`（过 uploadService 目录白名单+防穿越）与 `/uploads/` 相对路径；带主机绝对 URL 仅接受 localhost/局域网主机（与 rateLimit 同口径）并归一化为相对路径；任意外链（跟踪打点向量）与路径穿越拒绝。接线点：postService create/update（images/coverImage/videoUrl/videoCover）、messageService sendMessage（image/video content 外链拒绝；share 卡 coverImage 非法时剥离不拒信）、auth 路由 PUT /me（avatar/profileBackground）。**历史数据零改动**（只约束新写入）；客户端 resolveDisplayImageUrl 补 `/uploads/` 相对路径分支（归一化引用回 BASE_URL）；登录态华为头像由服务端从华为接口回填、不经此路径，不受影响。
+
+### 内容生产限流与埋点口径（2026-10-05，原「未修复留档」前两项落地）
+- **per-user 限流**（`middleware/rateLimit.ts` 新增三档，挂在 auth 之后按 `req.userId` 计数，换 IP 无效；`NODE_ENV=test` 自动跳过防测试误伤，保留 `skipLocal` 开发豁免）：私信 `dmLimiter` 30 条/分钟（挂 POST /v1/messages）、发帖 `postCreateLimiter` 5 条/分钟（挂 POST /v1/posts）、评论 `commentLimiter` 10 条/分钟（挂 POST /v1/posts/:id/comments）。行为已用真实限流器冒烟验证（`scripts/smoke-user-limiter.mts`：用户 A 31 连发第 31 次 429、用户 B 不受影响）。
+- **匿名埋点收口**（产品口径定案）：`POST /v1/metrics/post-event` 从软鉴权改为**强制登录**（auth 中间件）。理由：该端点全部消费方都是账号维度（作者数据面板的曝光/点击/转化率），匿名写入的唯一效果是无需账号即可刷量污染作者面板；`viewCount`（游客浏览）由 getPost 服务端写入且带 1 小时去重，**不受影响**。客户端 `trackPostEvent`/`trackDailyOpen` 未登录时静默不发（避免 401 噪音）。**口径变化：作者面板曝光/点击从「含游客」变为「仅登录用户」**。
 
 ### 沉浸光感 · 帖子详情底部栏（DetailActionBar）配色微调（2026-10-03 已实施）
 - **不可行路径（结论保留）**：`systemMaterial`（uiMaterial 轨）在此位置**不渲染**——底部互动栏既非 Navigation/NavDestination 标题栏也非系统底部 TabBar（官方 FAQ 生效范围）；改成系统 TabBar / NavDestination toolbar 属产品结构重构且承载不了输入框 + 握姿换边 + 键盘联动，不建议。

@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { ok, fail, CODE } from '../utils/response';
 import { prisma } from '../prisma';
-import { auth, AuthRequest, resolveOptionalUserId } from '../middleware/auth';
+import { auth, AuthRequest } from '../middleware/auth';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { metricsLimiter } from '../middleware/rateLimit';
 import { env } from '../config/env';
@@ -11,8 +11,9 @@ import { env } from '../config/env';
 // - 帖子级动作（expose/click/up/comment/bookmark）必须带有效 postId，并校验帖子存在，
 //   防止伪造 postId 刷量、污染热度分与个性化画像。
 // - 页面级动作（daily_open）无帖子，postId 允许为空。
-// - 鉴权：软鉴权（resolveOptionalUserId）。带有效 token 回填真实 userId；无/失效 token 按匿名（null）处理，
-//   不因未登录而 401 —— 埋点不能阻断客户端。
+// - 鉴权：**必须登录**（2026-10-05 口径）。该端点的全部消费方都是账号维度（作者数据面板的
+//   曝光/点击/转化率）——匿名写入的唯一效果就是「无需账号即可刷量污染作者面板」，
+//   故收紧；游客浏览仍计入 viewCount（getPost 服务端写入、带去重），不受影响。
 // - scene：来源场景（daily | feed | hot | search | profile），用于区分「每日一贴」与其它信息流的曝光/点击。
 const ACTIONS = ['expose', 'click', 'up', 'comment', 'bookmark', 'daily_open'];
 const POST_LEVEL_ACTIONS = ['expose', 'click', 'up', 'comment', 'bookmark'];
@@ -20,17 +21,14 @@ const SCENES = ['daily', 'feed', 'hot', 'search', 'circle', 'profile'];
 
 const router = Router();
 
-router.post('/post-event', metricsLimiter, asyncHandler(async (req: any, res: Response) => {
+router.post('/post-event', metricsLimiter, auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const action = typeof req.body?.action === 'string' ? req.body.action : '';
   if (ACTIONS.indexOf(action) < 0) {
     return fail(res, CODE.BAD_REQUEST, 'action 无效');
   }
   const sceneRaw = typeof req.body?.scene === 'string' ? req.body.scene : '';
   const scene: string | null = SCENES.indexOf(sceneRaw) >= 0 ? sceneRaw : null;
-
-  // 软鉴权：有效 token → 真实 userId；否则匿名。游客数据不进个人画像，仅计入全局热度。
-  const resolvedUserId = await resolveOptionalUserId(req as AuthRequest);
-  const userId: number | null = resolvedUserId != null ? resolvedUserId : null;
+  const userId: number = req.userId!;
 
   let postId: number | null = null;
   if (POST_LEVEL_ACTIONS.indexOf(action) >= 0) {
@@ -57,7 +55,7 @@ router.get('/ping', (_req: any, res: Response) => {
 });
 
 // 帖子创作数据（作者本人 / 管理员）：GET /v1/metrics/posts/:id/stats
-// 除基础互动计数外，聚合 PostEvent 的曝光/点击信号（游客埋点计入总数）
+// 除基础互动计数外，聚合 PostEvent 的曝光/点击信号（2026-10-05 起仅登录用户埋点计入）
 router.get('/posts/:id/stats', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const postId = Number(req.params.id);
   if (!Number.isInteger(postId) || postId <= 0) {

@@ -200,9 +200,12 @@ describe('createReport - 评论举报', () => {
       id: 5,
       userId: 20,
       content: '测试评论',
+      postId: 5,
     });
     mockPrisma.report.create.mockResolvedValue({ id: 101, reporterId: 1, targetType: 'comment', targetId: 5 });
     mockPrisma.comment.update.mockResolvedValue({ reportCount: 1, status: 1 });
+    mockPrisma.comment.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.post.update.mockResolvedValue({});
     mockPrisma.notification.create.mockResolvedValue({});
     mockPrisma.$transaction.mockImplementation((callback: any) => callback(mockPrisma));
   });
@@ -227,9 +230,10 @@ describe('createReport - 评论举报', () => {
       reason: 'personal_attack',
     });
     expect(result.autoTakenDown).toBe(true);
-    expect(mockPrisma.comment.update).toHaveBeenCalledTimes(2);
-    const secondCall = mockPrisma.comment.update.mock.calls[1][0];
-    expect(secondCall.data.status).toBe(0);
+    // reportCount increment 一次；下架改走条件 updateMany，并扣减帖子评论数
+    expect(mockPrisma.comment.update).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.comment.updateMany).toHaveBeenCalledWith({ where: { id: 5, status: 1 }, data: { status: 0 } });
+    expect(mockPrisma.post.update).toHaveBeenCalledWith({ where: { id: 5 }, data: { commentCount: { decrement: 1 } } });
   });
 });
 
@@ -318,6 +322,7 @@ describe('listReportsByTarget / resolveReportsByTarget / getReporterIdsByTarget'
           id: 1, userId: 10, title: '测试帖子', status: opts.postStatus ?? 0,
         }),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        update: jest.fn().mockResolvedValue({}),
       },
       comment: {
         findUnique: jest.fn().mockResolvedValue({
@@ -368,12 +373,40 @@ describe('listReportsByTarget / resolveReportsByTarget / getReporterIdsByTarget'
     useTx(tx);
     await resolveReportsByTarget('comment', 7, 'resolved');
 
-    expect(tx.comment.updateMany).toHaveBeenCalledWith({ where: { id: 7 }, data: { status: 0 } });
+    expect(tx.comment.updateMany).toHaveBeenCalledWith({ where: { id: 7, status: 1 }, data: { status: 0 } });
     expect(tx.post.updateMany).not.toHaveBeenCalled();
+    // 评论下架 → 帖子评论数 -1：评论区计数与实际可见评论保持一致
+    expect(tx.post.update).toHaveBeenCalledWith({ where: { id: 5 }, data: { commentCount: { decrement: 1 } } });
     const authorNotif = mockPrisma.notification.create.mock.calls[0][0];
     expect(authorNotif.data.userId).toBe(11);
     expect(authorNotif.data.content).toBe('你的评论未通过审核');
     expect(authorNotif.data.postId).toBe(5);
+  });
+
+  it('resolved（comment）：评论已被阈值下架（updateMany 命中 0）→ 不重复扣减评论数', async () => {
+    const tx = makeTx();
+    tx.comment.updateMany.mockResolvedValue({ count: 0 });
+    useTx(tx);
+    await resolveReportsByTarget('comment', 7, 'resolved');
+
+    expect(tx.post.update).not.toHaveBeenCalled();
+  });
+
+  it('dismissed（comment）：评论恢复展示（0→1）→ 补回帖子评论数', async () => {
+    const tx = makeTx({ commentStatus: 0 });
+    useTx(tx);
+    await resolveReportsByTarget('comment', 7, 'dismissed');
+
+    expect(tx.comment.updateMany).toHaveBeenCalledWith({ where: { id: 7, status: 0 }, data: { status: 1 } });
+    expect(tx.post.update).toHaveBeenCalledWith({ where: { id: 5 }, data: { commentCount: { increment: 1 } } });
+  });
+
+  it('restore（comment）：评论恢复展示（0→1）→ 补回帖子评论数', async () => {
+    const tx = makeTx({ commentStatus: 0 });
+    useTx(tx);
+    await resolveReportsByTarget('comment', 7, 'restore');
+
+    expect(tx.post.update).toHaveBeenCalledWith({ where: { id: 5 }, data: { commentCount: { increment: 1 } } });
   });
 
   it('dismissed：举报驳回 + 内容从下架恢复（0→1）+ 作者收「已通过审核」', async () => {

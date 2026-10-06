@@ -175,6 +175,9 @@ export struct HomeTab {
   // 账号切换/登出：清空点赞缓存，先清空数据源（销毁旧 PostCard）→ 重拉（新账号的 myUp/upCount 重新灌入）
   onAccountSwitch(): void {
     likeStore.clear();
+    // 会话缓存必须整体失效：cacheKey（feedMode|tag|sort）不含账号维度，stale-while-revalidate
+    // 会先渲染上一账号的首屏（关注流尤其明显），请求失败时旧内容还会滞留
+    feedSessionCache.clear();
     this.setPagePosts(this.feedIndex, []);
     // 换账号：上一个账号的关注数与当前账号无关，必须退回「未知」而不是 0
     this.followingCount = FOLLOWING_COUNT_UNKNOWN;
@@ -447,6 +450,11 @@ export struct HomeTab {
         return; // 过期请求的失败不覆盖新请求的状态
       }
       this.error = (e as Error).message;
+      // 分页回滚：loadMore 先 +1 再请求，失败不回滚会让失败那一页被静默跳过
+      // （error 只在列表为空时可见，非空列表下用户无感知）；连接类失败走 refresh 自愈会重置 page，回滚无害
+      if (!reset && this.page > 1) {
+        this.page -= 1;
+      }
       if (this.isConnError(this.error) && this.feedRetryCount < FEED_MAX_RETRY && this.feedRetryTimer === 0) {
         this.feedRetryCount += 1;
         this.feedRetryTimer = setTimeout((): void => {

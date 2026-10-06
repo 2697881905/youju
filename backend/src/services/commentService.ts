@@ -172,18 +172,31 @@ function commentNotifyExcludes(
 export async function deleteComment(id: number, userId: number) {
   const c = await prisma.comment.findUnique({ where: { id } });
   if (!c) return { ok: false, reason: 'not_found' };
-  if (c.userId !== userId) return { ok: false, reason: 'forbidden' };
-  // 楼中楼级联：找出该评论下的直接子回复，一并删除（含其顶/举报记录），避免孤儿回复悬挂
-  const children = await prisma.comment.findMany({
-    where: { parentId: id, status: 1 },
-    select: { id: true },
-  });
-  const ids = [id, ...children.map((ch) => ch.id)];
+  // 作者本人可删；帖主可清理自己帖子下的评论（恶意/广告评论此前无任何处置手段）
+  if (c.userId !== userId) {
+    const post = await prisma.post.findUnique({ where: { id: c.postId }, select: { userId: true } });
+    if (!post || post.userId !== userId) {
+      return { ok: false, reason: 'forbidden' };
+    }
+  }
+  // 楼中楼级联：递归收集全部后代——createComment 允许「回复的回复」（parentId 指向子
+  // 评论），只取一层直接子级会漏掉孙级；且不筛 status：被举报隐藏（status=0）的子评论
+  // 若不删也不计数，commentCount 与列表 total 会永久虚高（孤儿行不可见但占数）。
+  const ids: number[] = [id];
+  let frontier: number[] = [id];
+  while (frontier.length > 0) {
+    const next = await prisma.comment.findMany({
+      where: { parentId: { in: frontier } },
+      select: { id: true },
+    });
+    frontier = next.map((ch) => ch.id).filter((cid) => !ids.includes(cid));
+    ids.push(...frontier);
+  }
   await prisma.$transaction([
     prisma.commentUp.deleteMany({ where: { commentId: { in: ids } } }),
     prisma.report.deleteMany({ where: { targetType: 'comment', targetId: { in: ids } } }),
     prisma.comment.deleteMany({ where: { id: { in: ids } } }),
-    // 维护帖子评论数（与发布时 increment 配对，子回复一并扣减）
+    // 维护帖子评论数（与发布时 increment 配对，按实际删除条数扣减）
     prisma.post.update({ where: { id: c.postId }, data: { commentCount: { decrement: ids.length } } }),
   ]);
   return { ok: true };

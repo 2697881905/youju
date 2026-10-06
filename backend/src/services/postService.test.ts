@@ -37,6 +37,7 @@ jest.mock('../prisma', () => ({
     comment: {
       groupBy: jest.fn(),
       findMany: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0),
     },
     user: {
       // 默认返回有效（已发布、未注销）作者，使 canViewerSeeAuthorPosts 通过
@@ -69,6 +70,7 @@ const mockedBmFindMany = prisma.bookmark.findMany as jest.Mock;
 const mockedBmCount = prisma.bookmark.count as jest.Mock;
 const mockedCommentGroupBy = prisma.comment.groupBy as jest.Mock;
 const mockedCommentFindMany = prisma.comment.findMany as jest.Mock;
+const mockedCommentCount = prisma.comment.count as jest.Mock;
 
 const mockedSearchPosts = searchPosts as jest.Mock;
 
@@ -241,6 +243,7 @@ describe('getPost - myUp/myBookmark + 作者匿名化', () => {
     mockedCommentFindMany.mockResolvedValue([
       { id: 9, content: 'c', user: { id: 2, nickname: 'B', avatar: null } },
     ]);
+    mockedCommentCount.mockResolvedValue(1);
 
     const res = await getPost(1);
 
@@ -252,6 +255,8 @@ describe('getPost - myUp/myBookmark + 作者匿名化', () => {
       status: 1,
       title: 't',
       user: { id: 1, nickname: 'A', avatar: 'a.png' },
+      // 评论数以可见评论(status=1)实际条数为准（覆盖 post 字段）
+      commentCount: 1,
       comments: [{ id: 9, content: 'c', user: { id: 2, nickname: 'B', avatar: null }, replies: [] }],
     });
   });

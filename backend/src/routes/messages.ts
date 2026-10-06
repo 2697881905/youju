@@ -3,6 +3,7 @@ import { Router, Response } from 'express';
 import { ok, fail, internalError, CODE } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
 import * as messageService from '../services/messageService';
+import { dmLimiter } from '../middleware/rateLimit';
 import { parsePage } from '../utils/pagination';
 
 const router = Router();
@@ -61,7 +62,8 @@ router.post('/:userId/read', auth, async (req: AuthRequest, res: Response) => {
 });
 
 // POST /v1/messages —— 发送私信（含权限校验；type: text|image|video）
-router.post('/', auth, async (req: AuthRequest, res: Response) => {
+// per-user 限流 30 条/分钟（见 rateLimit.ts：globalLimiter 按 IP 计数封不住单账号刷量）
+router.post('/', auth, dmLimiter, async (req: AuthRequest, res: Response) => {
   try {
     const receiverId = Number(req.body?.receiverId);
     const content = typeof req.body?.content === 'string' ? req.body.content : '';

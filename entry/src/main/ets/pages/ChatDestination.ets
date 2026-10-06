@@ -42,5 +42,12 @@ export struct ChatDestination {
     // 系统返回手势/返回键：页内查看器打开时先关查看器（返回 true = 已处理，不执行默认 pop）。
     // Navigation 壳取代了 router 壳的 onBackPress —— 两者都要接，见 ChatPage.ets。
     .onBackPressed((): boolean => consumeOverlayBack())
+    // 重新显示（含从播放器页/他人主页返回）→ 递增刷新信号：ChatView @Watch 承接静默重拉
+    // （对方撤回/新消息在停留期间无实时推送，返回页面即同步；首次显示由
+    // ChatView.hasLoadedOnce 去重，不会与 aboutToAppear 的首拉叠加）
+    .onShown((): void => {
+      AppStorage.setOrCreate<number>('chatRefreshSignal',
+        (AppStorage.get<number>('chatRefreshSignal') ?? 0) + 1);
+    })
   }
 }

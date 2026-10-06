@@ -198,7 +198,10 @@ export struct PostDetailDestination {
     .onBackPressed((): boolean => consumeOverlayBack())
     .onReady((ctx: NavDestinationContext) => {
       const param: PostDetailNavParams = ctx.pathInfo.param as PostDetailNavParams;
-      if (param === undefined || param === null || typeof param.postId !== 'number') {
+      // postId <= 0 视为「未带参数」（PostDetailNavParams.postId 默认 0，非 undefined）：
+      // 此时**不要**用 0 覆盖意图通道——调用方在 push 前经 openPostDetail(pid) 已写入正确 id，
+      // 提前返回让它原样保留（缺参页面自行报「帖子不存在」），而不是被 String(0) 冲掉。
+      if (param === undefined || param === null || typeof param.postId !== 'number' || param.postId <= 0) {
         return;
       }
       const intent: PostDetailIntent | null = (param.intent as PostDetailIntent | null) ?? null;

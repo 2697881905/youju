@@ -5,6 +5,7 @@ import { Router, Request, Response } from 'express';
 import QRCode from 'qrcode';
 import { prisma } from '../prisma';
 import { env } from '../config/env';
+import { canViewerSeeAuthorPosts } from '../services/accessControl';
 
 const router = Router();
 
@@ -166,6 +167,12 @@ router.get('/post/:id', async (req: Request, res: Response) => {
     res.status(404).send('Not Found');
     return;
   }
+  // 与站内口径对齐（匿名 viewer）：作者被封禁/注销、双向拉黑、postVisibility 非 public
+  // 的内容一律 404——落地页此前只查 deletedAt/status，SSR 会绕过全部可见性规则。
+  if (!(await canViewerSeeAuthorPosts(undefined, post.userId))) {
+    res.status(404).send('Not Found');
+    return;
+  }
   const rawImage: string | null = post.coverImage ?? (post.videoCover ?? null);
   const image = toAbsoluteImage(rawImage);
   const title = post.title || '有据分享';
@@ -192,7 +199,9 @@ router.get('/user/:id', async (req: Request, res: Response) => {
     return;
   }
   const user = await prisma.user.findUnique({ where: { id } });
-  if (!user || user.deletedAt !== null) {
+  // 与 GET /v1/users/:id 口径对齐：封禁（status!==1）与已注销用户一律 404，
+  // 避免落地页成为被封账号信息的枚举旁路
+  if (!user || user.deletedAt !== null || user.status !== 1) {
     res.status(404).send('Not Found');
     return;
   }

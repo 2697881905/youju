@@ -1,6 +1,7 @@
 // 图片选择器 + 腾讯云 COS 直传：
 // PhotoViewPicker 拉相册 → 压缩(jpeg) → 调 getUploadSignature 拿预签名 PUT URL → 直传二进制。
 // 本地用 PixelMap 即时预览；直传成功后把远端 URL 写入 @Link selected（供发布器提交）。
+// 多图场景下支持长按单张图片拖拽排序：Grid 进入编辑模式后长按拖动即可调整图片顺序。
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 
 import { image } from '@kit.ImageKit';
@@ -27,9 +28,11 @@ export struct ImagePicker {
   @State items: PickedImage[] = []; // 本地预览 + 上传态（与 selected 同序）
   @State picking: boolean = false;
   private pickSeq: number = 0;
-  // 拖拽排序当前被拖起的下标（-1 表示无）。
+  // 拖拽排序：当前被长按拖起的图片下标（-1 表示未拖拽）。
   private dragIndex: number = -1;
-  // 重排期间置位：selected 变更会触发 @Watch，跳过重建以避免打乱刚排好的 items 顺序。
+  // 拖拽悬停到的目标格子下标，用于实时高亮落点（-1 表示无）。
+  @State dragTargetIndex: number = -1;
+  // 重排守卫：moveItem 改写 selected 会触发 @Watch，置位后跳过重建，避免打乱刚排好的顺序与本地预览闪烁。
   private reordering: boolean = false;
 
   // 外部恢复草稿时，按已保存的 URL 补建远程预览项；避免编辑草稿时图片丢失。
@@ -160,13 +163,23 @@ export struct ImagePicker {
     this.selected = this.selected.filter((_v: string, i: number) => i !== idx);
   }
 
+  // 把落点下标收敛到合法范围：拖到「+ 添加」格（insertIndex == items.length）视为移到末尾，越界则就近吸附。
+  private clampTargetIndex(insertIndex: number): number {
+    const last: number = this.items.length - 1;
+    if (insertIndex < 0) {
+      return 0;
+    }
+    if (insertIndex > last) {
+      return last;
+    }
+    return insertIndex;
+  }
+
   // 长按拖拽后重排：items（本地预览）与 selected（发布用的远端引用）同序，必须一起搬移。
   // 先写 items 再写 selected —— selected 的 @Watch 在 reordering 守卫下跳过重建，保留本地预览不闪烁。
   private moveItem(from: number, to: number): void {
-    if (from === to || from < 0 || to < 0) {
-      return;
-    }
-    if (from >= this.items.length || to >= this.items.length) {
+    const count: number = this.items.length;
+    if (from === to || from < 0 || to < 0 || from >= count || to >= count) {
       return;
     }
     const nextItems: PickedImage[] = this.items.slice();
@@ -194,6 +207,7 @@ export struct ImagePicker {
           .objectFit(ImageFit.Cover)
           .borderRadius(8)
           .opacity(0.9)
+          .draggable(false)
       } else {
         Image(resolveDisplayImageUrl(this.items[this.dragIndex].remoteUrl ?? ''))
           .width(90)
@@ -201,8 +215,55 @@ export struct ImagePicker {
           .objectFit(ImageFit.Cover)
           .borderRadius(8)
           .opacity(0.9)
+          .draggable(false)
       }
     }
+  }
+
+  @Builder
+  imageCell(item: PickedImage, idx: number): void {
+    Stack() {
+      if (item.preview !== undefined) {
+        Image(item.preview)
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Cover)
+          .borderRadius(8)
+          // 关闭 Image 自带拖拽，避免长按被系统拖拽接管、抢走 Grid 的排序手势。
+          .draggable(false)
+      } else {
+        Image(resolveDisplayImageUrl(item.remoteUrl ?? ''))
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Cover)
+          .borderRadius(8)
+          .draggable(false)
+      }
+      if (item.uploading) {
+        LoadingProgress()
+          .width(28)
+          .height(28)
+          .color(Color.White)
+      }
+      Text('×')
+        .fontSize(16).fontFamily($r('app.string.font_family'))
+        .fontColor(Color.White)
+        .backgroundColor('#00000066')
+        .width(20)
+        .height(20)
+        .borderRadius(10)
+        .textAlign(TextAlign.Center)
+        .position({ top: 2, right: 2 })
+        .onClick(() => this.removeAt(idx))
+    }
+    .width('100%')
+    .aspectRatio(1)
+    // 拖拽中高亮当前落点格子，给出明确的插入位置反馈。
+    .border({
+      width: this.dragIndex >= 0 && this.dragTargetIndex === idx ? 2 : 0,
+      color: $r('app.color.ds_brand'),
+      radius: 8,
+    })
   }
 
   build() {
@@ -210,39 +271,7 @@ export struct ImagePicker {
       Grid() {
         ForEach(this.items, (item: PickedImage, idx: number) => {
           GridItem() {
-            Stack() {
-              if (item.preview !== undefined) {
-                Image(item.preview)
-                  .width('100%')
-                  .height('100%')
-                  .objectFit(ImageFit.Cover)
-                  .borderRadius(8)
-              } else {
-                Image(resolveDisplayImageUrl(item.remoteUrl ?? ''))
-                  .width('100%')
-                  .height('100%')
-                  .objectFit(ImageFit.Cover)
-                  .borderRadius(8)
-              }
-              if (item.uploading) {
-                LoadingProgress()
-                  .width(28)
-                  .height(28)
-                  .color(Color.White)
-              }
-              Text('×')
-                .fontSize(16).fontFamily($r('app.string.font_family'))
-                .fontColor(Color.White)
-                .backgroundColor('#00000066')
-                .width(20)
-                .height(20)
-                .borderRadius(10)
-                .textAlign(TextAlign.Center)
-                .position({ top: 2, right: 2 })
-                .onClick(() => this.removeAt(idx))
-            }
-            .width('100%')
-            .aspectRatio(1)
+            this.imageCell(item, idx)
           }
         }, (item: PickedImage) => item.id)
 
@@ -270,7 +299,7 @@ export struct ImagePicker {
       .columnsGap(8)
       .rowsGap(8)
       .width('100%')
-      // 长按 170ms 进入编辑模式拖拽；绑定 onItemDragStart 后长按单图即可拖动排序。
+      // 长按 170ms 进入编辑模式拖拽；补全拖拽生命周期以提供实时的落点高亮。
       .editMode(true)
       .onItemDragStart((_event: ItemDragInfo, itemIndex: number) => {
         // 末尾「+ 添加」格子不可拖拽。
@@ -278,19 +307,33 @@ export struct ImagePicker {
           return;
         }
         this.dragIndex = itemIndex;
+        this.dragTargetIndex = itemIndex;
         return this.dragOverlay;
       })
+      .onItemDragMove((_event: ItemDragInfo, _itemIndex: number, insertIndex: number): void => {
+        // 实时更新悬停落点，驱动格子高亮。
+        this.dragTargetIndex = this.clampTargetIndex(insertIndex);
+      })
+      .onItemDragLeave((_event: ItemDragInfo, _itemIndex: number): void => {
+        this.dragTargetIndex = -1;
+      })
       .onItemDrop((_event: ItemDragInfo, itemIndex: number, insertIndex: number, isSuccess: boolean): void => {
-        if (!isSuccess || itemIndex < 0 || itemIndex >= this.items.length) {
+        const from: number = this.dragIndex >= 0 ? this.dragIndex : itemIndex;
+        this.dragIndex = -1;
+        this.dragTargetIndex = -1;
+        if (!isSuccess || from < 0 || from >= this.items.length) {
           return;
         }
-        // 拖到「+ 添加」格视为移到末尾。
-        let target: number = insertIndex;
-        if (target > this.items.length - 1) {
-          target = this.items.length - 1;
-        }
-        this.moveItem(itemIndex, target);
+        // 把被拖起项移动到落点；拖到「+ 添加」格视为移到末尾。
+        this.moveItem(from, this.clampTargetIndex(insertIndex));
       })
+
+      if (this.items.length > 1) {
+        Text('长按图片可拖动调整顺序')
+          .fontSize(12).fontFamily($r('app.string.font_family'))
+          .fontColor($r('app.color.text_secondary'))
+          .width('100%')
+      }
     }
     .width('100%')
     .padding(12)

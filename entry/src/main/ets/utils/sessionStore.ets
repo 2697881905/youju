@@ -8,10 +8,21 @@
 // 在同一真机的覆盖安装全流程中始终可靠，故会话改走显式管理的 Preferences 文件：
 // 启动同步读（水合 AppStorage）、登录/登出显式写（flushSync 即时落盘），
 // 不再依赖 PersistentStorage 的隐式双向同步。
+//
+// Token 落盘加固（2026-10-05）：prefs 里不再存明文 token，改为与「设备 ODID + 每次写入的
+// 随机 nonce」绑定的 keystream 异或遮蔽（authTokenEnc）。恢复路径必须依赖 prefs（Asset 覆盖
+// 安装即清空），且必须同步完成（水合早于首帧，AES/Asset 的异步 API 会引入启动时序风险），
+// 故用 cryptoFramework 的同步 SHA-256 迭代拼接 keystream。安全边界（诚实说明）：
+//  - 跨设备提取/还原备份：ODID 不同 → 解开是噪声 → 防住；
+//  - 同设备 root：ODID 可读、密钥流可重算，**不设防**（此场景下内存中的明文 token 同样
+//    暴露，遮蔽无意义）；硬件级加固由 auth.ets 的 Asset Store 副本互补承担。
 import { preferences } from '@kit.ArkData';
 import { common } from '@kit.AbilityKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
+import deviceInfo from '@ohos.deviceInfo';
+import { cryptoFramework } from '@kit.CryptoArchitectureKit';
+import { util } from '@kit.ArkTS';
 
 const DOMAIN: number = 0x0000;
 const TAG: string = 'sessionStore';
@@ -19,7 +30,9 @@ const TAG: string = 'sessionStore';
 const SESSION_PREF_NAME: string = 'youju_session';
 
 // 与旧 PersistentStorage 同名的键：迁移与水合共用同一份清单（键名不变，消费方零改动）。
+// authToken 明文键仅用于读取上一版本的存量数据（读取后立即迁移删除），不再写入。
 const KEY_TOKEN: string = 'authToken';
+const KEY_TOKEN_ENC: string = 'authTokenEnc';
 const KEY_USER_ID: string = 'authUserId';
 const KEY_NICKNAME: string = 'authNickname';
 const KEY_AVATAR: string = 'authAvatar';
@@ -38,6 +51,8 @@ let _legacyChecked: boolean = false;
 
 interface SessionFields {
   authToken: string;
+  // 上一版本明文键残留标记（内部迁移用，不参与水合）：读到即触发一次转存删除
+  hasLegacyPlainToken: boolean;
   authUserId: string;
   authNickname: string;
   authAvatar: string;
@@ -51,6 +66,7 @@ interface SessionFields {
 function defaultSession(): SessionFields {
   const s: SessionFields = {
     authToken: '',
+    hasLegacyPlainToken: false,
     authUserId: '',
     authNickname: '',
     authAvatar: '',
@@ -61,6 +77,108 @@ function defaultSession(): SessionFields {
     privacyAgreed: '0',
   };
   return s;
+}
+
+// ===== Token 遮蔽（XOR keystream，读写在同一设备上自逆）=====
+
+function strToBytes(s: string): Uint8Array {
+  const arr: Uint8Array = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) {
+    arr[i] = s.charCodeAt(i) & 0xff;
+  }
+  return arr;
+}
+
+function bytesToStr(b: Uint8Array): string {
+  let s: string = '';
+  for (let i = 0; i < b.length; i++) {
+    s += String.fromCharCode(b[i]);
+  }
+  return s;
+}
+
+function sha256Bytes(text: string): Uint8Array {
+  const md: cryptoFramework.Md = cryptoFramework.createMd('SHA256');
+  md.updateSync({ data: strToBytes(text) });
+  return md.digestSync().data;
+}
+
+// keystream：SHA256(odid:nonce:counter) 迭代拼接，覆盖 token 全长
+function keystream(odid: string, nonceB64: string, len: number): Uint8Array {
+  const out: Uint8Array = new Uint8Array(len);
+  let filled: number = 0;
+  let counter: number = 0;
+  while (filled < len) {
+    const block: Uint8Array = sha256Bytes(odid + ':' + nonceB64 + ':' + counter);
+    const take: number = Math.min(block.length, len - filled);
+    out.set(block.subarray(0, take), filled);
+    filled += take;
+    counter += 1;
+  }
+  return out;
+}
+
+function shieldToken(token: string, nonceB64: string): string {
+  const data: Uint8Array = strToBytes(token);
+  const ks: Uint8Array = keystream(odidOf(), nonceB64, data.length);
+  for (let i = 0; i < data.length; i++) {
+    data[i] = data[i] ^ ks[i];
+  }
+  return new util.Base64Helper().encodeToStringSync(data);
+}
+
+function unshieldToken(shieldedB64: string, nonceB64: string): string {
+  const data: Uint8Array = new util.Base64Helper().decodeSync(shieldedB64);
+  const ks: Uint8Array = keystream(odidOf(), nonceB64, data.length);
+  for (let i = 0; i < data.length; i++) {
+    data[i] = data[i] ^ ks[i];
+  }
+  return bytesToStr(data);
+}
+
+function odidOf(): string {
+  try {
+    return deviceInfo.ODID ?? '';
+  } catch (e) {
+    return '';
+  }
+}
+
+// 新鲜 nonce（12 字节随机）：同 token 每次落盘密文都不同，避免「同明文同密文」对齐
+function freshNonce(): string {
+  try {
+    const blob: cryptoFramework.DataBlob = cryptoFramework.createRandom().generateRandomSync(12);
+    return new util.Base64Helper().encodeToStringSync(blob.data);
+  } catch (e) {
+    // 随机源异常兜底：时间戳 nonce 仍保证跨写入不重复
+    return new util.Base64Helper().encodeToStringSync(strToBytes(String(Date.now())));
+  }
+}
+
+// 存储形态：'<nonceB64>:<shieldedB64>'；空 token 存 ''（登出态）
+function encodeToken(token: string): string {
+  if (token.length === 0) {
+    return '';
+  }
+  const nonce: string = freshNonce();
+  return nonce + ':' + shieldToken(token, nonce);
+}
+
+function decodeToken(enc: string): string {
+  if (enc.length === 0) {
+    return '';
+  }
+  const idx: number = enc.indexOf(':');
+  if (idx <= 0) {
+    return '';
+  }
+  try {
+    return unshieldToken(enc.slice(idx + 1), enc.slice(0, idx));
+  } catch (e) {
+    // ODID 变化（恢复出厂）/数据损坏 → 解出无效会话，静默降级为未登录
+    hilog.error(DOMAIN, TAG, 'token decode failed: %{public}s', JSON.stringify(e));
+    return '';
+  }
 }
 
 // 初始化：EntryAbility.onCreate 调用（早于任何页面构建，保证首帧前 AppStorage 已有登录态）。
@@ -76,6 +194,11 @@ export function initSessionStore(appContext: common.ApplicationContext, abilityC
     return;
   }
   const loaded: SessionFields = readSession();
+  // 上一版本明文 token 的迁移：转存混淆密文 + 删除明文键（会话不中断，AppStorage 值不变）
+  if (loaded.hasLegacyPlainToken) {
+    writeSession(loaded);
+    hilog.info(DOMAIN, TAG, 'legacy plaintext token migrated to shielded form');
+  }
   if (loaded.authToken === '' && !_legacyChecked) {
     _legacyChecked = true;
     const migrated: SessionFields = migrateLegacySession(abilityContext);
@@ -95,7 +218,15 @@ function readSession(): SessionFields {
   }
   const s: SessionFields = defaultSession();
   try {
-    s.authToken = _prefs.getSync(KEY_TOKEN, '') as string;
+    s.authToken = decodeToken(_prefs.getSync(KEY_TOKEN_ENC, '') as string);
+    // 上一版本明文键残留（本版本首次启动）：作为兜底会话源，标记迁移
+    const legacyPlain: string = _prefs.getSync(KEY_TOKEN, '') as string;
+    if (legacyPlain.length > 0) {
+      s.hasLegacyPlainToken = true;
+      if (s.authToken === '') {
+        s.authToken = legacyPlain;
+      }
+    }
     s.authUserId = _prefs.getSync(KEY_USER_ID, '') as string;
     s.authNickname = _prefs.getSync(KEY_NICKNAME, '') as string;
     s.authAvatar = _prefs.getSync(KEY_AVATAR, '') as string;
@@ -119,7 +250,9 @@ export function saveSessionSnapshot(): void {
     return;
   }
   try {
-    _prefs.putSync(KEY_TOKEN, (AppStorage.get<string>(KEY_TOKEN) ?? '') as string);
+    // token 只写混淆密文（见文件头安全边界说明）；明文键做幂等清理
+    _prefs.putSync(KEY_TOKEN_ENC, encodeToken((AppStorage.get<string>(KEY_TOKEN) ?? '') as string));
+    _prefs.deleteSync(KEY_TOKEN);
     _prefs.putSync(KEY_USER_ID, (AppStorage.get<string>(KEY_USER_ID) ?? '') as string);
     _prefs.putSync(KEY_NICKNAME, (AppStorage.get<string>(KEY_NICKNAME) ?? '') as string);
     _prefs.putSync(KEY_AVATAR, (AppStorage.get<string>(KEY_AVATAR) ?? '') as string);
@@ -139,7 +272,8 @@ function writeSession(s: SessionFields): void {
     return;
   }
   try {
-    _prefs.putSync(KEY_TOKEN, s.authToken);
+    _prefs.putSync(KEY_TOKEN_ENC, encodeToken(s.authToken));
+    _prefs.deleteSync(KEY_TOKEN);
     _prefs.putSync(KEY_USER_ID, s.authUserId);
     _prefs.putSync(KEY_NICKNAME, s.authNickname);
     _prefs.putSync(KEY_AVATAR, s.authAvatar);

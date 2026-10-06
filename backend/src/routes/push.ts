@@ -39,7 +39,13 @@ router.post('/push/register', auth, asyncHandler(async (req: AuthRequest, res: R
 // token 走 query 而非 body：HarmonyOS 的 http DELETE 带 body 行为不稳定，且无需额外校验。
 // 只删自己的记录（多设备互不干扰）；token 为空视为已解绑，返回成功保证登出流程不被卡住。
 router.delete('/push/token', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const t = typeof req.query.token === 'string' ? req.query.token.trim() : '';
+  // token 走 X-Push-Token 头：query 参数会随 nginx/代理访问日志持久留存，而设备 token
+  // 属于可向指定设备下发推送的凭据，不能进日志。兼容读取旧 query（客户端全量升级后移除）。
+  // HarmonyOS 的 http DELETE 带 body 行为不稳定，故不用 body。只删自己的记录（多设备互不干扰）。
+  const headerToken = typeof req.headers['x-push-token'] === 'string'
+    ? (req.headers['x-push-token'] as string).trim() : '';
+  const queryToken = typeof req.query.token === 'string' ? req.query.token.trim() : '';
+  const t = headerToken || queryToken;
   if (t === '') {
     return ok(res, null, '已解绑');
   }
