@@ -21,6 +21,8 @@ export struct CommentList {
   @Prop comments: Comment[] = [];
   // 待定位评论 id（>0 时该条短暂高亮；由详情页滚动到位后置位、延时清除）
   @Prop highlightCommentId: number = 0;
+  // 帖子作者 id：若当前登录用户即帖主，可直接删除本帖子下的任意评论（无需举报）
+  @Prop postAuthorId: number = 0;
   // 举报回调（由 DetailPage 传入，打开 ReportDialog）
   reportCommentHandler: (commentId: number) => void = (_id: number) => {};
   // P1-1 楼中楼：点击评论下「回复」时上报该评论（上层构建回复目标）
@@ -260,7 +262,13 @@ export struct CommentList {
     }
   }
 
-  // 评论操作菜单（作者可删除，他人可举报）
+  // 当前登录用户是否为「本帖子作者」：帖主对自己帖子下的所有评论都有直接删除权
+  private isPostAuthor(): boolean {
+    const uid: number = getUserId();
+    return uid > 0 && this.postAuthorId > 0 && this.postAuthorId === uid;
+  }
+
+  // 评论操作菜单（评论作者本人 / 帖主可删除；他人只能举报）
   @Builder
   menuButton(c: Comment) {
     Text('⋯')
@@ -269,8 +277,9 @@ export struct CommentList {
       .width(32)
       .textAlign(TextAlign.Center)
       .onClick(() => {
-        const isOwner: boolean = c.userId === getUserId();
-        if (isOwner) {
+        // 评论作者删自己的评论；帖主删自己帖子下的评论（后端 deleteComment 同步支持两种身份）
+        const canDelete: boolean = c.userId === getUserId() || this.isPostAuthor();
+        if (canDelete) {
           this.getUIContext().showAlertDialog({
             title: '操作',
             message: '',
