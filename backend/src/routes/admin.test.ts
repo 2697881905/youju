@@ -29,6 +29,9 @@ jest.mock('../prisma', () => ({
       findMany: jest.fn().mockResolvedValue([]),
       count: jest.fn(),
       updateMany: jest.fn(),
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      // 举报中心待处理数按 targetType 分类统计（countPendingReportsByType）
+      groupBy: jest.fn().mockResolvedValue([]),
     },
     notification: {
       create: jest.fn(),
@@ -153,7 +156,9 @@ describe('POST /v1/admin/reports/resolve', () => {
     mockPrisma.$transaction.mockImplementation((cb: any) => cb(mockPrisma));
     mockPrisma.report.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.report.findMany.mockResolvedValue([{ reporterId: 2 }]);
+    // 事务内的 report.count：仍用于 pending / 已裁决 判定（举报中心文案改用 groupBy）
     mockPrisma.report.count.mockResolvedValue(0);
+    mockPrisma.report.groupBy.mockResolvedValue([]);
     mockPrisma.post.findUnique.mockResolvedValue({ id: 1, userId: 10, title: '待审帖', status: 0 });
     mockPrisma.post.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.notification.create.mockResolvedValue({});
@@ -230,7 +235,11 @@ describe('POST /v1/admin/reports/resolve', () => {
     expect(authorNotif.data.content).toContain('含广告推广');
 
     // 处置后按真实待处理数回写「举报中心」置顶消息（清零 → 文案更新且熄灭未读）
-    expect(mockPrisma.report.count).toHaveBeenCalledWith({ where: { status: 'pending' } });
+    expect(mockPrisma.report.groupBy).toHaveBeenCalledWith({
+      by: ['targetType'],
+      where: { status: 'pending' },
+      _count: true,
+    });
   });
 
   it('dismissed 成功：举报→dismissed + 内容恢复（0→1）+ 通知作者已通过审核', async () => {
@@ -318,5 +327,67 @@ describe('POST /v1/admin/reports/resolve', () => {
     );
     expect(notDown.status).toBe(400);
     expect(notDown.json.message).toContain('无需恢复');
+  });
+});
+
+describe('GET /v1/admin/reports/summary + POST /v1/admin/reports/delete', () => {
+  beforeEach(() => {
+    (env as any).adminUserIds = [1];
+  });
+
+  it('summary：待处理举报按帖子/评论/用户分类计数', async () => {
+    mockPrisma.report.groupBy.mockResolvedValue([
+      { targetType: 'post', _count: 2 },
+      { targetType: 'comment', _count: 1 },
+    ]);
+    const res = await req('GET', '/v1/admin/reports/summary', undefined, authHeader(1));
+    expect(res.status).toBe(200);
+    expect(res.json.data).toEqual({ total: 3, post: 2, comment: 1, user: 0 });
+  });
+
+  it('list：targetType 下推查询条件（非法值忽略）', async () => {
+    mockPrisma.report.count.mockResolvedValue(0);
+    await req('GET', '/v1/admin/reports?status=pending&targetType=comment', undefined, authHeader(1));
+    expect(mockPrisma.report.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { status: 'pending', targetType: 'comment' } })
+    );
+
+    jest.clearAllMocks();
+    mockPrisma.report.count.mockResolvedValue(0);
+    await req('GET', '/v1/admin/reports?targetType=xxx', undefined, authHeader(1));
+    expect(mockPrisma.report.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: {} })
+    );
+  });
+
+  it('delete：批量删除举报记录并回写举报中心计数', async () => {
+    mockPrisma.report.deleteMany.mockResolvedValue({ count: 2 });
+    mockPrisma.report.groupBy.mockResolvedValue([]);
+    const res = await req('POST', '/v1/admin/reports/delete', { ids: [7, 8, 7] }, authHeader(1));
+    expect(res.status).toBe(200);
+    expect(res.json.data).toEqual({ count: 2 });
+    // 去重后一次性删除
+    expect(mockPrisma.report.deleteMany).toHaveBeenCalledWith({ where: { id: { in: [7, 8] } } });
+    expect(mockPrisma.report.groupBy).toHaveBeenCalled();
+  });
+
+  it('delete：ids 非法 → 400（空数组 / 非数组 / 无合法项）', async () => {
+    const empty = await req('POST', '/v1/admin/reports/delete', { ids: [] }, authHeader(1));
+    expect(empty.status).toBe(400);
+    const notArray = await req('POST', '/v1/admin/reports/delete', { ids: 'x' }, authHeader(1));
+    expect(notArray.status).toBe(400);
+    const noValid = await req('POST', '/v1/admin/reports/delete', { ids: [0, -1, 'a'] }, authHeader(1));
+    expect(noValid.status).toBe(400);
+    expect(mockPrisma.report.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it('delete：超过单次上限 → 400', async () => {
+    const ids: number[] = [];
+    for (let i = 1; i <= 201; i++) {
+      ids.push(i);
+    }
+    const res = await req('POST', '/v1/admin/reports/delete', { ids }, authHeader(1));
+    expect(res.status).toBe(400);
+    expect(res.json.message).toContain('最多删除');
   });
 });

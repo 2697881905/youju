@@ -295,6 +295,15 @@ export interface AdminReportItem {
 // 处置动作（POST /v1/admin/reports/resolve）：成立并下架 / 驳回举报（并恢复内容）/ 改判恢复
 export type ReportAction = 'resolved' | 'dismissed' | 'restore';
 
+// 待处理举报按类型分类计数（GET /v1/admin/reports/summary）
+// 举报中心三个板块（帖子/评论/用户）的待处理数；与置顶通知文案同一份口径。
+export interface PendingReportSummary {
+  total: number;
+  post: number;
+  comment: number;
+  user: number;
+}
+
 // ===== 通知偏好 =====
 // 通知偏好（对应后端 GET/PUT /v1/me/notification-prefs）
 export interface NotificationPrefs {

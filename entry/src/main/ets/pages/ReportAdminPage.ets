@@ -11,7 +11,7 @@
 // 操作：POST /v1/admin/reports/resolve                （作用于该对象的全部 pending 举报）
 //       POST /v1/admin/users/:id/ban | /unban
 import { AdminReportItem, ReportAction, ReportTargetType } from '../models/types';
-import { ListResult, listAdminReports, resolveTargetReports, banUser, unbanUser } from '../services/api';
+import { ListResult, listAdminReports, resolveTargetReports, banUser, unbanUser, deleteAdminReports } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 import { timeAgo } from '../utils/format';
 import { buildPageTransition } from '../utils/styles';
@@ -303,14 +303,24 @@ function patchReport(it: AdminReportItem, action: ReportAction): AdminReportItem
 }
 
 // ───────────────────────── 筛选 ─────────────────────────
+// 两级筛选：上层「板块」= 被举报对象类型（帖子/评论/用户），下层「状态」= 待处理/已成立/已驳回。
+// 板块与状态都下推到服务端（分页与 total 同口径），本地再即时重算一次避免等待网络。
 
 interface FilterTab {
-  key: string; // '' = 全部
+  key: string;
   label: string;
 }
 
-const FILTERS: FilterTab[] = [
+// 类型板块：'' = 全部（不限类型。入口副标题给的是总量，进来先看全貌再按板块钻取）
+const TYPE_TABS: FilterTab[] = [
   { key: '', label: '全部' },
+  { key: 'post', label: '帖子' },
+  { key: 'comment', label: '评论' },
+  { key: 'user', label: '用户' },
+];
+
+// 状态：不设「全部」——默认只看待处理，已成立/已驳回按需切换
+const FILTERS: FilterTab[] = [
   { key: 'pending', label: '待处理' },
   { key: 'resolved', label: '已成立' },
   { key: 'dismissed', label: '已驳回' },
@@ -382,7 +392,12 @@ export struct ReportAdminPage {
   @State isRefreshing: boolean = false;
   @State finished: boolean = false;
   @State page: number = 1;
-  @State filterKey: string = ''; // '' | pending | resolved | dismissed
+  @State filterKey: string = 'pending'; // pending | resolved | dismissed（不设「全部」）
+  @State typeKey: string = ''; // '' | post | comment | user（板块：被举报对象类型）
+  // 多选删除：选择模式 + 已选中的聚合卡 key（targetType#targetId）
+  @State selectMode: boolean = false;
+  @State selectedKeys: string[] = [];
+  @State deleting: boolean = false;
   // 防重复提交：值为正在处理的那张聚合卡的 key（空串 = 空闲）
   @State processingKey: string = '';
   @State total: number = 0; // 服务端返回的举报总条数（当前筛选）
@@ -431,6 +446,15 @@ export struct ReportAdminPage {
     return undefined;
   }
 
+  // 板块 → 服务端 targetType 参数（「全部」= undefined，不限类型）
+  private currentTargetType(): ReportTargetType | undefined {
+    const k: string = this.typeKey;
+    if (k === 'post' || k === 'comment' || k === 'user') {
+      return k;
+    }
+    return undefined;
+  }
+
   private setFilter(k: string): void {
     if (this.filterKey === k) {
       return;
@@ -438,7 +462,22 @@ export struct ReportAdminPage {
     this.filterKey = k;
     this.page = 1;
     this.finished = false;
+    // 换筛选后已选卡片可能已不在列表里：直接退出选择模式
+    this.exitSelect();
     // 先就地重算一次：切筛选立刻有反馈，不必等网络
+    this.recomputeGroups();
+    this.load(true);
+  }
+
+  // 切板块（帖子 / 评论 / 用户）：类型下推服务端，分页与 total 都按该板块口径
+  private setType(k: string): void {
+    if (this.typeKey === k) {
+      return;
+    }
+    this.typeKey = k;
+    this.page = 1;
+    this.finished = false;
+    this.exitSelect();
     this.recomputeGroups();
     this.load(true);
   }
@@ -446,11 +485,16 @@ export struct ReportAdminPage {
   private recomputeGroups(): void {
     const all: ReportGroup[] = aggregateGroups(this.items);
     const k: string = this.filterKey;
-    if (k.length === 0) {
-      this.groups = all;
-      return;
-    }
-    this.groups = all.filter((g: ReportGroup): boolean => g.status === k);
+    const t: ReportTargetType | undefined = this.currentTargetType();
+    this.groups = all.filter((g: ReportGroup): boolean => {
+      if (k.length > 0 && g.status !== k) {
+        return false;
+      }
+      if (t !== undefined && g.targetType !== t) {
+        return false;
+      }
+      return true;
+    });
   }
 
   async load(reset: boolean): Promise<void> {
@@ -461,7 +505,7 @@ export struct ReportAdminPage {
     }
     const reqPage: number = this.page;
     try {
-      const res: ListResult<AdminReportItem> = await listAdminReports(reqPage, PAGE_SIZE, this.currentStatus());
+      const res: ListResult<AdminReportItem> = await listAdminReports(reqPage, PAGE_SIZE, this.currentStatus(), this.currentTargetType());
       if (seq !== this.fetchSeq) {
         return; // 过期响应：期间已有更新的请求发起，整体丢弃
       }
@@ -636,7 +680,7 @@ export struct ReportAdminPage {
   }
 
   private openTarget(g: ReportGroup): void {
-    if (this.processingKey.length > 0) {
+    if (this.processingKey.length > 0 || this.selectMode) {
       return;
     }
     if (g.targetType === 'user') {
@@ -775,7 +819,7 @@ export struct ReportAdminPage {
 
   // 作者行整行可点：进作者主页（与「查看用户主页」同路，走 UserProfilePage）
   private openAuthor(g: ReportGroup): void {
-    if (this.processingKey.length > 0) {
+    if (this.processingKey.length > 0 || this.selectMode) {
       return;
     }
     const authorId: number = this.banTargetId(g);
@@ -784,6 +828,119 @@ export struct ReportAdminPage {
     }
     openUserProfile(authorId);
     this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage' });
+  }
+
+  // ───────────────────────── 多选删除（台账清理） ─────────────────────────
+
+  private isSelected(g: ReportGroup): boolean {
+    return this.selectedKeys.indexOf(g.key) >= 0;
+  }
+
+  private selectedCount(): number {
+    return this.selectedKeys.length;
+  }
+
+  private allSelected(): boolean {
+    return this.groups.length > 0 && this.selectedKeys.length === this.groups.length;
+  }
+
+  private enterSelect(): void {
+    if (this.groups.length === 0) {
+      safeShowToast(this.getUIContext(), { message: '当前没有可删除的记录' });
+      return;
+    }
+    this.selectMode = true;
+    this.selectedKeys = [];
+  }
+
+  private exitSelect(): void {
+    this.selectMode = false;
+    this.selectedKeys = [];
+  }
+
+  private toggleSelect(g: ReportGroup): void {
+    const next: string[] = this.selectedKeys.slice();
+    const at: number = next.indexOf(g.key);
+    if (at >= 0) {
+      next.splice(at, 1);
+    } else {
+      next.push(g.key);
+    }
+    this.selectedKeys = next;
+  }
+
+  private toggleSelectAll(): void {
+    if (this.allSelected()) {
+      this.selectedKeys = [];
+      return;
+    }
+    const next: string[] = [];
+    for (const g of this.groups) {
+      next.push(g.key);
+    }
+    this.selectedKeys = next;
+  }
+
+  // 选中卡片对应的**已加载**举报记录 id（一张卡 = 一个被举报对象，可能聚合多条举报）
+  private selectedReportIds(): number[] {
+    const ids: number[] = [];
+    for (const it of this.items) {
+      const key: string = it.targetType + '#' + String(it.targetId);
+      if (this.selectedKeys.indexOf(key) >= 0 && ids.indexOf(it.id) < 0) {
+        ids.push(it.id);
+      }
+    }
+    return ids;
+  }
+
+  private confirmDelete(): void {
+    if (this.processingKey.length > 0) {
+      return;
+    }
+    const ids: number[] = this.selectedReportIds();
+    if (ids.length === 0) {
+      safeShowToast(this.getUIContext(), { message: '请先选择要删除的信息' });
+      return;
+    }
+    const cards: number = this.selectedKeys.length;
+    this.getUIContext().showAlertDialog({
+      title: '删除举报记录？',
+      message: '将删除选中的 ' + cards + ' 张卡片对应的 ' + ids.length + ' 条举报记录。只清理台账记录，不改动被举报内容的状态；删除后不可恢复。',
+      primaryButton: { value: '取消', action: (): void => {} },
+      secondaryButton: {
+        value: '确认删除',
+        fontColor: ColorTokens.danger,
+        action: (): void => { this.doDelete(ids); },
+      },
+    });
+  }
+
+  // 删除选中记录：后端删库并回写「举报中心」待处理数，前端就地移除 + 广播刷新消息页入口
+  private async doDelete(ids: number[]): Promise<void> {
+    if (this.deleting) {
+      return;
+    }
+    this.deleting = true;
+    try {
+      const count: number = await deleteAdminReports(ids);
+      const keep: AdminReportItem[] = [];
+      for (const it of this.items) {
+        if (ids.indexOf(it.id) < 0) {
+          keep.push(it);
+        }
+      }
+      this.items = keep;
+      const rest: number = this.total - count;
+      this.total = rest > 0 ? rest : 0;
+      this.recomputeGroups();
+      this.exitSelect();
+      this.bumpReportCenterRefresh();
+      safeShowToast(this.getUIContext(), { message: '已删除 ' + count + ' 条举报记录' });
+    } catch (e) {
+      safeShowToast(this.getUIContext(), { message: (e as Error).message });
+    } finally {
+      this.deleting = false;
+    }
   }
 
   // ───────────────────────── 视图 ─────────────────────────
@@ -800,6 +957,21 @@ export struct ReportAdminPage {
         .lineHeight(TypeTokens.title.lineHeight)
         .fontColor(ColorTokens.primary)
       Blank()
+      if (this.selectMode) {
+        this.selectActions()
+      } else {
+        this.normalActions()
+      }
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Center)
+    .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+  }
+
+  // 常规态右上角：刷新 + 删除（进入多选）
+  @Builder
+  normalActions(): void {
+    Row({ space: SpaceTokens.sm }) {
       Row() {
         if (this.isRefreshing) {
           LoadingProgress().width(IconTokens.small).height(IconTokens.small)
@@ -810,17 +982,74 @@ export struct ReportAdminPage {
             .fontColor(ColorTokens.brand)
         }
       }
-      .width(LayoutTokens.minTouchTarget)
+      .constraintSize({ minWidth: LayoutTokens.minTouchTarget })
       .height(LayoutTokens.minTouchTarget)
       .justifyContent(FlexAlign.Center)
       .alignItems(VerticalAlign.Center)
       .onClick((): void => { this.refresh(); })
+
+      Text('删除')
+        .fontSize(TypeTokens.callout.size)
+        .fontFamily(TypeTokens.fontFamily)
+        .fontColor(ColorTokens.danger)
+        .textAlign(TextAlign.Center)
+        .constraintSize({ minWidth: LayoutTokens.minTouchTarget })
+        .height(LayoutTokens.minTouchTarget)
+        .onClick((): void => { this.enterSelect(); })
     }
-    .width('100%')
     .alignItems(VerticalAlign.Center)
-    .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
   }
 
+  // 选择态右上角：取消 / 全选 / 删除选中
+  @Builder
+  selectActions(): void {
+    Row({ space: SpaceTokens.sm }) {
+      Text('取消')
+        .fontSize(TypeTokens.callout.size)
+        .fontFamily(TypeTokens.fontFamily)
+        .fontColor(ColorTokens.secondary)
+        .height(LayoutTokens.minTouchTarget)
+        .onClick((): void => { this.exitSelect(); })
+
+      Text(this.allSelected() ? '取消全选' : '全选')
+        .fontSize(TypeTokens.callout.size)
+        .fontFamily(TypeTokens.fontFamily)
+        .fontColor(ColorTokens.brand)
+        .height(LayoutTokens.minTouchTarget)
+        .onClick((): void => { this.toggleSelectAll(); })
+
+      Text(this.selectedCount() > 0 ? '删除 ' + String(this.selectedCount()) : '删除')
+        .fontSize(TypeTokens.callout.size)
+        .fontFamily(TypeTokens.fontFamily)
+        .fontWeight(TypeTokens.headline.weight)
+        .fontColor(this.selectedCount() > 0 ? ColorTokens.danger : ColorTokens.quaternary)
+        .height(LayoutTokens.minTouchTarget)
+        .onClick((): void => { this.confirmDelete(); })
+    }
+    .alignItems(VerticalAlign.Center)
+  }
+
+  // 板块栏（上层）：被举报对象类型 —— 帖子 / 评论 / 用户
+  @Builder
+  typeBar(): void {
+    Row({ space: SpaceTokens.xs }) {
+      ForEach(TYPE_TABS, (t: FilterTab) => {
+        Text(t.label)
+          .fontSize(TypeTokens.callout.size)
+          .fontFamily(TypeTokens.fontFamily)
+          .fontWeight(this.typeKey === t.key ? TypeTokens.headline.weight : TypeTokens.callout.weight)
+          .fontColor(this.typeKey === t.key ? ColorTokens.onBrand : ColorTokens.secondary)
+          .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.xs + 2, bottom: SpaceTokens.xs + 2 })
+          .backgroundColor(this.typeKey === t.key ? ColorTokens.brand : ColorTokens.subtle)
+          .borderRadius(RadiusTokens.pill)
+          .onClick((): void => { this.setType(t.key); })
+      }, (t: FilterTab) => 't' + t.key)
+    }
+    .width('100%')
+    .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, bottom: SpaceTokens.xs })
+  }
+
+  // 状态栏（下层）：当前板块内的状态分类 —— 待处理 / 已成立 / 已驳回（不设「全部」）
   @Builder
   filterBar(): void {
     Row({ space: SpaceTokens.xs }) {
@@ -829,9 +1058,10 @@ export struct ReportAdminPage {
           .fontSize(TypeTokens.callout.size)
           .fontFamily(TypeTokens.fontFamily)
           .fontWeight(this.filterKey === f.key ? TypeTokens.headline.weight : TypeTokens.callout.weight)
-          .fontColor(this.filterKey === f.key ? ColorTokens.onBrand : ColorTokens.secondary)
+          .fontColor(this.filterKey === f.key ? ColorTokens.brand : ColorTokens.secondary)
           .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.xs + 2, bottom: SpaceTokens.xs + 2 })
-          .backgroundColor(this.filterKey === f.key ? ColorTokens.brand : ColorTokens.subtle)
+          .backgroundColor(this.filterKey === f.key ? ColorTokens.brandTint : Color.Transparent)
+          .border({ width: 1, color: this.filterKey === f.key ? ColorTokens.brand : ColorTokens.separator })
           .borderRadius(RadiusTokens.pill)
           .onClick((): void => { this.setFilter(f.key); })
       }, (f: FilterTab) => 'f' + f.key)
@@ -1090,12 +1320,32 @@ export struct ReportAdminPage {
     .alignItems(VerticalAlign.Center)
   }
 
+  // 选择模式的勾选标记：选中 = 品牌色圆勾；未选 = 空心圈
+  @Builder
+  selectMark(g: ReportGroup): void {
+    if (this.isSelected(g)) {
+      Image(resolveActionIcon('check'))
+        .width(18)
+        .height(18)
+        .fillColor(ColorTokens.brand)
+    } else {
+      Column()
+        .width(18)
+        .height(18)
+        .borderRadius(RadiusTokens.pill)
+        .border({ width: 1, color: ColorTokens.quaternary })
+    }
+  }
+
   @Builder
   groupCard(g: ReportGroup): void {
     BaseCard({ cardPadding: SpaceTokens.md, radius: RadiusTokens.lg, elevation: 1 }) {
       Column({ space: SpaceTokens.sm }) {
         // ① 身份行：类型 + 举报状态 + 内容状态 + 最新举报时间
         Row({ space: SpaceTokens.sm }) {
+          if (this.selectMode) {
+            this.selectMark(g)
+          }
           this.typePill(g)
           this.statusPill(g)
           if (g.targetType !== 'user') {
@@ -1110,15 +1360,21 @@ export struct ReportAdminPage {
         .width('100%')
         .alignItems(VerticalAlign.Center)
 
-        // ② 内容 + 元信息：整块可点，直达被举报对象看完整上下文
-        Pressable({ fillWidth: true, fullResponseRegion: true, action: (): void => { this.openTarget(g); } }) {
+        // ② 内容 + 元信息：整块可点 —— 常规态直达被举报对象；选择态切换勾选
+        Pressable({ fillWidth: true, fullResponseRegion: true, action: (): void => {
+          if (this.selectMode) {
+            this.toggleSelect(g);
+            return;
+          }
+          this.openTarget(g);
+        } }) {
           Column({ space: SpaceTokens.sm }) {
             this.targetLine(g)
             this.metaLine(g)
             if (g.description.length > 0) {
               this.quoteBlock(g.description)
             }
-            if (this.canOpenTarget(g)) {
+            if (this.canOpenTarget(g) && !this.selectMode) {
               Row() {
                 Blank()
                 Text(this.targetLinkLabel(g) + ' ›')
@@ -1138,12 +1394,14 @@ export struct ReportAdminPage {
           this.authorRow(g)
         }
 
-        Divider()
-          .height(LayoutTokens.hairlineWidth)
-          .color(ColorTokens.separator)
+        // ④ 动作行：选择态下隐藏（避免与「选卡片删除」混淆），只做勾选
+        if (!this.selectMode) {
+          Divider()
+            .height(LayoutTokens.hairlineWidth)
+            .color(ColorTokens.separator)
 
-        // ④ 动作行
-        this.actionRow(g)
+          this.actionRow(g)
+        }
       }
       .width('100%')
       .alignItems(HorizontalAlign.Start)
@@ -1234,7 +1492,7 @@ export struct ReportAdminPage {
         // key 必须含会变字段：处置状态 / 内容状态 / 封禁态（任一变化都要重建卡片）
         ForEach(this.groups, (g: ReportGroup) => {
           this.groupCard(g)
-        }, (g: ReportGroup) => g.key + '#' + String(g.reportCount) + '#' + g.status + '#' + String(g.targetStatus ?? -1) + '#' + (this.isAuthorBanned(g) ? 'b' : 'n'))
+        }, (g: ReportGroup) => g.key + '#' + String(g.reportCount) + '#' + g.status + '#' + String(g.targetStatus ?? -1) + '#' + (this.isAuthorBanned(g) ? 'b' : 'n') + '#' + (this.isSelected(g) ? 's' : 'n'))
         this.listFooter()
       }
       .width('100%')
@@ -1244,6 +1502,8 @@ export struct ReportAdminPage {
   build() {
     Column() {
       this.topBar()
+      // 上层板块（帖子/评论/用户）→ 下层状态（待处理/已成立/已驳回）：两级都在当前类目内过滤
+      this.typeBar()
       this.filterBar()
 
       // 三态与列表统一包在 Refresh + Scroll 里：空态 / 错误态也能下拉刷新。

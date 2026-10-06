@@ -1,6 +1,6 @@
 import { http } from '@kit.NetworkKit';
 import { BUILD_MODE_NAME, DEBUG } from '../utils/buildMode';
-import { Post, DailyPost, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody, ReportAction, NotificationPrefs, BlockUser, PrivacySettingsData, UserExportData, DebateVoteResult, Conversation, DmMessage, DmSharePayload, AdminReportItem, ReportTargetType, BookmarkFolderItem, MentionRef, MentionCandidate, StructuredDocument } from '../models/types';
+import { Post, DailyPost, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody, ReportAction, NotificationPrefs, BlockUser, PrivacySettingsData, UserExportData, DebateVoteResult, Conversation, DmMessage, DmSharePayload, AdminReportItem, ReportTargetType, BookmarkFolderItem, MentionRef, MentionCandidate, StructuredDocument, PendingReportSummary } from '../models/types';
 
 // 以构建期布尔 DEBUG 为准选择后端地址（调试包 true → 本地，released → 生产）。
 const BUILD_MODE: string = BUILD_MODE_NAME;
@@ -879,18 +879,43 @@ export async function reportUser(id: number, body: ReportBody): Promise<void> {
 }
 
 // ===== 内容治理（admin）=====
-// GET /v1/admin/reports?page=&limit=&status= 举报台账列表（举报中心 · 唯一处置台）
+// GET /v1/admin/reports?page=&limit=&status=&targetType= 举报台账列表（举报中心 · 唯一处置台）
+// targetType 为板块过滤（帖子/评论/用户），缺省不限板块
 export function listAdminReports(
   page: number = 1,
   limit: number = 20,
-  status?: 'pending' | 'resolved' | 'dismissed'
+  status?: 'pending' | 'resolved' | 'dismissed',
+  targetType?: ReportTargetType
 ): Promise<ListResult<AdminReportItem>> {
   const fields: Array<[string, string | number | undefined]> = [['page', page], ['limit', limit]];
   if (status !== undefined) {
     fields.push(['status', status]);
   }
+  if (targetType !== undefined) {
+    fields.push(['targetType', targetType]);
+  }
   const path: string = '/v1/admin/reports' + toQuery(fields);
   return api.get<ListResult<AdminReportItem>>(path);
+}
+
+// GET /v1/admin/reports/summary 待处理举报按类型分类计数（帖子/评论/用户）
+export function getAdminReportSummary(): Promise<PendingReportSummary> {
+  return api.get<PendingReportSummary>('/v1/admin/reports/summary');
+}
+
+// POST /v1/admin/reports/delete 批量删除举报台账记录（只删记录，不改内容状态）
+export interface DeleteReportsBody {
+  ids: number[];
+}
+
+export interface DeleteReportsResult {
+  count: number;
+}
+
+export async function deleteAdminReports(ids: number[]): Promise<number> {
+  const body: DeleteReportsBody = { ids: ids };
+  const res: DeleteReportsResult = await api.post<DeleteReportsResult>('/v1/admin/reports/delete', body);
+  return res.count;
 }
 
 // POST /v1/admin/reports/resolve 处置某目标：对该目标的全部 pending 举报与内容状态一次性裁决

@@ -7,7 +7,7 @@
 // - 顶部「全部已读」
 // - 回写 AppStorage['unreadMessageCount'] 供 Index 消息 Tab 红点
 
-import { NotificationItem, NotificationType, Conversation } from '../models/types';
+import { NotificationItem, NotificationType, Conversation, PendingReportSummary } from '../models/types';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { openChat, openPostDetail, openPostDetailAtComment, openUserProfile } from '../utils/nav';
 import {
@@ -17,7 +17,7 @@ import {
   markAllRead,
   getConversations,
   getDmUnreadCount,
-  listAdminReports,
+  getAdminReportSummary,
 } from '../services/api';
 import { getToken, getUserId, getCurrentUser, getIsAdmin } from '../utils/auth';
 import { barBottomReserve } from '../utils/cardTokens';
@@ -530,16 +530,23 @@ export struct MessagePage {
   // 普通行，收敛为通知列表上方一条常驻入口：切换「赞和收藏/新增关注/评论」筛选时
   // 始终置顶可见，不随筛选消失。
   // 待处理数（-1 = 未就绪/非管理员）取自举报台账接口的真实计数，不读置顶消息里的旧文案
+  // 同时按板块（帖子/评论/用户）分开计数，副标题直接分类展示
   @State reportCenterPending: number = -1;
+  @State reportCenterPost: number = 0;
+  @State reportCenterComment: number = 0;
+  @State reportCenterUser: number = 0;
 
-  // 拉取举报台账的待处理总数（仅管理员；失败静默，退回通知文案展示）
+  // 拉取待处理举报的分类计数（仅管理员；失败静默，退回通知文案展示）
   async loadReportCenterPending(): Promise<void> {
     if (!getIsAdmin()) {
       return;
     }
     try {
-      const res = await listAdminReports(1, 1, 'pending');
-      this.reportCenterPending = res.pagination.total;
+      const res: PendingReportSummary = await getAdminReportSummary();
+      this.reportCenterPending = res.total;
+      this.reportCenterPost = res.post;
+      this.reportCenterComment = res.comment;
+      this.reportCenterUser = res.user;
     } catch (e) {
       // 忽略：入口退回通知文案，不阻断消息列表
     }
@@ -554,14 +561,17 @@ export struct MessagePage {
     return undefined;
   }
 
-  // 入口副标题：以举报台账的实时待处理数为准（服务端真实数据），不依赖置顶消息里的旧文案
+  // 入口副标题：以举报台账的实时待处理数为准（服务端真实数据），并按板块分类展示
   // —— 通知文案只在「新举报产生 / 处置回写」时更新，历史上漏更新的行会让入口一直显示旧数字。
   // 计数未就绪（请求失败/非管理员）时退回通知文案，再退回通用说明。
   private reportCenterSubtitle(): string {
     if (this.reportCenterPending >= 0) {
-      return this.reportCenterPending > 0
-        ? '有 ' + String(this.reportCenterPending) + ' 条举报待处理'
-        : '暂无待处理举报';
+      if (this.reportCenterPending === 0) {
+        return '暂无待处理举报';
+      }
+      return '帖子 ' + String(this.reportCenterPost)
+        + ' · 评论 ' + String(this.reportCenterComment)
+        + ' · 用户 ' + String(this.reportCenterUser) + ' 待处理';
     }
     const it: NotificationItem | undefined = this.reportCenterItem();
     if (it === undefined) {
