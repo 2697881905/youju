@@ -243,44 +243,62 @@
           gsap.set(self.chars, fromSet);
           gsap.set(el, {opacity:1, transformStyle:'preserve-3d'});
           var enterTl = null;
-          ScrollTrigger.create({
-            trigger:el, start:'top 88%',
-            onEnter:function(){
-              el._entered = true;
-              /* 逐字独立补间：duration/ease 由所属路径组绑定（motionFor）、
-                 时间位置随机摆放在 1.8s 窗口内（等价 stagger{amount:1.8, from:'random'}）；
-                 to 九值全部写死 —— 终点零随机，丝滑收敛；每字落位即释放 will-change。
-                 入场期间暂停字符渐变 shimmer（background-position 逐帧重绘），落位后恢复 */
-              if(enterTl){ enterTl.kill(); }
-              gsap.set(self.chars, {willChange:'transform, opacity'});
-              enterTl = gsap.timeline({delay:0.2});
-              self.chars.forEach(function(c, i){
-                c.style.animationPlayState = 'paused';
-                var m = motionFor(i);
-                enterTl.to(c, {
-                  yPercent:0, rotationX:0, rotationY:0, rotate:0, x:0, z:0, scale:1, skewX:0,
-                  opacity:1,
-                  duration:gsap.utils.random(m.dur[0], m.dur[1]),
-                  ease:m.ease,
-                  overwrite:'auto',
-                  onComplete:function(){
-                    c.style.willChange = 'auto';
-                    c.style.animationPlayState = '';
-                  }
-                }, gsap.utils.random(0, 1.8));
-              });
-            },
-            onLeaveBack:function(){
-              /* 双向循环：滚回时回到新一轮随机姿态（fromVars 重新抽签；from 随机 / to 固定原则不变） */
-              el._entered = false;
-              if(enterTl){ enterTl.kill(); enterTl = null; }
-              gsap.to(self.chars, Object.assign(fromVars(), {
-                duration:.55, ease:'power2.in', overwrite:'auto',
-                stagger:{amount:.5, from:'random'},
-                onComplete:function(){ gsap.set(self.chars, {willChange:'auto'}); }
-              }));
-            }
-          });
+          if(el.classList.contains('hero__title')){
+            /* 首屏标题：load 一次性入场（scrub 化会让首屏只显示半截），保留原 onEnter/onLeaveBack */
+            ScrollTrigger.create({
+              trigger:el, start:'top 88%',
+              onEnter:function(){
+                el._entered = true;
+                if(enterTl){ enterTl.kill(); }
+                gsap.set(self.chars, {willChange:'transform, opacity'});
+                enterTl = gsap.timeline({delay:0.2});
+                self.chars.forEach(function(c, i){
+                  c.style.animationPlayState = 'paused';
+                  var m = motionFor(i);
+                  enterTl.to(c, {
+                    yPercent:0, rotationX:0, rotationY:0, rotate:0, x:0, z:0, scale:1, skewX:0,
+                    opacity:1,
+                    duration:gsap.utils.random(m.dur[0], m.dur[1]),
+                    ease:m.ease,
+                    overwrite:'auto',
+                    onComplete:function(){
+                      c.style.willChange = 'auto';
+                      c.style.animationPlayState = '';
+                    }
+                  }, gsap.utils.random(0, 1.8));
+                });
+              },
+              onLeaveBack:function(){
+                el._entered = false;
+                if(enterTl){ enterTl.kill(); enterTl = null; }
+                gsap.to(self.chars, Object.assign(fromVars(), {
+                  duration:.55, ease:'power2.in', overwrite:'auto',
+                  stagger:{amount:.5, from:'random'},
+                  onComplete:function(){ gsap.set(self.chars, {willChange:'auto'}); }
+                }));
+              }
+            });
+          }else{
+            /* 其余标题：进度随滑动 —— scrub 绑定滚动区间，向下滚正放、向上滚倒放，返回时自动反向 */
+            enterTl = gsap.timeline({
+              scrollTrigger:{
+                trigger:el, start:'top 92%', end:'top 38%', scrub:.7,
+                onToggle:function(self){
+                  /* 入场区间内暂停字符渐变 shimmer（background-position 逐帧重绘），离场恢复 */
+                  self.chars.forEach(function(c){ c.style.animationPlayState = self.isActive ? 'paused' : ''; });
+                }
+              }
+            });
+            self.chars.forEach(function(c, i){
+              var m = motionFor(i);
+              enterTl.to(c, {
+                yPercent:0, rotationX:0, rotationY:0, rotate:0, x:0, z:0, scale:1, skewX:0,
+                opacity:1,
+                duration:gsap.utils.random(m.dur[0], m.dur[1]),
+                ease:m.ease
+              }, gsap.utils.random(0, 1.8));
+            });
+          }
           /* 第五层-滚动：标题滚离视口时的 scrub 收场（作用在 el 容器，与 char 动画不同目标不冲突） */
           gsap.to(el, {
             yPercent:-25, scale:.94, opacity:.5, ease:'none',
@@ -449,7 +467,7 @@
                 ghost.style.transform = 'translate(' + rect.x.toFixed(1) + 'px,' + rect.y.toFixed(1) + 'px)';
                 ghost.style.opacity = 1;
               });
-              var letterDur = gsap.utils.random(.045, .065);
+              var letterDur = gsap.utils.random(.035, .05);
               var pyDur = py.length * letterDur;
               var pyProxy = { n: 0 };
               typing.to(pyProxy, {
