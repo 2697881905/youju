@@ -441,7 +441,15 @@
         });
         return function(){ if(horizontal.scrollTrigger) horizontal.scrollTrigger.kill(); horizontal.kill(); gsap.set(track, {clearProps:'transform'}); };
       },
-      '(max-width: 900px)': function(){ gsap.set(track, {clearProps:'transform'}); }
+      '(max-width: 900px)': function(){
+        /* 移动端：纵向滚动驱动横向位移（不做 pin，规避地址栏高度抖动） */
+        var mobile = gsap.to(track, {
+          x: function(){ return -(track.scrollWidth - window.innerWidth); },
+          ease: 'none',
+          scrollTrigger: { trigger: scenes, start: 'top top', end: 'bottom bottom', scrub: .6, invalidateOnRefresh: true }
+        });
+        return function(){ if(mobile.scrollTrigger) mobile.scrollTrigger.kill(); mobile.kill(); gsap.set(track, {clearProps:'transform'}); };
+      }
     });
   }
 
