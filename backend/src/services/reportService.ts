@@ -64,6 +64,27 @@ export async function upsertAdminReportCenter(
   }
 }
 
+// 楼中楼级联：递归收集一条评论的全部后代 id（不筛 status，与 deleteComment 一致，
+// 避免被隐藏的孙级漏掉导致 commentCount 与列表 total 永久虚高）。
+// 下架/恢复评论时对整棵子树操作，保证「父被下架 → 子回复一起消失/复活」，
+// 与 deleteComment 递归删除所有后代的语义对称。
+async function collectCommentSubtreeIds(
+  tx: Prisma.TransactionClient,
+  rootId: number
+): Promise<number[]> {
+  const ids: number[] = [rootId];
+  let frontier: number[] = [rootId];
+  while (frontier.length > 0) {
+    const next = await tx.comment.findMany({
+      where: { parentId: { in: frontier } },
+      select: { id: true },
+    });
+    frontier = next.map((c) => c.id).filter((cid) => !ids.includes(cid));
+    ids.push(...frontier);
+  }
+  return ids;
+}
+
 /**
  * 把每个管理员的「举报中心」置顶消息同步到当前真实待处理数。
  * - 新举报产生：markUnread=true（createReport 调用）
@@ -176,16 +197,16 @@ export async function createReport(
         });
         newReportCount = updated.reportCount;
         if (newReportCount >= threshold) {
-          // 仅当评论确从可见(1)转隐藏(0)时才扣减帖子评论数，重复触发（已下架）不重复扣。
-          // 保证 post.commentCount == status=1 的评论数：举报下架后评论区计数才会跟着减少。
+          // 级联隐藏整棵子树（与 deleteComment 递归删除语义一致），按实际 1→0 条数扣减计数。
+          const subtreeIds = await collectCommentSubtreeIds(tx, params.targetId);
           const takenDown = await tx.comment.updateMany({
-            where: { id: params.targetId, status: 1 },
+            where: { id: { in: subtreeIds }, status: 1 },
             data: { status: 0 },
           });
           if (takenDown.count > 0 && typeof targetCommentPostId === 'number') {
             await tx.post.update({
               where: { id: targetCommentPostId },
-              data: { commentCount: { decrement: 1 } },
+              data: { commentCount: { decrement: takenDown.count } },
             });
           }
         }
@@ -365,15 +386,16 @@ export async function resolveReportsByTarget(
           if (targetType === 'post') {
             await tx.post.updateMany({ where: { id: targetId }, data: { status: 0 } });
           } else {
-            // 仅当评论确从可见(1)转隐藏(0)时扣减评论数：阈值已自动下架时不再重复扣。
+            // 级联隐藏整棵子树，按实际 1→0 条数扣减计数（阈值已自动下架时不再重复扣）。
+            const subtreeIds = await collectCommentSubtreeIds(tx, targetId);
             const takenDown = await tx.comment.updateMany({
-              where: { id: targetId, status: 1 },
+              where: { id: { in: subtreeIds }, status: 1 },
               data: { status: 0 },
             });
             if (takenDown.count > 0 && typeof notifyPostId === 'number') {
               await tx.post.update({
                 where: { id: notifyPostId },
-                data: { commentCount: { decrement: 1 } },
+                data: { commentCount: { decrement: takenDown.count } },
               });
             }
           }
@@ -395,12 +417,18 @@ export async function resolveReportsByTarget(
       }
     }
 
-    // 评论从下架被恢复(0→1)时补回帖子评论数，与下架时的 decrement 配对；
-    // 保证 post.commentCount 始终等于 status=1 的评论数。
+    // 评论从下架被恢复时补回帖子评论数，与下架时的 decrement 配对；
+    // 级联恢复整棵子树（与下架级联对称）。root 已在前面的恢复分支中 0→1（restored=true），
+    // 这里 broughtBack 只含后代 0→1；总回补 = root(1) + 后代(broughtBack.count)。
     if (restored && targetType === 'comment' && typeof notifyPostId === 'number') {
+      const subtreeIds = await collectCommentSubtreeIds(tx, targetId);
+      const broughtBack = await tx.comment.updateMany({
+        where: { id: { in: subtreeIds }, status: 0 },
+        data: { status: 1 },
+      });
       await tx.post.update({
         where: { id: notifyPostId },
-        data: { commentCount: { increment: 1 } },
+        data: { commentCount: { increment: 1 + broughtBack.count } },
       });
     }
 
