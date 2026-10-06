@@ -36,7 +36,6 @@ section { position: relative; }
 /* The motion gate keeps the complete document visible without JavaScript. */
 .js-motion [data-reveal], .js-motion .reveal { opacity: 0; }
 .js-motion .hero__title { opacity: 0; }
-.js-motion .statement__text { opacity: 0; }
 .js-motion .feature-screen:not(.is-active) { display: none; }
 .js-motion .mobile-menu { visibility: hidden; }
 .st-char { display: inline-block; transform-style: preserve-3d; }
@@ -81,7 +80,7 @@ section { position: relative; }
 .eyebrow { display: flex; align-items: center; gap: 12px; margin-bottom: 26px; color: var(--blue); font-size: 12px; font-weight: 700; }
 .section-heading { max-width: 720px; }
 .section-heading h2 { font-size: 88px; }
-.section-heading h2 em, .statement__text em, .scenes__intro h2 em, .harmony h2 em, .download h2 em { color: var(--blue); font-style: normal; }
+.section-heading h2 em, .scenes__intro h2 em, .harmony h2 em, .download h2 em { color: var(--blue); font-style: normal; }
 .section-heading p:last-child { max-width: 38em; margin-top: 28px; color: var(--muted); font-size: 16px; }
 .section-heading--dark h2, .section-heading--dark { color: var(--inverse); }
 .section-heading--dark h2 em { color: var(--blue-light); }
@@ -139,15 +138,8 @@ section { position: relative; }
 .feature-screen { display: grid; place-items: center; width: 100%; }
 .feature-screen:not(.is-active) { opacity: .2; }
 
-/* ---------- Statement ---------- */
-.statement { min-height: 840px; padding: 180px 0; background: var(--white); overflow: hidden; }
-.statement__mark { position: absolute; top: 80px; right: 10%; color: var(--blue); font-family: Georgia, serif; font-size: 180px; line-height: 1; opacity: .16; }
-.statement__text { position: relative; z-index: 1; max-width: 890px; font-size: 98px; line-height: .98; }
-/* scrub 逐字点亮：字符层常驻提升，避免滚动帧整段文字重绘 */
-.statement__text .st-char { will-change: transform, opacity; }
 /* scrub 驱动的大块元素：常驻合成层，滚动帧零重栅格化 */
 .harmony__copy, .video-frame, .scene-panel__copy, .scene-panel__phone, .hero__stage, .hero__copy { will-change: transform; }
-.statement__text em { color: var(--blue); }
 
 /* ---------- Horizontal journey ---------- */
 .scenes { padding: 190px 0 0; background: var(--paper-2); overflow: hidden; }

@@ -186,7 +186,7 @@
         /* 字符起飞时才提升合成层、落位即释放——避免快滚穿越多区时全量字符层同时存活 */
         onStart:function(){ char.style.willChange='transform, opacity'; },
         onComplete:function(){ char.style.willChange='auto'; }
-      }, options && options.statement ? index*.024 : gsap.utils.random(0, 1.65));
+      }, gsap.utils.random(0, 1.65));
     });
     return timeline;
   }
@@ -218,10 +218,7 @@
     var chars = split.chars || [];
     if(!chars.length) return;
     gsap.set(element, {autoAlpha:1, transformStyle:'preserve-3d'});
-    if(options && options.statement){
-      gsap.set(chars, {display:'inline-block', transformOrigin:'50% 100%', transformPerspective:800, force3D:true, backfaceVisibility:'hidden', x:0, z:0, rotationY:0, rotate:0, skewX:0, scale:1, opacity:function(){ return gsap.utils.random(.1,.22); }, y:function(){ return gsap.utils.random(10,24); }, rotationX:function(){ return gsap.utils.random(-72,-42); }});
-      gsap.to(chars, {x:0, z:0, rotationY:0, rotate:0, skewX:0, scale:1, opacity:1, y:0, rotationX:0, stagger:.055, ease:'none', scrollTrigger:{trigger:element, start:'top 82%', end:'top 30%', scrub:.45}});
-    }else if(options && options.immediate){
+    if(options && options.immediate){
       gsap.set(chars, Object.assign(charFrom(), {display:'inline-block', transformOrigin:'50% 100%', transformPerspective:800, force3D:true, backfaceVisibility:'hidden'}));
       /* 首屏标题同样四向：离开视口倒放复位，滚回重播 */
       animateChars(chars, {delay:options.delay || .16, scrollTrigger:{trigger:element, start:'top 96%', toggleActions:'restart none restart none'}});
@@ -299,7 +296,7 @@
               ghost.style.transform = 'translate(' + rect.x.toFixed(1) + 'px,' + rect.y.toFixed(1) + 'px)';
               ghost.style.opacity = 1;
             });
-            var letterDur = gsap.utils.random(.065, .095);
+            var letterDur = gsap.utils.random(.045, .065);
             var pyDur = py.length * letterDur;
             /* 逐字母显示用单个 proxy tween 驱动（聚合 N 个 call，降低 timeline 结构成本） */
             var pyProxy = { n: 0 };
@@ -334,9 +331,8 @@
   }
 
   function initType(){
-    if(!hasSplit){ gsap.set('.hero__title, .statement__text', {autoAlpha:1}); return; }
+    if(!hasSplit){ gsap.set('.hero__title', {autoAlpha:1}); return; }
     splitHeading(document.querySelector('.hero__title'), {immediate:true, delay:.2});
-    splitHeading(document.querySelector('.statement__text'), {statement:true, interactive:true});
     gsap.utils.toArray('.section-heading h2, .scenes__intro h2, .harmony__copy h3, .download h2, .principle h3, .scene-panel__copy h3').forEach(function(element){ splitHeading(element, {interactive:true}); });
     gsap.utils.toArray('.hero__lead, .section-heading > p:last-child, .scenes__intro > p:last-child, .feature-workbench__copy p, .scene-panel__copy p, .harmony__copy p, .download__copy > p:last-of-type').forEach(function(element){ cascadeText(element, {typewriter:true}); });
     /* 并排三卡打字错峰依次进行，避免多光标同屏闪烁 */
