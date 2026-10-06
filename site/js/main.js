@@ -334,10 +334,10 @@
     if(!hasSplit){ gsap.set('.hero__title', {autoAlpha:1}); return; }
     splitHeading(document.querySelector('.hero__title'), {immediate:true, delay:.2});
     gsap.utils.toArray('.section-heading h2, .scenes__intro h2, .harmony__copy h3, .download h2, .principle h3, .scene-panel__copy h3').forEach(function(element){ splitHeading(element, {interactive:true}); });
-    gsap.utils.toArray('.hero__lead, .section-heading > p:last-child, .scenes__intro > p:last-child, .feature-workbench__copy p, .scene-panel__copy p, .harmony__copy p, .download__copy > p:last-of-type').forEach(function(element){ cascadeText(element, {typewriter:true}); });
+    gsap.utils.toArray('.hero__lead, .section-heading > p:last-child, .scenes__intro > p:last-child, .feature-card__copy p, .scene-panel__copy p, .harmony__copy p, .download__copy > p:last-of-type').forEach(function(element){ cascadeText(element, {typewriter:true}); });
     /* 并排三卡打字错峰依次进行，避免多光标同屏闪烁 */
     gsap.utils.toArray('.principle p').forEach(function(element, index){ cascadeText(element, {typewriter:true, delay:index * 1.15}); });
-    gsap.utils.toArray('.feature-tab > span, .feature-tab strong, .feature-workbench__copy > span, .scene-panel__copy > b, .announcement__label').forEach(function(element){ cascadeText(element, {}); });
+    gsap.utils.toArray('.feature-card__copy span, .scene-panel__copy > b, .announcement__label').forEach(function(element){ cascadeText(element, {}); });
     gsap.utils.toArray('.brand__name, .site-nav__links a, .nav-action span, .nav-toggle span, .mobile-menu a > span, .button span, .quiet-link span').forEach(function(element, index){ cascadeText(element, {from:'start', delay:index*.03}); });
     if(finePointer){
       gsap.utils.toArray('.button span, .nav-action span, .quiet-link span').forEach(function(label){
@@ -365,44 +365,6 @@
     gsap.fromTo(element, {y:38, autoAlpha:0}, {y:0, autoAlpha:1, duration:.85, ease:easeLift, scrollTrigger:{trigger:element, start:'top 86%', toggleActions:'play none restart none', onEnter:function(){ gsap.set(element, {willChange:'transform, opacity'}); }}, onStart:function(){ gsap.set(element, {willChange:'transform, opacity'}); }, onComplete:function(){ gsap.set(element, {willChange:'auto'}); }});
   });
 
-  /* ---------- Product tabs ---------- */
-  var featureTabs = gsap.utils.toArray('.feature-tab');
-  var featureScreens = gsap.utils.toArray('.feature-screen');
-  var featureDescriptions = ['从视觉骨架开始，自由增删与排序。','每天一张卡片，把值得回看的经验留下来。','围绕共同兴趣，找到更近的人和更深的讨论。'];
-  var featureNumber = document.getElementById('featureNumber');
-  var featureDescription = document.getElementById('featureDescription');
-  var featureCurrent = 0;
-  function activateFeature(index){
-    if(index === featureCurrent && featureScreens[index].classList.contains('is-active')) return;
-    featureCurrent = index;
-    featureTabs.forEach(function(tab, i){ var active = i === index; tab.classList.toggle('is-active', active); tab.setAttribute('aria-selected', String(active)); tab.setAttribute('aria-controls', 'feature-screen-' + i); });
-    featureScreens.forEach(function(screen, i){ var active = i === index; screen.classList.toggle('is-active', active); screen.setAttribute('aria-hidden', String(!active)); });
-    if(featureNumber) featureNumber.textContent = String(index + 1).padStart(2, '0');
-    if(featureDescription){
-      featureDescription.textContent = featureDescriptions[index];
-        featureDescription.removeAttribute('data-motion-split');
-        cascadeText(featureDescription, {typewriter:true});
-    }
-    if(featureNumber) gsap.fromTo(featureNumber, {y:-8, opacity:.35}, {y:0, opacity:1, duration:.45, ease:easeBack, overwrite:true});
-    var activeLabel = featureTabs[index] && featureTabs[index].querySelectorAll('.st-char');
-    if(activeLabel && activeLabel.length){
-      gsap.fromTo(activeLabel, {yPercent:function(){ return gsap.utils.random(35,85); }, opacity:.25}, {yPercent:0, opacity:1, duration:.56, ease:easeBack, stagger:.025, overwrite:'auto'});
-    }
-    gsap.fromTo(featureScreens[index], {autoAlpha:0, yPercent:12, rotationY:index % 2 ? 8 : -8}, {autoAlpha:1, yPercent:0, rotationY:0, duration:.85, ease:easeLift, overwrite:true});
-  }
-  featureTabs.forEach(function(tab, index){
-    tab.setAttribute('aria-controls', 'feature-screen-' + index);
-    tab.addEventListener('click', function(){ activateFeature(index); });
-    tab.addEventListener('keydown', function(event){
-      if(event.key !== 'ArrowRight' && event.key !== 'ArrowDown' && event.key !== 'ArrowLeft' && event.key !== 'ArrowUp') return;
-      event.preventDefault();
-      var direction = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1;
-      var next = (index + direction + featureTabs.length) % featureTabs.length;
-      featureTabs[next].focus();
-      activateFeature(next);
-    });
-  });
-
   /* ---------- Magnetic buttons and pointer spotlight ---------- */
   if(finePointer){
     gsap.utils.toArray('.magnetic').forEach(function(button){
@@ -424,9 +386,11 @@
     });
   }
 
-  /* ---------- Continuous horizontal story ---------- */
+  /* ---------- Continuous horizontal story（features 能力卡 + scenes 场景卡，同一套横移机制） ---------- */
   var scenes = document.querySelector('.scenes');
   var track = document.querySelector('.scenes__track');
+  var features = document.querySelector('.features');
+  var featureTrack = document.querySelector('.feature-track');
   if(scenes && track){
     ScrollTrigger.matchMedia({
       '(min-width: 901px)': function(){
@@ -445,6 +409,25 @@
           scrollTrigger: { trigger: scenes, start: 'top top', end: 'bottom bottom', scrub: .6, invalidateOnRefresh: true }
         });
         return function(){ if(mobile.scrollTrigger) mobile.scrollTrigger.kill(); mobile.kill(); gsap.set(track, {clearProps:'transform'}); };
+      }
+    });
+  }
+  if(features && featureTrack){
+    ScrollTrigger.matchMedia({
+      '(min-width: 901px)': function(){
+        var fHorizontal = gsap.to(featureTrack, {x:function(){ return -(featureTrack.scrollWidth - window.innerWidth); }, ease:'none', scrollTrigger:{trigger:features, start:'top top', end:function(){ return '+=' + Math.max(1500, featureTrack.scrollWidth - window.innerWidth + 240); }, scrub:1, pin:true, anticipatePin:1}});
+        gsap.utils.toArray('.feature-card').forEach(function(card, index){
+          gsap.fromTo(card, {autoAlpha:.35}, {autoAlpha:1, ease:'none', scrollTrigger:{trigger:card, containerAnimation:fHorizontal, start:'left 85%', end:'left 45%', scrub:.7}});
+        });
+        return function(){ if(fHorizontal.scrollTrigger) fHorizontal.scrollTrigger.kill(); fHorizontal.kill(); gsap.set(featureTrack, {clearProps:'transform'}); };
+      },
+      '(max-width: 900px)': function(){
+        var fMobile = gsap.to(featureTrack, {
+          x: function(){ return -(featureTrack.scrollWidth - window.innerWidth); },
+          ease: 'none',
+          scrollTrigger: { trigger: features, start: 'top top', end: 'bottom bottom', scrub: .6, invalidateOnRefresh: true }
+        });
+        return function(){ if(fMobile.scrollTrigger) fMobile.scrollTrigger.kill(); fMobile.kill(); gsap.set(featureTrack, {clearProps:'transform'}); };
       }
     });
   }
