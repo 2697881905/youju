@@ -588,9 +588,10 @@
 
   /* ---------- 3.6 眉标/元信息解码（ScrambleText；插件缺失则跳过） ---------- */
   if(hasScramble){
-    /* 解码字符池：纯汉字（※○△□◇◈ 这类符号观感如乱码，已移除） */
+    /* 解码字符池：纯汉字（※○△□◇◈ 这类符号观感如乱码，已移除）；
+       范围仅限章节眉标——下载区副标不参与（用户多次反馈乱码观感，静态直出） */
     var decodePool = '有据可依更好的生活出处结构追问理性分享记录每一个';
-    gsap.utils.toArray('.section-head .eyebrow, .download__meta').forEach(function(el){
+    gsap.utils.toArray('.section-head .eyebrow').forEach(function(el){
       var finalText = el.textContent;
       ScrollTrigger.create({
         trigger:el, start:'top 88%', once:true,

@@ -249,7 +249,7 @@ section{position:relative}
 }
 
 /* ---------- Footer ---------- */
-.download__beian{display:block;margin-top:8px;text-align:center;font-size:12px;color:var(--text-inv-2)}
+.download__beian{display:block;margin-top:6px;text-align:center;font-size:12px;color:var(--text-inv-2)}
 .download__beian:hover{color:var(--accent)}
 
 /* ---------- 响应式 ---------- */
