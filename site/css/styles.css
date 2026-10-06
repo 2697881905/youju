@@ -236,12 +236,12 @@ section { position: relative; }
   .statement__text { font-size: 58px; }
   .scenes { padding-top: 110px; }
   .scenes__intro { padding-bottom: 64px; }
-  .scenes__track { display: grid; width: auto; gap: 16px; padding: 0 18px 70px; }
-  .scene-panel { grid-template-columns: 1fr .75fr; width: 100%; min-height: 480px; padding: 32px 22px; }
-  .scene-panel__copy h3 { font-size: 42px; }
+  .scenes__track { display: flex; width: max-content; gap: 14px; padding: 0 18px 70px; }
+  .scene-panel { grid-template-columns: 1fr; width: min(520px, 86vw); min-height: 0; padding: 30px 22px; }
+  .scene-panel__copy h3 { font-size: 38px; }
   .scene-panel__copy p { margin-top: 18px; font-size: 13px; }
   .scene-panel__copy > b { margin-top: 28px; }
-  .scene-panel__phone .device--scene { width: min(185px, 34vw); }
+  .scene-panel__phone .device--scene { width: min(170px, 42vw); margin-top: 18px; }
   .harmony__feature, .harmony__feature--second { display: flex; flex-direction: column; gap: 48px; margin-top: 92px; }
   .harmony__feature--second .harmony__copy, .harmony__feature--second .video-frame { order: initial; }
   .harmony__copy h3 { font-size: 48px; }
