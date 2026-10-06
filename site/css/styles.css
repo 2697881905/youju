@@ -254,18 +254,48 @@ section{position:relative}
 
 /* ---------- 响应式 ---------- */
 @media(max-width:900px){
-  .hero__grid{grid-template-columns:1fr;gap:56px}
+  /* 信息密度：压缩纵向节奏与字号，一屏承载更多内容 */
+  .hero{padding:122px 0 46px}
+  .hero__grid{grid-template-columns:1fr;gap:28px}
   .hero__copy{text-align:center}
-  .hero__sub{margin-inline:auto}
-  .hero__actions{justify-content:center}
-  .gallery{grid-template-columns:1fr;gap:44px}
+  .hero__sub{margin:16px auto 0;font-size:15px;max-width:30em}
+  .hero__actions{justify-content:center;margin-top:20px}
+  .section-head{margin-bottom:34px}
+  .section-head h2{font-size:34px}
+  .section-head__sub{margin-top:10px;font-size:14.5px}
+  .features{padding:60px 0}
+  .gallery{grid-template-columns:1fr;gap:22px}
+  .gallery__item{padding:15px 0}
   .gallery__ttl{font-size:19px}
-  .hkit{grid-template-columns:1fr;gap:44px}
+  .gallery__desc{margin-top:9px;font-size:14px}
+  .scenes{padding:60px 0}
+  .scene{gap:18px}
+  .scene .device{width:min(300px,72vw)}
+  .statement{padding:66px 0}
+  .statement__text{font-size:38px}
+  .harmony{padding:66px 0 42px}
+  .hkit{grid-template-columns:1fr;gap:20px;padding:20px 0}
   .hkit__copy{order:1!important}
   .hkit__stage{order:2!important}
+  .hkit__tag{margin-bottom:12px;padding:5px 13px}
+  .hkit__copy h3{font-size:23px}
+  .hkit__desc{margin-top:10px;font-size:14px}
+  .hkit__points{margin-top:14px}
+  .download{padding:60px 0 52px}
+  .download__grid{grid-template-columns:1fr;gap:24px}
+  .download__icon{width:54px;height:54px;border-radius:13px;margin-bottom:14px}
+  .download h2{font-size:31px}
+  .download__meta{margin-top:10px;font-size:13px}
+  .download__actions{margin-top:20px}
+  .download__slogan{margin-top:16px}
+  .download__beian{margin-top:34px}
 }
 @media(max-width:560px){
+  .hero{padding:106px 0 38px}
+  .section-head h2{font-size:29px}
+  .statement__text{font-size:31px}
   .scene .device{width:min(250px,66vw)}
+  .download h2{font-size:27px}
 }
 
 /* ---------- 标题逐字揭示：由官方 SplitText 驱动（mask 裁切结构由插件生成，无需手写样式） ---------- */
