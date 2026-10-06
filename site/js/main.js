@@ -57,12 +57,17 @@
 
   var videos = document.querySelectorAll('.device-video');
   if('IntersectionObserver' in window && videos.length){
+    var playingVideo = null;
     var videoObserver = new IntersectionObserver(function(entries){
       entries.forEach(function(entry){
-        if(entry.isIntersecting && !reduce) entry.target.play().catch(function(){});
+        if(entry.isIntersecting && !reduce){
+          if(playingVideo && playingVideo !== entry.target) playingVideo.pause();  /* 同屏互斥：解码两段视频必掉帧 */
+          playingVideo = entry.target;
+          entry.target.play().catch(function(){});
+        }
         else entry.target.pause();
       });
-    }, {threshold:.18});
+    }, {threshold:.35});
     videos.forEach(function(video){ videoObserver.observe(video); });
   }
 
