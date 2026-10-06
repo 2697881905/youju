@@ -220,7 +220,7 @@ section{position:relative}
 .device-video{width:100%;height:auto;display:block}
 
 /* ---------- 下载（左文右图：登录页 = 打开有据的第一屏） ---------- */
-.download{padding:clamp(70px,9vw,120px) 0 6px;background:var(--ink);color:var(--text-inv)}
+.download{padding:clamp(70px,9vw,120px) 0 0;background:var(--ink);color:var(--text-inv)}
 /* 顶部一抹品牌蓝辉光，呼应 Hero 光斑 */
 .download::before{content:'';position:absolute;top:-140px;left:50%;transform:translateX(-50%);
   width:min(880px,92vw);height:440px;border-radius:50%;pointer-events:none;
@@ -249,7 +249,7 @@ section{position:relative}
 }
 
 /* ---------- Footer ---------- */
-.download__beian{display:block;margin-top:10px;text-align:center;font-size:12px;color:var(--text-inv-2)}
+.download__beian{display:block;margin-top:8px;text-align:center;font-size:12px;color:var(--text-inv-2)}
 .download__beian:hover{color:var(--accent)}
 
 /* ---------- 响应式 ---------- */

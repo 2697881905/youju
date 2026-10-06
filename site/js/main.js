@@ -27,9 +27,15 @@
     syncNav();
   }, {passive:true});
   if('IntersectionObserver' in window){
-    var darkZones = document.querySelectorAll('.harmony, .download, .footer');
+    var darkZones = Array.prototype.slice.call(document.querySelectorAll('.harmony, .download, .footer'));
+    var zoneStates = darkZones.map(function(){ return false; });
+    /* 每区状态持久化后全量判断——some(本轮 entries) 会在两深色区交叠切换时误判（harmony 滚出即清 inDark，即使 download 仍盖着顶栏） */
     var io = new IntersectionObserver(function(entries){
-      inDark = entries.some(function(e){ return e.isIntersecting; });
+      entries.forEach(function(e){
+        var i = darkZones.indexOf(e.target);
+        if(i > -1) zoneStates[i] = e.isIntersecting;
+      });
+      inDark = zoneStates.some(function(s){ return s; });
       syncNav();
     }, {rootMargin:'0px 0px -92% 0px'});
     darkZones.forEach(function(z){ io.observe(z); });
@@ -582,7 +588,8 @@
 
   /* ---------- 3.6 眉标/元信息解码（ScrambleText；插件缺失则跳过） ---------- */
   if(hasScramble){
-    var decodePool = '有据可依更好的生活出处结构追问理性分享※○△□◇◈/';
+    /* 解码字符池：纯汉字（※○△□◇◈ 这类符号观感如乱码，已移除） */
+    var decodePool = '有据可依更好的生活出处结构追问理性分享记录每一个';
     gsap.utils.toArray('.section-head .eyebrow, .download__meta').forEach(function(el){
       var finalText = el.textContent;
       ScrollTrigger.create({
