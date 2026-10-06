@@ -1043,6 +1043,16 @@ export struct ChatView {
     return p !== null ? p.postId : 0;
   }
 
+  private shareAuthorAvatar(m: DmMessage): string {
+    const p = this.parseShare(m);
+    return p !== null ? (p.authorAvatar ?? '') : '';
+  }
+
+  private shareAuthorName(m: DmMessage): string {
+    const p = this.parseShare(m);
+    return p !== null ? (p.authorName ?? '') : '';
+  }
+
   // 分享卡片：横向文章摘要布局，视觉参考海报中的留白、宋体标题和细边框层级。
   @Builder
   shareBubble(m: DmMessage) {
@@ -1094,6 +1104,15 @@ export struct ChatView {
       }
       .layoutWeight(1)
       .alignItems(HorizontalAlign.Start)
+
+      // 帖主头像（最右侧）：长条卡片右侧放作者头像，一眼看清「这是谁写的」。
+      // 无头像时 AvatarView 自带品牌默认头像兜底；尺寸与聊天消息行头像一致（36）。
+      AvatarView({
+        avatar: this.shareAuthorAvatar(m),
+        name: this.shareAuthorName(m),
+        avatarSize: 36,
+        ringWidth: 0,
+      })
     }
     .width('100%')
     .constraintSize({ minHeight: 56 })
