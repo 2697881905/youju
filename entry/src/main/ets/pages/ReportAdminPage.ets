@@ -23,6 +23,8 @@ import { BackButton } from '../design/components/BackButton';
 import { BaseCard } from '../design/components/BaseCard';
 import { DesignButton } from '../design/components/DesignButton';
 import { EmptyState } from '../design/components/EmptyState';
+import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
+import { isSystemMaterialActive } from '../utils/immersiveMaterial';
 import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
@@ -303,24 +305,20 @@ function patchReport(it: AdminReportItem, action: ReportAction): AdminReportItem
 }
 
 // ───────────────────────── 筛选 ─────────────────────────
-// 两级筛选：上层「板块」= 被举报对象类型（帖子/评论/用户），下层「状态」= 待处理/已成立/已驳回。
+// 两级筛选，均用官方分段栏（SegmentedControl）承载：
+//   上：板块 = 被举报对象类型（帖子/评论/用户，三选一）
+//   下：状态 = 该板块内的举报状态（待处理/已成立/已驳回，不设「全部」）
 // 板块与状态都下推到服务端（分页与 total 同口径），本地再即时重算一次避免等待网络。
 
-interface FilterTab {
-  key: string;
-  label: string;
-}
-
-// 类型板块：'' = 全部（不限类型。入口副标题给的是总量，进来先看全貌再按板块钻取）
-const TYPE_TABS: FilterTab[] = [
-  { key: '', label: '全部' },
+// 板块分段栏：'' 无「全部」，默认第一段「帖子」
+const TYPE_ITEMS: SegmentedItem[] = [
   { key: 'post', label: '帖子' },
   { key: 'comment', label: '评论' },
   { key: 'user', label: '用户' },
 ];
 
-// 状态：不设「全部」——默认只看待处理，已成立/已驳回按需切换
-const FILTERS: FilterTab[] = [
+// 状态分段栏：默认第一段「待处理」
+const STATUS_ITEMS: SegmentedItem[] = [
   { key: 'pending', label: '待处理' },
   { key: 'resolved', label: '已成立' },
   { key: 'dismissed', label: '已驳回' },
@@ -392,8 +390,10 @@ export struct ReportAdminPage {
   @State isRefreshing: boolean = false;
   @State finished: boolean = false;
   @State page: number = 1;
-  @State filterKey: string = 'pending'; // pending | resolved | dismissed（不设「全部」）
-  @State typeKey: string = ''; // '' | post | comment | user（板块：被举报对象类型）
+  // 两个分段栏的选中项（数值索引，直接与 SegmentedControl 的 @Link 绑定）：
+  // 字符串筛选键由索引派生，避免「索引 + 键」两份状态互相漂移
+  @State typeIndex: number = 0; // 板块：0 帖子 / 1 评论 / 2 用户
+  @State statusIndex: number = 0; // 状态：0 待处理 / 1 已成立 / 2 已驳回
   // 多选删除：选择模式 + 已选中的聚合卡 key（targetType#targetId）
   @State selectMode: boolean = false;
   @State selectedKeys: string[] = [];
@@ -405,9 +405,15 @@ export struct ReportAdminPage {
   // 刷新时按服务端返回的 authorBanned 重新对齐
   @State bannedAuthorIds: number[] = [];
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
+  // 标题栏内容实测高度（内容驱动）：到齐前用 titleBarEstimate() 兜底，避免首帧标题栏与内容错位
+  @State titleBarContentHeight: number = 0;
   // 请求序号：过期响应整体丢弃（与 974f859 的 HomeTab 同方案）。
   // 旧实现用 `if (this.loading) return` 守卫，正在加载时点筛选会被静默吞掉。
   private fetchSeq: number = 0;
+  // 已作用到列表的分段栏索引：SegmentedControl 点「已选中」的那一段也会回调 onSelect，
+  // 用它挡住无谓的重拉（失败重试用「刷新」/下拉刷新）。
+  private appliedTypeIndex: number = 0;
+  private appliedStatusIndex: number = 0;
 
   // 成立理由弹窗：动作行 → 范围确认 → 本弹窗 → doResolve(resolved, reason)
   private pendingResolveType: ReportTargetType = 'post';
@@ -439,42 +445,45 @@ export struct ReportAdminPage {
   }
 
   private currentStatus(): 'pending' | 'resolved' | 'dismissed' | undefined {
-    const k: string = this.filterKey;
+    const k: string = STATUS_ITEMS[this.statusIndex].key;
     if (k === 'pending' || k === 'resolved' || k === 'dismissed') {
       return k;
     }
     return undefined;
   }
 
-  // 板块 → 服务端 targetType 参数（「全部」= undefined，不限类型）
-  private currentTargetType(): ReportTargetType | undefined {
-    const k: string = this.typeKey;
-    if (k === 'post' || k === 'comment' || k === 'user') {
-      return k;
+  // 板块 → 服务端 targetType 参数（三选一，非「评论/用户」即「帖子」）
+  private currentTargetType(): ReportTargetType {
+    const k: string = TYPE_ITEMS[this.typeIndex].key;
+    if (k === 'comment') {
+      return 'comment';
     }
-    return undefined;
+    if (k === 'user') {
+      return 'user';
+    }
+    return 'post';
   }
 
-  private setFilter(k: string): void {
-    if (this.filterKey === k) {
+  // 状态分段栏选中：换状态后已选卡片同样可能不在列表里 → 退选择模式
+  private onStatusSelect(index: number): void {
+    if (index === this.appliedStatusIndex) {
       return;
     }
-    this.filterKey = k;
+    this.appliedStatusIndex = index;
     this.page = 1;
     this.finished = false;
-    // 换筛选后已选卡片可能已不在列表里：直接退出选择模式
     this.exitSelect();
-    // 先就地重算一次：切筛选立刻有反馈，不必等网络
+    // 先就地重算一次：切状态立刻有反馈，不必等网络
     this.recomputeGroups();
     this.load(true);
   }
 
-  // 切板块（帖子 / 评论 / 用户）：类型下推服务端，分页与 total 都按该板块口径
-  private setType(k: string): void {
-    if (this.typeKey === k) {
+  // 板块分段栏选中：类型下推服务端，分页与 total 都按该板块口径
+  private onTypeSelect(index: number): void {
+    if (index === this.appliedTypeIndex) {
       return;
     }
-    this.typeKey = k;
+    this.appliedTypeIndex = index;
     this.page = 1;
     this.finished = false;
     this.exitSelect();
@@ -484,16 +493,13 @@ export struct ReportAdminPage {
 
   private recomputeGroups(): void {
     const all: ReportGroup[] = aggregateGroups(this.items);
-    const k: string = this.filterKey;
-    const t: ReportTargetType | undefined = this.currentTargetType();
+    const k: string = STATUS_ITEMS[this.statusIndex].key;
+    const t: ReportTargetType = this.currentTargetType();
     this.groups = all.filter((g: ReportGroup): boolean => {
       if (k.length > 0 && g.status !== k) {
         return false;
       }
-      if (t !== undefined && g.targetType !== t) {
-        return false;
-      }
-      return true;
+      return g.targetType === t;
     });
   }
 
@@ -945,27 +951,59 @@ export struct ReportAdminPage {
 
   // ───────────────────────── 视图 ─────────────────────────
 
+  // ───────────────────────── 标题栏（Navigation） ─────────────────────────
+
+  // 标题栏首帧估算：与 Builder 行结构同源（状态栏 + 导航行 + 两个分段栏行），实测回写后不再使用
+  private titleBarEstimate(): number {
+    const navRow: number = SpaceTokens.sm + LayoutTokens.minTouchTarget + SpaceTokens.sm;
+    const segRows: number = LayoutTokens.segmentedHeight * 2 + SpaceTokens.sm + SpaceTokens.sm;
+    return this.statusBarHeight + navRow + segRows;
+  }
+
+  private titleBarHeight(): number {
+    return this.titleBarContentHeight > 0 ? this.titleBarContentHeight : this.titleBarEstimate();
+  }
+
+  // 标题栏：原页头（导航行 + 两个分段栏）整体驻留 Navigation 标题栏 ——
+  // 沉浸光感（uiMaterial 通用属性 systemMaterial）只在 Navigation/NavDestination 标题栏生效，
+  // 放内容区可以设置但不渲染，所以控件要先进标题栏才有资格挂材质。
+  // 全屏沉浸布局下标题栏不代为避让状态栏：由本 Builder 手动下移（避让只此一处，
+  // 内容区不再补 statusBarHeight），实测高度供 .title({ height }) 使用。
   @Builder
-  topBar(): void {
-    Row() {
-      BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
-      Blank()
-      Text('举报中心')
-        .fontSize(TypeTokens.title.size)
-        .fontFamily(TypeTokens.fontFamilySerif)
-        .fontWeight(TypeTokens.title.weight)
-        .lineHeight(TypeTokens.title.lineHeight)
-        .fontColor(ColorTokens.primary)
-      Blank()
-      if (this.selectMode) {
-        this.selectActions()
-      } else {
-        this.normalActions()
+  pageTitleBar(): void {
+    Column() {
+      // ① 导航行：返回 + 标题 + 操作按钮（刷新/删除，或选择态的取消/全选/删除选中）
+      Row() {
+        BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
+        Blank()
+        Text('举报中心')
+          .fontSize(TypeTokens.title.size)
+          .fontFamily(TypeTokens.fontFamilySerif)
+          .fontWeight(TypeTokens.title.weight)
+          .lineHeight(TypeTokens.title.lineHeight)
+          .fontColor(ColorTokens.primary)
+        Blank()
+        if (this.selectMode) {
+          this.selectActions()
+        } else {
+          this.normalActions()
+        }
       }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+      .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+
+      // ② 两个分段栏（板块 + 状态），同样驻留标题栏并挂系统材质
+      this.segBars()
     }
     .width('100%')
-    .alignItems(VerticalAlign.Center)
-    .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+    .padding({ top: this.statusBarHeight })
+    .onAreaChange((_old: Area, area: Area): void => {
+      const h: number = parseFloat(String(area.height));
+      if (h > 0 && Math.abs(h - this.titleBarContentHeight) > 0.5) {
+        this.titleBarContentHeight = h;
+      }
+    })
   }
 
   // 常规态右上角：刷新 + 删除（进入多选）
@@ -1029,42 +1067,32 @@ export struct ReportAdminPage {
     .alignItems(VerticalAlign.Center)
   }
 
-  // 板块栏（上层）：被举报对象类型 —— 帖子 / 评论 / 用户
+  // 两个分段栏：上「板块」（被举报对象类型：帖子/评论/用户），下「状态」（该板块内的状态）。
+  // 都用官方 SegmentedControl（滑块 + 跟手扫选 + 按压回弹），选中项由 @Link 双向绑定；
+  // 驻留标题栏后由系统材质接管表面（沉浸光感）。
   @Builder
-  typeBar(): void {
-    Row({ space: SpaceTokens.xs }) {
-      ForEach(TYPE_TABS, (t: FilterTab) => {
-        Text(t.label)
-          .fontSize(TypeTokens.callout.size)
-          .fontFamily(TypeTokens.fontFamily)
-          .fontWeight(this.typeKey === t.key ? TypeTokens.headline.weight : TypeTokens.callout.weight)
-          .fontColor(this.typeKey === t.key ? ColorTokens.onBrand : ColorTokens.secondary)
-          .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.xs + 2, bottom: SpaceTokens.xs + 2 })
-          .backgroundColor(this.typeKey === t.key ? ColorTokens.brand : ColorTokens.subtle)
-          .borderRadius(RadiusTokens.pill)
-          .onClick((): void => { this.setType(t.key); })
-      }, (t: FilterTab) => 't' + t.key)
-    }
-    .width('100%')
-    .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, bottom: SpaceTokens.xs })
-  }
-
-  // 状态栏（下层）：当前板块内的状态分类 —— 待处理 / 已成立 / 已驳回（不设「全部」）
-  @Builder
-  filterBar(): void {
-    Row({ space: SpaceTokens.xs }) {
-      ForEach(FILTERS, (f: FilterTab) => {
-        Text(f.label)
-          .fontSize(TypeTokens.callout.size)
-          .fontFamily(TypeTokens.fontFamily)
-          .fontWeight(this.filterKey === f.key ? TypeTokens.headline.weight : TypeTokens.callout.weight)
-          .fontColor(this.filterKey === f.key ? ColorTokens.brand : ColorTokens.secondary)
-          .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.xs + 2, bottom: SpaceTokens.xs + 2 })
-          .backgroundColor(this.filterKey === f.key ? ColorTokens.brandTint : Color.Transparent)
-          .border({ width: 1, color: this.filterKey === f.key ? ColorTokens.brand : ColorTokens.separator })
-          .borderRadius(RadiusTokens.pill)
-          .onClick((): void => { this.setFilter(f.key); })
-      }, (f: FilterTab) => 'f' + f.key)
+  segBars(): void {
+    Column({ space: SpaceTokens.sm }) {
+      SegmentedControl({
+        items: TYPE_ITEMS,
+        selectedIndex: $typeIndex,
+        // 与首页/我的/圈子详情/搜索结果标题栏同配置：材质生效时用描边底（透明，让系统材质完整透出）；
+        // 低版本保留「华为应用商店同款」沉浸玻璃 —— 它的 backdropBlur 会遮挡材质，二者互斥。
+        immersive: !isSystemMaterialActive(),
+        outlined: isSystemMaterialActive(),
+        glowEnabled: false,
+        useSystemMaterial: true,
+        onSelect: (index: number): void => { this.onTypeSelect(index); },
+      })
+      SegmentedControl({
+        items: STATUS_ITEMS,
+        selectedIndex: $statusIndex,
+        immersive: !isSystemMaterialActive(),
+        outlined: isSystemMaterialActive(),
+        glowEnabled: false,
+        useSystemMaterial: true,
+        onSelect: (index: number): void => { this.onStatusSelect(index); },
+      })
     }
     .width('100%')
     .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, bottom: SpaceTokens.sm })
@@ -1173,6 +1201,9 @@ export struct ReportAdminPage {
       .width('100%')
       .alignItems(VerticalAlign.Center)
       .onClick((): void => { this.openAuthor(g); })
+      // 选择态：这一行不参与触摸测试，点击继续向上落到整卡（BaseCard）统一勾选，
+      // 否则点头像/昵称这条会形成「点了没反应」的死区。
+      .hitTestBehavior(this.selectMode ? HitTestMode.None : HitTestMode.Default)
     }
   }
 
@@ -1337,9 +1368,46 @@ export struct ReportAdminPage {
     }
   }
 
+  // 被举报内容块：帖子标题 / 评论正文 / 用户昵称 + 理由与举报人 + 补充说明。
+  // 抽出来是为了两种模式共用：常规态外面套 Pressable（可点进目标），选择态直接平铺（点击交整卡）。
+  @Builder
+  targetBlock(g: ReportGroup): void {
+    Column({ space: SpaceTokens.sm }) {
+      this.targetLine(g)
+      this.metaLine(g)
+      if (g.description.length > 0) {
+        this.quoteBlock(g.description)
+      }
+      if (this.canOpenTarget(g) && !this.selectMode) {
+        Row() {
+          Blank()
+          Text(this.targetLinkLabel(g) + ' ›')
+            .fontSize(TypeTokens.caption.size)
+            .fontFamily(TypeTokens.fontFamily)
+            .fontColor(ColorTokens.brand)
+        }
+        .width('100%')
+      }
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+  }
+
   @Builder
   groupCard(g: ReportGroup): void {
-    BaseCard({ cardPadding: SpaceTokens.md, radius: RadiusTokens.lg, elevation: 1 }) {
+    BaseCard({
+      cardPadding: SpaceTokens.md,
+      radius: RadiusTokens.lg,
+      elevation: 1,
+      // 选择态：整卡可点（BaseCard 自身 onClick 接管勾选）；常规态不接管，
+      // 免得和卡内的可点区域（正文块进详情、作者行进主页）打架。
+      pressable: this.selectMode,
+      action: (): void => {
+        if (this.selectMode) {
+          this.toggleSelect(g);
+        }
+      },
+    }) {
       Column({ space: SpaceTokens.sm }) {
         // ① 身份行：类型 + 举报状态 + 内容状态 + 最新举报时间
         Row({ space: SpaceTokens.sm }) {
@@ -1360,33 +1428,13 @@ export struct ReportAdminPage {
         .width('100%')
         .alignItems(VerticalAlign.Center)
 
-        // ② 内容 + 元信息：整块可点 —— 常规态直达被举报对象；选择态切换勾选
-        Pressable({ fillWidth: true, fullResponseRegion: true, action: (): void => {
-          if (this.selectMode) {
-            this.toggleSelect(g);
-            return;
+        // ② 内容 + 元信息：常规态整块可点直达被举报对象；选择态不嵌可点区域，点击归整卡
+        if (this.selectMode) {
+          this.targetBlock(g)
+        } else {
+          Pressable({ fillWidth: true, fullResponseRegion: true, action: (): void => { this.openTarget(g); } }) {
+            this.targetBlock(g)
           }
-          this.openTarget(g);
-        } }) {
-          Column({ space: SpaceTokens.sm }) {
-            this.targetLine(g)
-            this.metaLine(g)
-            if (g.description.length > 0) {
-              this.quoteBlock(g.description)
-            }
-            if (this.canOpenTarget(g) && !this.selectMode) {
-              Row() {
-                Blank()
-                Text(this.targetLinkLabel(g) + ' ›')
-                  .fontSize(TypeTokens.caption.size)
-                  .fontFamily(TypeTokens.fontFamily)
-                  .fontColor(ColorTokens.brand)
-              }
-              .width('100%')
-            }
-          }
-          .width('100%')
-          .alignItems(HorizontalAlign.Start)
         }
 
         // ③ 作者行（post/comment 目标）：封禁决策的对象（用户卡由 targetLine 自身呈现）
@@ -1500,41 +1548,50 @@ export struct ReportAdminPage {
   }
 
   build() {
-    Column() {
-      this.topBar()
-      // 上层板块（帖子/评论/用户）→ 下层状态（待处理/已成立/已驳回）：两级都在当前类目内过滤
-      this.typeBar()
-      this.filterBar()
-
-      // 三态与列表统一包在 Refresh + Scroll 里：空态 / 错误态也能下拉刷新。
-      // 全屏沉浸壳内列表一律用 Scroll（List/WaterFlow/Grid 的滚动终点会被底部非安全区钳制）。
-      Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
-        Scroll() {
-          Column() {
-            this.stateArea()
+    // 页面自带 Navigation（router 壳与 NavDestination 壳共用一份实现的同款写法）：
+    // 顶栏（导航行 + 两个分段栏）驻留标题栏，内容区只剩列表三态。
+    Navigation() {
+      Column() {
+        // 三态与列表统一包在 Refresh + Scroll 里：空态 / 错误态也能下拉刷新。
+        // 全屏沉浸壳内列表一律用 Scroll（List/WaterFlow/Grid 的滚动终点会被底部非安全区钳制）。
+        Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
+          Scroll() {
+            Column() {
+              this.stateArea()
+            }
+            .width('100%')
+            .constraintSize({ minHeight: '100%' })
+            .justifyContent(this.stateCentered() ? FlexAlign.Center : FlexAlign.Start)
+            .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, bottom: SpaceTokens.x2l })
           }
+          .layoutWeight(1)
           .width('100%')
-          .constraintSize({ minHeight: '100%' })
-          .justifyContent(this.stateCentered() ? FlexAlign.Center : FlexAlign.Start)
-          .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, bottom: SpaceTokens.x2l })
+          .scrollBar(BarState.Off)
+          .onScrollEdge((edge: Edge): void => {
+            if (edge === Edge.Bottom) {
+              this.loadMore();
+            }
+          })
         }
+        .onRefreshing((): void => { this.refresh(); })
         .layoutWeight(1)
         .width('100%')
-        .scrollBar(BarState.Off)
-        .onScrollEdge((edge: Edge): void => {
-          if (edge === Edge.Bottom) {
-            this.loadMore();
-          }
-        })
       }
-      .onRefreshing((): void => { this.refresh(); })
-      .layoutWeight(1)
       .width('100%')
+      .height('100%')
+      // 底部避让：三键导航条下最后一张卡的处置按钮不能被压住
+      // （顶部避让已由标题栏承担，此处不再补 statusBarHeight —— 避让只此一处）
+      .padding({ bottom: bottomNavInset() })
+      .backgroundColor(ColorTokens.canvas)
+      .alignItems(HorizontalAlign.Start)
     }
+    .hideTitleBar(false)
+    .title({
+      builder: this.pageTitleBar,
+      height: this.titleBarHeight(),
+    }, { barStyle: BarStyle.STANDARD, backgroundColor: ColorTokens.canvas })
     .width('100%')
     .height('100%')
-    // 底部避让：三键导航条下最后一张卡的处置按钮不能被压住
-    .padding({ top: this.statusBarHeight, bottom: bottomNavInset() })
     .backgroundColor(ColorTokens.canvas)
     .transition(buildPageTransition())
   }
