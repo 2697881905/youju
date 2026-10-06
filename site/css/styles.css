@@ -166,7 +166,9 @@ section{position:relative}
 .gallery__desc{margin-top:12px;font-size:15.5px;color:var(--text-2);max-width:28em}
 .gallery.is-enhanced .gallery__item:not(.is-active) .gallery__desc{display:none}
 .gallery__stage{display:flex;flex-direction:column;align-items:center;gap:36px}
-.is-enhanced .gallery__stage{gap:0}
+/* 图库切换（Flip absolute）期间 stage 定高不塌陷——否则文档变短，底部露出灰色背景 */
+.is-enhanced .gallery__stage{gap:0;position:relative;width:100%;max-width:340px;margin-inline:auto;height:calc(min(340px, 80vw) * 2.157 + 20px)}
+.is-enhanced .gallery__stage .device{position:absolute;left:50%;top:0;transform:translateX(-50%)}
 /* js-motion（head 内联脚本确认可动画）下只显示当前屏；GSAP 缺失/降级时移除该类 → 四屏全部可见 */
 .js-motion .gallery__stage .device:not(.is-active){display:none}
 .gallery__stage .device{width:min(340px,80vw)}
