@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>有据 · 让经验经得起追问</title>
-<meta name="description" content="有据是 HarmonyOS NEXT 原生的理性内容分享社区，让每一条经验都有出处、有结构、经得起追问。">
-<meta property="og:title" content="有据 · 让经验经得起追问">
-<meta property="og:description" content="把经验变成有据。HarmonyOS NEXT 原生理性内容分享社区。">
+<title>有据 SUBSTANTIATE · 有据可依 更好的生活</title>
+<meta name="description" content="有据 —— HarmonyOS NEXT 原生理性内容分享社区。结构化发布、每日一帖、星环圈子与创作者数据面板，每一条经验都有出处、有结构、经得起追问。">
+<meta property="og:title" content="有据 SUBSTANTIATE · 有据可依 更好的生活">
+<meta property="og:description" content="HarmonyOS NEXT 原生理性内容分享社区。">
 <link rel="icon" type="image/png" href="assets/favicon-64.png">
 <script>
   (function(){
@@ -20,105 +20,232 @@
 <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-<header class="site-nav" id="nav">
-  <div class="shell site-nav__inner">
-    <a class="brand" href="#top" aria-label="有据首页">
-      <span class="brand__mark"><img src="assets/icon-512.png" alt="" width="30" height="30"></span>
-      <span class="brand__name">有据</span>
+
+<div class="progress" aria-hidden="true"></div>
+<div class="section-pill" id="sectionPill" aria-hidden="true">
+  <span class="section-pill__num" id="pillNum">01</span>
+  <span class="section-pill__mask"><span class="section-pill__txt" id="pillTxt">核心能力</span></span>
+</div>
+<nav class="nav" id="nav" aria-label="主导航">
+  <div class="nav__inner container">
+    <a class="nav__brand" href="#top">
+      <img class="nav__logo" src="assets/icon-512.png" alt="有据图标" width="30" height="30">
+      <span>有据</span>
     </a>
-    <nav class="site-nav__links" aria-label="主导航">
-      <a href="#principles">方法</a>
-      <a href="#features">能力</a>
-      <a href="#scenes">场景</a>
+    <div class="nav__links">
+      <a href="#features">核心能力</a>
+      <a href="#scenes">使用场景</a>
       <a href="#harmonyos">鸿蒙原生</a>
-    </nav>
-    <a class="nav-action magnetic" href="#download"><span>下载有据</span></a>
-    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="mobileMenu"><span>菜单</span><i aria-hidden="true"></i></button>
+      <a class="nav__cta" href="#download">下载</a>
+    </div>
   </div>
-  <div class="mobile-menu" id="mobileMenu">
-    <a href="#principles"><span class="mobile-menu__label">方法</span><span>01</span></a>
-    <a href="#features"><span class="mobile-menu__label">能力</span><span>02</span></a>
-    <a href="#scenes"><span class="mobile-menu__label">场景</span><span>03</span></a>
-    <a href="#harmonyos"><span class="mobile-menu__label">鸿蒙原生</span><span>04</span></a>
-    <a href="#download"><span class="mobile-menu__label">下载有据</span></a>
+</nav>
+
+<header class="hero" id="top">
+  <div class="hero__glow" aria-hidden="true"></div>
+  <div class="container hero__grid">
+    <div class="hero__copy">
+      <p class="eyebrow">HarmonyOS NEXT · 理性内容分享社区</p>
+      <h1 class="hero__title">有据可依，<br><span class="grad-text">更好的生活。</span></h1>
+      <p class="hero__sub">有据，一个面向大众的理性内容分享社区。测评、避坑、教程与心得 —— 每一条经验都有出处、有结构、经得起追问。✨</p>
+      <div class="hero__actions">
+        <a class="btn btn--primary" href="https://appgallery.huawei.com/app/detail?id=com.youju.app" target="_blank" rel="noopener"><span class="btn__label">AppGallery 免费下载</span></a>
+        <a class="btn btn--ghost" href="#features"><span class="btn__label">了解核心能力</span></a>
+      </div>
+    </div>
+    <div class="hero__visual">
+      <figure class="device device--hero">
+        <div class="device__screen">
+          <img src="assets/home-hero.webp" alt="有据首页：双列瀑布流推荐真实经验" width="720" height="1555">
+        </div>
+      </figure>
+    </div>
   </div>
 </header>
 
 <main>
-  <section class="hero" id="top">
-    <div class="hero__backdrop" aria-hidden="true"></div>
-    <div class="shell hero__inner">
-      <div class="hero__copy">
-        <p class="eyebrow"><span>理性内容分享社区</span></p>
-        <h1 class="hero__title" data-split>把经验<br><span>变成有据。</span></h1>
-        <p class="hero__lead">测评、避坑、教程与心得。每一条经验都有出处、有结构，能经得起下一次追问。</p>
-        <div class="hero__actions">
-          <a class="button button--blue magnetic" href="https://appgallery.huawei.com/app/detail?id=com.youju.app" target="_blank" rel="noopener"><span>下载有据</span></a>
-          <a class="quiet-link" href="#principles"><span>向下探索</span></a>
+  <section class="features" id="features">
+    <div class="container">
+      <div class="section-head">
+        <p class="eyebrow" data-reveal>核心能力</p>
+        <h2 data-reveal>认真记录，是被认真看见的开始。📝</h2>
+        <p class="section-head__sub">从发布到沉淀，每一步都为真实经验而设计。</p>
+      </div>
+
+      <div class="gallery" id="gallery">
+        <div class="gallery__panel" data-reveal>
+          <span class="gallery__marker" aria-hidden="true"></span>
+          <div class="gallery__item is-active" data-idx="0">
+            <button class="gallery__tab" type="button" aria-expanded="true">
+              <span class="gallery__num">01</span>
+              <span class="gallery__ttl">把经验，写成有结构的样子 📐</span>
+            </button>
+            <p class="gallery__desc">发布时从「一句话结论、数据判断、清单」等视觉骨架起步，自由增删与排序。没有配图？有据会为你的文字生成一张干净的封面。</p>
+          </div>
+          <div class="gallery__item" data-idx="1">
+            <button class="gallery__tab" type="button" aria-expanded="false">
+              <span class="gallery__num">02</span>
+              <span class="gallery__ttl">每天一张，值得认真看的经验 📅</span>
+            </button>
+            <p class="gallery__desc">编辑每日精选一篇真实分享，标上日期与编号。随手一拖，任意方向丢出，就是下一张。</p>
+          </div>
+          <div class="gallery__item" data-idx="2">
+            <button class="gallery__tab" type="button" aria-expanded="false">
+              <span class="gallery__num">03</span>
+              <span class="gallery__ttl">二十余种生活，围成一座星环 🪐</span>
+            </button>
+            <p class="gallery__desc">从电脑装机到装修建材，从育儿经验到求职面试 —— 每个圈子只聊一件事，经验在这里沉淀成可以翻回来看的档案。</p>
+          </div>
+          <div class="gallery__item" data-idx="3">
+            <button class="gallery__tab" type="button" aria-expanded="false">
+              <span class="gallery__num">04</span>
+              <span class="gallery__ttl">你的经验，被多少人认真看过 📊</span>
+            </button>
+            <p class="gallery__desc">曝光、点击、浏览，顶、收藏与评论，连同「曝光 → 点击」的转化率 —— 全部只对你可见。</p>
+          </div>
+        </div>
+        <div class="gallery__stage" data-reveal>
+          <figure class="device is-active">
+            <div class="device__screen"><img src="assets/composer.webp" alt="结构化发布页：选择视觉骨架组织经验" loading="lazy" width="720" height="1553"></div>
+          </figure>
+          <figure class="device">
+            <div class="device__screen"><img src="assets/daily.webp" alt="每日一帖：当日精选，随手拖拽换卡" loading="lazy" width="720" height="1553"></div>
+          </figure>
+          <figure class="device">
+            <div class="device__screen"><img src="assets/circles.webp" alt="星环圈子：生活领域环形分布" loading="lazy" width="720" height="1553"></div>
+          </figure>
+          <figure class="device">
+            <div class="device__screen"><img src="assets/stats.webp" alt="帖子数据面板：浏览与转化一目了然" loading="lazy" width="720" height="1553"></div>
+          </figure>
         </div>
       </div>
-      <div class="hero__stage">
-        <figure class="device device--hero"><div class="device__rim"></div><div class="device__screen"><img src="assets/home-hero.webp" alt="有据首页，双列瀑布流推荐真实经验" width="720" height="1555"></div></figure>
-      </div>
-    </div>
-  </section>
-
-  <section class="principles" id="principles">
-    <div class="shell principles__inner">
-      <div class="section-heading reveal">
-        <p class="eyebrow"><span>我们相信</span></p>
-        <h2>好的经验，<br><em>值得被认真对待。</em></h2>
-        <p>有据把发布、阅读和讨论重新排了一遍，让信息少一点噪声，多一点可以带走的价值。</p>
-      </div>
-      <div class="principles__list">
-        <article class="principle reveal"><h3>先看懂</h3><p>先说结论，再展开证据。复杂经验也能从一句话开始。</p></article>
-        <article class="principle reveal"><h3>留得下</h3><p>值得回看的内容有自己的位置，不在信息流里无声消失。</p></article>
-        <article class="principle reveal"><h3>用得上</h3><p>把偶然所得变成下一次选择时，真正可以复用的依据。</p></article>
-      </div>
-    </div>
-  </section>
-
-  <section class="features" id="features">
-    <div class="shell">
-      <div class="section-heading section-heading--dark reveal">
-        <p class="eyebrow"><span>一条经验，三种展开</span></p>
-        <h2>不是功能列表，<br><em>是更好的做法。</em></h2>
-        <p>向下滚动，横向看每一种展开。</p>
-      </div>
-    </div>
-    <div class="feature-track">
-      <article class="feature-card"><div class="feature-card__copy"><span>01</span><h3>结构化发布</h3><p>从视觉骨架开始，自由增删与排序。</p></div><figure class="device device--feature"><div class="device__screen"><img src="assets/composer.webp" alt="结构化发布页" loading="lazy" decoding="async" width="720" height="1553"></div></figure></article>
-      <article class="feature-card"><div class="feature-card__copy"><span>02</span><h3>每日一帖</h3><p>每天一张卡片，把值得回看的经验留下来。</p></div><figure class="device device--feature"><div class="device__screen"><img src="assets/daily.webp" alt="每日一帖页面" loading="lazy" decoding="async" width="720" height="1553"></div></figure></article>
-      <article class="feature-card"><div class="feature-card__copy"><span>03</span><h3>星环圈子</h3><p>围绕共同兴趣，找到更近的人和更深的讨论。</p></div><figure class="device device--feature"><div class="device__screen"><img src="assets/circles.webp" alt="星环圈子页面" loading="lazy" decoding="async" width="720" height="1553"></div></figure></article>
     </div>
   </section>
 
   <section class="scenes" id="scenes">
-    <div class="shell scenes__intro reveal"><p class="eyebrow"><span>真实使用路径</span></p><h2>从发现，<br><em>到聊得更深。</em></h2><p>向下滚动，横向走一遍有据的日常。</p></div>
-    <div class="scenes__viewport"><div class="scenes__track">
-      <article class="scene-panel scene-panel--blue"><div class="scene-panel__copy"><h3>发现真实<br>经验。</h3><p>双列瀑布流里，是据友们的测评、避坑与心得。</p><b>发现</b></div><div class="scene-panel__phone"><div class="device device--scene"><div class="device__screen"><img src="assets/home.webp" alt="有据发现页" loading="lazy" decoding="async" width="720" height="1553"></div></div></div></article>
-      <article class="scene-panel scene-panel--white"><div class="scene-panel__copy"><h3>搜你想搜<br>的东西。</h3><p>最近搜索替你记着，大家都在搜帮你发现。</p><b>搜索</b></div><div class="scene-panel__phone"><div class="device device--scene"><div class="device__screen"><img src="assets/search.webp" alt="有据搜索页" loading="lazy" decoding="async" width="720" height="1553"></div></div></div></article>
-      <article class="scene-panel scene-panel--ink"><div class="scene-panel__copy"><h3>经验聊得越深，<br>人走得越近。</h3><p>把一条分享变成一场真正有来有回的对话。</p><b>对话</b></div><div class="scene-panel__phone"><div class="device device--scene"><div class="device__screen"><img src="assets/dm.webp" alt="有据私信页" loading="lazy" decoding="async" width="720" height="1553"></div></div></div></article>
-    </div></div>
+    <div class="container">
+      <div class="section-head">
+        <p class="eyebrow" data-reveal>使用场景</p>
+        <h2 data-reveal>经验的每一次流动，都有迹可循。🧭</h2>
+      </div>
+      <div class="scenes__grid">
+        <article class="scene" data-reveal>
+          <figure class="device">
+            <div class="device__screen"><img src="assets/home.webp" alt="发现经验：双列瀑布流" loading="lazy" width="720" height="1553"></div>
+          </figure>
+          <h3 data-reveal>🌊 发现真实经验</h3>
+          <p>双列瀑布流里，是据友们的测评、避坑与心得。</p>
+        </article>
+        <article class="scene" data-reveal>
+          <figure class="device">
+            <div class="device__screen"><img src="assets/search.webp" alt="搜索面板：最近搜索与大家都在搜" loading="lazy" width="720" height="1553"></div>
+          </figure>
+          <h3 data-reveal>🎯 搜你想搜的</h3>
+          <p>最近搜索替你记着，大家都在搜帮你发现。</p>
+        </article>
+        <article class="scene" data-reveal>
+          <figure class="device">
+            <div class="device__screen"><img src="assets/dm.webp" alt="与据友私信交流" loading="lazy" width="720" height="1553"></div>
+          </figure>
+          <h3 data-reveal>💬 和据友聊聊</h3>
+          <p>经验聊得越深，人走得越近。</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="statement">
+    <div class="container">
+      <p class="statement__text" data-illuminate>每一条经验，都<em>有出处</em>、<em>有结构</em>、<em>经得起追问</em>。</p>
+    </div>
   </section>
 
   <section class="harmony" id="harmonyos">
-    <div class="shell">
-      <div class="section-heading section-heading--dark reveal"><p class="eyebrow"><span>原生体验</span></p><h2>为 HarmonyOS<br><em>NEXT 而生。</em></h2><p>从材质到动效，把系统级的空间感带进每一屏。</p></div>
-      <div class="harmony__feature harmony__feature--first reveal"><div class="harmony__copy"><h3>光，会回应<br>你的指尖。</h3><p>玻璃底栏悬浮于内容之上，光经过的地方随之亮起。</p></div><div class="video-frame"><video class="device-video" src="assets/light-demo.mp4" poster="assets/home-hero.webp" autoplay loop muted playsinline width="680" height="1528"></video></div></div>
-      <div class="harmony__feature harmony__feature--second reveal"><div class="harmony__copy"><h3>轻轻一握，<br>界面贴合掌心。</h3><p>握姿一变，标题、作者栏与发送键都会重新归位。</p></div><div class="video-frame"><video class="device-video" src="assets/grip-demo.mp4" poster="assets/home-hero.webp" autoplay loop muted playsinline width="680" height="1532"></video></div></div>
+    <div class="container">
+      <div class="section-head section-head--dark">
+        <p class="eyebrow eyebrow--dark" data-reveal>鸿蒙原生</p>
+        <h2 data-reveal><span class="grad-text grad-text--dark">为 HarmonyOS 7 而生。</span> 🚀</h2>
+        <p class="section-head__sub">从材质到动效，有据遵循 HarmonyOS 7 的设计语言，把系统级的空间感与光感带进每一屏。</p>
+      </div>
+
+      <div class="hkit">
+        <div class="hkit__copy">
+          <p class="hkit__tag">沉浸光感</p>
+          <h3 data-reveal>🌟 光，会回应你的指尖</h3>
+          <p class="hkit__desc">玻璃底栏悬浮于内容之上，光经过的地方随之亮起 —— 材质拥有光影层级，界面通透而有纵深。</p>
+          <ul class="hkit__points" role="list">
+            <li>光随指动</li>
+            <li>光晕引力</li>
+            <li>通透材质</li>
+          </ul>
+        </div>
+        <div class="hkit__stage immersive-stage" data-reveal>
+          <figure class="device device--dark">
+            <div class="device__screen">
+              <video class="device-video" src="assets/light-demo.mp4" autoplay loop muted playsinline width="680" height="1528"></video>
+            </div>
+          </figure>
+        </div>
+      </div>
+
+      <div class="hkit hkit--flip">
+        <div class="hkit__copy">
+          <p class="hkit__tag">智感握姿</p>
+          <h3 data-reveal>🤲 轻轻一握，界面贴合掌心</h3>
+          <p class="hkit__desc">HarmonyOS 7 的智感握姿：握姿一变，标题、作者栏与发送键都会随掌心重新归位 —— 左手右手，都顺手。</p>
+        </div>
+        <div class="hkit__stage grip-stage" data-reveal>
+          <figure class="device device--dark">
+            <div class="device__screen">
+              <video class="device-video" src="assets/grip-demo.mp4" autoplay loop muted playsinline width="680" height="1532"></video>
+            </div>
+          </figure>
+        </div>
+      </div>
     </div>
   </section>
 
   <section class="download" id="download">
-    <div class="shell download__inner"><div class="download__copy reveal"><p class="eyebrow"><span>现在开始</span></p><h2>把有据，<br><em>装进口袋。</em></h2><p>给每一次分享，一个值得留下来的理由。</p><a class="button button--blue button--large magnetic" href="https://appgallery.huawei.com/app/detail?id=com.youju.app" target="_blank" rel="noopener"><span>在 AppGallery 下载</span></a></div><div class="download__visual reveal"><div class="device device--download"><div class="device__screen"><img src="assets/login.webp" alt="有据登录页" loading="lazy" decoding="async" width="720" height="1553"></div></div></div></div>
+    <div class="container download__grid">
+      <div class="download__copy">
+        <img class="download__icon" src="assets/icon-512.png" alt="" width="72" height="72" data-reveal>
+        <h2 data-reveal>把有据，装进口袋。👛</h2>
+        <p class="download__meta" data-reveal>HarmonyOS NEXT · 华为应用市场</p>
+        <div class="download__actions" data-reveal>
+          <a class="btn btn--primary btn--lg" href="https://appgallery.huawei.com/app/detail?id=com.youju.app" target="_blank" rel="noopener"><span class="btn__label">AppGallery 下载</span></a>
+        </div>
+        <p class="download__slogan" data-reveal>有据可依 更好的生活。</p>
+      </div>
+      <div class="download__visual" data-reveal>
+        <figure class="device device--dark">
+          <div class="device__screen">
+            <img src="assets/login.webp" alt="打开有据的第一屏：华为账号一键登录" loading="lazy" width="720" height="1553">
+          </div>
+        </figure>
+      </div>
+    </div>
   </section>
 </main>
 
-<footer class="footer"><div class="announcement" aria-label="产品公告"><span class="announcement__signal" aria-hidden="true"></span><span class="announcement__label">有据已登陆 HarmonyOS NEXT</span><a href="#download"><span class="announcement__label">现在下载</span></a><a class="announcement__beian" href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">陕ICP备2026014636号-3</a></div></footer>
+<footer class="footer">
+  <div class="container footer__inner">
+    <span>© 2026 有据 · 理性内容分享社区</span>
+    <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">陕ICP备2026014636号-3</a>
+    <a href="https://appgallery.huawei.com/app/detail?id=com.youju.app" target="_blank" rel="noopener">应用市场页面</a>
+  </div>
+</footer>
+
+<div class="zoom" id="zoom" hidden>
+  <div class="zoom__backdrop" id="zoomBackdrop"></div>
+  <div class="zoom__stage" id="zoomStage"></div>
+  <button class="zoom__close" id="zoomClose" aria-label="关闭查看">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+  </button>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/gsap.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrollTrigger.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/Flip.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/SplitText.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/CustomEase.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrambleTextPlugin.min.js" defer></script>
