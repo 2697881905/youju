@@ -214,8 +214,7 @@
       };
       applyFromI();
       var playCharsI = function(){
-        if(enterI && enterI.progress() >= 1){ enterI.restart(); }
-        else if(enterI && enterI.reversed()){ enterI.play(); }
+        if(enterI && !enterI.isActive()){ enterI.restart(); }
         else if(!enterI){ enterI = animateChars(chars, {delay:options.delay || .16}); }
       };
       var rewindCharsI = function(){ if(enterI && enterI.progress() > 0){ enterI.reverse(); } };
@@ -234,8 +233,7 @@
       };
       applyFrom();
       var playChars = function(){
-        if(enter && enter.progress() >= 1){ enter.restart(); }
-        else if(enter && enter.reversed()){ enter.play(); }
+        if(enter && !enter.isActive()){ enter.restart(); }
         else if(!enter){ enter = animateChars(chars, {}); }
       };
       var rewindChars = function(){ if(enter && enter.progress() > 0){ enter.reverse(); } };
@@ -290,8 +288,7 @@
       opacity:function(){ return gsap.utils.random(0,.04); }
     });
     var playType = function(){
-      if(typing && typing.progress() >= 1){ cleanupExtras(); typing.restart(); }
-      else if(typing && typing.reversed()){ typing.play(); }
+      if(typing && !typing.isActive()){ cleanupExtras(); typing.restart(); }
       else if(!typing){
         cleanupExtras();
         gsap.set(chars, {willChange:'transform, opacity'});
