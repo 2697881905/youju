@@ -106,10 +106,14 @@ struct SearchResultPage {
     }
   }
 
+  // 请求序号：每次发起自增；响应回来时若序号已落后则整体丢弃（最后一次发起的请求生效）。
+  // 与 HomeTab.fetch 同一竞态（提审审计 P1-3）：加载更多在途时换关键词/排序/下拉刷新，
+  // 旧实现 refresh 先重置 pageNum=1 再被 if (this.loading) return 静默丢弃 → 旧页回包
+  // concat 进旧列表、之后 loadMore 再拉同一页，结果重复且可能展示旧关键词的结果。
+  private fetchSeq: number = 0;
+
   private async fetch(reset: boolean): Promise<void> {
-    if (this.loading) {
-      return;
-    }
+    const seq: number = ++this.fetchSeq;
     this.loading = true;
     this.error = '';
     try {
@@ -119,6 +123,9 @@ struct SearchResultPage {
         pageSize: this.limitNum,
         sort: this.sortIndex === 1 ? 'hot' : 'latest',
       });
+      if (seq !== this.fetchSeq) {
+        return; // 过期响应：期间已有更新的请求发起，整体丢弃
+      }
       if (reset) {
         this.searchList = res.list;
         this.total = res.pagination.total;
@@ -129,9 +136,19 @@ struct SearchResultPage {
         this.finished = true;
       }
     } catch (e) {
+      if (seq !== this.fetchSeq) {
+        return; // 过期请求的失败不覆盖新请求的状态
+      }
+      // 分页回滚：loadMore 先 +1 再请求，失败不回滚会让失败那一页被静默跳过
+      if (!reset && this.pageNum > 1) {
+        this.pageNum -= 1;
+      }
       this.error = (e as Error).message;
     } finally {
-      this.loading = false;
+      // 只有仍是「当前请求」才有资格退出加载态
+      if (seq === this.fetchSeq) {
+        this.loading = false;
+      }
     }
   }
 

@@ -3,6 +3,7 @@ import { ok, fail, CODE } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
 import * as searchService from '../services/searchService';
 import { parseLimit } from '../utils/pagination';
+import { suggestLimiter } from '../middleware/rateLimit';
 
 // 搜索历史 / 热搜词路由，挂在 /v1/search 下
 import { asyncHandler } from '../middleware/asyncHandler';
@@ -40,8 +41,9 @@ router.get('/hot', auth, asyncHandler(async (req: AuthRequest, res: Response) =>
 }));
 
 // 搜索联想：GET /v1/search/suggest?keyword=xx&limit=8
-// 公开接口（联想 = 历史关键词聚合 + 公开圈子标签，无个人隐私，游客也可用）
-router.get('/suggest', asyncHandler(async (req: AuthRequest, res: Response) => {
+// 公开接口（联想 = 历史关键词聚合 + 公开圈子标签，无个人隐私，游客也可用）。
+// 单请求并发 3 个 DB 查询，匿名可用 → 独立限流防放大为 DB 压力。
+router.get('/suggest', suggestLimiter, asyncHandler(async (req: AuthRequest, res: Response) => {
   const keyword = String(req.query.keyword ?? '').trim();
   if (keyword.length === 0) {
     return ok(res, { list: [] });

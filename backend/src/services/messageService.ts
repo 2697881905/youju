@@ -6,6 +6,7 @@ import { DELETED_NICKNAME } from '../utils/userView';
 import { Prisma } from '@prisma/client';
 import { MentionRef, resolveMentionRefs } from './mentionService';
 import { pushToUser } from './huaweiPush';
+import { normalizeMediaRefInput } from '../utils/mediaRef';
 
 // 私信领域自定义错误（与 FollowError / AccountError 同构）
 export class MessageError extends Error {
@@ -164,41 +165,56 @@ export async function sendMessage(
   explicitMentions?: unknown,
 ): Promise<DmMessage> {
   const msgType: string = MSG_TYPES.indexOf(type) >= 0 ? type : 'text';
-  const raw: string = (content ?? '').trim();
+  let stored: string = (content ?? '').trim();
   if (msgType === 'text') {
-    if (raw.length === 0) {
+    if (stored.length === 0) {
       throw new MessageError('私信内容不能为空', 400, 400);
     }
-    if (raw.length > MAX_LEN) {
+    if (stored.length > MAX_LEN) {
       throw new MessageError('私信内容过长', 400, 400);
     }
   } else if (msgType === 'share') {
     // 分享消息：content 必须是合法 JSON 摘要（含 postId + title）
-    if (parseShareContent(raw) === null) {
+    const payload = parseShareContent(stored);
+    if (payload === null) {
       throw new MessageError('分享内容格式错误', 400, 400);
     }
-    if (raw.length > SHARE_MAX) {
+    // 分享卡封面是客户端随 JSON 提交的字段：非本系统上传体系引用时**剥离**（外链会在
+    // 接收方客户端被自动 GET，跟踪打点）；封面缺失仅影响卡片配图，不值得拒绝整条分享
+    if (payload.coverImage !== '' && !normalizeMediaRefInput(payload.coverImage).ok) {
+      payload.coverImage = '';
+      stored = JSON.stringify(payload);
+    }
+    if (stored.length > SHARE_MAX) {
       throw new MessageError('分享内容过长', 400, 400);
     }
   } else {
-    // image/video/file：content 必须是媒体 viewUrl（非空且不过长）
-    if (raw.length === 0) {
+    // image/video/file：content 必须是本系统上传体系的媒体引用（cos:// 或 /uploads/）。
+    // 任意外链会在接收方打开会话时被 Image/播放器**自动 GET**（无需点击）——跟踪打点
+    // 与强制请求的注入面，拒绝发送。normalizeMediaRefInput 顺带把本地模式的带主机
+    // 绝对 URL 归一化为 /uploads/ 相对路径。
+    if (stored.length === 0) {
       throw new MessageError('媒体消息缺少内容', 400, 400);
     }
-    if (raw.length > MAX_MEDIA_LEN) {
+    if (stored.length > MAX_MEDIA_LEN) {
       throw new MessageError('媒体消息内容无效', 400, 400);
     }
+    const ref = normalizeMediaRefInput(stored);
+    if (!ref.ok) {
+      throw new MessageError('媒体消息内容无效', 400, 400);
+    }
+    stored = ref.ref;
   }
   await assertCanMessage(senderId, receiverId);
   // @提及 仅文本消息有意义；与帖子 / 评论同构落库，供展示态点击精确跳转
   const mentionRefs: MentionRef[] =
-    msgType === 'text' ? await resolveMentionRefs(raw, explicitMentions) : [];
+    msgType === 'text' ? await resolveMentionRefs(stored, explicitMentions) : [];
   const msg = await prisma.message.create({
     data: {
       senderId,
       receiverId,
       type: msgType,
-      content: raw,
+      content: stored,
       mentions: mentionRefs.length > 0 ? (mentionRefs as unknown as Prisma.InputJsonValue) : Prisma.DbNull,
     },
   });
@@ -269,10 +285,12 @@ export async function listConversations(viewerId: number): Promise<Conversation[
     userMap.set(u.id, { nickname: u.nickname, avatar: u.avatar, deletedAt: u.deletedAt });
   }
 
-  // 未读：receiverId=viewerId 且未读的、按发送方分组计数
+  // 未读：receiverId=viewerId 且未读的、按发送方分组计数。
+  // recalledAt: null 必须与 getUnreadCount（全局未读/Tab 角标）同口径——撤回消息若计入
+  // 会话未读但不计入全局未读，会出现「角标没有数字、会话列表却有未读」的口径不一致。
   const unreadRows = await prisma.message.groupBy({
     by: ['senderId'],
-    where: { receiverId: viewerId, read: false, senderId: { in: peerIds } },
+    where: { receiverId: viewerId, read: false, recalledAt: null, senderId: { in: peerIds } },
     _count: { _all: true },
   });
   const unreadMap = new Map<number, number>();

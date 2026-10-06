@@ -17,20 +17,26 @@ router.get('/', asyncHandler(async (_req, res: Response) => {
 // 关注标签：POST /v1/tags/:name/follow
 router.post('/:name/follow', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const name = req.params.name;
-  if (!name) {
-    return fail(res, CODE.BAD_REQUEST, '缺少标签名');
+  // tagName 是 VarChar(20) 列硬约束：超长直接 500；且必须在 Tag 表存在——
+  // 关注任意不存在的名字会制造孤儿关注行（无 FK），并可持续灌库
+  if (!name || name.length > 20) {
+    return fail(res, CODE.BAD_REQUEST, '标签名无效');
   }
   const tag = await tagService.followTag(req.userId!, name);
+  if (!tag) {
+    return fail(res, CODE.NOT_FOUND, '标签不存在', 404);
+  }
   return ok(res, tag);
 }));
 
 // 取消关注标签：DELETE /v1/tags/:name/follow
 router.delete('/:name/follow', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const name = req.params.name;
-  if (!name) {
-    return fail(res, CODE.BAD_REQUEST, '缺少标签名');
+  if (!name || name.length > 20) {
+    return fail(res, CODE.BAD_REQUEST, '标签名无效');
   }
   const tag = await tagService.unfollowTag(req.userId!, name);
+  // 幂等：取消关注不存在的标签（含未入库名字）视为成功，保证取消流程不被卡住
   return ok(res, tag);
 }));
 

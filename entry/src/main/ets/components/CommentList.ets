@@ -26,6 +26,9 @@ export struct CommentList {
   // P1-1 楼中楼：点击评论下「回复」时上报该评论（上层构建回复目标）
   // 参数命名为 cmt 避免与类型 Comment 在 Rollup 中冲突
   onReplyComment: (cmt: Comment) => void = (_cmt: Comment): void => {};
+  // 删除成功回调：本组件只 splice 自己的 @Prop 拷贝，父级（详情页）需同步
+  // post.comments 与 commentCount，否则计数不减、父级重灌旧数据时已删行复活
+  onDeleted: (cmt: Comment) => void = (_cmt: Comment): void => {};
   // 评论点赞本地态：用 Map/Set 保存（@State 顶层替换触发重渲染），避免直接改 ForEach 项不刷新
   @State likedIds: Set<number> = new Set<number>();
   @State upCounts: Map<number, number> = new Map<number, number>();
@@ -56,6 +59,7 @@ export struct CommentList {
             }
           }
           safeShowToast(this.getUIContext(), { message: '评论已删除' });
+          this.onDeleted(c);
         } catch (e) {
           safeShowToast(this.getUIContext(), { message: (e as Error).message });
         }

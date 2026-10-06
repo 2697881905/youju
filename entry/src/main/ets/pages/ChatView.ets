@@ -236,9 +236,19 @@ export struct ChatView {
     this.getUIContext().getRouter().pushUrl({ url: 'pages/VideoPlayerPage' });
   }
 
-  // 页面重新显示时静默拉取最新消息（已有消息时不显示 Loading）：
-  // 覆盖对方撤回/新消息/从后台切回等场景——停留期间无实时推送，返回页面即同步。
-  onPageShow(): void {
+  // 返回页面时静默拉取最新消息（覆盖对方撤回/新消息/从后台切回等场景——停留期间无
+  // 实时推送，返回页面即同步）。⚠️ 不能写成 @Component 的 onPageShow：那是页面级
+  // 生命周期，仅 @Entry 生效，写在双壳共享组件里永远不会被调用（同 onBackPress 的坑）。
+  // 由双壳触发：ChatPage.onPageShow / ChatDestination NavDestination.onShown 递增信号。
+  @StorageProp('chatRefreshSignal') @Watch('onChatRefreshSignal') chatRefreshSignal: number = 0;
+  // 首次显示也会触发 NavDestination.onShown：此时 aboutToAppear 的首次加载已在途，
+  // 用「是否已完成过一次加载」去重，避免进页面双拉。
+  private hasLoadedOnce: boolean = false;
+
+  private onChatRefreshSignal(): void {
+    if (!this.hasLoadedOnce) {
+      return;
+    }
     if (getToken() !== '' && this.peerId > 0) {
       this.loadMessages();
     }
@@ -250,6 +260,7 @@ export struct ChatView {
     this.error = '';
     try {
       const res = await getMessages(this.peerId, 1);
+      this.hasLoadedOnce = true;
       this.messages = res.list;
       await markMessagesRead(this.peerId);
       this.bumpRefreshSignal();

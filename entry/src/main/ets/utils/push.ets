@@ -102,6 +102,12 @@ function toInt(v: string | number | undefined): number {
   return 0;
 }
 
+// 路由意图 type 白名单：本通道同时接收「服务端推送 clickAction.data」与「本地任意应用
+// 对 exported EntryAbility 构造的 want.parameters」，后者不可信——不在白名单内的 type
+// 一律丢弃，防止恶意应用伪造 type=dm + peerId 把用户强行带进指定会话页（冒充官方钓鱼）。
+const PUSH_ROUTE_TYPES: string[] =
+  ['comment', 'up', 'mention', 'bookmark', 'follow', 'system', 'dm', 'post', 'user'];
+
 export function readPushRoute(want: Want | undefined): PushRoute | null {
   if (want === undefined || want.parameters === undefined) {
     return null;
@@ -123,7 +129,7 @@ export function readPushRoute(want: Want | undefined): PushRoute | null {
     }
   }
   const rawType: string | number | undefined = source['type'];
-  if (typeof rawType !== 'string' || rawType === '') {
+  if (typeof rawType !== 'string' || PUSH_ROUTE_TYPES.indexOf(rawType) < 0) {
     return null;
   }
   return {

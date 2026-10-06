@@ -29,14 +29,24 @@ router.post('/token', auth, asyncHandler(async (req: AuthRequest, res: Response)
     if (!isAllowedUpload(contentType, folder)) {
       return fail(res, CODE.BAD_REQUEST, '不支持的文件类型', 400);
     }
-    // 服务端兜底：视频体积强校验，防客户端 50MB 拦截被绕过（直传 COS 无法在传输层限制大小）
-    if (contentType.startsWith('video/') && size !== undefined && size > env.maxVideoSizeBytes) {
-      return fail(
-        res,
-        CODE.BAD_REQUEST,
-        `视频大小不能超过 ${Math.floor(env.maxVideoSizeBytes / 1024 / 1024)}MB`,
-        400
-      );
+    // 服务端兜底：体积强校验，防客户端拦截被绕过（直传 COS 无法在传输层限制大小）。
+    // 视频必须携带 size——旧实现对 size 缺省直接跳过校验，等于任意大文件都可拿
+    // 预签名直传（存储/带宽滥用）；图片设 20MB 上限。
+    const IMAGE_MAX_BYTES = 20 * 1024 * 1024;
+    if (contentType.startsWith('video/')) {
+      if (size === undefined) {
+        return fail(res, CODE.BAD_REQUEST, '视频上传需携带文件大小', 400);
+      }
+      if (size > env.maxVideoSizeBytes) {
+        return fail(
+          res,
+          CODE.BAD_REQUEST,
+          `视频大小不能超过 ${Math.floor(env.maxVideoSizeBytes / 1024 / 1024)}MB`,
+          400
+        );
+      }
+    } else if (size !== undefined && size > IMAGE_MAX_BYTES) {
+      return fail(res, CODE.BAD_REQUEST, '图片大小不能超过 20MB', 400);
     }
     const sig = await getUploadSignature(contentType, folder, mode);
     return ok(res, sig);

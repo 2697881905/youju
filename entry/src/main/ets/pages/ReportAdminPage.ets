@@ -480,6 +480,10 @@ export struct ReportAdminPage {
       if (seq !== this.fetchSeq) {
         return;
       }
+      // 分页回滚：loadMore 先 +1 再请求，失败不回滚会让失败那一页被静默跳过
+      if (!reset && this.page > 1) {
+        this.page -= 1;
+      }
       const msg: string = (e as Error).message;
       if (msg.includes('权限') || msg.includes('403') || msg.includes('管理员')) {
         this.forbidden = true;

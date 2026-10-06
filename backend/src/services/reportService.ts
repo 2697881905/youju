@@ -176,7 +176,18 @@ export async function createReport(
         });
         newReportCount = updated.reportCount;
         if (newReportCount >= threshold) {
-          await tx.comment.update({ where: { id: params.targetId }, data: { status: 0 } });
+          // 仅当评论确从可见(1)转隐藏(0)时才扣减帖子评论数，重复触发（已下架）不重复扣。
+          // 保证 post.commentCount == status=1 的评论数：举报下架后评论区计数才会跟着减少。
+          const takenDown = await tx.comment.updateMany({
+            where: { id: params.targetId, status: 1 },
+            data: { status: 0 },
+          });
+          if (takenDown.count > 0 && typeof targetCommentPostId === 'number') {
+            await tx.post.update({
+              where: { id: targetCommentPostId },
+              data: { commentCount: { decrement: 1 } },
+            });
+          }
         }
       }
       // targetType==='user'：仅上面已创建举报记录，无计数/下架逻辑
@@ -344,7 +355,7 @@ export async function resolveReportsByTarget(
       }
     } else {
       const newStatus: 'resolved' | 'dismissed' = action === 'resolved' ? 'resolved' : 'dismissed';
-      await tx.report.updateMany({
+      const closed = await tx.report.updateMany({
         where: { targetType, targetId, status: 'pending' },
         data: { status: newStatus, resolvedAt: new Date() },
       });
@@ -354,17 +365,43 @@ export async function resolveReportsByTarget(
           if (targetType === 'post') {
             await tx.post.updateMany({ where: { id: targetId }, data: { status: 0 } });
           } else {
-            await tx.comment.updateMany({ where: { id: targetId }, data: { status: 0 } });
+            // 仅当评论确从可见(1)转隐藏(0)时扣减评论数：阈值已自动下架时不再重复扣。
+            const takenDown = await tx.comment.updateMany({
+              where: { id: targetId, status: 1 },
+              data: { status: 0 },
+            });
+            if (takenDown.count > 0 && typeof notifyPostId === 'number') {
+              await tx.post.update({
+                where: { id: notifyPostId },
+                data: { commentCount: { decrement: 1 } },
+              });
+            }
           }
-        } else if (contentStatus === 0) {
-          // 驳回：内容因举报被下架时一并恢复（否则会滞留在处置台之外、无入口可恢复）
-          const res =
-            targetType === 'post'
-              ? await tx.post.updateMany({ where: { id: targetId, status: 0 }, data: { status: 1 } })
-              : await tx.comment.updateMany({ where: { id: targetId, status: 0 }, data: { status: 1 } });
-          restored = res.count > 0;
+        } else if (contentStatus === 0 && closed.count > 0) {
+          // 驳回：仅当内容确因 pending 举报被自动下架（本次关闭了 pending）且从未被
+          // resolved 裁决过时才恢复。已存在 resolved 记录 = 内容曾被裁决违规下架，
+          // 驳回一条事后新举报不得复活它（需要恢复走显式 restore 动作）。
+          const adjudicated = await tx.report.count({
+            where: { targetType, targetId, status: 'resolved' },
+          });
+          if (adjudicated === 0) {
+            const res =
+              targetType === 'post'
+                ? await tx.post.updateMany({ where: { id: targetId, status: 0 }, data: { status: 1 } })
+                : await tx.comment.updateMany({ where: { id: targetId, status: 0 }, data: { status: 1 } });
+            restored = res.count > 0;
+          }
         }
       }
+    }
+
+    // 评论从下架被恢复(0→1)时补回帖子评论数，与下架时的 decrement 配对；
+    // 保证 post.commentCount 始终等于 status=1 的评论数。
+    if (restored && targetType === 'comment' && typeof notifyPostId === 'number') {
+      await tx.post.update({
+        where: { id: notifyPostId },
+        data: { commentCount: { increment: 1 } },
+      });
     }
 
     const reporterRows = await tx.report.findMany({

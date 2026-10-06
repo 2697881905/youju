@@ -7,6 +7,8 @@ import * as reportService from '../services/reportService';
 import { notifyOnCommentUp } from '../services/notificationService';
 import { SensitiveWordError, ValidationError } from '../utils/errors';
 import { getAccessiblePublishedPost } from '../services/accessControl';
+import { isUniqueViolation } from '../utils/prismaErrors';
+import { commentLimiter } from '../middleware/rateLimit';
 import { parsePage, parseLimit } from '../utils/pagination';
 
 // 该路由挂在 /v1 下，因此路径为完整路径
@@ -39,7 +41,8 @@ router.get('/posts/:id/comments', asyncHandler(async (req: AuthRequest, res: Res
 }));
 
 // 发布评论：POST /v1/posts/:id/comments
-router.post('/posts/:id/comments', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
+// per-user 限流 10 条/分钟（热烈讨论留余量，灌水被挡；见 rateLimit.ts）
+router.post('/posts/:id/comments', auth, commentLimiter, asyncHandler(async (req: AuthRequest, res: Response) => {
   const postId = Number(req.params.id);
   const { content, parentId, isFact, mentions } = req.body ?? {};
   if (typeof content !== 'string' || content.trim().length === 0) {
@@ -96,7 +99,7 @@ router.delete('/comments/:id', auth, asyncHandler(async (req: AuthRequest, res: 
   const result = await commentService.deleteComment(id, req.userId!);
   if (!result.ok) {
     if (result.reason === 'not_found') return fail(res, CODE.NOT_FOUND, '评论不存在', 404);
-    if (result.reason === 'forbidden') return fail(res, CODE.FORBIDDEN, '只能删除自己的评论', 403);
+    if (result.reason === 'forbidden') return fail(res, CODE.FORBIDDEN, '没有权限删除该评论', 403);
   }
   return ok(res, null, '已删除');
 }));
@@ -118,7 +121,7 @@ router.post('/comments/:id/up', auth, asyncHandler(async (req: AuthRequest, res:
       where: { userId_commentId: { userId: req.userId!, commentId } },
     });
     if (existing) return ok(res, { up: true });
-    // 写 CommentUp + increment upCount
+    // 写 CommentUp + increment upCount（并发双击由 CommentUp 唯一约束兜底，见 catch）
     await prisma.$transaction([
       prisma.commentUp.create({ data: { userId: req.userId!, commentId } }),
       prisma.comment.update({ where: { id: commentId }, data: { upCount: { increment: 1 } } }),
@@ -127,6 +130,11 @@ router.post('/comments/:id/up', auth, asyncHandler(async (req: AuthRequest, res:
     notifyOnCommentUp(commentId, req.userId!).catch(() => {});
     return ok(res, { up: true });
   } catch (e) {
+    // 并发双击：另一笔请求已建 CommentUp（唯一约束冲突）→ 幂等返回成功，
+    // 事务回滚保证 upCount 未被重复 increment
+    if (isUniqueViolation(e)) {
+      return ok(res, { up: true });
+    }
     return internalError(res, 'comments.up', e);
   }
 }));

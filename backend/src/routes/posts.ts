@@ -9,6 +9,7 @@ import { getAccessiblePublishedPost } from '../services/accessControl';
 import { validateStructuredData } from '../utils/structuredFields';
 import { validateStructuredDocument } from '../utils/structuredDocument';
 import { parsePage, parseLimit } from '../utils/pagination';
+import { postCreateLimiter } from '../middleware/rateLimit';
 
 import { asyncHandler } from '../middleware/asyncHandler';
 
@@ -90,7 +91,8 @@ router.get('/:id', asyncHandler(async (req: AuthRequest, res: Response) => {
 }));
 
 // 发布帖子（进入待审核）：POST /v1/posts
-router.post('/', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
+// per-user 限流 5 条/分钟（发布是重操作，真人不可能触达；防脚本批量发帖）
+router.post('/', auth, postCreateLimiter, asyncHandler(async (req: AuthRequest, res: Response) => {
   const { title, genre, content, tags, images, videoUrl, videoCover, videoAspectRatio, publishMode } = req.body ?? {};
   if (!title || !genre) return fail(res, CODE.BAD_REQUEST, '标题和体裁必填');
   // 输入长度 / 数量校验（防滥用）
@@ -141,12 +143,30 @@ router.post('/', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
     (typeof videoAspectRatio !== 'number' || !Number.isFinite(videoAspectRatio) || videoAspectRatio < 0.45 || videoAspectRatio > 2.2)) {
     return fail(res, CODE.BAD_REQUEST, '视频比例格式无效');
   }
+  // 显式 @提及：格式 [{name, userId}]，上限 20（与评论/私信路由一致）——无上限时
+  // 一条正文可挂数千个提及，一次发布产生等量站内通知+推送（通知/推送轰炸）
+  if (req.body?.mentions !== undefined && req.body?.mentions !== null) {
+    const mentions = req.body.mentions;
+    if (!Array.isArray(mentions) || mentions.length > 20) {
+      return fail(res, CODE.BAD_REQUEST, 'mentions 格式无效');
+    }
+    for (const item of mentions as Array<Record<string, unknown>>) {
+      if (typeof item !== 'object' || item === null ||
+        typeof item.name !== 'string' || item.name.length < 2 || item.name.length > 20 ||
+        typeof item.userId !== 'number' || !Number.isInteger(item.userId) || item.userId <= 0) {
+        return fail(res, CODE.BAD_REQUEST, 'mentions 格式无效');
+      }
+    }
+  }
   try {
     const post = await postService.createPost(req.body, req.userId!);
     return ok(res, post);
   } catch (e: any) {
     if (e instanceof SensitiveWordError || e.reason === 'sensitive_word') {
       return fail(res, CODE.BAD_REQUEST, e.message);
+    }
+    if (e instanceof ValidationError) {
+      return fail(res, CODE.BAD_REQUEST, e.message, 400);
     }
     console.error('[posts.create] error:', e);
     return fail(res, CODE.SERVER_ERROR, '发布失败', 500);
@@ -204,6 +224,20 @@ router.put('/:id', auth, asyncHandler(async (req: AuthRequest, res: Response) =>
   if (structuredDocumentError) {
     return fail(res, CODE.BAD_REQUEST, structuredDocumentError);
   }
+  // 与发布路由同款 mentions 校验（格式 + 上限 20，防通知/推送轰炸）
+  if (req.body?.mentions !== undefined && req.body?.mentions !== null) {
+    const mentions = req.body.mentions;
+    if (!Array.isArray(mentions) || mentions.length > 20) {
+      return fail(res, CODE.BAD_REQUEST, 'mentions 格式无效');
+    }
+    for (const item of mentions as Array<Record<string, unknown>>) {
+      if (typeof item !== 'object' || item === null ||
+        typeof item.name !== 'string' || item.name.length < 2 || item.name.length > 20 ||
+        typeof item.userId !== 'number' || !Number.isInteger(item.userId) || item.userId <= 0) {
+        return fail(res, CODE.BAD_REQUEST, 'mentions 格式无效');
+      }
+    }
+  }
   let result;
   try {
     result = await postService.updatePost(id, req.userId!, req.body ?? {});
@@ -239,14 +273,22 @@ router.post('/:id/vote', auth, asyncHandler(async (req: AuthRequest, res: Respon
         // 同选项重复投 → 幂等，不更新
         return ok(res, { voted: true, choice });
       }
-      // 改票：减旧票 + 加新票
+      // 改票：减旧票 + 加新票。乐观锁：只有投票行仍是快照时的 choice 才允许翻转——
+      // 双击/重试并发双发时两笔请求都读到同一旧 choice，无条件 update 会让票数双扣双加
+      // （行最终 choice 相同但计数错账）；updateMany 条件不满足时 count=0，本笔跳过加减。
       const decField = existing.choice === 'A' ? 'planAVotes' : 'planBVotes';
       const incField = choice === 'A' ? 'planAVotes' : 'planBVotes';
-      await prisma.$transaction([
-        prisma.post.update({ where: { id: postId }, data: { [decField]: { decrement: 1 } } }),
-        prisma.post.update({ where: { id: postId }, data: { [incField]: { increment: 1 } } }),
-        prisma.debateVote.update({ where: { id: existing.id }, data: { choice } }),
-      ]);
+      await prisma.$transaction(async (tx) => {
+        const flip = await tx.debateVote.updateMany({
+          where: { id: existing.id, choice: existing.choice },
+          data: { choice },
+        });
+        if (flip.count === 0) {
+          return; // 另一笔并发改票已生效，本笔不加不减（响应回读库内最新票数）
+        }
+        await tx.post.update({ where: { id: postId }, data: { [decField]: { decrement: 1 } } });
+        await tx.post.update({ where: { id: postId }, data: { [incField]: { increment: 1 } } });
+      });
     } else {
       // 新投票
       const incField = choice === 'A' ? 'planAVotes' : 'planBVotes';

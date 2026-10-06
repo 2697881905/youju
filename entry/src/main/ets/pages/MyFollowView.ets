@@ -112,6 +112,11 @@ export struct MyFollowView {
       if (seq !== this.fetchSeq) {
         return; // 过期请求的失败不覆盖新请求的状态
       }
+      // 分页回滚：loadMore 先 +1 再请求，失败不回滚会让失败那一页被静默跳过
+      // （error 只在列表为空时可见，非空列表下用户无感知）
+      if (!reset && this.page > 1) {
+        this.page -= 1;
+      }
       this.error = (e as Error).message;
     } finally {
       // 只有仍是「当前请求」才有资格退出加载态
@@ -265,7 +270,7 @@ export struct MyFollowView {
               }
               .width('100%').padding({ left: 16, right: 16, top: 12, bottom: 12 });
             }
-          }, (item: FollowUser) => item.id !== undefined ? item.id.toString() : '');
+          }, (item: FollowUser) => (item.id !== undefined ? item.id.toString() : '') + '-' + (item.isFollowing ? '1' : '0'));
         }
         .width('100%').height('100%')
         .onReachEnd(() => { this.loadMore(); });
