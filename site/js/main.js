@@ -9,16 +9,25 @@
   var nav = document.getElementById('nav');
   var menuButton = document.querySelector('.nav-toggle');
   var mobileMenu = document.getElementById('mobileMenu');
+  var darkZones = [], navH = 0;
+
+  /* 暗色区间坐标只在 resize/load/字体就绪时测量一次；滚动帧内零 getBoundingClientRect（防每帧强制 layout） */
+  function measureZones(){
+    if(!nav) return;
+    navH = nav.offsetHeight;
+    darkZones = [];
+    document.querySelectorAll('.features, .harmony, .download, .footer').forEach(function(section){
+      darkZones.push({ top: section.offsetTop, bottom: section.offsetTop + section.offsetHeight });
+    });
+  }
 
   function syncNav(){
     if(!nav) return;
-    var darkSections = document.querySelectorAll('.features, .harmony, .download, .footer');
-    var edge = nav.getBoundingClientRect().bottom + 12;
+    var edge = window.scrollY + navH + 12;
     var dark = false;
-    darkSections.forEach(function(section){
-      var box = section.getBoundingClientRect();
-      if(box.top <= edge && box.bottom > edge) dark = true;
-    });
+    for(var i = 0; i < darkZones.length; i++){
+      if(darkZones[i].top <= edge && darkZones[i].bottom > edge){ dark = true; break; }
+    }
     nav.classList.toggle('is-scrolled', window.scrollY > 18);
     nav.classList.toggle('nav-invert', dark);
   }
@@ -42,7 +51,8 @@
     mobileMenu.querySelectorAll('a').forEach(function(link){ link.addEventListener('click', closeMenu); });
   }
   window.addEventListener('scroll', syncNav, {passive:true});
-  window.addEventListener('resize', syncNav);
+  window.addEventListener('resize', function(){ measureZones(); syncNav(); });
+  measureZones();
   syncNav();
 
   var videos = document.querySelectorAll('.device-video');
@@ -70,7 +80,6 @@
   if(typeof window.Lenis !== 'undefined'){
     lenis = new Lenis({duration:1.12, smoothWheel:true, syncTouch:false});
     lenis.on('scroll', ScrollTrigger.update);
-    lenis.on('scroll', syncNav);
     gsap.ticker.add(function(time){ lenis.raf(time * 1000); });
     gsap.ticker.lagSmoothing(0);
     root.classList.add('has-lenis');
@@ -348,7 +357,7 @@
       });
     }else gsap.utils.toArray('.eyebrow > span').forEach(function(element){ cascadeText(element, {each:.04}); });
   }
-  if(document.fonts && document.fonts.ready){ document.fonts.ready.then(function(){ initType(); ScrollTrigger.refresh(); }); } else initType();
+  if(document.fonts && document.fonts.ready){ document.fonts.ready.then(function(){ initType(); ScrollTrigger.refresh(); measureZones(); }); } else initType();
 
   /* ---------- Reveals（四向：进入正放，从上方滚回重播，离开倒放复位） ---------- */
   gsap.utils.toArray('.reveal, [data-reveal]').forEach(function(element){
@@ -450,5 +459,5 @@
     gsap.fromTo(feature.querySelector('.video-frame'), {y:70, scale:.9, autoAlpha:.35}, {y:0, scale:1, autoAlpha:1, duration:1, ease:easeLift, scrollTrigger:{trigger:feature, start:'top 82%', end:'top 32%', scrub:.8}});
   });
 
-  window.addEventListener('load', function(){ ScrollTrigger.refresh(); syncNav(); });
+  window.addEventListener('load', function(){ ScrollTrigger.refresh(); measureZones(); syncNav(); });
 })();
