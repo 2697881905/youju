@@ -265,7 +265,7 @@
     var scrollCfg = options.immediate ? undefined : {trigger:element, start:'top 88%', toggleActions:'restart none restart reverse'};
     var buildTyping = function(){
       cleanupExtras();
-      gsap.set(chars, {willChange:'transform, opacity'});
+      /* 打字机字符动画幅度极小（±2px/淡入），不提升合成层——整段 will-change 会造成几十个层同时存活的层爆炸 */
       if(typewriter){
         typing = gsap.timeline({
           scrollTrigger:scrollCfg,
@@ -276,14 +276,8 @@
             ghost = document.createElement('span'); ghost.className='pinyin-ghost';
             element.appendChild(caret); element.appendChild(ghost);
           },
-          onComplete:function(){
-            cleanupExtras();
-            gsap.set(chars,{willChange:'auto'});
-          },
-          onReverseComplete:function(){
-            cleanupExtras();
-            gsap.set(chars,{willChange:'auto'});
-          }
+          onComplete:cleanupExtras,
+          onReverseComplete:function(){ cleanupExtras(); }
         });
         var cursor = options && options.delay || 0;
         var breathEvery = Math.round(gsap.utils.random(6,10));
@@ -328,8 +322,8 @@
           x:0, yPercent:0, scale:1, opacity:1, duration:.1, ease:'none',
           stagger:{each:each, from:options && options.from || 'start'}, overwrite:'auto'
         });
-        typing.eventCallback('onComplete', function(){ gsap.set(chars,{willChange:'auto'}); });
-        typing.eventCallback('onReverseComplete', function(){ gsap.set(chars,{willChange:'auto'}); });
+        typing.eventCallback('onComplete', cleanupExtras);
+        typing.eventCallback('onReverseComplete', cleanupExtras);
       }
     };
     buildTyping();
