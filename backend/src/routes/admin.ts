@@ -1,6 +1,8 @@
 // admin 处置 API 路由（统一 auth + adminAuth 前置中间件）
-// GET  /v1/admin/reports             举报记录列表（处置台数据源，含内容状态与作者）
+// GET  /v1/admin/reports             举报记录列表（处置台数据源，含内容状态与作者；支持 status/targetType 过滤）
+// GET  /v1/admin/reports/summary     待处理举报按类型分类计数（举报中心分板块口径）
 // POST /v1/admin/reports/resolve     处置某目标：resolved 成立并下架 / dismissed 驳回并恢复 / restore 改判恢复
+// POST /v1/admin/reports/delete      批量删除举报台账记录
 // POST /v1/admin/users/:id/ban|unban 封禁 / 解封用户
 // POST /v1/admin/recompute-hot       运维专用：全量重算热度分
 import { Router, Response } from 'express';
@@ -17,16 +19,48 @@ import { asyncHandler } from '../middleware/asyncHandler';
 
 const router = Router();
 
+// 举报目标类型白名单（举报中心三个板块）与单次批量删除上限
+const REPORT_TARGET_TYPES: string[] = ['post', 'comment', 'user'];
+const MAX_DELETE_REPORTS = 200;
+
 // 所有 admin 路由统一使用 auth + adminAuth
 router.use(auth, adminAuth);
 
-// GET /v1/admin/reports?page=&limit=&status= — 举报记录列表
+// GET /v1/admin/reports?page=&limit=&status=&targetType= — 举报记录列表
+// targetType 为板块过滤（post/comment/user），非法值忽略（不过滤），与 status 同口径。
 router.get('/reports', asyncHandler(async (req: AuthRequest, res: Response) => {
   const page = parsePage(req.query.page);
   const limit = parseLimit(req.query.limit, 20);
   const status = req.query.status ? String(req.query.status) : undefined;
-  const data = await reportService.listReports(page, limit, status);
+  const rawType = req.query.targetType ? String(req.query.targetType) : undefined;
+  const targetType = rawType && REPORT_TARGET_TYPES.includes(rawType) ? rawType : undefined;
+  const data = await reportService.listReports(page, limit, status, targetType);
   return ok(res, data);
+}));
+
+// GET /v1/admin/reports/summary — 待处理举报按类型分类计数（帖子/评论/用户）
+// 举报中心分类栏与消息页入口副标题共用；与置顶通知文案同一份口径。
+router.get('/reports/summary', asyncHandler(async (_req: AuthRequest, res: Response) => {
+  const data = await reportService.countPendingReportsByType();
+  return ok(res, data);
+}));
+
+// POST /v1/admin/reports/delete — 删除举报台账记录（body: { ids: number[] }，上限 200 条）
+// 只清理举报记录本身，不改变被举报内容状态；删除后同步「举报中心」待处理数。
+router.post('/reports/delete', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const raw = req.body?.ids;
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return fail(res, CODE.BAD_REQUEST, 'ids 必须为非空数组');
+  }
+  if (raw.length > MAX_DELETE_REPORTS) {
+    return fail(res, CODE.BAD_REQUEST, `一次最多删除 ${MAX_DELETE_REPORTS} 条`);
+  }
+  const ids = raw.map((v: unknown) => Number(v)).filter((v: number) => Number.isInteger(v) && v > 0);
+  if (ids.length === 0) {
+    return fail(res, CODE.BAD_REQUEST, 'ids 中没有合法记录');
+  }
+  const count = await reportService.deleteReports(ids);
+  return ok(res, { count }, '已删除');
 }));
 
 // POST /v1/admin/users/:id/ban — 封禁用户（status=0）

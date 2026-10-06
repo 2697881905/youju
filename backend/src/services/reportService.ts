@@ -1,5 +1,6 @@
 // 举报服务：创建举报（幂等 + 阈值触发自动下架）+ 查询 + 批量处理
 import { prisma } from '../prisma';
+import { Prisma } from '@prisma/client';
 import { notifySystem } from './notificationService';
 import { notifyNewReport } from './opsNotifier';
 import { env } from '../config/env';
@@ -29,24 +30,60 @@ const PRISMA_UNIQUE_CONSTRAINT_CODE = 'P2002';
 // 已存在则更新内容（最新待处理数）并重置未读，避免每条举报都刷一条新消息。
 const ADMIN_REPORT_CENTER_PREFIX = '举报中心';
 
+// 举报中心待处理数（按被举报对象类型分板块：帖子 / 评论 / 用户）
+export interface PendingReportBreakdown {
+  total: number;
+  post: number;
+  comment: number;
+  user: number;
+}
+
+// 待处理举报按 targetType 分类统计：置顶通知文案、消息页入口副标题、举报中心分类栏共用同一口径
+export async function countPendingReportsByType(): Promise<PendingReportBreakdown> {
+  const rows = await prisma.report.groupBy({
+    by: ['targetType'],
+    where: { status: 'pending' },
+    _count: true,
+  });
+  const breakdown: PendingReportBreakdown = { total: 0, post: 0, comment: 0, user: 0 };
+  for (const row of rows) {
+    const counted: number = typeof row._count === 'number' ? row._count : 0;
+    breakdown.total += counted;
+    if (row.targetType === 'post') {
+      breakdown.post = counted;
+    } else if (row.targetType === 'comment') {
+      breakdown.comment = counted;
+    } else if (row.targetType === 'user') {
+      breakdown.user = counted;
+    }
+  }
+  return breakdown;
+}
+
+// 置顶通知文案：三类板块分别列出待处理数，一眼看出哪一类积压
+function reportCenterContent(breakdown: PendingReportBreakdown): string {
+  if (breakdown.total <= 0) {
+    return `${ADMIN_REPORT_CENTER_PREFIX}：暂无待处理举报`;
+  }
+  return `${ADMIN_REPORT_CENTER_PREFIX}：帖子 ${breakdown.post} · 评论 ${breakdown.comment} · 用户 ${breakdown.user} 待处理`;
+}
+
 /**
  * 幂等更新/创建管理员的「举报中心」置顶通知。
- * - 已存在（content 以「举报中心」前缀开头的置顶系统消息）：更新内容（最新待处理数）
+ * - 已存在（content 以「举报中心」前缀开头的置顶系统消息）：更新内容（最新分类待处理数）
  * - 不存在：有待处理举报时才创建（无待办时不造一条空提醒）
  *
  * markUnread 语义：
  * - true（仅新举报产生）：重置未读，点亮红点提醒管理员
- * - false（处置回写）：不重新点亮；待处理清零时顺手熄灭红点（无待办即无提醒）
+ * - false（处置回写/删除台账）：不重新点亮；待处理清零时顺手熄灭红点（无待办即无提醒）
  */
 export async function upsertAdminReportCenter(
   adminId: number,
-  pendingCount: number,
+  pending: PendingReportBreakdown,
   markUnread: boolean = true
 ): Promise<void> {
-  const content = pendingCount > 0
-    ? `${ADMIN_REPORT_CENTER_PREFIX}：有 ${pendingCount} 条举报待处理`
-    : `${ADMIN_REPORT_CENTER_PREFIX}：暂无待处理举报`;
-  const readFlag: boolean | undefined = markUnread ? false : (pendingCount === 0 ? true : undefined);
+  const content = reportCenterContent(pending);
+  const readFlag: boolean | undefined = markUnread ? false : (pending.total === 0 ? true : undefined);
   const existing = await prisma.notification.findFirst({
     where: { userId: adminId, type: 'system', pinned: true, content: { startsWith: ADMIN_REPORT_CENTER_PREFIX } },
     orderBy: { createdAt: 'desc' },
@@ -59,7 +96,7 @@ export async function upsertAdminReportCenter(
     await prisma.notification.update({ where: { id: existing.id }, data });
     return;
   }
-  if (pendingCount > 0) {
+  if (pending.total > 0) {
     await notifySystem(adminId, content, null, true);
   }
 }
@@ -92,7 +129,7 @@ async function collectCommentSubtreeIds(
  *   —— 否则会出现「举报都处理完了，消息中心还挂着有 N 条待处理」的旧文案（用户报障）。
  */
 export async function syncAdminReportCenter(markUnread: boolean = false): Promise<void> {
-  const pending: number = await prisma.report.count({ where: { status: 'pending' } });
+  const pending: PendingReportBreakdown = await countPendingReportsByType();
   for (const adminId of env.adminUserIds) {
     await upsertAdminReportCenter(adminId, pending, markUnread).catch(() => {});
   }
@@ -499,12 +536,20 @@ export async function getReporterIdsByTarget(
 export async function listReports(
   page: number = 1,
   limit: number = 20,
-  status?: string
+  status?: string,
+  targetType?: string
 ): Promise<{ list: any[]; pagination: { page: number; limit: number; total: number } }> {
   const p = Math.max(1, Number(page));
   const l = Math.min(50, Math.max(1, Number(limit)));
   const skip = (p - 1) * l;
-  const where: any = status ? { status } : {};
+  // 举报中心分板块：按被举报对象类型（帖子 / 评论 / 用户）过滤，分页与 total 都基于同一条件
+  const where: any = {};
+  if (status) {
+    where.status = status;
+  }
+  if (targetType) {
+    where.targetType = targetType;
+  }
   const [list, total] = await Promise.all([
     prisma.report.findMany({
       where,
@@ -620,4 +665,26 @@ export async function listReports(
     }),
     pagination: { page: p, limit: l, total },
   };
+}
+
+/**
+ * 删除举报台账记录（管理员在举报中心多选后批量清理）。
+ * 只删除「举报记录」本身，不改变被举报内容的状态（下架/恢复仍走 resolve）；
+ * 删除后待处理数可能变化 → 回写「举报中心」置顶通知文案（markUnread=false，不重新点红）。
+ * 返回实际删除条数。
+ */
+export async function deleteReports(ids: number[]): Promise<number> {
+  const unique: number[] = [];
+  for (const raw of ids) {
+    const id: number = Number(raw);
+    if (Number.isInteger(id) && id > 0 && unique.indexOf(id) < 0) {
+      unique.push(id);
+    }
+  }
+  if (unique.length === 0) {
+    return 0;
+  }
+  const result = await prisma.report.deleteMany({ where: { id: { in: unique } } });
+  await syncAdminReportCenter(false).catch(() => {});
+  return result.count;
 }

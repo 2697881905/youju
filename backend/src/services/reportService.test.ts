@@ -33,6 +33,8 @@ jest.mock('../prisma', () => ({
       findMany: jest.fn(),
       count: jest.fn(),
       updateMany: jest.fn(),
+      // 举报中心待处理数按 targetType 分类统计（countPendingReportsByType）
+      groupBy: jest.fn(),
     },
     notification: {
       create: jest.fn(),
@@ -82,6 +84,8 @@ describe('createReport - 帖子举报', () => {
     // 默认无既有「举报中心」置顶消息 → 走新建分支
     mockPrisma.notification.findFirst.mockResolvedValue(null);
     mockPrisma.report.count.mockResolvedValue(1);
+    // 举报中心文案按板块分流：帖子 1 条待处理
+    mockPrisma.report.groupBy.mockResolvedValue([{ targetType: 'post', _count: 1 }]);
     mockPrisma.$transaction.mockImplementation((callback: any) => callback(mockPrisma));
   });
 
@@ -105,7 +109,7 @@ describe('createReport - 帖子举报', () => {
     expect(ackArg.data.actorId).toBeNull();
     expect(ackArg.data.type).toBe('system');
     expect(ackArg.data.pinned).toBe(true);
-    expect(ackArg.data.content).toBe('举报中心：有 1 条举报待处理');
+    expect(ackArg.data.content).toBe('举报中心：帖子 1 · 评论 0 · 用户 0 待处理');
     // 但每次新举报都应推送运营通知（不阻塞，fire-and-forget）
     expect(mockNotifyNewReport).toHaveBeenCalledTimes(1);
     expect(mockNotifyNewReport).toHaveBeenCalledWith(
@@ -139,7 +143,7 @@ describe('createReport - 帖子举报', () => {
     const ackArg = mockPrisma.notification.create.mock.calls[0][0];
     expect(ackArg.data.userId).toBe(99);
     expect(ackArg.data.pinned).toBe(true);
-    expect(ackArg.data.content).toContain('举报中心：有 1 条举报待处理');
+    expect(ackArg.data.content).toContain('举报中心：帖子 1 · 评论 0 · 用户 0 待处理');
     const notifArg = mockPrisma.notification.create.mock.calls[1][0];
     expect(notifArg.data.userId).toBe(10);
     expect(notifArg.data.type).toBe('system');
@@ -245,6 +249,8 @@ describe('createReport - 用户举报', () => {
     mockPrisma.report.create.mockResolvedValue({ id: 200, reporterId: 1, targetType: 'user', targetId: 30 });
     mockPrisma.notification.findFirst.mockResolvedValue(null);
     mockPrisma.report.count.mockResolvedValue(1);
+    // 举报中心文案按板块分流：用户 1 条待处理
+    mockPrisma.report.groupBy.mockResolvedValue([{ targetType: 'user', _count: 1 }]);
     mockPrisma.$transaction.mockImplementation((callback: any) => callback(mockPrisma));
   });
 
@@ -265,7 +271,7 @@ describe('createReport - 用户举报', () => {
     const ackArg = mockPrisma.notification.create.mock.calls[0][0];
     expect(ackArg.data.userId).toBe(99);
     expect(ackArg.data.pinned).toBe(true);
-    expect(ackArg.data.content).toContain('举报中心：有 1 条举报待处理');
+    expect(ackArg.data.content).toContain('举报中心：帖子 0 · 评论 0 · 用户 1 待处理');
     // 运营通知照常推送
     expect(mockNotifyNewReport).toHaveBeenCalledTimes(1);
     expect(mockNotifyNewReport).toHaveBeenCalledWith(
@@ -280,7 +286,7 @@ describe('createReport - 用户举报', () => {
   it('已存在「举报中心」置顶消息：再次举报走更新而非新建（不刷屏）', async () => {
     // 模拟第 2+ 次举报：管理员已有「举报中心」置顶消息
     mockPrisma.notification.findFirst.mockResolvedValue({ id: 55, userId: 99, type: 'system', pinned: true, content: '举报中心：有 1 条举报待处理' });
-    mockPrisma.report.count.mockResolvedValue(4);
+    mockPrisma.report.groupBy.mockResolvedValue([{ targetType: 'user', _count: 4 }]);
     mockPrisma.notification.update.mockResolvedValue({});
     const result = await createReport({
       reporterId: 1,
@@ -294,7 +300,7 @@ describe('createReport - 用户举报', () => {
     expect(mockPrisma.notification.update).toHaveBeenCalledTimes(1);
     const updateArg = mockPrisma.notification.update.mock.calls[0][0];
     expect(updateArg.where.id).toBe(55);
-    expect(updateArg.data).toEqual({ content: '举报中心：有 4 条举报待处理', read: false, pinned: true });
+    expect(updateArg.data).toEqual({ content: '举报中心：帖子 0 · 评论 0 · 用户 4 待处理', read: false, pinned: true });
     expect(mockPrisma.notification.create).not.toHaveBeenCalled();
   });
 });
@@ -501,7 +507,7 @@ describe('listReportsByTarget / resolveReportsByTarget / getReporterIdsByTarget'
   it('处置后同步「举报中心」：待处理清零 → 文案改「暂无待处理举报」并熄灭未读', async () => {
     const tx = makeTx();
     useTx(tx);
-    mockPrisma.report.count.mockResolvedValue(0);
+    mockPrisma.report.groupBy.mockResolvedValue([]);
     mockPrisma.notification.findFirst.mockResolvedValue({
       id: 55, userId: 99, type: 'system', pinned: true, content: '举报中心：有 1 条举报待处理',
     });
@@ -510,7 +516,11 @@ describe('listReportsByTarget / resolveReportsByTarget / getReporterIdsByTarget'
     await resolveReportsByTarget('post', 1, 'dismissed');
 
     // 处置后按真实待处理数回写：缺这一步消息中心会一直挂着旧数字（用户报障）
-    expect(mockPrisma.report.count).toHaveBeenCalledWith({ where: { status: 'pending' } });
+    expect(mockPrisma.report.groupBy).toHaveBeenCalledWith({
+      by: ['targetType'],
+      where: { status: 'pending' },
+      _count: true,
+    });
     expect(mockPrisma.notification.update).toHaveBeenCalledWith({
       where: { id: 55 },
       data: { content: '举报中心：暂无待处理举报', pinned: true, read: true },
