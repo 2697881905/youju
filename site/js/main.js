@@ -273,9 +273,10 @@
           onStart:function(){
             element.classList.add('is-typing');
             charRects = chars.map(function(char){ return { x:char.offsetLeft, y:char.offsetTop, w:char.offsetWidth, h:char.offsetHeight }; });
-            caret = document.createElement('span'); caret.className='type-caret';
-            ghost = document.createElement('span'); ghost.className='pinyin-ghost';
-            element.appendChild(caret); element.appendChild(ghost);
+            /* 惰性创建且复用：restart 会重新触发 onStart，重复 append 会产生多个光标 */
+            if(!caret){ caret = document.createElement('span'); caret.className='type-caret'; element.appendChild(caret); }
+            if(!ghost){ ghost = document.createElement('span'); ghost.className='pinyin-ghost'; element.appendChild(ghost); }
+            ghost.style.opacity = 0;
           },
           onComplete:cleanupExtras,
           onReverseComplete:function(){ cleanupExtras(); }
