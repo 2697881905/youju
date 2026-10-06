@@ -36,7 +36,6 @@ section { position: relative; }
 /* The motion gate keeps the complete document visible without JavaScript. */
 .js-motion [data-reveal], .js-motion .reveal { opacity: 0; }
 .js-motion .hero__title { opacity: 0; }
-.js-motion .feature-screen:not(.is-active) { display: none; }
 .js-motion .mobile-menu { visibility: hidden; }
 .st-char { display: inline-block; transform-style: preserve-3d; }
 .typewriter-copy { position: relative; }
@@ -45,7 +44,7 @@ section { position: relative; }
 .pinyin-ghost { position: absolute; left: 0; top: 0; display: flex; align-items: center; justify-content: center; font-size: .68em; letter-spacing: .02em; color: var(--text-1); border-bottom: 1px dashed var(--blue-light); opacity: 0; pointer-events: none; z-index: 1; }
 
 /* ---------- Navigation ---------- */
-.site-nav { position: fixed; top: 0; left: 0; z-index: 60; width: 100%; color: var(--inverse); background: rgba(7, 9, 12, .58); transition: background .4s ease, color .4s ease; }
+.site-nav { position: fixed; top: 0; left: 0; z-index: 60; width: 100%; color: var(--inverse); background: rgba(7, 9, 12, .42); backdrop-filter: blur(14px) saturate(120%); -webkit-backdrop-filter: blur(14px) saturate(120%); transition: background .4s ease, color .4s ease; }
 .site-nav.is-scrolled { background: rgba(7, 9, 12, .78); }
 .site-nav:not(.nav-invert).is-scrolled { color: var(--text); background: rgba(245, 246, 248, .84); }
 .site-nav__inner { display: flex; align-items: center; justify-content: space-between; min-height: 72px; }
@@ -122,21 +121,15 @@ section { position: relative; }
 .principle h3 { font-size: 32px; }
 .principle p { grid-area: copy; max-width: 26em; margin-top: 4px; color: var(--muted); font-size: 14px; }
 
-/* ---------- Feature workbench ---------- */
-.features { padding: 180px 0 210px; color: var(--inverse); background: var(--ink); overflow: hidden; }
-.feature-workbench { display: grid; grid-template-columns: 290px 1fr; gap: 90px; align-items: stretch; margin-top: 110px; }
-.feature-workbench__nav { display: flex; flex-direction: column; }
-.feature-tab { position: relative; display: grid; grid-template-columns: 35px 1fr; gap: 16px; align-items: center; min-height: 94px; padding: 12px 0; border: 0; color: var(--inverse); background: transparent; text-align: left; cursor: pointer; opacity: .52; transition: opacity .3s ease, padding .4s var(--ease); }
-.feature-tab.is-active, .feature-tab:hover, .feature-tab:focus-visible { opacity: 1; padding-left: 10px; }
-.feature-tab span { color: var(--blue-light); font-size: 12px; }
-.feature-tab strong { font-size: 18px; font-weight: 700; }
-.feature-workbench__stage { position: relative; display: grid; grid-template-columns: 190px 1fr; min-height: 640px; padding: 42px 52px; background: radial-gradient(circle at 58% 40%, rgba(47, 115, 255, .18), transparent 38%); }
-.feature-workbench__copy { position: relative; z-index: 2; align-self: end; padding-bottom: 6px; }
-.feature-workbench__copy span { color: var(--blue-light); font-size: 13px; font-weight: 700; }
-.feature-workbench__copy p { margin-top: 12px; color: var(--inverse-muted); font-size: 14px; }
-.feature-screens { position: relative; z-index: 1; display: grid; place-items: center; }
-.feature-screen { display: grid; place-items: center; width: 100%; }
-.feature-screen:not(.is-active) { opacity: .2; }
+/* ---------- Feature horizontal cards ---------- */
+.features { padding: 180px 0 0; color: var(--inverse); background: var(--ink); overflow: hidden; }
+.feature-track { display: flex; gap: 24px; width: max-content; margin-top: 90px; padding: 0 max(36px, calc((100vw - 1240px) / 2)) 130px; }
+.feature-card { display: grid; grid-template-columns: .92fr 1.08fr; align-items: center; gap: 30px; width: min(920px, calc(100vw - 72px)); min-height: 600px; padding: 70px; background: var(--ink-2); border: 1px solid rgba(255, 255, 255, .09); border-radius: 30px; }
+.feature-card__copy { position: relative; z-index: 1; max-width: 350px; }
+.feature-card__copy span { color: var(--blue-light); font-size: 13px; font-weight: 700; }
+.feature-card__copy h3 { margin-top: 16px; font-size: 40px; }
+.feature-card__copy p { margin-top: 18px; color: var(--inverse-muted); font-size: 15px; }
+.feature-card .device--feature { width: min(300px, 26vw); }
 
 /* scrub 驱动的大块元素：常驻合成层，滚动帧零重栅格化 */
 .harmony__copy, .video-frame, .scene-panel__copy, .scene-panel__phone, .hero__stage, .hero__copy { will-change: transform; }
@@ -191,9 +184,7 @@ section { position: relative; }
   .hero__stage { min-height: 520px; }
   .device--hero { width: min(360px, 58vw); }
   .principles__inner { grid-template-columns: 1fr; gap: 80px; }
-  .feature-workbench { grid-template-columns: 1fr; gap: 56px; }
-  .feature-workbench__nav { display: grid; grid-template-columns: repeat(3, 1fr); column-gap: 28px; }
-  .feature-workbench__stage { min-height: 590px; }
+  .feature-card { width: min(760px, calc(100vw - 48px)); }
   .scene-panel { width: min(760px, calc(100vw - 48px)); }
   .harmony__feature { gap: 60px; }
 }
@@ -214,14 +205,11 @@ section { position: relative; }
   .principle { padding-block: 26px 30px; }
   .principle h3 { font-size: 28px; }
   .principle p { font-size: 13px; }
-  .feature-workbench { margin-top: 72px; }
-  .feature-workbench__nav { display: flex; }
-  .feature-tab { min-height: 76px; }
-  .feature-tab strong { font-size: 16px; }
-  .feature-workbench__stage { grid-template-columns: 1fr; min-height: 510px; padding: 28px 18px; }
-  .feature-workbench__copy { order: 2; padding-top: 20px; }
-  .feature-screens { order: 1; min-height: 370px; }
-  .device--feature { width: min(265px, 70vw); }
+  .feature-track { gap: 14px; margin-top: 56px; padding: 0 18px 70px; }
+  .feature-card { grid-template-columns: 1fr; width: min(520px, 86vw); min-height: 0; padding: 30px 22px; }
+  .feature-card__copy h3 { font-size: 34px; }
+  .feature-card__copy p { margin-top: 14px; font-size: 13px; }
+  .feature-card .device--feature { width: min(200px, 44vw); margin-top: 16px; }
   .scenes { padding-top: 110px; }
   .scenes__intro { padding-bottom: 64px; }
   .scenes__track { display: flex; width: max-content; gap: 14px; padding: 0 18px 70px; }
@@ -244,6 +232,4 @@ section { position: relative; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
   .js-motion [data-reveal], .js-motion .reveal, .js-motion .hero__title { opacity: 1 !important; transform: none !important; }
-  .js-motion .feature-screen:not(.is-active) { display: block; }
-  .feature-screens { display: grid; gap: 24px; }
 }
