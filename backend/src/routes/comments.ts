@@ -93,7 +93,7 @@ router.post('/posts/:id/comments', auth, commentLimiter, asyncHandler(async (req
   }
 }));
 
-// 删除评论（仅本人）：DELETE /v1/comments/:id
+// 删除评论（评论作者本人，或该帖帖主清理自己帖子下的评论）：DELETE /v1/comments/:id
 router.delete('/comments/:id', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const id = Number(req.params.id);
   const result = await commentService.deleteComment(id, req.userId!);
