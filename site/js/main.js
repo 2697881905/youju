@@ -214,8 +214,8 @@
       };
       applyFromI();
       var playCharsI = function(){
-        if(enterI && !enterI.isActive()){ enterI.restart(); }
-        else if(!enterI){ enterI = animateChars(chars, {delay:options.delay || .16}); }
+        if(enterI && enterI.isActive() && !enterI.reversed()){ return; }  /* 正放中不打断 */
+        if(enterI){ enterI.restart(); } else { enterI = animateChars(chars, {delay:options.delay || .16}); }
       };
       var rewindCharsI = function(){ if(enterI && enterI.progress() > 0){ enterI.reverse(); } };
       playCharsI();
@@ -233,8 +233,8 @@
       };
       applyFrom();
       var playChars = function(){
-        if(enter && !enter.isActive()){ enter.restart(); }
-        else if(!enter){ enter = animateChars(chars, {}); }
+        if(enter && enter.isActive() && !enter.reversed()){ return; }  /* 正放中不打断 */
+        if(enter){ enter.restart(); } else { enter = animateChars(chars, {}); }
       };
       var rewindChars = function(){ if(enter && enter.progress() > 0){ enter.reverse(); } };
       /* 四向跟随滑动：任意方向进入视口正放，任意方向离开倒放复位 */
@@ -288,9 +288,9 @@
       opacity:function(){ return gsap.utils.random(0,.04); }
     });
     var playType = function(){
-      if(typing && !typing.isActive()){ cleanupExtras(); typing.restart(); }
-      else if(!typing){
-        cleanupExtras();
+      if(typing && typing.isActive() && !typing.reversed()){ return; }  /* 正放中不打断 */
+      cleanupExtras();
+      if(typing){ typing.restart(); } else {
         gsap.set(chars, {willChange:'transform, opacity'});
         if(typewriter){
           typing = gsap.timeline({
