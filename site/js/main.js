@@ -244,30 +244,32 @@
           gsap.set(el, {opacity:1, transformStyle:'preserve-3d'});
           var enterTl = null;
           if(el.classList.contains('hero__title')){
-            /* 首屏标题：load 一次性入场（scrub 化会让首屏只显示半截），保留原 onEnter/onLeaveBack */
+            /* 首屏标题：load 一次性入场；滚回顶部（onEnterBack）重新飞入一遍 */
+            function playHero(){
+              el._entered = true;
+              if(enterTl){ enterTl.kill(); }
+              gsap.set(self.chars, {willChange:'transform, opacity'});
+              enterTl = gsap.timeline({delay:0.2});
+              self.chars.forEach(function(c, i){
+                c.style.animationPlayState = 'paused';
+                var m = motionFor(i);
+                enterTl.to(c, {
+                  yPercent:0, rotationX:0, rotationY:0, rotate:0, x:0, z:0, scale:1, skewX:0,
+                  opacity:1,
+                  duration:gsap.utils.random(m.dur[0], m.dur[1]),
+                  ease:m.ease,
+                  overwrite:'auto',
+                  onComplete:function(){
+                    c.style.willChange = 'auto';
+                    c.style.animationPlayState = '';
+                  }
+                }, gsap.utils.random(0, 1.8));
+              });
+            }
             ScrollTrigger.create({
               trigger:el, start:'top 88%',
-              onEnter:function(){
-                el._entered = true;
-                if(enterTl){ enterTl.kill(); }
-                gsap.set(self.chars, {willChange:'transform, opacity'});
-                enterTl = gsap.timeline({delay:0.2});
-                self.chars.forEach(function(c, i){
-                  c.style.animationPlayState = 'paused';
-                  var m = motionFor(i);
-                  enterTl.to(c, {
-                    yPercent:0, rotationX:0, rotationY:0, rotate:0, x:0, z:0, scale:1, skewX:0,
-                    opacity:1,
-                    duration:gsap.utils.random(m.dur[0], m.dur[1]),
-                    ease:m.ease,
-                    overwrite:'auto',
-                    onComplete:function(){
-                      c.style.willChange = 'auto';
-                      c.style.animationPlayState = '';
-                    }
-                  }, gsap.utils.random(0, 1.8));
-                });
-              },
+              onEnter:playHero,
+              onEnterBack:function(){ playHero(); },
               onLeaveBack:function(){
                 el._entered = false;
                 if(enterTl){ enterTl.kill(); enterTl = null; }
