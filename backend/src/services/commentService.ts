@@ -49,10 +49,14 @@ export function buildCommentTree<T extends { id?: number; parentId?: number | nu
     if (pid === undefined || pid === null || pid === 0) {
       roots.push(c);
     } else {
-      const rootId = rootOf(c) ?? pid;
-      const arr = replyMap.get(rootId) ?? [];
-      arr.push(c);
-      replyMap.set(rootId, arr);
+      const rootId = rootOf(c);
+      if (rootId === null) {
+        roots.push(c);
+      } else {
+        const arr = replyMap.get(rootId) ?? [];
+        arr.push(c);
+        replyMap.set(rootId, arr);
+      }
     }
   }
   for (const arr of replyMap.values()) {
