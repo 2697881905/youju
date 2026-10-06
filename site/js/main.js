@@ -101,8 +101,7 @@
     .fromTo('.site-nav', {y:-18, autoAlpha:0}, {y:0, autoAlpha:1, duration:.65}, .05)
     .fromTo('.hero__copy .eyebrow', {y:20, autoAlpha:0}, {y:0, autoAlpha:1, duration:.65}, .14)
     .fromTo('.hero__lead, .hero__actions', {y:26, autoAlpha:0}, {y:0, autoAlpha:1, duration:.8, stagger:.1}, .42)
-    .fromTo('.hero__stage', {y:50, autoAlpha:0, scale:.94}, {y:0, autoAlpha:1, scale:1, duration:1.1}, .24)
-    .fromTo('.hero__rail', {y:12, autoAlpha:0}, {y:0, autoAlpha:1, duration:.55}, .9);
+    .fromTo('.hero__stage', {y:50, autoAlpha:0, scale:.94}, {y:0, autoAlpha:1, scale:1, duration:1.1}, .24);
   gsap.to('.hero__stage', {yPercent:-16, ease:'none', scrollTrigger:{trigger:'.hero', start:'top top', end:'bottom top', scrub:.8}});
   gsap.to('.hero__copy', {yPercent:-8, ease:'none', scrollTrigger:{trigger:'.hero', start:'top top', end:'bottom top', scrub:.8}});
 
@@ -328,7 +327,7 @@
     splitHeading(document.querySelector('.statement__text'), {statement:true, interactive:true});
     gsap.utils.toArray('.section-heading h2, .scenes__intro h2, .harmony__copy h3, .download h2, .principle h3, .scene-panel__copy h3').forEach(function(element){ splitHeading(element, {interactive:true}); });
     gsap.utils.toArray('.hero__lead, .section-heading > p:last-child, .scenes__intro > p:last-child, .principle p, .feature-workbench__copy p, .scene-panel__copy p, .harmony__copy p, .download__copy > p:last-of-type').forEach(function(element){ cascadeText(element, {typewriter:true}); });
-    gsap.utils.toArray('.principle__number, .feature-tab > span, .feature-tab strong, .feature-workbench__hint, .feature-workbench__copy > span, .scene-panel__copy > span, .scene-panel__copy > b, .harmony__copy > span, .hero__stage-note span, .hero__stage-note strong, .hero__rail span, .announcement__label').forEach(function(element){ cascadeText(element, {}); });
+    gsap.utils.toArray('.feature-tab > span, .feature-tab strong, .feature-workbench__copy > span, .scene-panel__copy > b, .announcement__label').forEach(function(element){ cascadeText(element, {}); });
     gsap.utils.toArray('.brand__name, .site-nav__links a, .nav-action span, .nav-toggle span, .mobile-menu a > span, .button span, .quiet-link span').forEach(function(element, index){ cascadeText(element, {from:'start', delay:index*.03}); });
     if(finePointer){
       gsap.utils.toArray('.button span, .nav-action span, .quiet-link span').forEach(function(label){
