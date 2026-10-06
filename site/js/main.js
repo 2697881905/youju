@@ -164,7 +164,7 @@
   }
 
   function animateChars(chars, options){
-    var timeline = gsap.timeline({delay:options && options.delay || 0});
+    var timeline = gsap.timeline({delay:options && options.delay || 0, scrollTrigger:options && options.scrollTrigger});
     gsap.set(chars, {willChange:'transform, opacity'});
     chars.forEach(function(char, index){
       var motion = motionFor(index);
@@ -208,41 +208,13 @@
       gsap.set(chars, {display:'inline-block', transformOrigin:'50% 100%', transformPerspective:800, force3D:true, backfaceVisibility:'hidden', x:0, z:0, rotationY:0, rotate:0, skewX:0, scale:1, opacity:function(){ return gsap.utils.random(.1,.22); }, y:function(){ return gsap.utils.random(10,24); }, rotationX:function(){ return gsap.utils.random(-72,-42); }});
       gsap.to(chars, {x:0, z:0, rotationY:0, rotate:0, skewX:0, scale:1, opacity:1, y:0, rotationX:0, stagger:.055, ease:'none', scrollTrigger:{trigger:element, start:'top 82%', end:'top 30%', scrub:.45}});
     }else if(options && options.immediate){
-      var enterI = null;
-      var applyFromI = function(){
-        gsap.set(chars, Object.assign(charFrom(), {display:'inline-block', transformOrigin:'50% 100%', transformPerspective:800, force3D:true, backfaceVisibility:'hidden'}));
-      };
-      applyFromI();
-      var playCharsI = function(){
-        if(enterI && enterI.isActive() && !enterI.reversed()){ return; }  /* 正放中不打断 */
-        if(enterI){ enterI.restart(); } else { enterI = animateChars(chars, {delay:options.delay || .16}); }
-      };
-      var rewindCharsI = function(){ if(enterI && enterI.progress() > 0){ enterI.reverse(); } };
-      playCharsI();
-      /* 首屏标题同样四向：滚出上方倒放复位，滚回重播 */
-      ScrollTrigger.create({
-        trigger:element, start:'top 96%',
-        onEnter:playCharsI, onEnterBack:playCharsI,
-        onLeave:rewindCharsI, onLeaveBack:rewindCharsI
-      });
+      gsap.set(chars, Object.assign(charFrom(), {display:'inline-block', transformOrigin:'50% 100%', transformPerspective:800, force3D:true, backfaceVisibility:'hidden'}));
+      /* 首屏标题同样四向：离开视口倒放复位，滚回重播 */
+      animateChars(chars, {delay:options.delay || .16, scrollTrigger:{trigger:element, start:'top 96%', toggleActions:'restart none restart reverse'}});
     }else{
-      var enter = null;
-      var applyFrom = function(){
-        gsap.set(chars, Object.assign(charFrom(), {display:'inline-block', transformOrigin:'50% 100%', transformPerspective:800, force3D:true, backfaceVisibility:'hidden'}));
-        chars.forEach(function(c){ c.style.willChange='auto'; });
-      };
-      applyFrom();
-      var playChars = function(){
-        if(enter && enter.isActive() && !enter.reversed()){ return; }  /* 正放中不打断 */
-        if(enter){ enter.restart(); } else { enter = animateChars(chars, {}); }
-      };
-      var rewindChars = function(){ if(enter && enter.progress() > 0){ enter.reverse(); } };
-      /* 四向跟随滑动：任意方向进入视口正放，任意方向离开倒放复位 */
-      ScrollTrigger.create({
-        trigger:element, start:'top 86%',
-        onEnter:playChars, onEnterBack:playChars,
-        onLeave:rewindChars, onLeaveBack:rewindChars
-      });
+      gsap.set(chars, Object.assign(charFrom(), {display:'inline-block', transformOrigin:'50% 100%', transformPerspective:800, force3D:true, backfaceVisibility:'hidden'}));
+      /* 四向跟随滑动：任意方向进入视口 restart 重播，任意方向离开 reverse 倒放复位 */
+      animateChars(chars, {scrollTrigger:{trigger:element, start:'top 86%', toggleActions:'restart none restart reverse'}});
     }
     if(options && options.interactive !== false) pointerAndClick(element, chars);
   }
@@ -264,16 +236,6 @@
     if(!chars.length) return;
     var each = options && options.each || (typewriter ? (chars.length > 48 ? .034 : .045) : (chars.length > 48 ? .022 : .032));
     var caret = null, ghost = null, charRects = null, typing = null;
-    function resetPose(){
-      gsap.set(chars, {
-        display:'inline-block',
-        x:function(){ return gsap.utils.random(typewriter ? -2.6 : -2, typewriter ? 2.6 : 2); },
-        yPercent:function(){ return gsap.utils.random(typewriter ? 6 : 0, typewriter ? 14 : 4); },
-        scale:function(){ return gsap.utils.random(typewriter ? .96 : .96, typewriter ? .985 : 1); },
-        opacity:0,
-        willChange:'auto'
-      });
-    }
     function cleanupExtras(){
       if(caret && caret.parentNode) caret.parentNode.removeChild(caret);
       if(ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
@@ -287,29 +249,29 @@
       scale:function(){ return gsap.utils.random(typewriter ? .96 : .96, typewriter ? .985 : 1); },
       opacity:function(){ return gsap.utils.random(0,.04); }
     });
-    var playType = function(){
-      if(typing && typing.isActive() && !typing.reversed()){ return; }  /* 正放中不打断 */
+    var scrollCfg = options.immediate ? undefined : {trigger:element, start:'top 88%', toggleActions:'restart none restart reverse'};
+    var buildTyping = function(){
       cleanupExtras();
-      if(typing){ typing.restart(); } else {
-        gsap.set(chars, {willChange:'transform, opacity'});
-        if(typewriter){
-          typing = gsap.timeline({
-            onStart:function(){
-              element.classList.add('is-typing');
-              charRects = chars.map(function(char){ return { x:char.offsetLeft, y:char.offsetTop, w:char.offsetWidth, h:char.offsetHeight }; });
-              caret = document.createElement('span'); caret.className='type-caret';
-              ghost = document.createElement('span'); ghost.className='pinyin-ghost';
-              element.appendChild(caret); element.appendChild(ghost);
-            },
-            onComplete:function(){
-              element.classList.remove('is-typing');
-              gsap.set(chars,{willChange:'auto'});
-              if(caret && caret.parentNode) caret.parentNode.removeChild(caret);
-              if(ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
-              caret = ghost = null;
-            },
-            onReverseComplete:function(){ cleanupExtras(); }
-          });
+      gsap.set(chars, {willChange:'transform, opacity'});
+      if(typewriter){
+        typing = gsap.timeline({
+          scrollTrigger:scrollCfg,
+          onStart:function(){
+            element.classList.add('is-typing');
+            charRects = chars.map(function(char){ return { x:char.offsetLeft, y:char.offsetTop, w:char.offsetWidth, h:char.offsetHeight }; });
+            caret = document.createElement('span'); caret.className='type-caret';
+            ghost = document.createElement('span'); ghost.className='pinyin-ghost';
+            element.appendChild(caret); element.appendChild(ghost);
+          },
+          onComplete:function(){
+            cleanupExtras();
+            gsap.set(chars,{willChange:'auto'});
+          },
+          onReverseComplete:function(){
+            cleanupExtras();
+            gsap.set(chars,{willChange:'auto'});
+          }
+        });
         var cursor = options && options.delay || 0;
         var breathEvery = Math.round(gsap.utils.random(6,10));
         chars.forEach(function(char, index){
@@ -354,17 +316,10 @@
           stagger:{each:each, from:options && options.from || 'start'}, overwrite:'auto'
         });
         typing.eventCallback('onComplete', function(){ gsap.set(chars,{willChange:'auto'}); });
+        typing.eventCallback('onReverseComplete', function(){ gsap.set(chars,{willChange:'auto'}); });
       }
-    }
-  };
-    var rewindType = function(){ if(typing && typing.progress() > 0){ typing.reverse(); } };
-    if(options && options.immediate){ playType(); }
-    else element._typingTrigger = ScrollTrigger.create({
-      trigger:element, start:'top 88%',
-      /* 四向跟随滑动：任意方向进入视口正放/重播，任意方向离开倒放复位 */
-      onEnter:playType, onEnterBack:playType,
-      onLeave:rewindType, onLeaveBack:rewindType
-    });
+    };
+    buildTyping();
   }
 
   function initType(){
