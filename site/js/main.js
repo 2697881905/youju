@@ -267,7 +267,8 @@
               });
             }
             ScrollTrigger.create({
-              trigger:el, start:'top 88%',
+              trigger:el, start:'top 88%', end:'top 55%',
+              /* end 下移到可见区：onEnterBack 在 hero 已进入视口 55% 时才触发，重播动画肉眼可见 */
               onEnter:playHero,
               onEnterBack:function(){ playHero(); },
               onLeaveBack:function(){
