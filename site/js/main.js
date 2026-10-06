@@ -178,12 +178,13 @@
 
   function animateChars(chars, options){
     var timeline = gsap.timeline({delay:options && options.delay || 0, scrollTrigger:options && options.scrollTrigger});
-    gsap.set(chars, {willChange:'transform, opacity'});
     chars.forEach(function(char, index){
       var motion = motionFor(index);
       timeline.to(char, {
         x:0, yPercent:0, z:0, rotationX:0, rotationY:0, rotate:0, skewX:0, scale:1, opacity:1,
         duration:gsap.utils.random(motion.duration[0], motion.duration[1]), ease:motion.ease, overwrite:'auto',
+        /* 字符起飞时才提升合成层、落位即释放——避免快滚穿越多区时全量字符层同时存活 */
+        onStart:function(){ char.style.willChange='transform, opacity'; },
         onComplete:function(){ char.style.willChange='auto'; }
       }, options && options.statement ? index*.024 : gsap.utils.random(0, 1.65));
     });
@@ -223,11 +224,11 @@
     }else if(options && options.immediate){
       gsap.set(chars, Object.assign(charFrom(), {display:'inline-block', transformOrigin:'50% 100%', transformPerspective:800, force3D:true, backfaceVisibility:'hidden'}));
       /* 首屏标题同样四向：离开视口倒放复位，滚回重播 */
-      animateChars(chars, {delay:options.delay || .16, scrollTrigger:{trigger:element, start:'top 96%', toggleActions:'restart none restart reverse'}});
+      animateChars(chars, {delay:options.delay || .16, scrollTrigger:{trigger:element, start:'top 96%', toggleActions:'restart none restart none'}});
     }else{
       gsap.set(chars, Object.assign(charFrom(), {display:'inline-block', transformOrigin:'50% 100%', transformPerspective:800, force3D:true, backfaceVisibility:'hidden'}));
       /* 四向跟随滑动：任意方向进入视口 restart 重播，任意方向离开 reverse 倒放复位 */
-      animateChars(chars, {scrollTrigger:{trigger:element, start:'top 86%', toggleActions:'restart none restart reverse'}});
+      animateChars(chars, {scrollTrigger:{trigger:element, start:'top 86%', toggleActions:'restart none restart none'}});
     }
     if(options && options.interactive !== false) pointerAndClick(element, chars);
   }
@@ -262,7 +263,7 @@
       scale:function(){ return gsap.utils.random(typewriter ? .96 : .96, typewriter ? .985 : 1); },
       opacity:function(){ return gsap.utils.random(0,.04); }
     });
-    var scrollCfg = options.immediate ? undefined : {trigger:element, start:'top 88%', toggleActions:'restart none restart reverse'};
+    var scrollCfg = options.immediate ? undefined : {trigger:element, start:'top 88%', toggleActions:'restart none restart none'};
     var buildTyping = function(){
       cleanupExtras();
       /* 打字机字符动画幅度极小（±2px/淡入），不提升合成层——整段 will-change 会造成几十个层同时存活的层爆炸 */
@@ -300,9 +301,12 @@
             });
             var letterDur = gsap.utils.random(.065, .095);
             var pyDur = py.length * letterDur;
-            py.split('').forEach(function(letter, li){
-              typing.call(function(){ ghost.textContent = py.slice(0, li + 1); }, cursor + li * letterDur);
-            });
+            /* 逐字母显示用单个 proxy tween 驱动（聚合 N 个 call，降低 timeline 结构成本） */
+            var pyProxy = { n: 0 };
+            typing.to(pyProxy, {
+              n: py.length, duration: pyDur, ease: 'none',
+              onUpdate: function(){ ghost.textContent = py.slice(0, Math.round(pyProxy.n)); }
+            }, cursor);
             if(punctuation) cursor += gsap.utils.random(.06, .12);
             if(index && index % breathEvery === 0) cursor += gsap.utils.random(.028, .07);
             /* 汉字在拼音后半段开始成形，拼音消失后立即落定——过程可见且无停顿割裂 */
@@ -360,7 +364,7 @@
 
   /* ---------- Reveals（四向：进入正放，从上方滚回重播，离开倒放复位） ---------- */
   gsap.utils.toArray('.reveal, [data-reveal]').forEach(function(element){
-    gsap.fromTo(element, {y:38, autoAlpha:0}, {y:0, autoAlpha:1, duration:.85, ease:easeLift, scrollTrigger:{trigger:element, start:'top 86%', toggleActions:'play none play reverse', onEnter:function(){ gsap.set(element, {willChange:'transform, opacity'}); }}, onStart:function(){ gsap.set(element, {willChange:'transform, opacity'}); }, onComplete:function(){ gsap.set(element, {willChange:'auto'}); }});
+    gsap.fromTo(element, {y:38, autoAlpha:0}, {y:0, autoAlpha:1, duration:.85, ease:easeLift, scrollTrigger:{trigger:element, start:'top 86%', toggleActions:'play none restart none', onEnter:function(){ gsap.set(element, {willChange:'transform, opacity'}); }}, onStart:function(){ gsap.set(element, {willChange:'transform, opacity'}); }, onComplete:function(){ gsap.set(element, {willChange:'auto'}); }});
   });
 
   /* ---------- Product tabs ---------- */
