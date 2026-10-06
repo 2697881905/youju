@@ -339,7 +339,7 @@ export struct SettingsPage {
         }
 
         ListItemGroup() {
-          this.sectionRow('book', '关于有据 · 版本 1.0.0', (): void => {
+          this.sectionRow('book', '关于有据 · 版本 1.0.1', (): void => {
             this.getUIContext().getRouter().pushUrl({ url: 'pages/AboutPage' });
           })
           this.sectionRow('policy', '隐私政策', (): void => {
