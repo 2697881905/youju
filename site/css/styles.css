@@ -143,6 +143,10 @@ section { position: relative; }
 .statement { min-height: 840px; padding: 180px 0; background: var(--white); overflow: hidden; }
 .statement__mark { position: absolute; top: 80px; right: 10%; color: var(--blue); font-family: Georgia, serif; font-size: 180px; line-height: 1; opacity: .16; }
 .statement__text { position: relative; z-index: 1; max-width: 890px; font-size: 98px; line-height: .98; }
+/* scrub 逐字点亮：字符层常驻提升，避免滚动帧整段文字重绘 */
+.statement__text .st-char { will-change: transform, opacity; }
+/* scrub 驱动的大块元素：常驻合成层，滚动帧零重栅格化 */
+.harmony__copy, .video-frame, .scene-panel__copy, .scene-panel__phone, .hero__stage, .hero__copy { will-change: transform; }
 .statement__text em { color: var(--blue); }
 
 /* ---------- Horizontal journey ---------- */
