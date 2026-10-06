@@ -248,7 +248,8 @@
             function playHero(){
               el._entered = true;
               if(enterTl){ enterTl.kill(); }
-              gsap.set(self.chars, {willChange:'transform, opacity'});
+              /* 先重置回新一轮随机 from 姿态（滚出时字符停留在完成态 y=0，直接 to(0) 是 0→0 的无效动画） */
+              gsap.set(self.chars, Object.assign(fromVars(), {willChange:'transform, opacity'}));
               enterTl = gsap.timeline({delay:0.2});
               self.chars.forEach(function(c, i){
                 c.style.animationPlayState = 'paused';
@@ -267,10 +268,8 @@
               });
             }
             ScrollTrigger.create({
-              trigger:el, start:'top 88%', end:'top 55%',
-              /* end 下移到可见区：onEnterBack 在 hero 已进入视口 55% 时才触发，重播动画肉眼可见 */
+              trigger:el, start:'top 88%',
               onEnter:playHero,
-              onEnterBack:function(){ playHero(); },
               onLeaveBack:function(){
                 el._entered = false;
                 if(enterTl){ enterTl.kill(); enterTl = null; }
@@ -281,6 +280,13 @@
                 }));
               }
             });
+            /* 滚回顶部重播：ST 回调在 hero 刚碰视口顶就触发（用户还没滚到，动画提前播完看不见）——
+               改为滚动位置判定：离开过首屏（>50vh）且停回顶部（<40px）时重播，人站在顶部必然看到 */
+            var heroLeft = false;
+            window.addEventListener('scroll', function(){
+              if(window.scrollY > window.innerHeight * .5){ heroLeft = true; }
+              else if(heroLeft && window.scrollY < 40){ heroLeft = false; playHero(); }
+            }, {passive:true});
           }else{
             /* 其余标题：进度随滑动 —— scrub 绑定滚动区间，向下滚正放、向上滚倒放，返回时自动反向 */
             enterTl = gsap.timeline({
@@ -475,7 +481,7 @@
               var pyProxy = { n: 0 };
               typing.to(pyProxy, {
                 n: py.length, duration: pyDur, ease: 'none',
-                onUpdate: function(){ ghost.textContent = py.slice(0, Math.round(pyProxy.n)); }
+                onUpdate: function(){ if(ghost) ghost.textContent = py.slice(0, Math.round(pyProxy.n)); }
               }, cursor);
               if(punctuation) cursor += gsap.utils.random(.06, .12);
               if(index && index % breathEvery === 0) cursor += gsap.utils.random(.028, .07);
