@@ -46,7 +46,7 @@ export struct AboutPage {
               .fontWeight(FontWeight.Bold)
               .fontColor($r('app.color.text_primary'))
               .margin({ top: 8 });
-            Text('版本 1.0.0')
+            Text('版本 1.0.1')
               .fontSize(14).fontFamily($r('app.string.font_family'))
               .fontColor($r('app.color.text_secondary'))
               .margin({ top: 4 });
