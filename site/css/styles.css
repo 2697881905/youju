@@ -194,7 +194,6 @@ section { position: relative; }
   .feature-workbench { grid-template-columns: 1fr; gap: 56px; }
   .feature-workbench__nav { display: grid; grid-template-columns: repeat(3, 1fr); column-gap: 28px; }
   .feature-workbench__stage { min-height: 590px; }
-  .statement__text { font-size: 82px; }
   .scene-panel { width: min(760px, calc(100vw - 48px)); }
   .harmony__feature { gap: 60px; }
 }
@@ -223,9 +222,6 @@ section { position: relative; }
   .feature-workbench__copy { order: 2; padding-top: 20px; }
   .feature-screens { order: 1; min-height: 370px; }
   .device--feature { width: min(265px, 70vw); }
-  .statement { min-height: 660px; padding-block: 120px; }
-  .statement__mark { top: 58px; right: 9%; font-size: 120px; }
-  .statement__text { font-size: 58px; }
   .scenes { padding-top: 110px; }
   .scenes__intro { padding-bottom: 64px; }
   .scenes__track { display: flex; width: max-content; gap: 14px; padding: 0 18px 70px; }
