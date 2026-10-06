@@ -281,6 +281,7 @@ section{position:relative}
   .hkit__copy h3{font-size:23px}
   .hkit__desc{margin-top:10px;font-size:14px}
   .hkit__points{margin-top:14px}
+  .immersive-stage .device,.grip-stage .device{width:min(280px,62vw)}
   .download{padding:60px 0 52px}
   .download__grid{grid-template-columns:1fr;gap:24px}
   .download__icon{width:54px;height:54px;border-radius:13px;margin-bottom:14px}
