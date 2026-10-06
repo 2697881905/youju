@@ -21,6 +21,7 @@ jest.mock('../prisma', () => ({
     },
     comment: {
       findUnique: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
       update: jest.fn(),
       updateMany: jest.fn(),
     },
@@ -232,7 +233,7 @@ describe('createReport - 评论举报', () => {
     expect(result.autoTakenDown).toBe(true);
     // reportCount increment 一次；下架改走条件 updateMany，并扣减帖子评论数
     expect(mockPrisma.comment.update).toHaveBeenCalledTimes(1);
-    expect(mockPrisma.comment.updateMany).toHaveBeenCalledWith({ where: { id: 5, status: 1 }, data: { status: 0 } });
+    expect(mockPrisma.comment.updateMany).toHaveBeenCalledWith({ where: { id: { in: [5] }, status: 1 }, data: { status: 0 } });
     expect(mockPrisma.post.update).toHaveBeenCalledWith({ where: { id: 5 }, data: { commentCount: { decrement: 1 } } });
   });
 });
@@ -328,6 +329,7 @@ describe('listReportsByTarget / resolveReportsByTarget / getReporterIdsByTarget'
         findUnique: jest.fn().mockResolvedValue({
           id: 7, userId: 11, postId: 5, status: opts.commentStatus ?? 0,
         }),
+        findMany: jest.fn().mockResolvedValue([]),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       user: { findUnique: jest.fn().mockResolvedValue({ id: 30 }) },
@@ -373,7 +375,7 @@ describe('listReportsByTarget / resolveReportsByTarget / getReporterIdsByTarget'
     useTx(tx);
     await resolveReportsByTarget('comment', 7, 'resolved');
 
-    expect(tx.comment.updateMany).toHaveBeenCalledWith({ where: { id: 7, status: 1 }, data: { status: 0 } });
+    expect(tx.comment.updateMany).toHaveBeenCalledWith({ where: { id: { in: [7] }, status: 1 }, data: { status: 0 } });
     expect(tx.post.updateMany).not.toHaveBeenCalled();
     // 评论下架 → 帖子评论数 -1：评论区计数与实际可见评论保持一致
     expect(tx.post.update).toHaveBeenCalledWith({ where: { id: 5 }, data: { commentCount: { decrement: 1 } } });
@@ -394,15 +396,22 @@ describe('listReportsByTarget / resolveReportsByTarget / getReporterIdsByTarget'
 
   it('dismissed（comment）：评论恢复展示（0→1）→ 补回帖子评论数', async () => {
     const tx = makeTx({ commentStatus: 0 });
+    tx.comment.updateMany
+      .mockResolvedValueOnce({ count: 1 })  // root 0→1
+      .mockResolvedValueOnce({ count: 0 }); // 级联恢复后代（无）
     useTx(tx);
     await resolveReportsByTarget('comment', 7, 'dismissed');
 
     expect(tx.comment.updateMany).toHaveBeenCalledWith({ where: { id: 7, status: 0 }, data: { status: 1 } });
+    expect(tx.comment.updateMany).toHaveBeenCalledWith({ where: { id: { in: [7] }, status: 0 }, data: { status: 1 } });
     expect(tx.post.update).toHaveBeenCalledWith({ where: { id: 5 }, data: { commentCount: { increment: 1 } } });
   });
 
   it('restore（comment）：评论恢复展示（0→1）→ 补回帖子评论数', async () => {
     const tx = makeTx({ commentStatus: 0 });
+    tx.comment.updateMany
+      .mockResolvedValueOnce({ count: 1 })  // root 0→1
+      .mockResolvedValueOnce({ count: 0 }); // 级联恢复后代（无）
     useTx(tx);
     await resolveReportsByTarget('comment', 7, 'restore');
 
