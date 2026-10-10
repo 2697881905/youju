@@ -314,6 +314,7 @@ export struct PrivacySettingsPage {
           .width('100%')
           .padding({ left: 16, right: 16, top: 8, bottom: 32 });
         }
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .layoutWeight(1)
         .width('100%');
       }

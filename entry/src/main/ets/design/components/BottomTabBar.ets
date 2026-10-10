@@ -129,7 +129,8 @@ export struct BottomTabBar {
   @Builder
   tabIcon(item: BottomTabItem, index: number) {
     // 功能图标为官方填充造型（SVG 内 fill="currentColor"）→ 必须显式 fillColor，否则按默认色渲染、深色下隐身。
-    // 勿对描边风格图标（fill="none"）调用：会把轮廓补成实心。选中态仍由纸面高亮（SharedSlide）+ 文字品牌色表达。
+    // 勿对描边风格图标（fill="none"）调用：会把轮廓补成实心。
+    // 选中态：图标与文字同步品牌色（与 tabBarBuilder 文字逻辑一致）；未选中态保持图标默认色。
     if (this.isActive(index)) {
       Image(item.icon)
         .width(IconTokens.tabBar)
@@ -138,7 +139,7 @@ export struct BottomTabBar {
           x: 1.08,
           y: 1.08,
         })
-        .fillColor(ColorTokens.icon)
+        .fillColor(ColorTokens.brand)
         .draggable(false)
     } else {
       Image(item.icon)
@@ -253,7 +254,10 @@ export struct BottomTabBar {
     .borderRadius(RadiusTokens.floatingBar)
     // 沉浸光感材质：真机（HarmonyOS 6+）由 hdsMaterial 提供弹性反馈/点光源/流光；
     // 模拟器/低端机自动降级为系统 backgroundBlurStyle 材质，仍保留通透玻璃感与文字可读性。
-    .backgroundBlurStyle(GlassBlurStyle.Floating)
+    // 档位 Floating(THICK) → Card(REGULAR)（2026-10-07）：与 DetailActionBar 同步减薄一档
+    // （「最薄克制」既定方向）；底栏是每次页面转场都被动画的常驻层，模糊降档直接降低转场
+    // 期间逐帧重采样成本（AGC 卡顿率审核项）。
+    .backgroundBlurStyle(GlassBlurStyle.Card)
     .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
     .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
     .shadow({ radius: 18, color: ColorTokens.barShadow, offsetY: 8 })

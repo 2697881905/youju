@@ -23,6 +23,7 @@ jest.mock('../prisma', () => ({
       findUnique: jest.fn(),
       update: jest.fn(),
       updateMany: jest.fn(),
+      groupBy: jest.fn(),
     },
     post: {
       findUnique: jest.fn(),
@@ -209,14 +210,22 @@ describe('GET/POST /v1/notifications', () => {
     );
   });
 
-  it('GET /unread-count → 返回未读数（同样过滤已删除帖子的通知）', async () => {
+  it('GET /unread-count → 返回未读数 + 按类型分布（同样过滤已删除帖子的通知）', async () => {
     // 无任何帖子类通知 → visiblePostIds 为空 → 仅保留非帖子类通知的未读数
     mockPrisma.notification.findMany.mockResolvedValue([]);
     mockPrisma.notification.count.mockResolvedValue(3);
+    // byType：groupBy 按类型聚合未读（消息页三类快捷筛选红点的数据源）
+    mockPrisma.notification.groupBy.mockResolvedValue([
+      { type: 'comment', _count: { _all: 2 } },
+      { type: 'follow', _count: { _all: 1 } },
+    ]);
     const res = await req('GET', '/v1/notifications/unread-count', undefined, authHeader());
     expect(res.status).toBe(200);
     expect(res.json.code).toBe(0);
     expect(res.json.data.count).toBe(3);
+    expect(res.json.data.byType).toEqual({
+      comment: 2, up: 0, bookmark: 0, follow: 1, mention: 0, system: 0,
+    });
     expect(mockPrisma.notification.count).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { userId: TEST_USER_ID, read: false, type: { notIn: ['comment', 'up', 'bookmark', 'mention'] } },

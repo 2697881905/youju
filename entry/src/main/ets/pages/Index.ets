@@ -1,36 +1,32 @@
 // 有据 主框架：悬浮底部导航栏（系统背景模糊 + 半透明分层 + 动态高光透镜）
 // Tab：首页 / 圈子 / 发布 / 消息 / 我的；帖子详情经 router 单独跳转（pages/DetailPage）
-import { HomeTab, FeedMode, FEED_SEGMENTS } from '../components/HomeTab';
+import { HomeTab, FeedMode } from '../components/HomeTab';
 import { CircleTab } from '../components/CircleTab';
 import { CircleOnboarding } from '../components/CircleOnboarding';
-import { MessagePage, MESSAGE_SEGMENTS } from './MessagePage';
+import { MessagePage } from './MessagePage';
 import { ProfilePage, PROFILE_SEGMENTS } from './ProfilePage';
 import { initAuthStorage, getToken, getUserId, setPrivacyAgreed, isPrivacyAgreed, clearSession, PRIVACY_POLICY_VERSION } from '../utils/auth';
-import { getUnreadCount, getDmUnreadCount, getMe, recordPrivacyConsent, followTag, listTags, getPost, PostWithComments } from '../services/api';
+import { getUnreadCount, getDmUnreadCount, getMe, recordPrivacyConsent, followTag, listTags, getPost, PostWithComments, resolveDisplayImageUrl } from '../services/api';
 import { Tag } from '../models/types';
 import { safeShowToast } from '../utils/toast';
 import { PublishMode, PublishModeSheet } from '../components/PublishModeSheet';
 import { SearchPanelDestination } from './SearchPanelDestination';
-import { openSearchPanelViaNav, SEARCH_ENTRY_ID } from '../utils/longTake/openSearchPanelNav';
 import { SpringPanel } from '../design/motion/SpringPanel';
 import { DesignButton } from '../design/components/DesignButton';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { bottomNavInset, DOCK_WIDTH_SMALL, DOCK_BOTTOM_MARGIN_BASE, DOCK_SIDE_MARGIN_MIN, DOCK_GRADIENT_MASK_HEIGHT, DOCK_MATERIAL_TYPE, DOCK_MATERIAL_LEVEL } from '../utils/cardTokens';
+import { refreshBottomNavInset } from '../utils/navMode';
 import { RadiusTokens } from '../design/tokens/radius';
-import { ShadowTokens } from '../design/tokens/shadow';
 import { ColorTokens } from '../design/tokens/color';
 import { TypeTokens } from '../design/tokens/type';
 import { IconTokens } from '../design/tokens/icon';
-import { CountRoll } from '../design/motion/CountRoll';
 import { Pressable } from '../design/motion/Pressable';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { resolveSettingsIcon } from '../utils/settingsIcons';
 import { EXTERNAL_SHARE_ENABLED } from '../utils/share';
 import { ProfileHeader } from '../components/ProfileHeader';
-import { resolveDisplayImageUrl } from '../services/api';
-import { User } from '../models/types';
 import { SegmentedControl } from '../design/components/SegmentedControl';
-import { TagNav } from '../components/TagNav';
+import { User } from '../models/types';
 import { common } from '@kit.AbilityKit';
 import { window, display } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
@@ -54,6 +50,14 @@ import { ChatDestination } from './ChatDestination';
 import { MyFollowDestination } from './MyFollowDestination';
 import { LoginDestination } from './LoginDestination';
 import { VideoPlayerDestination } from './VideoPlayerDestination';
+
+// 剪贴板回流（「复制有据链接 → 回 App 提示打开」）依赖受限 ACL 权限 ohos.permission.READ_PASTEBOARD。
+// 该权限在 AGC 的 **发布** 场景未获批（新建发布 Profile 勾选「受限ACL权限」后 allowed-acls 仍为空），
+// 包内声明它会被 AGC 判 7014「包内权限必须是 Profile 申请权限的子集」→ v1.0.1 提审先关闭此入口，
+// module.json5 同步移除了权限声明（两处注释互相引用）。
+// 待 AGC 批下 release 的 ACL 权限后：把本开关置 true + module.json5 加回声明即可完整复原
+// （utils/clipboardJump.ets 与 components/ClipboardPostSheet.ets 均未删除）。
+const PASTEBOARD_LINK_JUMP_ENABLED: boolean = false;
 
 // 底部页签数据项（含发布占位 tab）。发布 tab 也走同一 builder，展示 + 图标。
 interface IndexTabItem {
@@ -178,6 +182,7 @@ struct PrivacyConsentDialog {
           .width('100%')
           .alignItems(HorizontalAlign.Start)
         }
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .width('100%')
         .constraintSize({ maxHeight: this.maxBodyHeightVp() })
         .scrollBar(BarState.Auto)
@@ -299,9 +304,9 @@ struct Index {
   @State profileSlidePosition: number = -1;
   @State profilePresented: boolean = false;
   @State profileShareSeq: number = 0;
-  // —— 「消息」页顶栏共享状态：顶栏（消息+全部已读）+ 分段栏驻留标题栏 ——
-  // （三类快捷筛选/举报中心/系统通知都在 MessagePage 内容区，不经此处）
-  @StorageLink('authToken') messageToken: string = '';
+  @State profileHeroHeight: number = 0;   // 资料区实测高度（onAreaChange 回写 → 栏高自适应）
+  // —— 「消息」页共享状态：分段选中态/未读徽标源（顶栏已迁入 MessagePage 内嵌 HdsNavigation）——
+  // （unreadCount/dmUnread 经 AppStorage @StorageLink 直达 MessagePage 与底栏红点）
   @State messageTabIndex: number = 0;
   @State messageSlidePosition: number = -1;
   @State messageTabPulse: boolean = false;
@@ -313,8 +318,8 @@ struct Index {
   // 顶栏分段切换的透明反馈动画遵循系统「减弱动态效果」
   @StorageLink('reduceMotion') reduceMotion: boolean = false;
   @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
-  // 资料区实测高度（内容驱动：身份块 / 背景图卡），首帧用估算值兜底，实测后取代
-  @State profileHeroHeight: number = 0;
+  // 全局断点（sm/md/lg）：供悬浮栏宽度档取值——见 barFloatingStyle.barWidth 的说明
+  @StorageProp('currentBreakpoint') currentBreakpoint: string = 'sm';
   // 导航栈：主框架为 Navigation 首页，帖子详情等走 navDestination（首页卡片一镜到底）
   private pageStack: NavPathStack = new NavPathStack();
   private unsubscribeTabSwitch: () => void = () => {};
@@ -450,6 +455,10 @@ struct Index {
       this.navBarHeight = Math.max(this.getUIContext().px2vp(sysBottom.bottomRect.height), this.getUIContext().px2vp(navIndicator.bottomRect.height));
       AppStorage.setOrCreate<number>('statusBarHeight', this.statusBarHeight);
       AppStorage.setOrCreate<number>('navBarHeight', this.navBarHeight);
+      // 首帧实测回写后立即重算避让量：initNavModeWatcher 在窗口实测之前跑过一轮
+      // （那时 navBarHeight 还没测出来，非华为 ROM 上靠它兜底判三键会算成 0）。
+      // 这里补齐，避免「详情页外的底栏避让量停在 0」。
+      refreshBottomNavInset();
     } catch (e) {
       // 失败不阻断
     }
@@ -562,6 +571,10 @@ struct Index {
   }
 
   private async checkClipboardPostLink(): Promise<void> {
+    // 权限未获批期间整条链路关闭（见文件头 PASTEBOARD_LINK_JUMP_ENABLED 说明）
+    if (!PASTEBOARD_LINK_JUMP_ENABLED) {
+      return;
+    }
     if (this.clipboardBusy || this.clipboardPostId > 0) {
       return;
     }
@@ -873,13 +886,13 @@ struct Index {
             Image(this.bottomTabItems()[index].icon)
               .width(24).height(24)
               .objectFit(ImageFit.Contain)
-              .fillColor($r('app.color.ds_icon'))
+              .fillColor(this.currentIndex === index ? $r('app.color.ds_brand') : $r('app.color.ds_icon'))
           }
         } else {
           Image(this.bottomTabItems()[index].icon)
             .width(24).height(24)
             .objectFit(ImageFit.Contain)
-            .fillColor($r('app.color.ds_icon'))
+            .fillColor(this.currentIndex === index ? $r('app.color.ds_brand') : $r('app.color.ds_icon'))
         }
       }
       .width(28).height(28)
@@ -892,241 +905,31 @@ struct Index {
     .alignItems(HorizontalAlign.Center)
   }
 
-  // —— 首页顶栏（品牌标题 + 搜索 + 分段栏 + 圈子按钮）：整体驻留 Navigation 标题栏 ——
-  // 这是通用属性 systemMaterial（沉浸光感）的官方生效区域（内容区不渲染，见官方 FAQ）。
-  // 低版本设备（API < 26）门禁不通过 → 材质自动跳过，各控件回退为细描边样式（与旧首页一致）。
-  private homeSearchMaterial: TopButtonMaterialModifier = new TopButtonMaterialModifier();
+  // —— 首页/圈子/消息 三个 Tab 顶栏均已迁入各自 Tab 内嵌 HdsNavigation（路线 B）——
+  // 「我的」页顶栏仍驻留外层 Navigation 标题栏；发布占位 Tab 与隐私壳无顶栏。
+
   // 「我的」标题栏右上角分享/设置按钮的同源材质修饰器（沉浸光感，标题栏为官方生效区域）
   private profileActionMaterial: TopButtonMaterialModifier = new TopButtonMaterialModifier();
-  // 「圈子」标题栏「已加入」药丸的同源材质修饰器（沉浸光感，标题栏为官方生效区域）
-  private circleJoinedMaterial: TopButtonMaterialModifier = new TopButtonMaterialModifier();
-
-  // 标题栏总高：状态栏 + 头部上下内边距(xs×2) + 品牌行 + 行距(xs) + 分段行（与旧首页头部等高）
-  private homeTitleBarHeight(): number {
-    return this.statusBarHeight + SpaceTokens.xs * 2 + LayoutTokens.titleBarHeight
-      + SpaceTokens.xs + LayoutTokens.segmentedHeight;
-  }
 
   // 顶栏是否显示（hideTitleBar 与内容区状态栏避让共用同一条件，保证两者同步）：
-  // 首页(0)/圈子(1)/消息(3)/我的(4) 有顶栏，其它 Tab 与隐私壳无顶栏（仍需手动避让状态栏）。
+  // 仅「我的」(4) 有外层顶栏（首页/圈子/消息走内嵌 HdsNavigation，发布占位与隐私壳无顶栏）。
   // 顶栏为 STANDARD 占位 → 显示时栏体已涵盖状态栏区域，内容区不能再重复加内边距。
   private mainTitleBarVisible(): boolean {
-    return (this.currentIndex === 0 || this.currentIndex === 1 || this.currentIndex === 3
-      || this.currentIndex === 4) && this.privacyAgreed === '1';
+    return this.currentIndex === 4 && this.privacyAgreed === '1';
   }
 
-  // 顶层标题栏内容：首页顶栏 / 圈子顶栏 / 消息页顶栏 / 我的页顶栏
-  // （按当前 Tab 分支；@Builder 引用不能放进三元表达式）
+  // 顶层标题栏内容：仅「我的」页顶栏（其余 Tab 不走外层标题栏）
   @Builder
   mainTitleBar() {
-    if (this.currentIndex === 4) {
-      this.profileTitleBar()
-    } else if (this.currentIndex === 3) {
-      this.messageTitleBar()
-    } else if (this.currentIndex === 1) {
-      this.circleTitleBar()
-    } else {
-      this.homeTitleBar()
-    }
+    this.profileTitleBar()
   }
 
   // 标题栏高度（须与 mainTitleBar 的分支一一对应）
   private mainTitleBarHeight(): number {
-    if (this.currentIndex === 4) {
-      return this.profileTitleBarHeight();
-    }
-    if (this.currentIndex === 3) {
-      return this.messageTitleBarHeight();
-    }
-    if (this.currentIndex === 1) {
-      return this.circleTitleBarHeight();
-    }
-    return this.homeTitleBarHeight();
+    return this.profileTitleBarHeight();
   }
 
-  // 「圈子」标题栏总高：状态栏 + 顶栏行上下内边距(xs×2) + 药丸行（segmentedHeight）。
-  // 与原 CircleTab topBar 行同构：titleSerif 行高 32 < 36，行高由药丸决定。
-  private circleTitleBarHeight(): number {
-    return this.statusBarHeight + SpaceTokens.xs * 2 + LayoutTokens.segmentedHeight;
-  }
-
-  // 「圈子」标题栏：原 CircleTab 顶部「圈子」标题 + 「已加入 N 个」药丸整体驻留于此
-  // （沉浸光感官方生效区域）。计数来自 CircleTab 加载后经 @Link 回写；点击药丸经
-  // circleJoinedSeq 信号由 CircleTab @Watch 打开弹窗（profileShareSeq 同款接线）。
-  @Builder
-  circleTitleBar() {
-    // 状态栏避让必须由本 Builder 手动承担（全屏布局下标题栏不代为避让，教程 Step 3），
-    // 且要放在外层容器上：同一节点写两次 .padding 是整体覆盖（后者吞掉前者），
-    // 不能与行内边距混在一个 padding 里之外再补一条。
-    Column() {
-      Row({ space: SpaceTokens.sm }) {
-        Text('圈子')
-          .fontSize(TypeTokens.titleSerif.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.titleSerif.weight)
-          .lineHeight(TypeTokens.titleSerif.lineHeight)
-          .alignSelf(ItemAlign.Start)
-          .fontColor(ColorTokens.primary)
-        Blank()
-        Pressable({
-          visualHeight: LayoutTokens.segmentedHeight,
-          touchTargetHeight: LayoutTokens.minTouchTarget,
-          action: (): void => {
-            // 递增信号 → CircleTab @Watch：JoinedCirclesDialog 仍由 CircleTab 打开
-            this.circleJoinedSeq += 1;
-          },
-        }) {
-          Row({ space: SpaceTokens.xs }) {
-            Text('已加入')
-              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-              .fontWeight(TypeTokens.caption.weight)
-              .fontColor(ColorTokens.secondary)
-            CountRoll({ value: this.circleJoinedCount, prefix: '', textSize: TypeTokens.caption.size, textColor: ColorTokens.primary })
-            Text('个')
-              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-              .fontWeight(TypeTokens.caption.weight)
-              .fontColor(ColorTokens.secondary)
-          }
-          .height(LayoutTokens.segmentedHeight)
-          .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-          // 沉浸光感：材质生效时自绘让位（底/描边/阴影归零，否则实心毛玻璃/双圈描边，
-          // 见教程案例②④），系统材质接管药丸表面；低版本门禁不通过 → 保留原样式
-          .backgroundColor(isSystemMaterialActive() ? Color.Transparent : ColorTokens.subtle)
-          .border({
-            width: isSystemMaterialActive() ? 0 : LayoutTokens.glassBorderWidth,
-            color: ColorTokens.separator,
-            style: BorderStyle.Solid,
-          })
-          .borderRadius(RadiusTokens.pill)
-          .shadow(isSystemMaterialActive() ? ShadowTokens.none : ShadowTokens.cardContact)
-          .alignItems(VerticalAlign.Center)
-          .attributeModifier(this.circleJoinedMaterial)
-        }
-      }
-      .width('100%')
-      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs, bottom: SpaceTokens.xs })
-      .alignItems(VerticalAlign.Center)
-    }
-    .width('100%')
-    // 手动避让状态栏（含在栏高 statusBarHeight + xs×2 + segmentedHeight 内；避让只此一处）
-    .padding({ top: this.statusBarHeight })
-  }
-
-  @Builder
-  homeTitleBar() {
-    Column({ space: SpaceTokens.xs }) {
-      // 品牌标题行：有据 / SUBSTANTIATE / 真实经验，有据可循 + 右上角搜索按钮
-      Row() {
-        Column({ space: SpaceTokens.xs }) {
-          Row({ space: SpaceTokens.sm }) {
-            Text('有据')
-              .fontSize(TypeTokens.titleSerif.size)
-              .fontFamily(TypeTokens.fontFamilySerif)
-              .fontWeight(TypeTokens.titleSerif.weight)
-              .lineHeight(TypeTokens.titleSerif.lineHeight)
-              .fontColor(ColorTokens.primary)
-            Text('SUBSTANTIATE')
-              .fontSize(TypeTokens.overline.size)
-              .fontFamily(TypeTokens.fontFamily)
-              .fontWeight(TypeTokens.overline.weight)
-              .fontColor(ColorTokens.tertiary)
-          }
-          Text('真实经验，有据可循')
-            .fontSize(TypeTokens.headline.size)
-            .fontFamily(TypeTokens.fontFamilySerif)
-            .fontWeight(TypeTokens.headline.weight)
-            .lineHeight(TypeTokens.headline.lineHeight)
-            .fontColor(ColorTokens.primary)
-        }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
-        // 搜索入口（图标按钮）：一镜到底走 PostDetail 同款自定义转场——
-        // 量按钮屏幕帧 + push SearchPanel（NavDestination 整页从按钮帧缩放展开）。
-        // id 供发起器量帧/截图定位（SEARCH_ENTRY_ID，见 openSearchPanelNav.ets）。
-        Pressable({
-          visualHeight: LayoutTokens.minTouchTarget,
-          touchTargetHeight: LayoutTokens.minTouchTarget,
-          action: (): void => {
-            // 搜索入口跳转独立搜索页（与首页解耦）；Navigation 未就绪时兜底 router 整页
-            openSearchPanelViaNav(this.getUIContext());
-          },
-        }) {
-          Row() {
-            Image(resolveActionIcon('search'))
-              .width(IconTokens.small)
-              .height(IconTokens.small)
-              .fillColor(ColorTokens.icon)
-          }
-          .width(LayoutTokens.minTouchTarget)
-          .height(LayoutTokens.minTouchTarget)
-          .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-          .borderRadius(RadiusTokens.lg)
-          .justifyContent(FlexAlign.Center)
-          .alignItems(VerticalAlign.Center)
-          .attributeModifier(this.homeSearchMaterial)
-          .id(SEARCH_ENTRY_ID)
-          .accessibilityText('搜索')
-        }
-      }
-      .width('100%')
-      .height(LayoutTokens.titleBarHeight)
-      .alignItems(VerticalAlign.Center)
-
-      // 分段栏（推荐/关注/每日一帖）+ 圈子下拉按钮：与搜索按钮同一套系统材质
-      Stack({ alignContent: Alignment.TopStart }) {
-        SegmentedControl({
-          items: FEED_SEGMENTS,
-          selectedIndex: $feedIndex,
-          slidePosition: this.slidePosition,
-          itemWidth: 66,
-          fillWidth: false,
-          glass: false,
-          outlined: true,
-          // 关闭按压/长按光斑：顶栏为材质玻璃/描边风格，光斑在这块纸面上过于抢眼
-          glowEnabled: false,
-          // 沉浸光感：驻留标题栏，由系统材质接管整栏表面
-          useSystemMaterial: true,
-          onSelect: (idx: number): void => {
-            // 点击立即落整数位（弹性动画由 SharedSlide 整数分支承担）；
-            // 信息源加载由 HomeTab 的 @Watch(feedIndex) 承接（见 onFeedIndexChanged）
-            this.slidePosition = idx;
-            this.feedIndex = idx;
-          },
-        })
-          .alignSelf(ItemAlign.Start)
-          // 置顶于全宽的 TagNav 圈子 chip 之上：TagNav 透明占位区不拦截本控件的点击
-          .zIndex(3)
-        if (this.feedMode === 'recommend') {
-          TagNav({
-            tags: this.displayTags,
-            selectedIndex: $tagIndex,
-            dropdownVisible: $showCircleDropdown,
-            compact: true,
-            glass: false,
-            dropdownOnly: true,
-            // 沉浸光感：圈子按钮与搜索/分段栏同源材质
-            useSystemMaterial: true,
-          })
-            .width('100%')
-            .zIndex(2)
-        }
-      }
-      .width('100%')
-      .height(LayoutTokens.segmentedHeight)
-    }
-    .width('100%')
-    // 全屏沉浸式布局下标题栏不代为避让状态栏：按 statusBarHeight 手动下移，
-    // 再加 xs(4) 与旧首页头部（首行 padding 顶 4vp）严格对齐。
-    .padding({
-      left: SpaceTokens.sm,
-      right: SpaceTokens.sm,
-      top: this.statusBarHeight + SpaceTokens.xs,
-      bottom: SpaceTokens.xs,
-    })
-    .height(this.homeTitleBarHeight())
-    .alignItems(HorizontalAlign.Start)
-  }
-
-  // —— 我的页顶栏（我的/分享/设置 + 资料区 + 主分段栏）：同样驻留 Navigation 标题栏 ——
+  // —— 「我的」页顶栏（我的/分享/设置 + 资料区 + 主分段栏）：驻留 Navigation 标题栏 ——
   // 数据来自 ProfilePage 的共享态（@Link），跳转/登录引导在此接线；分享流程仍由 ProfilePage 完成。
   private profileLoggedIn(): boolean {
     return (this.profileUser.id ?? 0) > 0;
@@ -1342,97 +1145,12 @@ struct Index {
     .padding({ top: this.statusBarHeight })
   }
 
-  // —— 「消息」页顶栏（消息/全部已读 + 通知|私信分段 + 三类快捷筛选）：同样驻留标题栏 ——
-  // 数据与动作来自 MessagePage 的共享态（@Link）；列表统计回写、全部已读仍由本页执行。
+  // —— 「消息」页顶栏（消息/全部已读 + 通知|私信分段 + 三类快捷筛选）：已迁入 MessagePage 内嵌 HdsNavigation。
   private shouldReduceMotion(): boolean {
     return this.reduceMotion || this.systemReduceMotion;
   }
 
-  // 「全部已读」只在通知分段且已登录时出现（私信分段没有该动作）
-  private messageMarkAllVisible(): boolean {
-    return this.messageTabIndex === 0 && this.messageToken !== '';
-  }
-
-  // 栏高：状态栏 + 顶栏行(44+上下 xs) + 分段栏(36+底部 sm)
-  private messageTitleBarHeight(): number {
-    const headerRow: number = LayoutTokens.minTouchTarget + SpaceTokens.xs * 2;
-    const segmented: number = LayoutTokens.segmentedHeight + SpaceTokens.sm;
-    return this.statusBarHeight + headerRow + segmented;
-  }
-
-  @Builder
-  messageTitleBar() {
-    Column({ space: SpaceTokens.none }) {
-      // 顶栏行：消息 + 全部已读（仅通知分段且已登录）
-      Row() {
-        Text('消息')
-          .fontSize(TypeTokens.titleSerif.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.titleSerif.weight)
-          .lineHeight(TypeTokens.titleSerif.lineHeight)
-          .alignSelf(ItemAlign.Start)
-          .layoutWeight(1)
-          .fontColor(ColorTokens.primary)
-        if (this.messageMarkAllVisible()) {
-          Pressable({
-            visualHeight: LayoutTokens.minTouchTarget,
-            touchTargetHeight: LayoutTokens.minTouchTarget,
-            action: (): void => {
-              // 递增信号 → MessagePage @Watch：标记全部已读仍由本页执行
-              this.messageMarkAllSeq += 1;
-            },
-          }) {
-            Text('全部已读')
-              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-              .fontWeight(TypeTokens.headline.weight)
-              .lineHeight(TypeTokens.callout.lineHeight)
-              .letterSpacing(TypeTokens.callout.tracking)
-              .fontColor(ColorTokens.brand)
-              .height(LayoutTokens.minTouchTarget)
-              .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
-              .textAlign(TextAlign.Center)
-              .accessibilityText('全部已读')
-          }
-        }
-      }
-      .width('100%')
-      // 固定顶栏高度：避免切换分段时整块回弹（私信页没有「全部已读」）
-      .height(LayoutTokens.minTouchTarget + SpaceTokens.xs * 2)
-      .padding({
-        left: SpaceTokens.sm,
-        right: SpaceTokens.sm,
-        top: SpaceTokens.xs,
-        bottom: SpaceTokens.xs,
-      })
-
-      // 分段：通知 | 私信（沉浸光感：材质生效时用描边底，让系统材质完整透出）
-      SegmentedControl({
-        items: MESSAGE_SEGMENTS,
-        selectedIndex: $messageTabIndex,
-        slidePosition: this.messageSlidePosition,
-        itemWidth: 88,
-        immersive: !isSystemMaterialActive(),
-        outlined: isSystemMaterialActive(),
-        glowEnabled: false,
-        useSystemMaterial: true,
-        onSelect: (idx: number): void => {
-          // 点击立即落整数位（弹性动画由 SharedSlide 整数分支承担）；
-          // 分段切换动作由 MessagePage 的 @Watch(dmTabIndex) 承接
-          this.messageSlidePosition = idx;
-          this.messageTabIndex = idx;
-        },
-      })
-      .margin({ left: SpaceTokens.sm, right: SpaceTokens.sm, bottom: SpaceTokens.sm })
-      // 分段控件保持固定尺寸；切换反馈只改变透明度，避免高度跳变
-      .opacity(this.messageTabPulse ? 0.96 : 1)
-      .animation({
-        duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.control,
-        curve: MotionCurves.springSoft,
-      })
-    }
-    .width('100%')
-    // 全屏沉浸式布局下标题栏不代为避让状态栏：手动下移
-    .padding({ top: this.statusBarHeight })
-  }
+  // 「消息」顶栏（标题 + 全部已读 + 分段栏）已迁入 MessagePage 内嵌 HdsNavigation（路线 B）。
 
   // 五个页签内容：发布占位（index=2）点击由 handleTabBarClick 拦截，不展示任何内容。
   @Builder
@@ -1452,19 +1170,21 @@ struct Index {
     }
       .clip(false)
       .tabBar(this.tabBarBuilder(0))
-    // 「圈子」：顶栏（圈子标题 + 已加入药丸）迁入 Navigation 标题栏，这里通过 @Link 共享顶栏状态
-    // （计数由 CircleTab 加载后回写；点击药丸经 seq 信号由 CircleTab 打开弹窗）
+    // 「圈子」：顶栏（圈子标题 + 已加入药丸）已迁入 CircleTab 内嵌 HdsNavigation（路线 B），
+    // TabContent 关闭裁剪：内容超高滚动时需穿出顶边画到 HDS 标题栏下方（模糊采样素材）
     TabContent() {
       CircleTab({
         circleJoinedCount: $circleJoinedCount,
         circleJoinedSeq: $circleJoinedSeq,
       })
     }
+      .clip(false)
       .tabBar(this.tabBarBuilder(1))
     // 发布占位：内容为空，点击由 handleTabBarClick 拦截弹窗，不展示任何内容。
     TabContent() { Column() {} }
       .tabBar(this.tabBarBuilder(2))
-    // 「消息」：顶栏已整体迁入 Navigation 标题栏，这里通过 @Link 共享顶栏状态
+    // 「消息」：顶栏（消息 + 全部已读 + 分段栏）已迁入 MessagePage 内嵌 HdsNavigation（路线 B），
+    // TabContent 关闭裁剪：列表滚动需穿出顶边画到 HDS 标题栏下方（模糊采样素材）
     TabContent() {
       MessagePage({
         dmTabIndex: $messageTabIndex,
@@ -1473,6 +1193,7 @@ struct Index {
         markAllSeq: $messageMarkAllSeq,
       })
     }
+      .clip(false)
       .tabBar(this.tabBarBuilder(3))
     // 「我的」：顶栏已整体迁入 Navigation 标题栏，这里通过 @Link 共享顶栏状态
     TabContent() {
@@ -1505,7 +1226,16 @@ struct Index {
     .barFloatingStyle({
       // barBottomMargin 在系统导航区之上再留 28vp：三键导航设备 navInset≈28-32vp，
       // 固定 28 会让底栏侵入导航条（审核问题③）；手势导航 navInset=0，维持原设计。
-      barWidth: { smallWidth: DOCK_WIDTH_SMALL, mediumWidth: 420, largeWidth: 560 },
+      // —— barWidth 档位（官方规则：440-600vp 用 medium；600-840vp 按 Tabs 宽高比在
+      // medium/large 间二选一；>840vp 用 large）——「我的」页标题栏含资料区、内容区显著变矮，
+      // 600-840vp 窗口下宽高比会跌破 0.8 → 系统把档位从 large 切回 medium → 切页时底栏忽长忽短
+      //（用户实测反馈）。故 600vp 以上窗口把两档取同值 560：跳档不再可见，宽度只随窗口宽度走；
+      // 440-600vp 窄窗口保持 420，手机小窗（<440）仍走 small 档 300。
+      barWidth: {
+        smallWidth: DOCK_WIDTH_SMALL,
+        mediumWidth: this.currentBreakpoint === 'sm' ? 420 : 560,
+        largeWidth: 560,
+      },
       barSideMargin: DOCK_SIDE_MARGIN_MIN,
       barBottomMargin: DOCK_BOTTOM_MARGIN_BASE + bottomNavInset(),
       gradientMask: { maskColor: $r('app.color.bar_gradient_mask'), maskHeight: DOCK_GRADIENT_MASK_HEIGHT },
@@ -1584,10 +1314,10 @@ struct Index {
           }
           .width('100%')
           .height('100%')
-          // 顶栏（首页/圈子/消息/我的）显示时，状态栏避让已由标题栏承担（栏高含 statusBarHeight）；
-          // 这里若再补一条状态栏内边距，标题栏与内容之间会多出整条状态栏高度的空白。
-          // 其它 Tab / 隐私壳没有标题栏，仍需手动避让状态栏。
-          .padding({ top: this.mainTitleBarVisible() ? 0 : this.statusBarHeight })
+          // 「我的」页顶栏（外层标题栏，STANDARD 占位）显示时栏体已含状态栏避让，
+          // 内容区不再重复加内边距；首页/圈子/消息由各自内嵌 HdsNavigation 避让；
+          // 发布占位 Tab（空占位）没有顶栏，仍需手动避让状态栏（隐私壳为全屏覆盖层，不受影响）。
+          .padding({ top: this.mainTitleBarVisible() ? 0 : (this.currentIndex === 2 ? this.statusBarHeight : 0) })
 
           // API 20-22 分支：自绘悬浮玻璃药丸底栏（BottomTabBar，纯标准 ArkUI，无 HDS 依赖）。
           // 与 API 23+ 的 HdsTabs 悬浮条同款视觉；三键导航避让由 margin 承担（审核问题③）。
@@ -1615,10 +1345,16 @@ struct Index {
         .width('100%')
         .height('100%')
       }
+      // 主导航必须显式 Stack：NavigationMode.Auto 在展开宽度下切 Split，且右栏内容区
+      // **常驻预留**（未压目的地也不还给 navBar）→ 首页被压在 ~400vp 左窄列、右侧空白
+      // （Mate X7 展开实测截图）。本应用首页是发现流，双栏范式不适用——展开态用
+      // responsive.ets 的多列信息流铺满全宽。日后若做列表-详情双栏，需专门设计
+      // navBarWidthRange + 空态展开，单独立项。
+      .mode(NavigationMode.Stack)
       .id('mainNav')
-      // 标题栏承载首页/圈子/消息/「我的」整块顶栏（品牌标题/搜索/分段栏/已加入药丸/资料区等）
-      // —— uiMaterial 沉浸光感的官方生效区域。
-      // 仅首页(0)/圈子(1)/消息(3)/我的(4) 显示（隐私未同意时不显示）；其它 Tab 完全隐藏，不占用各页顶部布局。
+      // 标题栏承载「我的」页整块顶栏（我的/分享/设置 + 资料区 + 主分段栏）——
+      // uiMaterial 沉浸光感的官方生效区域。首页/圈子/消息顶栏已迁入各自内嵌 HdsNavigation。
+      // 仅「我的」(4) 显示（隐私未同意时不显示）；其它 Tab 完全隐藏，不占用各页顶部布局。
       // barStyle: STANDARD → 顶栏占位、内容从顶栏之下开始（与旧页面头部在流内的布局同构）；
       // 底色 canvas 与旧头部一致（也作为各控件系统材质的采样底色）。
       .hideTitleBar(!this.mainTitleBarVisible())

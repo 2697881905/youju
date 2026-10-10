@@ -30,7 +30,7 @@
     },
     {
       "name": "text_tertiary",
-      "value": "#85858B"
+      "value": "#69696E"
     },
     {
       "name": "divider",
@@ -58,7 +58,7 @@
     },
     {
       "name": "semantic_red",
-      "value": "#FF3B30"
+      "value": "#C0392B"
     },
     {
       "name": "semantic_orange",
@@ -154,7 +154,7 @@
     },
     {
       "name": "ds_text_tertiary",
-      "value": "#85858B"
+      "value": "#69696E"
     },
     {
       "name": "ds_text_quaternary",
@@ -182,23 +182,23 @@
     },
     {
       "name": "ds_warm",
-      "value": "#E8940B"
+      "value": "#A06400"
     },
     {
       "name": "ds_success",
-      "value": "#2E9E5B"
+      "value": "#1C7440"
     },
     {
       "name": "ds_danger",
-      "value": "#D64545"
+      "value": "#C0392B"
     },
     {
       "name": "ds_like",
-      "value": "#D64545"
+      "value": "#C0392B"
     },
     {
       "name": "ds_bookmark",
-      "value": "#E8A020"
+      "value": "#9A6206"
     },
     {
       "name": "ds_separator",

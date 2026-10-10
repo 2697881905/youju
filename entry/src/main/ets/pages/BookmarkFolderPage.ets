@@ -233,6 +233,7 @@ export struct BookmarkFolderPage {
             )
           }, (item: BookmarkFolderItem) => String(item.id));
         }
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .layoutWeight(1).width('100%');
       }
 

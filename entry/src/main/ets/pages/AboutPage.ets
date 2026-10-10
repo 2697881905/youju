@@ -46,7 +46,7 @@ export struct AboutPage {
               .fontWeight(FontWeight.Bold)
               .fontColor($r('app.color.text_primary'))
               .margin({ top: 8 });
-            Text('版本 1.0.1')
+            Text('版本 1.0.2')
               .fontSize(14).fontFamily($r('app.string.font_family'))
               .fontColor($r('app.color.text_secondary'))
               .margin({ top: 4 });
@@ -164,6 +164,7 @@ export struct AboutPage {
         .width('100%')
         .padding({ left: 16, right: 16, top: 8, bottom: 32 });
       }
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .layoutWeight(1)
       .width('100%');
     }

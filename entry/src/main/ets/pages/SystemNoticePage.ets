@@ -268,6 +268,7 @@ export struct SystemNoticePage {
             bottom: SpaceTokens.x2l,
           })
         }
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .layoutWeight(1)
         .width('100%')
         .scrollBar(BarState.Off)

@@ -223,6 +223,7 @@ export struct BlocklistPage {
           .width('100%')
           .constraintSize({ minHeight: '100%' })
         }
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .layoutWeight(1).width('100%')
       }
     }

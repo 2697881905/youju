@@ -295,6 +295,7 @@ struct SearchResultPage {
       .height('100%')
       .alignItems(HorizontalAlign.Start)
     }
+    .mode(NavigationMode.Stack)
     .hideTitleBar(false)
     .title({
       builder: this.resultsTitleBar,

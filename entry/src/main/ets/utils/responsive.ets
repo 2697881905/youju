@@ -1,21 +1,17 @@
-// 响应式网格工具：根据屏幕宽度计算卡片列数，并监听窗口尺寸变化（折叠屏/平板/旋转）
-// 用途：让首页/个人主页/搜索/圈子的卡片网格在不同屏幕尺寸下列数自适应，避免溢出或布局错乱
+// 响应式网格工具：把全局断点（utils/breakpointCenter.ets）映射为卡片列数。
+// 断点源唯一：窗口尺寸监听全 app 只在 breakpointCenter 注册一处；本文件只做「断点 → 列数」
+// 纯映射，消费方用 @StorageProp('currentBreakpoint') @Watch 消费，不再各自注册 windowSizeChange。
+//
+//   手机竖屏 sm (<600vp)             → 2 列
+//   折叠屏展开/平板竖屏 md (600-839) → 3 列
+//   平板横屏/桌面 lg (>=840)         → 4 列
 
-import { window } from '@kit.ArkUI';
-import { common } from '@kit.AbilityKit';
-
-// 根据屏幕物理宽度（px）计算网格列数
-//   手机竖屏 (<600vp)        → 2 列
-//   折叠屏展开/平板竖屏       → 3 列
-//   平板横屏/桌面 (>840vp)    → 4 列
-function computeGridColumns(widthPx: number): number {
-  // px2vp 的 UIContext 形态 @since 22 > 工程下限 20，本 util 只有 common.Context 没有 UIContext，
-  // 故保留全局形态（已废弃但全版本可用）；列数只取 2/3/4 档，1-2vp 密度误差不影响分档。
-  const wvp: number = px2vp(widthPx);
-  if (wvp >= 840) {
+// 断点 → 网格列数（档位与 breakpointCenter 一一对应）
+export function gridColumnsForBreakpoint(bp: string): number {
+  if (bp === 'lg') {
     return 4;
   }
-  if (wvp >= 600) {
+  if (bp === 'md') {
     return 3;
   }
   return 2;
@@ -31,31 +27,4 @@ export function gridColumnTemplate(cols: number): string {
     tpl += '1fr';
   }
   return tpl;
-}
-
-// 注册窗口尺寸监听：尺寸变化时通过 onChange 回传最新列数；返回注销函数，须在 aboutToDisappear 调用
-// ArkTS V1 约束：回调用具名函数类型 (size: window.Size) => void，禁止内联对象字面量
-export function observeGridColumns(ctx: common.Context, onChange: (cols: number) => void): () => void {
-  let handler: ((size: window.Size) => void) | undefined = undefined;
-  window.getLastWindow(ctx)
-    .then((win: window.Window) => {
-      const rect = win.getWindowProperties().windowRect;
-      onChange(computeGridColumns(rect.width));
-      handler = (size: window.Size): void => {
-        onChange(computeGridColumns(size.width));
-      };
-      win.on('windowSizeChange', handler);
-    })
-    .catch(() => {
-      onChange(2);
-    });
-  return (): void => {
-    if (handler !== undefined) {
-      window.getLastWindow(ctx)
-        .then((win: window.Window) => {
-          win.off('windowSizeChange', handler);
-        })
-        .catch(() => { /* 忽略注销失败 */ });
-    }
-  };
 }

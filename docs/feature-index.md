@@ -115,6 +115,11 @@
 - **真机待验**：Card 档比 THICK 透出更多内容，深色模式下亮色内容透过底栏可能压低输入文字对比度——不满意一行回退 `GlassBlurStyle.Floating`。
 - **可选 C（不建议，留档）**：包 `ImmersiveSurface` 加 HDS 双边流光。用户近期已多次拍板移除流光（ChatView emoji 面板、VideoViewer、两个弹窗「要最薄」）；且底栏全宽 + 动态高度（聚焦展开/握姿换边/@提及候选），流光测尺寸需 `explicitWidth/Height` 兜底，复杂度高收益低。
 
+### 消息页（`pages/MessagePage.ets`）
+- 顶栏驻留 Navigation 标题栏（消息 + 全部已读 + 通知|私信分段，见沉浸光感小节）。
+- **分段栏 per-segment 未读徽标**（2026-10-05）：`SegmentedControl` 新增可选 `badges` 属性（与 items 按下标对齐，缺省空数组不影响其它调用方），通知= `unreadMessageCount`、私信= `unreadDmCount`，>0 时标签右上角挂系统 Badge（红底 14，与底部页签合计红点同视觉语言，>99 自动 99+）。两个计数走同一对 AppStorage 键（`@StorageLink` 直达），MessagePage 刷新/读后即联动；底栏消息页签的合计红点口径不变（两者之和）。
+- **三类快捷筛选（赞和收藏/新增关注/评论）红点用服务端权威计数**（2026-10-05）：`GET /v1/notifications/unread-count` 新增 `byType`（六类按类型未读分布，与 `unreadCount` 同 `visibleWhere` 过滤，向后兼容旧客户端只读 count）。此前红点数由客户端从「已加载的一页列表」里数未读项——未读不在第一页时永远为 0，形同虚设。客户端 `markReadOptimistic` 对 byType 同步乐观减（随后 refreshUnread 以服务端校正）；徽标样式与分段/底栏红点统一（semantic_red、14）。
+
 ### 每日一帖
 - `HomeTab` 第三分段，`DAILY_PICK_LIMIT = 10` 一次拉齐、读完即完成态；禁用下拉刷新（与卡牌拖拽冲突）。
 - `components/DailyPostDeck.ets`：卡堆拖拽 + 逐卡曝光上报 + 完成态覆盖层。

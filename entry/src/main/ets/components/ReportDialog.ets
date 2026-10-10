@@ -79,6 +79,9 @@ export struct ReportDialog {
         .maxLength(200)
         .height(80)
         .fontSize(14).fontFamily($r('app.string.font_family'))
+        .fontColor($r('app.color.text_primary'))
+        // 占位文字对比度 ≥4.5:1（AGC 色彩审核项）：系统默认灰不达标，统一走 tertiary
+        .placeholderColor($r('app.color.text_tertiary'))
         .backgroundColor($r('app.color.bg_primary'))
         .borderRadius(8)
         .onChange((v: string) => {

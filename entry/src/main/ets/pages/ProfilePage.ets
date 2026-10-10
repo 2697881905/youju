@@ -6,9 +6,8 @@ import { PostCard } from '../components/PostCard';
 import { getCurrentUser } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
 import { openPostDetailViaNav, postDetailCoverOf } from '../utils/longTake/openPostDetailNav';
-import { observeGridColumns, gridColumnTemplate } from '../utils/responsive';
+import { gridColumnTemplate, gridColumnsForBreakpoint } from '../utils/responsive';
 import { barBottomReserve } from '../utils/cardTokens';
-import { common } from '@kit.AbilityKit';
 import { likeStore } from '../utils/likeStore';
 import { postDeletionStore } from '../utils/postDeletionStore';
 import { resolveActionIcon } from '../utils/actionIcons';
@@ -91,10 +90,10 @@ export struct ProfilePage {
   // 详情页浏览信号：每次打开帖子详情递增（PostDetailView.load 落笔）。收到后静默刷新
   // 「我发布」—— 卡片浏览数即时，返回列表不再要切 Tab/下拉（QA 浏览量审计「卡片不即时」）。
   @StorageProp('postViewSignal') @Watch('onPostViewSignal') postViewSignal: number = 0;
-  // 响应式列数（按屏幕宽度 2/3/4 列自适应）
+  // 响应式列数（按全局断点 2/3/4 列自适应）；断点后经 @Watch 修正
   @State gridColumns: number = 2;
   @State gridTemplate: string = '1fr 1fr';
-  private unregisterColumns: () => void = () => {};
+  @StorageProp('currentBreakpoint') @Watch('onBreakpointChanged') currentBreakpoint: string = 'sm';
   // 每次切换分段或刷新都推进版本号；延迟返回的旧请求不能覆盖当前分段的数据。
   private listVersion: number = 0;
   // 模拟器启动时后端端口转发可能尚未就绪，个人页列表失败后自动补拉一次。
@@ -127,13 +126,8 @@ export struct ProfilePage {
   });
 
   aboutToAppear(): void {
-    this.unregisterColumns = observeGridColumns(
-      this.getUIContext().getHostContext() as common.Context,
-      (cols: number): void => {
-        this.gridColumns = cols;
-        this.gridTemplate = gridColumnTemplate(cols);
-      }
-    );
+    // 网格列数：按当前全局断点换算（断点中心异步就绪后经 @Watch 修正）
+    this.applyGridColumns();
     // TabContent 会提前创建隐藏页面，只在“我的”真正可见时校验登录和拉取数据。
     if (this.activeTab === 4) {
       this.init();
@@ -154,8 +148,19 @@ export struct ProfilePage {
     });
   }
 
+  // 网格列数换算（断点 → 列数/模板）
+  private applyGridColumns(): void {
+    const cols: number = gridColumnsForBreakpoint(this.currentBreakpoint);
+    this.gridColumns = cols;
+    this.gridTemplate = gridColumnTemplate(cols);
+  }
+
+  // 断点变化（展开折叠屏/旋转/分屏）→ 即时换算网格列数
+  onBreakpointChanged(): void {
+    this.applyGridColumns();
+  }
+
   aboutToDisappear(): void {
-    this.unregisterColumns();
     this.unsubLike();
     this.unsubDeletion();
     if (this.retryTimer !== 0) {

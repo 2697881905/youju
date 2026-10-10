@@ -104,6 +104,7 @@ export struct JoinedCirclesDialog {
               }
             }, (circle: JoinedCircle) => circle.name)
           }
+          .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
           .columnsTemplate('1fr 1fr 1fr')
           .columnsGap(SpaceTokens.sm)
           .rowsGap(SpaceTokens.sm)

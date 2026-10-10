@@ -187,6 +187,7 @@ struct DraftBoxPage {
       .width('100%')
       .height('100%')
     }
+    .mode(NavigationMode.Stack)
     .hideTitleBar(false)
     .title({
       builder: this.draftTitleBar,

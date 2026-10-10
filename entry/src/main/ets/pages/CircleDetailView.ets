@@ -3,7 +3,7 @@ import { followTag, listFollowedTags, listPosts, unfollowTag, trackPostEvent } f
 import { getToken } from '../utils/auth';
 import { openPostDetail, takeCircleDetailName } from '../utils/nav';
 import { getMainNavStack, EmptyNavParams, PostDetailNavParams } from '../utils/navigationTransition';
-import { observeGridColumns, gridColumnTemplate } from '../utils/responsive';
+import { gridColumnTemplate, gridColumnsForBreakpoint } from '../utils/responsive';
 import { GRID_GAP, GRID_PADDING } from '../utils/cardTokens';
 import { safeShowToast } from '../utils/toast';
 import { PostCard } from '../components/PostCard';
@@ -20,7 +20,6 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { isSystemMaterialActive } from '../utils/immersiveMaterial';
-import { common } from '@kit.AbilityKit';
 
 const FEED_SEGMENTS: SegmentedItem[] = [
   { key: 'latest', label: '最新' },
@@ -48,12 +47,13 @@ export struct CircleDetailView {
   @State joining: boolean = false;
   @State gridColumns: number = 2;
   @State gridTemplate: string = '1fr 1fr';
+  // 网格列数由全局断点驱动（全 app 唯一窗口尺寸监听，见 utils/breakpointCenter.ets）
+  @StorageProp('currentBreakpoint') @Watch('onBreakpointChanged') currentBreakpoint: string = 'sm';
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
   // 标题栏（导航行 + 圈子信息行 + 最新/热门分段栏与加入圈子按钮）驻留 Navigation 标题栏 ——
   // uiMaterial 沉浸光感的官方生效区域；栏高由内容实测回写（首帧用估算兜底）。
   @State titleBarContentHeight: number = 0;
   private listVersion: number = 0;
-  private unregisterColumns: () => void = () => {};
 
   // 统一返回入口：Navigation 壳走 onBack（navStack.pop），router 壳走普通返回
   private backAction(): void {
@@ -66,18 +66,21 @@ export struct CircleDetailView {
 
   aboutToAppear(): void {
     this.circleName = takeCircleDetailName();
-    this.unregisterColumns = observeGridColumns(
-      this.getUIContext().getHostContext() as common.Context,
-      (cols: number): void => {
-        this.gridColumns = cols;
-        this.gridTemplate = gridColumnTemplate(cols);
-      }
-    );
+    // 网格列数：按当前全局断点换算（断点中心异步就绪后经 @Watch 修正）
+    this.applyGridColumns();
     this.init();
   }
 
-  aboutToDisappear(): void {
-    this.unregisterColumns();
+  // 网格列数换算（断点 → 列数/模板）
+  private applyGridColumns(): void {
+    const cols: number = gridColumnsForBreakpoint(this.currentBreakpoint);
+    this.gridColumns = cols;
+    this.gridTemplate = gridColumnTemplate(cols);
+  }
+
+  // 断点变化（展开折叠屏/旋转/分屏）→ 即时换算网格列数
+  onBreakpointChanged(): void {
+    this.applyGridColumns();
   }
 
   private async init(): Promise<void> {
@@ -377,6 +380,7 @@ export struct CircleDetailView {
                 .columnEnd(this.gridColumns - 1)
               }
             }
+            .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
             .columnsTemplate(this.gridTemplate)
             .columnsGap(GRID_GAP)
             .rowsGap(GRID_GAP)
@@ -400,6 +404,7 @@ export struct CircleDetailView {
       .backgroundColor(ColorTokens.canvas)
       .alignItems(HorizontalAlign.Start)
     }
+    .mode(NavigationMode.Stack)
     .title({
       builder: this.circleTitleBar,
       height: this.circleTitleBarHeight(),

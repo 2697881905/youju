@@ -297,7 +297,7 @@ export struct ShareSheet {
         }
         .scrollable(ScrollDirection.Horizontal)
         .scrollBar(BarState.Off)
-        .edgeEffect(EdgeEffect.Spring)
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .width('100%')
       }
     }

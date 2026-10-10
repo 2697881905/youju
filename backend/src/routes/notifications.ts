@@ -19,10 +19,15 @@ router.get('/notifications', auth, asyncHandler(async (req: AuthRequest, res: Re
   return ok(res, data);
 }));
 
-// 未读总数：GET /v1/notifications/unread-count
+// 未读总数 + 按类型分布：GET /v1/notifications/unread-count
+// byType 供消息页三类快捷筛选（赞和收藏/新增关注/评论）红点使用（此前客户端从已加载
+// 列表里数未读，未读不在第一页时恒为 0）；新增字段向后兼容，旧客户端只读 count。
 router.get('/notifications/unread-count', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const count = await notificationService.unreadCount(req.userId!);
-  return ok(res, { count });
+  const [count, byType] = await Promise.all([
+    notificationService.unreadCount(req.userId!),
+    notificationService.unreadCountByType(req.userId!),
+  ]);
+  return ok(res, { count, byType });
 }));
 
 // 标记单条已读：POST /v1/notifications/:id/read

@@ -3,6 +3,7 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 import settings from '@ohos.settings';
 import { initNavModeWatcher, refreshNavMode, refreshBottomNavInset } from '../utils/navMode';
+import { initBreakpointCenter } from '../utils/breakpointCenter';
 import { initSessionStore } from '../utils/sessionStore';
 import { initThemeContext, loadThemeFromPrefs, applyLaunchTheme, applySystemFollowMode, isDarkMode } from '../utils/theme';
 import { enqueuePushRoute, readPushRoute, readDeepLinkRoute } from '../utils/push';
@@ -74,6 +75,9 @@ export default class EntryAbility extends UIAbility {
     // 导航方式检测（三键/悬浮球/手势）：settings 'float_navigation_info' + 变化监听。
     // 尽早初始化，保证首帧前 AppStorage 已有 navMode；内部全兜底，任何失败不影响启动。
     initNavModeWatcher(this.context);
+    // 全局断点中心：全 app 唯一的窗口尺寸监听（sm/md/lg + 折叠态写 AppStorage）。
+    // 宽屏形态（消息双栏）与卡片列数统一消费它；失败静默降级为 sm。
+    initBreakpointCenter(this.context);
     windowStage.loadContent('pages/Index', (err) => {
       if (err.code) {
         hilog.error(DOMAIN, 'testTag', 'Failed to load the content. Cause: %{public}s', JSON.stringify(err));

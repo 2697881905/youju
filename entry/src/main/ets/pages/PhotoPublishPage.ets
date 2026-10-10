@@ -344,7 +344,7 @@ struct PhotoPublishPage {
           .lineHeight(TypeTokens.title.lineHeight)
           .letterSpacing(TypeTokens.title.tracking)
           .fontColor(ColorTokens.primary)
-          .placeholderColor(ColorTokens.quaternary)
+          .placeholderColor(ColorTokens.tertiary)
           .backgroundColor(Color.Transparent)
           .onChange((value: string) => { this.title = value; })
         Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
@@ -365,7 +365,7 @@ struct PhotoPublishPage {
           .lineHeight(TypeTokens.body.lineHeight)
           .letterSpacing(TypeTokens.body.tracking)
           .fontColor(ColorTokens.primary)
-          .placeholderColor(ColorTokens.quaternary)
+          .placeholderColor(ColorTokens.tertiary)
           .backgroundColor(Color.Transparent)
           .maxLength(MAX_PHOTO_CONTENT_LENGTH)
           .onChange((value: string) => {
@@ -445,6 +445,7 @@ struct PhotoPublishPage {
         .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, bottom: SpaceTokens.x3l })
         .alignItems(HorizontalAlign.Start)
       }
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .width('100%')
       .height('100%')
       .scrollBar(BarState.Off)

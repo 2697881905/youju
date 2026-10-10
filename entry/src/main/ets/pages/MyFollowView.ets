@@ -272,6 +272,7 @@ export struct MyFollowView {
             }
           }, (item: FollowUser) => (item.id !== undefined ? item.id.toString() : '') + '-' + (item.isFollowing ? '1' : '0'));
         }
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .width('100%').height('100%')
         .onReachEnd(() => { this.loadMore(); });
         }
