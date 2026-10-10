@@ -162,6 +162,7 @@ export struct AtMentionSuggest {
           }
           .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs })
         }
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .scrollable(ScrollDirection.Horizontal)
         .scrollBar(BarState.Off)
         .width('100%')

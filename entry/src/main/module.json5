@@ -98,6 +98,9 @@
           ]
         }
       },
+      // 剪贴板回流（「复制有据链接 → 回 App 提示打开」）依赖的受限 ACL 权限。
+      // 2026-10-08 AGC 已批准；发布 Profile youju-release-key4-acl-20261008Release.p7b
+      // 的 allowed-acls 已包含本权限，包内声明与 Profile 口径一致（不再触发 7014）。
       {
         "name": "ohos.permission.READ_PASTEBOARD",
         "reason": "$string:permission_pasteboard_reason",

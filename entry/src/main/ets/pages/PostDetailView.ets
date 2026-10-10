@@ -45,7 +45,7 @@ import { markClipboardIdHandled } from '../utils/clipboardJump';
 import { generateShareCardBytes } from '../utils/shareCard';
 import { structuredSummaryOf, StructuredSummary } from '../utils/structuredBlocks';
 import { image } from '@kit.ImageKit';
-import { curves, window } from '@kit.ArkUI';
+import { curves, window, KeyboardAvoidMode } from '@kit.ArkUI';
 import { DetailMediaCarousel } from '../components/DetailMediaCarousel';
 import { ImageViewer } from '../components/ImageViewer';
 import { OVERLAY_GUARD_POST_DETAIL, registerOverlayBackGuard, unregisterOverlayBackGuard } from '../utils/overlayBackGuard';
@@ -198,6 +198,11 @@ export struct PostDetailView {
   private detailActionMaterial: TopButtonMaterialModifier = new TopButtonMaterialModifier();
   // 系统栏测量来源（挂着 avoidAreaChange 监听，页面销毁时注销）
   private navSourceWin: window.Window | undefined = undefined;
+  // 进页前的键盘避让模式（退页还原）。本页切入 RESIZE：输入栏锚在页面底部，
+  // 默认 OFFSET 只按「聚焦节点可见」上移整页，底部互动栏会有一部分留在键盘后面
+  //（用户实测「输入框没有完全上抬到键盘上方」）；RESIZE 下页面高度收缩到键盘上沿，
+  // 底栏天然停在上沿之上，与 ChatView 同一套口径。
+  private originalKeyboardMode: KeyboardAvoidMode | null = null;
   // 收藏夹选择（收藏时归类）
   @State folderPickFolders: BookmarkFolderItem[] = [];
   private folderPickController: CustomDialogController | null = null;
@@ -375,6 +380,8 @@ export struct PostDetailView {
   aboutToAppear(): void {
     // 读取系统栏高度（全屏布局下顶部内容避让 + 底部栏高随导航模式实时变化）
     this.loadWindowInsets();
+    // 键盘避让切 RESIZE：输入栏贴键盘上沿（详见字段说明）
+    this.captureKeyboardAvoidMode();
     this.intent = takePostDetailIntent();
     this.postId = takePostDetailId().trim();
     // 通知「跳转到这条评论」：读取待定位评论 id（0 = 普通进入，不定位）
@@ -422,6 +429,18 @@ export struct PostDetailView {
     }
   };
 
+  // 键盘避让切 RESIZE（记录原模式，退页还原）：页面高度收缩到键盘上沿，
+  // 底部输入栏天然停在上沿之上，不再出现「部分留在键盘后面」。
+  private captureKeyboardAvoidMode(): void {
+    try {
+      const ui = this.getUIContext();
+      this.originalKeyboardMode = ui.getKeyboardAvoidMode();
+      ui.setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE);
+    } catch (e) {
+      // UIContext 未就绪时忽略，不影响页面渲染
+    }
+  }
+
   private applyWindowInsets(win: window.Window): void {
     try {
       const sys = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
@@ -441,6 +460,14 @@ export struct PostDetailView {
     unregisterOverlayBackGuard(OVERLAY_GUARD_POST_DETAIL);
     // 智感握姿退订（详情页关闭即退订，官方功耗建议）
     stopGripTracking();
+    // 还原进页前的键盘避让模式（勿把 RESIZE 泄漏给其它页面）
+    if (this.originalKeyboardMode !== null) {
+      try {
+        this.getUIContext().setKeyboardAvoidMode(this.originalKeyboardMode);
+      } catch (e) {
+        // 忽略
+      }
+    }
     if (this.navSourceWin) {
       try {
         this.navSourceWin.off('avoidAreaChange', this.handleAvoidAreaChanged);
@@ -1623,6 +1650,7 @@ export struct PostDetailView {
         .width('100%')
         .height('100%')
       }
+      .mode(NavigationMode.Stack)
       .title({
         builder: this.detailTitleBar,
         height: this.detailTitleBarHeight(),
@@ -1831,7 +1859,10 @@ export struct PostDetailView {
           }
           .padding(16)
           .width('100%')
+          // 宽屏限宽居中：折叠展开/平板上正文列不再拉满全宽（通用对齐默认水平居中）
+          .constraintSize({ maxWidth: LayoutTokens.contentMaxWidth })
         }
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .width('100%')
         .height('100%')
         .id(DETAIL_CONTENT_SCROLL_ID)

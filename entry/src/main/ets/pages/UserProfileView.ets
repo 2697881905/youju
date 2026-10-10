@@ -682,6 +682,7 @@ export struct UserProfileView {
       .height('100%')
       .backgroundColor($r('app.color.bg_primary'))
     }
+    .mode(NavigationMode.Stack)
     .title({
       builder: this.userProfileTitleBar,
       height: this.userProfileTitleBarHeight(),
@@ -811,6 +812,7 @@ export struct UserProfileView {
               .columnStart(0).columnEnd(1);
             }
           }
+          .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
           .columnsTemplate('1fr 1fr')
           .columnsGap(12).rowsGap(12).padding(12)
           .onScrollIndex((_start: number, end: number) => {

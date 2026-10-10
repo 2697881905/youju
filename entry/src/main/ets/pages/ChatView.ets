@@ -29,7 +29,6 @@ import { BackButton } from '../design/components/BackButton';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
-import { bottomNavInset } from '../utils/cardTokens';
 import { RadiusTokens } from '../design/tokens/radius';
 import { TypeTokens } from '../design/tokens/type';
 import { MotionCurves } from '../design/tokens/motion';
@@ -51,9 +50,22 @@ const NO_MENU_MSG: DmMessage = {
   createdAt: '',
 };
 
+// 内嵌分栏的对端标识（宽屏消息页右栏注入）。整体传参：id/名字/头像同刻更新，
+// 避免多 prop 分批同步导致「换了会话但头像/名字还是上一个」的中间态
+export interface EmbedChatPeer {
+  id: number;
+  name: string;
+  avatar: string;
+}
+
 @Component
 export struct ChatView {
   @Prop navMode: boolean = false;
+  // —— 内嵌分栏形态（宽屏消息页右栏）——
+  // 不消费进程内 chat intent，对端信息由 embedPeer 注入；顶栏隐藏返回键（分栏不是独立页面）；
+  // 选中别的会话时经 @Watch 重置会话态并重拉（见 onEmbedPeerChanged）。
+  @Prop embedded: boolean = false;
+  @Prop @Watch('onEmbedPeerChanged') embedPeer: EmbedChatPeer = { id: 0, name: '', avatar: '' };
   onBack?: () => void = undefined;
   // 点聊天视频 → 独立播放器页：Navigation 壳注入（pushPathByName('VideoPlayer')）；
   // 未注入（router 壳）时本组件自行走 utils/nav 意图通道 + router.pushUrl。
@@ -94,6 +106,9 @@ export struct ChatView {
   @State showMediaMenu: boolean = false;
   @State error: string = '';
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
+  // 内容级底部安全内边距（三键避让与手势指示条取大，见 utils/navMode.ets）：
+  // 输入栏避让取此单一响应源；手势下不会落进指示条触发区（AGC 导航栏审核项）。
+  @StorageLink('bottomBarInsetVp') bottomBarInsetVp: number = 0;
   private listScroller: Scroller = new Scroller();
   private originalKeyboardMode: KeyboardAvoidMode | null = null;
   private pollTimer: number = -1; // 轻量轮询定时器（对方撤回/新消息同步）
@@ -117,10 +132,17 @@ export struct ChatView {
   ];
 
   aboutToAppear(): void {
-    const intent = takeChatIntent();
-    this.peerId = intent?.peerId ?? 0;
-    this.peerName = intent?.peerName ?? '';
-    this.peerAvatar = intent?.peerAvatar ?? '';
+    if (this.embedded) {
+      // 内嵌分栏：对端信息来自 embedPeer（chat intent 通道归独立聊天页，这里不消费）
+      this.peerId = this.embedPeer.id;
+      this.peerName = this.embedPeer.name;
+      this.peerAvatar = this.embedPeer.avatar;
+    } else {
+      const intent = takeChatIntent();
+      this.peerId = intent?.peerId ?? 0;
+      this.peerName = intent?.peerName ?? '';
+      this.peerAvatar = intent?.peerAvatar ?? '';
+    }
     const me = getCurrentUser();
     if (me) {
       this.myAvatar = me.avatar ?? '';
@@ -172,6 +194,40 @@ export struct ChatView {
     this.bumpRefreshSignal();
   }
 
+  // 内嵌分栏切换会话：重置会话态并重拉（轮询在挂载时已启动，切换时沿用）。
+  // 只在真正换了对端时执行；父层其它状态刷新导致的重放（id 不变）不打扰当前会话。
+  onEmbedPeerChanged(): void {
+    if (!this.embedded || this.embedPeer.id <= 0 || this.embedPeer.id === this.peerId) {
+      return;
+    }
+    this.peerId = this.embedPeer.id;
+    this.peerName = this.embedPeer.name;
+    this.peerAvatar = this.embedPeer.avatar;
+    this.messages = [];
+    this.error = '';
+    this.loading = true;
+    this.inputText = '';
+    this.closeMention();
+    this.showMediaMenu = false;
+    this.menuMsgId = 0;
+    this.viewingImage = '';
+    if (getToken() !== '') {
+      this.loadMessages();
+      if (this.pollTimer === -1) {
+        this.startPolling();
+      }
+    }
+  }
+
+  // 内嵌分栏：宽屏底部停靠栏悬浮在面板下沿之上（贴左停靠，仍会压到输入栏左端），
+  // 输入栏需整体抬到栏体之上；键盘弹起（RESIZE）时栏体同样悬在键盘上方，故常驻预留。
+  private embeddedDockReserve(): number {
+    if (!this.embedded) {
+      return 0;
+    }
+    return LayoutTokens.tabBarHeight + LayoutTokens.tabBarBottomGap + SpaceTokens.xs;
+  }
+
   // ===== 轻量轮询：15 秒拉一次消息（MVP 无 WebSocket 推送）=====
   // 覆盖「双方同时停留在聊天页」场景：对方撤回 / 收到新消息 15 秒内同步；
   // 仅在内容有变化时才重赋值列表（避免无谓的 List 重建与滚动跳动）。
@@ -197,8 +253,13 @@ export struct ChatView {
     if (getToken() === '' || this.peerId <= 0 || this.loading) {
       return;
     }
+    // 内嵌分栏可切换会话：以发起时的对端为准，响应回来时已换人则整体丢弃
+    const pid: number = this.peerId;
     try {
-      const res = await getMessages(this.peerId, 1);
+      const res = await getMessages(pid, 1);
+      if (pid !== this.peerId) {
+        return;
+      }
       const fresh: string = JSON.stringify(res.list);
       const old: string = JSON.stringify(this.messages);
       if (fresh !== old) {
@@ -254,21 +315,34 @@ export struct ChatView {
     }
   }
 
-  // 拉历史 + 标记已读（清未读），并触发消息页红点刷新
+  // 拉历史 + 标记已读（清未读），并触发消息页红点刷新。
+  // 内嵌分栏可切换会话：以发起时的对端为准，迟到响应若已换人则丢弃
+  //（否则旧会话消息/错误会写进新会话，或提前收起新会话的加载态）
   async loadMessages(): Promise<void> {
+    const pid: number = this.peerId;
     this.loading = true;
     this.error = '';
     try {
-      const res = await getMessages(this.peerId, 1);
+      const res = await getMessages(pid, 1);
+      if (pid !== this.peerId) {
+        return;
+      }
       this.hasLoadedOnce = true;
       this.messages = res.list;
-      await markMessagesRead(this.peerId);
+      await markMessagesRead(pid);
+      if (pid !== this.peerId) {
+        return;
+      }
       this.bumpRefreshSignal();
       this.scrollToBottom();
     } catch (e) {
-      this.error = (e as Error).message || '加载失败';
+      if (pid === this.peerId) {
+        this.error = (e as Error).message || '加载失败';
+      }
     } finally {
-      this.loading = false;
+      if (pid === this.peerId) {
+        this.loading = false;
+      }
     }
   }
 
@@ -584,13 +658,13 @@ export struct ChatView {
         (emoji: string) => emoji,
       )
     }
+    .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
     .columnsTemplate('1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr')
     .columnsGap(SpaceTokens.xs)
     .rowsGap(SpaceTokens.xs)
     // 一屏约 5 行（行高 40 + 行距 4），其余纵向滚动
     .height(216)
     .scrollBar(BarState.Off)
-    .edgeEffect(EdgeEffect.Spring)
     .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs, bottom: SpaceTokens.xs })
     .backgroundColor($r('app.color.ds_overlay'))
     .backdropBlur(20)
@@ -1163,7 +1237,10 @@ export struct ChatView {
 
       // 顶栏
       Row() {
-        BackButton({ action: (): void => { this.backAction(); } })
+        // 内嵌分栏（宽屏消息页右栏）不是独立页面：不显示返回键
+        if (!this.embedded) {
+          BackButton({ action: (): void => { this.backAction(); } })
+        }
         Row({ space: 8 }) {
           AvatarView({ avatar: this.peerAvatar, name: this.peerName, avatarSize: 32, ringWidth: 0 })
           Text(this.peerName !== '' ? this.peerName : '用户')
@@ -1235,6 +1312,7 @@ export struct ChatView {
               this.msgContentHeight = area.height as number;
             })
           }
+          .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
           .scrollBar(BarState.Auto)
           .width('100%')
           // 消息区外层是 Stack（默认子项居中），layoutWeight 在 Stack 中不生效，
@@ -1355,19 +1433,22 @@ export struct ChatView {
         }
       }
       .width('100%')
-      // 输入栏避让三键导航条（审核问题③）：仅在键盘未弹起时预留。
-      // 键盘弹出后导航条已被键盘盖住，inset 若继续留着，输入栏就会停在键盘上方一段
-      // 空白处（视觉上像输入框没贴住键盘）。手势导航 navInset 本就为 0，两种情况都不受影响。
+      // 底部避让系统导航区（三键 = 栏高+呼吸；手势 = 指示条 16vp，按模式取值见 navMode.ets）：
+      // 仅在键盘未弹起时预留 —— 键盘弹出后导航条已被键盘盖住，inset 若继续留着，
+      // 输入栏就会停在键盘上方一段空白处（视觉上像输入框没贴住键盘）。
       .padding({
         left: SpaceTokens.md,
         right: SpaceTokens.md,
         top: SpaceTokens.sm,
-        bottom: SpaceTokens.md + (this.inputFocused ? 0 : bottomNavInset()),
+        // 底部避让：系统导航区（仅键盘未弹起时预留）+ 内嵌分栏的宽屏底部停靠栏
+        bottom: SpaceTokens.md + (this.inputFocused ? 0 : this.bottomBarInsetVp)
+          + this.embeddedDockReserve(),
       })
       .margin({ top: SpaceTokens.xs });
     }
     .width('100%')
-    .padding({ top: this.statusBarHeight })
+    // 内嵌分栏（宽屏消息页右栏）：内容在标题栏之下，不再避让状态栏
+    .padding({ top: this.embedded ? 0 : this.statusBarHeight })
     .height('100%')
     .backgroundColor($r('app.color.bg_primary'))
     .transition(buildPageTransition());

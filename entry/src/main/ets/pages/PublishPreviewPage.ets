@@ -645,6 +645,7 @@ struct PublishPreviewPage {
           .width('100%')
           .alignItems(HorizontalAlign.Start)
         }
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .layoutWeight(1)
         .width('100%')
         .scrollBar(BarState.Off)

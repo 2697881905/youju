@@ -39,6 +39,11 @@ export const NAV_MODE_FLOATING_BALL: string = 'floating-ball';
 export const NAV_BUTTON_BAR_HEIGHT_KEY: string = 'navButtonBarHeight';
 // 底部避让量（vp）：响应式消费方 @StorageLink 此键，并在 build 属性里直接读变量
 export const BOTTOM_NAV_INSET_KEY: string = 'bottomNavInsetVp';
+// 内容级底部安全内边距（vp）：详情页互动栏 / 聊天输入栏等**内容控件**用。
+// 按导航模式取值：三键 = 避让量（栏高 + 呼吸）；手势 = 指示条高度常量；悬浮球/未知走兜底判别。
+// ⚠️ 与 BOTTOM_NAV_INSET_KEY 分开：后者是「悬浮 Dock 的边距」语义（手势下恒 0，
+// 底栏维持原设计不整体顶高），二者混用会让手势设备上的主底栏位置变化。
+export const BOTTOM_BAR_INSET_KEY: string = 'bottomBarInsetVp';
 
 // 高度阈值兜底判别：手势导航条约 16-24vp、三键导航条约 28-42vp，区间不重叠
 export const GESTURE_INDICATOR_MAX: number = 24;
@@ -76,9 +81,31 @@ export function computeBottomNavInset(): number {
   return Math.max(bar, nav) + NAV_INSET_EXTRA;
 }
 
+// 手势导航指示条避让高度（vp）：官方口径手势条 16-24vp，取 16（栏体自身另有 8-12vp 内边距，
+// 合计 ≥24vp，覆盖指示条触发区）。
+// ⚠️ 不取 avoidArea 实测值：实测（2026-10-08 真机日志）发现切到手势后 window 底部避让区
+// 仍报三键档高度（bottomRect 87px ≈ 27.8vp，切模式后不变）——若取实测，避让量会卡在三键档，
+// 表现为「切换导航模式后底栏高度纹丝不动」。避让高度必须按**模式**给值，不能信这个实测。
+export const GESTURE_INDICATOR_INSET: number = 16;
+
+// 内容级底部安全内边距：按导航模式取值（三键 = 栏高 + 呼吸；手势 = 指示条常量；
+// 悬浮球/未知 = 走既有兜底判别）
+export function computeBottomBarInset(): number {
+  const mode: string = AppStorage.get<string>(NAV_MODE_KEY) ?? '';
+  if (mode === NAV_MODE_GESTURE) {
+    return GESTURE_INDICATOR_INSET;
+  }
+  return computeBottomNavInset();
+}
+
 // 重算避让量并写回 AppStorage（@StorageLink 的消费方随即重渲染）。
+// 两个键同刻更新：Dock 边距 + 内容级内边距。日志留痕便于真机核对切模式是否生效。
 export function refreshBottomNavInset(): void {
-  AppStorage.setOrCreate<number>(BOTTOM_NAV_INSET_KEY, computeBottomNavInset());
+  const dock: number = computeBottomNavInset();
+  const content: number = computeBottomBarInset();
+  AppStorage.setOrCreate<number>(BOTTOM_NAV_INSET_KEY, dock);
+  AppStorage.setOrCreate<number>(BOTTOM_BAR_INSET_KEY, content);
+  hilog.info(DOMAIN, TAG, 'bottom insets: dock=%{public}fvp content=%{public}fvp', dock, content);
 }
 
 // 非响应式消费方（既有 5 处调用点）：读 AppStorage 现值，尚未初始化时现算

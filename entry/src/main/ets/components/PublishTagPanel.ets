@@ -126,6 +126,7 @@ export struct PublishTagPanel {
         .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, bottom: SpaceTokens.md })
         .alignItems(HorizontalAlign.Start)
       }
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .layoutWeight(1)
       .width('100%')
       .scrollBar(BarState.Off)

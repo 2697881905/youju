@@ -339,6 +339,10 @@ export struct SettingsPage {
         }
 
         ListItemGroup() {
+          // 临时入口：HDS 导航验证页（验证 HdsNavigation + 官方渐变模糊，完成即连本行一并删除）
+          this.sectionRow('book', 'HDS 导航验证页（临时）', (): void => {
+            this.getUIContext().getRouter().pushUrl({ url: 'pages/HdsNavVerifyPage' });
+          })
           this.sectionRow('book', '关于有据 · 版本 1.0.1', (): void => {
             this.getUIContext().getRouter().pushUrl({ url: 'pages/AboutPage' });
           })
@@ -394,6 +398,7 @@ export struct SettingsPage {
           .clip(true)
         }
       }
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .layoutWeight(1)
       .width('100%')
       .padding({ left: 16, right: 16, top: 8, bottom: 16 });

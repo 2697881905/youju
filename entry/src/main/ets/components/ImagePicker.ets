@@ -295,6 +295,7 @@ export struct ImagePicker {
           }
         }
       }
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .columnsTemplate('1fr 1fr 1fr')
       .columnsGap(8)
       .rowsGap(8)

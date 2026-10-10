@@ -7,7 +7,7 @@
 // - 顶部「全部已读」
 // - 回写 AppStorage['unreadMessageCount'] 供 Index 消息 Tab 红点
 
-import { NotificationItem, NotificationType, Conversation, PendingReportSummary } from '../models/types';
+import { NotificationItem, NotificationType, UnreadByType, Conversation, PendingReportSummary } from '../models/types';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { openChat, openPostDetail, openPostDetailAtComment, openUserProfile } from '../utils/nav';
 import {
@@ -20,13 +20,15 @@ import {
   getAdminReportSummary,
 } from '../services/api';
 import { getToken, getUserId, getCurrentUser, getIsAdmin } from '../utils/auth';
+import { ChatView } from './ChatView';
+import { getMainNavStack, VideoPlayerNavParams } from '../utils/navigationTransition';
 import { barBottomReserve } from '../utils/cardTokens';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { notifIconRes, resolveActionIcon } from '../utils/actionIcons';
 import { EmptyState } from '../design/components/EmptyState';
 import { MessageRow } from '../design/components/MessageRow';
-import { SegmentedItem } from '../design/components/SegmentedControl';
+import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
 import { Pressable } from '../design/motion/Pressable';
 import { Reveal } from '../design/motion/Reveal';
 import { ColorTokens } from '../design/tokens/color';
@@ -35,6 +37,16 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { TypeTokens } from '../design/tokens/type';
+import { isSystemMaterialActive } from '../utils/immersiveMaterial';
+import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit';
+import type {
+  HdsNavigationTitleBarOptions,
+  TitleBarContentOptions,
+  TitleBarStyleOptions,
+  ScrollEffectOptions,
+  BottomBuilderParams,
+} from '@kit.UIDesignKit';
+import { LengthMetrics } from '@kit.ArkUI';
 
 // 消息分段：通知 | 私信（导出给 Index 的标题栏渲染；本页 Swiper 与之共享选中态）
 export const MESSAGE_SEGMENTS: SegmentedItem[] = [
@@ -42,6 +54,21 @@ export const MESSAGE_SEGMENTS: SegmentedItem[] = [
   { key: 'dm', label: '私信' },
 ];
 
+// —— 顶栏（嵌套 HdsNavigation，路线 B，同首页结构）——
+// bottomBuilder 分段行高：36 控件 + 底部 4 让位
+// ⚠️ 分段行不可用负 margin 上浮：bottomBuilder 区域对内容**双向裁切**（向上探出被剪、
+// 超出声明高度向下也被剪——快筛行首测"丢失"同源），与 stackBuilder 向下溢出可渲染
+// 不对称。分段栏位置 = 标题区下沿，结构上不可上移。
+const MESSAGE_TAB_ROW_HEIGHT: number = LayoutTokens.segmentedHeight + SpaceTokens.xs;
+// 滚动模糊生效区间终点（vp）：与首页定稿一致（0 → 32 线性到位）
+const MESSAGE_BLUR_END_VP: number = 32;
+// 「上滑收起快捷筛选栏」的实现取舍（真机两轮实证）：
+// ✗ bottomBuilder.height 动态重配 → 只在首帧生效，运行期改高度无效（快筛行首测"丢失"根因）；
+// ✗ dynamicHideTitleBar({ hideBottomBuilder: true }) → 触发式整段收起（非跟手），真机割裂感；
+//   且分段行不能上移 stackBuilder 躲收起——MINI 标题区高度系统定值（首页 56 恰好顶格），
+//   stackBuilder 无高度参数，多行内容溢出部分与 bottomBuilder 重叠（真机「组件重叠」）。
+// ✓ 定稿：快筛行回归内容区顶部、作为滚动内容随列表滚走（同 pinnedEntries 先例）——
+//   跟手丝滑、静止位置与进栏前一致，分段行常驻标题栏。
 // 三类互动快捷筛选（内容区顶部，切换通知列表的过滤视图）
 interface MessageShortcut {
   key: string;
@@ -66,6 +93,8 @@ export struct MessagePage {
   @State refreshing: boolean = false;
   // 与 Index 共享的红点计数（@StorageLink 双向，写回即同步红点）
   @StorageLink('unreadMessageCount') unreadCount: number = 0;
+  // 按类型未读分布（服务端 unread-count 的 byType）：三类快捷筛选红点的数据源
+  @State unreadByType: UnreadByType = { comment: 0, up: 0, bookmark: 0, follow: 0, mention: 0, system: 0 };
   // 监听登录态：LoginPage 自动登录后 authToken 就绪，此页才加载（aboutToAppear 可能在登录前已跑过）
   @StorageLink('authToken') @Watch('onTokenReady') token: string = '';
   // 三类快捷筛选选中项（内容区顶部，无「全部」视图，默认赞和收藏）
@@ -83,6 +112,15 @@ export struct MessagePage {
   // 标题栏「全部已读」按钮 → 本页执行（递增序号触发 @Watch）
   @Link @Watch('onMarkAllRequested') markAllSeq: number;
   @State conversations: Conversation[] = [];
+  // —— 宽屏双栏（md/lg 断点）：会话列表 + 内嵌会话 ——
+  // 断点来自全局断点中心；activeTab 用于切走消息页时卸载右栏（停掉聊天轮询，省接口配额）。
+  @StorageProp('isWidePane') isWidePane: boolean = false;
+  @StorageProp('currentBreakpoint') currentBreakpoint: string = 'sm';
+  @StorageProp('activeTab') activeTab: number = 0;
+  // 右栏当前会话（0 = 未选，显示空态）；点会话只更新这里，不压栈
+  @State splitPeerId: number = 0;
+  @State splitPeerName: string = '';
+  @State splitPeerAvatar: string = '';
   @State dmLoading: boolean = true;
   @State dmError: string = '';
   // 私信未读（与通知红点分开存储，Index 合并显示）
@@ -99,6 +137,39 @@ export struct MessagePage {
   @StorageLink('authUserId') @Watch('onUserChange') uid: string = '';
   @StorageLink('reduceMotion') reduceMotion: boolean = false;
   @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
+  // —— 顶栏（嵌套 HdsNavigation，路线 B，同首页结构）——
+  // 通知/私信两个列表各一个 Scroller：交给 bindToScrollable 驱动标题栏渐变模糊
+  private notifScroller: Scroller = new Scroller();
+  private dmScroller: Scroller = new Scroller();
+  // 模糊完成态：滚动过模糊终点后顶栏切白（同首页定稿行为）
+  @State brandOnBlur: boolean = false;
+
+  // 滚动驱动顶栏切白：读当前列表 Scroller 的绝对偏移，过模糊终点翻转（一次 animateTo）。
+  // currentOffset() 加空值防御：类型声明非可选但滚动容器未创建/绑定时运行时返回 undefined
+  //（Swiper 懒建页竞态，release 真机已复现崩溃，见 HomeTab.updateBrandCompact 同款修复）
+  private updateBarOnBlur(seg: number): void {
+    const scroller: Scroller = seg === 1 ? this.dmScroller : this.notifScroller;
+    const offset: number = scroller?.currentOffset()?.yOffset ?? 0;
+    const onBlur: boolean = offset > MESSAGE_BLUR_END_VP;
+    if (onBlur === this.brandOnBlur) {
+      return;
+    }
+    this.getUIContext().animateTo({ duration: MotionTokens.base, curve: MotionCurves.decelerate }, () => {
+      this.brandOnBlur = onBlur;
+    });
+  }
+
+  // bindToScrollable 动态只绑当前可见分段的 Scroller：切分段时数组变化触发重绑，
+  // HDS 按新 Scroller 的当前偏移重估模糊——修「通知页滚出模糊后切私信，模糊咬死不消失」
+  // （两页同时绑定时 HDS 不感知可见页切换，模糊停留在最后滚动过的列表状态）。
+  private activeScrollers(): Scroller[] {
+    return [this.dmTabIndex === 1 ? this.dmScroller : this.notifScroller];
+  }
+
+  // 「全部已读」可见性：仅通知分段且已登录（原 Index.messageMarkAllVisible 逻辑迁入）
+  private markAllVisible(): boolean {
+    return this.dmTabIndex === 0 && this.token !== '';
+  }
   private tabPulseTimer: number = 0;
 
   // 归口「系统通知」入口的 system 消息：审核结果（已通过/未通过审核）、举报回执
@@ -247,16 +318,8 @@ export struct MessagePage {
     this.reportCenterPending = -1;
   }
 
-  // 按通知类型统计未读数（仅统计已加载列表中的未读项），用于各分区红点
-  private unreadCountOf(types: NotificationType[]): number {
-    let n: number = 0;
-    for (const it of this.list) {
-      if (!it.read && types.indexOf(it.type as NotificationType) >= 0) {
-        n++;
-      }
-    }
-    return n;
-  }
+  // 按通知类型统计未读数：已改由服务端 unread-count 的 byType 提供（见 unreadByType），
+  // 从「已加载的一页列表」里数的近似口径已废弃——未读项不在第一页时永远算出 0。
 
   // 相对时间格式化
   private formatTime(iso?: string): string {
@@ -354,6 +417,11 @@ export struct MessagePage {
     try {
       const res = await getUnreadCount();
       this.unreadCount = res.count;
+      // 按类型未读分布（服务端权威计数）：三类快捷筛选红点的数据源。
+      // 此前从「已加载的一页列表」里数——未读项不在第一页时红点永远为 0。
+      if (res.byType !== undefined) {
+        this.unreadByType = res.byType;
+      }
     } catch (e) {
       // 红点失败不阻断主列表
     }
@@ -382,11 +450,20 @@ export struct MessagePage {
     }
   }
 
-  // 点击会话 → 进入聊天页，peer 信息经短暂导航意图传递。
+  // 点击会话：窄屏压栈进聊天页（peer 信息经短暂导航意图传递）；
+  // 宽屏（md/lg）双栏形态只更新右栏选中会话 —— 列表-会话切换不压栈、不打断上下文。
   onConversationClick(c: Conversation): void {
     // 会话数据在 api 层是 as 直转（无字段级校验），缺 peer 时读 c.peer.id 会在 onClick
     // 回调里抛未捕获异常。同文件对 item.actor 已有同类防御，这里补齐。
     if (!c.peer) {
+      return;
+    }
+    if (this.isWidePane) {
+      if (this.splitPeerId !== c.peer.id) {
+        this.splitPeerId = c.peer.id;
+        this.splitPeerName = c.peer.nickname;
+        this.splitPeerAvatar = c.peer.avatar ?? '';
+      }
       return;
     }
     openChat({ peerId: c.peer.id, peerName: c.peer.nickname, peerAvatar: c.peer.avatar ?? '' });
@@ -467,9 +544,11 @@ export struct MessagePage {
   // 本地乐观标记已读：就地替换该条 + 递减未读计数，立即驱动红点/角标消失（不必等网络）
   private markReadOptimistic(id: number): void {
     const next: NotificationItem[] = this.list.slice();
+    let foundType: string = '';
     for (let i = 0; i < next.length; i++) {
       if (next[i].id === id) {
         const cur: NotificationItem = next[i];
+        foundType = cur.type ?? '';
         next[i] = {
           id: cur.id,
           type: cur.type,
@@ -488,6 +567,27 @@ export struct MessagePage {
     if (this.unreadCount > 0) {
       this.unreadCount = this.unreadCount - 1;
     }
+    // per-type 红点同步乐观减（随后 refreshUnread 以服务端权威值校正）
+    const byType: UnreadByType = {
+      comment: this.unreadByType.comment,
+      up: this.unreadByType.up,
+      bookmark: this.unreadByType.bookmark,
+      follow: this.unreadByType.follow,
+      mention: this.unreadByType.mention,
+      system: this.unreadByType.system,
+    };
+    if (foundType === 'up') {
+      byType.up = Math.max(0, byType.up - 1);
+    } else if (foundType === 'bookmark') {
+      byType.bookmark = Math.max(0, byType.bookmark - 1);
+    } else if (foundType === 'follow') {
+      byType.follow = Math.max(0, byType.follow - 1);
+    } else if (foundType === 'comment') {
+      byType.comment = Math.max(0, byType.comment - 1);
+    } else if (foundType === 'mention') {
+      byType.mention = Math.max(0, byType.mention - 1);
+    }
+    this.unreadByType = byType;
   }
 
   // 点击单条：本地乐观标记已读（立即驱动红点消失）→ 后台同步后端 → 按类型跳转
@@ -743,6 +843,9 @@ export struct MessagePage {
       return;
     }
     this.dmTab = tab;
+    // 切分段重算顶栏切白：目标页 Scroller 偏移（私信回顶 = 0 → 取消切白；切回通知 = 原偏移 → 按需恢复）。
+    // onDidScroll 只在滚动时触发，切分段没有滚动事件，不补这一拍切白会咬死上一页的状态。
+    this.updateBarOnBlur(this.dmTabIndex);
     this.playTabFeedback();
     if (tab === 'dm') {
       this.loadConversations();
@@ -763,7 +866,11 @@ export struct MessagePage {
         touchTargetHeight: LayoutTokens.minTouchTarget,
         fillWidth: true,
         action: (): void => {
-          // 无「全部」视图：点击当前项保持选中（不再回落为未选中态）
+          // 无「全部」视图：点击当前项保持选中（不再回落为未选中态）；
+          // 私信分段点击筛选：先切回通知分段（@Watch 承接切换），再落筛选态
+          if (this.dmTabIndex !== 0) {
+            this.dmTabIndex = 0;
+          }
           this.activeFilter = shortcut.key;
         },
       }) {
@@ -771,12 +878,15 @@ export struct MessagePage {
           Badge({
             count: unread,
             position: BadgePosition.RightTop,
-            style: { badgeColor: ColorTokens.danger },
+            // 与顶栏分段徽标/底栏页签红点同一视觉语言（semantic_red、14）
+            style: { badgeColor: $r('app.color.semantic_red'), badgeSize: 14 },
           }) {
             Image(resolveActionIcon(shortcut.icon))
               .width(34)
               .height(34)
               .objectFit(ImageFit.Contain)
+              // 静态配色（icon/brand）：本行在内容区画布上，滚动带模糊阈值的状态色切换
+              // 会在半露出时闪白（切白是标题栏模糊背板专用语义），不用
               .fillColor(this.activeFilter === shortcut.key ? ColorTokens.brand : ColorTokens.icon)
           }
           Text(shortcut.label)
@@ -824,9 +934,79 @@ export struct MessagePage {
     .justifyContent(FlexAlign.Center)
   }
 
-  // 私信会话列表内容
+  // 私信分段内容：窄屏单栏会话列表；宽屏（md/lg）列表-会话双栏
   @Builder
   dmContent() {
+    if (this.isWidePane) {
+      this.dmSplit()
+    } else {
+      this.dmList()
+    }
+  }
+
+  // 宽屏双栏：左列会话列表（定宽）+ 右列内嵌会话（未选=空态）。
+  // 右栏仅在消息页处于激活 Tab 时挂载：切走消息页即卸载，停掉聊天轮询（省接口配额）；
+  // 回页时随选中会话重挂载并静默重拉（ChatView 挂载即 load + 标读）。
+  @Builder
+  dmSplit() {
+    Row() {
+      Column() {
+        this.dmList()
+      }
+      .width(this.currentBreakpoint === 'lg' ? 340 : 300)
+      .height('100%')
+
+      Divider()
+        .vertical(true)
+        .strokeWidth(0.5)
+        .color(ColorTokens.separator)
+        .height('100%')
+
+      Column() {
+        if (this.splitPeerId > 0 && this.activeTab === 3) {
+          ChatView({
+            embedded: true,
+            embedPeer: { id: this.splitPeerId, name: this.splitPeerName, avatar: this.splitPeerAvatar },
+            navMode: true,
+            onOpenVideo: (url: string, poster: string): void => { this.openChatVideo(url, poster); },
+          })
+        } else {
+          // 未选会话 / 已切走消息页（右栏停挂载，轮询随之停止）
+          Column() {
+            EmptyState({
+              icon: resolveActionIcon('send'),
+              title: this.splitPeerId > 0 ? '会话已暂停' : '选择一条会话',
+              message: this.splitPeerId > 0 ? '回到消息页继续' : '会话会在这里展开，列表与聊天同屏',
+            })
+          }
+          .width('100%')
+          .height('100%')
+          .justifyContent(FlexAlign.Center)
+        }
+      }
+      .layoutWeight(1)
+      .height('100%')
+    }
+    .width('100%')
+    .height('100%')
+    .alignItems(VerticalAlign.Top)
+  }
+
+  // 内嵌会话点击视频 → 独立播放器页（与 ChatDestination 同通道）
+  private openChatVideo(url: string, poster: string): void {
+    const nav: NavPathStack | null = getMainNavStack();
+    if (nav === null) {
+      return;
+    }
+    const p: VideoPlayerNavParams = new VideoPlayerNavParams();
+    p.url = url;
+    p.poster = poster;
+    nav.pushPathByName('VideoPlayer', p);
+  }
+
+  // 私信会话列表内容（窄屏单栏本体 / 宽屏左列）
+  @Builder
+  dmList() {
     if (this.dmLoading && this.conversations.length === 0) {
       Column() {
         LoadingProgress().width(IconTokens.empty).height(IconTokens.empty)
@@ -869,8 +1049,9 @@ export struct MessagePage {
     } else {
       Refresh({ refreshing: $$this.refreshing, offset: 80, friction: 48 }) {
         // 私信会话列表：Scroll 单列（懒加载 List 实测把滚动终点钳制在底部非安全区之上、
-        // 露出窗口底色横带截断末行，Scroll 滚动范围天然到物理屏底）
-        Scroll() {
+        // 露出窗口底色横带截断末行，Scroll 滚动范围天然到物理屏底）。
+        // scroller 显式挂载：bindToScrollable 驱动标题栏渐变模糊；Refresh/Scroll 均需关裁切（穿底链路）
+        Scroll(this.dmScroller) {
           Column({ space: SpaceTokens.none }) {
             ForEach(
               this.conversations,
@@ -884,7 +1065,7 @@ export struct MessagePage {
               // MessageRow.unreadCount 不刷新 → 会话红点残留不消失。
               (c: Conversation) => String(c.peer.id) + '-' + String(c.unreadCount),
             )
-            // 底部预留：为悬浮底栏与系统手势区让出滚动空间
+            // 底部预留：为悬浮底栏与系统手势区让出滚动空间（宽屏停靠栏同样悬浮在列首侧，同样需要）
             Column() {
               Blank().width('100%').height(barBottomReserve())
             }
@@ -898,7 +1079,13 @@ export struct MessagePage {
             bottom: SpaceTokens.sm,
           })
         }
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .scrollable(ScrollDirection.Vertical)
+        // 不裁剪 + 滚动驱动顶栏切白（私信列表）
+        .clip(false)
+        .onDidScroll((): void => {
+          this.updateBarOnBlur(1);
+        })
         .width('100%')
         .layoutWeight(1)
       }
@@ -907,6 +1094,7 @@ export struct MessagePage {
           this.refreshing = false;
         });
       })
+      .clip(false)
       .layoutWeight(1)
       .width('100%')
     }
@@ -943,7 +1131,148 @@ export struct MessagePage {
     return base;
   }
 
+  // —— 顶栏标题栏配置（嵌套 HdsNavigation，路线 B：同首页定稿结构）——
+  // MINI + stackBuilder 顶栏行（消息 + 全部已读）+ bottomBuilder 分段行（通知|私信 + 徽标）
+  // + GRADIENT_BLUR 0→32vp + 透明起步 + avoid/enableComponentSafeArea 双开。逐层显式标注 SDK 类型。
+  private messageHdsTitleBarOptions(): HdsNavigationTitleBarOptions {
+    const scrollEffect: ScrollEffectOptions = {
+      enableScrollEffect: true,
+      scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
+      blurEffectiveStartOffset: LengthMetrics.vp(0),
+      blurEffectiveEndOffset: LengthMetrics.vp(MESSAGE_BLUR_END_VP),
+    };
+    const style: TitleBarStyleOptions = {
+      scrollEffectOpts: scrollEffect,
+      originalStyle: {
+        backgroundStyle: { backgroundColor: Color.Transparent },
+      },
+    };
+    const content: TitleBarContentOptions = {
+      stackBuilder: (): void => { this.messageBrandRow(); },
+      bottomBuilder: {
+        builder: (): void => { this.messageTabRow(); },
+        height: MESSAGE_TAB_ROW_HEIGHT,
+      } as BottomBuilderParams,
+    };
+    const options: HdsNavigationTitleBarOptions = {
+      content: content,
+      style: style,
+      avoidLayoutSafeArea: true,
+      enableComponentSafeArea: true,
+    };
+    return options;
+  }
+
+  // stackBuilder 顶栏行：「消息」标题 + 「全部已读」（仅通知分段且已登录；原 Index.messageTitleBar 迁入）。
+  // 点击递增 markAllSeq 信号，由本组件 @Watch 承接实际标记动作。
+  // 「消息」模糊到位后切白（brandOnBlur 同首页品牌行）；「全部已读」同样切白（用户裁定，
+  // 品牌色在深色模糊背板上仍嫌沉）
+  @Builder
+  messageBrandRow() {
+    Row() {
+      Text('消息')
+        .fontSize(TypeTokens.titleSerif.size).fontFamily(TypeTokens.fontFamilySerif)
+        .fontWeight(TypeTokens.titleSerif.weight)
+        .lineHeight(TypeTokens.titleSerif.lineHeight)
+        .layoutWeight(1)
+        .fontColor(this.brandOnBlur ? Color.White : ColorTokens.primary)
+      if (this.markAllVisible()) {
+        Pressable({
+          visualHeight: LayoutTokens.minTouchTarget,
+          touchTargetHeight: LayoutTokens.minTouchTarget,
+          action: (): void => {
+            // 递增信号 → 本组件 @Watch：标记全部已读仍由本页执行
+            this.markAllSeq += 1;
+          },
+        }) {
+          Text('全部已读')
+            .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.headline.weight)
+            .lineHeight(TypeTokens.callout.lineHeight)
+            .letterSpacing(TypeTokens.callout.tracking)
+            .fontColor(this.brandOnBlur ? Color.White : ColorTokens.brand)
+            .height(LayoutTokens.minTouchTarget)
+            .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+            .textAlign(TextAlign.Center)
+            .accessibilityText('全部已读')
+        }
+      }
+    }
+    .width('100%')
+    // ⚠️ 高度撑满 MINI 标题区（系统定值，同首页品牌块 56 顶格）：标题区高度不可压缩，
+    // 行高不足时区域余量会成为标题与分段栏之间的空隙（真机实证「看似未上移」的根因）。
+    // 撑满后空隙归零，分段栏视觉上紧贴标题块。
+    .height('100%')
+    .padding({
+      left: SpaceTokens.sm,
+      right: SpaceTokens.sm,
+      top: SpaceTokens.xs,
+      bottom: SpaceTokens.xs,
+    })
+  }
+
+  // bottomBuilder 分段行：通知 | 私信（徽标 = 各自未读数；模糊到位后随顶栏一起切白）
+  @Builder
+  messageTabRow() {
+    Row() {
+      SegmentedControl({
+        items: MESSAGE_SEGMENTS,
+        selectedIndex: $dmTabIndex,
+        slidePosition: this.slidePosition,
+        itemWidth: 88,
+        badges: [this.unreadCount, this.dmUnread],
+        immersive: !isSystemMaterialActive(),
+        outlined: isSystemMaterialActive(),
+        glowEnabled: false,
+        useSystemMaterial: true,
+        lightContent: this.brandOnBlur,
+        onSelect: (idx: number): void => {
+          // 点击立即落整数位（弹性动画由 SharedSlide 整数分支承担）；
+          // 分段切换动作由本组件 @Watch(dmTabIndex) 承接
+          this.slidePosition = idx;
+          this.dmTabIndex = idx;
+        },
+      })
+      // 分段控件保持固定尺寸；切换反馈只改变透明度，避免高度跳变
+      .opacity(this.tabPulse ? 0.96 : 1)
+      .animation({
+        duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.control,
+        curve: MotionCurves.springSoft,
+      })
+    }
+    .width('100%')
+    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, bottom: SpaceTokens.xs })
+  }
+
+  // 快捷筛选行（内容区顶部）：赞和收藏/新增关注/评论。
+  // 随通知列表一起滚动（同 pinnedEntries 先例）：上滑跟手滚走、在渐变模糊下自然淡出，
+  // 回滚到顶复位——「收起」由滚动本身完成，无触发式动画的割裂感。
+  // 横向留白由所在滚动容器的 Column padding 提供（列表态/空态均已带 left/right sm）。
+  // 红点计数用服务端 unread-count 的 byType（权威值，未读不在已加载页内也能点亮）；
+  // 赞和收藏 = up + bookmark，评论 = comment + mention（@提及并入评论，与过滤视图同口径）。
+  @Builder
+  messageShortcutsRow() {
+    Row({ space: SpaceTokens.none }) {
+      ForEach(MESSAGE_SHORTCUTS, (s: MessageShortcut) => {
+        this.notificationShortcut(
+          s,
+          s.key === 'up_bookmark' ? this.unreadByType.up + this.unreadByType.bookmark
+            : s.key === 'follow' ? this.unreadByType.follow
+              : this.unreadByType.comment + this.unreadByType.mention,
+        )
+      }, (s: MessageShortcut) => s.key)
+    }
+    .width('100%')
+    .padding({
+      top: SpaceTokens.inlineTight,
+      bottom: SpaceTokens.item,
+    })
+  }
+
   build() {
+    // 顶栏（消息 + 全部已读 + 分段栏）迁入嵌套 HdsNavigation（路线 B，同首页定稿结构）：
+    // MINI + stackBuilder + bottomBuilder + GRADIENT_BLUR；内容区 = 游客态 / 通知|私信分页。
+    HdsNavigation() {
     Column() {
       // 顶栏（消息 + 全部已读）、分段栏（通知/私信）、三类快捷筛选已整体迁入
       // Navigation 标题栏（uiMaterial 沉浸光感的官方生效区域）；这里只剩内容区。
@@ -957,26 +1286,8 @@ export struct MessagePage {
         Swiper() {
           // 页 1：通知。内容整体包一层定高 Column：
           // 内部各态用的是 layoutWeight(1) 撑满，在 Swiper 分页里必须先有确定高度的父容器。
+          // （快捷筛选行在列表态/空态的滚动内容首行，随列表滚走；加载/错误为瞬态不渲染该行。）
           Column() {
-            // 三类快捷筛选（赞和收藏/新增关注/评论）：内容区顶部，切换过滤视图
-            Row({ space: SpaceTokens.none }) {
-              ForEach(MESSAGE_SHORTCUTS, (s: MessageShortcut) => {
-                this.notificationShortcut(
-                  s,
-                  s.key === 'up_bookmark' ? this.unreadCountOf(['up', 'bookmark'])
-                    : s.key === 'follow' ? this.unreadCountOf(['follow'])
-                      : this.unreadCountOf(['comment', 'mention']),
-                )
-              }, (s: MessageShortcut) => s.key)
-            }
-            .width('100%')
-            .padding({
-              left: SpaceTokens.sm,
-              right: SpaceTokens.sm,
-              top: SpaceTokens.inlineTight,
-              bottom: SpaceTokens.item,
-            })
-
             if (this.loading && this.list.length === 0) {
               Column() {
                 LoadingProgress().width(IconTokens.empty).height(IconTokens.empty)
@@ -1009,6 +1320,7 @@ export struct MessagePage {
               // 举报中心入口的消息）→ 空态，但常驻入口仍要可点
               Scroll() {
                 Column({ space: SpaceTokens.none }) {
+                  this.messageShortcutsRow()
                   this.pinnedEntries()
                   Column() {
                     EmptyState({
@@ -1028,15 +1340,20 @@ export struct MessagePage {
                   bottom: SpaceTokens.sm,
                 })
               }
+              .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
               .scrollable(ScrollDirection.Vertical)
+              .clip(false)
               .width('100%')
               .layoutWeight(1)
             } else {
               Refresh({ refreshing: $$this.refreshing, offset: 80, friction: 48 }) {
               // 通知列表：Scroll 单列（懒加载 List 会把滚动终点钳制在底部非安全区之上，
-              // 露出窗口底色横带截断末行；Scroll 滚动范围天然到物理屏底）
-              Scroll() {
+              // 露出窗口底色横带截断末行；Scroll 滚动范围天然到物理屏底）。
+              // scroller 显式挂载：bindToScrollable 驱动标题栏渐变模糊；Refresh/Scroll 均需关裁切
+              Scroll(this.notifScroller) {
               Column({ space: SpaceTokens.none }) {
+              // 快捷筛选行：随列表滚动的首个内容（上滑跟手收起，见 messageShortcutsRow 注释）
+              this.messageShortcutsRow()
               // 置顶入口（举报中心/系统通知）：位于列表最前，随列表一起滚动（不固定）
               this.pinnedEntries()
               ForEach(
@@ -1064,7 +1381,13 @@ export struct MessagePage {
                   bottom: SpaceTokens.sm,
                 })
               }
+              .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
               .scrollable(ScrollDirection.Vertical)
+              // 不裁剪 + 滚动驱动顶栏切白（通知列表）
+              .clip(false)
+              .onDidScroll((): void => {
+                this.updateBarOnBlur(0);
+              })
               .onScrollEdge((edge: Edge) => {
                 if (edge === Edge.Bottom) {
                   this.loadMore();
@@ -1078,6 +1401,7 @@ export struct MessagePage {
                   this.refreshing = false;
                 });
               })
+              .clip(false)
               .layoutWeight(1)
               .width('100%')
             }
@@ -1138,8 +1462,20 @@ export struct MessagePage {
         })
         .layoutWeight(1)          // 标题栏之外的剩余高度全部给分页区
         .width('100%')
+        // 不裁剪：列表内容穿出 Swiper 顶边画到 HDS 标题栏下方（模糊采样素材）
+        .clip(false)
       }
     }
+    .width('100%')
+    .height('100%')
+    .backgroundColor(ColorTokens.canvas)
+    }
+    .titleBar(this.messageHdsTitleBarOptions())
+    .titleMode(HdsNavigationTitleMode.MINI)
+    .hideBackButton(true)
+    // 动态绑定当前分段的 Scroller（切分段重估模糊，见 activeScrollers 注释）
+    .bindToScrollable(this.activeScrollers())
+    .clip(false)
     .width('100%')
     .height('100%')
     .backgroundColor(ColorTokens.canvas)

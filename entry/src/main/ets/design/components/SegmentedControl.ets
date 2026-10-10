@@ -47,9 +47,16 @@ export struct SegmentedControl {
   // 由系统材质接管背景/边框/阴影（低版本设备门禁不通过，保留上面的风格分发）。
   // 注：属性名不能叫 systemMaterial —— 与 ArkUI 内置通用属性同名会与 CustomComponent 基类冲突。
   @Prop useSystemMaterial: boolean = false;
+  // 浅色内容态（模糊背板变深时切白）：标签/滑块/描边随宿主滚动状态联动（首页顶栏模糊切白用）。
+  // 默认 false = 原有 token 配色，其它调用方零影响。
+  @Prop lightContent: boolean = false;
   // Swiper 联动跟手位置：滚动（拖动/吸附）中由页面喂入的连续（浮点）索引，1:1 跟手；
   // -1 表示未在滚动（回退 activeIndex()，点击切换仍走弹性动画）
   @Prop slidePosition: number = -1;
+  // 未读徽标（与 items 按下标对齐，0 = 无徽标）：消息页 通知|私信 分段用——各分段未读数
+  // >0 时在标签右上角挂系统 Badge（count 样式，与底部页签红点同一视觉语言）。
+  // 缺省空数组 = 不渲染徽标，其余调用方零影响。
+  @Prop badges: Array<number> = [];
   onSelect?: (index: number) => void = undefined;
   @State scrubbing: boolean = false;
   @State hoverIndex: number = -1;
@@ -199,6 +206,32 @@ export struct SegmentedControl {
   // - outline：与右侧搜索按钮同款描边（透明底 + 细边框 + 大圆角 + 无阴影）
   // - immersive：华为应用商店同款沉浸光感（玻璃底 + backdropBlur + 高光边框 + 滑块悬浮投影）
   // - 默认：纯色 sunken 底
+  private hasBadge(index: number): boolean {
+    return index < this.badges.length && this.badges[index] > 0;
+  }
+
+  // 分段标签文本（徽标与无徽标两个分支共用，避免属性链复制漂移）
+  @Builder
+  segmentLabel(item: SegmentedItem, index: number): void {
+    Text(item.label)
+      .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+      .fontWeight(this.activeIndex() === index ? TypeTokens.headline.weight : TypeTokens.callout.weight)
+      .lineHeight(TypeTokens.callout.lineHeight)
+      .letterSpacing(TypeTokens.callout.tracking)
+      .fontColor(this.activeIndex() === index
+        ? (this.lightContent ? Color.White : ColorTokens.primary)
+        : (this.lightContent ? '#99FFFFFF' : ColorTokens.secondary))
+      .width(this.fillWidth ? '100%' : this.itemWidth)
+      .height(LayoutTokens.segmentedHeight - SpaceTokens.xs)
+      .textAlign(TextAlign.Center)
+      .backgroundColor(Color.Transparent)
+      .borderRadius(RadiusTokens.sm)
+      .animation({
+        duration: MotionTokens.fast,
+        curve: MotionCurves.standard,
+      })
+  }
+
   @Builder
   controlBody(): void {
     Stack({ alignContent: Alignment.Center }) {
@@ -211,7 +244,8 @@ export struct SegmentedControl {
         // 滑块内缩量与容器 padding 一致，滑块高度/圆角按同心原则收进容器（不超出分段栏）
         inset: SpaceTokens.xs / 2,
         radius: RadiusTokens.lg - SpaceTokens.xs / 2,
-        fill: this.immersive || this.outlined || this.glass ? ColorTokens.barSelectionSurface : ColorTokens.elevated,
+        fill: this.lightContent ? '#33FFFFFF'
+          : (this.immersive || this.outlined || this.glass ? ColorTokens.barSelectionSurface : ColorTokens.elevated),
         slideShadow: this.immersive ? IMMERSIVE_SLIDE_SHADOW : this.slideShadow,
         // 华为应用商店同款：按下滑块缩小，松手 spring 回弹
         pressed: this.barPressed,
@@ -227,21 +261,18 @@ export struct SegmentedControl {
                 touchTargetHeight: LayoutTokens.minTouchTarget,
                 action: () => { this.onItemClick(index); },
               }) {
-                Text(item.label)
-                  .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-                  .fontWeight(this.activeIndex() === index ? TypeTokens.headline.weight : TypeTokens.callout.weight)
-                  .lineHeight(TypeTokens.callout.lineHeight)
-                  .letterSpacing(TypeTokens.callout.tracking)
-                  .fontColor(this.activeIndex() === index ? ColorTokens.primary : ColorTokens.secondary)
-                  .width(this.fillWidth ? '100%' : this.itemWidth)
-                  .height(LayoutTokens.segmentedHeight - SpaceTokens.xs)
-                  .textAlign(TextAlign.Center)
-                  .backgroundColor(Color.Transparent)
-                  .borderRadius(RadiusTokens.sm)
-                  .animation({
-                    duration: MotionTokens.fast,
-                    curve: MotionCurves.standard,
-                  })
+                if (this.hasBadge(index)) {
+                  // 右上角未读徽标：与底部页签红点同款系统 Badge（>99 自动显示 99+）
+                  Badge({
+                    count: this.badges[index],
+                    position: BadgePosition.RightTop,
+                    style: { badgeColor: $r('app.color.semantic_red'), badgeSize: 14 },
+                  }) {
+                    this.segmentLabel(item, index)
+                  }
+                } else {
+                  this.segmentLabel(item, index)
+                }
               }
             }
             .layoutWeight(this.fillWidth ? 1 : 0)
@@ -279,7 +310,8 @@ export struct SegmentedControl {
       width: (this.useSystemMaterial && isSystemMaterialActive())
         ? 0
         : (this.immersive ? 1 : (this.outlined || this.glass ? LayoutTokens.glassBorderWidth : 0)),
-      color: this.immersive ? GlassTokens.SEGMENT_BORDER : (this.outlined || this.glass ? ColorTokens.barBorder : Color.Transparent),
+      color: this.lightContent ? '#66FFFFFF'
+        : (this.immersive ? GlassTokens.SEGMENT_BORDER : (this.outlined || this.glass ? ColorTokens.barBorder : Color.Transparent)),
       style: BorderStyle.Solid,
     })
     .shadow({
@@ -287,7 +319,9 @@ export struct SegmentedControl {
       color: this.immersive ? Color.Transparent : (this.glass ? ColorTokens.barShadow : Color.Transparent),
       offsetY: this.immersive ? 0 : (this.glass ? 8 : 0),
     })
-    .clip(true)
+    // 不裁切：RightTop 徽标悬出标签上缘约 3px，clip(true) 会把红点削掉一块（真机消息页复现）；
+    // 滑块是自带圆角的独立子组件，背景圆角不需要靠裁切保障，气泡/光斑各自有界
+    .clip(false)
     // 按压反馈（底部栏同款灵动感）：弹性回弹曲线（spring 过冲）+ 更明显的整栏下沉
     .scale({
       x: this.barPressed ? 0.99 : 1,

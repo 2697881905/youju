@@ -213,6 +213,7 @@ export struct ShareToDmSheet {
             (c: FollowUser) => String(c.id ?? 0),
           )
         }
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .width('100%')
         .layoutWeight(1)
         .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })

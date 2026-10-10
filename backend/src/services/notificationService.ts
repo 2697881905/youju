@@ -210,6 +210,23 @@ export async function unreadCount(userId: number): Promise<number> {
   return prisma.notification.count({ where: { ...where, read: false } });
 }
 
+// 未读按类型分布（与 unreadCount 同源可见性过滤，六类恒有键、缺省 0）。
+// 消息页三类快捷筛选红点的数据源——此前客户端从「已加载的一页列表」里数未读项，
+// 未读不在第一页时红点永远为 0（形同虚设），必须由服务端按类型给权威计数。
+export async function unreadCountByType(userId: number): Promise<Record<string, number>> {
+  const where = await visibleWhere(userId);
+  const grouped = await prisma.notification.groupBy({
+    by: ['type'],
+    where: { ...where, read: false },
+    _count: { _all: true },
+  });
+  const out: Record<string, number> = { comment: 0, up: 0, bookmark: 0, follow: 0, mention: 0, system: 0 };
+  for (const g of grouped) {
+    out[g.type] = g._count._all;
+  }
+  return out;
+}
+
 // 标记单条已读（校验归属，否则抛错由路由转 403）
 export async function markRead(id: number, userId: number): Promise<void> {
   const n = await prisma.notification.findUnique({ where: { id } });

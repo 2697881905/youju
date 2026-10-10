@@ -90,6 +90,7 @@ export struct UserAgreementPage {
         .width('100%')
         .padding({ top: 8 });
       }
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .layoutWeight(1)
       .width('100%');
     }

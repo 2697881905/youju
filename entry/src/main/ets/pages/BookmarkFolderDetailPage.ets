@@ -299,6 +299,7 @@ export struct BookmarkFolderDetailPage {
           .constraintSize({ minHeight: '100%' })
           .padding({ left: 6, right: 6, top: 4, bottom: 8 })
         }
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .layoutWeight(1)
         .width('100%')
         .scrollable(ScrollDirection.Vertical)

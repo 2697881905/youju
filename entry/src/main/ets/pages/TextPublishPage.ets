@@ -495,6 +495,7 @@ struct TextPublishPage {
         .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs })
         .alignItems(VerticalAlign.Top)
       }
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .scrollable(ScrollDirection.Horizontal)
       .scrollBar(BarState.Off)
       .width('100%')
@@ -525,7 +526,7 @@ struct TextPublishPage {
           .lineHeight(TypeTokens.title.lineHeight)
           .letterSpacing(TypeTokens.title.tracking)
           .fontColor(ColorTokens.primary)
-          .placeholderColor(ColorTokens.quaternary)
+          .placeholderColor(ColorTokens.tertiary)
           .backgroundColor(Color.Transparent)
           .onChange((value: string) => { this.title = value; this.scheduleThumbnails(); })
         Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
@@ -546,7 +547,7 @@ struct TextPublishPage {
           .lineHeight(TypeTokens.body.lineHeight)
           .letterSpacing(TypeTokens.body.tracking)
           .fontColor(ColorTokens.primary)
-          .placeholderColor(ColorTokens.quaternary)
+          .placeholderColor(ColorTokens.tertiary)
           .backgroundColor(Color.Transparent)
           .maxLength(MAX_LONG_FORM_CONTENT_LENGTH)
           .onChange((value: string) => {
@@ -628,6 +629,7 @@ struct TextPublishPage {
         .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, bottom: SpaceTokens.x3l })
         .alignItems(HorizontalAlign.Start)
       }
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .width('100%')
       .height('100%')
       .scrollBar(BarState.Off)

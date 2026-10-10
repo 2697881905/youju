@@ -350,6 +350,8 @@ struct ResolveReasonDialog {
         .maxLength(200)
         .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
         .fontColor(ColorTokens.primary)
+        // 占位文字对比度 ≥4.5:1（AGC 色彩审核项）：系统默认灰不达标，统一走 tertiary
+        .placeholderColor(ColorTokens.tertiary)
         .backgroundColor(ColorTokens.sunken)
         .borderRadius(RadiusTokens.md)
         .onChange((v: string) => {
@@ -1564,6 +1566,7 @@ export struct ReportAdminPage {
             .justifyContent(this.stateCentered() ? FlexAlign.Center : FlexAlign.Start)
             .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, bottom: SpaceTokens.x2l })
           }
+          .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
           .layoutWeight(1)
           .width('100%')
           .scrollBar(BarState.Off)
@@ -1585,6 +1588,7 @@ export struct ReportAdminPage {
       .backgroundColor(ColorTokens.canvas)
       .alignItems(HorizontalAlign.Start)
     }
+    .mode(NavigationMode.Stack)
     .hideTitleBar(false)
     .title({
       builder: this.pageTitleBar,

@@ -209,6 +209,18 @@ export interface NotificationItem {
 // 未读总数响应（GET /v1/notifications/unread-count）
 export interface UnreadCount {
   count: number;
+  // 按类型未读分布（六类恒有键，缺省 0）：消息页三类快捷筛选红点的数据源。
+  // 旧后端无此字段（可选），缺省时红点退化为不显示。
+  byType?: UnreadByType;
+}
+
+export interface UnreadByType {
+  comment: number;
+  up: number;
+  bookmark: number;
+  follow: number;
+  mention: number;
+  system: number;
 }
 
 // ===== 关注 / 他人主页 =====

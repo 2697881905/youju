@@ -94,6 +94,7 @@ export struct ChipRow {
       }
       .padding({ left: this.sidePadding, right: this.sidePadding })
     }
+    .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
     .width('100%')
     .height(this.chipHeight)
     .scrollable(ScrollDirection.Horizontal)

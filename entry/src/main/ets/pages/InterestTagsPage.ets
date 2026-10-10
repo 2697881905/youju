@@ -252,6 +252,7 @@ export struct InterestTagsPage {
           .padding({ top: SpaceTokens.base })
           .constraintSize({ minHeight: '100%' })
         }
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .layoutWeight(1).width('100%')
       }
     }

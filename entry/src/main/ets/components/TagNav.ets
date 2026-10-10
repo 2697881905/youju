@@ -32,6 +32,9 @@ export struct TagNav {
   // 系统材质（沉浸光感，@since 26.0.0）：挂在标题栏内的 chip 表面，低版本设备自动跳过。
   // 注：属性名不能叫 systemMaterial —— 与 ArkUI 内置通用属性同名会与 CustomComponent 基类冲突。
   @Prop useSystemMaterial: boolean = false;
+  // 浅色内容态（模糊背板变深时切白）：chip 文字/chevron/描边随宿主滚动状态联动（首页顶栏模糊切白用）。
+  // 默认 false = 原有 token 配色；仅影响 chip 按钮形态（chipBarInner），下拉面板不受影响。
+  @Prop lightContent: boolean = false;
   @State menuIconsRaised: boolean = false;
 
   private chipMaterialModifier: TopButtonMaterialModifier = new TopButtonMaterialModifier();
@@ -105,12 +108,12 @@ export struct TagNav {
               Text(this.selectedLabel())
                 .fontSize(TypeTokens.caption.size)
                 .fontFamily(TypeTokens.fontFamily)
-                .fontColor(ColorTokens.primary)
+                .fontColor(this.lightContent ? Color.White : ColorTokens.primary)
             }
             Image(resolveActionIcon('chevronDown'))
               .width(IconTokens.compact)
               .height(IconTokens.compact)
-              .fillColor(ColorTokens.icon)
+              .fillColor(this.lightContent ? Color.White : ColorTokens.icon)
           }
           .width(this.dropdownOnly ? 88 : LayoutTokens.minTouchTarget)
           .height(LayoutTokens.segmentedHeight)
@@ -121,7 +124,11 @@ export struct TagNav {
           // 注：36 高的元素半径上限为半高 18，lg(20) 与 pill(999) 在此高度渲染结果一致（均为全胶囊），
           // 统一取 lg 只为与分段栏共用同一个形状 token，两处圆角不会再走散。
           .backgroundColor(Color.Transparent)
-          .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+          .border({
+            width: LayoutTokens.glassBorderWidth,
+            color: this.lightContent ? '#66FFFFFF' : ColorTokens.barBorder,
+            style: BorderStyle.Solid,
+          })
           .borderRadius(RadiusTokens.lg)
           // 沉浸光感（systemMaterial，@since 26.0.0）：驻留标题栏时由系统材质接管表面；
           // 低版本设备门禁不通过 → 保留上面的细描边样式（见 utils/immersiveMaterial.ets）。
@@ -229,6 +236,7 @@ export struct TagNav {
       .padding(SpaceTokens.sm)
       .width('100%')
     }
+    .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
   }
 
   // 展开态菜单容器：玻璃/非玻璃两种材质分支。

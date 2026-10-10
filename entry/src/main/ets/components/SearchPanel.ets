@@ -393,6 +393,7 @@ export struct SearchPanel {
                     }
                   }, (kw: string, idx: number) => 'hot-' + idx.toString() + '-' + kw)
                 }
+                .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
                 .columnsTemplate('1fr 1fr')
                 .columnsGap(SpaceTokens.sm)
                 .rowsGap(SpaceTokens.sm)
@@ -417,6 +418,7 @@ export struct SearchPanel {
       .height('100%')
       .backgroundColor(ColorTokens.canvas)
     }
+    .mode(NavigationMode.Stack)
     .hideTitleBar(false)
     .title({
       builder: this.searchTitleBar,

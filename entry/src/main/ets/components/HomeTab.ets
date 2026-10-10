@@ -12,10 +12,12 @@ import { PostCard } from './PostCard';
 import { TagNav } from './TagNav';
 import { emitTabSwitch } from '../utils/nav';
 import { openPostDetailViaNav, postDetailCoverOf } from '../utils/longTake/openPostDetailNav';
+import { openSearchPanelViaNav, SEARCH_ENTRY_ID } from '../utils/longTake/openSearchPanelNav';
 import { safeShowToast } from '../utils/toast';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { EmptyState } from '../design/components/EmptyState';
-import { SegmentedItem } from '../design/components/SegmentedControl';
+import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
+import { Pressable } from '../design/motion/Pressable';
 import { DailyPostDeck } from './DailyPostDeck';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
@@ -24,7 +26,18 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { barBottomReserve } from '../utils/cardTokens';
+import { gridColumnsForBreakpoint } from '../utils/responsive';
 import { feedItemTransition } from '../utils/feedMotion';
+import { TopButtonMaterialModifier } from '../utils/immersiveMaterial';
+import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit';
+import type {
+  HdsNavigationTitleBarOptions,
+  TitleBarContentOptions,
+  TitleBarStyleOptions,
+  ScrollEffectOptions,
+  BottomBuilderParams,
+} from '@kit.UIDesignKit';
+import { LengthMetrics } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 
 type SortKey = 'hot' | 'latest' | 'recommend';
@@ -43,6 +56,16 @@ const DAILY_PICK_LIMIT: number = 10;
 
 const SORT_KEYS: SortKey[] = ['hot', 'latest', 'recommend'];
 // 分段栏数据：导出给 Index 的标题栏渲染（key 与 FeedMode 一一对应，FEED_MODE_IDX_MAP 同序）。
+
+// —— 顶栏（路线 B，验证页第七轮定稿结构）——
+// bottomBuilder 分段行高：36 控件 + 上下 4 内边距
+const HOME_TAB_ROW_HEIGHT: number = SpaceTokens.xs * 2 + LayoutTokens.segmentedHeight;
+// 滚动模糊生效区间终点（vp）：0 → 32 线性到位（原 64 偏慢，按用户裁定调小一档；验证页定稿值为 64）
+const HOME_FEED_BLUR_END_VP: number = 32;
+// 标语收合滚动阈值（vp）：信息流滚过该高度后收起「真实经验，有据可循」。dynamicHideTitleBar
+// 粒度为区域级（hideTitleArea 会连品牌行+搜索一起收、hideBottomBuilder 收整个分段行），
+// 做不到只收标语一行 → 走滚动驱动自定义收合（品牌块内部高度动画，栏总高不变）。
+const BRAND_COMPACT_THRESHOLD_VP: number = 12;
 export const FEED_SEGMENTS: SegmentedItem[] = [
   { key: 'recommend', label: '推荐' },
   { key: 'following', label: '关注' },
@@ -92,6 +115,9 @@ export struct HomeTab {
   @State loading: boolean = false;
   @State finished: boolean = false;
   @State isRefreshing: boolean = false;
+  // 刷新指示器可见性：isRefreshing 只在下拉过阈值后为 true，拉拽过程（Drag/OverDrag）
+  // 需要 onStateChange 单独跟踪，否则下拉全程指示器不可见
+  @State refreshIndicatorVisible: boolean = false;
   @State error: string = '';
   @Link feedMode: FeedMode;
   // 标题栏分段栏切换走这里写入；@Watch 负责把「外部切换」翻译成信息源加载（见 onFeedIndexChanged）
@@ -128,6 +154,61 @@ export struct HomeTab {
   private feedRetryTimer: number = 0;
   private feedRetryCount: number = 0; // 连接错误自动重试计数（防无限重试）
   private tagsRetryCount: number = 0; // 标签加载自愈重试计数（防无限重试）
+  // 展开态网格列数（600/840vp 断点 → 3/4 列，手机竖屏保持 2 列）。
+  // 断点来自全局断点中心（全 app 唯一窗口尺寸监听），本组件不再自注册 windowSizeChange。
+  @State feedColumns: number = 2;
+  @StorageProp('currentBreakpoint') @Watch('onBreakpointChanged') currentBreakpoint: string = 'sm';
+  // —— 顶栏（嵌套 HdsNavigation，路线 B）——
+  // 推荐/关注流各一个 Scroller：交给 bindToScrollable 驱动标题栏渐变模糊（每日一帖无 Scroll 不绑）
+  private feedScrollers: Scroller[] = [new Scroller(), new Scroller()];
+
+  // bindToScrollable 的绑定数组：仅随分段切换整体替换（实例引用稳定）。
+  // ⚠️ 不可在 build 里每次返回新数组：滑动的逐帧状态变化（slidePosition）会让 HomeTab
+  // 逐帧重渲染，新数组实例 = 逐帧重订阅 HDS 背板，相邻页（每日一帖卡堆）在切段瞬间
+  // 闪现（真机实证）。由 onSwiperChanged → syncFeedScrollerBinding 按分段更新。
+  @State boundFeedScrollers: Scroller[] = [this.feedScrollers[0]];
+
+  private syncFeedScrollerBinding(index: number): void {
+    const next: Scroller[] = index === 1 ? [this.feedScrollers[1]]
+      : index === 2 ? [] : [this.feedScrollers[0]];
+    // 内容未变（引用相同）不替换，避免无谓重订阅
+    if (next.length !== this.boundFeedScrollers.length
+      || (next.length > 0 && next[0] !== this.boundFeedScrollers[0])) {
+      this.boundFeedScrollers = next;
+    }
+  }
+  // 搜索按钮同源材质修饰器（沉浸光感，HDS 标题栏 = 官方生效区域）
+  private searchMaterial: TopButtonMaterialModifier = new TopButtonMaterialModifier();
+  // 标语收合态：信息流滚过阈值后收起「真实经验，有据可循」（品牌块 56→32，Row 自动居中「有据」行）
+  @State brandCompact: boolean = false;
+  // 模糊完成态：滚动过模糊终点（HOME_FEED_BLUR_END_VP）后品牌行切白——模糊背板变深，
+  // 深色品牌字对比度不足（系统标题的 originalStyle/scrollEffectStyle 颜色过渡管不到自绘 stackBuilder）
+  @State brandOnBlur: boolean = false;
+
+  // 滚动驱动标语收合 + 品牌行切白：读当前页 Scroller 的绝对偏移，各自独立判断翻转
+  //（⚠️ 两个阈值不能共用 early-return——否则先翻转的状态会挡住后一个的判断，切白永远不触发）。
+  // 每日一帖（seg=2）无 Scroll，保持当前状态不翻转。
+  private updateBrandCompact(seg: number): void {
+    if (seg > 1) {
+      return;
+    }
+    // Swiper 懒建页竞态：滑动瞬间目标页 Scroll 可能尚未创建/绑定，currentOffset() 运行时
+    // 会返回 undefined（类型声明非可选但真机已复现，release 包因此崩溃杀进程，见故障报告
+    // 2026-10-09 Pocket 2）——未就绪时按 0（静止态）处理，Scroll 创建后 onDidScroll 自然接管
+    const offset: number = this.feedScrollers[seg]?.currentOffset()?.yOffset ?? 0;
+    const compact: boolean = offset > BRAND_COMPACT_THRESHOLD_VP;
+    const onBlur: boolean = offset > HOME_FEED_BLUR_END_VP;
+    if (compact !== this.brandCompact) {
+      this.getUIContext().animateTo({ duration: MotionTokens.base, curve: MotionCurves.decelerate }, () => {
+        this.brandCompact = compact;
+      });
+    }
+    if (onBlur !== this.brandOnBlur) {
+      this.getUIContext().animateTo({ duration: MotionTokens.base, curve: MotionCurves.decelerate }, () => {
+        this.brandOnBlur = onBlur;
+      });
+    }
+  }
 
   aboutToAppear(): void {
     this.loadTags();
@@ -137,6 +218,8 @@ export struct HomeTab {
     this.unsubDeletion = postDeletionStore.subscribe((deletedId: number): void => {
       this.setPagePosts(this.feedIndex, this.pagePostsOf(this.feedIndex).filter((p: DailyPost) => p.id !== deletedId));
     });
+    // 展开态列数：按当前全局断点换算（断点中心异步就绪后经 @Watch 修正）
+    this.feedColumns = gridColumnsForBreakpoint(this.currentBreakpoint);
   }
 
   aboutToDisappear(): void {
@@ -149,6 +232,11 @@ export struct HomeTab {
       clearTimeout(this.feedRetryTimer);
       this.feedRetryTimer = 0;
     }
+  }
+
+  // 断点变化（展开折叠屏/旋转/分屏）→ 即时换算网格列数
+  onBreakpointChanged(): void {
+    this.feedColumns = gridColumnsForBreakpoint(this.currentBreakpoint);
   }
 
   // token 由空变为非空（登录完成）→ 关注流且列表空、无 error 时自动补加载
@@ -372,6 +460,10 @@ export struct HomeTab {
   // 左右滑动切换由 Swiper 原生接管（跟手、相邻页可见、松手吸附）。
   // Swiper.onChange → 这里更新 feedMode/needLogin 并懒加载该页数据。
   private onSwiperChanged(index: number): void {
+    // 切段后按新页的滚动偏移重算标语收合态（每日一帖 seg=2 保持现状）
+    this.updateBrandCompact(index);
+    // 分段切换 → 同步 bindToScrollable 绑定（动态重估模糊，见 syncFeedScrollerBinding 注释）
+    this.syncFeedScrollerBinding(index);
     if (index === this.feedIndex) {
       return;
     }
@@ -504,6 +596,10 @@ export struct HomeTab {
 
   @Builder
   refreshBuilder(): void {
+    // ⚠️ 显隐必须属性级驱动（opacity），禁止结构条件化渲染：Refresh 的指示区高度
+    // 参与布局，builder 内容抽空会导致区域塌陷、内容区整体上移铺满屏幕（真机实证）。
+    // 常驻 Row + opacity 切换：布局占位不变，静止透明（clip(false) 穿底下不可见），
+    // 刷新时渐显；非激活态同时关闭命中，避免挡住列表顶部触摸。
     Row({ space: SpaceTokens.inline }) {
       LoadingProgress().width(IconTokens.compact).height(IconTokens.compact)
       Text('刷新中…')
@@ -513,6 +609,8 @@ export struct HomeTab {
         .letterSpacing(TypeTokens.caption.tracking)
         .fontColor(ColorTokens.secondary)
     }
+    .opacity((this.isRefreshing || this.refreshIndicatorVisible) ? 1 : 0)
+    .hitTestBehavior((this.isRefreshing || this.refreshIndicatorVisible) ? HitTestMode.Default : HitTestMode.None)
   }
 
   // 每日一帖报头：日期/星期/期数 + 发丝分隔线（品牌标题已被顶部栏承担，不再重复）
@@ -728,15 +826,23 @@ export struct HomeTab {
           .height('100%')
         } else {
           // 推荐/关注流：Scroll 显式双列（Swiper 每页独立，见 feedScroll）
+          // ⚠️ Refresh 默认裁切子节点：不关掉它，滚动内容被切在栏底，穿底+渐变模糊失效
+          // （验证页无 Refresh 层所以没暴露；真机首页实测卡片流无法穿底、栏底实色的根因）
           Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
             this.feedScroll(seg)
           }
+          .onStateChange((state: RefreshStatus) => {
+            // 拉拽/刷新全程显示指示器；空闲与完成回弹隐藏
+            this.refreshIndicatorVisible = state === RefreshStatus.Drag
+              || state === RefreshStatus.OverDrag || state === RefreshStatus.Refresh;
+          })
           .onRefreshing(() => {
             this.isRefreshing = true;
             this.refresh().finally(() => {
               this.isRefreshing = false;
             });
           })
+          .clip(false)
           .width('100%')
           .height('100%')
         }
@@ -779,30 +885,43 @@ export struct HomeTab {
       })
   }
 
-  // 推荐/关注流：Scroll 显式双列（偶数项固定左列、奇数项固定右列，首项始终位于左上角）。
+  // 信息流列数（2/3/4，responsive.ets 按窗口宽度断点回传）与列下标数组（ForEach 数据源）。
+  // 帖子按其在页面数组中的原始下标对列数取模分列（原偶左奇右两列的泛化）。
+  private feedColCount(): number {
+    return Math.max(2, Math.min(4, this.feedColumns));
+  }
+
+  private feedColIndexes(): number[] {
+    const arr: number[] = [];
+    for (let i = 0; i < this.feedColCount(); i++) {
+      arr.push(i);
+    }
+    return arr;
+  }
+
+  // 推荐/关注流：Scroll 显式多列（列数随窗口宽度自适应，偶数项固定首列、首项始终位于左上角）。
   // 两列独立排列保留瀑布流紧凑效果。必须用 Scroll：懒加载容器(WaterFlow/List)会把内容
   // 滚动终点钳制在底部非安全区之上、露出窗口底色横带截断末卡（实测 expandSafeArea /
   // ignoreLayoutSafeArea 挂容器自身均无效），Scroll 滚动范围天然到物理屏底。
   // seg 参数：Swiper 每页只读属于自己的 postsCache[seg]，拖动时相邻页显示各自内容。
   @Builder
   feedScroll(seg: number): void {
-    Scroll() {
+    // scroller 显式挂载（位置参数）：交给嵌套 HdsNavigation 的 bindToScrollable 驱动标题栏渐变模糊
+    Scroll(this.feedScrollers[seg]) {
       Column({ space: SpaceTokens.sm }) {
         Row({ space: SpaceTokens.xs }) {
-          Column({ space: SpaceTokens.xs }) {
-            ForEach(this.pagePostsOf(seg).filter((_p: Post, idx: number) => idx % 2 === 0),
-              (post: Post, idx: number) => { this.feedPost(post, idx) },
-              (post: Post) => seg + '-feed-even-' + String(post.id ?? ''))
-          }
-          .layoutWeight(1)
-          Column({ space: SpaceTokens.xs }) {
-            ForEach(this.pagePostsOf(seg).filter((_p: Post, idx: number) => idx % 2 === 1),
-              (post: Post, idx: number) => { this.feedPost(post, idx) },
-              (post: Post) => seg + '-feed-odd-' + String(post.id ?? ''))
-          }
-          .layoutWeight(1)
+          ForEach(this.feedColIndexes(), (colIdx: number) => {
+            Column({ space: SpaceTokens.xs }) {
+              ForEach(this.pagePostsOf(seg).filter((_p: Post, idx: number) => idx % this.feedColCount() === colIdx),
+                (post: Post, idx: number) => { this.feedPost(post, idx) },
+                (post: Post) => seg + '-feed-' + colIdx + '-' + String(post.id ?? ''))
+            }
+            .layoutWeight(1)
+          }, (colIdx: number) => colIdx.toString())
         }
         .width('100%')
+        // 展开态铺满全宽：列数由 responsive.ets 按窗口宽度自适应（2/3/4 列），
+        // 不限宽——详情正文才做 720vp 限宽居中（阅读面），发现流保持满幅
         .alignItems(VerticalAlign.Top)
         // 尾注 + 底部预留：既是悬浮底栏的让位，也是 Scroll 滚到物理底的滚动余量
         Column() {
@@ -830,7 +949,14 @@ export struct HomeTab {
         bottom: SpaceTokens.md,
       })
     }
+    .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
     .scrollable(ScrollDirection.Vertical)
+    // 不裁剪：滚动内容穿出 Scroll 顶边画到 HDS 标题栏下方（渐变模糊的采样素材）
+    .clip(false)
+    // 滚动驱动标语收合（绝对偏移读自 Scroller，避免逐帧 setState）
+    .onDidScroll((): void => {
+      this.updateBrandCompact(seg);
+    })
     .onScrollEdge((edge: Edge) => {
       if (edge === Edge.Bottom) {
         this.loadMore();
@@ -840,9 +966,162 @@ export struct HomeTab {
 
   // 瀑布流（WaterFlow + LazyForEach）在 Swiper 三页下数据源无法按页隔离，
   // 且滚动终点被钳制在底部安全区之上；统一回退到 Scroll 双列（feedScroll）。
+  // —— 顶栏标题栏配置（嵌套 HdsNavigation，路线 B：验证页第七轮定稿结构）——
+  // MINI 模式 + stackBuilder 品牌行（品牌 + 搜索同行）+ bottomBuilder 分段行（分段 + 圈子 chip）
+  // + GRADIENT_BLUR 滚动模糊（0 → 64vp）+ 透明起步 + 安全区双开关。逐层显式标注 SDK 类型。
+  private homeHdsTitleBarOptions(): HdsNavigationTitleBarOptions {
+    const scrollEffect: ScrollEffectOptions = {
+      enableScrollEffect: true,
+      scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
+      blurEffectiveStartOffset: LengthMetrics.vp(0),
+      blurEffectiveEndOffset: LengthMetrics.vp(HOME_FEED_BLUR_END_VP),
+    };
+    const style: TitleBarStyleOptions = {
+      scrollEffectOpts: scrollEffect,
+      originalStyle: {
+        backgroundStyle: { backgroundColor: Color.Transparent },
+      },
+    };
+    const content: TitleBarContentOptions = {
+      stackBuilder: (): void => { this.homeBrandRow(); },
+      bottomBuilder: {
+        builder: (): void => { this.homeTabRow(); },
+        height: HOME_TAB_ROW_HEIGHT,
+      } as BottomBuilderParams,
+    };
+    const options: HdsNavigationTitleBarOptions = {
+      content: content,
+      style: style,
+      // 安全区双开关：avoid 让标题栏内容（品牌/搜索）从状态栏下沿开始；
+      // enableComponentSafeArea 让信息流静止时从栏下开始、滚动时穿入栏下被渐变模糊。
+      avoidLayoutSafeArea: true,
+      enableComponentSafeArea: true,
+    };
+    return options;
+  }
+
+  // stackBuilder 品牌行：品牌块（有据 + SUBSTANTIATE / 标语，旧首页同款宋体规格）与搜索按钮同一行。
+  // stackBuilder 行固定 56vp（旧 POC 实测）——品牌块 32 + 24 = 56 顶格排布（无额外 space）。
+  // 搜索按钮保持一镜到底接线（SEARCH_ENTRY_ID 供发起器量帧/截图定位）。
+  // 字色：静止态深色（品牌规范）；模糊到位后切白（模糊背板变深，深字对比度不足）。
+  @Builder
+  homeBrandRow() {
+    Row() {
+      Column() {
+        Row({ space: SpaceTokens.sm }) {
+          Text('有据')
+            .fontSize(TypeTokens.titleSerif.size)
+            .fontFamily(TypeTokens.fontFamilySerif)
+            .fontWeight(TypeTokens.titleSerif.weight)
+            .lineHeight(TypeTokens.titleSerif.lineHeight)
+            .fontColor(this.brandOnBlur ? Color.White : ColorTokens.primary)
+          Text('SUBSTANTIATE')
+            .fontSize(TypeTokens.overline.size)
+            .fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.overline.weight)
+            .fontColor(this.brandOnBlur ? '#99FFFFFF' : ColorTokens.tertiary)
+        }
+        Text('真实经验，有据可循')
+          .fontSize(TypeTokens.headline.size)
+          .fontFamily(TypeTokens.fontFamilySerif)
+          .fontWeight(TypeTokens.headline.weight)
+          .lineHeight(TypeTokens.headline.lineHeight)
+          .fontColor(this.brandOnBlur ? Color.White : ColorTokens.primary)
+          // 上滑收标语（只收这一行）：高度+透明度一次收合，品牌块 56→32 由 Row 自动居中「有据」行；
+          // dynamicHideTitleBar 粒度为区域级，做不到只收标语 → 自定义滚动驱动
+          .height(this.brandCompact ? 0 : TypeTokens.headline.lineHeight)
+          .opacity(this.brandCompact ? 0 : 1)
+      }
+      .alignItems(HorizontalAlign.Start)
+      Blank()
+      Pressable({
+        visualHeight: LayoutTokens.minTouchTarget,
+        touchTargetHeight: LayoutTokens.minTouchTarget,
+        action: (): void => {
+          // 搜索入口跳转独立搜索页（与首页解耦）；Navigation 未就绪时兜底 router 整页
+          openSearchPanelViaNav(this.getUIContext());
+        },
+      }) {
+        Row() {
+          Image(resolveActionIcon('search'))
+            .width(IconTokens.small)
+            .height(IconTokens.small)
+            .fillColor(this.brandOnBlur ? Color.White : ColorTokens.icon)
+        }
+        .width(LayoutTokens.minTouchTarget)
+        .height(LayoutTokens.minTouchTarget)
+        .border({
+          width: LayoutTokens.glassBorderWidth,
+          color: this.brandOnBlur ? '#66FFFFFF' : ColorTokens.barBorder,
+          style: BorderStyle.Solid,
+        })
+        .borderRadius(RadiusTokens.lg)
+        .justifyContent(FlexAlign.Center)
+        .alignItems(VerticalAlign.Center)
+        .attributeModifier(this.searchMaterial)
+        .id(SEARCH_ENTRY_ID)
+        .accessibilityText('搜索')
+      }
+    }
+    .width('100%')
+    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+  }
+
+  // bottomBuilder 分段行：分段栏（推荐/关注/每日一帖）+ 圈子 chip（仅推荐流显示，与旧顶栏口径一致）。
+  @Builder
+  homeTabRow() {
+    Row() {
+      SegmentedControl({
+        items: FEED_SEGMENTS,
+        selectedIndex: $feedIndex,
+        slidePosition: this.slidePosition,
+        itemWidth: 66,
+        fillWidth: false,
+        glass: false,
+        outlined: true,
+        // 关闭按压/长按光斑：材质玻璃/描边风格上光斑过于抢眼
+        glowEnabled: false,
+        // 沉浸光感：处于 HDS 标题栏内（uiMaterial 官方生效区域），系统材质接管整栏表面
+        useSystemMaterial: true,
+        // 模糊到位后随品牌行一起切白（浅色内容态）
+        lightContent: this.brandOnBlur,
+        onSelect: (idx: number): void => {
+          // 点击立即落整数位（弹性动画由 SharedSlide 整数分支承担）；
+          // 信息源加载由本组件 @Watch(feedIndex) 承接（见 onFeedIndexChanged）
+          this.slidePosition = idx;
+          this.feedIndex = idx;
+        },
+      })
+      if (this.feedMode === 'recommend') {
+        TagNav({
+          tags: this.displayTags,
+          selectedIndex: $tagIndex,
+          dropdownVisible: $showCircleDropdown,
+          compact: true,
+          glass: false,
+          dropdownOnly: true,
+          // 沉浸光感：圈子按钮与分段栏同源材质
+          useSystemMaterial: true,
+          // 模糊到位后随品牌行一起切白（浅色内容态）
+          lightContent: this.brandOnBlur,
+        })
+          .layoutWeight(1)
+      }
+    }
+    .width('100%')
+    .height(HOME_TAB_ROW_HEIGHT)
+    .padding({
+      left: SpaceTokens.sm,
+      right: SpaceTokens.sm,
+      top: SpaceTokens.xs,
+      bottom: SpaceTokens.xs,
+    })
+  }
+
   build() {
-    // 顶部区域（品牌标题 / 搜索 / 分段栏 / 圈子按钮）已整体迁入 Navigation 标题栏
-    // —— uiMaterial 沉浸光感的官方生效区域；这里只剩信息流本体 + 圈子下拉面板宿主。
+    // 顶栏（品牌行 + 分段行）迁入嵌套 HdsNavigation（路线 B，验证页第七轮定稿结构）：
+    // MINI + stackBuilder + bottomBuilder + GRADIENT_BLUR；信息流本体 + 圈子下拉面板宿主为内容区。
+    HdsNavigation() {
     Stack({ alignContent: Alignment.TopStart }) {
       Column() {
         // 列表区：Swiper 三页分页（推荐/关注/每日一帖）。
@@ -895,8 +1174,8 @@ export struct HomeTab {
         .height('100%')
         .layoutWeight(1)
         // 每日一帖不裁剪：Swiper 默认裁切子节点，卡堆向上拖动/抛射的卡片需溢出列表区穿过报头；
-        // 滚动流模式保持裁剪（Refresh/Scroll 内容不出视口）—— 与旧列表区实现保持同一策略。
-        .clip(this.feedMode !== 'daily')
+        // 推荐/关注流同样不裁剪（路线 B）：滚动内容需穿出 Swiper 顶边画到 HDS 标题栏下方被渐变模糊采样
+        .clip(false)
         // 每日一帖提升列表区整体层级：卡片随列表区一起向上拖动/抛出，不被同层其它节点遮挡。
         // 顶部区域已迁至 Navigation 标题栏层（STANDARD 模式下内容后绘制，
         // 溢出裁剪关闭后飞行卡仍可越过标题栏区域——见真机回归清单）。
@@ -924,5 +1203,16 @@ export struct HomeTab {
     }
     .width('100%')
     .height('100%')
+    }
+    .titleBar(this.homeHdsTitleBarOptions())
+    .titleMode(HdsNavigationTitleMode.MINI)
+    .hideBackButton(true)
+    // 动态绑定当前分段的 Scroller（数组仅随分段切换替换，见 boundFeedScrollers 注释）
+    .bindToScrollable(this.boundFeedScrollers)
+    // 穿底绘制链路：HdsNavigation 自身不裁切（内容需画到栏下被模糊采样）
+    .clip(false)
+    .width('100%')
+    .height('100%')
+    .backgroundColor(ColorTokens.canvas)
   }
 }

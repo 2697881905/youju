@@ -2,15 +2,12 @@ import { resolveActionIcon } from '../utils/actionIcons';
 import { formatCount } from '../utils/format';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
-import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { MotionCurves, MotionTokens, MotionFrameRates } from '../design/tokens/motion';
 import { curves } from '@kit.ArkUI';
 import { Pressable } from '../design/motion/Pressable';
 import { GlowInput } from '../design/components/GlowInput';
-import { GlassBlurStyle, isImmersiveLightSenseSupported } from '../utils/immersiveMaterial';
-import { BOTTOM_NAV_INSET_KEY } from '../utils/navMode';
 
 // 输入框 / 发送键视觉高：对齐官方 TextInput 标准高 40（原 32 紧凑态取消）
 const COMPACT_CONTROL_HEIGHT: number = 40;
@@ -76,13 +73,14 @@ export struct DetailActionBar {
   @Prop bookmarkFeedbackVersion: number = 0;
   @Prop replyName: string = '';
   @State inputFocused: boolean = false;
-  // 三键导航避让（AGC 反馈：详情页底栏被三键导航遮挡）：
-  // 直接 @StorageLink 避让量，并在下方 padding 属性里**读变量本身** —— 这样才算建立了
-  // UI 绑定。前两版挂 navMode / navInsetVersion 但 build 从不读它们 → ArkUI 不会为
-  // 「初始渲染时没被读过的状态变量」建立更新绑定，刷新全是空操作（两次实测不生效的根因）。
-  // 值的刷新点：settings 观察者回调 / EntryAbility.onForeground / avoidAreaChange 重测
-  // （见 utils/navMode.ets 的 refreshBottomNavInset）。
-  @StorageLink('bottomNavInsetVp') bottomInsetVp: number = 0;
+  // 内容级底部安全内边距（AGC 反馈：详情页底栏被三键导航遮挡 / 手势指示条压住）。
+  // 单一响应源 = utils/navMode.ets 的 'bottomBarInsetVp'（三键 = 栏高+呼吸；手势 = 指示条 16vp）：
+  // 两种导航方式按模式给值、改导航方式即时刷新（不取 avoidArea 实测，原因见 navMode.ets）。
+  // 直接 @StorageLink 该值，并在下方 padding 属性里**读变量本身**才算建立 UI 绑定
+  //（ArkUI 只为「初始渲染时被读过的状态变量」建绑定；挂 link 而 build 不读变量是空操作）。
+  // 值的刷新点：settings 观察者回调 / EntryAbility.onForeground / Index.setupFullScreen
+  // （首帧实测回写）/ PostDetailView.applyWindowInsets（avoidAreaChange 重测）。
+  @StorageLink('bottomBarInsetVp') bottomBarInsetVp: number = 0;
   // 点赞/收藏按钮组的自然宽度（未聚焦时实测一次）：输入层的让位 padding 用它计算
   @State actionsW: number = 0;
   // 智感握姿（官方 SmartReach 范式）：输入+发送 与 点赞/收藏 两组随握持手互换侧别，
@@ -218,13 +216,11 @@ export struct DetailActionBar {
           onEnter: (): void => { this.onSendComment(); } })
           .layoutWeight(1)
 
-        // 发送键：官方文字按钮范式（品牌色文字、无底色块），高度与输入框对齐。
-        // 对比度：brand（浅 #0066CC / 深 #0A84FF）对同级底均 ≥ 4.5:1（WCAG AA）。
-        Text('发送').height(COMPACT_CONTROL_HEIGHT)
-          .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-          .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-          .fontWeight(TypeTokens.headline.weight).fontColor(ColorTokens.brand)
-          // 间距朝输入框一侧：镜像时翻转
+        // 发送键：系统原生 Button 组件（默认 Capsule 胶囊 + 主题色填充 + 原生按压反馈），
+        // 高度与输入框对齐。镜像时按钮随层2 的 direction 翻转，间距 margin 朝输入框一侧。
+        Button('发送')
+          .height(COMPACT_CONTROL_HEIGHT)
+          .fontFamily(TypeTokens.fontFamily)
           .margin(this.inputOnRight ? { left: SpaceTokens.md } : { right: SpaceTokens.md })
           .onClick((): void => { this.onSendComment(); })
 
@@ -250,19 +246,10 @@ export struct DetailActionBar {
       .hitTestBehavior(this.inputFocused ? HitTestMode.Default : HitTestMode.None)
     }
     .width('100%')
-    // 底部避让三键导航栏：栏体玻璃延伸到导航条之下，内容整体抬高避让量
-    // （三键 = 真实栏高 + 10vp 呼吸；手势 / 悬浮球 = 0 维持原设计，见 utils/navMode.ets）。
+    // 无栏体背景：只保留互动控件本身（从栏体毛玻璃改为裸控件悬浮）。
+    // 底部避让系统导航区仍按模式取值（三键 = 栏高 + 呼吸；手势 = 指示条高度，见 navMode.ets），
     // 键盘弹起后导航条已被键盘盖住 → 聚焦态归零，输入栏贴键盘不留缝（ChatView 同款口径）。
     .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.sm,
-      bottom: SpaceTokens.sm + (this.inputFocused ? 0 : this.bottomInsetVp) })
-    // 毛玻璃底栏（2026-10-03 微调）：GlassBlurStyle.Card = BACKGROUND_REGULAR 中等模糊——
-    // 比原 Floating(THICK) 减薄一档，向沉浸光感「最薄」的既定偏好靠拢；官方定位即
-    // 「内容卡片/半透明信息区：保留文字可读性」（栏上有输入文字与计数，不宜更薄的 THIN）。
-    // API 23+ 纯材质（透明底交给系统着色），低端机回落 barSurface 实底；
-    // 玻璃描边勾出栏体边界（barBorder 与主 TabBar 同一 token，观感成套）。
-    .backgroundBlurStyle(GlassBlurStyle.Card)
-    .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
-    .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-    .borderRadius(RadiusTokens.none)
+      bottom: SpaceTokens.sm + (this.inputFocused ? 0 : this.bottomBarInsetVp) })
   }
 }

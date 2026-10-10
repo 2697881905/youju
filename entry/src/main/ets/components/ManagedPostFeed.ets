@@ -190,6 +190,7 @@ export struct ManagedPostFeed {
         top: 5, bottom: SpaceTokens.md,
       })
     }
+    .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
     .width('100%')
     // 用 height('100%') 而非 layoutWeight：既适配 Column 父级（废纸篓/草稿箱），
     // 也适配 Refresh 父级（搜索结果页的 Refresh 不参与 flex 权重分配）

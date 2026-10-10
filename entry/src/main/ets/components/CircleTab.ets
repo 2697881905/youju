@@ -8,15 +8,28 @@ import { getToken, getUserId, getCurrentUser, persistSessionSnapshot } from '../
 import { likeStore } from '../utils/likeStore';
 import { barBottomReserve } from '../utils/cardTokens';
 import { EmptyState } from '../design/components/EmptyState';
+import { CountRoll } from '../design/motion/CountRoll';
+import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
 import { MotionTokens } from '../design/tokens/motion';
+import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
+import { ShadowTokens } from '../design/tokens/shadow';
+import { TopButtonMaterialModifier, isSystemMaterialActive } from '../utils/immersiveMaterial';
 import { openCircleDetail } from '../utils/nav';
 import { JoinedCirclesDialog } from './JoinedCirclesDialog';
 import { CircleSelectionCard } from './CircleSelectionCard';
 import { CircleOrbitCanvas, OrbitCircleItem } from './CircleOrbitCanvas';
+import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit';
+import type {
+  HdsNavigationTitleBarOptions,
+  TitleBarContentOptions,
+  TitleBarStyleOptions,
+  ScrollEffectOptions,
+} from '@kit.UIDesignKit';
+import { LengthMetrics } from '@kit.ArkUI';
 
 interface CircleMeta {
   id: string;
@@ -109,6 +122,11 @@ export struct CircleTab {
   // （profileShareSeq 同款「点击写值、@Watch 承接动作」接线，见教程 Step 2 状态归属）。
   @Link circleJoinedCount: number;
   @Link @Watch('onJoinedEntryRequested') circleJoinedSeq: number;
+  // —— 顶栏（嵌套 HdsNavigation，路线 B，同首页结构）——
+  // 星环视口 Scroller：交给 bindToScrollable 驱动标题栏渐变模糊（内容超高滚动时生效）
+  private circleScroller: Scroller = new Scroller();
+  // 「已加入」药丸同源材质修饰器（沉浸光感，HDS 标题栏 = 官方生效区域）
+  private pillMaterial: TopButtonMaterialModifier = new TopButtonMaterialModifier();
   @State loading: boolean = false;
   @State error: string = '';
   @State selectedName: string = '';
@@ -633,7 +651,90 @@ export struct CircleTab {
     }, (circle: CircleTag) => circle.name)
   }
 
+  // —— 顶栏标题栏配置（嵌套 HdsNavigation，路线 B：同首页定稿结构）——
+  // MINI + stackBuilder 品牌行（「圈子」标题 + 「已加入」药丸）+ GRADIENT_BLUR +
+  // avoid/enableComponentSafeArea 双开。星环内容通常不超高（视口推底布局），
+  // 模糊仅在内容超高滚动时出现——与首页同一基线参数，观感自动一致。
+  private circleHdsTitleBarOptions(): HdsNavigationTitleBarOptions {
+    const scrollEffect: ScrollEffectOptions = {
+      enableScrollEffect: true,
+      scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
+      blurEffectiveStartOffset: LengthMetrics.vp(0),
+      blurEffectiveEndOffset: LengthMetrics.vp(32),
+    };
+    const style: TitleBarStyleOptions = {
+      scrollEffectOpts: scrollEffect,
+      originalStyle: {
+        backgroundStyle: { backgroundColor: Color.Transparent },
+      },
+    };
+    const content: TitleBarContentOptions = {
+      stackBuilder: (): void => { this.circleBrandRow(); },
+    };
+    const options: HdsNavigationTitleBarOptions = {
+      content: content,
+      style: style,
+      avoidLayoutSafeArea: true,
+      enableComponentSafeArea: true,
+    };
+    return options;
+  }
+
+  // stackBuilder 品牌行：「圈子」标题 + 「已加入」药丸（原 Index.circleTitleBar 整体迁入）。
+  // 计数经 @Link 回写；点击药丸递增 seq 信号，由本组件 @Watch 承接弹窗。
+  // 状态栏避让由 avoidLayoutSafeArea(true) 承担（不再手动补 statusBarHeight 内边距）。
+  @Builder
+  circleBrandRow() {
+    Row({ space: SpaceTokens.sm }) {
+      Text('圈子')
+        .fontSize(TypeTokens.titleSerif.size).fontFamily(TypeTokens.fontFamilySerif)
+        .fontWeight(TypeTokens.titleSerif.weight)
+        .lineHeight(TypeTokens.titleSerif.lineHeight)
+        .fontColor(ColorTokens.primary)
+      Blank()
+      Pressable({
+        visualHeight: LayoutTokens.segmentedHeight,
+        touchTargetHeight: LayoutTokens.minTouchTarget,
+        action: (): void => {
+          // 递增信号 → 本组件 @Watch：JoinedCirclesDialog 仍由本组件打开
+          this.circleJoinedSeq += 1;
+        },
+      }) {
+        Row({ space: SpaceTokens.xs }) {
+          Text('已加入')
+            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.caption.weight)
+            .fontColor(ColorTokens.secondary)
+          CountRoll({ value: this.circleJoinedCount, prefix: '', textSize: TypeTokens.caption.size, textColor: ColorTokens.primary })
+          Text('个')
+            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.caption.weight)
+            .fontColor(ColorTokens.secondary)
+        }
+        .height(LayoutTokens.segmentedHeight)
+        .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+        // 沉浸光感：材质生效时自绘让位（底/描边/阴影归零），系统材质接管药丸表面；
+        // 低版本门禁不通过 → 保留原样式
+        .backgroundColor(isSystemMaterialActive() ? Color.Transparent : ColorTokens.subtle)
+        .border({
+          width: isSystemMaterialActive() ? 0 : LayoutTokens.glassBorderWidth,
+          color: ColorTokens.separator,
+          style: BorderStyle.Solid,
+        })
+        .borderRadius(RadiusTokens.pill)
+        .shadow(isSystemMaterialActive() ? ShadowTokens.none : ShadowTokens.cardContact)
+        .alignItems(VerticalAlign.Center)
+        .attributeModifier(this.pillMaterial)
+      }
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Center)
+    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs, bottom: SpaceTokens.xs })
+  }
+
   build() {
+    // 顶栏（圈子标题 + 已加入药丸）迁入嵌套 HdsNavigation（路线 B，同首页定稿结构）
+    HdsNavigation() {
     Column() {
       if (this.circles.length === 0 && this.loading) {
         Column({ space: SpaceTokens.md }) {
@@ -660,7 +761,8 @@ export struct CircleTab {
         .width('100%')
         .justifyContent(FlexAlign.Center)
       } else {
-        Scroll() {
+        // scroller 显式挂载：交给嵌套 HdsNavigation 的 bindToScrollable 驱动标题栏渐变模糊
+        Scroll(this.circleScroller) {
           // Scroll 只承载一个全宽子容器；否则 ArkUI 会按行星的固有宽度收缩视口，
           // 导致 onAreaChange 取到错误的宽度，三个环随之挤成一团。
           // 星环固定在顶部（首项，位置与初始布局一致）；Blank 弹性把详情卡片
@@ -695,8 +797,11 @@ export struct CircleTab {
           .constraintSize({ minHeight: this.scrollViewportHeight })
           .alignItems(HorizontalAlign.Start)
         }
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .layoutWeight(1)
         .width('100%')
+        // 不裁剪：内容超高滚动时穿出 Scroll 顶边画到 HDS 标题栏下方（模糊采样素材）
+        .clip(false)
         // 星系使用更窄的安全边距，把释放出的宽度用于等距环线；外环仍由半径安全值约束。
         .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs })
         .scrollBar(BarState.Off)
@@ -719,5 +824,15 @@ export struct CircleTab {
     .height('100%')
     .backgroundColor(ColorTokens.canvas)
     .alignItems(HorizontalAlign.Start)
+    }
+    .titleBar(this.circleHdsTitleBarOptions())
+    .titleMode(HdsNavigationTitleMode.MINI)
+    .hideBackButton(true)
+    // 星环视口滚动绑定：内容超高时驱动标题栏渐变模糊
+    .bindToScrollable([this.circleScroller])
+    .clip(false)
+    .width('100%')
+    .height('100%')
+    .backgroundColor(ColorTokens.canvas)
   }
 }

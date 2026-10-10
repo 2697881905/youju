@@ -155,6 +155,7 @@ export struct NotificationSettingsPage {
           // 内容不足一屏时撑满视口：Scroll 默认会把不足一屏的子内容垂直居中，撑满即钉在顶部
           .constraintSize({ minHeight: '100%' });
         }
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .layoutWeight(1)
         .width('100%');
       }

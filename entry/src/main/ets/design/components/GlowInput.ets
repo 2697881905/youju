@@ -60,6 +60,8 @@ export struct GlowInput {
         // 小字号 + 固定框高时文字底部会被裁掉。
         .lineHeight(this.fontSize * 1.45)
         .fontColor(ColorTokens.primary)
+        // 占位文字对比度 ≥4.5:1（AGC 色彩审核项）：系统默认灰不达标，统一走 tertiary
+        .placeholderColor(ColorTokens.tertiary)
         .width('100%')
         .height(this.inputHeight)
         // 默认分支 = 官方原生样式：实色填充底（subtle）+ 无模糊 + 无描边 + lg 胶囊圆角；

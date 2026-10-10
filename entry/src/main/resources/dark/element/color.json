@@ -30,7 +30,7 @@
     },
     {
       "name": "text_tertiary",
-      "value": "#8E8E95"
+      "value": "#97979E"
     },
     {
       "name": "divider",
@@ -150,11 +150,11 @@
     },
     {
       "name": "ds_text_tertiary",
-      "value": "#8E8E95"
+      "value": "#97979E"
     },
     {
       "name": "ds_text_quaternary",
-      "value": "#77777E"
+      "value": "#8A8A91"
     },
     {
       "name": "ds_brand",

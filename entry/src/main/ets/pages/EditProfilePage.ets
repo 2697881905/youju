@@ -407,6 +407,8 @@ export struct EditProfilePage {
               .fontSize(16).fontFamily(TypeTokens.fontFamily)
               .lineHeight(23.2)
               .fontColor(ColorTokens.primary)
+              // 占位文字对比度 ≥4.5:1（AGC 色彩审核项）：系统默认灰不达标，统一走 tertiary
+              .placeholderColor(ColorTokens.tertiary)
               .width('100%').height(40)
               .backgroundColor(ColorTokens.subtle)
               .borderRadius(RadiusTokens.lg)
@@ -431,6 +433,7 @@ export struct EditProfilePage {
               .fontSize(16).fontFamily(TypeTokens.fontFamily)
               .lineHeight(23.2)
               .fontColor(ColorTokens.primary)
+              .placeholderColor(ColorTokens.tertiary)
               .width('100%').height(96)
               .backgroundColor(ColorTokens.subtle)
               .borderRadius(RadiusTokens.lg)
@@ -461,6 +464,7 @@ export struct EditProfilePage {
         .constraintSize({ minHeight: '100%' })
         .padding({ left: 16, right: 16, top: 16, bottom: 32 });
       }
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .layoutWeight(1)
       .width('100%')
       .opacity(this.contentPresented ? 1 : 0)
