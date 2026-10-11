@@ -34,6 +34,7 @@ import type {
   ScrollEffectOptions,
 } from '@kit.UIDesignKit';
 import { LengthMetrics } from '@kit.ArkUI';
+import display from '@ohos.display';
 
 interface CircleMeta {
   id: string;
@@ -128,6 +129,19 @@ class CircleTag {
 // 星图 Live 三期：创建圈子的分类白名单（与后端 TAG_CATEGORIES 一致）。
 const CIRCLE_CATEGORIES: string[] = ['消费选购', '动手改造', '职场与收入', '生活与家庭', '兴趣休闲'];
 
+// 屏幕可视高度（vp）：星图深空背景首帧即铺满整屏，不等待 onAreaChange 测量。
+function screenViewportHeightVp(): number {
+  try {
+    const d: display.Display = display.getDefaultDisplaySync();
+    if (d.densityPixels <= 0 || d.height <= 0) {
+      return 780;
+    }
+    return Math.round(d.height / d.densityPixels);
+  } catch (e) {
+    return 780;
+  }
+}
+
 // ===== 星际模式配色（星图深空底上悬浮元素的反白组，与 CircleOrbitCanvas 夜空同调）=====
 const COSMIC_PAGE_BG: string = '#0B1224';      // 页面底（与画布渐变中段同色）
 const COSMIC_INK: string = '#ECE8DF';          // 标题/主文字（暖白星光）
@@ -159,9 +173,9 @@ export struct CircleTab {
   @State middleOrbitAngle: number = 0;
   @State outerOrbitAngle: number = 0;
   @State galaxySize: number = 343;
-  // Scroll 视口实际高度（onAreaChange 测量）。Scroll 子组件百分比高度不按视口解析，
-  // Blank 弹性推底必须用显式数值 minHeight，否则卡片无法贴底。
-  @State scrollViewportHeight: number = 0;
+  // Scroll 视口实际高度（onAreaChange 测量）。初值取屏幕高（vp），避免首帧
+  // 星图画布高度回退成 galaxySize（方形）导致深空背景不铺满整屏。
+  @State scrollViewportHeight: number = screenViewportHeightVp();
   @State ringDragging: boolean = false;
   // —— 星图 Live 一期：降落页 + 深空目录 ——
   @State landingName: string = '';
@@ -792,10 +806,10 @@ export struct CircleTab {
     setTagWeight(name, target).then((): void => {
       this.resumePausedOrbits();
     }).catch((e: Error): void => {
-      // 落库失败（如后端未就绪/403）：回滚档位，不静默吞掉
+      // 落库失败：回滚档位，透出真实原因便于定位（403=后端无关注记录 / 500=表缺失或异常）
       circle.weight = previous;
       this.circles = this.circles.slice();
-      safeShowToast(this.getUIContext(), { message: '调节失败，已还原' });
+      safeShowToast(this.getUIContext(), { message: '调节失败：' + (e as Error).message });
       this.resumePausedOrbits();
     });
   }
@@ -1231,20 +1245,22 @@ export struct CircleTab {
         } else {
           // 星图 Live 四期：全屏沉浸星图（原型 s2-galaxy-holder inset:0）——
           // 画布铺满视口，星系中心在 (宽/2, 高×0.42)，标题栏/Tab 栏悬浮其上。
+          // Scroll 仅作 HdsNavigation bindToScrollable 的模糊宿主：内容高度=视口高，
+          // 禁用滚动交互与回弹（圈子页是固定星图，不应上下滑动）。
           Scroll(this.circleScroller) {
             Column() {
               this.galaxy()
             }
             .width('100%')
-            .height(Math.max(this.scrollViewportHeight, this.galaxySize))
+            .height(this.scrollViewportHeight)
             // 降落镜头俯冲：scale/opacity 为纯 transform，不触发重排
             .scale({ x: this.galaxyDiveScale, y: this.galaxyDiveScale })
             .opacity(this.galaxyDiveOpacity)
           }
-          .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+          .enableScrollInteraction(false)
           .layoutWeight(1)
           .width('100%')
-          // 不裁剪：内容超高滚动时穿出 Scroll 顶边画到 HDS 标题栏下方（模糊采样素材）
+          // 不裁剪：星图泛光画到 HDS 标题栏下方（模糊采样素材）
           .clip(false)
           .scrollBar(BarState.Off)
           .onAreaChange((_old: Area, area: Area) => {
@@ -1289,7 +1305,8 @@ export struct CircleTab {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(ColorTokens.canvas)
+    // 星际模式：页面底色与星图深空同调，消除画布四周白边（安全区/状态栏透出）
+    .backgroundColor(this.cosmicMode ? COSMIC_PAGE_BG : ColorTokens.canvas)
     .bindSheet($$this.exploreVisible, this.exploreSheet(), {
       detents: [SheetSize.MEDIUM, SheetSize.LARGE],
       blurStyle: BlurStyle.COMPONENT_THICK,
@@ -1306,6 +1323,6 @@ export struct CircleTab {
     .clip(false)
     .width('100%')
     .height('100%')
-    .backgroundColor(ColorTokens.canvas)
+    .backgroundColor(this.cosmicMode ? COSMIC_PAGE_BG : ColorTokens.canvas)
   }
 }

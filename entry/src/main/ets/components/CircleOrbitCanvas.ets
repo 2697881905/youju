@@ -235,46 +235,31 @@ export struct CircleOrbitCanvas {
 
   private tapSeed(seed: SeedItem): void {
     this.seeds = this.seeds.filter((s: SeedItem): boolean => s.id !== seed.id);
-    // 记录星子点击时刻/位置：若同一触摸又触发了下层行星的 onClick（重叠双触发），
-    // handlePlanetTap 据此吞掉行星点击，避免「点星星却降落进圈」。
     this.lastSeedTapX = seed.x;
     this.lastSeedTapY = seed.y;
     this.lastSeedTapAt = Date.now();
     this.onSeedTap(seed.name);
   }
 
+  // 保险：同一次触摸若先后触发星子手势与行星点击（极端重叠区），
+  // 行星路径在 350ms/50vp 窗口内识别刚发生过的星子点击并吞掉，避免「点星星又降落」。
   private lastSeedTapX: number = -1;
   private lastSeedTapY: number = -1;
   private lastSeedTapAt: number = 0;
 
-  // 点击仲裁兜底：星子浮在行星之上，若一次点击同时命中两者（星子恰与行星重叠时），
-  // 视觉意图是「点星星」——行星点击路径发现头顶有星子覆盖，直接转交星子处理。
-  private seedCovering(x: number, y: number): SeedItem | null {
+  // 触点仲裁：行星 onClick 携带触点画布坐标（OrbitPlanet 内换算回传）。
+  // 触点 34vp 内有星子（含其光晕区）即判「点星星」，转交星子；否则才走行星降落。
+  private handlePlanetTap(name: string, tapX: number, tapY: number): void {
     for (let index: number = 0; index < this.seeds.length; index++) {
       const seed: SeedItem = this.seeds[index];
-      if (Math.abs(seed.x - x) <= 30 && Math.abs(seed.y - y) <= 30) {
-        return seed;
-      }
-    }
-    return null;
-  }
-
-  private handlePlanetTap(name: string): void {
-    const circle: OrbitCircleItem | undefined = this.circles.find(
-      (item: OrbitCircleItem): boolean => item.name === name);
-    if (circle !== undefined) {
-      const pos: SeedPos = this.planetPos(circle);
-      // 刚点过星子（350ms 内、44vp 内）→ 本次行星点击是重叠双触发的副产物，吞掉。
-      if (Date.now() - this.lastSeedTapAt < 350
-        && Math.abs(pos.x - this.lastSeedTapX) <= 44 && Math.abs(pos.y - this.lastSeedTapY) <= 44) {
-        return;
-      }
-      // 行星头顶悬着星子 → 用户视觉意图是点星星，转交星子处理。
-      const seed: SeedItem | null = this.seedCovering(pos.x, pos.y);
-      if (seed !== null) {
+      if (Math.abs(seed.x - tapX) <= 34 && Math.abs(seed.y - tapY) <= 34) {
         this.tapSeed(seed);
         return;
       }
+    }
+    if (Date.now() - this.lastSeedTapAt < 350
+      && Math.abs(tapX - this.lastSeedTapX) <= 50 && Math.abs(tapY - this.lastSeedTapY) <= 50) {
+      return;
     }
     this.onPlanet(name);
   }
@@ -365,8 +350,8 @@ export struct CircleOrbitCanvas {
       selectedName: this.selectedName,
       centeredName: this.centeredName,
       ringDragging: this.ringDragging,
-      // 行星点击走仲裁：星子悬于行星之上时让位给星子（防误触进圈）
-      onPlanet: (name: string): void => { this.handlePlanetTap(name); },
+      // 行星点击走触点仲裁：触点落在星子光晕区时让位给星子（防误触进圈）
+      onPlanet: (name: string, tapX: number, tapY: number): void => { this.handlePlanetTap(name, tapX, tapY); },
       onGravityStart: (name: string): void => { this.onGravityStart(name); },
       onGravityEnd: (name: string, distance: number): void => { this.onGravityEnd(name, distance); },
       onGravityBlocked: (name: string): void => { this.onGravityBlocked(name); },
@@ -479,7 +464,9 @@ struct OrbitRingLayer {
   @Prop ringDragging: boolean = false;
   // 星图 Live 四期：全屏矩形画布高度（中心=宽/2、高×0.42）
   @Prop canvasH: number = 0;
-  onPlanet: (name: string) => void = (_name: string): void => {};
+  // 行星点击回报「触点画布坐标」：父层据此仲裁星子/行星归属（防误触）。
+  onPlanet: (name: string, tapX: number, tapY: number) => void =
+    (_name: string, _tapX: number, _tapY: number): void => {};
   onGravityStart: (name: string) => void = (_name: string): void => {};
   onGravityEnd: (name: string, distance: number) => void = (_name: string, _distance: number): void => {};
   onGravityBlocked: (name: string) => void = (_name: string): void => {};
@@ -519,7 +506,7 @@ struct OrbitRingLayer {
           radius: this.radius,
           baseAngle: circle.baseAngle,
           ringAngle: this.ringAngle,
-          onPlanet: (name: string): void => { this.onPlanet(name); },
+          onPlanet: (name: string, tapX: number, tapY: number): void => { this.onPlanet(name, tapX, tapY); },
           onGravityStart: (name: string): void => { this.onGravityStart(name); },
           onGravityEnd: (name: string, distance: number): void => { this.onGravityEnd(name, distance); },
           onGravityBlocked: (name: string): void => { this.onGravityBlocked(name); },
@@ -569,7 +556,8 @@ struct OrbitPlanet {
   private rippleArrivalTimer: number = 0;
   private rippleStaggerTimer: number = 0;
   private rippleCycleTimer: number = 0;
-  onPlanet: (name: string) => void = (_name: string): void => {};
+  onPlanet: (name: string, tapX: number, tapY: number) => void =
+    (_name: string, _tapX: number, _tapY: number): void => {};
   onGravityStart: (name: string) => void = (_name: string): void => {};
   onGravityEnd: (name: string, distance: number) => void = (_name: string, _distance: number): void => {};
   onGravityBlocked: (name: string) => void = (_name: string): void => {};
@@ -844,7 +832,14 @@ struct OrbitPlanet {
       .animation({ duration: MotionTokens.base, curve: MotionCurves.standard })
       .translate({ x: this.focusTranslateX(), y: this.focusTranslateY() })
       .animation({ duration: MotionTokens.emphasis, curve: MotionCurves.springSoft })
-      .onClick((): void => { this.onPlanet(this.name); })
+      // 触点换算回画布坐标：行星盒 translate(left+drag, top+drag) + 图标盒内偏移 12 + 事件局部坐标。
+      // 选中缩放 1.12 的误差 ≤3vp，远小于仲裁半径，可忽略。
+      .onClick((event: ClickEvent): void => {
+        const tapX: number = this.left() + this.dragX + this.focusTranslateX()
+          + (PLANET_BOX_WIDTH - PLANET_ICON_HIT_SIZE) / 2 + event.x;
+        const tapY: number = this.top() + this.dragY + this.focusTranslateY() + event.y;
+        this.onPlanet(this.name, tapX, tapY);
+      })
       // 未读角标：行星右上角发光小星（✦+数字），点击直达该圈最新帖。
       // 仅在有未读时出现；hitTest 优先于行星 onClick（子节点先命中）。
       if (this.unread > 0) {
