@@ -21,7 +21,7 @@ import { ReportDialog } from '../components/ReportDialog';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { ImageViewer } from '../components/ImageViewer';
 import { OVERLAY_GUARD_CHAT, registerOverlayBackGuard, unregisterOverlayBackGuard } from '../utils/overlayBackGuard';
-import { KeyboardAvoidMode } from '@kit.ArkUI';
+import { KeyboardAvoidMode, LengthMetrics } from '@kit.ArkUI';
 import { common } from '@kit.AbilityKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { fileIo } from '@kit.CoreFileKit';
@@ -37,6 +37,16 @@ import { HighlightedText } from '../components/HighlightedText';
 import { openUserProfile, openVideoPlayer, takeChatIntent, openPostDetail } from '../utils/nav';
 import { getMainNavStack, PostDetailNavParams, UserProfileNavParams } from '../utils/navigationTransition';
 import { openExternalUrl } from '../utils/openExternal';
+import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit';
+import type {
+  HdsNavigationTitleBarOptions,
+  TitleBarContentOptions,
+  TitleBarStyleOptions,
+  ScrollEffectOptions,
+} from '@kit.UIDesignKit';
+
+// HDS 顶栏渐变模糊生效区间终点（vp）：0 → 32，滚动 32vp 内模糊线性到位（与消息页同量级）
+const CHAT_BLUR_END_VP: number = 32;
 
 // 长按菜单哨兵消息：menuMsgId 无命中时返回（正常路径被外层 if 挡住，纯防御性兜底；
 // type='' 使菜单只显示「删除」，senderId=0 使撤回项不出现）
@@ -105,11 +115,12 @@ export struct ChatView {
   @State viewingImage: string = ''; // 全屏看图（聊天图片点开预览）
   @State showMediaMenu: boolean = false;
   @State error: string = '';
-  @StorageLink('statusBarHeight') statusBarHeight: number = 0;
   // 内容级底部安全内边距（三键避让与手势指示条取大，见 utils/navMode.ets）：
   // 输入栏避让取此单一响应源；手势下不会落进指示条触发区（AGC 导航栏审核项）。
   @StorageLink('bottomBarInsetVp') bottomBarInsetVp: number = 0;
   private listScroller: Scroller = new Scroller();
+  // HdsNavigation 独立导航栈（仅本页顶栏宿主使用；跳用户主页/帖子详情仍走 getMainNavStack）
+  private chatNavStack: NavPathStack = new NavPathStack();
   private originalKeyboardMode: KeyboardAvoidMode | null = null;
   private pollTimer: number = -1; // 轻量轮询定时器（对方撤回/新消息同步）
   // 表情库：~100 个常用表情（笑脸/情绪 → 手势 → 爱心/符号 → 常用物件），顺序即面板排列。
@@ -1223,234 +1234,329 @@ export struct ChatView {
   }
 
   build() {
-    Column() {
-      // 全屏图片查看器：支持双击/捏合缩放、拖动平移、单击或按钮关闭
-      if (this.viewingImage.length > 0) {
-        ImageViewer({
-          url: this.viewingImage,
-          onClose: (): void => { this.viewingImage = ''; },
-        })
-      }
-
-      // 视频播放已解耦为独立页面（VideoPlayerPage / Navigation 'VideoPlayer'），
-      // 聊天页不再内嵌播放器浮层。
-
-      // 顶栏
-      Row() {
-        // 内嵌分栏（宽屏消息页右栏）不是独立页面：不显示返回键
-        if (!this.embedded) {
-          BackButton({ action: (): void => { this.backAction(); } })
-        }
-        Row({ space: 8 }) {
-          AvatarView({ avatar: this.peerAvatar, name: this.peerName, avatarSize: 32, ringWidth: 0 })
-          Text(this.peerName !== '' ? this.peerName : '用户')
-            .fontSize(17).fontFamily($r('app.string.font_family'))
-            .fontWeight(600)
-            .fontColor($r('app.color.text_primary'));
-        }
-        .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
-        .onClick(() => {
-        this.goPeer();
-      });
-      // 举报入口（审核要求：聊天模块提供举报渠道）
-      Text('举报')
-        .fontSize(13).fontFamily($r('app.string.font_family'))
-        .fontColor($r('app.color.text_tertiary'))
-        .height(LayoutTokens.minTouchTarget)
-        .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
-        .textAlign(TextAlign.Center)
-        .accessibilityText('举报该联系人或聊天内容')
-        .onClick(() => {
-          if (this.peerId > 0) {
-            this.reportController.open();
-          }
-        });
-      }
-      .width('100%')
-      .padding({ left: 8, right: 8, top: 8, bottom: 8 });
-
-      // 顶栏名字下方的细分隔线
-      Divider()
-        .strokeWidth(0.5)
-        .color($r('app.color.divider'))
-        .margin(0);
-
-      // 消息区（外包 Stack：媒体菜单展开时盖透明遮罩，点击消息区任意处收起菜单）
-      Stack() {
-        if (this.loading && this.messages.length === 0) {
-          Column() {
-            LoadingProgress().width(28).height(28);
-            Text('加载中…').fontSize(13).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary')).margin({ top: 10 });
-          }
-          .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
-        } else if (this.error !== '' && this.messages.length === 0) {
-          Column({ space: 12 }) {
-            Text(this.error).fontSize(14).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary')).textAlign(TextAlign.Center);
-            Text('点击重试').fontSize(14).fontFamily($r('app.string.font_family')).fontColor($r('app.color.brand_primary')).onClick(() => {
-              this.loadMessages();
-            });
-          }
-          .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
-        } else {
-          // 用 Scroll+Column 而非 List：List 在内容不足一屏时默认垂直居中，
-          // 消息会飘到屏幕中间；Scroll 内容天然从顶部开始排列（SDK 无 alignList 属性可配）。
-          Scroll(this.listScroller) {
-            Column({ space: 8 }) {
-              ForEach(
-                this.messages,
-                (m: DmMessage) => {
-                  this.messageRow(m);
-                },
-                (m: DmMessage) => `${m.id}-${m.recalled ? 1 : 0}`,
-              )
-            }
-            .width('100%')
-            .padding({ left: 12, right: 12, top: 8, bottom: 8 })
-            .onAreaChange((_old: Area, area: Area) => {
-              // 记录消息内容高度，供 scrollToBottom 判断是否需要滚动（不足一屏保持顶部）
-              this.msgContentHeight = area.height as number;
-            })
-          }
-          .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
-          .scrollBar(BarState.Auto)
-          .width('100%')
-          // 消息区外层是 Stack（默认子项居中），layoutWeight 在 Stack 中不生效，
-          // 必须显式 height('100%') 填满视口，Scroll 内容才会从消息区顶部开始。
-          .height('100%')
-          .align(Alignment.TopStart);
-        }
-
-        if (this.showMediaMenu) {
-          Column()
-            .width('100%')
-            .height('100%')
-            .backgroundColor(Color.Transparent)
-            .onClick(() => {
-              this.showMediaMenu = false;
-            });
-        }
-
-        // 长按消息弹出的操作菜单浮层（遮罩点击关闭）
-        if (this.menuMsgId > 0) {
-          this.msgActionSheet()
-        }
-      }
-      .layoutWeight(1)
-      .width('100%')
-      // 采集消息区全局原点与尺寸：长按菜单按压点定位的坐标换算与边界钳制依赖它
-      .onAreaChange((_old: Area, area: Area): void => {
-        this.msgAreaGlobalX = area.globalPosition.x as number;
-        this.msgAreaGlobalY = area.globalPosition.y as number;
-        this.msgAreaWidth = area.width as number;
-        this.msgAreaHeight = area.height as number;
-      })
-
-      // 输入栏：不设置整行背景，只保留输入框、表情和发送按钮各自的悬浮玻璃层。
-      Column({ space: SpaceTokens.sm }) {
-        if (this.showEmojiPanel) {
-          this.emojiPanel();
-        }
-        if (this.showMediaMenu) {
-          this.mediaMenu();
-        }
-
-        // @提及候选：输入栏「上方」的横向条（左右滑动、点选回填）
-        if (this.mentionActive) {
-          AtMentionSuggest({
-            keyword: this.mentionKeyword,
-            onPick: (c: MentionCandidate): void => { this.pickMention(c); },
-          })
-            .margin({ bottom: SpaceTokens.xs })
-            .width('100%')
-        }
-        Row({ space: 8 }) {
-          Row() {
-            Text('+')
-              .fontSize(24)
-              .fontColor(ColorTokens.primary)
-          }
-            .width(40)
-            .height(LayoutTokens.minTouchTarget)
-            .justifyContent(FlexAlign.Center)
-            .backgroundColor(Color.Transparent)
-            .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-            .borderRadius(RadiusTokens.md)
-            .accessibilityText('添加图片或视频')
-            .onClick(() => {
-              this.showEmojiPanel = false;
-              this.showMediaMenu = !this.showMediaMenu;
-            });
-          GlowInput({
-              placeholder: '发条消息…',
-              text: $inputText,
-              fillWidth: true,
-              onChange: (value: string): void => {
-                this.syncMention(value);
-              },
-              onEnter: (): void => {
-                this.onSend();
-              },
-              onFocusChanged: (focused: boolean): void => {
-                this.inputFocused = focused;
-              },
-            });
-          Row() {
-            Text('☺')
-              .fontSize(22)
-              .fontColor(ColorTokens.primary)
-          }
-            .width(40)
-            .height(LayoutTokens.minTouchTarget)
-            .justifyContent(FlexAlign.Center)
-            .backgroundColor(Color.Transparent)
-            .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-            .borderRadius(RadiusTokens.md)
-            .accessibilityText('表情')
-            .onClick(() => {
-              this.showMediaMenu = false;
-              this.showEmojiPanel = !this.showEmojiPanel;
-            });
-          Row() {
-            Text('发送')
-              .fontSize(15)
-              .fontFamily($r('app.string.font_family'))
-              .fontWeight(600)
-              .fontColor(ColorTokens.primary)
-          }
-            .width(60)
-            .height(LayoutTokens.minTouchTarget)
-            .justifyContent(FlexAlign.Center)
-            .backgroundColor(Color.Transparent)
-            .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-            .borderRadius(RadiusTokens.md)
-            .enabled(!this.sending && !this.sendingMedia && this.inputText.trim().length > 0)
-            .opacity(this.sending || this.sendingMedia || this.inputText.trim().length === 0 ? 0.45 : 1)
-            .accessibilityText('发送')
-            .onClick(() => {
-              this.onSend();
-            });
-        }
-      }
-      .width('100%')
-      // 底部避让系统导航区（三键 = 栏高+呼吸；手势 = 指示条 16vp，按模式取值见 navMode.ets）：
-      // 仅在键盘未弹起时预留 —— 键盘弹出后导航条已被键盘盖住，inset 若继续留着，
-      // 输入栏就会停在键盘上方一段空白处（视觉上像输入框没贴住键盘）。
-      .padding({
-        left: SpaceTokens.md,
-        right: SpaceTokens.md,
-        top: SpaceTokens.sm,
-        // 底部避让：系统导航区（仅键盘未弹起时预留）+ 内嵌分栏的宽屏底部停靠栏
-        bottom: SpaceTokens.md + (this.inputFocused ? 0 : this.bottomBarInsetVp)
-          + this.embeddedDockReserve(),
-      })
-      .margin({ top: SpaceTokens.xs });
+    if (this.embedded) {
+      this.embeddedBranch();
+    } else {
+      this.hdsBranch();
     }
+  }
+
+  // 独立页形态（router 壳 / NavDestination 壳）：顶栏迁入 HdsNavigation（同消息页路线 B）。
+  // MINI + stackBuilder 对端行 + GRADIENT_BLUR 渐变模糊；消息 Scroll 经 bindToScrollable
+  // 驱动模糊（向上滚动内容穿入栏下被渐变模糊，回滚还原）。
+  @Builder
+  hdsBranch() {
+    HdsNavigation(this.chatNavStack) {
+      Column() {
+        this.chatImageViewerOverlay();
+        this.chatMessageArea();
+        this.chatInputArea();
+      }
+      .width('100%')
+      .height('100%')
+    }
+    .mode(NavigationMode.Stack)
+    .hideBackButton(true)
+    .titleBar(this.chatTitleBarOptions())
+    .titleMode(HdsNavigationTitleMode.MINI)
+    .bindToScrollable([this.listScroller])
+    // 关闭容器裁切：消息穿入标题栏下方需一路画到栏底（渐变模糊的采样素材）
+    .clip(false)
     .width('100%')
-    // 内嵌分栏（宽屏消息页右栏）：内容在标题栏之下，不再避让状态栏
-    .padding({ top: this.embedded ? 0 : this.statusBarHeight })
     .height('100%')
     .backgroundColor($r('app.color.bg_primary'))
-    .transition(buildPageTransition());
+    .transition(buildPageTransition())
+  }
+
+  // 宽屏分栏形态（MessagePage dmSplit 右栏）：保留自绘顶栏。
+  // HdsNavigation 套 HdsNavigation（消息页已嵌一层）双层未验证，且手机真机无法验证宽屏形态。
+  @Builder
+  embeddedBranch() {
+    Column() {
+      this.chatImageViewerOverlay();
+      this.chatLegacyTopBar();
+      this.chatMessageArea();
+      this.chatInputArea();
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('app.color.bg_primary'))
+    .transition(buildPageTransition())
+  }
+
+  // HDS 标题栏配置（同消息页路线 B 口径）：MINI + stackBuilder 对端行 + GRADIENT_BLUR
+  // 0→32vp + 透明起步 + avoid/enableComponentSafeArea 双开。逐层显式标注 SDK 类型。
+  private chatTitleBarOptions(): HdsNavigationTitleBarOptions {
+    const scrollEffect: ScrollEffectOptions = {
+      enableScrollEffect: true,
+      scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
+      blurEffectiveStartOffset: LengthMetrics.vp(0),
+      blurEffectiveEndOffset: LengthMetrics.vp(CHAT_BLUR_END_VP),
+    };
+    const style: TitleBarStyleOptions = {
+      scrollEffectOpts: scrollEffect,
+      originalStyle: {
+        backgroundStyle: { backgroundColor: Color.Transparent },
+      },
+    };
+    const content: TitleBarContentOptions = {
+      stackBuilder: (): void => { this.chatHdsTopRow(); },
+    };
+    const options: HdsNavigationTitleBarOptions = {
+      content: content,
+      style: style,
+      avoidLayoutSafeArea: true,
+      enableComponentSafeArea: true,
+    };
+    return options;
+  }
+
+  // 全屏图片查看器：支持双击/捏合缩放、拖动平移、单击或按钮关闭。
+  // 视频播放已解耦为独立页面（VideoPlayerPage / Navigation 'VideoPlayer'），聊天页无内嵌播放器。
+  @Builder
+  chatImageViewerOverlay() {
+    if (this.viewingImage.length > 0) {
+      ImageViewer({
+        url: this.viewingImage,
+        onClose: (): void => { this.viewingImage = ''; },
+      })
+    }
+  }
+
+  // 顶栏内容（不含外层尺寸）：返回键（仅独立页；分栏右栏不是独立页面不显示）
+  // + 对端头像/昵称（点击跳主页）+ 举报入口（审核要求：聊天模块提供举报渠道）
+  @Builder
+  chatTopRowContent() {
+    if (!this.embedded) {
+      BackButton({ action: (): void => { this.backAction(); } })
+    }
+    Row({ space: 8 }) {
+      AvatarView({ avatar: this.peerAvatar, name: this.peerName, avatarSize: 32, ringWidth: 0 })
+      Text(this.peerName !== '' ? this.peerName : '用户')
+        .fontSize(17).fontFamily($r('app.string.font_family'))
+        .fontWeight(600)
+        .fontColor($r('app.color.text_primary'));
+    }
+    .layoutWeight(1)
+    .justifyContent(FlexAlign.Center)
+    .onClick(() => {
+      this.goPeer();
+    });
+    Text('举报')
+      .fontSize(13).fontFamily($r('app.string.font_family'))
+      .fontColor($r('app.color.text_tertiary'))
+      .height(LayoutTokens.minTouchTarget)
+      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+      .textAlign(TextAlign.Center)
+      .accessibilityText('举报该联系人或聊天内容')
+      .onClick(() => {
+        if (this.peerId > 0) {
+          this.reportController.open();
+        }
+      });
+  }
+
+  // HDS stackBuilder 行：撑满 MINI 标题区（系统定值；行高不足时区域余量变成栏内空隙，
+  // 同消息页品牌行结论），仅水平内边距。
+  @Builder
+  chatHdsTopRow() {
+    Row() {
+      this.chatTopRowContent()
+    }
+    .width('100%')
+    .height('100%')
+    .padding({ left: 8, right: 8 })
+  }
+
+  // 旧自绘顶栏（embedded 分栏专用）：原 Row 规格 + 名字下方细分隔线
+  @Builder
+  chatLegacyTopBar() {
+    Row() {
+      this.chatTopRowContent()
+    }
+    .width('100%')
+    .padding({ left: 8, right: 8, top: 8, bottom: 8 });
+    Divider()
+      .strokeWidth(0.5)
+      .color($r('app.color.divider'))
+      .margin(0);
+  }
+
+  // 消息区（外包 Stack：媒体菜单展开时盖透明遮罩，点击消息区任意处收起菜单）
+  @Builder
+  chatMessageArea() {
+    Stack() {
+      if (this.loading && this.messages.length === 0) {
+        Column() {
+          LoadingProgress().width(28).height(28);
+          Text('加载中…').fontSize(13).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary')).margin({ top: 10 });
+        }
+        .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
+      } else if (this.error !== '' && this.messages.length === 0) {
+        Column({ space: 12 }) {
+          Text(this.error).fontSize(14).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary')).textAlign(TextAlign.Center);
+          Text('点击重试').fontSize(14).fontFamily($r('app.string.font_family')).fontColor($r('app.color.brand_primary')).onClick(() => {
+            this.loadMessages();
+          });
+        }
+        .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
+      } else {
+        // 用 Scroll+Column 而非 List：List 在内容不足一屏时默认垂直居中，
+        // 消息会飘到屏幕中间；Scroll 内容天然从顶部开始排列（SDK 无 alignList 属性可配）。
+        Scroll(this.listScroller) {
+          Column({ space: 8 }) {
+            ForEach(
+              this.messages,
+              (m: DmMessage) => {
+                this.messageRow(m);
+              },
+              (m: DmMessage) => `${m.id}-${m.recalled ? 1 : 0}`,
+            )
+          }
+          .width('100%')
+          .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+          .onAreaChange((_old: Area, area: Area) => {
+            // 记录消息内容高度，供 scrollToBottom 判断是否需要滚动（不足一屏保持顶部）
+            this.msgContentHeight = area.height as number;
+          })
+        }
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+        .scrollBar(BarState.Auto)
+        .width('100%')
+        // 消息区外层是 Stack（默认子项居中），layoutWeight 在 Stack 中不生效，
+        // 必须显式 height('100%') 填满视口，Scroll 内容才会从消息区顶部开始。
+        .height('100%')
+        // 穿底绘制链路（HDS 顶栏）：不裁切，消息向上滚动时画到标题栏下方被渐变模糊采样
+        .clip(false)
+        .align(Alignment.TopStart);
+      }
+
+      if (this.showMediaMenu) {
+        Column()
+          .width('100%')
+          .height('100%')
+          .backgroundColor(Color.Transparent)
+          .onClick(() => {
+            this.showMediaMenu = false;
+          });
+      }
+
+      // 长按消息弹出的操作菜单浮层（遮罩点击关闭）
+      if (this.menuMsgId > 0) {
+        this.msgActionSheet()
+      }
+    }
+    .layoutWeight(1)
+    .width('100%')
+    // 采集消息区全局原点与尺寸：长按菜单按压点定位的坐标换算与边界钳制依赖它
+    .onAreaChange((_old: Area, area: Area): void => {
+      this.msgAreaGlobalX = area.globalPosition.x as number;
+      this.msgAreaGlobalY = area.globalPosition.y as number;
+      this.msgAreaWidth = area.width as number;
+      this.msgAreaHeight = area.height as number;
+    })
+  }
+
+  // 输入栏：不设置整行背景，只保留输入框、表情和发送按钮各自的悬浮玻璃层。
+  @Builder
+  chatInputArea() {
+    Column({ space: SpaceTokens.sm }) {
+      if (this.showEmojiPanel) {
+        this.emojiPanel();
+      }
+      if (this.showMediaMenu) {
+        this.mediaMenu();
+      }
+
+      // @提及候选：输入栏「上方」的横向条（左右滑动、点选回填）
+      if (this.mentionActive) {
+        AtMentionSuggest({
+          keyword: this.mentionKeyword,
+          onPick: (c: MentionCandidate): void => { this.pickMention(c); },
+        })
+          .margin({ bottom: SpaceTokens.xs })
+          .width('100%')
+      }
+      Row({ space: 8 }) {
+        Row() {
+          Text('+')
+            .fontSize(24)
+            .fontColor(ColorTokens.primary)
+        }
+          .width(40)
+          .height(LayoutTokens.minTouchTarget)
+          .justifyContent(FlexAlign.Center)
+          .backgroundColor(Color.Transparent)
+          .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+          .borderRadius(RadiusTokens.md)
+          .accessibilityText('添加图片或视频')
+          .onClick(() => {
+            this.showEmojiPanel = false;
+            this.showMediaMenu = !this.showMediaMenu;
+          });
+        GlowInput({
+            placeholder: '发条消息…',
+            text: $inputText,
+            fillWidth: true,
+            onChange: (value: string): void => {
+              this.syncMention(value);
+            },
+            onEnter: (): void => {
+              this.onSend();
+            },
+            onFocusChanged: (focused: boolean): void => {
+              this.inputFocused = focused;
+            },
+          });
+        Row() {
+          Text('☺')
+            .fontSize(22)
+            .fontColor(ColorTokens.primary)
+        }
+          .width(40)
+          .height(LayoutTokens.minTouchTarget)
+          .justifyContent(FlexAlign.Center)
+          .backgroundColor(Color.Transparent)
+          .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+          .borderRadius(RadiusTokens.md)
+          .accessibilityText('表情')
+          .onClick(() => {
+            this.showMediaMenu = false;
+            this.showEmojiPanel = !this.showEmojiPanel;
+          });
+        Row() {
+          Text('发送')
+            .fontSize(15)
+            .fontFamily($r('app.string.font_family'))
+            .fontWeight(600)
+            .fontColor(ColorTokens.primary)
+        }
+          .width(60)
+          .height(LayoutTokens.minTouchTarget)
+          .justifyContent(FlexAlign.Center)
+          .backgroundColor(Color.Transparent)
+          .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+          .borderRadius(RadiusTokens.md)
+          .enabled(!this.sending && !this.sendingMedia && this.inputText.trim().length > 0)
+          .opacity(this.sending || this.sendingMedia || this.inputText.trim().length === 0 ? 0.45 : 1)
+          .accessibilityText('发送')
+          .onClick(() => {
+            this.onSend();
+          });
+      }
+    }
+    .width('100%')
+    // 底部避让系统导航区（三键 = 栏高+呼吸；手势 = 指示条 16vp，按模式取值见 navMode.ets）：
+    // 仅在键盘未弹起时预留 —— 键盘弹出后导航条已被键盘盖住，inset 若继续留着，
+    // 输入栏就会停在键盘上方一段空白处（视觉上像输入框没贴住键盘）。
+    .padding({
+      left: SpaceTokens.md,
+      right: SpaceTokens.md,
+      top: SpaceTokens.sm,
+      // 底部避让：系统导航区（仅键盘未弹起时预留）+ 内嵌分栏的宽屏底部停靠栏
+      bottom: SpaceTokens.md + (this.inputFocused ? 0 : this.bottomBarInsetVp)
+        + this.embeddedDockReserve(),
+    })
+    .margin({ top: SpaceTokens.xs });
   }
 }
