@@ -215,10 +215,14 @@ export struct CircleOrbitCanvas {
     }
     const circle: OrbitCircleItem = pool[Math.floor(Math.random() * pool.length)];
     const pos: SeedPos = this.planetPos(circle);
+    // 绕行星环形落点（44~70vp）：避开行星 40vp 命中盒与星名标签，
+    // 从源头消除「点星星落在行星上」的重叠误触。
+    const ang: number = Math.random() * Math.PI * 2;
+    const dist: number = 44 + Math.random() * 26;
     const seed: SeedItem = {
       id: this.seedNextId++,
-      x: Math.max(14, Math.min(this.galaxySize - 26, pos.x + (Math.random() * 120 - 60))),
-      y: Math.max(66, Math.min(this.canvasHeight() - 90, pos.y + (Math.random() * 90 - 45))),
+      x: Math.max(22, Math.min(this.galaxySize - 22, pos.x + Math.cos(ang) * dist)),
+      y: Math.max(70, Math.min(this.canvasHeight() - 96, pos.y + Math.sin(ang) * dist)),
       name: circle.name,
       gold: Math.random() < 0.16,
     };
@@ -231,7 +235,48 @@ export struct CircleOrbitCanvas {
 
   private tapSeed(seed: SeedItem): void {
     this.seeds = this.seeds.filter((s: SeedItem): boolean => s.id !== seed.id);
+    // 记录星子点击时刻/位置：若同一触摸又触发了下层行星的 onClick（重叠双触发），
+    // handlePlanetTap 据此吞掉行星点击，避免「点星星却降落进圈」。
+    this.lastSeedTapX = seed.x;
+    this.lastSeedTapY = seed.y;
+    this.lastSeedTapAt = Date.now();
     this.onSeedTap(seed.name);
+  }
+
+  private lastSeedTapX: number = -1;
+  private lastSeedTapY: number = -1;
+  private lastSeedTapAt: number = 0;
+
+  // 点击仲裁兜底：星子浮在行星之上，若一次点击同时命中两者（星子恰与行星重叠时），
+  // 视觉意图是「点星星」——行星点击路径发现头顶有星子覆盖，直接转交星子处理。
+  private seedCovering(x: number, y: number): SeedItem | null {
+    for (let index: number = 0; index < this.seeds.length; index++) {
+      const seed: SeedItem = this.seeds[index];
+      if (Math.abs(seed.x - x) <= 30 && Math.abs(seed.y - y) <= 30) {
+        return seed;
+      }
+    }
+    return null;
+  }
+
+  private handlePlanetTap(name: string): void {
+    const circle: OrbitCircleItem | undefined = this.circles.find(
+      (item: OrbitCircleItem): boolean => item.name === name);
+    if (circle !== undefined) {
+      const pos: SeedPos = this.planetPos(circle);
+      // 刚点过星子（350ms 内、44vp 内）→ 本次行星点击是重叠双触发的副产物，吞掉。
+      if (Date.now() - this.lastSeedTapAt < 350
+        && Math.abs(pos.x - this.lastSeedTapX) <= 44 && Math.abs(pos.y - this.lastSeedTapY) <= 44) {
+        return;
+      }
+      // 行星头顶悬着星子 → 用户视觉意图是点星星，转交星子处理。
+      const seed: SeedItem | null = this.seedCovering(pos.x, pos.y);
+      if (seed !== null) {
+        this.tapSeed(seed);
+        return;
+      }
+    }
+    this.onPlanet(name);
   }
 
   @Builder
@@ -320,7 +365,8 @@ export struct CircleOrbitCanvas {
       selectedName: this.selectedName,
       centeredName: this.centeredName,
       ringDragging: this.ringDragging,
-      onPlanet: (name: string): void => { this.onPlanet(name); },
+      // 行星点击走仲裁：星子悬于行星之上时让位给星子（防误触进圈）
+      onPlanet: (name: string): void => { this.handlePlanetTap(name); },
       onGravityStart: (name: string): void => { this.onGravityStart(name); },
       onGravityEnd: (name: string, distance: number): void => { this.onGravityEnd(name, distance); },
       onGravityBlocked: (name: string): void => { this.onGravityBlocked(name); },
