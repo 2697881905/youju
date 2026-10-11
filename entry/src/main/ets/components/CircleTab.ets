@@ -354,7 +354,9 @@ export struct CircleTab {
   }
 
   private ringItems(ring: number): CircleTag[] {
-    return this.circles.filter((circle: CircleTag) => this.displayRing(circle) === ring);
+    // 星图 Live 四期：角度均分只按「上星」子集计算——若按全量 circles 排 index，
+    // 未上星的长尾圈会占位，导致可见行星角度重叠。
+    return this.starCircles().filter((circle: CircleTag) => this.displayRing(circle) === ring);
   }
 
   // 每颗星的基础角度均分，并给外环一个固定的轻微偏移，避免机械正对。
@@ -625,9 +627,18 @@ export struct CircleTab {
     return outerRadius;
   }
 
+  // 星图 Live 四期：星图只挂「你的 + 活跃的」（原型口径）——
+  // 已加入、近7天有新帖、有未读、星等>0 或有内容（useCount>0，未登录兜底）的圈子才占轨道；
+  // 长尾沉寂圈住深空目录。
+  private starCircles(): CircleTag[] {
+    return this.circles.filter((circle: CircleTag): boolean =>
+      circle.joined || circle.hasActivity || circle.unread > 0 || circle.activeScore > 0
+      || (circle.useCount ?? 0) > 0);
+  }
+
   // Canvas 用基础角度、所属圆环的实时角度和半径共同计算 Logo 位置。
   private orbitItems(): OrbitCircleItem[] {
-    return this.circles.map((circle: CircleTag): OrbitCircleItem => ({
+    return this.starCircles().map((circle: CircleTag): OrbitCircleItem => ({
       name: circle.name,
       size: circle.size,
       ring: this.displayRing(circle),
@@ -975,6 +986,7 @@ export struct CircleTab {
   galaxy(): void {
     CircleOrbitCanvas({
       galaxySize: this.galaxySize,
+      galaxyHeight: this.scrollViewportHeight,
       ringAngles: this.orbitAngles(),
       radii: this.orbitRadii(),
       circles: this.orbitItems(),
@@ -983,6 +995,7 @@ export struct CircleTab {
       ringDragging: this.ringDragging,
       avatar: this.selfAvatar,
       nickname: this.authNickname,
+      live: this.activeTab === 1,
       onPlanet: (name: string): void => { this.onPlanetPressed(name); },
       onGravityStart: (name: string): void => { this.onGravityStart(name); },
       onGravityEnd: (name: string, distance: number): void => { this.onGravityEnd(name, distance); },
@@ -1191,49 +1204,37 @@ export struct CircleTab {
           .width('100%')
           .justifyContent(FlexAlign.Center)
         } else {
-          // scroller 显式挂载：交给嵌套 HdsNavigation 的 bindToScrollable 驱动标题栏渐变模糊
+          // 星图 Live 四期：全屏沉浸星图（原型 s2-galaxy-holder inset:0）——
+          // 画布铺满视口，星系中心在 (宽/2, 高×0.42)，标题栏/Tab 栏悬浮其上。
           Scroll(this.circleScroller) {
-            // 星图 Live：星图占满「视口 - 底部占位」全屏居中（底部资料卡已移除，
-            // 轻详情改由降落层承担）。内容超高（小屏/字体放大）时恢复正常滚动。
             Column() {
-              Row() {
-                Blank()
-                this.galaxy()
-                Blank()
-              }
-              .width('100%')
-              .justifyContent(FlexAlign.Center)
-              // 降落镜头俯冲：scale/opacity 为纯 transform，不触发重排
-              .scale({ x: this.galaxyDiveScale, y: this.galaxyDiveScale })
-              .opacity(this.galaxyDiveOpacity)
+              this.galaxy()
             }
             .width('100%')
-            .constraintSize({ minHeight: this.scrollViewportHeight - barBottomReserve() })
-            .justifyContent(FlexAlign.Center)
+            .height(Math.max(this.scrollViewportHeight, this.galaxySize))
+            // 降落镜头俯冲：scale/opacity 为纯 transform，不触发重排
+            .scale({ x: this.galaxyDiveScale, y: this.galaxyDiveScale })
+            .opacity(this.galaxyDiveOpacity)
           }
           .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
           .layoutWeight(1)
           .width('100%')
           // 不裁剪：内容超高滚动时穿出 Scroll 顶边画到 HDS 标题栏下方（模糊采样素材）
           .clip(false)
-          // 星系使用更窄的安全边距，把释放出的宽度用于等距环线；外环仍由半径安全值约束。
-          .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs })
           .scrollBar(BarState.Off)
           .onAreaChange((_old: Area, area: Area) => {
             // 在外层滚动视口测量，避免星系内容的固有宽度反过来影响自身尺寸。
             const rawWidth: number = area.width as number;
             const viewportWidth: number = rawWidth > 1200 ? this.getUIContext().px2vp(rawWidth) : rawWidth;
-            const availableWidth: number = viewportWidth - SpaceTokens.xs * 2;
-            if (availableWidth > 0) {
-              // 不再强制 360vp 下限：375vp 手机扣除页边距后不足 360，旧逻辑会横向溢出。
-              this.galaxySize = Math.max(300, Math.min(availableWidth, 420));
+            if (viewportWidth > 0) {
+              // 星图 Live 四期：画布宽=视口宽（全屏沉浸），不再封顶 420；
+              // 环半径仍以宽度为基准，中心在高度 42% 处，上下留白天然避让标题/Tab 栏。
+              this.galaxySize = Math.max(300, viewportWidth);
             }
-            // 记录视口高度，供星图 minHeight 使用（全屏居中依赖显式数值）。
+            // 记录视口高度，供星图全屏画布高度与 minHeight 使用。
             const rawHeight: number = area.height as number;
             this.scrollViewportHeight = rawHeight > 1200 ? this.getUIContext().px2vp(rawHeight) : rawHeight;
           })
-          // 底部占位仅保留 Tab 栏+安全区高度，星图在其上方即可贴近底部栏。
-          Row().height(barBottomReserve()).width('100%')
         }
       }
       .width('100%')

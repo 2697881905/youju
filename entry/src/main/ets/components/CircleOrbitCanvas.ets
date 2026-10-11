@@ -25,6 +25,21 @@ interface StarDot {
   size: number;
 }
 
+// 帖子星子（原型 spawnSeed）：新帖化作光点在活跃行星旁浮现，寿命 15s，点击直达。
+interface SeedItem {
+  id: number;
+  x: number;
+  y: number;
+  name: string;
+  gold: boolean;
+}
+
+// 行星当前坐标（相对画布左上角，用于把星子投放到行星附近）。
+interface SeedPos {
+  x: number;
+  y: number;
+}
+
 const STAR_DOTS: StarDot[] = [
   { x: 8, y: 14, size: 2 }, { x: 22, y: 33, size: 3 }, { x: 79, y: 8, size: 2 },
   { x: 93, y: 27, size: 2 }, { x: 11, y: 72, size: 2 }, { x: 88, y: 82, size: 3 },
@@ -40,10 +55,19 @@ const RIPPLE_SECOND_SIZE: number = 88;
 const RIPPLE_CYCLE_DURATION: number = 920;
 const RIPPLE_STAGGER: number = 180;
 
+// 全屏矩形画布的星系中心：水平居中、垂直 42%（原型 cy≈40%，标题栏之下留出呼吸位）。
+function canvasCenterY(height: number): number {
+  return height * 0.42;
+}
+
 // 纯视图星环：父页面负责角度、惯性和暂停规则，本组件只消费计算后的轨道与行星坐标。
+// 星图 Live 四期：画布升级为全屏矩形（宽=视口宽、高=视口高），星系中心落在
+// (宽/2, 高×0.42)——与原型「全屏星图沉浸感」一致，泛光与星尘铺满整屏。
 @Component
 export struct CircleOrbitCanvas {
   @Prop galaxySize: number = 343;
+  // 画布高度（全屏沉浸）；缺省与宽度一致（方形，兼容旧接线）
+  @Prop galaxyHeight: number = 0;
   @Prop ringAngles: number[] = [0, 0, 0];
   @Prop radii: number[] = [0, 0, 0];
   @Prop circles: OrbitCircleItem[] = [];
@@ -52,6 +76,8 @@ export struct CircleOrbitCanvas {
   @Prop ringDragging: boolean = false;
   @Prop avatar: string = '';
   @Prop nickname: string = '';
+  // Tab 切走时父页面置 false：暂停星子投放（隐藏组件不应持续触发自绘与状态刷新）
+  @Prop live: boolean = true;
   onPlanet: (name: string) => void = (_name: string): void => {};
   // 星图 Live 二期：引力拖拽生命周期——start 时父页面冻结自转（行星不漂移），
   // end 回报触点距圆心距离（父页面换算档位并落库）；
@@ -66,6 +92,18 @@ export struct CircleOrbitCanvas {
   onPanStart: (ring: number) => void = (_ring: number): void => {};
   onPanUpdate: (event: GestureEvent) => void = (_event: GestureEvent): void => {};
   onPanEnd: () => void = (): void => {};
+
+  private canvasHeight(): number {
+    return this.galaxyHeight > 0 ? this.galaxyHeight : this.galaxySize;
+  }
+
+  private cx(): number {
+    return this.galaxySize / 2;
+  }
+
+  private cy(): number {
+    return this.canvasHeight() * 0.42;
+  }
 
   // 中心头像呼吸双环（原型 halo breath 3.2s）：仅 transform/opacity 循环动画。
   @State haloScale1: number = 0.96;
@@ -86,6 +124,106 @@ export struct CircleOrbitCanvas {
     }, 1400) as number;
   }
 
+  // ===== 帖子星子层（原型 spawnSeed）=====
+  // 活跃行星旁定时浮现光点（最多同屏 6 颗、寿命 15s），点击直达该圈最新帖。
+  // 位置在投放时刻按行星「当前」坐标 + 随机偏移锁定，此后不随自转移动（与原型一致）。
+  @State seeds: SeedItem[] = [];
+  // 星子脉动（原型 seedPulse）：所有星子共享同一呼吸相位（scale/opacity 无限交替）
+  @State seedPulseScale: number = 1;
+  @State seedPulseOpacity: number = 0.8;
+  private seedNextId: number = 1;
+  private seedSpawnTimer: number = 0;
+  private seedIntervalTimer: number = 0;
+  private seedTimers: number[] = [];
+  private seedPulseStarted: boolean = false;
+
+  aboutToAppear(): void {
+    // 首颗 1.5s 后出现，之后每 3.2s 尝试投放（原型同款节奏）
+    this.seedSpawnTimer = setTimeout((): void => { this.spawnSeed(); }, 1500) as number;
+    this.seedIntervalTimer = setInterval((): void => { this.spawnSeed(); }, 3200);
+  }
+
+  aboutToDisappear(): void {
+    if (this.seedSpawnTimer !== 0) {
+      clearTimeout(this.seedSpawnTimer);
+      this.seedSpawnTimer = 0;
+    }
+    if (this.seedIntervalTimer !== 0) {
+      clearInterval(this.seedIntervalTimer);
+      this.seedIntervalTimer = 0;
+    }
+    this.seedTimers.forEach((t: number): void => { clearTimeout(t); });
+    this.seedTimers = [];
+  }
+
+  // 行星此刻在画布上的坐标（与 OrbitPlanet.left/top 同一公式）。
+  private planetPos(circle: OrbitCircleItem): SeedPos {
+    const ring: number = circle.ring;
+    const radius: number = this.radiusFor(ring);
+    const angle: number = (circle.baseAngle + this.angleFor(ring)) * Math.PI / 180;
+    return {
+      x: this.cx() + radius * Math.cos(angle),
+      y: this.cy() + radius * Math.sin(angle),
+    };
+  }
+
+  private spawnSeed(): void {
+    if (!this.live || this.seeds.length >= 6) {
+      return;
+    }
+    const pool: OrbitCircleItem[] = this.circles.filter(
+      (circle: OrbitCircleItem): boolean => circle.active || circle.unread > 0);
+    if (pool.length === 0) {
+      return;
+    }
+    if (!this.seedPulseStarted) {
+      this.seedPulseStarted = true;
+      this.getUIContext().animateTo({ duration: 1100, curve: Curve.EaseInOut, iterations: -1, playMode: PlayMode.Alternate }, () => {
+        this.seedPulseScale = 1.45;
+        this.seedPulseOpacity = 1;
+      });
+    }
+    const circle: OrbitCircleItem = pool[Math.floor(Math.random() * pool.length)];
+    const pos: SeedPos = this.planetPos(circle);
+    const seed: SeedItem = {
+      id: this.seedNextId++,
+      x: Math.max(14, Math.min(this.galaxySize - 26, pos.x + (Math.random() * 120 - 60))),
+      y: Math.max(66, Math.min(this.canvasHeight() - 90, pos.y + (Math.random() * 90 - 45))),
+      name: circle.name,
+      gold: Math.random() < 0.16,
+    };
+    this.seeds.push(seed);
+    const life: number = setTimeout((): void => {
+      this.seeds = this.seeds.filter((s: SeedItem): boolean => s.id !== seed.id);
+    }, 15000) as number;
+    this.seedTimers.push(life);
+  }
+
+  private tapSeed(seed: SeedItem): void {
+    this.seeds = this.seeds.filter((s: SeedItem): boolean => s.id !== seed.id);
+    this.onSeedTap(seed.name);
+  }
+
+  @Builder
+  private seedLayer(): void {
+    ForEach(this.seeds, (seed: SeedItem) => {
+      Stack({ alignContent: Alignment.Center }) {
+        Circle()
+          .width(10)
+          .height(10)
+          .fill(seed.gold ? ColorTokens.warm : ColorTokens.brand)
+          .shadow({ radius: 10, color: seed.gold ? ColorTokens.warm : ColorTokens.brandTint })
+      }
+      .width(26)
+      .height(26)
+      .position({ x: seed.x - 13, y: seed.y - 13 })
+      .scale({ x: this.seedPulseScale, y: this.seedPulseScale })
+      .opacity(this.seedPulseOpacity)
+      .transition(TransitionEffect.OPACITY.animation({ duration: MotionTokens.slow }))
+      .onClick((): void => { this.tapSeed(seed); })
+    }, (seed: SeedItem) => String(seed.id))
+  }
+
   private angleFor(ring: number): number {
     return this.ringAngles[ring] ?? 0;
   }
@@ -102,9 +240,8 @@ export struct CircleOrbitCanvas {
     if (fingers === undefined || fingers.length === 0) {
       return -1;
     }
-    const center: number = this.galaxySize / 2;
-    const dx: number = fingers[0].localX - center;
-    const dy: number = fingers[0].localY - center;
+    const dx: number = fingers[0].localX - this.cx();
+    const dy: number = fingers[0].localY - this.cy();
     const distance: number = Math.sqrt(dx * dx + dy * dy);
     let best: number = -1;
     let bestGap: number = -1;
@@ -124,13 +261,14 @@ export struct CircleOrbitCanvas {
 
   @Builder
   private starDots(): void {
+    // 装饰星尘按画布宽/高百分比散布（全屏矩形），低透明墨点，不参与交互。
     ForEach(STAR_DOTS, (dot: StarDot, index: number) => {
       Circle()
         .width(dot.size)
         .height(dot.size)
         .fill(ColorTokens.tertiary)
         .opacity(0.05)
-        .position({ x: this.galaxySize * dot.x / 100, y: this.galaxySize * dot.y / 100 })
+        .position({ x: this.galaxySize * dot.x / 100, y: this.canvasHeight() * dot.y / 100 })
         .hitTestBehavior(HitTestMode.None)
     }, (_dot: StarDot, index: number) => 'star_' + index)
   }
@@ -139,6 +277,7 @@ export struct CircleOrbitCanvas {
   private orbitRing(ring: number): void {
     OrbitRingLayer({
       galaxySize: this.galaxySize,
+      canvasH: this.canvasHeight(),
       radius: this.radiusFor(ring),
       ringAngle: this.angleFor(ring),
       circles: this.circlesFor(ring),
@@ -201,32 +340,32 @@ export struct CircleOrbitCanvas {
     .height(CENTER_AVATAR_SIZE)
     .borderRadius(CENTER_AVATAR_SIZE / 2)
     // 不裁剪：呼吸光环（70/86）大于头像，需要溢出显示；头像圆形由 Image 自身 borderRadius 保证。
-    .position({ x: this.galaxySize / 2 - CENTER_AVATAR_SIZE / 2, y: this.galaxySize / 2 - CENTER_AVATAR_SIZE / 2 })
+    .position({ x: this.cx() - CENTER_AVATAR_SIZE / 2, y: this.cy() - CENTER_AVATAR_SIZE / 2 })
     .onAppear((): void => { this.startHaloBreath(); })
     .hitTestBehavior(HitTestMode.None)
   }
 
   build() {
-    Stack({ alignContent: Alignment.Center }) {
+    Stack({ alignContent: Alignment.TopStart }) {
       Column()
         .width('100%')
         .height('100%')
-        // 泛光渐变必须完整落在画布内：中心取画布中心、半径取 0.5 * galaxySize，
-        // 使四边中点恰好衰减至透明（glassClear），避免渐变被方形画布边界裁切成矩形。
+        // 星图 Live 四期：泛光铺满全屏矩形画布——中心取星系中心（宽/2, 高×0.42），
+        // 半径取画布对角线一半，边缘自然衰减至透明，营造原型的全屏沉浸夜空。
         .radialGradient({
-          center: [this.galaxySize / 2, this.galaxySize / 2],
-          radius: this.galaxySize * 0.5,
+          center: [this.cx(), this.cy()],
+          radius: Math.max(this.galaxySize, this.canvasHeight()) * 0.62,
           colors: [[ColorTokens.brandTint, 0], [ColorTokens.glassClear, 1]],
         })
-        .borderRadius(this.galaxySize / 2)
       this.starDots()
       this.coreStar()
       this.orbitRing(0)
       this.orbitRing(1)
       this.orbitRing(2)
+      this.seedLayer()
     }
     .width(this.galaxySize)
-    .height(this.galaxySize)
+    .height(this.canvasHeight())
     .clip(false)
     .gesture(
       PanGesture({ direction: PanDirection.Horizontal, distance: 2 })
@@ -248,11 +387,17 @@ struct OrbitRingLayer {
   @Prop selectedName: string = '';
   @Prop centeredName: string = '';
   @Prop ringDragging: boolean = false;
+  // 星图 Live 四期：全屏矩形画布高度（中心=宽/2、高×0.42）
+  @Prop canvasH: number = 0;
   onPlanet: (name: string) => void = (_name: string): void => {};
   onGravityStart: (name: string) => void = (_name: string): void => {};
   onGravityEnd: (name: string, distance: number) => void = (_name: string, _distance: number): void => {};
   onGravityBlocked: (name: string) => void = (_name: string): void => {};
   onSeedTap: (name: string) => void = (_name: string): void => {};
+
+  private ch(): number {
+    return this.canvasH > 0 ? this.canvasH : this.galaxySize;
+  }
 
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
@@ -265,7 +410,7 @@ struct OrbitRingLayer {
         .strokeWidth(1)
         .opacity(0.9)
         .shadow({ radius: 6, color: ColorTokens.brandTint, offsetY: 0 })
-        .position({ x: this.galaxySize / 2 - this.radius, y: this.galaxySize / 2 - this.radius })
+        .position({ x: this.galaxySize / 2 - this.radius, y: canvasCenterY(this.ch()) - this.radius })
         .rotate({ angle: this.ringAngle, centerX: '50%', centerY: '50%' })
         .animation({ duration: this.ringDragging ? MotionTokens.instant : MotionTokens.fast, curve: MotionCurves.standard })
         .hitTestBehavior(HitTestMode.None)
@@ -280,6 +425,7 @@ struct OrbitRingLayer {
           selectedName: this.selectedName,
           centeredName: this.centeredName,
           galaxySize: this.galaxySize,
+          canvasH: this.ch(),
           radius: this.radius,
           baseAngle: circle.baseAngle,
           ringAngle: this.ringAngle,
@@ -292,7 +438,7 @@ struct OrbitRingLayer {
       }, (circle: OrbitCircleItem) => circle.name)
     }
     .width(this.galaxySize)
-    .height(this.galaxySize)
+    .height(this.ch())
     .hitTestBehavior(HitTestMode.Transparent)
   }
 }
@@ -310,6 +456,8 @@ struct OrbitPlanet {
   @Prop selectedName: string = '';
   @Prop @Watch('onCenteredNameChanged') centeredName: string = '';
   @Prop galaxySize: number = 343;
+  // 星图 Live 四期：全屏矩形画布高度（行星坐标与飞心目标按此中心计算）
+  @Prop canvasH: number = 0;
   @Prop radius: number = 0;
   @Prop baseAngle: number = 0;
   @Prop ringAngle: number = 0;
@@ -499,7 +647,7 @@ struct OrbitPlanet {
 
   private top(): number {
     const angle: number = (this.baseAngle + this.ringAngle) * Math.PI / 180;
-    return this.galaxySize / 2 + this.radius * Math.sin(angle) - PLANET_ICON_HIT_SIZE / 2;
+    return canvasCenterY(this.canvasH) + this.radius * Math.sin(angle) - PLANET_ICON_HIT_SIZE / 2;
   }
 
   private focusTranslateX(): number {
@@ -513,7 +661,7 @@ struct OrbitPlanet {
     if (!this.isCentered()) {
       return 0;
     }
-    return this.galaxySize / 2 - (this.top() + PLANET_ICON_HIT_SIZE / 2);
+    return canvasCenterY(this.canvasH) - (this.top() + PLANET_ICON_HIT_SIZE / 2);
   }
 
   private planetOpacity(): number {
