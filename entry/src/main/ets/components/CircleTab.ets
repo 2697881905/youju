@@ -2,7 +2,6 @@
 // 星环只负责布局与交互；颜色、阴影、字体和圆角全部复用应用 design token。
 
 import { Tag } from '../models/types';
-import { Post } from '../models/types';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { listTags, listFollowedTags, getUserProfile, listTagWeights, listTagActivity, setTagWeight, markTagRead, TagWeightItem, TagActivityItem, listAllTags, createTag } from '../services/api';
 import { getToken, getUserId, getCurrentUser, persistSessionSnapshot } from '../utils/auth';
@@ -22,7 +21,7 @@ import { TopButtonMaterialModifier, isSystemMaterialActive } from '../utils/imme
 import { openCircleDetail, openPostDetail } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 import { JoinedCirclesDialog } from './JoinedCirclesDialog';
-import { CircleLandingOverlay } from './CircleLandingOverlay';
+import { CircleUniverse } from './CircleUniverse';
 import { CircleExploreSheet, CatalogItem, CatalogGroup } from './CircleExploreSheet';
 import { CircleOrbitCanvas, OrbitCircleItem } from './CircleOrbitCanvas';
 import { followTag } from '../services/api';
@@ -1021,14 +1020,6 @@ export struct CircleTab {
     }
   }
 
-  private openPostFromLanding(post: Post): void {
-    if (post.id === undefined) {
-      return;
-    }
-    openPostDetail(String(post.id));
-    this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
-  }
-
   private joinedCircles(): CircleTag[] {
     return this.circles.filter((circle: CircleTag) => circle.joined);
   }
@@ -1313,18 +1304,19 @@ export struct CircleTab {
         this.starHintBar()
       }
 
-      // 降落层：点行星后全屏覆盖（Tab 栏在 HdsNavigation 外，天然保留）
+      // 圈子宇宙：点行星坠入该圈专属宇宙（帖子化作星星），Tab 栏在 HdsNavigation 外天然保留。
+      // 点行星的「镜头俯冲」运镜（galaxyDive）顺理成章变成「坠入宇宙」。
       if (this.landingVisible && this.landingCircle() !== undefined) {
-        CircleLandingOverlay({
+        CircleUniverse({
           circleName: this.landingCircle()?.name ?? '',
           description: this.landingCircle()?.description ?? '',
           category: this.landingCircle()?.category ?? '',
           memberCount: this.landingCircle()?.followCount ?? 0,
+          accentColor: this.landingCircle()?.color ?? '#2D7CFF',
           joined: this.landingCircle()?.joined ?? false,
           visible: this.landingVisible,
           onTakeoff: (): void => { this.takeoffLanding(); },
           onOpenFull: (): void => { this.jumpCircle(this.landingName); },
-          onOpenPost: (post: Post): void => { this.openPostFromLanding(post); },
           onJoinChanged: (joined: boolean): void => { this.onLandingJoinChanged(joined); },
         })
       }
