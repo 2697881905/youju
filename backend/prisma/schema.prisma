@@ -38,6 +38,8 @@ model User {
   ups            Up[]
   bookmarks      Bookmark[]
   userFollowTags UserFollowTag[]
+  userTagPrefs   UserTagPref[]
+  userTagReads   UserTagRead[]
   searchHistories SearchHistory[]
   bindings       UserBinding[] // 账号绑定关系（虚拟关系，FK 落在 UserBinding.userId，不新增列）
   pushTokens     PushToken[]   // 华为推送 Token（同一用户可多设备）
@@ -153,8 +155,10 @@ model Tag {
   name        String   @unique @db.VarChar(20) // 如"数码选购"
   emoji       String?  @db.VarChar(10) // 如"📱"
   category    String?  @db.VarChar(20) // 消费决策/动手实操/个人成长/生活方式
+  description String?  @db.VarChar(60) // 一句话简介（星图 Live：用户创建圈子时填写）
   useCount    Int      @default(0) // 被使用次数
   followCount Int      @default(0) // 被关注（加入圈子）次数
+  activeScore Float    @default(0) // 星等（近14天发帖×时间衰减，定时刷新；0=暗星）
   createdAt   DateTime @default(now())
 }
 
@@ -167,6 +171,30 @@ model UserFollowTag {
   createdAt DateTime @default(now())
 
   @@unique([userId, tagName]) // 同一用户对同一标签只能关注一次
+}
+
+// 用户对圈子的推送强度偏好（星图 Live「引力档位」：1=强关注 2=常关注 3=轻关注）
+// 缺行=默认 2（常关注）；退出圈子不删行（30 天内重新加入恢复原档，见客户端约定）。
+model UserTagPref {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tagName   String   @db.VarChar(20)
+  weight    Int      @default(2) // 1|2|3
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, tagName])
+}
+
+// 用户对圈子的最近浏览时间（星图 Live 未读新帖角标 / 星子的数据源）
+model UserTagRead {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tagName    String   @db.VarChar(20)
+  lastReadAt DateTime @default(now())
+
+  @@unique([userId, tagName])
 }
 
 // 搜索历史表

@@ -145,4 +145,16 @@ export const commentLimiter = rateLimit({
   handler,
 });
 
+// 创建圈子（星图 Live 三期「点亮新星」）：重操作 + 名称全局唯一，阈值从紧——
+// 10 分钟内最多 3 次；正常用户建圈是低频行为，批量注册小号刷圈会被挡。
+export const tagCreateLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userKey,
+  skip: skipTest,
+  handler,
+});
+
 

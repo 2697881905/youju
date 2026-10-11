@@ -622,6 +622,28 @@ export function listTags(): Promise<Tag[]> {
   return api.get<Tag[]>('/v1/tags');
 }
 
+// 星图 Live 三期：深空目录全量（含服务端新增、非预置圈子）。GET /v1/tags?all=1&keyword=
+export function listAllTags(keyword?: string): Promise<Tag[]> {
+  const q: string = keyword !== undefined && keyword.trim().length > 0
+    ? '&keyword=' + encodeURIComponent(keyword.trim())
+    : '';
+  return api.get<Tag[]>('/v1/tags?all=1' + q);
+}
+
+// 创建圈子请求体（点亮新星）：POST /v1/tags
+export interface CreateTagBody {
+  name: string;
+  category: string;
+  description: string;
+}
+
+// 创建圈子（点亮新星）：需登录；后端校验 2~8 字名 / 分类白名单 / 1~24 字简介 / 敏感词 / 重名，
+// 创建者自动加入。失败（含限流 429）抛错由调用方 toast。
+export function createTag(name: string, category: string, description: string): Promise<Tag> {
+  const body: CreateTagBody = { name: name, category: category, description: description };
+  return api.post<Tag>('/v1/tags', body);
+}
+
 // 关注标签（加入圈子）
 // POST /v1/tags/:name/follow
 export async function followTag(name: string): Promise<Tag> {
@@ -638,6 +660,48 @@ export async function unfollowTag(name: string): Promise<Tag> {
 // GET /v1/auth/me/followed-tags
 export function listFollowedTags(): Promise<string[]> {
   return api.get<string[]>('/v1/auth/me/followed-tags');
+}
+
+// ===== 星图 Live 二期：引力档位 / 活跃度 / 已读 =====
+
+export interface TagWeightItem {
+  tagName: string;
+  weight: number; // 1=强关注 2=常关注 3=轻关注
+}
+
+// PUT /v1/tags/:name/weight 请求体
+export interface TagWeightBody {
+  weight: number;
+}
+
+export interface TagActivityItem {
+  tagName: string;
+  unread: number;
+  active: boolean;
+  // 星图 Live 三期：星等（近14天衰减热度），驱动行星亮度三档（0暗/1常/2耀）
+  activeScore: number;
+  latestPostId: number | null;
+}
+
+// 引力档位列表：GET /v1/tags/weights（仅显式设置过的；缺省按 2 处理）
+export function listTagWeights(): Promise<TagWeightItem[]> {
+  return api.get<TagWeightItem[]>('/v1/tags/weights');
+}
+
+// 设置引力档位：PUT /v1/tags/:name/weight（仅已加入可调，403 时调用方回弹）
+export function setTagWeight(name: string, weight: number): Promise<TagWeightItem> {
+  const body: TagWeightBody = { weight: weight };
+  return api.put<TagWeightItem>('/v1/tags/' + encodeURIComponent(name) + '/weight', body);
+}
+
+// 圈子活跃度 + 未读：GET /v1/tags/activity（亮星/角标/星子数据源）
+export function listTagActivity(): Promise<TagActivityItem[]> {
+  return api.get<TagActivityItem[]>('/v1/tags/activity');
+}
+
+// 标记圈子已读：POST /v1/tags/:name/read（降落/进详情时调用，角标归零）
+export function markTagRead(name: string): Promise<object> {
+  return api.post<object>('/v1/tags/' + encodeURIComponent(name) + '/read');
 }
 
 // ===== 用户 / 鉴权 =====

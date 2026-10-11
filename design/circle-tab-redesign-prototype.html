@@ -1,0 +1,1364 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>有据 · 圈子 Tab 重构 — 三方案原型评审</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700;900&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ============ 评审页全局 ============ */
+:root{
+  --serif:"Noto Serif SC","Source Han Serif SC","STSong",serif;
+  --sans:"Noto Sans SC","PingFang SC","HarmonyOS Sans SC",sans-serif;
+  --page-bg:#F4F1EA;          /* 评审页底：暖纸 */
+  --page-ink:#1C1A17;
+  --page-sub:#6B665C;
+  --page-line:#DAD4C6;
+  --page-card:#FFFFFF;
+  --gold:#A06400;
+  --brand:#0066CC;
+}
+html[data-theme="dark"]{
+  --page-bg:#141311;
+  --page-ink:#ECE8DF;
+  --page-sub:#8F897C;
+  --page-line:#2E2B25;
+  --page-card:#1C1B18;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:var(--sans);
+  background:var(--page-bg);
+  color:var(--page-ink);
+  transition:background .4s,color .4s;
+}
+/* 暖纸噪点 */
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;opacity:.5;z-index:0;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .04 0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.wrap{max-width:1440px;margin:0 auto;padding:48px 40px 120px;position:relative;z-index:1}
+
+/* 评审页头 */
+header.review-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;border-bottom:1px solid var(--page-line);padding-bottom:28px}
+.brandline{font-size:12px;letter-spacing:.35em;color:var(--gold);font-weight:700;margin-bottom:10px}
+h1{font-family:var(--serif);font-size:34px;font-weight:900;letter-spacing:.02em}
+h1 small{font-family:var(--sans);font-size:14px;font-weight:500;color:var(--page-sub);margin-left:14px;letter-spacing:.08em}
+.head-tools{display:flex;gap:12px;align-items:center}
+.theme-toggle{
+  font-family:var(--sans);font-size:13px;font-weight:700;cursor:pointer;
+  border:1px solid var(--page-ink);background:transparent;color:var(--page-ink);
+  padding:9px 18px;border-radius:999px;transition:all .25s;
+}
+.theme-toggle:hover{background:var(--page-ink);color:var(--page-bg)}
+.intro{max-width:820px;margin:26px 0 8px;color:var(--page-sub);font-size:14.5px;line-height:1.9}
+.intro b{color:var(--page-ink)}
+
+/* 方案区块 */
+.scheme{margin-top:84px;scroll-margin-top:20px}
+.scheme-head{display:flex;align-items:baseline;gap:18px;margin-bottom:6px}
+.scheme-no{font-family:var(--serif);font-size:15px;font-weight:700;color:var(--gold);letter-spacing:.2em}
+.scheme-name{font-family:var(--serif);font-size:26px;font-weight:900}
+.scheme-tag{font-size:12px;color:var(--page-sub);border:1px solid var(--page-line);border-radius:999px;padding:4px 12px}
+.scheme-desc{max-width:760px;color:var(--page-sub);font-size:14px;line-height:1.9;margin:10px 0 34px}
+.scheme-desc b{color:var(--page-ink)}
+.stage{display:flex;gap:48px;flex-wrap:wrap;align-items:flex-start}
+.phone-col{display:flex;flex-direction:column;align-items:center;gap:18px}
+.notes{flex:1;min-width:300px;max-width:460px;display:flex;flex-direction:column;gap:14px}
+.note{
+  background:var(--page-card);border:1px solid var(--page-line);border-radius:14px;
+  padding:16px 18px;font-size:13.5px;line-height:1.85;color:var(--page-sub);
+  box-shadow:0 1px 0 var(--page-line);
+}
+.note b{color:var(--page-ink)}
+.note .k{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--gold);margin-right:8px}
+.try{
+  border-left:3px solid var(--gold);padding:2px 0 2px 14px;font-size:13px;color:var(--page-ink);line-height:1.8;
+}
+
+/* ============ 手机框 ============ */
+.phone{
+  width:375px;height:812px;border-radius:52px;position:relative;flex-shrink:0;
+  background:#0B0B0D;padding:10px;
+  box-shadow:0 30px 80px rgba(28,26,23,.28),0 4px 18px rgba(28,26,23,.18);
+}
+.screen{
+  width:100%;height:100%;border-radius:43px;overflow:hidden;position:relative;
+  display:flex;flex-direction:column;
+}
+.pillbox{position:absolute;top:12px;left:50%;transform:translateX(-50%);width:110px;height:26px;border-radius:14px;background:#0B0B0D;z-index:60}
+
+/* —— 屏内主题变量（跟随全局切换）—— */
+.screen{--bg:#FFFFFF;--bg2:#F7F7F8;--ink:#1A1A1A;--sub:#5A5A60;--tert:#8E8E96;--line:#E8E8EC;--brand:#0066CC;--gold:#A06400;--panel:rgba(255,255,255,.86);--glass:rgba(255,255,255,.62);--ringline:rgba(26,26,26,.34);--glow:rgba(0,102,204,.16)}
+html[data-theme="dark"] .screen{--bg:#121212;--bg2:#1E1E1E;--ink:#F2F2F2;--sub:#A8A8AE;--tert:#6E6E76;--line:#2A2A2E;--brand:#4D9FFF;--gold:#D9A441;--panel:rgba(30,30,30,.9);--glass:rgba(30,30,32,.62);--ringline:rgba(242,242,242,.3);--glow:rgba(77,159,255,.2)}
+
+/* 屏内通用 */
+.statusbar{height:44px;flex-shrink:0;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 6px;font-size:13px;font-weight:700;color:var(--ink)}
+.brandrow{display:flex;align-items:center;justify-content:space-between;padding:10px 20px 6px;flex-shrink:0}
+.brandrow .t{font-family:var(--serif);font-size:24px;font-weight:900;color:var(--ink)}
+.brandrow .t small{font-family:var(--sans);font-size:10px;font-weight:500;letter-spacing:.3em;color:var(--tert);margin-left:8px}
+.joined-pill{font-size:12px;color:var(--sub);border:1px solid var(--line);border-radius:999px;padding:6px 13px;background:var(--bg2)}
+.joined-pill b{color:var(--ink)}
+
+/* —— 星环引擎 —— */
+.orbit-wrap{position:relative;overflow:hidden}
+.galaxy{position:absolute;left:50%;top:50%;width:0;height:0}
+.ring{
+  position:absolute;left:0;top:0;border-radius:50%;
+  border:1px solid var(--ringline);
+  transform:translate(-50%,-50%);
+}
+html[data-theme="dark"] .ring{border-color:transparent;box-shadow:inset 0 0 0 .6px var(--ringline)}
+.ring.glowline{border:none;box-shadow:inset 0 0 0 .8px var(--ringline);filter:drop-shadow(0 0 3px var(--glow))}
+.planet-layer{position:absolute;left:0;top:0;width:0;height:0}
+.planet{
+  position:absolute;display:flex;flex-direction:column;align-items:center;gap:5px;
+  transform:translate(-50%,-50%);cursor:pointer;user-select:none;-webkit-user-select:none;
+  transition:opacity .3s;
+}
+.planet .disc{
+  width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:21px;background:var(--bg);
+  border:1px solid var(--line);
+  box-shadow:0 4px 14px rgba(0,0,0,.10);
+  transition:transform .38s cubic-bezier(.22,1.22,.36,1),box-shadow .38s,border-color .38s;
+  position:relative;
+}
+html[data-theme="dark"] .planet .disc{background:var(--bg2);box-shadow:0 0 0 .5px var(--line),0 6px 18px rgba(0,0,0,.5),0 0 18px var(--glow)}
+.planet .name{font-size:10px;font-weight:500;color:var(--ink);white-space:nowrap;letter-spacing:.02em}
+.planet.selected .disc{transform:scale(1.22);border-color:var(--brand);box-shadow:0 0 0 2px var(--brand),0 8px 22px rgba(0,102,204,.25)}
+html[data-theme="dark"] .planet.selected .disc{box-shadow:0 0 0 2px var(--brand),0 0 26px var(--glow)}
+.planet.selected .name{color:var(--brand);font-weight:700}
+.planet .dot{
+  position:absolute;top:-2px;right:-2px;min-width:16px;height:16px;border-radius:9px;padding:0 4px;
+  background:#E5484D;color:#fff;font-size:9px;font-weight:700;line-height:16px;text-align:center;
+  box-shadow:0 2px 6px rgba(229,72,77,.4);
+}
+.center-me{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:62px;height:62px;border-radius:50%;background:linear-gradient(135deg,#8EC5FF,#0066CC);
+  display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:15px;
+  box-shadow:0 8px 24px rgba(0,102,204,.35);z-index:5;
+}
+.halo{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  border-radius:50%;border:1px solid var(--glow);animation:breath 3.2s ease-in-out infinite;
+}
+@keyframes breath{0%,100%{opacity:.25;scale:.96}50%{opacity:.9;scale:1.06}}
+.stardust{position:absolute;border-radius:50%;background:var(--ringline);animation:twinkle 3s ease-in-out infinite}
+@keyframes twinkle{0%,100%{opacity:.12}50%{opacity:.5}}
+
+/* —— 方案一：下半内容区 —— */
+.s1-content{
+  flex:1;display:flex;flex-direction:column;background:var(--bg);
+  border-top:1px solid var(--line);position:relative;z-index:10;
+}
+.s1-head{display:flex;align-items:center;justify-content:space-between;padding:12px 18px 4px}
+.s1-head .cn{font-family:var(--serif);font-size:17px;font-weight:700;color:var(--ink)}
+.s1-head .meta{font-size:11px;color:var(--tert)}
+.s1-swipe{flex:1;min-height:0;overflow:hidden;display:flex;touch-action:pan-y}
+.s1-track{display:flex;gap:12px;padding:8px 18px 6px;will-change:transform;align-items:flex-start}
+.post-card{
+  width:210px;flex-shrink:0;background:var(--bg2);border:1px solid var(--line);
+  border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:7px;
+  animation:cardIn .5s cubic-bezier(.16,1,.3,1) both;
+}
+@keyframes cardIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.post-card .tagrow{display:flex;gap:6px;align-items:center}
+.chip{font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;background:rgba(0,102,204,.09);color:var(--brand)}
+html[data-theme="dark"] .chip{background:rgba(77,159,255,.14)}
+.chip.hot{background:rgba(160,100,0,.1);color:var(--gold)}
+.post-card .pt{font-size:13px;font-weight:700;color:var(--ink);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.post-card .pd{font-size:10.5px;color:var(--tert);line-height:1.55;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+.post-card .pf{margin-top:auto;display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--tert)}
+.post-card .up{color:var(--brand);font-weight:700}
+.s1-dots{display:flex;gap:5px;justify-content:center;padding:8px 0 4px}
+.s1-dots i{width:5px;height:5px;border-radius:50%;background:var(--line);transition:all .3s}
+.s1-dots i.on{width:16px;border-radius:3px;background:var(--brand)}
+.s1-pull{ text-align:center;font-size:10.5px;color:var(--tert);padding:2px 0 12px}
+
+/* —— 方案二：全屏星图 + 抽屉 —— */
+.s2-galaxy-holder{position:absolute;inset:0}
+.s2-sheet{
+  position:absolute;left:0;right:0;bottom:0;height:78%;z-index:40;
+  background:var(--panel);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  border-radius:26px 26px 0 0;border-top:1px solid var(--line);
+  box-shadow:0 -18px 50px rgba(0,0,0,.16);
+  display:flex;flex-direction:column;transition:transform .45s cubic-bezier(.16,1,.3,1);
+  transform:translateY(100%);
+}
+.s2-sheet.open{transform:translateY(38%)}
+.s2-sheet.half{transform:translateY(6%)}
+.s2-sheet.full{transform:translateY(0)}
+.grabber{width:40px;height:4px;border-radius:2px;background:var(--line);margin:10px auto 2px;cursor:grab;flex-shrink:0}
+.sheet-head{display:flex;align-items:center;gap:10px;padding:8px 20px 10px;border-bottom:1px solid var(--line);flex-shrink:0}
+.sheet-head .e{font-size:22px}
+.sheet-head .n{font-family:var(--serif);font-size:17px;font-weight:900;color:var(--ink)}
+.sheet-head .d{font-size:11px;color:var(--tert);margin-left:auto}
+.sheet-tabs{display:flex;gap:18px;padding:10px 20px 0;flex-shrink:0}
+.sheet-tabs span{font-size:13px;font-weight:500;color:var(--tert);padding-bottom:8px;cursor:pointer}
+.sheet-tabs span.on{color:var(--ink);font-weight:700;box-shadow:inset 0 -2px 0 var(--brand)}
+.sheet-body{flex:1;overflow-y:auto;padding:12px 18px 24px}
+.feedrow{display:flex;gap:12px;padding:12px 2px;border-bottom:1px solid var(--line)}
+.feedrow .thumb{width:74px;height:74px;border-radius:12px;flex-shrink:0;object-fit:cover;background:var(--bg2)}
+.feedrow .ft{font-size:13.5px;font-weight:700;color:var(--ink);line-height:1.55;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.feedrow .fm{font-size:11px;color:var(--tert);margin-top:6px;display:flex;gap:12px}
+.feedrow .fm .up{color:var(--brand);font-weight:700}
+.s2-backdrop{position:absolute;inset:0;z-index:30;background:rgba(0,0,0,0);transition:background .4s;pointer-events:none}
+.s2-backdrop.dim{background:rgba(0,0,0,.34);pointer-events:auto}
+.s2-hint{position:absolute;left:50%;transform:translateX(-50%);bottom:20px;z-index:20;font-size:11px;color:var(--tert);background:var(--glass);backdrop-filter:blur(10px);padding:7px 15px;border-radius:999px;border:1px solid var(--line);white-space:nowrap;transition:opacity .3s}
+
+/* —— 方案二 · 活着的星座宇宙 —— */
+.const-svg{position:absolute;inset:0;width:100%;height:100%;z-index:3;pointer-events:none;overflow:visible}
+.const-line{stroke:var(--gold);stroke-width:1.1;opacity:.8;stroke-dasharray:6 5;filter:drop-shadow(0 0 5px rgba(160,100,0,.55))}
+.const-caption{position:absolute;top:98px;left:20px;z-index:25}
+.const-caption .t1{font-size:9.5px;letter-spacing:.3em;color:var(--gold);font-weight:700;margin-bottom:6px}
+.const-caption .t2{font-family:var(--serif);font-size:15.5px;font-weight:700;color:var(--ink);text-shadow:0 1px 10px var(--bg)}
+.meteor{
+  position:absolute;height:2px;width:74px;z-index:26;cursor:pointer;
+  background:linear-gradient(90deg,transparent,var(--gold));
+  border-radius:2px;transform-origin:left center;
+}
+.meteor::before{content:"✦";position:absolute;right:-8px;top:-8px;color:var(--gold);font-size:11px;filter:drop-shadow(0 0 4px rgba(160,100,0,.8))}
+.daily-card{
+  position:absolute;top:150px;left:50%;transform:translate(-50%,-8px);z-index:45;
+  width:292px;background:var(--panel);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
+  border:1px solid var(--line);border-radius:18px;padding:14px 16px;
+  box-shadow:0 18px 44px rgba(0,0,0,.18);opacity:0;pointer-events:none;
+  transition:all .45s cubic-bezier(.16,1,.3,1);
+}
+.daily-card.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+.daily-card .k{font-size:10px;letter-spacing:.24em;color:var(--gold);font-weight:700}
+.daily-card .t{font-size:13.5px;font-weight:700;color:var(--ink);line-height:1.6;margin:6px 0 5px}
+.daily-card .m{font-size:11px;color:var(--tert);display:flex;justify-content:space-between}
+.daily-card .m b{color:var(--brand)}
+.planet .disc.lively{animation:liveGlow 2.6s ease-in-out infinite}
+@keyframes liveGlow{0%,100%{box-shadow:0 4px 14px rgba(0,0,0,.1)}50%{box-shadow:0 0 0 2px var(--glow),0 6px 24px var(--glow)}}
+html[data-theme="dark"] .planet .disc.lively{animation:liveGlowDark 2.6s ease-in-out infinite}
+@keyframes liveGlowDark{0%,100%{box-shadow:0 0 0 .5px var(--line),0 6px 18px rgba(0,0,0,.5)}50%{box-shadow:0 0 0 2px var(--glow),0 0 26px var(--glow)}}
+.planet .disc.dark-star{opacity:.42;filter:grayscale(.45)}
+.planet.meteor-source .disc{border-color:var(--gold)}
+
+/* —— 方案二 v2 · 星图 Live —— */
+#g2 .planet{cursor:grab}
+#g2 .planet:active{cursor:grabbing}
+#s2seeds{pointer-events:none}
+.star-seed{
+  pointer-events:auto;position:absolute;width:10px;height:10px;border-radius:50%;z-index:22;cursor:pointer;
+  background:radial-gradient(circle at 35% 35%, #fff, var(--brand));
+  box-shadow:0 0 10px var(--glow),0 0 3px var(--brand);
+  animation:seedPulse 2.2s ease-in-out infinite;
+}
+.star-seed.gold{background:radial-gradient(circle at 35% 35%, #fff, var(--gold));box-shadow:0 0 12px rgba(160,100,0,.75)}
+@keyframes seedPulse{0%,100%{transform:translate(-50%,-50%) scale(1);opacity:.8}50%{transform:translate(-50%,-50%) scale(1.45);opacity:1}}
+.seed-card{
+  position:absolute;z-index:46;width:264px;background:var(--panel);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border:1px solid var(--line);border-radius:15px;padding:12px 14px;
+  box-shadow:0 16px 40px rgba(0,0,0,.18);opacity:0;pointer-events:none;
+  transition:all .35s cubic-bezier(.16,1,.3,1);
+}
+.seed-card.show{opacity:1;pointer-events:auto}
+.seed-card .k{font-size:9.5px;letter-spacing:.18em;color:var(--gold);font-weight:700}
+.seed-card .t{font-size:13px;font-weight:700;color:var(--ink);line-height:1.55;margin:5px 0 3px}
+.seed-card .pd{font-size:11px;color:var(--tert);line-height:1.6;margin-bottom:8px}
+.seed-card .row{display:flex;justify-content:space-between;align-items:center;font-size:10.5px;color:var(--tert)}
+.seed-card .go{color:var(--brand);font-weight:700;cursor:pointer}
+.grav-toast{
+  position:absolute;top:118px;left:50%;transform:translate(-50%,-6px);z-index:47;
+  font-size:12px;font-weight:700;color:var(--ink);background:var(--panel);backdrop-filter:blur(14px);
+  border:1px solid var(--line);border-radius:999px;padding:8px 16px;opacity:0;pointer-events:none;
+  transition:all .35s;white-space:nowrap;box-shadow:0 10px 30px rgba(0,0,0,.15);
+}
+.grav-toast.show{opacity:1;transform:translate(-50%,0)}
+.land{
+  position:absolute;inset:0;z-index:48;background:var(--bg);display:flex;flex-direction:column;
+  transform:translateY(103%);transition:transform .6s cubic-bezier(.16,1,.3,1);
+}
+.land.open{transform:none}
+.land-head{padding:14px 20px 12px;border-bottom:1px solid var(--line);flex-shrink:0}
+.lh-top{display:flex;justify-content:space-between;align-items:center}
+.lh-top .back{font-size:13px;font-weight:700;color:var(--brand);cursor:pointer;padding:6px 12px;border-radius:10px;background:var(--bg2)}
+.lh-top .lh-k{font-size:9.5px;letter-spacing:.28em;color:var(--gold);font-weight:700}
+.lh-name{font-family:var(--serif);font-size:22px;font-weight:900;color:var(--ink);margin-top:10px;line-height:1.4}
+.lh-desc{font-size:11.5px;color:var(--tert);margin-top:4px}
+.land-body{flex:1;overflow-y:auto;padding:6px 18px 24px}
+.feedrow.lightup{animation:lightUp .55s cubic-bezier(.16,1,.3,1) both}
+@keyframes lightUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.article{padding:14px 2px;font-size:13.5px;line-height:2}
+.article p{margin-bottom:14px;color:var(--sub)}
+.article p:first-child{color:var(--ink);font-weight:500}
+.article .likebar{display:flex;gap:14px;font-size:12px;color:var(--tert);border-top:1px solid var(--line);padding-top:12px}
+.article .likebar .up{color:var(--brand);font-weight:700}
+
+/* —— 成员状态：金环 + 点亮编舞 + 降落页加入 —— */
+.planet .jring{
+  position:absolute;inset:-6px;border-radius:50%;border:1px solid var(--gold);
+  opacity:0;transform:scale(.7);transition:opacity .5s,transform .5s;pointer-events:none;
+}
+html[data-theme="dark"] .planet .jring{box-shadow:0 0 8px rgba(160,100,0,.5)}
+.planet.joined .jring{opacity:.95;transform:scale(1)}
+.planet.ignite .disc{animation:ignite .75s cubic-bezier(.34,1.56,.64,1)}
+@keyframes ignite{0%{transform:scale(.55);filter:brightness(.5)}55%{transform:scale(1.38);filter:brightness(1.6)}100%{transform:scale(1);filter:none}}
+.joined-pill b{display:inline-block}
+.joined-pill b.bump{animation:bump .55s cubic-bezier(.34,1.56,.64,1)}
+@keyframes bump{0%{transform:scale(1)}40%{transform:scale(1.55)}100%{transform:scale(1)}}
+.lh-actions{display:flex;align-items:center;gap:12px;margin-top:12px}
+.joinbtn{
+  font-size:13px;font-weight:700;cursor:pointer;border-radius:999px;padding:8px 20px;
+  border:none;background:var(--brand);color:#fff;transition:all .3s;
+  box-shadow:0 6px 18px rgba(0,102,204,.3);
+}
+.joinbtn.out{background:var(--bg2);color:var(--sub);border:1px solid var(--line);box-shadow:none}
+.joinbtn:active{transform:scale(.95)}
+.golink{font-size:12px;color:var(--tert);cursor:pointer}
+.golink:hover{color:var(--brand)}
+
+/* —— 深空目录（探索/搜索/创建） —— */
+.explore-fab{
+  position:absolute;top:104px;right:16px;z-index:25;display:flex;align-items:center;gap:6px;
+  background:var(--glass);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border:1px solid var(--line);border-radius:999px;padding:9px 15px;
+  font-size:12px;font-weight:700;color:var(--ink);cursor:pointer;transition:transform .25s;
+}
+.explore-fab:active{transform:scale(.94)}
+.explore-fab .st{color:var(--gold)}
+.explore{
+  position:absolute;left:0;right:0;bottom:0;height:84%;z-index:49;
+  background:var(--panel);backdrop-filter:blur(26px);-webkit-backdrop-filter:blur(26px);
+  border-radius:26px 26px 0 0;border-top:1px solid var(--line);
+  box-shadow:0 -18px 50px rgba(0,0,0,.18);
+  display:flex;flex-direction:column;transition:transform .5s cubic-bezier(.16,1,.3,1);
+  transform:translateY(103%);
+}
+.explore.open{transform:none}
+.ex-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 10px;flex-shrink:0}
+.ex-head .t{font-family:var(--serif);font-size:17px;font-weight:900;color:var(--ink)}
+.ex-head .x{font-size:15px;color:var(--tert);cursor:pointer;padding:4px 8px}
+.ex-search{margin:0 20px 12px;flex-shrink:0}
+.ex-search input{
+  width:100%;background:var(--bg2);border:1px solid var(--line);border-radius:12px;
+  padding:10px 14px;color:var(--ink);font-size:13px;outline:none;font-family:var(--sans);
+}
+.ex-body{flex:1;overflow-y:auto;padding:0 20px 26px}
+.cgroup{font-size:10px;letter-spacing:.22em;color:var(--tert);font-weight:700;margin:16px 0 4px}
+.crow{display:flex;align-items:center;gap:11px;padding:11px 2px;border-bottom:1px solid var(--line);cursor:pointer}
+.crow .ce{font-size:20px;width:26px;text-align:center}
+.crow .ci{flex:1;min-width:0}
+.crow .cn{font-size:13.5px;font-weight:700;color:var(--ink)}
+.crow .cn .jg{font-size:9.5px;color:var(--gold);font-weight:700;margin-left:6px}
+.crow .cd{font-size:10.5px;color:var(--tert);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crow .cbtn{
+  margin-left:auto;font-size:11.5px;font-weight:700;color:var(--brand);
+  border:1px solid var(--brand);border-radius:999px;padding:5px 14px;cursor:pointer;flex-shrink:0;
+  transition:all .25s;background:transparent;
+}
+.crow .cbtn.joined{color:var(--gold);border-color:var(--gold)}
+.ccreate{
+  display:flex;align-items:center;gap:11px;margin-top:14px;padding:14px;
+  border:1px dashed var(--gold);border-radius:14px;cursor:pointer;color:var(--gold);
+  font-size:13px;font-weight:700;background:rgba(160,100,0,.05);
+}
+.ex-form{padding:6px 2px}
+.ex-form label{display:block;font-size:11px;color:var(--tert);margin:14px 0 6px;font-weight:700}
+.xinput{
+  width:100%;background:var(--bg2);border:1px solid var(--line);border-radius:12px;
+  padding:11px 14px;color:var(--ink);font-size:13px;outline:none;font-family:var(--sans);
+}
+.xinput:focus{border-color:var(--brand)}
+.catchips{display:flex;flex-wrap:wrap;gap:8px}
+.catchip{padding:7px 14px;border-radius:999px;border:1px solid var(--line);font-size:11.5px;cursor:pointer;color:var(--sub)}
+.catchip.on{border-color:var(--brand);color:var(--brand);background:rgba(0,102,204,.08);font-weight:700}
+.ex-submit{
+  width:100%;margin-top:22px;border:none;border-radius:14px;padding:13px;cursor:pointer;
+  background:var(--brand);color:#fff;font-size:14px;font-weight:700;
+  box-shadow:0 8px 22px rgba(0,102,204,.3);font-family:var(--serif);
+}
+.empty{padding:40px 20px;text-align:center;color:var(--tert);font-size:12.5px;line-height:2}
+
+/* —— 方案三：结合 —— */
+.s3-galaxy-holder{position:absolute;inset:0}
+.s3-cards{
+  position:absolute;left:0;right:0;bottom:0;z-index:30;padding:0 14px 16px;
+  display:flex;gap:11px;overflow-x:auto;scroll-snap-type:x mandatory;touch-action:pan-x;
+  scrollbar-width:none;
+}
+.s3-cards::-webkit-scrollbar{display:none}
+.s3-cards .post-card{scroll-snap-align:center;width:216px;background:var(--glass);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+.s3-topbtns{position:absolute;top:104px;right:16px;z-index:25;display:flex;flex-direction:column;gap:9px}
+.s3-fab{
+  width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:var(--glass);backdrop-filter:blur(14px);border:1px solid var(--line);font-size:16px;cursor:pointer;
+  color:var(--ink);transition:transform .25s;
+}
+.s3-fab:active{transform:scale(.92)}
+.s3-fab.gold{color:var(--gold);font-weight:900;font-family:var(--serif);font-size:14px}
+.s3-circlename{
+  position:absolute;top:112px;left:20px;z-index:25;
+}
+.s3-circlename .big{font-family:var(--serif);font-size:25px;font-weight:900;color:var(--ink);text-shadow:0 1px 12px var(--bg)}
+.s3-circlename .small{font-size:11.5px;color:var(--sub);margin-top:3px;text-shadow:0 1px 10px var(--bg)}
+
+/* 底部 Tab 栏（三案共用） */
+.tabbar{
+  height:64px;flex-shrink:0;display:flex;border-top:1px solid var(--line);
+  background:var(--panel);backdrop-filter:blur(20px);position:relative;z-index:50;
+  margin-top:auto;
+}
+.tabbar .tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10.5px;color:var(--tert)}
+.tabbar .tab.on{color:var(--brand);font-weight:700}
+.tabbar .tab .ico{font-size:20px;line-height:1}
+.tabbar .plus{
+  width:46px;height:32px;border-radius:12px;background:var(--brand);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:300;margin-top:-16px;
+  box-shadow:0 8px 20px rgba(0,102,204,.35);
+}
+
+/* 对比表 */
+.compare{margin-top:90px;border-top:1px solid var(--page-line);padding-top:34px}
+.compare h2{font-family:var(--serif);font-size:22px;font-weight:900;margin-bottom:20px}
+.cmp{width:100%;border-collapse:collapse;font-size:13.5px}
+.cmp th,.cmp td{border:1px solid var(--page-line);padding:12px 16px;text-align:left;line-height:1.7}
+.cmp th{font-family:var(--serif);font-weight:900;background:var(--page-card)}
+.cmp td{color:var(--page-sub);background:var(--page-card)}
+.cmp td b{color:var(--page-ink)}
+.cmp .good{color:var(--gold);font-weight:700}
+footer{margin-top:70px;color:var(--page-sub);font-size:12px;letter-spacing:.1em;text-align:center}
+@media (max-width:1380px){.stage{justify-content:center}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="review-head">
+    <div>
+      <div class="brandline">有据 SUBSTANTIATE · DESIGN REVIEW</div>
+      <h1>圈子 Tab 重构 · 三方案原型<small>可交互 · 深浅色自适应 · 数据均为真实接口可支撑的结构</small></h1>
+    </div>
+    <div class="head-tools">
+      <button class="theme-toggle" onclick="toggleTheme()">切换 深色 / 浅色</button>
+    </div>
+  </header>
+
+  <p class="intro">
+    三个方案共享同一个目标：<b>把星环从「快捷方式墙」变成有功能的目的地</b>。差异在星环与内容的从属关系——方案一让星环退居上屏、内容区成为阅读主场；方案二让星图吞掉全屏、内容收进可拖拽抽屉；方案三取两者折中：全屏星域之上悬浮玻璃预览卡。所有动效仅用 transform / opacity / rotate，可直接映射 ArkUI 原生动画。
+  </p>
+
+  <!-- ================= 方案一 ================= -->
+  <section class="scheme" id="s1">
+    <div class="scheme-head">
+      <span class="scheme-no">方案一</span>
+      <span class="scheme-name">引力星域</span>
+      <span class="scheme-tag">星环即筛选器 · 内容即目的地</span>
+    </div>
+    <p class="scheme-desc">
+      星环压缩到上屏 58%，<b>点行星 / 横滑卡片 = 换圈子</b>：行星飞到 12 点位，星环整体上移让位，下方内容区以编排动画换入该圈子「最新 3 帖」预览卡。行星有质量等级（热度=大小+光晕+新帖红点），中心头像呼吸光环。往下滚即进入该圈全量帖子流。
+    </p>
+    <div class="stage">
+      <div class="phone-col">
+        <div class="phone"><div class="pillbox"></div><div class="screen" id="scr1"></div></div>
+      </div>
+      <div class="notes">
+        <div class="try">▶ 试玩：点击任意行星选中 · 在下方预览卡上<b>左右拖拽</b>切换圈子 · 星环会跟着转</div>
+        <div class="note"><span class="k">功能增益</span><b>不进详情页就能刷帖子</b>：预览卡可直接读、可点赞，点卡片进帖子详情；下拉换全量流。圈子切换零跳转。</div>
+        <div class="note"><span class="k">高级感来源</span>行星质量分级（大小/光晕/红点）、选中镜头让位、卡片编排进场、中心呼吸光环。全部 transform/opacity 可达。</div>
+        <div class="note"><span class="k">深浅色</span>浅色=纸上星图（墨细线轨道）；深色=墨空星图（弧线微光+行星光晕）。同一结构换资源。</div>
+        <div class="note"><span class="k">风险</span>上下两区的视觉衔接需要打磨；星环高度被压缩后 24 颗行星在小屏上需要按热度收敛展示数量。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 方案二 ================= -->
+  <section class="scheme" id="s2">
+    <div class="scheme-head">
+      <span class="scheme-no">方案二</span>
+      <span class="scheme-name">星图 Live</span>
+      <span class="scheme-tag">住在宇宙里：内容来找你 · 关系由你摆 · 进入即着陆</span>
+    </div>
+    <p class="scheme-desc">
+      星图不再是「圈子的导航页」，它<b>本身就是信息流</b>：<b>① 星子</b>——新帖/热帖化作发光光点实时亮在圈子行星旁，点开即读；<b>② 引力调节</b>——<b>拖拽行星改变轨道半径</b>：拖得越近=强关注（信息流权重高、新帖必送达），仅对<b>已加入</b>圈子生效（行星带金环）；<b>③ 降落</b>——点行星镜头俯冲，帖子流如「地表灯火」浮现，<b>降落页内直接加入/退出圈子</b>，加入瞬间行星点亮 + 金环浮现 + 已加入计数滚动。
+    </p>
+    <div class="stage">
+      <div class="phone-col">
+        <div class="phone"><div class="pillbox"></div><div class="screen" id="scr2"></div></div>
+      </div>
+      <div class="notes">
+        <div class="try">▶ 试玩：<b>点行星 ⬇ 降落</b>加入 · <b>拖行星</b>调引力 · 点<b>星子</b>读帖 · 右上<b>✦ 探索星云</b>：搜索/加入星图外的圈子、创建新星</div>
+        <div class="note"><span class="k">① 星子</span>帖子主动在星图上亮起——<b>信息流从列表范式搬进空间范式</b>。光点每 3s 左右亮一颗，金色的每日一帖可直接点开全文。</div>
+        <div class="note"><span class="k">② 引力调节</span>仅对<b>已加入</b>（金环行星）生效：内环=强关注、中环=常关注、外环=轻关注，写回 followWeight。拖未加入行星 → 弹回原轨道 + 「去加入」引导，顺势成为转化钩子。</div>
+        <div class="note"><span class="k">③ 降落 + 加入</span>降落页头部即「加入圈子」按钮：加入 → 行星<b>点亮弹跳 + 金环浮现</b> + 顶部计数滚动；退出 → 熄灭。成员身份（userFollowTag）与推送浓度（followWeight）分离。</div>
+        <div class="note"><span class="k">④ 深空目录</span><b>星图 ≠ 全量圈子</b>：星图只放「你的 + 活跃的」，长尾圈子住目录。搜索无结果时引导「由你来点亮」——<b>创建圈子 = 在宇宙里点燃一颗新星</b>，落回星图即见它挂上轨道。</div>
+        <div class="note"><span class="k">两维独立</span><b>亮暗 = 活跃度</b>（近期有没有新帖），<b>金环 = 成员身份</b>（能否拖动调引力）。「旅行出行」是金环+暗星 = <b>已加入但沉寂</b>——照样可拖；拖一颗无环暗星才弹加入引导。</div>
+        <div class="note"><span class="k">实现边界</span>全部落在 transform/opacity + PanGesture + 长按判定，无 Canvas；星子数量上限 6 颗防过载；引力档位写库仅一次接口。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 方案三 ================= -->
+  <section class="scheme" id="s3">
+    <div class="scheme-head">
+      <span class="scheme-no">方案三</span>
+      <span class="scheme-name">星域双册（一 + 二 结合）</span>
+      <span class="scheme-tag">全屏星域 · 悬浮玻璃预览卡 · 抽屉全流</span>
+    </div>
+    <p class="scheme-desc">
+      取两者折中：星域占满全屏但<b>重心上移</b>（选中圈子的名字与简介以大号衬线字浮在星域左上），<b>玻璃预览卡悬浮在星域下缘</b>——横滑卡片即切换圈子（星环联动转动），双击卡片或点「全流」按钮拉起方案二的三档抽屉看全量帖子。可玩性与沉浸感都保留，手势系统却只复用横滑 + 拖拽两种。
+    </p>
+    <div class="stage">
+      <div class="phone-col">
+        <div class="phone"><div class="pillbox"></div><div class="screen" id="scr3"></div></div>
+      </div>
+      <div class="notes">
+        <div class="try">▶ 试玩：<b>横滑下方玻璃卡</b>切圈子（星环同步转） · 点击行星直达 · 右上「流」按钮拉起全量抽屉</div>
+        <div class="note"><span class="k">功能增益</span>方案一全部功能 + 全屏沉浸感；大字号圈子名+简介给了页面「杂志封面」式的编辑感。</div>
+        <div class="note"><span class="k">高级感来源</span>玻璃卡悬浮在星域上（分层景深）、衬线大字标题排版、星域与卡片的双层视差。</div>
+        <div class="note"><span class="k">风险</span>玻璃卡悬浮在行星轨道上会遮挡部分行星——行星分布需要给下缘让位（卡片区上方 140vp 内少布行星）；信息层级最多，需要克制文案。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 对比 -->
+  <div class="compare">
+    <h2>三案对比</h2>
+    <table class="cmp">
+      <tr><th></th><th>方案一 · 引力星域</th><th>方案二 · 星图 Live</th><th>方案三 · 星域双册</th></tr>
+      <tr><th>星环角色</th><td><b>筛选器</b>（与内容区联动）</td><td><b>宇宙即信息流</b>（星子/引力/降落三层机制）</td><td><b>筛选器 + 沉浸背景</b>双重身份</td></tr>
+      <tr><th>内容可达性</th><td class="good">最快——选中即见预览卡</td><td class="good">新帖主动亮在星图上</td><td class="good">快——卡片悬浮常驻</td></tr>
+      <tr><th>开发量</th><td>中（复用现有手势骨架）</td><td>高（拖拽引力 + 降落转场 + 星子事件）</td><td>中高（横滑联动 + 复用抽屉）</td></tr>
+      <tr><th>记忆点</td><td>「刷圈子像刷宇宙」</td><td class="good">「住进宇宙：内容来找你、关系由你摆、进入即着陆」</td><td>杂志封面式排版 + 玻璃分层</td></tr>
+      <tr><th>风险</th><td>上下衔接需打磨</td><td>手势系统全新，工期 2 倍</td><td>悬浮卡遮挡轨道需布局让位</td></tr>
+      <tr><th>分期建议</th><td>一期可直接落地</td><td>二期演进</td><td>一期主体 + 二期补全流抽屉</td></tr>
+    </table>
+  </div>
+
+  <footer>有据 · 圈子 Tab 重构原型 — 仅用于设计评审，数据为示意，结构与动效均可映射 ArkUI 原生实现</footer>
+</div>
+
+<script>
+/* ================= 数据 ================= */
+const CIRCLES = [
+  {name:'手机数码', emoji:'📱', cat:'消费选购', mass:3, hot:3, desc:'买前的真实体验，比参数表更可信。',
+   posts:[
+     {t:'华为 Pocket 2 用满 90 天：小折叠的真实续航与折痕', d:'每天 32 条消息、20 次快门之后的实话。', u:128, a:'抹茶味的琴', hot:1},
+     {t:'1500 元档平板怎么选不踩坑：四台真机对比', d:'屏幕素质、笔延迟、扬声器实听。', u:86, a:'数码老宅'},
+     {t:'手机以旧换新避坑指南：估价单里的小字', d:'回收价与挂价差多少才合理。', u:54, a:'省钱研究所'},
+   ]},
+  {name:'装修避坑', emoji:'🛠️', cat:'动手改造', mass:3, hot:2, desc:'装修的水深，过来人一句顶一万句。',
+   posts:[
+     {t:'全屋定制报价比三家，我砍掉了两万二的增项', d:'投影面积 vs 展开面积，猫腻全在算法。', u:203, a:'包工头老李', hot:1},
+     {t:'水电改造验收清单：21 个点位逐个打压试验', d:'验收当天带什么工具、拍什么照片。', u:97, a:'化工奶爸'},
+     {t:'美缝自己动手 vs 请人：600 元与 6000 元的差距', d:'工具清单和翻车点都在这。', u:41, a:'新手瓦工'},
+   ]},
+  {name:'求职面试', emoji:'🎯', cat:'职场与收入', mass:2, hot:0, desc:'简历怎么写、面试怎么答，都有人趟过。',
+   posts:[
+     {t:'面了 14 家公司后，我把复试通过率从 20% 提到 70%', d:'复盘表 + 高频追问的话术。', u:156, a:'跳槽中的产品'},
+     {t:'简历上的「精通」，正在让你过不了初筛', d:'HR 视角的动词替换清单。', u:73, a:'猎头小周'},
+     {t:'谈薪环节，这句话让我多拿了 15%', d:'先让对方出价的时机把握。', u:65, a:'茶水间情报'},
+   ]},
+  {name:'养猫养狗', emoji:'🐾', cat:'生活与家庭', mass:2, hot:1, desc:'粮食、就医、绝育，铲屎官的经验之谈。',
+   posts:[
+     {t:'猫咪频繁呕吐，最后查出是最便宜的冻干', d:'选粮看配方表的三个硬指标。', u:112, a:'三猫家长', hot:1},
+     {t:'宠物医院避坑：这五种检查可以直接拒绝', d:'哪些是话术包装的必做项。', u:88, a:'兽医朋友'},
+     {t:'领养代替购买：从申请到接猫回家的全流程', d:'救助站审核其实没那么可怕。', u:37, a:'流浪动物志愿者'},
+   ]},
+  {name:'美食探店', emoji:'🍜', cat:'兴趣休闲', mass:2, hot:2, desc:'网红店值不值，实测说话。',
+   posts:[
+     {t:'排了两小时的网红面包店，值得吗？', d:'可颂起酥层次 vs 时间成本实测。', u:94, a:'碳水信徒', hot:1},
+     {t:'桂林吃古鲁特烤肉：一张桌子烤出西北味', d:'招牌肉品和隐藏吃法。', u:61, a:'干饭侦察兵'},
+     {t:'商场负一层的小店，比美食层好吃的原因', d:'租金结构决定了出品逻辑。', u:29, a:'觅食雷达'},
+   ]},
+  {name:'记账储蓄', emoji:'🧮', cat:'职场与收入', mass:1, hot:0, desc:'支出看得见，攒钱才有方向。',
+   posts:[
+     {t:'坚持记账 400 天，我砍掉的三类隐性支出', d:'订阅、押金、凑单的漏财点。', u:58, a:'存钱小组长'},
+     {t:'工资到账先分五份：我的自动储蓄流水线', d:'不同银行的活期+定期编排。', u:34, a:'复利学徒'},
+     {t:'记账 App 换了七个，最后回到一张表格', d:'极简模板分享。', u:22, a:'表格控'},
+   ]},
+  {name:'恋爱心得', emoji:'💌', cat:'生活与家庭', mass:1, hot:1, desc:'相亲、约会与心动，少一点套路多一分真诚。',
+   posts:[
+     {t:'相亲第 9 次，我不再聊「你平时喜欢干嘛」', d:'开场白换成具体经历的实验。', u:77, a:'红娘在逃', hot:1},
+     {t:'异地两年，我们靠三件事维持温度', d:'仪式感不需要花很多钱。', u:45, a:'双城列车'},
+     {t:'分手后复盘：哪些信号一开始就有', d:'写给下一次恋爱。', u:31, a:'夜航西飞'},
+   ]},
+  {name:'旅行出行', emoji:'✈️', cat:'兴趣休闲', mass:1, hot:0, desc:'攻略里不会写的那部分经验。',
+   posts:[
+     {t:'高铁+巴士玩转黔东南：五天四晚人均 1800', d:'肇兴、小黄、芭沙的串联路线。', u:49, a:'绿皮火车迷'},
+     {t:'航变取消自救：抢位、签转与理赔顺序', d:'遇到航变第一时间做什么。', u:40, a:'常旅客老K'},
+     {t:'青旅住上铺十年总结的安全清单', d:'女生独自出行的细节。', u:26, a:'背包北美'},
+   ]},
+  {name:'用车经验', emoji:'🚗', cat:'动手改造', mass:1, hot:0, desc:'选车、保养、油电之争，车主的一手账。',
+   posts:[
+     {t:'电车首保被推销了四个项目，我全拒了', d:'哪些保养是真需要的。', u:66, a:'油电双修'},
+     {t:'油车车主换电一年：成本账与心态账', d:'家充桩是分水岭。', u:38, a:'通勤三十公里'},
+     {t:'二手车验车带一块漆面仪就够了', d:'十分钟的快速排查法。', u:19, a:'改装店学徒'},
+   ]},
+  {name:'影视剧集', emoji:'🎬', cat:'兴趣休闲', mass:1, hot:0, desc:'值得花时间的剧和电影，烂片也点名。',
+   posts:[
+     {t:'今年看过最被低估的国产剧，评分不该只有 7.9', d:'群像和台词都值得一个补评。', u:52, a:'片荒救援队'},
+     {t:'电影院二刷才看懂的细节，全在道具里', d:'二刷清单。', u:33, a:'第一排倒数'},
+     {t:'流媒体会员横评：谁的片库对得起年费', d:'按题材拆开算账。', u:21, a:'遥控器收藏家'},
+   ]},
+];
+
+/* ================= 星环引擎 ================= */
+const PLANET_SIZE = {3:52, 2:46, 1:40};
+function makeGalaxy(holder, opts){
+  // opts: {cx, cy, galaxyR, rings:[{r, cats:[..], dir, speed}], interactive, onSelect, centerUser, compact}
+  const cfg = Object.assign({speed:1, interactive:true}, opts);
+  const galaxy = document.createElement('div');
+  galaxy.className = 'galaxy';
+  galaxy.style.left = cfg.cx + 'px';
+  galaxy.style.top = cfg.cy + 'px';
+  holder.appendChild(galaxy);
+
+  const st = {galaxy, layers:[], angle:0, paused:new Set(), raf:0, selected:null, cx:cfg.cx, cy:cfg.cy, freeze:false};
+
+  // 装饰星尘
+  for(let i=0;i<14;i++){
+    const s = document.createElement('i');
+    s.className = 'stardust';
+    const sz = 1 + Math.random()*2;
+    s.style.width = s.style.height = sz+'px';
+    const a = Math.random()*Math.PI*2, r = cfg.galaxyR*(0.35+Math.random()*0.75);
+    s.style.left = (Math.cos(a)*r)+'px'; s.style.top = (Math.sin(a)*r)+'px';
+    s.style.animationDelay = (Math.random()*3)+'s';
+    galaxy.appendChild(s);
+  }
+
+  // 环线
+  cfg.rings.forEach(rg=>{
+    const ring = document.createElement('div');
+    ring.className = 'ring glowline';
+    ring.style.width = ring.style.height = (rg.r*2)+'px';
+    galaxy.appendChild(ring);
+  });
+
+  // 中心
+  const halo = document.createElement('div');
+  halo.className='halo'; halo.style.width = halo.style.height = (70)+'px';
+  galaxy.appendChild(halo);
+  const halo2 = document.createElement('div');
+  halo2.className='halo'; halo2.style.width = halo2.style.height = (86)+'px';
+  halo2.style.animationDelay='1.4s';
+  galaxy.appendChild(halo2);
+  if(cfg.centerUser !== false){
+    const me = document.createElement('div');
+    me.className='center-me'; me.textContent='我';
+    galaxy.appendChild(me);
+  }
+
+  // 行星层
+  cfg.rings.forEach((rg, ri)=>{
+    const list = CIRCLES.filter(c=>rg.cats.includes(c.cat));
+    const layer = document.createElement('div');
+    layer.className='planet-layer';
+    galaxy.appendChild(layer);
+    const info = {layer, r:rg.r, dir:rg.dir||1, planets:[]};
+    list.forEach((c,i)=>{
+      const a = -90 + i*(360/list.length) + (ri*13);
+      const p = document.createElement('div');
+      p.className='planet';
+      p.style.left = (Math.cos(a*Math.PI/180)*rg.r)+'px';
+      p.style.top  = (Math.sin(a*Math.PI/180)*rg.r)+'px';
+      const disc = document.createElement('div');
+      disc.className='disc';
+      disc.style.width = disc.style.height = PLANET_SIZE[c.mass]+'px';
+      disc.textContent = c.emoji;
+      const jring = document.createElement('i');     // 已加入金环（.joined 时显现）
+      jring.className='jring';
+      disc.appendChild(jring);
+      if(c.hot>0) disc.classList.add('lively');          // 活跃圈：呼吸光晕
+      if(c.mass===1 && c.hot===0) disc.classList.add('dark-star'); // 沉寂圈：暗星
+      if(c.hot>0){
+        const d = document.createElement('span');
+        d.className='dot'; d.textContent = c.hot;
+        disc.appendChild(d);
+      }
+      const nm = document.createElement('div');
+      nm.className='name'; nm.textContent = c.name;
+      p.appendChild(disc); p.appendChild(nm);
+      if(cfg.interactive){
+        p.addEventListener('click', ev=>{
+          ev.stopPropagation();
+          if(cfg.onSelect) cfg.onSelect(c, p, info);
+        });
+      }
+      layer.appendChild(p);
+      info.planets.push({el:p, base:a, circle:c});
+    });
+    st.layers.push(info);
+  });
+
+  function tick(){
+    if(!st.freeze) st.angle += 0.05 * cfg.speed;
+    st.layers.forEach(L=>{
+      const ang = st.angle * L.dir * (L.dir<0?1.3:1);
+      L.layer.style.transform = 'rotate('+ang+'deg)';
+      L.planets.forEach(P=>{
+        P.el.style.transform = 'translate(-50%,-50%) rotate('+(-ang)+'deg)';
+        P.applied = ang;
+      });
+    });
+    if(cfg.onFrame) cfg.onFrame(st);
+    st.raf = requestAnimationFrame(tick);
+  }
+  st.raf = requestAnimationFrame(tick);
+
+  st.select = function(circle){
+    st.selected = circle;
+    st.layers.forEach(L=>{
+      const hit = L.planets.find(P=>P.circle.name===circle.name);
+      L.planets.forEach(P=>P.el.classList.remove('selected'));
+      if(hit){ hit.el.classList.add('selected'); st.paused.add(L); }
+      else st.paused.delete(L);
+    });
+  };
+  st.getSelected = ()=>st.selected;
+  st.isPaused = L=>st.paused.has(L);
+  return st;
+}
+
+function makeStatusbar(){
+  return '<div class="statusbar"><span>18:02</span><span>🛜 📶 🔋</span></div>';
+}
+function makeBrandrow(pill){
+  return '<div class="brandrow"><span class="t">圈子<small>ORBIT</small></span><span class="joined-pill">已加入 <b>'+pill+'</b> 个</span></div>';
+}
+function makeTabbar(active){
+  const t = (ico,label,on)=>'<div class="tab '+on+'"><span class="ico">'+ico+'</span>'+label+'</div>';
+  return '<div class="tabbar">'+t('🏠','首页','')+t('🪐','圈子','on')+'<div class="plus">+</div>'+t('💬','消息','')+t('👤','我的','')+'</div>';
+}
+
+/* ================= 方案一 ================= */
+(function(){
+  const scr = document.getElementById('scr1');
+  scr.innerHTML = makeStatusbar() + makeBrandrow(3) +
+    '<div class="orbit-wrap" style="flex:0 0 52%">' +
+      '<div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 46%, var(--glow), transparent 62%)"></div>' +
+      '<div class="s2-galaxy-holder" id="g1"></div>' +
+    '</div>' +
+    '<div class="s1-content">' +
+      '<div class="s1-head"><span class="cn" id="s1cn"></span><span class="meta" id="s1meta"></span></div>' +
+      '<div class="s1-swipe" id="s1swipe"><div class="s1-track" id="s1track"></div></div>' +
+      '<div class="s1-dots" id="s1dots"></div>' +
+      '<div class="s1-pull" id="s1pull">↓ 下拉进入全量帖子流</div>' +
+    '</div>' + makeTabbar();
+
+  const g = makeGalaxy(document.getElementById('g1'), {
+    cx: scr.clientWidth/2 || 187, cy: 165, galaxyR: 158,
+    rings:[
+      {r:58,  cats:['动手改造']},
+      {r:105, cats:['消费选购','职场与收入'], dir:-1},
+      {r:152, cats:['生活与家庭','兴趣休闲']},
+    ],
+    onSelect(c){ select(c); }
+  });
+
+  // 卡片渲染 + 横滑
+  const track = document.getElementById('s1track');
+  const dots  = document.getElementById('s1dots');
+  let idx = 0;
+  function render(c){
+    document.getElementById('s1cn').textContent = c.emoji+' '+c.name;
+    document.getElementById('s1meta').textContent = c.desc;
+    document.getElementById('s1pull').textContent = '↓ 下拉进入「'+c.name+'」全量帖子流';
+    track.innerHTML = c.posts.map((p,i)=>
+      '<div class="post-card" style="animation-delay:'+(i*70)+'ms">' +
+        '<div class="tagrow"><span class="chip">'+c.name+'</span>'+(p.hot?'<span class="chip hot">🔥 热帖</span>':'')+'</div>' +
+        '<div class="pt">'+p.t+'</div><div class="pd">'+p.d+'</div>' +
+        '<div class="pf"><span>@'+p.a+'</span><span class="up">▲ '+p.u+'</span></div>' +
+      '</div>').join('');
+    dots.innerHTML = CIRCLES.map((_,i)=>'<i class="'+(i===idx?'on':'')+'"></i>').join('');
+  }
+  function select(c){
+    g.select(c);
+    idx = CIRCLES.indexOf(c);
+    render(c);
+  }
+  // 横滑手势
+  let sx=0, dragging=false, dx=0;
+  const swipe = document.getElementById('s1swipe');
+  swipe.addEventListener('pointerdown', e=>{ sx=e.clientX; dragging=true; dx=0; track.style.transition='none'; });
+  swipe.addEventListener('pointermove', e=>{
+    if(!dragging) return;
+    dx = e.clientX - sx;
+    track.style.transform = 'translateX('+dx+'px)';
+  });
+  function endDrag(){
+    if(!dragging) return; dragging=false;
+    track.style.transition='transform .35s cubic-bezier(.16,1,.3,1)';
+    track.style.transform='';
+    if(Math.abs(dx)>60){
+      idx = (idx + (dx<0?1:-1) + CIRCLES.length) % CIRCLES.length;
+      select(CIRCLES[idx]);
+    }
+  }
+  swipe.addEventListener('pointerup', endDrag);
+  swipe.addEventListener('pointercancel', endDrag);
+  swipe.addEventListener('pointerleave', endDrag);
+
+  select(CIRCLES[0]);
+})();
+
+/* ================= 方案二 · 星图 Live ================= */
+(function(){
+  const scr = document.getElementById('scr2');
+  scr.innerHTML = makeStatusbar() + makeBrandrow(5) +
+    '<div class="s2-galaxy-holder" id="g2">' +
+      '<div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 40%, var(--glow), transparent 64%)"></div>' +
+      '<div id="s2seeds" style="position:absolute;inset:0;z-index:22"></div>' +
+    '</div>' +
+    '<div class="grav-toast" id="s2toast"></div>' +
+    '<div class="seed-card" id="s2card"></div>' +
+    '<div class="s2-hint" id="s2hint">点行星 ⬇ 降落加入 · 拖行星 ↕ 调引力（需已加入） · 点星子 ✦ 读新帖</div>' +
+    '<div class="explore-fab" id="s2expfab"><span class="st">✦</span>探索星云</div>' +
+    '<div class="explore" id="s2explore">' +
+      '<div class="ex-head"><span class="t">深空目录 · 发现圈子</span><span class="x" id="s2exclose">✕</span></div>' +
+      '<div class="ex-search"><input id="s2exsearch" placeholder="搜索圈子名或分类…"></div>' +
+      '<div class="ex-body" id="s2exbody"></div>' +
+    '</div>' +
+    '<div class="land" id="s2land">' +
+      '<div class="land-head">' +
+        '<div class="lh-top"><span class="lh-k" id="s2lk"></span><span class="back" id="s2back">‹ 起飞</span></div>' +
+        '<div class="lh-name" id="s2ln"></div>' +
+        '<div class="lh-desc" id="s2ld"></div>' +
+        '<div class="lh-actions"><button class="joinbtn" id="s2join">＋ 加入圈子</button><span class="golink" id="s2gofull">进入完整圈子页 ▸</span></div>' +
+      '</div>' +
+      '<div class="land-body" id="s2landbody"></div>' +
+    '</div>' + makeTabbar();
+  const pillN = scr.querySelector('.joined-pill b');
+
+  const DAILY = {t:'整栋楼都在传的「免费安装」骗局，我拆解了它的完整话术', d:'从「师傅上门」到「甲醛检测」，每一步的转化钩子都拆给你看——看完至少省两千。', u:342, a:'消费维权观察员'};
+
+  function planetPos(st, name){
+    for(const L of st.layers){
+      for(const P of L.planets){
+        if(P.circle.name === name){
+          const rad = (P.base + (P.applied||0)) * Math.PI / 180;
+          return [st.cx + Math.cos(rad)*P.r, st.cy + Math.sin(rad)*P.r];
+        }
+      }
+    }
+    return null;
+  }
+
+  /* —— 深空目录：星图外的全部圈子 + 创建新星 —— */
+  const RING_DEF = [
+    {r:88,  cats:['动手改造','职场与收入']},
+    {r:165, cats:['消费选购','生活与家庭'], dir:-1},
+    {r:238, cats:['兴趣休闲']},
+  ];
+  const CATS = ['消费选购','动手改造','职场与收入','生活与家庭','兴趣休闲'];
+  const DEEP = [
+    {name:'读书会', emoji:'📚', cat:'兴趣休闲', mass:1, hot:0, desc:'一年五十本书，读过的都算数。', deep:true,
+     posts:[{t:'今年读完的第 23 本：一本让我戒掉短视频的书', d:'方法只有一条，但很难。', u:44, a:'深夜书桌'}]},
+    {name:'摄影后期', emoji:'📷', cat:'兴趣休闲', mass:1, hot:0, desc:'原片直出是懒，后期是尊重。', deep:true,
+     posts:[{t:'Lightroom 这五个滑块，解决我八成的废片', d:'曝光、去雾、HSL 的顺序有讲究。', u:36, a:'按快门的手'}]},
+    {name:'健身打卡', emoji:'🏋️', cat:'兴趣休闲', mass:1, hot:0, desc:'练没练，身体都知道。', deep:true,
+     posts:[{t:'居家健身一年：一副可调节哑铃就够了', d:'动作清单与进阶节奏。', u:52, a:'五点半的杠铃'}]},
+    {name:'母婴好物', emoji:'🍼', cat:'生活与家庭', mass:1, hot:0, desc:'踩过坑的爸妈，替你先试了一遍。', deep:true,
+     posts:[{t:'婴儿车买了三辆才明白：轻便和避震不可兼得', d:'不同阶段的选购逻辑。', u:61, a:'新手爸爸'}]},
+    {name:'职场穿搭', emoji:'👔', cat:'职场与收入', mass:1, hot:0, desc:'穿得体面，是职场的基本功。', deep:true,
+     posts:[{t:'面试穿什么：四个行业四种答案', d:'互联网、金融、体制内、外企实拍。', u:39, a:'衣橱顾问'}]},
+    {name:'钓鱼野钓', emoji:'🎣', cat:'动手改造', mass:1, hot:0, desc:'空军也是收获，至少看清了日出。', deep:true,
+     posts:[{t:'野钓钓位选择：看水流、看铧尖、看老钓位', d:'三个维度判断下竿点。', u:27, a:'河边常客'}]},
+  ];
+  const CATALOG = CIRCLES.concat(DEEP);
+
+  const g2 = makeGalaxy(document.getElementById('g2'), {
+    cx: 187, cy: 330, galaxyR: 300,
+    rings: RING_DEF,
+    interactive:false  // 行星交互由本方案接管：点=降落，拖=引力
+  });
+  g2.layers.forEach(L=>L.planets.forEach(P=>{ P.r = L.r; }));
+
+  /* —— 成员状态：已加入行星带金环，可点亮/熄灭 ——
+     亮暗=活跃度，金环=成员身份，两个维度独立：金环+暗星=「已加入但沉寂」，照样可拖引力。
+     状态持久化到 localStorage：刷新/重进后星环页保持加入与创建结果。 */
+  const STORE_KEY = 'youju-orbit-state-v1';
+  let savedState = null;
+  try { savedState = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch(e) { savedState = null; }
+  const JOINED_SET = new Set(savedState?.joined || ['手机数码','装修避坑','求职面试','养猫养狗','旅行出行']);
+  const createdSaved = (savedState?.created || []).map(c => Object.assign({created:true}, c));
+  let landCircle = null;
+  g2.layers.forEach(L=>L.planets.forEach(P=>{
+    if(JOINED_SET.has(P.circle.name)) P.el.classList.add('joined');
+  }));
+  function persistState(){
+    try{
+      localStorage.setItem(STORE_KEY, JSON.stringify({
+        joined: [...JOINED_SET],
+        created: CATALOG.filter(c=>c.created)
+      }));
+    }catch(e){}
+  }
+  CATALOG.push(...createdSaved);   // 恢复历史创建的圈子（目录可见）
+  // 恢复加入状态：基座行星补金环；深空/自建圈子重建行星（静默，无点亮动画）
+  [...JOINED_SET].forEach(nm=>{
+    if(!findPlanet(nm)){
+      const c = CATALOG.find(x=>x.name===nm);
+      if(c) addPlanet(c, true);
+    }
+  });
+  pillN.textContent = String(JOINED_SET.size);   // 刷新后计数回写
+  function refreshJoinBtn(){
+    const joined = landCircle && JOINED_SET.has(landCircle.name);
+    const btn = document.getElementById('s2join');
+    btn.textContent = joined ? '✓ 已加入 · 点击退出' : '＋ 加入圈子';
+    btn.classList.toggle('out', !!joined);
+  }
+  function toggleJoin(){
+    if(!landCircle) return;
+    const name = landCircle.name;
+    const P = findPlanet(name);
+    const joined = JOINED_SET.has(name);
+    if(joined){
+      JOINED_SET.delete(name);
+      if(P){ P.el.classList.remove('joined'); }
+      showToast('已退出「' + name + '」');
+    } else {
+      JOINED_SET.add(name);
+      if(P){
+        P.el.classList.add('joined');
+        P.el.classList.remove('ignite'); void P.el.offsetWidth;
+        P.el.classList.add('ignite');               // 点亮编舞：从暗到亮弹一下
+        setTimeout(()=>P.el.classList.remove('ignite'), 800);
+      }
+      showToast('已加入「' + name + '」· 默认常关注，拖行星可调节');
+    }
+    pillN.textContent = String(JOINED_SET.size);      // 顶部已加入计数
+    pillN.classList.remove('bump'); void pillN.offsetWidth;
+    pillN.classList.add('bump');
+    persistState();
+    refreshJoinBtn();
+  }
+  function findPlanet(name){
+    for(const L of g2.layers){ const P = L.planets.find(p=>p.circle.name===name); if(P) return P; }
+    return null;
+  }
+  document.getElementById('s2join').addEventListener('click', toggleJoin);
+  document.getElementById('s2gofull').addEventListener('click', ()=>{
+    showToast('原型示意 · 实际跳转 CircleDetailPage（发帖/完整功能）');
+  });
+
+  /* —— ③ 降落：点行星，镜头俯冲，灯火浮现 —— */
+  const land = document.getElementById('s2land');
+  const holder = document.getElementById('g2');
+  function openLand(c, fromXY){
+    hideCard();
+    landCircle = c; refreshJoinBtn();
+    holder.style.transformOrigin = fromXY ? fromXY[0]+'px '+fromXY[1]+'px' : '50% 50%';
+    holder.style.transition = 'transform .65s cubic-bezier(.3,.7,.3,1), opacity .65s';
+    holder.style.transform = 'scale(2.8)';
+    holder.style.opacity = '0.16';
+    document.getElementById('s2lk').textContent = 'LANDING · ' + c.cat;
+    document.getElementById('s2ln').textContent = c.emoji + ' ' + c.name;
+    document.getElementById('s2ld').textContent = c.desc;
+    document.getElementById('s2back').textContent = '‹ 起飞';
+    const posts = c.posts || [];
+    document.getElementById('s2landbody').innerHTML = posts.length ?
+      posts.concat(posts).map((p,i)=>
+        '<div class="feedrow lightup" style="animation-delay:'+(i*90)+'ms">' +
+          '<div class="thumb" style="background:linear-gradient(135deg,var(--bg2),var(--line))"></div>' +
+          '<div style="flex:1;min-width:0"><div class="ft">'+p.t+'</div>' +
+          '<div class="fm"><span>@'+p.a+'</span><span class="up">▲ '+p.u+'</span><span>💬 '+(p.u%17+2)+'</span></div></div>' +
+        '</div>').join('')
+      : '<div class="empty">🌙 这颗新星还没有帖子<br>去发第一帖，点亮它的第一盏灯</div>';
+    land.classList.add('open');
+  }
+  function openPost(c, p){
+    hideCard();
+    document.getElementById('s2lk').textContent = 'READ · ' + c.name;
+    document.getElementById('s2ln').textContent = p.t;
+    document.getElementById('s2ld').textContent = '@' + p.a + ' · ▲ ' + p.u;
+    document.getElementById('s2back').textContent = '‹ 返回星图';
+    document.getElementById('s2landbody').innerHTML =
+      '<div class="article">' +
+        '<p>'+p.d+'</p>' +
+        '<p>先把结论放在前面：这件事的关键不在价格，而在你有没有问到下面这三个问题。评论区每天都有新案例，建议先收藏再看。</p>' +
+        '<p>第一个问题问资质，第二个问题问耗材来源，第三个问题问超时怎么赔。三个都答得爽快的，基本可以往下谈。</p>' +
+        '<p>以上为示意正文——实际落地渲染帖子全文与图片流。（示意 · READ MODE）</p>' +
+        '<div class="likebar"><span class="up">▲ 觉得有用 '+p.u+'</span><span>💬 '+(p.u%17+2)+'</span><span>⭐ 收藏</span></div>' +
+      '</div>';
+    land.classList.add('open');
+  }
+  function closeLand(){
+    land.classList.remove('open');
+    holder.style.transform = 'scale(1)';
+    holder.style.opacity = '1';
+    setTimeout(()=>{ holder.style.transition=''; }, 700);
+  }
+  document.getElementById('s2back').addEventListener('click', closeLand);
+
+  /* —— ② 引力调节：拖行星换轨道，松手吸附 —— */
+  const toast = document.getElementById('s2toast');
+  let toastT = 0;
+  function showToast(t){
+    toast.textContent = t; toast.classList.add('show');
+    clearTimeout(toastT); toastT = setTimeout(()=>toast.classList.remove('show'), 1800);
+  }
+  const RINGS = [88, 165, 238];
+  const RING_NAMES = ['强关注 · 新帖必送达', '常关注 · 按热度推送', '轻关注 · 偶尔看看'];
+  let drag = null;
+  function wirePlanet(P){
+    const el = P.el;
+    el.addEventListener('pointerdown', e=>{
+      e.stopPropagation();
+      drag = {P, sx:e.clientX, sy:e.clientY, moved:false, r0:P.r, base0:P.base};
+      g2.freeze = true;
+      el.setPointerCapture(e.pointerId);
+      el.style.transition = 'none';
+      el.style.zIndex = 30;
+    });
+    el.addEventListener('pointermove', e=>{
+      if(!drag || drag.P !== P) return;
+      if(Math.hypot(e.clientX-drag.sx, e.clientY-drag.sy) > 8) drag.moved = true;
+      if(!drag.moved) return;
+      hideCard();
+      const hr = holder.getBoundingClientRect();
+      const vx = e.clientX - hr.left - g2.cx, vy = e.clientY - hr.top - g2.cy;
+      let r = Math.max(70, Math.min(268, Math.hypot(vx, vy)));
+      const scrAng = Math.atan2(vy, vx) * 180 / Math.PI;
+      P.base = scrAng - (P.applied || 0);
+      P.r = r;
+      el.style.left = (Math.cos(P.base*Math.PI/180)*r) + 'px';
+      el.style.top  = (Math.sin(P.base*Math.PI/180)*r) + 'px';
+    });
+    el.addEventListener('pointerup', e=>{
+      if(!drag || drag.P !== P) return;
+      g2.freeze = false; el.style.zIndex = '';
+      const {r0, base0} = drag;
+      if(drag.moved){
+        if(!JOINED_SET.has(P.circle.name)){
+          // 未加入：引力无效，弹回原轨道 + 引导加入（转化钩子）
+          P.r = r0; P.base = base0;
+          el.style.transition = 'left .45s cubic-bezier(.22,1.22,.36,1), top .45s cubic-bezier(.22,1.22,.36,1)';
+          el.style.left = (Math.cos(base0*Math.PI/180)*r0) + 'px';
+          el.style.top  = (Math.sin(base0*Math.PI/180)*r0) + 'px';
+          setTimeout(()=>{ el.style.transition=''; }, 500);
+          showGuide(P.circle, el);
+        } else {
+          const snapped = RINGS.reduce((a,b)=>Math.abs(b-P.r)<Math.abs(a-P.r)?b:a);
+          P.r = snapped;
+          el.style.transition = 'left .4s cubic-bezier(.22,1.22,.36,1), top .4s cubic-bezier(.22,1.22,.36,1)';
+          el.style.left = (Math.cos(P.base*Math.PI/180)*snapped) + 'px';
+          el.style.top  = (Math.sin(P.base*Math.PI/180)*snapped) + 'px';
+          setTimeout(()=>{ el.style.transition=''; }, 450);
+          showToast(P.circle.emoji + ' ' + P.circle.name + ' → ' + RING_NAMES[RINGS.indexOf(snapped)]);
+        }
+      } else {
+        const xy = planetPos(g2, P.circle.name);
+        openLand(P.circle, xy);
+      }
+      drag = null;
+    });
+  }
+  g2.layers.forEach(L=>L.planets.forEach(wirePlanet));
+
+  /* —— ① 星子：新帖化作光点亮在行星旁 —— */
+  const seedsLayer = document.getElementById('s2seeds');
+  const card = document.getElementById('s2card');
+  let seedCount = 0, cardT = 0;
+  function hideCard(){ card.classList.remove('show'); }
+  function showGuide(c, el){
+    card.innerHTML =
+      '<div class="k">⚡ 引力调节</div>' +
+      '<div class="t">「' + c.name + '」还未加入</div>' +
+      '<div class="pd">加入圈子后，才能把它拖近或拖远来调节推送强度。</div>' +
+      '<div class="row"><span class="go" id="s2guidejoin">去加入 ▸</span><span class="go" style="color:var(--tert)" id="s2guidecancel">取消</span></div>';
+    const sr = scr.getBoundingClientRect(), r = el.getBoundingClientRect();
+    let x = r.left - sr.left - 120, y = r.top - sr.top - 96;
+    x = Math.max(10, Math.min(x, sr.width - 276));
+    y = Math.max(66, y);
+    card.style.left = x+'px'; card.style.top = y+'px';
+    card.classList.add('show');
+    clearTimeout(cardT); cardT = setTimeout(hideCard, 5000);
+    card.querySelector('#s2guidejoin').onclick = ev=>{
+      ev.stopPropagation(); hideCard();
+      const xy = planetPos(g2, c.name);
+      openLand(c, xy);
+    };
+    card.querySelector('#s2guidecancel').onclick = ev=>{ ev.stopPropagation(); hideCard(); };
+  }
+  function showSeedCard(c, p, el){
+    card.innerHTML =
+      '<div class="k">'+c.emoji+' '+c.name+' · 新帖亮起</div>' +
+      '<div class="t">'+p.t+'</div>' +
+      '<div class="pd">'+p.d+'</div>' +
+      '<div class="row"><span>@'+p.a+' · ▲ '+p.u+'</span><span class="go">看全文 ▸</span></div>';
+    const sr = scr.getBoundingClientRect(), r = el.getBoundingClientRect();
+    let x = r.left - sr.left - 126, y = r.top - sr.top + 20;
+    x = Math.max(10, Math.min(x, sr.width - 276));
+    y = Math.min(y, sr.height - 190);
+    card.style.left = x+'px'; card.style.top = y+'px';
+    card.classList.add('show');
+    clearTimeout(cardT); cardT = setTimeout(hideCard, 6500);
+    card.querySelector('.go').onclick = ev=>{ ev.stopPropagation(); hideCard(); openPost(c, p); };
+  }
+  function spawnSeed(){
+    if(document.hidden || seedCount >= 6) return;
+    const pool = CIRCLES.filter(c=>c.hot>0);
+    const c = pool[Math.floor(Math.random()*pool.length)];
+    const post = c.posts[Math.floor(Math.random()*c.posts.length)];
+    const xy = planetPos(g2, c.name);
+    if(!xy) return;
+    const gold = Math.random() < 0.16;
+    const p = gold ? DAILY : post;
+    const el = document.createElement('div');
+    el.className = 'star-seed' + (gold ? ' gold' : '');
+    el.style.left = (xy[0] + (Math.random()*120-60)) + 'px';
+    el.style.top  = Math.max(66, xy[1] + (Math.random()*90-45)) + 'px';
+    seedsLayer.appendChild(el); seedCount++;
+    let dead = false;
+    const die = ()=>{
+      if(dead) return; dead = true; seedCount--;
+      el.animate([{opacity:1},{opacity:0}],{duration:500,fill:'forwards'}).onfinish = ()=>el.remove();
+    };
+    const life = setTimeout(die, 15000);
+    el.addEventListener('click', ev=>{
+      ev.stopPropagation();
+      clearTimeout(life);
+      if(gold){ die(); openPost({name:'消费选购 · 每日一帖'}, DAILY); }
+      else { showSeedCard(c, post, el); die(); }
+    });
+  }
+  scr.addEventListener('click', ()=>hideCard());
+  setTimeout(spawnSeed, 1500);
+  setInterval(spawnSeed, 3200);
+
+  /* —— 深空目录：探索 / 搜索 / 加入 / 创建新星 —— */
+  const explore = document.getElementById('s2explore');
+  const exBody  = document.getElementById('s2exbody');
+  function joinCircle(c){
+    JOINED_SET.add(c.name);
+    pillN.textContent = String(JOINED_SET.size);
+    pillN.classList.remove('bump'); void pillN.offsetWidth; pillN.classList.add('bump');
+    persistState();
+    if(!findPlanet(c.name)) addPlanet(c);
+    else {
+      const P = findPlanet(c.name);
+      P.el.classList.add('joined');
+      P.el.classList.remove('ignite'); void P.el.offsetWidth;
+      P.el.classList.add('ignite');
+      setTimeout(()=>P.el.classList.remove('ignite'), 800);
+    }
+  }
+  function addPlanet(circle, silent){
+    const def = RING_DEF.find(d=>d.cats.includes(circle.cat)) || RING_DEF[RING_DEF.length-1];
+    const L = g2.layers[RING_DEF.indexOf(def)];
+    const n = L.planets.length;
+    const base = -90 + n*(360/(n+1)) + (n%2 ? 14 : -10);
+    const el = document.createElement('div');
+    el.className = 'planet joined';
+    el.style.left = (Math.cos(base*Math.PI/180)*L.r) + 'px';
+    el.style.top  = (Math.sin(base*Math.PI/180)*L.r) + 'px';
+    const disc = document.createElement('div');
+    disc.className = 'disc';
+    disc.style.width = disc.style.height = PLANET_SIZE[circle.mass] + 'px';
+    disc.textContent = circle.emoji;
+    const jr = document.createElement('i'); jr.className = 'jring'; disc.appendChild(jr);
+    const nm = document.createElement('div'); nm.className = 'name'; nm.textContent = circle.name;
+    el.appendChild(disc); el.appendChild(nm);
+    L.layer.appendChild(el);
+    const P = {el, base, circle, r:L.r};
+    L.planets.push(P);
+    wirePlanet(P);
+    if(!silent){
+      el.classList.add('ignite');
+      setTimeout(()=>el.classList.remove('ignite'), 800);
+    }
+  }
+  function renderCatalog(q){
+    q = (q||'').trim();
+    const hit = c => !q || c.name.includes(q) || c.cat.includes(q) || (c.desc||'').includes(q);
+    let html = '<div class="ccreate" id="s2ccreate">＋ 点亮一颗新星 · 创建圈子</div>';
+    CATS.forEach(cat=>{
+      const list = CATALOG.filter(c=>c.cat===cat && hit(c));
+      if(!list.length) return;
+      html += '<div class="cgroup">'+cat+'</div>';
+      list.forEach(c=>{
+        const joined = JOINED_SET.has(c.name);
+        html += '<div class="crow" data-name="'+c.name+'">' +
+          '<span class="ce">'+c.emoji+'</span>' +
+          '<div class="ci"><div class="cn">'+c.name+(joined?'<span class="jg">✓ 已加入</span>':'')+'</div>' +
+          '<div class="cd">'+c.desc+'</div></div>' +
+          '<span class="cbtn '+(joined?'joined':'')+'" data-name="'+c.name+'">'+(joined?'✓':'加入')+'</span>' +
+        '</div>';
+      });
+    });
+    if(html === '<div class="ccreate" id="s2ccreate">＋ 点亮一颗新星 · 创建圈子</div>')
+      html += '<div class="empty">深空里没有叫「'+q+'」的圈子<br>也许，该由你来点亮它 �</div>';
+    exBody.innerHTML = html;
+    exBody.querySelector('#s2ccreate').onclick = ()=>renderCreate();
+    exBody.querySelectorAll('.crow').forEach(row=>{
+      row.addEventListener('click', e=>{
+        if(e.target.classList.contains('cbtn')) return;
+        const c = CATALOG.find(x=>x.name===row.dataset.name);
+        explore.classList.remove('open');
+        openLand(c);
+      });
+    });
+    exBody.querySelectorAll('.cbtn').forEach(btn=>{
+      btn.addEventListener('click', e=>{
+        e.stopPropagation();
+        const c = CATALOG.find(x=>x.name===btn.dataset.name);
+        if(JOINED_SET.has(c.name)) return;
+        joinCircle(c);
+        renderCatalog(document.getElementById('s2exsearch').value);
+        explore.classList.remove('open');
+        showToast('已加入「' + c.name + '」· 新星已点亮');
+      });
+    });
+  }
+  function renderCreate(){
+    exBody.innerHTML =
+      '<div class="ex-form">' +
+        '<label>圈子名字</label><input class="xinput" id="s2newname" placeholder="例如：阳台种菜" maxlength="8">' +
+        '<label>所属分类</label><div class="catchips">' +
+          CATS.map((c,i)=>'<span class="catchip'+(i===0?' on':'')+'" data-cat="'+c+'">'+c+'</span>').join('') +
+        '</div>' +
+        '<label>一句话简介</label><input class="xinput" id="s2newdesc" placeholder="这个圈子聊什么？" maxlength="24">' +
+        '<button class="ex-submit" id="s2newgo">✦ 点亮新星</button>' +
+      '</div>';
+    let picked = CATS[0];
+    exBody.querySelectorAll('.catchip').forEach(ch=>{
+      ch.onclick = ()=>{
+        exBody.querySelectorAll('.catchip').forEach(x=>x.classList.remove('on'));
+        ch.classList.add('on'); picked = ch.dataset.cat;
+      };
+    });
+    exBody.querySelector('#s2newgo').onclick = ()=>{
+      const name = exBody.querySelector('#s2newname').value.trim();
+      if(!name){ showToast('先给圈子起个名字'); return; }
+      const desc = exBody.querySelector('#s2newdesc').value.trim() || '新生的圈子，等你来点亮。';
+      const c = {name, emoji:'🌟', cat:picked, mass:2, hot:0, desc, posts:[], created:true};
+      CATALOG.push(c);
+      joinCircle(c);
+      persistState();
+      explore.classList.remove('open');
+      showToast('新星「' + name + '」已点亮 ✦ 就在' + picked + '轨道上');
+    };
+  }
+  document.getElementById('s2expfab').addEventListener('click', ()=>{
+    renderCatalog('');
+    explore.classList.add('open');
+  });
+  document.getElementById('s2exclose').addEventListener('click', ()=>explore.classList.remove('open'));
+  document.getElementById('s2exsearch').addEventListener('input', e=>renderCatalog(e.target.value));
+})();
+
+/* ================= 方案三 ================= */
+(function(){
+  const scr = document.getElementById('scr3');
+  scr.innerHTML = makeStatusbar() + makeBrandrow(3) +
+    '<div class="s3-galaxy-holder" id="g3">' +
+      '<div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 34%, var(--glow), transparent 60%)"></div>' +
+    '</div>' +
+    '<div class="s3-topbtns"><div class="s3-fab gold" id="s3full">流</div><div class="s3-fab">🔥</div></div>' +
+    '<div class="s3-circlename"><div class="big" id="s3big"></div><div class="small" id="s3small"></div></div>' +
+    '<div class="s2-sheet" id="s3sheet">' +
+      '<div class="grabber" id="s3grab"></div>' +
+      '<div class="sheet-head"><span class="e" id="s3e">📱</span><span class="n" id="s3n">手机数码</span><span class="d" id="s3d"></span></div>' +
+      '<div class="sheet-tabs"><span class="on">最新</span><span>热门</span></div>' +
+      '<div class="sheet-body" id="s3body"></div>' +
+    '</div>' +
+    '<div class="s3-cards" id="s3cards"></div>' + makeTabbar();
+
+  const sheet = document.getElementById('s3sheet');
+  let idx = 0;
+  function renderCards(c){
+    document.getElementById('s3big').textContent = c.name;
+    document.getElementById('s3small').textContent = c.emoji+' '+c.desc;
+    const cards = document.getElementById('s3cards');
+    cards.innerHTML = c.posts.map((p,i)=>
+      '<div class="post-card" style="animation-delay:'+(i*80)+'ms">' +
+        '<div class="tagrow"><span class="chip">'+c.name+'</span>'+(p.hot?'<span class="chip hot">🔥 热帖</span>':'')+'</div>' +
+        '<div class="pt">'+p.t+'</div><div class="pd">'+p.d+'</div>' +
+        '<div class="pf"><span>@'+p.a+'</span><span class="up">▲ '+p.u+'</span></div>' +
+      '</div>').join('');
+  }
+  function fillSheet(c){
+    document.getElementById('s3e').textContent = c.emoji;
+    document.getElementById('s3n').textContent = c.name;
+    document.getElementById('s3d').textContent = c.desc;
+    document.getElementById('s3body').innerHTML =
+      c.posts.concat(c.posts).map(p=>
+        '<div class="feedrow">' +
+          '<div class="thumb" style="background:linear-gradient(135deg,var(--bg2),var(--line))"></div>' +
+          '<div style="flex:1;min-width:0"><div class="ft">'+p.t+'</div>' +
+          '<div class="fm"><span>@'+p.a+'</span><span class="up">▲ '+p.u+'</span><span>💬 '+(p.u%17+2)+'</span></div></div>' +
+        '</div>').join('');
+  }
+  const g3 = makeGalaxy(document.getElementById('g3'), {
+    cx: 187, cy: 300, galaxyR: 260,
+    rings:[
+      {r:74,  cats:['动手改造']},
+      {r:140, cats:['消费选购','职场与收入'], dir:-1},
+      {r:205, cats:['生活与家庭','兴趣休闲']},
+    ],
+    onSelect(c){ select(c); }
+  });
+  function select(c){
+    idx = CIRCLES.indexOf(c);
+    g3.select(c);
+    renderCards(c);
+  }
+  // 横滑卡片 = 切圈子（scroll-snap + scroll 事件联动）
+  const cards = document.getElementById('s3cards');
+  let scrollLock = false;
+  cards.addEventListener('scroll', ()=>{
+    if(scrollLock) return;
+    const center = cards.scrollLeft + cards.clientWidth/2;
+    const cardEls = [...cards.children];
+    let best=0, bestD=1e9;
+    cardEls.forEach((el,i)=>{
+      const mid = el.offsetLeft + el.offsetWidth/2;
+      const d = Math.abs(mid-center);
+      if(d<bestD){bestD=d;best=i;}
+    });
+    const circleIdx = Math.floor(best/3); // 每圈 3 卡
+    if(CIRCLES[circleIdx] && CIRCLES[circleIdx].name !== g3.getSelected()?.name){
+      select(CIRCLES[circleIdx]);
+    }
+  });
+  document.getElementById('s3full').addEventListener('click', ()=>{
+    const c = g3.getSelected() || CIRCLES[0];
+    fillSheet(c);
+    sheet.classList.add('open');
+  });
+  // 抽屉拖拽（与方案二同款三档）
+  const grab = document.getElementById('s3grab');
+  const LEVELS = ['open','half','full'];
+  let startY=0, startClass='', dragging=false;
+  grab.addEventListener('pointerdown', e=>{
+    startY=e.clientY; startClass=LEVELS.find(l=>sheet.classList.contains(l));
+    dragging=true; sheet.style.transition='none'; grab.setPointerCapture(e.pointerId);
+  });
+  grab.addEventListener('pointermove', e=>{
+    if(!dragging) return;
+    const dy=e.clientY-startY;
+    const base = startClass==='full'?0 : startClass==='half'? scr.clientHeight*0.06 : scr.clientHeight*0.38;
+    sheet.style.transform='translateY('+Math.min(scr.clientHeight*0.78, Math.max(-20, base+dy))+'px)';
+  });
+  grab.addEventListener('pointerup', e=>{
+    if(!dragging) return; dragging=false; sheet.style.transition='';
+    sheet.style.transform='';
+    const dy=e.clientY-startY;
+    let i=LEVELS.indexOf(startClass);
+    if(dy<-60&&i<2)i++;
+    if(dy>60&&i>0)i--;
+    sheet.classList.remove('open','half','full');
+    if(i>=0) sheet.classList.add(LEVELS[i]);
+  });
+  sheet.addEventListener('click', e=>{ if(e.target===sheet){sheet.classList.remove('open','half','full');} });
+
+  select(CIRCLES[0]);
+})();
+
+/* ================= 主题切换 ================= */
+function toggleTheme(){
+  const h = document.documentElement;
+  h.dataset.theme = h.dataset.theme==='dark' ? 'light' : 'dark';
+}
+</script>
+</body>
+</html>

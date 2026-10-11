@@ -62,6 +62,8 @@ Thumbs.db
 
 # 编辑器临时记录
 .trae/
+# HTML 原型分享导出包（zip 派生产物，源 HTML 已入库）
+.trae-html-share-packages/
 
 # HyperFrames 渲染产物：体积大（单个 compiled/index.html 超 100MB）、可再生，不入库
 /hyperframes-tiktok/renders/

@@ -3,6 +3,7 @@ import { env } from './config/env';
 import { startMediaDeletionWorker } from './services/mediaDeletionService';
 import { startBehaviorRetentionWorker } from './services/retentionService';
 import { recomputeAllHotScores } from './services/hotScoreService';
+import { recomputeActiveScores } from './services/tagService';
 
 function failHard(message: string): never {
   console.error('[启动失败] ' + message);
@@ -50,4 +51,12 @@ app.listen(env.port, '0.0.0.0', () => {
   recomputeAllHotScores()
     .then((n) => console.log(`[hotScore] 初始化热度分完成，共 ${n} 帖`))
     .catch((e) => console.warn('[hotScore] 初始化热度分失败:', (e as Error).message));
+  // 星图 Live 三期：星等（activeScore）启动回填 + 每 6 小时刷新；失败仅告警不阻塞
+  const runActiveScore = (): void => {
+    recomputeActiveScores()
+      .then((n) => console.log(`[activeScore] 星等刷新完成，共 ${n} 标签`))
+      .catch((e) => console.warn('[activeScore] 星等刷新失败:', (e as Error).message));
+  };
+  runActiveScore();
+  setInterval(runActiveScore, 6 * 60 * 60 * 1000);
 });

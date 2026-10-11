@@ -7,10 +7,16 @@ import { TypeTokens } from '../design/tokens/type';
 
 export interface OrbitCircleItem {
   name: string;
-  followCount: number;
   size: number;
   ring: number;
   baseAngle: number;
+  // 星图 Live：joined=成员身份（金环+引力可拖），active=近7天有新帖（亮星/暗星），
+  // unread=未读新帖数（角标 + 星子）
+  joined: boolean;
+  active: boolean;
+  unread: number;
+  // 星图 Live 三期：星等 0=暗星 1=常星 2=耀星（由服务端 activeScore 换算，驱动光晕与亮度）
+  magnitude: number;
 }
 
 interface StarDot {
@@ -47,6 +53,14 @@ export struct CircleOrbitCanvas {
   @Prop avatar: string = '';
   @Prop nickname: string = '';
   onPlanet: (name: string) => void = (_name: string): void => {};
+  // 星图 Live 二期：引力拖拽生命周期——start 时父页面冻结自转（行星不漂移），
+  // end 回报触点距圆心距离（父页面换算档位并落库）；
+  // onGravityBlocked：拖动未加入行星时回报（父页面弹加入引导）。
+  onGravityStart: (name: string) => void = (_name: string): void => {};
+  onGravityEnd: (name: string, distance: number) => void = (_name: string, _distance: number): void => {};
+  onGravityBlocked: (name: string) => void = (_name: string): void => {};
+  // 星子点击：直达该圈子最新帖
+  onSeedTap: (name: string) => void = (_name: string): void => {};
   // 手势按下时回报「触点落在哪一条环」（环序号，判不出来时为 -1）：
   // 环的判定依赖半径与画布几何，因此留在本组件；父页面只消费结果。
   onPanStart: (ring: number) => void = (_ring: number): void => {};
@@ -113,6 +127,10 @@ export struct CircleOrbitCanvas {
       centeredName: this.centeredName,
       ringDragging: this.ringDragging,
       onPlanet: (name: string): void => { this.onPlanet(name); },
+      onGravityStart: (name: string): void => { this.onGravityStart(name); },
+      onGravityEnd: (name: string, distance: number): void => { this.onGravityEnd(name, distance); },
+      onGravityBlocked: (name: string): void => { this.onGravityBlocked(name); },
+      onSeedTap: (name: string): void => { this.onSeedTap(name); },
     })
   }
 
@@ -192,17 +210,22 @@ struct OrbitRingLayer {
   @Prop centeredName: string = '';
   @Prop ringDragging: boolean = false;
   onPlanet: (name: string) => void = (_name: string): void => {};
+  onGravityStart: (name: string) => void = (_name: string): void => {};
+  onGravityEnd: (name: string, distance: number) => void = (_name: string, _distance: number): void => {};
+  onGravityBlocked: (name: string) => void = (_name: string): void => {};
+  onSeedTap: (name: string) => void = (_name: string): void => {};
 
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
+      // 星图 Live：轨道由虚线升级为细实线（浅色墨线低透明，深色微光弧线）
       Circle()
         .width(this.radius * 2)
         .height(this.radius * 2)
         .fill(Color.Transparent)
-        .stroke(ColorTokens.secondary)
-        .strokeWidth(1.5)
-        .strokeDashArray([4, 6])
-        .opacity(0.82)
+        .stroke(ColorTokens.separator)
+        .strokeWidth(1)
+        .opacity(0.9)
+        .shadow({ radius: 6, color: ColorTokens.brandTint, offsetY: 0 })
         .position({ x: this.galaxySize / 2 - this.radius, y: this.galaxySize / 2 - this.radius })
         .rotate({ angle: this.ringAngle, centerX: '50%', centerY: '50%' })
         .animation({ duration: this.ringDragging ? MotionTokens.instant : MotionTokens.fast, curve: MotionCurves.standard })
@@ -210,8 +233,11 @@ struct OrbitRingLayer {
       ForEach(this.circles, (circle: OrbitCircleItem) => {
         OrbitPlanet({
           name: circle.name,
-          followCount: circle.followCount,
           planetSize: circle.size,
+          joined: circle.joined,
+          active: circle.active,
+          unread: circle.unread,
+          magnitude: circle.magnitude,
           selectedName: this.selectedName,
           centeredName: this.centeredName,
           galaxySize: this.galaxySize,
@@ -219,6 +245,10 @@ struct OrbitRingLayer {
           baseAngle: circle.baseAngle,
           ringAngle: this.ringAngle,
           onPlanet: (name: string): void => { this.onPlanet(name); },
+          onGravityStart: (name: string): void => { this.onGravityStart(name); },
+          onGravityEnd: (name: string, distance: number): void => { this.onGravityEnd(name, distance); },
+          onGravityBlocked: (name: string): void => { this.onGravityBlocked(name); },
+          onSeedTap: (name: string): void => { this.onSeedTap(name); },
         })
       }, (circle: OrbitCircleItem) => circle.name)
     }
@@ -232,8 +262,12 @@ struct OrbitRingLayer {
 @Component
 struct OrbitPlanet {
   @Prop name: string = '';
-  @Prop followCount: number = 0;
   @Prop planetSize: number = 46;
+  @Prop joined: boolean = false;
+  @Prop active: boolean = true;
+  @Prop unread: number = 0;
+  // 星图 Live 三期：星等 0=暗星 1=常星 2=耀星（光晕 + 亮度分级）
+  @Prop magnitude: number = 1;
   @Prop selectedName: string = '';
   @Prop @Watch('onCenteredNameChanged') centeredName: string = '';
   @Prop galaxySize: number = 343;
@@ -244,10 +278,18 @@ struct OrbitPlanet {
   @State firstRippleOpacity: number = 0;
   @State secondRippleScale: number = 0.72;
   @State secondRippleOpacity: number = 0;
+  // 引力拖拽：拖动期间在行星自身 translate 上叠加的位移（松手归零并回报档位）
+  @State dragX: number = 0;
+  @State dragY: number = 0;
+  @State gravityDragging: boolean = false;
   private rippleArrivalTimer: number = 0;
   private rippleStaggerTimer: number = 0;
   private rippleCycleTimer: number = 0;
   onPlanet: (name: string) => void = (_name: string): void => {};
+  onGravityStart: (name: string) => void = (_name: string): void => {};
+  onGravityEnd: (name: string, distance: number) => void = (_name: string, _distance: number): void => {};
+  onGravityBlocked: (name: string) => void = (_name: string): void => {};
+  onSeedTap: (name: string) => void = (_name: string): void => {};
 
   aboutToAppear(): void {
     if (this.isCentered()) {
@@ -265,6 +307,29 @@ struct OrbitPlanet {
 
   private isCentered(): boolean {
     return this.name === this.centeredName;
+  }
+
+  // 拖拽结束时触点距圆心的距离 = 行星轨道半径位移 + 拖拽位移的合矢量长度。
+  // 用当前 ringAngle 计算行星名义位置，再叠加 drag 位移。
+  private draggedDistance(): number {
+    const angle: number = (this.baseAngle + this.ringAngle) * Math.PI / 180;
+    const px: number = this.radius * Math.cos(angle) + this.dragX;
+    const py: number = this.radius * Math.sin(angle) + this.dragY;
+    return Math.sqrt(px * px + py * py);
+  }
+
+  private onGravityPanEnd(): void {
+    const distance: number = this.draggedDistance();
+    this.getUIContext().animateTo({ duration: MotionTokens.base, curve: MotionCurves.springSoft }, () => {
+      this.dragX = 0;
+      this.dragY = 0;
+      this.gravityDragging = false;
+    });
+    if (!this.joined) {
+      this.onGravityBlocked(this.name);
+      return;
+    }
+    this.onGravityEnd(this.name, distance);
   }
 
   private onCenteredNameChanged(): void {
@@ -364,6 +429,29 @@ struct OrbitPlanet {
     return this.galaxySize / 2 - (this.top() + PLANET_ICON_HIT_SIZE / 2);
   }
 
+  private planetOpacity(): number {
+    if (this.isSelected()) {
+      return 1;
+    }
+    // 星图 Live 三期：亮度由星等三档驱动（2=耀星 1=常星 0=暗星）。
+    // 服务端星等缺位时（历史数据/未刷新）退回 active 近似。
+    if (this.magnitude >= 2) {
+      return 1;
+    }
+    if (this.magnitude === 1) {
+      return 0.82;
+    }
+    return 0.5;
+  }
+
+  // 耀星光晕半径（星等 2 才有；选中额外增强）。返回 0 表示不绘制光晕。
+  private glowSize(): number {
+    if (this.magnitude < 2) {
+      return 0;
+    }
+    return this.isSelected() ? PLANET_ICON_HIT_SIZE + 26 : PLANET_ICON_HIT_SIZE + 16;
+  }
+
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
       Stack({ alignContent: Alignment.Center }) {
@@ -387,8 +475,30 @@ struct OrbitPlanet {
             .scale({ x: this.firstRippleScale, y: this.firstRippleScale })
             .hitTestBehavior(HitTestMode.None)
         }
-        if (this.isSelected()) {
-          TagIcon({ name: this.name, iconSize: Math.min(34, this.planetSize * 0.46 + 6), tint: ColorTokens.brand })
+        // 成员身份金环：已加入圈子行星外圈一道细金环（与涟漪/选中态独立叠加）
+        if (this.joined) {
+          Circle()
+            .width(PLANET_ICON_HIT_SIZE + 8)
+            .height(PLANET_ICON_HIT_SIZE + 8)
+            .fill(Color.Transparent)
+            .stroke(ColorTokens.warm)
+            .strokeWidth(1.5)
+            .opacity(0.95)
+            .hitTestBehavior(HitTestMode.None)
+        }
+        // 星图 Live 三期：耀星星等光晕——中心亮、边缘衰减的软光斑，衬托图标。
+        if (this.glowSize() > 0) {
+          Column()
+            .width(this.glowSize())
+            .height(this.glowSize())
+            .radialGradient({
+              center: [this.glowSize() / 2, this.glowSize() / 2],
+              radius: this.glowSize() / 2,
+              colors: [[ColorTokens.brandTint, 0], [ColorTokens.glassClear, 1]],
+            })
+            .opacity(this.isSelected() ? 0.9 : 0.6)
+            .animation({ duration: MotionTokens.base, curve: MotionCurves.standard })
+            .hitTestBehavior(HitTestMode.None)
         }
         TagIcon({ name: this.name, iconSize: Math.min(28, this.planetSize * 0.46), tint: ColorTokens.brand })
       }
@@ -400,6 +510,25 @@ struct OrbitPlanet {
       .translate({ x: this.focusTranslateX(), y: this.focusTranslateY() })
       .animation({ duration: MotionTokens.emphasis, curve: MotionCurves.springSoft })
       .onClick((): void => { this.onPlanet(this.name); })
+      // 星子 / 未读角标：行星右上角发光小点，数字=未读新帖；点击直达该圈最新帖。
+      // 仅在有未读时出现；hitTest 优先于行星 onClick（子节点先命中）。
+      if (this.unread > 0) {
+        Stack({ alignContent: Alignment.Center }) {
+          Circle()
+            .width(20)
+            .height(20)
+            .fill(ColorTokens.brand)
+            .shadow({ radius: 8, color: ColorTokens.brandTint })
+          Text(this.unread > 99 ? '99+' : String(this.unread))
+            .fontSize(9)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(Color.White)
+        }
+        .width(22)
+        .height(22)
+        .position({ x: PLANET_BOX_WIDTH / 2 + 2, y: 2 })
+        .onClick((): void => { this.onSeedTap(this.name); })
+      }
       Column({ space: SpaceTokens.inlineTight }) {
         Text(this.name)
           .width(PLANET_BOX_WIDTH)
@@ -410,14 +539,6 @@ struct OrbitPlanet {
           .textAlign(TextAlign.Center)
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(String(this.followCount) + ' 人加入')
-          .width(PLANET_BOX_WIDTH)
-          .fontSize(9).fontFamily(TypeTokens.fontFamily)
-          .fontWeight(TypeTokens.overline.weight)
-          .lineHeight(TypeTokens.overline.lineHeight)
-          .fontFeature(TypeTokens.tabularFeature)
-          .fontColor(ColorTokens.tertiary)
-          .textAlign(TextAlign.Center)
       }
       .width(PLANET_BOX_WIDTH)
       .position({ x: 0, y: PLANET_ICON_HIT_SIZE + SpaceTokens.xs })
@@ -426,9 +547,42 @@ struct OrbitPlanet {
     .width(PLANET_BOX_WIDTH)
     .height(PLANET_BOX_HEIGHT)
     .hitTestBehavior(HitTestMode.Transparent)
-    .opacity(this.isSelected() ? 1 : 0.76)
+    .opacity(this.planetOpacity())
     .animation({ duration: MotionTokens.base, curve: MotionCurves.standard })
     .position({ x: 0, y: 0 })
-    .translate({ x: this.left(), y: this.top() })
+    .translate({ x: this.left() + this.dragX, y: this.top() + this.dragY })
+    // 引力拖拽：全向 Pan，拖动时叠加位移（不挂 .animation，跟手即时）；
+    // 松手在 onGravityPanEnd 里用 animateTo 回弹并换算档位。飞心态禁用拖拽。
+    .gesture(
+      PanGesture({ direction: PanDirection.All, distance: 6 })
+        .onActionStart((): void => {
+          if (this.isCentered()) {
+            return;
+          }
+          this.gravityDragging = true;
+          this.onGravityStart(this.name);
+        })
+        .onActionUpdate((event: GestureEvent): void => {
+          if (this.isCentered()) {
+            return;
+          }
+          this.dragX = event.offsetX;
+          this.dragY = event.offsetY;
+        })
+        .onActionEnd((): void => {
+          if (this.gravityDragging) {
+            this.onGravityPanEnd();
+          }
+        })
+        .onActionCancel((): void => {
+          if (this.gravityDragging) {
+            this.getUIContext().animateTo({ duration: MotionTokens.base, curve: MotionCurves.springSoft }, () => {
+              this.dragX = 0;
+              this.dragY = 0;
+              this.gravityDragging = false;
+            });
+          }
+        })
+    )
   }
 }

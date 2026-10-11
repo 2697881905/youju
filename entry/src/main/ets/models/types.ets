@@ -24,6 +24,9 @@ export interface Tag {
   category?: string;
   useCount?: number;
   followCount?: number;
+  // 星图 Live 三期：一句话简介（服务端新增列，历史数据为 null）与星等（近14天衰减热度）
+  description?: string | null;
+  activeScore?: number;
 }
 
 // 结构化字段（按体裁不同，字段不同；自由 JSON，前端按已知键渲染）
