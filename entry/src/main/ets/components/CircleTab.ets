@@ -128,6 +128,13 @@ class CircleTag {
 // 星图 Live 三期：创建圈子的分类白名单（与后端 TAG_CATEGORIES 一致）。
 const CIRCLE_CATEGORIES: string[] = ['消费选购', '动手改造', '职场与收入', '生活与家庭', '兴趣休闲'];
 
+// ===== 星际模式配色（星图深空底上悬浮元素的反白组，与 CircleOrbitCanvas 夜空同调）=====
+const COSMIC_PAGE_BG: string = '#0B1224';      // 页面底（与画布渐变中段同色）
+const COSMIC_INK: string = '#ECE8DF';          // 标题/主文字（暖白星光）
+const COSMIC_SUB: string = '#9AA3B5';          // 次级文字（雾蓝灰）
+const COSMIC_GLASS: string = '#14FFFFFF';      // 药丸/Fab 暗玻璃底
+const COSMIC_GLASS_BORDER: string = '#26FFFFFF'; // 暗玻璃描边
+
 @Component
 export struct CircleTab {
   @State circles: CircleTag[] = [];
@@ -167,6 +174,9 @@ export struct CircleTab {
   @State galaxyDiveOpacity: number = 1;
   // 星图操作提示（原型 s2hint）：首次进入显示，6 秒后淡出；降落/目录打开即隐藏
   @State starHintVisible: boolean = false;
+  // 星际模式：星图画布恒为深空底色，悬浮其上的标题栏文字/药丸/Fab/提示条
+  // 需同步反白；空态、加载与降落层（浅色内容）升起时回退常规配色。
+  @State cosmicMode: boolean = false;
   @StorageLink('authNickname') authNickname: string = '';
   @StorageLink('authAvatar') authAvatar: string = '';
   // 星系中心头像：以 authAvatar（登录响应缓存，可能有缺）为初始值，
@@ -322,12 +332,14 @@ export struct CircleTab {
       // 二期：引力档位 + 活跃度/未读角标（登录后异步补齐，失败静默不影响星图）
       this.fetchOrbitMeta();
       this.maybeShowStarHint();
+      this.syncCosmicMode();
     } catch (e) {
       this.error = (e as Error).message;
       this.circles = [];
       this.joinedNames = [];
       this.selectedName = '';
       this.centeredName = '';
+      this.cosmicMode = false;
     } finally {
       this.loading = false;
     }
@@ -715,6 +727,8 @@ export struct CircleTab {
       // 活跃度拉取失败：退回 useCount>0 近似（orbitItems 已兜底）
     }
     this.circles = this.circles.slice();
+    // 活跃度回填后「活跃圈」集合可能变化 → 重估星际模式
+    this.syncCosmicMode();
   }
 
   // 星等分 → 三档亮度：>=1.5=耀星（带光晕）、>=0.3=常星、其余=暗星；
@@ -820,6 +834,14 @@ export struct CircleTab {
     markTagRead(name).catch((): void => {});
   }
 
+  // 星际模式开关：星图有星可看且降落层未升起时为 true。
+  // 深空画布是恒定的，但标题栏文字/药丸/Fab/提示条要跟着反白；
+  // 空态、加载、降落层（浅色内容）时回退常规配色，避免白字白底。
+  private syncCosmicMode(): void {
+    const hasStars: boolean = this.starCircles().length > 0;
+    this.cosmicMode = hasStars && !this.landingVisible;
+  }
+
   // 星图操作提示：仅首次展示（AppStorage 持久化「已看过」），6 秒淡出；
   // 降落/目录打开即提前收起，不打扰正在操作的用户。
   private maybeShowStarHint(): void {
@@ -841,12 +863,15 @@ export struct CircleTab {
   private onLandingVisibleChanged(): void {
     if (this.landingVisible) {
       this.dismissStarHint();
+      // 降落层是浅色内容页 → 悬浮元素配色回退常规
+      this.cosmicMode = false;
       this.markLandingRead(this.landingName);
       this.getUIContext().animateTo({ duration: 620, curve: MotionCurves.emphasized }, () => {
         this.galaxyDiveScale = 1.8;
         this.galaxyDiveOpacity = 0.12;
       });
     } else {
+      this.syncCosmicMode();
       this.getUIContext().animateTo({ duration: MotionTokens.slow, curve: MotionCurves.springSoft }, () => {
         this.galaxyDiveScale = 1;
         this.galaxyDiveOpacity = 1;
@@ -1049,7 +1074,7 @@ export struct CircleTab {
         .fontSize(TypeTokens.titleSerif.size).fontFamily(TypeTokens.fontFamilySerif)
         .fontWeight(TypeTokens.titleSerif.weight)
         .lineHeight(TypeTokens.titleSerif.lineHeight)
-        .fontColor(ColorTokens.primary)
+        .fontColor(this.cosmicMode ? COSMIC_INK : ColorTokens.primary)
       Blank()
       Pressable({
         visualHeight: LayoutTokens.segmentedHeight,
@@ -1063,21 +1088,21 @@ export struct CircleTab {
           Text('已加入')
             .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
             .fontWeight(TypeTokens.caption.weight)
-            .fontColor(ColorTokens.secondary)
-          CountRoll({ value: this.circleJoinedCount, prefix: '', textSize: TypeTokens.caption.size, textColor: ColorTokens.primary })
+            .fontColor(this.cosmicMode ? COSMIC_SUB : ColorTokens.secondary)
+          CountRoll({ value: this.circleJoinedCount, prefix: '', textSize: TypeTokens.caption.size, textColor: this.cosmicMode ? COSMIC_INK : ColorTokens.primary })
           Text('个')
             .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
             .fontWeight(TypeTokens.caption.weight)
-            .fontColor(ColorTokens.secondary)
+            .fontColor(this.cosmicMode ? COSMIC_SUB : ColorTokens.secondary)
         }
         .height(LayoutTokens.segmentedHeight)
         .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
         // 沉浸光感：材质生效时自绘让位（底/描边/阴影归零），系统材质接管药丸表面；
-        // 低版本门禁不通过 → 保留原样式
-        .backgroundColor(isSystemMaterialActive() ? Color.Transparent : ColorTokens.subtle)
+        // 低版本门禁不通过 → 保留原样式。星际模式下改用暗玻璃（白字深底）。
+        .backgroundColor(isSystemMaterialActive() ? Color.Transparent : (this.cosmicMode ? COSMIC_GLASS : ColorTokens.subtle))
         .border({
           width: isSystemMaterialActive() ? 0 : LayoutTokens.glassBorderWidth,
-          color: ColorTokens.separator,
+          color: this.cosmicMode ? COSMIC_GLASS_BORDER : ColorTokens.separator,
           style: BorderStyle.Solid,
         })
         .borderRadius(RadiusTokens.pill)
@@ -1134,12 +1159,12 @@ export struct CircleTab {
           Text('探索星云')
             .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
             .fontWeight(TypeTokens.headline.weight)
-            .fontColor(ColorTokens.primary)
+            .fontColor(this.cosmicMode ? COSMIC_INK : ColorTokens.primary)
         }
         .height(36)
         .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-        .backgroundColor(ColorTokens.glassWhite)
-        .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.separator, style: BorderStyle.Solid })
+        .backgroundColor(this.cosmicMode ? COSMIC_GLASS : ColorTokens.glassWhite)
+        .border({ width: LayoutTokens.glassBorderWidth, color: this.cosmicMode ? COSMIC_GLASS_BORDER : ColorTokens.separator, style: BorderStyle.Solid })
         .borderRadius(RadiusTokens.pill)
         .shadow(ShadowTokens.cardContact)
         .alignItems(VerticalAlign.Center)
@@ -1156,11 +1181,11 @@ export struct CircleTab {
     Column() {
       Text('点行星 ⬇ 降落 · 拖行星 ↕ 调引力 · 点星子 ✦ 读新帖')
         .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-        .fontColor(ColorTokens.tertiary)
+        .fontColor(this.cosmicMode ? COSMIC_SUB : ColorTokens.tertiary)
         .height(30)
         .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
-        .backgroundColor(ColorTokens.glassWhite)
-        .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.separator, style: BorderStyle.Solid })
+        .backgroundColor(this.cosmicMode ? COSMIC_GLASS : ColorTokens.glassWhite)
+        .border({ width: LayoutTokens.glassBorderWidth, color: this.cosmicMode ? COSMIC_GLASS_BORDER : ColorTokens.separator, style: BorderStyle.Solid })
         .borderRadius(RadiusTokens.pill)
         .textAlign(TextAlign.Center)
     }

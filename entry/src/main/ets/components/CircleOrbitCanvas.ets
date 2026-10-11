@@ -23,6 +23,8 @@ interface StarDot {
   x: number;
   y: number;
   size: number;
+  // 闪烁分组：0=不闪（锚定星） 1=A 组快闪 2=B 组慢闪
+  tw: number;
 }
 
 // 帖子星子（原型 spawnSeed）：新帖化作光点在活跃行星旁浮现，寿命 15s，点击直达。
@@ -40,10 +42,30 @@ interface SeedPos {
   y: number;
 }
 
+// ===== 星际深空配色（圈子页星图专用，深浅模式统一为「夜空」）=====
+// 页面其他区域仍走 ColorTokens；星图是一块「看星星的窗」，底色恒为深空。
+const SPACE_INK: string = '#ECE8DF';           // 星名文字（暖白）
+const SPACE_RING: string = '#26FFFFFF';        // 轨道线（白 15%）
+const SPACE_GLOW: string = '#2E4D9FFF';        // 泛光核心（饱和蓝 18%）
+const SPACE_HALO: string = '#3D7DB8FF';        // 呼吸光环/中心泛光（蓝）
+const SPACE_STAR: string = '#C8D4E8';          // 背景星点（冷白蓝）
+
+// 背景星尘场（40 颗，百分比坐标铺满全屏画布；tw 分组驱动两档闪烁相位）。
 const STAR_DOTS: StarDot[] = [
-  { x: 8, y: 14, size: 2 }, { x: 22, y: 33, size: 3 }, { x: 79, y: 8, size: 2 },
-  { x: 93, y: 27, size: 2 }, { x: 11, y: 72, size: 2 }, { x: 88, y: 82, size: 3 },
-  { x: 39, y: 92, size: 2 }, { x: 67, y: 65, size: 2 },
+  { x: 5, y: 8, size: 2, tw: 1 }, { x: 14, y: 4, size: 1, tw: 0 }, { x: 22, y: 12, size: 2, tw: 2 },
+  { x: 31, y: 6, size: 1, tw: 1 }, { x: 43, y: 3, size: 2, tw: 0 }, { x: 55, y: 9, size: 1, tw: 2 },
+  { x: 66, y: 5, size: 2, tw: 1 }, { x: 77, y: 11, size: 1, tw: 0 }, { x: 88, y: 6, size: 2, tw: 2 },
+  { x: 95, y: 13, size: 1, tw: 1 }, { x: 3, y: 22, size: 1, tw: 2 }, { x: 12, y: 28, size: 2, tw: 0 },
+  { x: 26, y: 24, size: 1, tw: 1 }, { x: 37, y: 30, size: 2, tw: 2 }, { x: 49, y: 26, size: 1, tw: 0 },
+  { x: 61, y: 31, size: 2, tw: 1 }, { x: 73, y: 25, size: 1, tw: 2 }, { x: 84, y: 29, size: 2, tw: 0 },
+  { x: 94, y: 34, size: 1, tw: 1 }, { x: 7, y: 42, size: 2, tw: 2 }, { x: 18, y: 48, size: 1, tw: 0 },
+  { x: 30, y: 44, size: 2, tw: 1 }, { x: 44, y: 50, size: 1, tw: 2 }, { x: 57, y: 45, size: 2, tw: 0 },
+  { x: 69, y: 51, size: 1, tw: 1 }, { x: 81, y: 46, size: 2, tw: 2 }, { x: 92, y: 52, size: 1, tw: 0 },
+  { x: 4, y: 60, size: 2, tw: 1 }, { x: 15, y: 67, size: 1, tw: 2 }, { x: 27, y: 62, size: 2, tw: 0 },
+  { x: 40, y: 69, size: 1, tw: 1 }, { x: 53, y: 64, size: 2, tw: 2 }, { x: 65, y: 70, size: 1, tw: 0 },
+  { x: 77, y: 65, size: 2, tw: 1 }, { x: 89, y: 71, size: 1, tw: 2 }, { x: 9, y: 80, size: 2, tw: 0 },
+  { x: 21, y: 87, size: 1, tw: 1 }, { x: 35, y: 82, size: 2, tw: 2 }, { x: 50, y: 89, size: 1, tw: 0 },
+  { x: 64, y: 84, size: 2, tw: 1 }, { x: 78, y: 91, size: 1, tw: 2 }, { x: 91, y: 86, size: 2, tw: 0 },
 ];
 
 const PLANET_BOX_WIDTH: number = 64;
@@ -110,6 +132,9 @@ export struct CircleOrbitCanvas {
   @State haloOpacity1: number = 0.25;
   @State haloScale2: number = 0.96;
   @State haloOpacity2: number = 0.25;
+  // 背景星尘闪烁：A/B 两组反相呼吸（仅 opacity），锚定星恒亮。
+  @State twinkleA: number = 0.15;
+  @State twinkleB: number = 0.55;
 
   private startHaloBreath(): void {
     this.getUIContext().animateTo({ duration: 1600, curve: Curve.EaseInOut, iterations: -1, playMode: PlayMode.Alternate }, () => {
@@ -122,6 +147,11 @@ export struct CircleOrbitCanvas {
         this.haloOpacity2 = 0.9;
       });
     }, 1400) as number;
+    // 星尘闪烁：两组反相，周期 2.6s（Alternate 半程 1.3s）
+    this.getUIContext().animateTo({ duration: 1300, curve: Curve.EaseInOut, iterations: -1, playMode: PlayMode.Alternate }, () => {
+      this.twinkleA = 0.6;
+      this.twinkleB = 0.15;
+    });
   }
 
   // ===== 帖子星子层（原型 spawnSeed）=====
@@ -207,20 +237,26 @@ export struct CircleOrbitCanvas {
   @Builder
   private seedLayer(): void {
     ForEach(this.seeds, (seed: SeedItem) => {
+      // 星星样式（✦ 四角星芒）：金色=每日一帖级，蓝色=普通新帖。
+      // 命中区放大到 44vp（原型 10px 难点），Block 阻断父层 Pan 竞争，
+      // TapGesture 优先于 onClick（父 Stack 的横向 Pan 会吞掉 click）。
       Stack({ alignContent: Alignment.Center }) {
-        Circle()
-          .width(10)
-          .height(10)
-          .fill(seed.gold ? ColorTokens.warm : ColorTokens.brand)
-          .shadow({ radius: 10, color: seed.gold ? ColorTokens.warm : ColorTokens.brandTint })
+        Text('✦')
+          .fontSize(seed.gold ? 20 : 16)
+          .fontColor(seed.gold ? '#FFD27D' : '#7DB8FF')
+          .textShadow({ radius: 12, color: seed.gold ? '#A0640088' : '#4D9FFF88', offsetY: 0 })
       }
-      .width(26)
-      .height(26)
-      .position({ x: seed.x - 13, y: seed.y - 13 })
+      .width(44)
+      .height(44)
+      .position({ x: seed.x - 22, y: seed.y - 22 })
       .scale({ x: this.seedPulseScale, y: this.seedPulseScale })
       .opacity(this.seedPulseOpacity)
       .transition(TransitionEffect.OPACITY.animation({ duration: MotionTokens.slow }))
-      .onClick((): void => { this.tapSeed(seed); })
+      .hitTestBehavior(HitTestMode.Block)
+      .gesture(
+        TapGesture({ count: 1 })
+          .onAction((): void => { this.tapSeed(seed); })
+      )
     }, (seed: SeedItem) => String(seed.id))
   }
 
@@ -261,13 +297,13 @@ export struct CircleOrbitCanvas {
 
   @Builder
   private starDots(): void {
-    // 装饰星尘按画布宽/高百分比散布（全屏矩形），低透明墨点，不参与交互。
+    // 背景星尘按画布宽/高百分比散布（全屏矩形）；A/B 两组反相闪烁，锚定星恒亮。
     ForEach(STAR_DOTS, (dot: StarDot, index: number) => {
       Circle()
         .width(dot.size)
         .height(dot.size)
-        .fill(ColorTokens.tertiary)
-        .opacity(0.05)
+        .fill(SPACE_STAR)
+        .opacity(dot.tw === 0 ? 0.45 : (dot.tw === 1 ? this.twinkleA : this.twinkleB))
         .position({ x: this.galaxySize * dot.x / 100, y: this.canvasHeight() * dot.y / 100 })
         .hitTestBehavior(HitTestMode.None)
     }, (_dot: StarDot, index: number) => 'star_' + index)
@@ -300,7 +336,7 @@ export struct CircleOrbitCanvas {
         .width(70)
         .height(70)
         .fill(Color.Transparent)
-        .stroke(ColorTokens.brandTint)
+        .stroke(SPACE_HALO)
         .strokeWidth(1)
         .opacity(this.haloOpacity1)
         .scale({ x: this.haloScale1, y: this.haloScale1 })
@@ -309,7 +345,7 @@ export struct CircleOrbitCanvas {
         .width(86)
         .height(86)
         .fill(Color.Transparent)
-        .stroke(ColorTokens.brandTint)
+        .stroke(SPACE_HALO)
         .strokeWidth(1)
         .opacity(this.haloOpacity2)
         .scale({ x: this.haloScale2, y: this.haloScale2 })
@@ -347,15 +383,23 @@ export struct CircleOrbitCanvas {
 
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
+      // 深空底色：恒为夜空（不随系统深浅色切换）——星图是一块「看星星的窗」。
       Column()
         .width('100%')
         .height('100%')
-        // 星图 Live 四期：泛光铺满全屏矩形画布——中心取星系中心（宽/2, 高×0.42），
-        // 半径取画布对角线一半，边缘自然衰减至透明，营造原型的全屏沉浸夜空。
+        .linearGradient({
+          angle: 180,
+          colors: [['#070B16', 0], ['#0B1224', 0.45], ['#0E1830', 1]],
+        })
+      Column()
+        .width('100%')
+        .height('100%')
+        // 星系泛光：中心取星系中心（宽/2, 高×0.42），半径铺满画布，
+        // 饱和蓝核心向外衰减至透明，营造「身处星云之中」的沉浸感。
         .radialGradient({
           center: [this.cx(), this.cy()],
-          radius: Math.max(this.galaxySize, this.canvasHeight()) * 0.62,
-          colors: [[ColorTokens.brandTint, 0], [ColorTokens.glassClear, 1]],
+          radius: Math.max(this.galaxySize, this.canvasHeight()) * 0.72,
+          colors: [[SPACE_GLOW, 0], [ColorTokens.glassClear, 1]],
         })
       this.starDots()
       this.coreStar()
@@ -401,15 +445,15 @@ struct OrbitRingLayer {
 
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
-      // 星图 Live：轨道由虚线升级为细实线（浅色墨线低透明，深色微光弧线）
+      // 轨道线：深空中细白环 + 微光（原型 glowline）
       Circle()
         .width(this.radius * 2)
         .height(this.radius * 2)
         .fill(Color.Transparent)
-        .stroke(ColorTokens.separator)
+        .stroke(SPACE_RING)
         .strokeWidth(1)
         .opacity(0.9)
-        .shadow({ radius: 6, color: ColorTokens.brandTint, offsetY: 0 })
+        .shadow({ radius: 6, color: '#1A4D9FFF', offsetY: 0 })
         .position({ x: this.galaxySize / 2 - this.radius, y: canvasCenterY(this.ch()) - this.radius })
         .rotate({ angle: this.ringAngle, centerX: '50%', centerY: '50%' })
         .animation({ duration: this.ringDragging ? MotionTokens.instant : MotionTokens.fast, curve: MotionCurves.standard })
@@ -695,7 +739,7 @@ struct OrbitPlanet {
             .width(RIPPLE_SECOND_SIZE)
             .height(RIPPLE_SECOND_SIZE)
             .fill(Color.Transparent)
-            .stroke(ColorTokens.brand)
+            .stroke('#7DB8FF')
             .strokeWidth(1)
             .opacity(this.secondRippleOpacity)
             .scale({ x: this.secondRippleScale, y: this.secondRippleScale })
@@ -704,21 +748,31 @@ struct OrbitPlanet {
             .width(RIPPLE_FIRST_SIZE)
             .height(RIPPLE_FIRST_SIZE)
             .fill(Color.Transparent)
-            .stroke(ColorTokens.brand)
+            .stroke('#7DB8FF')
             .strokeWidth(1.5)
             .opacity(this.firstRippleOpacity)
             .scale({ x: this.firstRippleScale, y: this.firstRippleScale })
             .hitTestBehavior(HitTestMode.None)
         }
+        // 星盘底：深空蓝灰圆盘 + 细白边——行星「悬浮在夜空」的实体感（原型 .disc 深色模式）
+        Circle()
+          .width(PLANET_ICON_HIT_SIZE)
+          .height(PLANET_ICON_HIT_SIZE)
+          .fill('#1A2233')
+          .stroke('#33FFFFFF')
+          .strokeWidth(0.8)
+          .shadow({ radius: 10, color: '#66000000', offsetY: 3 })
+          .hitTestBehavior(HitTestMode.None)
         // 成员身份金环：已加入圈子行星外圈一道细金环（与涟漪/选中态独立叠加）
         if (this.joined) {
           Circle()
             .width(PLANET_ICON_HIT_SIZE + 8)
             .height(PLANET_ICON_HIT_SIZE + 8)
             .fill(Color.Transparent)
-            .stroke(ColorTokens.warm)
+            .stroke('#D9A441')
             .strokeWidth(1.5)
             .opacity(0.95)
+            .shadow({ radius: 6, color: '#80A06400', offsetY: 0 })
             .hitTestBehavior(HitTestMode.None)
         }
         // 星图 Live 三期：耀星星等光晕——中心亮、边缘衰减的软光斑，衬托图标。
@@ -729,13 +783,13 @@ struct OrbitPlanet {
             .radialGradient({
               center: [this.glowSize() / 2, this.glowSize() / 2],
               radius: this.glowSize() / 2,
-              colors: [[ColorTokens.brandTint, 0], [ColorTokens.glassClear, 1]],
+              colors: [['#594D9FFF', 0], [ColorTokens.glassClear, 1]],
             })
             .opacity(this.glowBreath)
             .animation({ duration: MotionTokens.base, curve: MotionCurves.standard })
             .hitTestBehavior(HitTestMode.None)
         }
-        TagIcon({ name: this.name, iconSize: Math.min(28, this.planetSize * 0.46), tint: ColorTokens.brand })
+        TagIcon({ name: this.name, iconSize: Math.min(28, this.planetSize * 0.46), tint: '#7DB8FF', colorful: false })
       }
       .width(PLANET_ICON_HIT_SIZE)
       .height(PLANET_ICON_HIT_SIZE)
@@ -745,15 +799,17 @@ struct OrbitPlanet {
       .translate({ x: this.focusTranslateX(), y: this.focusTranslateY() })
       .animation({ duration: MotionTokens.emphasis, curve: MotionCurves.springSoft })
       .onClick((): void => { this.onPlanet(this.name); })
-      // 星子 / 未读角标：行星右上角发光小点，数字=未读新帖；点击直达该圈最新帖。
+      // 未读角标：行星右上角发光小星（✦+数字），点击直达该圈最新帖。
       // 仅在有未读时出现；hitTest 优先于行星 onClick（子节点先命中）。
       if (this.unread > 0) {
         Stack({ alignContent: Alignment.Center }) {
           Circle()
             .width(20)
             .height(20)
-            .fill(ColorTokens.brand)
-            .shadow({ radius: 8, color: ColorTokens.brandTint })
+            .fill('#4D9FFF')
+            .stroke('#66FFFFFF')
+            .strokeWidth(0.6)
+            .shadow({ radius: 8, color: '#804D9FFF', offsetY: 0 })
           Text(this.unread > 99 ? '99+' : String(this.unread))
             .fontSize(9)
             .fontWeight(FontWeight.Bold)
@@ -773,7 +829,7 @@ struct OrbitPlanet {
           .fontSize(9).fontFamily(TypeTokens.fontFamily)
           .fontWeight(TypeTokens.headline.weight)
           .lineHeight(TypeTokens.overline.lineHeight)
-          .fontColor(this.isSelected() ? ColorTokens.brand : ColorTokens.primary)
+          .fontColor(this.isSelected() ? '#7DB8FF' : SPACE_INK)
           .textAlign(TextAlign.Center)
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
