@@ -108,6 +108,8 @@ class CircleTag {
   // 星图 Live 三期：星等原始分（近14天衰减热度）。-1=无数据（退回 active 近似），
   // >=0 由后端 Tag.activeScore / activity 接口回填，换算为行星亮度三档。
   activeScore: number = -1;
+  // 星图 Live 四期：该圈最新帖 id（activity 接口回填）。星子点击直达此帖。
+  latestPostId: number = 0;
 
   constructor(meta: CircleMeta, tag?: Tag) {
     this.id = tag?.id;
@@ -188,9 +190,11 @@ export struct CircleTab {
   @State galaxyDiveOpacity: number = 1;
   // 星图操作提示（原型 s2hint）：首次进入显示，6 秒后淡出；降落/目录打开即隐藏
   @State starHintVisible: boolean = false;
-  // 星际模式：星图画布恒为深空底色，悬浮其上的标题栏文字/药丸/Fab/提示条
-  // 需同步反白；空态、加载与降落层（浅色内容）升起时回退常规配色。
+  // 星际模式：深色=星图深空底色，悬浮其上的标题栏文字/药丸/Fab/提示条同步反白；
+  // 浅色=「纸上星图」（白底墨线），走常规配色。空态/加载/降落层回退常规底色。
   @State cosmicMode: boolean = false;
+  // 系统/应用深浅色标记（与 CircleOrbitCanvas 同源）；切换时重估星际模式。
+  @StorageLink('isDarkMode') @Watch('onDarkModeChanged') isDarkMode: boolean = false;
   @StorageLink('authNickname') authNickname: string = '';
   @StorageLink('authAvatar') authAvatar: string = '';
   // 星系中心头像：以 authAvatar（登录响应缓存，可能有缺）为初始值，
@@ -851,9 +855,15 @@ export struct CircleTab {
   // 星际模式开关：星图有星可看且降落层未升起时为 true。
   // 深空画布是恒定的，但标题栏文字/药丸/Fab/提示条要跟着反白；
   // 空态、加载、降落层（浅色内容）时回退常规配色，避免白字白底。
+  // 浅色模式走「纸上星图」（白底墨线），悬浮元素本就用常规深色文字，无需反白。
   private syncCosmicMode(): void {
     const hasStars: boolean = this.starCircles().length > 0;
-    this.cosmicMode = hasStars && !this.landingVisible;
+    this.cosmicMode = hasStars && !this.landingVisible && this.isDarkMode;
+  }
+
+  // 深浅色切换：星图画布自动换调色板，页面反白状态需重估。
+  private onDarkModeChanged(): void {
+    this.syncCosmicMode();
   }
 
   // 星图操作提示：仅首次展示（AppStorage 持久化「已看过」），6 秒淡出；
