@@ -244,6 +244,12 @@ export struct CircleOrbitCanvas {
     if (pool.length === 0) {
       return;
     }
+    // 每颗行星同时最多一颗星子：重复投放会星子叠星子（点 A 也命中 B），观感与命中都差。
+    const candidates: OrbitCircleItem[] = pool.filter(
+      (circle: OrbitCircleItem): boolean => !this.seeds.some((s: SeedItem): boolean => s.name === circle.name));
+    if (candidates.length === 0) {
+      return;
+    }
     if (!this.seedPulseStarted) {
       this.seedPulseStarted = true;
       this.getUIContext().animateTo({ duration: 1100, curve: Curve.EaseInOut, iterations: -1, playMode: PlayMode.Alternate }, () => {
@@ -251,7 +257,7 @@ export struct CircleOrbitCanvas {
         this.seedPulseOpacity = 1;
       });
     }
-    const circle: OrbitCircleItem = pool[Math.floor(Math.random() * pool.length)];
+    const circle: OrbitCircleItem = candidates[Math.floor(Math.random() * candidates.length)];
     // 绕行星环形偏移（60~90vp）：行星命中半径 20 + 星子命中半径 28 = 48 < 60，
     // 两盒永不相交，且星子随行星公转固定悬于一侧——彻底消除「点星星误开星球」。
     const ang: number = Math.random() * Math.PI * 2;
@@ -991,7 +997,14 @@ struct SeedStar {
       Text('✦')
         .fontSize(this.view.gold ? 20 : 16)
         .fontColor(this.view.gold ? this.pal().seedGold : this.pal().seedBlue)
-        .textShadow({ radius: 12, color: this.view.gold ? '#A0640088' : '#4D9FFF88', offsetY: 0 })
+        // 辉光分档：深色=夜空霓虹（大半径高透明）；浅色=纸上微光（小半径低透明）
+        .textShadow({
+          radius: this.darkMode ? 12 : 7,
+          color: this.view.gold
+            ? (this.darkMode ? '#A0640088' : '#40A06400')
+            : (this.darkMode ? '#4D9FFF88' : '#300066CC'),
+          offsetY: 0,
+        })
         .scale({ x: this.pulseScale, y: this.pulseScale })
     }
     .width(56)

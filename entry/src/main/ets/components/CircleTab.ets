@@ -739,6 +739,8 @@ export struct CircleTab {
           circle.unread = a.unread;
           // 星图 Live 三期：星等以 activity 接口为准（覆盖 listTags 初始值）
           circle.activeScore = a.activeScore;
+          // 星图 Live 四期：最新帖 id——星子点击直达此帖（与点行星=逛圈子语义分离）
+          circle.latestPostId = a.latestPostId ?? 0;
         }
       });
     } catch (e) {
@@ -827,13 +829,27 @@ export struct CircleTab {
     this.resumePausedOrbits();
   }
 
-  // 星子点击：直达该圈子最新帖（一期简化：打开降落页读该圈帖子流）。
+  // 星子点击 = 读那篇新帖：直达帖子详情页（原型 seed-card「看全文」的落地）。
+  // 与「点行星 = 降落逛圈子」语义彻底分离——这是「误触感」的真正根源：
+  // 此前星子与行星点击走同一条降落路径，用户点星星看到的却是圈子页。
+  // 无最新帖（星子由活跃度驱动投放）时退回降落页读帖子流；同时标记该圈已读。
   private onSeedTap(name: string): void {
     const circle: CircleTag | undefined = this.circles.find((item: CircleTag) => item.name === name);
     if (circle === undefined) {
       return;
     }
-    this.lastPlanetTapAt = Date.now();
+    this.dismissStarHint();
+    if (circle.unread > 0) {
+      circle.unread = 0;
+      this.circles = this.circles.slice();
+    }
+    markTagRead(name).catch((): void => {});
+    if (circle.latestPostId > 0) {
+      openPostDetail(String(circle.latestPostId));
+      this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
+      return;
+    }
+    // 兜底：该圈活跃但没有可跳的最新帖 → 降落页读帖子流
     this.selectPlanet(circle);
     this.landingName = name;
     setTimeout((): void => { this.landingVisible = true; }, MotionTokens.emphasis) as number;
@@ -1315,8 +1331,10 @@ export struct CircleTab {
     }
     .width('100%')
     .height('100%')
-    // 星际模式：页面底色与星图深空同调，消除画布四周白边（安全区/状态栏透出）
+    // 星际模式：页面底色与星图深空同调，消除画布四周白边（安全区/状态栏透出）；
+    // 深浅色切换（星际↔纸白）走底色过渡动画
     .backgroundColor(this.cosmicMode ? COSMIC_PAGE_BG : ColorTokens.canvas)
+    .animation({ duration: MotionTokens.base, curve: MotionCurves.standard })
     .bindSheet($$this.exploreVisible, this.exploreSheet(), {
       detents: [SheetSize.MEDIUM, SheetSize.LARGE],
       blurStyle: BlurStyle.COMPONENT_THICK,
