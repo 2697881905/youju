@@ -67,6 +67,25 @@ export struct CircleOrbitCanvas {
   onPanUpdate: (event: GestureEvent) => void = (_event: GestureEvent): void => {};
   onPanEnd: () => void = (): void => {};
 
+  // 中心头像呼吸双环（原型 halo breath 3.2s）：仅 transform/opacity 循环动画。
+  @State haloScale1: number = 0.96;
+  @State haloOpacity1: number = 0.25;
+  @State haloScale2: number = 0.96;
+  @State haloOpacity2: number = 0.25;
+
+  private startHaloBreath(): void {
+    this.getUIContext().animateTo({ duration: 1600, curve: Curve.EaseInOut, iterations: -1, playMode: PlayMode.Alternate }, () => {
+      this.haloScale1 = 1.06;
+      this.haloOpacity1 = 0.9;
+    });
+    setTimeout((): void => {
+      this.getUIContext().animateTo({ duration: 1600, curve: Curve.EaseInOut, iterations: -1, playMode: PlayMode.Alternate }, () => {
+        this.haloScale2 = 1.06;
+        this.haloOpacity2 = 0.9;
+      });
+    }, 1400) as number;
+  }
+
   private angleFor(ring: number): number {
     return this.ringAngles[ring] ?? 0;
   }
@@ -137,6 +156,25 @@ export struct CircleOrbitCanvas {
   @Builder
   private coreStar(): void {
     Stack({ alignContent: Alignment.Center }) {
+      // 呼吸光环（原型 halo：70/86 两道细环，3.2s 交替呼吸）——中心头像的「活体」信号
+      Circle()
+        .width(70)
+        .height(70)
+        .fill(Color.Transparent)
+        .stroke(ColorTokens.brandTint)
+        .strokeWidth(1)
+        .opacity(this.haloOpacity1)
+        .scale({ x: this.haloScale1, y: this.haloScale1 })
+        .hitTestBehavior(HitTestMode.None)
+      Circle()
+        .width(86)
+        .height(86)
+        .fill(Color.Transparent)
+        .stroke(ColorTokens.brandTint)
+        .strokeWidth(1)
+        .opacity(this.haloOpacity2)
+        .scale({ x: this.haloScale2, y: this.haloScale2 })
+        .hitTestBehavior(HitTestMode.None)
       if (this.avatar.length > 0) {
         Image(resolveDisplayImageUrl(this.avatar))
           .width(CENTER_AVATAR_SIZE)
@@ -162,8 +200,9 @@ export struct CircleOrbitCanvas {
     .width(CENTER_AVATAR_SIZE)
     .height(CENTER_AVATAR_SIZE)
     .borderRadius(CENTER_AVATAR_SIZE / 2)
-    .clip(true)
+    // 不裁剪：呼吸光环（70/86）大于头像，需要溢出显示；头像圆形由 Image 自身 borderRadius 保证。
     .position({ x: this.galaxySize / 2 - CENTER_AVATAR_SIZE / 2, y: this.galaxySize / 2 - CENTER_AVATAR_SIZE / 2 })
+    .onAppear((): void => { this.startHaloBreath(); })
     .hitTestBehavior(HitTestMode.None)
   }
 
@@ -265,9 +304,9 @@ struct OrbitPlanet {
   @Prop planetSize: number = 46;
   @Prop joined: boolean = false;
   @Prop active: boolean = true;
-  @Prop unread: number = 0;
+  @Prop @Watch('onUnreadChanged') unread: number = 0;
   // 星图 Live 三期：星等 0=暗星 1=常星 2=耀星（光晕 + 亮度分级）
-  @Prop magnitude: number = 1;
+  @Prop @Watch('onMagnitudeChanged') magnitude: number = 1;
   @Prop selectedName: string = '';
   @Prop @Watch('onCenteredNameChanged') centeredName: string = '';
   @Prop galaxySize: number = 343;
@@ -282,6 +321,13 @@ struct OrbitPlanet {
   @State dragX: number = 0;
   @State dragY: number = 0;
   @State gravityDragging: boolean = false;
+  // 星子脉动（原型 seedPulse 2.2s）：有未读时角标呼吸缩放
+  @State seedScale: number = 1;
+  @State seedOpacity: number = 0.8;
+  // 耀星光晕呼吸（原型 liveGlow 2.6s）：星等 2 的光斑明暗起伏
+  @State glowBreath: number = 0.6;
+  private seedBreathing: boolean = false;
+  private glowBreathing: boolean = false;
   private rippleArrivalTimer: number = 0;
   private rippleStaggerTimer: number = 0;
   private rippleCycleTimer: number = 0;
@@ -295,10 +341,51 @@ struct OrbitPlanet {
     if (this.isCentered()) {
       this.scheduleRipple();
     }
+    if (this.unread > 0) {
+      this.startSeedBreath();
+    }
+    if (this.magnitude >= 2) {
+      this.startGlowBreath();
+    }
   }
 
   aboutToDisappear(): void {
     this.stopRipple();
+  }
+
+  // 星子出现时启动脉动（原型 seedPulse：scale 1→1.45 / opacity .8→1 交替）
+  private onUnreadChanged(): void {
+    if (this.unread > 0 && !this.seedBreathing) {
+      this.startSeedBreath();
+    }
+  }
+
+  private startSeedBreath(): void {
+    if (this.seedBreathing) {
+      return;
+    }
+    this.seedBreathing = true;
+    this.getUIContext().animateTo({ duration: 1100, curve: Curve.EaseInOut, iterations: -1, playMode: PlayMode.Alternate }, () => {
+      this.seedScale = 1.45;
+      this.seedOpacity = 1;
+    });
+  }
+
+  // 耀星光晕呼吸（原型 liveGlow：box-shadow 起伏 → 用 opacity 等效，仅 transform/opacity）
+  private onMagnitudeChanged(): void {
+    if (this.magnitude >= 2 && !this.glowBreathing) {
+      this.startGlowBreath();
+    }
+  }
+
+  private startGlowBreath(): void {
+    if (this.glowBreathing) {
+      return;
+    }
+    this.glowBreathing = true;
+    this.getUIContext().animateTo({ duration: 1300, curve: Curve.EaseInOut, iterations: -1, playMode: PlayMode.Alternate }, () => {
+      this.glowBreath = 1;
+    });
   }
 
   private isSelected(): boolean {
@@ -496,7 +583,7 @@ struct OrbitPlanet {
               radius: this.glowSize() / 2,
               colors: [[ColorTokens.brandTint, 0], [ColorTokens.glassClear, 1]],
             })
-            .opacity(this.isSelected() ? 0.9 : 0.6)
+            .opacity(this.glowBreath)
             .animation({ duration: MotionTokens.base, curve: MotionCurves.standard })
             .hitTestBehavior(HitTestMode.None)
         }
@@ -527,6 +614,9 @@ struct OrbitPlanet {
         .width(22)
         .height(22)
         .position({ x: PLANET_BOX_WIDTH / 2 + 2, y: 2 })
+        // 星子脉动：呼吸缩放+明暗（animateTo 无限交替，见 startSeedBreath）
+        .scale({ x: this.seedScale, y: this.seedScale })
+        .opacity(this.seedOpacity)
         .onClick((): void => { this.onSeedTap(this.name); })
       }
       Column({ space: SpaceTokens.inlineTight }) {

@@ -26,6 +26,7 @@ export const PRIVACY_POLICY_VERSION: string = '1.1.0';
 PersistentStorage.persistProp('unreadMessageCount', 0); // 消息 Tab 未读红点
 PersistentStorage.persistProp('unreadDmCount', 0); // 私信未读红点（与通知红点合并显示）
 PersistentStorage.persistProp('circleOnboardingPendingUserId', '');
+PersistentStorage.persistProp('circleStarHintSeen', false); // 星图操作提示只展示一次（非关键 UI 态，重置仅再提示一次）
 
 export function getToken(): string {
   return (AppStorage.get<string>('authToken') ?? '') as string;

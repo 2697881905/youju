@@ -13,7 +13,7 @@ import { CountRoll } from '../design/motion/CountRoll';
 import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
-import { MotionTokens } from '../design/tokens/motion';
+import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
@@ -161,6 +161,12 @@ export struct CircleTab {
   @State @Watch('onLandingVisibleChanged') landingVisible: boolean = false;
   @State exploreVisible: boolean = false;
   @State exploreKeyword: string = '';
+  // 降落「镜头俯冲」（原型 holder scale+fade）：行星飞到中心后星图整体推近淡出，
+  // 与降落层升起构成一段运镜；起飞时回位。仅 transform/opacity。
+  @State galaxyDiveScale: number = 1;
+  @State galaxyDiveOpacity: number = 1;
+  // 星图操作提示（原型 s2hint）：首次进入显示，6 秒后淡出；降落/目录打开即隐藏
+  @State starHintVisible: boolean = false;
   @StorageLink('authNickname') authNickname: string = '';
   @StorageLink('authAvatar') authAvatar: string = '';
   // 星系中心头像：以 authAvatar（登录响应缓存，可能有缺）为初始值，
@@ -315,6 +321,7 @@ export struct CircleTab {
       this.startAutoOrbit();
       // 二期：引力档位 + 活跃度/未读角标（登录后异步补齐，失败静默不影响星图）
       this.fetchOrbitMeta();
+      this.maybeShowStarHint();
     } catch (e) {
       this.error = (e as Error).message;
       this.circles = [];
@@ -802,10 +809,37 @@ export struct CircleTab {
     markTagRead(name).catch((): void => {});
   }
 
-  // 降落层可见性变化：升起时标记该圈已读（角标归零）。
+  // 星图操作提示：仅首次展示（AppStorage 持久化「已看过」），6 秒淡出；
+  // 降落/目录打开即提前收起，不打扰正在操作的用户。
+  private maybeShowStarHint(): void {
+    const seen: boolean = AppStorage.get<boolean>('circleStarHintSeen') ?? false;
+    if (seen || this.starHintVisible) {
+      return;
+    }
+    this.starHintVisible = true;
+    AppStorage.setOrCreate('circleStarHintSeen', true);
+    setTimeout((): void => { this.starHintVisible = false; }, 6000) as number;
+  }
+
+  private dismissStarHint(): void {
+    this.starHintVisible = false;
+  }
+
+  // 降落层可见性变化：升起时标记该圈已读（角标归零），并上演「镜头俯冲」——
+  // 星图推近淡出让位给降落页；起飞时回位（原型 holder scale(2.8)+opacity .16）。
   private onLandingVisibleChanged(): void {
     if (this.landingVisible) {
+      this.dismissStarHint();
       this.markLandingRead(this.landingName);
+      this.getUIContext().animateTo({ duration: 620, curve: MotionCurves.emphasized }, () => {
+        this.galaxyDiveScale = 1.8;
+        this.galaxyDiveOpacity = 0.12;
+      });
+    } else {
+      this.getUIContext().animateTo({ duration: MotionTokens.slow, curve: MotionCurves.springSoft }, () => {
+        this.galaxyDiveScale = 1;
+        this.galaxyDiveOpacity = 1;
+      });
     }
   }
 
@@ -1080,7 +1114,7 @@ export struct CircleTab {
       Pressable({
         visualHeight: 36,
         touchTargetHeight: LayoutTokens.minTouchTarget,
-        action: (): void => { this.exploreVisible = true; },
+        action: (): void => { this.dismissStarHint(); this.exploreVisible = true; },
       }) {
         Row({ space: SpaceTokens.xs }) {
           Text('✦').fontSize(14).fontColor(ColorTokens.warm)
@@ -1101,6 +1135,30 @@ export struct CircleTab {
     .position({ x: '100%', y: SpaceTokens.md })
     .markAnchor({ x: '100%' })
     .padding({ right: SpaceTokens.base })
+  }
+
+  // 星图 Live：底部操作提示胶囊（原型 s2hint）。自定义组件不能直接挂 position，外包 Column。
+  @Builder
+  starHintBar() {
+    Column() {
+      Text('点行星 ⬇ 降落 · 拖行星 ↕ 调引力 · 点星子 ✦ 读新帖')
+        .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
+        .fontColor(ColorTokens.tertiary)
+        .height(30)
+        .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
+        .backgroundColor(ColorTokens.glassWhite)
+        .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.separator, style: BorderStyle.Solid })
+        .borderRadius(RadiusTokens.pill)
+        .textAlign(TextAlign.Center)
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Center)
+    .position({ x: 0, y: '100%' })
+    .markAnchor({ y: '100%' })
+    .padding({ bottom: barBottomReserve() + SpaceTokens.sm })
+    .opacity(this.starHintVisible ? 1 : 0)
+    .animation({ duration: MotionTokens.slow, curve: MotionCurves.standard })
+    .hitTestBehavior(HitTestMode.None)
   }
 
   build() {
@@ -1145,6 +1203,9 @@ export struct CircleTab {
               }
               .width('100%')
               .justifyContent(FlexAlign.Center)
+              // 降落镜头俯冲：scale/opacity 为纯 transform，不触发重排
+              .scale({ x: this.galaxyDiveScale, y: this.galaxyDiveScale })
+              .opacity(this.galaxyDiveOpacity)
             }
             .width('100%')
             .constraintSize({ minHeight: this.scrollViewportHeight - barBottomReserve() })
@@ -1181,6 +1242,7 @@ export struct CircleTab {
 
       if (this.circles.length > 0) {
         this.exploreFab()
+        this.starHintBar()
       }
 
       // 降落层：点行星后全屏覆盖（Tab 栏在 HdsNavigation 外，天然保留）

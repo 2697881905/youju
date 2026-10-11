@@ -63,30 +63,24 @@ export struct CircleExploreSheet {
 
   @Builder
   createEntry(): void {
+    // 原型 cccreate：金色虚线边框卡片（区别于普通行，突出「点燃新星」的仪式感）
     Row({ space: SpaceTokens.md }) {
       Text('＋')
-        .fontSize(20).fontFamily(TypeTokens.fontFamily)
+        .fontSize(18).fontFamily(TypeTokens.fontFamily)
         .fontWeight(TypeTokens.headline.weight)
         .fontColor(ColorTokens.warm)
-        .width(34).height(34)
-        .textAlign(TextAlign.Center)
-      Column({ space: 2 }) {
-        Text('点亮一颗新星')
-          .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-          .fontWeight(TypeTokens.headline.weight)
-          .fontColor(ColorTokens.brand)
-        Text('深空里没有你想要的圈子？由你来命名它')
-          .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-          .fontColor(ColorTokens.tertiary)
-      }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
-      Text(this.creating ? '收起' : '创建 ›')
-        .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-        .fontColor(ColorTokens.tertiary)
+      Text(this.creating ? '收起创建' : '点亮一颗新星 · 创建圈子')
+        .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+        .fontWeight(TypeTokens.headline.weight)
+        .fontColor(ColorTokens.warm)
+        .layoutWeight(1)
     }
     .width('100%')
-    .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+    .padding(SpaceTokens.md)
+    .margin({ top: SpaceTokens.md })
+    .backgroundColor(ColorTokens.brandTint)
+    .border({ width: 1, color: ColorTokens.warm, style: BorderStyle.Dashed })
+    .borderRadius(RadiusTokens.md)
     .onClick((): void => {
       if (this.creating) {
         this.resetForm();
@@ -98,11 +92,13 @@ export struct CircleExploreSheet {
 
   @Builder
   categoryChip(item: string): void {
+    // 原型 catchip：选中=品牌色描边+浅底+品牌色文字（克制，不用实心块）
     Text(item)
       .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-      .fontWeight(TypeTokens.headline.weight)
-      .fontColor(this.newCategory === item ? Color.White : ColorTokens.secondary)
-      .backgroundColor(this.newCategory === item ? ColorTokens.brand : ColorTokens.subtle)
+      .fontWeight(this.newCategory === item ? TypeTokens.headline.weight : FontWeight.Regular)
+      .fontColor(this.newCategory === item ? ColorTokens.brand : ColorTokens.secondary)
+      .backgroundColor(this.newCategory === item ? ColorTokens.brandTint : ColorTokens.subtle)
+      .border({ width: 1, color: this.newCategory === item ? ColorTokens.brand : ColorTokens.separator, style: BorderStyle.Solid })
       .borderRadius(RadiusTokens.pill)
       .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: 6, bottom: 6 })
       .onClick((): void => { this.newCategory = item; })
