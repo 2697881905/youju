@@ -1,0 +1,381 @@
+{
+ "kind": "agent-asset-baseline",
+ "schemaVersion": 1,
+ "status": "complete",
+ "scope": {
+  "provider": "qoder",
+  "workspace": "/Users/itxiaobai/HarmonyProject1",
+  "includeUserHome": true,
+  "includeMemories": true
+ },
+ "envelopes": {
+  "lint": {
+   "status": "available",
+   "data": {
+    "kind": "agent-lint",
+    "profile": "agent-assets-review",
+    "summary": {
+     "entrypoints": 0,
+     "documents": 0,
+     "links": 0,
+     "references": 0,
+     "missingReferences": 0,
+     "findings": 8,
+     "errors": 0,
+     "warnings": 0,
+     "advisories": 8
+    },
+    "assetInventory": {
+     "provider": "qoder",
+     "summary": {
+      "skills": 23,
+      "mcps": 0,
+      "commands": 0,
+      "hooks": 0,
+      "rules": 0,
+      "agents": 0,
+      "customAgents": 0,
+      "builtinAgentOverrides": 0,
+      "plugins": 0
+     }
+    },
+    "findings": {
+     "items": [
+      {
+       "id": "skill-long-without-progressive-references",
+       "severity": "advisory",
+       "assetKind": "skill",
+       "assetName": "dingtalk-aitable",
+       "scope": "user",
+       "file": "/Users/itxiaobai/.qoder/skills/dingtalk-aitable/SKILL.md",
+       "line": 1,
+       "evidence": "/Users/itxiaobai/.qoder/skills/dingtalk-aitable/SKILL.md is 223 lines and has no existing local Markdown references.",
+       "sourceLabel": "User",
+       "rubricRef": "Progressive Disclosure"
+      },
+      {
+       "id": "skill-long-without-progressive-references",
+       "severity": "advisory",
+       "assetKind": "skill",
+       "assetName": "dingtalk-contact",
+       "scope": "user",
+       "file": "/Users/itxiaobai/.qoder/skills/dingtalk-contact/SKILL.md",
+       "line": 1,
+       "evidence": "/Users/itxiaobai/.qoder/skills/dingtalk-contact/SKILL.md is 123 lines and has no existing local Markdown references.",
+       "sourceLabel": "User",
+       "rubricRef": "Progressive Disclosure"
+      },
+      {
+       "id": "skill-long-without-progressive-references",
+       "severity": "advisory",
+       "assetKind": "skill",
+       "assetName": "dingtalk-event",
+       "scope": "user",
+       "file": "/Users/itxiaobai/.qoder/skills/dingtalk-event/SKILL.md",
+       "line": 1,
+       "evidence": "/Users/itxiaobai/.qoder/skills/dingtalk-event/SKILL.md is 128 lines and has no existing local Markdown references.",
+       "sourceLabel": "User",
+       "rubricRef": "Progressive Disclosure"
+      },
+      {
+       "id": "skill-long-without-progressive-references",
+       "severity": "advisory",
+       "assetKind": "skill",
+       "assetName": "hyperframes",
+       "scope": "user",
+       "file": "/Users/itxiaobai/.agents/skills/hyperframes/SKILL.md",
+       "line": 1,
+       "evidence": "/Users/itxiaobai/.agents/skills/hyperframes/SKILL.md is 127 lines and has no existing local Markdown references.",
+       "sourceLabel": "User",
+       "rubricRef": "Progressive Disclosure"
+      },
+      {
+       "id": "skill-long-without-progressive-references",
+       "severity": "advisory",
+       "assetKind": "skill",
+       "assetName": "hyperframes-audio",
+       "scope": "user",
+       "file": "/Users/itxiaobai/.agents/skills/hyperframes-audio/SKILL.md",
+       "line": 1,
+       "evidence": "/Users/itxiaobai/.agents/skills/hyperframes-audio/SKILL.md is 409 lines and has no existing local Markdown references.",
+       "sourceLabel": "User",
+       "rubricRef": "Progressive Disclosure"
+      },
+      {
+       "id": "skill-long-without-progressive-references",
+       "severity": "advisory",
+       "assetKind": "skill",
+       "assetName": "hyperframes-cli",
+       "scope": "user",
+       "file": "/Users/itxiaobai/.agents/skills/hyperframes-cli/SKILL.md",
+       "line": 1,
+       "evidence": "/Users/itxiaobai/.agents/skills/hyperframes-cli/SKILL.md is 170 lines and has no existing local Markdown references.",
+       "sourceLabel": "User",
+       "rubricRef": "Progressive Disclosure"
+      },
+      {
+       "id": "skill-long-without-progressive-references",
+       "severity": "advisory",
+       "assetKind": "skill",
+       "assetName": "hyperframes-keyframes",
+       "scope": "user",
+       "file": "/Users/itxiaobai/.agents/skills/hyperframes-keyframes/SKILL.md",
+       "line": 1,
+       "evidence": "/Users/itxiaobai/.agents/skills/hyperframes-keyframes/SKILL.md is 262 lines and has no existing local Markdown references.",
+       "sourceLabel": "User",
+       "rubricRef": "Progressive Disclosure"
+      },
+      {
+       "id": "skill-long-without-progressive-references",
+       "severity": "advisory",
+       "assetKind": "skill",
+       "assetName": "hyperframes-registry",
+       "scope": "user",
+       "file": "/Users/itxiaobai/.agents/skills/hyperframes-registry/SKILL.md",
+       "line": 1,
+       "evidence": "/Users/itxiaobai/.agents/skills/hyperframes-registry/SKILL.md is 145 lines and has no existing local Markdown references.",
+       "sourceLabel": "User",
+       "rubricRef": "Progressive Disclosure"
+      }
+     ],
+     "total": 8,
+     "omitted": 0
+    }
+   }
+  },
+  "inventory": {
+   "status": "available",
+   "data": {
+    "scope": {
+     "platform": "qoder",
+     "includeUserHome": true,
+     "includeMemories": true
+    },
+    "summary": {
+     "projectAssets": 1,
+     "userAssets": 1,
+     "pluginAssets": 3,
+     "sessionSourceHints": 1,
+     "memories": 1,
+     "builtinAgentOverrides": 0
+    },
+    "coverageRows": [
+     {
+      "surface": "Skills",
+      "scopes": [
+       "Global",
+       "Plugin"
+      ],
+      "count": 26,
+      "paths": [
+       "~/.qoder/skills/dingtalk-aisearch/SKILL.md",
+       "~/.qoder/skills/dingtalk-aitable/SKILL.md",
+       "~/.qoder/skills/dingtalk-calendar/SKILL.md",
+       "~/.qoder/skills/dingtalk-chat/SKILL.md",
+       "~/.qoder/skills/dingtalk-contact/SKILL.md"
+      ]
+     },
+     {
+      "surface": "Hooks",
+      "scopes": [
+       "Plugin"
+      ],
+      "count": 2,
+      "paths": [
+       "~/.qoder/plugins/cache/qoder-bundler/security-scan/.qoder-plugin/qoder-hooks.json"
+      ]
+     },
+     {
+      "surface": "Workflows",
+      "scopes": [
+       "Project"
+      ],
+      "count": 1,
+      "paths": [
+       ".github/workflows/ci.yml"
+      ]
+     },
+     {
+      "surface": "Plugins",
+      "scopes": [
+       "Plugin"
+      ],
+      "count": 3,
+      "paths": [
+       "~/.qoder/plugins/cache/qoder-bundler/better-harness/.qoder-plugin/plugin.json",
+       "~/.qoder/plugins/cache/qoder-bundler/qoder-create-plugin",
+       "~/.qoder/plugins/cache/qoder-bundler/security-scan/.qoder-plugin/plugin.json"
+      ]
+     }
+    ],
+    "ownerRoutes": {
+     "items": [
+      {
+       "kind": "skills",
+       "scope": "user",
+       "name": "dingtalk-aisearch",
+       "owner": "User"
+      },
+      {
+       "kind": "plugins",
+       "scope": "plugin",
+       "name": "Better Harness",
+       "version": "0.2.9",
+       "owner": "Better Harness"
+      },
+      {
+       "kind": "hooks",
+       "scope": "plugin",
+       "name": "Post Tool Use Edit|Write|MultiEdit|NotebookEdit",
+       "owner": "security-scan"
+      },
+      {
+       "kind": "workflows",
+       "scope": "project",
+       "name": "ci.yml",
+       "route": ".github/workflows/ci.yml"
+      },
+      {
+       "kind": "skills",
+       "scope": "user",
+       "name": "dingtalk-aitable",
+       "owner": "User"
+      },
+      {
+       "kind": "plugins",
+       "scope": "plugin",
+       "name": "Qoder Create Plugin",
+       "version": "0.1.0",
+       "owner": "Qoder Create Plugin"
+      },
+      {
+       "kind": "hooks",
+       "scope": "plugin",
+       "name": "Session Start",
+       "owner": "security-scan"
+      },
+      {
+       "kind": "skills",
+       "scope": "user",
+       "name": "dingtalk-calendar",
+       "owner": "User"
+      },
+      {
+       "kind": "plugins",
+       "scope": "plugin",
+       "name": "Qoder Security",
+       "version": "0.8.1",
+       "owner": "Qoder Security"
+      },
+      {
+       "kind": "skills",
+       "scope": "user",
+       "name": "dingtalk-chat",
+       "owner": "User"
+      },
+      {
+       "kind": "skills",
+       "scope": "user",
+       "name": "dingtalk-contact",
+       "owner": "User"
+      },
+      {
+       "kind": "skills",
+       "scope": "user",
+       "name": "dingtalk-doc",
+       "owner": "User"
+      },
+      {
+       "kind": "skills",
+       "scope": "user",
+       "name": "dingtalk-drive",
+       "owner": "User"
+      },
+      {
+       "kind": "skills",
+       "scope": "user",
+       "name": "dingtalk-event",
+       "owner": "User"
+      },
+      {
+       "kind": "skills",
+       "scope": "user",
+       "name": "dingtalk-mail",
+       "owner": "User"
+      },
+      {
+       "kind": "skills",
+       "scope": "user",
+       "name": "dingtalk-minutes",
+       "owner": "User"
+      }
+     ],
+     "total": 32,
+     "omitted": 16
+    },
+    "memories": {
+     "included": true,
+     "contentPolicy": "raw-memory-content-not-read",
+     "categories": [],
+     "titleCount": 0,
+     "details": {
+      "contentPolicy": "metadata-only",
+      "scanState": "scanned-empty",
+      "scopeCounts": [],
+      "integrity": {
+       "status": "reviewed",
+       "titleCount": 0,
+       "reviewedTitleCount": 0,
+       "truncated": false,
+       "exactCollisionGroups": 0,
+       "similarityCandidates": 0
+      }
+     }
+    },
+    "warnings": []
+   }
+  },
+  "integrity": {
+   "status": "available",
+   "data": {
+    "kind": "asset-integrity-review",
+    "profile": "asset-integrity-review",
+    "status": "reviewed",
+    "contentPolicy": "memory-title-and-path-metadata-only",
+    "summary": {
+     "findingCount": 0,
+     "memories": {
+      "titleCount": 0,
+      "reviewedTitleCount": 0,
+      "truncated": false,
+      "exactCollisionGroups": 0,
+      "similarityCandidates": 0
+     },
+     "plugins": {
+      "enabledPluginCount": 3,
+      "nameCollisionGroups": 0,
+      "capabilityOverlapGroups": 0,
+      "familyCandidates": 0
+     },
+     "hooks": {
+      "enabledHookCount": 0,
+      "overRecommendedLimit": false,
+      "exactDuplicateGroups": 0,
+      "fanoutCandidates": 0
+     }
+    },
+    "findings": {
+     "items": [],
+     "total": 0,
+     "omitted": 0
+    }
+   }
+  }
+ },
+ "diagnostics": {
+  "sharedInventorySnapshot": true,
+  "compact": true,
+  "findingLimitPerEnvelope": 16,
+  "ownerRouteLimit": 16
+ }
+}

@@ -1,0 +1,28 @@
+{
+  "mcpServers": {
+    "deveco-mcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@deveco-codegenie/mcp@beta"
+      ],
+      "env": {
+        "DEVECO_PATH": "/Applications/DevEco-Studio.app",
+        "PROJECT_PATH": "/Users/itxiaobai/HarmonyProject1"
+      }
+    },
+    "CodeArts Check MCP": {
+      "timeout": 600000,
+      "command": "node",
+      "args": [
+        "/Users/itxiaobai/Downloads/package/dist/index.js"
+      ],
+      "env": {
+        "region": "cn-north-4",
+        "ak": "HPUA2FI5B7FRJWL9LHQG",
+        "sk": "QG6qZqsgDBHKtOlD5aFTKb47YcLrCEijaLt4jmn8"
+      },
+      "type": "local"
+    }
+  }
+}

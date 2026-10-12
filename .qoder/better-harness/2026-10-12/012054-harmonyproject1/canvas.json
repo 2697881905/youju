@@ -1,0 +1,379 @@
+{
+  "schemaVersion": 2,
+  "summary": {
+    "evidenceMode": "session-limited",
+    "evidenceBoundary": {
+      "manifest": {
+        "schemaVersion": 2,
+        "sourceFingerprint": "2854544dc51257d4",
+        "adapterVersion": "qoder-task-loop-source-v2",
+        "platform": "qoder",
+        "selection": {
+          "strategy": "all-eligible",
+          "eligibleCount": 0,
+          "analyzedCount": 0,
+          "confidence": "Low"
+        }
+      },
+      "episodeCoverage": {
+        "episodeCount": 0,
+        "editedEpisodeCount": 0,
+        "closedEpisodeCount": 0,
+        "recoveredEpisodeCount": 0
+      },
+      "deliveryEvidenceLevels": [],
+      "sourceGaps": []
+    },
+    "semanticFacets": {
+      "schemaVersion": 1,
+      "status": "supplementary",
+      "entries": [
+        {
+          "id": "session-insight:source-coverage",
+          "kind": "redacted-summary",
+          "episodeRef": null,
+          "status": "candidate",
+          "labels": [
+            "source-coverage",
+            "Low"
+          ],
+          "summary": "Analyzed 0 of 0 sessions; 1/6 enabled source roots exist. Use this as the current workspace evidence boundary for final insight cards.",
+          "evidenceRefs": [],
+          "modelVersion": "session-insights-v1"
+        },
+        {
+          "id": "session-insight:validation-behavior",
+          "kind": "redacted-summary",
+          "episodeRef": null,
+          "status": "candidate",
+          "labels": [
+            "validation-behavior",
+            "Low"
+          ],
+          "summary": "No validation command category was observed in the analyzed session sample. Inspect more sessions or add explicit validation guidance before claiming validation-after-edit behavior.",
+          "evidenceRefs": [],
+          "modelVersion": "session-insights-v1"
+        },
+        {
+          "id": "session-insight:post-edit-validation",
+          "kind": "rework-correction",
+          "episodeRef": null,
+          "status": "candidate",
+          "labels": [
+            "post-edit-validation",
+            "Low"
+          ],
+          "summary": "No edit event was observed in the analyzed sample. Inspect more sessions before making claims about edit or validation habits.",
+          "evidenceRefs": [],
+          "modelVersion": "session-insights-v1"
+        },
+        {
+          "id": "session-insight:execution-friction",
+          "kind": "friction-taxonomy",
+          "episodeRef": null,
+          "status": "candidate",
+          "labels": [
+            "execution-friction",
+            "Low"
+          ],
+          "summary": "No strong execution friction signal in the analyzed sample. Keep friction claims narrow unless additional failed commands, rejected actions, or warnings are inspected.",
+          "evidenceRefs": [],
+          "modelVersion": "session-insights-v1"
+        }
+      ]
+    },
+    "learningCapture": {
+      "schemaVersion": 1,
+      "state": "N/A",
+      "summary": "暂不适用——需要两个可比的观察窗口和一次改进对比。",
+      "interventions": []
+    },
+    "aiAgentPractice": {
+      "inspectedSurfaces": [
+        "Skills",
+        "Workflows"
+      ],
+      "coverageRows": [
+        {
+          "surface": "Skills",
+          "scopes": [
+            "Global",
+            "Plugin"
+          ],
+          "count": 26,
+          "paths": [
+            "~/.qoder/skills/dingtalk-aisearch/SKILL.md",
+            "~/.qoder/skills/dingtalk-aitable/SKILL.md",
+            "~/.qoder/skills/dingtalk-calendar/SKILL.md",
+            "~/.qoder/skills/dingtalk-chat/SKILL.md",
+            "~/.qoder/skills/dingtalk-contact/SKILL.md",
+            "~/.qoder/skills/dingtalk-doc/SKILL.md",
+            "~/.qoder/skills/dingtalk-drive/SKILL.md",
+            "~/.qoder/skills/dingtalk-event/SKILL.md",
+            "~/.qoder/skills/dingtalk-mail/SKILL.md",
+            "~/.qoder/skills/dingtalk-minutes/SKILL.md",
+            "~/.qoder/skills/dingtalk-misc/SKILL.md",
+            "~/.qoder/skills/dingtalk-shared/SKILL.md"
+          ]
+        },
+        {
+          "surface": "Hooks",
+          "scopes": [
+            "Plugin"
+          ],
+          "count": 2,
+          "paths": [
+            "~/.qoder/plugins/cache/qoder-bundler/security-scan/.qoder-plugin/qoder-hooks.json"
+          ]
+        },
+        {
+          "surface": "Workflows",
+          "scopes": [
+            "Project"
+          ],
+          "count": 1,
+          "paths": [
+            ".github/workflows/ci.yml"
+          ]
+        },
+        {
+          "surface": "Plugins",
+          "scopes": [
+            "Plugin"
+          ],
+          "count": 3,
+          "paths": [
+            "~/.qoder/plugins/cache/qoder-bundler/better-harness/.qoder-plugin/plugin.json",
+            "~/.qoder/plugins/cache/qoder-bundler/qoder-create-plugin",
+            "~/.qoder/plugins/cache/qoder-bundler/security-scan/.qoder-plugin/plugin.json"
+          ]
+        },
+        {
+          "surface": "Rules",
+          "scopes": [
+            "Project"
+          ],
+          "count": 0
+        },
+        {
+          "surface": "Commands",
+          "scopes": [
+            "Project"
+          ],
+          "count": 0
+        },
+        {
+          "surface": "Custom Agents",
+          "scopes": [
+            "Project"
+          ],
+          "count": 0
+        },
+        {
+          "surface": "MCP",
+          "scopes": [
+            "Project"
+          ],
+          "count": 0
+        },
+        {
+          "surface": "Memories",
+          "scopes": [
+            "Project"
+          ],
+          "count": 0
+        }
+      ],
+      "repositorySourceRows": [],
+      "memoryDetails": {
+        "contentPolicy": "metadata-only",
+        "scanState": "scanned-empty",
+        "scopeCounts": [],
+        "integrity": {
+          "status": "reviewed",
+          "titleCount": 0,
+          "reviewedTitleCount": 0,
+          "truncated": false,
+          "exactCollisionGroups": 0,
+          "similarityCandidates": 0
+        }
+      }
+    },
+    "projectName": "HarmonyProject1",
+    "locale": "zh-CN",
+    "modelId": "agent-work-loop-v4",
+    "reportContractVersion": 26,
+    "overview": "后端反馈回路（type-check/jest/smoke）与若干护栏（防旧支线回写、快照回收、提审形态检查）是真实存在的机制，但多个已有机制停留在“存在”而未接入日常入口：最热文件、应用端与发版形态均无机械拦截；会话观测通道为空，学习闭环本窗口不可判定。",
+    "dimensions": [
+      {
+        "id": "task-understanding",
+        "label": "任务理解",
+        "score": 52,
+        "summary": "仓库有 12 份架构/设计文档，但目录内 Agent 指引只覆盖三个演示目录，核心后端与应用端拿不到邻近边界与约定；无会话 Episode 可交叉验证实际任务行为。",
+        "findingRefs": [
+          "core-code-guidance-misplaced"
+        ]
+      },
+      {
+        "id": "controlled-execution",
+        "label": "可控执行",
+        "score": 66,
+        "summary": "工作区清单齐备，pre-commit 护栏经本机 git 配置核验确已生效（Wired）；权限与实际调用行为在会话侧不可观测。",
+        "findingRefs": [
+          "duplicate-global-skill-roots"
+        ]
+      },
+      {
+        "id": "change-validation",
+        "label": "改动验证",
+        "score": 50,
+        "summary": "backend 路径的类型检查/单测/冒烟链路完整且已接线，但全仓改动最频繁的 site/js/main.js、应用端 entry 与安全敏感的 share 路由落在所有自动检查之外，相关验证对多个热目标处于缺失状态。",
+        "findingRefs": [
+          "hottest-file-no-automated-signal",
+          "app-side-verification-unreachable",
+          "share-route-coverage-gap"
+        ]
+      },
+      {
+        "id": "reliable-delivery",
+        "label": "可靠交付",
+        "score": 55,
+        "summary": "main 分支声明了 CI 验收，防旧支线回写与快照回收护栏存在（Present/Wired）；提审形态检查只有手册入口、无机械拦截，实际流水线结果与发布过程未被观测。",
+        "findingRefs": [
+          "release-form-guard-not-mechanical"
+        ]
+      },
+      {
+        "id": "learning-capture",
+        "label": "经验沉淀",
+        "score": 38,
+        "summary": "完成了有界复查：会话源根 0 可选、Memory 扫描为空（scanned-empty），integrity 已审且无冲突；因观测通道为空，重复工作/验证习惯/能力使用在本窗口全部不可判定，既非干净窗口也非无需求。",
+        "findingRefs": [
+          "session-evidence-source-blind"
+        ]
+      }
+    ],
+    "assignmentSummaries": []
+  },
+  "findings": [
+    {
+      "id": "core-code-guidance-misplaced",
+      "title": "核心后端与应用代码内没有任何邻近指引，现有 AGENTS.md 全在演示目录",
+      "severity": "Medium",
+      "reason": "git 跟踪核验：仓库仅有 3 个 AGENTS.md，全部位于 hyperframes-demo/、hyperframes-promo/、hyperframes-tiktok/ 演示目录；项目证据封套显示根指引数 0、嵌套源码覆盖率 0%，而改动最集中的核心是 backend/src（67 个源文件，历史画像 30/90/180 窗口持续高频）与 entry/。在此工作区编码的智能体在最热的产品代码里只能靠全局搜索重建边界，容易错过仓库自身已确立的约定（如后端路由/服务与同名 .test.ts 共置）。",
+      "dimensionRefs": [
+        "task-understanding"
+      ],
+      "subdimensionRefs": [
+        "relevant-context"
+      ],
+      "aiFixPrompt": "/better-harness fix this issue\n\n在仓库根目录新增最小 AGENTS.md：声明产品核心边界（backend/src、entry/src）与演示目录（hyperframes-*）非产品代码；指向真实存在的验证入口（backend 的 npm run build / npm test / npm run check:agc），不发明新命令。再视需要为 backend/src 与 entry/src 各加一份不超过 20 行的目录级指引。不修改任何现有演示目录文件。\n\n## Validation\n\n- 确认新增指引中出现的每条命令都能在 backend/package.json 或 hvigorfile.ts 中逐字找到\n- git status 确认仅新增指引文件、未触碰产品代码",
+      "expectedArtifact": "Rule",
+      "expectedOutput": [
+        "Update the existing Rule owner identified by the reviewed evidence and retain a focused validation result."
+      ]
+    },
+    {
+      "id": "hottest-file-no-automated-signal",
+      "title": "改动最频繁的 site/js/main.js 一旦改坏，没有任何自动信号",
+      "severity": "Medium",
+      "reason": "历史画像（500 提交窗口）中 site/js/main.js 是全仓第一热点：60 次提交、churn 5405，约为第二名（postService，1173）的 4.6 倍。而 .github/workflows/ci.yml 的触发白名单只有 backend/** 与 entry 的两个配置文件，不含 site/**；实测 site/ 无 package.json、无测试、无构建配置。对这个第一 churn 文件的每次修改都落在 CI 路径与任何校验之外，验收只能靠人工浏览落地页。",
+      "dimensionRefs": [
+        "change-validation"
+      ],
+      "subdimensionRefs": [
+        "relevant-check"
+      ],
+      "aiFixPrompt": "/better-harness fix this issue\n\n在 .github/workflows/ci.yml 的 push paths 白名单中追加 site/**；为 backend 同款 node 环境新增一个最小 job，对 git 跟踪的 site/js/*.js 逐个执行 node --check（语法级冒烟，不引入新依赖、不加测试框架）。保持现有 backend job 不动。\n\n## Validation\n\n- 本地对 site/js/main.js 跑 node --check 确可通过\n- 构造一次含明显语法错误的 site/js 改动推送到分支，确认新 job 被触发并失败",
+      "expectedArtifact": "Config",
+      "expectedOutput": [
+        "Update the existing Config owner identified by the reviewed evidence and retain a focused validation result."
+      ]
+    },
+    {
+      "id": "release-form-guard-not-mechanical",
+      "title": "曾拦下真实 debug 残留的提审形态检查只靠人记得手动运行",
+      "severity": "Medium",
+      "reason": "check-release.sh 顶部注释自述了一次真实事故：build/ 提审审计时确实发现过本地构建树处于 debug 形态，并称 buildMode.ets「忘还原是提审前最大的操作风险」；docs/pre-submission-audit.md 把它列为提审清单第一步。但实测 .github、.githooks 与各 package scripts 均未引用该脚本——它只有手册入口、没有任何机械入口。针对已发生事故的护栏依赖记性，跳过清单步骤即无第二道拦截。",
+      "dimensionRefs": [
+        "reliable-delivery"
+      ],
+      "subdimensionRefs": [
+        "acceptance-evidence"
+      ],
+      "aiFixPrompt": "/better-harness fix this issue\n\n扩展现有 .githooks/pre-commit（保留其防旧支线回写职责与 SKIP_STALE_CHECK 旁路约定）：当本次提交的暂存改动触及 entry/src/main/ets/utils/buildMode.ets 时，拦截 release/false 开关被改成 debug/true 的形态（复用 check-release.sh 第 1 步的 grep 判据，不复制产物级检查）。不引入新工具。\n\n## Validation\n\n- 本地把 buildMode.ets 改为 debug 形态并尝试提交，确认被 pre-commit 拦截\n- 还原 release/false 后提交路径恢复畅通，未触及该文件的历史提交行为不受影响",
+      "expectedArtifact": "Hook",
+      "expectedOutput": [
+        "Update the existing Hook owner identified by the reviewed evidence and retain a focused validation result."
+      ]
+    },
+    {
+      "id": "app-side-verification-unreachable",
+      "title": "上架产物 entry 端没有任何自动门禁，写好的校验脚本无入口可触发",
+      "severity": "Medium",
+      "reason": "CI 仅执行 backend 的类型检查、jest 与 mysql 冒烟，从不构建或测试 HarmonyOS 应用端（entry/），ci.yml 中 entry 只出现在触发白名单里；仓库已存在的 scripts/verify-arkui-hooks.mjs、verify-login-gates.mjs、verify-poster-layout.mjs 经 git grep 核验除脚本自身外无任何引用，entry 的 ohosTest 用例也没有任何执行入口。真正上架的 App 一侧，回归信号完全依赖个人记得手动运行这些既有能力。",
+      "dimensionRefs": [
+        "change-validation"
+      ],
+      "subdimensionRefs": [
+        "relevant-check"
+      ],
+      "aiFixPrompt": "/better-harness fix this issue\n\n把已存在但孤立的校验脚本接入现有入口，不新增框架：在与 entry 源码相关的改动路径上（.githooks/pre-commit 或按 entry/** 触发的最小 CI job，二选一并说明理由），用与 pre-commit 相同的 node 解析方式依次运行 scripts/verify-arkui-hooks.mjs、verify-login-gates.mjs、verify-poster-layout.mjs。先各跑一次确认可运行性与耗时，若某脚本需要 DevEco 工具链本地依赖则将其排除并记录原因。不承诺在 CI 中构建 .hap（工具链可用性未经核验）。\n\n## Validation\n\n- 本地逐条运行三个 verify-*.mjs，记录退出码与耗时\n- 修改 entry 内一个受影响文件并提交，确认接线后的入口确实执行了校验",
+      "expectedArtifact": "Hook",
+      "expectedOutput": [
+        "Update the existing Hook owner identified by the reviewed evidence and retain a focused validation result."
+      ]
+    },
+    {
+      "id": "share-route-coverage-gap",
+      "title": "分享 SSR 路由的转义与 CSP 分支落在单测和冒烟的双重空白",
+      "severity": "Low",
+      "reason": "backend/src/routes/share.ts 提供 /v1/share/post/:id、/user/:id、/qr/:type/:id 三个渲染用户可控内容的 SSR 端点，内含 HTML 转义（第 21 行），app.ts 第 130–143 行为其挂接 CSP/imgSrc 处理；它是 backend/src 内 churn 前列热点（11 提交/churn 388）。同目录 posts、comments、admin 等热路由均有同名 .test.ts 且被 CI jest 执行，但实测不存在 share.test.ts，smoke（full-chain-check.mjs）也不打 /v1/share。不断言存在漏洞，仅陈述：该安全敏感路径的回归无机械信号。",
+      "dimensionRefs": [
+        "change-validation"
+      ],
+      "subdimensionRefs": [
+        "relevant-check"
+      ],
+      "aiFixPrompt": "/better-harness fix this issue\n\n按 backend/src/routes/posts.test.ts 的既有模式新增 backend/src/routes/share.test.ts：覆盖三个分享端点对含恶意字符用户内容的 HTML 转义输出，以及响应中的 CSP/imgSrc 头断言。复用现有 supertest/jest 依赖，不引入新测试框架。可选：在 backend 的 full-chain-check.mjs 中追加对 /v1/share 的一条冒烟请求。\n\n## Validation\n\n- 在 backend/ 下 npm test 全量通过且新用例被执行\n- 故意去掉一处转义，确认新测试变红",
+      "expectedArtifact": "Test",
+      "expectedOutput": [
+        "Update the existing Test owner identified by the reviewed evidence and retain a focused validation result."
+      ]
+    },
+    {
+      "id": "duplicate-global-skill-roots",
+      "title": "同一组全局 Skill 在两个用户目录各存独立副本，生效身份不唯一",
+      "severity": "Low",
+      "reason": "在授权的用户/全局只读基线中，hyperframes 家族与 media-use 共 9 个同名 Skill 在两个不同的用户级全局 Skill 根目录下各有一份；inode 与符号链接核验两者是独立物理文件而非链接。资产信封的 lint 条目指向其中一个根、清单与 owner 路由条目指向另一个根，两处 Skills 计数（23 与 26）不一致与此并存。后果是编辑一份不会同步另一份、缺乏单一事实来源。未证明已发生内容分叉或哪份被优先加载（加载优先级属 provider 内部，未核验）。",
+      "dimensionRefs": [
+        "controlled-execution"
+      ],
+      "subdimensionRefs": [
+        "supported-operation"
+      ],
+      "aiFixPrompt": "/better-harness fix this issue\n\n先做有界发现：确认 qoder 实际从哪个用户根加载 Skill（查 provider 文档或诊断输出，不得假设）。在获得单独授权后，把 9 个重复的 hyperframes/media-use Skill 收敛为单一事实来源：保留被实际加载的那份为正本，另一处改为指向正本的符号链接或移除冗余副本——移除前逐目录 diff，若发现内容分叉先向用户展示差异再定夺。不触碰未点名的其余 Skill。\n\n## Validation\n\n- 收敛后两个路径不再是内容独立的同名副本（diff 或 readlink 核验）\n- 任选一个 hyperframes Skill 在新会话中仍可被发现并正常调用",
+      "expectedArtifact": "Config",
+      "expectedOutput": [
+        "Update the existing Config owner identified by the reviewed evidence and retain a focused validation result."
+      ]
+    },
+    {
+      "id": "session-evidence-source-blind",
+      "title": "会话记录未被采到，重复工作与验证习惯在本窗口无法判断",
+      "severity": "Low",
+      "reason": "provider=qoder 的会话事实封套显示 0 个可选会话（全量选择、未采样，且各 omitted 计数均为 0，说明缺口发生在源根/发现阶段而非准入或预算阶段）；warningCodes 为 disabled-source-root 与 missing-optional-root，分析器记录 6 个启用源根中仅 1 个存在。无法区分“确无会话活动”与“会话存在但源根未被读取”——缺失事实是不可用证据，不是零活动。因此重复工作流、验证习惯与 Memory/Skill 价值链在本报告全部不可判定，项目侧结论没有会话行为交叉验证。",
+      "dimensionRefs": [
+        "learning-capture"
+      ],
+      "subdimensionRefs": [
+        "lifecycle-repeat-detection"
+      ],
+      "aiFixPrompt": "/better-harness fix this issue\n\n运行一次有界的会话源诊断（better-harness 的 session-analysis sources 路线），列出 7 个已发现源根中哪些缺失、哪个被禁用；若确认本工作区的 qoder 会话数据位于未被扫描的位置，在获得授权后启用/补充对应源根，再重跑一次 evidence-bundle 验证 eligibleSessions 是否大于 0。不读取任何原始会话正文。\n\n## Validation\n\n- 诊断输出能明确区分“无会话活动”与“源根被禁用/缺失”\n- 修复后重跑采集，会话封套中 eligibleSessions 与 warningCodes 的状态有可核验的变化",
+      "expectedArtifact": "Config",
+      "expectedOutput": [
+        "Update the existing Config owner identified by the reviewed evidence and retain a focused validation result."
+      ]
+    }
+  ]
+}

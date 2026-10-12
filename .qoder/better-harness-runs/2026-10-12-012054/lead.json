@@ -1,0 +1,204 @@
+{
+ "kind": "better-harness.harness-analysis-evidence",
+ "schemaVersion": 1,
+ "evidence": "HARNESS ANALYSIS EVIDENCE\n\nThis is a read-only evidence brief, not a report conclusion.\nProjected report conclusions are intentionally excluded; use the observations and boundaries below to make your own evidence-backed decisions.\nWorkspace: /Users/itxiaobai/HarmonyProject1\nPlatform: qoder\nLanguage: zh\nBudget: at most 6000 estimated tokens; each evidence domain uses bounded representative rows and reports omissions.\n\nOBSERVATION SCOPE\nSource roots: 1 of 6 enabled roots exist; 7 roots were discovered.\nSession selection: analyzed 0 of 0 eligible sessions with all-eligible selection; confidence Low; representative yes.\nScope: workspace; global capability metadata included yes; since 2026-09-12T00:00:00.000Z; until 2026-10-12T00:00:00.000Z.\nPrivacy boundary: reader-safe; raw prompts included no; raw commands included no; absolute home paths included no.\nSource warnings: disabled-source-root, missing-optional-root.\n\nREPOSITORY FACTS\nProject label: HarmonyProject1.\n- Task understanding: 1 observed and 1 connected signal(s). Representative evidence: 6 agent guidance file(s), 12 architecture/readme and 0 spec file(s).\n- Controlled execution: 1 observed and 0 connected signal(s). Representative evidence: 4 workspace manifest(s).\n- Change validation: 1 observed and 0 connected signal(s). Representative evidence: 35 tracked test file(s).\n- Reliable delivery: 0 observed and 1 connected signal(s). Representative evidence: 1 CI workflow file(s).\n- Agent practice coverage: Skills has 26 asset(s) in Global, Plugin; paths: ~/.qoder/skills/dingtalk-aisearch/SKILL.md, ~/.qoder/skills/dingtalk-aitable/SKILL.md, ~/.qoder/skills/dingtalk-calendar/SKILL.md, ~/.qoder/skills/dingtalk-chat/SKILL.md, ~/.qoder/skills/dingtalk-contact/SKILL.md (+7 omitted).\n- Agent practice coverage: Hooks has 2 asset(s) in Plugin; paths: ~/.qoder/plugins/cache/qoder-bundler/security-scan/.qoder-plugin/qoder-hooks.json.\n- Agent practice coverage: Workflows has 1 asset(s) in Project; paths: .github/workflows/ci.yml.\n- Agent practice coverage: Plugins has 3 asset(s) in Plugin; paths: ~/.qoder/plugins/cache/qoder-bundler/better-harness/.qoder-plugin/plugin.json, ~/.qoder/plugins/cache/qoder-bundler/qoder-create-plugin, ~/.qoder/plugins/cache/qoder-bundler/security-scan/.qoder-plugin/plugin.json.\n- Agent practice coverage: Rules has 0 asset(s) in Project.\n- Agent practice coverage: Commands has 0 asset(s) in Project.\n- Agent practice coverage: Custom Agents has 0 asset(s) in Project.\n- Agent practice coverage: MCP has 0 asset(s) in Project.\n- Agent practice coverage: 1 additional row(s) omitted.\n- Reusable Skill evidence: scanned-empty; 0 candidate asset(s), 0 observed project Skill(s), and 0 unresolved name match(es).\n- Regression-test evidence: candidates-present; inspected 200 commit(s) and retained 3 source/test co-change candidate(s).\n  - Sources: backend/src/services/reportService.ts. Tests: backend/src/services/reportService.test.ts. Path-correlated yes.\n  - Sources: backend/scripts/reconcile-comment-counts.ts, backend/scripts/smoke-user-limiter.mts, backend/src/middleware/rateLimit.ts (+5 omitted). Tests: backend/src/routes/posts.test.ts, backend/src/services/postService.test.ts, backend/src/services/reportService.test.ts (+1 omitted). Path-correlated yes.\n  - Sources: backend/src/services/postService.ts. Tests: backend/src/services/postService.test.ts. Path-correlated yes.\n- Canonical planning evidence: candidates-present; 10 candidate(s); paths: docs/circle-tab-starlive-redesign-plan-2026-10-11.md, docs/huawei_login_design.md, docs/nav-migration-design.md, docs/system_design.md, entry/Docs/design-account-binding.md (+5 omitted).\n- Sensitive-config scan coverage: complete; 41 of 41 candidate file(s) scanned, 0 skipped, 0 read error(s), truncated no.\n- Learning observation coverage: 0 episode record(s), 0 recurring candidate(s), 0 scoped Skill observation(s), and 0 unscoped Skill observation(s).\n  - Aggregated friction signals: source-warning:missing-optional-root: 5, source-warning:disabled-source-root: 1.\n  - Coverage boundary: Asset Coverage=checked-clean, Capture=not-evaluable-missing-normalized-events, Pattern Detection=insufficient-episodes, Routing=not-evaluable-missing-invocation-events, Freshness=not-evaluable-missing-freshness-evidence, Application=not-evaluable-missing-application-events, Evolution=not-evaluable-missing-update-evidence, Effectiveness=pending-no-later-window, Memory Governance=checked-clean.\n- Workflow-demand observation: 0 current handoff(s) and 0 repeated candidate(s); candidate contents are not projected into this brief.\n  - Coverage boundary: Demand Signals=not-evaluable-missing-normalized-events, Current Handoff=checked-clean, Recurrence=insufficient-episodes, Skill Inventory=checked-clean, Skill Activation=checked-clean.\n\nSESSION AND TASK FACTS\nSession packet: 0 selected session(s), 0 retained candidate episode(s), and 0 discarded episode(s).\n\nANALYZER OBSERVATIONS\n- Analyzed 0 of 0 sessions; 1/6 enabled source roots exist. Use this as the current workspace evidence boundary for final insight cards.\n- No validation command category was observed in the analyzed session sample. Inspect more sessions or add explicit validation guidance before claiming validation-after-edit behavior.\n- No edit event was observed in the analyzed sample. Inspect more sessions before making claims about edit or validation habits.\n- No strong execution friction signal in the analyzed sample. Keep friction claims narrow unless additional failed commands, rejected actions, or warnings are inspected.\n\nDELIVERY EVIDENCE\nNo bounded evidence observed.\n\nINTERVENTION HISTORY\nNo bounded evidence observed.\n\nREVIEW BOUNDARIES\n- Source candidate: requires-review.\n- Repository review: requires-review; 2 framework(s), 9 repository check(s), and 5 Software Fluency capability review(s) remain in scope.\n- Score review: requires-review; 5 dimension(s) await AI judgment.\n- Session observation review: candidate; 4 observation card(s) from 0 analyzed session(s).",
+ "summaryFacts": {
+  "evidenceMode": "session-limited",
+  "evidenceBoundary": {
+   "manifest": {
+    "schemaVersion": 2,
+    "sourceFingerprint": "2854544dc51257d4",
+    "adapterVersion": "qoder-task-loop-source-v2",
+    "platform": "qoder",
+    "selection": {
+     "strategy": "all-eligible",
+     "eligibleCount": 0,
+     "analyzedCount": 0,
+     "confidence": "Low"
+    }
+   },
+   "episodeCoverage": {
+    "episodeCount": 0,
+    "editedEpisodeCount": 0,
+    "closedEpisodeCount": 0,
+    "recoveredEpisodeCount": 0
+   },
+   "deliveryEvidenceLevels": [],
+   "sourceGaps": []
+  },
+  "semanticFacets": {
+   "schemaVersion": 1,
+   "status": "supplementary",
+   "entries": [
+    {
+     "id": "session-insight:source-coverage",
+     "kind": "redacted-summary",
+     "episodeRef": null,
+     "status": "candidate",
+     "labels": [
+      "source-coverage",
+      "Low"
+     ],
+     "summary": "Analyzed 0 of 0 sessions; 1/6 enabled source roots exist. Use this as the current workspace evidence boundary for final insight cards.",
+     "evidenceRefs": [],
+     "modelVersion": "session-insights-v1"
+    },
+    {
+     "id": "session-insight:validation-behavior",
+     "kind": "redacted-summary",
+     "episodeRef": null,
+     "status": "candidate",
+     "labels": [
+      "validation-behavior",
+      "Low"
+     ],
+     "summary": "No validation command category was observed in the analyzed session sample. Inspect more sessions or add explicit validation guidance before claiming validation-after-edit behavior.",
+     "evidenceRefs": [],
+     "modelVersion": "session-insights-v1"
+    },
+    {
+     "id": "session-insight:post-edit-validation",
+     "kind": "rework-correction",
+     "episodeRef": null,
+     "status": "candidate",
+     "labels": [
+      "post-edit-validation",
+      "Low"
+     ],
+     "summary": "No edit event was observed in the analyzed sample. Inspect more sessions before making claims about edit or validation habits.",
+     "evidenceRefs": [],
+     "modelVersion": "session-insights-v1"
+    },
+    {
+     "id": "session-insight:execution-friction",
+     "kind": "friction-taxonomy",
+     "episodeRef": null,
+     "status": "candidate",
+     "labels": [
+      "execution-friction",
+      "Low"
+     ],
+     "summary": "No strong execution friction signal in the analyzed sample. Keep friction claims narrow unless additional failed commands, rejected actions, or warnings are inspected.",
+     "evidenceRefs": [],
+     "modelVersion": "session-insights-v1"
+    }
+   ]
+  },
+  "learningCapture": {
+   "schemaVersion": 1,
+   "state": "N/A",
+   "summary": "暂不适用——需要两个可比的观察窗口和一次改进对比。",
+   "interventions": []
+  },
+  "aiAgentPractice": {
+   "inspectedSurfaces": [],
+   "coverageRows": [
+    {
+     "surface": "Skills",
+     "scopes": [
+      "Global",
+      "Plugin"
+     ],
+     "count": 26,
+     "paths": [
+      "~/.qoder/skills/dingtalk-aisearch/SKILL.md",
+      "~/.qoder/skills/dingtalk-aitable/SKILL.md",
+      "~/.qoder/skills/dingtalk-calendar/SKILL.md",
+      "~/.qoder/skills/dingtalk-chat/SKILL.md",
+      "~/.qoder/skills/dingtalk-contact/SKILL.md",
+      "~/.qoder/skills/dingtalk-doc/SKILL.md",
+      "~/.qoder/skills/dingtalk-drive/SKILL.md",
+      "~/.qoder/skills/dingtalk-event/SKILL.md",
+      "~/.qoder/skills/dingtalk-mail/SKILL.md",
+      "~/.qoder/skills/dingtalk-minutes/SKILL.md",
+      "~/.qoder/skills/dingtalk-misc/SKILL.md",
+      "~/.qoder/skills/dingtalk-shared/SKILL.md"
+     ]
+    },
+    {
+     "surface": "Hooks",
+     "scopes": [
+      "Plugin"
+     ],
+     "count": 2,
+     "paths": [
+      "~/.qoder/plugins/cache/qoder-bundler/security-scan/.qoder-plugin/qoder-hooks.json"
+     ]
+    },
+    {
+     "surface": "Workflows",
+     "scopes": [
+      "Project"
+     ],
+     "count": 1,
+     "paths": [
+      ".github/workflows/ci.yml"
+     ]
+    },
+    {
+     "surface": "Plugins",
+     "scopes": [
+      "Plugin"
+     ],
+     "count": 3,
+     "paths": [
+      "~/.qoder/plugins/cache/qoder-bundler/better-harness/.qoder-plugin/plugin.json",
+      "~/.qoder/plugins/cache/qoder-bundler/qoder-create-plugin",
+      "~/.qoder/plugins/cache/qoder-bundler/security-scan/.qoder-plugin/plugin.json"
+     ]
+    },
+    {
+     "surface": "Rules",
+     "scopes": [
+      "Project"
+     ],
+     "count": 0
+    },
+    {
+     "surface": "Commands",
+     "scopes": [
+      "Project"
+     ],
+     "count": 0
+    },
+    {
+     "surface": "Custom Agents",
+     "scopes": [
+      "Project"
+     ],
+     "count": 0
+    },
+    {
+     "surface": "MCP",
+     "scopes": [
+      "Project"
+     ],
+     "count": 0
+    },
+    {
+     "surface": "Memories",
+     "scopes": [
+      "Project"
+     ],
+     "count": 0
+    }
+   ],
+   "repositorySourceRows": [],
+   "memoryDetails": {
+    "contentPolicy": "metadata-only",
+    "scanState": "scanned-empty",
+    "scopeCounts": [],
+    "integrity": {
+     "status": "reviewed",
+     "titleCount": 0,
+     "reviewedTitleCount": 0,
+     "truncated": false,
+     "exactCollisionGroups": 0,
+     "similarityCandidates": 0
+    }
+   }
+  }
+ },
+ "canvasPath": "/Users/itxiaobai/HarmonyProject1/.qoder/better-harness/2026-10-12/012054-harmonyproject1/canvas.json",
+ "canvasReplaced": false
+}

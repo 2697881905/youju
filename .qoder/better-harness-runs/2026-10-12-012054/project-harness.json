@@ -1,0 +1,3779 @@
+{
+ "schemaVersion": 1,
+ "kind": "core-change-watch-evidence-pack",
+ "status": "ok",
+ "repoRoot": "/Users/itxiaobai/HarmonyProject1",
+ "generatedAt": "2026-10-11T17:22:01.626Z",
+ "summary": {
+  "reviewRecommended": false,
+  "attentionRequired": false,
+  "diffStatus": "ok",
+  "diffSeverity": "low",
+  "diffScore": 0,
+  "topLanguages": [
+   "typescript",
+   "javascript",
+   "python"
+  ],
+  "projectInfo": {
+   "name": "HarmonyProject1",
+   "description": "",
+   "readmeTitle": "",
+   "identityEvidence": [],
+   "primaryLanguages": [
+    {
+     "language": "typescript",
+     "sourceFiles": 78,
+     "testFiles": 30
+    },
+    {
+     "language": "javascript",
+     "sourceFiles": 13,
+     "testFiles": 1
+    },
+    {
+     "language": "python",
+     "sourceFiles": 3,
+     "testFiles": 0
+    }
+   ],
+   "frameworks": [],
+   "sourceFiles": 94,
+   "testFiles": 31,
+   "measuredSourceLines": null,
+   "sourceLineStatus": "skipped",
+   "sourceLineMethod": "not measured by default; use --measure-source-lines to count tracked readable primary source files only",
+   "sourceRoots": [
+    {
+     "path": "backend",
+     "files": 80
+    },
+    {
+     "path": "scripts",
+     "files": 7
+    },
+    {
+     "path": "design",
+     "files": 2
+    },
+    {
+     "path": "entry",
+     "files": 2
+    },
+    {
+     "path": "deliverables",
+     "files": 1
+    },
+    {
+     "path": "hvigorfile.ts",
+     "files": 1
+    },
+    {
+     "path": "site",
+     "files": 1
+    }
+   ],
+   "entryCandidates": [
+    {
+     "path": "backend/src/app.ts",
+     "language": "typescript",
+     "score": 65
+    },
+    {
+     "path": "backend/src/index.ts",
+     "language": "typescript",
+     "score": 65
+    },
+    {
+     "path": "site/js/main.js",
+     "language": "javascript",
+     "score": 65
+    }
+   ]
+  },
+  "agentInstructions": {
+   "status": "adequate",
+   "count": 3,
+   "rootCount": 0,
+   "nestedCount": 3,
+   "suggestedMinimum": 1,
+   "suggestedAdditional": 0,
+   "sourceFilesPerInstruction": 32,
+   "sourceFilesUnderNestedInstructions": 0,
+   "nestedSourceFileCoveragePercent": 0,
+   "suggestedScopes": [
+    {
+     "path": "backend/src",
+     "sourceFiles": 67
+    },
+    {
+     "path": "backend/scripts",
+     "sourceFiles": 10
+    },
+    {
+     "path": "scripts",
+     "sourceFiles": 7
+    },
+    {
+     "path": "backend/prisma",
+     "sourceFiles": 2
+    },
+    {
+     "path": ".",
+     "sourceFiles": 1
+    },
+    {
+     "path": "backend",
+     "sourceFiles": 1
+    },
+    {
+     "path": "deliverables/appgallery-previews-1080x1920",
+     "sourceFiles": 1
+    },
+    {
+     "path": "design/beta-posters",
+     "sourceFiles": 1
+    }
+   ],
+   "reasons": [
+    "3 nested AGENTS.md files provide module-local guidance"
+   ]
+  },
+  "coreCandidates": {
+   "highConfidence": 1,
+   "mediumConfidence": 7,
+   "candidateCount": 11
+  },
+  "changedFiles": 0,
+  "changedLines": 0,
+  "companionHits": 0,
+  "changeDrift": {
+   "status": "ok",
+   "findingCount": 0,
+   "typeCounts": {}
+  },
+  "coreCodeRules": {
+   "status": "missing",
+   "includeCount": 0,
+   "excludeCount": 0,
+   "boundaryKind": "inferred-core-boundary"
+  },
+  "historyWindows": [
+   30,
+   90,
+   180
+  ],
+  "historyConfidence": {
+   "confidence": "medium",
+   "reasons": [
+    "bounded at maxCommits=500"
+   ]
+  },
+  "frameworks": [],
+  "filtersApplied": false
+ },
+ "filters": {
+  "projectProfile": {
+   "ignorePatterns": [],
+   "ignoredCount": 0,
+   "ignoredSample": []
+  },
+  "historyProfile": {
+   "ignorePatterns": [],
+   "ignoredCount": 0,
+   "ignoredSample": []
+  },
+  "coreAnalysis": {
+   "ignorePatterns": [],
+   "ignoredCount": 0,
+   "ignoredSample": []
+  },
+  "diffImpact": {
+   "ignorePatterns": [],
+   "ignoredCount": 0,
+   "ignoredSample": []
+  }
+ },
+ "evidenceSources": {
+  "boundary": "static-local-git-and-file-analysis",
+  "numericSources": [
+   {
+    "claim": "tracked file, language, manifest, source-root, entrypoint, and framework counts",
+    "source": "projectProfile",
+    "command": "git ls-files -z plus local manifest/path inspection"
+   },
+   {
+    "claim": "hot files, hot paths, co-change paths, and history windows",
+    "source": "historyProfile",
+    "command": "git log -500 --numstat --format=commit... --"
+   },
+   {
+    "claim": "changed files, line counts, configured core boundary hits, hot hits, and companion hits",
+    "source": "diffImpact",
+    "command": "git diff --numstat --no-ext-diff --find-renames HEAD --"
+   },
+   {
+    "claim": "changed API, schema, UI, config, error, and CLI surfaces with missing companion evidence",
+    "source": "changeDrift",
+    "command": "git diff --numstat --no-ext-diff --find-renames HEAD -- plus git ls-files -z"
+   },
+   {
+    "claim": "history day windows",
+    "source": "summary.historyWindows",
+    "command": "bounded history windows: 30,90,180"
+   }
+  ],
+  "unverifiedClaims": [
+   {
+    "claim": "tests passed",
+    "status": "UNVERIFIED",
+    "reason": "core-change-watch does not run target project tests"
+   },
+   {
+    "claim": "CI status",
+    "status": "UNVERIFIED",
+    "reason": "core-change-watch does not open external CI systems"
+   },
+   {
+    "claim": "runtime behavior",
+    "status": "UNVERIFIED",
+    "reason": "core-change-watch does not execute the target application"
+   }
+  ]
+ },
+ "projectProfile": {
+  "schemaVersion": 1,
+  "kind": "project-profile",
+  "status": "ok",
+  "repoRoot": "/Users/itxiaobai/HarmonyProject1",
+  "filters": {
+   "ignorePatterns": [],
+   "ignoredCount": 0,
+   "ignoredSample": []
+  },
+  "projectInfo": {
+   "name": "HarmonyProject1",
+   "description": "",
+   "readmeTitle": "",
+   "evidence": [],
+   "primaryLanguages": [
+    {
+     "language": "typescript",
+     "sourceFiles": 78,
+     "testFiles": 30
+    },
+    {
+     "language": "javascript",
+     "sourceFiles": 13,
+     "testFiles": 1
+    },
+    {
+     "language": "python",
+     "sourceFiles": 3,
+     "testFiles": 0
+    }
+   ],
+   "frameworks": [],
+   "sourceFiles": 94,
+   "testFiles": 31,
+   "measuredSourceLines": null,
+   "sourceLineStatus": "skipped",
+   "sourceLineMethod": "not measured by default; use --measure-source-lines to count tracked readable primary source files only",
+   "sourceRoots": [
+    {
+     "path": "backend",
+     "files": 80
+    },
+    {
+     "path": "scripts",
+     "files": 7
+    },
+    {
+     "path": "design",
+     "files": 2
+    },
+    {
+     "path": "entry",
+     "files": 2
+    },
+    {
+     "path": "deliverables",
+     "files": 1
+    },
+    {
+     "path": "hvigorfile.ts",
+     "files": 1
+    },
+    {
+     "path": "site",
+     "files": 1
+    }
+   ],
+   "entryCandidates": [
+    {
+     "path": "backend/src/app.ts",
+     "language": "typescript",
+     "score": 65
+    },
+    {
+     "path": "backend/src/index.ts",
+     "language": "typescript",
+     "score": 65
+    },
+    {
+     "path": "site/js/main.js",
+     "language": "javascript",
+     "score": 65
+    }
+   ],
+   "manifests": [
+    {
+     "path": "backend/package.json",
+     "kind": "node",
+     "scripts": [
+      "build",
+      "check:agc",
+      "check:release-config",
+      "data:purge-behavior",
+      "dev",
+      "eval:daily",
+      "media:migrate-refs",
+      "prisma:db-push",
+      "prisma:generate",
+      "seed:tags",
+      "start",
+      "test",
+      "test:smoke"
+     ]
+    },
+    {
+     "path": "backend/tsconfig.json",
+     "kind": "config",
+     "scripts": []
+    },
+    {
+     "path": "hyperframes-demo/package.json",
+     "kind": "node",
+     "scripts": [
+      "check",
+      "dev",
+      "publish",
+      "render"
+     ]
+    },
+    {
+     "path": "hyperframes-promo/package.json",
+     "kind": "node",
+     "scripts": [
+      "check",
+      "dev",
+      "publish",
+      "render"
+     ]
+    },
+    {
+     "path": "hyperframes-tiktok/package.json",
+     "kind": "node",
+     "scripts": [
+      "check",
+      "dev",
+      "publish",
+      "render"
+     ]
+    }
+   ]
+  },
+  "agentInstructions": {
+   "count": 3,
+   "rootCount": 0,
+   "nestedCount": 3,
+   "files": [
+    {
+     "path": "hyperframes-demo/AGENTS.md",
+     "scope": "hyperframes-demo"
+    },
+    {
+     "path": "hyperframes-promo/AGENTS.md",
+     "scope": "hyperframes-promo"
+    },
+    {
+     "path": "hyperframes-tiktok/AGENTS.md",
+     "scope": "hyperframes-tiktok"
+    }
+   ],
+   "status": "adequate",
+   "suggestedMinimum": 1,
+   "suggestedAdditional": 0,
+   "sourceFilesPerInstruction": 32,
+   "sourceFilesUnderNestedInstructions": 0,
+   "nestedSourceFileCoveragePercent": 0,
+   "suggestedScopes": [
+    {
+     "path": "backend/src",
+     "sourceFiles": 67
+    },
+    {
+     "path": "backend/scripts",
+     "sourceFiles": 10
+    },
+    {
+     "path": "scripts",
+     "sourceFiles": 7
+    },
+    {
+     "path": "backend/prisma",
+     "sourceFiles": 2
+    },
+    {
+     "path": ".",
+     "sourceFiles": 1
+    },
+    {
+     "path": "backend",
+     "sourceFiles": 1
+    },
+    {
+     "path": "deliverables/appgallery-previews-1080x1920",
+     "sourceFiles": 1
+    },
+    {
+     "path": "design/beta-posters",
+     "sourceFiles": 1
+    }
+   ],
+   "reasons": [
+    "3 nested AGENTS.md files provide module-local guidance"
+   ]
+  },
+  "languages": [
+   {
+    "language": "typescript",
+    "files": 108,
+    "sourceFiles": 78,
+    "testFiles": 30,
+    "roots": [
+     {
+      "name": "backend/src",
+      "count": 97
+     },
+     {
+      "name": "backend/scripts",
+      "count": 6
+     },
+     {
+      "name": "backend/prisma",
+      "count": 2
+     },
+     {
+      "name": ".",
+      "count": 1
+     },
+     {
+      "name": "entry",
+      "count": 1
+     },
+     {
+      "name": "entry/src",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "language": "javascript",
+    "files": 14,
+    "sourceFiles": 13,
+    "testFiles": 1,
+    "roots": [
+     {
+      "name": "scripts",
+      "count": 5
+     },
+     {
+      "name": "backend/scripts",
+      "count": 4
+     },
+     {
+      "name": "backend",
+      "count": 1
+     },
+     {
+      "name": "design/beta-posters",
+      "count": 1
+     },
+     {
+      "name": "design/daily-deck-prototype",
+      "count": 1
+     },
+     {
+      "name": "design/text-poster-v2",
+      "count": 1
+     },
+     {
+      "name": "site/js",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "language": "python",
+    "files": 3,
+    "sourceFiles": 3,
+    "testFiles": 0,
+    "roots": [
+     {
+      "name": "scripts",
+      "count": 2
+     },
+     {
+      "name": "deliverables/appgallery-previews-1080x1920",
+      "count": 1
+     }
+    ]
+   }
+  ],
+  "manifests": [
+   {
+    "path": "backend/package.json",
+    "kind": "node",
+    "scripts": [
+     "build",
+     "check:agc",
+     "check:release-config",
+     "data:purge-behavior",
+     "dev",
+     "eval:daily",
+     "media:migrate-refs",
+     "prisma:db-push",
+     "prisma:generate",
+     "seed:tags",
+     "start",
+     "test",
+     "test:smoke"
+    ]
+   },
+   {
+    "path": "backend/tsconfig.json",
+    "kind": "config",
+    "scripts": []
+   },
+   {
+    "path": "hyperframes-demo/package.json",
+    "kind": "node",
+    "scripts": [
+     "check",
+     "dev",
+     "publish",
+     "render"
+    ]
+   },
+   {
+    "path": "hyperframes-promo/package.json",
+    "kind": "node",
+    "scripts": [
+     "check",
+     "dev",
+     "publish",
+     "render"
+    ]
+   },
+   {
+    "path": "hyperframes-tiktok/package.json",
+    "kind": "node",
+    "scripts": [
+     "check",
+     "dev",
+     "publish",
+     "render"
+    ]
+   }
+  ],
+  "frameworks": [],
+  "sourceRoots": [
+   {
+    "path": "backend",
+    "files": 80
+   },
+   {
+    "path": "scripts",
+    "files": 7
+   },
+   {
+    "path": "design",
+    "files": 2
+   },
+   {
+    "path": "entry",
+    "files": 2
+   },
+   {
+    "path": "deliverables",
+    "files": 1
+   },
+   {
+    "path": "hvigorfile.ts",
+    "files": 1
+   },
+   {
+    "path": "site",
+    "files": 1
+   }
+  ],
+  "entryCandidates": [
+   {
+    "path": "backend/src/app.ts",
+    "language": "typescript",
+    "score": 65,
+    "reasons": [
+     "entrypoint naming convention"
+    ]
+   },
+   {
+    "path": "backend/src/index.ts",
+    "language": "typescript",
+    "score": 65,
+    "reasons": [
+     "entrypoint naming convention"
+    ]
+   },
+   {
+    "path": "site/js/main.js",
+    "language": "javascript",
+    "score": 65,
+    "reasons": [
+     "entrypoint naming convention"
+    ]
+   }
+  ],
+  "corePathHints": [],
+  "totals": {
+   "trackedFiles": 1070,
+   "trackedFilesBeforeFilters": 1070,
+   "sourceFiles": 94,
+   "testFiles": 31,
+   "generatedOrDependencyFiles": 8,
+   "sourceLines": null,
+   "sourceLineMeasurement": "skipped",
+   "readableSourceFiles": 0,
+   "unreadableSourceFiles": 0
+  }
+ },
+ "historyProfile": {
+  "schemaVersion": 1,
+  "kind": "git-history-profile",
+  "status": "ok",
+  "repoRoot": "/Users/itxiaobai/HarmonyProject1",
+  "filters": {
+   "ignorePatterns": [],
+   "ignoredCount": 0,
+   "ignoredSample": []
+  },
+  "range": {
+   "maxCommits": 500,
+   "analyzedCommits": 500,
+   "newest": "0e713c1",
+   "oldest": "ec57894"
+  },
+  "confidence": {
+   "confidence": "medium",
+   "reasons": [
+    "bounded at maxCommits=500"
+   ]
+  },
+  "historyWindows": [
+   {
+    "days": 30,
+    "since": "2026-09-11T17:22:01.000Z",
+    "analyzedCommits": 389,
+    "trendLabel": "recent-hotspots",
+    "interpretation": "recent window for spotting recent hotspots from bounded git history.",
+    "hotFiles": [
+     {
+      "path": "site/js/main.js",
+      "language": "javascript",
+      "role": "source",
+      "supporting": false,
+      "commits": 60,
+      "added": 3166,
+      "deleted": 2239,
+      "churn": 5405,
+      "lastTouched": "0fb33d8"
+     },
+     {
+      "path": "backend/src/routes/share.ts",
+      "language": "typescript",
+      "role": "source",
+      "supporting": false,
+      "commits": 9,
+      "added": 128,
+      "deleted": 68,
+      "churn": 196,
+      "lastTouched": "71e03ba"
+     },
+     {
+      "path": "backend/src/services/reportService.ts",
+      "language": "typescript",
+      "role": "source",
+      "supporting": false,
+      "commits": 5,
+      "added": 431,
+      "deleted": 80,
+      "churn": 511,
+      "lastTouched": "3ab1a43"
+     },
+     {
+      "path": "entry/src/main/ets/utils/nav.ts",
+      "language": "typescript",
+      "role": "source",
+      "supporting": false,
+      "commits": 5,
+      "added": 65,
+      "deleted": 2,
+      "churn": 67,
+      "lastTouched": "26f94aa"
+     },
+     {
+      "path": "backend/src/utils/structuredFields.ts",
+      "language": "typescript",
+      "role": "source",
+      "supporting": false,
+      "commits": 4,
+      "added": 282,
+      "deleted": 13,
+      "churn": 295,
+      "lastTouched": "7712269"
+     },
+     {
+      "path": "backend/src/services/postService.ts",
+      "language": "typescript",
+      "role": "source",
+      "supporting": false,
+      "commits": 4,
+      "added": 174,
+      "deleted": 24,
+      "churn": 198,
+      "lastTouched": "ec8e5e7"
+     },
+     {
+      "path": "backend/src/routes/posts.ts",
+      "language": "typescript",
+      "role": "source",
+      "supporting": false,
+      "commits": 4,
+      "added": 91,
+      "deleted": 15,
+      "churn": 106,
+      "lastTouched": "7712269"
+     },
+     {
+      "path": "backend/src/services/notificationService.ts",
+      "language": "typescript",
+      "role": "source",
+      "supporting": false,
+      "commits": 4,
+      "added": 78,
+      "deleted": 12,
+      "churn": 90,
+      "lastTouched": "3ab1a43"
+     },
+     {
+      "path": "backend/src/services/commentService.ts",
+      "language": "typescript",
+      "role": "source",
+      "supporting": false,
+      "commits": 4,
+      "added": 56,
+      "deleted": 20,
+      "churn": 76,
+      "lastTouched": "be5a1db"
+     },
+     {
+      "path": "design/text-poster-v2/gen.js",
+      "language": "javascript",
+      "role": "source",
+      "supporting": false,
+      "commits": 3,
+      "added": 504,
+      "deleted": 21,
+      "churn": 525,
+      "lastTouched": "29f7c76"
+     }
+    ],
+    "supportingHotFiles": [
+     {
+      "path": "site/css/styles.css",
+      "language": null,
+      "role": "other",
+      "supporting": true,
+      "commits": 45,
+      "added": 1368,
+      "deleted": 1047,
+      "churn": 2415,
+      "lastTouched": "0fb33d8"
+     },
+     {
+      "path": "entry/src/main/ets/pages/PostDetailView.ets",
+      "language": null,
+      "role": "other",
+      "supporting": true,
+      "commits": 41,
+      "added": 2513,
+      "deleted": 592,
+      "churn": 3105,
+      "lastTouched": "ec8e5e7"
+     },
+     {
+      "path": "entry/src/main/ets/pages/Index.ets",
+      "language": null,
+      "role": "other",
+      "supporting": true,
+      "commits": 41,
+      "added": 1520,
+      "deleted": 652,
+      "churn": 2172,
+      "lastTouched": "84b0096"
+     },
+     {
+      "path": "site/index.html",
+      "language": null,
+      "role": "other",
+      "supporting": true,
+      "commits": 40,
+      "added": 906,
+      "deleted": 657,
+      "churn": 1563,
+      "lastTouched": "0fb33d8"
+     },
+     {
+      "path": "entry/src/main/ets/components/HomeTab.ets",
+      "language": null,
+      "role": "other",
+      "supporting": true,
+      "commits": 32,
+      "added": 1309,
+      "deleted": 895,
+      "churn": 2204,
+      "lastTouched": "54bb457"
+     },
+     {
+      "path": "entry/src/main/ets/components/DetailActionBar.ets",
+      "language": null,
+      "role": "other",
+      "supporting": true,
+      "commits": 32,
+      "added": 800,
+      "deleted": 729,
+      "churn": 1529,
+      "lastTouched": "84b0096"
+     },
+     {
+      "path": "entry/src/main/ets/components/DailyPostDeck.ets",
+      "language": null,
+      "role": "other",
+      "supporting": true,
+      "commits": 22,
+      "added": 844,
+      "deleted": 460,
+      "churn": 1304,
+      "lastTouched": "1acf9c9"
+     },
+     {
+      "path": "entry/src/main/ets/pages/ProfilePage.ets",
+      "language": null,
+      "role": "other",
+      "supporting": true,
+      "commits": 21,
+      "added": 651,
+      "deleted": 520,
+      "churn": 1171,
+      "lastTouched": "c560b5b"
+     },
+     {
+      "path": "entry/src/main/ets/pages/MessagePage.ets",
+      "language": null,
+      "role": "other",
+      "supporting": true,
+      "commits": 18,
+      "added": 1158,
+      "deleted": 459,
+      "churn": 1617,
+      "lastTouched": "b64baa6"
+     },
+     {
+      "path": "entry/src/main/ets/pages/PublishPreviewPage.ets",
+      "language": null,
+      "role": "other",
+      "supporting": true,
+      "commits": 18,
+      "added": 422,
+      "deleted": 397,
+      "churn": 819,
+      "lastTouched": "84b0096"
+     }
+    ],
+    "hotPaths": [
+     {
+      "path": "site/js",
+      "commits": 60
+     },
+     {
+      "path": "backend/src",
+      "commits": 33
+     },
+     {
+      "path": "scripts",
+      "commits": 8
+     },
+     {
+      "path": "entry/src",
+      "commits": 5
+     },
+     {
+      "path": "backend/scripts",
+      "commits": 4
+     },
+     {
+      "path": "design/text-poster-v2",
+      "commits": 3
+     },
+     {
+      "path": "backend/prisma",
+      "commits": 2
+     },
+     {
+      "path": "deliverables/appgallery-previews-1080x1920",
+      "commits": 2
+     }
+    ]
+   },
+   {
+    "days": 90,
+    "since": "2026-07-13T17:22:01.000Z",
+    "analyzedCommits": 500,
+    "trendLabel": "sustained-hotspots",
+    "interpretation": "sustained window for spotting sustained hotspots from bounded git history.",
+    "hotFiles": [
+     {
+      "path": "site/js/main.js",
+      "language": "javascript",
+      "role": "source",
+      "supporting": false,
+      "commits": 60,
+      "added": 3166,
+      "deleted": 2239,
+      "churn": 5405,
+      "lastTouched": "0fb33d8"
+     },
+     {
+      "path": "backend/src/services/postService.ts",
+      "language": "typescript",
+      "role": "source",
+      "supporting": false,
+      "commits": 14,
+      "added": 852,
+      "deleted": 321,
+      "churn": 1173,
+      "lastTouched": "45d1572"
+     },
+     {
+      "path": "backend/src/services/reportService.ts",
+      "language": "typescript",
+      "role": "source",
+      "supporting": false,
+      "commits": 13,
+      "added": 659,
+      "deleted": 178,
+      "churn": 837,
+      "lastTouched": "45d1572"
+     },
+     {
+      "path": "backend/src/routes/share.ts",
+      "language": "typescript",
+      "role": "source",
+      "supporting": false,
+      "commits": 11,
+      "added": 320,
+      "deleted": 68,
+      "churn": 388,
+      "lastTouched": "5c79679"
+     },
+     {
+      "path": "backend/src/routes/posts.ts",
+      "language": "typescript",
+      "role": "source",
+      "supporting": false,
+      "commits": 10,
+      "added": 201,
+      "deleted": 80,
+      "churn": 281,
+      "lastTouched": "45d1572"
+     },
+     {
+      "path": "backend/src/app.ts",
+      "language": "typescript",
+      "role": "source",
+      "supporting": false,
+      "commits": 10,
+      "added": 59,
+      "deleted": 5,
+      "churn": 64,
+      "lastTouched": "74864aa"
+     },
+     {
+      "path": "backend/src/services/notificationService.ts",
+      "language": "typescript",
+      "role": "source",
+      "supporting": false,
+      "commits": 9,
+      "added": 244,
+      "deleted": 48,
+      "churn": 292,
+      "lastTouched": "61a498f"
+     },
+     {
+      "path": "backend/src/index.ts",
+      "language": "typescript",
+      "role": "source",
+      "supporting": false,
+      "commits": 8,
+      "added": 39,
+      "deleted": 4,
+      "churn": 43,
+      "lastTouched": "45d1572"
+     },
+     {
+      "path": "backend/src/services/commentService.ts",
+      "language": "typescript",
+      "role": "source",
+      "supporting": false,
+      "commits": 7,
+      "added": 185,
+      "deleted": 33,
+      "churn": 218,
+      "lastTouched": "45d1572"
+     },
+     {
+      "path": "backend/src/services/messageService.ts",
+      "language": "typescript",
+      "role": "source",
+      "supporting": false,
+      "commits": 6,
+      "added": 244,
+      "deleted": 34,
+      "churn": 278,
+      "lastTouched": "c5b2332"
+     }
+    ],
+    "supportingHotFiles": [
+     {
+      "path": "entry/src/main/ets/pages/Index.ets",
+      "language": null,
+      "role": "other",
+      "supporting": true,
+      "commits": 53,
+      "added": 2057,
+      "deleted": 982,
+      "churn": 3039,
+      "lastTouched": "45d1572"
+     },
+     {
+      "path": "entry/src/main/ets/components/HomeTab.ets",
+      "language": null,
+      "role": "other",
+      "supporting": true,
+      "commits": 46,
+      "added": 2179,
+      "deleted": 1510,
+      "churn": 3689,
+      "lastTouched": "45d1572"
+     },
+     {
+      "path": "site/css/styles.css",
+      "language": null,
+      "role": "other",
+      "supporting": true,
+      "commits": 45,
+      "added": 1368,
+      "deleted": 1047,
+      "churn": 2415,
+      "lastTouched": "0fb33d8"
+     },
+     {
+      "path": "entry/src/main/ets/components/DetailActionBar.ets",
+      "language": null,
+      "role": "other",
+      "supporting": true,
+      "commits": 43,
+      "added": 1214,
+      "deleted": 959,
+      "churn": 2173,
+      "lastTouched": "74864aa"
+     },
+     {
+      "path": "entry/src/main/ets/pages/PostDetailView.ets",
+      "language": null,
+      "role": "other",
+      "supporting": true,
+      "commits": 41,
+      "added": 2513,
+      "deleted": 592,
+      "churn": 3105,
+      "lastTouched": "ec8e5e7"
+     },
+     {
+      "path": "site/index.html",
+      "language": null,
+      "role": "other",
+      "supporting": true,
+      "commits": 40,
+      "added": 906,
+      "deleted": 657,
+      "churn": 1563,
+      "lastTouched": "0fb33d8"
+     },
+     {
+      "path": "entry/src/main/ets/pages/MessagePage.ets",
+      "language": null,
+      "role": "other",
+      "supporting": true,
+      "commits": 31,
+      "added": 1649,
+      "deleted": 879,
+      "churn": 2528,
+      "lastTouched": "45d1572"
+     },
+     {
+      "path": "entry/src/main/ets/pages/ProfilePage.ets",
+      "language": null,
+      "role": "other",
+      "supporting": true,
+      "commits": 31,
+      "added": 1313,
+      "deleted": 888,
+      "churn": 2201,
+      "lastTouched": "4ee0b92"
+     },
+     {
+      "path": "entry/src/main/ets/components/DailyPostDeck.ets",
+      "language": null,
+      "role": "other",
+      "supporting": true,
+      "commits": 28,
+      "added": 1879,
+      "deleted": 702,
+      "churn": 2581,
+      "lastTouched": "61a498f"
+     },
+     {
+      "path": "entry/src/main/ets/pages/PublishPreviewPage.ets",
+      "language": null,
+      "role": "other",
+      "supporting": true,
+      "commits": 27,
+      "added": 1123,
+      "deleted": 443,
+      "churn": 1566,
+      "lastTouched": "74864aa"
+     }
+    ],
+    "hotPaths": [
+     {
+      "path": "backend/src",
+      "commits": 62
+     },
+     {
+      "path": "site/js",
+      "commits": 60
+     },
+     {
+      "path": "backend/scripts",
+      "commits": 9
+     },
+     {
+      "path": "scripts",
+      "commits": 8
+     },
+     {
+      "path": "entry/src",
+      "commits": 6
+     },
+     {
+      "path": "design/beta-posters",
+      "commits": 5
+     },
+     {
+      "path": "backend/prisma",
+      "commits": 4
+     },
+     {
+      "path": "design/text-poster-v2",
+      "commits": 3
+     },
+     {
+      "path": "deliverables/appgallery-previews-1080x1920",
+      "commits": 2
+     }
+    ]
+   },
+   {
+    "days": 180,
+    "since": "2026-04-14T17:22:01.000Z",
+    "analyzedCommits": 500,
+    "trendLabel": "legacy-or-long-range-hotspots",
+    "interpretation": "long-range window for spotting legacy or long range hotspots from bounded git history.",
+    "hotFiles": [
+     {
+      "path": "site/js/main.js",
+      "language": "javascript",
+      "role": "source",
+      "supporting": false,
+      "commits": 60,
+      "added": 3166,
+      "deleted": 2239,
+      "churn": 5405,
+      "lastTouched": "0fb33d8"
+     },
+     {
+      "path": "backend/src/services/postService.ts",
+      "language": "typescript",
+      "role": "source",
+      "supporting": false,
+      "commits": 14,
+      "added": 852,
+      "deleted": 321,
+      "churn": 1173,
+      "lastTouched": "45d1572"
+     },
+     {
+      "path": "backend/src/services/reportService.ts",
+      "language": "typescript",
+      "role": "source",
+      "supporting": false,
+      "commits": 13,
+      "added": 659,
+      "deleted": 178,
+      "churn": 837,
+      "lastTouched": "45d1572"
+     },
+     {
+      "path": "backend/src/routes/share.ts",
+      "language": "typescript",
+      "role": "source",
+      "supporting": false,
+      "commits": 11,
+      "added": 320,
+      "deleted": 68,
+      "churn": 388,
+      "lastTouched": "5c79679"
+     },
+     {
+      "path": "backend/src/routes/posts.ts",
+      "language": "typescript",
+      "role": "source",
+      "supporting": false,
+      "commits": 10,
+      "added": 201,
+      "deleted": 80,
+      "churn": 281,
+      "lastTouched": "45d1572"
+     },
+     {
+      "path": "backend/src/app.ts",
+      "language": "typescript",
+      "role": "source",
+      "supporting": false,
+      "commits": 10,
+      "added": 59,
+      "deleted": 5,
+      "churn": 64,
+      "lastTouched": "74864aa"
+     },
+     {
+      "path": "backend/src/services/notificationService.ts",
+      "language": "typescript",
+      "role": "source",
+      "supporting": false,
+      "commits": 9,
+      "added": 244,
+      "deleted": 48,
+      "churn": 292,
+      "lastTouched": "61a498f"
+     },
+     {
+      "path": "backend/src/index.ts",
+      "language": "typescript",
+      "role": "source",
+      "supporting": false,
+      "commits": 8,
+      "added": 39,
+      "deleted": 4,
+      "churn": 43,
+      "lastTouched": "45d1572"
+     },
+     {
+      "path": "backend/src/services/commentService.ts",
+      "language": "typescript",
+      "role": "source",
+      "supporting": false,
+      "commits": 7,
+      "added": 185,
+      "deleted": 33,
+      "churn": 218,
+      "lastTouched": "45d1572"
+     },
+     {
+      "path": "backend/src/services/messageService.ts",
+      "language": "typescript",
+      "role": "source",
+      "supporting": false,
+      "commits": 6,
+      "added": 244,
+      "deleted": 34,
+      "churn": 278,
+      "lastTouched": "c5b2332"
+     }
+    ],
+    "supportingHotFiles": [
+     {
+      "path": "entry/src/main/ets/pages/Index.ets",
+      "language": null,
+      "role": "other",
+      "supporting": true,
+      "commits": 53,
+      "added": 2057,
+      "deleted": 982,
+      "churn": 3039,
+      "lastTouched": "45d1572"
+     },
+     {
+      "path": "entry/src/main/ets/components/HomeTab.ets",
+      "language": null,
+      "role": "other",
+      "supporting": true,
+      "commits": 46,
+      "added": 2179,
+      "deleted": 1510,
+      "churn": 3689,
+      "lastTouched": "45d1572"
+     },
+     {
+      "path": "site/css/styles.css",
+      "language": null,
+      "role": "other",
+      "supporting": true,
+      "commits": 45,
+      "added": 1368,
+      "deleted": 1047,
+      "churn": 2415,
+      "lastTouched": "0fb33d8"
+     },
+     {
+      "path": "entry/src/main/ets/components/DetailActionBar.ets",
+      "language": null,
+      "role": "other",
+      "supporting": true,
+      "commits": 43,
+      "added": 1214,
+      "deleted": 959,
+      "churn": 2173,
+      "lastTouched": "74864aa"
+     },
+     {
+      "path": "entry/src/main/ets/pages/PostDetailView.ets",
+      "language": null,
+      "role": "other",
+      "supporting": true,
+      "commits": 41,
+      "added": 2513,
+      "deleted": 592,
+      "churn": 3105,
+      "lastTouched": "ec8e5e7"
+     },
+     {
+      "path": "site/index.html",
+      "language": null,
+      "role": "other",
+      "supporting": true,
+      "commits": 40,
+      "added": 906,
+      "deleted": 657,
+      "churn": 1563,
+      "lastTouched": "0fb33d8"
+     },
+     {
+      "path": "entry/src/main/ets/pages/MessagePage.ets",
+      "language": null,
+      "role": "other",
+      "supporting": true,
+      "commits": 31,
+      "added": 1649,
+      "deleted": 879,
+      "churn": 2528,
+      "lastTouched": "45d1572"
+     },
+     {
+      "path": "entry/src/main/ets/pages/ProfilePage.ets",
+      "language": null,
+      "role": "other",
+      "supporting": true,
+      "commits": 31,
+      "added": 1313,
+      "deleted": 888,
+      "churn": 2201,
+      "lastTouched": "4ee0b92"
+     },
+     {
+      "path": "entry/src/main/ets/components/DailyPostDeck.ets",
+      "language": null,
+      "role": "other",
+      "supporting": true,
+      "commits": 28,
+      "added": 1879,
+      "deleted": 702,
+      "churn": 2581,
+      "lastTouched": "61a498f"
+     },
+     {
+      "path": "entry/src/main/ets/pages/PublishPreviewPage.ets",
+      "language": null,
+      "role": "other",
+      "supporting": true,
+      "commits": 27,
+      "added": 1123,
+      "deleted": 443,
+      "churn": 1566,
+      "lastTouched": "74864aa"
+     }
+    ],
+    "hotPaths": [
+     {
+      "path": "backend/src",
+      "commits": 62
+     },
+     {
+      "path": "site/js",
+      "commits": 60
+     },
+     {
+      "path": "backend/scripts",
+      "commits": 9
+     },
+     {
+      "path": "scripts",
+      "commits": 8
+     },
+     {
+      "path": "entry/src",
+      "commits": 6
+     },
+     {
+      "path": "design/beta-posters",
+      "commits": 5
+     },
+     {
+      "path": "backend/prisma",
+      "commits": 4
+     },
+     {
+      "path": "design/text-poster-v2",
+      "commits": 3
+     },
+     {
+      "path": "deliverables/appgallery-previews-1080x1920",
+      "commits": 2
+     }
+    ]
+   }
+  ],
+  "languageTouchCounts": [
+   {
+    "language": "typescript",
+    "touches": 241
+   },
+   {
+    "language": "javascript",
+    "touches": 79
+   },
+   {
+    "language": "python",
+    "touches": 4
+   }
+  ],
+  "hotFiles": [
+   {
+    "path": "site/js/main.js",
+    "language": "javascript",
+    "role": "source",
+    "supporting": false,
+    "commits": 60,
+    "added": 3166,
+    "deleted": 2239,
+    "churn": 5405,
+    "lastTouched": "0fb33d8"
+   },
+   {
+    "path": "backend/src/services/postService.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 14,
+    "added": 852,
+    "deleted": 321,
+    "churn": 1173,
+    "lastTouched": "45d1572"
+   },
+   {
+    "path": "backend/src/services/reportService.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 13,
+    "added": 659,
+    "deleted": 178,
+    "churn": 837,
+    "lastTouched": "45d1572"
+   },
+   {
+    "path": "backend/src/routes/share.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 11,
+    "added": 320,
+    "deleted": 68,
+    "churn": 388,
+    "lastTouched": "5c79679"
+   },
+   {
+    "path": "backend/src/routes/posts.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 10,
+    "added": 201,
+    "deleted": 80,
+    "churn": 281,
+    "lastTouched": "45d1572"
+   },
+   {
+    "path": "backend/src/app.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 10,
+    "added": 59,
+    "deleted": 5,
+    "churn": 64,
+    "lastTouched": "74864aa"
+   },
+   {
+    "path": "backend/src/services/notificationService.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 9,
+    "added": 244,
+    "deleted": 48,
+    "churn": 292,
+    "lastTouched": "61a498f"
+   },
+   {
+    "path": "backend/src/index.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 8,
+    "added": 39,
+    "deleted": 4,
+    "churn": 43,
+    "lastTouched": "45d1572"
+   },
+   {
+    "path": "backend/src/services/commentService.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 7,
+    "added": 185,
+    "deleted": 33,
+    "churn": 218,
+    "lastTouched": "45d1572"
+   },
+   {
+    "path": "backend/src/services/messageService.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 6,
+    "added": 244,
+    "deleted": 34,
+    "churn": 278,
+    "lastTouched": "c5b2332"
+   },
+   {
+    "path": "entry/src/main/ets/utils/nav.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 6,
+    "added": 159,
+    "deleted": 17,
+    "churn": 176,
+    "lastTouched": "74864aa"
+   },
+   {
+    "path": "backend/src/routes/comments.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 6,
+    "added": 73,
+    "deleted": 18,
+    "churn": 91,
+    "lastTouched": "45d1572"
+   },
+   {
+    "path": "backend/src/services/huaweiPush.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 5,
+    "added": 302,
+    "deleted": 65,
+    "churn": 367,
+    "lastTouched": "069195c"
+   },
+   {
+    "path": "design/beta-posters/gen-posters.js",
+    "language": "javascript",
+    "role": "source",
+    "supporting": false,
+    "commits": 5,
+    "added": 274,
+    "deleted": 48,
+    "churn": 322,
+    "lastTouched": "30d24ef"
+   },
+   {
+    "path": "backend/src/routes/admin.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 5,
+    "added": 104,
+    "deleted": 53,
+    "churn": 157,
+    "lastTouched": "f0149f5"
+   },
+   {
+    "path": "backend/src/services/authService.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 5,
+    "added": 93,
+    "deleted": 47,
+    "churn": 140,
+    "lastTouched": "45d1572"
+   },
+   {
+    "path": "backend/src/middleware/rateLimit.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 5,
+    "added": 129,
+    "deleted": 2,
+    "churn": 131,
+    "lastTouched": "2ce4439"
+   },
+   {
+    "path": "backend/src/routes/messages.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 5,
+    "added": 66,
+    "deleted": 11,
+    "churn": 77,
+    "lastTouched": "c5b2332"
+   },
+   {
+    "path": "backend/src/routes/push.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 5,
+    "added": 66,
+    "deleted": 6,
+    "churn": 72,
+    "lastTouched": "069195c"
+   },
+   {
+    "path": "backend/src/routes/auth.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 5,
+    "added": 31,
+    "deleted": 15,
+    "churn": 46,
+    "lastTouched": "8e217d4"
+   },
+   {
+    "path": "backend/src/services/followService.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 5,
+    "added": 23,
+    "deleted": 6,
+    "churn": 29,
+    "lastTouched": "74864aa"
+   },
+   {
+    "path": "backend/src/utils/structuredFields.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 4,
+    "added": 282,
+    "deleted": 13,
+    "churn": 295,
+    "lastTouched": "7712269"
+   },
+   {
+    "path": "backend/prisma/seed.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 4,
+    "added": 119,
+    "deleted": 98,
+    "churn": 217,
+    "lastTouched": "74864aa"
+   },
+   {
+    "path": "backend/src/routes/metrics.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 4,
+    "added": 122,
+    "deleted": 24,
+    "churn": 146,
+    "lastTouched": "d5aa8d4"
+   },
+   {
+    "path": "backend/src/routes/media.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 4,
+    "added": 114,
+    "deleted": 8,
+    "churn": 122,
+    "lastTouched": "c5b2332"
+   },
+   {
+    "path": "design/text-poster-v2/gen.js",
+    "language": "javascript",
+    "role": "source",
+    "supporting": false,
+    "commits": 3,
+    "added": 504,
+    "deleted": 21,
+    "churn": 525,
+    "lastTouched": "29f7c76"
+   },
+   {
+    "path": "backend/src/services/accountBindingService.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 3,
+    "added": 75,
+    "deleted": 141,
+    "churn": 216,
+    "lastTouched": "45d1572"
+   },
+   {
+    "path": "backend/src/services/uploadService.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 3,
+    "added": 111,
+    "deleted": 19,
+    "churn": 130,
+    "lastTouched": "74864aa"
+   },
+   {
+    "path": "backend/src/routes/upload.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 3,
+    "added": 53,
+    "deleted": 18,
+    "churn": 71,
+    "lastTouched": "74864aa"
+   },
+   {
+    "path": "backend/src/routes/dislike.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 3,
+    "added": 62,
+    "deleted": 6,
+    "churn": 68,
+    "lastTouched": "74864aa"
+   },
+   {
+    "path": "backend/src/routes/bookmarkFolders.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 3,
+    "added": 63,
+    "deleted": 3,
+    "churn": 66,
+    "lastTouched": "d5aa8d4"
+   },
+   {
+    "path": "backend/src/routes/users.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 3,
+    "added": 51,
+    "deleted": 7,
+    "churn": 58,
+    "lastTouched": "c5b2332"
+   },
+   {
+    "path": "backend/src/services/accessControl.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 3,
+    "added": 47,
+    "deleted": 3,
+    "churn": 50,
+    "lastTouched": "45d1572"
+   },
+   {
+    "path": "backend/src/routes/search.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 3,
+    "added": 33,
+    "deleted": 6,
+    "churn": 39,
+    "lastTouched": "d5aa8d4"
+   },
+   {
+    "path": "backend/src/services/interactService.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 3,
+    "added": 19,
+    "deleted": 9,
+    "churn": 28,
+    "lastTouched": "45d1572"
+   },
+   {
+    "path": "backend/src/routes/notifications.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 3,
+    "added": 15,
+    "deleted": 7,
+    "churn": 22,
+    "lastTouched": "ac7e9db"
+   },
+   {
+    "path": "deliverables/appgallery-previews-1080x1920/generate_previews.py",
+    "language": "python",
+    "role": "source",
+    "supporting": false,
+    "commits": 2,
+    "added": 387,
+    "deleted": 157,
+    "churn": 544,
+    "lastTouched": "c24eacc"
+   },
+   {
+    "path": "backend/src/services/searchService.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 2,
+    "added": 296,
+    "deleted": 0,
+    "churn": 296,
+    "lastTouched": "d5aa8d4"
+   },
+   {
+    "path": "backend/src/services/sensitiveWordService.ts",
+    "language": "typescript",
+    "role": "source",
+    "supporting": false,
+    "commits": 2,
+    "added": 152,
+    "deleted": 70,
+    "churn": 222,
+    "lastTouched": "31c4b37"
+   },
+   {
+    "path": "scripts/check-stale-overwrite.mjs",
+    "language": "javascript",
+    "role": "source",
+    "supporting": false,
+    "commits": 2,
+    "added": 210,
+    "deleted": 7,
+    "churn": 217,
+    "lastTouched": "29f7c76"
+   }
+  ],
+  "supportingHotFiles": [
+   {
+    "path": "entry/src/main/ets/pages/Index.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 53,
+    "added": 2057,
+    "deleted": 982,
+    "churn": 3039,
+    "lastTouched": "45d1572"
+   },
+   {
+    "path": "entry/src/main/ets/components/HomeTab.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 46,
+    "added": 2179,
+    "deleted": 1510,
+    "churn": 3689,
+    "lastTouched": "45d1572"
+   },
+   {
+    "path": "site/css/styles.css",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 45,
+    "added": 1368,
+    "deleted": 1047,
+    "churn": 2415,
+    "lastTouched": "0fb33d8"
+   },
+   {
+    "path": "entry/src/main/ets/components/DetailActionBar.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 43,
+    "added": 1214,
+    "deleted": 959,
+    "churn": 2173,
+    "lastTouched": "74864aa"
+   },
+   {
+    "path": "entry/src/main/ets/pages/PostDetailView.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 41,
+    "added": 2513,
+    "deleted": 592,
+    "churn": 3105,
+    "lastTouched": "ec8e5e7"
+   },
+   {
+    "path": "site/index.html",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 40,
+    "added": 906,
+    "deleted": 657,
+    "churn": 1563,
+    "lastTouched": "0fb33d8"
+   },
+   {
+    "path": "entry/src/main/ets/pages/MessagePage.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 31,
+    "added": 1649,
+    "deleted": 879,
+    "churn": 2528,
+    "lastTouched": "45d1572"
+   },
+   {
+    "path": "entry/src/main/ets/pages/ProfilePage.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 31,
+    "added": 1313,
+    "deleted": 888,
+    "churn": 2201,
+    "lastTouched": "4ee0b92"
+   },
+   {
+    "path": "entry/src/main/ets/components/DailyPostDeck.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 28,
+    "added": 1879,
+    "deleted": 702,
+    "churn": 2581,
+    "lastTouched": "61a498f"
+   },
+   {
+    "path": "entry/src/main/ets/pages/PublishPreviewPage.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 27,
+    "added": 1123,
+    "deleted": 443,
+    "churn": 1566,
+    "lastTouched": "74864aa"
+   },
+   {
+    "path": "entry/src/main/ets/services/api.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 27,
+    "added": 638,
+    "deleted": 147,
+    "churn": 785,
+    "lastTouched": "d0dd8db"
+   },
+   {
+    "path": "entry/src/main/ets/components/SearchPanel.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 24,
+    "added": 795,
+    "deleted": 611,
+    "churn": 1406,
+    "lastTouched": "74864aa"
+   },
+   {
+    "path": "entry/src/main/ets/components/CircleTab.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 22,
+    "added": 1750,
+    "deleted": 686,
+    "churn": 2436,
+    "lastTouched": "45d1572"
+   },
+   {
+    "path": "entry/src/main/ets/pages/SettingsPage.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 22,
+    "added": 378,
+    "deleted": 351,
+    "churn": 729,
+    "lastTouched": "45d1572"
+   },
+   {
+    "path": "entry/src/main/ets/components/PostCard.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 20,
+    "added": 467,
+    "deleted": 413,
+    "churn": 880,
+    "lastTouched": "45d1572"
+   },
+   {
+    "path": "entry/src/main/ets/pages/TextPublishPage.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 19,
+    "added": 790,
+    "deleted": 122,
+    "churn": 912,
+    "lastTouched": "fc8b642"
+   },
+   {
+    "path": "entry/src/main/ets/pages/VideoPublishPage.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 18,
+    "added": 571,
+    "deleted": 96,
+    "churn": 667,
+    "lastTouched": "fc8b642"
+   },
+   {
+    "path": "entry/src/main/ets/entryability/EntryAbility.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 18,
+    "added": 194,
+    "deleted": 61,
+    "churn": 255,
+    "lastTouched": "45d1572"
+   },
+   {
+    "path": "entry/src/main/ets/models/types.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 18,
+    "added": 182,
+    "deleted": 41,
+    "churn": 223,
+    "lastTouched": "74864aa"
+   },
+   {
+    "path": "entry/src/main/ets/pages/DetailPage.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 17,
+    "added": 1091,
+    "deleted": 2067,
+    "churn": 3158,
+    "lastTouched": "45d1572"
+   },
+   {
+    "path": "entry/src/main/ets/pages/ChatView.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 17,
+    "added": 1931,
+    "deleted": 369,
+    "churn": 2300,
+    "lastTouched": "ec8e5e7"
+   },
+   {
+    "path": "entry/src/main/ets/pages/DraftBoxPage.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 17,
+    "added": 544,
+    "deleted": 343,
+    "churn": 887,
+    "lastTouched": "74864aa"
+   },
+   {
+    "path": "entry/src/main/ets/pages/PhotoPublishPage.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 17,
+    "added": 585,
+    "deleted": 101,
+    "churn": 686,
+    "lastTouched": "fc8b642"
+   },
+   {
+    "path": "docs/feature-index.md",
+    "language": null,
+    "role": "documentation",
+    "supporting": true,
+    "commits": 17,
+    "added": 216,
+    "deleted": 26,
+    "churn": 242,
+    "lastTouched": "285ba97"
+   },
+   {
+    "path": "entry/src/main/ets/pages/ChatPage.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 16,
+    "added": 1269,
+    "deleted": 1526,
+    "churn": 2795,
+    "lastTouched": "45d1572"
+   },
+   {
+    "path": "entry/src/main/ets/design/components/SegmentedControl.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 16,
+    "added": 482,
+    "deleted": 139,
+    "churn": 621,
+    "lastTouched": "74864aa"
+   },
+   {
+    "path": "entry/src/main/ets/pages/SearchResultPage.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 16,
+    "added": 331,
+    "deleted": 239,
+    "churn": 570,
+    "lastTouched": "45d1572"
+   },
+   {
+    "path": "backend/prisma/schema.prisma",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 16,
+    "added": 157,
+    "deleted": 19,
+    "churn": 176,
+    "lastTouched": "45d1572"
+   },
+   {
+    "path": "entry/src/main/ets/components/CircleOrbitCanvas.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 15,
+    "added": 1194,
+    "deleted": 236,
+    "churn": 1430,
+    "lastTouched": "74864aa"
+   },
+   {
+    "path": "entry/src/main/ets/pages/EditProfilePage.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 15,
+    "added": 415,
+    "deleted": 298,
+    "churn": 713,
+    "lastTouched": "45d1572"
+   },
+   {
+    "path": "entry/src/main/ets/components/DetailPostContent.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 15,
+    "added": 383,
+    "deleted": 132,
+    "churn": 515,
+    "lastTouched": "74864aa"
+   },
+   {
+    "path": "entry/src/main/ets/components/CommentList.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 15,
+    "added": 314,
+    "deleted": 129,
+    "churn": 443,
+    "lastTouched": "74864aa"
+   },
+   {
+    "path": "entry/src/main/resources/dark/element/color.json",
+    "language": null,
+    "role": "configuration",
+    "supporting": true,
+    "commits": 14,
+    "added": 250,
+    "deleted": 98,
+    "churn": 348,
+    "lastTouched": "45d1572"
+   },
+   {
+    "path": "entry/src/main/ets/components/PublishModeSheet.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 14,
+    "added": 159,
+    "deleted": 49,
+    "churn": 208,
+    "lastTouched": "74864aa"
+   },
+   {
+    "path": "entry/src/main/ets/pages/ReportAdminPage.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 13,
+    "added": 2173,
+    "deleted": 571,
+    "churn": 2744,
+    "lastTouched": "f0149f5"
+   },
+   {
+    "path": "entry/src/main/ets/components/DetailPostHeader.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 13,
+    "added": 462,
+    "deleted": 373,
+    "churn": 835,
+    "lastTouched": "74864aa"
+   },
+   {
+    "path": "entry/src/main/ets/design/components/BottomTabBar.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 13,
+    "added": 354,
+    "deleted": 76,
+    "churn": 430,
+    "lastTouched": "74864aa"
+   },
+   {
+    "path": "entry/src/main/resources/base/element/color.json",
+    "language": null,
+    "role": "configuration",
+    "supporting": true,
+    "commits": 13,
+    "added": 263,
+    "deleted": 111,
+    "churn": 374,
+    "lastTouched": "45d1572"
+   },
+   {
+    "path": "entry/src/main/ets/utils/auth.ets",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 13,
+    "added": 128,
+    "deleted": 132,
+    "churn": 260,
+    "lastTouched": "45d1572"
+   },
+   {
+    "path": "backend/nginx/conf.d/443.conf",
+    "language": null,
+    "role": "other",
+    "supporting": true,
+    "commits": 13,
+    "added": 162,
+    "deleted": 63,
+    "churn": 225,
+    "lastTouched": "6953c59"
+   }
+  ],
+  "hotPaths": [
+   {
+    "path": "backend/src",
+    "commits": 62
+   },
+   {
+    "path": "site/js",
+    "commits": 60
+   },
+   {
+    "path": "backend/scripts",
+    "commits": 9
+   },
+   {
+    "path": "scripts",
+    "commits": 8
+   },
+   {
+    "path": "entry/src",
+    "commits": 6
+   },
+   {
+    "path": "design/beta-posters",
+    "commits": 5
+   },
+   {
+    "path": "backend/prisma",
+    "commits": 4
+   },
+   {
+    "path": "design/text-poster-v2",
+    "commits": 3
+   },
+   {
+    "path": "deliverables/appgallery-previews-1080x1920",
+    "commits": 2
+   }
+  ],
+  "supportingHotPaths": [
+   {
+    "path": "entry/src",
+    "commits": 1785
+   },
+   {
+    "path": "hyperframes-tiktok/.thumbnails",
+    "commits": 145
+   },
+   {
+    "path": "design/logo-concepts",
+    "commits": 128
+   },
+   {
+    "path": "design/youju-logo-concepts",
+    "commits": 101
+   },
+   {
+    "path": "backend/src",
+    "commits": 68
+   },
+   {
+    "path": "deliverables/appgallery-previews-1080x1920",
+    "commits": 60
+   },
+   {
+    "path": ".",
+    "commits": 50
+   },
+   {
+    "path": "backend",
+    "commits": 49
+   },
+   {
+    "path": "docs",
+    "commits": 48
+   },
+   {
+    "path": "site/css",
+    "commits": 45
+   },
+   {
+    "path": "\"design/text-poster-v2",
+    "commits": 44
+   },
+   {
+    "path": "\"design/beta-posters",
+    "commits": 42
+   },
+   {
+    "path": "AppScope/resources",
+    "commits": 42
+   },
+   {
+    "path": "site",
+    "commits": 40
+   },
+   {
+    "path": "entry/Docs",
+    "commits": 32
+   },
+   {
+    "path": "backend/prisma",
+    "commits": 31
+   },
+   {
+    "path": "site/assets",
+    "commits": 29
+   },
+   {
+    "path": "\"soft_output/",
+    "commits": 24
+   },
+   {
+    "path": "backend/scripts",
+    "commits": 24
+   },
+   {
+    "path": "backend/nginx-static",
+    "commits": 20
+   },
+   {
+    "path": "backend/nginx",
+    "commits": 18
+   },
+   {
+    "path": "hyperframes-tiktok/assets",
+    "commits": 12
+   },
+   {
+    "path": "backend/deploy",
+    "commits": 11
+   },
+   {
+    "path": "design/daily-deck-prototype",
+    "commits": 11
+   },
+   {
+    "path": "deliverables",
+    "commits": 10
+   },
+   {
+    "path": "deliverables/gstack",
+    "commits": 10
+   },
+   {
+    "path": "hyperframes-tiktok/snapshots",
+    "commits": 9
+   },
+   {
+    "path": "\"entry/Docs",
+    "commits": 8
+   },
+   {
+    "path": "design/beta-posters",
+    "commits": 8
+   },
+   {
+    "path": "hyperframes-demo",
+    "commits": 8
+   }
+  ],
+  "coChangePaths": [
+   {
+    "paths": [
+     "backend/scripts",
+     "backend/src"
+    ],
+    "commits": 6
+   },
+   {
+    "paths": [
+     "backend/src",
+     "entry/src"
+    ],
+    "commits": 4
+   },
+   {
+    "paths": [
+     "backend/prisma",
+     "backend/src"
+    ],
+    "commits": 2
+   },
+   {
+    "paths": [
+     "backend/src",
+     "scripts"
+    ],
+    "commits": 2
+   },
+   {
+    "paths": [
+     "deliverables/appgallery-previews-1080x1920",
+     "scripts"
+    ],
+    "commits": 2
+   },
+   {
+    "paths": [
+     "backend/prisma",
+     "backend/scripts"
+    ],
+    "commits": 1
+   },
+   {
+    "paths": [
+     "backend/prisma",
+     "entry/src"
+    ],
+    "commits": 1
+   },
+   {
+    "paths": [
+     "backend/scripts",
+     "deliverables/appgallery-previews-1080x1920"
+    ],
+    "commits": 1
+   },
+   {
+    "paths": [
+     "backend/scripts",
+     "scripts"
+    ],
+    "commits": 1
+   },
+   {
+    "paths": [
+     "backend/src",
+     "deliverables/appgallery-previews-1080x1920"
+    ],
+    "commits": 1
+   },
+   {
+    "paths": [
+     "design/text-poster-v2",
+     "scripts"
+    ],
+    "commits": 1
+   },
+   {
+    "paths": [
+     "entry/src",
+     "scripts"
+    ],
+    "commits": 1
+   }
+  ]
+ },
+ "coreAnalysis": {
+  "schemaVersion": 1,
+  "kind": "core-candidates",
+  "status": "ok",
+  "repoRoot": "/Users/itxiaobai/HarmonyProject1",
+  "filters": {
+   "ignorePatterns": [],
+   "ignoredCount": 0,
+   "ignoredSample": []
+  },
+  "candidates": [
+   {
+    "path": "backend/src",
+    "score": 88,
+    "confidence": "high",
+    "files": 67,
+    "languages": [
+     {
+      "language": "typescript",
+      "files": 67
+     }
+    ],
+    "reasons": [
+     "dense package/root",
+     "hot path in git history (62 commits)",
+     "contains repeatedly touched files",
+     "contains entry candidate"
+    ],
+    "evidence": {
+     "sourceFiles": [
+      "backend/src/app.ts",
+      "backend/src/index.ts",
+      "backend/src/middleware/adminAuth.ts",
+      "backend/src/middleware/asyncHandler.ts",
+      "backend/src/middleware/auth.ts",
+      "backend/src/middleware/errorHandler.ts",
+      "backend/src/middleware/rateLimit.ts",
+      "backend/src/prisma.ts",
+      "backend/src/routes/account.ts",
+      "backend/src/routes/admin.ts"
+     ],
+     "hotFiles": [
+      {
+       "path": "backend/src/services/postService.ts",
+       "language": "typescript",
+       "role": "source",
+       "supporting": false,
+       "commits": 14,
+       "added": 852,
+       "deleted": 321,
+       "churn": 1173,
+       "lastTouched": "45d1572"
+      },
+      {
+       "path": "backend/src/services/reportService.ts",
+       "language": "typescript",
+       "role": "source",
+       "supporting": false,
+       "commits": 13,
+       "added": 659,
+       "deleted": 178,
+       "churn": 837,
+       "lastTouched": "45d1572"
+      },
+      {
+       "path": "backend/src/routes/share.ts",
+       "language": "typescript",
+       "role": "source",
+       "supporting": false,
+       "commits": 11,
+       "added": 320,
+       "deleted": 68,
+       "churn": 388,
+       "lastTouched": "5c79679"
+      },
+      {
+       "path": "backend/src/routes/posts.ts",
+       "language": "typescript",
+       "role": "source",
+       "supporting": false,
+       "commits": 10,
+       "added": 201,
+       "deleted": 80,
+       "churn": 281,
+       "lastTouched": "45d1572"
+      },
+      {
+       "path": "backend/src/app.ts",
+       "language": "typescript",
+       "role": "source",
+       "supporting": false,
+       "commits": 10,
+       "added": 59,
+       "deleted": 5,
+       "churn": 64,
+       "lastTouched": "74864aa"
+      },
+      {
+       "path": "backend/src/services/notificationService.ts",
+       "language": "typescript",
+       "role": "source",
+       "supporting": false,
+       "commits": 9,
+       "added": 244,
+       "deleted": 48,
+       "churn": 292,
+       "lastTouched": "61a498f"
+      },
+      {
+       "path": "backend/src/index.ts",
+       "language": "typescript",
+       "role": "source",
+       "supporting": false,
+       "commits": 8,
+       "added": 39,
+       "deleted": 4,
+       "churn": 43,
+       "lastTouched": "45d1572"
+      },
+      {
+       "path": "backend/src/services/commentService.ts",
+       "language": "typescript",
+       "role": "source",
+       "supporting": false,
+       "commits": 7,
+       "added": 185,
+       "deleted": 33,
+       "churn": 218,
+       "lastTouched": "45d1572"
+      }
+     ],
+     "manifests": [
+      {
+       "path": "backend/package.json",
+       "kind": "node",
+       "scripts": [
+        "build",
+        "check:agc",
+        "check:release-config",
+        "data:purge-behavior",
+        "dev",
+        "eval:daily",
+        "media:migrate-refs",
+        "prisma:db-push",
+        "prisma:generate",
+        "seed:tags",
+        "start",
+        "test",
+        "test:smoke"
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "path": "site/js",
+    "score": 59,
+    "confidence": "medium",
+    "files": 1,
+    "languages": [
+     {
+      "language": "javascript",
+      "files": 1
+     }
+    ],
+    "reasons": [
+     "hot path in git history (60 commits)",
+     "contains repeatedly touched files",
+     "contains entry candidate"
+    ],
+    "evidence": {
+     "sourceFiles": [
+      "site/js/main.js"
+     ],
+     "hotFiles": [
+      {
+       "path": "site/js/main.js",
+       "language": "javascript",
+       "role": "source",
+       "supporting": false,
+       "commits": 60,
+       "added": 3166,
+       "deleted": 2239,
+       "churn": 5405,
+       "lastTouched": "0fb33d8"
+      }
+     ],
+     "manifests": []
+    }
+   },
+   {
+    "path": "scripts",
+    "score": 56,
+    "confidence": "medium",
+    "files": 7,
+    "languages": [
+     {
+      "language": "javascript",
+      "files": 5
+     },
+     {
+      "language": "python",
+      "files": 2
+     }
+    ],
+    "reasons": [
+     "package/root with multiple source files",
+     "hot path in git history (8 commits)",
+     "contains repeatedly touched files"
+    ],
+    "evidence": {
+     "sourceFiles": [
+      "scripts/_sync_scan_tmp.py",
+      "scripts/check-stale-overwrite.mjs",
+      "scripts/cos_upload_batch.py",
+      "scripts/git-doctor.mjs",
+      "scripts/verify-arkui-hooks.mjs",
+      "scripts/verify-login-gates.mjs",
+      "scripts/verify-poster-layout.mjs"
+     ],
+     "hotFiles": [
+      {
+       "path": "scripts/check-stale-overwrite.mjs",
+       "language": "javascript",
+       "role": "source",
+       "supporting": false,
+       "commits": 2,
+       "added": 210,
+       "deleted": 7,
+       "churn": 217,
+       "lastTouched": "29f7c76"
+      }
+     ],
+     "manifests": []
+    }
+   },
+   {
+    "path": "backend/scripts",
+    "score": 55,
+    "confidence": "medium",
+    "files": 10,
+    "languages": [
+     {
+      "language": "typescript",
+      "files": 6
+     },
+     {
+      "language": "javascript",
+      "files": 4
+     }
+    ],
+    "reasons": [
+     "package/root with multiple source files",
+     "hot path in git history (9 commits)"
+    ],
+    "evidence": {
+     "sourceFiles": [
+      "backend/scripts/check-agc-identity.mjs",
+      "backend/scripts/check-push.mjs",
+      "backend/scripts/check-release-config.mjs",
+      "backend/scripts/diag-images.ts",
+      "backend/scripts/eval-daily-recommendation.ts",
+      "backend/scripts/fix-images-localhost.ts",
+      "backend/scripts/full-chain-check.mjs",
+      "backend/scripts/migrate-cos-media-refs.ts",
+      "backend/scripts/purge-behavior-events.ts",
+      "backend/scripts/reconcile-comment-counts.ts"
+     ],
+     "hotFiles": [],
+     "manifests": [
+      {
+       "path": "backend/package.json",
+       "kind": "node",
+       "scripts": [
+        "build",
+        "check:agc",
+        "check:release-config",
+        "data:purge-behavior",
+        "dev",
+        "eval:daily",
+        "media:migrate-refs",
+        "prisma:db-push",
+        "prisma:generate",
+        "seed:tags",
+        "start",
+        "test",
+        "test:smoke"
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "path": "entry/src",
+    "score": 47,
+    "confidence": "medium",
+    "files": 1,
+    "languages": [
+     {
+      "language": "typescript",
+      "files": 1
+     }
+    ],
+    "reasons": [
+     "hot path in git history (6 commits)",
+     "contains repeatedly touched files"
+    ],
+    "evidence": {
+     "sourceFiles": [
+      "entry/src/main/ets/utils/nav.ts"
+     ],
+     "hotFiles": [
+      {
+       "path": "entry/src/main/ets/utils/nav.ts",
+       "language": "typescript",
+       "role": "source",
+       "supporting": false,
+       "commits": 6,
+       "added": 159,
+       "deleted": 17,
+       "churn": 176,
+       "lastTouched": "74864aa"
+      }
+     ],
+     "manifests": []
+    }
+   },
+   {
+    "path": "backend/prisma",
+    "score": 46,
+    "confidence": "medium",
+    "files": 2,
+    "languages": [
+     {
+      "language": "typescript",
+      "files": 2
+     }
+    ],
+    "reasons": [
+     "hot path in git history (4 commits)",
+     "contains repeatedly touched files"
+    ],
+    "evidence": {
+     "sourceFiles": [
+      "backend/prisma/seed-post.ts",
+      "backend/prisma/seed.ts"
+     ],
+     "hotFiles": [
+      {
+       "path": "backend/prisma/seed.ts",
+       "language": "typescript",
+       "role": "source",
+       "supporting": false,
+       "commits": 4,
+       "added": 119,
+       "deleted": 98,
+       "churn": 217,
+       "lastTouched": "74864aa"
+      }
+     ],
+     "manifests": [
+      {
+       "path": "backend/package.json",
+       "kind": "node",
+       "scripts": [
+        "build",
+        "check:agc",
+        "check:release-config",
+        "data:purge-behavior",
+        "dev",
+        "eval:daily",
+        "media:migrate-refs",
+        "prisma:db-push",
+        "prisma:generate",
+        "seed:tags",
+        "start",
+        "test",
+        "test:smoke"
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "path": "design/beta-posters",
+    "score": 45,
+    "confidence": "medium",
+    "files": 1,
+    "languages": [
+     {
+      "language": "javascript",
+      "files": 1
+     }
+    ],
+    "reasons": [
+     "hot path in git history (5 commits)",
+     "contains repeatedly touched files"
+    ],
+    "evidence": {
+     "sourceFiles": [
+      "design/beta-posters/gen-posters.js"
+     ],
+     "hotFiles": [
+      {
+       "path": "design/beta-posters/gen-posters.js",
+       "language": "javascript",
+       "role": "source",
+       "supporting": false,
+       "commits": 5,
+       "added": 274,
+       "deleted": 48,
+       "churn": 322,
+       "lastTouched": "30d24ef"
+      }
+     ],
+     "manifests": []
+    }
+   },
+   {
+    "path": "backend",
+    "score": 38,
+    "confidence": "medium",
+    "files": 1,
+    "languages": [
+     {
+      "language": "javascript",
+      "files": 1
+     }
+    ],
+    "reasons": [
+     "contains repeatedly touched files",
+     "contains entry candidate"
+    ],
+    "evidence": {
+     "sourceFiles": [
+      "backend/jest.config.cjs"
+     ],
+     "hotFiles": [
+      {
+       "path": "backend/src/services/postService.ts",
+       "language": "typescript",
+       "role": "source",
+       "supporting": false,
+       "commits": 14,
+       "added": 852,
+       "deleted": 321,
+       "churn": 1173,
+       "lastTouched": "45d1572"
+      },
+      {
+       "path": "backend/src/services/reportService.ts",
+       "language": "typescript",
+       "role": "source",
+       "supporting": false,
+       "commits": 13,
+       "added": 659,
+       "deleted": 178,
+       "churn": 837,
+       "lastTouched": "45d1572"
+      },
+      {
+       "path": "backend/src/routes/share.ts",
+       "language": "typescript",
+       "role": "source",
+       "supporting": false,
+       "commits": 11,
+       "added": 320,
+       "deleted": 68,
+       "churn": 388,
+       "lastTouched": "5c79679"
+      },
+      {
+       "path": "backend/src/routes/posts.ts",
+       "language": "typescript",
+       "role": "source",
+       "supporting": false,
+       "commits": 10,
+       "added": 201,
+       "deleted": 80,
+       "churn": 281,
+       "lastTouched": "45d1572"
+      },
+      {
+       "path": "backend/src/app.ts",
+       "language": "typescript",
+       "role": "source",
+       "supporting": false,
+       "commits": 10,
+       "added": 59,
+       "deleted": 5,
+       "churn": 64,
+       "lastTouched": "74864aa"
+      },
+      {
+       "path": "backend/src/services/notificationService.ts",
+       "language": "typescript",
+       "role": "source",
+       "supporting": false,
+       "commits": 9,
+       "added": 244,
+       "deleted": 48,
+       "churn": 292,
+       "lastTouched": "61a498f"
+      },
+      {
+       "path": "backend/src/index.ts",
+       "language": "typescript",
+       "role": "source",
+       "supporting": false,
+       "commits": 8,
+       "added": 39,
+       "deleted": 4,
+       "churn": 43,
+       "lastTouched": "45d1572"
+      },
+      {
+       "path": "backend/src/services/commentService.ts",
+       "language": "typescript",
+       "role": "source",
+       "supporting": false,
+       "commits": 7,
+       "added": 185,
+       "deleted": 33,
+       "churn": 218,
+       "lastTouched": "45d1572"
+      }
+     ],
+     "manifests": [
+      {
+       "path": "backend/package.json",
+       "kind": "node",
+       "scripts": [
+        "build",
+        "check:agc",
+        "check:release-config",
+        "data:purge-behavior",
+        "dev",
+        "eval:daily",
+        "media:migrate-refs",
+        "prisma:db-push",
+        "prisma:generate",
+        "seed:tags",
+        "start",
+        "test",
+        "test:smoke"
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "path": "design/text-poster-v2",
+    "score": 33,
+    "confidence": "low",
+    "files": 1,
+    "languages": [
+     {
+      "language": "javascript",
+      "files": 1
+     }
+    ],
+    "reasons": [
+     "hot path in git history (3 commits)",
+     "contains repeatedly touched files"
+    ],
+    "evidence": {
+     "sourceFiles": [
+      "design/text-poster-v2/gen.js"
+     ],
+     "hotFiles": [
+      {
+       "path": "design/text-poster-v2/gen.js",
+       "language": "javascript",
+       "role": "source",
+       "supporting": false,
+       "commits": 3,
+       "added": 504,
+       "deleted": 21,
+       "churn": 525,
+       "lastTouched": "29f7c76"
+      }
+     ],
+     "manifests": []
+    }
+   },
+   {
+    "path": "entry",
+    "score": 21,
+    "confidence": "low",
+    "files": 1,
+    "languages": [
+     {
+      "language": "typescript",
+      "files": 1
+     }
+    ],
+    "reasons": [
+     "contains repeatedly touched files"
+    ],
+    "evidence": {
+     "sourceFiles": [
+      "entry/hvigorfile.ts"
+     ],
+     "hotFiles": [
+      {
+       "path": "entry/src/main/ets/utils/nav.ts",
+       "language": "typescript",
+       "role": "source",
+       "supporting": false,
+       "commits": 6,
+       "added": 159,
+       "deleted": 17,
+       "churn": 176,
+       "lastTouched": "74864aa"
+      }
+     ],
+     "manifests": []
+    }
+   },
+   {
+    "path": "deliverables/appgallery-previews-1080x1920",
+    "score": 20,
+    "confidence": "low",
+    "files": 1,
+    "languages": [
+     {
+      "language": "python",
+      "files": 1
+     }
+    ],
+    "reasons": [
+     "hot path in git history (2 commits)",
+     "contains repeatedly touched files"
+    ],
+    "evidence": {
+     "sourceFiles": [
+      "deliverables/appgallery-previews-1080x1920/generate_previews.py"
+     ],
+     "hotFiles": [
+      {
+       "path": "deliverables/appgallery-previews-1080x1920/generate_previews.py",
+       "language": "python",
+       "role": "source",
+       "supporting": false,
+       "commits": 2,
+       "added": 387,
+       "deleted": 157,
+       "churn": 544,
+       "lastTouched": "c24eacc"
+      }
+     ],
+     "manifests": []
+    }
+   }
+  ],
+  "summary": {
+   "highConfidence": 1,
+   "mediumConfidence": 7,
+   "candidateCount": 11
+  }
+ },
+ "diffImpact": {
+  "schemaVersion": 1,
+  "kind": "diff-impact",
+  "status": "ok",
+  "repoRoot": "/Users/itxiaobai/HarmonyProject1",
+  "baseRef": "HEAD",
+  "filters": {
+   "ignorePatterns": [],
+   "ignoredCount": 0,
+   "ignoredSample": []
+  },
+  "coreCodeRules": {
+   "status": "missing",
+   "includeCount": 0,
+   "excludeCount": 0,
+   "boundaryKind": "inferred-core-boundary"
+  },
+  "score": 0,
+  "severity": "low",
+  "reviewRecommended": false,
+  "attentionRequired": false,
+  "reasons": [],
+  "changedFiles": [],
+  "coreHits": [],
+  "hotHits": [],
+  "companionHits": [],
+  "metrics": {
+   "changedFiles": 0,
+   "changedLines": 0,
+   "coreHits": 0,
+   "hotHits": 0,
+   "companionHits": 0
+  }
+ },
+ "changeDrift": {
+  "schemaVersion": 1,
+  "kind": "change-drift",
+  "status": "ok",
+  "repoRoot": "/Users/itxiaobai/HarmonyProject1",
+  "baseRef": "HEAD",
+  "filters": {
+   "ignorePatterns": [],
+   "ignoredCount": 0,
+   "ignoredSample": []
+  },
+  "summary": {
+   "findingCount": 0,
+   "highConfidenceCount": 0,
+   "typeCounts": {},
+   "changedFiles": 0
+  },
+  "changedFiles": [],
+  "findings": []
+ },
+ "recommendedReads": [
+  {
+   "path": "backend/prisma/seed.ts",
+   "language": "typescript",
+   "role": "source",
+   "supporting": false,
+   "priority": 75,
+   "reasons": [
+    "hot file under backend/prisma",
+    "representative source under backend/prisma"
+   ]
+  },
+  {
+   "path": "backend/src/routes/share.ts",
+   "language": "typescript",
+   "role": "source",
+   "supporting": false,
+   "priority": 75,
+   "reasons": [
+    "hot file under backend/src",
+    "hot file under backend"
+   ]
+  },
+  {
+   "path": "backend/src/services/postService.ts",
+   "language": "typescript",
+   "role": "source",
+   "supporting": false,
+   "priority": 75,
+   "reasons": [
+    "hot file under backend/src",
+    "hot file under backend"
+   ]
+  },
+  {
+   "path": "backend/src/services/reportService.ts",
+   "language": "typescript",
+   "role": "source",
+   "supporting": false,
+   "priority": 75,
+   "reasons": [
+    "hot file under backend/src",
+    "hot file under backend"
+   ]
+  },
+  {
+   "path": "design/beta-posters/gen-posters.js",
+   "language": "javascript",
+   "role": "source",
+   "supporting": false,
+   "priority": 75,
+   "reasons": [
+    "hot file under design/beta-posters",
+    "representative source under design/beta-posters"
+   ]
+  },
+  {
+   "path": "entry/src/main/ets/utils/nav.ts",
+   "language": "typescript",
+   "role": "source",
+   "supporting": false,
+   "priority": 75,
+   "reasons": [
+    "hot file under entry/src",
+    "representative source under entry/src"
+   ]
+  },
+  {
+   "path": "scripts/check-stale-overwrite.mjs",
+   "language": "javascript",
+   "role": "source",
+   "supporting": false,
+   "priority": 75,
+   "reasons": [
+    "hot file under scripts",
+    "representative source under scripts"
+   ]
+  },
+  {
+   "path": "site/js/main.js",
+   "language": "javascript",
+   "role": "source",
+   "supporting": false,
+   "priority": 75,
+   "reasons": [
+    "hot file under site/js",
+    "representative source under site/js",
+    "entry candidate"
+   ]
+  },
+  {
+   "path": "backend/jest.config.cjs",
+   "language": "javascript",
+   "role": "source",
+   "supporting": false,
+   "priority": 55,
+   "reasons": [
+    "representative source under backend"
+   ]
+  },
+  {
+   "path": "backend/prisma/seed-post.ts",
+   "language": "typescript",
+   "role": "source",
+   "supporting": false,
+   "priority": 55,
+   "reasons": [
+    "representative source under backend/prisma"
+   ]
+  },
+  {
+   "path": "backend/scripts/check-agc-identity.mjs",
+   "language": "javascript",
+   "role": "source",
+   "supporting": false,
+   "priority": 55,
+   "reasons": [
+    "representative source under backend/scripts"
+   ]
+  },
+  {
+   "path": "backend/scripts/check-push.mjs",
+   "language": "javascript",
+   "role": "source",
+   "supporting": false,
+   "priority": 55,
+   "reasons": [
+    "representative source under backend/scripts"
+   ]
+  },
+  {
+   "path": "backend/src/app.ts",
+   "language": "typescript",
+   "role": "source",
+   "supporting": false,
+   "priority": 55,
+   "reasons": [
+    "representative source under backend/src",
+    "entry candidate"
+   ]
+  },
+  {
+   "path": "backend/src/index.ts",
+   "language": "typescript",
+   "role": "source",
+   "supporting": false,
+   "priority": 55,
+   "reasons": [
+    "representative source under backend/src",
+    "entry candidate"
+   ]
+  },
+  {
+   "path": "scripts/_sync_scan_tmp.py",
+   "language": "python",
+   "role": "source",
+   "supporting": false,
+   "priority": 55,
+   "reasons": [
+    "representative source under scripts"
+   ]
+  }
+ ],
+ "followUpActions": [
+  {
+   "id": "inspect-primary-core",
+   "type": "inspection",
+   "priority": "high",
+   "title": "Inspect primary core implementation before editing",
+   "reason": "Core candidates combine path, density, and git-history signals.",
+   "files": [
+    {
+     "path": "backend/src/services/postService.ts",
+     "role": "source",
+     "language": "typescript"
+    },
+    {
+     "path": "backend/src/services/reportService.ts",
+     "role": "source",
+     "language": "typescript"
+    },
+    {
+     "path": "backend/src/routes/share.ts",
+     "role": "source",
+     "language": "typescript"
+    },
+    {
+     "path": "backend/src/routes/posts.ts",
+     "role": "source",
+     "language": "typescript"
+    },
+    {
+     "path": "backend/src/app.ts",
+     "role": "source",
+     "language": "typescript"
+    },
+    {
+     "path": "backend/src/services/notificationService.ts",
+     "role": "source",
+     "language": "typescript"
+    },
+    {
+     "path": "backend/src/index.ts",
+     "role": "source",
+     "language": "typescript"
+    },
+    {
+     "path": "backend/src/services/commentService.ts",
+     "role": "source",
+     "language": "typescript"
+    },
+    {
+     "path": "backend/src/middleware/adminAuth.ts",
+     "role": "source",
+     "language": "typescript"
+    },
+    {
+     "path": "backend/src/middleware/asyncHandler.ts",
+     "role": "source",
+     "language": "typescript"
+    }
+   ],
+   "passCheck": "The agent can name the target implementation files and likely callers before making changes."
+  },
+  {
+   "id": "apply-targeted-implementation",
+   "type": "implementation",
+   "priority": "high",
+   "title": "Make the requested behavior change in primary source first",
+   "reason": "Supporting files should follow source behavior, not substitute for the implementation change.",
+   "files": [
+    {
+     "path": "backend/src/services/postService.ts",
+     "role": "source",
+     "language": "typescript"
+    },
+    {
+     "path": "backend/src/services/reportService.ts",
+     "role": "source",
+     "language": "typescript"
+    },
+    {
+     "path": "backend/src/routes/share.ts",
+     "role": "source",
+     "language": "typescript"
+    },
+    {
+     "path": "backend/src/routes/posts.ts",
+     "role": "source",
+     "language": "typescript"
+    },
+    {
+     "path": "backend/src/app.ts",
+     "role": "source",
+     "language": "typescript"
+    },
+    {
+     "path": "backend/src/services/notificationService.ts",
+     "role": "source",
+     "language": "typescript"
+    }
+   ],
+   "passCheck": "The requested behavior is implemented in source code and not only reflected in docs, locale, or fixture files."
+  },
+  {
+   "id": "sync-documentation",
+   "type": "companion-sync",
+   "priority": "medium",
+   "title": "Sync documentation when behavior or workflow changes",
+   "reason": "Documentation hotspots are useful follow-up checks but should not be mistaken for core implementation.",
+   "files": [
+    {
+     "path": "docs/feature-index.md",
+     "role": "documentation",
+     "language": null
+    }
+   ],
+   "passCheck": "Docs that describe the changed behavior are updated, or the agent states why docs are unaffected."
+  },
+  {
+   "id": "validate-impact",
+   "type": "validation",
+   "priority": "medium",
+   "title": "Run focused validation for changed core or hotspot areas",
+   "reason": "Core candidates need focused validation after implementation changes.",
+   "files": [],
+   "passCheck": "Relevant focused tests, build, lint, smoke, or caller/API checks pass or failures are reported with exact output."
+  }
+ ],
+ "agentGuidance": {
+  "stance": "Use the pack as an evidence starting point, then inspect source files and rerun narrower analysis when project-specific noise is visible.",
+  "optionalReruns": [],
+  "reportFiltering": [
+   "Keep primary source candidates and supporting files in separate sections.",
+   "When a locale, docs, fixture, config, or migration file matters, explain it as companion sync or evidence, not as the primary implementation.",
+   "Do not recommend creating, editing, or populating internal core boundary configuration as a user-facing action.",
+   "Do not render the internal core boundary file name or internal core boundary label in user-visible reports, evidence boundaries, recommendations, or handoff prompts; use configured core boundary, inferred core boundary, or affected core files.",
+   "For an affected core chain, review diagnostic coverage through the shared observability rubric. If inspected evidence confirms that a named segment lacks readable logs or correlation, keep the gap and its causal impact as a reader-facing finding; do not infer the gap from logger-call counts or a runtime-only access failure.",
+   "If explicit ignores are used, mention the patterns and do not hide changed files that are directly relevant to the user's request."
+  ],
+  "currentFilters": {
+   "projectProfile": {
+    "ignorePatterns": [],
+    "ignoredCount": 0,
+    "ignoredSample": []
+   },
+   "historyProfile": {
+    "ignorePatterns": [],
+    "ignoredCount": 0,
+    "ignoredSample": []
+   },
+   "coreAnalysis": {
+    "ignorePatterns": [],
+    "ignoredCount": 0,
+    "ignoredSample": []
+   },
+   "diffImpact": {
+    "ignorePatterns": [],
+    "ignoredCount": 0,
+    "ignoredSample": []
+   }
+  },
+  "coreCandidateCount": 11
+ },
+ "reviewMatrix": [
+  {
+   "id": "core-supporting-separation",
+   "title": "Core candidates and supporting hotspots are separated",
+   "status": "ready",
+   "evidence": {
+    "primaryHotFiles": 40,
+    "supportingHotFiles": 40
+   },
+   "note": "Primary hot file lists should not be led by locale, docs, tests, fixtures, config, or migrations."
+  },
+  {
+   "id": "follow-up-edit-readiness",
+   "title": "Analysis can drive implementation work",
+   "status": "ready",
+   "evidence": {
+    "actionIds": [
+     "inspect-primary-core",
+     "apply-targeted-implementation",
+     "sync-documentation",
+     "validate-impact"
+    ]
+   },
+   "note": "For change/fix/optimize requests, convert follow-up actions into edits before final validation."
+  },
+  {
+   "id": "history-window-coverage",
+   "title": "History uses 30/90/180 style windows with confidence notes",
+   "status": "ready",
+   "evidence": {
+    "windows": [
+     30,
+     90,
+     180
+    ],
+    "confidence": "medium"
+   },
+   "note": "Low history confidence should downgrade hotspot certainty, not block source inspection."
+  },
+  {
+   "id": "large-repo-safety",
+   "title": "Large git output has explicit bounded handling",
+   "status": "ready",
+   "evidence": {
+    "trackedFiles": 1070,
+    "trackedFilesBeforeFilters": 1070
+   },
+   "note": "A non-empty tracked-file profile is the first regression guard for large repositories."
+  },
+  {
+   "id": "language-framework-coverage",
+   "title": "Language and framework signals are visible",
+   "status": "ready",
+   "evidence": {
+    "languages": [
+     "typescript",
+     "javascript",
+     "python"
+    ],
+    "frameworks": []
+   },
+   "note": "Framework signals guide inspection; they do not replace reading implementation files."
+  },
+  {
+   "id": "static-evidence-boundary",
+   "title": "Runtime, CI, and test claims stay unverified until separately checked",
+   "status": "ready",
+   "evidence": {
+    "boundary": "static-local-git-and-file-analysis",
+    "unverified": [
+     "tests passed",
+     "CI status",
+     "runtime behavior"
+    ]
+   },
+   "note": "Reports should cite commands for local counts and mark non-executed claims as UNVERIFIED."
+  },
+  {
+   "id": "core-diagnostic-coverage",
+   "title": "Affected core chains receive a diagnostic-coverage review",
+   "status": "not-applicable",
+   "evidence": {
+    "affectedCoreFiles": [],
+    "actionId": "review-core-diagnostic-coverage"
+   },
+   "note": "The static pack requests a semantic review; source, executable-route, or captured-output evidence must confirm any missing-log finding."
+  },
+  {
+   "id": "change-drift-companion-coverage",
+   "title": "Changed surfaces have companion evidence checks",
+   "status": "ready",
+   "evidence": {
+    "findingCount": 0,
+    "types": []
+   },
+   "note": "Companion drift findings are advisory; update the companion file or document why it is not needed."
+  },
+  {
+   "id": "agent-report-flexibility",
+   "title": "Agents can rerun or filter instead of accepting noisy defaults",
+   "status": "ready",
+   "evidence": {
+    "filtersApplied": false,
+    "optionalSupportingPatterns": []
+   },
+   "note": "Optional filters are analysis aids; they should be disclosed when used."
+  }
+ ]
+}
