@@ -84,8 +84,12 @@ const MESSAGE_SHORTCUTS: MessageShortcut[] = [
 
 @Component
 export struct MessagePage {
-  // list 变化时无需额外同步：三类快捷筛选未读数在渲染时直接由 unreadCountOf() 计算
+  // 当前三类筛选视图的通知列表：服务端按 activeFilter 对应的 type 口径分页（见 filterType()），
+  // 因此列表与快捷筛选红点（unread-count 的 byType，跨全部分页）同源同口径。
   @State list: NotificationItem[] = [];
+  // system 消息独立一页：三类互动视图不展示系统通知，但「系统通知/举报中心」两个常驻入口的
+  // 预览文案、时间和红点都要靠它——若继续从混合的 this.list 里找，切换筛选后必然找不到。
+  @State systemList: NotificationItem[] = [];
   @State loading: boolean = true;
   @State error: string = '';
   @State page: number = 1;
@@ -98,7 +102,8 @@ export struct MessagePage {
   // 监听登录态：LoginPage 自动登录后 authToken 就绪，此页才加载（aboutToAppear 可能在登录前已跑过）
   @StorageLink('authToken') @Watch('onTokenReady') token: string = '';
   // 三类快捷筛选选中项（内容区顶部，无「全部」视图，默认赞和收藏）
-  @State activeFilter: string = 'up_bookmark';
+  // 列表已由服务端按类型分页，切换筛选 = 换请求口径，必须重拉第一页
+  @State @Watch('onFilterChanged') activeFilter: string = 'up_bookmark';
   // ===== 私信 =====
   @State dmTab: string = 'notif'; // 'notif' | 'dm'
   // 分段选中（通知/私信）与滑块跟手位置：由 Index 的标题栏分段栏读写，本页 Swiper 联动
@@ -192,28 +197,22 @@ export struct MessagePage {
     return content.startsWith('举报中心') || content.includes('收到新举报');
   }
 
-  // 根据当前筛选条件过滤列表（方法调用，避免 ArkTS getter 在 build() 中不稳定）
+  // 当前筛选视图的渲染列表（方法调用，避免 ArkTS getter 在 build() 中不稳定）。
+  // 类型筛选已下推到服务端（listNotifications 的 type，与红点计数同口径），列表就是
+  // 当前筛选可完整翻页的一集——此前「本地过滤混合首页」是红点亮着却找不到未读条目的
+  // 成因之一：计数跨全部分页，行只有第 1 页，筛完不足一屏时触底事件根本不触发，
+  // 第 2 页永远拉不到。
+  // 这里再按同口径过一遍是发布顺序的兜底：商店包可能跑在还没支持逗号多类筛选的后端上
+  // （老服务端白名单不命中 → 忽略 type → 返回混合页），少了这层就会把关注/系统通知
+  // 混进「赞和收藏」。服务端已过滤时它是恒等过滤，不改变任何行为。
+  // 系统类（审核/举报回执）不属于这三类视图，另见常驻入口（pinnedEntries）。
   private getFilteredList(): NotificationItem[] {
     const list: NotificationItem[] = this.list;
-    if (!list) {
+    if (list === undefined || list === null) {
       return [];
     }
-    // 只有三类互动视图（无「全部」）：系统类（审核/举报回执）天然不在任何筛选里出现；
-    // 管理员的举报链路另见上方常驻入口（reportCenterEntry）。
-    // @提及（评论中提到了你）并入「评论」——提及只发生在评论区，单独放会无处可看。
-    const filter: string = this.activeFilter;
-    return list.filter((item: NotificationItem) => {
-      if (filter === 'up_bookmark') {
-        return item.type === 'up' || item.type === 'bookmark';
-      }
-      if (filter === 'follow') {
-        return item.type === 'follow';
-      }
-      if (filter === 'comment') {
-        return item.type === 'comment' || item.type === 'mention';
-      }
-      return false;
-    });
+    const types: string[] = this.filterTypes();
+    return list.filter((item: NotificationItem) => types.indexOf(String(item.type ?? '')) >= 0);
   }
 
   aboutToAppear(): void {
@@ -304,6 +303,7 @@ export struct MessagePage {
   // 清空通知/私信/红点（登出或 token 失效时调用）；@StorageLink 写回同步清除底部栏红点。
   private resetData(): void {
     this.list = [];
+    this.systemList = [];
     this.conversations = [];
     this.error = '';
     this.dmError = '';
@@ -357,24 +357,51 @@ export struct MessagePage {
   // 竞态：loadMore（页2）在途时账号切换/信号触发 loadFirst → loadFirst 回包覆盖列表
   // 但 loadMore 回包把 page 写成 2 → 下一页请求直接跳到页3，页2 的通知永久缺失。
   private listSeq: number = 0;
+  // system 页请求序号（与主列表各自独立丢弃过期响应）
+  private systemSeq: number = 0;
 
-  async loadFirst(): Promise<void> {
+  // 当前筛选视图包含的通知类型（唯一口径来源：服务端查询串与本地下拉过滤都用它）
+  private filterTypes(): string[] {
+    const filter: string = this.activeFilter;
+    if (filter === 'follow') {
+      return ['follow'];
+    }
+    if (filter === 'comment') {
+      // @提及（评论中提到了你）并入「评论」——提及只发生在评论区，单独放会无处可看
+      return ['comment', 'mention'];
+    }
+    return ['up', 'bookmark'];
+  }
+
+  // 当前筛选视图对应的服务端 type 口径（逗号分隔多类，与红点计数同口径）
+  private filterType(): string {
+    return this.filterTypes().join(',');
+  }
+
+  // 切换筛选：列表换的是请求口径而非本地子集，先清空（让 loading 分支接手）再拉第一页，
+  // 避免旧筛选的行在新筛选下短暂显示「暂无此类通知」。红点计数不受影响（服务端权威值）。
+  onFilterChanged(): void {
+    if (this.token === '') {
+      return;
+    }
+    this.list = [];
+    this.fetchFirstPage();
+  }
+
+  // 拉取当前筛选视图的第一页（不重复拉未读计数，供筛选切换与整体刷新共用）
+  private async fetchFirstPage(): Promise<void> {
     const seq: number = ++this.listSeq;
     this.loading = true;
     this.error = '';
     this.page = 1;
     this.hasMore = true;
-    await this.refreshUnread();
-    // 举报中心入口的待处理数（管理员）：与列表同一轮拉取，处置返回后经刷新信号一并刷新
-    this.loadReportCenterPending();
-    await this.loadDmUnread();
     try {
-      const res = await listNotifications(1, 20);
+      const res = await listNotifications(1, 20, this.filterType());
       if (seq !== this.listSeq) {
         return; // 过期响应：期间已有更新的请求发起，整体丢弃
       }
       this.list = res.list;
-      this.hasMore = res.pagination.total > res.list.length;
+      this.hasMore = res.pagination.total > this.list.length;
       this.loading = false;
     } catch (e) {
       if (seq !== this.listSeq) {
@@ -385,17 +412,42 @@ export struct MessagePage {
     }
   }
 
+  // 常驻入口（系统通知/举报中心）的数据源：system 类独立一页（置顶恒在最前）。
+  async fetchSystemList(): Promise<void> {
+    const seq: number = ++this.systemSeq;
+    try {
+      const res = await listNotifications(1, 20, 'system');
+      if (seq !== this.systemSeq) {
+        return;
+      }
+      this.systemList = res.list;
+    } catch (e) {
+      // 忽略：入口退回通用文案，不阻断主列表
+    }
+  }
+
+  async loadFirst(): Promise<void> {
+    this.error = '';
+    await this.refreshUnread();
+    // 举报中心入口的待处理数（管理员）：与列表同一轮拉取，处置返回后经刷新信号一并刷新
+    this.loadReportCenterPending();
+    await this.loadDmUnread();
+    await this.fetchFirstPage();
+    await this.fetchSystemList();
+  }
+
   async loadMore(): Promise<void> {
     if (!this.hasMore || this.loading) {
       return;
     }
     const seq: number = ++this.listSeq;
+    const type: string = this.filterType();
     this.loading = true;
     try {
       const next: number = this.page + 1;
-      const res = await listNotifications(next, 20);
-      if (seq !== this.listSeq) {
-        return; // 过期响应：期间 loadFirst 已重置列表，丢弃（避免旧页 append 进新列表）
+      const res = await listNotifications(next, 20, type);
+      if (seq !== this.listSeq || type !== this.filterType()) {
+        return; // 过期响应：期间 loadFirst/切筛选已重置列表，丢弃（避免旧页 append 进新列表）
       }
       if (res.list.length > 0) {
         this.list = this.list.concat(res.list);
@@ -541,15 +593,13 @@ export struct MessagePage {
     }
   }
 
-  // 本地乐观标记已读：就地替换该条 + 递减未读计数，立即驱动红点/角标消失（不必等网络）
-  private markReadOptimistic(id: number): void {
-    const next: NotificationItem[] = this.list.slice();
-    let foundType: string = '';
-    for (let i = 0; i < next.length; i++) {
-      if (next[i].id === id) {
-        const cur: NotificationItem = next[i];
-        foundType = cur.type ?? '';
-        next[i] = {
+  // 构造把指定 id 标为已读的新数组（逐字段重建，规避对象展开 {...x}；重赋值才能触发 @State 刷新）
+  private withReadFlag(src: NotificationItem[], id: number): NotificationItem[] {
+    const out: NotificationItem[] = src.slice();
+    for (let i = 0; i < out.length; i++) {
+      if (out[i].id === id) {
+        const cur: NotificationItem = out[i];
+        out[i] = {
           id: cur.id,
           type: cur.type,
           actor: cur.actor,
@@ -563,7 +613,26 @@ export struct MessagePage {
         break;
       }
     }
-    this.list = next;
+    return out;
+  }
+
+  private findNotifById(src: NotificationItem[], id: number): NotificationItem | undefined {
+    for (const it of src) {
+      if (it.id === id) {
+        return it;
+      }
+    }
+    return undefined;
+  }
+
+  // 本地乐观标记已读：就地替换该条 + 递减未读计数，立即驱动红点/角标消失（不必等网络）
+  // 两个数据源都要处理：互动列表（this.list）与常驻入口的 system 页（this.systemList）
+  private markReadOptimistic(id: number): void {
+    const found: NotificationItem | undefined =
+      this.findNotifById(this.list, id) ?? this.findNotifById(this.systemList, id);
+    const foundType: string = found === undefined ? '' : (found.type ?? '');
+    this.list = this.withReadFlag(this.list, id);
+    this.systemList = this.withReadFlag(this.systemList, id);
     if (this.unreadCount > 0) {
       this.unreadCount = this.unreadCount - 1;
     }
@@ -586,6 +655,9 @@ export struct MessagePage {
       byType.comment = Math.max(0, byType.comment - 1);
     } else if (foundType === 'mention') {
       byType.mention = Math.max(0, byType.mention - 1);
+    } else if (foundType === 'system') {
+      // 「举报中心」入口点击后，系统通知入口的服务端兜底计数要同步回落，否则会连带误亮
+      byType.system = Math.max(0, byType.system - 1);
     }
     this.unreadByType = byType;
   }
@@ -653,7 +725,7 @@ export struct MessagePage {
   }
 
   private reportCenterItem(): NotificationItem | undefined {
-    for (const it of this.list) {
+    for (const it of this.systemList) {
       if (this.isReportCenterItem(it)) {
         return it;
       }
@@ -716,7 +788,7 @@ export struct MessagePage {
   // 三类互动视图之外的 system 消息（审核结果、举报回执等）在此有唯一入口：
   // 点开进「系统通知」页可读；该页进入即全部标读，返回时经刷新信号让本页入口红点即时回落。
   private systemNoticeItem(): NotificationItem | undefined {
-    for (const it of this.list) {
+    for (const it of this.systemList) {
       if (this.isSystemNotice(it)) {
         return it;
       }
@@ -735,12 +807,22 @@ export struct MessagePage {
   }
 
   private systemNoticeUnread(): boolean {
-    for (const it of this.list) {
+    for (const it of this.systemList) {
       if (this.isSystemNotice(it) && it.read !== true) {
         return true;
       }
     }
-    return false;
+    // 已加载的 system 页全读，但服务端仍报未读（未读落在第 2 页之后）→ 红点必须亮，
+    // 否则就是「消息页有红点、页面上却没有未读条目」的来源之一。
+    // 管理员的「举报中心」置顶消息归口另一个入口，从服务端计数里扣掉，避免两个入口同亮。
+    let serverUnread: number = this.unreadByType.system;
+    if (getIsAdmin() && serverUnread > 0) {
+      const rc: NotificationItem | undefined = this.reportCenterItem();
+      if (rc !== undefined && rc.read !== true) {
+        serverUnread -= 1;
+      }
+    }
+    return serverUnread > 0;
   }
 
   onSystemNoticeClick(): void {
@@ -806,7 +888,9 @@ export struct MessagePage {
   async onMarkAll(): Promise<void> {
     try {
       await markAllRead();
-      // 重赋值数组（逐字段构造新对象，规避对象展开 {...x}），确保 @State 触发 UI 刷新
+      // 后端把该用户所有通知（含 system 类）都置了已读：三个数据源必须一起归零，
+      // 漏掉任何一个就是「条目上没有红点、入口/快捷筛选红点却还亮着」——
+      // unreadByType 是三类快捷筛选红点的唯一数据源，此前只清了列表和总未读数。
       const allRead: NotificationItem[] = this.list.slice();
       for (let i = 0; i < allRead.length; i++) {
         const cur: NotificationItem = allRead[i];
@@ -823,7 +907,24 @@ export struct MessagePage {
         };
       }
       this.list = allRead;
+      const sysRead: NotificationItem[] = this.systemList.slice();
+      for (let j = 0; j < sysRead.length; j++) {
+        const cur: NotificationItem = sysRead[j];
+        sysRead[j] = {
+          id: cur.id,
+          type: cur.type,
+          actor: cur.actor,
+          postId: cur.postId,
+          commentId: cur.commentId,
+          content: cur.content,
+          read: true,
+          pinned: cur.pinned ?? false,
+          createdAt: cur.createdAt,
+        };
+      }
+      this.systemList = sysRead;
       this.unreadCount = 0;
+      this.unreadByType = { comment: 0, up: 0, bookmark: 0, follow: 0, mention: 0, system: 0 };
       safeShowToast(this.getUIContext(), { message: '已全部标记为已读' });
     } catch (e) {
       safeShowToast(this.getUIContext(), { message: '操作失败，请重试' });
@@ -857,9 +958,21 @@ export struct MessagePage {
     this.onMarkAll();
   }
 
-  // 单个快捷筛选块（内容区顶部；未读数直接由已加载列表统计）
+  // 单个快捷筛选的未读数（服务端 unread-count 的 byType，跨全部分页的权威值）
+  private unreadCountOf(key: string): number {
+    const byType: UnreadByType = this.unreadByType;
+    if (key === 'up_bookmark') {
+      return byType.up + byType.bookmark;
+    }
+    if (key === 'follow') {
+      return byType.follow;
+    }
+    return byType.comment + byType.mention;
+  }
+
+  // 单个快捷筛选（图标 + 未读红点 + 选中态）：红点数在内部现算，不作参数传入（原因见 messageShortcutsRow）
   @Builder
-  notificationShortcut(shortcut: MessageShortcut, unread: number) {
+  notificationShortcut(shortcut: MessageShortcut) {
     Column() {
       Pressable({
         visualHeight: 34 + TypeTokens.callout.lineHeight + SpaceTokens.inline,
@@ -876,7 +989,7 @@ export struct MessagePage {
       }) {
         Column({ space: SpaceTokens.inline }) {
           Badge({
-            count: unread,
+            count: this.unreadCountOf(shortcut.key),
             position: BadgePosition.RightTop,
             // 与顶栏分段徽标/底栏页签红点同一视觉语言（semantic_red、14）
             style: { badgeColor: $r('app.color.semantic_red'), badgeSize: 14 },
@@ -1250,16 +1363,19 @@ export struct MessagePage {
   // 横向留白由所在滚动容器的 Column padding 提供（列表态/空态均已带 left/right sm）。
   // 红点计数用服务端 unread-count 的 byType（权威值，未读不在已加载页内也能点亮）；
   // 赞和收藏 = up + bookmark，评论 = comment + mention（@提及并入评论，与过滤视图同口径）。
+  //
+  // ⚠️ 计数必须在 notificationShortcut 内部按 key 现算，不能作为第二个参数传进来：
+  // @Builder 的参数是**值快照**（ArkUI 已知限制，同 docs/dead-code-cleanup.md 记的
+  // 「@Builder 值快照不刷新 → 改内联」），外部状态变化不会刷新 Builder 内用到该参数的 UI。
+  // 而这里 ForEach 的数据源是常量数组、key 固定为 s.key，条目也永远不会重建，
+  // 于是首帧算出的数字被永久冻结——表现就是两个症状：
+  // 「筛选图标红点亮着，可列表里没有任何未读条目」/「点了评论、评论红点不消失」。
+  // 通知行/会话行不受影响，因为它们的 key 带了 read/unreadCount（见下方 ForEach 注释）。
   @Builder
   messageShortcutsRow() {
     Row({ space: SpaceTokens.none }) {
       ForEach(MESSAGE_SHORTCUTS, (s: MessageShortcut) => {
-        this.notificationShortcut(
-          s,
-          s.key === 'up_bookmark' ? this.unreadByType.up + this.unreadByType.bookmark
-            : s.key === 'follow' ? this.unreadByType.follow
-              : this.unreadByType.comment + this.unreadByType.mention,
-        )
+        this.notificationShortcut(s)
       }, (s: MessageShortcut) => s.key)
     }
     .width('100%')

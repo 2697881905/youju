@@ -190,7 +190,46 @@ describe('GET/POST /v1/notifications', () => {
         where: {
           AND: [
             { userId: TEST_USER_ID, type: { notIn: ['comment', 'up', 'bookmark', 'mention'] } },
-            { type: 'system' },
+            { type: { in: ['system'] } },
+          ],
+        },
+      }),
+    );
+  });
+
+  // 消息页「赞和收藏」「评论」两类快捷筛选都是跨类型视图（up+bookmark / comment+mention）。
+  // 客户端必须能把这个口径下推到服务端分页，否则未读数（跨全部分页）与可见行（只有混合首页）
+  // 不同源，会出现红点亮着却翻不到未读条目。
+  it('GET /notifications?type=up,bookmark → 逗号分隔多类走 in 筛选', async () => {
+    mockPrisma.notification.findMany.mockResolvedValue([]);
+    mockPrisma.notification.count.mockResolvedValue(0);
+
+    const res = await req('GET', '/v1/notifications?page=1&limit=20&type=up%2Cbookmark', undefined, authHeader());
+    expect(res.status).toBe(200);
+    expect(mockPrisma.notification.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          AND: [
+            { userId: TEST_USER_ID, type: { notIn: ['comment', 'up', 'bookmark', 'mention'] } },
+            { type: { in: ['up', 'bookmark'] } },
+          ],
+        },
+      }),
+    );
+  });
+
+  it('GET /notifications?type=comment,hack → 白名单外的类型丢弃，合法项保留', async () => {
+    mockPrisma.notification.findMany.mockResolvedValue([]);
+    mockPrisma.notification.count.mockResolvedValue(0);
+
+    const res = await req('GET', '/v1/notifications?page=1&limit=20&type=comment%2Chack', undefined, authHeader());
+    expect(res.status).toBe(200);
+    expect(mockPrisma.notification.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          AND: [
+            { userId: TEST_USER_ID, type: { notIn: ['comment', 'up', 'bookmark', 'mention'] } },
+            { type: { in: ['comment'] } },
           ],
         },
       }),

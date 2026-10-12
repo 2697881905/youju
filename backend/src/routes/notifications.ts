@@ -10,7 +10,8 @@ import { asyncHandler } from '../middleware/asyncHandler';
 const router = Router();
 
 // 通知列表：GET /v1/notifications?page=1&limit=20&type=system
-// type 可选（前端「系统通知」收纳页只取 system 消息）：白名单由服务端校验，非法值忽略（不过滤）
+// type 可选（「系统通知」收纳页取 system；消息页三类快捷筛选取 up,bookmark / follow / comment,mention）：
+// 支持逗号分隔多类，白名单由服务端校验，非法值忽略（不过滤）
 router.get('/notifications', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const page = parsePage(req.query.page);
   const limit = parseLimit(req.query.limit, 20);

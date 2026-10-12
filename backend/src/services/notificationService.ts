@@ -140,8 +140,12 @@ async function visibleWhere(userId: number): Promise<any> {
 }
 
 // 用户通知列表（分页，按时间倒序，含触发者信息）
-// - type 可选：按通知类型筛选（白名单外忽略），与帖子有效性过滤按 AND 合并，
+// - type 可选：按通知类型筛选，支持逗号分隔多类（'up,bookmark'、'comment,mention'），
+//   白名单外忽略，与帖子有效性过滤按 AND 合并，
 //   避免直接覆盖 visibleWhere 里可能存在的 type 约束（如 { type: { notIn: POST_RELATED_TYPES } }）。
+//   跨类型视图必须由服务端分页：前端三类快捷筛选里「赞和收藏」「评论」各含两种类型，
+//   若客户端只对混合首页做本地过滤，未读数（跨全部分页）与可见行（仅第 1 页）口径不一致，
+//   会出现「红点亮着但页面上找不到未读条目」且永远无法翻页清掉。
 // 设计取舍：Notification 不建 @relation，actor 昵称/头像用单独查询按需补全，避免 Prisma include 推断为 never。
 export async function listForUser(
   userId: number,
@@ -152,9 +156,12 @@ export async function listForUser(
   const skip = (page - 1) * limit;
 
   const baseWhere = await visibleWhere(userId);
-  const typeFilter: string =
-    typeof params.type === 'string' && FILTERABLE_TYPES.indexOf(params.type) >= 0 ? params.type : '';
-  const where = typeFilter.length > 0 ? { AND: [baseWhere, { type: typeFilter }] } : baseWhere;
+  const typeList: string[] = (typeof params.type === 'string' ? params.type : '')
+    .split(',')
+    .map((t: string) => t.trim())
+    .filter((t: string) => FILTERABLE_TYPES.indexOf(t) >= 0);
+  const where =
+    typeList.length > 0 ? { AND: [baseWhere, { type: { in: typeList } }] } : baseWhere;
   const [rows, total] = await Promise.all([
     prisma.notification.findMany({
       where,
