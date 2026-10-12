@@ -39,6 +39,12 @@ const BOOKMARK_SEGMENTS: SegmentedItem[] = [
   { key: 'folders', label: '收藏夹' },
 ];
 
+// 主分段栏悬浮在列表之上遮住的那一条高度（只算控件本体 36vp）。
+// 内容区盒子已伸到窗口顶部，列表首屏内容要让开「整条顶栏（topInset，到分段栏顶边）
+// + 这一条」，否则第一张卡片停在分段栏底下。
+// 与 Index 的 profileListInset() / profileTitleBarHeight() 配套：两者相差正好这一条。
+const PROFILE_SEG_ROW_HEIGHT: number = LayoutTokens.segmentedHeight;
+
 @Component
 export struct ProfilePage {
   // —— 顶栏（我的/分享/设置 + 资料区 + 主分段栏）迁入 Navigation 标题栏后，
@@ -83,6 +89,12 @@ export struct ProfilePage {
   @State ready: boolean = false;
   // 资料区入场动效（资料区已在标题栏内渲染）：由本页在真正进入「我的」页时置位
   @Link profilePresented: boolean;
+  // 穿底内缩：外层 Navigation 标题栏是 BarStyle.STACK（覆盖式）且栏底透明磨砂，
+  // 内容区盒子从窗口顶部起算——列表因此能一路穿到整条顶栏（含资料卡）底下，
+  // 由栏体系统磨砂把穿过的内容糊成玻璃底。本页不再给根节点加内边距，
+  // 而是把这一条用在「列表内容的顶部留白 / 悬浮件位置 / 刷新指示器偏移」上。
+  // 数值由 Index 按标题栏实测高度下发（资料卡高度是内容驱动的）。
+  @Prop topInset: number = 0;
   // 当前激活的底部 Tab（由 Index 经 AppStorage 广播），用于感知「我的」页是否可见，
   // 切到本页时重新拉取列表，使「我赞过/我收藏」在跨页点赞、取消收藏后即时刷新。
   @StorageLink('activeTab') @Watch('onActiveTab') activeTab: number = 0;
@@ -695,8 +707,8 @@ export struct ProfilePage {
       .padding({
         left: SpaceTokens.sm,
         right: SpaceTokens.sm,
-        // 主分段 + 子分段均悬浮于顶部，内容需让出两层分段栏高度
-        top: 2 * LayoutTokens.segmentedHeight + 3 * SpaceTokens.xs,
+        // 主分段 + 子分段均悬浮于顶部，内容需让出整条顶栏 + 两层分段栏高度
+        top: this.topInset + 2 * LayoutTokens.segmentedHeight + 3 * SpaceTokens.xs,
         bottom: SpaceTokens.md,
       })
     }
@@ -715,6 +727,15 @@ export struct ProfilePage {
         .letterSpacing(TypeTokens.caption.tracking)
         .fontColor(ColorTokens.secondary)
     }
+    // 穿底改造后 Refresh 盒子的顶边落在窗口顶部，指示器槽位整个藏在整条顶栏底下。
+    // offset 只挪绘制不挪布局：槽位仍是原来那一条高（下拉时内容只让开它），
+    // 图形画到「栏底之下」——topInset 到分段栏顶边，再补控件本体一条 + 自身高度，
+    // 才落到磨砂区之外（真机实测：只加 topInset 时图形停在 909~959，被 106~1071 的栏体糊住）。
+    // 「我收藏」再让开子分段那一条，否则图形压在 帖子/收藏夹 胶囊上（实测 1071 与 1089 重叠）。
+    .offset({
+      y: this.topInset + PROFILE_SEG_ROW_HEIGHT + IconTokens.compact
+        + (this.tabIdx === 1 ? LayoutTokens.segmentedHeight + 2 * SpaceTokens.xs : 0),
+    })
   }
 
   // 瀑布流 footer 与内容列解耦，避免末尾提示占用某一列的卡片位置。
@@ -802,6 +823,7 @@ export struct ProfilePage {
     }
     .width('100%')
     .height('100%')
+    .padding({ top: this.topInset })
     .justifyContent(FlexAlign.Center)
   }
 
@@ -817,17 +839,28 @@ export struct ProfilePage {
         // 「我收藏 → 收藏夹」子视图（子分段栏 + 双列卡片流），优先于帖子网格渲染
         this.foldersView()
       } else if (this.pagePostsOf(seg).length === 0 && (seg !== this.tabIdx || !this.ready || this.loading)) {
-        PostCollectionState({ loading: true })
+        // 状态页不参与穿底：内容区盒子已伸到窗口顶部，满高居中的状态图要自己让开整条顶栏。
+        Column() {
+          PostCollectionState({ loading: true });
+        }
+        .width('100%')
+        .height('100%')
+        .padding({ top: this.topInset })
       } else if (this.pagePostsOf(seg).length === 0) {
-        PostCollectionState({
-          error: this.error,
-          emptyTitle: seg === 0
-            ? '还没有发布过帖子'
-            : seg === 1
-              ? '还没有收藏过帖子'
-              : seg === 2 ? '还没有赞过的帖子' : '还没有评论过帖子',
-          onRetry: (): void => { this.refresh(); },
-        })
+        Column() {
+          PostCollectionState({
+            error: this.error,
+            emptyTitle: seg === 0
+              ? '还没有发布过帖子'
+              : seg === 1
+                ? '还没有收藏过帖子'
+                : seg === 2 ? '还没有赞过的帖子' : '还没有评论过帖子',
+            onRetry: (): void => { this.refresh(); },
+          });
+        }
+        .width('100%')
+        .height('100%')
+        .padding({ top: this.topInset })
       } else {
         Refresh({ refreshing: seg === this.tabIdx ? this.isRefreshing : false, builder: this.refreshBuilder }) {
           // 显式双列：偶数项固定左列、奇数项固定右列，首项始终位于左上角。
@@ -859,9 +892,10 @@ export struct ProfilePage {
             .padding({
               left: SpaceTokens.sm,
               right: SpaceTokens.sm,
-              // 主分段栏已迁入标题栏，内容区顶部不再需要为它让位；
-              // 「我收藏」子分段仍悬浮在内容区顶部，该分段需让出一层子分段栏高度。
-              top: SpaceTokens.md + (seg === 1 ? LayoutTokens.segmentedHeight + 2 * SpaceTokens.xs : 0),
+              // 内容区盒子顶边在窗口顶部（标题栏覆盖式）：首屏内容要让开整条顶栏
+              // （到分段栏顶边为止，topInset 已含这一条）+ 分段栏本身，「我收藏」再让一层子分段。
+              top: this.topInset + PROFILE_SEG_ROW_HEIGHT + SpaceTokens.md
+                + (seg === 1 ? LayoutTokens.segmentedHeight + 2 * SpaceTokens.xs : 0),
               bottom: SpaceTokens.md,
             })
           }
@@ -945,7 +979,7 @@ export struct ProfilePage {
       .height('100%')
 
       // 「我收藏」子分段（帖子 | 收藏夹）：悬浮于内容区顶部、恒常显示
-      // （主分段栏已迁入 Navigation 标题栏，这里不再需要为它让位）
+      // （内容区盒子顶边在窗口顶部，本浮层要让开整条顶栏 + 主分段栏那一条）
       if (this.tabIdx === 1) {
         Column() {
           this.bookmarkSubSegment()
@@ -954,7 +988,7 @@ export struct ProfilePage {
         .padding({
           left: SpaceTokens.sm,
           right: SpaceTokens.sm,
-          top: SpaceTokens.xs,
+          top: this.topInset + PROFILE_SEG_ROW_HEIGHT + SpaceTokens.xs,
         })
         .zIndex(1)
       }

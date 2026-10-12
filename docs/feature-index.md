@@ -87,7 +87,10 @@
 ### 沉浸光感 · 顶栏迁入 Navigation 标题栏（2026-10-03）
 - `uiMaterial` 轨（通用属性 `systemMaterial`）**只在 Navigation/NavDestination 标题栏或系统底部 TabBar 生效**，内容区设置完全不渲染（官方 FAQ 生效范围）。
 - **已完成改造**：首页 / 圈子 / 消息 / 我的（主 Navigation 按 Tab 分支）、搜索面板与圈子详情、帖子详情、他人主页（后四者组件自带 Navigation，router 壳与 NavDestination 壳共用一份实现）。
-- 顶栏整体驻留标题栏（`BarStyle.STANDARD` 占位 + 画布底色）；材质生效时**撤掉自绘兜底**（`backdropBlur` / `backgroundBlurStyle` / 自绘边框 / 自绘 `shadow`），否则遮挡或叠成实心毛玻璃、双圈描边。
+- 顶栏整体驻留标题栏（画布底色）；材质生效时**撤掉自绘兜底**（`backdropBlur` / `backgroundBlurStyle` / 自绘边框 / 自绘 `shadow`），否则遮挡或叠成实心毛玻璃、双圈描边。
+- 「我的」页是 **`BarStyle.STACK`（覆盖式，2026-10-12）**：帖子要能一路穿到**整条顶栏（含资料卡图层）**底下，`STANDARD` 是占位排布，列表盒子永远从栏底开始，物理上穿不到任何一层底下。真机 dumpLayout 三点实测：① STACK 下 `NavBarContent` 与 `TitleBar` **同顶**（都在窗口内容顶 y=106），列表因此铺满全屏；② Navigation **不会**把标题栏 Builder 裁到声明高度，溢出部分照常渲染且可点击；③ 声明栏高只圈定「栏体背景画到哪」，所以可以画满到分段栏底边（顶栏行 + 资料区 + 分段栏顶部 xs + 分段栏本体），让胶囊左右缺口与资料卡留白也带上玻璃底。配套：`ProfilePage` 根节点**不再**加 padding，让位改由「列表内容顶部 padding + 悬浮件 offset」承担（Index 下发 `topInset = profileListInset()`，只到分段栏**顶边**；胶囊本体那一条由 `PROFILE_SEG_ROW_HEIGHT` 另计）。
+- 栏体背景用 **`backgroundEffect: { radius: 50, color: Color.Transparent }`**，**不要**用 `backgroundBlurStyle`：实测 `BACKGROUND_THICK` 确实采样到了底下滚过的列表（留白列灰度静止 230 → 滚动中 214→118 渐变），但它自带一层灰白着色，静止时整条栏 230 vs 内容区 255，等于把上一轮刚消灭的「分段栏下一条常驻灰带」又请回来；纯高斯 + 透明色罩静止时糊的是白底（255，与内容区无缝），有内容穿过才显出模糊形状，且深浅两态自适应。
+- 两个必须跟着栏高走的细节：① xs 间隙要留在栏内，否则资料卡底边与胶囊顶边之间露出一条 3vp 未模糊硬边内容带（胶囊圆角 + 左右留白盖不住）；② `Refresh` 的「刷新中…」指示器 offset 要加到 `topInset + 胶囊本体 + 自身 16vp`（「我收藏」再 + 子分段那一条），否则图形停在 909~959、整个被 106~1071 的栏体糊住看不见。
 - 低版本（API < 26）经 `deviceInfo.apiAvailable('26.0.0')` **字面量 if 门禁**自动回退描边/玻璃样式；统一入口 `utils/immersiveMaterial.ets`（`TopButtonMaterialModifier` / `isSystemMaterialActive()`）。
 - 组件侧统一 `useSystemMaterial` 范式（`SegmentedControl` / `TagNav` / `DesignButton`）；尾随闭包组件（`Pressable`）材质挂内层表面节点；标题栏内联原生表面（圈子「已加入」药丸）按 `isSystemMaterialActive()` 让位（底/描边/阴影归零）。
 - 帖子详情（2026-10-03）：`PostDetailView` 组件自带 Navigation，原 `DetailToolbar`（返回/分享/更多）内联进标题栏 Builder 后按「删干净」原则删除；分享/更多为原生 Row 表面，`attributeModifier` 直挂 44×44 节点 + lg 圆角定形，BackButton 交由 enable 自动材质。三个全屏覆盖层（看图/分享卡/数据面板）必须盖过标题栏 → 移到 Navigation 之外的 Stack 兄弟层，并各自补回状态栏偏移。栏高固定（token 直算）。底部互动栏未动（不在 `systemMaterial` 生效范围，优化方案见下方小节）。

@@ -919,7 +919,8 @@ struct Index {
 
   // 顶栏是否显示（hideTitleBar 与内容区状态栏避让共用同一条件，保证两者同步）：
   // 仅「我的」(4) 有外层顶栏（首页/圈子/消息走内嵌 HdsNavigation，发布占位与隐私壳无顶栏）。
-  // 顶栏为 STANDARD 占位 → 显示时栏体已涵盖状态栏区域，内容区不能再重复加内边距。
+  // 顶栏为 BarStyle.STACK（覆盖式）→ 栏体已涵盖状态栏区域，内容区不能再重复加内边距；
+  // 内容区从窗口顶部起算，由 ProfilePage 的内容留白让开栏体（见 profileListInset）。
   private mainTitleBarVisible(): boolean {
     return this.currentIndex === 4 && this.privacyAgreed === '1';
   }
@@ -979,11 +980,20 @@ struct Index {
     return 146 + 44 + SpaceTokens.sm + (this.profileLoggedIn() ? LayoutTokens.segmentedHeight + SpaceTokens.xs + 4 : 0);
   }
 
-  // 「我的」标题栏总高：状态栏 + 顶栏行(36+xs×2) + 资料区 + 主分段栏(36+顶部 xs)
+  // 「我的」标题栏总高（= 标题栏声明高 = 栏体磨砂矩形覆盖的那一条，一路到分段栏底边）：
+  // 状态栏 + 顶栏行(36+xs×2) + 资料区 + 分段栏顶部间隙(xs) + 分段栏本体(36)。
+  // 标题栏是 BarStyle.STACK（覆盖式）→ 声明高不再决定内容区起点（内容区从窗口顶部起算），
+  // 它只圈定栏体磨砂/材质画到哪里，因此可以画满整条栏，让帖子一路穿到资料卡底下。
   private profileTitleBarHeight(): number {
     const hero: number = this.profileHeroHeight > 0 ? this.profileHeroHeight : this.profileHeroEstimate();
-    return this.statusBarHeight + LayoutTokens.segmentedHeight + SpaceTokens.xs * 2
-      + hero + LayoutTokens.segmentedHeight + SpaceTokens.xs;
+    return this.statusBarHeight + LayoutTokens.segmentedHeight + SpaceTokens.xs * 2 + hero
+      + SpaceTokens.xs + LayoutTokens.segmentedHeight;
+  }
+
+  // 列表内容要让开的那一条：只到分段栏**顶边**。分段栏本身是悬浮在列表之上的玻璃，
+  // 帖子要从它底下穿过，所以不再为它多让一条（与 profileTitleBarHeight 差一个控件高）。
+  private profileListInset(): number {
+    return this.profileTitleBarHeight() - LayoutTokens.segmentedHeight;
   }
 
   // 资料区本体（ProfileHeader 只呈现，跳转/登录引导等意图在这里接线）
@@ -1212,6 +1222,9 @@ struct Index {
         slidePosition: $profileSlidePosition,
         profilePresented: $profilePresented,
         profileShareSeq: $profileShareSeq,
+        // 穿底内缩：标题栏是 STACK 覆盖式 + 栏体透明磨砂，内容区从窗口顶部起算，
+        // 列表内容自己让开整条顶栏（到分段栏顶边），帖子因此能一路穿到资料卡图层之下。
+        topInset: this.profileListInset(),
       })
     }
       .tabBar(this.tabBarBuilder(4))
@@ -1320,8 +1333,9 @@ struct Index {
           }
           .width('100%')
           .height('100%')
-          // 「我的」页顶栏（外层标题栏，STANDARD 占位）显示时栏体已含状态栏避让，
-          // 内容区不再重复加内边距；首页/圈子/消息由各自内嵌 HdsNavigation 避让；
+          // 「我的」页顶栏是 BarStyle.STACK（覆盖式，不占内容区）→ 内容区从窗口顶部开始，
+          // 让开整条顶栏由 ProfilePage 的内容留白承担（帖子才能穿到资料卡底下）；
+          // 首页/圈子/消息由各自内嵌 HdsNavigation 避让；
           // 发布占位 Tab（空占位）没有顶栏，仍需手动避让状态栏（隐私壳为全屏覆盖层，不受影响）。
           .padding({ top: this.mainTitleBarVisible() ? 0 : (this.currentIndex === 2 ? this.statusBarHeight : 0) })
 
@@ -1361,13 +1375,22 @@ struct Index {
       // 标题栏承载「我的」页整块顶栏（我的/分享/设置 + 资料区 + 主分段栏）——
       // uiMaterial 沉浸光感的官方生效区域。首页/圈子/消息顶栏已迁入各自内嵌 HdsNavigation。
       // 仅「我的」(4) 显示（隐私未同意时不显示）；其它 Tab 完全隐藏，不占用各页顶部布局。
-      // barStyle: STANDARD → 顶栏占位、内容从顶栏之下开始（与旧页面头部在流内的布局同构）；
-      // 底色 canvas 与旧头部一致（也作为各控件系统材质的采样底色）。
+      // barStyle: STACK = 标题栏覆盖在内容区上（官方语义）；STANDARD 是排在内容区上方（占位），
+      // 占位模式下列表盒子永远从栏底开始，帖子物理上穿不到任何一层底下。
+      // 栏底改为「无色罩的纯高斯」：真机实测 BlurStyle.BACKGROUND_THICK 确实采样到了底下
+      // 滚过的列表（留白列灰度从静止 230 变成滚动中 214→118 的渐变），但它自带一层灰白
+      // 着色，静止时整条栏 230 vs 内容区 255 → 分段栏底下又出现一条常驻灰带（上一轮刚
+      // 消灭的病灶）。改用 backgroundEffect：只给 radius、color 保持透明，静止时糊的是
+      // 白底=255（与内容区无缝），有内容穿过来时才显出模糊形状。
       .hideTitleBar(!this.mainTitleBarVisible())
       .title({
         builder: this.mainTitleBar,
         height: this.mainTitleBarHeight(),
-      }, { barStyle: BarStyle.STANDARD, backgroundColor: ColorTokens.canvas })
+      }, {
+        barStyle: BarStyle.STACK,
+        backgroundColor: Color.Transparent,
+        backgroundEffect: { radius: 50, color: Color.Transparent },
+      })
       // 首页每日一帖飞行卡向上抛射需一路溢出到窗口顶部（状态栏区域），
       // 关闭 Navigation 内容裁剪（详情页全屏、快照转场在独立层，均不受影响）。
       .clip(false)
