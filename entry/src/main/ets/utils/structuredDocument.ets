@@ -60,7 +60,9 @@ export function structuredBlockTypeHint(type: StructuredBlockType): string {
 
 export function structuredBlockTypesForGenre(genre?: Genre): StructuredBlockType[] {
   switch (genre) {
-    case 'review': return ['metric', 'insight', 'list'];
+    // 测评的体裁副标题就是「优缺点与推荐指数」，所以 compare 必须在允许列表里：
+    // 缺了它，签名骨架的优缺点块会在切体裁时被 filterStructuredDocumentForGenre 丢掉。
+    case 'review': return ['metric', 'insight', 'compare', 'list'];
     case 'pitfall': return ['insight', 'steps', 'list'];
     case 'tutorial': return ['steps', 'list', 'insight'];
     case 'debate': return ['compare', 'insight', 'metric'];

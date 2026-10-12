@@ -60,7 +60,42 @@ export struct StructuredComposer {
   @Prop genreLabel: string = '';
   @Link expanded: boolean;
   @State private evidenceUploading: boolean = false;
+  // 落点高亮必须是 @State：拖拽过程中要立刻换掉目标卡的描边。
+  // 被拖块的 id 反而刻意不用 @State——拖拽进行中改它会重建源卡，系统会把这次拖拽取消。
+  @State private dropTargetBlockId: string = '';
+  private draggingBlockId: string = '';
   onDocumentChange: (document: StructuredDocument) => void = (_document: StructuredDocument): void => {};
+
+  private blockTitleById(blockId: string): string {
+    for (const block of this.document.blocks) {
+      if (block.id === blockId) {
+        return block.title.length > 0 ? block.title : structuredBlockTypeLabel(block.type);
+      }
+    }
+    return '';
+  }
+
+  private indexOfBlock(blockId: string): number {
+    for (let i = 0; i < this.document.blocks.length; i++) {
+      if (this.document.blocks[i].id === blockId) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  // moveStructuredBlock 的 offset 是相对位移，落点语义要自己换算成「坐到 targetIndex 上」。
+  private moveBlockTo(movingId: string, targetId: string): void {
+    if (movingId.length === 0 || movingId === targetId) {
+      return;
+    }
+    const from: number = this.indexOfBlock(movingId);
+    const to: number = this.indexOfBlock(targetId);
+    if (from < 0 || to < 0) {
+      return;
+    }
+    this.onDocumentChange(moveStructuredBlock(this.document, movingId, to - from));
+  }
 
   // 证据必须按 id 回查当前 document，而不是用 @Builder 传进来的 block 快照：
   // ArkUI 给 @Builder 的参数是值快照，块对象换了快照不会换，
@@ -443,9 +478,63 @@ export struct StructuredComposer {
   }
 
   @Builder
-  private blockEditor(block: StructuredBlock, index: number): void {
+  private blockDragPreview(title: string): void {
+    Row({ space: SpaceTokens.sm }) {
+      Text('⠿')
+        .fontSize(TypeTokens.callout.size)
+        .fontFamily(TypeTokens.fontFamily)
+        .fontColor(ColorTokens.brand)
+      Text(title)
+        .fontSize(TypeTokens.callout.size)
+        .fontFamily(TypeTokens.fontFamily)
+        .fontWeight(600)
+        .fontColor(ColorTokens.primary)
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+    }
+    .constraintSize({ maxWidth: 260 })
+    .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+    .backgroundColor(ColorTokens.elevated)
+    .borderRadius(RadiusTokens.pill)
+    .border({ width: 1, color: ColorTokens.brand, style: BorderStyle.Solid })
+    .shadow(ShadowTokens.cardAmbient)
+    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  private dragHandle(blockId: string): void {
+    // 把手单独可拖，而不是整卡 draggable：整卡挂拖拽手势会和 TextInput 的长按选词、
+    // 光标定位抢手势，作者会在改正文时把块拖飞。
+    Text('⠿')
+      .fontSize(TypeTokens.headline.size)
+      .fontFamily(TypeTokens.fontFamily)
+      .fontColor(ColorTokens.tertiary)
+      .width(28)
+      .height(28)
+      .textAlign(TextAlign.Center)
+      .draggable(true)
+      .onDragStart((_event: DragEvent, _extraParams?: string): DragItemInfo => {
+        this.draggingBlockId = blockId;
+        return { builder: (): void => { this.blockDragPreview(this.blockTitleById(blockId)); } };
+      })
+      .onDragEnd((event: DragEvent, _extraParams?: string): void => {
+        const movingId: string = this.draggingBlockId;
+        const targetId: string = this.dropTargetBlockId;
+        this.draggingBlockId = '';
+        this.dropTargetBlockId = '';
+        // 松手在子级 TextInput 上时，drop 会被文本组件自己吃掉，卡片收不到 onDrop。
+        // 所以这里用最后一次 hover 到的卡片兜底提交；onDrop 已提交过就会留下空 target，不重复移动。
+        if (event.getResult() !== DragResult.DRAG_CANCELED) {
+          this.moveBlockTo(movingId, targetId);
+        }
+      })
+  }
+
+  @Builder
+  private blockEditor(block: StructuredBlock): void {
     Column({ space: SpaceTokens.md }) {
       Row({ space: SpaceTokens.sm }) {
+        this.dragHandle(block.id)
         Text(structuredBlockTypeLabel(block.type))
           .fontSize(TypeTokens.overline.size)
           .fontFamily(TypeTokens.fontFamily)
@@ -474,8 +563,6 @@ export struct StructuredComposer {
           this.onDocumentChange(setStructuredPrimary(this.document, block.id));
         }, block.id === this.document.primaryBlockId)
         Blank().layoutWeight(1)
-        this.miniAction('↑', (): void => { this.onDocumentChange(moveStructuredBlock(this.document, block.id, -1)); }, index === 0)
-        this.miniAction('↓', (): void => { this.onDocumentChange(moveStructuredBlock(this.document, block.id, 1)); }, index === this.document.blocks.length - 1)
         this.miniAction('复制', (): void => { this.onDocumentChange(duplicateStructuredBlock(this.document, block.id)); })
         this.miniAction('删除', (): void => { this.onDocumentChange(removeStructuredBlock(this.document, block.id)); })
       }
@@ -486,7 +573,27 @@ export struct StructuredComposer {
     .padding(SpaceTokens.base)
     .backgroundColor(ColorTokens.subtle)
     .borderRadius(RadiusTokens.md)
+    .border({
+      width: this.dropTargetBlockId === block.id ? 2 : 0,
+      color: ColorTokens.brand,
+      style: BorderStyle.Solid,
+    })
     .alignItems(HorizontalAlign.Start)
+    .onDragEnter((_event: DragEvent, _extraParams?: string): void => {
+      // 起点就落在自己卡内，不门控会让被拖的块先给自己亮起落点高亮。
+      if (block.id !== this.draggingBlockId) {
+        this.dropTargetBlockId = block.id;
+      }
+    })
+    .onDragLeave((_event: DragEvent, _extraParams?: string): void => {
+      if (this.dropTargetBlockId === block.id) {
+        this.dropTargetBlockId = '';
+      }
+    })
+    .onDrop((_event: DragEvent, _extraParams?: string): void => {
+      this.moveBlockTo(this.draggingBlockId, block.id);
+      this.dropTargetBlockId = '';
+    })
   }
 
   @Builder
@@ -589,8 +696,8 @@ export struct StructuredComposer {
               .fontWeight(TypeTokens.headline.weight)
               .lineHeight(TypeTokens.headline.lineHeight)
               .fontColor(ColorTokens.primary)
-            Text(this.document.blocks.length === 0 ? '用视觉块组织结论，不受体裁字段限制' :
-              String(this.document.blocks.length) + ' 个信息块 · 可排序 · 可设主视觉')
+            Text(this.document.blocks.length === 0 ? '选一条体裁骨架，改词就能发' :
+              String(this.document.blocks.length) + ' 个信息块 · 长按 ⠿ 拖动排序 · 可设主视觉')
               .fontSize(TypeTokens.caption.size)
               .fontFamily(TypeTokens.fontFamily)
               .fontColor(ColorTokens.secondary)
@@ -624,8 +731,8 @@ export struct StructuredComposer {
             .alignItems(HorizontalAlign.Start)
           }
           this.templatePicker()
-          ForEach(this.document.blocks, (block: StructuredBlock, index: number) => {
-            this.blockEditor(block, index)
+          ForEach(this.document.blocks, (block: StructuredBlock) => {
+            this.blockEditor(block)
           }, (block: StructuredBlock) => block.id + '_' + block.type
             + '_e' + String(evidenceOf(block).length) + '_k' + (block.kind ?? ''))
           // key 带上证据数和数值类型：ForEach 的 key 不含会变的状态时，加了依据、换了类型画面也不重建。
