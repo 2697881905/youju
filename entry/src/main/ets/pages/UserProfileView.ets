@@ -788,7 +788,8 @@ export struct UserProfileView {
         })
           .layoutWeight(1);
       } else {
-        Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
+        // refreshing 走 $$ 双向绑定，置位交给组件内部状态机；勿在 onRefreshing 里手动置 true（见 HomeTab.ets:831）
+        Refresh({ refreshing: $$this.isRefreshing, builder: this.refreshBuilder }) {
           Grid() {
             ForEach(this.posts, (post: Post) => {
               GridItem() {
@@ -822,7 +823,6 @@ export struct UserProfileView {
           });
         }
         .onRefreshing(() => {
-          this.isRefreshing = true;
           this.refresh().finally(() => {
             this.isRefreshing = false;
           });
