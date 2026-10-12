@@ -1,4 +1,4 @@
-import { validateStructuredDocument } from './structuredDocument';
+import { validateStructuredDocument, normalizeStructuredDocumentMedia } from './structuredDocument';
 
 function metricDocument() {
   return {
@@ -20,7 +20,9 @@ describe('validateStructuredDocument', () => {
   });
 
   it('rejects unknown schema and fields', () => {
-    expect(validateStructuredDocument({ ...metricDocument(), schemaVersion: 3 }))
+    expect(validateStructuredDocument({ ...metricDocument(), schemaVersion: 1 }))
+      .toBe('结构化信息流版本无效');
+    expect(validateStructuredDocument({ ...metricDocument(), schemaVersion: 4 }))
       .toBe('结构化信息流版本无效');
     expect(validateStructuredDocument({ ...metricDocument(), extra: true }))
       .toBe('结构化信息流包含未知字段：extra');
@@ -52,5 +54,114 @@ describe('validateStructuredDocument', () => {
     }));
     doc.primaryBlockId = 'metric_0';
     expect(validateStructuredDocument(doc)).toBe('结构化信息块最多 8 个');
+  });
+});
+
+describe('V3 evidence and typed metric', () => {
+  function v3(blockExtras: Record<string, unknown>) {
+    const doc = metricDocument();
+    doc.schemaVersion = 3;
+    doc.blocks[0] = { ...doc.blocks[0], ...blockExtras };
+    return doc;
+  }
+
+  it('still accepts a V2 shaped document and a V3 document without new slots', () => {
+    expect(validateStructuredDocument(metricDocument())).toBeNull();
+    expect(validateStructuredDocument(v3({}))).toBeNull();
+  });
+
+  it('accepts an image evidence entry pointing at the upload system', () => {
+    expect(validateStructuredDocument(v3({
+      evidence: [{ type: 'image', ref: 'cos://posts/2026/10/a.jpg', note: '实测续航 7h12m' }],
+    }))).toBeNull();
+  });
+
+  it('accepts a source evidence entry with plain text or an http link', () => {
+    expect(validateStructuredDocument(v3({
+      evidence: [{ type: 'source', ref: '官方规格页 https://example.com/spec', note: '' }],
+    }))).toBeNull();
+    expect(validateStructuredDocument(v3({
+      evidence: [{ type: 'source', ref: '京东订单 2026-10-01' }],
+    }))).toBeNull();
+  });
+
+  it('rejects an external image reference: it would be auto-fetched by viewers', () => {
+    expect(validateStructuredDocument(v3({
+      evidence: [{ type: 'image', ref: 'https://evil.example.com/track.gif' }],
+    }))).toBe('证据图片引用无效');
+  });
+
+  it('rejects pseudo-protocol links without breaking plain source text', () => {
+    expect(validateStructuredDocument(v3({
+      evidence: [{ type: 'source', ref: 'javascript:alert(1)//' }],
+    }))).toBe('证据内容不支持该协议：javascript:');
+    expect(validateStructuredDocument(v3({
+      evidence: [{ type: 'source', ref: 'Data:text/html;base64,AAAA' }],
+    }))).toBe('证据内容不支持该协议：data:');
+    expect(validateStructuredDocument(v3({
+      evidence: [{ type: 'source', ref: 'ftp://files.example.com/a.pdf' }],
+    }))).toBe('证据链接仅支持 http 或 https');
+    // 含冒号但并非协议出处文本，必须照常通过
+    expect(validateStructuredDocument(v3({
+      evidence: [{ type: 'source', ref: 'Note: 说明书第 3 页' }],
+    }))).toBeNull();
+  });
+
+  it('rejects unknown evidence keys, types and over-length notes', () => {
+    expect(validateStructuredDocument(v3({
+      evidence: [{ type: 'image', ref: 'cos://posts/a.jpg', extra: 1 }],
+    }))).toBe('证据包含未知字段：extra');
+    expect(validateStructuredDocument(v3({
+      evidence: [{ type: 'video', ref: 'cos://posts/a.jpg' }],
+    }))).toBe('证据类型无效');
+    expect(validateStructuredDocument(v3({
+      evidence: [{ type: 'source', ref: '出处', note: 'x'.repeat(61) }],
+    }))).toBe('证据说明最多 60 字');
+  });
+
+  it('limits evidence per block', () => {
+    const evidence = new Array(7).fill(null).map(() => ({ type: 'source', ref: '出处' }));
+    expect(validateStructuredDocument(v3({ evidence }))).toBe('每个信息块最多 6 条证据');
+  });
+
+  it('keeps kind and numberValue metric-only and well formed', () => {
+    expect(validateStructuredDocument(v3({ kind: 'score', numberValue: 4.8 }))).toBeNull();
+    expect(validateStructuredDocument(v3({ kind: 'nonsense' }))).toBe('数值类型无效');
+    expect(validateStructuredDocument(v3({ numberValue: '4.8' }))).toBe('规范数值需为有限数字');
+    expect(validateStructuredDocument(v3({ numberValue: Infinity }))).toBe('规范数值需为有限数字');
+    const insight = v3({ value: '结论' });
+    insight.blocks[0].type = 'insight';
+    (insight.blocks[0] as Record<string, unknown>).kind = 'score';
+    expect(validateStructuredDocument(insight)).toBe('仅数字块可声明数值类型');
+  });
+});
+
+describe('normalizeStructuredDocumentMedia', () => {
+  it('reduces a local-mode absolute uploads URL to a relative ref', () => {
+    const doc = {
+      schemaVersion: 3,
+      primaryBlockId: 'metric_1',
+      theme: 'editorial',
+      blocks: [{
+        id: 'metric_1', type: 'metric', title: '推荐指数', value: '4.8', unit: '', helper: '',
+        items: [], leftLabel: '', leftValue: '', rightLabel: '', rightValue: '',
+        evidence: [
+          { type: 'image', ref: 'http://192.168.3.2:3000/uploads/posts/a.jpg' },
+          { type: 'image', ref: 'cos://posts/b.jpg' },
+          { type: 'source', ref: '京东订单' },
+        ],
+      }],
+    };
+    expect(validateStructuredDocument(doc)).toBeNull();
+    normalizeStructuredDocumentMedia(doc);
+    const evidence = (doc.blocks[0] as Record<string, unknown>).evidence as Array<Record<string, unknown>>;
+    expect(evidence[0].ref).toBe('/uploads/posts/a.jpg');
+    expect(evidence[1].ref).toBe('cos://posts/b.jpg');
+    expect(evidence[2].ref).toBe('京东订单');
+  });
+
+  it('ignores documents without evidence', () => {
+    expect(() => normalizeStructuredDocumentMedia(undefined)).not.toThrow();
+    expect(() => normalizeStructuredDocumentMedia(metricDocument())).not.toThrow();
   });
 });

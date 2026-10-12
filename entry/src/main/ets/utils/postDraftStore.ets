@@ -41,7 +41,10 @@ function isValidDraft(value: Object): boolean {
 function validStructuredDocument(value: Object | undefined): boolean {
   if (value === undefined || value === null) return false;
   const document: StructuredDocument = value as StructuredDocument;
-  return document.schemaVersion === 2 && typeof document.primaryBlockId === 'string' &&
+  // V2/V3 都是合法草稿：硬判 === 2 会让 V3 草稿被当成无效，回退成旧字段投影，
+  // 作者上传的证据与数值类型就此静默丢失。
+  return typeof document.schemaVersion === 'number' && document.schemaVersion >= 2 &&
+    typeof document.primaryBlockId === 'string' &&
     (document.theme === 'editorial' || document.theme === 'warm' || document.theme === 'cool') &&
     Array.isArray(document.blocks);
 }

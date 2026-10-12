@@ -1,16 +1,14 @@
 // 长文发布页 — 独立 @Entry 页面，仅处理长文发布，不耦合图文/视频发布逻辑。
 // 媒体区渲染文字海报样式选择器，无图片/视频入口，无 mediaTypeSelector 切换行。
-import { LengthMetrics } from '@kit.ArkUI';
 import { listTags } from '../services/api';
 import { Genre, StructuredData, StructuredDocument, Tag, MentionRef, MentionCandidate } from '../models/types';
 import { safeShowToast } from '../utils/toast';
-import { resolveActionIcon } from '../utils/actionIcons';
 import { findActiveAtMention, applyAtMention } from '../utils/atMention';
 import { AtMentionSuggest } from '../components/AtMentionSuggest';
-import { BaseCard } from '../design/components/BaseCard';
 import { Pressable } from '../design/motion/Pressable';
+import { Reveal } from '../design/motion/Reveal';
+import { SegmentedControl } from '../design/components/SegmentedControl';
 import { ColorTokens } from '../design/tokens/color';
-import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
@@ -22,9 +20,11 @@ import { collectStructuredData } from '../utils/structuredFields';
 import { emptyStructuredDocument, filterStructuredDocumentForGenre } from '../utils/structuredDocument';
 import { StructuredComposer } from '../components/StructuredComposer';
 import { PublishTagPanel } from '../components/PublishTagPanel';
-import { PUBLISH_GENRES, publishGenreMeta } from '../utils/publishGenres';
-import { PublishGenreSection } from '../components/PublishGenreSection';
+import { PUBLISH_GENRES, PUBLISH_GENRE_SEGMENTS, publishGenreMeta } from '../utils/publishGenres';
+import { PublishSection } from '../components/PublishSection';
+import { PublishCircleSelector } from '../components/PublishCircleSelector';
 import { PublishTopBar } from '../components/PublishTopBar';
+import { GlassBlurStyle, getSheetImmersiveMaterial, isSystemMaterialActive } from '../utils/immersiveMaterial';
 import { resolveTextPosterStyle, posterBucketOf, TEXT_POSTER_STYLES, TextPosterStyleOption } from '../utils/poster/posterTokens';
 import { renderPosterThumbnail } from '../utils/poster/posterRender';
 import { isSerifTypefaceReady } from '../utils/poster/posterText';
@@ -33,6 +33,10 @@ import { image } from '@kit.ImageKit';
 const MAX_SELECTED_TAGS: number = 3;
 const MAX_LONG_FORM_CONTENT_LENGTH: number = 5000;
 const DRAFT_PROGRESS_TOTAL: number = 3;
+// 顶栏占位：栏体 48vp + 与首张卡之间 12vp 呼吸（与 PublishTopBar 内高对齐）
+const COMPOSER_TOP_RESERVE: number = 60;
+// 长文正文区：5000 字却给 104vp，等于逼用户在小窗里滚动写长文
+const POSTER_BODY_HEIGHT: number = 280;
 
 // 样式选择器缩略图：3:4 小图（60×80），选的时候看到什么、发出来就是什么。
 // 重绘闸门：缩略图只依赖「标题 + 正文字长所在档」，只有这两者变化才重画；
@@ -98,8 +102,18 @@ struct TextPublishPage {
     return done;
   }
 
-  private draftProgressText(): string {
-    return '草稿完成 ' + this.calcDraftProgress() + '/' + DRAFT_PROGRESS_TOTAL;
+  // 顶栏进度条旁边那句「下一步做什么」：只报缺口，不报已完成的事。
+  private draftHint(): string {
+    if (this.title.trim().length === 0) {
+      return '先写一句标题';
+    }
+    if (this.content.trim().length === 0) {
+      return '再写正文';
+    }
+    if (this.selectedTags.length === 0) {
+      return '选一个圈子';
+    }
+    return '可以预览了';
   }
 
   aboutToAppear(): void {
@@ -479,12 +493,6 @@ struct TextPublishPage {
   @Builder
   textPosterStyleSelector(): void {
     Column({ space: SpaceTokens.xs }) {
-      Text('文字海报样式')
-        .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-        .fontWeight(TypeTokens.headline.weight)
-        .lineHeight(TypeTokens.callout.lineHeight)
-        .fontColor(ColorTokens.primary)
-        .width('100%')
       Scroll() {
         Row({ space: SpaceTokens.sm }) {
           // key 带上缩略图版本号：PixelMap 数组被整体替换时强制重建 Image，否则会留在旧帧
@@ -504,21 +512,51 @@ struct TextPublishPage {
     .alignItems(HorizontalAlign.Start)
   }
 
+  // ─────────────── 版式：体裁 → 正文 → 媒体 → 分类 → 结构化 ───────────────
+  // 每个环节一张卡（PublishSection 自带衬线小节标题与错峰入场），
+  // 不再是一整张巨卡里用 5 条 Divider 切字段。
+
   @Builder
-  compositionSection(): void {
-    BaseCard({ cardPadding: SpaceTokens.md, radius: RadiusTokens.md, elevation: 1 }) {
+  sectionLabel(text: string): void {
+    Text(text)
+      .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
+      .fontWeight(TypeTokens.overline.weight)
+      .lineHeight(TypeTokens.overline.lineHeight)
+      .letterSpacing(TypeTokens.overline.tracking)
+      .fontColor(ColorTokens.tertiary)
+      .width('100%')
+  }
+
+  // 体裁：直接从 5 个候选里点选，取代「自绘玻璃按钮 → 系统滚轮弹窗 → 确认」三步。
+  @Builder
+  genreBar(): void {
+    Reveal({ index: 0 }) {
       Column({ space: SpaceTokens.sm }) {
-        PublishGenreSection({
-          genre: this.genre,
-          genreIndex: this.genreIndex,
-          onSelectGenre: (index: number): void => { this.selectGenre(index); },
-          onOpenTags: (): void => { this.showTagPanel = true; },
+        this.sectionLabel('内容体裁')
+        SegmentedControl({
+          items: PUBLISH_GENRE_SEGMENTS,
+          selectedIndex: $genreIndex,
+          itemWidth: 64,
+          glass: true,
+          onSelect: (index: number): void => { this.selectGenre(index); },
         })
-        if (this.selectedTags.length > 0) {
-          Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
-          this.circleSelector()
-        }
-        Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
+        Text(this.currentGenreHint())
+          .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.callout.weight)
+          .lineHeight(TypeTokens.callout.lineHeight)
+          .fontColor(ColorTokens.secondary)
+          .width('100%')
+      }
+      .width('100%')
+      .alignItems(HorizontalAlign.Start)
+    }
+  }
+
+  @Builder
+  bodySection(): void {
+    PublishSection({ title: '正文', meta: '标题 + 正文', index: 1 }) {
+      Column({ space: SpaceTokens.sm }) {
+        this.sectionLabel('标题')
         TextInput({ text: this.title, placeholder: '一句话标题' })
           .width('100%')
           .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
@@ -527,50 +565,40 @@ struct TextPublishPage {
           .letterSpacing(TypeTokens.title.tracking)
           .fontColor(ColorTokens.primary)
           .placeholderColor(ColorTokens.tertiary)
-          .backgroundColor(Color.Transparent)
+          .backgroundColor(ColorTokens.subtle)
+          .borderRadius(RadiusTokens.md)
+          .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+          .enterKeyType(EnterKeyType.Next)
           .onChange((value: string) => { this.title = value; this.scheduleThumbnails(); })
-        Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
+        this.sectionLabel('正文')
         // @提及候选：输入框「上方」的横向条（左右滑动、点选回填）
         if (this.mentionActive) {
           AtMentionSuggest({
             keyword: this.mentionKeyword,
             onPick: (c: MentionCandidate): void => { this.pickMention(c); },
           })
-            .margin({ bottom: SpaceTokens.xs })
             .width('100%')
         }
         TextArea({ text: this.content, placeholder: '展开写下完整的背景、过程和结论。' })
           .width('100%')
-          .height(104)
+          .height(POSTER_BODY_HEIGHT)
           .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
           .fontWeight(TypeTokens.body.weight)
           .lineHeight(TypeTokens.body.lineHeight)
           .letterSpacing(TypeTokens.body.tracking)
           .fontColor(ColorTokens.primary)
           .placeholderColor(ColorTokens.tertiary)
-          .backgroundColor(Color.Transparent)
+          .backgroundColor(ColorTokens.subtle)
+          .borderRadius(RadiusTokens.md)
+          .padding(SpaceTokens.md)
           .maxLength(MAX_LONG_FORM_CONTENT_LENGTH)
+          // 系统字数计数器：取代页面自绘的「n/5000」文本，超限由系统统一提示
+          .showCounter(true, { highlightBorder: false })
           .onChange((value: string) => {
             this.content = value;
             this.syncMention(value);
             this.scheduleThumbnails();
           })
-        Text(this.content.length + '/' + MAX_LONG_FORM_CONTENT_LENGTH)
-          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-          .fontColor(ColorTokens.secondary)
-          .width('100%')
-          .textAlign(TextAlign.End)
-        Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator).margin({ top: SpaceTokens.sm })
-        this.textPosterStyleSelector()
-        // 分享体裁是轻量图文，不展示结构化信息流编辑区（见 publishGenres 的 structured 标记）
-        if (publishGenreMeta(this.genre).structured) {
-          StructuredComposer({
-            document: this.structuredDocument,
-            genreLabel: this.genre,
-            expanded: $showFields,
-            onDocumentChange: (document: StructuredDocument): void => { this.structuredDocument = document; },
-          })
-        }
       }
       .width('100%')
       .alignItems(HorizontalAlign.Start)
@@ -578,42 +606,48 @@ struct TextPublishPage {
   }
 
   @Builder
-  tagPill(name: string): void {
-    Pressable({
-      visualHeight: LayoutTokens.segmentedHeight,
-      action: () => { this.toggleTag(name); },
-    }) {
-      Row({ space: SpaceTokens.inlineTight }) {
-        Text(name)
-          .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-          .fontWeight(TypeTokens.caption.weight)
-          .lineHeight(TypeTokens.callout.lineHeight)
-          .fontColor(ColorTokens.onBrand)
-        Image($r('app.media.close_x_white'))
-          .width(IconTokens.compact)
-          .height(IconTokens.compact)
-          .fillColor(Color.White)
+  mediaSection(): void {
+    PublishSection({ title: '文字海报', meta: '所见即所得', index: 2 }) {
+      Column({ space: SpaceTokens.sm }) {
+        this.textPosterStyleSelector()
       }
-      .height(LayoutTokens.segmentedHeight)
-      .padding({ left: SpaceTokens.item, right: SpaceTokens.item })
-      .backgroundColor(ColorTokens.brand)
-      .borderRadius(RadiusTokens.sm)
-      .alignItems(VerticalAlign.Center)
+      .width('100%')
+      .alignItems(HorizontalAlign.Start)
     }
   }
 
   @Builder
-  circleSelector(): void {
-    if (this.selectedTags.length > 0) {
-      Flex({
-        wrap: FlexWrap.Wrap,
-        space: { main: LengthMetrics.px(SpaceTokens.inline), cross: LengthMetrics.px(SpaceTokens.inline) },
-      }) {
-        ForEach(this.selectedTags, (name: string) => {
-          this.tagPill(name)
-        }, (name: string) => 'selected_' + name)
+  circleSection(): void {
+    PublishSection({
+      title: '分类',
+      meta: '已选 ' + this.selectedTags.length + '/' + MAX_SELECTED_TAGS,
+      index: 3,
+    }) {
+      PublishCircleSelector({
+        selectedTags: this.selectedTags,
+        maxSelected: MAX_SELECTED_TAGS,
+        onAdd: (): void => { this.showTagPanel = true; },
+        onRemove: (name: string): void => { this.toggleTag(name); },
+      })
+    }
+  }
+
+  @Builder
+  compositionColumn(): void {
+    this.genreBar()
+    this.bodySection()
+    this.mediaSection()
+    this.circleSection()
+    // 分享体裁是轻量图文，不展示结构化信息流编辑区（见 publishGenres 的 structured 标记）
+    if (publishGenreMeta(this.genre).structured) {
+      Reveal({ index: 4 }) {
+        StructuredComposer({
+          document: this.structuredDocument,
+          genreLabel: this.genre,
+          expanded: $showFields,
+          onDocumentChange: (document: StructuredDocument): void => { this.structuredDocument = document; },
+        })
       }
-      .width('100%')
     }
   }
 
@@ -621,12 +655,12 @@ struct TextPublishPage {
     Stack({ alignContent: Alignment.Top }) {
       Scroll() {
         Column({ space: SpaceTokens.md }) {
-          Row().height(this.statusBarHeight + 52).width('100%')
-          this.compositionSection()
+          Row().height(this.statusBarHeight + COMPOSER_TOP_RESERVE).width('100%')
+          this.compositionColumn()
           Row().height(SpaceTokens.x2l).width('100%')
         }
         .width('100%')
-        .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, bottom: SpaceTokens.x3l })
+        .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.x3l })
         .alignItems(HorizontalAlign.Start)
       }
       .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
@@ -635,9 +669,13 @@ struct TextPublishPage {
       .scrollBar(BarState.Off)
       .backgroundColor(ColorTokens.canvas)
 
+      // 顶栏是压在 Scroll 之上的浮层（本页不是 Navigation 页），CustomComponent 不能挂
+      // 通用属性 → 状态栏留白交给外层 Row
       Row() {
         PublishTopBar({
-          progressText: this.draftProgressText(),
+          progressValue: this.calcDraftProgress(),
+          progressTotal: DRAFT_PROGRESS_TOTAL,
+          hint: this.draftHint(),
           previewDisabled: this.title.trim().length === 0,
           onClear: (): void => { this.reset(); },
           onPreview: (): void => { this.openPreview(); },
@@ -645,7 +683,7 @@ struct TextPublishPage {
         })
       }
       .width('100%')
-      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: this.statusBarHeight + SpaceTokens.xs, bottom: SpaceTokens.sm })
+      .padding({ top: this.statusBarHeight })
     }
     .width('100%')
     .height('100%')
@@ -654,9 +692,11 @@ struct TextPublishPage {
     .bindSheet(this.showTagPanel, this.tagSheet(), {
       height: '60%',
       dragBar: true,
-      // 内容自绘分段栏同款玻璃（backdropBlur + 高光边框），不再叠系统模糊
-      blurStyle: BlurStyle.NONE,
-      // 关闭由内容内"完成"按钮与下滑手势负责，隐藏系统右上角关闭按钮避免与标题重叠
+      // 材质载体是 SheetOptions.systemMaterial（半模态的唯一生效入口），面板内部不再自绘暖纸
+      systemMaterial: getSheetImmersiveMaterial(),
+      blurStyle: isSystemMaterialActive() ? BlurStyle.NONE : GlassBlurStyle.Floating,
+      backgroundColor: isSystemMaterialActive() ? undefined : ColorTokens.canvas,
+      // 关闭由内容内「完成」按钮与下滑手势负责，隐藏系统右上角关闭按钮避免与标题重叠
       showClose: false,
       maskColor: '#33000000',
       onDisappear: (): void => { this.showTagPanel = false; },

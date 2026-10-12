@@ -166,3 +166,29 @@ export function getSheetImmersiveMaterial(): uiMaterial.Material | undefined {
   }
   return sheetImmersiveMaterial;
 }
+
+// 弹出菜单（bindMenu / bindContextMenu 的 MenuOptions.systemMaterial）材质实例。
+let menuImmersiveMaterial: uiMaterial.Material | null = null;
+
+/**
+ * 弹出菜单的沉浸光感材质。
+ * 载体：MenuOptions.systemMaterial（@since 26.0.0）——菜单是系统弹层，
+ * 把 systemMaterial 挂在菜单内容组件上属于生效范围外，只能走 options 字段。
+ *
+ * @returns API ≥ 26 返回 THICK 材质（场景规范「任意位置弹出」档），否则 undefined，
+ *          使用处回退 backgroundBlurStyle / 实色底。
+ */
+export function getMenuImmersiveMaterial(): uiMaterial.Material | undefined {
+  if (!deviceInfo.apiAvailable('26.0.0')) {
+    return undefined;
+  }
+  if (menuImmersiveMaterial === null) {
+    menuImmersiveMaterial = new uiMaterial.ImmersiveMaterial({
+      // 沉浸光感设计指南 · 场景规范：任意位置弹出 → THICK（强模糊）。
+      style: uiMaterial.ImmersiveStyle.THICK,
+      // 菜单为静态承载容器，选项形变由菜单项自身的按压态承担。
+      interactive: false,
+    });
+  }
+  return menuImmersiveMaterial;
+}

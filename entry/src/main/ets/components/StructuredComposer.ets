@@ -3,19 +3,31 @@ import {
   StructuredBlock,
   StructuredBlockType,
   StructuredDocument,
+  StructuredEvidence,
+  StructuredMetricKind,
 } from '../models/types';
 import {
   addStructuredBlock,
+  addStructuredEvidence,
   duplicateStructuredBlock,
+  evidenceOf,
+  MAX_EVIDENCE_NOTE,
+  MAX_EVIDENCE_PER_BLOCK,
+  MAX_EVIDENCE_SOURCE_REF,
   moveStructuredBlock,
   removeStructuredBlock,
+  removeStructuredEvidence,
   setStructuredPrimary,
   structuredBlockTypesForGenre,
   structuredBlockTypeHint,
   structuredBlockTypeLabel,
   structuredItemsText,
+  structuredMetricKindLabel,
   withStructuredBlockItems,
   withStructuredBlockText,
+  withStructuredEvidenceNote,
+  withStructuredEvidenceRef,
+  withStructuredMetricKind,
   StructuredBlockTextField,
 } from '../utils/structuredDocument';
 import { structuredSummaryFromDocument } from '../utils/structuredBlocks';
@@ -24,14 +36,22 @@ import { Collapse } from '../design/motion/Collapse';
 import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
+import { ShadowTokens } from '../design/tokens/shadow';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import {
-  STRUCTURED_TEMPLATES,
   structuredDocumentFromTemplate,
   structuredTemplatesForGenre,
   StructuredTemplateMeta,
 } from '../utils/structuredTemplates';
+import { photoAccessHelper } from '@kit.MediaLibraryKit';
+import { compressImage } from '../utils/image';
+import { resolveDisplayImageUrl, uploadChatMedia } from '../services/api';
+import { ensureLogin } from '../utils/auth';
+import { safeShowToast } from '../utils/toast';
+import { User } from '../models/types';
+
+const METRIC_KIND_OPTIONS: StructuredMetricKind[] = ['score', 'amount', 'duration', 'percent', 'count', 'plain'];
 
 // V2 共享编辑器：发布入口只持有 document 状态，块的增删、排序与主视觉选择集中在这里。
 @Component
@@ -39,7 +59,62 @@ export struct StructuredComposer {
   @Prop document: StructuredDocument;
   @Prop genreLabel: string = '';
   @Link expanded: boolean;
+  @State private evidenceUploading: boolean = false;
   onDocumentChange: (document: StructuredDocument) => void = (_document: StructuredDocument): void => {};
+
+  // 证据必须按 id 回查当前 document，而不是用 @Builder 传进来的 block 快照：
+  // ArkUI 给 @Builder 的参数是值快照，块对象换了快照不会换，
+  // 用快照渲染证据列表会出现「加了依据但画面不动」的假死。
+  private evidenceAt(blockId: string): StructuredEvidence[] {
+    for (const block of this.document.blocks) {
+      if (block.id === blockId) {
+        return evidenceOf(block);
+      }
+    }
+    return [];
+  }
+
+  // 行内容同样按位置回查，@Builder 只接 blockId/index 这类标量参数。
+  private evidenceItem(blockId: string, index: number): StructuredEvidence | null {
+    const list: StructuredEvidence[] = this.evidenceAt(blockId);
+    if (index < 0 || index >= list.length) {
+      return null;
+    }
+    return list[index];
+  }
+
+  private async addImageEvidence(blockId: string): Promise<void> {
+    if (this.evidenceUploading) {
+      return;
+    }
+    this.evidenceUploading = true;
+    try {
+      const user: User | null = await ensureLogin();
+      if (user === null) {
+        return;
+      }
+      const picker = new photoAccessHelper.PhotoViewPicker();
+      const result = await picker.select({
+        MIMEType: photoAccessHelper.PhotoViewMIMETypes.IMAGE_TYPE,
+        maxSelectNumber: 1,
+      });
+      const uris: string[] = result.photoUris ?? [];
+      if (uris.length === 0) {
+        return;
+      }
+      const compressed = await compressImage(uris[0]);
+      const mediaRef: string = await uploadChatMedia('image/jpeg', 'posts', compressed.bytes);
+      this.onDocumentChange(addStructuredEvidence(this.document, blockId, 'image', mediaRef, ''));
+    } catch (e) {
+      // 用户取消选图同样走这里，与真失败混在一起会让「取消」变成一次报错弹窗
+      const message: string = (e as Error).message ?? '';
+      if (message.length > 0 && !message.includes('Cancel')) {
+        safeShowToast(this.getUIContext(), { message: '证据图片上传失败：' + message });
+      }
+    } finally {
+      this.evidenceUploading = false;
+    }
+  }
 
   private currentGenre(): Genre | undefined {
     switch (this.genreLabel) {
@@ -61,8 +136,7 @@ export struct StructuredComposer {
   }
 
   @Builder
-  private miniAction(label: string, action: () => void, selected: boolean = false): void {
-    Pressable({ visualHeight: 28, touchTargetHeight: LayoutTokens.minTouchTarget, action: action }) {
+  private miniAction(label: string, action: () => void, selected: boolean = false): void {    Pressable({ visualHeight: 28, touchTargetHeight: LayoutTokens.minTouchTarget, action: action }) {
       Text(label)
         .fontSize(TypeTokens.overline.size)
         .fontFamily(TypeTokens.fontFamily)
@@ -158,31 +232,59 @@ export struct StructuredComposer {
   }
 
   @Builder
+  private metricKindChips(block: StructuredBlock): void {
+    // kind 决定详情页大数字的读法（4.8 是评分还是金额），也是 M3 跨帖对比的排序键；
+    // 协议里有类型、编辑器里没有入口，作者就只能发出一条「没人知道单位」的数字。
+    Row({ space: SpaceTokens.sm }) {
+      Text('数字类型')
+        .fontSize(TypeTokens.overline.size)
+        .fontFamily(TypeTokens.fontFamily)
+        .fontColor(ColorTokens.tertiary)
+    }
+    Flex({ direction: FlexDirection.Row, wrap: FlexWrap.Wrap }) {
+      ForEach(METRIC_KIND_OPTIONS, (kind: StructuredMetricKind) => {
+        Column() {
+          this.miniAction(structuredMetricKindLabel(kind), (): void => {
+            this.onDocumentChange(withStructuredMetricKind(this.document, block.id, kind));
+          }, block.kind === kind)
+        }
+        .margin({ right: SpaceTokens.sm, bottom: SpaceTokens.xs })
+      }, (kind: StructuredMetricKind) => 'kind_' + kind)
+    }
+    .width('100%')
+  }
+
+  @Builder
   private blockFields(block: StructuredBlock): void {
     if (block.type === 'metric') {
-      Row({ space: SpaceTokens.sm }) {
-        TextInput({ text: block.value, placeholder: '例如 4.8' })
-          .layoutWeight(1)
-          .fontSize(TypeTokens.headline.size)
-          .fontFamily(TypeTokens.fontFamilySerif)
-          .fontColor(ColorTokens.primary)
-          .backgroundColor(ColorTokens.elevated)
-          .borderRadius(RadiusTokens.sm)
-          .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-          .maxLength(30)
-          .onChange((value: string): void => { this.updateText(block.id, 'value', value); })
-        TextInput({ text: block.unit, placeholder: '单位' })
-          .width(88)
-          .fontSize(TypeTokens.callout.size)
-          .fontFamily(TypeTokens.fontFamily)
-          .fontColor(ColorTokens.secondary)
-          .backgroundColor(ColorTokens.elevated)
-          .borderRadius(RadiusTokens.sm)
-          .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
-          .maxLength(16)
-          .onChange((value: string): void => { this.updateText(block.id, 'unit', value); })
+      Column({ space: SpaceTokens.sm }) {
+        Row({ space: SpaceTokens.sm }) {
+          TextInput({ text: block.value, placeholder: '例如 4.8' })
+            .layoutWeight(1)
+            .fontSize(TypeTokens.headline.size)
+            .fontFamily(TypeTokens.fontFamilySerif)
+            .fontColor(ColorTokens.primary)
+            .backgroundColor(ColorTokens.elevated)
+            .borderRadius(RadiusTokens.sm)
+            .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+            .maxLength(30)
+            .onChange((value: string): void => { this.updateText(block.id, 'value', value); })
+          TextInput({ text: block.unit, placeholder: '单位' })
+            .width(88)
+            .fontSize(TypeTokens.callout.size)
+            .fontFamily(TypeTokens.fontFamily)
+            .fontColor(ColorTokens.secondary)
+            .backgroundColor(ColorTokens.elevated)
+            .borderRadius(RadiusTokens.sm)
+            .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+            .maxLength(16)
+            .onChange((value: string): void => { this.updateText(block.id, 'unit', value); })
+        }
+        .width('100%')
+        this.metricKindChips(block)
       }
       .width('100%')
+      .alignItems(HorizontalAlign.Start)
     } else if (block.type === 'insight') {
       this.standardInput(block, 'value', '一句话写清你的判断，不要先铺垫', true, 300)
     } else if (block.type === 'list' || block.type === 'steps') {
@@ -215,6 +317,132 @@ export struct StructuredComposer {
   }
 
   @Builder
+  private evidenceNoteInput(blockId: string, index: number): void {
+    // 出处和实测图共用说明槽：协议里 note 对两种类型都有效，只给图片渲染输入框
+    // 就等于宣布「出处只能是一条 URL」，详情页那句说明永远等不到内容。
+    TextInput({ text: this.evidenceItem(blockId, index)?.note ?? '', placeholder: '这条证据证明了什么' })
+      .width('100%')
+      .fontSize(TypeTokens.caption.size)
+      .fontFamily(TypeTokens.fontFamily)
+      .fontColor(ColorTokens.primary)
+      .placeholderColor(ColorTokens.tertiary)
+      .backgroundColor(ColorTokens.elevated)
+      .borderRadius(RadiusTokens.sm)
+      .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+      .maxLength(MAX_EVIDENCE_NOTE)
+      .onChange((value: string): void => {
+        this.onDocumentChange(withStructuredEvidenceNote(this.document, blockId, index, value));
+      })
+  }
+
+  @Builder
+  private evidenceRow(blockId: string, index: number): void {
+    // item 从 this.document 回查，不用 @Builder 传进来的快照
+    if (this.evidenceItem(blockId, index) !== null) {
+      Row({ space: SpaceTokens.sm }) {
+        if (this.evidenceItem(blockId, index)?.type === 'image') {
+          Image(resolveDisplayImageUrl(this.evidenceItem(blockId, index)?.ref ?? ''))
+            .width(44)
+            .height(44)
+            .objectFit(ImageFit.Cover)
+            .borderRadius(RadiusTokens.sm)
+        }
+        Column({ space: SpaceTokens.xs }) {
+          if (this.evidenceItem(blockId, index)?.type !== 'image') {
+            Row({ space: SpaceTokens.sm }) {
+              Text('出处')
+                .fontSize(TypeTokens.overline.size)
+                .fontFamily(TypeTokens.fontFamily)
+                .fontWeight(600)
+                .fontColor(ColorTokens.secondary)
+                .backgroundColor(ColorTokens.sunken)
+                .borderRadius(RadiusTokens.pill)
+                .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: 6, bottom: 6 })
+              TextInput({ text: this.evidenceItem(blockId, index)?.ref ?? '', placeholder: '官方规格页 / 京东订单 / 实测记录' })
+                .layoutWeight(1)
+                .fontSize(TypeTokens.caption.size)
+                .fontFamily(TypeTokens.fontFamily)
+                .fontColor(ColorTokens.primary)
+                .placeholderColor(ColorTokens.tertiary)
+                .backgroundColor(ColorTokens.elevated)
+                .borderRadius(RadiusTokens.sm)
+                .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+                .maxLength(MAX_EVIDENCE_SOURCE_REF)
+                .onChange((value: string): void => {
+                  this.onDocumentChange(withStructuredEvidenceRef(this.document, blockId, index, value));
+                })
+            }
+            .width('100%')
+            .alignItems(VerticalAlign.Center)
+          }
+          this.evidenceNoteInput(blockId, index)
+        }
+        .layoutWeight(1)
+        Pressable({
+          visualHeight: 32,
+          touchTargetHeight: LayoutTokens.minTouchTarget,
+          action: (): void => {
+            this.onDocumentChange(removeStructuredEvidence(this.document, blockId, index));
+          },
+        }) {
+          Text('×')
+            .fontSize(TypeTokens.body.size)
+            .fontFamily(TypeTokens.fontFamily)
+            .fontColor(ColorTokens.secondary)
+            .width(28)
+            .height(28)
+            .textAlign(TextAlign.Center)
+            .backgroundColor(ColorTokens.elevated)
+            .borderRadius(RadiusTokens.pill)
+        }
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+    }
+  }
+
+  @Builder
+  private evidenceSection(block: StructuredBlock): void {
+    Column({ space: SpaceTokens.sm }) {
+      Row({ space: SpaceTokens.sm }) {
+        Text('依据')
+          .fontSize(TypeTokens.caption.size)
+          .fontFamily(TypeTokens.fontFamily)
+          .fontWeight(600)
+          .fontColor(ColorTokens.secondary)
+        Text(String(this.evidenceAt(block.id).length) + '/' + String(MAX_EVIDENCE_PER_BLOCK))
+          .fontSize(TypeTokens.caption.size)
+          .fontFamily(TypeTokens.fontFamily)
+          .fontColor(ColorTokens.tertiary)
+        Blank().layoutWeight(1)
+        if (this.evidenceUploading) {
+          LoadingProgress()
+            .width(18)
+            .height(18)
+            .color(ColorTokens.brand)
+          Text('上传中')
+            .fontSize(TypeTokens.caption.size)
+            .fontFamily(TypeTokens.fontFamily)
+            .fontColor(ColorTokens.tertiary)
+        } else if (this.evidenceAt(block.id).length < MAX_EVIDENCE_PER_BLOCK) {
+          this.miniAction('实测图', (): void => { this.addImageEvidence(block.id); })
+          this.miniAction('出处', (): void => {
+            this.onDocumentChange(addStructuredEvidence(this.document, block.id, 'source', '', ''));
+          })
+        }
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      ForEach(this.evidenceAt(block.id), (_evidence: StructuredEvidence, index: number) => {
+        this.evidenceRow(block.id, index)
+      }, (_keyEvidence: StructuredEvidence, index: number) => 'ev_' + String(index))
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
   private blockEditor(block: StructuredBlock, index: number): void {
     Column({ space: SpaceTokens.md }) {
       Row({ space: SpaceTokens.sm }) {
@@ -239,6 +467,7 @@ export struct StructuredComposer {
 
       this.blockFields(block)
       this.standardInput(block, 'helper', '补充说明（可选）', false, 80)
+      this.evidenceSection(block)
 
       Row({ space: SpaceTokens.sm }) {
         this.miniAction(block.id === this.document.primaryBlockId ? '主视觉' : '设为主视觉', (): void => {
@@ -347,7 +576,6 @@ export struct StructuredComposer {
 
   build() {
     Column({ space: SpaceTokens.sm }) {
-      Divider().height(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
       Pressable({
         fillWidth: true,
         visualHeight: LayoutTokens.minTouchTarget,
@@ -356,9 +584,10 @@ export struct StructuredComposer {
         Row({ space: SpaceTokens.sm }) {
           Column({ space: SpaceTokens.inlineTight }) {
             Text('结构化信息流')
-              .fontSize(TypeTokens.callout.size)
-              .fontFamily(TypeTokens.fontFamily)
+              .fontSize(TypeTokens.headline.size)
+              .fontFamily(TypeTokens.fontFamilySerif)
               .fontWeight(TypeTokens.headline.weight)
+              .lineHeight(TypeTokens.headline.lineHeight)
               .fontColor(ColorTokens.primary)
             Text(this.document.blocks.length === 0 ? '用视觉块组织结论，不受体裁字段限制' :
               String(this.document.blocks.length) + ' 个信息块 · 可排序 · 可设主视觉')
@@ -397,7 +626,10 @@ export struct StructuredComposer {
           this.templatePicker()
           ForEach(this.document.blocks, (block: StructuredBlock, index: number) => {
             this.blockEditor(block, index)
-          }, (block: StructuredBlock) => block.id)
+          }, (block: StructuredBlock) => block.id + '_' + block.type
+            + '_e' + String(evidenceOf(block).length) + '_k' + (block.kind ?? ''))
+          // key 带上证据数和数值类型：ForEach 的 key 不含会变的状态时，加了依据、换了类型画面也不重建。
+          // 文本编辑不动这两个值，所以打字过程中不会被重建、光标不跳。
           this.addBlockBar()
         }
         .width('100%')
@@ -406,6 +638,11 @@ export struct StructuredComposer {
       }
     }
     .width('100%')
+    .padding(SpaceTokens.item)
+    .backgroundColor(ColorTokens.elevated)
+    .borderRadius(RadiusTokens.lg)
+    .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
+    .shadow(ShadowTokens.cardAmbient)
     .alignItems(HorizontalAlign.Start)
   }
 }

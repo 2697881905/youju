@@ -5,10 +5,20 @@ import {
   StructuredData,
   StructuredDocument,
   StructuredDocumentTheme,
+  StructuredEvidence,
+  StructuredEvidenceType,
+  StructuredMetricKind,
+  STRUCTURED_SCHEMA_VERSION,
 } from '../models/types';
 
 export type StructuredBlockTextField = 'title' | 'value' | 'unit' | 'helper' |
   'leftLabel' | 'leftValue' | 'rightLabel' | 'rightValue';
+
+// 证据链上限与长度口径，必须与后端 backend/src/utils/structuredDocument.ts 保持一致：
+// 前端放过的提交若被后端按「超长」拒绝，用户在发布最后一步才会看见错误，代价极高。
+export const MAX_EVIDENCE_PER_BLOCK: number = 6;
+export const MAX_EVIDENCE_NOTE: number = 60;
+export const MAX_EVIDENCE_SOURCE_REF: number = 200;
 
 let blockSequence: number = 0;
 
@@ -19,7 +29,7 @@ function nextBlockId(): string {
 
 export function emptyStructuredDocument(): StructuredDocument {
   return {
-    schemaVersion: 2,
+    schemaVersion: STRUCTURED_SCHEMA_VERSION,
     primaryBlockId: '',
     theme: 'editorial',
     blocks: [],
@@ -90,7 +100,9 @@ export function createStructuredBlock(type: StructuredBlockType): StructuredBloc
 }
 
 export function cloneStructuredBlock(block: StructuredBlock): StructuredBlock {
-  return {
+  // V3 三个字段必须逐一带过：任何一次「克隆—改一处—整体替换」漏掉它们，
+  // 都会让作者已上传的证据或已选数值类型静默消失（不报错，只是数据没了）。
+  const clone: StructuredBlock = {
     id: block.id,
     type: block.type,
     title: block.title,
@@ -103,6 +115,32 @@ export function cloneStructuredBlock(block: StructuredBlock): StructuredBlock {
     rightLabel: block.rightLabel,
     rightValue: block.rightValue,
   };
+  if (block.kind !== undefined && block.kind !== null) clone.kind = block.kind;
+  if (block.numberValue !== undefined && block.numberValue !== null) clone.numberValue = block.numberValue;
+  const evidence: StructuredEvidence[] = evidenceOf(block);
+  if (evidence.length > 0) clone.evidence = cloneStructuredEvidence(evidence);
+  return clone;
+}
+
+// 读证据必须走这里：V2 存量帖子的块对象没有 evidence 键，直接 .length 会崩在详情页首屏。
+export function evidenceOf(block: StructuredBlock): StructuredEvidence[] {
+  const list: StructuredEvidence[] | null | undefined = block.evidence;
+  if (list === undefined || list === null) {
+    return [];
+  }
+  return list;
+}
+
+function cloneStructuredEvidence(list: StructuredEvidence[]): StructuredEvidence[] {
+  const out: StructuredEvidence[] = [];
+  for (const item of list) {
+    out.push({ type: item.type, ref: item.ref, note: item.note });
+  }
+  return out;
+}
+
+export function structuredEvidenceCount(block: StructuredBlock): number {
+  return evidenceOf(block).length;
 }
 
 export function cloneStructuredDocument(document: StructuredDocument): StructuredDocument {
@@ -111,7 +149,9 @@ export function cloneStructuredDocument(document: StructuredDocument): Structure
     blocks.push(cloneStructuredBlock(block));
   }
   return {
-    schemaVersion: 2,
+    // 保留原文档版本：编辑一份 V2 草稿不该把它悄悄盖章成 V3，
+    // 只有新建文档（emptyStructuredDocument）才用当前版本起笔。
+    schemaVersion: document.schemaVersion >= 2 ? document.schemaVersion : STRUCTURED_SCHEMA_VERSION,
     primaryBlockId: document.primaryBlockId,
     theme: document.theme,
     blocks: blocks,
@@ -251,6 +291,134 @@ export function withStructuredBlockItems(document: StructuredDocument, blockId: 
   return next;
 }
 
+// —— V3：数值类型 ——
+// 「一个最值得记住的数字」只有带上类型才能比较、排序、聚合；
+// kind 决定 numberValue 的解析口径，两者成对写入，避免出现有类型没数值（或反之）的半态。
+
+export function structuredMetricKindLabel(kind?: StructuredMetricKind | null): string {
+  switch (kind) {
+    case 'score': return '评分';
+    case 'amount': return '金额';
+    case 'duration': return '时长';
+    case 'percent': return '百分比';
+    case 'count': return '计数';
+    default: return '数字';
+  }
+}
+
+// 从自由文本里取第一个数字：作者写「4.8」「到手 4.8 分」「¥3,200」都能归一到同一个量。
+// 取不到就返回 0，并由调用方决定「视为无数值」——后端要求 numberValue 为有限数字。
+export function parseStructuredMetricNumber(value: string): number {
+  const match: RegExpMatchArray | null = value.replace(/,/g, '').trim().match(/-?\d+(?:\.\d+)?/);
+  if (match === null) {
+    return 0;
+  }
+  const parsed: number = Number(match[0]);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export function withStructuredMetricKind(document: StructuredDocument, blockId: string,
+  kind: StructuredMetricKind): StructuredDocument {
+  const next: StructuredDocument = cloneStructuredDocument(document);
+  for (const block of next.blocks) {
+    // 后端只允许数字块携带 kind/numberValue，非 metric 直接不改，保住这条不变量
+    if (block.id !== blockId || block.type !== 'metric') {
+      continue;
+    }
+    block.kind = kind;
+    block.numberValue = parseStructuredMetricNumber(block.value);
+    break;
+  }
+  return next;
+}
+
+// —— V3：证据链 ——
+
+export function addStructuredEvidence(document: StructuredDocument, blockId: string,
+  type: StructuredEvidenceType, ref: string, note: string): StructuredDocument {
+  const next: StructuredDocument = cloneStructuredDocument(document);
+  for (const block of next.blocks) {
+    if (block.id !== blockId) {
+      continue;
+    }
+    const list: StructuredEvidence[] = evidenceOf(block);
+    if (list.length >= MAX_EVIDENCE_PER_BLOCK) {
+      break;
+    }
+    list.push({ type: type, ref: ref.trim(), note: note.trim().substring(0, MAX_EVIDENCE_NOTE) });
+    block.evidence = list;
+    break;
+  }
+  return next;
+}
+
+export function removeStructuredEvidence(document: StructuredDocument, blockId: string,
+  index: number): StructuredDocument {
+  const next: StructuredDocument = cloneStructuredDocument(document);
+  for (const block of next.blocks) {
+    if (block.id !== blockId) {
+      continue;
+    }
+    const list: StructuredEvidence[] = evidenceOf(block);
+    if (index < 0 || index >= list.length) {
+      break;
+    }
+    list.splice(index, 1);
+    block.evidence = list;
+    break;
+  }
+  return next;
+}
+
+export function withStructuredEvidenceNote(document: StructuredDocument, blockId: string,
+  index: number, note: string): StructuredDocument {
+  const next: StructuredDocument = cloneStructuredDocument(document);
+  for (const block of next.blocks) {
+    if (block.id !== blockId) {
+      continue;
+    }
+    const list: StructuredEvidence[] = evidenceOf(block);
+    if (index < 0 || index >= list.length) {
+      break;
+    }
+    list[index].note = note.trim().substring(0, MAX_EVIDENCE_NOTE);
+    block.evidence = list;
+    break;
+  }
+  return next;
+}
+
+// 出处证据的内容就存在 ref 里（图片证据的 ref 是上传引用，不允许手改）
+export function withStructuredEvidenceRef(document: StructuredDocument, blockId: string,
+  index: number, ref: string): StructuredDocument {
+  const next: StructuredDocument = cloneStructuredDocument(document);
+  for (const block of next.blocks) {
+    if (block.id !== blockId) {
+      continue;
+    }
+    const list: StructuredEvidence[] = evidenceOf(block);
+    if (index < 0 || index >= list.length || list[index].type !== 'source') {
+      break;
+    }
+    list[index].ref = ref.substring(0, MAX_EVIDENCE_SOURCE_REF);
+    block.evidence = list;
+    break;
+  }
+  return next;
+}
+
+// 没有内容的证据项（选图失败、出处留空）不该进正文，也不该占掉 6 条配额。
+function prunedEvidence(list: StructuredEvidence[]): StructuredEvidence[] {
+  const out: StructuredEvidence[] = [];
+  for (const item of list) {
+    if (item.ref.trim().length === 0) {
+      continue;
+    }
+    out.push({ type: item.type, ref: item.ref.trim(), note: item.note.trim().substring(0, MAX_EVIDENCE_NOTE) });
+  }
+  return out;
+}
+
 export function structuredBlockHasContent(block: StructuredBlock): boolean {
   if (block.type === 'metric' || block.type === 'insight') {
     return block.value.trim().length > 0;
@@ -265,6 +433,26 @@ export function structuredBlockHasContent(block: StructuredBlock): boolean {
 export function collectStructuredDocument(document: StructuredDocument): StructuredDocument {
   const next: StructuredDocument = cloneStructuredDocument(document);
   next.blocks = next.blocks.filter((block: StructuredBlock): boolean => structuredBlockHasContent(block));
+  let usesV3: boolean = false;
+  for (const block of next.blocks) {
+    const pruned: StructuredEvidence[] = prunedEvidence(evidenceOf(block));
+    // 无条件回写：只在有内容时赋值会把「点了出处但没填」的空条目原样发出去，
+    // 后端按「证据内容不能为空」拒绝，用户在发布最后一步才看见错误。
+    block.evidence = pruned.length > 0 ? pruned : undefined;
+    if (pruned.length > 0) {
+      usesV3 = true;
+    }
+    if (block.type === 'metric' && block.kind !== undefined && block.kind !== null) {
+      // 数值可能在选完类型之后又被改过，发布前按最终文本重算一次
+      block.numberValue = parseStructuredMetricNumber(block.value);
+      usesV3 = true;
+    }
+  }
+  // 版本随内容形态走：新建文档已是当前版本；从 V2 草稿/存量帖子复制来的文档只有真用上
+  // V3 槽位才升版本，避免把没带证据的老形态标成新协议。
+  if (usesV3 && next.schemaVersion < STRUCTURED_SCHEMA_VERSION) {
+    next.schemaVersion = STRUCTURED_SCHEMA_VERSION;
+  }
   let primaryExists: boolean = false;
   for (const block of next.blocks) {
     if (block.id === next.primaryBlockId) {

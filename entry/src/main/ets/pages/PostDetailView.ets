@@ -1378,9 +1378,12 @@ export struct PostDetailView {
   // 视频媒体框比例：飞行段用「飞行目标框」比例（与截图落点一致）；
   // 首帧就绪（mediaReady，随 markHeroReady 的 animateTo 一起）后过渡到阅读比例 /
   // 视频真实比例 —— 视频不接管轮播的 initialAspect，这里显式分阶段。
+  // 末项是 router 入口（他人主页/消息，无 intent）唯一的取值来源，必须过同一道竖长钳制：
+  // videoAspectRatio 下限是 0.45，不钳则 9:16 视频在详情里就是 9:16 高框。
   private videoBoxAspect(): number {
     const phaseAspect: number = this.mediaReady ? this.readingAspect() : this.flightAspect();
-    return phaseAspect > 0 ? phaseAspect : this.videoAspectRatio;
+    const source: number = phaseAspect > 0 ? phaseAspect : this.videoAspectRatio;
+    return Math.max(source, LayoutTokens.cardMediaAspectRatio);
   }
 
   // 媒体进入：仅透明度淡入（无缩放），避免加载完成切媒体时"缩一下"。

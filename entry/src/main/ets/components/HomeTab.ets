@@ -422,11 +422,6 @@ export struct HomeTab {
     return this.feedMode + '|' + (this.currentTag() ?? '') + '|' + SORT_KEYS[this.sortIndex];
   }
 
-  private useCircleBarOverlap(): boolean {
-    // 圈子栏仅推荐流显示；关注流/每日一帖均不显示（关注页顶部保持干净）
-    return this.feedMode === 'recommend';
-  }
-
   // 切换信息源：推荐 / 关注 / 每日一帖
   private switchFeed(mode: FeedMode): void {
     const nextIndex: number = FEED_MODE_IDX_MAP.indexOf(mode);
@@ -1189,21 +1184,8 @@ export struct HomeTab {
       .height('100%')
       .alignItems(HorizontalAlign.Start)
       .backgroundColor(ColorTokens.canvas)
-
-      // 圈子下拉面板宿主（标题栏 chip 通过共享的 showCircleDropdown 开合）：
-      // 面板 + 点外关闭遮罩都渲染在内容区这一层，向下覆盖信息流 ——
-      // 绕开「标题栏高度固定 + 触摸只命中父节点范围内子节点」这两处限制。
-      if (this.showCircleDropdown && this.useCircleBarOverlap()) {
-        TagNav({
-          tags: this.displayTags,
-          selectedIndex: $tagIndex,
-          dropdownVisible: $showCircleDropdown,
-          compact: true,
-          glass: false,
-          dropdownOnly: true,
-          panelOnly: true,
-        })
-      }
+      // 圈子下拉菜单不再需要内容区宿主：chip 上的 bindMenu 由系统弹层承载，
+      // 定位、点外关闭、越界翻转都归系统管（旧「面板 + 2000vp 遮罩」实例已删）。
     }
     .width('100%')
     .height('100%')

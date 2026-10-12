@@ -1,5 +1,8 @@
-import { StructuredBlock, StructuredDocument } from '../models/types';
-import { structuredBlockHasContent, structuredBlockTypeLabel } from '../utils/structuredDocument';
+import { StructuredBlock, StructuredDocument, StructuredEvidence } from '../models/types';
+import { evidenceOf, structuredBlockHasContent, structuredBlockTypeLabel } from '../utils/structuredDocument';
+import { resolveDisplayImageUrl } from '../services/api';
+import { GlassBlurStyle, getSheetImmersiveMaterial, isSystemMaterialActive } from '../utils/immersiveMaterial';
+import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
@@ -9,6 +12,10 @@ import { TypeTokens } from '../design/tokens/type';
 @Component
 export struct StructuredFlowView {
   @Prop document: StructuredDocument | null = null;
+  // 证据清单弹层：整份信息流共用一个 bindSheet，而不是每个块各绑一个——
+  // 多个块同时挂同一个 isShow 会一起弹出来。
+  @State evidenceBlockId: string = '';
+  @State evidenceVisible: boolean = false;
 
   private accentColor(): ResourceColor {
     if (this.document?.theme === 'warm') return '#A85D24';
@@ -23,7 +30,7 @@ export struct StructuredFlowView {
   }
 
   private visibleBlocks(): StructuredBlock[] {
-    if (this.document === null || this.document.schemaVersion !== 2) return [];
+    if (this.document === null || this.document.schemaVersion < 2) return [];
     const primary: StructuredBlock[] = [];
     const rest: StructuredBlock[] = [];
     for (const block of this.document.blocks) {
@@ -32,6 +39,128 @@ export struct StructuredFlowView {
       else rest.push(block);
     }
     return primary.concat(rest);
+  }
+
+  private blockById(id: string): StructuredBlock | null {
+    if (this.document === null) return null;
+    for (const block of this.document.blocks) {
+      if (block.id === id) return block;
+    }
+    return null;
+  }
+
+  private sheetEvidence(): StructuredEvidence[] {
+    const block: StructuredBlock | null = this.blockById(this.evidenceBlockId);
+    return block === null ? [] : evidenceOf(block);
+  }
+
+  private sheetTitle(): string {
+    const block: StructuredBlock | null = this.blockById(this.evidenceBlockId);
+    if (block === null) return '证据清单';
+    return block.title.length > 0 ? block.title : structuredBlockTypeLabel(block.type);
+  }
+
+  @Builder
+  private evidenceCell(item: StructuredEvidence): void {
+    Column({ space: SpaceTokens.sm }) {
+      if (item.type === 'image') {
+        Image(resolveDisplayImageUrl(item.ref))
+          .width('100%')
+          .height(200)
+          .objectFit(ImageFit.Cover)
+          .borderRadius(RadiusTokens.md)
+        if (item.note.length > 0) {
+          Text(item.note)
+            .fontSize(TypeTokens.callout.size)
+            .fontFamily(TypeTokens.fontFamily)
+            .lineHeight(TypeTokens.callout.lineHeight)
+            .fontColor(ColorTokens.primary)
+            .width('100%')
+        }
+      } else {
+        Row({ space: SpaceTokens.sm }) {
+          Text('出处')
+            .fontSize(TypeTokens.overline.size)
+            .fontFamily(TypeTokens.fontFamily)
+            .fontWeight(600)
+            .fontColor(this.accentColor())
+            .backgroundColor(ColorTokens.elevated)
+            .borderRadius(RadiusTokens.pill)
+            .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: 5, bottom: 5 })
+          Text(item.ref)
+            .fontSize(TypeTokens.callout.size)
+            .fontFamily(TypeTokens.fontFamily)
+            .lineHeight(TypeTokens.callout.lineHeight)
+            .fontColor(ColorTokens.primary)
+            .layoutWeight(1)
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Top)
+        // 出处也可以带说明（协议里 note ≤60，编辑器允许填）：不渲染就等于把用户写的话丢掉
+        if (item.note.length > 0) {
+          Text(item.note)
+            .fontSize(TypeTokens.caption.size)
+            .fontFamily(TypeTokens.fontFamily)
+            .lineHeight(TypeTokens.caption.lineHeight)
+            .fontColor(ColorTokens.secondary)
+            .width('100%')
+        }
+      }
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private evidenceSheet(): void {
+    Column({ space: SpaceTokens.base }) {
+      Row({ space: SpaceTokens.sm }) {
+        Column({ space: SpaceTokens.inlineTight }) {
+          Text('证据清单')
+            .fontSize(TypeTokens.headline.size)
+            .fontFamily(TypeTokens.fontFamilySerif)
+            .fontWeight(TypeTokens.headline.weight)
+            .fontColor(ColorTokens.primary)
+          Text(this.sheetTitle() + ' · ' + String(this.sheetEvidence().length) + ' 条')
+            .fontSize(TypeTokens.caption.size)
+            .fontFamily(TypeTokens.fontFamily)
+            .fontColor(ColorTokens.secondary)
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+        Pressable({
+          visualHeight: 32,
+          touchTargetHeight: LayoutTokens.minTouchTarget,
+          action: (): void => { this.evidenceVisible = false; },
+        }) {
+          Text('关闭')
+            .fontSize(TypeTokens.caption.size)
+            .fontFamily(TypeTokens.fontFamily)
+            .fontColor(ColorTokens.brand)
+            .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: 6, bottom: 6 })
+        }
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      List({ space: SpaceTokens.base }) {
+        ForEach(this.sheetEvidence(), (item: StructuredEvidence, _index: number) => {
+          ListItem() {
+            this.evidenceCell(item)
+          }
+        }, (item: StructuredEvidence, index: number) => 'ev_' + String(index) + '_' + item.type)
+      }
+      .layoutWeight(1)
+      .width('100%')
+      .scrollBar(BarState.Auto)
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+    }
+    .width('100%')
+    .height('100%')
+    .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.sm })
+    // 材质由 SheetOptions.systemMaterial 承载，内容侧保持透明，避免自绘底色压掉磨砂
+    .backgroundColor(isSystemMaterialActive() ? Color.Transparent : ColorTokens.canvas)
+    .alignItems(HorizontalAlign.Start)
   }
 
   @Builder
@@ -50,6 +179,25 @@ export struct StructuredFlowView {
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         .layoutWeight(1)
+      if (evidenceOf(block).length > 0) {
+        Pressable({
+          visualHeight: 26,
+          touchTargetHeight: LayoutTokens.minTouchTarget,
+          action: (): void => {
+            this.evidenceBlockId = block.id;
+            this.evidenceVisible = true;
+          },
+        }) {
+          Text('有依据 ' + String(evidenceOf(block).length))
+            .fontSize(TypeTokens.overline.size)
+            .fontFamily(TypeTokens.fontFamily)
+            .fontWeight(600)
+            .fontColor(this.accentColor())
+            .backgroundColor(this.surfaceColor(false))
+            .borderRadius(RadiusTokens.pill)
+            .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: 5, bottom: 5 })
+        }
+      }
     }
     .width('100%')
     .alignItems(VerticalAlign.Center)
@@ -206,6 +354,17 @@ export struct StructuredFlowView {
       }
       .width('100%')
       .alignItems(HorizontalAlign.Start)
+      .bindSheet($$this.evidenceVisible, this.evidenceSheet(), {
+        height: SheetSize.MEDIUM,
+        dragBar: true,
+        // 材质载体是 SheetOptions.systemMaterial（半模态的唯一生效入口）
+        systemMaterial: getSheetImmersiveMaterial(),
+        blurStyle: isSystemMaterialActive() ? BlurStyle.NONE : GlassBlurStyle.Floating,
+        backgroundColor: isSystemMaterialActive() ? undefined : ColorTokens.canvas,
+        showClose: false,
+        maskColor: '#33000000',
+        onDisappear: (): void => { this.evidenceVisible = false; },
+      })
     }
   }
 }

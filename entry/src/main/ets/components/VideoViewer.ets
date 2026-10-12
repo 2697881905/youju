@@ -25,6 +25,10 @@ export struct VideoViewer {
   @State durationSec: number = 0;
   @State dragging: boolean = false;
   @State showBar: boolean = true;
+  // 已播完停在 EOS：此时 start() 会被受理（onStart 真的回调），但播放器立刻自行
+  // onPause、位置一步不推进（真机日志：onFinish cur=20 → onStart cur=20 → onPause cur=20 成环），
+  // 必须先 seek 回 0。
+  private ended: boolean = false;
   private hideTimer: number = -1;
   // 代理回退地址（onError 兜底用）与「当前是否在用直读源」
   private proxySrc: string = '';
@@ -42,6 +46,7 @@ export struct VideoViewer {
 
   private onSourceChanged(): void {
     this.playing = false;
+    this.ended = false;
     this.currentSec = 0;
     this.durationSec = 0;
     this.resolveSource();
@@ -96,9 +101,18 @@ export struct VideoViewer {
   private togglePlay(): void {
     if (this.playing) {
       this.controller.pause();
-    } else {
-      this.controller.start();
+      return;
     }
+    // 停在末尾时 start() 会被受理（onStart 真的回调）却立刻自行 onPause、位置一步不推进
+    // （真机日志：onFinish cur=20 → onStart cur=20 → onPause cur=20 成环），必须先 seek 回 0。
+    // 两条到末尾的路径都判掉：自然播完（onFinish 置 ended），以及进度条落在末尾
+    // （拖到底不触发 onFinish，位置钉在 dur 上）。
+    if (this.ended || (this.durationSec > 0 && this.currentSec >= this.durationSec - 0.5)) {
+      this.ended = false;
+      this.currentSec = 0;
+      this.controller.setCurrentTime(0);
+    }
+    this.controller.start();
   }
 
   // 点按画面：切换播放条显隐（显示时重新计时自动隐藏）
@@ -215,6 +229,7 @@ export struct VideoViewer {
         .autoPlay(true)
         .objectFit(ImageFit.Contain)
         .onStart((): void => {
+          this.ended = false;
           this.playing = true;
           this.scheduleHide();
         })
@@ -225,6 +240,9 @@ export struct VideoViewer {
         })
         .onFinish((): void => {
           this.playing = false;
+          this.ended = true;
+          // 位置归 0：播放器停在 EOS，播放条留在最右而时间已是 0:00 会让两者打架
+          this.currentSec = 0;
           this.showBar = true;
           this.clearHideTimer();
         })

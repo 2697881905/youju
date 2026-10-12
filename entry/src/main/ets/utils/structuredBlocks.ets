@@ -1,6 +1,6 @@
 import { Genre, StructuredBlock, StructuredData, StructuredDocument, StructuredDocumentTheme } from '../models/types';
 import { pairValueOf, structuredFieldPairs, StructuredFieldPair } from './structuredFields';
-import { structuredBlockHasContent } from './structuredDocument';
+import { structuredBlockHasContent, evidenceOf } from './structuredDocument';
 
 // 结构化信息的新视觉投影。
 // 旧帖子仍然保存 StructuredData；这里先把它投影成通用摘要，
@@ -15,6 +15,8 @@ export interface StructuredSummary {
   secondary: string[];
   helper: string;
   theme?: StructuredDocumentTheme;
+  // 该帖全部信息块累计的证据条数；旧字段投影（无 V2/V3 文档）不带这个键。
+  evidenceCount?: number;
 }
 
 function genreLabel(genre?: Genre | string): string {
@@ -225,45 +227,51 @@ export function structuredSummaryFromDocument(document: StructuredDocument | nul
   genre?: string): StructuredSummary | null {
   // 后端 JSON 会把缺失字段序列化成 null（不是 undefined）：只判 undefined 会漏，
   // 紧接着读 document.schemaVersion 就是「Cannot read property schemaVersion of null」。
-  if (document === undefined || document === null || document.schemaVersion !== 2) {
+  // V2/V3 共用这套投影，故只挡掉低于 2 的历史形态。
+  if (document === undefined || document === null || document.schemaVersion < 2) {
     return null;
   }
   const block: StructuredBlock | null = primaryBlockOf(document);
   if (block === null) {
     return null;
   }
+  // 角标统计的是整篇的依据总量，而不是主视觉块自己那几条
+  let totalEvidence: number = 0;
+  for (const item of document.blocks) {
+    totalEvidence += evidenceOf(item).length;
+  }
   if (block.type === 'metric') {
     return {
       mode: 'metric', eyebrow: genreLabel(genre), label: block.title,
       primary: compactText(block.value, 18), secondary: block.items.slice(0, 2),
-      helper: block.unit.length > 0 ? block.unit : block.helper, theme: document.theme,
+      helper: block.unit.length > 0 ? block.unit : block.helper, theme: document.theme, evidenceCount: totalEvidence,
     };
   }
   if (block.type === 'compare') {
     return {
       mode: 'compare', eyebrow: genreLabel(genre), label: block.title,
       primary: compactText(block.leftValue, 24), secondary: [compactText(block.rightValue, 24)],
-      helper: (block.leftLabel || 'A') + ' / ' + (block.rightLabel || 'B'), theme: document.theme,
+      helper: (block.leftLabel || 'A') + ' / ' + (block.rightLabel || 'B'), theme: document.theme, evidenceCount: totalEvidence,
     };
   }
   if (block.type === 'steps') {
     return {
       mode: 'steps', eyebrow: genreLabel(genre), label: block.title,
       primary: String(block.items.length) + ' 步', secondary: block.items.slice(0, 2),
-      helper: block.helper.length > 0 ? block.helper : '按顺序完成', theme: document.theme,
+      helper: block.helper.length > 0 ? block.helper : '按顺序完成', theme: document.theme, evidenceCount: totalEvidence,
     };
   }
   if (block.type === 'list') {
     return {
       mode: 'list', eyebrow: genreLabel(genre), label: block.title,
       primary: block.items.slice(0, 3).join(' · '), secondary: [],
-      helper: block.helper.length > 0 ? block.helper : '快速浏览', theme: document.theme,
+      helper: block.helper.length > 0 ? block.helper : '快速浏览', theme: document.theme, evidenceCount: totalEvidence,
     };
   }
   return {
     mode: 'insight', eyebrow: genreLabel(genre), label: block.title,
     primary: compactText(block.value, 60), secondary: block.items.slice(0, 2),
-    helper: block.helper.length > 0 ? block.helper : '作者结论', theme: document.theme,
+    helper: block.helper.length > 0 ? block.helper : '作者结论', theme: document.theme, evidenceCount: totalEvidence,
   };
 }
 

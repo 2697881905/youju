@@ -21,6 +21,7 @@ import {
 } from './dailyScoreService';
 import { isPersonalizationEnabled } from './privacyService';
 import { buildStructuredSearchText } from '../utils/structuredSearchText';
+import { normalizeStructuredDocumentMedia } from '../utils/structuredDocument';
 
 export type SortType = 'hot' | 'latest' | 'recommend';
 
@@ -626,6 +627,8 @@ export async function createPost(data: any, userId: number) {
     if (!r.ok) throw new ValidationError('视频封面引用无效');
     data.videoCover = r.ref;
   }
+  // 结构化信息流里的证据图片同样是被浏览者自动加载的媒体位，与帖图共用归一化口径
+  normalizeStructuredDocumentMedia(data.structuredDocument);
   const mergedTags = await mergeTopicTags(data.tags ?? [], data.content ?? '');
   const mentionRefs = await resolveMentionRefs(data.content ?? '', data.mentions);
   return prisma.post.create({
@@ -807,6 +810,7 @@ export async function updatePost(id: number, userId: number, input: UpdatePostIn
     if (!r.ok) throw new ValidationError('视频封面引用无效');
     input.videoCover = r.ref;
   }
+  normalizeStructuredDocumentMedia(input.structuredDocument);
   if (sensitiveWordService.checkText(nextTitle + ' ' + (nextContent ?? ''))) {
     throw new SensitiveWordError();
   }

@@ -25,6 +25,16 @@ export function buildStructuredSearchText(document: unknown, legacyData: unknown
         if (Array.isArray(block.items)) {
           for (const item of block.items) addText(out, item);
         }
+        // 证据里的说明与出处是作者写下的实质内容，与块正文同级；
+        // 图片引用是路径（cos://…），进检索列只会污染结果，故不取。
+        if (Array.isArray(block.evidence)) {
+          for (const rawItem of block.evidence) {
+            if (typeof rawItem !== 'object' || rawItem === null || Array.isArray(rawItem)) continue;
+            const item = rawItem as Record<string, unknown>;
+            addText(out, item.note);
+            if (item.type === 'source') addText(out, item.ref);
+          }
+        }
       }
     }
   }

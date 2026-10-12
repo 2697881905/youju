@@ -50,6 +50,16 @@ export struct StructuredSummaryCard {
           .fontSize(TypeTokens.overline.size)
           .fontFamily(TypeTokens.fontFamily)
           .fontColor(ColorTokens.tertiary)
+        if (this.summary.evidenceCount !== undefined && this.summary.evidenceCount > 0) {
+          Text('有依据 ' + String(this.summary.evidenceCount))
+            .fontSize(TypeTokens.overline.size)
+            .fontFamily(TypeTokens.fontFamily)
+            .fontWeight(600)
+            .fontColor(this.accentColor())
+            .backgroundColor(ColorTokens.elevated)
+            .borderRadius(RadiusTokens.pill)
+            .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs, top: 2, bottom: 2 })
+        }
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)

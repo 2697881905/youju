@@ -246,6 +246,116 @@ describe('POST /v1/posts（发帖）', () => {
     expect(rejected.status).toBe(400);
     expect(rejected.json.message).toContain('视频比例');
   });
+
+  // —— 协议 V3：证据链走完整 HTTP 链路 ——
+  // utils/structuredDocument.test.ts 只证明校验器本身；这里证明「路由 → postService →
+  // prisma.create」这条接线：校验放行、normalizeStructuredDocumentMedia 真的被调用、
+  // 证据进了 structuredSearchText 检索列。三段缺一段，功能在线上就是死的。
+  function block(over: Record<string, unknown>): Record<string, unknown> {
+    return {
+      id: 'b1', type: 'insight', title: '', value: '', unit: '', helper: '',
+      items: [], leftLabel: '', leftValue: '', rightLabel: '', rightValue: '',
+      ...over,
+    };
+  }
+  function doc(schemaVersion: number, blocks: Array<Record<string, unknown>>): Record<string, unknown> {
+    return { schemaVersion, theme: 'editorial', primaryBlockId: blocks[0]?.id ?? '', blocks };
+  }
+
+  it('V3 证据链发帖 → 200，证据原样落库且进检索列', async () => {
+    mockCheckText.mockReturnValue(false);
+    mockPrisma.post.create.mockResolvedValue({ id: 51 });
+
+    const res = await req(
+      'POST',
+      '/v1/posts',
+      {
+        title: '一周实测', genre: 'review', content: '正文',
+        structuredDocument: doc(3, [
+          block({
+            value: '续航确实变好了',
+            evidence: [
+              { type: 'image', ref: 'cos://posts/2026/10/battery.jpg', note: '第 7 天剩余 42%' },
+              { type: 'source', ref: 'https://example.com/review', note: '官方参数页' },
+            ],
+          }),
+        ]),
+      },
+      authHeader()
+    );
+
+    expect(res.status).toBe(200);
+    const stored = mockPrisma.post.create.mock.calls[0][0].data;
+    expect(stored.structuredDocument.schemaVersion).toBe(3);
+    expect(stored.structuredDocument.blocks[0].evidence).toHaveLength(2);
+    expect(stored.structuredSearchText).toContain('第 7 天剩余 42%');
+    // 图片引用是路径，进检索列只会污染结果
+    expect(stored.structuredSearchText).not.toContain('cos://');
+  });
+
+  it('证据图片用外链 → 400 且不落库（观看者客户端会自动 GET 外链）', async () => {
+    mockCheckText.mockReturnValue(false);
+
+    const res = await req(
+      'POST',
+      '/v1/posts',
+      {
+        title: '外链证据', genre: 'review', content: '正文',
+        structuredDocument: doc(3, [
+          block({ value: '结论', evidence: [{ type: 'image', ref: 'https://evil.example/x.jpg', note: '' }] }),
+        ]),
+      },
+      authHeader()
+    );
+
+    expect(res.status).toBe(400);
+    expect(res.json.message).toContain('证据图片引用无效');
+    expect(mockPrisma.post.create).not.toHaveBeenCalled();
+  });
+
+  it('本地调试的绝对图片引用在落库前归一化为 /uploads/ 相对路径', async () => {
+    mockCheckText.mockReturnValue(false);
+    mockPrisma.post.create.mockResolvedValue({ id: 52 });
+
+    const res = await req(
+      'POST',
+      '/v1/posts',
+      {
+        title: '局域网地址证据', genre: 'review', content: '正文',
+        structuredDocument: doc(3, [
+          block({
+            value: '结论',
+            evidence: [{ type: 'image', ref: 'http://192.168.3.2:3000/uploads/2026/10/a.jpg', note: '' }],
+          }),
+        ]),
+      },
+      authHeader()
+    );
+
+    expect(res.status).toBe(200);
+    const stored = mockPrisma.post.create.mock.calls[0][0].data;
+    expect(stored.structuredDocument.blocks[0].evidence[0].ref).toBe('/uploads/2026/10/a.jpg');
+  });
+
+  it('V2 文档照旧通过（老客户端不回归）', async () => {
+    mockCheckText.mockReturnValue(false);
+    mockPrisma.post.create.mockResolvedValue({ id: 53 });
+
+    const res = await req(
+      'POST',
+      '/v1/posts',
+      {
+        title: '老客户端帖子', genre: 'review', content: '正文',
+        structuredDocument: doc(2, [block({ value: '没有证据的结论' })]),
+      },
+      authHeader()
+    );
+
+    expect(res.status).toBe(200);
+    const stored = mockPrisma.post.create.mock.calls[0][0].data;
+    expect(stored.structuredDocument.schemaVersion).toBe(2);
+    expect(stored.structuredDocument.blocks[0].evidence).toBeUndefined();
+  });
 });
 
 describe('PUT /v1/posts/:id（编辑审核）', () => {

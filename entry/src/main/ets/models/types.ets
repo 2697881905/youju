@@ -49,9 +49,34 @@ export interface StructuredData {
 
 // 结构化帖子 V2：体裁不再决定字段，作者可自由组合并排序通用信息块。
 // 字段保持扁平且显式，兼容 ArkTS V1，也便于后端对每一种块做严格校验。
+// V3 在其上追加证据链与数值类型（下方三个可选槽位），V2 形态照常有效。
 export type StructuredBlockType = 'metric' | 'insight' | 'list' | 'steps' | 'compare';
 export type StructuredDocumentTheme = 'editorial' | 'warm' | 'cool';
 
+// 客户端提交用的协议版本。后端接受 {2,3}（见 backend/src/utils/structuredDocument.ts），
+// 因此老客户端发的 V2 与新客户端发的 V3 可以并存，部署顺序是后端先行。
+export const STRUCTURED_SCHEMA_VERSION: number = 3;
+
+// V3 证据链：每个信息块可挂若干条依据，兑现「有据」这个名字——结论旁边摆得下出处。
+// image 走本系统上传体系（后端按帖图同一条媒体白名单校验，外链会被拒）；
+// source 存出处文字或 http(s) 链接，只作为文本展示，不会被任何人自动加载。
+export type StructuredEvidenceType = 'image' | 'source';
+
+export interface StructuredEvidence {
+  type: StructuredEvidenceType;
+  // image：cos:// 或 /uploads/ 引用；source：出处文本或链接。
+  ref: string;
+  // 一句话说明这条证据证明了什么，如「实测续航 7h12m」
+  note: string;
+}
+
+// V3 数值类型：让数字块从「一串自由文本」变成可比较、可排序、可聚合的量。
+// 迁移期只有 metric 块声明它，其余块保持缺省（plain / 不下发）。
+export type StructuredMetricKind = 'score' | 'amount' | 'duration' | 'percent' | 'count' | 'plain';
+
+// V3 的三个字段一律可选：V2 存量帖子（以及后端历史 Json）根本不带这些键，
+// 读出来是 undefined 而不是空值——类型上如实标可选，才会在编译期逼调用方判空，
+// 避免出现「改了类型却运行时读 null」那类已经踩过的坑（见 Post.structuredData 注释）。
 export interface StructuredBlock {
   id: string;
   type: StructuredBlockType;
@@ -64,6 +89,9 @@ export interface StructuredBlock {
   leftValue: string;
   rightLabel: string;
   rightValue: string;
+  kind?: StructuredMetricKind | null;
+  numberValue?: number | null;
+  evidence?: StructuredEvidence[] | null;
 }
 
 export interface StructuredDocument {

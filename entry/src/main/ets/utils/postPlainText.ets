@@ -34,10 +34,10 @@ export function structuredBlockPlainText(block: StructuredBlock): string {
   return heading + (body.length > 0 ? '\n' + body : '') + (helper.length > 0 ? '\n' + helper : '');
 }
 
-// V2 文档 → 文本。与 StructuredFlowView.visibleBlocks 同序（主视觉块最先、跳过空块）；
-// schemaVersion 不是 2（旧数据）时返回 ''，调用方回退旧字段投影。
+// V2/V3 文档 → 文本。与 StructuredFlowView.visibleBlocks 同序（主视觉块最先、跳过空块）；
+// schemaVersion 低于 2（旧数据）时返回 ''，调用方回退旧字段投影。
 export function structuredDocumentPlainText(document: StructuredDocument | null | undefined): string {
-  if (!document || document.schemaVersion !== 2) {
+  if (!document || document.schemaVersion < 2) {
     return '';
   }
   const ordered: StructuredBlock[] = [];

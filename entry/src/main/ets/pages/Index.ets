@@ -4,7 +4,7 @@ import { HomeTab, FeedMode } from '../components/HomeTab';
 import { CircleTab } from '../components/CircleTab';
 import { CircleOnboarding } from '../components/CircleOnboarding';
 import { MessagePage } from './MessagePage';
-import { ProfilePage, PROFILE_SEGMENTS } from './ProfilePage';
+import { ProfilePage, PROFILE_SEGMENTS, BOOKMARK_SEGMENTS } from './ProfilePage';
 import { initAuthStorage, getToken, getUserId, setPrivacyAgreed, isPrivacyAgreed, clearSession, PRIVACY_POLICY_VERSION } from '../utils/auth';
 import { getUnreadCount, getDmUnreadCount, getMe, recordPrivacyConsent, followTag, listTags, getPost, PostWithComments, resolveDisplayImageUrl } from '../services/api';
 import { Tag } from '../models/types';
@@ -301,6 +301,10 @@ struct Index {
   @State profileFollowerCount: number = 0;
   @State profileTotalLikes: number = 0;
   @State profileTabIdx: number = 0;
+  // 「我收藏」子分段（帖子 | 收藏夹）：控件渲染在标题栏，选中态由 Index 持有、@Link 下发给 ProfilePage
+  @State profileBookmarkSubTab: number = 0;
+  // 收藏夹条数：ProfilePage 拉完后回写，标题栏据此决定「管理」入口出不出现（空列表无可管理的东西）
+  @State profileFolderCount: number = 0;
   @State profileSlidePosition: number = -1;
   @State profilePresented: boolean = false;
   @State profileShareSeq: number = 0;
@@ -980,20 +984,31 @@ struct Index {
     return 146 + 44 + SpaceTokens.sm + (this.profileLoggedIn() ? LayoutTokens.segmentedHeight + SpaceTokens.xs + 4 : 0);
   }
 
-  // 「我的」标题栏总高（= 标题栏声明高 = 栏体磨砂矩形覆盖的那一条，一路到分段栏底边）：
-  // 状态栏 + 顶栏行(36+xs×2) + 资料区 + 分段栏顶部间隙(xs) + 分段栏本体(36)。
+  // 「我收藏」子分段栏（帖子 | 收藏夹）为栏体多让出来的那一条：顶部间隙 xs + 控件本体 36。
+  // 只有该分段有二级视图，所以栏高随主分段变化——它也是唯一需要联动 ProfilePage 内容留白的一条
+  // （让位由分段页自己的 padding 补，见 ProfilePage.segmentPage）。
+  private profileHasSubSeg(): boolean {
+    return this.profileTabIdx === 1;
+  }
+
+  private profileSubSegExtra(): number {
+    return this.profileHasSubSeg() ? SpaceTokens.xs + LayoutTokens.segmentedHeight : 0;
+  }
+
+  // 「我的」标题栏总高（= 标题栏声明高 = 栏体磨砂矩形覆盖的那一条，一路到最后一条悬浮控件的底边）：
+  // 状态栏 + 顶栏行(36+xs×2) + 资料区 + 分段栏顶部间隙(xs) + 分段栏本体(36) + 子分段那一条（仅「我收藏」）。
   // 标题栏是 BarStyle.STACK（覆盖式）→ 声明高不再决定内容区起点（内容区从窗口顶部起算），
   // 它只圈定栏体磨砂/材质画到哪里，因此可以画满整条栏，让帖子一路穿到资料卡底下。
   private profileTitleBarHeight(): number {
     const hero: number = this.profileHeroHeight > 0 ? this.profileHeroHeight : this.profileHeroEstimate();
     return this.statusBarHeight + LayoutTokens.segmentedHeight + SpaceTokens.xs * 2 + hero
-      + SpaceTokens.xs + LayoutTokens.segmentedHeight;
+      + SpaceTokens.xs + LayoutTokens.segmentedHeight + this.profileSubSegExtra();
   }
 
-  // 列表内容要让开的那一条：只到分段栏**顶边**。分段栏本身是悬浮在列表之上的玻璃，
-  // 帖子要从它底下穿过，所以不再为它多让一条（与 profileTitleBarHeight 差一个控件高）。
+  // 列表内容要让开的那一条：只到**主分段栏顶边**（子分段栏在它之下，由分段页自己再让一条）。
+  // 与 profileTitleBarHeight 相差「主分段栏本体 + 子分段那一条」。
   private profileListInset(): number {
-    return this.profileTitleBarHeight() - LayoutTokens.segmentedHeight;
+    return this.profileTitleBarHeight() - LayoutTokens.segmentedHeight - this.profileSubSegExtra();
   }
 
   // 资料区本体（ProfileHeader 只呈现，跳转/登录引导等意图在这里接线）
@@ -1155,6 +1170,73 @@ struct Index {
         },
       })
       .margin({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs })
+
+      // 「我收藏」子分段栏（帖子 | 收藏夹）：与主分段栏同一条磨砂区内，材质配置照抄上面那份。
+      // 原先它是内容区浮层——uiMaterial 在内容区完全不渲染，只能自绘玻璃，
+      // 与栏体材质两套模糊半径/着色叠在一起，接缝就落在两条栏之间那一条 xs 上。
+      // 整行铺满（fillWidth 默认值，两条目各占一半），管理入口靠右，二者靠一层 layoutWeight 容器分格。
+      // 出现/消失走 transition：栏高随 tabIdx 跳变那一帧由淡入遮住，不做逐帧跟手
+      // ——点主栏胶囊时 onSelect 会先把 slidePosition 置成整数，跟手通道在随后的动画帧里
+      // 还要从 0 重新爬一遍，指示器会闪一下。
+      if (this.profileHasSubSeg()) {
+        Row({ space: SpaceTokens.xs }) {
+          // fillWidth 保持整行铺满（两条目各占一半），但外层套一个 layoutWeight(1) 容器：
+          // 控件根节点是 width('100%')，直接和右侧图标同排会按**父 Row** 全宽解析、把分段栏挤偏
+          // （它当年被移出顶栏就是这个原因）；包一层加权容器后 100% 落在扣掉图标的那一格上。
+          Column() {
+            SegmentedControl({
+              items: BOOKMARK_SEGMENTS,
+              selectedIndex: $profileBookmarkSubTab,
+              immersive: !isSystemMaterialActive(),
+              outlined: isSystemMaterialActive(),
+              glowEnabled: false,
+              useSystemMaterial: true,
+            })
+          }
+          .layoutWeight(1)
+          .height(LayoutTokens.segmentedHeight)
+          .justifyContent(FlexAlign.Center)
+          // 收藏夹管理入口（重命名/删除）：从收藏夹列表头部提到这里，滚动时不再被卷走。
+          // 只在「收藏夹」子页且确有收藏夹时出现——空列表没有可管理的东西。
+          // 外面这层 Row 只为承载 transition：Pressable 是自定义组件，挂不上通用属性，
+          // 而 if 分支删插时动画只认被增删的那个节点。
+          if (this.profileBookmarkSubTab === 1 && this.profileFolderCount > 0) {
+            Row() {
+              Pressable({
+                visualHeight: LayoutTokens.segmentedHeight,
+                touchTargetHeight: LayoutTokens.minTouchTarget,
+                action: (): void => {
+                  this.getUIContext().getRouter().pushUrl({ url: 'pages/BookmarkFolderPage' });
+                },
+              }) {
+                Row() {
+                  Image(resolveSettingsIcon('edit'))
+                    .width(IconTokens.small)
+                    .height(IconTokens.small)
+                    .fillColor(ColorTokens.icon)
+                }
+                .width(LayoutTokens.segmentedHeight)
+                .height(LayoutTokens.segmentedHeight)
+                .justifyContent(FlexAlign.Center)
+                // 与顶栏分享/设置同源材质（低版本自动跳过；无底色/描边，仅材质）
+                .borderRadius(RadiusTokens.lg)
+                .attributeModifier(this.profileActionMaterial)
+                .accessibilityText('管理收藏夹')
+              }
+            }
+            .transition(TransitionEffect.OPACITY.animation({
+              duration: MotionTokens.container,
+              curve: MotionCurves.emphasized,
+            }))
+          }
+        }
+        .width('100%')
+        .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs })
+        .transition(TransitionEffect.OPACITY.animation({
+          duration: MotionTokens.container,
+          curve: MotionCurves.emphasized,
+        }))
+      }
     }
     .width('100%')
     // 全屏沉浸式布局下标题栏不代为避让状态栏：手动下移
@@ -1219,6 +1301,9 @@ struct Index {
         followerCount: $profileFollowerCount,
         totalLikes: $profileTotalLikes,
         tabIdx: $profileTabIdx,
+        // 「我收藏」子分段选中态：控件在本页标题栏，动作（拉收藏夹/刷新收藏）在 ProfilePage 的 @Watch
+        bookmarkSubTab: $profileBookmarkSubTab,
+        folderCount: $profileFolderCount,
         slidePosition: $profileSlidePosition,
         profilePresented: $profilePresented,
         profileShareSeq: $profileShareSeq,

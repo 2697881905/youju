@@ -74,7 +74,7 @@ const VERIFY_SEGMENTS: SegmentedItem[] = [
   { key: 'following', label: '关注' },
 ];
 
-// 圈子 chip 占位数据（下沉内容区后仍走 TagNav 原组件；下拉面板宿主在内容层）
+// 圈子 chip 占位数据（下拉菜单走 chip 上的 bindMenu 系统弹层，内容层不再有宿主）
 const VERIFY_TAGS: Tag[] = [
   { id: 1, name: '全部' },
   { id: 2, name: '职场' },
@@ -380,19 +380,6 @@ struct HdsNavVerifyPage {
         .clip(false)
         .width('100%')
         .height('100%')
-
-        // 圈子下拉面板宿主（吸顶 chip 通过共享态开合）：面板 + 点外关闭遮罩渲染在内容层，向下覆盖信息流
-        if (this.showCircleDropdown) {
-          TagNav({
-            tags: VERIFY_TAGS,
-            selectedIndex: $tagIndex,
-            dropdownVisible: $showCircleDropdown,
-            compact: true,
-            glass: false,
-            dropdownOnly: true,
-            panelOnly: true,
-          })
-        }
       }
       .width('100%')
       .height('100%')

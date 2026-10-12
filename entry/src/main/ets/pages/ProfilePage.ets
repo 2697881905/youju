@@ -15,7 +15,7 @@ import { buildProfileShareText, buildProfileShareUrl, copyToClipboard, EXTERNAL_
 import { PostCollectionState } from '../components/PostCollectionState';
 import { EmptyState } from '../design/components/EmptyState';
 import { ProfileShareSheet } from '../components/ProfileShareSheet';
-import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
+import { SegmentedItem } from '../design/components/SegmentedControl';
 import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
@@ -34,7 +34,8 @@ export const PROFILE_SEGMENTS: SegmentedItem[] = [
 ];
 
 // 「我收藏」子分段：帖子（收藏列表） | 收藏夹（专辑管理）
-const BOOKMARK_SEGMENTS: SegmentedItem[] = [
+// 导出给 Index 的标题栏渲染（与主分段栏同一生效区域，沉浸光感才画得出来）。
+export const BOOKMARK_SEGMENTS: SegmentedItem[] = [
   { key: 'posts', label: '帖子' },
   { key: 'folders', label: '收藏夹' },
 ];
@@ -76,8 +77,11 @@ export struct ProfilePage {
   // 四个分段各自的列表缓存。分页要求每一页都能立刻拿到"自己的"内容：
   // 只保留当前分段的列表，会让相邻页在拖动过程中显示当前分段的数据。
   @State postsCache: Post[][] = [[], [], [], []];
-  // 「我收藏」子分段：0 帖子列表 / 1 收藏夹网格（切换时懒加载收藏夹）
-  @State @Watch('onBookmarkSubTabChange') bookmarkSubTab: number = 0;
+  // 「我收藏」子分段：0 帖子列表 / 1 收藏夹网格（切换时懒加载收藏夹）。
+  // 控件本体已上移到 Index 的标题栏（与主分段栏同一条磨砂区），选中态由 Index 持有、这里 @Link 共用。
+  @Link @Watch('onBookmarkSubTabChange') bookmarkSubTab: number;
+  // 收藏夹条数上抛给 Index 的标题栏（「管理」入口只在有收藏夹时出现）；loadFolders 收尾时回写。
+  @Link folderCount: number;
   @State folders: BookmarkFolderItem[] = [];
   @State foldersReady: boolean = true;
   @State posts: Post[] = [];
@@ -85,6 +89,10 @@ export struct ProfilePage {
   @State loading: boolean = false;
   @State finished: boolean = false;
   @State isRefreshing: boolean = false;
+  // 刷新指示器显隐：isRefreshing 只在越过阈值后为 true，拉拽过程（Drag/OverDrag）不置位。
+  // Refresh 的 builder 内容**永远参与绘制**，.offset() 只挪绘制不挪布局——不做属性级门控，
+  // 「刷新中…」会常驻在分段栏下方（真机实证；同 HomeTab.ets:598 注释）。
+  @State refreshIndicatorVisible: boolean = false;
   @State error: string = '';
   @State ready: boolean = false;
   // 资料区入场动效（资料区已在标题栏内渲染）：由本页在真正进入「我的」页时置位
@@ -541,6 +549,7 @@ export struct ProfilePage {
   // 加载我的收藏夹（幂等：已加载且非空则跳过，保持滚动/编辑后状态）
   private async loadFolders(): Promise<void> {
     if (this.foldersReady && this.folders.length > 0) {
+      this.folderCount = this.folders.length;
       return;
     }
     this.foldersReady = false;
@@ -550,6 +559,7 @@ export struct ProfilePage {
       // 收藏夹加载失败：保留旧数据，不阻塞
     } finally {
       this.foldersReady = true;
+      this.folderCount = this.folders.length;
     }
   }
 
@@ -559,28 +569,6 @@ export struct ProfilePage {
       url: 'pages/BookmarkFolderDetailPage',
       params: { folderId: String(item.id), folderName: item.name },
     });
-  }
-
-  // 「我收藏」子分段（帖子 | 收藏夹）；外层由调用处补充左右留白与定位。
-  // 这一行只放分段控件本身：分段控件是满宽控件（fillWidth 默认 true → width('100%')），
-  // 同行的兄弟节点会让总宽超过 100%，布局开始压缩弹性子节点，表现为分段栏被挤到右侧。
-  // 收藏夹的管理入口因此移到列表自己的头部（见 foldersView）。
-  @Builder
-  bookmarkSubSegment(): void {
-    Row() {
-      SegmentedControl({
-        items: BOOKMARK_SEGMENTS,
-        selectedIndex: $bookmarkSubTab,
-        itemWidth: 46,
-        // 沉浸光感（华为应用商店同款）：玻璃底 + backdropBlur + 高光边框 + 滑块悬浮投影
-        immersive: true,
-        onSelect: (): void => {
-          // 双向绑定已写回 bookmarkSubTab，@Watch 负责后续动作
-        },
-      })
-    }
-    .width('100%')
-    .justifyContent(FlexAlign.End)
   }
 
   // 收藏夹列表行：封面缩略 + 名称 + 条数 + 右箭头（收藏夹用列表展示，夹内帖子才是双列卡片流）
@@ -659,39 +647,15 @@ export struct ProfilePage {
             .width('100%')
             .padding({ top: SpaceTokens.xl })
         } else {
-          // 收藏夹工具栏：管理入口（pages/BookmarkFolderPage，重命名/删除）放在收藏夹列表自己的头部。
-          // 原先它挂在悬浮的子分段栏那一行，而分段控件是满宽控件，兄弟一出现就把分段栏挤到右侧；
-          // 移到列表头后，分段栏的位置不再受它影响，滚动时也随列表一起走。
-          // 仅在已有收藏夹时出现 —— 空列表没有可管理的东西。
-          Row({ space: SpaceTokens.sm }) {
-            Text('共 ' + this.folders.length + ' 个收藏夹')
-              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-              .fontWeight(TypeTokens.caption.weight)
-              .lineHeight(TypeTokens.caption.lineHeight)
-              .fontColor(ColorTokens.secondary)
-              .layoutWeight(1)
-            Pressable({
-              visualHeight: LayoutTokens.segmentedHeight,
-              touchTargetHeight: LayoutTokens.minTouchTarget,
-              action: (): void => {
-                this.getUIContext().getRouter().pushUrl({ url: 'pages/BookmarkFolderPage' });
-              },
-            }) {
-              Text('管理')
-                .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-                .fontWeight(TypeTokens.headline.weight)
-                .lineHeight(TypeTokens.callout.lineHeight)
-                .fontColor(ColorTokens.primary)
-                .height(LayoutTokens.segmentedHeight)
-                .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-                .textAlign(TextAlign.Center)
-                .backgroundColor(Color.Transparent)
-                .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-                .borderRadius(RadiusTokens.lg);
-            }
-          }
-          .width('100%')
-          .alignItems(VerticalAlign.Center)
+          // 收藏夹计数行。「管理」入口已上移到标题栏的子分段行右侧（常驻，不再随列表滚走）；
+          // 当年它挂在这一行时被满宽的分段控件挤偏，如今控件包在加权格子里，右侧那一格才放得下它。
+          Text('共 ' + this.folders.length + ' 个收藏夹')
+            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.caption.weight)
+            .lineHeight(TypeTokens.caption.lineHeight)
+            .fontColor(ColorTokens.secondary)
+            .textAlign(TextAlign.Start)
+            .width('100%')
           ForEach(this.folders, (f: BookmarkFolderItem) => {
             this.folderListItem(f)
           }, (f: BookmarkFolderItem) => 'folder-list-' + String(f.id))
@@ -718,6 +682,8 @@ export struct ProfilePage {
 
   @Builder
   refreshBuilder(): void {
+    // ⚠️ 显隐必须属性级驱动（opacity），禁止结构条件化渲染（if 包内容）：Refresh 的指示区高度
+    // 参与布局，builder 内容抽空会导致区域塌陷、内容区整体上移铺满屏幕（真机实证，HomeTab 同注释）。
     Row({ space: SpaceTokens.inline }) {
       LoadingProgress().width(IconTokens.compact).height(IconTokens.compact)
       Text('刷新中…')
@@ -727,6 +693,8 @@ export struct ProfilePage {
         .letterSpacing(TypeTokens.caption.tracking)
         .fontColor(ColorTokens.secondary)
     }
+    .opacity((this.isRefreshing || this.refreshIndicatorVisible) ? 1 : 0)
+    .hitTestBehavior((this.isRefreshing || this.refreshIndicatorVisible) ? HitTestMode.Default : HitTestMode.None)
     // 穿底改造后 Refresh 盒子的顶边落在窗口顶部，指示器槽位整个藏在整条顶栏底下。
     // offset 只挪绘制不挪布局：槽位仍是原来那一条高（下拉时内容只让开它），
     // 图形画到「栏底之下」——topInset 到分段栏顶边，再补控件本体一条 + 自身高度，
@@ -862,7 +830,13 @@ export struct ProfilePage {
         .height('100%')
         .padding({ top: this.topInset })
       } else {
-        Refresh({ refreshing: seg === this.tabIdx ? this.isRefreshing : false, builder: this.refreshBuilder }) {
+        // refreshing 走 $$ 双向绑定（对齐 HomeTab.ets:836 / MyFollowView.ets:239）：
+        // 旧实现 `seg === this.tabIdx ? this.isRefreshing : false` 是单向表达式，组件内部手势态
+        // 与外部变量不同源——Swiper 里横向切页时手势竞争，内部停在刷新态而外部已置 false，
+        // 顶部「刷新中…」常驻收不回。
+        // 注意：onRefreshing 里不能再手动置 true，也不能加 isRefreshing 重入守卫——
+        // 双向绑定下组件已置 true，提前 return 会永远停在 true。
+        Refresh({ refreshing: $$this.isRefreshing, builder: this.refreshBuilder }) {
           // 显式双列：偶数项固定左列、奇数项固定右列，首项始终位于左上角。
           // 两列独立排列，保留瀑布流的紧凑效果且不受 WaterFlow 列测量顺序影响。
           Scroll() {
@@ -906,8 +880,12 @@ export struct ProfilePage {
             }
           })
         }
+        .onStateChange((state: RefreshStatus) => {
+          // 拉拽/刷新全程显示指示器；空闲与完成回弹隐藏
+          this.refreshIndicatorVisible = state === RefreshStatus.Drag
+            || state === RefreshStatus.OverDrag || state === RefreshStatus.Refresh;
+        })
         .onRefreshing(() => {
-          this.isRefreshing = true;
           this.refresh().finally(() => {
             this.isRefreshing = false;
           });
@@ -921,9 +899,8 @@ export struct ProfilePage {
 
   build() {
     Column() {
-      // 顶栏（我的/分享/设置）+ 资料区 + 主分段栏已整体迁入 Navigation 标题栏
-      // （uiMaterial 沉浸光感的官方生效区域）；这里只剩列表本体 + 「我收藏」子分段浮层。
-      Stack({ alignContent: Alignment.TopStart }) {
+      // 顶栏（我的/分享/设置）+ 资料区 + 主分段栏 + 「我收藏」子分段栏已整体迁入 Navigation
+      // 标题栏（uiMaterial 沉浸光感的官方生效区域）；这里只剩列表本体。
       // 四个分段做成真正的分页：内容跟手位移、松手按速度吸附，与消息页同一套系统实现。
       // 前提是每一页都能立刻拿到「自己的」内容 —— 列表已按分段各自缓存（postsCache）。
       // 手势由 Swiper 自带，页面不再绑任何横向手势（两套会互相抢事件）。
@@ -977,24 +954,6 @@ export struct ProfilePage {
       })
       .width('100%')
       .height('100%')
-
-      // 「我收藏」子分段（帖子 | 收藏夹）：悬浮于内容区顶部、恒常显示
-      // （内容区盒子顶边在窗口顶部，本浮层要让开整条顶栏 + 主分段栏那一条）
-      if (this.tabIdx === 1) {
-        Column() {
-          this.bookmarkSubSegment()
-        }
-        .width('100%')
-        .padding({
-          left: SpaceTokens.sm,
-          right: SpaceTokens.sm,
-          top: this.topInset + PROFILE_SEG_ROW_HEIGHT + SpaceTokens.xs,
-        })
-        .zIndex(1)
-      }
-    }
-    .layoutWeight(1)
-    .width('100%')
     }
     .width('100%').height('100%')
     .backgroundColor(ColorTokens.canvas)
