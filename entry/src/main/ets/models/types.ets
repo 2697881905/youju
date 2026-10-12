@@ -138,6 +138,12 @@ export interface Post {
   commentCount?: number;
   viewCount?: number; // 详情浏览次数（创作者数据面板基础）
   hotScore?: number; // 热度综合分（推荐/热榜排序信号，只读展示用）
+  // —— 帖子主数字（后端从 metric 块抽出的派生列；没有可比数字时后端给 null）——
+  // 跨帖对比表按它排序；后端 JSON 的 null 不等于 undefined，可空性必须写进类型。
+  metricValue?: number | null;
+  metricKind?: string | null; // score | amount | duration | percent | count | plain
+  metricLabel?: string | null; // 在比什么：推荐指数 / 到手价 / 耗时
+  metricText?: string | null; // 作者原样的展示串："4.6 分" / "1,299 元"
   // —— 当前登录用户对帖子的互动态（后端按 viewerId 计算返回，纯增量字段）——
   myUp?: boolean; // 我是否点赞
   myBookmark?: boolean; // 我是否收藏

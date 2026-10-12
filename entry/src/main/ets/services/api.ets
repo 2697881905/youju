@@ -1,6 +1,6 @@
 import { http } from '@kit.NetworkKit';
 import { BUILD_MODE_NAME, DEBUG } from '../utils/buildMode';
-import { Post, DailyPost, Comment, Tag, User, Pagination, Genre, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody, ReportAction, NotificationPrefs, BlockUser, PrivacySettingsData, UserExportData, DebateVoteResult, Conversation, DmMessage, DmSharePayload, AdminReportItem, ReportTargetType, BookmarkFolderItem, MentionRef, MentionCandidate, StructuredDocument, PendingReportSummary } from '../models/types';
+import { Post, DailyPost, Comment, Tag, User, Pagination, Genre, StructuredMetricKind, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody, ReportAction, NotificationPrefs, BlockUser, PrivacySettingsData, UserExportData, DebateVoteResult, Conversation, DmMessage, DmSharePayload, AdminReportItem, ReportTargetType, BookmarkFolderItem, MentionRef, MentionCandidate, StructuredDocument, PendingReportSummary } from '../models/types';
 
 // 以构建期布尔 DEBUG 为准选择后端地址（调试包 true → 本地，released → 生产）。
 const BUILD_MODE: string = BUILD_MODE_NAME;
@@ -237,6 +237,37 @@ export interface ListPostsParams {
   author?: number;
 }
 
+// 对比表行：后端刻意只回表格要显示的字段，不带 structuredDocument。
+// 十篇帖子的信息块会把响应顶到几十 KB，而 http 的 OBJECT 模式在大响应体上会退化成字符串。
+export interface PostMetricRow {
+  id: number;
+  title: string;
+  genre: Genre;
+  coverImage?: string | null;
+  metricValue: number | null;
+  metricKind: StructuredMetricKind | null;
+  metricLabel?: string | null;
+  metricText?: string | null;
+  upCount: number;
+  commentCount: number;
+  createdAt?: string;
+  user?: User;
+}
+
+export interface PostCompareResult {
+  genre: Genre;
+  order: string;
+  total: number;
+  rows: PostMetricRow[];
+}
+
+export interface ComparePostsParams {
+  genre: Genre;
+  tag?: string;
+  order?: string;
+  limit?: number;
+}
+
 export interface SearchPostsParams {
   keyword: string;
   page?: number;
@@ -346,6 +377,17 @@ export function listPosts(params: ListPostsParams = {}): Promise<ListResult<Post
 // GET /v1/posts/:id（含 comments）
 export function getPost(id: number): Promise<PostWithComments> {
   return api.get<PostWithComments>('/v1/posts/' + id);
+}
+
+// GET /v1/posts/compare?genre=&tag=&order=asc|desc&limit=（跨帖对比表，软鉴权）
+export function comparePosts(params: ComparePostsParams): Promise<PostCompareResult> {
+  const path: string = '/v1/posts/compare' + toQuery([
+    ['genre', params.genre],
+    ['tag', params.tag],
+    ['order', params.order],
+    ['limit', params.limit],
+  ]);
+  return api.get<PostCompareResult>(path);
 }
 
 // GET /v1/posts/following?page=&limit=&sort=hot|latest|recommend&tag=

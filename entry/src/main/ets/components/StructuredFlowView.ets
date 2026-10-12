@@ -3,6 +3,7 @@ import { evidenceOf, structuredBlockHasContent, structuredBlockTypeLabel } from 
 import { resolveDisplayImageUrl } from '../services/api';
 import { GlassBlurStyle, getSheetImmersiveMaterial, isSystemMaterialActive } from '../utils/immersiveMaterial';
 import { Pressable } from '../design/motion/Pressable';
+import { stepCheckStore } from '../utils/stepCheckStore';
 import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
@@ -11,11 +12,69 @@ import { TypeTokens } from '../design/tokens/type';
 // 详情页的完整结构化信息流。每种数据关系使用不同版式，而不是退化成统一字段表。
 @Component
 export struct StructuredFlowView {
-  @Prop document: StructuredDocument | null = null;
+  @Prop @Watch('onCheckInScopeChanged') document: StructuredDocument | null = null;
+  // 教程步骤打卡：>0 才开放勾选。预览页没有帖子 id，进度无处落盘，就不该给出一个会骗人的复选框。
+  @Prop @Watch('onCheckInScopeChanged') checkInPostId: number = 0;
   // 证据清单弹层：整份信息流共用一个 bindSheet，而不是每个块各绑一个——
   // 多个块同时挂同一个 isShow 会一起弹出来。
   @State evidenceBlockId: string = '';
   @State evidenceVisible: boolean = false;
+  // 打卡状态从 store 投影成一份「blockId#index,...」快照：
+  // @Builder 的参数是值快照，直读这个 @State 才能让勾选立刻反映到行上。
+  @State private checkedKeys: string = '';
+  private unsubscribeChecks: () => void = (): void => {};
+
+  aboutToAppear(): void {
+    this.refreshChecked();
+    this.unsubscribeChecks = stepCheckStore.subscribe((_postId: number): void => {
+      this.refreshChecked();
+    });
+  }
+
+  aboutToDisappear(): void {
+    this.unsubscribeChecks();
+    this.unsubscribeChecks = (): void => {};
+  }
+
+  // 帖子 id 与信息流都是异步到达的 @Prop：换帖、详情回填都要重新拉一次进度，
+  // 否则首帧拿到 checkInPostId=0 之后，勾选状态就永远停在空。
+  private onCheckInScopeChanged(): void {
+    this.refreshChecked();
+  }
+
+  private refreshChecked(): void {
+    if (this.checkInPostId <= 0 || this.document === null) {
+      this.checkedKeys = '';
+      return;
+    }
+    const keys: string[] = [];
+    for (const block of this.document.blocks) {
+      for (let i = 0; i < block.items.length; i++) {
+        if (stepCheckStore.isChecked(this.checkInPostId, block.id, i)) {
+          keys.push(block.id + '#' + String(i));
+        }
+      }
+    }
+    this.checkedKeys = keys.join(',');
+  }
+
+  private isStepChecked(blockId: string, index: number): boolean {
+    return (',' + this.checkedKeys + ',').indexOf(',' + blockId + '#' + String(index) + ',') >= 0;
+  }
+
+  private doneSteps(block: StructuredBlock): number {
+    let done: number = 0;
+    for (let i = 0; i < block.items.length; i++) {
+      if (this.isStepChecked(block.id, i)) {
+        done += 1;
+      }
+    }
+    return done;
+  }
+
+  private canCheckIn(block: StructuredBlock): boolean {
+    return this.checkInPostId > 0 && block.items.length > 0;
+  }
 
   private accentColor(): ResourceColor {
     if (this.document?.theme === 'warm') return '#A85D24';
@@ -255,30 +314,66 @@ export struct StructuredFlowView {
   }
 
   @Builder
+  private stepsProgress(block: StructuredBlock): void {
+    Row({ space: SpaceTokens.md }) {
+      Progress({ value: this.doneSteps(block), total: block.items.length, type: ProgressType.Linear })
+        .layoutWeight(1)
+        .color(this.accentColor())
+        .backgroundColor(ColorTokens.separator)
+        .style({ strokeWidth: SpaceTokens.xs, strokeRadius: RadiusTokens.xs, enableSmoothEffect: true })
+      Text('已完成 ' + String(this.doneSteps(block)) + '/' + String(block.items.length))
+        .fontSize(TypeTokens.caption.size)
+        .fontFamily(TypeTokens.fontFamily)
+        .fontColor(this.doneSteps(block) === block.items.length ? this.accentColor() : ColorTokens.tertiary)
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
   private stepsBody(block: StructuredBlock): void {
     Column({ space: SpaceTokens.md }) {
+      if (this.canCheckIn(block)) {
+        this.stepsProgress(block)
+      }
       ForEach(block.items, (item: string, index: number) => {
         Row({ space: SpaceTokens.md }) {
-          Text(String(index + 1))
-            .width(24)
-            .height(24)
-            .fontSize(TypeTokens.caption.size)
-            .fontFamily(TypeTokens.fontFamily)
-            .fontWeight(600)
-            .fontColor(this.accentColor())
-            .backgroundColor(ColorTokens.elevated)
-            .borderRadius(RadiusTokens.pill)
-            .textAlign(TextAlign.Center)
+          if (this.canCheckIn(block)) {
+            Checkbox()
+              .select(this.isStepChecked(block.id, index))
+              .selectedColor(this.accentColor())
+              .width(22)
+              .height(22)
+              .onChange((value: boolean): void => {
+                stepCheckStore.setChecked(this.checkInPostId, block.id, index, value);
+              })
+          } else {
+            Text(String(index + 1))
+              .width(24)
+              .height(24)
+              .fontSize(TypeTokens.caption.size)
+              .fontFamily(TypeTokens.fontFamily)
+              .fontWeight(600)
+              .fontColor(this.accentColor())
+              .backgroundColor(ColorTokens.elevated)
+              .borderRadius(RadiusTokens.pill)
+              .textAlign(TextAlign.Center)
+          }
           Text(item)
             .fontSize(TypeTokens.callout.size)
             .fontFamily(TypeTokens.fontFamily)
             .lineHeight(TypeTokens.callout.lineHeight)
-            .fontColor(ColorTokens.primary)
+            .fontColor(this.isStepChecked(block.id, index) ? ColorTokens.tertiary : ColorTokens.primary)
+            .decoration({
+              type: this.isStepChecked(block.id, index) ? TextDecorationType.LineThrough : TextDecorationType.None,
+              color: ColorTokens.tertiary,
+            })
             .layoutWeight(1)
         }
         .width('100%')
         .alignItems(VerticalAlign.Center)
-      }, (item: string, index: number) => String(index) + ':' + item)
+      }, (item: string, index: number) => block.id + '#' + String(index) + ':' + item
+        + (this.isStepChecked(block.id, index) ? '_on' : ''))
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)

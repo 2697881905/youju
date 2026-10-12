@@ -22,6 +22,7 @@ import {
 import { isPersonalizationEnabled } from './privacyService';
 import { buildStructuredSearchText } from '../utils/structuredSearchText';
 import { normalizeStructuredDocumentMedia } from '../utils/structuredDocument';
+import { buildPostMetricPatch } from '../utils/postMetric';
 
 export type SortType = 'hot' | 'latest' | 'recommend';
 
@@ -182,6 +183,60 @@ export async function listPosts(params: ListParams) {
   return {
     list: list.map((p) => ({ ...p, user: publicUserView(p.user) })),
     pagination: { page, limit, total },
+  };
+}
+
+export interface CompareParams {
+  genre: string;
+  tag?: string;
+  order?: 'asc' | 'desc';
+  limit?: number;
+  viewerId?: number;
+}
+
+// 跨帖对比表：同体裁下按主数字列排序，只回表格要显示的那几个字段。
+// 刻意不带 structuredDocument——十篇帖子的信息块能把响应顶到几十 KB，
+// 而客户端 http 的 OBJECT 模式在大响应体上会退化成字符串（实测 72KB 不解析）。
+export async function comparePosts(params: CompareParams) {
+  const limit = Math.min(20, Math.max(3, Number(params.limit ?? 10)));
+  const ascending = params.order === 'asc';
+
+  const where: any = {
+    status: 1,
+    deletedAt: null,
+    genre: params.genre,
+    metricValue: { not: null }, // 「没有可比数字」的帖子不进表，而不是排在末尾
+    user: { status: 1, deletedAt: null },
+  };
+  if (params.tag) {
+    where.tags = { array_contains: params.tag };
+  }
+  const excluded = await getExcludedAuthorIds(params.viewerId);
+  if (excluded.length > 0) {
+    where.userId = { notIn: excluded };
+  }
+
+  const [rows, total] = await Promise.all([
+    prisma.post.findMany({
+      where,
+      // 同值并列时按热度收口，保证分页/刷新时行序稳定（metricValue 不是唯一键）
+      orderBy: [{ metricValue: ascending ? 'asc' : 'desc' }, { hotScore: 'desc' }],
+      take: limit,
+      select: {
+        id: true, title: true, genre: true, coverImage: true,
+        metricValue: true, metricKind: true, metricLabel: true, metricText: true,
+        upCount: true, commentCount: true, createdAt: true,
+        user: { select: USER_PUBLIC_SELECT },
+      },
+    }),
+    prisma.post.count({ where }),
+  ]);
+
+  return {
+    genre: params.genre,
+    order: ascending ? 'asc' : 'desc',
+    total,
+    rows: rows.map((row) => ({ ...row, user: publicUserView(row.user) })),
   };
 }
 
@@ -646,6 +701,7 @@ export async function createPost(data: any, userId: number) {
       structuredData: data.structuredData ?? {},
       structuredDocument: data.structuredDocument ?? Prisma.DbNull,
       structuredSearchText: buildStructuredSearchText(data.structuredDocument, data.structuredData),
+      ...buildPostMetricPatch(data.structuredDocument),
       mentions: mentionRefs.length > 0 ? (mentionRefs as unknown as Prisma.InputJsonValue) : Prisma.DbNull,
       status: 1,
     },
@@ -845,6 +901,11 @@ export async function updatePost(id: number, userId: number, input: UpdatePostIn
       input.structuredDocument !== undefined ? input.structuredDocument : post.structuredDocument,
       input.structuredData !== undefined ? input.structuredData : post.structuredData,
     );
+  }
+  // 主数字三列是派生列：只在信息流被重写时跟着重算，取不到数字时显式置 NULL，
+  // 否则删掉数字块的帖子会带着旧数值继续留在对比表里。
+  if (input.structuredDocument !== undefined) {
+    Object.assign(data, buildPostMetricPatch(input.structuredDocument));
   }
 
   const updated = await prisma.post.update({ where: { id }, data });

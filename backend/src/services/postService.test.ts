@@ -1,4 +1,4 @@
-import { listPosts, getPost, listLikedPosts, listCommentedPosts, listBookmarks } from './postService';
+import { listPosts, getPost, listLikedPosts, listCommentedPosts, listBookmarks, comparePosts } from './postService';
 import { prisma } from '../prisma';
 
 // mock searchService：listPosts 收到 keyword 后转交相关度排序，无需真实检索逻辑
@@ -487,5 +487,54 @@ describe('listBookmarks - 我收藏的帖子（过滤已删除帖）', () => {
     expect(mockedBmCount).toHaveBeenCalledWith({ where });
     expect(res.list).toHaveLength(1);
     expect(res.pagination.total).toBe(1);
+  });
+});
+
+describe('comparePosts - 跨帖对比表', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedFindMany.mockResolvedValue([]);
+    mockedCount.mockResolvedValue(0);
+  });
+
+  it('只收有可比主数字的帖子，并带上体裁与可见性过滤', async () => {
+    await comparePosts({ genre: 'review' });
+
+    const arg = mockedFindMany.mock.calls[0][0];
+    expect(arg.where.genre).toBe('review');
+    expect(arg.where.metricValue).toEqual({ not: null });
+    expect(arg.where.status).toBe(1);
+    expect(arg.where.deletedAt).toBeNull();
+    expect(arg.where.user).toEqual({ status: 1, deletedAt: null });
+  });
+
+  it('排序默认按主数字降序、同值用热度收口；order=asc 时翻转', async () => {
+    await comparePosts({ genre: 'review' });
+    expect(mockedFindMany.mock.calls[0][0].orderBy).toEqual([{ metricValue: 'desc' }, { hotScore: 'desc' }]);
+
+    await comparePosts({ genre: 'pitfall', order: 'asc' });
+    expect(mockedFindMany.mock.calls[1][0].orderBy).toEqual([{ metricValue: 'asc' }, { hotScore: 'desc' }]);
+  });
+
+  it('limit 夹在 3~20 之间（对比表一屏最多 20 行）', async () => {
+    await comparePosts({ genre: 'review', limit: 500 });
+    expect(mockedFindMany.mock.calls[0][0].take).toBe(20);
+
+    await comparePosts({ genre: 'review', limit: 1 });
+    expect(mockedFindMany.mock.calls[1][0].take).toBe(3);
+  });
+
+  it('tag 透传 array_contains，行内作者走公开视图（注销匿名化）', async () => {
+    mockedFindMany.mockResolvedValue([
+      { id: 1, title: 'A', metricValue: 4.6, user: { id: 9, nickname: '小百', avatar: null, deletedAt: null } },
+      { id: 2, title: 'B', metricValue: 4.1, user: { id: 8, nickname: '某人', avatar: 'x', deletedAt: new Date() } },
+    ]);
+
+    const res = await comparePosts({ genre: 'review', tag: '数码选购' });
+
+    expect(mockedFindMany.mock.calls[0][0].where.tags).toEqual({ array_contains: '数码选购' });
+    expect(res.rows[0].user).toEqual({ id: 9, nickname: '小百', avatar: null });
+    expect(res.rows[1].user).toEqual({ id: 8, nickname: '已注销用户', avatar: null, deleted: true });
+    expect(res.total).toBe(0);
   });
 });

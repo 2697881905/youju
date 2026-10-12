@@ -4,8 +4,9 @@ import { formatCount } from '../utils/format';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
-import { SpaceTokens } from '../design/tokens/space';
+import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
+import { GlassBlurStyle, getSheetImmersiveMaterial, isSystemMaterialActive } from '../utils/immersiveMaterial';
 import { debateVoteStore } from '../utils/debateVoteStore';
 import { doesTextFitInPoster } from '../utils/poster/posterRender';
 import { ShadowTokens } from '../design/tokens/shadow';
@@ -15,6 +16,7 @@ import { MentionRef, StructuredDocument } from '../models/types';
 import { StructuredSummaryCard } from './StructuredSummaryCard';
 import { structuredSummaryFromPairs } from '../utils/structuredBlocks';
 import { StructuredFlowView } from './StructuredFlowView';
+import { PostCompareSheet } from './PostCompareSheet';
 
 // 详情正文只负责体裁内容的展示；投票的请求和回滚仍由 DetailPage 持有。
 
@@ -29,6 +31,11 @@ export struct DetailPostContent {
   @Prop planA: string = '';
   @Prop planB: string = '';
   @Prop votePostId: number = 0;
+  // —— 跨帖对比表：后端把帖子主数字抽成了派生列，有可比数字才给入口 ——
+  @Prop metricValue: number | null = null;
+  @Prop metricLabel: string = '';
+  @Prop metricText: string = '';
+  @State private compareVisible: boolean = false;
   // 正文 @提及 → 用户映射（后端按 userId 解析入库），命中时点击跳转用户主页
   @Prop mentions: MentionRef[] = [];
   onVote: (choice: string) => void = (_choice: string): void => {};
@@ -233,11 +240,72 @@ export struct DetailPostContent {
     return withoutHeadline(this.pairs);
   }
 
+  // 对比表入口：结构化信息流的「横向价值」——一篇帖子只能给出一个数字，
+  // 而读者真正想知道的是这个数字在同体裁里算高还是算低。
+  @Builder
+  private compareEntry(): void {
+    Row({ space: SpaceTokens.md }) {
+      Column({ space: SpaceTokens.xs }) {
+        Text('同体裁数字对比')
+          .fontSize(TypeTokens.callout.size)
+          .fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.callout.weight)
+          .fontColor(ColorTokens.primary)
+          .width('100%')
+        Text(this.metricLabel.length > 0
+          ? '本篇' + this.metricLabel + ' ' + this.metricText + '，看看排第几'
+          : '本篇主数字 ' + this.metricText + '，看看排第几')
+          .fontSize(TypeTokens.caption.size)
+          .fontFamily(TypeTokens.fontFamily)
+          .fontColor(ColorTokens.secondary)
+          .width('100%')
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+
+      Text('查看')
+        .fontSize(TypeTokens.caption.size)
+        .fontFamily(TypeTokens.fontFamily)
+        .fontWeight(600)
+        .fontColor(ColorTokens.brand)
+        .backgroundColor(ColorTokens.elevated)
+        .borderRadius(RadiusTokens.pill)
+        .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: 7, bottom: 7 })
+    }
+    .width('100%')
+    .padding(SpaceTokens.base)
+    .alignItems(VerticalAlign.Center)
+    .border({ width: LayoutTokens.hairlineWidth, color: ColorTokens.separator, style: BorderStyle.Solid })
+    .borderRadius(RadiusTokens.md)
+    .onClick((): void => { this.compareVisible = true; })
+    .bindSheet($$this.compareVisible, this.compareSheet(), {
+      height: SheetSize.LARGE,
+      dragBar: true,
+      // 材质载体是 SheetOptions.systemMaterial（半模态的唯一生效入口）
+      systemMaterial: getSheetImmersiveMaterial(),
+      blurStyle: isSystemMaterialActive() ? BlurStyle.NONE : GlassBlurStyle.Floating,
+      backgroundColor: isSystemMaterialActive() ? undefined : ColorTokens.canvas,
+      showClose: false,
+      maskColor: '#33000000',
+      onDisappear: (): void => { this.compareVisible = false; },
+    })
+  }
+
+  @Builder
+  private compareSheet(): void {
+    PostCompareSheet({
+      genre: this.genre,
+      highlightPostId: this.votePostId,
+      metricLabel: this.metricLabel,
+      onClose: (): void => { this.compareVisible = false; },
+    })
+  }
+
   build() {
     Column({ space: SpaceTokens.lg }) {
       // V2 用完整视觉信息流；历史帖子继续走旧字段投影，不要求数据迁移后才能阅读。
       if (this.structuredDocument !== null && this.structuredDocument.blocks.length > 0) {
-        StructuredFlowView({ document: this.structuredDocument })
+        StructuredFlowView({ document: this.structuredDocument, checkInPostId: this.votePostId })
           .gesture(this.contentLongPress())
       } else {
         // ⚠️ 字段为空时这两个组件 build 出来是"零节点"，但仍占用父/根 Column 的子槽位——
@@ -253,6 +321,10 @@ export struct DetailPostContent {
           StructuredFieldBlock({ pairs: this.bodyPairs() })
             .gesture(this.contentLongPress())
         }
+      }
+      // 只有后端抽出了可比数字才给入口：没有数字的帖子点进去只能看到一张空表。
+      if (this.metricValue !== null) {
+        this.compareEntry()
       }
       if (this.genre === 'debate') {
         this.debatePanel();

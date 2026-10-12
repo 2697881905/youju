@@ -79,6 +79,27 @@ router.get('/trash', auth, asyncHandler(async (req: AuthRequest, res: Response) 
   return ok(res, await postService.listTrashedPosts(req.userId!, page, limit));
 }));
 
+// 跨帖对比表：GET /v1/posts/compare?genre=review&tag=数码选购&order=desc&limit=10
+// 软鉴权（匿名可看，登录时排除拉黑/隐私作者）。
+// ⚠️ 必须注册在 GET /:id 之前，否则 /compare 会被当成 id='compare' 落进详情路由。
+router.get('/compare', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const genre = req.query.genre;
+  if (typeof genre !== 'string' || !['review', 'pitfall', 'tutorial', 'debate', 'share'].includes(genre)) {
+    return fail(res, CODE.BAD_REQUEST, '体裁参数无效');
+  }
+  const order = req.query.order === 'asc' ? 'asc' : 'desc';
+  const tag = typeof req.query.tag === 'string' && req.query.tag.length > 0 ? req.query.tag : undefined;
+  const viewerId = await resolveOptionalUserId(req);
+  const data = await postService.comparePosts({
+    genre,
+    tag,
+    order,
+    limit: parseLimit(req.query.limit, 10),
+    viewerId,
+  });
+  return ok(res, data);
+}));
+
 // 帖子详情：GET /v1/posts/:id
 // 软鉴权：匿名可访问公开帖；废纸篓中的软删除帖仅允许原作者带 token 查看。
 router.get('/:id', asyncHandler(async (req: AuthRequest, res: Response) => {

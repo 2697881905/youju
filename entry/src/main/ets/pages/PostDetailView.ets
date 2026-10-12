@@ -1836,6 +1836,9 @@ export struct PostDetailView {
                 planA: this.planTextOf('方案A'),
                 planB: this.planTextOf('方案B'),
                 votePostId: this.post.id ?? 0,
+                metricValue: this.post.metricValue ?? null,
+                metricLabel: this.post.metricLabel ?? '',
+                metricText: this.post.metricText ?? '',
                 mentions: this.post.mentions ?? [],
                 onVote: (choice: string): void => { this.onDebateVote(choice); },
                 // 长按结构化卡片弹「复制正文」菜单（正文 Text 自带系统文本选择，见组件内说明）

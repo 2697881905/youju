@@ -5,6 +5,7 @@ import settings from '@ohos.settings';
 import { initNavModeWatcher, refreshNavMode, refreshBottomNavInset } from '../utils/navMode';
 import { initBreakpointCenter } from '../utils/breakpointCenter';
 import { initSessionStore } from '../utils/sessionStore';
+import { stepCheckStore } from '../utils/stepCheckStore';
 import { initThemeContext, loadThemeFromPrefs, applyLaunchTheme, applySystemFollowMode, isDarkMode } from '../utils/theme';
 import { enqueuePushRoute, readPushRoute, readDeepLinkRoute } from '../utils/push';
 
@@ -19,6 +20,7 @@ export default class EntryAbility extends UIAbility {
     // 会话改由 dataPreferences 独立文件恢复；此处传双上下文（应用级存会话，ability 级定位旧文件迁移）。
     initSessionStore(this.context.getApplicationContext(), this.context);
     initThemeContext(this.context.getApplicationContext());
+    stepCheckStore.init(this.context.getApplicationContext());
     loadThemeFromPrefs();
     const sysDark: boolean = Number(this.context.config.colorMode) === ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
     AppStorage.setOrCreate('systemDark', sysDark);

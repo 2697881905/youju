@@ -62,6 +62,13 @@ model Post {
   structuredData Json? // 结构化字段（体裁不同，内容不同）
   structuredDocument Json? // V2 通用信息块文档（双读兼容，新增帖子优先写入）
   structuredSearchText String? @db.Text // 结构化块展平后的检索文本
+  // 帖子主数字（主视觉 metric 块，缺省取首个数字块）抽出来的可排序列：跨帖对比表按它排，
+  // JSON 路径排序既吃不到索引也慢。四列同生同灭——取不到有限数值时一起留 NULL，
+  // 「没有可比数字」与「数字是 0」不能混为一谈。
+  metricValue   Float?
+  metricKind    String? @db.VarChar(16) // score | amount | duration | percent | count | plain
+  metricLabel   String? @db.VarChar(30) // 数字块标题，即「在比什么」（推荐指数 / 到手价 / 耗时）
+  metricText    String? @db.VarChar(40) // 作者原样的展示串（"4.6 分" / "1,299 元"），对比表直接显示
   mentions       Json? // 正文 @提及 解析结果 [{name: 昵称, userId}]，供前端点击跳转用户主页
   upCount        Int      @default(0)
   bookmarkCount  Int      @default(0)
@@ -81,6 +88,7 @@ model Post {
   bookmarks Bookmark[]
 
   @@index([hotScore, status, deletedAt]) // 推荐/热榜按热度检索（未删+已发布过滤走 where，索引前缀含 hotScore）
+  @@index([genre, status, deletedAt, metricValue]) // 跨帖对比表：同体裁内按主数字排序取前 N
 }
 
 // 评论表
