@@ -1,7 +1,5 @@
 # 「有据」AGC 上架前全面工程审查报告
 
-> **品牌过渡说明**：本报告中的 `api.mindtype.cn` 为当时的过渡域名（项目曾用名 MindType），现已统一迁移至 `api.youju.chat`。其他结论依然有效。
-
 - 应用：有据 youju · com.youju.app · HarmonyOS NEXT（API 24，ArkTS V1 严格模式）
 - 审查方式：静态代码审查 + 生产只读探测（curl/openssl，未改动任何环境）
 - 审查时间：2026-08-16 · 审查范围：前端 entry/ · 后端 backend/ · MySQL · COS · 华为 AGC 集成
@@ -27,7 +25,7 @@
 | ID | 定位 | 影响 | 修复方案 | 优先级 |
 |---|---|---|---|---|
 | B1 | `entry/src/main/module.json5:52` client_id=`6917613566723435312`；`entry/src/main/resources/rawfile/agconnect-services.json` app_id/oauth_client.client_id=`118624731`（8/13 旧应用）**不一致**；该文件含**明文 client_secret** 且被 git 跟踪 | Account Kit 登录读 module.json5（正常），但 Push Kit/AGC 云服务初始化若读 rawfile 会指向旧应用；凭据入库泄露面；审核一致性风险 | ① 人工核对 AGC 后台当前应用 App ID ② 从 AGC 重新下载与 Release Profile 匹配的 agconnect-services.json 覆盖 ③ rawfile 移除 client_secret（仅留后端 .env）④ 加三处一致性校验 | P0 |
-| B2 | `entry/src/main/ets/services/api.ets:11-14` release BASE_URL=`https://api.mindtype.cn` | 生产探测显示后端/COS 配置正常，但 **release 包全链路（华为登录→上传→发布→消费）未真机回归**；hdc rport 逻辑 release 不适用 | 真机安装 release 签名包，回归登录/发布/图片视频/详情/私信全链路；华为登录真机验证 client_id 与签名指纹 | P0 |
+| B2 | `entry/src/main/ets/services/api.ets:11-14` release BASE_URL=`https://api.youju.chat` | 生产探测显示后端/COS 配置正常，但 **release 包全链路（华为登录→上传→发布→消费）未真机回归**；hdc rport 逻辑 release 不适用 | 真机安装 release 签名包，回归登录/发布/图片视频/详情/私信全链路；华为登录真机验证 client_id 与签名指纹 | P0 |
 | B4 | `backend/src/services/uploadService.ts:65,83` PUT 预签名 600s / GET 预签名 **2592000s(30天)**；viewUrl 落库静态保存；`grep deleteObject` 仅注释无实现；桶预期私有（L74 注释） | 上线 30 天后**全部历史图片 viewUrl 过期 404**；删除/注销后对象残留 COS 最长 30 天可达（PIPL 删除权缺口） | ① 立即确认桶 ACL（公开读则风险降级）② DB 改存 key，viewUrl 后端按需动态签发（短时效）或桶公开/CDN 化 ③ 删帖/注销/举报下架时级联 `deleteObject` | P0 |
 
 ### 🟠 高
@@ -78,7 +76,7 @@
 | 版本号 versionCode/Name | 1000000 / 1.0.0，未回退 | app.json5:5-6 | ✅（提交前在 AGC 后台核对是否与已提版本冲突） |
 | 签名一致性 | key4 最新 app_gallery Release Profile，app-identifier=6917613566723435312 与 client_id 一致 | build-profile.json5:3-17；~/.ohos/config/youju-release-key4-20260815Release.p7b | ✅（Profile 无 device-ids，本地真机调试会 9568332，不影响上架） |
 | 权限声明 | 仅 INTERNET + STORE_PERSISTENT_DATA，无 user_grant | module.json5:55-62 | ✅（STORE_PERSISTENT_DATA 建议核实后移除） |
-| 隐私政策（公开） | 已部署 api.mindtype.cn/privacy，含运营主体/真实邮箱/SDK 清单/未成年人条款 | 实测 200 | ✅ |
+| 隐私政策（公开） | 已部署 api.youju.chat/privacy，含运营主体/真实邮箱/SDK 清单/未成年人条款 | 实测 200 | ✅ |
 | 隐私政策（App 内） | **7/20 陈旧版，占位邮箱、缺 SDK 清单** | PrivacyPage.ets:68 | ❌ H1（驳回点） |
 | 用户协议（App 内） | **陈旧版，占位邮箱** | UserAgreementPage.ets:76 | ❌ H1 |
 | 首启隐私弹窗 | 有，同意才继续，不同意退出；已登录落地 PIPL 记录 | Index.ets:239-267 | ✅（缺「查看全文」链接 → M5） |
@@ -165,13 +163,13 @@
 
 ```bash
 # 生产探测（只读）
-curl -sI https://api.mindtype.cn/health                          # 200 + helmet 头
-curl -s  https://api.mindtype.cn/health                          # {"ok":true}
-echo | openssl s_client -connect api.mindtype.cn:443 -servername api.mindtype.cn 2>/dev/null | openssl x509 -noout -subject -dates -ext subjectAltName
-curl -s -i -X OPTIONS https://api.mindtype.cn/v1/posts -H "Origin: https://youju-app.com" -H "Access-Control-Request-Method: GET" | grep -i access-control
-curl -s -X POST https://api.mindtype.cn/v1/auth/login -H "Content-Type: application/json" -d '{}'   # 期望 403
-curl -sL https://api.mindtype.cn/privacy | grep -oE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
-curl -sI http://api.mindtype.cn/health                            # 期望 301
+curl -sI https://api.youju.chat/health                          # 200 + helmet 头
+curl -s  https://api.youju.chat/health                          # {"ok":true}
+echo | openssl s_client -connect api.youju.chat:443 -servername api.youju.chat 2>/dev/null | openssl x509 -noout -subject -dates -ext subjectAltName
+curl -s -i -X OPTIONS https://api.youju.chat/v1/posts -H "Origin: https://api.youju.chat" -H "Access-Control-Request-Method: GET" | grep -i access-control
+curl -s -X POST https://api.youju.chat/v1/auth/login -H "Content-Type: application/json" -d '{}'   # 期望 403
+curl -sL https://api.youju.chat/privacy | grep -oE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
+curl -sI http://api.youju.chat/health                            # 期望 301
 
 # 静态定位
 grep -n client_id entry/src/main/module.json5 entry/src/main/resources/rawfile/agconnect-services.json

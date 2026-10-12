@@ -1,6 +1,6 @@
 # Logo Concepts (历史归档 · 早期书本方向)
 
-> **⚠️ 此目录是早期「大蓝书」书本造型 Logo 的探索归档，已被新品牌方向取代。**
+> **⚠️ 此目录是早期「书本造型」Logo 方向的探索归档，已被新品牌方向取代。**
 >
 > 当前「有据」品牌图标采用 `../youju-logo-concepts/youju-v2-citation-anchor.png`（深墨色引文括号 + 蓝色锚点，无书本造型），已应用到 `AppScope/resources/base/media/foreground.png`、`entry/src/main/resources/base/media/{foreground,startIcon,logo}.png`。
 >
