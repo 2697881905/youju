@@ -23,8 +23,6 @@ interface PickedImage {
 export struct ImagePicker {
   @Link @Watch('onSelectedChange') selected: string[]; // 远端 URL 列表（发布用）
   @Prop maxCount: number = 9;
-  @Prop @Watch('onPickerRequestChanged') pickerRequest: number = 0;
-  @Prop autoOpen: boolean = false;
   @State items: PickedImage[] = []; // 本地预览 + 上传态（与 selected 同序）
   @State picking: boolean = false;
   private pickSeq: number = 0;
@@ -64,15 +62,6 @@ export struct ImagePicker {
 
   aboutToAppear(): void {
     this.onSelectedChange();
-    if (this.autoOpen && this.pickerRequest > 0) {
-      this.pick();
-    }
-  }
-
-  private onPickerRequestChanged(): void {
-    if (this.pickerRequest > 0) {
-      this.pick();
-    }
   }
 
   // 直传二进制到预签名 URL

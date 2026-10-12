@@ -51,7 +51,6 @@ struct PhotoPublishPage {
   @State showFields: boolean = true;
   @State showTagPanel: boolean = false;
   @State editingSavedDraftId: string = '';
-  @State imagePickerRequest: number = 0;
   @StorageLink('authUserId') @Watch('onUserChange') uid: string = '';
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
   @State categoryList: string[] = [];
@@ -276,10 +275,8 @@ struct PhotoPublishPage {
     }
     this.lastPublishFlowRevision = session.revision;
     if (session.intent === 'new') {
+      // 新发布不自动弹系统相册：三种方式一律落在编辑页，选图由图片区的「+ 添加」触发。
       this.reset();
-      if (session.mode === 'photo') {
-        this.imagePickerRequest += 1;
-      }
       return;
     }
     if (session.intent === 'edit' && session.previewDraft !== null) {
@@ -374,8 +371,6 @@ struct PhotoPublishPage {
       ImagePicker({
         selected: $images,
         maxCount: MAX_PICKED_IMAGES,
-        pickerRequest: this.imagePickerRequest,
-        autoOpen: this.imagePickerRequest > 0,
       })
     }
   }
