@@ -828,7 +828,12 @@ export struct HomeTab {
           // 推荐/关注流：Scroll 显式双列（Swiper 每页独立，见 feedScroll）
           // ⚠️ Refresh 默认裁切子节点：不关掉它，滚动内容被切在栏底，穿底+渐变模糊失效
           // （验证页无 Refresh 层所以没暴露；真机首页实测卡片流无法穿底、栏底实色的根因）
-          Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
+          // refreshing 走 $$ 双向绑定：刷新态由组件内部状态机（Drag→OverDrag→Refresh→Done）自己写入，
+          // 外部不再手动置 true。旧实现单向绑定 + onRefreshing 里手动置位，组件内部手势态与外部变量
+          // 不同源——Refresh 嵌在 Swiper 里横向切页时手势竞争，内部停在刷新态而外部已置 false，
+          // 顶部「刷新中…」常驻收不回（对齐 MyFollowView.ets:239）。
+          // 注意：onRefreshing 里不能加 isRefreshing 重入守卫——双向绑定下组件已置 true，提前 return 会永远停在 true。
+          Refresh({ refreshing: $$this.isRefreshing, builder: this.refreshBuilder }) {
             this.feedScroll(seg)
           }
           .onStateChange((state: RefreshStatus) => {
@@ -837,7 +842,6 @@ export struct HomeTab {
               || state === RefreshStatus.OverDrag || state === RefreshStatus.Refresh;
           })
           .onRefreshing(() => {
-            this.isRefreshing = true;
             this.refresh().finally(() => {
               this.isRefreshing = false;
             });
