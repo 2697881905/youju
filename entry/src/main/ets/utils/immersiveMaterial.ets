@@ -128,3 +128,34 @@ export class TopButtonMaterialModifier implements AttributeModifier<CommonAttrib
     }
   }
 }
+
+// 半模态/弹框材质实例进程级缓存：只在门禁内创建，低版本设备永不执行构造。
+let sheetImmersiveMaterial: uiMaterial.Material | null = null;
+
+/**
+ * 半模态（bindSheet）沉浸光感材质工厂。**载体纠正**（本次「面板全透明」根因）：
+ * HarmonyOS 7（API 26）起，把 systemMaterial 挂在普通内容组件（如 bindSheet builder 内的
+ * Column）属于生效范围外，完全不渲染——之前既把材质挂在内容 Column、又把卡片
+ * backgroundColor 置为 Color.Transparent，两者叠加后面板只剩遮罩底层 → 全透明。
+ * 官方文档明确：「半模态转场」属弹窗类接口，沉浸光感可在全页面生效，且通过
+ * options 参数中的 systemMaterial 字段设置（本 SDK 已声明 SheetOptions.systemMaterial
+ * @since 26.0.0）——这才是半模态的唯一正确载体。
+ *
+ * @returns API ≥ 26（门禁通过）返回 ULTRA_THICK 沉浸光感材质，供 SheetOptions.systemMaterial 使用；
+ *          API < 26 / 模拟器 / OpenHarmony 返回 undefined，使用处按 isSystemMaterialActive() 回退
+ *          elevated 实色底，且绝不触碰 uiMaterial 构造（避免低版本加载即崩）。
+ */
+export function getSheetImmersiveMaterial(): uiMaterial.Material | undefined {
+  if (!deviceInfo.apiAvailable('26.0.0')) {
+    return undefined;
+  }
+  if (sheetImmersiveMaterial === null) {
+    sheetImmersiveMaterial = new uiMaterial.ImmersiveMaterial({
+      // 沉浸光感设计指南 · 场景规范：半模态 / 弹框 → ULTRA_THICK（极强模糊）。
+      style: uiMaterial.ImmersiveStyle.ULTRA_THICK,
+      // 面板为静态承载容器，非按压控件，关闭触控形变。
+      interactive: false,
+    });
+  }
+  return sheetImmersiveMaterial;
+}

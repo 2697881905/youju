@@ -41,7 +41,7 @@ import { AnimateCallback, CustomTransition } from '../utils/longTake/customNavig
 import { setSerifTypeface, setSerifBodyTypeface } from '../utils/poster/posterText';
 import { drawing } from '@kit.ArkGraphics2D';
 import { HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
-import { isImmersiveLightSenseSupported, isSystemMaterialActive, TopButtonMaterialModifier } from '../utils/immersiveMaterial';
+import { isImmersiveLightSenseSupported, isSystemMaterialActive, TopButtonMaterialModifier, GlassBlurStyle, getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
 import { BottomTabBar } from '../design/components/BottomTabBar';
 import { PostDetailDestination } from './PostDetailDestination';
 import { UserProfileDestination } from './UserProfileDestination';
@@ -323,13 +323,9 @@ struct Index {
   // 导航栈：主框架为 Navigation 首页，帖子详情等走 navDestination（首页卡片一镜到底）
   private pageStack: NavPathStack = new NavPathStack();
   private unsubscribeTabSwitch: () => void = () => {};
-  private publishModeController: CustomDialogController = new CustomDialogController({
-    builder: PublishModeSheet({
-      onSelect: (mode: PublishMode): void => { this.openPublish(mode); },
-    }),
-    alignment: DialogAlignment.Center,
-    customStyle: true,
-  });
+  // 发布方式面板：bindSheet 半模态（SheetType.CENTER + detents FIT_CONTENT），双向绑定控制显隐。
+  // 手势下滑 / 返回键 / 点遮罩关闭时由 $$ 与 onDisappear 同步回 false，无需 CustomDialogController。
+  @State showPublishSheet: boolean = false;
   // 剪贴板分享链接确认面板：命中 youju.chat/post/{id} 后由用户决定是否打开
   private clipboardSheetController: CustomDialogController = new CustomDialogController({
     builder: ClipboardPostSheet({
@@ -820,8 +816,18 @@ struct Index {
     this.getUIContext().getRouter().pushUrl({ url: url });
   }
 
+  // 发布方式面板内容：选项点击先同步收起面板（dismiss），再走发布流程；
+  // 面板内关闭按钮同样走 dismiss，状态由 showPublishSheet 单点驱动
+  @Builder
+  publishModeSheetBuilder() {
+    PublishModeSheet({
+      onSelect: (mode: PublishMode): void => { this.openPublish(mode); },
+      dismiss: (): void => { this.showPublishSheet = false; },
+    })
+  }
+
   private showPublishModeDialog(): void {
-    this.publishModeController.open();
+    this.showPublishSheet = true;
   }
 
   private broadcastCircleLogoDismissal(): void {
@@ -1426,5 +1432,37 @@ struct Index {
     // 所有页面点击统一通知圈子页；Logo 点击由 CircleTab 的时间戳保护过滤。
     .onClick((): void => { this.broadcastCircleLogoDismissal(); })
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
+    // 发布方式面板（原 CustomDialogController + PublishModeSheet 改造）：系统半模态承载，
+    // CENTER 形态 + FIT_CONTENT 自适应高度。可读表面完全由 SheetOptions 原生参数承担：
+    // ① 沉浸光感的唯一正确载体是 SheetOptions.systemMaterial（@since 26，官方：半模态转场属
+    //    弹窗类接口、可全页面生效，材质经 options.systemMaterial 设置）；挂在内容 Column 的通用
+    //    属性 systemMaterial 在 API 26 内容区不渲染（此前面板全透明的根因）。
+    // ② 两分支都有可读底：高版本交给系统 ULTRA_THICK 材质；低版本/模拟器用 blurStyle 原生毛玻璃
+    //    + elevated 实色兜底。禁止靠调内部元素透明度救面板（audit §根因提醒）。
+    // 关闭按钮/标题栏由内容自绘（showClose:false），手势/返回/遮罩关闭后 onDisappear 同步状态。
+    .bindSheet($$this.showPublishSheet, this.publishModeSheetBuilder(), {
+      detents: [SheetSize.FIT_CONTENT],
+      preferType: SheetType.CENTER,
+      showClose: false,
+      dragBar: false,
+      // 半模态沉浸光感材质：API≥26 返回 ULTRA_THICK 材质，否则 undefined（内部按门禁惰性构造）。
+      systemMaterial: getSheetImmersiveMaterial(),
+      // 始终叠一层系统原生半模态毛玻璃（BACKGROUND_THICK）：材质生效时增强通透，
+      // 材质不生效（低版本/模拟器/OS 回退）时它本身就是不透光的可读磨砂面。
+      blurStyle: GlassBlurStyle.Floating,
+      // 材质生效时背景交给系统材质；否则用 canvas 底——面板内三张卡是 elevated 表面，
+      // canvas→elevated 正是全 app 既有卡片惯例（BaseCard），保证卡片在深浅色下都浮得起、可读。
+      backgroundColor: isSystemMaterialActive() ? undefined : ColorTokens.canvas,
+      radius: {
+        topLeft: RadiusTokens.lg,
+        topRight: RadiusTokens.lg,
+        bottomLeft: RadiusTokens.lg,
+        bottomRight: RadiusTokens.lg,
+      },
+      // 低版本实色底配 1px separator 描边确立边界；材质档由系统自带边缘高光，去掉自绘描边。
+      borderWidth: isSystemMaterialActive() ? 0 : 1,
+      borderColor: ColorTokens.separator,
+      onDisappear: (): void => { this.showPublishSheet = false; },
+    })
   }
 }
