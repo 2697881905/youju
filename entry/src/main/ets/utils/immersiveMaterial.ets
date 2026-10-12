@@ -112,6 +112,13 @@ function getTopButtonMaterial(): uiMaterial.Material {
       style: uiMaterial.ImmersiveStyle.ULTRA_THIN,
       // 按压交互形变：指尖触控牵引材质形变，强化 Z 轴空间反馈。
       interactive: true,
+      // 投影关闭（API 26 默认 true，真机实证）：ImmersiveMaterial 的投影画在组件外圈，
+      // 而挂材质的控件都在 HdsNavigation 标题栏的行内——bottomBuilder 行（BottomCustomNode）
+      // clip=true 且只比控件高 4vp，投影被拦腰裁死在「标题区/内容区」交界处，
+      // 渲染成一条硬边灰带（比 canvas 暗 8~14 级），正是「分段栏下方图层颜色不一致」的根因。
+      // 材质只在标题栏官方生效区内渲染，内容区的同材质实例本就不出图，所以此处关闭
+      // 不影响任何内容区按钮；半模态材质（getSheetImmersiveMaterial）保留默认投影。
+      applyShadow: false,
     });
   }
   return topButtonMaterial;

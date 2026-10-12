@@ -154,6 +154,7 @@ function getTopButtonMaterial(): uiMaterial.Material {
     topButtonMaterial = new uiMaterial.ImmersiveMaterial({
       style: uiMaterial.ImmersiveStyle.ULTRA_THIN, // 顶部常驻档
       interactive: true,                            // 按压形变
+      applyShadow: false,                           // 投影必关，见案例 9
     });
   }
   return topButtonMaterial;
@@ -261,6 +262,7 @@ private xxxTitleBarHeight(): number {
 6. **原生 Search 放大镜比输入框高 / 材质发浊** → 未显式定高导致内部按真实高度定位；自带默认材质与叠加材质成双层 → 定高统一 + "底色写在材质之前（被清透明）"。
 7. **圈子下拉在标题栏里点不到** → 面板/遮罩向下溢出标题栏，触摸命中不到 → chip 留栏内、面板与遮罩移到内容区。
 8. **低版本设备风险** → 必须字面量门禁 + 编译期降级（产物里可见 `__mockApiAvailable`），低版本自动回退原样式。
+9. **「分段栏下方一条灰带，与标题区/内容区颜色不一致」（真机灰度实测：canvas 255，带内 250~254，紧贴胶囊下沿 241，在标题区/内容区交界 406px 处硬切）** → `ImmersiveMaterial` 的 `applyShadow` 默认为 `true`，投影画在组件外圈；而挂材质的控件都在 `bottomBuilder` 行内，该行（`BottomCustomNode`）`clip=true` 且只比控件高 4vp，投影被拦腰裁切 → 残留部分渲染成带硬边的灰带（首页/消息页同源，非消息页专属）。→ 材质构造显式 `applyShadow: false`（真机复测：交界全列 255，深浅两态、首页/消息页均无带）。**不要**试图靠加大 `bottomBuilder.height` 给投影留位：投影横向扩散 ≥32vp，行高需 ~100vp 才装得下，代价远大于收益。
 
 ---
 

@@ -13,7 +13,7 @@ import { ColorTokens } from '../design/tokens/color';
 import { StarPalette, DARK_PALETTE, PAPER_PALETTE, StarDot, STAR_DOTS } from '../design/tokens/starPalette';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { RadiusTokens } from '../design/tokens/radius';
-import { SpaceTokens } from '../design/tokens/space';
+import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 
 // 帖子星星渲染模型：坐标为画布内绝对 vp（布局时按测得区域计算，确定性可复现）。
@@ -471,7 +471,9 @@ export struct CircleUniverse {
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)
-      .margin({ top: this.statusBarHeight + SpaceTokens.sm })
+      // 宇宙画布从窗口原点铺开（圈子页顶栏不占内容区），头部要自己让开
+      // 「状态栏 + 悬浮品牌行」，否则「返回星图」会压在「圈子」标题那一条上。
+      .margin({ top: this.statusBarHeight + LayoutTokens.titleBarHeight + SpaceTokens.xs })
       .hitTestBehavior(HitTestMode.Transparent)
 
       // —— 底部提示 + 完整圈子页入口 ——

@@ -20,6 +20,16 @@ export interface OrbitCircleItem {
   magnitude: number;
 }
 
+// 星子数据源：一颗星 = 一篇真实帖子（父页面从最新帖子流构造）。
+// 不能靠「活跃圈」近似（useCount/activity）：这些字段在老后端恒为 0，
+// 星池会塌缩成唯一一个圈子——表现为「点多少颗星都打开同一篇帖子」。
+export interface OrbitSeedPost {
+  postId: number;
+  name: string;
+  // 队列里最热的一篇 → 金色星芒
+  gold: boolean;
+}
+
 // 帖子星子（原型 spawnSeed）：新帖化作光点在活跃行星旁浮现，寿命 15s，点击直达。
 // 关键：行星在公转而星子若静态落点，几秒后行星会「转到星子上」——用户点看到的
 // 星星实际点中了行星。故星子保存「相对行星的偏移」，渲染时跟随行星当前位置。
@@ -28,6 +38,7 @@ interface SeedItem {
   dx: number;
   dy: number;
   name: string;
+  postId: number;
   gold: boolean;
 }
 
@@ -35,6 +46,7 @@ interface SeedItem {
 interface SeedView {
   id: number;
   name: string;
+  postId: number;
   dx: number;
   dy: number;
   gold: boolean;
@@ -75,6 +87,8 @@ export struct CircleOrbitCanvas {
   @Prop nickname: string = '';
   // Tab 切走时父页面置 false：暂停星子投放（隐藏组件不应持续触发自绘与状态刷新）
   @Prop live: boolean = true;
+  // 星子数据源：父页面按「最新帖子流」给出每颗星对应的那篇帖子（空 = 星图不出星子）。
+  @Prop @Watch('onOrbitDataChanged') seedPosts: OrbitSeedPost[] = [];
   // 星图双主题：深色=墨空星图 / 浅色=纸上星图（随应用 isDarkMode 切换）
   @StorageLink('isDarkMode') darkMode: boolean = false;
   onPlanet: (name: string) => void = (_name: string): void => {};
@@ -84,8 +98,8 @@ export struct CircleOrbitCanvas {
   onGravityStart: (name: string) => void = (_name: string): void => {};
   onGravityEnd: (name: string, distance: number) => void = (_name: string, _distance: number): void => {};
   onGravityBlocked: (name: string) => void = (_name: string): void => {};
-  // 星子点击：直达该圈子最新帖
-  onSeedTap: (name: string) => void = (_name: string): void => {};
+  // 星子点击：直达这颗星子所代表的那篇帖（postId<=0 时由父页面兜底解析）
+  onSeedTap: (name: string, postId: number) => void = (_name: string, _postId: number): void => {};
   // 手势按下时回报「触点落在哪一条环」（环序号，判不出来时为 -1）：
   // 环的判定依赖半径与画布几何，因此留在本组件；父页面只消费结果。
   onPanStart: (ring: number) => void = (_ring: number): void => {};
@@ -155,6 +169,8 @@ export struct CircleOrbitCanvas {
   private seedIntervalTimer: number = 0;
   private seedTimers: number[] = [];
   private seedPulseStarted: boolean = false;
+  // 本次进入星图后已被点开的帖子：不再重复投放（星子=「去读这一帖」，读过即完成）。
+  private openedPostIds: number[] = [];
 
   aboutToAppear(): void {
     // 首颗 1.5s 后出现，之后每 3.2s 尝试投放（原型同款节奏）
@@ -179,14 +195,13 @@ export struct CircleOrbitCanvas {
     if (!this.live || this.seeds.length >= 6) {
       return;
     }
-    const pool: OrbitCircleItem[] = this.circles.filter(
-      (circle: OrbitCircleItem): boolean => circle.active || circle.unread > 0);
-    if (pool.length === 0) {
-      return;
-    }
     // 每颗行星同时最多一颗星子：重复投放会星子叠星子（点 A 也命中 B），观感与命中都差。
-    const candidates: OrbitCircleItem[] = pool.filter(
-      (circle: OrbitCircleItem): boolean => !this.seeds.some((s: SeedItem): boolean => s.name === circle.name));
+    // 本次点开过的帖子不再投放——星子代表「去读这一帖」，读过还悬着是噪音。
+    const seeded: string[] = this.seeds.map((s: SeedItem): string => s.name);
+    const candidates: OrbitSeedPost[] = this.seedPosts.filter(
+      (post: OrbitSeedPost): boolean => this.circles.some((c: OrbitCircleItem): boolean => c.name === post.name)
+        && seeded.indexOf(post.name) < 0
+        && this.openedPostIds.indexOf(post.postId) < 0);
     if (candidates.length === 0) {
       return;
     }
@@ -197,7 +212,7 @@ export struct CircleOrbitCanvas {
         this.seedPulseOpacity = 1;
       });
     }
-    const circle: OrbitCircleItem = candidates[Math.floor(Math.random() * candidates.length)];
+    const post: OrbitSeedPost = candidates[Math.floor(Math.random() * candidates.length)];
     // 绕行星环形偏移（60~90vp）：行星命中半径 20 + 星子命中半径 28 = 48 < 60，
     // 两盒永不相交，且星子随行星公转固定悬于一侧——彻底消除「点星星误开星球」。
     const ang: number = Math.random() * Math.PI * 2;
@@ -206,8 +221,9 @@ export struct CircleOrbitCanvas {
       id: this.seedNextId++,
       dx: Math.cos(ang) * dist,
       dy: Math.sin(ang) * dist,
-      name: circle.name,
-      gold: Math.random() < 0.16,
+      name: post.name,
+      postId: post.postId,
+      gold: post.gold,
     };
     this.seeds.push(seed);
     this.recomputeSeedViews();
@@ -218,13 +234,16 @@ export struct CircleOrbitCanvas {
     this.seedTimers.push(life);
   }
 
-  // SeedStar 回报点击：按 id 移除对应星子并转发父页面（直达该圈）。
+  // SeedStar 回报点击：按 id 移除对应星子并转发父页面（直达这颗星所代表的那篇帖）。
   private tapSeedById(id: number): void {
     const hit: SeedItem | undefined = this.seeds.find((s: SeedItem): boolean => s.id === id);
     this.seeds = this.seeds.filter((s: SeedItem): boolean => s.id !== id);
     this.recomputeSeedViews();
     if (hit !== undefined) {
-      this.onSeedTap(hit.name);
+      if (this.openedPostIds.indexOf(hit.postId) < 0) {
+        this.openedPostIds.push(hit.postId);
+      }
+      this.onSeedTap(hit.name, hit.postId);
     }
   }
 
@@ -246,6 +265,7 @@ export struct CircleOrbitCanvas {
       return {
         id: seed.id,
         name: seed.name,
+        postId: seed.postId,
         dx: seed.dx,
         dy: seed.dy,
         gold: seed.gold,
@@ -261,7 +281,7 @@ export struct CircleOrbitCanvas {
     ForEach(this.seedViews, (view: SeedView) => {
       SeedStar({
         view: view,
-        ringAngles: this.ringAngles,
+        ringAngle: this.angleFor(view.ring),
         galaxySize: this.galaxySize,
         canvasH: this.canvasHeight(),
         pulseScale: this.seedPulseScale,
@@ -335,7 +355,7 @@ export struct CircleOrbitCanvas {
       onGravityStart: (name: string): void => { this.onGravityStart(name); },
       onGravityEnd: (name: string, distance: number): void => { this.onGravityEnd(name, distance); },
       onGravityBlocked: (name: string): void => { this.onGravityBlocked(name); },
-      onSeedTap: (name: string): void => { this.onSeedTap(name); },
+      onSeedTap: (name: string, postId: number): void => { this.onSeedTap(name, postId); },
     })
   }
 
@@ -449,7 +469,7 @@ struct OrbitRingLayer {
   onGravityStart: (name: string) => void = (_name: string): void => {};
   onGravityEnd: (name: string, distance: number) => void = (_name: string, _distance: number): void => {};
   onGravityBlocked: (name: string) => void = (_name: string): void => {};
-  onSeedTap: (name: string) => void = (_name: string): void => {};
+  onSeedTap: (name: string, postId: number) => void = (_name: string, _postId: number): void => {};
 
   private ch(): number {
     return this.canvasH > 0 ? this.canvasH : this.galaxySize;
@@ -493,7 +513,7 @@ struct OrbitRingLayer {
           onGravityStart: (name: string): void => { this.onGravityStart(name); },
           onGravityEnd: (name: string, distance: number): void => { this.onGravityEnd(name, distance); },
           onGravityBlocked: (name: string): void => { this.onGravityBlocked(name); },
-          onSeedTap: (name: string): void => { this.onSeedTap(name); },
+          onSeedTap: (name: string, postId: number): void => { this.onSeedTap(name, postId); },
         })
       }, (circle: OrbitCircleItem) => circle.name)
     }
@@ -548,7 +568,7 @@ struct OrbitPlanet {
   onGravityStart: (name: string) => void = (_name: string): void => {};
   onGravityEnd: (name: string, distance: number) => void = (_name: string, _distance: number): void => {};
   onGravityBlocked: (name: string) => void = (_name: string): void => {};
-  onSeedTap: (name: string) => void = (_name: string): void => {};
+  onSeedTap: (name: string, postId: number) => void = (_name: string, _postId: number): void => {};
 
   aboutToAppear(): void {
     if (this.isCentered()) {
@@ -842,7 +862,8 @@ struct OrbitPlanet {
         // 星子脉动：呼吸缩放+明暗（animateTo 无限交替，见 startSeedBreath）
         .scale({ x: this.seedScale, y: this.seedScale })
         .opacity(this.seedOpacity)
-        .onClick((): void => { this.onSeedTap(this.name); })
+        // 未读角标 = 该圈最新一帖（无帖子 id，postId 传 0 由父页面解析）
+        .onClick((): void => { this.onSeedTap(this.name, 0); })
       }
       Column({ space: SpaceTokens.inlineTight }) {
         Text(this.name)
@@ -906,10 +927,13 @@ struct OrbitPlanet {
 // 每帧按行星实时轨道角换算自身位置——星子永远悬在行星固定一侧 60~90vp 处，
 // 与行星命中盒（半径 20）几何不相交（星子命中半径 28，间距 ≥12vp），
 // 从根上消除「点星星误开星球」：不存在重叠，也就不需要触点仲裁。
+// 实时角度必须是「本星所属环」的标量 @Prop：数组 @Prop 在 keyed ForEach 的子组件里
+// 不随父刷新（真机实测：传 ringAngles 数组时星子冻结在生成位置，行星转过去后
+// 点星星命中的是路过的行星）。
 @Component
 struct SeedStar {
-  @Prop view: SeedView = { id: 0, name: '', dx: 0, dy: 0, gold: false, baseAngle: 0, radius: 0, ring: -1 };
-  @Prop ringAngles: number[] = [0, 0, 0];
+  @Prop view: SeedView = { id: 0, name: '', postId: 0, dx: 0, dy: 0, gold: false, baseAngle: 0, radius: 0, ring: -1 };
+  @Prop ringAngle: number = 0;
   @Prop galaxySize: number = 343;
   @Prop canvasH: number = 0;
   @Prop pulseScale: number = 1;
@@ -923,12 +947,12 @@ struct SeedStar {
 
   // 星子中心在画布上的当前坐标（与行星 left/top 同一公式 + 相对偏移）。
   private seedX(): number {
-    const angle: number = (this.view.baseAngle + (this.ringAngles[this.view.ring] ?? 0)) * Math.PI / 180;
+    const angle: number = (this.view.baseAngle + this.ringAngle) * Math.PI / 180;
     return this.galaxySize / 2 + this.view.radius * Math.cos(angle) + this.view.dx;
   }
 
   private seedY(): number {
-    const angle: number = (this.view.baseAngle + (this.ringAngles[this.view.ring] ?? 0)) * Math.PI / 180;
+    const angle: number = (this.view.baseAngle + this.ringAngle) * Math.PI / 180;
     return canvasCenterY(this.canvasH) + this.view.radius * Math.sin(angle) + this.view.dy;
   }
 

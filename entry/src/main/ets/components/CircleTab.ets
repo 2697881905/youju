@@ -1,9 +1,9 @@
 // 圈子页：服务端数据驱动的轻量星环视图。
 // 星环只负责布局与交互；颜色、阴影、字体和圆角全部复用应用 design token。
 
-import { Tag } from '../models/types';
+import { Tag, Post } from '../models/types';
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import { listTags, listFollowedTags, getUserProfile, listTagWeights, listTagActivity, setTagWeight, markTagRead, TagWeightItem, TagActivityItem, listAllTags, createTag } from '../services/api';
+import { listTags, listFollowedTags, getUserProfile, listTagWeights, listTagActivity, setTagWeight, markTagRead, TagWeightItem, TagActivityItem, listAllTags, createTag, listPosts } from '../services/api';
 import { getToken, getUserId, getCurrentUser, persistSessionSnapshot } from '../utils/auth';
 import { likeStore } from '../utils/likeStore';
 import { barBottomReserve } from '../utils/cardTokens';
@@ -23,7 +23,7 @@ import { safeShowToast } from '../utils/toast';
 import { JoinedCirclesDialog } from './JoinedCirclesDialog';
 import { CircleUniverse } from './CircleUniverse';
 import { CircleExploreSheet, CatalogItem, CatalogGroup } from './CircleExploreSheet';
-import { CircleOrbitCanvas, OrbitCircleItem } from './CircleOrbitCanvas';
+import { CircleOrbitCanvas, OrbitCircleItem, OrbitSeedPost } from './CircleOrbitCanvas';
 import { followTag } from '../services/api';
 import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit';
 import type {
@@ -153,6 +153,9 @@ const COSMIC_GLASS_BORDER: string = '#26FFFFFF'; // 暗玻璃描边
 @Component
 export struct CircleTab {
   @State circles: CircleTag[] = [];
+  // 星子队列：一颗 ✦ = 一篇真实的新帖（最新帖子流里带圈子标签的那几篇）。
+  // 由 fetchSeedPosts 填充；空 = 星图不出星子。
+  @State seedPosts: OrbitSeedPost[] = [];
   // 计数变化统一经 @Watch 回写标题栏 @Link（initData 成功/失败/切号三处都会重赋 joinedNames）
   @State @Watch('onJoinedNamesChanged') joinedNames: string[] = [];
   // 顶栏（「圈子」标题 + 「已加入」药丸）迁入 Navigation 标题栏后由 Index 持有：
@@ -194,6 +197,8 @@ export struct CircleTab {
   @State cosmicMode: boolean = false;
   // 系统/应用深浅色标记（与 CircleOrbitCanvas 同源）；切换时重估星际模式。
   @StorageLink('isDarkMode') @Watch('onDarkModeChanged') isDarkMode: boolean = false;
+  // 悬浮件避让用：内容 Stack 铺到窗口原点，状态栏那一段也在坐标系里。
+  @StorageLink('statusBarHeight') statusBarHeight: number = 0;
   @StorageLink('authNickname') authNickname: string = '';
   @StorageLink('authAvatar') authAvatar: string = '';
   // 星系中心头像：以 authAvatar（登录响应缓存，可能有缺）为初始值，
@@ -348,6 +353,8 @@ export struct CircleTab {
       this.startAutoOrbit();
       // 二期：引力档位 + 活跃度/未读角标（登录后异步补齐，失败静默不影响星图）
       this.fetchOrbitMeta();
+      // 星子数据源：一颗 ✦ = 一篇真实新帖（不依赖活跃度字段，见 fetchSeedPosts）
+      this.fetchSeedPosts();
       this.maybeShowStarHint();
       this.syncCosmicMode();
     } catch (e) {
@@ -828,11 +835,12 @@ export struct CircleTab {
     this.resumePausedOrbits();
   }
 
-  // 星子点击 = 读那篇新帖：直达帖子详情页（原型 seed-card「看全文」的落地）。
-  // 与「点行星 = 降落逛圈子」语义彻底分离——这是「误触感」的真正根源：
-  // 此前星子与行星点击走同一条降落路径，用户点星星看到的却是圈子页。
-  // 无最新帖（星子由活跃度驱动投放）时退回降落页读帖子流；同时标记该圈已读。
-  private onSeedTap(name: string): void {
+  // 星子点击 = 读那一帖：星子自带 postId（投放时来自帖子流），直接打开。
+  // 与「点行星 = 降落逛圈子」语义彻底分离——星子悬在行星旁边，点它却打开星球页，
+  // 用户感知就是「点开了离触点最近的星球」。
+  // postId<=0 只可能来自行星的未读角标（角标只代表「该圈有新帖」，不带帖子 id），
+  // 此时按圈子实时取最新一帖；真的取不到才退回降落页读帖子流。
+  private async onSeedTap(name: string, postId: number): Promise<void> {
     const circle: CircleTag | undefined = this.circles.find((item: CircleTag) => item.name === name);
     if (circle === undefined) {
       return;
@@ -843,15 +851,63 @@ export struct CircleTab {
       this.circles = this.circles.slice();
     }
     markTagRead(name).catch((): void => {});
-    if (circle.latestPostId > 0) {
-      openPostDetail(String(circle.latestPostId));
+    let target: number = postId;
+    if (target <= 0) {
+      target = circle.latestPostId;
+    }
+    if (target <= 0) {
+      target = await this.fetchLatestPostId(name);
+      circle.latestPostId = target;
+    }
+    if (target > 0) {
+      openPostDetail(String(target));
       this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
       return;
     }
-    // 兜底：该圈活跃但没有可跳的最新帖 → 降落页读帖子流
+    // 兜底：该圈确实取不到任何帖子 → 降落页读帖子流
     this.selectPlanet(circle);
     this.landingName = name;
     setTimeout((): void => { this.landingVisible = true; }, MotionTokens.emphasis) as number;
+  }
+
+  // 星子数据源：从最新帖子流里取「挂了圈子标签」的帖子，一篇一颗 ✦（队列最热那颗金色）。
+  // 为什么不用 useCount / 活跃度近似：这两列在老后端恒为 0（发布不计数、activity 接口未上线），
+  // 活跃圈集合会塌缩成唯一一个，于是「点多少颗星都打开同一篇帖子」。帖子流是实时真相，
+  // 不依赖后端版本，且每颗星本来就该对应一篇具体的帖。
+  private async fetchSeedPosts(): Promise<void> {
+    try {
+      const result = await listPosts({ page: 1, limit: 20, sort: 'latest' });
+      const names: string[] = this.circles.map((circle: CircleTag): string => circle.name);
+      const circleOf = (post: Post): string =>
+        (post.tags ?? []).find((tag: string): boolean => names.indexOf(tag) >= 0) ?? '';
+      const picked: Post[] = result.list.filter((post: Post): boolean => (post.id ?? 0) > 0 && circleOf(post).length > 0);
+      let hotId: number = 0;
+      let hotScore: number = 0;
+      picked.forEach((post: Post): void => {
+        const score: number = post.upCount ?? 0;
+        if (score > hotScore) {
+          hotScore = score;
+          hotId = post.id ?? 0;
+        }
+      });
+      this.seedPosts = picked.slice(0, 8).map((post: Post): OrbitSeedPost => ({
+        postId: post.id ?? 0,
+        name: circleOf(post),
+        gold: (post.id ?? 0) === hotId && hotScore > 0,
+      }));
+    } catch (e) {
+      // 帖子流拉取失败：本次不出星子，行星/降落照常。
+    }
+  }
+
+  private async fetchLatestPostId(name: string): Promise<number> {
+    try {
+      const result = await listPosts({ page: 1, limit: 1, sort: 'latest', tag: name });
+      const first: Post | undefined = result.list.length > 0 ? result.list[0] : undefined;
+      return first?.id ?? 0;
+    } catch (e) {
+      return 0;
+    }
   }
 
   // 进入圈子（降落）即标记已读：角标/星子归零（登录后异步，失败静默）。
@@ -1052,11 +1108,12 @@ export struct CircleTab {
       avatar: this.selfAvatar,
       nickname: this.authNickname,
       live: this.activeTab === 1,
+      seedPosts: this.seedPosts,
       onPlanet: (name: string): void => { this.onPlanetPressed(name); },
       onGravityStart: (name: string): void => { this.onGravityStart(name); },
       onGravityEnd: (name: string, distance: number): void => { this.onGravityEnd(name, distance); },
       onGravityBlocked: (name: string): void => { this.onGravityBlocked(name); },
-      onSeedTap: (name: string): void => { this.onSeedTap(name); },
+      onSeedTap: (name: string, postId: number): void => { this.onSeedTap(name, postId); },
       onPanStart: (ring: number): void => { this.onRingPanStart(ring); },
       onPanUpdate: (event: GestureEvent): void => { this.onRingPanUpdate(event); },
       onPanEnd: (): void => { this.onRingPanEnd(); },
@@ -1066,10 +1123,12 @@ export struct CircleTab {
   // 星图 Live：底部资料卡（CircleSelectionCard）已移除——轻详情由降落层承担，
   // 点行星即降落读帖/加入；选中行星仍保留飞心 + 涟漪编舞。
 
-  // —— 顶栏（嵌套 HdsNavigation，路线 B：同首页定稿结构）——
-  // MINI + stackBuilder 品牌行（「圈子」标题 + 「已加入」药丸）+ GRADIENT_BLUR +
-  // avoid/enableComponentSafeArea 双开。星环内容通常不超高（视口推底布局），
-  // 模糊仅在内容超高滚动时出现——与首页同一基线参数，观感自动一致。
+  // —— 顶栏（嵌套 HdsNavigation，路线 B，同首页结构，但避让策略相反）——
+  // MINI + stackBuilder 品牌行（「圈子」标题 + 「已加入」药丸）+ GRADIENT_BLUR。
+  // avoidLayoutSafeArea=true：标题栏自己让开状态栏（品牌行不被时钟压住）。
+  // enableComponentSafeArea=false（首页为 true）：内容不被标题栏顶下去——
+  // 星图是全屏沉浸画布，必须铺到状态栏与标题栏之下，标题栏只作透明悬浮层；
+  // 开着 true 时画布从栏下方才开始，顶部就留下一条标题栏底色的白带（浅色尤其明显）。
   private circleHdsTitleBarOptions(): HdsNavigationTitleBarOptions {
     const scrollEffect: ScrollEffectOptions = {
       enableScrollEffect: true,
@@ -1090,9 +1149,16 @@ export struct CircleTab {
       content: content,
       style: style,
       avoidLayoutSafeArea: true,
-      enableComponentSafeArea: true,
+      enableComponentSafeArea: false,
     };
     return options;
+  }
+
+  // 悬浮元素需要避让的顶栏高度。enableComponentSafeArea=false 后内容 Stack 的顶边
+  // 落在窗口原点（画布因此能铺到状态栏上），position 的 y 也就是从 0 起算——
+  // 必须自己加回状态栏 + 品牌行，否则悬浮件会压在时钟和「已加入」药丸上。
+  private circleTitleBarHeight(): number {
+    return this.statusBarHeight + LayoutTokens.titleBarHeight;
   }
 
   // stackBuilder 品牌行：「圈子」标题 + 「已加入」药丸（原 Index.circleTitleBar 整体迁入）。
@@ -1177,6 +1243,8 @@ export struct CircleTab {
 
   // 星图 Live：探索星云入口（悬浮于星图右上，标题栏之下）。
   // Pressable 是自定义组件不能直接挂 position，外包一层定位容器。
+  // 顶栏不占内容区（enableComponentSafeArea=false）→ 标题栏是悬浮在星图上的，
+  // 这个入口要自己让开「状态栏 + 品牌行」，否则压进时钟和「已加入」药丸。
   @Builder
   exploreFab() {
     Column() {
@@ -1201,7 +1269,7 @@ export struct CircleTab {
         .alignItems(VerticalAlign.Center)
       }
     }
-    .position({ x: '100%', y: SpaceTokens.md })
+    .position({ x: '100%', y: this.circleTitleBarHeight() + SpaceTokens.xs })
     .markAnchor({ x: '100%' })
     .padding({ right: SpaceTokens.base })
   }
