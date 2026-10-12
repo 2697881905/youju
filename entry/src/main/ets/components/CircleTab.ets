@@ -813,7 +813,7 @@ export struct CircleTab {
     }
     circle.weight = target;
     this.circles = this.circles.slice();
-    const labels: string[] = ['强关注 · 新帖必送达', '常关注 · 按热度推送', '轻关注 · 偶尔看看'];
+    const labels: string[] = ['强关注 · 每日推荐更偏向它', '常关注 · 按常规参与推荐', '轻关注 · 每日推荐少一些'];
     safeShowToast(this.getUIContext(), { message: circle.emoji + ' ' + circle.name + ' → ' + labels[target - 1] });
     setTagWeight(name, target).then((): void => {
       this.resumePausedOrbits();
@@ -830,7 +830,7 @@ export struct CircleTab {
   private onGravityBlocked(name: string): void {
     const circle: CircleTag | undefined = this.circles.find((item: CircleTag) => item.name === name);
     safeShowToast(this.getUIContext(), {
-      message: (circle?.emoji ?? '') + '「' + name + '」还未加入 · 加入后才能调节推送强度',
+      message: (circle?.emoji ?? '') + '「' + name + '」还未加入 · 加入后才能调节引力档位',
     });
     this.resumePausedOrbits();
   }

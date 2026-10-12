@@ -36,6 +36,13 @@ const W_COMMENT = 4;
 const W_CLICK = 1;
 const W_SEARCH_HIT = 2;
 
+/**
+ * 引力档位 → 关注权重乘子（星图拖行星设定，UserTagPref.weight）。
+ * 档位只改变同一个标签在亲和度里的相对分量：强关注把显式兴趣放大 1.5 倍、
+ * 轻关注收缩一半；未设置过的按常关注处理。
+ */
+const GRAVITY_MULTIPLIER: Record<number, number> = { 1: 1.5, 2: 1, 3: 0.5 };
+
 /** 打分权重（可调，供 A/B 调参；首轮实验使用默认值做二元对照） */
 export interface DailyScoreWeights {
   g: number; // 全局热度
@@ -155,8 +162,9 @@ export async function buildViewerProfile(viewerId: number | undefined, asOf: Dat
   }
   try {
     const postSelect = { select: { tags: true, userId: true } };
-    const [followedTags, ups, bookmarks, comments, votes] = await Promise.all([
+    const [followedTags, prefs, ups, bookmarks, comments, votes] = await Promise.all([
       prisma.userFollowTag.findMany({ where: { userId: viewerId }, select: { tagName: true } }),
+      prisma.userTagPref.findMany({ where: { userId: viewerId }, select: { tagName: true, weight: true } }),
       prisma.up.findMany({
         where: { userId: viewerId, createdAt: { lte: asOf } },
         select: { createdAt: true, post: postSelect },
@@ -176,12 +184,13 @@ export async function buildViewerProfile(viewerId: number | undefined, asOf: Dat
       }),
     ]);
 
-    // 显式兴趣：关注标签给固定基础权重（不随单条行为衰减）
+    // 显式兴趣：关注标签给基础权重（不随单条行为衰减），再按引力档位缩放
+    const gravity = new Map<string, number>(prefs.map((row) => [row.tagName, row.weight]));
     for (const row of followedTags) {
       const name = row.tagName;
       if (name && name.length > 0) {
         profile.followed.add(name);
-        bump(profile.tagW, name, W_FOLLOW);
+        bump(profile.tagW, name, W_FOLLOW * (GRAVITY_MULTIPLIER[gravity.get(name) ?? 2] ?? 1));
       }
     }
 

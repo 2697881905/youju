@@ -7,6 +7,7 @@ jest.mock('../prisma', () => ({
   prisma: {
     post: { findMany: jest.fn(), count: jest.fn() },
     userFollowTag: { findMany: jest.fn() },
+    userTagPref: { findMany: jest.fn() },
     tag: { findMany: jest.fn() },
     up: { findMany: jest.fn() },
     bookmark: { findMany: jest.fn() },
@@ -54,6 +55,7 @@ describe('listDailyPosts', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockedFollowedTags.mockResolvedValue([]);
+    (prisma.userTagPref.findMany as jest.Mock).mockResolvedValue([]);
     mockedPopularTags.mockResolvedValue([]);
     mockedExcluded.mockResolvedValue([]);
     mockedDisliked.mockResolvedValue([]);
@@ -76,6 +78,20 @@ describe('listDailyPosts', () => {
     expect(result.list.every((item) => item.matchedTags.includes('数码'))).toBe(true);
     expect(mockedPostCount.mock.calls[0][0].where.OR).toEqual([{ tags: { array_contains: '数码' } }]);
     expect(mockedPostCount.mock.calls[1][0].where.NOT).toEqual({ OR: [{ tags: { array_contains: '数码' } }] });
+  });
+
+  it('引力档位改变取材圈子顺序：强关注优先于最近关注的轻关注圈', async () => {
+    // 关注时间倒序本应是 轻 → 常 → 强；按档位排序后翻转为 强 → 常 → 轻
+    mockedFollowedTags.mockResolvedValue([{ tagName: '轻' }, { tagName: '常' }, { tagName: '强' }]);
+    (prisma.userTagPref.findMany as jest.Mock).mockResolvedValue([
+      { tagName: '强', weight: 1 },
+      { tagName: '轻', weight: 3 },
+    ]);
+    installRows([post(1, ['强'])], [post(2, ['旅行'])]);
+
+    const result = await listDailyPosts({ viewerId: 11, page: 1, limit: 1, now: DAY });
+
+    expect(result.interestTags).toEqual(['强', '常', '轻']);
   });
 
   it('访客使用热门标签作为兴趣兜底', async () => {

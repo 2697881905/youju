@@ -270,15 +270,31 @@ function normalizePage(value: number | undefined, fallback: number): number {
   return numberValue;
 }
 
+/** 每日一贴取材圈子的候选池上限：先取这么多关注标签，再按引力档位排序截 6 */
+const DAILY_INTEREST_POOL = 30;
+
 async function dailyInterestTags(viewerId?: number): Promise<string[]> {
   if (viewerId) {
-    const followed = await prisma.userFollowTag.findMany({
-      where: { userId: viewerId },
-      select: { tagName: true },
-      orderBy: { createdAt: 'desc' },
-      take: 6,
-    });
-    const names = followed.map((row) => row.tagName).filter((name) => name.length > 0);
+    const [followed, prefs] = await Promise.all([
+      prisma.userFollowTag.findMany({
+        where: { userId: viewerId },
+        select: { tagName: true },
+        orderBy: { createdAt: 'desc' },
+        take: DAILY_INTEREST_POOL,
+      }),
+      prisma.userTagPref.findMany({
+        where: { userId: viewerId },
+        select: { tagName: true, weight: true },
+      }),
+    ]);
+    // 引力档位决定取材优先级：强关注(1) → 常(2) → 轻(3)，同档位保持「最近关注在前」。
+    // 先多取一池再排序，否则 take:6 会让「很久前关注的轻关注圈」把强关注圈挤出局。
+    const weight = new Map<string, number>(prefs.map((row) => [row.tagName, row.weight]));
+    const names = followed
+      .map((row) => row.tagName)
+      .filter((name) => name.length > 0)
+      .sort((a, b) => (weight.get(a) ?? 2) - (weight.get(b) ?? 2))
+      .slice(0, 6);
     if (names.length > 0) {
       return names;
     }
