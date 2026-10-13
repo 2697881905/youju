@@ -298,7 +298,8 @@ struct DeckSlotCard {
               Text((this.post.user?.nickname ?? '有据用户').slice(0, 1))
                 .fontSize(10).fontFamily(TypeTokens.fontFamilySerif)
                 .fontWeight(700)
-                .fontColor(ColorTokens.brand)
+                // 墨字压 tint（brand 字 10px 在深色 tint 上 3.58:1 不达 AA）；蓝调由底承担
+                .fontColor(ColorTokens.primary)
                 .width(20)
                 .height(20)
                 .textAlign(TextAlign.Center)

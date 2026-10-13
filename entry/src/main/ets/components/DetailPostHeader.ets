@@ -45,9 +45,11 @@ export struct DetailPostHeader {
           .height(14)
         Text(this.genreLabel)
           .fontSize(12).fontFamily($r('app.string.font_family'))
-          .fontColor($r('app.color.brand_primary'))
+          // brand 字压 brandTint 底深色只有 3.58:1（12px 不达 AA）：字回 primary 墨（深 11.68:1），
+          // 体裁的蓝色身份交给 tint 底与前面的体裁图标。
+          .fontColor(ColorTokens.primary)
       }
-      .backgroundColor($r('app.color.surface_selected'))
+      .backgroundColor(ColorTokens.brandTint)
       .borderRadius(4)
       .padding({ left: 8, right: 8, top: 3, bottom: 3 })
       if (this.tags.length > 0) {
@@ -55,7 +57,7 @@ export struct DetailPostHeader {
           ForEach(this.tags, (tag: string) => {
             Text(tag.startsWith('#') ? tag : ('#' + tag))
               .fontSize(13).fontFamily($r('app.string.font_family'))
-              .fontColor($r('app.color.brand_primary'))
+              .fontColor(ColorTokens.brand)
           }, (tag: string) => tag)
         }
       }

@@ -891,7 +891,7 @@ struct Index {
           Badge({
             count: this.unreadCount + this.dmUnread,
             position: BadgePosition.RightTop,
-            style: { badgeColor: $r('app.color.semantic_red'), badgeSize: 14 },
+            style: { badgeColor: $r('app.color.semantic_red'), color: ColorTokens.onDanger, badgeSize: 14 },
           })           {
             Image(this.bottomTabItems()[index].icon)
               .width(24).height(24)

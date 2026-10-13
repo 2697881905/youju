@@ -26,7 +26,9 @@ export struct StructuredSummaryCard {
   private accentColor(): ResourceColor {
     if (this.summary?.theme === 'warm') return '#A85D24';
     if (this.summary?.theme === 'cool') return '#2D746E';
-    return ColorTokens.brand;
+    // 与 StructuredFlowView 同口径：眉标/徽标是 11px 小字，落在 brandTint 卡底上，
+    // brand 字深色只有 3.58:1，换 brandPress（最差 4.56:1）保住蓝调又过 AA。
+    return ColorTokens.brandPress;
   }
 
   private displaySecondary(index: number): string {

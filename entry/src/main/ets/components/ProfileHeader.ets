@@ -70,7 +70,8 @@ export struct ProfileHeader {
             .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
             .fontWeight(TypeTokens.headline.weight)
             .lineHeight(TypeTokens.caption.lineHeight)
-            .fontColor(this.isLoggedIn ? ColorTokens.primary : ColorTokens.brand)
+            // 未登录态底是 brandTint：12px 蓝字压 tint 深色只 3.58:1，压深一档到 brandPress（4.56:1 起）
+            .fontColor(this.isLoggedIn ? ColorTokens.primary : ColorTokens.brandPress)
             .width(76)
             .height(LayoutTokens.segmentedHeight)
             .textAlign(TextAlign.Center)

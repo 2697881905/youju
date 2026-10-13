@@ -159,7 +159,7 @@ export struct BottomTabBar {
           Badge({
             count: this.unreadCount,
             position: BadgePosition.RightTop,
-            style: { badgeColor: $r('app.color.semantic_red'), badgeSize: IconTokens.compact },
+            style: { badgeColor: $r('app.color.semantic_red'), color: ColorTokens.onDanger, badgeSize: IconTokens.compact },
           }) {
             this.tabIcon(item, index)
           }

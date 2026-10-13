@@ -176,7 +176,8 @@ export struct StructuredComposer {
         .fontSize(TypeTokens.overline.size)
         .fontFamily(TypeTokens.fontFamily)
         .fontWeight(selected ? 600 : 450)
-        .fontColor(selected ? ColorTokens.brand : ColorTokens.secondary)
+        // 选中态：tint 底 + 墨字（brand 字压 brandTint 深色 3.58:1，11px 不达 AA），加粗负责区分主次
+        .fontColor(selected ? ColorTokens.primary : ColorTokens.secondary)
         .backgroundColor(selected ? ColorTokens.brandTint : ColorTokens.elevated)
         .borderRadius(RadiusTokens.pill)
         .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: 6, bottom: 6 })
@@ -539,7 +540,8 @@ export struct StructuredComposer {
           .fontSize(TypeTokens.overline.size)
           .fontFamily(TypeTokens.fontFamily)
           .fontWeight(600)
-          .fontColor(ColorTokens.brand)
+          // tint 底 + 墨字：brand 字压 brandTint 深色 3.58:1，11px 不达 AA
+          .fontColor(ColorTokens.primary)
           .backgroundColor(ColorTokens.brandTint)
           .borderRadius(RadiusTokens.pill)
           .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: 5, bottom: 5 })
@@ -666,7 +668,8 @@ export struct StructuredComposer {
               Text('选择')
                 .fontSize(TypeTokens.caption.size)
                 .fontFamily(TypeTokens.fontFamily)
-                .fontColor(ColorTokens.brand)
+                // 12px 蓝字压 subtle 灰底深色 4.30:1 不达 AA → brandPress（5.47:1）
+                .fontColor(ColorTokens.brandPress)
             }
             .width('100%')
             .padding(SpaceTokens.md)

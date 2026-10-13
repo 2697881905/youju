@@ -79,7 +79,10 @@ export struct StructuredFlowView {
   private accentColor(): ResourceColor {
     if (this.document?.theme === 'warm') return '#A85D24';
     if (this.document?.theme === 'cool') return '#2D746E';
-    return ColorTokens.brand;
+    // brandPress（浅 #0055BB / 深 #3D9BFF）：本函数的返回值既做图形（进度条、勾选、序号球）
+    // 也做 11–14px 标签文字，而文字会落在 brandTint 主视觉卡或 subtle 药丸底上；
+    // brand 字压 tint 深色只有 3.58:1（不达 AA），brandPress 最差 4.56:1，蓝调不变。
+    return ColorTokens.brandPress;
   }
 
   private surfaceColor(primary: boolean): ResourceColor {

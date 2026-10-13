@@ -141,7 +141,9 @@ export struct PostCompareSheet {
         .fontSize(TypeTokens.title.size)
         .fontFamily(TypeTokens.fontFamily)
         .fontWeight(600)
-        .fontColor(row.id === this.highlightPostId ? ColorTokens.brand : ColorTokens.primary)
+          // 本篇行底是 brandTint：21px 数字若继续用 brand 字，深色只有 3.58:1；
+        // 压成 brandPress（4.56:1 起）既保留「这是本篇」的蓝，又达 AA。
+        .fontColor(row.id === this.highlightPostId ? ColorTokens.brandPress : ColorTokens.primary)
         .maxLines(1)
       Text(structuredMetricKindLabel(row.metricKind ?? undefined))
         .fontSize(TypeTokens.overline.size)
@@ -157,7 +159,8 @@ export struct PostCompareSheet {
       .fontSize(TypeTokens.caption.size)
       .fontFamily(TypeTokens.fontFamily)
       .fontWeight(600)
-      .fontColor(rank <= 3 ? ColorTokens.brand : ColorTokens.tertiary)
+      // 前 3 名序号球：tint 底保留名次高亮，字回 primary（brand 字压 tint 深色 3.58 不达 AA）
+      .fontColor(rank <= 3 ? ColorTokens.primary : ColorTokens.tertiary)
       .width(22)
       .height(22)
       .textAlign(TextAlign.Center)
@@ -189,7 +192,7 @@ export struct PostCompareSheet {
                 .fontSize(TypeTokens.overline.size)
                 .fontFamily(TypeTokens.fontFamily)
                 .fontWeight(600)
-                .fontColor(ColorTokens.brand)
+                .fontColor(ColorTokens.primary)
                 .backgroundColor(ColorTokens.brandTint)
                 .borderRadius(RadiusTokens.pill)
                 .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: 2, bottom: 2 })

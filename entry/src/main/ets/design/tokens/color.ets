@@ -37,6 +37,9 @@ export class ColorTokens {
   static readonly warm: ResourceColor = $r('app.color.ds_warm');
   static readonly success: ResourceColor = $r('app.color.ds_success');
   static readonly danger: ResourceColor = $r('app.color.ds_danger');
+  // danger 实色底上的文字（未读数徽标 / 系统 Badge）：浅色白字 5.44:1 达标；
+  // 深色 #FF453A 是亮底，白字只有 3.41:1（11–12px 小字不达 AA），必须压 #121212 墨字 = 5.50:1。
+  static readonly onDanger: ResourceColor = $r('app.color.ds_on_danger');
   static readonly like: ResourceColor = $r('app.color.ds_like');
   static readonly bookmark: ResourceColor = $r('app.color.ds_bookmark');
   static readonly separator: ResourceColor = $r('app.color.ds_separator');

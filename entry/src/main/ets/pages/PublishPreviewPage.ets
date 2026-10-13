@@ -509,11 +509,12 @@ struct PublishPreviewPage {
                 .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
                 .fontWeight(TypeTokens.headline.weight)
                 .lineHeight(TypeTokens.caption.lineHeight)
-                .fontColor(ColorTokens.brand)
+                .fontColor(ColorTokens.brandPress)
                 .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.inlineTight, bottom: SpaceTokens.inlineTight })
-                // 信息条底是淡米黄 ds_panel，比原来的卡片底深一档：若继续用 10% 的 brandTint，
-                // 品牌棕文字对比度会掉到 4.0:1 以下（12px 文字 AA 要 4.5）；
-                // 换 subtle(#F7F1E4) 后回到 4.6:1，且与标签胶囊同底色 —— 胶囊语言统一。
+                // 体裁/标签胶囊一律坐 subtle 底（信息条本身是 ds_panel，比卡片底深一档，
+                // 再铺 10% brandTint 会糊成一片）。
+                // 字色用 brandPress 而不是 brand：12px 蓝字压 subtle 灰底深色只有 4.30:1（AA 要 4.5），
+                // brandPress（浅 #0055BB / 深 #3D9BFF）在浅/深 subtle 上为 6.23 / 5.47。
                 .backgroundColor(ColorTokens.subtle)
                 .borderRadius(RadiusTokens.sm)
               if (draft.videoUrl && draft.videoUrl.length > 0) {
@@ -551,7 +552,7 @@ struct PublishPreviewPage {
                     .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
                     .fontWeight(TypeTokens.caption.weight)
                     .lineHeight(TypeTokens.caption.lineHeight)
-                    .fontColor(ColorTokens.brand)
+                    .fontColor(ColorTokens.brandPress)
                     .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.inlineTight, bottom: SpaceTokens.inlineTight })
                     .backgroundColor(ColorTokens.subtle)
                     .borderRadius(RadiusTokens.sm)

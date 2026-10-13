@@ -1058,11 +1058,14 @@ export struct ReportAdminPage {
         .height(LayoutTokens.minTouchTarget)
         .onClick((): void => { this.toggleSelectAll(); })
 
+      // 未选中时仍可点（confirmDelete 会提示「请先选择要删除的信息」），所以字色不能低于 AA：
+      // quaternary #9E9EA3 在卡片底上只有 2.49:1；tertiary 在卡片/画布底上为 5.10–5.46（深色 5.74–6.46），
+      // 视觉上依旧「弱化」但不失效。
       Text(this.selectedCount() > 0 ? '删除 ' + String(this.selectedCount()) : '删除')
         .fontSize(TypeTokens.callout.size)
         .fontFamily(TypeTokens.fontFamily)
         .fontWeight(TypeTokens.headline.weight)
-        .fontColor(this.selectedCount() > 0 ? ColorTokens.danger : ColorTokens.quaternary)
+        .fontColor(this.selectedCount() > 0 ? ColorTokens.danger : ColorTokens.tertiary)
         .height(LayoutTokens.minTouchTarget)
         .onClick((): void => { this.confirmDelete(); })
     }
@@ -1100,14 +1103,15 @@ export struct ReportAdminPage {
     .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, bottom: SpaceTokens.sm })
   }
 
-  // 类型标签：品牌色 10% 底 + 品牌色文字（对比度 4.5:1）
+  // 类型标签：品牌色 10% 底 + primary 墨字（实测 brand 字压 tint 浅 4.50 / 深 3.58，11px 不达 AA；
+  // 墨字 14.45 / 11.68，蓝色身份由 tint 底承担）
   @Builder
   typePill(g: ReportGroup): void {
     Text(targetLabel(g.targetType))
       .fontSize(TypeTokens.overline.size)
       .fontFamily(TypeTokens.fontFamily)
       .fontWeight(TypeTokens.overline.weight)
-      .fontColor(ColorTokens.brand)
+      .fontColor(ColorTokens.primary)
       .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: 3, bottom: 3 })
       .backgroundColor(ColorTokens.brandTint)
       .borderRadius(RadiusTokens.xs)

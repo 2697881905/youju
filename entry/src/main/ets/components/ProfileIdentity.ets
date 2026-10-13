@@ -38,8 +38,10 @@ export struct ProfileIdentity {
             .borderRadius(RadiusTokens.pill)
             .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
             .fontWeight(TypeTokens.headline.weight)
-            .fontColor(ColorTokens.onBrand)
-            .backgroundColor(ColorTokens.quaternary)
+            // 注销占位：quaternary #9E9EA3 是亮灰，白字压上去只有 2.67:1（深色 3.43:1，都不达小字 AA）。
+            // 改成 sunken 底 + secondary 字（浅 5.65:1 / 深 8.21:1），'?' 依旧读得出是占位而不是头像。
+            .fontColor(ColorTokens.secondary)
+            .backgroundColor(ColorTokens.sunken)
             .textAlign(TextAlign.Center)
         } else {
           Column()

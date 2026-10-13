@@ -105,7 +105,7 @@ export struct MessageRow {
           .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
           .fontWeight(TypeTokens.overline.weight)
           .lineHeight(TypeTokens.overline.lineHeight)
-          .fontColor(ColorTokens.onBrand)
+          .fontColor(ColorTokens.onDanger)
           .backgroundColor(ColorTokens.danger)
           .borderRadius(RadiusTokens.pill)
           .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs, bottom: SpaceTokens.xs })

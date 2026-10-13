@@ -72,7 +72,9 @@ export struct CircleExploreSheet {
       Text(this.creating ? '收起创建' : '点亮一颗新星 · 创建圈子')
         .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
         .fontWeight(TypeTokens.headline.weight)
-        .fontColor(ColorTokens.warm)
+        // 彩色微文案不压 tint（warm 字 #A06400 在浅 tint 上 4.19:1，12px 不达 AA）：
+        // 金色语义交给虚线描边 + 「＋」，文字回 primary 墨。
+        .fontColor(ColorTokens.primary)
         .layoutWeight(1)
     }
     .width('100%')
@@ -92,11 +94,12 @@ export struct CircleExploreSheet {
 
   @Builder
   categoryChip(item: string): void {
-    // 原型 catchip：选中=品牌色描边+浅底+品牌色文字（克制，不用实心块）
+    // 原型 catchip：选中=品牌色描边+浅底+墨字（11px 蓝字压蓝 tint 深色仅 3.58:1，不达 AA，
+    // 蓝色身份由 1px brand 描边 + tint 底承担，描边只需过 3:1 图形下限）
     Text(item)
       .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
       .fontWeight(this.newCategory === item ? TypeTokens.headline.weight : FontWeight.Regular)
-      .fontColor(this.newCategory === item ? ColorTokens.brand : ColorTokens.secondary)
+      .fontColor(this.newCategory === item ? ColorTokens.primary : ColorTokens.secondary)
       .backgroundColor(this.newCategory === item ? ColorTokens.brandTint : ColorTokens.subtle)
       .border({ width: 1, color: this.newCategory === item ? ColorTokens.brand : ColorTokens.separator, style: BorderStyle.Solid })
       .borderRadius(RadiusTokens.pill)

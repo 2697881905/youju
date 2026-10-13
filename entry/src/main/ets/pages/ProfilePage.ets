@@ -614,8 +614,9 @@ export struct ProfilePage {
         Image(resolveActionIcon('chevronRight'))
           .width(IconTokens.small)
           .height(IconTokens.small)
-          .fillColor(ColorTokens.icon)
-          .opacity(0.55)
+          // tertiary（浅 #69696E / 深 #97979E 对卡片底 5.10:1 / 5.74:1）：可操作箭头不能低于 3:1 图形下限，
+          // 之前 icon + opacity(0.55) 在浅色实际只有 2.96:1（等于把可点行的入口抹掉了）。
+          .fillColor(ColorTokens.tertiary)
       }
       .width('100%')
       .height(56)

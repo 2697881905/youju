@@ -309,7 +309,8 @@ export struct StructuredFieldBlock {
         ForEach(splitChips(pair.value), (chip: string) => {
           Text(chip)
             .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-            .fontColor(ColorTokens.brand)
+            // 12px 蓝字压 subtle 灰底深色只有 4.30:1（不达 AA），压深到 brandPress（5.47:1）
+            .fontColor(ColorTokens.brandPress)
             .backgroundColor(ColorTokens.subtle)
             .borderRadius(RadiusTokens.pill)
             .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.inlineTight, bottom: SpaceTokens.inlineTight })
@@ -334,7 +335,8 @@ export struct StructuredFieldBlock {
               .textAlign(TextAlign.Center)
               .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
               .fontWeight(600)
-              .fontColor(ColorTokens.brand)
+              // tint 底 + 墨字：brand 字压 brandTint 深色只有 3.58:1，11px 序号不达 AA
+              .fontColor(ColorTokens.primary)
               .backgroundColor(ColorTokens.brandTint)
               .borderRadius(RadiusTokens.pill)
               .margin({ top: 2 })

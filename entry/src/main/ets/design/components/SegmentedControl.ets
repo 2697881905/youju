@@ -266,7 +266,7 @@ export struct SegmentedControl {
                   Badge({
                     count: this.badges[index],
                     position: BadgePosition.RightTop,
-                    style: { badgeColor: $r('app.color.semantic_red'), badgeSize: 14 },
+                    style: { badgeColor: $r('app.color.semantic_red'), color: ColorTokens.onDanger, badgeSize: 14 },
                   }) {
                     this.segmentLabel(item, index)
                   }

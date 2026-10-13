@@ -992,7 +992,8 @@ export struct MessagePage {
             count: this.unreadCountOf(shortcut.key),
             position: BadgePosition.RightTop,
             // 与顶栏分段徽标/底栏页签红点同一视觉语言（semantic_red、14）
-            style: { badgeColor: $r('app.color.semantic_red'), badgeSize: 14 },
+            // color：深色 semantic_red #FF453A 是亮底，系统默认白字只有 3.41:1，换 onDanger 墨字（5.50:1）
+            style: { badgeColor: $r('app.color.semantic_red'), color: ColorTokens.onDanger, badgeSize: 14 },
           }) {
             Image(resolveActionIcon(shortcut.icon))
               .width(34)
@@ -1007,7 +1008,9 @@ export struct MessagePage {
             .fontWeight(this.activeFilter === shortcut.key ? TypeTokens.headline.weight : TypeTokens.overline.weight)
             .lineHeight(TypeTokens.overline.lineHeight)
             .letterSpacing(TypeTokens.overline.tracking)
-            .fontColor(this.activeFilter === shortcut.key ? ColorTokens.brand : ColorTokens.icon)
+            // 选中态：字色回 primary（brand 字压 brandTint 底深色只有 3.58:1，11px 不达 AA），
+            // 「选中」的身份交给 brandTint 底 + brand 图标 + 加粗 + 微放大。
+            .fontColor(this.activeFilter === shortcut.key ? ColorTokens.primary : ColorTokens.icon)
             .maxLines(1)
         }
         .width('100%')
