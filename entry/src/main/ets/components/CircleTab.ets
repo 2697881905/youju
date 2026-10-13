@@ -584,6 +584,7 @@ export struct CircleTab {
   private startInertia(): void {
     if (Math.abs(this.inertiaVelocity) < 0.08) {
       this.syncSelectedFromRing(this.activeRing);
+      this.resumePausedOrbits();
       return;
     }
     this.stopInertia();
@@ -595,6 +596,8 @@ export struct CircleTab {
         this.inertiaTimer = setTimeout(tick, 16) as number;
       } else {
         this.inertiaTimer = 0;
+        // onRingPanStart 只暂停被拨的这一环，惯性收尾后必须复位，否则该环从此不再自转。
+        this.resumePausedOrbits();
       }
     };
     this.inertiaTimer = setTimeout(tick, 16) as number;

@@ -8,6 +8,7 @@ import { safeShowToast } from '../utils/toast';
 import { toggleDarkMode, setFollowSystem } from '../utils/theme';
 import { buildPageTransition } from '../utils/styles';
 import { CARD_RADIUS } from '../utils/cardTokens';
+import { APP_VERSION_NAME } from '../utils/buildMode';
 import { resolveSettingsIcon } from '../utils/settingsIcons';
 import { window } from '@kit.ArkUI';
 import { BackButton } from '../design/components/BackButton';
@@ -343,7 +344,7 @@ export struct SettingsPage {
           this.sectionRow('book', 'HDS 导航验证页（临时）', (): void => {
             this.getUIContext().getRouter().pushUrl({ url: 'pages/HdsNavVerifyPage' });
           })
-          this.sectionRow('book', '关于有据 · 版本 1.0.1', (): void => {
+          this.sectionRow('book', '关于有据 · 版本 ' + APP_VERSION_NAME, (): void => {
             this.getUIContext().getRouter().pushUrl({ url: 'pages/AboutPage' });
           })
           this.sectionRow('policy', '隐私政策', (): void => {

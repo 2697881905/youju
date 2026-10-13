@@ -6,3 +6,6 @@ export const BUILD_MODE_NAME: string = 'release';
 // DEBUG=false → 后端走线上 https://api.youju.chat（DNS：youju.chat→114.132.102.189）。
 // ⚠️ 本地联调验证完毕后务必还原为 false 再上架。
 export const DEBUG: boolean = false;
+// 对外展示的版本名：与 AppScope/app.json5 的 versionName 同步改，UI 只从这里取值。
+// 此前 AboutPage 与 SettingsPage 各写一份字面量，1.0.3 发版时设置页那行漏改成了 1.0.1。
+export const APP_VERSION_NAME: string = '1.0.3';
