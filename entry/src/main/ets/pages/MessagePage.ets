@@ -28,7 +28,7 @@ import { buildPageTransition } from '../utils/styles';
 import { notifIconRes, resolveActionIcon } from '../utils/actionIcons';
 import { EmptyState } from '../design/components/EmptyState';
 import { MessageRow } from '../design/components/MessageRow';
-import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
+import { SegmentedItem } from '../design/components/SegmentedControl';
 import { Pressable } from '../design/motion/Pressable';
 import { Reveal } from '../design/motion/Reveal';
 import { ColorTokens } from '../design/tokens/color';
@@ -37,7 +37,6 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { TypeTokens } from '../design/tokens/type';
-import { isSystemMaterialActive } from '../utils/immersiveMaterial';
 import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit';
 import type {
   HdsNavigationTitleBarOptions,
@@ -47,6 +46,7 @@ import type {
   BottomBuilderParams,
 } from '@kit.UIDesignKit';
 import { LengthMetrics } from '@kit.ArkUI';
+import { ImmersiveSegmentBar } from '../design/components/ImmersiveSegmentBar';
 
 // 消息分段：通知 | 私信（导出给 Index 的标题栏渲染；本页 Swiper 与之共享选中态）
 export const MESSAGE_SEGMENTS: SegmentedItem[] = [
@@ -55,11 +55,15 @@ export const MESSAGE_SEGMENTS: SegmentedItem[] = [
 ];
 
 // —— 顶栏（嵌套 HdsNavigation，路线 B，同首页结构）——
-// bottomBuilder 分段行高：36 控件 + 底部 4 让位
+// bottomBuilder 分段行高：40 控件（参考App 实测栏高）+ 上方 14 / 下方 28 材质投影净空
+// （实测投影向下散 84px、向上散 34px 才收敛回画布白）
 // ⚠️ 分段行不可用负 margin 上浮：bottomBuilder 区域对内容**双向裁切**（向上探出被剪、
 // 超出声明高度向下也被剪——快筛行首测"丢失"同源），与 stackBuilder 向下溢出可渲染
 // 不对称。分段栏位置 = 标题区下沿，结构上不可上移。
-const MESSAGE_TAB_ROW_HEIGHT: number = LayoutTokens.segmentedHeight + SpaceTokens.xs;
+// 同理，官方分段栏（SegmentButton）材质自带的环境投影**必须**由行高买单：行高只给 36+4 时
+// 投影被裁成灰带（docs/tutorial-titlebar-immersive-light.md 案例 9 同源）。
+const MESSAGE_TAB_ROW_HEIGHT: number = LayoutTokens.segmentBarHeight + LayoutTokens.segmentBarShadowRoom +
+  LayoutTokens.segmentBarTopRoom;
 // 滚动模糊生效区间终点（vp）：与首页定稿一致（0 → 32 线性到位）
 const MESSAGE_BLUR_END_VP: number = 32;
 // 「上滑收起快捷筛选栏」的实现取舍（真机两轮实证）：
@@ -106,12 +110,15 @@ export struct MessagePage {
   @State @Watch('onFilterChanged') activeFilter: string = 'up_bookmark';
   // ===== 私信 =====
   @State dmTab: string = 'notif'; // 'notif' | 'dm'
-  // 分段选中（通知/私信）与滑块跟手位置：由 Index 的标题栏分段栏读写，本页 Swiper 联动
+  // 分段选中（通知/私信）：由本页 Swiper 与官方分段栏共用，切换动作统一走 @Watch
   @Link @Watch('onDmTabChanged') dmTabIndex: number;
-  // 分段滑块跟手位置：Swiper 滚动（拖动/吸附）中喂入的连续索引；-1 = 未滚动
-  @Link slidePosition: number;
-  // 分页区实测宽度（vp）：onGestureSwipe 的 currentOffset 是 vp 位移，换算连续索引要用
-  @State swiperWidth: number = 0;
+  // 分段栏滑块位置：连续（浮点）索引，始终有效、不再出现空闲哨兵值。
+  // 由 Swiper 的 onContentDidScroll 逐帧喂入（跟手，含松手后的吸附段），
+  // 吸附收尾由 onAnimationEnd 写整数位（见 slidePosition 喂入口径）。
+  @State private tabSlidePosition: number = 0;
+  // 分页动画在途：onContentDidScroll 第一次回报即置真，onAnimationEnd 置假。
+  // 用来区分「手势换页（滑块逐帧跟手）」与「点击/程序化换页（Swiper 不发滚动回调，滑块必须直接落整数位）」。
+  @State private tabSliding: boolean = false;
   // 分段切换的轻微透明反馈（标题栏分段栏用）
   @Link tabPulse: boolean;
   // 标题栏「全部已读」按钮 → 本页执行（递增序号触发 @Watch）
@@ -936,6 +943,12 @@ export struct MessagePage {
     return notifIconRes(type);
   }
 
+  // 分段跟手值的唯一写入口：连续索引 = index - position（真机逐帧取证：视口内每一页都按同一
+  // 基准回报 position，两页算出的值一致且整段单调，与 selectedIndex 是否翻转无关）。
+  private feedTabSlide(continuous: number): void {
+    this.tabSlidePosition = Math.max(0, Math.min(MESSAGE_SEGMENTS.length - 1, continuous));
+  }
+
   // 分段切换（标题栏点击 / Swiper 落页共用）：统一由 @Watch(dmTabIndex) 触发。
   // 两条路径都只写 dmTabIndex（同值写入不触发 @Watch），加载因此不会重复。
   onDmTabChanged(): void {
@@ -1327,29 +1340,58 @@ export struct MessagePage {
     })
   }
 
-  // bottomBuilder 分段行：通知 | 私信（徽标 = 各自未读数；模糊到位后随顶栏一起切白）
+  // 分段徽标计数：官方 SegmentButton 的 item 只有文本/图标，没有徽标位，红点单独叠一层（见 messageTabRow）
+  private tabBadgeCount(index: number): number {
+    return index === 1 ? this.dmUnread : this.unreadCount;
+  }
+
+  // bottomBuilder 分段行：ImmersiveSegmentBar（官方 SegmentButton 轨道+沉浸光感 + 自绘跟手滑块），
+  // 表面由系统组件渲染，滑块吃 Swiper 逐帧喂入的连续索引 → 与页面左右滑动 1:1 跟手。
+  // 本页再加一层未读徽标叠加层（官方 item 没有徽标位）。
   @Builder
   messageTabRow() {
     Row() {
-      SegmentedControl({
-        items: MESSAGE_SEGMENTS,
-        selectedIndex: $dmTabIndex,
-        slidePosition: this.slidePosition,
-        itemWidth: 88,
-        badges: [this.unreadCount, this.dmUnread],
-        immersive: !isSystemMaterialActive(),
-        outlined: isSystemMaterialActive(),
-        glowEnabled: false,
-        useSystemMaterial: true,
-        lightContent: this.brandOnBlur,
-        onSelect: (idx: number): void => {
-          // 点击立即落整数位（弹性动画由 SharedSlide 整数分支承担）；
-          // 分段切换动作由本组件 @Watch(dmTabIndex) 承接
-          this.slidePosition = idx;
-          this.dmTabIndex = idx;
-        },
-      })
-      // 分段控件保持固定尺寸；切换反馈只改变透明度，避免高度跳变
+      Stack() {
+        ImmersiveSegmentBar({
+          items: MESSAGE_SEGMENTS,
+          selectedIndex: $dmTabIndex,
+          slidePosition: this.tabSlidePosition,
+        })
+        // 未读徽标层：分段栏把可用宽度等分，逐槽位叠一个「同字号透明标签 + 系统 Badge」，
+        // 红点就落在各自标签右上角（与底部页签红点同一视觉语言，>99 自动 99+）。
+        // ⚠️ ForEach 的 key 必须带计数：只写 item.key 时未读数变化不会重建，红点数字会咬死。
+        Row() {
+          ForEach(
+            MESSAGE_SEGMENTS,
+            (item: SegmentedItem, index: number) => {
+              Column() {
+                if (this.tabBadgeCount(index) > 0) {
+                  Badge({
+                    count: this.tabBadgeCount(index),
+                    position: BadgePosition.RightTop,
+                    style: { badgeColor: $r('app.color.semantic_red'), color: ColorTokens.onDanger, badgeSize: 14 },
+                  }) {
+                    Text(item.label)
+                      .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+                      .opacity(0)
+                  }
+                }
+              }
+              .layoutWeight(1)
+              .height('100%')
+              .justifyContent(FlexAlign.Center)
+            },
+            (item: SegmentedItem, index: number): string => item.key + '-' + String(this.tabBadgeCount(index))
+          )
+        }
+        .width('100%')
+        .height('100%')
+        // 徽标层纯装饰，整棵子树都要退出命中树。None 只豁免节点自身、子节点照常参与命中测试
+        // （SDK enums.d.ts 口径），层内 Column 会替下面的官方 Button 吃掉点击（真机实测点哪一槽都无响应）；
+        // BLOCK_DESCENDANTS(@since 20) 才把自身与全部后代一起摘掉。compatibleSdkVersion 已是 6.0.0(20)。
+        .hitTestBehavior(HitTestMode.BLOCK_DESCENDANTS)
+      }
+      // 官方组件不支持通用属性，按压/切换反馈挂在这层容器上：只改透明度，避免高度跳变
       .opacity(this.tabPulse ? 0.96 : 1)
       .animation({
         duration: this.shouldReduceMotion() ? MotionTokens.instant : MotionTokens.control,
@@ -1357,7 +1399,13 @@ export struct MessagePage {
       })
     }
     .width('100%')
-    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, bottom: SpaceTokens.xs })
+    // 左右 16vp = 参考App 轨道边距实测 50px；上下净空全部让给材质的环境投影（行高已按此配平）
+    .padding({
+      left: SpaceTokens.base,
+      right: SpaceTokens.base,
+      top: LayoutTokens.segmentBarTopRoom,
+      bottom: LayoutTokens.segmentBarShadowRoom,
+    })
   }
 
   // 快捷筛选行（内容区顶部）：赞和收藏/新增关注/评论。
@@ -1543,41 +1591,26 @@ export struct MessagePage {
         .curve(MotionCurves.springSoft)
         .onChange((index: number): void => {
           hilog.info(0x0000, 'MessagePage', '分段页切换 index=%{public}s', String(index));
-          // 只写共享的 dmTabIndex（同值写入不触发 @Watch）；
-          // 分段切换的实际动作由 @Watch('onDmTabChanged') 统一承接（标题栏点击走同一入口）
+          // 只写共享的选中值（同值写入不触发 @Watch），切换动作统一由 @Watch('onDmTabChanged') 承接。
           this.dmTabIndex = index;
-        })
-        // 拖动/吸附逐帧联动滑块（1:1 跟手，见 slidePosition 注释）
-        .onContentDidScroll((selectedIndex: number, index: number, position: number, _mainAxisLength: number): void => {
-          // 只取当前选中页的回报（selectedIndex 在整段滚动中恒定）：
-          // 连续索引 = index - position，官方语义 position 为 index 页相对主轴起始的位移比例
-          if (index !== selectedIndex) {
-            return;
-          }
-          const continuous: number = selectedIndex - position;
-          this.slidePosition = Math.max(0, Math.min(MESSAGE_SEGMENTS.length - 1, continuous));
-        })
-        // 拖拽逐帧跟手：手势拖动的每一帧（onContentDidScroll 在手势拖动期不保证回调，
-        // 吸附/程序化动画帧仍由它覆盖）——连续索引 = index - currentOffset/页宽
-        .onGestureSwipe((index: number, event: SwiperAnimationEvent): void => {
-          if (this.swiperWidth <= 0) {
-            return;
-          }
-          const continuous: number = index - event.currentOffset / this.swiperWidth;
-          this.slidePosition = Math.max(0, Math.min(MESSAGE_SEGMENTS.length - 1, continuous));
-        })
-        .onAreaChange((_old: Area, area: Area): void => {
-          const w: number = parseFloat(String(area.width));
-          if (w > 0 && Math.abs(w - this.swiperWidth) > 0.5) {
-            this.swiperWidth = w;
+          // 点击分段栏 / 外部改选中：Swiper 直接换页，真机取证这类切换「一条 onContentDidScroll 都不发」，
+          // 滑块只能在这里交给整数位。手势切换期间（tabSliding）不接管——
+          // onChange 会在吸附动画中途到达，写整数位等于让滑块从页面当前位置跳走。
+          if (!this.tabSliding) {
+            this.tabSlidePosition = index;
           }
         })
-        .onAnimationEnd((): void => {
-          // 吸附收尾：已回到整数位才清除跟手覆盖（回落整数索引，数值一致无跳变）；
-          // 中途被打断的动画保持浮点覆盖，避免滑块闪跳回旧位置
-          if (Math.abs(this.slidePosition - Math.round(this.slidePosition)) < 0.01) {
-            this.slidePosition = -1;
-          }
+        // 逐帧联动滑块（1:1 跟手，含松手后的吸附段——真机取证：position 在整段动画里连续单调）
+        .onContentDidScroll((_selectedIndex: number, index: number, position: number, _mainAxisLength: number): void => {
+          this.tabSliding = true;
+          this.feedTabSlide(index - position);
+        })
+        .onAnimationEnd((index: number): void => {
+          // 吸附收尾：滑块交给**本次动画的落点 index**（回调自带），抹掉最后一帧的浮点残差；
+          // 回弹不换页也走这里。⚠️ 不能读 dmTabIndex —— 真机取证 onChange 在 onAnimationEnd 之后才到，
+          // 那一刻共享选中值还是旧页，写它等于把滑块甩回起点再弹回来（用户看到的「不跟手」）。
+          this.tabSliding = false;
+          this.tabSlidePosition = index;
         })
         .layoutWeight(1)          // 标题栏之外的剩余高度全部给分页区
         .width('100%')

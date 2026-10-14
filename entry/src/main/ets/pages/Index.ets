@@ -25,7 +25,7 @@ import { resolveActionIcon } from '../utils/actionIcons';
 import { resolveSettingsIcon } from '../utils/settingsIcons';
 import { EXTERNAL_SHARE_ENABLED } from '../utils/share';
 import { ProfileHeader } from '../components/ProfileHeader';
-import { SegmentedControl } from '../design/components/SegmentedControl';
+import { ImmersiveSegmentBar } from '../design/components/ImmersiveSegmentBar';
 import { User } from '../models/types';
 import { common } from '@kit.AbilityKit';
 import { window, display } from '@kit.ArkUI';
@@ -312,7 +312,6 @@ struct Index {
   // —— 「消息」页共享状态：分段选中态/未读徽标源（顶栏已迁入 MessagePage 内嵌 HdsNavigation）——
   // （unreadCount/dmUnread 经 AppStorage @StorageLink 直达 MessagePage 与底栏红点）
   @State messageTabIndex: number = 0;
-  @State messageSlidePosition: number = -1;
   @State messageTabPulse: boolean = false;
   @State messageMarkAllSeq: number = 0;
   // —— 「圈子」页顶栏共享状态：顶栏（圈子标题 + 已加入药丸）迁入标题栏 ——
@@ -1150,26 +1149,19 @@ struct Index {
         }
       })
 
-      // 主分段栏：我发布 / 我收藏 / 我赞过 / 我评论（沉浸光感：系统材质接管表面）
-      SegmentedControl({
+      // 主分段栏：我发布 / 我收藏 / 我赞过 / 我评论（官方 SegmentButton 轨道 + 沉浸光感 + 自绘跟手滑块）
+      ImmersiveSegmentBar({
         items: PROFILE_SEGMENTS,
         selectedIndex: $profileTabIdx,
         slidePosition: this.profileSlidePosition,
         itemWidth: 67,
-        // 与首页分段栏同配置：材质生效时用描边底（透明，让系统材质完整透出）；
-        // 低版本保留原「华为应用商店同款」沉浸玻璃 —— 它的 backdropBlur 会遮挡材质，二者互斥。
-        immersive: !isSystemMaterialActive(),
-        outlined: isSystemMaterialActive(),
-        glowEnabled: false,
-        useSystemMaterial: true,
         onSelect: (idx: number): void => {
-          // 点击立即落整数位（弹性动画由 SharedSlide 整数分支承担）；
-          // 列表刷新由 ProfilePage 的 @Watch(tabIdx) 承接
-          this.profileSlidePosition = idx;
+          // 只写选中值：ProfilePage 的分页 Swiper 随即播切换动画，滑块由 onContentDidScroll 逐帧带着走。
+          // 这里预设整数位等于让滑块先跳到终点再被动画拽回来；列表刷新由 @Watch(tabIdx) 承接。
           this.profileTabIdx = idx;
         },
       })
-      .margin({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs })
+        .margin({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs })
 
       // 「我收藏」子分段栏（帖子 | 收藏夹）：与主分段栏同一条磨砂区内，材质配置照抄上面那份。
       // 原先它是内容区浮层——uiMaterial 在内容区完全不渲染，只能自绘玻璃，
@@ -1184,17 +1176,13 @@ struct Index {
           // 控件根节点是 width('100%')，直接和右侧图标同排会按**父 Row** 全宽解析、把分段栏挤偏
           // （它当年被移出顶栏就是这个原因）；包一层加权容器后 100% 落在扣掉图标的那一格上。
           Column() {
-            SegmentedControl({
+            ImmersiveSegmentBar({
               items: BOOKMARK_SEGMENTS,
               selectedIndex: $profileBookmarkSubTab,
-              immersive: !isSystemMaterialActive(),
-              outlined: isSystemMaterialActive(),
-              glowEnabled: false,
-              useSystemMaterial: true,
             })
           }
           .layoutWeight(1)
-          .height(LayoutTokens.segmentedHeight)
+          .height(LayoutTokens.segmentBarHeight)
           .justifyContent(FlexAlign.Center)
           // 收藏夹管理入口（重命名/删除）：从收藏夹列表头部提到这里，滚动时不再被卷走。
           // 只在「收藏夹」子页且确有收藏夹时出现——空列表没有可管理的东西。
@@ -1286,7 +1274,6 @@ struct Index {
     TabContent() {
       MessagePage({
         dmTabIndex: $messageTabIndex,
-        slidePosition: $messageSlidePosition,
         tabPulse: $messageTabPulse,
         markAllSeq: $messageMarkAllSeq,
       })

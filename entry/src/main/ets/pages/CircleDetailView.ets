@@ -10,7 +10,8 @@ import { PostCard } from '../components/PostCard';
 import { TagIcon } from '../components/TagIcon';
 import { DesignButton } from '../design/components/DesignButton';
 import { EmptyState } from '../design/components/EmptyState';
-import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
+import { SegmentedItem } from '../design/components/SegmentedControl';
+import { ImmersiveSegmentBar } from '../design/components/ImmersiveSegmentBar';
 import { BackButton } from '../design/components/BackButton';
 import { Pressable } from '../design/motion/Pressable';
 import { Reveal } from '../design/motion/Reveal';
@@ -19,7 +20,6 @@ import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
-import { isSystemMaterialActive } from '../utils/immersiveMaterial';
 
 const FEED_SEGMENTS: SegmentedItem[] = [
   { key: 'latest', label: '最新' },
@@ -280,18 +280,10 @@ export struct CircleDetailView {
       .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: SpaceTokens.sm, bottom: SpaceTokens.item })
 
       Row() {
-        SegmentedControl({
+        ImmersiveSegmentBar({
           items: FEED_SEGMENTS,
           selectedIndex: $sortIndex,
           itemWidth: 64,
-          fillWidth: false,
-          // 与首页/我的页标题栏同配置：材质生效时用描边底（透明，让系统材质完整透出）；
-          // 低版本保留原「华为应用商店同款」沉浸玻璃 —— 它的 backdropBlur 会遮挡材质，二者互斥。
-          immersive: !isSystemMaterialActive(),
-          outlined: isSystemMaterialActive(),
-          glowEnabled: false,
-          // 沉浸光感：驻留标题栏，由系统材质接管整栏表面
-          useSystemMaterial: true,
           onSelect: (index: number): void => { this.switchSort(index); },
         })
         Blank()

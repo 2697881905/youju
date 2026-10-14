@@ -46,12 +46,9 @@ export struct SharedSlide {
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
       Column()
-        .width(this.pillWidth())
-        .height(Math.max(0, this.controlHeight - this.inset * 2))
         .position({ x: this.inset, y: this.inset })
         .translate({ x: this.selectedOffset() })
         .backgroundColor(this.fill)
-        .borderRadius(this.radius)
         .shadow(this.slideShadow)
         // 华为应用商店同款按压反馈：按下滑块轻微缩小，松手 spring 过冲回弹
         .scale({
@@ -66,12 +63,22 @@ export struct SharedSlide {
           duration: this.isTracking() ? MotionTokens.none : MotionTokens.base,
           curve: this.isTracking() ? Curve.Linear : MotionCurves.springInteract,
         })
+        // ⚠️ 尺寸/圆角声明在 animation **之后**：显式动画吃掉的是它之前声明的可动画属性，
+        // 宽度入域后，容器宽度被 onAreaChange 重测的那一帧会把滑块弹成小圆块
+        // （真机连拍收尾帧 dj10/dh10：滑块宽 512 → 100px，肉眼是「滑块缩一下」）。
+        .width(this.pillWidth())
+        .height(Math.max(0, this.controlHeight - this.inset * 2))
+        .borderRadius(this.radius)
     }
     .width('100%')
     .height(this.controlHeight)
-    .hitTestBehavior(HitTestMode.None)
+    .hitTestBehavior(HitTestMode.BLOCK_DESCENDANTS)
     .onAreaChange((_old: Area, next: Area) => {
-      this.containerWidth = next.width as number;
+      // 只接受有效且确有变化的宽度：0/抖动值会把滑块宽度算成 0，再被上面的动画补间出来
+      const w: number = next.width as number;
+      if (w > 0 && Math.abs(w - this.containerWidth) > 0.5) {
+        this.containerWidth = w;
+      }
     })
   }
 }

@@ -67,10 +67,11 @@ export struct ProfilePage {
   @Link followerCount: number;
   @Link totalLikes: number; // 获赞总数
   @Link @Watch('onTabIdxChanged') tabIdx: number; // 0 我发布, 1 我收藏, 2 我赞过, 3 我评论
-  // 分段滑块跟手位置：Swiper 滚动（拖动/吸附）中喂入的连续索引；-1 = 未滚动
+  // 分段滑块位置：Swiper 逐帧喂入的连续索引（1:1 跟手，含松手后的吸附段），收尾为整数落点位
   @Link slidePosition: number;
-  // 分页区实测宽度（vp）：onGestureSwipe 的 currentOffset 是 vp 位移，换算连续索引要用
-  @State swiperWidth: number = 0;
+  // 分页动画在途：onContentDidScroll 首次回报置真、onAnimationEnd 置假。
+  // 点击分段栏（标题栏那条）/程序化换页时 Swiper 不发滚动回调（真机取证），那条路径要由 onChange 直接落整数位。
+  @State private tabSliding: boolean = false;
   // 标题栏分享按钮 → 本页分享流程的信号：递增序号触发 @Watch，
   // 分享弹层 / 文案 / 剪贴板逻辑仍全部留在本页（Index 只负责发起）。
   @Link @Watch('onShareRequested') profileShareSeq: number;
@@ -898,6 +899,12 @@ export struct ProfilePage {
     .height('100%')
   }
 
+  // 分段跟手值的唯一写入口：连续索引 = index - position（真机逐帧取证：视口内每一页都按同一
+  // 基准回报 position，各页算出的值一致且整段单调，与 selectedIndex 是否翻转无关）。
+  private feedSlide(continuous: number): void {
+    this.slidePosition = Math.max(0, Math.min(PROFILE_SEGMENTS.length - 1, continuous));
+  }
+
   build() {
     Column() {
       // 顶栏（我的/分享/设置）+ 资料区 + 主分段栏 + 「我收藏」子分段栏已整体迁入 Navigation
@@ -917,41 +924,25 @@ export struct ProfilePage {
       .duration(MotionTokens.container)
       .curve(MotionCurves.springSoft)
       .onChange((index: number): void => {
-        // Swiper 落页 → 只写 tabIdx（同值写入不触发 @Watch）；
-        // 信息源加载与滑块跟手分别由 @Watch(tabIdx) 与 slidePosition 承担。
+        // 只写选中值（同值写入不触发 @Watch）；列表刷新由 @Watch(tabIdx) 承接。
         this.tabIdx = index;
-      })
-      // 拖动/吸附逐帧联动滑块（1:1 跟手，见 slidePosition 注释）
-      .onContentDidScroll((selectedIndex: number, index: number, position: number, _mainAxisLength: number): void => {
-        // 只取当前选中页的回报（selectedIndex 在整段滚动中恒定）：
-        // 连续索引 = index - position，官方语义 position 为 index 页相对主轴起始的位移比例
-        if (index !== selectedIndex) {
-          return;
-        }
-        const continuous: number = selectedIndex - position;
-        this.slidePosition = Math.max(0, Math.min(PROFILE_SEGMENTS.length - 1, continuous));
-      })
-      // 拖拽逐帧跟手：手势拖动的每一帧（onContentDidScroll 在手势拖动期不保证回调，
-      // 吸附/程序化动画帧仍由它覆盖）——连续索引 = index - currentOffset/页宽
-      .onGestureSwipe((index: number, event: SwiperAnimationEvent): void => {
-        if (this.swiperWidth <= 0) {
-          return;
-        }
-        const continuous: number = index - event.currentOffset / this.swiperWidth;
-        this.slidePosition = Math.max(0, Math.min(PROFILE_SEGMENTS.length - 1, continuous));
-      })
-      .onAreaChange((_old: Area, area: Area): void => {
-        const w: number = parseFloat(String(area.width));
-        if (w > 0 && Math.abs(w - this.swiperWidth) > 0.5) {
-          this.swiperWidth = w;
+        // 点击标题栏分段：Swiper 直接换页、不发滚动回调，滑块在这里落整数位；
+        // 手势期间不接管（onChange 会在吸附动画中途到达，写整数位等于让滑块从页面当前位置跳走）。
+        if (!this.tabSliding) {
+          this.slidePosition = index;
         }
       })
-      .onAnimationEnd((): void => {
-        // 吸附收尾：已回到整数位才清除跟手覆盖（回落整数索引，数值一致无跳变）；
-        // 中途被打断的动画保持浮点覆盖，避免滑块闪跳回旧位置
-        if (Math.abs(this.slidePosition - Math.round(this.slidePosition)) < 0.01) {
-          this.slidePosition = -1;
-        }
+      // 逐帧联动滑块（1:1 跟手，含松手后的吸附段——真机取证：position 在整段动画里连续单调）
+      .onContentDidScroll((_selectedIndex: number, index: number, position: number, _mainAxisLength: number): void => {
+        this.tabSliding = true;
+        this.feedSlide(index - position);
+      })
+      .onAnimationEnd((index: number): void => {
+        // 吸附收尾：滑块交给**本次动画的落点 index**（回调自带），抹掉最后一帧的浮点残差；回弹不换页也走这里。
+        // ⚠️ 不能读 tabIdx —— 真机取证 onChange 在 onAnimationEnd 之后才到，那一刻它还是旧页，
+        // 写它等于把滑块甩回起点再弹回来（用户看到的「不跟手」）。
+        this.tabSliding = false;
+        this.slidePosition = index;
       })
       .width('100%')
       .height('100%')

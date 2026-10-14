@@ -16,7 +16,8 @@ import { openSearchPanelViaNav, SEARCH_ENTRY_ID } from '../utils/longTake/openSe
 import { safeShowToast } from '../utils/toast';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { EmptyState } from '../design/components/EmptyState';
-import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
+import { SegmentedItem } from '../design/components/SegmentedControl';
+import { ImmersiveSegmentBar } from '../design/components/ImmersiveSegmentBar';
 import { Pressable } from '../design/motion/Pressable';
 import { DailyPostDeck } from './DailyPostDeck';
 import { ColorTokens } from '../design/tokens/color';
@@ -58,8 +59,10 @@ const SORT_KEYS: SortKey[] = ['hot', 'latest', 'recommend'];
 // 分段栏数据：导出给 Index 的标题栏渲染（key 与 FeedMode 一一对应，FEED_MODE_IDX_MAP 同序）。
 
 // —— 顶栏（路线 B，验证页第七轮定稿结构）——
-// bottomBuilder 分段行高：36 控件 + 上下 4 内边距
-const HOME_TAB_ROW_HEIGHT: number = SpaceTokens.xs * 2 + LayoutTokens.segmentedHeight;
+// bottomBuilder 分段行高：40 控件（官方分段栏轨道）+ 上方 14 / 下方 28 材质投影净空
+// （与消息页同口径：bottomBuilder 行对内容双向裁切，投影铺不开就在分段栏下沿压出一条灰带）
+const HOME_TAB_ROW_HEIGHT: number = LayoutTokens.segmentBarHeight + LayoutTokens.segmentBarShadowRoom +
+  LayoutTokens.segmentBarTopRoom;
 // 滚动模糊生效区间终点（vp）：0 → 32 线性到位（原 64 偏慢，按用户裁定调小一档；验证页定稿值为 64）
 const HOME_FEED_BLUR_END_VP: number = 32;
 // 标语收合滚动阈值（vp）：信息流滚过该高度后收起「真实经验，有据可循」。dynamicHideTitleBar
@@ -122,10 +125,11 @@ export struct HomeTab {
   @Link feedMode: FeedMode;
   // 标题栏分段栏切换走这里写入；@Watch 负责把「外部切换」翻译成信息源加载（见 onFeedIndexChanged）
   @Link @Watch('onFeedIndexChanged') feedIndex: number;
-  // 分段滑块跟手位置：Swiper 滚动（拖动/吸附）中喂入的连续索引；-1 = 未滚动
+  // 分段滑块位置：Swiper 逐帧喂入的连续索引（1:1 跟手，含松手后的吸附段），收尾为整数落点位
   @Link slidePosition: number;
-  // 分页区实测宽度（vp）：onGestureSwipe 的 currentOffset 是 vp 位移，换算连续索引要用
-  @State swiperWidth: number = 0;
+  // 分页动画在途：onContentDidScroll 首次回报置真、onAnimationEnd 置假。
+  // 点击分段栏/程序化换页时 Swiper 不发滚动回调（真机取证），那条路径要由 onChange 直接把滑块落到整数位。
+  @State private feedSliding: boolean = false;
   // 圈子下拉面板开合（标题栏 chip ↔ 本页面板 共享）
   @Link showCircleDropdown: boolean;
   @State needLogin: boolean = false; // 关注流且未登录的引导态
@@ -454,7 +458,18 @@ export struct HomeTab {
 
   // 左右滑动切换由 Swiper 原生接管（跟手、相邻页可见、松手吸附）。
   // Swiper.onChange → 这里更新 feedMode/needLogin 并懒加载该页数据。
+  // 分段跟手值的唯一写入口：连续索引 = index - position（真机逐帧取证：视口内每一页都按同一
+  // 基准回报 position，两页算出的值一致且整段单调，与 selectedIndex 是否翻转无关）。
+  private feedSlide(continuous: number): void {
+    this.slidePosition = Math.max(0, Math.min(FEED_SEGMENTS.length - 1, continuous));
+  }
+
   private onSwiperChanged(index: number): void {
+    // 点击分段栏 / 外部改选中：Swiper 直接换页、不发滚动回调，滑块在这里落整数位；
+    // 手势期间（feedSliding）不接管，交给逐帧喂入，否则滑块会从手指当前位置跳走。
+    if (!this.feedSliding) {
+      this.slidePosition = index;
+    }
     // 切段后按新页的滚动偏移重算标语收合态（每日一帖 seg=2 保持现状）
     this.updateBrandCompact(index);
     // 分段切换 → 同步 bindToScrollable 绑定（动态重估模糊，见 syncFeedScrollerBinding 注释）
@@ -1070,24 +1085,20 @@ export struct HomeTab {
   @Builder
   homeTabRow() {
     Row() {
-      SegmentedControl({
+      ImmersiveSegmentBar({
         items: FEED_SEGMENTS,
         selectedIndex: $feedIndex,
         slidePosition: this.slidePosition,
+        // 定宽三槽（与旧自绘栏同宽，右侧 TagNav 靠 layoutWeight 吃剩余）
         itemWidth: 66,
-        fillWidth: false,
-        glass: false,
-        outlined: true,
-        // 关闭按压/长按光斑：材质玻璃/描边风格上光斑过于抢眼
-        glowEnabled: false,
-        // 沉浸光感：处于 HDS 标题栏内（uiMaterial 官方生效区域），系统材质接管整栏表面
-        useSystemMaterial: true,
+        // 官方 item 的 8vp 横内边距会把「每日一帖」4 字截断，压到 4vp
+        buttonHorizontalPadding: 4,
         // 模糊到位后随品牌行一起切白（浅色内容态）
         lightContent: this.brandOnBlur,
         onSelect: (idx: number): void => {
-          // 点击立即落整数位（弹性动画由 SharedSlide 整数分支承担）；
+          // 只写选中值：Swiper 随即播切换动画，滑块由 onContentDidScroll 逐帧带着走（与滑动同款衔接），
+          // 这里不预设整数位——预设等于让滑块先跳到终点再被动画拽回来。
           // 信息源加载由本组件 @Watch(feedIndex) 承接（见 onFeedIndexChanged）
-          this.slidePosition = idx;
           this.feedIndex = idx;
         },
       })
@@ -1109,11 +1120,12 @@ export struct HomeTab {
     }
     .width('100%')
     .height(HOME_TAB_ROW_HEIGHT)
+    // 左右 sm 沿用首页栅格留白；上下净空全部让给材质的环境投影（行高已按此配平）
     .padding({
       left: SpaceTokens.sm,
       right: SpaceTokens.sm,
-      top: SpaceTokens.xs,
-      bottom: SpaceTokens.xs,
+      top: LayoutTokens.segmentBarTopRoom,
+      bottom: LayoutTokens.segmentBarShadowRoom,
     })
   }
 
@@ -1137,37 +1149,17 @@ export struct HomeTab {
         .duration(MotionTokens.container)
         .curve(MotionCurves.springSoft)
         .onChange((index: number): void => { this.onSwiperChanged(index); })
-        // 拖动/吸附逐帧联动滑块（1:1 跟手，见 slidePosition 注释）
-        .onContentDidScroll((selectedIndex: number, index: number, position: number, _mainAxisLength: number): void => {
-          // 只取当前选中页的回报（selectedIndex 在整段滚动中恒定）：
-          // 连续索引 = index - position，官方语义 position 为 index 页相对主轴起始的位移比例
-          if (index !== selectedIndex) {
-            return;
-          }
-          const continuous: number = selectedIndex - position;
-          this.slidePosition = Math.max(0, Math.min(FEED_SEGMENTS.length - 1, continuous));
+        // 逐帧联动滑块（1:1 跟手，含松手后的吸附段——真机取证：position 在整段动画里连续单调）
+        .onContentDidScroll((_selectedIndex: number, index: number, position: number, _mainAxisLength: number): void => {
+          this.feedSliding = true;
+          this.feedSlide(index - position);
         })
-        // 拖拽逐帧跟手：手势拖动的每一帧（onContentDidScroll 在手势拖动期不保证回调，
-        // 吸附/程序化动画帧仍由它覆盖）——连续索引 = index - currentOffset/页宽
-        .onGestureSwipe((index: number, event: SwiperAnimationEvent): void => {
-          if (this.swiperWidth <= 0) {
-            return;
-          }
-          const continuous: number = index - event.currentOffset / this.swiperWidth;
-          this.slidePosition = Math.max(0, Math.min(FEED_SEGMENTS.length - 1, continuous));
-        })
-        .onAreaChange((_old: Area, area: Area): void => {
-          const w: number = parseFloat(String(area.width));
-          if (w > 0 && Math.abs(w - this.swiperWidth) > 0.5) {
-            this.swiperWidth = w;
-          }
-        })
-        .onAnimationEnd((): void => {
-          // 吸附收尾：已回到整数位才清除跟手覆盖（回落整数索引，数值一致无跳变）；
-          // 中途被打断的动画保持浮点覆盖，避免滑块闪跳回旧位置
-          if (Math.abs(this.slidePosition - Math.round(this.slidePosition)) < 0.01) {
-            this.slidePosition = -1;
-          }
+        .onAnimationEnd((index: number): void => {
+          // 吸附收尾：滑块交给**本次动画的落点 index**（回调自带），抹掉最后一帧的浮点残差；回弹不换页也走这里。
+          // ⚠️ 不能读 feedIndex —— 真机取证 onChange 在 onAnimationEnd 之后才到，那一刻它还是旧页，
+          // 写它等于把滑块甩回起点再弹回来（用户看到的「不跟手」）。
+          this.feedSliding = false;
+          this.slidePosition = index;
         })
         .width('100%')
         .height('100%')

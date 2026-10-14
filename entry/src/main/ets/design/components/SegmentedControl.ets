@@ -7,7 +7,7 @@ import { RadiusTokens } from '../tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../tokens/space';
 import { TypeTokens } from '../tokens/type';
 import { ShadowTokens } from '../tokens/shadow';
-import { isImmersiveLightSenseSupported, isSystemMaterialActive, GlassBlurStyle, TopButtonMaterialModifier } from '../../utils/immersiveMaterial';
+import { FloatingTopButtonMaterialModifier, isImmersiveLightSenseSupported, isSystemMaterialActive, GlassBlurStyle, TopButtonMaterialModifier } from '../../utils/immersiveMaterial';
 
 export interface SegmentedItem {
   key: string;
@@ -47,16 +47,16 @@ export struct SegmentedControl {
   // 由系统材质接管背景/边框/阴影（低版本设备门禁不通过，保留上面的风格分发）。
   // 注：属性名不能叫 systemMaterial —— 与 ArkUI 内置通用属性同名会与 CustomComponent 基类冲突。
   @Prop useSystemMaterial: boolean = false;
+  // 浮起材质（配套 useSystemMaterial）：材质保留系统投影（applyShadow:true）。
+  // 默认 false = 无投影材质——HdsNavigation bottomBuilder 行 clip=true 且只高 4vp，投影会被裁成灰带。
+  // 只有宿主自带下方留白、不会裁切的标题栏（搜索结果页工具条）才传 true，否则白底上材质几乎不可见。
+  @Prop useFloatingMaterial: boolean = false;
   // 浅色内容态（模糊背板变深时切白）：标签/滑块/描边随宿主滚动状态联动（首页顶栏模糊切白用）。
   // 默认 false = 原有 token 配色，其它调用方零影响。
   @Prop lightContent: boolean = false;
   // Swiper 联动跟手位置：滚动（拖动/吸附）中由页面喂入的连续（浮点）索引，1:1 跟手；
   // -1 表示未在滚动（回退 activeIndex()，点击切换仍走弹性动画）
   @Prop slidePosition: number = -1;
-  // 未读徽标（与 items 按下标对齐，0 = 无徽标）：消息页 通知|私信 分段用——各分段未读数
-  // >0 时在标签右上角挂系统 Badge（count 样式，与底部页签红点同一视觉语言）。
-  // 缺省空数组 = 不渲染徽标，其余调用方零影响。
-  @Prop badges: Array<number> = [];
   onSelect?: (index: number) => void = undefined;
   @State scrubbing: boolean = false;
   @State hoverIndex: number = -1;
@@ -66,6 +66,8 @@ export struct SegmentedControl {
   private longPressTimer: number = 0;
   // 系统材质修饰器（沉浸光感）：只创建实例，低版本设备由修饰器内部的门禁自动跳过。
   private materialModifier: TopButtonMaterialModifier = new TopButtonMaterialModifier();
+  // 浮起材质修饰器（保留系统投影）：见 useFloatingMaterial 注释，实例同样在门禁内构造。
+  private floatingMaterialModifier: FloatingTopButtonMaterialModifier = new FloatingTopButtonMaterialModifier();
 
   // 卸载时清掉在途的长按/扫选定时器：否则回调会在已销毁的组件上写 hoverIndex 等状态。
   aboutToDisappear(): void {
@@ -206,11 +208,7 @@ export struct SegmentedControl {
   // - outline：与右侧搜索按钮同款描边（透明底 + 细边框 + 大圆角 + 无阴影）
   // - immersive：华为应用商店同款沉浸光感（玻璃底 + backdropBlur + 高光边框 + 滑块悬浮投影）
   // - 默认：纯色 sunken 底
-  private hasBadge(index: number): boolean {
-    return index < this.badges.length && this.badges[index] > 0;
-  }
-
-  // 分段标签文本（徽标与无徽标两个分支共用，避免属性链复制漂移）
+  // 分段标签文本
   @Builder
   segmentLabel(item: SegmentedItem, index: number): void {
     Text(item.label)
@@ -261,18 +259,7 @@ export struct SegmentedControl {
                 touchTargetHeight: LayoutTokens.minTouchTarget,
                 action: () => { this.onItemClick(index); },
               }) {
-                if (this.hasBadge(index)) {
-                  // 右上角未读徽标：与底部页签红点同款系统 Badge（>99 自动显示 99+）
-                  Badge({
-                    count: this.badges[index],
-                    position: BadgePosition.RightTop,
-                    style: { badgeColor: $r('app.color.semantic_red'), color: ColorTokens.onDanger, badgeSize: 14 },
-                  }) {
-                    this.segmentLabel(item, index)
-                  }
-                } else {
-                  this.segmentLabel(item, index)
-                }
+                this.segmentLabel(item, index)
               }
             }
             .layoutWeight(this.fillWidth ? 1 : 0)
@@ -290,7 +277,9 @@ export struct SegmentedControl {
     .padding(SpaceTokens.xs / 2)
     // 沉浸光感（systemMaterial @since 26.0.0）：驻留标题栏时由系统材质接管底/边框/阴影；
     // 低版本设备门禁不通过 → 保留下方按风格分发的原有样式（见 utils/immersiveMaterial.ets）
-    .attributeModifier(this.useSystemMaterial ? this.materialModifier : undefined)
+    .attributeModifier(this.useSystemMaterial
+      ? (this.useFloatingMaterial ? this.floatingMaterialModifier : this.materialModifier)
+      : undefined)
     // immersive：backdropBlur 伪沉浸（API 26+ 升级后替换为 backgroundSystemMaterial，见文件头注释）
     .backdropBlur(this.immersive ? GlassTokens.SEGMENT_BLUR : 0)
     .backgroundBlurStyle(!this.immersive && this.glass ? GlassBlurStyle.Floating : BlurStyle.NONE)
@@ -319,8 +308,8 @@ export struct SegmentedControl {
       color: this.immersive ? Color.Transparent : (this.glass ? ColorTokens.barShadow : Color.Transparent),
       offsetY: this.immersive ? 0 : (this.glass ? 8 : 0),
     })
-    // 不裁切：RightTop 徽标悬出标签上缘约 3px，clip(true) 会把红点削掉一块（真机消息页复现）；
-    // 滑块是自带圆角的独立子组件，背景圆角不需要靠裁切保障，气泡/光斑各自有界
+    // 不裁切：滑块是自带圆角的独立子组件，背景圆角不需要靠裁切保障；
+    // 按压光斑（glowOverlay）本就比栏宽，clip(true) 会把它切成一条硬边
     .clip(false)
     // 按压反馈（底部栏同款灵动感）：弹性回弹曲线（spring 过冲）+ 更明显的整栏下沉
     .scale({

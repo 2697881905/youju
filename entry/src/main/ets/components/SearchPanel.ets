@@ -9,7 +9,7 @@ import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
-import { TopButtonMaterialModifier } from '../utils/immersiveMaterial';
+import { FloatingTopButtonMaterialModifier, isSystemMaterialActive } from '../utils/immersiveMaterial';
 
 // 搜索框 / 返回按钮的标准控件高度：与系统搜索栏一致。
 // 原生 Search 不显式定高时整体偏高（且返回按钮会跟着放大），故统一收敛到标准值。
@@ -26,8 +26,10 @@ export struct SearchPanel {
 
   // 全屏沉浸式布局下标题栏不代为避让状态栏：由标题栏 Builder 手动下移
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
-  // 系统材质修饰器（沉浸光感）：标题栏内的搜索框与返回按钮共用（低版本自动跳过）
-  private titleBarMaterial: TopButtonMaterialModifier = new TopButtonMaterialModifier();
+  // 系统材质修饰器（沉浸光感）：标题栏内的搜索框、返回与搜索按钮共用（低版本自动跳过）。
+  // 用带投影的一份：这条工具栏驻留自带留白的 Navigation 标题栏，不会被 HdsNavigation
+  // 那种窄行裁切，而纯白画布上无投影的材质表面只差 2 级灰度，浮不起来。
+  private titleBarMaterial: FloatingTopButtonMaterialModifier = new FloatingTopButtonMaterialModifier();
 
   @State keyword: string = '';
   @State suggestions: string[] = []; // 搜索联想（输入时防抖拉取）
@@ -152,26 +154,63 @@ export struct SearchPanel {
   // 由系统按设备版本渲染；此前「老样式」观感源于旧 targetSdk 24 编译 + 自拍覆盖值。
   // 现在只保留两处必要覆盖：① 高度取标准控件高度（原生默认偏高）；② 底色写在材质之前
   // （让系统材质把它清除为透明，避免与 Search 自带默认材质叠加成双层玻璃）。
+  // 搜索按钮不再走 Search 自带的 searchButton：它是搜索框内部的文字子节点，
+  // systemMaterial 只接管组件自身表面、管不到内部子节点，永远拿不到沉浸光感
+  // （同 docs/tutorial-titlebar-immersive-light.md 案例 4）。改由标题栏右侧的
+  // 独立原生 Button 承载，与返回键同一块材质表面。
   @Builder
   searchInput(): void {
-    // 系统原生搜索框：集成搜索按钮（searchButton）——不再另放一颗方形搜索按钮。
-    // 排版完全用系统默认（不做字体覆盖）；高度取标准控件高度。
     Search({ placeholder: '搜索你关心的经验和问题', value: this.keyword })
       .layoutWeight(1)
       .height(SEARCH_FIELD_HEIGHT)
-      .searchButton('搜索')
       // 关键：底色写在材质之前 —— 材质生效时由系统强制清除为透明（官方行为），
       // 避免「Search 自带默认材质 + 我们叠加的材质」双层玻璃；低版本则作为兜底底色。
       .backgroundColor($r('sys.color.comp_background_tertiary'))
       // 沉浸光感：标题栏内由系统材质接管搜索框表面（低版本自动跳过，保留系统默认样式）
       .attributeModifier(this.titleBarMaterial)
-      .onChange((v: string): void => { this.debounceSuggest(v); })
+      .onChange((v: string): void => {
+        // 必须回写 keyword：搜索按钮是标题栏里的独立 Button，走 doSearch() 读 this.keyword，
+        // 不再由 Search 自带的 searchButton 触发 onSubmit 传值（那样只有回车一条路能拿到关键词）。
+        // 清除 × 也经这里把 keyword 收回空串。
+        this.keyword = v;
+        this.debounceSuggest(v);
+      })
       .onSubmit((v: string): void => {
         this.keyword = v;
         this.doSearch();
       })
       .onFocus((): void => { this.handleInputFocus(true); })
       .onBlur((): void => { this.handleInputFocus(false); })
+  }
+
+  // 搜索按钮：与返回键同构的原生 Button，驻留标题栏（沉浸光感官方生效区）挂同一块材质，
+  // interactive 形变由系统承担。低版本门禁不通过 → 回退描边胶囊（与分段栏 outlined 同款）。
+  @Builder
+  private searchSubmitButton(): void {
+    Button('搜索', { type: ButtonType.Normal, stateEffect: true })
+      .fontSize(TypeTokens.callout.size)
+      .fontWeight(TypeTokens.headline.weight)
+      .fontColor(ColorTokens.brand)
+      .height(SEARCH_FIELD_HEIGHT)
+      .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+      // 视觉与搜索框同高，触控热区仍保持 44（与全局 minTouchTarget 一致）
+      .responseRegion({
+        x: (SEARCH_FIELD_HEIGHT - LayoutTokens.minTouchTarget) / 2,
+        y: (SEARCH_FIELD_HEIGHT - LayoutTokens.minTouchTarget) / 2,
+        width: LayoutTokens.minTouchTarget,
+        height: LayoutTokens.minTouchTarget,
+      })
+      .backgroundColor(Color.Transparent)
+      // 材质生效时自绘描边让位（否则与材质叠成第二圈描边，见教程案例 4）
+      .border({
+        width: isSystemMaterialActive() ? 0 : LayoutTokens.glassBorderWidth,
+        color: ColorTokens.barBorder,
+        style: BorderStyle.Solid,
+      })
+      .borderRadius(RadiusTokens.lg)
+      .attributeModifier(this.titleBarMaterial)
+      .accessibilityText('搜索')
+      .onClick((): void => { this.doSearch(); })
   }
 
   // 选项胶囊：首页分段栏 outlined 同款（透明底 + 细边框 + 大圆角 + 无阴影），高度与分段栏一致
@@ -208,7 +247,7 @@ export struct SearchPanel {
     return this.statusBarHeight + SpaceTokens.xs * 2 + SEARCH_FIELD_HEIGHT;
   }
 
-  // 标题栏：返回 + 系统原生搜索框（集成搜索按钮）——原顶部工具栏整体驻留于此
+  // 标题栏：返回 + 系统原生搜索框 + 独立搜索按钮 ——原顶部工具栏整体驻留于此
   @Builder
   private searchTitleBar(): void {
     Row({ space: SpaceTokens.inline }) {
@@ -230,13 +269,19 @@ export struct SearchPanel {
         height: LayoutTokens.minTouchTarget,
       })
       .backgroundColor(Color.Transparent)
-      .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+      // 材质生效时自绘描边让位（否则与材质叠成第二圈描边，见教程案例 4）
+      .border({
+        width: isSystemMaterialActive() ? 0 : LayoutTokens.glassBorderWidth,
+        color: ColorTokens.barBorder,
+        style: BorderStyle.Solid,
+      })
       .borderRadius(RadiusTokens.lg)
       .attributeModifier(this.titleBarMaterial)
       .accessibilityText('返回')
       .onClick((): void => { this.onCancel(); })
 
       this.searchInput()
+      this.searchSubmitButton()
     }
     .width('100%')
     // 不锁定行高：由搜索框原生高度 + 内边距决定（内容区即原生尺寸）。

@@ -136,10 +136,41 @@ export class TopButtonMaterialModifier implements AttributeModifier<CommonAttrib
   }
 }
 
-// 半模态/弹框材质实例进程级缓存：只在门禁内创建，低版本设备永不执行构造。
-let sheetImmersiveMaterial: uiMaterial.Material | null = null;
+// 带投影的顶部材质（与上面的唯一差别就是 applyShadow）：
+// getTopButtonMaterial 关投影是被 HdsNavigation 逼出来的——挂材质的控件都在 bottomBuilder 行内，
+// 该行 clip=true 且只比控件高 4vp，投影被拦腰裁成灰带（见 docs/tutorial-titlebar-immersive-light.md 案例 9）。
+// 但「无投影」在**纯白画布**上代价很大：ULTRA_THIN 材质表面实测 253 vs 画布 255，只差 2 级，
+// 控件看起来就是一行浮在白纸上的字，没有系统 App（智慧生活：灰底 240 + 白面 246 + 一条投影）那种浮起感。
+// 因此自带下方留白、不会被行裁切的标题栏（搜索面板/搜索结果页工具条）改用这一份。
+let floatingTopButtonMaterial: uiMaterial.Material | null = null;
+
+function getFloatingTopButtonMaterial(): uiMaterial.Material {
+  if (floatingTopButtonMaterial === null) {
+    floatingTopButtonMaterial = new uiMaterial.ImmersiveMaterial({
+      // 与顶部常驻档一致，只放开投影，避免同一行里出现两套表面强度
+      style: uiMaterial.ImmersiveStyle.ULTRA_THIN,
+      interactive: true,
+      applyShadow: true,
+    });
+  }
+  return floatingTopButtonMaterial;
+}
 
 /**
+ * 顶部常驻按钮的沉浸光感修饰器（**保留材质自带投影**）。
+ * 只用于「容器给了下方留白、不会裁切投影」的标题栏；
+ * HdsNavigation bottomBuilder 一类的窄行仍用 TopButtonMaterialModifier。
+ */
+export class FloatingTopButtonMaterialModifier implements AttributeModifier<CommonAttribute> {
+  applyNormalAttribute(instance: CommonAttribute): void {
+    if (deviceInfo.apiAvailable('26.0.0')) {
+      instance.systemMaterial(getFloatingTopButtonMaterial());
+    }
+  }
+}
+
+// 半模态/弹框材质实例进程级缓存：只在门禁内创建，低版本设备永不执行构造。
+let sheetImmersiveMaterial: uiMaterial.Material | null = null;/**
  * 半模态（bindSheet）沉浸光感材质工厂。**载体纠正**（本次「面板全透明」根因）：
  * HarmonyOS 7（API 26）起，把 systemMaterial 挂在普通内容组件（如 bindSheet builder 内的
  * Column）属于生效范围外，完全不渲染——之前既把材质挂在内容 Column、又把卡片
@@ -191,4 +222,30 @@ export function getMenuImmersiveMaterial(): uiMaterial.Material | undefined {
     });
   }
   return menuImmersiveMaterial;
+}
+
+// 官方分段按钮（SegmentButton）材质实例。
+let segmentImmersiveMaterial: uiMaterial.Material | null = null;
+
+/**
+ * 官方 SegmentButton 的沉浸光感材质。
+ * 载体：CommonSegmentButtonOptions.backgroundSystemMaterial（@since 26.0.0）——官方组件的
+ * 材质只能走 options 字段挂在组件容器上，把 systemMaterial 挂在包裹它的 Row/Column 上
+ * 会被组件内部表面覆盖，且官方组件自带轨道/滑块两套表面，材质由系统统一渲染。
+ *
+ * @returns API ≥ 26 返回 ULTRA_THIN 材质（顶部驻留档，保留投影——宿主 bottomBuilder 行已按
+ *          segmentBarShadowRoom 留出净空），否则 undefined，使用处保留官方组件默认底色。
+ */
+export function getSegmentImmersiveMaterial(): uiMaterial.Material | undefined {
+  if (!deviceInfo.apiAvailable('26.0.0')) {
+    return undefined;
+  }
+  if (segmentImmersiveMaterial === null) {
+    segmentImmersiveMaterial = new uiMaterial.ImmersiveMaterial({
+      style: uiMaterial.ImmersiveStyle.ULTRA_THIN,
+      interactive: true,
+      applyShadow: true,
+    });
+  }
+  return segmentImmersiveMaterial;
 }

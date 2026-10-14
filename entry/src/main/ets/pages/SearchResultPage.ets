@@ -11,8 +11,9 @@ import { buildPageTransition } from '../utils/styles';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { GRID_GAP, GRID_PADDING } from '../utils/cardTokens';
 import { EmptyState } from '../design/components/EmptyState';
-import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
-import { isSystemMaterialActive, TopButtonMaterialModifier } from '../utils/immersiveMaterial';
+import { SegmentedItem } from '../design/components/SegmentedControl';
+import { ImmersiveSegmentBar } from '../design/components/ImmersiveSegmentBar';
+import { isSystemMaterialActive, FloatingTopButtonMaterialModifier } from '../utils/immersiveMaterial';
 import { Skeleton } from '../design/motion/Skeleton';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
@@ -44,7 +45,7 @@ struct SearchResultPage {
   // 实测到齐前走估算兜底，避免首帧标题栏高度与内容错位
   @State resultsBarHeight: number = 0;
   // 系统材质修饰器（沉浸光感）：标题栏内输入框/返回键共用（低版本设备门禁自动跳过）
-  private titleBarMaterial: TopButtonMaterialModifier = new TopButtonMaterialModifier();
+  private titleBarMaterial: FloatingTopButtonMaterialModifier = new FloatingTopButtonMaterialModifier();
   @State isRefreshing: boolean = false;
   @State pageNum: number = 1;
   @State sortIndex: number = 0;
@@ -194,7 +195,7 @@ struct SearchResultPage {
     .padding({ left: GRID_PADDING, right: GRID_PADDING, top: SpaceTokens.item })
   }
 
-  // 工具栏行：系统原生返回按钮 + 系统原生搜索框（集成搜索按钮 + 原生清除 ×）——与搜索探索页样式统一
+  // 工具栏行：系统原生返回按钮 + 系统原生搜索框（原生清除 ×）+ 独立搜索按钮——与搜索探索页样式统一
   @Builder
   searchToolbar(): void {
     Row({ space: SpaceTokens.inline }) {
@@ -215,23 +216,53 @@ struct SearchResultPage {
         height: LayoutTokens.minTouchTarget,
       })
       .backgroundColor(Color.Transparent)
-      .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
+      // 材质生效时自绘描边让位（否则与材质叠成第二圈描边，见教程案例 4）
+      .border({
+        width: isSystemMaterialActive() ? 0 : LayoutTokens.glassBorderWidth,
+        color: ColorTokens.barBorder,
+        style: BorderStyle.Solid,
+      })
       .borderRadius(RadiusTokens.lg)
       .attributeModifier(this.titleBarMaterial)
       .accessibilityText('返回')
       .onClick((): void => { this.getUIContext().getRouter().back(); })
 
-      // 系统原生搜索框：集成搜索按钮（searchButton），清除 × 亦为原生自带 —— 不再自绘清除按钮
+      // 系统原生搜索框：清除 × 为原生自带 —— 不再自绘清除按钮。
+      // 不再用自带的 searchButton：那是搜索框内部的文字子节点，systemMaterial 只接管
+      // 组件自身表面、管不到内部子节点，拿不到沉浸光感；改由右侧独立 Button 承载。
       Search({ placeholder: '搜索', value: this.keyword })
         .layoutWeight(1)
         .height(SEARCH_FIELD_HEIGHT)
-        .searchButton('搜索')
         // 底色写在材质之前 —— 材质生效时由系统强制清除为透明（官方行为），低版本则作为兜底底色
         .backgroundColor($r('sys.color.comp_background_tertiary'))
         // 沉浸光感：标题栏内由系统材质接管搜索框表面（低版本自动跳过，保留系统默认样式）
         .attributeModifier(this.titleBarMaterial)
         .onChange((v: string): void => { this.keyword = v; })
         .onSubmit((v: string): void => { this.doSearch(v); })
+
+      // 搜索按钮：与返回键同构的原生 Button，挂同一块标题栏材质，按压形变由系统承担
+      Button('搜索', { type: ButtonType.Normal, stateEffect: true })
+        .fontSize(TypeTokens.callout.size)
+        .fontWeight(TypeTokens.headline.weight)
+        .fontColor(ColorTokens.brand)
+        .height(SEARCH_FIELD_HEIGHT)
+        .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+        .responseRegion({
+          x: (SEARCH_FIELD_HEIGHT - LayoutTokens.minTouchTarget) / 2,
+          y: (SEARCH_FIELD_HEIGHT - LayoutTokens.minTouchTarget) / 2,
+          width: LayoutTokens.minTouchTarget,
+          height: LayoutTokens.minTouchTarget,
+        })
+        .backgroundColor(Color.Transparent)
+        .border({
+          width: isSystemMaterialActive() ? 0 : LayoutTokens.glassBorderWidth,
+          color: ColorTokens.barBorder,
+          style: BorderStyle.Solid,
+        })
+        .borderRadius(RadiusTokens.lg)
+        .attributeModifier(this.titleBarMaterial)
+        .accessibilityText('搜索')
+        .onClick((): void => { this.doSearch(this.keyword); })
     }
     .width('100%')
     .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs, bottom: SpaceTokens.xs })
@@ -256,17 +287,10 @@ struct SearchResultPage {
           .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
           .fontColor(ColorTokens.secondary)
         Blank()
-        SegmentedControl({
+        ImmersiveSegmentBar({
           items: SEARCH_SORTS,
           selectedIndex: $sortIndex,
           itemWidth: 54,
-          fillWidth: false,
-          // 与 Index 标题栏分段栏同配置：标题栏为沉浸光感 uiMaterial 生效区域，
-          // 系统材质接管表面（低版本门禁不通过则回退沉浸玻璃/描边分发）
-          immersive: !isSystemMaterialActive(),
-          outlined: isSystemMaterialActive(),
-          glowEnabled: false,
-          useSystemMaterial: true,
           onSelect: (index: number): void => { this.onSortChange(index); },
         })
       }
