@@ -1,0 +1,436 @@
+{
+  "schemaVersion": 1,
+  "circle": "二手闲置",
+  "posts": [
+    {
+      "id": "ershou-0001",
+      "author": "mumu",
+      "genre": "review",
+      "title": "在二手平台卖了三年东西，定价就看同款成交记录",
+      "content": "卖了两百多件，最开始按买入价打折，挂了半个月没人问。\n后来学会看已成交的记录，不是看挂价。同一款耳机，别人挂六百挂了两个月，成交的是四百八。我按四百八减二十定价，当天就出了。\n还有两个细节。描述里写清瑕疵，比写九成新有用。拍图用白天自然光，别开美颜。\n最难卖的是赠品和定制品，比如刻了字的保温杯，几乎只能白送。",
+      "tags": [
+        "二手闲置"
+      ],
+      "tier": "solid",
+      "ageHours": 38,
+      "posterStyle": "kraft",
+      "posterLine": "别人挂六百挂了两个月，成交的是四百八",
+      "insight": "定价看成交记录，描述写清瑕疵，图用自然光。",
+      "structured": {
+        "pros": "回血快，闲置不占地方，买家也更愿意复购",
+        "cons": "议价耗时，遇到挑刺的买家很磨人",
+        "rating": 4.4,
+        "targetAudience": "家里闲置多、愿意花时间沟通的人"
+      },
+      "_topic": "二手定价方法",
+      "comments": [
+        {
+          "author": "shisan",
+          "text": "成交记录在哪看，我只找到挂价。",
+          "offsetMinutes": 100,
+          "upCount": 6
+        },
+        {
+          "author": "mumu",
+          "text": "搜同款，筛选已售出，能看到成交区间。",
+          "offsetMinutes": 120,
+          "replyToIndex": 0,
+          "upCount": 8
+        },
+        {
+          "author": "maomao",
+          "text": "刻字的东西确实砸手里，我有个刻名钱包。",
+          "offsetMinutes": 400,
+          "upCount": 4
+        }
+      ]
+    },
+    {
+      "id": "ershou-0002",
+      "author": "laochen",
+      "genre": "review",
+      "title": "二手手机买来先查三件事，比看成色重要",
+      "content": "帮人验过不下五十台二手手机。外观是最容易做假的，换个后盖跟新的一样。\n我只看三样。第一，进设置看电池循环次数，超过八百次的，电池基本该换了。第二，查保修和激活日期，激活超过两年的，系统更新基本到头。第三，拨号盘输入那串检测码，看屏幕有没有坏点、触摸有没有断区。\n还有一件事没人提，问卖家要原始购买凭证。没有凭证的机器，来路说不清，出问题连售后都走不了。",
+      "tags": [
+        "二手闲置",
+        "手机数码"
+      ],
+      "tier": "solid",
+      "ageHours": 92,
+      "posterStyle": "film",
+      "posterLine": "外观最容易做假，换个后盖跟新的一样",
+      "insight": "验二手手机看循环次数、激活日期和屏幕，不看外观。",
+      "structured": {
+        "pros": "价格低，验机流程熟了不容易踩坑",
+        "cons": "保修剩余短，来路不清的机器有风险",
+        "rating": 4.2,
+        "targetAudience": "预算有限、愿意花十分钟验机的人"
+      },
+      "_topic": "二手手机验机",
+      "comments": [
+        {
+          "author": "hezi",
+          "text": "检测码那段能展开说说吗，我一直没找到入口。",
+          "offsetMinutes": 200,
+          "upCount": 9
+        },
+        {
+          "author": "laochen",
+          "text": "不同品牌不一样，搜机型加检测码就有。",
+          "offsetMinutes": 260,
+          "replyToIndex": 0,
+          "upCount": 5
+        }
+      ]
+    },
+    {
+      "id": "ershou-0003",
+      "author": "guoguo",
+      "genre": "review",
+      "title": "二手冰箱买回来，先静置一天再插电",
+      "content": "搬家时在二手市场买了台双门冰箱，六百块，成色不错。老板帮我抬上车，我到家就想插电试试。\n幸好师傅提醒了一句，运输过程压缩机里的油会跑到管路里，立刻通电容易烧。要竖着放一天，让油回流。\n我照做了，静置二十四小时才开机。现在用了两年，制冷正常，声音也不大。\n二手大件最怕的是运输和通电时机，机器本身反而没那么脆弱。",
+      "tags": [
+        "二手闲置",
+        "家电选购"
+      ],
+      "tier": "normal",
+      "ageHours": 210,
+      "posterStyle": "paper",
+      "posterLine": "老板帮我抬上车，我到家就想插电试试",
+      "insight": "二手冰箱不怕旧，怕运输后马上通电。",
+      "structured": {
+        "pros": "价格是新品的三分之一，制冷够用",
+        "cons": "耗电偏高，外观有磕碰，售后基本没有",
+        "rating": 4.0,
+        "targetAudience": "租房过渡、预算有限的人"
+      },
+      "_topic": "二手冰箱运输后静置",
+      "comments": [
+        {
+          "author": "mumu",
+          "text": "这条太重要了，我朋友就是直接插电烧了压缩机。",
+          "offsetMinutes": 300,
+          "upCount": 11
+        }
+      ]
+    },
+    {
+      "id": "ershou-0004",
+      "author": "shisan",
+      "genre": "pitfall",
+      "title": "面交出显卡，对方当场拆开说划痕，压了三百",
+      "content": "挂了一周的显卡，约在地铁站面交。对方带了螺丝刀，说要拆开看散热。我没多想就同意了。\n拆开之后他指着芯片边缘说有一道划痕，说这卡修过，要压三百。我看了半天也看不出是不是原来的。周围人多，我不想耗，就收了钱。\n回来问修电脑的师傅，他说那道是出厂就有的胶痕，不是划痕。\n面交可以拆，但要在我看着的情况下拆，拆完发现不是原有问题，交易取消。",
+      "tags": [
+        "二手闲置"
+      ],
+      "tier": "solid",
+      "ageHours": 66,
+      "posterStyle": "sticky",
+      "posterLine": "他指着芯片边缘说有一道划痕，要压三百",
+      "insight": "面交允许验货，但压价理由要当场核实。",
+      "structured": {
+        "pitfallExperience": "买家现场拆显卡，指着一道出厂胶痕说是划痕，压价三百。",
+        "lossAmount": "300 元",
+        "correctApproach": "交易前拍全套细节图和序列号\n约定只验功能，不拆机\n真要拆，必须在双方都在场时进行\n压价理由当场查证，查不出就取消交易"
+      },
+      "_topic": "面交显卡被压价",
+      "comments": [
+        {
+          "author": "dayang",
+          "text": "带螺丝刀的买家我一般不接。",
+          "offsetMinutes": 150,
+          "upCount": 10
+        },
+        {
+          "author": "laochen",
+          "text": "序列号一定要拍，防止掉包。",
+          "offsetMinutes": 300,
+          "upCount": 7
+        }
+      ]
+    },
+    {
+      "id": "ershou-0005",
+      "author": "maomao",
+      "genre": "pitfall",
+      "title": "寄卖家具被物流磕了角，保价没买",
+      "content": "一张实木边几，挂了两周有人要，跨省。运费一百八，我想着不贵，直接寄了。\n到货之后买家拍图给我看，一个角磕掉了一块漆，还有一道裂纹。他说不要了，让我退钱。\n我找物流，对方说没保价，最多赔运费的几倍，六十块。\n最后边几拉回来，运费又花一百八，前后亏了三百多。之后寄家具我一律保价，包装用珍珠棉加纸护角，宁可多花二十。",
+      "tags": [
+        "二手闲置"
+      ],
+      "tier": "normal",
+      "ageHours": 240,
+      "posterStyle": "kraft",
+      "posterLine": "一个角磕掉了一块漆，还有一道裂纹",
+      "insight": "寄大件不保价，运费省下的钱不够赔一次磕碰。",
+      "structured": {
+        "pitfallExperience": "跨省寄边几没保价，到货磕角，买家拒收，来回运费加损失三百多。",
+        "lossAmount": "约 360 元",
+        "correctApproach": "大件一律保价，按成交价保\n四角加纸护角，外面缠珍珠棉\n发货前拍包装过程\n和买家约定验货后再签收"
+      },
+      "_topic": "寄家具损坏",
+      "comments": [
+        {
+          "author": "guoguo",
+          "text": "护角这东西五毛一个，能救一张桌子。",
+          "offsetMinutes": 400,
+          "upCount": 8
+        }
+      ]
+    },
+    {
+      "id": "ershou-0006",
+      "author": "mumu",
+      "genre": "pitfall",
+      "title": "闲鱼上买二手童车，刹车是坏的",
+      "content": "孩子两岁，想着童车用两年就闲置，买新的不划算。同城看了一辆，一百五，图看着挺新。\n见面时天有点黑，我推了两步，轮子顺，就付了钱。回家孩子在小区里推，下坡时我捏刹车，捏到底没反应。\n拆开看，刹车线早就锈断了。卖家说一直这么用，他也没觉得有问题。\n童车这类东西，买之前必须当场试刹车、试折叠扣、看安全带卡扣。省一百五，赔进去的是孩子的安全。",
+      "tags": [
+        "二手闲置",
+        "育儿经验"
+      ],
+      "tier": "normal",
+      "ageHours": 350,
+      "posterStyle": "paper",
+      "posterLine": "下坡时我捏刹车，捏到底没反应",
+      "insight": "二手童车先试刹车和折叠扣，外观最不重要。",
+      "structured": {
+        "pitfallExperience": "一百五买的二手童车，刹车线锈断，下坡时完全失灵。",
+        "lossAmount": "150 元",
+        "correctApproach": "当场捏刹车，看能不能停住\n反复开合折叠扣，看有没有松动\n检查安全带卡扣是否完整\n天黑不看车，约白天当面验"
+      },
+      "_topic": "二手童车安全隐患",
+      "comments": [
+        {
+          "author": "youzi",
+          "text": "我家也买过二手推车，刹车是好的，但轮子轴承响。",
+          "offsetMinutes": 500,
+          "upCount": 6
+        },
+        {
+          "author": "laochen",
+          "text": "金属件锈了就换，别将就。",
+          "offsetMinutes": 900,
+          "upCount": 4
+        }
+      ]
+    },
+    {
+      "id": "ershou-0007",
+      "author": "laochen",
+      "genre": "tutorial",
+      "title": "旧手机出手前，把这几样清干净",
+      "content": "卖旧机最怕两件事，照片被恢复，账号还挂着。\n先退账号。系统设置里退出登录，顺手关掉查找设备，不然新买家激活不了，会回来找你。\n然后解绑支付和门禁卡，这两样最容易被忘。\n接着恢复出厂设置，开机确认没有残留。有条件的，先往手机里塞满无关视频再恢复一次，覆盖掉原来的数据块。\n最后把卡托取出来，很多人连存储卡一起卖了。",
+      "tags": [
+        "二手闲置",
+        "手机数码"
+      ],
+      "tier": "solid",
+      "ageHours": 54,
+      "posterStyle": "sticky",
+      "posterLine": "最容易被忘的是支付和门禁卡解绑",
+      "insight": "退账号、解绑、覆盖、恢复，四步少一步都留尾巴。",
+      "structured": {
+        "tools": "旧手机\n充电器\n一张不用的存储卡",
+        "steps": "退出系统账号并关闭查找设备\n解绑支付、门禁卡和公交卡\n写入无关大文件覆盖旧数据\n恢复出厂设置并开机确认\n取出卡托和存储卡",
+        "timeDifficulty": "二十分钟，覆盖那步看手机速度"
+      },
+      "_topic": "旧手机出手前清理",
+      "comments": [
+        {
+          "author": "gongzi",
+          "text": "查找设备没关，买家激活不了，能扯皮一周。",
+          "offsetMinutes": 200,
+          "upCount": 9
+        }
+      ]
+    },
+    {
+      "id": "ershou-0008",
+      "author": "maomao",
+      "genre": "tutorial",
+      "title": "二手沙发怎么判断能不能要，看三个地方",
+      "content": "搬家买过两张二手沙发，第一张坐了半年塌了，第二张用到现在。差别在三个地方。\n坐垫翻开看海绵，发黄发硬的就别要，换一套海绵比沙发还贵。\n掀开底布看框架，木条有没有裂纹，用手压四个角听有没有异响。\n最后闻。有霉味的别买，尤其是一楼和地下室的货，晒多久都散不掉。\n布艺的可以拆洗，皮面的要看裂纹，扶手内侧最容易裂。",
+      "tags": [
+        "二手闲置"
+      ],
+      "tier": "normal",
+      "ageHours": 400,
+      "posterStyle": "kraft",
+      "posterLine": "发黄发硬的海绵，换一套比沙发还贵",
+      "insight": "二手沙发看海绵、框架和味道，面料反而是次要的。",
+      "structured": {
+        "tools": "手电筒\n湿纸巾",
+        "steps": "掀开坐垫看海绵颜色和弹性\n摸底布下面的木条有没有裂纹\n压四个角，听有没有异响\n凑近闻有没有霉味\n用湿纸巾擦皮面，看掉不掉色",
+        "timeDifficulty": "十分钟，最好白天去看"
+      },
+      "_topic": "二手沙发验收",
+      "comments": [
+        {
+          "author": "mumu",
+          "text": "霉味这条最准，晒不掉的。",
+          "offsetMinutes": 600,
+          "upCount": 7
+        }
+      ]
+    },
+    {
+      "id": "ershou-0009",
+      "author": "shisan",
+      "genre": "debate",
+      "title": "二手显卡到底能不能买，两边都有道理",
+      "content": "我的观点是可以买，但要挑来源。\n矿卡的风险不在跑分，在稳定性，可能今天好用，下个月花屏。个人自用、有购买记录、能当面测的，风险小很多。\n价格也要对得上。同型号二手比新卡便宜不到两成，那还不如买新的，至少有三包。\n我的底线是便宜三成以上，能当面跑半小时压力测试，才考虑。",
+      "tags": [
+        "二手闲置",
+        "电脑装机"
+      ],
+      "tier": "solid",
+      "ageHours": 118,
+      "posterStyle": "film",
+      "posterLine": "矿卡的风险不在跑分，在稳定性",
+      "insight": "二手显卡可以买，前提是价格够低、能当面压测。",
+      "structured": {
+        "planA": "买二手，便宜三成以上，能当面测",
+        "planB": "买新卡，多花钱买三包和安心"
+      },
+      "planAVotes": 72,
+      "planBVotes": 65,
+      "_topic": "二手显卡风险",
+      "comments": [
+        {
+          "author": "dayang",
+          "text": "压测半小时不够，我一般跑一小时再看温度曲线。",
+          "offsetMinutes": 300,
+          "upCount": 8
+        },
+        {
+          "author": "laozhang",
+          "text": "便宜两成的二手我从来不碰，风险不值这个价。",
+          "offsetMinutes": 800,
+          "upCount": 5
+        }
+      ]
+    },
+    {
+      "id": "ershou-0010",
+      "author": "guoguo",
+      "genre": "share",
+      "title": "把旧书打包卖了，收废品的给了十二块",
+      "content": "书架清出三箱书，大多是大学教材和考证书。本来想挂二手平台，一本本拍图太麻烦。\n楼下收废品的上来，称了称，四毛一斤，三十斤，十二块。\n他搬走的时候我有点舍不得，里面有几本上面写满了笔记。但留着也不会再翻。\n后来听说多抓鱼这类平台能上门收，按本算，虽然也便宜，至少书还能被人读。",
+      "tags": [
+        "二手闲置"
+      ],
+      "tier": "normal",
+      "ageHours": 420,
+      "posterStyle": "paper",
+      "posterLine": "四毛一斤，三十斤，十二块",
+      "insight": "旧书卖不上价，图省事就别算钱。",
+      "_topic": "旧书处理",
+      "comments": [
+        {
+          "author": "chengzi",
+          "text": "多抓鱼收书要看品相，划线太多不要。",
+          "offsetMinutes": 700,
+          "upCount": 5
+        }
+      ]
+    },
+    {
+      "id": "ershou-0011",
+      "author": "mumu",
+      "genre": "share",
+      "title": "九块九买了个二手电饭锅，用了两年",
+      "content": "小区群里有人出电饭锅，说搬家带不走，九块九自提。我本来只是想去看看，结果拎回来了。\n内胆涂层有一道划痕，其他都好。我用它煮了两年饭，一次没坏。\n后来换了个新锅，旧的我没扔，放在办公室煮面。\n有时候便宜货能用多久，跟价格没关系，跟前一个主人怎么用有关系。",
+      "tags": [
+        "二手闲置"
+      ],
+      "tier": "tail",
+      "ageHours": 520,
+      "posterStyle": "sticky",
+      "posterLine": "内胆涂层有一道划痕，其他都好",
+      "insight": "二手小家电的寿命，看前一任怎么用。",
+      "_topic": "九块九电饭锅",
+      "comments": [
+        {
+          "author": "guoguo",
+          "text": "涂层划了别用来炒菜，煮饭问题不大。",
+          "offsetMinutes": 800,
+          "upCount": 3
+        }
+      ]
+    },
+    {
+      "id": "ershou-0012",
+      "author": "maomao",
+      "genre": "share",
+      "title": "楼上阿姨把旧婴儿床送我了",
+      "content": "搬家那天在电梯里遇到楼上阿姨，问我家孩子多大。听说一岁半，她说家里有张婴儿床，孙子大了用不上，让我们搬走。\n床是实木的，边角有咬痕，护栏有一根松了。我拿回家拧紧螺丝，用砂纸磨了磨毛刺，铺上新床垫，孩子睡到三岁。\n后来我们搬走，床又送给了下一户。",
+      "tags": [
+        "二手闲置",
+        "育儿经验"
+      ],
+      "tier": "tail",
+      "ageHours": 700,
+      "posterStyle": "kraft",
+      "posterLine": "边角有咬痕，护栏有一根松了",
+      "insight": "旧家具能传下去，前提是把松动的地方拧紧。",
+      "_topic": "邻居送婴儿床",
+      "comments": [
+        {
+          "author": "xixi",
+          "text": "这种邻里关系比省下的钱值。",
+          "offsetMinutes": 1000,
+          "upCount": 6
+        }
+      ]
+    },
+    {
+      "id": "ershou-0013",
+      "author": "laochen",
+      "genre": "share",
+      "title": "卖车的时候才发现，保养记录比车况值钱",
+      "content": "开了六年的车，车况一般，右前翼子板补过漆。我一直觉得卖不上价。\n收车的人翻了我的保养本，说全程按时保养、每次都有记录，愿意多给五千。\n他说补漆不怕，怕的是不知道什么时候该换的正时皮带没换。有记录就说明这车没被糟蹋。\n那本子我随手扔在手套箱里六年，从来没想过它值钱。",
+      "tags": [
+        "二手闲置",
+        "用车经验"
+      ],
+      "tier": "tail",
+      "ageHours": 900,
+      "posterStyle": "paper",
+      "posterLine": "收车的人翻了我的保养本，愿意多给五千",
+      "insight": "卖车时，完整的保养记录能直接换钱。",
+      "_topic": "卖车看保养记录",
+      "comments": [
+        {
+          "author": "laoyu",
+          "text": "现在都是电子记录，截图存好一样管用。",
+          "offsetMinutes": 1200,
+          "upCount": 5
+        }
+      ]
+    },
+    {
+      "id": "ershou-0014",
+      "author": "shisan",
+      "genre": "share",
+      "title": "把闲置挂出去之后，我戒掉了囤货",
+      "content": "开始卖闲置的第一个月，我挂出去四十多件，从旧键盘到没拆封的保温杯。\n最刺激的是看到成交价。三百多买的机械键盘，卖了八十。一箱没拆的咖啡滤纸，二十块包邮。\n之后买东西前我会想一件事，如果三个月后挂出去，能卖多少。想完通常就不买了。\n这比记账管用。",
+      "tags": [
+        "二手闲置"
+      ],
+      "tier": "tail",
+      "ageHours": 1150,
+      "posterStyle": "film",
+      "posterLine": "三百多买的机械键盘，卖了八十",
+      "insight": "算得清二手价，就不太会冲动下单。",
+      "_topic": "卖闲置戒囤货",
+      "comments": [
+        {
+          "author": "keke",
+          "text": "这个方法我试过，对电子产品特别有效。",
+          "offsetMinutes": 1500,
+          "upCount": 7
+        }
+      ]
+    }
+  ]
+}

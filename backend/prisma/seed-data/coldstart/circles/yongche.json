@@ -1,0 +1,397 @@
+{
+  "schemaVersion": 1,
+  "circle": "用车经验",
+  "posts": [
+    {
+      "id": "yongche-0001",
+      "author": "laochen",
+      "genre": "review",
+      "title": "修了十二年车，最常被问的是这车能不能买",
+      "content": "每天有人问我某款车值不值得买。我的回答一般是先问三句，一年跑多少公里，主要在市区还是高速，打算开几年。\n市区通勤一年一万公里，动力够用就行，变速箱平顺比参数重要。跑高速多，底盘和隔音拉开差距。打算开八年以上，保值率反而不用看。\n还有一个误区，很多人盯着故障率排行榜。同一款车，保养到位和不到位，十年后是两个样。\n车能不能买，一半看车，一半看你怎么养。",
+      "tags": [
+        "用车经验"
+      ],
+      "tier": "hero",
+      "ageHours": 22,
+      "posterStyle": "paper",
+      "posterLine": "一半看车，一半看你怎么养",
+      "insight": "先问跑多少、跑哪里、开几年，再谈车型。",
+      "structured": {
+        "pros": "问题看得清，维修成本可控",
+        "cons": "保值率一般，隔音偏弱",
+        "rating": 4.2,
+        "targetAudience": "第一次买车、年里程一万左右的人"
+      },
+      "_topic": "这车能不能买",
+      "comments": [
+        {
+          "author": "laoyu",
+          "text": "保养到位这条最实在，我车三十万公里没大修。",
+          "offsetMinutes": 120,
+          "upCount": 26
+        },
+        {
+          "author": "dadou",
+          "text": "故障率排行榜我也看，但只看具体部件。",
+          "offsetMinutes": 300,
+          "upCount": 11
+        }
+      ]
+    },
+    {
+      "id": "yongche-0002",
+      "author": "laoyu",
+      "genre": "review",
+      "title": "开了三十万公里，只换过两次变速箱油",
+      "content": "车是手动挡，跑业务，六年三十万公里。\n保养按手册来，机油八千公里一换，变速箱油八万公里一换。刹车片换了三次，电瓶两次，轮胎四套。\n大件一个没坏。有人说我运气好，我觉得是两件事，不拖保养，不猛踩。\n唯一一次抛锚是水泵漏水，停在高速服务区，拖车三百。\n车这东西，你对它规律，它对你稳定。",
+      "tags": [
+        "用车经验"
+      ],
+      "tier": "solid",
+      "ageHours": 52,
+      "posterStyle": "kraft",
+      "posterLine": "唯一一次抛锚是水泵漏水",
+      "insight": "按里程保养，不猛踩，三十万公里不用大修。",
+      "structured": {
+        "pros": "耐用，保养便宜，维修件好找",
+        "cons": "隔音差，配置低，长途累",
+        "rating": 4.4,
+        "targetAudience": "跑业务、年里程两万以上的人"
+      },
+      "_topic": "三十万公里保养",
+      "comments": [
+        {
+          "author": "laochen",
+          "text": "水泵漏水是这类车的通病，八万公里留意一下。",
+          "offsetMinutes": 200,
+          "upCount": 9
+        }
+      ]
+    },
+    {
+      "id": "yongche-0003",
+      "author": "dadou",
+      "genre": "review",
+      "title": "油车换电车一年，省的钱和添的麻烦",
+      "content": "一年跑一万八，电费一千六，之前油费一万一。保养省了两千，因为没什么可保养的。\n麻烦也有。小区不能装桩，全靠公司充，周末要专门去一趟。冬天续航打七折，跑长途得规划。\n保险贵了八百。轮胎磨损比油车快，因为车重。\n算下来一年省一万出头。如果你能装家充，这个数字还会更好看。",
+      "tags": [
+        "用车经验"
+      ],
+      "tier": "normal",
+      "ageHours": 190,
+      "posterStyle": "film",
+      "posterLine": "冬天续航打七折，跑长途得规划",
+      "insight": "能装家充就省，装不了就得算时间成本。",
+      "structured": {
+        "pros": "电费低，保养省，市区安静",
+        "cons": "冬天续航缩水，保险贵，依赖充电条件",
+        "rating": 4.1,
+        "targetAudience": "有固定车位、年里程一万五以上"
+      },
+      "_topic": "油车换电车一年",
+      "comments": [
+        {
+          "author": "yeye",
+          "text": "家充这条是分水岭，没有就别换。",
+          "offsetMinutes": 400,
+          "upCount": 12
+        }
+      ]
+    },
+    {
+      "id": "yongche-0004",
+      "author": "yeye",
+      "genre": "pitfall",
+      "title": "保养被加了发动机清洗，两瓶药水三百",
+      "content": "去店里做常规保养，接待说建议做发动机内部清洗，能除积碳。我问多少钱，他说三百，两瓶药水。\n我想着车跑了六万，做了也好。做完没感觉有什么变化。\n后来问修车的朋友，他说这东西对老车有点用，六万公里的车完全没必要，正常换机油就行。\n保养单上多出来的项目，先问一句是不是手册要求的。不是，就可以不做。",
+      "tags": [
+        "用车经验",
+        "消费维权"
+      ],
+      "tier": "solid",
+      "ageHours": 66,
+      "posterStyle": "paper",
+      "posterLine": "六万公里的车完全没必要",
+      "insight": "保养只做手册要求的项目，其余先问再拒。",
+      "structured": {
+        "pitfallExperience": "六万公里保养被推荐发动机清洗，三百元，做完无感。",
+        "lossAmount": "300 元",
+        "correctApproach": "保养前翻一遍手册的保养表\n非手册项目一律先问依据\n要求把项目写进工单再签字\n不接受口头推荐"
+      },
+      "_topic": "保养增项",
+      "comments": [
+        {
+          "author": "laochen",
+          "text": "清洗类项目利润最高，接待有提成。",
+          "offsetMinutes": 180,
+          "upCount": 15
+        }
+      ]
+    },
+    {
+      "id": "yongche-0005",
+      "author": "feifei",
+      "genre": "pitfall",
+      "title": "轮胎扎了钉子，补胎还是换胎",
+      "content": "扎钉子在胎面正中，补一下三十块，能用。扎在胎侧，只能换。\n我第一次不懂，胎侧扎了也补，跑了两千公里鼓包，差点在高速上出事。\n判断标准看位置和数量。胎面补三次以上，或者两个补丁挨得近，也该换。\n还有胎纹深度，低于一点六毫米必须换，一元硬币插进去能看到整个边缘就该换了。",
+      "tags": [
+        "用车经验"
+      ],
+      "tier": "normal",
+      "ageHours": 250,
+      "posterStyle": "sticky",
+      "posterLine": "胎侧扎了也补，跑了两千公里鼓包",
+      "insight": "胎面能补，胎侧只能换。",
+      "structured": {
+        "pitfallExperience": "胎侧扎钉仍做补胎，两千公里后鼓包，险些高速爆胎。",
+        "lossAmount": "一条轮胎",
+        "correctApproach": "看扎的位置，胎侧直接换\n胎面补丁不超过三个\n补丁之间保持距离\n胎纹低于一点六毫米必须换"
+      },
+      "_topic": "补胎还是换胎",
+      "comments": [
+        {
+          "author": "laochen",
+          "text": "胎侧补胎是拿命省钱，这条要记住。",
+          "offsetMinutes": 300,
+          "upCount": 13
+        }
+      ]
+    },
+    {
+      "id": "yongche-0006",
+      "author": "laochen",
+      "genre": "pitfall",
+      "title": "刹车片磨到铁了才换，盘也废了",
+      "content": "有位车主来的时候说刹车有金属摩擦声，已经响了两个月。\n拆下来看，刹车片磨到背板，刹车盘被刮出深槽。本来换片四百，现在片加盘一千六。\n刹车片有报警片，磨到极限会响，那个声音就是提醒。也有的车有电子提示。\n正常情况四万到六万公里换一次，跑山路多的更早。别等响，保养时让师傅看一眼厚度。",
+      "tags": [
+        "用车经验"
+      ],
+      "tier": "normal",
+      "ageHours": 330,
+      "posterStyle": "kraft",
+      "posterLine": "刹车盘被刮出深槽",
+      "insight": "刹车片响之前就该换，磨到铁就带上刹车盘。",
+      "structured": {
+        "pitfallExperience": "刹车异响拖了两个月才修，刹车片磨穿，刹车盘报废。",
+        "lossAmount": "1200 元",
+        "correctApproach": "四到六万公里检查片厚\n听到金属摩擦声立即进店\n保养时让师傅量厚度并拍照\n换片时检查盘面有没有沟槽"
+      },
+      "_topic": "刹车片更换",
+      "comments": [
+        {
+          "author": "laoyu",
+          "text": "报警声一响就该去了，别拖。",
+          "offsetMinutes": 500,
+          "upCount": 7
+        }
+      ]
+    },
+    {
+      "id": "yongche-0007",
+      "author": "laoyu",
+      "genre": "tutorial",
+      "title": "自己检查胎压和机油，五分钟",
+      "content": "胎压每月看一次，跑长途前必看。标准值在驾驶位门框的标签上，别按轮胎侧面那个数。\n冷车测最准，跑过一段路会偏高。\n机油看两次，冷车一次看液位，热车熄火五分钟再看一次。油尺擦干净插到底，拔出来看，在上下刻度之间就行。\n机油颜色变黑是正常的，不代表该换。要看的是有没有乳化，油尺上有奶白色就得进店。",
+      "tags": [
+        "用车经验"
+      ],
+      "tier": "solid",
+      "ageHours": 78,
+      "posterStyle": "paper",
+      "posterLine": "标准值在门框标签上，别按轮胎侧面那个数",
+      "insight": "胎压看门框标签，机油看油尺不看颜色。",
+      "structured": {
+        "tools": "胎压计\n一块抹布\n手套",
+        "steps": "冷车状态测四个轮胎压\n对照门框标签的标准值补气\n拔出油尺擦净插回\n再拔出看液位是否在刻度之间\n观察油尺有无乳白色"
+      },
+      "_topic": "自查胎压机油",
+      "comments": [
+        {
+          "author": "feifei",
+          "text": "冷车测这条我以前不知道，一直测高了。",
+          "offsetMinutes": 300,
+          "upCount": 6
+        }
+      ]
+    },
+    {
+      "id": "yongche-0008",
+      "author": "dadou",
+      "genre": "tutorial",
+      "title": "冬天除雾，别一上车就开暖风",
+      "content": "冬天上车玻璃起雾，开暖风反而更糊。\n正确顺序是先开外循环和吹玻璃挡，风量开大，温度调中间。三十秒雾就散了。\n散完之后再调暖风，风向保持吹玻璃。\n还有个更快的办法，开空调制冷加吹玻璃，除湿最快，就是有点冷。别用手擦，越擦越花，还留印子。",
+      "tags": [
+        "用车经验"
+      ],
+      "tier": "normal",
+      "ageHours": 400,
+      "posterStyle": "film",
+      "posterLine": "开暖风反而更糊",
+      "insight": "先外循环吹玻璃，雾散了再升温。",
+      "structured": {
+        "tools": "车\n一条干毛巾",
+        "steps": "开外循环，风向调到吹玻璃\n风量开大，温度调中间\n三十秒后雾散再升温\n保持风向吹玻璃\n别用手擦玻璃"
+      },
+      "_topic": "冬天除雾",
+      "comments": [
+        {
+          "author": "laochen",
+          "text": "开空调除湿是最快的，很多人不知道。",
+          "offsetMinutes": 600,
+          "upCount": 8
+        }
+      ]
+    },
+    {
+      "id": "yongche-0009",
+      "author": "yeye",
+      "genre": "debate",
+      "title": "第一辆车买新的还是二手",
+      "content": "新手买新车，刮蹭心疼，保险也贵。买二手，刮了不心疼，但怕买到事故车。\n我的看法是看预算和会不会看车。预算十万以内，二手能买到更好的级别。但一定要带懂车的人去看，或者花两百做个检测。\n新车的好处是省心，前三年基本只做保养。\n第一辆车最重要的是多开，不是多好。",
+      "tags": [
+        "用车经验",
+        "二手闲置"
+      ],
+      "tier": "normal",
+      "ageHours": 418,
+      "posterStyle": "sticky",
+      "posterLine": "第一辆车最重要的是多开，不是多好",
+      "insight": "会看车就买二手，不会就买新车图省心。",
+      "structured": {
+        "planA": "买新车，省心，前三年只做保养",
+        "planB": "买二手，同预算级别更高，但要看车况"
+      },
+      "planAVotes": 74,
+      "planBVotes": 81,
+      "_topic": "第一辆车新或二手",
+      "comments": [
+        {
+          "author": "laochen",
+          "text": "两百块做个检测，比什么都值。",
+          "offsetMinutes": 700,
+          "upCount": 9
+        }
+      ]
+    },
+    {
+      "id": "yongche-0010",
+      "author": "feifei",
+      "genre": "share",
+      "title": "后备箱常年放的东西",
+      "content": "一根搭电线、一个充气泵、一件反光背心、一双旧手套、一把折叠铲。\n搭电线用过三次，都是帮别人。充气泵用过两次，一次是自己胎压报警。反光背心在夜里换胎时救过一次。\n折叠铲是冬天跑郊外带的，没用过，但心里踏实。\n这些东西加起来不到三百块，占的位置也就一个背包。",
+      "tags": [
+        "用车经验"
+      ],
+      "tier": "normal",
+      "ageHours": 420,
+      "posterStyle": "paper",
+      "posterLine": "搭电线用过三次，都是帮别人",
+      "insight": "后备箱备的是别人会用到的东西。",
+      "_topic": "后备箱常备",
+      "comments": [
+        {
+          "author": "laoyu",
+          "text": "反光背心一定要有，夜里太重要了。",
+          "offsetMinutes": 800,
+          "upCount": 7
+        }
+      ]
+    },
+    {
+      "id": "yongche-0011",
+      "author": "laochen",
+      "genre": "share",
+      "title": "冬天早上打不着火，多半是电瓶",
+      "content": "零下五度的早上，打火只有咔咔声，仪表灯暗。八成是电瓶。\n电瓶一般用三到四年，北方冷的地方更短。征兆是早上第一次打火变慢，大灯变暗。\n应急可以找车搭电，正极接正极，负极接车身搭铁，别直接接负极。\n换了新电瓶之后，我每年入冬前测一次电压，低于十二伏就准备换。",
+      "tags": [
+        "用车经验"
+      ],
+      "tier": "tail",
+      "ageHours": 540,
+      "posterStyle": "kraft",
+      "posterLine": "打火只有咔咔声，仪表灯暗",
+      "insight": "电瓶三四年一换，入冬前测一次电压。",
+      "_topic": "冬天打不着火",
+      "comments": [
+        {
+          "author": "dadou",
+          "text": "负极接车身这条很重要，接错会烧电脑。",
+          "offsetMinutes": 1000,
+          "upCount": 8
+        }
+      ]
+    },
+    {
+      "id": "yongche-0012",
+      "author": "laoyu",
+      "genre": "share",
+      "title": "跑长途前，我只查三样",
+      "content": "轮胎、刹车、灯。\n轮胎看胎压和胎面，有没有鼓包和钉子。刹车看片厚，踩一脚试试行程。灯让家人站在车前后，逐个看亮不亮。\n机油和水看一眼，缺了补。\n这三样查完十分钟，能避开高速上最麻烦的几类故障。其余的，路上再说。",
+      "tags": [
+        "用车经验"
+      ],
+      "tier": "tail",
+      "ageHours": 720,
+      "posterStyle": "paper",
+      "posterLine": "轮胎、刹车、灯",
+      "insight": "长途前查轮胎刹车灯，十分钟够。",
+      "_topic": "长途前检查",
+      "comments": [
+        {
+          "author": "feifei",
+          "text": "灯这条最容易漏，我刹车灯坏过一周没发现。",
+          "offsetMinutes": 1200,
+          "upCount": 5
+        }
+      ]
+    },
+    {
+      "id": "yongche-0013",
+      "author": "dadou",
+      "genre": "share",
+      "title": "车停树下三个月，漆面全是点",
+      "content": "出差三个月，车停在小区树底下，回来一看，车顶和引擎盖全是黄色小点，洗不掉。\n洗车店说是树胶和鸟粪腐蚀，抛光才能去掉，花了四百。\n后来我改停地下车库，贵一点，一年下来省的抛光钱差不多。\n停树下还要注意，落叶堵住排水孔，下雨会往车里渗水。",
+      "tags": [
+        "用车经验"
+      ],
+      "tier": "tail",
+      "ageHours": 940,
+      "posterStyle": "film",
+      "posterLine": "车顶和引擎盖全是黄色小点",
+      "insight": "长期停车别停树下，抛光钱比停车费贵。",
+      "_topic": "长期停车",
+      "comments": [
+        {
+          "author": "laochen",
+          "text": "排水孔堵了会泡到地毯，那条更麻烦。",
+          "offsetMinutes": 1400,
+          "upCount": 6
+        }
+      ]
+    },
+    {
+      "id": "yongche-0014",
+      "author": "yeye",
+      "genre": "share",
+      "title": "卖掉第一辆车那天，我在车里坐了十分钟",
+      "content": "车开了七年，十四万公里，副驾的遮阳板上有孩子贴的贴纸。\n买家来看车，试了一圈，当场付钱。交钥匙的时候我下意识把行车记录仪的卡拔了出来。\n他开走之后，我在小区门口站了一会儿。\n车就是个工具，但七年里发生的事都在里面。",
+      "tags": [
+        "用车经验"
+      ],
+      "tier": "tail",
+      "ageHours": 1200,
+      "posterStyle": "kraft",
+      "posterLine": "副驾的遮阳板上有孩子贴的贴纸",
+      "insight": "工具用久了，也会攒下一些舍不得的东西。",
+      "_topic": "卖第一辆车",
+      "comments": [
+        {
+          "author": "laoyu",
+          "text": "行车记录仪的卡这个动作太真实了。",
+          "offsetMinutes": 1600,
+          "upCount": 9
+        }
+      ]
+    }
+  ]
+}

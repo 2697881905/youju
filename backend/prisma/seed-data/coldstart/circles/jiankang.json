@@ -1,0 +1,256 @@
+{
+  "schemaVersion": 1,
+  "circle": "健康习惯",
+  "posts": [
+    {
+      "id": "jiankang-0001",
+      "author": "xiaoman",
+      "genre": "review",
+      "title": "坚持早睡三个月，身体的变化和没变的",
+      "content": "十一点睡，七点起，坚持了三个月。\n变了的，早上不再靠闹钟第三次响才起来，下午三点不困了，脸上的痘少了。\n没变的，体重没动，头发还是掉。\n我一开始以为早睡能解决所有问题，后来发现它只解决睡眠那部分。\n但就这一部分，已经值了。",
+      "tags": ["健康习惯"],
+      "tier": "solid",
+      "ageHours": 34,
+      "posterStyle": "paper",
+      "posterLine": "体重没动，头发还是掉",
+      "insight": "早睡解决的是睡眠，别指望它包治百病。",
+      "structured": {
+        "pros": "白天精力稳，入睡快，皮肤状态好一些",
+        "cons": "需要固定作息，社交会受影响",
+        "rating": 4.2,
+        "targetAudience": "长期熬夜、下午容易困的人"
+      },
+      "_topic": "早睡三个月",
+      "comments": [
+        { "author": "yueban", "text": "下午三点不困这条最诱人，我现在每天都靠咖啡。", "offsetMinutes": 150, "upCount": 15 }
+      ]
+    },
+    {
+      "id": "jiankang-0002",
+      "author": "yueban",
+      "genre": "review",
+      "title": "体脂秤上的数字，我看了两年才看明白",
+      "content": "体脂秤能连手机，每天记录。两年下来我发现，单日的数字几乎没意义。\n喝水、吃饭、排便、甚至前一天有没有运动，都能让体重浮动一两斤。体脂率更不准，受水分影响大。\n有用的是看七天平均值，看趋势。\n我现在一周只称一次，固定早上，空腹。数字反而更可信。",
+      "tags": ["健康习惯"],
+      "tier": "normal",
+      "ageHours": 190,
+      "posterStyle": "kraft",
+      "posterLine": "单日的数字几乎没意义",
+      "insight": "体重看七天趋势，不看单日数字。",
+      "structured": {
+        "pros": "能看趋势，方便记录，不占地方",
+        "cons": "体脂率受水分影响大，单日波动误导",
+        "rating": 3.8,
+        "targetAudience": "正在减脂、天天称体重的人"
+      },
+      "_topic": "体脂秤数据",
+      "comments": [
+        { "author": "sanpang", "text": "固定早上空腹这条，我也是这么做的。", "offsetMinutes": 300, "upCount": 8 }
+      ]
+    },
+    {
+      "id": "jiankang-0003",
+      "author": "sanpang",
+      "genre": "pitfall",
+      "title": "为了减脂不吃主食，两个月后掉头发",
+      "content": "听说碳水让人胖，我把米饭面条全停了，只吃肉和菜。\n第一个月掉秤快，掉了六斤。第二个月开始没劲，上楼喘，洗头时掉的头发一把。\n去查了，医生说长期极低碳水会影响甲状腺和头发。\n后来加了杂粮饭，一天两小碗，体重回升一斤，头发慢慢回来了。\n减脂别拿主食开刀。",
+      "tags": ["健康习惯"],
+      "tier": "solid",
+      "ageHours": 62,
+      "posterStyle": "film",
+      "posterLine": "洗头时掉的头发一把",
+      "insight": "主食不能一刀切，减脂先减油和总量。",
+      "structured": {
+        "pitfallExperience": "完全断碳水两个月，掉秤六斤后乏力、大量掉发，甲状腺指标异常。",
+        "lossAmount": "两个月的健康",
+        "correctApproach": "主食换成杂粮，保留两小碗\n先减油炸和含糖饮料\n蛋白质按体重配够\n每月查一次状态，别硬扛"
+      },
+      "_topic": "断碳水掉头发",
+      "comments": [
+        { "author": "xiaoman", "text": "掉头发这条太多人踩过，我也劝过朋友。", "offsetMinutes": 200, "upCount": 11 }
+      ]
+    },
+    {
+      "id": "jiankang-0004",
+      "author": "youzi",
+      "genre": "pitfall",
+      "title": "熬夜补觉补不回来，我试了一个月",
+      "content": "孩子小的时候常年睡不好，我想着周末补两天就行。\n试了一个月，周六睡到十点，周日再睡到九点，结果周一更困，晚上还睡不着。\n查资料才知道，补觉只能还一部分睡眠债，作息一乱，生物钟更难调。\n后来改成不补长觉，白天困了就眯二十分钟，晚上固定时间上床。两周后反而稳定了。",
+      "tags": ["健康习惯", "育儿经验"],
+      "tier": "normal",
+      "ageHours": 260,
+      "posterStyle": "paper",
+      "posterLine": "周一更困，晚上还睡不着",
+      "insight": "周末补长觉会打乱生物钟，短眯更管用。",
+      "structured": {
+        "pitfallExperience": "长期缺觉靠周末补，一个月后周一更困，入睡更难。",
+        "lossAmount": "一个月状态",
+        "correctApproach": "周末不睡超过一小时的长觉\n白天困了眯二十分钟\n晚上固定上床时间\n睡前一小时不看屏幕"
+      },
+      "_topic": "补觉",
+      "comments": [
+        { "author": "yueban", "text": "补觉越补越困这条我有同感。", "offsetMinutes": 400, "upCount": 7 }
+      ]
+    },
+    {
+      "id": "jiankang-0005",
+      "author": "hulu",
+      "genre": "pitfall",
+      "title": "运动后不拉伸，小腿硬了半年",
+      "content": "打球之后从不拉伸，觉得浪费时间。半年后小腿摸上去是硬的，早上起床脚落地会疼。\n按摩师傅说肌肉长期紧张，筋膜粘住了。做了六次放松，加每天拉伸，两个月才软下来。\n现在打完球固定拉五分钟，小腿、大腿后侧、臀部各一组。\n五分钟换半年的不舒服，很划算。",
+      "tags": ["健康习惯", "运动装备"],
+      "tier": "normal",
+      "ageHours": 350,
+      "posterStyle": "sticky",
+      "posterLine": "早上起床脚落地会疼",
+      "insight": "运动后五分钟拉伸，能省掉后面几个月的放松。",
+      "structured": {
+        "pitfallExperience": "长期运动后不拉伸，小腿肌肉僵硬，晨起落地疼痛，做了六次放松才缓解。",
+        "lossAmount": "半年不适加六次按摩",
+        "correctApproach": "运动后固定拉伸五分钟\n小腿、大腿后侧、臀部各一组\n每个动作保持三十秒\n每周做一次泡沫轴放松"
+      },
+      "_topic": "运动后拉伸",
+      "comments": [
+        { "author": "xiaoman", "text": "泡沫轴这条我加了，确实有用。", "offsetMinutes": 600, "upCount": 6 }
+      ]
+    },
+    {
+      "id": "jiankang-0006",
+      "author": "xiaoman",
+      "genre": "tutorial",
+      "title": "久坐的人，每天做这三个动作",
+      "content": "坐一天之后腰最难受。我试过很多，最后留下三个。\n第一个，站起来，双手扶腰，向后仰十次。第二个，坐在椅子边缘，一条腿伸直勾脚，感受大腿后侧拉伸，每条腿三十秒。第三个，靠墙站，后脑、肩胛、臀部贴墙，站两分钟。\n三个动作加起来不到五分钟，上午一次下午一次。\n腰疼的频率明显降了。",
+      "tags": ["健康习惯"],
+      "tier": "solid",
+      "ageHours": 88,
+      "posterStyle": "kraft",
+      "posterLine": "三个动作加起来不到五分钟",
+      "insight": "久坐的解药是每小时动一次，不是周末猛练。",
+      "structured": {
+        "tools": "一把椅子\n一面墙",
+        "steps": "起身扶腰后仰十次\n坐椅边伸腿勾脚，各三十秒\n靠墙站两分钟\n上午下午各做一遍\n每小时起身一次",
+        "timeDifficulty": "五分钟"
+      },
+      "_topic": "久坐拉伸",
+      "comments": [
+        { "author": "baikai", "text": "靠墙站这个动作看着简单，做完肩颈很松。", "offsetMinutes": 300, "upCount": 9 }
+      ]
+    },
+    {
+      "id": "jiankang-0007",
+      "author": "sanpang",
+      "genre": "tutorial",
+      "title": "外食怎么吃，我总结出四条",
+      "content": "常在外面吃，体重涨了十斤。后来定了四条规矩。\n第一，先点一个青菜，吃完再点别的。第二，主食减半，米饭剩一半不勉强。第三，汤放在最后喝，前面的菜已经够咸。第四，饮料只喝水或无糖茶。\n四条做到三条，一个月掉了三斤。\n不用戒掉外食，改顺序就够了。",
+      "tags": ["健康习惯"],
+      "tier": "normal",
+      "ageHours": 400,
+      "posterStyle": "paper",
+      "posterLine": "不用戒掉外食，改顺序就够了",
+      "insight": "外食先吃菜、主食减半、只喝水。",
+      "structured": {
+        "tools": "一个点菜的顺序\n一点拒绝的勇气",
+        "steps": "先点一份青菜\n主食减半\n汤放到最后\n饮料只选水或无糖茶\n吃到七分停筷"
+      },
+      "_topic": "外食控制",
+      "comments": [
+        { "author": "yueban", "text": "主食减半这条最有效，我试了两周。", "offsetMinutes": 700, "upCount": 6 }
+      ]
+    },
+    {
+      "id": "jiankang-0008",
+      "author": "yueban",
+      "genre": "tutorial",
+      "title": "睡前不看手机，我用了一个笨办法",
+      "content": "躺着刷手机，一刷就是一小时。试过定闹钟提醒，没用。\n后来买了个老式闹钟，把手机充电器挪到客厅。十点半必须去客厅充电，人回卧室。\n第一周很难受，躺着没事干。第二周开始看书，看两页就困。\n现在十一点前基本能睡着。\n办法笨，但比靠意志力管用。",
+      "tags": ["健康习惯"],
+      "tier": "normal",
+      "ageHours": 440,
+      "posterStyle": "film",
+      "posterLine": "十点半必须去客厅充电",
+      "insight": "把手机挪出卧室，比定时提醒有效。",
+      "structured": {
+        "tools": "一个老式闹钟\n一根长充电线放在客厅",
+        "steps": "把充电器移到客厅\n定一个固定充电时间\n卧室放纸质书\n上床后不开手机\n坚持两周再看效果"
+      },
+      "_topic": "睡前戒手机",
+      "comments": [
+        { "author": "youzi", "text": "这招我也用过，前三天最难。", "offsetMinutes": 800, "upCount": 7 }
+      ]
+    },
+    {
+      "id": "jiankang-0009",
+      "author": "youzi",
+      "genre": "debate",
+      "title": "每天一万步有没有用",
+      "content": "我走了一年，每天八千到一万步，体重没变，但睡眠好了，饭后不困。\n也有人说一万步是营销出来的数字，走再多不如跑二十分钟。\n我的看法是看目的。想减重，走路效率低。想改善状态、饭后血糖、久坐带来的僵硬，走路很够用。\n关键是走的时候别慢悠悠，走到微微出汗。",
+      "tags": ["健康习惯"],
+      "tier": "normal",
+      "ageHours": 470,
+      "posterStyle": "sticky",
+      "posterLine": "走到微微出汗",
+      "insight": "走路改善状态，减重效率不高。",
+      "structured": {
+        "planA": "每天一万步，改善状态和睡眠",
+        "planB": "改成跑步或力量训练，效率更高"
+      },
+      "planAVotes": 89,
+      "planBVotes": 71,
+      "_topic": "一万步",
+      "comments": [
+        { "author": "sanpang", "text": "微微出汗这个标准比步数靠谱。", "offsetMinutes": 900, "upCount": 6 }
+      ]
+    },
+    {
+      "id": "jiankang-0010",
+      "author": "hulu",
+      "genre": "share",
+      "title": "体检报告上的箭头，别自己吓自己",
+      "content": "去年体检报告有五个箭头，我查了一晚上，越查越害怕。\n第二天挂了号，医生看了两分钟，说三个是正常波动，一个是熬夜引起的，只有一个需要复查。\n复查结果也没事。\n后来我学乖了，报告出来先看结论页，有疑问直接问医生，别在网上对症状。",
+      "tags": ["健康习惯"],
+      "tier": "normal",
+      "ageHours": 425,
+      "posterStyle": "paper",
+      "posterLine": "越查越害怕",
+      "insight": "体检箭头先看结论，别在网上对症状。",
+      "_topic": "体检报告",
+      "comments": [
+        { "author": "yueban", "text": "网上对症状这条，能把人吓出病。", "offsetMinutes": 800, "upCount": 9 }
+      ]
+    },
+    {
+      "id": "jiankang-0011",
+      "author": "xiaoman",
+      "genre": "share",
+      "title": "跑步机上的一年",
+      "content": "去年冬天开始在家跑步，一周三次，每次三十分钟。\n跑步机放在阳台，正对一扇窗。冬天看外面黑着，夏天看天亮起来。\n一年下来跑了六百多公里，体重没怎么变，但爬六楼不喘了。\n最大的收获是那三十分钟，什么都不想，只盯着前面的墙。",
+      "tags": ["健康习惯"],
+      "tier": "tail",
+      "ageHours": 550,
+      "posterStyle": "kraft",
+      "posterLine": "什么都不想，只盯着前面的墙",
+      "insight": "跑步机最大的价值，是那半小时的空白。",
+      "_topic": "家用跑步机",
+      "comments": [
+        { "author": "hulu", "text": "六百公里，这个数字很实在。", "offsetMinutes": 1100, "upCount": 5 }
+      ]
+    },
+    {
+      "id": "jiankang-0012",
+      "author": "sanpang",
+      "genre": "share",
+      "title": "我把体重秤收起来了",
+      "content": "以前每天称，数字上去就少吃一顿，下去就放纵一天。\n收了半年，改成看三件事，裤腰松不松，爬楼喘不喘，早上起床有没有劲。\n体重反而稳定了，因为不再为数字折腾。\n数字是结果，不是方法。",
+      "tags": ["健康习惯"],
+      "tier": "tail",
+      "ageHours": 760,
+      "posterStyle": "film",
+      "posterLine": "数字上去就少吃一顿，下去就放纵一天",
+      "insight": "盯体重容易折腾，盯状态更稳。",
+      "_topic": "收起体重秤",
+      "comments": [
+        { "author": "yueban", "text": "裤腰这条比体重准，我现在也这么看。", "offsetMinutes": 1300, "upCount": 6 }
+      ]
+    }
+  ]
+}

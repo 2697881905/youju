@@ -1,0 +1,241 @@
+{
+  "schemaVersion": 1,
+  "circle": "音乐分享",
+  "posts": [
+    {
+      "id": "yinyue-0001",
+      "author": "mocha",
+      "genre": "review",
+      "title": "买了副两百的有线耳机，比蓝牙好听",
+      "content": "蓝牙耳机用了三年，通勤方便，但听久了总觉得糊。\n上个月买了副两百的有线，插在旧手机上听，第一耳就听出差别，鼓点是实的，人声靠前。\n代价是线会缠，走路时蹭衣服有杂音。\n现在的用法是通勤用蓝牙，坐下来听歌用有线。两百块，值。",
+      "tags": ["音乐分享"],
+      "tier": "solid",
+      "ageHours": 34,
+      "posterStyle": "paper",
+      "posterLine": "鼓点是实的，人声靠前",
+      "insight": "同价位有线比蓝牙好听，代价是那根线。",
+      "structured": {
+        "pros": "同价位音质更好，不用充电，延迟低",
+        "cons": "线会缠，走路有听诊器效应",
+        "rating": 4.3,
+        "targetAudience": "坐下来认真听歌、能接受有线的人"
+      },
+      "_topic": "有线与蓝牙耳机",
+      "comments": [
+        { "author": "xia", "text": "听诊器效应这条太真实，我走路只能把线从衣服里穿过去。", "offsetMinutes": 150, "upCount": 12 }
+      ]
+    },
+    {
+      "id": "yinyue-0002",
+      "author": "shisan",
+      "genre": "review",
+      "title": "音箱买大还是买小，看房间",
+      "content": "十几平的卧室放了一对五寸监听，低音轰得头疼，最后垫了海绵又调了摆位才好一点。\n后来搬到三十平的客厅，同一对音箱突然合适了。\n小房间买小音箱，大房间才需要大单元。商家不会告诉你这件事，因为大的更贵。\n还有摆位，离墙三十厘米以上，别贴墙角。",
+      "tags": ["音乐分享"],
+      "tier": "normal",
+      "ageHours": 190,
+      "posterStyle": "kraft",
+      "posterLine": "低音轰得头疼",
+      "insight": "音箱尺寸跟房间走，跟预算不成正比。",
+      "structured": {
+        "pros": "声场好，细节多，不用耳机",
+        "cons": "占地方，小房间容易轰头，扰邻",
+        "rating": 4.0,
+        "targetAudience": "想在家里听歌、有独立空间的人"
+      },
+      "_topic": "音箱尺寸与房间",
+      "comments": [
+        { "author": "linjian", "text": "离墙三十厘米这条我试过，低频干净很多。", "offsetMinutes": 300, "upCount": 8 }
+      ]
+    },
+    {
+      "id": "yinyue-0003",
+      "author": "chenxi",
+      "genre": "pitfall",
+      "title": "音乐软件的歌单迁移，我丢了三年收藏",
+      "content": "换了个音乐软件，用迁移工具导歌单。工具只导了歌名，很多冷门曲目匹配到了同名翻唱。\n三百多首里，有四十多首是错的。我删了半年才发现。\n后来我改成自己在本地存一份歌单文本，歌名加歌手，定期导出。\n平台会关停，版权会变，自己的清单才靠得住。",
+      "tags": ["音乐分享"],
+      "tier": "solid",
+      "ageHours": 62,
+      "posterStyle": "film",
+      "posterLine": "三百多首里，有四十多首是错的",
+      "insight": "歌单自己存一份文本，别只依赖平台。",
+      "structured": {
+        "pitfallExperience": "跨平台迁移歌单，工具按歌名匹配，四十多首错成翻唱版本。",
+        "lossAmount": "三年收藏的准确性",
+        "correctApproach": "本地存一份歌名加歌手的清单\n迁移后逐首抽查\n冷门曲目手动添加\n每季度导出一次"
+      },
+      "_topic": "歌单迁移",
+      "comments": [
+        { "author": "mocha", "text": "同名翻唱这个坑我也踩过，找了半年才找回来。", "offsetMinutes": 200, "upCount": 9 }
+      ]
+    },
+    {
+      "id": "yinyue-0004",
+      "author": "xia",
+      "genre": "tutorial",
+      "title": "把歌单按场景分，比按风格有用",
+      "content": "以前按风格分，摇滚一个、民谣一个，结果每次都不知道听哪个。\n后来改成按场景，通勤路上、写东西、做饭、睡前、跑步。每类十几首，听到不对就换。\n场景歌单的好处是选的时候不用想，点开就放。\n风格是给歌分类，场景是给自己分类。",
+      "tags": ["音乐分享"],
+      "tier": "solid",
+      "ageHours": 90,
+      "posterStyle": "sticky",
+      "posterLine": "风格是给歌分类，场景是给自己分类",
+      "insight": "按场景建歌单，选歌时不用思考。",
+      "structured": {
+        "tools": "一个音乐软件\n半小时整理时间",
+        "steps": "列出一天里常听歌的五个场景\n每个场景先放十五首\n听一周后删掉不合适的\n同一首歌可以进多个场景\n每季度更新一次"
+      },
+      "_topic": "场景歌单",
+      "comments": [
+        { "author": "didi", "text": "场景分类这个思路好，我按风格分也是选不出来。", "offsetMinutes": 300, "upCount": 7 }
+      ]
+    },
+    {
+      "id": "yinyue-0005",
+      "author": "linjian",
+      "genre": "tutorial",
+      "title": "听现场，位置比票价值钱",
+      "content": "同一场演出，我买过最便宜的票，也买过内场。\n最便宜的在看台侧后方，声音是散的，人声被乐器盖住。内场前排声音太冲，鼓点砸得胸口疼。\n最好的一次是看台中前区，稍微偏一点，声音平衡，能看清整个舞台。\n下次买票，我会先看场馆图，选正对舞台的中后区。",
+      "tags": ["音乐分享", "旅行出行"],
+      "tier": "normal",
+      "ageHours": 400,
+      "posterStyle": "paper",
+      "posterLine": "最好的一次是看台中前区",
+      "insight": "现场听感靠位置，不靠票价。",
+      "structured": {
+        "tools": "场馆座位图\n一副耳塞",
+        "steps": "先看场馆座位图\n选正对舞台的中前区\n避开侧后方和音响正前方\n带一副耳塞备用\n提前半小时入场"
+      },
+      "_topic": "现场演出选座",
+      "comments": [
+        { "author": "mocha", "text": "耳塞这条很重要，我听完耳鸣了一天。", "offsetMinutes": 600, "upCount": 8 }
+      ]
+    },
+    {
+      "id": "yinyue-0006",
+      "author": "didi",
+      "genre": "debate",
+      "title": "专辑要不要按顺序听",
+      "content": "有人说专辑是作品，要按顺序听，才有完整的起承转合。也有人说单曲时代了，好听就听。\n我两种都试过。按顺序听确实能发现一些只出现几秒的过渡段，也能感觉到情绪走向。但有些专辑前半张很松，撑不到后面。\n现在的做法是，第一次按顺序听一遍，之后挑喜欢的单曲循环。\n先完整听一次，再自由。",
+      "tags": ["音乐分享"],
+      "tier": "normal",
+      "ageHours": 460,
+      "posterStyle": "kraft",
+      "posterLine": "第一次按顺序听一遍，之后自由",
+      "insight": "专辑先完整听一次，再挑单曲循环。",
+      "structured": {
+        "planA": "按顺序听，尊重专辑的完整表达",
+        "planB": "只听单曲，效率优先"
+      },
+      "planAVotes": 81,
+      "planBVotes": 53,
+      "_topic": "专辑顺序",
+      "comments": [
+        { "author": "chenxi", "text": "过渡段这个我也有体会，单曲听不到。", "offsetMinutes": 800, "upCount": 6 }
+      ]
+    },
+    {
+      "id": "yinyue-0007",
+      "author": "xia",
+      "genre": "share",
+      "title": "地铁上单曲循环一首歌四十遍",
+      "content": "早高峰，戴着耳机，一首歌从头放到尾，再点重播。到站时数了一下，四十遍。\n不是因为多好听，是因为那天地铁特别挤，只有这首歌能让我不烦。\n下车的时候耳机里还在放，我摘了一只，听见站台的广播和脚步声。\n有些歌的作用，是替你挡住世界。",
+      "tags": ["音乐分享"],
+      "tier": "normal",
+      "ageHours": 420,
+      "posterStyle": "paper",
+      "posterLine": "到站时数了一下，四十遍",
+      "insight": "有些歌的作用，是替你挡住世界。",
+      "_topic": "单曲循环",
+      "comments": [
+        { "author": "mocha", "text": "挡住世界这个说法很准确。", "offsetMinutes": 800, "upCount": 7 }
+      ]
+    },
+    {
+      "id": "yinyue-0008",
+      "author": "chenxi",
+      "genre": "share",
+      "title": "在旧货市场淘到一盒磁带",
+      "content": "十块钱，封面已经褪色，是一个九十年代的合辑。\n回家翻出我爸那台收录机，擦干净，放进去，居然还能转。声音有点糊，底噪很大。\n听到第三首的时候，我爸从厨房出来，站着听完了整面。\n他说这盘他年轻时也有过。",
+      "tags": ["音乐分享"],
+      "tier": "tail",
+      "ageHours": 540,
+      "posterStyle": "film",
+      "posterLine": "我爸从厨房出来，站着听完了整面",
+      "insight": "旧介质里，装着别人的年轻时候。",
+      "_topic": "旧货市场磁带",
+      "comments": [
+        { "author": "linjian", "text": "底噪这东西，现在反而是味道。", "offsetMinutes": 1000, "upCount": 6 }
+      ]
+    },
+    {
+      "id": "yinyue-0009",
+      "author": "mocha",
+      "genre": "share",
+      "title": "演唱会散场走了两公里",
+      "content": "散场时地铁口排了很长的队，我干脆往前走。\n两公里的路上全是刚看完演出的人，有人还在唱，有人蹲在路边喝水。\n走到第三个路口，歌声慢慢散了，只剩车流声。\n那两公里比演出本身还记得清楚。",
+      "tags": ["音乐分享"],
+      "tier": "tail",
+      "ageHours": 700,
+      "posterStyle": "kraft",
+      "posterLine": "有人还在唱，有人蹲在路边喝水",
+      "insight": "散场之后那段路，往往记得最久。",
+      "_topic": "演唱会散场",
+      "comments": [
+        { "author": "xia", "text": "散场路上大家还在唱，那种感觉很难得。", "offsetMinutes": 1200, "upCount": 5 }
+      ]
+    },
+    {
+      "id": "yinyue-0010",
+      "author": "shisan",
+      "genre": "share",
+      "title": "深夜写代码时的固定 BGM",
+      "content": "写代码的时候不能听有词的歌，会跟着想事情。\n我固定听两张环境音乐专辑，一张是钢琴，一张是合成器长音，循环了三年。\n有次在咖啡店听到其中一首，手不自觉地在桌上敲键盘。\n现在这两张专辑成了开关，前奏一起，人就进入状态。",
+      "tags": ["音乐分享"],
+      "tier": "tail",
+      "ageHours": 880,
+      "posterStyle": "paper",
+      "posterLine": "手不自觉地在桌上敲键盘",
+      "insight": "固定一张专辑，能变成进入状态的开关。",
+      "_topic": "写代码BGM",
+      "comments": [
+        { "author": "dayang", "text": "环境音乐这条我认，有词的歌确实没法写。", "offsetMinutes": 1400, "upCount": 6 }
+      ]
+    },
+    {
+      "id": "yinyue-0011",
+      "author": "linjian",
+      "genre": "share",
+      "title": "父亲的老歌单",
+      "content": "我爸手机里存了三十多首歌，都是八九十年代的。他不会建歌单，就一首首点。\n有次他让我帮他把这些歌导到车上，我一边导一边看歌名，发现每首都和某段时间有关。\n现在我也听那几首。他唱得跑调，我也跑。",
+      "tags": ["音乐分享"],
+      "tier": "tail",
+      "ageHours": 1150,
+      "posterStyle": "sticky",
+      "posterLine": "他不会建歌单，就一首首点",
+      "insight": "老歌单里，藏着一个人的时间线。",
+      "_topic": "父亲的歌单",
+      "comments": [
+        { "author": "chenxi", "text": "一首首点这个细节，很像我爸。", "offsetMinutes": 1600, "upCount": 7 }
+      ]
+    },
+    {
+      "id": "yinyue-0012",
+      "author": "didi",
+      "genre": "share",
+      "title": "一首歌听到腻，再听会想起某一年",
+      "content": "大学时有首歌我循环了大半年，后来听到前奏就想切。\n上个月在商场偶然听到，站在扶梯上没动。\n想起的是那年冬天的宿舍，暖气不足，我裹着被子改论文。\n歌本身早就听腻了，但它成了一个时间坐标。",
+      "tags": ["音乐分享"],
+      "tier": "tail",
+      "ageHours": 1400,
+      "posterStyle": "film",
+      "posterLine": "站在扶梯上没动",
+      "insight": "听腻的歌，会变成某个年份的坐标。",
+      "_topic": "听腻的歌",
+      "comments": [
+        { "author": "qiyue", "text": "时间坐标这个说法太准了。", "offsetMinutes": 1800, "upCount": 8 }
+      ]
+    }
+  ]
+}

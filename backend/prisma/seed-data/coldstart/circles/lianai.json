@@ -1,0 +1,450 @@
+{
+  "schemaVersion": 1,
+  "circle": "恋爱心得",
+  "posts": [
+    {
+      "id": "lianai-0001",
+      "author": "amay",
+      "genre": "review",
+      "title": "结婚五年才想明白，吵架不是感情不好",
+      "content": "刚结婚那两年，一吵架我就觉得完了，是不是不合适。\n后来发现，我们吵来吵去就那几件事，家务、钱、回谁家、说话的语气。吵完也没分开。\n真正让关系变差的，是不吵。有话不说，憋着，慢慢就没了想说的欲望。\n现在我们的规矩是当天的事当天说，说不完就先停，第二天接着说。吵架不可怕，冷着才可怕。",
+      "tags": [
+        "恋爱心得",
+        "婚姻与家庭"
+      ],
+      "tier": "hero",
+      "ageHours": 16,
+      "posterStyle": "paper",
+      "posterLine": "真正让关系变差的，是不吵",
+      "insight": "吵架是还在沟通，冷下来才是关系在退。",
+      "structured": {
+        "pros": "情绪有出口，问题能被说出来",
+        "cons": "吵起来容易说重话，需要刹车机制",
+        "rating": 4.3,
+        "targetAudience": "同居或结婚三年内、怕冲突的人"
+      },
+      "_topic": "吵架与感情",
+      "comments": [
+        {
+          "author": "anan",
+          "text": "当天的事当天说，这条我们也在用，确实管用。",
+          "offsetMinutes": 100,
+          "upCount": 21
+        },
+        {
+          "author": "qiyue",
+          "text": "冷着才可怕，这句戳到我了。",
+          "offsetMinutes": 300,
+          "upCount": 12
+        }
+      ]
+    },
+    {
+      "id": "lianai-0002",
+      "author": "qiyue",
+      "genre": "review",
+      "title": "相亲二十次，我总结出对方最在意的三件事",
+      "content": "二十次里，被问得最多的是工作稳不稳定，其次是住哪，第三是家里人好不好相处。\n长相和爱好反而很少有人当面问。\n有意思的是，问得最直接的往往是条件不错的，绕弯子的反而顾虑多。\n我的感受是，相亲像面试，双方都在评估，不用觉得被冒犯。想清楚自己要什么，比准备话术重要。",
+      "tags": [
+        "恋爱心得"
+      ],
+      "tier": "solid",
+      "ageHours": 42,
+      "posterStyle": "kraft",
+      "posterLine": "问得最直接的往往是条件不错的",
+      "insight": "相亲像面试，先想清自己要什么。",
+      "structured": {
+        "pros": "目标明确，节省时间，不容易拖",
+        "cons": "容易变成条件比对，缺少感觉",
+        "rating": 3.8,
+        "targetAudience": "刚开始相亲、被问得不知所措的人"
+      },
+      "_topic": "相亲关注点",
+      "comments": [
+        {
+          "author": "xia",
+          "text": "被问住的时候真的很尴尬，后来我提前想好答案。",
+          "offsetMinutes": 200,
+          "upCount": 8
+        }
+      ]
+    },
+    {
+      "id": "lianai-0003",
+      "author": "lulu",
+      "genre": "review",
+      "title": "恋爱里最消耗人的是猜",
+      "content": "他不回消息，我猜他在忙还是在生气。他说随便，我猜他是真随便还是有意见。\n猜了半年，人瘦了六斤。\n后来我改成直接问。你今天是不是不太高兴。他说没有，就是累。我说那你休息，晚点聊。\n问出来之后发现，九成的猜都是自己想多了。\n关系里最贵的成本，是把话憋成猜测。",
+      "tags": [
+        "恋爱心得"
+      ],
+      "tier": "normal",
+      "ageHours": 200,
+      "posterStyle": "film",
+      "posterLine": "猜了半年，人瘦了六斤",
+      "insight": "把猜换成问，九成的内耗会消失。",
+      "structured": {
+        "pros": "减少内耗，误会当场解开",
+        "cons": "需要勇气，也怕问出来是坏答案",
+        "rating": 4.4,
+        "targetAudience": "容易过度解读、习惯憋着的人"
+      },
+      "_topic": "恋爱中的猜测",
+      "comments": [
+        {
+          "author": "amay",
+          "text": "问出来这句我练了三年，现在还是会犹豫。",
+          "offsetMinutes": 400,
+          "upCount": 7
+        }
+      ]
+    },
+    {
+      "id": "lianai-0004",
+      "author": "anan",
+      "genre": "pitfall",
+      "title": "为了不吵架什么都答应，最后崩得更快",
+      "content": "刚在一起时我脾气好，他说什么都行。吃什么行，去哪行，周末回谁家也行。\n忍了两年，某天因为一件小事爆发，把两年的事全翻出来说了一遍。他愣住，说不知道你介意这些。\n问题在我。我把妥协当成体贴，其实是在攒账。\n后来改成当场说不。这个我不太想，我们换个方式。说了几次，反而吵得少了。",
+      "tags": [
+        "恋爱心得",
+        "婚姻与家庭"
+      ],
+      "tier": "solid",
+      "ageHours": 60,
+      "posterStyle": "paper",
+      "posterLine": "把两年的事全翻出来说了一遍",
+      "insight": "妥协攒着不说，最后会一次性爆掉。",
+      "structured": {
+        "pitfallExperience": "两年里事事迁就，从未表达不满，因小事爆发并翻旧账。",
+        "lossAmount": "两年情绪账",
+        "correctApproach": "当场说不想，不攒着\n用换方案代替拒绝\n每周留十分钟说真实感受\n别把妥协当体贴"
+      },
+      "_topic": "过度妥协",
+      "comments": [
+        {
+          "author": "lulu",
+          "text": "攒账这个说法太准了，我也是这样崩的。",
+          "offsetMinutes": 200,
+          "upCount": 11
+        }
+      ]
+    },
+    {
+      "id": "lianai-0005",
+      "author": "xia",
+      "genre": "pitfall",
+      "title": "异地恋分手，不是因为距离",
+      "content": "异地两年，每月见一次，最后分了。\n分的时候他说了一句，我们没什么可聊的了。回想确实，后期每天的消息是我吃了，你呢，然后没有下文。\n距离不是问题，问题是生活没有交集。他在的城市我不了解，我的工作他也没兴趣听。\n后来我看别人的异地，能长久的都有一个共同点，知道对方一天在干什么，具体到人和事。",
+      "tags": [
+        "恋爱心得"
+      ],
+      "tier": "normal",
+      "ageHours": 250,
+      "posterStyle": "sticky",
+      "posterLine": "后期每天的消息是我吃了，你呢",
+      "insight": "异地靠的是生活交集，不是见面频率。",
+      "structured": {
+        "pitfallExperience": "异地两年，日常只剩报备式对话，生活没有交集，最终分手。",
+        "lossAmount": "两年感情",
+        "correctApproach": "聊具体的人和事，不聊吃了没\n共同做一件事，比如一起看剧\n固定视频时间，别只发文字\n把对方介绍给自己的朋友"
+      },
+      "_topic": "异地恋分手",
+      "comments": [
+        {
+          "author": "qiyue",
+          "text": "报备式对话这个词太精准了。",
+          "offsetMinutes": 500,
+          "upCount": 9
+        }
+      ]
+    },
+    {
+      "id": "lianai-0006",
+      "author": "amay",
+      "genre": "pitfall",
+      "title": "把对方的好当成理所当然，用了两年才发现",
+      "content": "他每天做早饭，我吃了两年，从没说过谢谢。\n有次他出差一周，我才发现自己连鸡蛋在哪都不知道。\n回来那天我说了一句，这几天早上挺不习惯的。他笑了一下，说你也知道。\n那之后我开始轮流做，做得不好吃他也吃。\n习惯会让好东西变得看不见。",
+      "tags": [
+        "恋爱心得",
+        "婚姻与家庭"
+      ],
+      "tier": "normal",
+      "ageHours": 340,
+      "posterStyle": "kraft",
+      "posterLine": "连鸡蛋在哪都不知道",
+      "insight": "日常的照顾最容易被当成理所当然。",
+      "structured": {
+        "pitfallExperience": "两年里接受对方每天做早饭，从未表达感谢，直到对方出差才意识到。",
+        "lossAmount": "两年的忽视",
+        "correctApproach": "具体地说谢谢，别只说辛苦了\n轮流承担同一件事\n每周做一次对方常做的事\n把感受说出来"
+      },
+      "_topic": "理所当然",
+      "comments": [
+        {
+          "author": "anan",
+          "text": "轮流做这条好，做过才知道有多麻烦。",
+          "offsetMinutes": 600,
+          "upCount": 8
+        }
+      ]
+    },
+    {
+      "id": "lianai-0007",
+      "author": "qiyue",
+      "genre": "tutorial",
+      "title": "第一次约会，聊什么不尴尬",
+      "content": "最尴尬的不是没话说，是查户口式提问。你做什么工作，家里几口人，买房了吗。\n我的做法是聊最近在忙什么，顺着对方的话往下问。她说最近在学烘焙，我就问烤失败了怎么办。\n具体的问题比抽象的好答。别问你觉得我怎么样。\n还有一个小技巧，准备三个自己的小故事，冷场的时候抛一个。",
+      "tags": [
+        "恋爱心得"
+      ],
+      "tier": "solid",
+      "ageHours": 88,
+      "posterStyle": "paper",
+      "posterLine": "最尴尬的不是没话说，是查户口",
+      "insight": "问具体的事，别问抽象的评价。",
+      "structured": {
+        "tools": "三个自己的小故事\n两个想问的具体问题",
+        "steps": "开场聊最近在忙什么\n顺着对方的话追问细节\n避免查户口式提问\n冷场时抛一个自己的小故事\n结束时说清下次想做什么",
+        "timeDifficulty": "准备十五分钟"
+      },
+      "_topic": "第一次约会聊什么",
+      "comments": [
+        {
+          "author": "xia",
+          "text": "具体问题比抽象好答，这条很受用。",
+          "offsetMinutes": 300,
+          "upCount": 10
+        }
+      ]
+    },
+    {
+      "id": "lianai-0008",
+      "author": "anan",
+      "genre": "tutorial",
+      "title": "吵架之后怎么和好，三步",
+      "content": "吵完架最难的是谁先开口。我们的办法是定一个信号，谁先说我去倒水，就是求和。\n第一步，先处理情绪，不急着讲道理。倒杯水，坐近一点，什么都别说。\n第二步，各自说一遍刚才在气什么，不许打断。\n第三步，只解决一件事。别把三个月前的账也翻出来。\n三步做完，多数架都能收住。",
+      "tags": [
+        "恋爱心得",
+        "婚姻与家庭"
+      ],
+      "tier": "normal",
+      "ageHours": 400,
+      "posterStyle": "film",
+      "posterLine": "谁先说我去倒水，就是求和",
+      "insight": "先处理情绪，再各说一遍，最后只解决一件事。",
+      "structured": {
+        "tools": "一杯水\n十分钟不被打断的时间",
+        "steps": "用固定信号打破僵局\n先安抚情绪，不讲道理\n各自复述在气什么，不打断\n只解决当下这一件事\n结束时说一句下次怎么办"
+      },
+      "_topic": "吵架后和好",
+      "comments": [
+        {
+          "author": "amay",
+          "text": "只解决一件事这条太重要了，翻旧账没完没了。",
+          "offsetMinutes": 700,
+          "upCount": 9
+        }
+      ]
+    },
+    {
+      "id": "lianai-0009",
+      "author": "lulu",
+      "genre": "debate",
+      "title": "要不要看对方手机",
+      "content": "我的答案是别看，除非你已经准备好看到不想看的东西。\n看手机解决不了不信任，只会把不信任变成具体的画面。\n但也有人说，坦荡的人不怕看。这话有道理，可坦荡和隐私是两件事。\n我们家的规矩是，手机不设密码给对方看，但谁也不主动翻。\n信任靠日常，不靠检查。",
+      "tags": [
+        "恋爱心得"
+      ],
+      "tier": "solid",
+      "ageHours": 120,
+      "posterStyle": "sticky",
+      "posterLine": "信任靠日常，不靠检查",
+      "insight": "看手机治不了不信任，只会把它具象化。",
+      "structured": {
+        "planA": "不看，保留各自的空间",
+        "planB": "可以看，坦荡就不怕"
+      },
+      "planAVotes": 132,
+      "planBVotes": 61,
+      "_topic": "看对方手机",
+      "comments": [
+        {
+          "author": "anan",
+          "text": "不设密码但谁也不翻，这个分寸感很好。",
+          "offsetMinutes": 400,
+          "upCount": 11
+        }
+      ]
+    },
+    {
+      "id": "lianai-0010",
+      "author": "xia",
+      "genre": "share",
+      "title": "地铁上有人给我让座，我以为他喜欢我",
+      "content": "那天我拎着两个大袋子，一个男生站起来让座。我坐下之后一直在想，他是不是对我有意思。\n下一站他下车了，走得很快。\n后来跟朋友说这事，她笑了半天，说你那袋子看着像搬家，谁都会让。\n有些心动，其实是自己给自己的。",
+      "tags": [
+        "恋爱心得"
+      ],
+      "tier": "normal",
+      "ageHours": 430,
+      "posterStyle": "paper",
+      "posterLine": "你那袋子看着像搬家，谁都会让",
+      "insight": "有些心动，是自己给自己加的戏。",
+      "_topic": "地铁让座误会",
+      "comments": [
+        {
+          "author": "qiyue",
+          "text": "这种自我加戏我太熟了。",
+          "offsetMinutes": 800,
+          "upCount": 7
+        }
+      ]
+    },
+    {
+      "id": "lianai-0011",
+      "author": "amay",
+      "genre": "share",
+      "title": "结婚纪念日他忘了，我没生气",
+      "content": "那天他加班到九点，进门问吃什么。我说随便。他煮了两碗面，卧了两个蛋。\n吃到一半我想起来是纪念日，就说了。他愣住，说完了完了。\n我说没事，面挺好吃。第二天他补了一束花，插在矿泉水瓶里。\n生气也可以，但那天的面确实好吃。",
+      "tags": [
+        "恋爱心得",
+        "婚姻与家庭"
+      ],
+      "tier": "normal",
+      "ageHours": 415,
+      "posterStyle": "kraft",
+      "posterLine": "他煮了两碗面，卧了两个蛋",
+      "insight": "纪念日会忘，日子本身不会。",
+      "_topic": "忘记纪念日",
+      "comments": [
+        {
+          "author": "anan",
+          "text": "插在矿泉水瓶里，这个细节很可爱。",
+          "offsetMinutes": 900,
+          "upCount": 8
+        }
+      ]
+    },
+    {
+      "id": "lianai-0012",
+      "author": "qiyue",
+      "genre": "share",
+      "title": "三十岁生日，一个人吃了火锅",
+      "content": "朋友都在外地，家里人催我相亲，我关了手机，去吃了顿火锅。\n服务员问几位，我说一位。她把我领到靠窗的小桌，还放了个玩偶在对面。\n吃到一半隔壁桌在唱生日歌，我低头涮毛肚。\n结账的时候服务员说生日快乐。我说谢谢。那天挺好的。",
+      "tags": [
+        "恋爱心得"
+      ],
+      "tier": "tail",
+      "ageHours": 520,
+      "posterStyle": "film",
+      "posterLine": "还放了个玩偶在对面",
+      "insight": "一个人过生日，也可以过得挺好。",
+      "_topic": "一个人过生日",
+      "comments": [
+        {
+          "author": "xia",
+          "text": "玩偶这个细节有点暖。",
+          "offsetMinutes": 1000,
+          "upCount": 6
+        }
+      ]
+    },
+    {
+      "id": "lianai-0013",
+      "author": "lulu",
+      "genre": "share",
+      "title": "分手后我把共同好友都屏蔽了",
+      "content": "说不上恨谁，就是不想再看到他的消息。共同好友发聚会的照片，他坐在角落，我能盯五分钟。\n屏蔽了半年，后来慢慢放出来。\n现在看到他的动态没什么感觉了，就像看一个普通同学。\n时间不是解药，但确实是麻药。",
+      "tags": [
+        "恋爱心得"
+      ],
+      "tier": "tail",
+      "ageHours": 680,
+      "posterStyle": "paper",
+      "posterLine": "他坐在角落，我能盯五分钟",
+      "insight": "分手后先断开信息，是为了让自己缓过来。",
+      "_topic": "分手后屏蔽",
+      "comments": [
+        {
+          "author": "qiyue",
+          "text": "时间不是解药，但确实是麻药。这句我抄走了。",
+          "offsetMinutes": 1200,
+          "upCount": 7
+        }
+      ]
+    },
+    {
+      "id": "lianai-0014",
+      "author": "anan",
+      "genre": "share",
+      "title": "结婚第八年，我们重新开始约会",
+      "content": "孩子上小学之后，我们每周三晚上出去吃一顿，不带孩子。\n第一次坐在餐厅里有点尴尬，不知道说什么，聊的全是作业和补习班。\n第三次开始聊别的，聊他公司的事，聊我最近看的书。\n现在周三是我一周里最期待的一天。\n关系需要一点和日常无关的时间。",
+      "tags": [
+        "恋爱心得",
+        "婚姻与家庭"
+      ],
+      "tier": "tail",
+      "ageHours": 860,
+      "posterStyle": "sticky",
+      "posterLine": "第一次坐在餐厅里有点尴尬",
+      "insight": "固定一段和日常无关的时间，关系才有空间。",
+      "_topic": "婚后约会",
+      "comments": [
+        {
+          "author": "tutuma",
+          "text": "每周三这个安排我们也想试。",
+          "offsetMinutes": 1400,
+          "upCount": 5
+        }
+      ]
+    },
+    {
+      "id": "lianai-0015",
+      "author": "xia",
+      "genre": "share",
+      "title": "暗恋一个人三年，最后没说",
+      "content": "从大三到工作第一年，我知道他喜欢的歌手，知道他几点下班，知道他吃面不放香菜。\n他从来不知道我知道这些。\n后来他结婚了，我去了，坐在最后一排。\n没说是对的。说出来可能连朋友都做不成，不说至少那三年是我的。",
+      "tags": [
+        "恋爱心得"
+      ],
+      "tier": "tail",
+      "ageHours": 1050,
+      "posterStyle": "kraft",
+      "posterLine": "他吃面不放香菜",
+      "insight": "有些喜欢，留在自己这里更完整。",
+      "_topic": "暗恋三年",
+      "comments": [
+        {
+          "author": "lulu",
+          "text": "坐在最后一排，这个画面我想了很久。",
+          "offsetMinutes": 1600,
+          "upCount": 9
+        }
+      ]
+    },
+    {
+      "id": "lianai-0016",
+      "author": "qiyue",
+      "genre": "share",
+      "title": "我不再急着找一个人",
+      "content": "二十九岁那年我特别焦虑，每周见一个相亲对象，见完回家记账一样打分。\n三十岁生日之后突然松了。这不等于放弃，只是不再把这件事当成任务。\n现在周末去爬山、看展、学做面包，认识了一些人，有几个成了朋友。\n有没有结果不知道，但日子是自己的。",
+      "tags": [
+        "恋爱心得"
+      ],
+      "tier": "tail",
+      "ageHours": 1350,
+      "posterStyle": "paper",
+      "posterLine": "见完回家记账一样打分",
+      "insight": "不把找对象当任务，日子才回到自己手里。",
+      "_topic": "不再急着恋爱",
+      "comments": [
+        {
+          "author": "amay",
+          "text": "记账一样打分，这个比喻太真实了。",
+          "offsetMinutes": 1800,
+          "upCount": 6
+        }
+      ]
+    }
+  ]
+}

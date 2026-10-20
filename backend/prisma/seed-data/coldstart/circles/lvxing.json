@@ -1,0 +1,272 @@
+{
+  "schemaVersion": 1,
+  "circle": "旅行出行",
+  "posts": [
+    {
+      "id": "lvxing-0001",
+      "author": "linjian",
+      "genre": "review",
+      "title": "一年出去四趟，最后记住的都是走路的那段",
+      "content": "去过的地方不少，能想起来的不是景点，是路。\n在山里走了六小时，中途下雨，躲在一个废弃的看林房里吃面包。在古镇绕错了路，走进一条只有老人晒太阳的巷子。\n景点拍的照片存了很多，从来不看。\n现在我做行程，会留半天什么都不安排，就走路。",
+      "tags": ["旅行出行"],
+      "tier": "solid",
+      "ageHours": 38,
+      "posterStyle": "paper",
+      "posterLine": "躲在一个废弃的看林房里吃面包",
+      "insight": "行程里留半天走路，比多去两个景点值。",
+      "structured": {
+        "pros": "记忆深刻，节奏松，不赶",
+        "cons": "可能错过热门景点，需要体力",
+        "rating": 4.4,
+        "targetAudience": "不喜欢赶行程、喜欢走路的人"
+      },
+      "_topic": "旅行中的走路",
+      "comments": [
+        { "author": "yeye", "text": "留半天什么都不安排，这条我要学。", "offsetMinutes": 150, "upCount": 13 }
+      ]
+    },
+    {
+      "id": "lvxing-0002",
+      "author": "feifei",
+      "genre": "review",
+      "title": "出差顺便玩，我把行程排成两小时一段",
+      "content": "一年飞二十趟，多数是当天往返。想看看城市，只能挤时间。\n我的办法是把行程切成两小时一段。落地后到酒店放行李，两小时去附近走一圈。第二天早上提前一小时出门，去菜市场。\n不追求打卡，只看一个街区。\n一年下来，去了很多城市的菜市场，记住了味道和口音。",
+      "tags": ["旅行出行"],
+      "tier": "normal",
+      "ageHours": 200,
+      "posterStyle": "kraft",
+      "posterLine": "只看一个街区",
+      "insight": "出差看城市，两小时一个街区就够。",
+      "structured": {
+        "pros": "不额外请假，能看到真实生活",
+        "cons": "时间碎，去不了远景点",
+        "rating": 4.1,
+        "targetAudience": "经常出差、想顺便看看城市的人"
+      },
+      "_topic": "出差顺便玩",
+      "comments": [
+        { "author": "ningmeng", "text": "菜市场这条我完全同意，比景点真实。", "offsetMinutes": 300, "upCount": 9 }
+      ]
+    },
+    {
+      "id": "lvxing-0003",
+      "author": "yeye",
+      "genre": "pitfall",
+      "title": "在景区门口报的一日游，被拉去三个购物点",
+      "content": "到得晚，网上订的团都满了，就在景区门口报了个一日游，一百八。\n第二天上车才知道，行程里有三个购物点，每个停四十分钟。景点只给了两小时。\n导游说不强制消费，但脸色不好看。\n后来我记住了，门口拉客的一日游基本都有购物，价格越低越明显。",
+      "tags": ["旅行出行", "消费维权"],
+      "tier": "solid",
+      "ageHours": 66,
+      "posterStyle": "film",
+      "posterLine": "每个停四十分钟，景点只给了两小时",
+      "insight": "景区门口的低价一日游，靠购物点回本。",
+      "structured": {
+        "pitfallExperience": "景区门口报一百八一日游，行程含三个购物点，景点时间被压缩到两小时。",
+        "lossAmount": "180 元加半天时间",
+        "correctApproach": "提前一天在网上订正规团\n看清行程是否含购物点\n价格明显偏低要多问一句\n保留行程单和付款记录"
+      },
+      "_topic": "一日游购物点",
+      "comments": [
+        { "author": "ningmeng", "text": "价格越低越明显，这句总结得到位。", "offsetMinutes": 200, "upCount": 10 }
+      ]
+    },
+    {
+      "id": "lvxing-0004",
+      "author": "ningmeng",
+      "genre": "pitfall",
+      "title": "网红民宿的照片和实际差了一倍",
+      "content": "订房页面照片是落地窗加山景，实际是一扇小窗，外面是邻居的墙。\n房东说那间是另一个房型，我订的是这间。页面标题写着山景房，照片是通用的。\n投诉到平台，退了一半房费。\n现在订民宿我会翻到评论区最后几页，找带图的差评，那些照片最真实。",
+      "tags": ["旅行出行", "消费维权"],
+      "tier": "normal",
+      "ageHours": 260,
+      "posterStyle": "paper",
+      "posterLine": "外面是邻居的墙",
+      "insight": "订民宿先翻差评里的实拍图。",
+      "structured": {
+        "pitfallExperience": "预订标称山景房的民宿，到店发现窗外是邻居墙，平台照片与房型不符。",
+        "lossAmount": "一半房费",
+        "correctApproach": "翻评论区最后几页找差评图\n确认照片对应的具体房型\n到店发现不符立即拍照留证\n当天联系平台而非私下协商"
+      },
+      "_topic": "民宿照片不符",
+      "comments": [
+        { "author": "feifei", "text": "差评里的图最真实，这条我一直在用。", "offsetMinutes": 400, "upCount": 8 }
+      ]
+    },
+    {
+      "id": "lvxing-0005",
+      "author": "chenxi",
+      "genre": "pitfall",
+      "title": "机场转机留两小时，差点没赶上",
+      "content": "买了联程票，中转时间两小时十分钟，以为够。\n第一程延误四十分钟，落地后摆渡车开了十五分钟，安检排队半小时，跑到登机口时已经开始登机。\n行李也没跟上，第二天才到。\n转机至少留三小时，跨航站楼的留四小时。同一张票的好处是延误有人管，坏处是时间不由你定。",
+      "tags": ["旅行出行"],
+      "tier": "normal",
+      "ageHours": 350,
+      "posterStyle": "sticky",
+      "posterLine": "跑到登机口时已经开始登机",
+      "insight": "转机留三小时，跨航站楼留四小时。",
+      "structured": {
+        "pitfallExperience": "两小时十分钟的中转，因前段延误加摆渡与安检，险些误机，行李次日才到。",
+        "lossAmount": "一天的行程",
+        "correctApproach": "同机场转机留三小时\n跨航站楼留四小时\n尽量选同一张联程票\n随身带一套换洗衣物"
+      },
+      "_topic": "转机时间",
+      "comments": [
+        { "author": "laoyu", "text": "随身带换洗衣物这条，被行李坑过的人都懂。", "offsetMinutes": 600, "upCount": 7 }
+      ]
+    },
+    {
+      "id": "lvxing-0006",
+      "author": "laoyu",
+      "genre": "tutorial",
+      "title": "自驾长途，每天不要超过六百公里",
+      "content": "年轻时候一天开九百公里，觉得自己行。现在一天五百就够。\n六百公里大概七小时，加上休息和吃饭，正好一天。超过这个数，后半程注意力明显下降。\n我的节奏是每两小时停一次，下车走五分钟。中午吃完休息二十分钟。\n夜里不开山路，宁可多住一晚。",
+      "tags": ["旅行出行", "用车经验"],
+      "tier": "solid",
+      "ageHours": 94,
+      "posterStyle": "kraft",
+      "posterLine": "夜里不开山路，宁可多住一晚",
+      "insight": "长途自驾每天五百到六百公里，每两小时停一次。",
+      "structured": {
+        "tools": "导航\n一瓶水\n一双舒服的鞋",
+        "steps": "每天里程控制在六百以内\n每两小时停一次走五分钟\n中午休息二十分钟\n天黑前到达住宿地\n不走夜路山路"
+      },
+      "_topic": "自驾长途节奏",
+      "comments": [
+        { "author": "yeye", "text": "每两小时停一次，这个节奏我试过，确实不累。", "offsetMinutes": 300, "upCount": 9 }
+      ]
+    },
+    {
+      "id": "lvxing-0007",
+      "author": "linjian",
+      "genre": "tutorial",
+      "title": "一个人的旅行，怎么安排才不慌",
+      "content": "一个人出门最容易慌的是晚上。\n我的做法是三件事。住的地方选在有前台的正规酒店，不住偏僻民宿。每天只定一个必须去的地方，其余随意。晚上八点前回住处，把第二天路线看一遍。\n还有一个习惯，把当天行程发给一个朋友，不用回复，只是留个记录。\n一个人玩得自在，前提是把安全的部分安排死。",
+      "tags": ["旅行出行"],
+      "tier": "normal",
+      "ageHours": 410,
+      "posterStyle": "paper",
+      "posterLine": "把安全的部分安排死",
+      "insight": "独自旅行，先把住处和夜间行程固定下来。",
+      "structured": {
+        "tools": "酒店预订\n行程记录\n充电宝",
+        "steps": "选有前台的正规住宿\n每天只定一个必去的地方\n晚上八点前回住处\n把行程发给朋友留记录\n提前看第二天路线"
+      },
+      "_topic": "独自旅行安排",
+      "comments": [
+        { "author": "ningmeng", "text": "发给朋友留记录这条，我每次都做。", "offsetMinutes": 600, "upCount": 8 }
+      ]
+    },
+    {
+      "id": "lvxing-0008",
+      "author": "feifei",
+      "genre": "tutorial",
+      "title": "行李清单，按七天以内算",
+      "content": "七天以内的行程，一个登机箱足够。\n衣物按天数减一，带速干的最好洗。鞋子两双，一双走路一双正式。洗漱用品分装，不超过一百毫升。常备药带三种，退烧、肠胃、创可贴。\n还有一样容易被忘，一个折叠袋，装脏衣服或买的东西。\n行李越少，路上越自由。",
+      "tags": ["旅行出行"],
+      "tier": "normal",
+      "ageHours": 445,
+      "posterStyle": "film",
+      "posterLine": "衣物按天数减一",
+      "insight": "七天以内一个登机箱，衣物按天数减一。",
+      "structured": {
+        "tools": "登机箱\n分装瓶\n折叠袋\n常备药",
+        "steps": "衣物按天数减一\n带速干面料\n鞋两双，走路与正式各一\n洗漱分装不超一百毫升\n带折叠袋装脏衣"
+      },
+      "_topic": "行李清单",
+      "comments": [
+        { "author": "chenxi", "text": "折叠袋这条太实用了，回程总是多东西。", "offsetMinutes": 700, "upCount": 6 }
+      ]
+    },
+    {
+      "id": "lvxing-0009",
+      "author": "yeye",
+      "genre": "debate",
+      "title": "旅行要不要做攻略",
+      "content": "我两种都试过。做攻略的那次，每天按表走，效率高，但遇到下雨就全乱。不做攻略的那次，在车站看了半小时地图，最后随便上了一辆车，去了一个没听过的小镇。\n现在我的做法是做一个最简版，只定住宿和来回交通，中间留白。\n攻略的价值是兜底，不是行程表。",
+      "tags": ["旅行出行"],
+      "tier": "normal",
+      "ageHours": 460,
+      "posterStyle": "paper",
+      "posterLine": "攻略的价值是兜底，不是行程表",
+      "insight": "只定住宿和交通，中间留白。",
+      "structured": {
+        "planA": "做详细攻略，按表走",
+        "planB": "不做攻略，到了再说"
+      },
+      "planAVotes": 69,
+      "planBVotes": 84,
+      "_topic": "旅行攻略",
+      "comments": [
+        { "author": "linjian", "text": "最简版这个做法我一直在用，很舒服。", "offsetMinutes": 900, "upCount": 7 }
+      ]
+    },
+    {
+      "id": "lvxing-0010",
+      "author": "ningmeng",
+      "genre": "share",
+      "title": "在一个小镇住了五天，什么也没干",
+      "content": "每天睡到自然醒，下楼吃碗粉，坐在河边看人钓鱼。下午回去睡一觉，晚上在街上走一圈。\n第五天老板问我去了哪些地方，我说哪儿都没去。他说这样最好。\n回来同事问我玩了什么，我说不上来。\n但那五天我一次都没看工作群。",
+      "tags": ["旅行出行"],
+      "tier": "normal",
+      "ageHours": 430,
+      "posterStyle": "kraft",
+      "posterLine": "他说这样最好",
+      "insight": "旅行的目的，有时只是把工作群关掉。",
+      "_topic": "小镇住五天",
+      "comments": [
+        { "author": "aqi", "text": "一次都没看工作群，这个才是真休息。", "offsetMinutes": 800, "upCount": 6 }
+      ]
+    },
+    {
+      "id": "lvxing-0011",
+      "author": "chenxi",
+      "genre": "share",
+      "title": "清晨六点的菜市场，比景点好看",
+      "content": "出门习惯早起去菜市场。六点多人已经很多，卖鱼的在地上铺塑料布，卖菜的把菜码成小山。\n听不懂方言，但能看懂价格牌。买了两个当地的饼，站在路边吃完。\n菜市场能看出一个地方吃什么、怎么过日子。\n景点是给外地人看的，菜市场是给自己人用的。",
+      "tags": ["旅行出行", "美食探店"],
+      "tier": "tail",
+      "ageHours": 540,
+      "posterStyle": "paper",
+      "posterLine": "景点是给外地人看的",
+      "insight": "想认识一个地方，早起去菜市场。",
+      "_topic": "清晨菜市场",
+      "comments": [
+        { "author": "feifei", "text": "价格牌这条我也有体会，看不懂话能看懂数。", "offsetMinutes": 1000, "upCount": 7 }
+      ]
+    },
+    {
+      "id": "lvxing-0012",
+      "author": "laoyu",
+      "genre": "share",
+      "title": "带着父母自驾，行程要减半",
+      "content": "带父母出去玩了一趟，原计划一天两个景点，实际一天一个都勉强。\n他们走得慢，需要频繁休息，中午必须吃饭，晚上要早回。\n我把行程砍了一半，反而大家都轻松。\n回来后我妈跟邻居说了半个月，说儿子带她去了很多地方。其实只去了四个。",
+      "tags": ["旅行出行"],
+      "tier": "tail",
+      "ageHours": 700,
+      "posterStyle": "kraft",
+      "posterLine": "其实只去了四个",
+      "insight": "带父母出门，行程砍一半，体验翻一倍。",
+      "_topic": "带父母旅行",
+      "comments": [
+        { "author": "ningmeng", "text": "说了半个月这句，听得我有点想家。", "offsetMinutes": 1200, "upCount": 8 }
+      ]
+    },
+    {
+      "id": "lvxing-0013",
+      "author": "linjian",
+      "genre": "share",
+      "title": "我把旅行照片洗出来了",
+      "content": "手机里存了几千张照片，几乎不看。去年挑了一百张洗出来，贴在墙上。\n洗的时候才发现，很多当时觉得一般的照片，现在看很有意思。有一张是雨天在车站等车，玻璃上全是水珠。\n电子照片会沉底，纸质的会一直在。\n现在每次回来洗十张，一年一册。",
+      "tags": ["旅行出行"],
+      "tier": "tail",
+      "ageHours": 950,
+      "posterStyle": "film",
+      "posterLine": "雨天在车站等车，玻璃上全是水珠",
+      "insight": "洗出来的照片，才会被反复看见。",
+      "_topic": "洗旅行照片",
+      "comments": [
+        { "author": "chenxi", "text": "一年一册这个习惯好，我也想做。", "offsetMinutes": 1400, "upCount": 6 }
+      ]
+    }
+  ]
+}

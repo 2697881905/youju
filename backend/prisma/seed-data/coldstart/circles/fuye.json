@@ -1,0 +1,275 @@
+{
+  "schemaVersion": 1,
+  "circle": "副业探索",
+  "posts": [
+    {
+      "id": "fuye-0001",
+      "author": "dayang",
+      "genre": "review",
+      "title": "晚上接单装机，一个月能挣多少",
+      "content": "接了半年，平均每月四单，一单收一百五到三百。装机两小时，装系统一小时，加上沟通和售后，一单要占一个晚上。\n算下来一个月一千出头。\n成本也有，工具、硅脂、扎带，还有来回打车。扣掉这些，八百左右。\n值不值看你要什么。想挣钱，不如去跑外卖。想练手艺，这个不错。",
+      "tags": ["副业探索", "电脑装机"],
+      "tier": "solid",
+      "ageHours": 40,
+      "posterStyle": "paper",
+      "posterLine": "一单要占一个晚上",
+      "insight": "装机副业挣钱有限，练手艺是真的。",
+      "structured": {
+        "pros": "能练手，客户会转介绍，时间自由",
+        "cons": "单价低，售后占时间，淡旺季明显",
+        "rating": 3.6,
+        "targetAudience": "有装机经验、想练手的人"
+      },
+      "_topic": "装机副业收入",
+      "comments": [
+        { "author": "shisan", "text": "售后最耗人，装完半年还来找你。", "offsetMinutes": 200, "upCount": 11 },
+        { "author": "dayang", "text": "我现在只保修一个月，说在前面。", "offsetMinutes": 260, "replyToIndex": 0, "upCount": 6 }
+      ]
+    },
+    {
+      "id": "fuye-0002",
+      "author": "guoguo",
+      "genre": "review",
+      "title": "卤味外卖的账，我算给你看",
+      "content": "一份卤味卖二十八，成本十一，平台抽成五块，包装两块，毛利十块。\n一个月卖三百份，毛利三千。扣掉水电燃气和损耗，到手两千二。\n时间投入是每天晚上三小时，加周末半天备料。\n时薪大概二十多。\n做这个要有心理准备，它是用时间换钱，不是躺着收钱。",
+      "tags": ["副业探索", "家常菜谱"],
+      "tier": "normal",
+      "ageHours": 190,
+      "posterStyle": "kraft",
+      "posterLine": "时薪大概二十多",
+      "insight": "小餐饮副业按时薪算，未必比加班高。",
+      "structured": {
+        "pros": "现金流快，复购稳定，门槛低",
+        "cons": "时薪低，平台抽成高，损耗难控",
+        "rating": 3.5,
+        "targetAudience": "有厨房、能固定投入时间的人"
+      },
+      "_topic": "卤味外卖成本",
+      "comments": [
+        { "author": "keke", "text": "这个时薪算法很清醒，很多人只算毛利。", "offsetMinutes": 400, "upCount": 9 }
+      ]
+    },
+    {
+      "id": "fuye-0003",
+      "author": "maomao",
+      "genre": "review",
+      "title": "手工饰品挂网上，一年卖了多少",
+      "content": "做了一年，卖了一百八十多单，客单价四十五，营收八千。\n材料成本三成，快递和包装两成，平台推广花了一千多。净到手三千出头。\n一年三百多个小时，时薪不到十块。\n但我不打算停。做的时候不觉得累，卖出去还有人夸。\n有些副业算的是钱，有些算的是别的东西。",
+      "tags": ["副业探索", "二手闲置"],
+      "tier": "normal",
+      "ageHours": 300,
+      "posterStyle": "film",
+      "posterLine": "一年三百多个小时，时薪不到十块",
+      "insight": "手工艺副业挣不到钱，但能撑住情绪。",
+      "structured": {
+        "pros": "过程解压，有成就感，不占整块时间",
+        "cons": "时薪极低，推广费吃掉利润",
+        "rating": 3.2,
+        "targetAudience": "有手工爱好、不指望靠它生活的人"
+      },
+      "_topic": "手工饰品收入",
+      "comments": [
+        { "author": "lulu", "text": "最后那句话我懂，我养狗也是这么算的。", "offsetMinutes": 600, "upCount": 7 }
+      ]
+    },
+    {
+      "id": "fuye-0004",
+      "author": "xiaozhou",
+      "genre": "pitfall",
+      "title": "交了两千八的培训费，学了个寂寞",
+      "content": "刷到一个视频，说学剪辑接单月入过万，报名费两千八，包就业。\n课上讲了八节，全是软件基础，网上免费教程都有。所谓接单渠道，是一个群里发广告，单价比市场低一半。\n我要求退款，对方说课程已经开通，不退。\n后来查了，这种机构很多，专挑想搞副业的年轻人。凡是承诺收入的培训，基本可以判断是坑。",
+      "tags": ["副业探索", "消费维权"],
+      "tier": "solid",
+      "ageHours": 64,
+      "posterStyle": "paper",
+      "posterLine": "所谓接单渠道，是一个群里发广告",
+      "insight": "承诺收入的副业培训，基本都是坑。",
+      "structured": {
+        "pitfallExperience": "两千八报名剪辑培训，课程是免费教程水平，接单渠道单价极低，退款被拒。",
+        "lossAmount": "2800 元",
+        "correctApproach": "先查机构的投诉记录\n要求看完整课程大纲和试听\n不签承诺收入类合同\n付款前问清退款条件"
+      },
+      "_topic": "副业培训骗局",
+      "comments": [
+        { "author": "keke", "text": "承诺就业和收入，这两句就是红线。", "offsetMinutes": 200, "upCount": 13 }
+      ]
+    },
+    {
+      "id": "fuye-0005",
+      "author": "keke",
+      "genre": "pitfall",
+      "title": "副业收入没报税，年底补了一笔",
+      "content": "接设计的活，一年挣了三万多，都是私下转账。我以为金额不大不用管。\n年底汇算的时候被提示有劳务收入未申报，补了税，还交了一点滞纳金。\n后来学乖了，每笔收入都留记录，年底统一申报。平台代扣的就省事，私下的要自己算。\n钱不多也要报，这是规矩，也是保护自己。",
+      "tags": ["副业探索", "记账储蓄"],
+      "tier": "normal",
+      "ageHours": 240,
+      "posterStyle": "sticky",
+      "posterLine": "被提示有劳务收入未申报",
+      "insight": "副业收入要申报，私下转账也得留记录。",
+      "structured": {
+        "pitfallExperience": "私下接单一年三万多未申报，汇算时补税并交滞纳金。",
+        "lossAmount": "补税加滞纳金",
+        "correctApproach": "每笔收入留转账记录\n优先走平台代扣\n年底统一做汇算\n不确定就问税务热线"
+      },
+      "_topic": "副业报税",
+      "comments": [
+        { "author": "baikai", "text": "这个提醒很有必要，很多人不知道。", "offsetMinutes": 500, "upCount": 6 }
+      ]
+    },
+    {
+      "id": "fuye-0006",
+      "author": "dayang",
+      "genre": "pitfall",
+      "title": "接单没签合同，尾款收不回来",
+      "content": "给一家小公司做官网，报价六千，预付了两千。做了三周交付，对方说再改改。\n改到第五版，对方说预算没了，尾款不付。没有合同，只有微信聊天记录。\n最后要回来一千，剩下三千没了。\n现在接单不管多小，都写一页纸，范围、修改次数、付款节点。超过修改次数另外算钱。",
+      "tags": ["副业探索"],
+      "tier": "normal",
+      "ageHours": 360,
+      "posterStyle": "kraft",
+      "posterLine": "改到第五版，对方说预算没了",
+      "insight": "接单写清范围和修改次数，比报价重要。",
+      "structured": {
+        "pitfallExperience": "无合同接单，对方无限改稿后拒付尾款，损失三千。",
+        "lossAmount": "3000 元",
+        "correctApproach": "写一页纸约定范围\n明确修改次数和超出计费\n按节点收款，交付前付清\n保留聊天和交付记录"
+      },
+      "_topic": "接单尾款",
+      "comments": [
+        { "author": "xiaozhou", "text": "修改次数这条我也加上了，救过两次。", "offsetMinutes": 700, "upCount": 8 }
+      ]
+    },
+    {
+      "id": "fuye-0007",
+      "author": "guoguo",
+      "genre": "tutorial",
+      "title": "想做小餐饮副业，先跑三天早市",
+      "content": "别急着买设备，先去早市站三天。\n看三件事。什么摊位排队，什么时间人流最密，别人卖什么价格。\n再算一笔账，摊位费多少，食材从哪进，一天能卖多少份。\n我站了三天，发现想卖的那款在本地已经有四家，价格压得很低。于是换了一个品类。\n三天时间，省下的是几千块的设备钱。",
+      "tags": ["副业探索", "家常菜谱"],
+      "tier": "solid",
+      "ageHours": 95,
+      "posterStyle": "paper",
+      "posterLine": "三天时间，省下的是几千块的设备钱",
+      "insight": "先站三天早市，再决定买不买设备。",
+      "structured": {
+        "tools": "一个本子\n一双舒服的鞋\n两百块试吃预算",
+        "steps": "连去三天同一个早市\n记排队摊位和高峰时段\n摸清同类品价格和数量\n算摊位费与食材成本\n再决定品类和设备"
+      },
+      "_topic": "小餐饮副业调研",
+      "comments": [
+        { "author": "chengzi", "text": "站三天这个办法笨但有效。", "offsetMinutes": 300, "upCount": 9 }
+      ]
+    },
+    {
+      "id": "fuye-0008",
+      "author": "maomao",
+      "genre": "tutorial",
+      "title": "把爱好变成收入，先算清楚工时",
+      "content": "做手工之前，我算过一次工时。一件饰品从设计到成品四小时，材料十五块。\n如果定价八十，时薪十六。定价一百二，时薪二十六。\n算完就知道，靠它生活不现实，但可以当补贴。\n算工时不是为了打击自己，是为了知道什么时候该提价，什么时候该换做法。\n我现在做批量款，单件工时压到一小时，时薪才好看一点。",
+      "tags": ["副业探索"],
+      "tier": "normal",
+      "ageHours": 400,
+      "posterStyle": "film",
+      "posterLine": "算工时不是为了打击自己",
+      "insight": "先算单件工时，再决定价格和做法。",
+      "structured": {
+        "tools": "计时器\n材料成本表\n一个价格表",
+        "steps": "记录单件制作工时\n算清材料成本\n按时薪反推定价\n找出最耗时的环节\n用批量或简化压低工时"
+      },
+      "_topic": "爱好变现算工时",
+      "comments": [
+        { "author": "keke", "text": "按小时反推定价，这个思路我一直在用。", "offsetMinutes": 800, "upCount": 6 }
+      ]
+    },
+    {
+      "id": "fuye-0009",
+      "author": "xiaozhou",
+      "genre": "debate",
+      "title": "副业要不要让同事知道",
+      "content": "我倾向于不说。\n说了会有两种结果，一种是同事觉得你心思不在工作上，另一种是找你免费帮忙。\n但也有人主张公开，理由是能带来客户。我认识一个做摄影的，同事结婚都找他，一年接了十几单。\n我的判断看副业性质。和本职无关的，别说。和本职相关的，适当公开反而加分。",
+      "tags": ["副业探索", "职场成长"],
+      "tier": "normal",
+      "ageHours": 450,
+      "posterStyle": "sticky",
+      "posterLine": "一种是觉得你心思不在工作上，一种是找你免费帮忙",
+      "insight": "副业说不说，看它和本职有没有关系。",
+      "structured": {
+        "planA": "不说，避免不必要的评价",
+        "planB": "公开，能带来客户和机会"
+      },
+      "planAVotes": 78,
+      "planBVotes": 55,
+      "_topic": "副业是否公开",
+      "comments": [
+        { "author": "dayang", "text": "我公开了，结果同事电脑坏了都找我。", "offsetMinutes": 900, "upCount": 10 }
+      ]
+    },
+    {
+      "id": "fuye-0010",
+      "author": "keke",
+      "genre": "share",
+      "title": "副业挣的钱，我全存起来了",
+      "content": "副业收入不稳定，有时一个月两千，有时一分没有。\n我给自己定了个规矩，副业的钱不进日常账户，全部转进一张单独的卡，只用于三件事，学习、设备、应急。\n两年下来存了两万多，换了一台电脑，报了一个课。\n这笔钱不影响生活，用起来也不心疼。",
+      "tags": ["副业探索", "记账储蓄"],
+      "tier": "normal",
+      "ageHours": 420,
+      "posterStyle": "paper",
+      "posterLine": "副业的钱不进日常账户",
+      "insight": "副业收入单独存，专门用于投入和应急。",
+      "_topic": "副业收入管理",
+      "comments": [
+        { "author": "dayang", "text": "单独一张卡这个做法好，混在一起就花掉了。", "offsetMinutes": 800, "upCount": 5 }
+      ]
+    },
+    {
+      "id": "fuye-0011",
+      "author": "dayang",
+      "genre": "share",
+      "title": "接单最怕遇到改需求",
+      "content": "有个客户，第一版说简约，第二版说太素，第三版说要有科技感，第四版又回到第一版。\n改了六次，最后还是用第一版。\n后来我在报价单里加了一行，含三次修改，超出按次收费。这一行挡掉了不少麻烦。\n也遇到过特别好的客户，一次说清需求，交付就付钱。那种客户会一直合作。",
+      "tags": ["副业探索"],
+      "tier": "tail",
+      "ageHours": 540,
+      "posterStyle": "kraft",
+      "posterLine": "第四版又回到第一版",
+      "insight": "报价单里写清修改次数，能挡掉一半麻烦。",
+      "_topic": "改需求的客户",
+      "comments": [
+        { "author": "maomao", "text": "回到第一版这种我也遇到过，气笑了。", "offsetMinutes": 1000, "upCount": 6 }
+      ]
+    },
+    {
+      "id": "fuye-0012",
+      "author": "guoguo",
+      "genre": "share",
+      "title": "第一次出摊，卖了三十八块",
+      "content": "推着车去夜市，摆了三个小时，卖了三十八块，摊位费二十。\n回家路上有点想笑，也有点不服。\n第二天换了位置，挪到人流动线上，卖了二百六。\n位置比味道重要，这句话我以前不信。",
+      "tags": ["副业探索"],
+      "tier": "tail",
+      "ageHours": 700,
+      "posterStyle": "paper",
+      "posterLine": "摆了三个小时，卖了三十八块",
+      "insight": "摆摊第一课是位置，不是产品。",
+      "_topic": "第一次出摊",
+      "comments": [
+        { "author": "chengzi", "text": "位置这条太真实了，夜市里差十米就是两个生意。", "offsetMinutes": 1200, "upCount": 8 }
+      ]
+    },
+    {
+      "id": "fuye-0013",
+      "author": "maomao",
+      "genre": "share",
+      "title": "做手工三年，我关掉了店铺",
+      "content": "关店那天我把剩下的材料整理了一遍，装了两箱。\n不是不做了，是不想再为了订单赶工。以前一件做四小时，后来为了赶单压到一小时，做完自己都不想看。\n现在只在想做的做，偶尔挂一两件，卖不掉就送人。\n钱少了，但那种喜欢的感觉回来了。",
+      "tags": ["副业探索"],
+      "tier": "tail",
+      "ageHours": 950,
+      "posterStyle": "film",
+      "posterLine": "为了赶单压到一小时，做完自己都不想看",
+      "insight": "把爱好变成订单，容易把喜欢做没。",
+      "_topic": "关掉手工店",
+      "comments": [
+        { "author": "lulu", "text": "喜欢的感觉回来了，这句很值。", "offsetMinutes": 1500, "upCount": 7 }
+      ]
+    }
+  ]
+}

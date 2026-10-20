@@ -1,0 +1,313 @@
+{
+  "schemaVersion": 1,
+  "circle": "租房买房",
+  "posts": [
+    {
+      "id": "zufang-0001",
+      "author": "xiaobei",
+      "genre": "review",
+      "title": "搬过五次家，押金被扣过两次，现在签合同前会做三件事",
+      "content": "第一次被扣是因为墙面有钉眼，第二次是地板有一道划痕，说不清是谁弄的。\n现在签合同前我做三件事。进门先拍一圈视频，从大门到每个房间，边拍边念日期。家电一个个开机试，坏了的写进交接单。合同里加一句，正常使用磨损不扣押金。\n三次搬家用这套，押金都全额退了。\n麻烦半小时，换回一个月房租。",
+      "tags": ["租房买房"],
+      "tier": "hero",
+      "ageHours": 18,
+      "posterStyle": "paper",
+      "posterLine": "边拍边念日期",
+      "insight": "入住当天拍视频、试家电、写磨损条款，押金才退得回来。",
+      "structured": {
+        "pros": "证据完整，退租时少扯皮",
+        "cons": "入住当天要多花半小时",
+        "rating": 4.7,
+        "targetAudience": "准备签约、被扣过押金的租客"
+      },
+      "_topic": "押金被扣",
+      "comments": [
+        { "author": "gongzi", "text": "边拍边念日期这招很聪明，能证明拍摄时间。", "offsetMinutes": 100, "upCount": 24 },
+        { "author": "xixi", "text": "正常使用磨损这条，房东一般不愿意加，但可以谈。", "offsetMinutes": 300, "upCount": 13 }
+      ]
+    },
+    {
+      "id": "zufang-0002",
+      "author": "dayu",
+      "genre": "review",
+      "title": "买房看了三十套，最后买的是第一套看的那栋",
+      "content": "看了三个月，三十套，从城南看到城北。\n最后买的还是第一次看的那栋楼，只是换了楼层和户型。\n原因很简单，那栋楼离地铁五百米，楼下有个菜市场，小区树多。后面看的房子有更便宜的、更新的，但这三样凑不齐。\n看房看多了容易乱，先定三个必须满足的条件，再去比价格。",
+      "tags": ["租房买房"],
+      "tier": "solid",
+      "ageHours": 44,
+      "posterStyle": "kraft",
+      "posterLine": "先定三个必须满足的条件，再去比价格",
+      "insight": "先定三个硬条件，再看房，不然越看越乱。",
+      "structured": {
+        "pros": "目标清楚，决策快，不容易后悔",
+        "cons": "条件太硬可能错过其他好房",
+        "rating": 4.3,
+        "targetAudience": "第一次买房、看房看到麻木的人"
+      },
+      "_topic": "看房三十套",
+      "comments": [
+        { "author": "wangshu", "text": "菜市场这条加得好，比商场实用。", "offsetMinutes": 200, "upCount": 9 }
+      ]
+    },
+    {
+      "id": "zufang-0003",
+      "author": "wangshu",
+      "genre": "review",
+      "title": "顶楼和一楼我都住过，说说真实感受",
+      "content": "顶楼住了四年，安静，采光好，晒被子方便。问题是夏天热，空调费高，电梯坏了要爬十几层。屋顶防水做了两次。\n一楼住了两年，出入方便，有个小院。问题是潮，梅雨季墙角发霉，蚊虫多，隐私差。\n没有绝对的好坏。顶楼怕漏水，一楼怕返潮，看房时重点看这两处。\n我现在选中间层，省心。",
+      "tags": ["租房买房", "装修避坑"],
+      "tier": "normal",
+      "ageHours": 195,
+      "posterStyle": "film",
+      "posterLine": "顶楼怕漏水，一楼怕返潮",
+      "insight": "顶楼看防水，一楼看防潮，中间层最省心。",
+      "structured": {
+        "pros": "顶楼安静采光好，一楼出入方便",
+        "cons": "顶楼热且怕漏，一楼潮且隐私差",
+        "rating": 3.7,
+        "targetAudience": "正在纠结楼层的人"
+      },
+      "_topic": "顶楼与一楼",
+      "comments": [
+        { "author": "dayu", "text": "屋顶防水这条一定要问清做了几年。", "offsetMinutes": 400, "upCount": 8 }
+      ]
+    },
+    {
+      "id": "zufang-0004",
+      "author": "gongzi",
+      "genre": "pitfall",
+      "title": "退租时被扣了清洁费，合同里没写标准",
+      "content": "退租那天房东说房子脏，要扣三百清洁费。我前一天刚打扫过。\n合同里只写了退租需保持整洁，没写标准，也没写扣多少钱。\n争了半天，扣了两百。\n后来我学乖了，合同里加一句，退租清洁由租客负责，或按固定金额一百元代扣，二者择一。写清楚，就不会临时加价。",
+      "tags": ["租房买房", "消费维权"],
+      "tier": "solid",
+      "ageHours": 66,
+      "posterStyle": "paper",
+      "posterLine": "合同里只写了保持整洁，没写标准",
+      "insight": "清洁费要写固定金额，别留模糊表述。",
+      "structured": {
+        "pitfallExperience": "退租时被以房屋不整洁为由扣三百清洁费，合同无标准只能认两百。",
+        "lossAmount": "200 元",
+        "correctApproach": "合同写明清洁费固定金额\n退租前一天拍照留证\n当面交接并签字\n押金退还时间写进合同"
+      },
+      "_topic": "退租清洁费",
+      "comments": [
+        { "author": "xiaobei", "text": "固定金额这条我加过，房东也同意，反而省事。", "offsetMinutes": 200, "upCount": 10 }
+      ]
+    },
+    {
+      "id": "zufang-0005",
+      "author": "xixi",
+      "genre": "pitfall",
+      "title": "房东卖房，我们被迫一个月内搬走",
+      "content": "住了两年，房东突然说要卖房，让我们两个月内搬。合同里写的是提前一个月通知，赔一个月房租。\n他只想给半个月。我们翻了合同，指出条款，最后按一个月赔。\n搬家那阵孩子刚转学，折腾得很。\n签合同一定要看违约条款，尤其是提前收房的赔偿。住得越久，这条越重要。",
+      "tags": ["租房买房"],
+      "tier": "normal",
+      "ageHours": 250,
+      "posterStyle": "sticky",
+      "posterLine": "他只想给半个月",
+      "insight": "长租合同先看提前收房的赔偿条款。",
+      "structured": {
+        "pitfallExperience": "房东卖房要求一个月内搬离，赔偿只愿给半个月，最终按合同赔一个月。",
+        "lossAmount": "半个月房租加搬家成本",
+        "correctApproach": "合同写明提前收房通知期\n约定违约赔偿月数\n保留合同原件和沟通记录\n搬家费用可协商"
+      },
+      "_topic": "房东卖房",
+      "comments": [
+        { "author": "gongzi", "text": "这条太常见了，很多人合同都不看违约条款。", "offsetMinutes": 400, "upCount": 9 }
+      ]
+    },
+    {
+      "id": "zufang-0006",
+      "author": "xiaobei",
+      "genre": "pitfall",
+      "title": "合租遇到二房东，押金差点没要回来",
+      "content": "签合同的时候对方说是房东，我要求看房产证，他说在办。我信了。\n住了半年，真房东上门，说没收到房租。才知道是二房东，人已经联系不上。\n押金和剩下的房租一共四千多。后来报警，通过转账记录找到人，退了三千。\n签合同前一定要看房产证和身份证，名字对不上就别签。",
+      "tags": ["租房买房"],
+      "tier": "normal",
+      "ageHours": 330,
+      "posterStyle": "paper",
+      "posterLine": "真房东上门，说没收到房租",
+      "insight": "签约前核对房产证和身份证，名字必须一致。",
+      "structured": {
+        "pitfallExperience": "与二房东签约，半年后真房东上门收房，押金和预付房租损失四千多。",
+        "lossAmount": "约 1000 元",
+        "correctApproach": "要求看房产证原件\n核对房东身份证姓名\n房租转到房东本人账户\n保留转账记录"
+      },
+      "_topic": "二房东",
+      "comments": [
+        { "author": "dayu", "text": "转到本人账户这条最关键，转给别人就有风险。", "offsetMinutes": 600, "upCount": 11 }
+      ]
+    },
+    {
+      "id": "zufang-0007",
+      "author": "dayu",
+      "genre": "tutorial",
+      "title": "看房时带一瓶水，能试出很多问题",
+      "content": "看房带一瓶水，是我跟一个老中介学的。\n倒一点在水槽边缘，看排水快不快。倒一点在卫生间地面，看坡度对不对，水会不会积在中间。再倒一点在阳台地漏，很多房子那里堵了没人管。\n还有三样要看，水压、窗户密封、手机信号。水压打开花洒就知道，窗户看边框有没有变形，信号在卧室关上门看。\n一瓶水，十分钟，能省掉入住后一堆麻烦。",
+      "tags": ["租房买房"],
+      "tier": "solid",
+      "ageHours": 94,
+      "posterStyle": "kraft",
+      "posterLine": "倒一点在卫生间地面，看坡度对不对",
+      "insight": "看房带瓶水，试排水、坡度和地漏。",
+      "structured": {
+        "tools": "一瓶水\n手机\n卷尺",
+        "steps": "水倒水槽边缘看排水\n水倒卫生间地面看坡度\n水倒阳台地漏看是否堵\n开一次花洒看水压\n关窗听外面噪音"
+      },
+      "_topic": "看房带瓶水",
+      "comments": [
+        { "author": "wangshu", "text": "阳台地漏这条太实用了，我租过堵的。", "offsetMinutes": 300, "upCount": 9 }
+      ]
+    },
+    {
+      "id": "zufang-0008",
+      "author": "gongzi",
+      "genre": "tutorial",
+      "title": "签租房合同，这几条要写进去",
+      "content": "合同不用长，但有几条必须写。\n租金和支付方式，押几付几，什么时候交。水电燃气按什么价，是民用还是商用。维修责任，哪些房东修，哪些自己修。提前退租怎么算，提前收房怎么赔。押金退还时间，最好写清楚几天内。\n还有一条容易被忽略，能不能转租。\n写完读一遍，有口头承诺的都补进去。",
+      "tags": ["租房买房"],
+      "tier": "normal",
+      "ageHours": 410,
+      "posterStyle": "paper",
+      "posterLine": "有口头承诺的都补进去",
+      "insight": "租金、维修、违约、押金、转租，五条缺一不可。",
+      "structured": {
+        "tools": "合同模板\n身份证\n房产证复印件",
+        "steps": "写清租金与支付周期\n水电燃气按民用价\n明确维修责任划分\n约定提前退租和收房赔偿\n写明押金退还天数\n注明能否转租"
+      },
+      "_topic": "租房合同条款",
+      "comments": [
+        { "author": "xiaobei", "text": "民用还是商用这条，商水商电贵一倍。", "offsetMinutes": 500, "upCount": 10 }
+      ]
+    },
+    {
+      "id": "zufang-0009",
+      "author": "wangshu",
+      "genre": "tutorial",
+      "title": "买房前查五证和物业费欠缴",
+      "content": "买二手房，除了看房，还要查几样东西。\n产权证是否清晰，有没有抵押。物业费和水电有没有欠缴，这笔钱过户后可能落到你头上。房屋是否在租，租客有没有优先购买权。\n还有一项，查小区的维修基金和物业公司的口碑。\n这些去物业和不动产登记中心都能查到，跑两趟，半天时间。",
+      "tags": ["租房买房"],
+      "tier": "normal",
+      "ageHours": 445,
+      "posterStyle": "film",
+      "posterLine": "这笔钱过户后可能落到你头上",
+      "insight": "二手房先查欠费、抵押和在租状态。",
+      "structured": {
+        "tools": "产权证\n物业缴费记录\n身份证",
+        "steps": "查产权与抵押状态\n结清物业水电欠费\n确认房屋是否在租\n了解维修基金余额\n打听物业口碑"
+      },
+      "_topic": "二手房查验",
+      "comments": [
+        { "author": "dayu", "text": "在租这条很关键，租客有优先购买权。", "offsetMinutes": 700, "upCount": 8 }
+      ]
+    },
+    {
+      "id": "zufang-0010",
+      "author": "xixi",
+      "genre": "debate",
+      "title": "租房还是买房",
+      "content": "我们家租了六年，搬过三次。房租一年四万，六年二十四万。同小区买房的话，首付加月供，六年利息也差不多这个数。\n租房的好处是灵活，工作变了就能搬。坏处是不能改房子，孩子上学要材料。\n买房的好处是稳定，能按自己想法装。坏处是绑住，工作机会变少。\n我的判断是看未来五年会不会换城市。不会，就买。会，就租。",
+      "tags": ["租房买房"],
+      "tier": "normal",
+      "ageHours": 460,
+      "posterStyle": "sticky",
+      "posterLine": "看未来五年会不会换城市",
+      "insight": "五年内会换城市就租，不会就买。",
+      "structured": {
+        "planA": "租房，灵活，压力小",
+        "planB": "买房，稳定，能改造"
+      },
+      "planAVotes": 76,
+      "planBVotes": 92,
+      "_topic": "租房还是买房",
+      "comments": [
+        { "author": "wangshu", "text": "孩子上学这条是很多家庭的转折点。", "offsetMinutes": 900, "upCount": 7 }
+      ]
+    },
+    {
+      "id": "zufang-0011",
+      "author": "xiaobei",
+      "genre": "share",
+      "title": "租的房子我也换了窗帘",
+      "content": "房东原来的窗帘是深棕色遮光布，白天拉上也像傍晚。\n我花一百二买了浅色棉麻，用免打孔杆装上，退租时能拆。\n换完整个屋子亮了很多，拍照片给朋友看，她问我是不是换了房。\n租房也可以有一点自己的样子，只要不破坏。",
+      "tags": ["租房买房"],
+      "tier": "normal",
+      "ageHours": 430,
+      "posterStyle": "paper",
+      "posterLine": "白天拉上也像傍晚",
+      "insight": "不动结构的改造，租房也能住得像自己的。",
+      "_topic": "租房改造",
+      "comments": [
+        { "author": "xixi", "text": "免打孔杆这条太适合租房了。", "offsetMinutes": 800, "upCount": 6 }
+      ]
+    },
+    {
+      "id": "zufang-0012",
+      "author": "dayu",
+      "genre": "share",
+      "title": "装修好的房子，住了三年才发现朝西",
+      "content": "看房是下午三点，阳光正好。中介说采光好。\n住进去第一个夏天才知道，西晒有多狠。下午四点之后客厅像烤箱，空调要开两小时才降下来。\n冬天倒是暖和。\n后来我装了一层隔热膜，降了两三度。看房最好早上和傍晚各去一次，阳光的角度会说实话。",
+      "tags": ["租房买房", "装修避坑"],
+      "tier": "tail",
+      "ageHours": 540,
+      "posterStyle": "kraft",
+      "posterLine": "下午四点之后客厅像烤箱",
+      "insight": "看房要分时段，下午三点的采光会骗人。",
+      "_topic": "西晒",
+      "comments": [
+        { "author": "wangshu", "text": "隔热膜能降两三度，这个我验证过。", "offsetMinutes": 1000, "upCount": 6 }
+      ]
+    },
+    {
+      "id": "zufang-0013",
+      "author": "gongzi",
+      "genre": "share",
+      "title": "房东留下的旧沙发，我修了三次",
+      "content": "沙发是房东的，布面破了两个洞，弹簧塌了一边。\n我买了个沙发套，三十块。又塞了一块木板在塌的那边，坐上去平了。第三次是扶手松了，拧了两个螺丝。\n住了三年，沙发一直能用。搬走时房东看了一眼，说比他买的时候还整齐。\n租来的东西，修一修也不亏。",
+      "tags": ["租房买房"],
+      "tier": "tail",
+      "ageHours": 690,
+      "posterStyle": "paper",
+      "posterLine": "塞了一块木板在塌的那边",
+      "insight": "小修小补能撑很久，不必等房东。",
+      "_topic": "修旧沙发",
+      "comments": [
+        { "author": "xiaobei", "text": "沙发套加木板，成本不到四十。", "offsetMinutes": 1200, "upCount": 5 }
+      ]
+    },
+    {
+      "id": "zufang-0014",
+      "author": "wangshu",
+      "genre": "share",
+      "title": "买房时最该看的是邻居",
+      "content": "看房时我特意在楼道里站了一会儿。隔壁门口鞋子摆得整齐，楼道没有杂物，说明住户比较讲究。\n住进去之后确实安静，楼上没小孩跑，对门是两位老人。\n朋友的房子户型更好，楼上开了个工作室，晚上十点还在搬东西。\n户型和价格能算，邻居只能看运气，但楼道能看出一点。",
+      "tags": ["租房买房"],
+      "tier": "tail",
+      "ageHours": 880,
+      "posterStyle": "film",
+      "posterLine": "楼道没有杂物",
+      "insight": "楼道的样子，能看出邻居的一部分。",
+      "_topic": "看邻居",
+      "comments": [
+        { "author": "xixi", "text": "楼道堆杂物这条太准了，我们楼就这样。", "offsetMinutes": 1400, "upCount": 7 }
+      ]
+    },
+    {
+      "id": "zufang-0015",
+      "author": "xixi",
+      "genre": "share",
+      "title": "搬了六次家，孩子换了三所幼儿园",
+      "content": "第一次搬家是刚结婚，租的单间。第二次是怀孕，换了一室一厅。第三次是孩子出生，搬到有电梯的。\n每次搬家孩子都要重新适应。第三次换幼儿园，他在门口哭了三天。\n现在终于买了房，装修完还没搬。孩子问我，这次住多久。\n我说很久。他说那我可以把贴纸贴墙上了吗。",
+      "tags": ["租房买房", "育儿经验"],
+      "tier": "tail",
+      "ageHours": 1120,
+      "posterStyle": "sticky",
+      "posterLine": "这次住多久",
+      "insight": "搬家对孩子的影响，是他不敢把贴纸贴上墙。",
+      "_topic": "搬家与孩子",
+      "comments": [
+        { "author": "youzi", "text": "最后那句看得心里一酸。", "offsetMinutes": 1600, "upCount": 9 }
+      ]
+    }
+  ]
+}

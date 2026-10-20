@@ -1,0 +1,427 @@
+{
+  "schemaVersion": 1,
+  "circle": "养猫养狗",
+  "posts": [
+    {
+      "id": "chongwu-0001",
+      "author": "xiaoyugan",
+      "genre": "review",
+      "title": "养猫六年，最后悔的是买了个封闭猫砂盆",
+      "content": "当时看中它能挡味道，还好看。用了半年发现两个问题。\n第一，猫不爱进。盆里闷，夏天尤其，它开始在洗手池里解决。第二，清理麻烦，要整个掀开，边角还有积灰。\n换回敞开的浅盆之后，问题都没了。味道靠勤铲和通风，不靠盖子。\n现在我买猫用品只有一条标准，好不好清理。",
+      "tags": [
+        "养猫养狗"
+      ],
+      "tier": "hero",
+      "ageHours": 20,
+      "posterStyle": "paper",
+      "posterLine": "它开始在洗手池里解决",
+      "insight": "猫砂盆先看好不好清理，再考虑好不好看。",
+      "structured": {
+        "pros": "敞开盆好清理，猫接受度高，便宜",
+        "cons": "味道靠勤铲，砂容易带出",
+        "rating": 4.6,
+        "targetAudience": "第一次养猫、正在挑猫砂盆的人"
+      },
+      "_topic": "封闭猫砂盆",
+      "comments": [
+        {
+          "author": "maomao",
+          "text": "夏天闷这条太真实，我家猫也是憋着不进。",
+          "offsetMinutes": 120,
+          "upCount": 22
+        },
+        {
+          "author": "chenxi",
+          "text": "好清理这条标准，我现在买什么都这么看。",
+          "offsetMinutes": 300,
+          "upCount": 10
+        }
+      ]
+    },
+    {
+      "id": "chongwu-0002",
+      "author": "lulu",
+      "genre": "review",
+      "title": "养狗之后，我的作息被重写了",
+      "content": "狗是两岁领养的，中型犬。\n现在早上六点起床带它出去，晚上八点再遛一次。下雨也要去，它会在门口坐着看你。\n好处是我三年没熬过夜，体重也降了。坏处是出差要找寄养，一天八十，春节翻倍。\n养狗之前想清楚一件事，你能不能每天两小时给它。",
+      "tags": [
+        "养猫养狗"
+      ],
+      "tier": "solid",
+      "ageHours": 46,
+      "posterStyle": "kraft",
+      "posterLine": "下雨也要去，它会在门口坐着看你",
+      "insight": "养狗先算清每天两小时，再谈喜欢。",
+      "structured": {
+        "pros": "作息规律，情绪稳定，有人陪着",
+        "cons": "每天两小时，出差要寄养，花费不低",
+        "rating": 4.2,
+        "targetAudience": "想养中型犬、作息不固定的人"
+      },
+      "_topic": "养狗的时间成本",
+      "comments": [
+        {
+          "author": "nihao",
+          "text": "出差寄养这笔钱我以前没算过，一年下来不少。",
+          "offsetMinutes": 200,
+          "upCount": 9
+        }
+      ]
+    },
+    {
+      "id": "chongwu-0003",
+      "author": "maomao",
+      "genre": "review",
+      "title": "猫粮换了七种，最后定在一款国产",
+      "content": "换粮的原因很简单，第一只猫吃进口粮软便，第二只吃某款网红粮掉毛。\n七种试下来，我只看三个指标，便便成型、毛不发暗、吃三个月体重稳定。\n最后定在一款国产，价格是进口的一半。贵的未必不好，合适才重要。换粮要七天过渡，前三天新粮占三成。",
+      "tags": [
+        "养猫养狗"
+      ],
+      "tier": "normal",
+      "ageHours": 200,
+      "posterStyle": "film",
+      "posterLine": "只看三个指标，便便、毛、体重",
+      "insight": "猫粮合不合适，看便便和毛，不看价格。",
+      "structured": {
+        "pros": "价格合适，便便稳定，猫爱吃",
+        "cons": "需要时间试，换粮不当会软便",
+        "rating": 4.0,
+        "targetAudience": "猫有软便或掉毛问题的人"
+      },
+      "_topic": "猫粮选择",
+      "comments": [
+        {
+          "author": "xiaoyugan",
+          "text": "七天过渡这条很多人跳过，然后怪粮不好。",
+          "offsetMinutes": 300,
+          "upCount": 8
+        }
+      ]
+    },
+    {
+      "id": "chongwu-0004",
+      "author": "chenxi",
+      "genre": "pitfall",
+      "title": "猫吃线，手术花了三千八",
+      "content": "缝衣服的线掉在地上，猫追着玩，我收的时候少了一截。\n第二天它吐了两次，不吃东西。去医院拍片，肠子里有一段线，已经造成折叠。当天手术，三千八。\n医生说线最危险，因为一端固定住之后，肠子会顺着线折叠。\n现在家里所有线都收在抽屉，窗帘绳也卷起来。",
+      "tags": [
+        "养猫养狗"
+      ],
+      "tier": "solid",
+      "ageHours": 64,
+      "posterStyle": "paper",
+      "posterLine": "第二天它吐了两次",
+      "insight": "线和绳对猫最危险，收好比看着它管用。",
+      "structured": {
+        "pitfallExperience": "猫吞下缝衣线，肠道折叠，手术花费三千八。",
+        "lossAmount": "3800 元",
+        "correctApproach": "所有线类收进抽屉\n窗帘绳卷到猫够不到的高度\n发现呕吐拒食立即拍片\n不要拉扯露在外面的线头"
+      },
+      "_topic": "猫吞线手术",
+      "comments": [
+        {
+          "author": "lulu",
+          "text": "不要拉扯这条很重要，很多人第一反应是拽。",
+          "offsetMinutes": 200,
+          "upCount": 14
+        }
+      ]
+    },
+    {
+      "id": "chongwu-0005",
+      "author": "nihao",
+      "genre": "pitfall",
+      "title": "狗粮按包装建议喂，狗胖了两斤",
+      "content": "包装上写着按体重喂多少克，我照着做了半年，狗胖了两斤，走路有点喘。\n兽医说包装建议是上限，活动量小的狗要减两成。\n后来我按体态判断，摸得到肋骨但看不见，就是合适。\n减量之后三个月瘦回来，精神也好了。",
+      "tags": [
+        "养猫养狗"
+      ],
+      "tier": "normal",
+      "ageHours": 250,
+      "posterStyle": "sticky",
+      "posterLine": "摸得到肋骨但看不见，就是合适",
+      "insight": "喂食量按体态调，包装数字只是上限。",
+      "structured": {
+        "pitfallExperience": "按包装建议克数喂食，半年后狗超重两斤，运动时喘。",
+        "lossAmount": "两斤体重",
+        "correctApproach": "按体态判断，摸得到肋骨看不见\n活动量小减两成\n零食计入总量\n每月称一次体重"
+      },
+      "_topic": "狗粮喂食量",
+      "comments": [
+        {
+          "author": "lulu",
+          "text": "零食计入总量这条最容易被忽略。",
+          "offsetMinutes": 400,
+          "upCount": 7
+        }
+      ]
+    },
+    {
+      "id": "chongwu-0006",
+      "author": "lulu",
+      "genre": "pitfall",
+      "title": "第一次带狗坐高铁，白跑一趟",
+      "content": "提前买了票，到站才知道除了导盲犬，宠物不能进站。\n当天改成汽车，狗要放行李舱，我不放心。最后找了宠物专车，多花四百。\n后来查清楚，能带宠物的方式有几种，宠物专车、部分长途大巴、自驾。飞机要托运，短鼻犬很多航司不收。\n出门前先查清楚，比到站被拦下省事。",
+      "tags": [
+        "养猫养狗",
+        "旅行出行"
+      ],
+      "tier": "normal",
+      "ageHours": 340,
+      "posterStyle": "paper",
+      "posterLine": "到站才知道宠物不能进站",
+      "insight": "带宠物出门先查交通方式，高铁基本不行。",
+      "structured": {
+        "pitfallExperience": "带狗坐高铁被拦，改宠物专车多花四百。",
+        "lossAmount": "400 元",
+        "correctApproach": "提前查承运方宠物政策\n优先宠物专车或自驾\n飞机托运确认犬种限制\n带好免疫证明"
+      },
+      "_topic": "带狗出行",
+      "comments": [
+        {
+          "author": "chenxi",
+          "text": "短鼻犬托运限制这条，很多航司都不收。",
+          "offsetMinutes": 600,
+          "upCount": 8
+        }
+      ]
+    },
+    {
+      "id": "chongwu-0007",
+      "author": "xiaoyugan",
+      "genre": "tutorial",
+      "title": "新猫到家第一周，别急着抱",
+      "content": "接猫回家最想做的事就是抱，但第一周最好忍住。\n先把猫限制在一个小房间，放好猫砂盆、水和粮，让它自己躲。前两天不理它，只换水加粮。\n第三天开始在它吃饭时坐在旁边，不说话。第五天可以伸手让它闻。\n一周后它会自己出来探索。\n急着抱的后果是猫躲床底三天，后面更难亲近。",
+      "tags": [
+        "养猫养狗"
+      ],
+      "tier": "solid",
+      "ageHours": 92,
+      "posterStyle": "kraft",
+      "posterLine": "急着抱的后果是猫躲床底三天",
+      "insight": "新猫先关小房间，让它自己决定什么时候靠近。",
+      "structured": {
+        "tools": "猫砂盆\n食盆水盆\n一个安静的小房间\n一件带旧气味的衣服",
+        "steps": "把猫安置在小房间\n前两天不打扰，只换水加粮\n第三天坐在旁边陪吃\n第五天伸手让它闻\n一周后打开房门",
+        "timeDifficulty": "一周"
+      },
+      "_topic": "新猫到家",
+      "comments": [
+        {
+          "author": "maomao",
+          "text": "带旧气味的衣服这招我用了，猫确实安得快。",
+          "offsetMinutes": 300,
+          "upCount": 9
+        }
+      ]
+    },
+    {
+      "id": "chongwu-0008",
+      "author": "maomao",
+      "genre": "tutorial",
+      "title": "猫砂盆数量和摆放，有个简单标准",
+      "content": "标准是猫的数量加一。一只猫两个盆，两只猫三个。\n摆放也有讲究。别放在猫吃饭的地方旁边，别放在洗衣机这种会突然响的机器旁，别都集中在同一个角落。\n我家是客厅一个，卧室一个，猫会自己挑。\n盆的尺寸要够大，猫能在里面转身。很多所谓大号其实不够。",
+      "tags": [
+        "养猫养狗"
+      ],
+      "tier": "normal",
+      "ageHours": 400,
+      "posterStyle": "paper",
+      "posterLine": "标准是猫的数量加一",
+      "insight": "猫砂盆数量按猫数加一，分散摆放。",
+      "structured": {
+        "tools": "两个以上猫砂盆\n猫砂\n铲子",
+        "steps": "按猫数加一准备盆\n分散在不同区域\n远离食盆和噪音源\n选猫能转身的尺寸\n每天铲两次"
+      },
+      "_topic": "猫砂盆数量",
+      "comments": [
+        {
+          "author": "xiaoyugan",
+          "text": "能转身这个尺寸标准，很多人买小了。",
+          "offsetMinutes": 600,
+          "upCount": 7
+        }
+      ]
+    },
+    {
+      "id": "chongwu-0009",
+      "author": "chenxi",
+      "genre": "tutorial",
+      "title": "给猫剪指甲，两个人十分钟",
+      "content": "一个人抱，一个人剪，最省事。\n抱的人用毛巾把猫裹住，只露出一只前爪。剪的人捏住爪垫，指甲会自己伸出来。\n只剪透明的尖端，粉色部分有血管，剪到会出血。\n后爪可以少剪，猫磨得多。\n剪完给一条零食。做几次之后，猫看到毛巾就会跑，所以要快。",
+      "tags": [
+        "养猫养狗"
+      ],
+      "tier": "normal",
+      "ageHours": 440,
+      "posterStyle": "film",
+      "posterLine": "只剪透明的尖端",
+      "insight": "毛巾裹住、只剪透明尖端，全程要快。",
+      "structured": {
+        "tools": "宠物指甲剪\n一条毛巾\n零食",
+        "steps": "毛巾裹住猫身，露出一只爪\n捏住爪垫让指甲伸出\n只剪透明尖端\n后爪少剪\n剪完给零食"
+      },
+      "_topic": "给猫剪指甲",
+      "comments": [
+        {
+          "author": "lulu",
+          "text": "粉色部分有血管，我第一次剪出血过。",
+          "offsetMinutes": 700,
+          "upCount": 6
+        }
+      ]
+    },
+    {
+      "id": "chongwu-0010",
+      "author": "nihao",
+      "genre": "debate",
+      "title": "猫要不要放养",
+      "content": "我家猫养在室内，从没出过门。有人说这样对猫不公平，也有人说放养危险。\n我查到两组说法。放养的猫活动量大，但平均寿命短，车祸、中毒、走失都常见。室内猫寿命长，但容易胖，需要人陪玩。\n我的选择是室内加每天两次逗猫棒，窗台装了防护网。\n放不放养，看你能给多少时间。",
+      "tags": [
+        "养猫养狗"
+      ],
+      "tier": "normal",
+      "ageHours": 460,
+      "posterStyle": "sticky",
+      "posterLine": "窗台装了防护网",
+      "insight": "室内养猫要补上运动量，不然就只剩胖。",
+      "structured": {
+        "planA": "室内养，装防护网，每天陪玩",
+        "planB": "半放养，白天出门晚上回家"
+      },
+      "planAVotes": 121,
+      "planBVotes": 48,
+      "_topic": "猫是否放养",
+      "comments": [
+        {
+          "author": "xiaoyugan",
+          "text": "防护网这条是底线，高层必须装。",
+          "offsetMinutes": 800,
+          "upCount": 9
+        }
+      ]
+    },
+    {
+      "id": "chongwu-0011",
+      "author": "lulu",
+      "genre": "share",
+      "title": "狗在门口等我下班，尾巴把墙拍出印子",
+      "content": "每天开门，它先叫两声，然后绕着我转圈，尾巴甩到墙上啪啪响。\n三个月后发现玄关那面墙有一道浅色印子，是尾巴常年拍出来的。\n我拿湿布擦过，擦不掉。后来贴了一块软包，声音也小了。\n有人问我值不值，我说那面墙就这么留着也行。",
+      "tags": [
+        "养猫养狗"
+      ],
+      "tier": "normal",
+      "ageHours": 420,
+      "posterStyle": "paper",
+      "posterLine": "玄关那面墙有一道浅色印子",
+      "insight": "家里那些痕迹，有时候不太想修。",
+      "_topic": "狗等门",
+      "comments": [
+        {
+          "author": "nihao",
+          "text": "软包这个办法好，我家墙也被拍花了。",
+          "offsetMinutes": 800,
+          "upCount": 5
+        }
+      ]
+    },
+    {
+      "id": "chongwu-0012",
+      "author": "xiaoyugan",
+      "genre": "share",
+      "title": "猫把我的键盘当床",
+      "content": "工作到一半，猫跳上桌，直接在键盘上趴下。屏幕跳出一串乱码，文档被改得面目全非。\n我把它抱下去，它又跳上来。第三次我放弃了，把它挪到旁边的纸箱里，它睡了两个小时。\n后来桌上常备一个纸箱。\n猫不是要打扰你，它只是想离你近一点。",
+      "tags": [
+        "养猫养狗"
+      ],
+      "tier": "tail",
+      "ageHours": 540,
+      "posterStyle": "kraft",
+      "posterLine": "屏幕跳出一串乱码",
+      "insight": "给猫一个自己的位置，比赶它有效。",
+      "_topic": "猫趴键盘",
+      "comments": [
+        {
+          "author": "chenxi",
+          "text": "纸箱这招我也用了，很有效。",
+          "offsetMinutes": 1000,
+          "upCount": 6
+        }
+      ]
+    },
+    {
+      "id": "chongwu-0013",
+      "author": "maomao",
+      "genre": "share",
+      "title": "过敏还养猫，我做的三件事",
+      "content": "查出对猫毛过敏那天，医生建议送走。我没送。\n做了三件事。卧室设成无猫区，门常关。买了空气净化器，二十四小时开。每周给猫梳毛两次，用湿毛巾擦身体。\n现在症状从每天打喷嚏变成偶尔鼻子痒。\n这不是建议别人学我。过敏严重的话，还是听医生的。",
+      "tags": [
+        "养猫养狗",
+        "健康习惯"
+      ],
+      "tier": "tail",
+      "ageHours": 700,
+      "posterStyle": "paper",
+      "posterLine": "医生建议送走，我没送",
+      "insight": "过敏养猫要划无猫区，别硬扛。",
+      "_topic": "过敏养猫",
+      "comments": [
+        {
+          "author": "xiaoyugan",
+          "text": "无猫区这条最关键，卧室一定要守住。",
+          "offsetMinutes": 1200,
+          "upCount": 7
+        }
+      ]
+    },
+    {
+      "id": "chongwu-0014",
+      "author": "chenxi",
+      "genre": "share",
+      "title": "猫走丢的那两天",
+      "content": "门没关严，猫出去了。发现时已经过了半小时。\n第一天我在楼道里贴了二十张寻猫启事，晚上拿着手电在小区绿化带找，凌晨两点回家。\n第二天早上五点在单元门口看见它，蹲在电动车底下，瘦了一圈。\n后来我装了纱门，出门前一定回头看三秒。",
+      "tags": [
+        "养猫养狗"
+      ],
+      "tier": "tail",
+      "ageHours": 900,
+      "posterStyle": "film",
+      "posterLine": "蹲在电动车底下，瘦了一圈",
+      "insight": "猫走丢头两天最关键，夜里找比白天有用。",
+      "_topic": "猫走丢",
+      "comments": [
+        {
+          "author": "lulu",
+          "text": "夜里找这条是真的，猫白天不出来。",
+          "offsetMinutes": 1400,
+          "upCount": 8
+        }
+      ]
+    },
+    {
+      "id": "chongwu-0015",
+      "author": "nihao",
+      "genre": "share",
+      "title": "孩子和猫一起长大",
+      "content": "孩子出生前，家里那只猫已经五岁。怀孕时家里人劝我把猫送走，我做了检查，医生说注意卫生就行。\n孩子会爬之后，猫会躲到高处。孩子会走之后，开始追猫，猫学会了跑到婴儿床下面。\n现在孩子四岁，会给猫添水，猫会在他哭的时候凑过去。\n他们之间有一种大人插不进去的默契。",
+      "tags": [
+        "养猫养狗",
+        "育儿经验"
+      ],
+      "tier": "tail",
+      "ageHours": 1150,
+      "posterStyle": "kraft",
+      "posterLine": "猫会在他哭的时候凑过去",
+      "insight": "孩子和宠物之间的默契，大人插不进去。",
+      "_topic": "孩子与猫",
+      "comments": [
+        {
+          "author": "youzi",
+          "text": "凑过去这个动作，我家猫也会。",
+          "offsetMinutes": 1700,
+          "upCount": 6
+        }
+      ]
+    }
+  ]
+}

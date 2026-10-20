@@ -1,0 +1,532 @@
+{
+  "schemaVersion": 1,
+  "authors": [
+    {
+      "slug": "laozhang",
+      "nickname": "老张不加班",
+      "bio": "换过七台手机，最后常用的还是两台。不爱跑分，只信手感。",
+      "gender": 1,
+      "circles": [
+        "手机数码",
+        "电脑装机",
+        "职场成长"
+      ],
+      "avatarColor": "#2F3A45"
+    },
+    {
+      "slug": "banbei",
+      "nickname": "半杯冰美式",
+      "bio": "毕业四年换过三份工作，现在做运营，简历改过十一版。",
+      "gender": 2,
+      "circles": [
+        "职场成长",
+        "求职面试",
+        "记账储蓄"
+      ],
+      "avatarColor": "#5B4A3F"
+    },
+    {
+      "slug": "chenxi",
+      "nickname": "陈曦",
+      "bio": "看片记笔记，出门带相机，家里两只猫轮流占键盘。",
+      "gender": 2,
+      "circles": [
+        "影视剧集",
+        "音乐分享",
+        "旅行出行",
+        "养猫养狗"
+      ],
+      "avatarColor": "#3A4A42"
+    },
+    {
+      "slug": "xiaoyugan",
+      "nickname": "小鱼干没有鱼",
+      "bio": "两只猫，一只挑食，一只什么都吃。做饭是被逼出来的。",
+      "gender": 2,
+      "circles": [
+        "养猫养狗",
+        "家常菜谱"
+      ],
+      "avatarColor": "#4A3B44"
+    },
+    {
+      "slug": "amay",
+      "nickname": "阿May",
+      "bio": "结婚五年，还在学怎么好好吵架。爱吃，也爱记吃完之后的感受。",
+      "gender": 2,
+      "circles": [
+        "恋爱心得",
+        "婚姻与家庭",
+        "美食探店"
+      ],
+      "avatarColor": "#5A3E3A"
+    },
+    {
+      "slug": "laochen",
+      "nickname": "老陈修车",
+      "bio": "修了十二年车，见得多说得少，最烦被人问该不该换车。",
+      "gender": 1,
+      "circles": [
+        "用车经验",
+        "二手闲置"
+      ],
+      "avatarColor": "#33403A"
+    },
+    {
+      "slug": "shisan",
+      "nickname": "十三",
+      "bio": "装机十台翻车三台，剩下的七台还在用。",
+      "gender": 1,
+      "circles": [
+        "电脑装机",
+        "二手闲置",
+        "音乐分享",
+        "手机数码"
+      ],
+      "avatarColor": "#3D3A4A"
+    },
+    {
+      "slug": "tutuma",
+      "nickname": "图图妈",
+      "bio": "一个四岁男孩的妈，白天上班晚上讲故事，周末补觉。",
+      "gender": 2,
+      "circles": [
+        "育儿经验",
+        "家常菜谱",
+        "婚姻与家庭"
+      ],
+      "avatarColor": "#4A4032"
+    },
+    {
+      "slug": "dayu",
+      "nickname": "大禹",
+      "bio": "自己盯过两套房的装修，第二套少踩了一半的坑。",
+      "gender": 1,
+      "circles": [
+        "装修避坑",
+        "租房买房",
+        "家电选购"
+      ],
+      "avatarColor": "#2E3F46"
+    },
+    {
+      "slug": "ningmeng",
+      "nickname": "柠檬不酸",
+      "bio": "吃饭前先拍照，吃完再评价。探店自费，不接推广。",
+      "gender": 2,
+      "circles": [
+        "美食探店",
+        "旅行出行"
+      ],
+      "avatarColor": "#4C4430"
+    },
+    {
+      "slug": "qiyue",
+      "nickname": "七月",
+      "bio": "三十岁，单身，不着急。追剧比谈恋爱投入。",
+      "gender": 2,
+      "circles": [
+        "恋爱心得",
+        "影视剧集"
+      ],
+      "avatarColor": "#453240"
+    },
+    {
+      "slug": "hezi",
+      "nickname": "盒子",
+      "bio": "参数党，但最后下单看手感。手机换得比鞋快。",
+      "gender": 1,
+      "circles": [
+        "手机数码",
+        "电脑装机"
+      ],
+      "avatarColor": "#31404D"
+    },
+    {
+      "slug": "xiaoman",
+      "nickname": "小满",
+      "bio": "跑了三年，膝盖教会我很多。现在每周三次，不再追配速。",
+      "gender": 2,
+      "circles": [
+        "健康习惯",
+        "运动装备"
+      ],
+      "avatarColor": "#3B4A3A"
+    },
+    {
+      "slug": "yeye",
+      "nickname": "野也",
+      "bio": "一年出去四趟，硬座也坐过。景点排在吃后面。",
+      "gender": 1,
+      "circles": [
+        "旅行出行",
+        "运动装备",
+        "用车经验"
+      ],
+      "avatarColor": "#3F4436"
+    },
+    {
+      "slug": "wangshu",
+      "nickname": "王叔",
+      "bio": "装了二十年空调，家里装修的事被亲戚问了二十年。",
+      "gender": 1,
+      "circles": [
+        "家电选购",
+        "装修避坑",
+        "租房买房"
+      ],
+      "avatarColor": "#3A3D44"
+    },
+    {
+      "slug": "aqi",
+      "nickname": "阿七",
+      "bio": "一个人住，也要好好吃饭。孩子来了以后菜里少放辣。",
+      "gender": 2,
+      "circles": [
+        "家常菜谱",
+        "美食探店",
+        "育儿经验"
+      ],
+      "avatarColor": "#4A3C33"
+    },
+    {
+      "slug": "lulu",
+      "nickname": "鹿鹿",
+      "bio": "养狗之后作息正常了，早上六点被舔醒。",
+      "gender": 2,
+      "circles": [
+        "养猫养狗",
+        "恋爱心得"
+      ],
+      "avatarColor": "#47394A"
+    },
+    {
+      "slug": "mocha",
+      "nickname": "抹茶拿铁",
+      "bio": "歌单比朋友圈长，看剧不开倍速。",
+      "gender": 2,
+      "circles": [
+        "音乐分享",
+        "影视剧集"
+      ],
+      "avatarColor": "#3B4440"
+    },
+    {
+      "slug": "jiangjiang",
+      "nickname": "江江",
+      "bio": "面过三十家公司，被拒过一半。现在帮朋友改简历。",
+      "gender": 1,
+      "circles": [
+        "求职面试",
+        "职场成长"
+      ],
+      "avatarColor": "#36414A"
+    },
+    {
+      "slug": "sanpang",
+      "nickname": "三胖",
+      "bio": "做饭十年，体重涨了十五斤，最近开始少放油。",
+      "gender": 1,
+      "circles": [
+        "家常菜谱",
+        "健康习惯"
+      ],
+      "avatarColor": "#4B3C33"
+    },
+    {
+      "slug": "youzi",
+      "nickname": "柚子",
+      "bio": "两个孩子的妈，睡眠不足五年，靠咖啡和周末补。",
+      "gender": 2,
+      "circles": [
+        "育儿经验",
+        "健康习惯",
+        "婚姻与家庭"
+      ],
+      "avatarColor": "#4A3E44"
+    },
+    {
+      "slug": "linjian",
+      "nickname": "林间",
+      "bio": "喜欢走路，不喜欢赶路。旅行时一天只安排一件事。",
+      "gender": 1,
+      "circles": [
+        "旅行出行",
+        "影视剧集",
+        "音乐分享"
+      ],
+      "avatarColor": "#354440"
+    },
+    {
+      "slug": "keke",
+      "nickname": "可可",
+      "bio": "记账六年，攒下首付的一半。跳过一次槽，涨了两千。",
+      "gender": 2,
+      "circles": [
+        "记账储蓄",
+        "副业探索",
+        "消费维权",
+        "求职面试",
+        "职场成长"
+      ],
+      "avatarColor": "#443A45"
+    },
+    {
+      "slug": "dayang",
+      "nickname": "大洋",
+      "bio": "白天上班，晚上接单。主机装过二十台，挣的钱又买了显卡。",
+      "gender": 1,
+      "circles": [
+        "副业探索",
+        "电脑装机"
+      ],
+      "avatarColor": "#333C43"
+    },
+    {
+      "slug": "xiaobei",
+      "nickname": "小北",
+      "bio": "搬过五次家，押金被扣过两次，现在签合同前会拍照。",
+      "gender": 2,
+      "circles": [
+        "租房买房",
+        "记账储蓄"
+      ],
+      "avatarColor": "#45403A"
+    },
+    {
+      "slug": "anan",
+      "nickname": "安安",
+      "bio": "结婚八年，孩子六岁。吵架有进步，道歉更快了。",
+      "gender": 2,
+      "circles": [
+        "婚姻与家庭",
+        "恋爱心得"
+      ],
+      "avatarColor": "#4A3A3C"
+    },
+    {
+      "slug": "hulu",
+      "nickname": "葫芦",
+      "bio": "每周三次球，鞋比人多。膝盖有旧伤，热身不敢省。",
+      "gender": 1,
+      "circles": [
+        "运动装备",
+        "健康习惯"
+      ],
+      "avatarColor": "#37443A"
+    },
+    {
+      "slug": "didi",
+      "nickname": "迪迪",
+      "bio": "看剧不开倍速，烂片也看完再骂。",
+      "gender": 2,
+      "circles": [
+        "影视剧集",
+        "音乐分享"
+      ],
+      "avatarColor": "#433A47"
+    },
+    {
+      "slug": "shanshan",
+      "nickname": "山山",
+      "bio": "装修队干过两年，见过太多业主在最后一步加钱。",
+      "gender": 1,
+      "circles": [
+        "装修避坑",
+        "家电选购"
+      ],
+      "avatarColor": "#3B3B33"
+    },
+    {
+      "slug": "mumu",
+      "nickname": "木木",
+      "bio": "家里的东西一半是二手，买之前先看有没有人出。",
+      "gender": 2,
+      "circles": [
+        "二手闲置",
+        "家电选购"
+      ],
+      "avatarColor": "#3F4038"
+    },
+    {
+      "slug": "xiaozhou",
+      "nickname": "小周同学",
+      "bio": "今年秋招，投了八十份，面了十二家。记录一下过程。",
+      "gender": 1,
+      "circles": [
+        "求职面试",
+        "副业探索"
+      ],
+      "avatarColor": "#353F49"
+    },
+    {
+      "slug": "gongzi",
+      "nickname": "工字",
+      "bio": "较真过一次，退了全款。之后遇到不合理的事都想试试。",
+      "gender": 1,
+      "circles": [
+        "消费维权",
+        "租房买房",
+        "手机数码",
+        "装修避坑"
+      ],
+      "avatarColor": "#3C4147"
+    },
+    {
+      "slug": "tiandian",
+      "nickname": "十点半",
+      "bio": "投诉信写过七封，成功四封。话术都是被逼出来的。",
+      "gender": 2,
+      "circles": [
+        "消费维权",
+        "记账储蓄"
+      ],
+      "avatarColor": "#463C3A"
+    },
+    {
+      "slug": "laoyu",
+      "nickname": "老余",
+      "bio": "开了三十万公里，换过两次变速箱油，没大修过。",
+      "gender": 1,
+      "circles": [
+        "用车经验",
+        "旅行出行"
+      ],
+      "avatarColor": "#38403C"
+    },
+    {
+      "slug": "chengzi",
+      "nickname": "橙子",
+      "bio": "为了一碗面能坐一小时地铁，吃完再走回来消食。",
+      "gender": 2,
+      "circles": [
+        "美食探店",
+        "家常菜谱"
+      ],
+      "avatarColor": "#4D4030"
+    },
+    {
+      "slug": "maomao",
+      "nickname": "毛毛",
+      "bio": "猫毛过敏，还是养了。现在吃药和吸尘器一起用。",
+      "gender": 2,
+      "circles": [
+        "养猫养狗",
+        "二手闲置",
+        "副业探索"
+      ],
+      "avatarColor": "#45384A"
+    },
+    {
+      "slug": "xia",
+      "nickname": "夏",
+      "bio": "耳机常年在包里，通勤路上不听歌会觉得路变长。",
+      "gender": 2,
+      "circles": [
+        "音乐分享",
+        "恋爱心得"
+      ],
+      "avatarColor": "#40384A"
+    },
+    {
+      "slug": "nihao",
+      "nickname": "你好旧时光",
+      "bio": "陪孩子看动画，自己先看哭了。家里有猫有小孩。",
+      "gender": 2,
+      "circles": [
+        "影视剧集",
+        "育儿经验",
+        "养猫养狗"
+      ],
+      "avatarColor": "#443C3E"
+    },
+    {
+      "slug": "baikai",
+      "nickname": "白开水",
+      "bio": "不抽烟不喝酒，只买需要的。工资到账先转一笔。",
+      "gender": 1,
+      "circles": [
+        "职场成长",
+        "记账储蓄",
+        "消费维权",
+        "家电选购",
+        "求职面试"
+      ],
+      "avatarColor": "#37424A"
+    },
+    {
+      "slug": "yueban",
+      "nickname": "月半",
+      "bio": "减了二十斤，又回来八斤。现在只求稳住。",
+      "gender": 2,
+      "circles": [
+        "健康习惯",
+        "运动装备"
+      ],
+      "avatarColor": "#3E4436"
+    },
+    {
+      "slug": "dongdong",
+      "nickname": "冬冬",
+      "bio": "买家电前先看拆解视频，家里工具比调料多。",
+      "gender": 1,
+      "circles": [
+        "家电选购",
+        "电脑装机",
+        "手机数码"
+      ],
+      "avatarColor": "#343D42"
+    },
+    {
+      "slug": "feifei",
+      "nickname": "飞飞",
+      "bio": "出差顺便吃，一年飞二十趟，行李箱里常备一双跑鞋。",
+      "gender": 1,
+      "circles": [
+        "旅行出行",
+        "美食探店",
+        "运动装备",
+        "用车经验"
+      ],
+      "avatarColor": "#3C4239"
+    },
+    {
+      "slug": "guoguo",
+      "nickname": "锅锅",
+      "bio": "厨房比客厅大，卤味做多了就挂出去卖。",
+      "gender": 1,
+      "circles": [
+        "家常菜谱",
+        "美食探店",
+        "二手闲置",
+        "副业探索"
+      ],
+      "avatarColor": "#4A3E34"
+    },
+    {
+      "slug": "xixi",
+      "nickname": "西西",
+      "bio": "一家四口租了六年，搬过三次，孩子换过两所幼儿园。",
+      "gender": 2,
+      "circles": [
+        "婚姻与家庭",
+        "育儿经验",
+        "租房买房",
+        "装修避坑"
+      ],
+      "avatarColor": "#453F45"
+    },
+    {
+      "slug": "dadou",
+      "nickname": "大豆",
+      "bio": "换机频繁，维权也频繁。包装盒都留着。",
+      "gender": 1,
+      "circles": [
+        "手机数码",
+        "消费维权",
+        "用车经验"
+      ],
+      "avatarColor": "#37414B"
+    }
+  ]
+}

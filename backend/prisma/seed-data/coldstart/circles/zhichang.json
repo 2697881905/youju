@@ -1,0 +1,330 @@
+{
+  "schemaVersion": 1,
+  "circle": "职场成长",
+  "posts": [
+    {
+      "id": "zhichang-0001",
+      "author": "banbei",
+      "genre": "review",
+      "title": "带过五个新人，最怕的是不问",
+      "content": "五年带了五个新人，进步最快的是那个天天问的，进步最慢的是那个说都懂的。\n问不是坏事，怕的是憋到交付前一天才说不会。我遇到过两次，一次是数据算错了口径，一次是方案理解偏了方向，都是最后一刻才发现。\n我一般会跟新人说三句话。不确定就问，问之前先自己查十分钟，问的时候说清你已经试过什么。\n第三句最有用，能省掉一半来回。",
+      "tags": ["职场成长"],
+      "tier": "hero",
+      "ageHours": 18,
+      "posterStyle": "paper",
+      "posterLine": "问的时候说清你已经试过什么",
+      "insight": "新人进步快慢，差在会不会把问题说清楚。",
+      "structured": {
+        "pros": "上手快，返工少，团队沟通成本低",
+        "cons": "前期要花时间带，节奏慢",
+        "rating": 4.4,
+        "targetAudience": "刚带新人、刚入职的人"
+      },
+      "_topic": "带新人的方法",
+      "comments": [
+        { "author": "jiangjiang", "text": "先自己查十分钟这条，能过滤掉一半无效提问。", "offsetMinutes": 120, "upCount": 17 },
+        { "author": "xiaozhou", "text": "我就是那个不敢问的，怕显得笨。", "offsetMinutes": 300, "upCount": 9 }
+      ]
+    },
+    {
+      "id": "zhichang-0002",
+      "author": "keke",
+      "genre": "review",
+      "title": "同期入职的两个人，三年后差在哪",
+      "content": "我和另一个同事同一年进公司，同样的岗位。三年后他升了，我还在原来的位置。\n复盘出三个差别。他每次汇报都带方案，我只带问题。他会主动去接跨部门的活，我只做分内的。他每年学一样新东西，我这三年用的还是入职那套。\n最要紧的是第一条。领导不缺发现问题的人，缺的是能给出选项的人。\n想明白之后我改了一年，第四年升了。",
+      "tags": ["职场成长"],
+      "tier": "solid",
+      "ageHours": 44,
+      "posterStyle": "kraft",
+      "posterLine": "领导不缺发现问题的人，缺给出选项的人",
+      "insight": "汇报带方案，比汇报带问题更被看见。",
+      "structured": {
+        "pros": "路径清楚，可执行，不靠运气",
+        "cons": "前期要额外花时间准备方案",
+        "rating": 4.5,
+        "targetAudience": "入职一到三年、想往上走的人"
+      },
+      "_topic": "同期入职的差距",
+      "comments": [
+        { "author": "baikai", "text": "带方案这条我用了两年，确实不一样。", "offsetMinutes": 300, "upCount": 14 }
+      ]
+    },
+    {
+      "id": "zhichang-0003",
+      "author": "jiangjiang",
+      "genre": "review",
+      "title": "周报写了三年，怎么写才有人看",
+      "content": "前两年的周报是流水账，这周开了三个会，跟进了两个需求。写完自己都不想看。\n第三年改成三段。这周做成了什么，带数字。哪里卡住了，需要谁配合。下周打算做什么，只写三件。\n改完之后，领导开始回我的周报了。有一次直接在周报里批了一个资源。\n周报不是交作业，是争取资源的场合。",
+      "tags": ["职场成长"],
+      "tier": "normal",
+      "ageHours": 195,
+      "posterStyle": "film",
+      "posterLine": "改完之后，领导开始回我的周报了",
+      "insight": "周报写结果、卡点、下周计划，别写流水账。",
+      "structured": {
+        "pros": "信息密度高，容易被看见，方便争取资源",
+        "cons": "写起来要多花二十分钟",
+        "rating": 4.3,
+        "targetAudience": "需要向上汇报、周报没人看的人"
+      },
+      "_topic": "周报写法",
+      "comments": [
+        { "author": "banbei", "text": "在周报里要资源这个思路，我没想到。", "offsetMinutes": 400, "upCount": 8 }
+      ]
+    },
+    {
+      "id": "zhichang-0004",
+      "author": "laozhang",
+      "genre": "pitfall",
+      "title": "会上接了不属于自己的活，后面三个月都在还",
+      "content": "跨部门会上，有个模块没人认领，气氛僵着。我说了句我先看看。\n这句话等于接下了。后面三个月，我一边做本职，一边补那个模块的历史问题，周末加了不少班。\n最难受的是，做完了没人记得是我接的，出了问题倒是第一个找我。\n后来我学会了一句更稳的说法，我可以帮忙梳理，但需要明确负责人和时间。",
+      "tags": ["职场成长"],
+      "tier": "solid",
+      "ageHours": 62,
+      "posterStyle": "sticky",
+      "posterLine": "这句话等于接下了",
+      "insight": "会上别用我先看看接下无主的活。",
+      "structured": {
+        "pitfallExperience": "会上随口说先看看，接下无主模块，三个月加班补历史问题，责任还落自己头上。",
+        "lossAmount": "三个月周末",
+        "correctApproach": "先问清负责人和时间边界\n答应梳理，不答应负责\n会后发一封确认邮件\n把投入写进周报"
+      },
+      "_topic": "会上接活",
+      "comments": [
+        { "author": "baikai", "text": "会后发确认邮件这招很重要，口头的都不算。", "offsetMinutes": 200, "upCount": 12 }
+      ]
+    },
+    {
+      "id": "zhichang-0005",
+      "author": "baikai",
+      "genre": "pitfall",
+      "title": "跟领导说问题，别只带问题",
+      "content": "刚工作那两年，我喜欢在群里直接说这个方案有问题。领导回一句，那你觉得怎么办。我答不上来。\n几次之后我发现，同样的问题，换个说法结果完全不同。\n现在的说法是，我发现一个风险，有两个处理方式，A 快但要多花预算，B 慢但稳，我倾向 B。\n说完这句话，讨论就变成了选择，不再是质问。",
+      "tags": ["职场成长"],
+      "tier": "normal",
+      "ageHours": 250,
+      "posterStyle": "paper",
+      "posterLine": "领导回一句，那你觉得怎么办",
+      "insight": "提问题的时候，同时给两个选项。",
+      "structured": {
+        "pitfallExperience": "在群里直接指出方案问题，被反问怎么办，答不上来，显得只会挑刺。",
+        "lossAmount": "印象分",
+        "correctApproach": "先说风险，再说两个处理方式\n给出自己的倾向和理由\n说明各自代价\n让对方做选择"
+      },
+      "_topic": "向上提问题",
+      "comments": [
+        { "author": "keke", "text": "给两个选项这招，我用了半年，效果明显。", "offsetMinutes": 500, "upCount": 9 }
+      ]
+    },
+    {
+      "id": "zhichang-0006",
+      "author": "banbei",
+      "genre": "pitfall",
+      "title": "跨部门协作，邮件抄送错了人",
+      "content": "催一个设计稿，我发了邮件，抄送了对方主管。本意是想推进度。\n结果对方觉得我在告状，后面两周的合作都很别扭，稿子也拖。\n后来我改成先私聊，当天没回复再发邮件，邮件只抄送双方对接人，不抄主管。真升级，也提前说一句。\n抄送不是催办工具，是留痕工具。",
+      "tags": ["职场成长"],
+      "tier": "normal",
+      "ageHours": 330,
+      "posterStyle": "film",
+      "posterLine": "对方觉得我在告状",
+      "insight": "抄送是留痕，不是催办。",
+      "structured": {
+        "pitfallExperience": "催设计稿时抄送对方主管，被当成告状，合作两周不顺。",
+        "lossAmount": "两周进度",
+        "correctApproach": "先私聊沟通\n当天没回复再发邮件\n只抄双方对接人\n真要升级先打招呼"
+      },
+      "_topic": "邮件抄送",
+      "comments": [
+        { "author": "jiangjiang", "text": "抄送主管这一步，等于把事升级了。", "offsetMinutes": 700, "upCount": 7 }
+      ]
+    },
+    {
+      "id": "zhichang-0007",
+      "author": "jiangjiang",
+      "genre": "tutorial",
+      "title": "第一次带项目，先做这三件事",
+      "content": "第一次带项目，我上来就排期，结果第二周就乱了。\n后来总结出三件事，顺序不能反。\n先定边界，这个项目做什么，不做什么，写下来发给所有人确认。\n再定接口，谁给谁什么，什么时候给，用一页纸画清楚。\n最后才排期，把依赖关系排进去，别只排自己的活。\n三件事做完再开工，能省掉后面一半的扯皮。",
+      "tags": ["职场成长"],
+      "tier": "solid",
+      "ageHours": 74,
+      "posterStyle": "kraft",
+      "posterLine": "上来就排期，第二周就乱了",
+      "insight": "先定边界和接口，再排期。",
+      "structured": {
+        "tools": "一页纸\n项目群\n排期表",
+        "steps": "写清做什么不做什么，全员确认\n画清各方交付接口和时间\n按依赖关系排期\n每周同步一次变更\n变更走同一份文档"
+      },
+      "_topic": "第一次带项目",
+      "comments": [
+        { "author": "banbei", "text": "定接口这步最容易被跳过，后面全在补。", "offsetMinutes": 300, "upCount": 11 }
+      ]
+    },
+    {
+      "id": "zhichang-0008",
+      "author": "keke",
+      "genre": "tutorial",
+      "title": "被批评之后怎么回话",
+      "content": "被批评的时候，第一反应是解释，这是本能，也是最糟的反应。\n我的做法是先接住，说这句我记下了，回去改。然后问一句，您最在意的是哪一点。\n问清楚再回去改，比当场辩解有效。改完发一条消息，说已经按您说的调整了，附上改动点。\n如果确实不是自己的问题，等事情过去一天再单独说，别在会上争。",
+      "tags": ["职场成长"],
+      "tier": "normal",
+      "ageHours": 390,
+      "posterStyle": "paper",
+      "posterLine": "第一反应是解释，这是本能，也是最糟的反应",
+      "insight": "先接住，问清重点，改完回话。",
+      "structured": {
+        "tools": "一条改动记录",
+        "steps": "先接住，不解释\n问清对方最在意哪一点\n回去改，记录改动点\n改完发消息说明\n确有误会隔天单独沟通"
+      },
+      "_topic": "被批评怎么回",
+      "comments": [
+        { "author": "xiaozhou", "text": "当场辩解这条我犯过，越辩越糟。", "offsetMinutes": 600, "upCount": 8 }
+      ]
+    },
+    {
+      "id": "zhichang-0009",
+      "author": "baikai",
+      "genre": "tutorial",
+      "title": "涨薪要主动提，怎么提",
+      "content": "等公司主动涨，多数时候等不到。我提过两次，成了一次。\n提之前准备三样东西。这半年做成了什么，带数字。承担了哪些额外职责。市场上同岗位的薪资范围。\n提的时候找对时间，季度末或者项目刚交付，别在公司刚裁员之后提。\n说法要具体，我希望薪资调整到多少，依据是什么。别只说我想涨薪。\n第二次没成，我也没闹，第二年提成了。",
+      "tags": ["职场成长", "记账储蓄"],
+      "tier": "normal",
+      "ageHours": 445,
+      "posterStyle": "sticky",
+      "posterLine": "别在公司刚裁员之后提",
+      "insight": "涨薪要带成果、职责和市场价，说具体数字。",
+      "structured": {
+        "tools": "半年的成果清单\n市场薪资数据\n岗位职责说明",
+        "steps": "整理带数字的成果\n列出额外承担的职责\n查同岗位薪资区间\n选季度末或项目交付后\n说出具体数字和依据"
+      },
+      "_topic": "主动提涨薪",
+      "comments": [
+        { "author": "keke", "text": "时间点这条很关键，我踩过一次。", "offsetMinutes": 800, "upCount": 6 }
+      ]
+    },
+    {
+      "id": "zhichang-0010",
+      "author": "laozhang",
+      "genre": "debate",
+      "title": "同事能不能做朋友",
+      "content": "我的答案是能，但要分清场合。\n一起吃饭、吐槽、互相帮忙，这些都没问题。涉及评价、晋升、分工的时候，朋友关系会变成负担。\n我有个关系很好的同事，后来成了我的上级。那半年我们都很别扭，最后是他主动把话说开，工作上的事先按流程走。\n同事可以交朋友，先约定一件事，工作上的分歧不带回家。",
+      "tags": ["职场成长"],
+      "tier": "normal",
+      "ageHours": 430,
+      "posterStyle": "film",
+      "posterLine": "后来成了我的上级，那半年我们都很别扭",
+      "insight": "同事可以做朋友，先把工作分歧的边界说清。",
+      "structured": {
+        "planA": "可以做朋友，工作和私交分开",
+        "planB": "保持距离，只做同事"
+      },
+      "planAVotes": 86,
+      "planBVotes": 49,
+      "_topic": "同事做朋友",
+      "comments": [
+        { "author": "banbei", "text": "成了上级那半年，想想都难受。", "offsetMinutes": 900, "upCount": 9 }
+      ]
+    },
+    {
+      "id": "zhichang-0011",
+      "author": "banbei",
+      "genre": "share",
+      "title": "离职那天同事送了一盆绿萝",
+      "content": "交接完最后一天，桌上多了一盆绿萝，卡片上写着别养死了。\n我在那家公司待了四年，加过很多班，也吵过架。走的时候没有告别会，就是几个人在楼下吃了顿面。\n绿萝现在还在，放在新公司的窗台上，长得很疯。\n有些关系，离开之后才看清楚。",
+      "tags": ["职场成长"],
+      "tier": "normal",
+      "ageHours": 405,
+      "posterStyle": "paper",
+      "posterLine": "卡片上写着别养死了",
+      "insight": "职场里留下的，往往是人不是事。",
+      "_topic": "离职的告别",
+      "comments": [
+        { "author": "keke", "text": "我离职时也收到一盆，现在也还活着。", "offsetMinutes": 800, "upCount": 6 }
+      ]
+    },
+    {
+      "id": "zhichang-0012",
+      "author": "jiangjiang",
+      "genre": "share",
+      "title": "我把工位清空过一次",
+      "content": "有段时间项目连着出问题，我每天到公司都觉得喘不上气。\n某个周五下班后，我把工位上的东西全收进箱子，只留一台电脑和一个杯子。\n周一同事问我是不是要走。我说没有，只是看着乱。\n清空之后确实好一点。后来我每季度清一次，扔掉攒下来的资料和样品。",
+      "tags": ["职场成长"],
+      "tier": "tail",
+      "ageHours": 530,
+      "posterStyle": "kraft",
+      "posterLine": "只留一台电脑和一个杯子",
+      "insight": "工位清空一次，能顺带清掉一点情绪。",
+      "_topic": "清空工位",
+      "comments": [
+        { "author": "baikai", "text": "我也是每季度清一次，扔掉的东西一半没用过。", "offsetMinutes": 1000, "upCount": 4 }
+      ]
+    },
+    {
+      "id": "zhichang-0013",
+      "author": "keke",
+      "genre": "share",
+      "title": "加班到十点，楼下保安认识我了",
+      "content": "连续两个月加班，每天走的时候保安都在打盹，听见脚步声就醒，说一句又这么晚。\n有天他给我留了个橘子，说是他孙子送的。\n那个月项目上线，我拿了绩效 A。但回头看，最记得的是那个橘子。\n后来我调了岗，路过那栋楼还会想起他。",
+      "tags": ["职场成长"],
+      "tier": "tail",
+      "ageHours": 690,
+      "posterStyle": "paper",
+      "posterLine": "有天他给我留了个橘子",
+      "insight": "加班的记忆里，留下的是人。",
+      "_topic": "加班与保安",
+      "comments": [
+        { "author": "banbei", "text": "这种小事记得最久。", "offsetMinutes": 1200, "upCount": 5 }
+      ]
+    },
+    {
+      "id": "zhichang-0014",
+      "author": "baikai",
+      "genre": "share",
+      "title": "学会汇报，比会干活更快被看见",
+      "content": "有个同事技术一般，但每次汇报都讲得清楚，领导记得住他。我做了很多，汇报时只说做完了。\n后来我改了两点。第一，每次汇报先说结论，再说过程。第二，把成果换算成对方关心的东西，比如省了多少时间、少了多少投诉。\n改完之后，同样的事，反馈完全不同。\n活要干，也要让人知道干了什么。",
+      "tags": ["职场成长"],
+      "tier": "tail",
+      "ageHours": 860,
+      "posterStyle": "film",
+      "posterLine": "我做了很多，汇报时只说做完了",
+      "insight": "汇报先说结论，把成果换算成对方关心的指标。",
+      "_topic": "汇报与干活",
+      "comments": [
+        { "author": "jiangjiang", "text": "换算成对方关心的指标，这条最实用。", "offsetMinutes": 1400, "upCount": 7 }
+      ]
+    },
+    {
+      "id": "zhichang-0015",
+      "author": "laozhang",
+      "genre": "share",
+      "title": "四十岁的同事被优化，我们吃了顿饭",
+      "content": "通知下来那天他很平静，收拾东西，跟大家一个一个握手。\n晚上我们几个请他吃饭，他喝了两杯，说其实半年前就有预感，项目一直在缩。\n他说了一句话我记住了，别把公司当成家，把本事当成家。\n后来他去了一家小公司，工资低一点，离家近。偶尔还在群里发消息。",
+      "tags": ["职场成长"],
+      "tier": "tail",
+      "ageHours": 1050,
+      "posterStyle": "kraft",
+      "posterLine": "别把公司当成家，把本事当成家",
+      "insight": "公司会变，本事跟着自己走。",
+      "_topic": "同事被优化",
+      "comments": [
+        { "author": "baikai", "text": "这句话有点重，但确实是真的。", "offsetMinutes": 1600, "upCount": 8 }
+      ]
+    },
+    {
+      "id": "zhichang-0016",
+      "author": "banbei",
+      "genre": "share",
+      "title": "工作第五年，我不再追求被喜欢",
+      "content": "前几年我特别在意同事怎么看我，别人一句评价能想一晚上。\n第五年开始变了。我发现真正影响合作的，是能不能按时交付，不是聊不聊得来。\n现在我把力气放在两件事上，把事做清楚，把话说明白。剩下的随缘。\n人际关系没变差，反而轻松了。",
+      "tags": ["职场成长"],
+      "tier": "tail",
+      "ageHours": 1300,
+      "posterStyle": "paper",
+      "posterLine": "别人一句评价能想一晚上",
+      "insight": "把事做清楚，比让人喜欢更管用。",
+      "_topic": "不再追求被喜欢",
+      "comments": [
+        { "author": "keke", "text": "同感，松下来之后工作效率反而高了。", "offsetMinutes": 1800, "upCount": 5 }
+      ]
+    }
+  ]
+}

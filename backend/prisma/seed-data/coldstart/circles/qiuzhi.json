@@ -1,0 +1,523 @@
+{
+  "schemaVersion": 1,
+  "circle": "求职面试",
+  "posts": [
+    {
+      "id": "qiuzhi-0001",
+      "author": "jiangjiang",
+      "genre": "review",
+      "title": "面过三十家公司，被拒的原因后来都知道了",
+      "content": "被拒的时候没人告诉你为什么，我后来自己复盘出一份清单。\n最多的是经验不匹配，占一半。其次是薪资谈不拢，占两成。真正因为答得不好的，反而少。\n有一次面到终面被拒，半年后和那个 hr 成了朋友，她说当时另一个人有同行业的客户资源，跟我表现没关系。\n所以被拒别急着否定自己。先分清是能力问题，还是岗位匹配问题。",
+      "tags": [
+        "求职面试"
+      ],
+      "tier": "hero",
+      "ageHours": 14,
+      "posterStyle": "paper",
+      "posterLine": "被拒的时候没人告诉你为什么",
+      "insight": "多数被拒是匹配问题，不是表现问题。",
+      "structured": {
+        "pros": "复盘后面试通过率提高，心态也稳",
+        "cons": "复盘耗时，容易过度归因",
+        "rating": 4.5,
+        "targetAudience": "正在密集面试、连续被拒的人"
+      },
+      "_topic": "面试被拒原因",
+      "comments": [
+        {
+          "author": "banbei",
+          "text": "薪资谈不拢这条占两成我信，我遇到三次。",
+          "offsetMinutes": 100,
+          "upCount": 19
+        },
+        {
+          "author": "xiaozhou",
+          "text": "怎么复盘，我只会写一句表现不好。",
+          "offsetMinutes": 200,
+          "upCount": 8
+        },
+        {
+          "author": "jiangjiang",
+          "text": "把面试问题逐条写下来，标上自己的答案和更好的答案。",
+          "offsetMinutes": 260,
+          "replyToIndex": 1,
+          "upCount": 12
+        }
+      ]
+    },
+    {
+      "id": "qiuzhi-0002",
+      "author": "banbei",
+      "genre": "review",
+      "title": "简历改了十一版，最有用的改动是删",
+      "content": "前三版一直做加法，加证书、加技能、加项目。投出去回音很少。\n第八版开始删。删掉和岗位无关的经历，删掉形容词，删掉那句熟练使用办公软件。\n删完两页变一页，面试邀约多了三倍。\n还有一个改动很关键，把每段经历的结果写在前面。原来写负责社群运营，改成社群从零做到八千粉，转化率百分之三。\n写简历的时候，先想清楚对方要什么。",
+      "tags": [
+        "求职面试"
+      ],
+      "tier": "solid",
+      "ageHours": 40,
+      "posterStyle": "kraft",
+      "posterLine": "删完两页变一页，邀约多了三倍",
+      "insight": "简历的价值在删，把结果写在前面。",
+      "structured": {
+        "pros": "一页读完，重点突出，邀约率高",
+        "cons": "早期经历被压缩，需要面试时补充",
+        "rating": 4.6,
+        "targetAudience": "投递没回音、简历超过两页的人"
+      },
+      "_topic": "简历做减法",
+      "comments": [
+        {
+          "author": "keke",
+          "text": "结果写前面这条我用了，面试官真会顺着问。",
+          "offsetMinutes": 300,
+          "upCount": 14
+        }
+      ]
+    },
+    {
+      "id": "qiuzhi-0003",
+      "author": "xiaozhou",
+      "genre": "review",
+      "title": "秋招投了八十份，回音来自哪几类公司",
+      "content": "八十份里，收到面试通知的十二家。\n大厂四家，都是内推。中型公司五家，官网投的。小公司三家，招聘平台投的，回复最快。\n没回音的六十八份，多数是海投的岗位，jd 和我经历对不上。\n结论挺朴素，内推最有效，官网次之，海投最差。花时间找内推，比多投二十份有用。",
+      "tags": [
+        "求职面试"
+      ],
+      "tier": "normal",
+      "ageHours": 180,
+      "posterStyle": "film",
+      "posterLine": "内推最有效，官网次之，海投最差",
+      "insight": "找内推的时间，比多投二十份简历值。",
+      "structured": {
+        "pros": "数据清楚，知道力气该往哪使",
+        "cons": "内推依赖人脉，冷启动难",
+        "rating": 4.2,
+        "targetAudience": "秋招海投、回复率低的人"
+      },
+      "_topic": "秋招投递渠道",
+      "comments": [
+        {
+          "author": "jiangjiang",
+          "text": "招聘平台的回复快，但岗位质量参差。",
+          "offsetMinutes": 400,
+          "upCount": 7
+        }
+      ]
+    },
+    {
+      "id": "qiuzhi-0004",
+      "author": "keke",
+      "genre": "pitfall",
+      "title": "期望薪资写面议，被压了两千",
+      "content": "第一次跳槽，简历上期望薪资写面议，想着见面再谈。\n面试很顺，最后 hr 问期望，我说按公司标准。她报了一个数，比我心理价位低两千。我当时没争，签了。\n后来才知道，同岗位同级别，另一个同事比我高一千五。差别就在他一开始报了数。\n期望薪资要写区间，下限是你真能接受的数。报低了，后面很难拉回来。",
+      "tags": [
+        "求职面试",
+        "职场成长"
+      ],
+      "tier": "solid",
+      "ageHours": 58,
+      "posterStyle": "paper",
+      "posterLine": "同岗位同级别，另一个同事比我高一千五",
+      "insight": "期望薪资写区间，下限就是你的底线。",
+      "structured": {
+        "pitfallExperience": "简历写面议，面试时让对方先报价，最终比同级别同事低一千五。",
+        "lossAmount": "每月 2000 元",
+        "correctApproach": "投递前查同岗位薪资区间\n简历写区间，下限是底线\n面试时先问岗位预算再报价\n拿到口头 offer 后书面确认"
+      },
+      "_topic": "期望薪资怎么写",
+      "comments": [
+        {
+          "author": "baikai",
+          "text": "先问预算再报价，这个顺序很重要。",
+          "offsetMinutes": 200,
+          "upCount": 11
+        }
+      ]
+    },
+    {
+      "id": "qiuzhi-0005",
+      "author": "jiangjiang",
+      "genre": "pitfall",
+      "title": "面试完让我等通知，等了三个星期",
+      "content": "面完二面，hr 说一周内给答复。一周没消息，我发邮件问，说流程在走。\n第三周再问，说岗位有调整。后来在招聘平台看到同一个岗位重新挂出来了。\n我犯的错是停下来了。那三周我没投别的，一心等这一家。\n面试完就该继续投，offer 没到手之前，任何口头承诺都不算数。",
+      "tags": [
+        "求职面试"
+      ],
+      "tier": "solid",
+      "ageHours": 68,
+      "posterStyle": "sticky",
+      "posterLine": "同一个岗位重新挂出来了",
+      "insight": "等通知的三周，也该继续投别家。",
+      "structured": {
+        "pitfallExperience": "面完被告知一周答复，实际拖三周后岗位重挂，期间停止投递。",
+        "lossAmount": "三周时间",
+        "correctApproach": "面试后继续投递，不停手\n约定答复时间，超时主动问\n同时推进两到三家\n收到书面 offer 才算确定"
+      },
+      "_topic": "等通知",
+      "comments": [
+        {
+          "author": "xiaozhou",
+          "text": "我也干过这事，等了一个月。",
+          "offsetMinutes": 300,
+          "upCount": 9
+        }
+      ]
+    },
+    {
+      "id": "qiuzhi-0006",
+      "author": "baikai",
+      "genre": "pitfall",
+      "title": "背调时前公司说了实话，offer 没了",
+      "content": "跳到第三家，终面都过了，卡在背调。\n前公司给的说法是我离职时手里有个项目没收尾，交接不完整。事实是那个项目我交接了三周，接手的人两个月后离职了。\n我没提前跟直属领导打招呼，背调电话直接打到公司总机。\n后来学乖了，背调前先联系一位关系好的前同事，说明情况。也尽量只提供能说上话的证明人。",
+      "tags": [
+        "求职面试",
+        "职场成长"
+      ],
+      "tier": "normal",
+      "ageHours": 240,
+      "posterStyle": "film",
+      "posterLine": "背调电话直接打到公司总机",
+      "insight": "背调前先打招呼，证明人要选能说上话的。",
+      "structured": {
+        "pitfallExperience": "背调电话打到前公司总机，前东家评价交接不完整，offer 被撤回。",
+        "lossAmount": "一个 offer",
+        "correctApproach": "离职时把交接写成文档并留痕\n背调前联系证明人说明情况\n只提供愿意配合的证明人\n提前告知新公司可能的争议点"
+      },
+      "_topic": "背调",
+      "comments": [
+        {
+          "author": "jiangjiang",
+          "text": "交接文档留痕这条，离职时一定要做。",
+          "offsetMinutes": 500,
+          "upCount": 10
+        }
+      ]
+    },
+    {
+      "id": "qiuzhi-0007",
+      "author": "xiaozhou",
+      "genre": "pitfall",
+      "title": "简历上的项目写了三个，被追问的全是第三个",
+      "content": "简历写了三个项目，前两个是课程作业，第三个是实习做的。\n面试官从头到尾只问第三个，问得很细，数据怎么来的，遇到什么阻力，如果重做会改什么。\n前两个项目他一句没问。我准备了很久的理论知识，全没用上。\n后来明白，项目不在多，在能不能讲透一个。写三个半懂的，不如写一个能答二十个问题的。",
+      "tags": [
+        "求职面试"
+      ],
+      "tier": "normal",
+      "ageHours": 320,
+      "posterStyle": "paper",
+      "posterLine": "问得很细，数据怎么来的",
+      "insight": "简历上的项目，要能扛住二十个追问。",
+      "structured": {
+        "pitfallExperience": "简历堆三个项目，面试只追问其中一个，其余准备全部落空。",
+        "lossAmount": "一次面试机会",
+        "correctApproach": "只写能讲透的项目\n每个项目准备数据来源和取舍\n准备如果重做会怎么改\n删掉凑数的课程作业"
+      },
+      "_topic": "项目经历怎么写",
+      "comments": [
+        {
+          "author": "banbei",
+          "text": "能答二十个问题这个标准很实用。",
+          "offsetMinutes": 600,
+          "upCount": 8
+        }
+      ]
+    },
+    {
+      "id": "qiuzhi-0008",
+      "author": "banbei",
+      "genre": "tutorial",
+      "title": "自我介绍两分钟，说三件事就够",
+      "content": "面试官一天听二十遍自我介绍，说满五分钟只会让他走神。\n我的结构是三段。第一段一句话说清现在做什么、做了几年。第二段说一件和岗位最相关的事，带一个数字。第三段说为什么来这家。\n每段三十到四十秒，加起来不超过两分钟。\n剩下的留给他问。自我介绍的作用是给面试官一个可追问的点，不是把简历念一遍。",
+      "tags": [
+        "求职面试"
+      ],
+      "tier": "solid",
+      "ageHours": 96,
+      "posterStyle": "kraft",
+      "posterLine": "自我介绍是给面试官一个可追问的点",
+      "insight": "两分钟三段，给面试官留下可追问的点。",
+      "structured": {
+        "tools": "简历一份\n岗位描述\n一支笔",
+        "steps": "一句话说清现在做什么、几年\n讲一件最相关的事，带数字\n说清为什么来这家\n控制在两分钟内\n结尾留一个可被追问的点",
+        "timeDifficulty": "准备半小时，练三遍"
+      },
+      "_topic": "自我介绍结构",
+      "comments": [
+        {
+          "author": "xiaozhou",
+          "text": "给面试官留追问点这个说法我第一次听到，很受用。",
+          "offsetMinutes": 400,
+          "upCount": 13
+        }
+      ]
+    },
+    {
+      "id": "qiuzhi-0009",
+      "author": "jiangjiang",
+      "genre": "tutorial",
+      "title": "面试反问环节，问这三个问题",
+      "content": "反问不是走过场，问得好能加分，也能帮你判断要不要来。\n第一个问团队，这个岗位所在团队现在几个人，分工怎么划。能听出是不是一个人干三个人的活。\n第二个问考核，这个岗位做得好和做得不好，半年后怎么区分。能听出有没有明确标准。\n第三个问交接，上一任为什么离开。\n别问加班多不多，问不出来的。",
+      "tags": [
+        "求职面试"
+      ],
+      "tier": "normal",
+      "ageHours": 360,
+      "posterStyle": "paper",
+      "posterLine": "别问加班多不多，问不出来的",
+      "insight": "反问问团队、考核和上一任去向。",
+      "structured": {
+        "tools": "岗位描述\n一张纸记答案",
+        "steps": "问团队规模与分工\n问半年后的考核标准\n问上一任为什么离开\n记下回答里的含糊处\n面试后对照判断",
+        "timeDifficulty": "五分钟"
+      },
+      "_topic": "面试反问",
+      "comments": [
+        {
+          "author": "keke",
+          "text": "问上一任去向这招有点猛，但真能听出东西。",
+          "offsetMinutes": 700,
+          "upCount": 9
+        }
+      ]
+    },
+    {
+      "id": "qiuzhi-0010",
+      "author": "keke",
+      "genre": "tutorial",
+      "title": "谈薪水的顺序，先问再报",
+      "content": "很多人一上来就报数，报完就没了余地。\n顺序应该是这样。先问这个岗位的预算区间，对方不说，就给一个范围反问。\n拿到区间后，把自己的期望放在区间的上半段，说清依据，比如同岗位市场价、现在的薪资、能带来的具体价值。\n最后确认结构，底薪多少，绩效怎么算，几薪。有些总包看着高，底薪很低。\n谈完要书面 offer，口头的不算。",
+      "tags": [
+        "求职面试",
+        "职场成长"
+      ],
+      "tier": "normal",
+      "ageHours": 430,
+      "posterStyle": "sticky",
+      "posterLine": "有些总包看着高，底薪很低",
+      "insight": "先问预算再报价，最后确认薪资结构。",
+      "structured": {
+        "tools": "市场薪资数据\n现在薪资明细\n一张纸算总包",
+        "steps": "先问岗位预算区间\n把期望放在区间上半段\n说明依据，给两三个理由\n确认底薪绩效和几薪\n要求书面 offer",
+        "timeDifficulty": "面试后一到两周"
+      },
+      "_topic": "谈薪顺序",
+      "comments": [
+        {
+          "author": "banbei",
+          "text": "几薪这条太重要了，我吃过十三薪的亏。",
+          "offsetMinutes": 900,
+          "upCount": 7
+        }
+      ]
+    },
+    {
+      "id": "qiuzhi-0011",
+      "author": "baikai",
+      "genre": "tutorial",
+      "title": "离职原因怎么说，别说前公司坏话",
+      "content": "面试官问离职原因，想判断的是你会不会也这样说他们。\n安全的说法有三类。发展空间，比如想做的方向在现在的公司没有位置。能力提升，比如想接触更完整的项目。客观变化，比如部门调整、通勤变远。\n别说领导不行、同事难相处、公司快倒了。哪怕是真的。\n说完原因，补一句你现在想要什么，把话题拉回岗位。",
+      "tags": [
+        "求职面试"
+      ],
+      "tier": "normal",
+      "ageHours": 412,
+      "posterStyle": "film",
+      "posterLine": "不是想听你吐槽，是想判断你会不会也这样说他们",
+      "insight": "离职原因说发展，不说人。",
+      "structured": {
+        "tools": "一段三十秒的说法",
+        "steps": "选一类安全原因，发展或客观变化\n用一句话说完，不展开细节\n补一句现在想要什么\n把话题拉回岗位\n准备一个反问",
+        "timeDifficulty": "准备十分钟"
+      },
+      "_topic": "离职原因",
+      "comments": [
+        {
+          "author": "jiangjiang",
+          "text": "补一句现在想要什么，这个收尾很关键。",
+          "offsetMinutes": 1000,
+          "upCount": 6
+        }
+      ]
+    },
+    {
+      "id": "qiuzhi-0012",
+      "author": "xiaozhou",
+      "genre": "debate",
+      "title": "先就业还是先择业",
+      "content": "毕业那年我选了先就业，进了一家小公司做运营，月薪四千五。\n好处是很快有了项目经验，第二年跳槽时简历不空。坏处是第一年学的东西不成体系，走了不少弯路。\n同学里选择业的，有人等了半年进了大厂，也有人等到第二年还在投。\n我的看法是看家里能不能撑。能撑半年，就好好挑。撑不住，先上车，再换座位。",
+      "tags": [
+        "求职面试",
+        "职场成长"
+      ],
+      "tier": "normal",
+      "ageHours": 422,
+      "posterStyle": "paper",
+      "posterLine": "能撑半年就好好挑，撑不住先上车",
+      "insight": "先就业还是择业，看家里能撑多久。",
+      "structured": {
+        "planA": "先就业，攒经验再跳",
+        "planB": "先择业，等合适的岗位"
+      },
+      "planAVotes": 113,
+      "planBVotes": 62,
+      "_topic": "先就业还是择业",
+      "comments": [
+        {
+          "author": "baikai",
+          "text": "先上车再换座位，这句话我认同。",
+          "offsetMinutes": 1100,
+          "upCount": 8
+        }
+      ]
+    },
+    {
+      "id": "qiuzhi-0013",
+      "author": "banbei",
+      "genre": "share",
+      "title": "被拒之后我发了封感谢邮件",
+      "content": "面完终面被拒，我回了一封邮件，谢了面试官，说这次聊得很受启发，问了一个关于他们业务的问题。\n他回了两句，说我问的问题很好。\n三个月后他加我微信，说新开了个岗位，问我要不要试试。我去了，成了。\n发感谢邮件不亏，最多花五分钟。",
+      "tags": [
+        "求职面试"
+      ],
+      "tier": "tail",
+      "ageHours": 560,
+      "posterStyle": "kraft",
+      "posterLine": "三个月后他加我微信",
+      "insight": "被拒之后留个好印象，机会会回来。",
+      "_topic": "被拒后发感谢信",
+      "comments": [
+        {
+          "author": "keke",
+          "text": "这个我也想试，之前被拒就直接删了邮件。",
+          "offsetMinutes": 1200,
+          "upCount": 7
+        }
+      ]
+    },
+    {
+      "id": "qiuzhi-0014",
+      "author": "jiangjiang",
+      "genre": "share",
+      "title": "面试官问我有什么缺点",
+      "content": "标准答案是把优点说成缺点，我试过一次，说自己是完美主义。面试官笑了一下，说下一个。\n后来我改成说真话。我说我不太会在会上抢话，遇到分歧习惯会后单独聊，有时候会错过当场推动的机会。\n他追问了一句，那你怎么处理。我说现在会提前把观点写成文档发出去。\n说真话反而聊得久。",
+      "tags": [
+        "求职面试"
+      ],
+      "tier": "tail",
+      "ageHours": 700,
+      "posterStyle": "paper",
+      "posterLine": "面试官笑了一下，说下一个",
+      "insight": "缺点说真的，再补一句怎么应对。",
+      "_topic": "面试问缺点",
+      "comments": [
+        {
+          "author": "xiaozhou",
+          "text": "完美主义这个答案我也用过，现在想想挺尴尬。",
+          "offsetMinutes": 1400,
+          "upCount": 9
+        }
+      ]
+    },
+    {
+      "id": "qiuzhi-0015",
+      "author": "keke",
+      "genre": "share",
+      "title": "跳槽涨薪两千，代价是通勤多一小时",
+      "content": "新公司月薪多了两千，单程通勤从二十分钟变成八十分钟。\n一天多花两小时在路上，一个月四十小时。按小时工资算，涨的两千不太够。\n做了半年，我把租房换到了公司附近，房租多了九百。算下来净涨一千一。\n涨薪的数字要看净增，通勤、房租、吃饭都得算进去。",
+      "tags": [
+        "求职面试",
+        "记账储蓄"
+      ],
+      "tier": "tail",
+      "ageHours": 820,
+      "posterStyle": "sticky",
+      "posterLine": "一个月四十小时在路上",
+      "insight": "跳槽算净增，把通勤和房租一起算。",
+      "_topic": "跳槽涨薪与通勤",
+      "comments": [
+        {
+          "author": "banbei",
+          "text": "净增这个算法我记下了。",
+          "offsetMinutes": 1500,
+          "upCount": 6
+        }
+      ]
+    },
+    {
+      "id": "qiuzhi-0016",
+      "author": "baikai",
+      "genre": "share",
+      "title": "三十五岁那年，我重新投了简历",
+      "content": "部门调整，我成了待岗名单上的人。三十六岁，投了四十份，回了四家。\n面试官比我小五岁，问我能不能接受向年轻人汇报。我说能，但我想知道我凭什么被选。\n最后去了一家小公司做顾问，工资降了两成，事情少了一半。\n三十五岁不是终点，是要换一种卖法。",
+      "tags": [
+        "求职面试",
+        "职场成长"
+      ],
+      "tier": "tail",
+      "ageHours": 1000,
+      "posterStyle": "film",
+      "posterLine": "面试官比我小五岁",
+      "insight": "年纪上来之后，卖的是判断力不是体力。",
+      "_topic": "三十五岁求职",
+      "comments": [
+        {
+          "author": "jiangjiang",
+          "text": "换一种卖法这句话说得很实。",
+          "offsetMinutes": 1700,
+          "upCount": 12
+        }
+      ]
+    },
+    {
+      "id": "qiuzhi-0017",
+      "author": "xiaozhou",
+      "genre": "share",
+      "title": "实习三个月，我学会了说不",
+      "content": "刚去的时候什么活都接，帮别的组做表格，替同事写周报，晚上十点还在改一个不属于我的方案。\n第三周开始出错，因为自己的活没做完。带我的姐说了一句，你先把分内的事做完，再谈帮忙。\n后来我学会了说不。说法是，这件事我可以做，但今天要交的东西会延后，你看哪个优先。\n拒绝也可以很配合，把选择权交回去就行。",
+      "tags": [
+        "求职面试",
+        "职场成长"
+      ],
+      "tier": "tail",
+      "ageHours": 1180,
+      "posterStyle": "kraft",
+      "posterLine": "你先把分内的事做完，再谈帮忙",
+      "insight": "拒绝的时候，把优先级的选择交回去。",
+      "_topic": "实习学会拒绝",
+      "comments": [
+        {
+          "author": "keke",
+          "text": "这个说法很实用，比直接说忙好。",
+          "offsetMinutes": 1800,
+          "upCount": 8
+        }
+      ]
+    },
+    {
+      "id": "qiuzhi-0018",
+      "author": "banbei",
+      "genre": "share",
+      "title": "第一份工作干了四年，辞职那天很平静",
+      "content": "提离职那天，领导问是不是钱的问题。我说不是钱的事，这四年我做的都是同一件事。\n他没挽留，说理解。\n交接用了三周，写了四十页文档。最后一天收拾工位，抽屉里有一张四年前的工牌，照片上的人头发比现在多。\n走出写字楼的时候没有想象中激动，只是觉得该走了。",
+      "tags": [
+        "求职面试",
+        "职场成长"
+      ],
+      "tier": "tail",
+      "ageHours": 1400,
+      "posterStyle": "paper",
+      "posterLine": "这四年我做的都是同一件事",
+      "insight": "离开的理由，往往不是钱。",
+      "_topic": "第一份工作离职",
+      "comments": [
+        {
+          "author": "baikai",
+          "text": "四十页交接文档，这态度很难得。",
+          "offsetMinutes": 2000,
+          "upCount": 6
+        }
+      ]
+    }
+  ]
+}

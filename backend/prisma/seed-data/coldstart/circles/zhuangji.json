@@ -1,0 +1,399 @@
+{
+  "schemaVersion": 1,
+  "circle": "电脑装机",
+  "posts": [
+    {
+      "id": "zhuangji-0001",
+      "author": "shisan",
+      "genre": "review",
+      "title": "三千五装了一台办公机，钱花在电源和硬盘",
+      "content": "给同事装的，只用来看文档、开视频会、偶尔修图。\n处理器选中端，主板选最便宜的够用款，内存十六个G。显卡不要，用核显。\n钱花在两处。电源选了金牌五百瓦，三百多，因为办公机一开就是十小时。硬盘选了固态加机械，资料不怕丢。\n机箱一百二，能用就行。\n装完开机十秒，开十个网页不卡。同事说比他之前的品牌机快。",
+      "tags": [
+        "电脑装机"
+      ],
+      "tier": "solid",
+      "ageHours": 36,
+      "posterStyle": "paper",
+      "posterLine": "机箱一百二，能用就行",
+      "insight": "办公机的预算该压在电源和硬盘上。",
+      "structured": {
+        "pros": "开机快，安静，后期好升级",
+        "cons": "不能玩游戏，修图渲染偏慢",
+        "rating": 4.5,
+        "targetAudience": "办公、网课、轻度修图"
+      },
+      "_topic": "三千五办公机配置",
+      "comments": [
+        {
+          "author": "dayang",
+          "text": "核显够用这条很多人不信，其实办公真的够。",
+          "offsetMinutes": 150,
+          "upCount": 13
+        },
+        {
+          "author": "dongdong",
+          "text": "电源别省，我见过烧主板的。",
+          "offsetMinutes": 400,
+          "upCount": 8
+        }
+      ]
+    },
+    {
+      "id": "zhuangji-0002",
+      "author": "dayang",
+      "genre": "review",
+      "title": "同一块主板，两个价位，差在哪",
+      "content": "同芯片组的主板，六百和一千二，参数表看着差不多。\n差别在供电和接口。便宜的那块供电项少，带高功耗处理器会降频。接口也少，硬盘位只有两个。\n我用过便宜的那块，装完跑分正常，连续渲染半小时开始掉性能。换了贵的那块，稳定。\n如果只是办公和轻度使用，便宜的完全够。要长时间满负载，主板别省。",
+      "tags": [
+        "电脑装机"
+      ],
+      "tier": "solid",
+      "ageHours": 88,
+      "posterStyle": "kraft",
+      "posterLine": "连续渲染半小时开始掉性能",
+      "insight": "主板差价买的是供电和接口，不是参数表。",
+      "structured": {
+        "pros": "供电扎实，接口多，长期满负载稳定",
+        "cons": "贵一倍，办公用途感受不到差别",
+        "rating": 4.0,
+        "targetAudience": "长时间渲染、打算后期升级的人"
+      },
+      "_topic": "主板差价在哪",
+      "comments": [
+        {
+          "author": "shisan",
+          "text": "供电项数在官网规格里能查到，买前看一眼。",
+          "offsetMinutes": 300,
+          "upCount": 7
+        }
+      ]
+    },
+    {
+      "id": "zhuangji-0003",
+      "author": "hezi",
+      "genre": "review",
+      "title": "显示器比主机更该加钱",
+      "content": "预算一万，很多人主机花九千，显示器一千。我反过来了，主机七千，显示器三千。\n理由很简单，你每天看的是屏幕，不是机箱里的零件。\n三千能买到二十七寸、高刷、色准不错的。一千的屏幕看久了眼睛酸，颜色也偏。\n主机三年一换，显示器能用六年。摊下来每年更便宜。",
+      "tags": [
+        "电脑装机"
+      ],
+      "tier": "normal",
+      "ageHours": 210,
+      "posterStyle": "film",
+      "posterLine": "你每天看的是屏幕，不是机箱里的零件",
+      "insight": "显示器使用周期长，预算该向它倾斜。",
+      "structured": {
+        "pros": "看得舒服，颜色准，用得久",
+        "cons": "主机性能被压缩，游戏帧数低一些",
+        "rating": 4.6,
+        "targetAudience": "每天用电脑六小时以上的人"
+      },
+      "_topic": "显示器预算占比",
+      "comments": [
+        {
+          "author": "laozhang",
+          "text": "这条我同意，眼睛坏了没法升级。",
+          "offsetMinutes": 500,
+          "upCount": 11
+        }
+      ]
+    },
+    {
+      "id": "zhuangji-0004",
+      "author": "laozhang",
+      "genre": "pitfall",
+      "title": "装机点不亮，排查了三个小时是内存",
+      "content": "装完按电源，风扇转，屏幕黑，主板亮红灯。\n先查电源线，插紧了。再查显卡，拔下来重插。还是黑。\n最后把两根内存拔一根，只留第二槽，开机了。\n问题是一根内存没插到底，卡扣只响了一声。另一根是插槽有灰。\n新装机点不亮，先拔到最小系统，一条内存，不接显卡，能亮再往上加。",
+      "tags": [
+        "电脑装机"
+      ],
+      "tier": "solid",
+      "ageHours": 64,
+      "posterStyle": "sticky",
+      "posterLine": "只留第二槽，开机了",
+      "insight": "点不亮先做最小系统，一条内存起步。",
+      "structured": {
+        "pitfallExperience": "内存未插到底导致点不亮，排查三小时。",
+        "lossAmount": "三小时",
+        "correctApproach": "只留一条内存，插第二槽\n不接显卡，用核显输出\n检查主板故障灯对应的部件\n逐一加回硬件，每次开机确认"
+      },
+      "_topic": "装机点不亮",
+      "comments": [
+        {
+          "author": "dayang",
+          "text": "卡扣只响一声就是没到底，这个细节太真实。",
+          "offsetMinutes": 200,
+          "upCount": 14
+        }
+      ]
+    },
+    {
+      "id": "zhuangji-0005",
+      "author": "shisan",
+      "genre": "pitfall",
+      "title": "散热器压弯了主板，怪我拧太紧",
+      "content": "装了个大塔散热，四个螺丝按对角拧。我怕不牢，每个都拧到拧不动。\n开机正常，用了两个月开始偶尔重启。拆开看，主板背面有一道弯，针脚座附近有细微裂纹。\n主板废了。\n散热器螺丝拧到刚好贴合就行，有弹簧的拧到弹簧压平。对角分三次拧，别一次到底。",
+      "tags": [
+        "电脑装机"
+      ],
+      "tier": "normal",
+      "ageHours": 280,
+      "posterStyle": "paper",
+      "posterLine": "主板背面有一道弯",
+      "insight": "散热器螺丝拧到贴合就停，别追求拧不动。",
+      "structured": {
+        "pitfallExperience": "散热器四角螺丝拧过头，主板变形，两个月后间歇重启，主板报废。",
+        "lossAmount": "800 元主板",
+        "correctApproach": "对角分三次拧，每次半圈\n有弹簧的拧到弹簧压平\n手感上贴合即停\n装完看主板背面有没有弯"
+      },
+      "_topic": "散热器压弯主板",
+      "comments": [
+        {
+          "author": "dongdong",
+          "text": "我第一次装机也这么干过，还好主板结实。",
+          "offsetMinutes": 600,
+          "upCount": 6
+        }
+      ]
+    },
+    {
+      "id": "zhuangji-0006",
+      "author": "dayang",
+      "genre": "pitfall",
+      "title": "二手电源炸了，带走一块硬盘",
+      "content": "帮人装机图便宜，二手平台买了个六百瓦，一百八。\n用了三个月，某天开机啪一声，机箱里冒了点烟。断电检查，电源烧了，连着一块机械硬盘也不认了。\n硬盘里有客户资料，最后花了八百做数据恢复。\n电源是整台机器唯一不能买二手的部件。它坏了不是自己坏，是拉着别人一起坏。",
+      "tags": [
+        "电脑装机",
+        "二手闲置"
+      ],
+      "tier": "normal",
+      "ageHours": 360,
+      "posterStyle": "film",
+      "posterLine": "啪一声，机箱里冒了点烟",
+      "insight": "电源别买二手，它坏了会带上别的部件。",
+      "structured": {
+        "pitfallExperience": "一百八买二手电源，三个月烧毁，连带一块硬盘损坏，数据恢复花八百。",
+        "lossAmount": "约 1000 元",
+        "correctApproach": "电源只买全新，认准认证\n按整机功耗留三成余量\n优先选保修五年以上的型号\n装完用软件看电压是否稳定"
+      },
+      "_topic": "二手电源烧毁",
+      "comments": [
+        {
+          "author": "shisan",
+          "text": "电源是心脏，这条我讲十年了。",
+          "offsetMinutes": 800,
+          "upCount": 12
+        }
+      ]
+    },
+    {
+      "id": "zhuangji-0007",
+      "author": "dongdong",
+      "genre": "tutorial",
+      "title": "第一次装机，按这个顺序装不会返工",
+      "content": "最容易返工的是散热器和主板。装进机箱才发现散热器背板没装，得全拆。\n顺序是这样。先在外面把处理器、内存、固态装到主板上。然后装散热器背板，再装散热器。\n接着把主板放进机箱，拧螺丝。再装电源，走线。最后装显卡。\n第一次开机前，检查三处。处理器供电插了没，显卡供电插了没，显示器线插在显卡上还是主板上。\n这三处占新装机故障的一大半。",
+      "tags": [
+        "电脑装机"
+      ],
+      "tier": "solid",
+      "ageHours": 72,
+      "posterStyle": "kraft",
+      "posterLine": "装进机箱才发现散热器背板没装",
+      "insight": "先装主板上的件，再进机箱，最后插显卡。",
+      "structured": {
+        "tools": "十字螺丝刀\n防静电手环\n扎带\n硅脂",
+        "steps": "主板外装处理器、内存、固态\n装散热器背板与散热器\n主板进机箱，固定螺丝\n装电源并走线\n装显卡，接供电\n开机前查三处供电与显示输出",
+        "timeDifficulty": "两小时，第一次会更久"
+      },
+      "_topic": "第一次装机顺序",
+      "comments": [
+        {
+          "author": "laozhang",
+          "text": "显示器线插主板这个错，我见过三次。",
+          "offsetMinutes": 300,
+          "upCount": 9
+        }
+      ]
+    },
+    {
+      "id": "zhuangji-0008",
+      "author": "hezi",
+      "genre": "tutorial",
+      "title": "系统装完必做的几件事",
+      "content": "装完系统别急着用，先做四件事。\n第一，装主板芯片组驱动，别用系统自带的通用驱动。第二，打开电源计划里的高性能，笔记本选平衡。\n第三，把系统更新跑完，重启两次。\n第四，做个系统镜像，存在另一块盘上。以后系统崩了，二十分钟能恢复。\n这四件事花二十分钟，能省掉以后几个晚上的折腾。",
+      "tags": [
+        "电脑装机"
+      ],
+      "tier": "normal",
+      "ageHours": 400,
+      "posterStyle": "sticky",
+      "posterLine": "以后系统崩了，二十分钟能恢复",
+      "insight": "装完系统先装驱动、做镜像，再开始用。",
+      "structured": {
+        "tools": "主板驱动包\n一块备用硬盘\n镜像工具",
+        "steps": "装芯片组与网卡驱动\n调电源计划\n跑完系统更新并重启两次\n做一个系统镜像存到另一块盘\n记录激活与账号信息",
+        "timeDifficulty": "二十分钟"
+      },
+      "_topic": "装完系统的四件事",
+      "comments": [
+        {
+          "author": "dayang",
+          "text": "镜像这条最重要，我靠它救过两次。",
+          "offsetMinutes": 700,
+          "upCount": 8
+        }
+      ]
+    },
+    {
+      "id": "zhuangji-0009",
+      "author": "laozhang",
+      "genre": "debate",
+      "title": "自己装还是买整机，看你会不会折腾",
+      "content": "自己装便宜一到两成，配件能挑，后期好升级。代价是要花时间，出问题自己排查。\n整机贵一点，胜在有售后，坏了打个电话有人上门。但配件常常是缩水的，电源和主板最明显。\n我的建议是，第一台自己装，装过一次就懂了。之后懒得折腾，买整机也没问题。\n最怕的是既不想学，又想省钱，最后买了个便宜整机，用两年全是问题。",
+      "tags": [
+        "电脑装机"
+      ],
+      "tier": "normal",
+      "ageHours": 428,
+      "posterStyle": "paper",
+      "posterLine": "最怕既不想学又想省钱",
+      "insight": "第一台自己装，之后买整机也不亏。",
+      "structured": {
+        "planA": "自己装，省钱可升级",
+        "planB": "买整机，省心有售后"
+      },
+      "planAVotes": 91,
+      "planBVotes": 57,
+      "_topic": "自己装与整机",
+      "comments": [
+        {
+          "author": "hezi",
+          "text": "整机的电源是最容易缩水的地方。",
+          "offsetMinutes": 900,
+          "upCount": 6
+        }
+      ]
+    },
+    {
+      "id": "zhuangji-0010",
+      "author": "shisan",
+      "genre": "share",
+      "title": "机箱里最贵的是那块不亮的灯",
+      "content": "装机时为了好看，加了三把带灯的风扇，一条灯带，一个控制器，多花了四百多。\n装完第一周天天看，第二周改成呼吸模式，第三周全关了。\n现在机箱放在桌子底下，灯根本看不见。\n那四百块，换成一块更大的固态，能用五年。",
+      "tags": [
+        "电脑装机"
+      ],
+      "tier": "normal",
+      "ageHours": 430,
+      "posterStyle": "film",
+      "posterLine": "第三周全关了",
+      "insight": "灯效的新鲜感只有两周，容量能用五年。",
+      "_topic": "机箱灯效",
+      "comments": [
+        {
+          "author": "dayang",
+          "text": "我现在的灯全关，安静最重要。",
+          "offsetMinutes": 800,
+          "upCount": 7
+        }
+      ]
+    },
+    {
+      "id": "zhuangji-0011",
+      "author": "dayang",
+      "genre": "share",
+      "title": "帮同事装机，装完他说不如买笔记本",
+      "content": "花了三个晚上装机，装系统、装驱动、迁移资料。\n交付那天他问了一句，这个能带走吗。我说台式机不好带。他说那还不如买个笔记本。\n后来我明白，很多人要的不是性能，是能塞进包里。\n再有人找我装机，我先问一句，你会不会搬它。",
+      "tags": [
+        "电脑装机"
+      ],
+      "tier": "tail",
+      "ageHours": 560,
+      "posterStyle": "paper",
+      "posterLine": "这个能带走吗",
+      "insight": "先问要不要移动，再谈配置。",
+      "_topic": "台式还是笔记本",
+      "comments": [
+        {
+          "author": "hezi",
+          "text": "这个问题问得好，我白装过两台。",
+          "offsetMinutes": 1000,
+          "upCount": 5
+        }
+      ]
+    },
+    {
+      "id": "zhuangji-0012",
+      "author": "dongdong",
+      "genre": "share",
+      "title": "清灰这件事，我一年做一次",
+      "content": "第一台机用了两年没清灰，风扇声音像拖拉机，玩游戏温度飙到九十。\n拆开看，散热片被灰堵了一半。用气吹和软毛刷清了半小时，温度降了十五度，声音也小了。\n现在我每年入夏前清一次，顺便换硅脂。\n清灰别用吸尘器，静电可能伤元件。气吹最安全，实在要用刷子，选软毛的。",
+      "tags": [
+        "电脑装机"
+      ],
+      "tier": "tail",
+      "ageHours": 760,
+      "posterStyle": "kraft",
+      "posterLine": "散热片被灰堵了一半",
+      "insight": "每年入夏前清一次灰，比换散热器便宜。",
+      "_topic": "台式机清灰",
+      "comments": [
+        {
+          "author": "shisan",
+          "text": "吸尘器静电这事我吃过亏，主板网卡坏了。",
+          "offsetMinutes": 1200,
+          "upCount": 6
+        }
+      ]
+    },
+    {
+      "id": "zhuangji-0013",
+      "author": "hezi",
+      "genre": "share",
+      "title": "电脑桌比电脑重要",
+      "content": "换了张一米六的桌子，深度八十，显示器能放到一臂远，椅子能完全推进去。\n以前那张桌子深六十，显示器离眼睛四十厘米，看一天眼睛疼，肩膀也僵。\n桌子花了六百，比升级显卡便宜，但对每天的感受影响更大。\n键盘鼠标的位置、显示器的高度、脚能不能放平，这三样决定你坐八小时累不累。",
+      "tags": [
+        "电脑装机",
+        "健康习惯"
+      ],
+      "tier": "tail",
+      "ageHours": 980,
+      "posterStyle": "sticky",
+      "posterLine": "显示器离眼睛四十厘米，看一天眼睛疼",
+      "insight": "桌深和椅高，比硬件更影响每天的状态。",
+      "_topic": "电脑桌尺寸",
+      "comments": [
+        {
+          "author": "xiaoman",
+          "text": "桌深八十这条我记下了，正在换桌子。",
+          "offsetMinutes": 1500,
+          "upCount": 7
+        }
+      ]
+    },
+    {
+      "id": "zhuangji-0014",
+      "author": "laozhang",
+      "genre": "share",
+      "title": "十年换了四台机，只有键盘没换",
+      "content": "主机换了四台，显示器换了三次，鼠标换了五个。键盘还是十年前那把，薄膜的，八十块。\n中间买过一把机械键盘，青轴，敲了两周嫌吵，收起来了。\n那把老键盘的键帽已经磨得发亮，字都看不清，但手感还在。\n有些东西不用升级，用顺了就够。",
+      "tags": [
+        "电脑装机"
+      ],
+      "tier": "tail",
+      "ageHours": 1250,
+      "posterStyle": "paper",
+      "posterLine": "键帽已经磨得发亮，字都看不清",
+      "insight": "用顺手的旧东西，比新参数更值。",
+      "_topic": "十年老键盘",
+      "comments": [
+        {
+          "author": "dongdong",
+          "text": "青轴在办公室确实不能忍。",
+          "offsetMinutes": 1800,
+          "upCount": 4
+        }
+      ]
+    }
+  ]
+}

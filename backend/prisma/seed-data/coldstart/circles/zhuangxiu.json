@@ -1,0 +1,525 @@
+{
+  "schemaVersion": 1,
+  "circle": "装修避坑",
+  "posts": [
+    {
+      "id": "zhuangxiu-0001",
+      "author": "shanshan",
+      "genre": "pitfall",
+      "title": "水电改造多算了两千八，我把线管数了一遍",
+      "content": "报价单上写强电四十二米，弱电十八米。我家八十平，怎么看都不对。\n我拿了卷尺，顺着墙面把每根管子的走向量了一遍，实际强电二十六米，弱电十一米。\n拿着数据找工长，他说含了预留和损耗。我说损耗按百分之十算也到不了四十二。\n最后减了两千八。水电是装修里最容易注水的一项，因为埋进墙里就看不见了。验收时一定要在封槽前量一遍。",
+      "tags": [
+        "装修避坑"
+      ],
+      "tier": "hero",
+      "ageHours": 15,
+      "posterStyle": "paper",
+      "posterLine": "实际强电二十六米，报价四十二米",
+      "insight": "水电按米算钱，封槽前自己量一遍。",
+      "structured": {
+        "pitfallExperience": "报价强电四十二米，实测二十六米，多算两千八。",
+        "lossAmount": "2800 元",
+        "correctApproach": "开工前确认按点位还是按米计价\n封槽前拿卷尺沿墙量一遍\n损耗比例写进合同，一般不超过百分之十\n量完拍照，和报价单对照"
+      },
+      "_topic": "水电按米注水",
+      "comments": [
+        {
+          "author": "dayu",
+          "text": "按点位算最省心，一个插座多少钱，一目了然。",
+          "offsetMinutes": 100,
+          "upCount": 24
+        },
+        {
+          "author": "gongzi",
+          "text": "封槽前拍照这条太重要了，后期打孔全靠它。",
+          "offsetMinutes": 260,
+          "upCount": 17
+        },
+        {
+          "author": "xixi",
+          "text": "我家当时没量，现在想想可能也被多算了。",
+          "offsetMinutes": 600,
+          "upCount": 8
+        }
+      ]
+    },
+    {
+      "id": "zhuangxiu-0002",
+      "author": "dayu",
+      "genre": "review",
+      "title": "盯完两套房的装修，这五笔钱不该省",
+      "content": "第一套省了防水，第二年卫生间墙面返潮，铲了重做。\n第二套我把钱花在五个地方，防水、电线、水管、五金、胶。这五样藏在墙里和柜子里，坏了要拆。\n反过来可以省的是，瓷砖不必买最贵的，乳胶漆中端够用，吊顶越简单越好，灯带能不做就不做。\n装修的预算不是均匀分配的。看不见的地方多花，看得见的地方少花，住进去才知道差别在哪。",
+      "tags": [
+        "装修避坑"
+      ],
+      "tier": "hero",
+      "ageHours": 30,
+      "posterStyle": "film",
+      "posterLine": "第一套省了防水，第二年墙面返潮",
+      "insight": "钱花在拆不掉的地方，看得见的可以省。",
+      "structured": {
+        "pros": "住五年不出大问题，返修率低",
+        "cons": "前期预算压力大，看不见的地方不显好",
+        "rating": 4.7,
+        "targetAudience": "第一次装修、预算有限但想住久的人"
+      },
+      "_topic": "装修预算分配",
+      "comments": [
+        {
+          "author": "wangshu",
+          "text": "五金和胶这两样，便宜的真是一年就出问题。",
+          "offsetMinutes": 200,
+          "upCount": 19
+        },
+        {
+          "author": "shanshan",
+          "text": "补充一个，地漏也算五金，别买十块钱的。",
+          "offsetMinutes": 500,
+          "upCount": 11
+        }
+      ]
+    },
+    {
+      "id": "zhuangxiu-0003",
+      "author": "wangshu",
+      "genre": "review",
+      "title": "中央空调和挂机，我两边都装过",
+      "content": "第一套装的中央空调，一拖四，花了三万二。墙上干净，没有机器和外机管线。维修最烦。有一年冷凝水管堵了，拆了半个吊顶才找到接口。\n第二套改用挂机，三个房间加客厅，两万不到。丑一点，但坏了直接换，不用动吊顶。\n层高低于两米七的，中央空调吊顶压下来会显闷。这个感受只有住进去才知道。\n预算紧就挂机，别为了好看硬上。",
+      "tags": [
+        "装修避坑",
+        "家电选购"
+      ],
+      "tier": "solid",
+      "ageHours": 48,
+      "posterStyle": "kraft",
+      "posterLine": "冷凝水管堵了，拆了半个吊顶",
+      "insight": "中央空调买的是墙面干净，代价是维修要拆吊顶。",
+      "structured": {
+        "pros": "墙面干净，出风均匀，噪音低",
+        "cons": "初装贵，维修要动吊顶，层高被压",
+        "rating": 4.0,
+        "targetAudience": "层高够、预算充足、常住十年以上"
+      },
+      "_topic": "中央空调与挂机",
+      "comments": [
+        {
+          "author": "dongdong",
+          "text": "冷凝水管一定要留检修口，这条能救命。",
+          "offsetMinutes": 300,
+          "upCount": 14
+        }
+      ]
+    },
+    {
+      "id": "zhuangxiu-0004",
+      "author": "xixi",
+      "genre": "pitfall",
+      "title": "全屋定制量尺错了，柜子装不进去",
+      "content": "柜子做好送来，主卧那组进不了门，宽了三公分。白折腾。\n量尺那天我不在家，师傅自己量的，把踢脚线算进去了。装的时候才发现墙不直，实际内宽比图纸少。\n厂家说重新做要加钱，我说量尺是你们的人，凭什么我加。扯了两周，最后各让一步，改窄重做，我出运费。\n定制柜一定要自己在场，让师傅量三个点，上中下各一次，取最小值。",
+      "tags": [
+        "装修避坑"
+      ],
+      "tier": "solid",
+      "ageHours": 58,
+      "posterStyle": "paper",
+      "posterLine": "宽了三公分，进不了门",
+      "insight": "定制柜量尺要在场，上中下三点取最小。",
+      "structured": {
+        "pitfallExperience": "厂家量尺把踢脚线算进去，柜体宽三公分，无法安装。",
+        "lossAmount": "运费 400 元加两周工期",
+        "correctApproach": "量尺时业主在场\n同一面墙上中下各量一次取最小值\n确认踢脚线和门套是否扣除\n图纸签字前核对每个尺寸"
+      },
+      "_topic": "全屋定制量尺",
+      "comments": [
+        {
+          "author": "dayu",
+          "text": "墙不直是常态，老房子差两三公分很常见。",
+          "offsetMinutes": 200,
+          "upCount": 12
+        }
+      ]
+    },
+    {
+      "id": "zhuangxiu-0005",
+      "author": "gongzi",
+      "genre": "pitfall",
+      "title": "瓷砖空鼓，验收时用一根手指敲出来",
+      "content": "瓦工完工那天，工长说可以验收了。我拿了个螺丝刀柄，顺着墙面一块块敲。\n空鼓的声音是脆的，实心的声音是闷的。八十平的房子，敲出十一块空鼓，集中在卫生间和厨房的边角。\n工长说边角空鼓正常。我查了规范，单块空鼓面积超过百分之五要返工。\n最后返工了七块。验收别只看平整度和缝，敲一遍最实在。",
+      "tags": [
+        "装修避坑"
+      ],
+      "tier": "solid",
+      "ageHours": 90,
+      "posterStyle": "sticky",
+      "posterLine": "空鼓的声音是脆的，实心的声音是闷的",
+      "insight": "瓷砖验收靠敲，边角最容易空。",
+      "structured": {
+        "pitfallExperience": "瓦工完工未敲空鼓，验收后才发现十一块空鼓，七块返工。",
+        "lossAmount": "返工七天工期",
+        "correctApproach": "用螺丝刀柄逐块敲击\n重点敲边角和开孔周围\n单块空鼓超百分之五要求返工\n返工后重新敲一遍"
+      },
+      "_topic": "瓷砖空鼓验收",
+      "comments": [
+        {
+          "author": "shanshan",
+          "text": "空鼓锤十块钱一把，比手指准。",
+          "offsetMinutes": 400,
+          "upCount": 10
+        }
+      ]
+    },
+    {
+      "id": "zhuangxiu-0006",
+      "author": "shanshan",
+      "genre": "tutorial",
+      "title": "自己验收防水，闭水试验这样做",
+      "content": "防水是装修里最不能省的一步，漏水下去要赔楼下。\n瓦工进场前做闭水试验。先把地漏堵住，门口用沙袋挡一道，放水到两厘米高。\n二十四小时后下楼看，天花板有没有水印。四十八小时再看一次，有些渗漏要一天才显出来。\n放水的时候在墙上画一条水位线，第二天看有没有下降，下降了说明在漏。\n做完拍照，门框、墙角、管根各拍一张，留底。",
+      "tags": [
+        "装修避坑"
+      ],
+      "tier": "solid",
+      "ageHours": 66,
+      "posterStyle": "kraft",
+      "posterLine": "放水到两厘米高，四十八小时再看一次",
+      "insight": "闭水试验四十八小时，水位线比眼睛可靠。",
+      "structured": {
+        "tools": "沙袋\n堵漏塞\n卷尺\n记号笔",
+        "steps": "堵住地漏，门口挡沙袋\n放水两厘米，画水位线\n二十四小时下楼看天花板\n四十八小时复查水位是否下降\n拍照留底再进入下一道工序",
+        "timeDifficulty": "两天，中间不用守着"
+      },
+      "_topic": "闭水试验",
+      "comments": [
+        {
+          "author": "xixi",
+          "text": "管根最容易漏，我家的就是那里。",
+          "offsetMinutes": 300,
+          "upCount": 9
+        }
+      ]
+    },
+    {
+      "id": "zhuangxiu-0007",
+      "author": "dayu",
+      "genre": "tutorial",
+      "title": "装修合同里必须写死的几件事",
+      "content": "合同不是走形式，写不清的地方后面都要扯皮。\n工期要写起止日期和延期赔付，按天算，别写尽快。\n增项要写上浮比例，一般不超过合同价百分之五。\n材料要写品牌、型号、规格，不能只写同等档次。\n付款按节点走，开工三成，中期三成，竣工三成，留一成做保修金，住三个月再给。\n最后加一句，隐蔽工程保修五年，其他两年。",
+      "tags": [
+        "装修避坑"
+      ],
+      "tier": "normal",
+      "ageHours": 150,
+      "posterStyle": "paper",
+      "posterLine": "材料不能只写同等档次",
+      "insight": "合同写死工期、增项、材料型号和付款节点。",
+      "structured": {
+        "tools": "合同模板\n报价单\n身份证复印件",
+        "steps": "写明起止日期与延期赔付\n增项上浮不超过百分之五\n材料写品牌型号规格\n付款按节点，留一成保修金\n约定保修年限",
+        "timeDifficulty": "签合同前花一小时逐条读"
+      },
+      "_topic": "装修合同条款",
+      "comments": [
+        {
+          "author": "gongzi",
+          "text": "留一成保修金这条，工长会认真很多。",
+          "offsetMinutes": 500,
+          "upCount": 13
+        }
+      ]
+    },
+    {
+      "id": "zhuangxiu-0008",
+      "author": "wangshu",
+      "genre": "review",
+      "title": "厨房烟道止逆阀，几十块的东西别省",
+      "content": "住进去半年，厨房总有别人家的炒菜味。查了半天，是烟道止逆阀没装好。\n开发商预留的那个是塑料片，风一吹就开，邻居炒辣椒我家就能闻到。\n换了个带弹簧的金属款，七十多块，装的时候用密封胶把缝隙封死。之后味道没了。\n这东西装在吊顶里，后期想换要拆。装的时候多花七十，省下的是以后拆吊顶。",
+      "tags": [
+        "装修避坑",
+        "家电选购"
+      ],
+      "tier": "normal",
+      "ageHours": 210,
+      "posterStyle": "film",
+      "posterLine": "邻居炒辣椒，我家就能闻到",
+      "insight": "止逆阀要在吊顶前换成带弹簧的，几十块省不得。",
+      "structured": {
+        "pros": "七十多块，隔味效果明显",
+        "cons": "装在吊顶内，后期更换麻烦",
+        "rating": 4.5,
+        "targetAudience": "住高层、厨房共用烟道的人"
+      },
+      "_topic": "烟道止逆阀",
+      "comments": [
+        {
+          "author": "dongdong",
+          "text": "密封胶一定要打满，只换阀不封缝还是漏。",
+          "offsetMinutes": 600,
+          "upCount": 8
+        }
+      ]
+    },
+    {
+      "id": "zhuangxiu-0009",
+      "author": "xixi",
+      "genre": "pitfall",
+      "title": "美缝做完三个月发黑，材料问题",
+      "content": "卫生间做了美缝，师傅说能用十年。三个月后淋浴区的缝开始发黑，擦不掉。\n找人来看，说用的是便宜的双组份，遇水会渗。真正耐水的是环氧彩砂，价格贵一倍。\n返工要把旧的全铲掉，重新填。人工比材料贵得多，一天两百八，做了三天。\n美缝别在材料上省，尤其是淋浴区和厨房台面。签单前问清用的是什么材料，写进单子。",
+      "tags": [
+        "装修避坑"
+      ],
+      "tier": "normal",
+      "ageHours": 280,
+      "posterStyle": "sticky",
+      "posterLine": "三个月后淋浴区的缝开始发黑",
+      "insight": "湿区美缝用环氧彩砂，便宜材料三个月就黑。",
+      "structured": {
+        "pitfallExperience": "便宜双组份美缝，淋浴区三个月发黑，返工铲除重做。",
+        "lossAmount": "返工 1200 元",
+        "correctApproach": "湿区指定环氧彩砂\n签单写明材料型号\n施工前看包装和批号\n做完养护四十八小时不沾水"
+      },
+      "_topic": "美缝材料",
+      "comments": [
+        {
+          "author": "shanshan",
+          "text": "环氧彩砂也有假货，认准批号。",
+          "offsetMinutes": 700,
+          "upCount": 6
+        }
+      ]
+    },
+    {
+      "id": "zhuangxiu-0010",
+      "author": "gongzi",
+      "genre": "pitfall",
+      "title": "拆改承重墙，物业来看时已经晚了",
+      "content": "老房改造，想把客厅和次卧之间的墙打通。工长说这墙是轻体墙，能拆。\n拆到一半，物业上门，说这是承重墙，图纸上标着黑线。当场停工，要求做结构加固。\n加固花了八千，还请了设计院出方案。工长说不知道，合同里也没写拆改范围。\n拆墙之前一定要拿原始结构图，物业那里有存档，看一眼花不了十分钟。",
+      "tags": [
+        "装修避坑"
+      ],
+      "tier": "normal",
+      "ageHours": 360,
+      "posterStyle": "paper",
+      "posterLine": "拆到一半，物业上门说是承重墙",
+      "insight": "拆墙前先要原始结构图，物业有存档。",
+      "structured": {
+        "pitfallExperience": "工长判断失误拆了承重墙，停工加固，多花八千。",
+        "lossAmount": "8000 元",
+        "correctApproach": "到物业调原始结构图\n黑线标注的一律不动\n拆改范围写进合同\n涉及结构先找设计院"
+      },
+      "_topic": "误拆承重墙",
+      "comments": [
+        {
+          "author": "dayu",
+          "text": "老房子的图纸在物业和房管局都能查到。",
+          "offsetMinutes": 900,
+          "upCount": 10
+        }
+      ]
+    },
+    {
+      "id": "zhuangxiu-0011",
+      "author": "shanshan",
+      "genre": "tutorial",
+      "title": "装修完第一次保洁，顺序别搞反",
+      "content": "很多人先擦地再擦柜子，结果灰又落下来。\n顺序是从上到下，从里到外。先清吊顶和灯槽，再擦柜体内部，然后柜门和玻璃，最后地面。\n柜子内部要用吸尘器先吸一遍，湿布直接擦会把灰抹成泥。\n玻璃和镜子最后擦，擦完不要再开窗通风，否则又是一层灰。\n保洁做完再进家具，不然家具搬来搬去，白做一遍。",
+      "tags": [
+        "装修避坑"
+      ],
+      "tier": "normal",
+      "ageHours": 420,
+      "posterStyle": "kraft",
+      "posterLine": "湿布直接擦会把灰抹成泥",
+      "insight": "保洁从上到下、从里到外，家具最后进。",
+      "structured": {
+        "tools": "吸尘器\n超细纤维布\n玻璃刮\n伸缩杆",
+        "steps": "先清吊顶和灯槽\n吸尘器吸柜体内部\n擦柜门和台面\n擦玻璃和镜子\n最后拖地，再进家具",
+        "timeDifficulty": "八十平约四小时"
+      },
+      "_topic": "装修后保洁顺序",
+      "comments": [
+        {
+          "author": "xixi",
+          "text": "灯槽里的灰最多，我擦了三遍。",
+          "offsetMinutes": 800,
+          "upCount": 5
+        }
+      ]
+    },
+    {
+      "id": "zhuangxiu-0012",
+      "author": "dayu",
+      "genre": "debate",
+      "title": "全包还是半包，我两套都试过",
+      "content": "第一套全包，省心，材料被换过两次，都是我发现之后才改。第二套半包，自己买主材，跑了三十多趟建材市场，瘦了六斤。\n全包适合没时间、对材料不敏感的人。半包适合愿意花时间、想控预算的人。\n我现在的建议是半包加清包辅材，主材自己定，辅材让施工方买，省一半精力。\n没有绝对的对错，看你能投入多少时间。",
+      "tags": [
+        "装修避坑"
+      ],
+      "tier": "normal",
+      "ageHours": 430,
+      "posterStyle": "film",
+      "posterLine": "半包跑了三十多趟建材市场，瘦了六斤",
+      "insight": "有时间就半包，没时间就全包，别硬撑。",
+      "structured": {
+        "planA": "全包，省心但材料不透明",
+        "planB": "半包，控预算但要花时间"
+      },
+      "planAVotes": 62,
+      "planBVotes": 95,
+      "_topic": "全包与半包",
+      "comments": [
+        {
+          "author": "wangshu",
+          "text": "半包最大的坑是辅材，看不见但影响大。",
+          "offsetMinutes": 1000,
+          "upCount": 7
+        }
+      ]
+    },
+    {
+      "id": "zhuangxiu-0013",
+      "author": "wangshu",
+      "genre": "share",
+      "title": "装修时留的插座，现在有三个没用上",
+      "content": "当时按网上的清单留了四十多个插座，每个角落都有。住了两年，有三个位置一次没插过，都在阳台和玄关高处。\n反过来，最不够用的是厨房台面，四个插座，电饭锅、空气炸锅、烧水壶、咖啡机，永远要拔一个。\n插座不是越多越好，是位置要对。台面每米留两个，比墙上到处留更实用。",
+      "tags": [
+        "装修避坑",
+        "家电选购"
+      ],
+      "tier": "tail",
+      "ageHours": 520,
+      "posterStyle": "paper",
+      "posterLine": "最不够用的是厨房台面",
+      "insight": "插座按使用台面排，不按墙面排。",
+      "_topic": "插座数量与位置",
+      "comments": [
+        {
+          "author": "dayu",
+          "text": "厨房台面我留了六个，还是不够。",
+          "offsetMinutes": 1100,
+          "upCount": 6
+        }
+      ]
+    },
+    {
+      "id": "zhuangxiu-0014",
+      "author": "xixi",
+      "genre": "share",
+      "title": "工人师傅的一句话让我少花了三千",
+      "content": "本来打算把客厅和餐厅之间的隔断做成储物柜，图纸都出了，预算三千二。\n木工师傅看了一眼说，这面墙不承重，但柜子做了之后客厅采光会被挡一半，你家本来就朝北。\n我犹豫了两天，最后改成半高的矮柜，花了一千。住进去发现他说得对，光进不来，屋子显小。\n有些经验，只有干活的人才有。",
+      "tags": [
+        "装修避坑"
+      ],
+      "tier": "tail",
+      "ageHours": 640,
+      "posterStyle": "sticky",
+      "posterLine": "柜子做了之后客厅采光会被挡一半",
+      "insight": "多问干活的人一句，比看十篇攻略有用。",
+      "_topic": "隔断柜与采光",
+      "comments": [
+        {
+          "author": "shanshan",
+          "text": "朝北的房子最怕挡光，这个判断是对的。",
+          "offsetMinutes": 1200,
+          "upCount": 4
+        }
+      ]
+    },
+    {
+      "id": "zhuangxiu-0015",
+      "author": "gongzi",
+      "genre": "share",
+      "title": "装修期间我天天去工地，被工长嫌烦",
+      "content": "两个月我去了五十多次，早上一次晚上一次。工长说我盯着他们干活不舒服。\n但我发现的问题也不少。电线管没固定、卫生间坡度不够、柜体背板用了薄料，都是现场看出来的。\n后来我们达成了一个默契，我只看不问，发现问题拍照发群里，他们当天整改。\n盯工地不是不信任，是装修这件事，出了问题返工的成本太高。",
+      "tags": [
+        "装修避坑"
+      ],
+      "tier": "tail",
+      "ageHours": 820,
+      "posterStyle": "kraft",
+      "posterLine": "我只看不问，发现问题拍照发群里",
+      "insight": "盯工地看关键节点，不用全天守着。",
+      "_topic": "盯工地",
+      "comments": [
+        {
+          "author": "dayu",
+          "text": "水电、防水、瓦工、木工这四个节点必须在。",
+          "offsetMinutes": 1500,
+          "upCount": 8
+        }
+      ]
+    },
+    {
+      "id": "zhuangxiu-0016",
+      "author": "dayu",
+      "genre": "share",
+      "title": "住了两年才发现的问题",
+      "content": "第一，卫生间门口的地板起了鼓，是淋浴区的水汽顺着门槛石渗出来的，当时没做挡水条。\n第二，厨房吊柜下方的灯没留线，切菜时背光，后来贴了个充电灯条。\n第三，卧室衣柜做到顶，最上面那层从来不用，还得搬梯子。\n这些问题验收时都看不出来，住进去才会一个个冒出来。",
+      "tags": [
+        "装修避坑"
+      ],
+      "tier": "tail",
+      "ageHours": 1000,
+      "posterStyle": "film",
+      "posterLine": "门槛石没做挡水条，地板起了鼓",
+      "insight": "验收看不出的问题，都在住进去之后出现。",
+      "_topic": "入住后才发现",
+      "comments": [
+        {
+          "author": "xixi",
+          "text": "挡水条这条我记下了，正在装。",
+          "offsetMinutes": 1600,
+          "upCount": 5
+        }
+      ]
+    },
+    {
+      "id": "zhuangxiu-0017",
+      "author": "shanshan",
+      "genre": "share",
+      "title": "给父母翻新老房，比新房麻烦",
+      "content": "老房三十年了，墙面一敲就掉渣，水电全是铝线。\n翻新比新房贵两成，因为要先拆。拆旧、清运、修补，光这三项就花了八千。\n更麻烦的是老人舍不得扔东西，一个用了二十年的柜子非要留着，最后只能给它单独做一面墙。\n翻新老房，预算要留出三成给看不见的部分。",
+      "tags": [
+        "装修避坑",
+        "租房买房"
+      ],
+      "tier": "tail",
+      "ageHours": 1180,
+      "posterStyle": "paper",
+      "posterLine": "铝线、掉渣的墙，光拆旧就八千",
+      "insight": "老房翻新，预算留三成给拆旧和修补。",
+      "_topic": "老房翻新",
+      "comments": [
+        {
+          "author": "wangshu",
+          "text": "铝线必须换，这个不能省。",
+          "offsetMinutes": 1800,
+          "upCount": 7
+        }
+      ]
+    },
+    {
+      "id": "zhuangxiu-0018",
+      "author": "xixi",
+      "genre": "share",
+      "title": "装修时和老公吵了三次架",
+      "content": "第一次为地板颜色，他要浅色，我要深色，最后折中选了中间色，两个人都不是很满意。\n第二次为开放厨房，他要，我不要，油烟这条谁也说服不了谁，最后做了半开放，加推拉门。\n第三次为预算，他想省，我想花在防水和五金上。这条我坚持了，现在看是对的。\n装修是两个人第一次一起做这么大的决定，吵架很正常，重要的是把标准写在前面。",
+      "tags": [
+        "装修避坑",
+        "婚姻与家庭"
+      ],
+      "tier": "tail",
+      "ageHours": 1400,
+      "posterStyle": "kraft",
+      "posterLine": "折中选了中间色，两个人都不是很满意",
+      "insight": "装修分歧先定标准，再谈具体选项。",
+      "_topic": "装修中的分歧",
+      "comments": [
+        {
+          "author": "anan",
+          "text": "半开放加推拉门这个方案我也想抄。",
+          "offsetMinutes": 2000,
+          "upCount": 4
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,273 @@
+{
+  "schemaVersion": 1,
+  "circle": "育儿经验",
+  "posts": [
+    {
+      "id": "yuer-0001",
+      "author": "youzi",
+      "genre": "review",
+      "title": "两个孩子差三岁，我踩过的坑",
+      "content": "老大三岁时老二出生，我以为差三岁刚好，大的能懂事。\n实际上老大那半年退步得很厉害，本来会自己上厕所，又开始尿裤子。他会说的唯一一句是抱抱我。\n后来我把老二的喂奶时间固定，每天留半小时只陪老大，不提弟弟。两个月后好了。\n差几岁都不是关键，关键是老大有没有感觉到自己还在被看见。",
+      "tags": ["育儿经验"],
+      "tier": "solid",
+      "ageHours": 36,
+      "posterStyle": "paper",
+      "posterLine": "本来会自己上厕所，又开始尿裤子",
+      "insight": "二胎之后，先稳住老大的位置。",
+      "structured": {
+        "pros": "两个孩子能玩到一起，衣服玩具能传",
+        "cons": "争宠明显，生病容易交叉传染",
+        "rating": 3.9,
+        "targetAudience": "准备要二胎、刚有二胎的家庭"
+      },
+      "_topic": "二胎年龄差",
+      "comments": [
+        { "author": "tutuma", "text": "退步这个现象我见过，当时还以为是巧合。", "offsetMinutes": 150, "upCount": 16 }
+      ]
+    },
+    {
+      "id": "yuer-0002",
+      "author": "nihao",
+      "genre": "review",
+      "title": "绘本买了两百本，孩子只爱那五本",
+      "content": "从一岁开始买绘本，两年两百本。孩子反复要听的只有五本，其中一本讲一只挖洞的鼹鼠。\n后来我总结出规律。他喜欢的都有重复的节奏，能跟着念，还有一个小反转。\n贵的精装、获过奖的，他反而不看。\n现在我先去图书馆借，他反复要的那本再买。一年省了一千多。",
+      "tags": ["育儿经验", "记账储蓄"],
+      "tier": "normal",
+      "ageHours": 200,
+      "posterStyle": "kraft",
+      "posterLine": "反复要听的只有五本",
+      "insight": "先借再买，孩子反复要的那本才值得入手。",
+      "structured": {
+        "pros": "省钱，避免书堆成山，选书更准",
+        "cons": "借书要跑，热门书要等",
+        "rating": 4.3,
+        "targetAudience": "一岁到五岁孩子的家长"
+      },
+      "_topic": "绘本购买",
+      "comments": [
+        { "author": "aqi", "text": "重复的节奏这条我也有感觉，孩子就爱跟着念。", "offsetMinutes": 300, "upCount": 7 }
+      ]
+    },
+    {
+      "id": "yuer-0003",
+      "author": "tutuma",
+      "genre": "pitfall",
+      "title": "追着喂饭追到四岁，改起来用了两个月",
+      "content": "从添加辅食开始，我妈怕他吃不饱，一直追着喂。到四岁，孩子吃饭要看平板，一顿四十分钟。\n上幼儿园第一周就被老师提醒，说他不会自己吃，也不肯坐下来。\n改的过程很难。第一周定时二十分钟，不吃就收走，他哭了三天。第二周开始自己拿勺，吃得满桌都是。第七周能坐住吃完。\n吃饭这件事，越早放手越容易。",
+      "tags": ["育儿经验"],
+      "tier": "solid",
+      "ageHours": 60,
+      "posterStyle": "sticky",
+      "posterLine": "他哭了三天",
+      "insight": "追喂越久越难改，定时收走比劝有效。",
+      "structured": {
+        "pitfallExperience": "从辅食期开始追喂，四岁仍不会自己吃，入园后被老师提醒，纠正用了两个月。",
+        "lossAmount": "两个月的拉锯",
+        "correctApproach": "固定餐椅和用餐时间\n一顿控制在二十分钟\n不吃就收走，中间不给零食\n全家口径一致，不偷偷喂"
+      },
+      "_topic": "追着喂饭",
+      "comments": [
+        { "author": "youzi", "text": "全家口径一致这条最难，老人总怕饿着。", "offsetMinutes": 200, "upCount": 13 }
+      ]
+    },
+    {
+      "id": "yuer-0004",
+      "author": "xixi",
+      "genre": "pitfall",
+      "title": "孩子发烧，我半夜跑了三次医院",
+      "content": "第一次发烧三十八度五，我抱着孩子半夜挂急诊，排队三小时，医生看了两分钟，说多喝水观察。\n第二次三十九度，又去了，还是那句话。第三次我学乖了，先在家观察精神状态，能吃能玩就先物理降温。\n后来儿科医生跟我说，判断要不要去医院，看三件事。精神状态、有没有抽搐、呼吸急不急。\n温度只是参考。",
+      "tags": ["育儿经验", "健康习惯"],
+      "tier": "normal",
+      "ageHours": 270,
+      "posterStyle": "paper",
+      "posterLine": "排队三小时，医生看了两分钟",
+      "insight": "发烧看精神状态，不只看温度。",
+      "structured": {
+        "pitfallExperience": "孩子发烧三次半夜急诊，均为排队数小时后被告知观察，折腾大人也折腾孩子。",
+        "lossAmount": "三次夜间奔波",
+        "correctApproach": "先看精神状态和呼吸\n备好退热药和体温计\n记录温度与用药时间\n出现抽搐或持续嗜睡立即就医"
+      },
+      "_topic": "孩子发烧就医",
+      "comments": [
+        { "author": "tutuma", "text": "精神状态这条是核心，我家也是这样判断的。", "offsetMinutes": 400, "upCount": 9 }
+      ]
+    },
+    {
+      "id": "yuer-0005",
+      "author": "aqi",
+      "genre": "pitfall",
+      "title": "把零食藏起来，孩子反而更想吃",
+      "content": "怕孩子吃零食，我把饼干糖果全放在吊柜最上层。\n结果他学会了搬凳子，还会趁我做饭时偷偷拿。有次被我发现，他吓得躲在阳台。\n后来改成放在矮柜里，规定每天下午可以吃一次，自己拿。\n前两周他吃得多，第三周开始正常了。现在他有时还会剩半包放回去。",
+      "tags": ["育儿经验"],
+      "tier": "normal",
+      "ageHours": 360,
+      "posterStyle": "film",
+      "posterLine": "他学会了搬凳子",
+      "insight": "越藏越想吃，定量放开反而正常。",
+      "structured": {
+        "pitfallExperience": "把零食藏在高处，孩子搬凳子偷拿，被发现后躲起来。",
+        "lossAmount": "信任感",
+        "correctApproach": "放在孩子够得到的地方\n约定每天固定时段一次\n让他自己取自己放回\n前两周不干预，观察"
+      },
+      "_topic": "零食管控",
+      "comments": [
+        { "author": "youzi", "text": "定量放开这条我也试过，确实比藏管用。", "offsetMinutes": 600, "upCount": 8 }
+      ]
+    },
+    {
+      "id": "yuer-0006",
+      "author": "youzi",
+      "genre": "tutorial",
+      "title": "如厕训练，别在冬天开始",
+      "content": "老大是一岁十个月开始的，正好入冬。尿湿的裤子洗了晾不干，屋里潮，孩子也容易着凉。\n折腾了一个月没成功，第二年春天重来，两周就成了。\n经验有三条。等孩子能说出要尿，再开始。准备十套换洗裤子，别怕洗。白天先不穿，让他自己感觉到。\n夜里的事晚半年再说，别一起上。",
+      "tags": ["育儿经验"],
+      "tier": "solid",
+      "ageHours": 90,
+      "posterStyle": "kraft",
+      "posterLine": "折腾了一个月没成功，第二年春天两周就成了",
+      "insight": "等孩子能表达、天气暖和再开始。",
+      "structured": {
+        "tools": "十套换洗裤子\n一个小马桶\n拖把",
+        "steps": "等孩子能说出要尿再开始\n选春末或夏天\n白天先不穿裤子\n尿湿不责备，直接换\n夜里的事晚半年再说",
+        "timeDifficulty": "两周左右，看孩子状态"
+      },
+      "_topic": "如厕训练",
+      "comments": [
+        { "author": "tutuma", "text": "冬天开始这条我踩过，裤子根本干不了。", "offsetMinutes": 300, "upCount": 7 }
+      ]
+    },
+    {
+      "id": "yuer-0007",
+      "author": "tutuma",
+      "genre": "tutorial",
+      "title": "睡前流程固定下来，能省半小时",
+      "content": "以前哄睡要一小时，讲故事、喝水、再讲一个、厕所、再喝水。\n后来做了张图，贴在床头，四步。洗澡、刷牙、讲两个故事、关灯。\n每完成一步他自己去贴一个贴纸。两个故事讲完，他会说该关灯了。\n现在二十分钟能躺下。\n孩子要的不是被说服，是知道接下来会发生什么。",
+      "tags": ["育儿经验"],
+      "tier": "normal",
+      "ageHours": 400,
+      "posterStyle": "paper",
+      "posterLine": "孩子要的是知道接下来会发生什么",
+      "insight": "把睡前四步画出来，比反复催促有效。",
+      "structured": {
+        "tools": "一张四步图\n贴纸\n小夜灯",
+        "steps": "定下固定四步\n画成图贴在床头\n每完成一步贴一个贴纸\n故事数量提前说好\n关灯后不再回应新要求"
+      },
+      "_topic": "睡前流程",
+      "comments": [
+        { "author": "xixi", "text": "贴纸这个办法好，孩子吃这一套。", "offsetMinutes": 700, "upCount": 6 }
+      ]
+    },
+    {
+      "id": "yuer-0008",
+      "author": "nihao",
+      "genre": "tutorial",
+      "title": "孩子哭的时候，先别讲道理",
+      "content": "摔倒了哭，玩具坏了哭，被拒绝也哭。以前我第一句就是没事不疼，或者这个有什么好哭的。\n后来改成先蹲下来，说一句你现在很难过。他往往哭得更大声，然后慢慢停。\n情绪过去之后再讲道理，讲一遍就够。\n道理讲在情绪最高点是没用的，他听不见。",
+      "tags": ["育儿经验"],
+      "tier": "normal",
+      "ageHours": 440,
+      "posterStyle": "sticky",
+      "posterLine": "他往往哭得更大声，然后慢慢停",
+      "insight": "先接住情绪，再讲道理。",
+      "structured": {
+        "tools": "蹲下来的空间\n一条毛巾",
+        "steps": "蹲下来与孩子平视\n说出他的情绪，不评价\n陪着，不急着哄\n情绪平复后再讲道理\n只讲一遍"
+      },
+      "_topic": "孩子哭闹",
+      "comments": [
+        { "author": "aqi", "text": "说出情绪这一句，我练了很久才自然。", "offsetMinutes": 800, "upCount": 7 }
+      ]
+    },
+    {
+      "id": "yuer-0009",
+      "author": "xixi",
+      "genre": "debate",
+      "title": "要不要给孩子报早教",
+      "content": "老大报过早教，一年八千，一周一次，四十五分钟。现在回想，学的东西在家也能做。\n唯一有价值的是那间教室让他不怕生，能和别的孩子待在一起。\n老二我们没报，改成每周去两次公园和图书馆，效果差不多。\n我的判断是，如果附近没有玩伴，早教可以当社交场合。如果家里有人带、有地方玩，钱可以省下。",
+      "tags": ["育儿经验"],
+      "tier": "normal",
+      "ageHours": 460,
+      "posterStyle": "film",
+      "posterLine": "一年八千，一周一次，四十五分钟",
+      "insight": "早教值不值，看孩子缺不缺玩伴。",
+      "structured": {
+        "planA": "报，主要是社交和固定节奏",
+        "planB": "不报，公园和图书馆够了"
+      },
+      "planAVotes": 52,
+      "planBVotes": 94,
+      "_topic": "早教班",
+      "comments": [
+        { "author": "youzi", "text": "缺玩伴这条说到点上了，我们小区没什么孩子。", "offsetMinutes": 900, "upCount": 8 }
+      ]
+    },
+    {
+      "id": "yuer-0010",
+      "author": "aqi",
+      "genre": "share",
+      "title": "带娃做饭，我把菜切成手指条",
+      "content": "一个人带娃做饭最难的是腾不出手。\n后来我把所有菜切成手指条，胡萝卜、土豆、西葫芦都一样。孩子能自己抓着吃，我炒菜的十分钟他能安静。\n刀工变好了，菜也熟得快。\n现在他三岁，会站在小凳子上帮我递调料。",
+      "tags": ["育儿经验", "家常菜谱"],
+      "tier": "normal",
+      "ageHours": 420,
+      "posterStyle": "paper",
+      "posterLine": "孩子能自己抓着吃",
+      "insight": "切条既省事又能让孩子自己吃。",
+      "_topic": "带娃做饭",
+      "comments": [
+        { "author": "tutuma", "text": "手指条这个办法我明天就用。", "offsetMinutes": 800, "upCount": 5 }
+      ]
+    },
+    {
+      "id": "yuer-0011",
+      "author": "youzi",
+      "genre": "share",
+      "title": "老大让着老二，这句话我说错了很多次",
+      "content": "两个孩子抢玩具，我总说你是哥哥，让着弟弟。\n有次老大把玩具摔了，说我不想当哥哥。我愣住。\n后来改成谁先拿谁玩，另一个等五分钟。闹了几天，慢慢就接受了。\n老大不需要被要求懂事，他也才五岁。",
+      "tags": ["育儿经验"],
+      "tier": "tail",
+      "ageHours": 530,
+      "posterStyle": "kraft",
+      "posterLine": "我不想当哥哥",
+      "insight": "让大的让小的，是最省事也最伤人的做法。",
+      "_topic": "老大让老二",
+      "comments": [
+        { "author": "xixi", "text": "我不想当哥哥这句，听着真难受。", "offsetMinutes": 1000, "upCount": 7 }
+      ]
+    },
+    {
+      "id": "yuer-0012",
+      "author": "tutuma",
+      "genre": "share",
+      "title": "孩子第一天上幼儿园，我在门口站了半小时",
+      "content": "送进去的时候他没哭，头也不回。\n我在门口站了半小时，听见里面有孩子哭，总怀疑是他。\n老师后来发了张照片，他坐在小桌前玩积木，脸上还有泪痕，但已经在笑了。\n那天下午我提前一小时去接，他跑出来说妈妈我今天吃了两碗饭。",
+      "tags": ["育儿经验"],
+      "tier": "tail",
+      "ageHours": 700,
+      "posterStyle": "paper",
+      "posterLine": "他没哭，头也不回",
+      "insight": "入园第一天，紧张的是大人。",
+      "_topic": "第一天上幼儿园",
+      "comments": [
+        { "author": "youzi", "text": "头也不回这个细节，我当年也愣住了。", "offsetMinutes": 1200, "upCount": 6 }
+      ]
+    },
+    {
+      "id": "yuer-0013",
+      "author": "nihao",
+      "genre": "share",
+      "title": "我陪孩子看动画，自己先哭了",
+      "content": "周末陪他看一部动画片，讲一只小恐龙找妈妈。看到一半我发现自己在抹眼泪。\n孩子回头看我，问我怎么了。我说这个恐龙有点难过。\n他想了一会儿，把手放在我手上，说妈妈我在。\n那天之后他每次看到那只恐龙都会说，它找到妈妈了。",
+      "tags": ["育儿经验", "影视剧集"],
+      "tier": "tail",
+      "ageHours": 950,
+      "posterStyle": "film",
+      "posterLine": "他说妈妈我在",
+      "insight": "孩子安慰人的方式，比大人直接。",
+      "_topic": "陪孩子看动画",
+      "comments": [
+        { "author": "aqi", "text": "这个画面太柔软了。", "offsetMinutes": 1500, "upCount": 8 }
+      ]
+    }
+  ]
+}

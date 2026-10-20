@@ -1,0 +1,278 @@
+{
+  "schemaVersion": 1,
+  "circle": "消费维权",
+  "posts": [
+    {
+      "id": "weiquan-0001",
+      "author": "tiandian",
+      "genre": "review",
+      "title": "退款被拖了二十天，一封挂号信就解决了",
+      "content": "网购的净水器漏水，泡了橱柜底板。申请退款，客服换了四个人，每次都说在走流程。\n第二十天我寄了一封挂号信到公司注册地址，收件人写法定代表人，内容只有三行，说明订单号、损失、要求十五日内退款，附了照片和聊天记录截图。\n第九天有人加我微信，当天退款，另外赔了橱柜的维修费。\n线上投诉方便，但挂号信送到公司，事情的性质就不一样了。",
+      "tags": ["消费维权"],
+      "tier": "hero",
+      "ageHours": 18,
+      "posterStyle": "paper",
+      "posterLine": "内容只有三行，附了照片和聊天记录",
+      "insight": "拖字诀怕的不是投诉，是留下书面记录。",
+      "structured": {
+        "pros": "成本低，一封挂号信几块钱，处理速度快",
+        "cons": "需要知道对方注册地址，周期按天算",
+        "rating": 4.6,
+        "targetAudience": "被拖过退款、有实际损失的人"
+      },
+      "_topic": "挂号信催退款",
+      "comments": [
+        { "author": "gongzi", "text": "注册地址在国家企业信用信息公示系统能查到。", "offsetMinutes": 120, "upCount": 21 },
+        { "author": "keke", "text": "挂号信要留回执，这个才是证据。", "offsetMinutes": 300, "upCount": 12 },
+        { "author": "tiandian", "text": "对，回执和信封我都留着。", "offsetMinutes": 340, "replyToIndex": 1, "upCount": 6 }
+      ]
+    },
+    {
+      "id": "weiquan-0002",
+      "author": "gongzi",
+      "genre": "review",
+      "title": "同一件商品两次降价，价保要这么提",
+      "content": "买完第八天降了两百，第十五天又降一百。价保规则写的是下单后十五天内可申请，但要点进订单页手动提交。\n第一次我直接找客服，对方说活动价不参与价保。我把商品页的价保说明截图发过去，说明里没排除活动价，第二天补了两百。\n第二次是第十六天，超了一天。客服说不行，我也认了。\n价保这事，看规则原文，别听客服口头解释，截图比嘴快。",
+      "tags": ["消费维权"],
+      "tier": "solid",
+      "ageHours": 50,
+      "posterStyle": "kraft",
+      "posterLine": "活动价不参与价保，这句话规则里没有",
+      "insight": "价保按规则原文争，截图比口头解释有用。",
+      "structured": {
+        "pros": "流程简单，补差价快，不用退货",
+        "cons": "有天数限制，部分品类不参与",
+        "rating": 4.1,
+        "targetAudience": "大促期间下单、习惯比价的人"
+      },
+      "_topic": "价保申请",
+      "comments": [
+        { "author": "baikai", "text": "价保要在订单页提交，找客服反而慢。", "offsetMinutes": 200, "upCount": 7 }
+      ]
+    },
+    {
+      "id": "weiquan-0003",
+      "author": "dadou",
+      "genre": "pitfall",
+      "title": "修手机被换了原装屏，取机时我拍了照",
+      "content": "屏幕碎了，找楼下维修店换，报价四百五，说是原装。\n取机时我留了个心眼，当着师傅的面拍了一张屏幕亮起的照片，又拍了一张设置里的屏幕信息页。\n回家对比官网参数，发现刷新率只有六十，原装是一百二。第二天拿着照片回去，师傅改口说装的是高仿，退了两百。\n换屏要当场验两件事，刷新率和原彩显示，两个都能在设置里看到。",
+      "tags": ["消费维权", "手机数码"],
+      "tier": "solid",
+      "ageHours": 64,
+      "posterStyle": "film",
+      "posterLine": "刷新率只有六十，原装是一百二",
+      "insight": "换屏当场查刷新率和原彩，比听承诺可靠。",
+      "structured": {
+        "pitfallExperience": "维修店收四百五换所谓原装屏，实际是高仿，刷新率只有六十。",
+        "lossAmount": "200 元",
+        "correctApproach": "换之前问清是原装还是高仿，写进单子\n取机时当场看设置里的屏幕信息\n测刷新率和原彩显示\n拍下亮屏照片和序列号"
+      },
+      "_topic": "换屏被换成高仿",
+      "comments": [
+        { "author": "laochen", "text": "高仿屏最明显的差别是色彩和触控跟手。", "offsetMinutes": 180, "upCount": 9 }
+      ]
+    },
+    {
+      "id": "weiquan-0004",
+      "author": "keke",
+      "genre": "pitfall",
+      "title": "预付卡跑路，报警不是第一步",
+      "content": "楼下美容店办了张三千的卡，用了两次，店关门了，门口贴着一张装修通知。\n邻居们第一反应是报警，警察来了说属于消费纠纷，建议走市场监管。\n后来我们十几个人一起，带着办卡凭证、转账记录、门店照片，去市场监管所登记。两个月后老板被找到，按余额退了七成。\n报警不是没用，是先找错门了。预付卡归市场监管，人数越多越受重视。",
+      "tags": ["消费维权"],
+      "tier": "normal",
+      "ageHours": 190,
+      "posterStyle": "paper",
+      "posterLine": "门口贴着一张装修通知",
+      "insight": "预付卡跑路先找市场监管，人多比人少有用。",
+      "structured": {
+        "pitfallExperience": "三千元预付卡用了两次，门店关门，报警后被告知属消费纠纷。",
+        "lossAmount": "约 900 元",
+        "correctApproach": "先拍照留证，门店和通知都拍\n收集转账记录和卡内余额\n联合其他消费者一起去市场监管所\n登记时写清金额和时间"
+      },
+      "_topic": "预付卡跑路",
+      "comments": [
+        { "author": "tiandian", "text": "联合登记这条最关键，一个人去经常被劝回。", "offsetMinutes": 400, "upCount": 11 }
+      ]
+    },
+    {
+      "id": "weiquan-0005",
+      "author": "baikai",
+      "genre": "pitfall",
+      "title": "外卖缺了一份，平台只肯退那一份的钱",
+      "content": "点了一份三人餐，送到少了一份主食。联系客服，说可以退主食的十二块。\n问题是我用了满减，整单优惠三十，缺一份之后这单不划算了。我要求整单退，客服说系统只能按单品退。\n后来我在订单页点了食安问题反馈，附上开箱照片和称重照片，第二天整单退了。\n同样是缺件，入口不同，处理方式完全不同。",
+      "tags": ["消费维权"],
+      "tier": "normal",
+      "ageHours": 260,
+      "posterStyle": "sticky",
+      "posterLine": "用了满减，缺一份之后这单不划算了",
+      "insight": "缺件别走普通客服，走食安反馈入口。",
+      "structured": {
+        "pitfallExperience": "三人餐缺主食，客服只退单品十二块，整单满减等于白用。",
+        "lossAmount": "约 40 元",
+        "correctApproach": "开箱先拍照，餐品和包装一起拍\n不要先点确认收货\n走食安问题反馈，不走普通客服\n说明满减损失，要求整单处理"
+      },
+      "_topic": "外卖缺件赔偿",
+      "comments": [
+        { "author": "keke", "text": "确认收货之后基本没得谈了。", "offsetMinutes": 600, "upCount": 8 }
+      ]
+    },
+    {
+      "id": "weiquan-0006",
+      "author": "gongzi",
+      "genre": "pitfall",
+      "title": "装修增项不加就停工，合同里少写了一句",
+      "content": "合同写的是八万全包，开工第三周工长说水电改造不含在内，要另加两万六。\n我翻合同，报价单里确实只写了水电按实结算，没有上限。停工三天，最后谈成一万八。\n后来问律师，这种情况最有效的办法是合同里写一句，增项总额不超过合同价的百分之五，超出部分由施工方承担。\n一句话，省下八千。",
+      "tags": ["消费维权", "装修避坑"],
+      "tier": "solid",
+      "ageHours": 96,
+      "posterStyle": "paper",
+      "posterLine": "合同里只写了水电按实结算，没有上限",
+      "insight": "装修合同要写增项上限，一句话值几千。",
+      "structured": {
+        "pitfallExperience": "全包合同未写水电上限，开工后被要求追加两万六，停工三天谈到一万八。",
+        "lossAmount": "18000 元",
+        "correctApproach": "合同写明增项总额不超过合同价百分之五\n水电单独出报价单，按点位计价\n每次增项先签字再施工\n保留停工证据和沟通记录"
+      },
+      "_topic": "装修增项上限",
+      "comments": [
+        { "author": "shanshan", "text": "按点位计价最清楚，别按米算。", "offsetMinutes": 300, "upCount": 13 },
+        { "author": "dayu", "text": "我合同里写了这条，工长看完脸色变了。", "offsetMinutes": 700, "upCount": 9 }
+      ]
+    },
+    {
+      "id": "weiquan-0007",
+      "author": "tiandian",
+      "genre": "tutorial",
+      "title": "12315 投诉怎么写，我把模板拆开讲",
+      "content": "写过七封投诉，成功四封。失败的三封都栽在同一处，事实写得太长，诉求写得太虚。\n第一步写清主体，商家全称，在国家企业信用信息公示系统能查到。\n第二步写事实，按时间排，一句一件事，附证据编号。\n第三步写诉求，要具体，退多少钱、换什么、多少天内处理。\n最后附证据，订单截图、聊天记录、照片，编号和正文对应。\n别写情绪，别写长句，受理的人一天看几十份。",
+      "tags": ["消费维权"],
+      "tier": "solid",
+      "ageHours": 70,
+      "posterStyle": "kraft",
+      "posterLine": "失败的三封都栽在事实太长、诉求太虚",
+      "insight": "投诉写清主体、事实、诉求三段，证据编号对上。",
+      "structured": {
+        "tools": "订单截图\n聊天记录\n照片\n商家注册信息",
+        "steps": "查商家全称和注册地址\n按时间列事实，一句一件事\n诉求写清金额和时限\n证据编号，与正文一一对应\n提交后留受理编号",
+        "timeDifficulty": "半小时，证据齐的话更快"
+      },
+      "_topic": "12315投诉写法",
+      "comments": [
+        { "author": "gongzi", "text": "诉求写具体这条太对了，写依法处理等于没写。", "offsetMinutes": 250, "upCount": 14 }
+      ]
+    },
+    {
+      "id": "weiquan-0008",
+      "author": "baikai",
+      "genre": "tutorial",
+      "title": "快递丢件，先做这三件事再谈赔偿",
+      "content": "丢过两次件，第一次没经验，只拿到运费的三倍，十八块。第二次按流程走，赔了全款。\n第一件要做的是别急着找卖家，先找快递公司报失，拿到工单号。\n第二件是把商品价值证明准备好，订单截图、支付记录都行。\n第三件是明确告诉对方，未保价不等于不赔，邮政条例里对丢失有赔偿责任。\n三件事做完再谈金额，态度会不一样。",
+      "tags": ["消费维权"],
+      "tier": "normal",
+      "ageHours": 340,
+      "posterStyle": "paper",
+      "posterLine": "第一次只拿到运费的三倍，十八块",
+      "insight": "丢件先报失拿工单，再拿价值证明谈赔偿。",
+      "structured": {
+        "tools": "订单截图\n支付记录\n快递单号",
+        "steps": "向快递公司报失，记下工单号\n准备商品价值证明\n明确引用邮政条例的赔偿责任\n谈不拢再走申诉平台",
+        "timeDifficulty": "两三天，取决于网点响应"
+      },
+      "_topic": "快递丢件索赔",
+      "comments": [
+        { "author": "tiandian", "text": "工单号是关键，没有它后面全是被动。", "offsetMinutes": 500, "upCount": 6 }
+      ]
+    },
+    {
+      "id": "weiquan-0009",
+      "author": "dadou",
+      "genre": "debate",
+      "title": "遇到纠纷，先协商还是直接投诉",
+      "content": "我的做法是先协商，但只给一次机会。\n协商成本低，很多时候客服权限内就能解决。但同一个问题问三次还在走流程，就该换渠道了。\n直接投诉的问题是会把关系搞僵，有些商家一旦进了投诉流程，反而只按最低标准处理。\n我的判断标准是金额和证据。金额小、证据全，投诉更快。金额大、证据弱，先谈。",
+      "tags": ["消费维权"],
+      "tier": "normal",
+      "ageHours": 430,
+      "posterStyle": "film",
+      "posterLine": "同一个问题问三次还在走流程，就该换渠道",
+      "insight": "协商给一次机会，第二次还在拖就转投诉。",
+      "structured": {
+        "planA": "先协商，成本低，解决快",
+        "planB": "直接投诉，留记录，态度硬"
+      },
+      "planAVotes": 88,
+      "planBVotes": 54,
+      "_topic": "协商还是投诉",
+      "comments": [
+        { "author": "gongzi", "text": "我一般同时进行，投诉页面填着，电话也打着。", "offsetMinutes": 700, "upCount": 9 }
+      ]
+    },
+    {
+      "id": "weiquan-0010",
+      "author": "gongzi",
+      "genre": "share",
+      "title": "超市多收了两块，我回去要了",
+      "content": "小票上写着促销价九块九，收银台扫出来十一块九。出门二十米我才看见。\n回去找服务台，对方查了系统，说活动昨天结束，价签没换。退了两块，还送了一瓶水。\n我老婆说我为两块钱折腾。我说这点钱不算什么，价签没换就是他们的错。\n后来那家超市的价签换得特别勤。",
+      "tags": ["消费维权"],
+      "tier": "normal",
+      "ageHours": 410,
+      "posterStyle": "kraft",
+      "posterLine": "活动昨天结束，价签没换",
+      "insight": "价签和收银不一致，多收的部分本来就该退。",
+      "_topic": "超市价签不符",
+      "comments": [
+        { "author": "tiandian", "text": "这种事较真一次，以后他们自己会注意。", "offsetMinutes": 900, "upCount": 7 }
+      ]
+    },
+    {
+      "id": "weiquan-0011",
+      "author": "keke",
+      "genre": "share",
+      "title": "健身房退卡，我拿到了七成",
+      "content": "办了年卡，用了三个月要搬家。合同写着不退不换，我看了半天，发现没写违约金比例。\n我按剩余月份算，提出退九个月的钱，扣百分之三十违约金。对方不同意，说只能转卡。\n我把合同拍照发给市场监管的咨询电话，对方说可以按未消费部分主张。\n最后谈成退七成，签了协议。能退多少，看合同写了什么，也看你怎么谈。",
+      "tags": ["消费维权"],
+      "tier": "tail",
+      "ageHours": 540,
+      "posterStyle": "paper",
+      "posterLine": "合同没写违约金比例",
+      "insight": "合同没写违约金，就按未消费部分谈。",
+      "_topic": "健身房退卡",
+      "comments": [
+        { "author": "baikai", "text": "转卡这条路我也走过，挂了两个月没人接。", "offsetMinutes": 1200, "upCount": 4 }
+      ]
+    },
+    {
+      "id": "weiquan-0012",
+      "author": "tiandian",
+      "genre": "share",
+      "title": "保修期内被拒保，理由写在第三页",
+      "content": "耳机一边不响，送修被拒，说进液。我不记得进水，要求出示检测报告。\n报告第三页有一行小字，写着疑似进液，未拆机确认。\n我把这行拍下来，问客服疑似算不算结论。三天后同意换新。\n检测报告一定要要，很多拒保理由经不起看第二眼。",
+      "tags": ["消费维权"],
+      "tier": "tail",
+      "ageHours": 760,
+      "posterStyle": "sticky",
+      "posterLine": "疑似进液，未拆机确认",
+      "insight": "拒保要检测报告，理由往往站不住。",
+      "_topic": "保修期内拒保",
+      "comments": [
+        { "author": "dadou", "text": "未拆机确认这句是自相矛盾，抓住就行。", "offsetMinutes": 1400, "upCount": 6 }
+      ]
+    },
+    {
+      "id": "weiquan-0013",
+      "author": "dadou",
+      "genre": "share",
+      "title": "留包装盒这个习惯，救了我两次",
+      "content": "家里人都嫌我留盒子占地方。电视柜下面是手机盒、路由器盒、吸尘器盒。\n第一次派上用场是扫地机器人，用了四个月主板坏，售后要求原包装寄回。\n第二次是显示器，屏幕有亮点，退换货需要原箱和泡沫。\n盒子留一年，过了保修期再扔。占的是半个柜子，省的是几百块运费和一趟扯皮。",
+      "tags": ["消费维权"],
+      "tier": "tail",
+      "ageHours": 1100,
+      "posterStyle": "film",
+      "posterLine": "售后要求原包装寄回",
+      "insight": "大件的包装留一年，退换货时省事。",
+      "_topic": "留包装盒",
+      "comments": [
+        { "author": "mumu", "text": "我把盒子压扁塞床底，也算留了。", "offsetMinutes": 1600, "upCount": 5 }
+      ]
+    }
+  ]
+}

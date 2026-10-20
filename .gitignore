@@ -79,3 +79,6 @@ Thumbs.db
 
 # CodeGenie 工具缓存（56MB，不入库）
 .codegenie/
+
+# 冷启动造数的素材产物（300+ 张海报，约 30MB，可随时用 tools/seed-media 重渲染）
+/seed-assets/

@@ -1,0 +1,460 @@
+{
+  "schemaVersion": 1,
+  "circle": "家常菜谱",
+  "posts": [
+    {
+      "id": "caipu-0001",
+      "author": "aqi",
+      "genre": "tutorial",
+      "title": "番茄炒蛋先炒蛋还是先炒番茄，我试了十次",
+      "content": "两种做法我都试了，差别比想象中大。\n先炒蛋的版本，蛋嫩，番茄出汁后会把蛋泡软。先炒番茄的版本，番茄味更浓，蛋容易老。\n我的做法是分开炒。蛋液下锅，六成熟就盛出来，锅里留底油炒番茄，出汁后把蛋倒回去，翻两下就关火。\n关键在关火。多炒十秒，蛋就老了。\n糖放不放看番茄，酸的那种放半勺，沙瓤的不用放。",
+      "tags": [
+        "家常菜谱"
+      ],
+      "tier": "hero",
+      "ageHours": 16,
+      "posterStyle": "sticky",
+      "posterLine": "多炒十秒，蛋就老了",
+      "insight": "蛋和番茄分开炒，回锅翻两下就关火。",
+      "structured": {
+        "tools": "炒锅\n两个碗\n锅铲",
+        "steps": "蛋液打散，加一小勺水\n热锅凉油，蛋液下锅六成熟盛出\n底油炒番茄，压出汁\n蛋倒回锅里翻两下\n关火，撒盐，装盘",
+        "timeDifficulty": "十分钟，火要大"
+      },
+      "_topic": "番茄炒蛋顺序",
+      "comments": [
+        {
+          "author": "sanpang",
+          "text": "加一小勺水这招我学到了，蛋确实更嫩。",
+          "offsetMinutes": 100,
+          "upCount": 18
+        },
+        {
+          "author": "tutuma",
+          "text": "我家孩子只吃蛋不吃番茄，我都是分开盛。",
+          "offsetMinutes": 300,
+          "upCount": 7
+        }
+      ]
+    },
+    {
+      "id": "caipu-0002",
+      "author": "sanpang",
+      "genre": "review",
+      "title": "同一口锅煎鱼，粘不粘在预热",
+      "content": "用了三年的铁锅，煎鱼有时候完整，有时候破皮。后来发现差别只有一个，锅够不够热。\n方法是空锅烧到冒青烟，倒油，转一圈让油铺满，等十秒再下鱼。下锅后别动，煎够三分钟再翻。\n急着翻是最容易破的，鱼皮还没定型就动，肯定粘。\n还有一条，鱼下锅前用厨房纸把表面水分吸干，带水下锅会炸油，也容易粘。",
+      "tags": [
+        "家常菜谱"
+      ],
+      "tier": "solid",
+      "ageHours": 42,
+      "posterStyle": "kraft",
+      "posterLine": "空锅烧到冒青烟，倒油，等十秒再下鱼",
+      "insight": "煎鱼不粘靠锅温，靠耐心，不靠不粘锅。",
+      "structured": {
+        "pros": "铁锅耐造，煎出来有焦香",
+        "cons": "要养锅，洗完必须烘干",
+        "rating": 4.4,
+        "targetAudience": "常做鱼、愿意养锅的人"
+      },
+      "_topic": "铁锅煎鱼",
+      "comments": [
+        {
+          "author": "guoguo",
+          "text": "吸干水分这条最关键，我炸过一次油。",
+          "offsetMinutes": 200,
+          "upCount": 9
+        }
+      ]
+    },
+    {
+      "id": "caipu-0003",
+      "author": "xiaoyugan",
+      "genre": "review",
+      "title": "电饭锅做蛋糕，翻车三次之后总结",
+      "content": "第一次没打发蛋白，做出来是块饼。第二次打发过头，塌了。第三次没刷油，粘锅底。\n第四次成功，关键有三点。蛋白打到提起有直立小尖。蛋黄糊和蛋白翻拌，别画圈。锅底刷油，别刷太多。\n还有一个隐藏条件，电饭锅的功率不一样，跳闸时间差很多。我第一次跳闸就开盖，直接塌。要焖十分钟再开。\n味道比不上烤箱，但胜在不用买设备。",
+      "tags": [
+        "家常菜谱"
+      ],
+      "tier": "solid",
+      "ageHours": 92,
+      "posterStyle": "paper",
+      "posterLine": "第一次跳闸就开盖，直接塌",
+      "insight": "电饭锅蛋糕成败在蛋白和焖，不在配方。",
+      "structured": {
+        "pros": "不用烤箱，材料简单，孩子爱吃",
+        "cons": "口感偏湿，功率不同时间难控",
+        "rating": 3.7,
+        "targetAudience": "没有烤箱、想给孩子做点心的人"
+      },
+      "_topic": "电饭锅蛋糕",
+      "comments": [
+        {
+          "author": "aqi",
+          "text": "焖十分钟这条我不知道，难怪我每次都塌。",
+          "offsetMinutes": 400,
+          "upCount": 11
+        }
+      ]
+    },
+    {
+      "id": "caipu-0004",
+      "author": "guoguo",
+      "genre": "review",
+      "title": "卤味做多了挂出去卖，说说成本",
+      "content": "一锅卤水，五斤鸡爪，两斤豆干。鸡爪批发十四一斤，豆干六块。香料一次配四十块，能用三次。\n燃气、包装、真空袋，摊到每份大概两块。定价二十五一份，毛利一半左右。\n听起来不错，实际做起来累。清洗鸡爪最费时间，两斤要剪四十分钟。\n卖得最好的是周末，工作日基本没人下单。做副业的话，先算清楚自己的时间值多少钱。",
+      "tags": [
+        "家常菜谱",
+        "副业探索"
+      ],
+      "tier": "normal",
+      "ageHours": 200,
+      "posterStyle": "kraft",
+      "posterLine": "清洗鸡爪最费时间，两斤要剪四十分钟",
+      "insight": "卤味毛利不低，时间成本才是真成本。",
+      "structured": {
+        "pros": "毛利约一半，回头客稳定",
+        "cons": "清洗耗时，保质期短，只能周末卖",
+        "rating": 3.9,
+        "targetAudience": "想试水小副业、有厨房空闲的人"
+      },
+      "_topic": "卤味副业成本",
+      "comments": [
+        {
+          "author": "keke",
+          "text": "时间成本这块太真实了，我算过一次就放弃了。",
+          "offsetMinutes": 500,
+          "upCount": 8
+        }
+      ]
+    },
+    {
+      "id": "caipu-0005",
+      "author": "tutuma",
+      "genre": "pitfall",
+      "title": "煮饺子破皮，是水开下锅的错",
+      "content": "我一直水开下饺子，破皮率三成。后来问了开饺子馆的亲戚，他说冻饺子要温水下锅。\n水温大概六十度，锅底冒小泡的时候下，饺子皮慢慢化冻，不容易裂。\n下锅后用勺背推一圈，别让它们粘底。水开后点两次凉水，每次半碗。\n现包的饺子才用开水下。冻的直接扔进滚水，皮一紧一涨，就破了。",
+      "tags": [
+        "家常菜谱"
+      ],
+      "tier": "solid",
+      "ageHours": 62,
+      "posterStyle": "paper",
+      "posterLine": "冻饺子要温水下锅，六十度左右",
+      "insight": "冻饺子温水下，现包饺子开水下。",
+      "structured": {
+        "pitfallExperience": "冻饺子滚水下锅，破皮率三成，馅都漏在汤里。",
+        "lossAmount": "一锅饺子",
+        "correctApproach": "冻饺子等锅底冒小泡再下\n下锅用勺背推一圈防粘\n水开点两次凉水，每次半碗\n现包的才用滚水"
+      },
+      "_topic": "煮饺子破皮",
+      "comments": [
+        {
+          "author": "chengzi",
+          "text": "点凉水这个我奶奶也这么做。",
+          "offsetMinutes": 200,
+          "upCount": 6
+        }
+      ]
+    },
+    {
+      "id": "caipu-0006",
+      "author": "chengzi",
+      "genre": "pitfall",
+      "title": "炖牛肉两小时不烂，问题在切块时间",
+      "content": "买了牛腩，炖了两个小时还是硬的。查了才知道，我切得太小，肉的水分在炖的过程中全跑了。\n牛腩要切大块，五厘米见方，炖完会缩。切好之后冷水下锅焯，撇掉浮沫，再用温水冲。\n炖的时候水要一次加够，中途加水会让肉收紧。盐最后半小时放，早放也柴。\n改了大块和晚放盐，一个半小时就软了。",
+      "tags": [
+        "家常菜谱"
+      ],
+      "tier": "normal",
+      "ageHours": 260,
+      "posterStyle": "sticky",
+      "posterLine": "切得太小，水分全跑了",
+      "insight": "牛腩切大块，水一次加够，盐最后放。",
+      "structured": {
+        "pitfallExperience": "牛腩切太小，炖两小时仍发柴，中途还加过凉水。",
+        "lossAmount": "两斤牛腩",
+        "correctApproach": "切五厘米见方的大块\n冷水下锅焯，温水冲净\n一次加够热水\n盐在最后半小时放"
+      },
+      "_topic": "炖牛肉发柴",
+      "comments": [
+        {
+          "author": "sanpang",
+          "text": "中途加水这条我常犯，难怪肉总是紧的。",
+          "offsetMinutes": 500,
+          "upCount": 7
+        }
+      ]
+    },
+    {
+      "id": "caipu-0007",
+      "author": "aqi",
+      "genre": "pitfall",
+      "title": "不粘锅用了半年掉涂层，是我刷锅的方式",
+      "content": "锅是好锅，两百多。半年后锅底开始有划痕，涂层一块块掉。\n回想一下，我每次都用钢丝球刷，还趁热刷。这两件事都是涂层杀手。\n正确做法是等锅凉了再洗，用海绵或者软布，有焦痕就温水泡十分钟。\n还有一点，不粘锅不能空烧，也不能炒带硬壳的东西，螃蟹和蛤蜊都算。",
+      "tags": [
+        "家常菜谱"
+      ],
+      "tier": "normal",
+      "ageHours": 340,
+      "posterStyle": "film",
+      "posterLine": "钢丝球加趁热刷，两件事都是涂层杀手",
+      "insight": "不粘锅凉了再洗，用软布不用钢丝球。",
+      "structured": {
+        "pitfallExperience": "用钢丝球趁热刷锅，半年涂层脱落，锅报废。",
+        "lossAmount": "220 元",
+        "correctApproach": "等锅完全冷却再洗\n用海绵或软布\n焦痕用温水泡十分钟\n不空烧，不炒硬壳食材"
+      },
+      "_topic": "不粘锅涂层",
+      "comments": [
+        {
+          "author": "tutuma",
+          "text": "趁热刷这个习惯我也有，明天开始改。",
+          "offsetMinutes": 600,
+          "upCount": 5
+        }
+      ]
+    },
+    {
+      "id": "caipu-0008",
+      "author": "xiaoyugan",
+      "genre": "tutorial",
+      "title": "一周备菜，两小时处理五天晚饭",
+      "content": "下班做饭最费的不是炒，是洗和切。我改成周日晚上集中处理。\n肉类分装，按一顿的量装袋，加调料腌好冻起来，吃之前提前一晚放冷藏。\n蔬菜分两种。耐放的洗干净切好，装保鲜盒。叶菜不洗，用厨房纸包住放保鲜袋，能多放三天。\n葱姜蒜一次切好，冷冻，用的时候直接抓。\n两小时能处理五天的量，工作日回家二十分钟能上桌。",
+      "tags": [
+        "家常菜谱"
+      ],
+      "tier": "solid",
+      "ageHours": 70,
+      "posterStyle": "kraft",
+      "posterLine": "下班做饭最费的不是炒，是洗和切",
+      "insight": "备菜备的是洗切和腌制，不是把菜做熟。",
+      "structured": {
+        "tools": "保鲜盒五个\n密封袋\n厨房纸\n标签贴",
+        "steps": "肉类按顿分装，加调料腌好冷冻\n耐放蔬菜洗净切好装盒\n叶菜不洗，厨房纸包住装袋\n葱姜蒜切好冷冻\n每盒贴日期，先吃早的",
+        "timeDifficulty": "两小时，处理五天"
+      },
+      "_topic": "一周备菜",
+      "comments": [
+        {
+          "author": "banbei",
+          "text": "叶菜不洗这条救了我，以前洗完两天就烂。",
+          "offsetMinutes": 300,
+          "upCount": 12
+        }
+      ]
+    },
+    {
+      "id": "caipu-0009",
+      "author": "sanpang",
+      "genre": "tutorial",
+      "title": "炒青菜不出水，火和锅要先到位",
+      "content": "青菜下锅就出水，炒完一盘汤，是火不够大。\n锅要烧到冒烟，油下去立刻下菜，全程大火，翻炒不超过两分钟。\n菜要沥干，洗完甩两下不够，最好用沙拉脱水器甩一遍。带水下锅，温度立刻掉。\n盐最后放，早放会出水。出锅前淋一点油，颜色亮。\n家里火小的话，一次少炒点，分两次。",
+      "tags": [
+        "家常菜谱"
+      ],
+      "tier": "normal",
+      "ageHours": 380,
+      "posterStyle": "paper",
+      "posterLine": "带水下锅，温度立刻掉",
+      "insight": "青菜不出水靠大火、沥干、晚放盐。",
+      "structured": {
+        "tools": "炒锅\n沙拉脱水器\n锅铲",
+        "steps": "青菜洗净后用脱水器甩干\n锅烧到冒烟再下油\n全程大火，两分钟内出锅\n盐在出锅前放\n装盘前淋一点熟油",
+        "timeDifficulty": "五分钟，火候是关键"
+      },
+      "_topic": "炒青菜出水",
+      "comments": [
+        {
+          "author": "aqi",
+          "text": "分两次炒这招对小火家庭太实用了。",
+          "offsetMinutes": 700,
+          "upCount": 6
+        }
+      ]
+    },
+    {
+      "id": "caipu-0010",
+      "author": "guoguo",
+      "genre": "tutorial",
+      "title": "卤蛋入味，靠泡不靠煮",
+      "content": "卤蛋煮久了会老，蛋白发硬。入味靠的是泡。\n鸡蛋冷水下锅，水开煮八分钟，捞出来过凉水，剥壳。\n卤水烧开，关火，把蛋放进去，泡一夜。想快一点，用刀在蛋上划两刀，泡四小时。\n卤水可以反复用，每次补点酱油和香料，越用越香。但夏天要每天烧开一次，不然会坏。",
+      "tags": [
+        "家常菜谱"
+      ],
+      "tier": "normal",
+      "ageHours": 415,
+      "posterStyle": "sticky",
+      "posterLine": "卤蛋煮久了会老，入味靠的是泡",
+      "insight": "蛋煮八分钟，泡一夜，比煮两小时入味。",
+      "structured": {
+        "tools": "小锅\n卤水\n保鲜盒",
+        "steps": "鸡蛋冷水下锅，水开煮八分钟\n捞出过凉水，剥壳\n卤水烧开关火\n蛋放入卤水，泡一夜\n卤水每次用完烧开保存",
+        "timeDifficulty": "煮八分钟，泡一夜"
+      },
+      "_topic": "卤蛋入味",
+      "comments": [
+        {
+          "author": "chengzi",
+          "text": "划两刀这招快，我中午做晚上就能吃。",
+          "offsetMinutes": 800,
+          "upCount": 4
+        }
+      ]
+    },
+    {
+      "id": "caipu-0011",
+      "author": "tutuma",
+      "genre": "debate",
+      "title": "做饭要不要买空气炸锅",
+      "content": "我家那台用了两年，出场率一周三次。烤鸡翅、热剩菜、复热油条都好用。\n反对的理由也成立。容量小，四口人做饭不够。做出来的东西偏干，蔬菜尤其明显。占台面。\n我的看法是看家庭人数。两个人以内，它是主力。四口人，它只能当辅助。\n买之前先想清楚，你是想少油，还是想省时间。",
+      "tags": [
+        "家常菜谱",
+        "家电选购"
+      ],
+      "tier": "solid",
+      "ageHours": 120,
+      "posterStyle": "film",
+      "posterLine": "两个人以内它是主力，四口人只能当辅助",
+      "insight": "空气炸锅按人数决定是主力还是辅助。",
+      "structured": {
+        "planA": "买，复热和烤制都省事",
+        "planB": "不买，烤箱和炒锅够用"
+      },
+      "planAVotes": 104,
+      "planBVotes": 38,
+      "_topic": "空气炸锅必要性",
+      "comments": [
+        {
+          "author": "guoguo",
+          "text": "复热油条这条我认，比微波炉强太多。",
+          "offsetMinutes": 400,
+          "upCount": 9
+        }
+      ]
+    },
+    {
+      "id": "caipu-0012",
+      "author": "chengzi",
+      "genre": "share",
+      "title": "一个人吃饭，也要摆盘",
+      "content": "一个人住第三年，最开始的晚饭是站着吃的，锅直接端上桌。\n后来买了个深盘，把菜盛出来，摆一双筷子，坐下来吃。\n变化很小，但吃饭这件事变得像一件事了。以前十分钟解决，现在会花二十分钟。\n碗还是要洗的，多洗一个盘子。值。",
+      "tags": [
+        "家常菜谱"
+      ],
+      "tier": "normal",
+      "ageHours": 425,
+      "posterStyle": "paper",
+      "posterLine": "最开始的晚饭是站着吃的",
+      "insight": "摆盘不是给别人看，是让自己坐下来。",
+      "_topic": "一个人吃饭",
+      "comments": [
+        {
+          "author": "aqi",
+          "text": "我也这样，一个盘子一双筷子，吃完心情不一样。",
+          "offsetMinutes": 900,
+          "upCount": 7
+        }
+      ]
+    },
+    {
+      "id": "caipu-0013",
+      "author": "aqi",
+      "genre": "share",
+      "title": "孩子不吃青菜，我把菜剁进肉里",
+      "content": "三岁的侄子来家里住，青菜一口不碰。炒、煮、凉拌，全失败。\n后来把菠菜焯水剁碎，混进肉馅里做丸子，他吃了六个。\n第二次换成胡萝卜，擦成细丝混进蛋饼，也没被发现。\n这算不上骗他，只是先让他接受味道，再慢慢告诉他里面有什么。现在他能吃整根的菜心了。",
+      "tags": [
+        "家常菜谱",
+        "育儿经验"
+      ],
+      "tier": "tail",
+      "ageHours": 540,
+      "posterStyle": "kraft",
+      "posterLine": "菠菜焯水剁碎，混进肉馅做丸子",
+      "insight": "让孩子吃菜，先解决口感，再解决认知。",
+      "_topic": "孩子不吃青菜",
+      "comments": [
+        {
+          "author": "tutuma",
+          "text": "胡萝卜擦丝混蛋饼这招我明天就试。",
+          "offsetMinutes": 1000,
+          "upCount": 8
+        }
+      ]
+    },
+    {
+      "id": "caipu-0014",
+      "author": "xiaoyugan",
+      "genre": "share",
+      "title": "猫跳上灶台，那顿饭没做成",
+      "content": "煎鱼的时候转身拿了个盘子，回头看见猫已经蹲在灶台边上，尾巴离火十厘米。\n我一把把它抱下来，锅里的鱼糊了，油溅到手腕上。\n后来在灶台边贴了双面胶，猫不喜欢那个触感，就不跳了。\n那顿饭最后吃了泡面，猫在边上看着我。",
+      "tags": [
+        "家常菜谱",
+        "养猫养狗"
+      ],
+      "tier": "tail",
+      "ageHours": 700,
+      "posterStyle": "sticky",
+      "posterLine": "尾巴离火十厘米",
+      "insight": "养猫的家庭，灶台边最好贴点它不喜欢的东西。",
+      "_topic": "猫上灶台",
+      "comments": [
+        {
+          "author": "lulu",
+          "text": "双面胶这招好，我家猫也爱跳。",
+          "offsetMinutes": 1200,
+          "upCount": 5
+        }
+      ]
+    },
+    {
+      "id": "caipu-0015",
+      "author": "sanpang",
+      "genre": "share",
+      "title": "减脂餐吃了三个月，最想念的是油",
+      "content": "水煮鸡胸、蒸西兰花、糙米饭，吃了三个月，体重掉了十一斤。\n第四个月开始崩，晚上想吃炒饭，想到睡不着。\n后来改成每周吃一次正常的饭，油盐都不忌，反而坚持下来了。\n减脂这件事，能长期吃的才叫方案，撑三个月的叫忍耐。",
+      "tags": [
+        "家常菜谱",
+        "健康习惯"
+      ],
+      "tier": "tail",
+      "ageHours": 900,
+      "posterStyle": "paper",
+      "posterLine": "晚上想吃炒饭，想到睡不着",
+      "insight": "能长期吃的才叫方案。",
+      "_topic": "减脂餐坚持",
+      "comments": [
+        {
+          "author": "yueban",
+          "text": "每周一次放纵餐，我也是这么撑过来的。",
+          "offsetMinutes": 1400,
+          "upCount": 6
+        }
+      ]
+    },
+    {
+      "id": "caipu-0016",
+      "author": "chengzi",
+      "genre": "share",
+      "title": "外婆的红烧肉，我复刻了七年",
+      "content": "外婆做红烧肉不放水，只用黄酒，一斤肉半瓶酒，小火炖两小时。\n我按她的说法做了七年，味道总差一点。去年才想明白，差的是她那口用了三十年的砂锅。\n锅壁吸满了油，烧热之后有一种说不清的味道。我买了个新砂锅，做了十几次，慢慢也有了一点。\n有些菜谱写不下来，得靠时间养。",
+      "tags": [
+        "家常菜谱"
+      ],
+      "tier": "tail",
+      "ageHours": 1200,
+      "posterStyle": "kraft",
+      "posterLine": "一斤肉半瓶酒，小火炖两小时",
+      "insight": "老锅的味道，是新锅养不出来的时间。",
+      "_topic": "复刻外婆红烧肉",
+      "comments": [
+        {
+          "author": "guoguo",
+          "text": "砂锅这个东西，真的是越用越香。",
+          "offsetMinutes": 1600,
+          "upCount": 7
+        }
+      ]
+    }
+  ]
+}

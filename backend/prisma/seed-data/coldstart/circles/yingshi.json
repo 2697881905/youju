@@ -1,0 +1,261 @@
+{
+  "schemaVersion": 1,
+  "circle": "影视剧集",
+  "posts": [
+    {
+      "id": "yingshi-0001",
+      "author": "didi",
+      "genre": "review",
+      "title": "看剧不开倍速，一年只看六部",
+      "content": "朋友一年看四十部，我一年六部，他们都笑我。\n不开倍速的代价是时间，一部剧十小时。所以我挑得很狠，前三集抓不住就弃。\n好处是看完能记住人物名字和细节，聊起来有话可说。\n去年那六部里，有两部我后来又看了一遍。\n看得少，才看得进去。",
+      "tags": ["影视剧集"],
+      "tier": "solid",
+      "ageHours": 36,
+      "posterStyle": "paper",
+      "posterLine": "前三集抓不住就弃",
+      "insight": "看得少，才记得住。",
+      "structured": {
+        "pros": "记得住细节，观感完整，不浪费时间",
+        "cons": "跟不上话题，社交上会错过热点",
+        "rating": 4.2,
+        "targetAudience": "时间少、想认真看剧的人"
+      },
+      "_topic": "不开倍速看剧",
+      "comments": [
+        { "author": "qiyue", "text": "前三集抓不住就弃，这个标准很实用。", "offsetMinutes": 150, "upCount": 14 },
+        { "author": "mocha", "text": "我一年也只看七八部，不倍速。", "offsetMinutes": 400, "upCount": 6 }
+      ]
+    },
+    {
+      "id": "yingshi-0002",
+      "author": "qiyue",
+      "genre": "review",
+      "title": "追完一部烂剧，比弃剧更难受",
+      "content": "有部剧前十集很好，后面开始注水，人物动机全崩。\n我抱着都看到这了的心态看完，最后一集看完坐在那儿生闷气。\n后来我给自己定了个规矩，看到一半觉得不对就走，不欠它一个结局。\n沉没成本这件事，追剧最容易犯。",
+      "tags": ["影视剧集"],
+      "tier": "normal",
+      "ageHours": 195,
+      "posterStyle": "kraft",
+      "posterLine": "抱着都看到这了的心态看完",
+      "insight": "看到一半不对就走，不欠剧一个结局。",
+      "structured": {
+        "pros": "省时间，心情不被烂尾毁掉",
+        "cons": "可能错过后期翻盘的作品",
+        "rating": 4.0,
+        "targetAudience": "容易弃不掉、被烂尾气到的人"
+      },
+      "_topic": "弃剧",
+      "comments": [
+        { "author": "chenxi", "text": "最后一集看完生闷气，这个我太懂了。", "offsetMinutes": 300, "upCount": 9 }
+      ]
+    },
+    {
+      "id": "yingshi-0003",
+      "author": "chenxi",
+      "genre": "review",
+      "title": "老片重看，看的是自己变了没有",
+      "content": "十年前喜欢的电影，今年重看，感受完全不一样。\n当年觉得主角很酷，现在觉得他不负责任。当年忽略的那个配角，现在成了我最喜欢的角色。\n片子没变，一帧都没变。\n所以我现在会隔几年重看一次，当成给自己做个体检。",
+      "tags": ["影视剧集"],
+      "tier": "normal",
+      "ageHours": 300,
+      "posterStyle": "film",
+      "posterLine": "片子没变，一帧都没变",
+      "insight": "重看老片，是在检查自己变了多少。",
+      "structured": {
+        "pros": "能看到自己的变化，不用找新片",
+        "cons": "有些片子经不起重看，会失望",
+        "rating": 4.4,
+        "targetAudience": "有固定喜欢的片子、愿意重看的人"
+      },
+      "_topic": "重看老片",
+      "comments": [
+        { "author": "linjian", "text": "给自己做体检这个比喻很好。", "offsetMinutes": 500, "upCount": 7 }
+      ]
+    },
+    {
+      "id": "yingshi-0004",
+      "author": "mocha",
+      "genre": "pitfall",
+      "title": "被预告片骗进影院，三次",
+      "content": "第一次是科幻片，预告里的爆炸场面正片只有五分钟。第二次是悬疑片，预告把所有反转都剪进去了。第三次是喜剧，好笑的都在预告里。\n现在我有个规矩，预告片只看前三十秒，剩下的关掉。\n还有一个办法，等上映三天后看评分和评论数量，太少的先不去。",
+      "tags": ["影视剧集"],
+      "tier": "solid",
+      "ageHours": 64,
+      "posterStyle": "sticky",
+      "posterLine": "好笑的都在预告里",
+      "insight": "预告只看前三十秒，剩下的会剧透也会骗人。",
+      "structured": {
+        "pitfallExperience": "三次被预告片吸引进影院，正片内容与预告严重不符。",
+        "lossAmount": "三张电影票",
+        "correctApproach": "预告只看前三十秒\n等上映三天看评分\n注意评论数量是否足够\n避开首日营销场"
+      },
+      "_topic": "预告片陷阱",
+      "comments": [
+        { "author": "didi", "text": "好笑的都在预告里，这条太常见了。", "offsetMinutes": 200, "upCount": 8 }
+      ]
+    },
+    {
+      "id": "yingshi-0005",
+      "author": "linjian",
+      "genre": "tutorial",
+      "title": "想认真看一部电影，先做三件事",
+      "content": "第一，把手机放到另一个房间。不是静音，是放远。第二，选一个不困的时间，晚上十点以后看长片基本会睡。第三，先不看简介和影评。\n三件事做完，两个小时的专注度完全不一样。\n看完再去看影评，会发现很多自己漏掉的细节。\n认真看电影这件事，需要一点准备。",
+      "tags": ["影视剧集"],
+      "tier": "solid",
+      "ageHours": 92,
+      "posterStyle": "paper",
+      "posterLine": "不是静音，是放远",
+      "insight": "手机放远、选对时间、先不看简介。",
+      "structured": {
+        "tools": "一台电视或投影\n两个小时不被打扰\n一个本子",
+        "steps": "手机放到另一个房间\n选精神状态好的时段\n不看简介直接开始\n看完再读影评\n记下没看懂的段落"
+      },
+      "_topic": "认真看电影",
+      "comments": [
+        { "author": "chenxi", "text": "先不看简介这条我做不到，总想先知道讲什么。", "offsetMinutes": 300, "upCount": 7 }
+      ]
+    },
+    {
+      "id": "yingshi-0006",
+      "author": "nihao",
+      "genre": "debate",
+      "title": "剧透到底影响不影响观感",
+      "content": "有人说剧透毁一切，也有人说好作品不怕剧透。\n我的经验是分类型。悬疑和反转类的，剧透确实毁一半。人物和情绪驱动的，剧透影响不大，甚至会更注意细节。\n所以我现在会先问一句，这部是哪种。\n被剧透之后还愿意看的，多半是好作品。",
+      "tags": ["影视剧集"],
+      "tier": "normal",
+      "ageHours": 450,
+      "posterStyle": "kraft",
+      "posterLine": "被剧透之后还愿意看的，多半是好作品",
+      "insight": "悬疑怕剧透，情绪片不怕。",
+      "structured": {
+        "planA": "完全避雷，不看任何讨论",
+        "planB": "不在意，好作品不怕剧透"
+      },
+      "planAVotes": 87,
+      "planBVotes": 58,
+      "_topic": "剧透",
+      "comments": [
+        { "author": "qiyue", "text": "分类型这个判断很到位。", "offsetMinutes": 800, "upCount": 6 }
+      ]
+    },
+    {
+      "id": "yingshi-0007",
+      "author": "didi",
+      "genre": "share",
+      "title": "电影院最后一排的好处",
+      "content": "买票总选最后一排靠边，朋友不理解。\n好处有三个。视野完整，不用仰头。没人从前面走过。散场时最先出去。\n代价是屏幕显得小一点，音效偏后。\n我看电影更在意不被打扰，所以一直这么选。",
+      "tags": ["影视剧集"],
+      "tier": "normal",
+      "ageHours": 420,
+      "posterStyle": "paper",
+      "posterLine": "没人从前面走过",
+      "insight": "选座看你在意沉浸还是不被打扰。",
+      "_topic": "电影院选座",
+      "comments": [
+        { "author": "mocha", "text": "最后一排靠边，我也是这么选的。", "offsetMinutes": 800, "upCount": 5 }
+      ]
+    },
+    {
+      "id": "yingshi-0008",
+      "author": "chenxi",
+      "genre": "share",
+      "title": "陪孩子看动画，我睡着了",
+      "content": "周末带侄子看动画电影，开场二十分钟我睡着了，醒来时他已经看完一半。\n他推我说舅舅你看这个。我睁开眼，屏幕上是一只兔子在追一辆车。\n后来我认真看了一遍，发现故事其实挺好，讲的是告别。\n孩子看的是热闹，我看的是告别。",
+      "tags": ["影视剧集", "育儿经验"],
+      "tier": "normal",
+      "ageHours": 415,
+      "posterStyle": "film",
+      "posterLine": "屏幕上是一只兔子在追一辆车",
+      "insight": "同一部动画，孩子看热闹，大人看告别。",
+      "_topic": "陪看动画",
+      "comments": [
+        { "author": "nihao", "text": "孩子看热闹大人看告别，这句很准。", "offsetMinutes": 800, "upCount": 7 }
+      ]
+    },
+    {
+      "id": "yingshi-0009",
+      "author": "qiyue",
+      "genre": "share",
+      "title": "一部剧看完，我在阳台站了半小时",
+      "content": "结局是主角一个人搬走了，镜头停在一间空房子里。\n看完我关了电视，去阳台站着。楼下有人在遛狗，远处有车灯。\n不是难过，是那种被故事掏空之后的感觉。\n第二天照常上班，但一整天都在想那个空镜头。",
+      "tags": ["影视剧集"],
+      "tier": "tail",
+      "ageHours": 530,
+      "posterStyle": "kraft",
+      "posterLine": "镜头停在一间空房子里",
+      "insight": "好剧的结尾，会在身体里待一阵。",
+      "_topic": "被剧掏空",
+      "comments": [
+        { "author": "didi", "text": "被故事掏空这个感觉，我懂。", "offsetMinutes": 1000, "upCount": 8 }
+      ]
+    },
+    {
+      "id": "yingshi-0010",
+      "author": "mocha",
+      "genre": "share",
+      "title": "字幕组的一句话，我记了十年",
+      "content": "十年前看一部外国电影，字幕在某句台词下面加了一行小字，大意是这句原文有双关，中文译不出来。\n那行小字让我第一次意识到，翻译是一件会丢失东西的事。\n后来我看片会留意字幕，遇到特别好的翻译会截图。\n现在机器翻译很快，但那种愿意多写一行解释的人少了。",
+      "tags": ["影视剧集"],
+      "tier": "tail",
+      "ageHours": 690,
+      "posterStyle": "paper",
+      "posterLine": "这句原文有双关，中文译不出来",
+      "insight": "好的字幕，会告诉你它丢了什么。",
+      "_topic": "字幕翻译",
+      "comments": [
+        { "author": "linjian", "text": "愿意多写一行解释的人，确实少了。", "offsetMinutes": 1200, "upCount": 7 }
+      ]
+    },
+    {
+      "id": "yingshi-0011",
+      "author": "linjian",
+      "genre": "share",
+      "title": "在县城影院看了一场只有五个人的电影",
+      "content": "回老家，县城影院只有两个厅，票价比大城市便宜一半。\n那场是工作日下午，加上我一共五个人，其中两个中途走了。\n音响有点破，座椅是旧的，但屏幕很亮。\n散场时工作人员在门口打哈欠，问我好看吗。我说好看。他说那就行。",
+      "tags": ["影视剧集", "旅行出行"],
+      "tier": "tail",
+      "ageHours": 880,
+      "posterStyle": "film",
+      "posterLine": "工作人员在门口打哈欠，问我好看吗",
+      "insight": "小影院的一场电影，比大片更记得住。",
+      "_topic": "县城影院",
+      "comments": [
+        { "author": "yeye", "text": "说那就行，这句很有人情味。", "offsetMinutes": 1400, "upCount": 6 }
+      ]
+    },
+    {
+      "id": "yingshi-0012",
+      "author": "nihao",
+      "genre": "share",
+      "title": "和我妈一起看老电视剧",
+      "content": "我妈爱看九十年代的家庭剧，重播了多少遍都看。\n有次我陪她看，她一边看一边说这个演员后来不演了，那场戏是在哪个厂拍的。\n我这才知道，她看的不是剧情，是自己的年轻时候。\n后来我主动陪她看，她讲得比电视有意思。",
+      "tags": ["影视剧集", "婚姻与家庭"],
+      "tier": "tail",
+      "ageHours": 1120,
+      "posterStyle": "kraft",
+      "posterLine": "她看的不是剧情，是自己的年轻时候",
+      "insight": "老人重看老剧，看的是自己的年代。",
+      "_topic": "陪妈妈看老剧",
+      "comments": [
+        { "author": "qiyue", "text": "她讲得比电视有意思，这句很有画面。", "offsetMinutes": 1600, "upCount": 7 }
+      ]
+    },
+    {
+      "id": "yingshi-0013",
+      "author": "didi",
+      "genre": "share",
+      "title": "我把一部电影看了七遍",
+      "content": "第一次看是大学，觉得闷。第二次是工作后，看懂了主角的疲惫。第五次是失恋那年，哭了。\n第七次是上个月，一个人在客厅，看完去煮了碗面。\n每次看注意的地方都不一样，第一次看剧情，后来看背景里的路人，看窗外的天气。\n有些片子像老朋友，隔几年要见一次。",
+      "tags": ["影视剧集"],
+      "tier": "tail",
+      "ageHours": 1400,
+      "posterStyle": "paper",
+      "posterLine": "看完去煮了碗面",
+      "insight": "同一部片子，每次都看到不同的东西。",
+      "_topic": "看七遍的电影",
+      "comments": [
+        { "author": "chenxi", "text": "看背景里的路人，这个阶段我也有过。", "offsetMinutes": 1800, "upCount": 6 }
+      ]
+    }
+  ]
+}

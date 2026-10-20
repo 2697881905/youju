@@ -1,0 +1,373 @@
+{
+  "schemaVersion": 1,
+  "circle": "记账储蓄",
+  "posts": [
+    {
+      "id": "jizhang-0001",
+      "author": "keke",
+      "genre": "review",
+      "title": "记了六年账，最后只留三个分类",
+      "content": "刚开始记了三十多个分类，咖啡、奶茶、打车、外卖、零食，分得很细。三个月后放弃了，太麻烦。\n现在只留三个，固定支出、日常生活、意外支出。固定支出包括房租水电和订阅，日常生活是吃穿行，意外是医疗和维修。\n每月月底看一次，只看一件事，日常生活有没有超。\n记太细的账，最后都在记给别人看。",
+      "tags": [
+        "记账储蓄"
+      ],
+      "tier": "solid",
+      "ageHours": 36,
+      "posterStyle": "paper",
+      "posterLine": "记太细的账，最后都在记给别人看",
+      "insight": "分类越少越能坚持，只看一类超没超。",
+      "structured": {
+        "pros": "坚持得下来，一眼看出问题",
+        "cons": "看不到细节，想优化时缺少颗粒",
+        "rating": 4.5,
+        "targetAudience": "记账失败过、想重新开始的人"
+      },
+      "_topic": "记账分类简化",
+      "comments": [
+        {
+          "author": "banbei",
+          "text": "三个分类这个我有共鸣，我之前设了二十多个，两周就废了。",
+          "offsetMinutes": 150,
+          "upCount": 16
+        },
+        {
+          "author": "baikai",
+          "text": "想看细节的时候怎么办，我偶尔会单独记一个月。",
+          "offsetMinutes": 400,
+          "upCount": 7
+        }
+      ]
+    },
+    {
+      "id": "jizhang-0002",
+      "author": "baikai",
+      "genre": "review",
+      "title": "自动转存这件事，我做晚了三年",
+      "content": "以前的做法是月底看剩多少，剩下的存起来。结果每个月都剩不下。\n后来改成工资到账当天，自动转走三成到另一张卡，那张卡不绑支付。\n一年下来存了四万多，比之前三年加起来还多。\n钱不是省出来的，是先藏起来再花剩下的。顺序反了，永远存不下。",
+      "tags": [
+        "记账储蓄"
+      ],
+      "tier": "normal",
+      "ageHours": 200,
+      "posterStyle": "kraft",
+      "posterLine": "剩下的存起来，结果每个月都剩不下",
+      "insight": "先转走再花，比月底存余额有效。",
+      "structured": {
+        "pros": "执行成本低，一年能存下三成收入",
+        "cons": "现金流变紧，突发支出要提前留",
+        "rating": 4.7,
+        "targetAudience": "月光、存不下钱的人"
+      },
+      "_topic": "自动转存",
+      "comments": [
+        {
+          "author": "xiaobei",
+          "text": "不绑支付这条是关键，绑了就会忍不住。",
+          "offsetMinutes": 300,
+          "upCount": 13
+        }
+      ]
+    },
+    {
+      "id": "jizhang-0003",
+      "author": "xiaobei",
+      "genre": "pitfall",
+      "title": "花呗分期看着免息，实际多付了两百",
+      "content": "买手机分了十二期，页面写免息。我算了算每月还款，觉得没问题。\n后来对上账单才发现，有一笔手续费在首期扣，还有一笔服务费每月几块。加起来两百出头。\n所谓免息，免的是利息，收的是手续费。\n分期之前点开费用明细，看总还款额，别只看每期多少。",
+      "tags": [
+        "记账储蓄",
+        "消费维权"
+      ],
+      "tier": "solid",
+      "ageHours": 60,
+      "posterStyle": "film",
+      "posterLine": "免的是利息，收的是手续费",
+      "insight": "分期看总还款额，不看每期金额。",
+      "structured": {
+        "pitfallExperience": "十二期免息分期，实际被收手续费和服务费两百多。",
+        "lossAmount": "约 220 元",
+        "correctApproach": "点开费用明细看总还款额\n把总还款额和原价比一次\n注意首期是否有额外扣费\n能一次付就别分期"
+      },
+      "_topic": "分期手续费",
+      "comments": [
+        {
+          "author": "tiandian",
+          "text": "首期扣费这条最容易漏。",
+          "offsetMinutes": 200,
+          "upCount": 9
+        }
+      ]
+    },
+    {
+      "id": "jizhang-0004",
+      "author": "tiandian",
+      "genre": "pitfall",
+      "title": "记账记到一半放弃，问题在记得太细",
+      "content": "我试过三次记账，最长坚持了两个月。\n每次放弃的原因都一样，一笔一笔手动记太累。买瓶水也要记，记到后面看到记录就烦。\n后来改成只记超过五十的支出，小额不管。月底看总数，误差不到一百。\n记账的目的是知道钱去哪了，不是做审计。",
+      "tags": [
+        "记账储蓄"
+      ],
+      "tier": "normal",
+      "ageHours": 270,
+      "posterStyle": "paper",
+      "posterLine": "买瓶水也要记，记到后面看到记录就烦",
+      "insight": "只记大额，误差可控，才能坚持下去。",
+      "structured": {
+        "pitfallExperience": "逐笔记录所有支出，两个月后放弃，三次都失败。",
+        "lossAmount": "记账习惯",
+        "correctApproach": "设一个金额门槛，只记超过门槛的\n小额用固定额度估算\n每月底看一次总数\n连续记满三个月再加细"
+      },
+      "_topic": "记账颗粒度",
+      "comments": [
+        {
+          "author": "keke",
+          "text": "设门槛这个做法很实用，我也是这么坚持下来的。",
+          "offsetMinutes": 500,
+          "upCount": 8
+        }
+      ]
+    },
+    {
+      "id": "jizhang-0005",
+      "author": "banbei",
+      "genre": "pitfall",
+      "title": "合租水电按人头分，我每月多付八十",
+      "content": "三个人合租，水电按人头平摊。我不做饭，另外两个天天在家煮。\n燃气费我每月多付八十，一年下来快一千。\n后来提出来按用量分，燃气只算做饭的人，电费按房间。他们同意了。\n合租的账，一开始说清楚比后面提出来容易。",
+      "tags": [
+        "记账储蓄",
+        "租房买房"
+      ],
+      "tier": "normal",
+      "ageHours": 350,
+      "posterStyle": "sticky",
+      "posterLine": "我不做饭，另外两个天天在家煮",
+      "insight": "合租费用按用途分，别默认平摊。",
+      "structured": {
+        "pitfallExperience": "合租水电按人头平摊，不做饭也分摊燃气，一年多付近一千。",
+        "lossAmount": "约 960 元",
+        "correctApproach": "入住前约定分摊规则\n燃气只算做饭的人\n电费按房间或按用量\n每月拍表留记录"
+      },
+      "_topic": "合租水电分摊",
+      "comments": [
+        {
+          "author": "xiaobei",
+          "text": "一开始就说清楚，后面才好改。",
+          "offsetMinutes": 600,
+          "upCount": 7
+        }
+      ]
+    },
+    {
+      "id": "jizhang-0006",
+      "author": "keke",
+      "genre": "tutorial",
+      "title": "工资到账先做三笔转账",
+      "content": "到账当天做三件事，五分钟。\n第一笔，三成转到不绑支付的储蓄卡。第二笔，一成转到应急账户，攒够六个月开支就停。第三笔，固定支出预留，房租水电和订阅放在一张卡里。\n剩下的才是日常可花的钱。\n关键是当天做，别等周末。人等两天就会想先买点别的。",
+      "tags": [
+        "记账储蓄"
+      ],
+      "tier": "solid",
+      "ageHours": 90,
+      "posterStyle": "kraft",
+      "posterLine": "关键是当天做，别等周末",
+      "insight": "到账当天分三笔，剩下的才是能花的。",
+      "structured": {
+        "tools": "三张卡\n手机银行\n一个固定支出清单",
+        "steps": "三成转储蓄卡，不绑支付\n一成转应急账户\n固定支出预留到专用卡\n剩余作为日常开销\n每月核对一次固定支出清单",
+        "timeDifficulty": "五分钟"
+      },
+      "_topic": "工资分配",
+      "comments": [
+        {
+          "author": "baikai",
+          "text": "当天做这条我深有体会，拖到周末就花掉了。",
+          "offsetMinutes": 300,
+          "upCount": 11
+        }
+      ]
+    },
+    {
+      "id": "jizhang-0007",
+      "author": "baikai",
+      "genre": "tutorial",
+      "title": "一年一次的家庭账单体检",
+      "content": "每年年底我做一次体检，查的是订阅和保险。\n先列所有自动续费，视频、音乐、云盘、软件会员。一年没用过的直接取消。我去年砍掉了四个，省了六百多。\n再看保险，保额够不够，受益人信息对不对。\n最后看利率，房贷和消费贷有没有更低的置换方案。\n一个下午能做完，省下的钱够过一次年。",
+      "tags": [
+        "记账储蓄"
+      ],
+      "tier": "normal",
+      "ageHours": 410,
+      "posterStyle": "paper",
+      "posterLine": "一年没用过的直接取消，省了六百多",
+      "insight": "每年清一次订阅，比每月省吃俭用有效。",
+      "structured": {
+        "tools": "银行流水\n订阅清单\n保单",
+        "steps": "列出所有自动续费\n取消一年未使用的\n核对保额与受益人\n比较贷款利率\n更新家庭预算"
+      },
+      "_topic": "年度账单体检",
+      "comments": [
+        {
+          "author": "keke",
+          "text": "自动续费这条我砍掉过五个，真香。",
+          "offsetMinutes": 700,
+          "upCount": 9
+        }
+      ]
+    },
+    {
+      "id": "jizhang-0008",
+      "author": "xiaobei",
+      "genre": "tutorial",
+      "title": "大额消费前，等三天",
+      "content": "超过五百的支出，我给自己定了一个规矩，放购物车三天。\n三天后还想要的，再买。多数时候第三天就忘了。\n这三年靠这条规则省下的钱不好算，但购物车里的东西有一半最后都没买。\n规则的关键是写下想买的理由。写不出来，就是不必要。",
+      "tags": [
+        "记账储蓄"
+      ],
+      "tier": "normal",
+      "ageHours": 440,
+      "posterStyle": "film",
+      "posterLine": "第三天就忘了",
+      "insight": "放三天再买，理由写不出来就别买。",
+      "structured": {
+        "tools": "购物车\n一个记事本",
+        "steps": "超过门槛的先放购物车\n写下想买的理由\n等三天\n三天后重新评估\n理由写不出就删掉"
+      },
+      "_topic": "三天规则",
+      "comments": [
+        {
+          "author": "banbei",
+          "text": "写理由这条我加了，确实能挡掉一半。",
+          "offsetMinutes": 800,
+          "upCount": 6
+        }
+      ]
+    },
+    {
+      "id": "jizhang-0009",
+      "author": "tiandian",
+      "genre": "debate",
+      "title": "该不该办信用卡",
+      "content": "我的看法是该办，但要当成记账工具，不当成额度。\n好处有三个，账单集中在一个时间点，方便对账。有免息期，现金流更从容。积累信用记录，以后贷款有用。\n坏处只有一个，很容易把额度当成收入。\n我给自己定的规矩是，每月全额还，从不分期，额度只用了两成。",
+      "tags": [
+        "记账储蓄"
+      ],
+      "tier": "solid",
+      "ageHours": 115,
+      "posterStyle": "kraft",
+      "posterLine": "把额度当成收入，是最容易犯的错",
+      "insight": "信用卡当记账工具可以，当额度不行。",
+      "structured": {
+        "planA": "办一张，集中对账，积累信用",
+        "planB": "不办，只用储蓄卡，避免透支"
+      },
+      "planAVotes": 97,
+      "planBVotes": 44,
+      "_topic": "要不要办信用卡",
+      "comments": [
+        {
+          "author": "keke",
+          "text": "全额还这条是底线，分期就变味了。",
+          "offsetMinutes": 400,
+          "upCount": 8
+        }
+      ]
+    },
+    {
+      "id": "jizhang-0010",
+      "author": "banbei",
+      "genre": "share",
+      "title": "记账之后我发现最贵的是外卖",
+      "content": "记了半年，最大的支出项不是房租，是外卖。一个月一千四，比我预计的多一倍。\n不是每顿都点贵的，是频率高。工作日中午一顿，晚上加班再一顿。\n后来改成一周只点三次，其余自己带饭或者去食堂。一个月省了六百。\n账本不会骗人，它只是把你不想看的东西摆出来。",
+      "tags": [
+        "记账储蓄"
+      ],
+      "tier": "normal",
+      "ageHours": 425,
+      "posterStyle": "paper",
+      "posterLine": "一个月一千四，比我预计的多一倍",
+      "insight": "最高支出常常是高频小额，不是大件。",
+      "_topic": "外卖支出",
+      "comments": [
+        {
+          "author": "tiandian",
+          "text": "高频小额这个说法太准了，咖啡也是。",
+          "offsetMinutes": 900,
+          "upCount": 10
+        }
+      ]
+    },
+    {
+      "id": "jizhang-0011",
+      "author": "keke",
+      "genre": "share",
+      "title": "攒下第一个十万用了四年",
+      "content": "第一年月薪六千，存一千五。第二年涨到八千，存三千。第三年跳槽，一万二，存五千。\n第四年年底凑够十万。中间没有意外之财，也没有特别省。\n唯一的诀窍是那句老话，先存后花。\n十万不算多，但那是我第一次觉得，钱这件事我能掌控。",
+      "tags": [
+        "记账储蓄"
+      ],
+      "tier": "tail",
+      "ageHours": 545,
+      "posterStyle": "film",
+      "posterLine": "中间没有意外之财，也没有特别省",
+      "insight": "第一个十万靠先存后花，不靠省吃俭用。",
+      "_topic": "第一个十万",
+      "comments": [
+        {
+          "author": "xiaobei",
+          "text": "四年这个节奏很真实，网上那些一年攒十万的不太可信。",
+          "offsetMinutes": 1100,
+          "upCount": 7
+        }
+      ]
+    },
+    {
+      "id": "jizhang-0012",
+      "author": "xiaobei",
+      "genre": "share",
+      "title": "搬家时扔掉的都是当时觉得需要的",
+      "content": "第五次搬家，扔掉的东西装了两大袋。空气炸锅、瑜伽垫、kindle、一个只穿过一次的登山鞋。\n每一件买的时候都有理由，健身、读书、户外。\n算了一下，这些加起来四千多。\n现在买东西前我会问一句，如果明年搬家，我会带走它吗。多数时候答案是不会。",
+      "tags": [
+        "记账储蓄",
+        "租房买房"
+      ],
+      "tier": "tail",
+      "ageHours": 720,
+      "posterStyle": "sticky",
+      "posterLine": "每一件买的时候都有理由",
+      "insight": "搬家测试，是最好用的购物过滤器。",
+      "_topic": "搬家扔东西",
+      "comments": [
+        {
+          "author": "mumu",
+          "text": "搬家测试这条我一直在用，很有效。",
+          "offsetMinutes": 1300,
+          "upCount": 6
+        }
+      ]
+    },
+    {
+      "id": "jizhang-0013",
+      "author": "baikai",
+      "genre": "share",
+      "title": "我不买的三样东西",
+      "content": "第一，只穿一季的衣服。第二，需要专门收纳的厨具。第三，打着健康名义的零食。\n这三样在我家最后都变成占地方的东西。\n不买之后，衣柜空了一半，厨房台面清爽了，钱也省下来。\n克制不是苦行，是把钱留给真正想要的东西。",
+      "tags": [
+        "记账储蓄"
+      ],
+      "tier": "tail",
+      "ageHours": 1000,
+      "posterStyle": "paper",
+      "posterLine": "这三样最后都变成占地方的东西",
+      "insight": "少买三类东西，比每月记账更省。",
+      "_topic": "不买清单",
+      "comments": [
+        {
+          "author": "keke",
+          "text": "需要专门收纳的厨具，这条太准了。",
+          "offsetMinutes": 1500,
+          "upCount": 5
+        }
+      ]
+    }
+  ]
+}

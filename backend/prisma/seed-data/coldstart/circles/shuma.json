@@ -1,0 +1,646 @@
+{
+  "schemaVersion": 1,
+  "circle": "手机数码",
+  "posts": [
+    {
+      "id": "shuma-0001",
+      "author": "laozhang",
+      "genre": "review",
+      "title": "换了三次手机壳，最后留下的还是原厂那个",
+      "content": "新机到手第三天就开始找壳。第一只是透明硅胶，二十九块，两个月后发黄，边缘像被烟熏过。\n第二只买了硬壳，按键位置是连体的，按下去要使点劲，回弹还慢，用了一周就烦。\n第三只换了原厂那种超薄的，一百二，边角做了圆滑处理，拿在手上不割小指。缺点是掉地上基本不缓冲，我摔过一次，边框多了一道白痕。\n现在我认了，壳能挡灰和防刮，防摔是另一回事，真要防摔就得接受厚度。",
+      "tags": [
+        "手机数码"
+      ],
+      "tier": "hero",
+      "ageHours": 9,
+      "posterStyle": "paper",
+      "posterLine": "第一只壳二十九块，两个月就黄了",
+      "insight": "想要薄就别指望防摔，两件事在同一只壳上很难兼得。",
+      "structured": {
+        "pros": "薄，按键独立不连体，边角不割手，指纹不明显",
+        "cons": "价格高，几乎不缓冲，摔一次就留痕",
+        "rating": 4.2,
+        "targetAudience": "讨厌厚重手感的人、习惯轻拿轻放的人"
+      },
+      "_topic": "手机壳的厚度与防护取舍",
+      "comments": [
+        {
+          "author": "hezi",
+          "text": "原厂壳的按键是独立件，这点比第三方便宜货强。",
+          "offsetMinutes": 55,
+          "upCount": 9
+        },
+        {
+          "author": "gongzi",
+          "text": "一百二我还是下不去手，三十块的黄了就换。",
+          "offsetMinutes": 130,
+          "upCount": 6
+        },
+        {
+          "author": "laozhang",
+          "text": "黄了换也挺好，就是一年得换四只。",
+          "offsetMinutes": 150,
+          "replyToIndex": 1,
+          "upCount": 4
+        },
+        {
+          "author": "dadou",
+          "text": "我用的金属边框，重是重，摔过两次没事。",
+          "offsetMinutes": 320,
+          "upCount": 3
+        }
+      ]
+    },
+    {
+      "id": "shuma-0002",
+      "author": "hezi",
+      "genre": "review",
+      "title": "在二手平台买了台两年前的旗舰，用了一个月说说值不值",
+      "content": "原价五千多的机器，我花一千九拿下，成色九五，电池健康八十六。\n先说好的，屏幕素质现在看依然够用，夜景比同价位新机强，振动和扬声器是真好。\n问题在电池。八十六的健康度看着还行，实际一天两充，出门得带充电宝。换原厂电池报价三百八，加一起还是比新机便宜。\n如果只是当备用机，或者给家里老人用，这个路子成立。想当主力机，先想清楚你能不能忍续航。",
+      "tags": [
+        "手机数码",
+        "二手闲置"
+      ],
+      "tier": "solid",
+      "ageHours": 40,
+      "posterStyle": "film",
+      "posterLine": "一千九买的旧旗舰，电池是唯一的心结",
+      "insight": "两年前的旗舰值不值，取决于你更在意屏幕还是电池。",
+      "structured": {
+        "pros": "屏幕和影音素质仍是同价位上限，做工扎实",
+        "cons": "电池衰减明显，系统大版本基本到头",
+        "rating": 4.0,
+        "targetAudience": "备用机需求、给长辈换机、预算两千以内"
+      },
+      "_topic": "二手旧旗舰的性价比",
+      "comments": [
+        {
+          "author": "laozhang",
+          "text": "电池健康度只能参考，循环次数更准。",
+          "offsetMinutes": 90,
+          "upCount": 11
+        },
+        {
+          "author": "mumu",
+          "text": "我也这么买过，收到先查保修剩余，能避一半坑。",
+          "offsetMinutes": 200,
+          "upCount": 7
+        },
+        {
+          "author": "laochen",
+          "text": "换电池别去小店，压排线的活儿。",
+          "offsetMinutes": 900,
+          "upCount": 5
+        },
+        {
+          "author": "hezi",
+          "text": "查了，还剩四个月，算意外之喜。",
+          "offsetMinutes": 1000,
+          "replyToIndex": 1,
+          "upCount": 2
+        }
+      ]
+    },
+    {
+      "id": "shuma-0003",
+      "author": "dongdong",
+      "genre": "review",
+      "title": "给我妈买的千元机，用了半年她只夸一件事",
+      "content": "我妈上一台手机用了五年，屏幕边角都翘起来了。今年换了一台千元出头的，配置不高，但有三样东西她天天提。\n一是声音大，广场舞音乐放出来不破音。二是字体能调到很大，不用戴老花镜。三是充一次能用两天，因为她只刷视频和微信。\n拍照一般，夜景糊。系统里预装的应用有点多，我花了一个晚上删干净。\n给长辈买手机，参数不是重点，音量、字体、续航这三样对了就行。",
+      "tags": [
+        "手机数码"
+      ],
+      "tier": "solid",
+      "ageHours": 110,
+      "posterStyle": "kraft",
+      "posterLine": "我妈上一台手机用了五年，边角都翘起来了",
+      "insight": "长辈机的核心是音量、字体和续航，跑分最不重要。",
+      "structured": {
+        "pros": "外放音量大，字体能放很大，续航两天",
+        "cons": "夜景拍照糊，预装应用偏多",
+        "rating": 3.8,
+        "targetAudience": "给父母换机、只刷视频和微信的人"
+      },
+      "_topic": "给长辈挑千元机",
+      "comments": [
+        {
+          "author": "youzi",
+          "text": "我妈也是，第一句问能不能把字调大。",
+          "offsetMinutes": 300,
+          "upCount": 8
+        },
+        {
+          "author": "shanshan",
+          "text": "预装应用可以在设置里停用，不用删。",
+          "offsetMinutes": 700,
+          "upCount": 12
+        },
+        {
+          "author": "tiandian",
+          "text": "记得把默认浏览器换掉，广告能少一半。",
+          "offsetMinutes": 1200,
+          "upCount": 4
+        }
+      ]
+    },
+    {
+      "id": "shuma-0004",
+      "author": "laozhang",
+      "genre": "review",
+      "title": "小屏旗舰用满一年，我最满意的居然是不用两只手",
+      "content": "上一台是大屏，六点八寸，躺床上刷视频砸过两次脸。换了台六点一寸的，重量一百七十克出头，装兜里不坠裤子。\n代价是电池小，重度用撑不到晚上，中午得补一次。看视频也没那么爽，字幕小。\n一年下来我的使用习惯变了，地铁上单手回消息，走路也能操作。这种事参数表上看不出来。\n如果你一天要刷三小时视频，别买小的。如果手机主要是通讯和碎片阅读，小屏更舒服。",
+      "tags": [
+        "手机数码"
+      ],
+      "tier": "normal",
+      "ageHours": 150,
+      "posterStyle": "paper",
+      "posterLine": "六点一寸，一百七十克，装兜里不坠裤子",
+      "insight": "小屏的舒服是每天几十次单手操作攒出来的，参数表写不下。",
+      "structured": {
+        "pros": "单手可控，装兜不坠，握持稳",
+        "cons": "电池小，看视频字幕偏小",
+        "rating": 4.1,
+        "targetAudience": "通勤族、以碎片阅读为主的人"
+      },
+      "_topic": "小屏旗舰一年使用感受",
+      "comments": [
+        {
+          "author": "hezi",
+          "text": "小屏的续航是硬伤，我现在中午必须充。",
+          "offsetMinutes": 500,
+          "upCount": 6
+        },
+        {
+          "author": "mumu",
+          "text": "二手小屏特别保值，想换也好出。",
+          "offsetMinutes": 1400,
+          "upCount": 3
+        }
+      ]
+    },
+    {
+      "id": "shuma-0005",
+      "author": "shisan",
+      "genre": "review",
+      "title": "磁吸充电宝买了两百多，最后当成了床头支架",
+      "content": "买之前想的是出门不用带线。买回来发现两件事。\n第一，吸上去之后手机厚了一截，单手打字别扭，放兜里也鼓。第二，发热，边充边刷视频背面温温的，夏天更明显，充得也慢。\n现在它吸在床头当支架，晚上看剧顺便补电，反而顺手。出门还是带一根线和一个薄充电宝。\n它能买，但别指望替代有线。",
+      "tags": [
+        "手机数码"
+      ],
+      "tier": "normal",
+      "ageHours": 190,
+      "posterStyle": "sticky",
+      "posterLine": "吸上去厚了一截，放兜里鼓",
+      "insight": "磁吸充电宝适合随手补电，不适合当主力电源。",
+      "structured": {
+        "pros": "吸附稳，随手补电方便，能当支架",
+        "cons": "发热明显，厚度增加，充得慢",
+        "rating": 3.5,
+        "targetAudience": "通勤短途、经常忘带线的人"
+      },
+      "_topic": "磁吸充电宝的真实用途",
+      "comments": [
+        {
+          "author": "dayang",
+          "text": "发热是真，我那个夏天烫手。",
+          "offsetMinutes": 700,
+          "upCount": 5
+        },
+        {
+          "author": "dadou",
+          "text": "当支架这个用法我学到了。",
+          "offsetMinutes": 1500,
+          "upCount": 7
+        },
+        {
+          "author": "shisan",
+          "text": "床头用刚好，还不占地方。",
+          "offsetMinutes": 1600,
+          "replyToIndex": 1,
+          "upCount": 2
+        }
+      ]
+    },
+    {
+      "id": "shuma-0006",
+      "author": "dadou",
+      "genre": "pitfall",
+      "title": "换电池被收了两次钱，第二次我才看懂报价单",
+      "content": "手机用两年，电池一天三充。路过一家维修店，问换电池多少钱，师傅说一百二，原厂的。\n换完第三天又开始掉电，回去问，说是我主板漏电，要再加三百做检测。我没同意，拿着手机去了官方售后。\n官方检测结果，那块电池是拆机件，容量虚标。整机换原厂电池三百八，保修九十天。\n这一百二不算贵，贵在我没问清楚三件事，是不是原厂、有没有保修、换完能不能当场看健康度。",
+      "tags": [
+        "手机数码",
+        "消费维权"
+      ],
+      "tier": "hero",
+      "ageHours": 26,
+      "posterStyle": "paper",
+      "posterLine": "一百二的电池，三天后又开始掉电",
+      "insight": "换电池前问清原厂、保修、当场验健康度，能省一次返工。",
+      "structured": {
+        "pitfallExperience": "路边店一百二换的电池是拆机件，三天后掉电更严重，还被要求加钱检测主板。",
+        "lossAmount": "120 元",
+        "correctApproach": "先问是不是原厂件，要求写在单子上\n问清保修多久，出问题怎么处理\n换完当场看电池健康度和循环次数\n报价明显低于官方时，先查官方换电池活动价"
+      },
+      "_topic": "路边店换电池被坑",
+      "comments": [
+        {
+          "author": "laochen",
+          "text": "拆机电池现在很多，看排线做工能认出来。",
+          "offsetMinutes": 180,
+          "upCount": 14
+        },
+        {
+          "author": "gongzi",
+          "text": "这种可以投诉，留好小票和聊天记录。",
+          "offsetMinutes": 260,
+          "upCount": 9
+        },
+        {
+          "author": "hezi",
+          "text": "官方换电池经常有活动，两百多能拿下。",
+          "offsetMinutes": 400,
+          "upCount": 16
+        },
+        {
+          "author": "dadou",
+          "text": "早看到这句就好了。",
+          "offsetMinutes": 430,
+          "replyToIndex": 2,
+          "upCount": 3
+        }
+      ]
+    },
+    {
+      "id": "shuma-0007",
+      "author": "gongzi",
+      "genre": "pitfall",
+      "title": "以旧换新估价比回收平台低了一半，我差点就点了确认",
+      "content": "旧机是两年前的中端机，屏幕有细微划痕，功能全好。官方以旧换新页面估算四百二，回收平台同款估价八百五。\n差别在检测口径。官方页面只问三项，屏幕、电池、能否开机，然后门店复检时按他们的标准扣。回收平台先寄过去，检测报告会列出每一处，扣钱也扣得明白。\n我最后走平台，到手七百九，比预估少六十，原因写了后盖有氧化。\n想省事就去门店，想多卖两百就寄修，前提是你能接受最终价和预估价的差。",
+      "tags": [
+        "手机数码",
+        "二手闲置"
+      ],
+      "tier": "normal",
+      "ageHours": 230,
+      "posterStyle": "kraft",
+      "posterLine": "同一条旧机，两个平台差了四百多",
+      "insight": "以旧换新省事但压价，回收平台价高但要接受复检折损。",
+      "structured": {
+        "pitfallExperience": "官方页面估四百二，门店复检又按他们的标准扣，最后只给三百，比回收平台少五百。",
+        "lossAmount": "约 500 元",
+        "correctApproach": "先在两三个平台各估一次，记下差额\n看清检测项和扣款规则，特别是屏幕和后盖\n寄出前自己拍全套照片和开机视频\n留好快递单和检测报告，出问题才有依据"
+      },
+      "_topic": "旧手机回收的估价差",
+      "comments": [
+        {
+          "author": "mumu",
+          "text": "照片一定要拍，我上次被说进水。",
+          "offsetMinutes": 600,
+          "upCount": 10
+        },
+        {
+          "author": "laochen",
+          "text": "屏幕划痕的判定最玄，各家标准不一样。",
+          "offsetMinutes": 1100,
+          "upCount": 6
+        }
+      ]
+    },
+    {
+      "id": "shuma-0008",
+      "author": "hezi",
+      "genre": "pitfall",
+      "title": "曲面屏贴UV膜，胶流进听筒那一刻我就知道完了",
+      "content": "曲面屏不好贴膜，店里推荐UV膜，说要照灯固化。贴的时候胶水挤多了，顺着边缘往下流，有一部分进了顶部听筒。\n当时擦掉了，看着没事。三天后打电话，对方说我声音闷。拆开清理花了八十，师傅说再晚一点就得换听筒总成。\n后来我改用原厂的软膜，边缘会翘，但至少不进水。\n曲面屏这层弧度，好看是真好看，贴膜和维修的成本也是真高。",
+      "tags": [
+        "手机数码"
+      ],
+      "tier": "normal",
+      "ageHours": 280,
+      "posterStyle": "film",
+      "posterLine": "胶水顺着边缘流进听筒，我当时还擦掉了",
+      "insight": "曲面屏贴膜优先选软膜，UV胶一旦进孔，清理费比膜贵十倍。",
+      "structured": {
+        "pitfallExperience": "UV膜胶水流入听筒，三天后通话声音发闷，拆机清理花了八十。",
+        "lossAmount": "80 元",
+        "correctApproach": "贴之前用胶带封住听筒和按键孔\n胶水宁少勿多，先点中间再让它自己铺开\n固化前反复检查边缘有没有渗出\n曲面屏优先选原厂软膜，翘边可以接受"
+      },
+      "_topic": "曲面屏UV膜翻车",
+      "comments": [
+        {
+          "author": "shisan",
+          "text": "UV膜我只敢自己贴，店里手太急。",
+          "offsetMinutes": 800,
+          "upCount": 7
+        },
+        {
+          "author": "laozhang",
+          "text": "软膜翘边能接受，进水不能。",
+          "offsetMinutes": 1500,
+          "upCount": 5
+        }
+      ]
+    },
+    {
+      "id": "shuma-0009",
+      "author": "dongdong",
+      "genre": "tutorial",
+      "title": "换新手机后我花了四十分钟才把旧机搬完，记一下顺序",
+      "content": "换机最怕两件事，聊天记录丢和账号登不上。我这次按顺序来，四十分钟搞定。\n先在新机上登录同一个账号，把系统备份打开，等它自己同步联系人、相册和日历。\n然后处理聊天软件，用自带的迁移功能，两台机器连同一个网络，扫一下码就开始传，二十个G大概十五分钟。\n最后是那些不常用的应用，别一次全装，用到哪个装哪个。我上一次一口气装了六十个，最后常用的还是那八个。密码类的应用一定最后装，装完先手动登录一次，确认能收到验证码。",
+      "tags": [
+        "手机数码"
+      ],
+      "tier": "solid",
+      "ageHours": 55,
+      "posterStyle": "sticky",
+      "posterLine": "二十个G的聊天记录，十五分钟传完",
+      "insight": "先同步系统数据，再迁聊天记录，最后按需装应用。",
+      "structured": {
+        "tools": "两台手机\n同一个无线网络\n充电器",
+        "steps": "旧机打开系统备份，等同步完成\n新机登录同一账号，恢复联系人与相册\n聊天软件用自带迁移功能扫码传输\n只装高频应用，其余按需\n最后装密码与银行类应用，手动验证一次",
+        "timeDifficulty": "四十分钟左右，取决于照片和聊天记录大小"
+      },
+      "_topic": "换机数据迁移顺序",
+      "comments": [
+        {
+          "author": "banbei",
+          "text": "聊天记录那步最容易漏，我上次丢了半年。",
+          "offsetMinutes": 400,
+          "upCount": 9
+        },
+        {
+          "author": "xiaozhou",
+          "text": "密码类应用最后装这条很实用。",
+          "offsetMinutes": 1200,
+          "upCount": 5
+        }
+      ]
+    },
+    {
+      "id": "shuma-0010",
+      "author": "dadou",
+      "genre": "tutorial",
+      "title": "把手机里的系统广告关掉，我整理了一份能照着点的清单",
+      "content": "新机开机那几天推送特别多，天气、日历、应用商店轮着弹，有时候一上午能弹七八条。\n我花半小时挨个关，关完清静不少。\n系统设置里找隐私，把个性化推荐关掉。应用商店里找设置，关闭推荐和更新提醒。浏览器首页那排资讯可以换成空白页。日历里的节日提醒和热点订阅单独关。\n还有一类是开屏广告，这个关不干净，只能靠应用自己收敛。\n做完这些不会让手机变快，纯粹是少被打扰。",
+      "tags": [
+        "手机数码"
+      ],
+      "tier": "tail",
+      "ageHours": 500,
+      "posterStyle": "paper",
+      "posterLine": "关完之后清静不少，但开屏广告还在",
+      "insight": "系统广告关得掉，开屏广告关不掉，预期要放低。",
+      "structured": {
+        "tools": "手机一台\n半小时",
+        "steps": "设置里关掉个性化推荐\n应用商店关闭推荐与更新提醒\n浏览器首页换成空白页\n日历里取消热点与节日订阅\n逐个应用关掉开屏摇一摇权限",
+        "timeDifficulty": "半小时"
+      },
+      "_topic": "关闭系统广告的路径",
+      "comments": [
+        {
+          "author": "dongdong",
+          "text": "摇一摇权限关掉，误触少很多。",
+          "offsetMinutes": 900,
+          "upCount": 6
+        },
+        {
+          "author": "mumu",
+          "text": "我直接换了个启动器，省事。",
+          "offsetMinutes": 2000,
+          "upCount": 3
+        }
+      ]
+    },
+    {
+      "id": "shuma-0011",
+      "author": "laozhang",
+      "genre": "debate",
+      "title": "直屏和曲面屏，现在还有人坚持曲面吗",
+      "content": "我用了三年曲面，今年换回直屏，感受很直接。\n曲面好看，边缘滑动顺手，握持显薄。代价是误触、贴膜难、换屏贵，摔一次就是四位数。\n直屏现在做得也不丑，窄边框一样好看，贴膜十块钱一张，摔了也不那么心疼。\n我现在的选择是直屏，因为我不想再为一条弧线付维修费。贴膜也一样，直屏随便买一张就行。",
+      "tags": [
+        "手机数码"
+      ],
+      "tier": "solid",
+      "ageHours": 66,
+      "posterStyle": "film",
+      "posterLine": "为一条弧线付四位数维修费，我不干了",
+      "insight": "曲面换来的手感，要用贴膜和维修成本去换。",
+      "structured": {
+        "planA": "继续用曲面，好看和手感优先",
+        "planB": "换回直屏，维修和贴膜省心"
+      },
+      "planAVotes": 46,
+      "planBVotes": 88,
+      "_topic": "直屏与曲面屏之争",
+      "comments": [
+        {
+          "author": "hezi",
+          "text": "直屏党报到，贴膜自由太重要。",
+          "offsetMinutes": 300,
+          "upCount": 8
+        },
+        {
+          "author": "shisan",
+          "text": "曲面边缘滑动返回很顺手。",
+          "offsetMinutes": 700,
+          "upCount": 6
+        },
+        {
+          "author": "laozhang",
+          "text": "舒服，但摔一次就老实了。",
+          "offsetMinutes": 760,
+          "replyToIndex": 1,
+          "upCount": 5
+        }
+      ]
+    },
+    {
+      "id": "shuma-0012",
+      "author": "gongzi",
+      "genre": "share",
+      "title": "地铁上看见有人把折叠屏摊开看表格",
+      "content": "早高峰，对面大哥把折叠屏完全摊开，横着拿，屏幕上是一张很长的表格，字小得我隔着过道都替他累。\n他看了两站，合上，塞回兜里。整个过程没抬头。\n我理解大屏看表格的爽，但那个姿势在地铁里太勉强，一只手抓扶手，一只手托着，随时会晃。\n折叠屏解决的是需要大屏但没有桌子的场景，地铁显然不算。",
+      "tags": [
+        "手机数码"
+      ],
+      "tier": "normal",
+      "ageHours": 330,
+      "posterStyle": "sticky",
+      "posterLine": "字小得我隔着过道都替他累",
+      "insight": "折叠屏的价值在桌面上，不在拥挤的地铁里。",
+      "_topic": "折叠屏的通勤场景",
+      "comments": [
+        {
+          "author": "hezi",
+          "text": "通勤看文档我宁愿用平板，至少能放包里。",
+          "offsetMinutes": 900,
+          "upCount": 4
+        },
+        {
+          "author": "dadou",
+          "text": "展开那下是爽，就是收起来麻烦。",
+          "offsetMinutes": 3000,
+          "upCount": 6
+        }
+      ]
+    },
+    {
+      "id": "shuma-0013",
+      "author": "dongdong",
+      "genre": "share",
+      "title": "傍晚在阳台用手机拍了一张，居然不用修",
+      "content": "六点二十，太阳刚落到楼后面，天是那种发灰的橘色。我拿手机随手拍了一张，没开夜景，没调参数，直出就挺好看。\n后来对比了同场景用相机的照片，相机细节多，但发朋友圈根本看不出差别。\n手机拍照这几年进步最大的地方，是它知道普通人不会修图。",
+      "tags": [
+        "手机数码"
+      ],
+      "tier": "tail",
+      "ageHours": 560,
+      "posterStyle": "kraft",
+      "posterLine": "太阳刚落到楼后面，天是发灰的橘色",
+      "insight": "手机拍照的进步，在于直出就够用。",
+      "_topic": "手机直出色彩",
+      "comments": [
+        {
+          "author": "hezi",
+          "text": "直出色彩讨喜，这点比参数重要。",
+          "offsetMinutes": 1500,
+          "upCount": 5
+        }
+      ]
+    },
+    {
+      "id": "shuma-0014",
+      "author": "hezi",
+      "genre": "share",
+      "title": "把退役的旧手机改成门口监控，用了一个月",
+      "content": "旧手机卖了不值钱，扔了可惜，我把它固定在鞋柜上方，装了个监控应用，连家里的无线网。\n白天看门口，晚上画质差点但能认人。有人经过会推送，误报不少，楼道灯一闪也报。\n电一直插着，电池鼓包的风险得注意，我把电池拆了改成直供电，动手能力差的别学。\n一个月下来，最有用的一次是快递被放错门，回看录像找回来了。",
+      "tags": [
+        "手机数码",
+        "二手闲置"
+      ],
+      "tier": "normal",
+      "ageHours": 400,
+      "posterStyle": "paper",
+      "posterLine": "旧手机卖了不值钱，扔了可惜",
+      "insight": "旧手机当监控能用，前提是解决供电和散热。",
+      "_topic": "旧手机改监控",
+      "comments": [
+        {
+          "author": "dayang",
+          "text": "直供电这个改法有教程吗，我也想弄。",
+          "offsetMinutes": 1200,
+          "upCount": 7
+        },
+        {
+          "author": "laochen",
+          "text": "电池鼓包别硬撑，夏天更容易。",
+          "offsetMinutes": 5000,
+          "upCount": 9
+        }
+      ]
+    },
+    {
+      "id": "shuma-0015",
+      "author": "gongzi",
+      "genre": "share",
+      "title": "电梯里那两秒没信号，被外卖员骂了一顿",
+      "content": "点了份外卖，骑手到楼下打电话，我正好进电梯，两秒后信号断了。他打了三个都没通，最后在门口等了十分钟。\n开门的时候他脸色不太好，我也没解释，先道歉，把水递过去。\n后来我把他设成常用联系人，备注写了楼栋和门牌，再遇到这种情况他直接按门铃。\n这事怪不到谁，就是电梯里没信号这件小事，能把两个人的脾气都磨出来。",
+      "tags": [
+        "手机数码"
+      ],
+      "tier": "tail",
+      "ageHours": 700,
+      "posterStyle": "sticky",
+      "posterLine": "骑手到楼下打电话，我正好进电梯",
+      "insight": "电梯里的两秒，够让一件小事变成一场误会。",
+      "_topic": "电梯信号与外卖沟通",
+      "comments": [
+        {
+          "author": "laozhang",
+          "text": "我现在备注都写清楚，省事。",
+          "offsetMinutes": 2000,
+          "upCount": 4
+        }
+      ]
+    },
+    {
+      "id": "shuma-0016",
+      "author": "dadou",
+      "genre": "share",
+      "title": "手机壳里塞了一百块，三年没动过",
+      "content": "刚工作那年听人说，手机壳里放点现金，手机没电或者扫码失败的时候能救急。\n我塞了一张一百，换了三次壳都没拿出来。\n上个月手机丢了，挂失、补卡、买新机，折腾一下午。晚上回家想起那一百块，人在外地，那顿饭就是它付的。\n有些准备看起来很土，用上一次就值了。",
+      "tags": [
+        "手机数码"
+      ],
+      "tier": "tail",
+      "ageHours": 820,
+      "posterStyle": "kraft",
+      "posterLine": "我塞了一张一百，换了三次壳都没拿出来",
+      "insight": "有些看起来土的习惯，用上一次就回本。",
+      "_topic": "手机壳里放现金",
+      "comments": [
+        {
+          "author": "mumu",
+          "text": "我也塞了，还是两张。",
+          "offsetMinutes": 3000,
+          "upCount": 5
+        }
+      ]
+    },
+    {
+      "id": "shuma-0017",
+      "author": "laozhang",
+      "genre": "share",
+      "title": "换号之后，我花了两个晚上解绑各种账号",
+      "content": "老号码用了九年，绑的东西太多，银行卡、外卖、快递，还有几个早就忘了密码的网站。\n新号激活那天，我先列了一张清单，把能想起来的都写上，然后一个个试。\n最麻烦的是那种用手机号当账号、又没绑邮箱的，验证码发到旧号上，旧号已经停机，只能走人工申诉。\n两个晚上弄完，还剩三个没解决。以后再有新账号，我优先用邮箱注册。",
+      "tags": [
+        "手机数码"
+      ],
+      "tier": "tail",
+      "ageHours": 980,
+      "posterStyle": "paper",
+      "posterLine": "老号码用了九年，绑的东西太多",
+      "insight": "换号前先列清单，能省掉后面两天的人工申诉。",
+      "_topic": "换手机号后的解绑",
+      "comments": [
+        {
+          "author": "dongdong",
+          "text": "我去年换号，银行那块跑了三趟。",
+          "offsetMinutes": 4000,
+          "upCount": 6
+        }
+      ]
+    },
+    {
+      "id": "shuma-0018",
+      "author": "dongdong",
+      "genre": "review",
+      "title": "平板买了半年，最后变成了家里的电子相框",
+      "content": "买之前想的是看剧、做笔记、画画。买回来第一周很新鲜，第二周开始吃灰。\n原因是手机够用，电脑更顺手，平板卡在中间，只有躺在床上不想开电脑的时候才想起来。\n现在它固定在客厅，循环放照片，偶尔当菜谱架。\n如果你已经有手机和电脑，平板解决的其实是懒得起身这一个需求。",
+      "tags": [
+        "手机数码"
+      ],
+      "tier": "tail",
+      "ageHours": 1200,
+      "posterStyle": "film",
+      "posterLine": "买回来第二周就开始吃灰",
+      "insight": "手机和电脑之间那块空白，没有想象中那么大。",
+      "structured": {
+        "pros": "看剧和看漫画体验好，重量轻",
+        "cons": "生产力有限，容易吃灰",
+        "rating": 3.2,
+        "targetAudience": "有看剧和手写笔记刚需的人"
+      },
+      "_topic": "平板吃灰",
+      "comments": [
+        {
+          "author": "hezi",
+          "text": "我的也吃灰，最后给我妈追剧用了。",
+          "offsetMinutes": 5000,
+          "upCount": 4
+        }
+      ]
+    }
+  ]
+}

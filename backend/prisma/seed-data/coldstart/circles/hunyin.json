@@ -1,0 +1,269 @@
+{
+  "schemaVersion": 1,
+  "circle": "婚姻与家庭",
+  "posts": [
+    {
+      "id": "hunyin-0001",
+      "author": "anan",
+      "genre": "review",
+      "title": "结婚八年，最有用的一次沟通是列清单",
+      "content": "有段时间我们总为小事吵，谁倒垃圾，谁接孩子，谁记得交物业费。吵完也记不住，下次还吵。\n后来我提议列一张表，把家里所有要做的事写下来，一共四十七项。然后各自认领，认领不了的写待定。\n看完这张表我们都不说话了。原来对方做的事比自己以为的多。\n现在表贴在冰箱上，每月改一次。\n很多矛盾靠说没用，得看得见。",
+      "tags": ["婚姻与家庭"],
+      "tier": "solid",
+      "ageHours": 38,
+      "posterStyle": "paper",
+      "posterLine": "把家里所有要做的事写下来，一共四十七项",
+      "insight": "把家务写出来，比争论谁更累有用。",
+      "structured": {
+        "pros": "分工可见，减少重复争吵",
+        "cons": "需要定期维护，容易变成考核",
+        "rating": 4.5,
+        "targetAudience": "双职工家庭、常为家务争吵的夫妻"
+      },
+      "_topic": "家务清单",
+      "comments": [
+        { "author": "tutuma", "text": "四十七项这个数字我信，我家列出来也差不多。", "offsetMinutes": 150, "upCount": 18 },
+        { "author": "xixi", "text": "变成考核这点要小心，我们后来加了轮换。", "offsetMinutes": 400, "upCount": 7 }
+      ]
+    },
+    {
+      "id": "hunyin-0002",
+      "author": "xixi",
+      "genre": "review",
+      "title": "和公婆同住三年，我学到的边界",
+      "content": "同住第一年最难。他们习惯早上六点开窗，我习惯晚上十二点睡。婆婆会进我们房间收衣服，我不好意思说。\n第二年我提了三件事。进房间先敲门。孩子的教育我们做主，他们提建议我们听。周末一天我们自己安排。\n提的时候我先生说，说完家里安静了两天，之后反而顺了。\n边界不是不亲，是让大家都舒服。",
+      "tags": ["婚姻与家庭"],
+      "tier": "normal",
+      "ageHours": 190,
+      "posterStyle": "kraft",
+      "posterLine": "我不好意思说，忍了一年",
+      "insight": "同住先定三条边界，比忍着强。",
+      "structured": {
+        "pros": "有人搭把手，孩子有人看，开销省",
+        "cons": "生活习惯冲突，边界难划，容易积怨",
+        "rating": 3.6,
+        "targetAudience": "与长辈同住、刚开始磨合的人"
+      },
+      "_topic": "与公婆同住",
+      "comments": [
+        { "author": "youzi", "text": "让先生去说这条很关键，媳妇说容易变味。", "offsetMinutes": 300, "upCount": 12 }
+      ]
+    },
+    {
+      "id": "hunyin-0003",
+      "author": "tutuma",
+      "genre": "pitfall",
+      "title": "为了孩子不吵架，孩子反而更敏感",
+      "content": "孩子两岁时我们约定不在他面前吵，有意见等睡了再说。\n结果变成了冷战。饭桌上不说话，孩子看看我看看他。\n幼儿园老师后来跟我说，孩子在园里特别会看脸色，别的小朋友声音大一点他就紧张。\n那天晚上我们第一次当着孩子面和好，说了句刚才是爸爸妈妈没沟通好。\n孩子不需要完美的父母，需要看到怎么解决问题。",
+      "tags": ["婚姻与家庭", "育儿经验"],
+      "tier": "solid",
+      "ageHours": 62,
+      "posterStyle": "film",
+      "posterLine": "孩子在园里特别会看脸色",
+      "insight": "冷战比吵架更让孩子不安。",
+      "structured": {
+        "pitfallExperience": "为避开孩子而冷战，孩子变得敏感、看大人脸色。",
+        "lossAmount": "孩子半年的情绪状态",
+        "correctApproach": "不当着孩子吵，但也不冷战\n让孩子看到和好的过程\n用一句话解释刚才是沟通问题\n事后单独把分歧说清"
+      },
+      "_topic": "当着孩子吵架",
+      "comments": [
+        { "author": "nihao", "text": "看到和好的过程，这句我要记住。", "offsetMinutes": 200, "upCount": 11 }
+      ]
+    },
+    {
+      "id": "hunyin-0004",
+      "author": "youzi",
+      "genre": "pitfall",
+      "title": "钱谁管，我们家试过三种方式",
+      "content": "第一种我管，他每月拿零花。问题是他买大件不打招呼，我觉得不被尊重。\n第二种各管各的，公共开支平摊。问题是开销大的月份会互相计较。\n第三种是现在这样，共同账户负责房贷和孩子，各留一笔自由支配的钱，超过两千的支出说一声。\n三种都试过，第三种最少吵架。",
+      "tags": ["婚姻与家庭", "记账储蓄"],
+      "tier": "normal",
+      "ageHours": 260,
+      "posterStyle": "paper",
+      "posterLine": "超过两千的支出说一声",
+      "insight": "共同账户加自由额度，比谁管钱更少矛盾。",
+      "structured": {
+        "pitfallExperience": "一方全权管钱导致大额支出不透明，各自管钱又互相计较。",
+        "lossAmount": "多次争吵",
+        "correctApproach": "设共同账户负担固定开支\n各自保留自由支配额度\n约定大额支出通报门槛\n每月对一次账"
+      },
+      "_topic": "婚后钱谁管",
+      "comments": [
+        { "author": "anan", "text": "通报门槛这个做法好，比逐笔记账现实。", "offsetMinutes": 500, "upCount": 9 }
+      ]
+    },
+    {
+      "id": "hunyin-0005",
+      "author": "amay",
+      "genre": "pitfall",
+      "title": "一句你随便，能毁掉一个周末",
+      "content": "周六早上我问去哪，他说随便。我提了三个地方，他说都行。我定了，到了之后他一路没精神。\n回程我忍不住问，他说其实不太想去，但怕扫兴。\n我说那你可以说啊。他说你决定就好。\n后来我们改了个规矩，随便这三个字不许说，至少给一个偏好。哪怕说我更想在家躺着。",
+      "tags": ["婚姻与家庭"],
+      "tier": "normal",
+      "ageHours": 350,
+      "posterStyle": "sticky",
+      "posterLine": "至少给一个偏好",
+      "insight": "随便听起来体贴，实际把决策成本全推给对方。",
+      "structured": {
+        "pitfallExperience": "周末出行对方一路说随便，事后才说不想去，双方都不愉快。",
+        "lossAmount": "一个周末",
+        "correctApproach": "禁用随便，至少说一个偏好\n提两个选项让对方选\n不想去就直说\n事后复盘一次"
+      },
+      "_topic": "你随便",
+      "comments": [
+        { "author": "xixi", "text": "决策成本这个词说到点子上了。", "offsetMinutes": 600, "upCount": 8 }
+      ]
+    },
+    {
+      "id": "hunyin-0006",
+      "author": "anan",
+      "genre": "tutorial",
+      "title": "家务分配，按时间和厌恶程度来",
+      "content": "平均分最容易吵架，因为每件家务的耗时和难受程度不一样。\n我们的做法是给每件家务标两个数，一次要多久，讨厌程度一到五。然后按总分分。\n比如擦油烟机一次四十分钟，讨厌程度五，算二十分。倒垃圾五分钟，讨厌程度一，算五分。\n分完之后再轮换最讨厌的那两项。\n分的是公平感，不是时间。",
+      "tags": ["婚姻与家庭"],
+      "tier": "solid",
+      "ageHours": 92,
+      "posterStyle": "kraft",
+      "posterLine": "分的是公平感，不是时间",
+      "insight": "给家务标耗时和厌恶度，比平均分更少怨气。",
+      "structured": {
+        "tools": "一张表\n冰箱贴",
+        "steps": "列出所有家务\n标出耗时和讨厌程度\n两项相乘算总分\n按总分分配\n轮换最讨厌的两项"
+      },
+      "_topic": "家务分配方法",
+      "comments": [
+        { "author": "tutuma", "text": "讨厌程度这一栏太有必要了，擦油烟机给十分。", "offsetMinutes": 300, "upCount": 10 }
+      ]
+    },
+    {
+      "id": "hunyin-0007",
+      "author": "xixi",
+      "genre": "tutorial",
+      "title": "和长辈沟通，先站队再讲道理",
+      "content": "跟婆婆意见不合时，直接讲道理必输。\n有效的顺序是，先认她的出发点，再说你的顾虑。比如孩子穿多少，先说我知道您怕他冻着，再说医生说捂太厚容易出汗感冒。\n认了出发点，她才听得进后面的话。\n还有一条，别在孩子面前反驳她。有话回房间说，或者让先生去说。",
+      "tags": ["婚姻与家庭", "育儿经验"],
+      "tier": "normal",
+      "ageHours": 410,
+      "posterStyle": "paper",
+      "posterLine": "直接讲道理必输",
+      "insight": "先认可出发点，再讲顾虑，长辈才听得进。",
+      "structured": {
+        "tools": "一个具体的例子\n医生的说法",
+        "steps": "先说出对方的出发点\n再讲自己的顾虑\n用第三方依据代替争论\n不当着孩子反驳\n分歧让伴侣去沟通"
+      },
+      "_topic": "与长辈沟通",
+      "comments": [
+        { "author": "youzi", "text": "第三方依据这条好用，我说医生说的，我妈就听了。", "offsetMinutes": 700, "upCount": 8 }
+      ]
+    },
+    {
+      "id": "hunyin-0008",
+      "author": "tutuma",
+      "genre": "debate",
+      "title": "过年回谁家",
+      "content": "结婚头三年我们为这个吵过两次。他家的规矩是必须在男方家过除夕，我爸妈只有我一个孩子。\n现在的方案是除夕轮流，一年一家，另外一年把我爸妈接过来住几天。\n有人说这样两边都不圆满。我觉得能接受，至少不用每年吵。\n规矩是死的，人是活的。谁家的老人都会老。",
+      "tags": ["婚姻与家庭"],
+      "tier": "normal",
+      "ageHours": 450,
+      "posterStyle": "film",
+      "posterLine": "谁家的老人都会老",
+      "insight": "轮流过，比争论谁家更重要可行。",
+      "structured": {
+        "planA": "轮流过年，一年一家",
+        "planB": "各回各家，初二再会合"
+      },
+      "planAVotes": 108,
+      "planBVotes": 66,
+      "_topic": "过年回谁家",
+      "comments": [
+        { "author": "anan", "text": "接过来住几天这个折中办法我们也用过。", "offsetMinutes": 900, "upCount": 7 }
+      ]
+    },
+    {
+      "id": "hunyin-0009",
+      "author": "youzi",
+      "genre": "share",
+      "title": "孩子睡着之后，我们才有话说",
+      "content": "两个孩子，一个六岁一个三岁。白天各忙各的，晚上哄睡之后九点半，那半小时是我们的。\n不聊孩子，不聊账单。聊他公司那个难缠的客户，聊我想换的工作。\n有时候聊着聊着就困了，一句明天再说。\n那半小时不长，但撑住了很多个平常的日子。",
+      "tags": ["婚姻与家庭"],
+      "tier": "normal",
+      "ageHours": 425,
+      "posterStyle": "paper",
+      "posterLine": "不聊孩子，不聊账单",
+      "insight": "留半小时不聊孩子和账单。",
+      "_topic": "孩子睡着后的时间",
+      "comments": [
+        { "author": "tutuma", "text": "九点半这个时间点，我们家也一样。", "offsetMinutes": 800, "upCount": 5 }
+      ]
+    },
+    {
+      "id": "hunyin-0010",
+      "author": "amay",
+      "genre": "share",
+      "title": "结婚第五年，我们各自有了房间",
+      "content": "不是分居，是把次卧改成了各自的角落。他放电脑和吉他，我放书和缝纫机。\n晚上有时各待一小时，再回卧室。\n刚提出时他有点不适应，觉得是不是感情淡了。住了半年他说这样挺好，吵架都少了。\n两个人待在一起的时间变少，但质量变高了。",
+      "tags": ["婚姻与家庭"],
+      "tier": "tail",
+      "ageHours": 540,
+      "posterStyle": "kraft",
+      "posterLine": "他放电脑和吉他，我放书和缝纫机",
+      "insight": "各自有一点空间，相处反而更好。",
+      "_topic": "婚后各自空间",
+      "comments": [
+        { "author": "anan", "text": "这个我也想试，家里正好有个空房间。", "offsetMinutes": 1000, "upCount": 7 }
+      ]
+    },
+    {
+      "id": "hunyin-0011",
+      "author": "anan",
+      "genre": "share",
+      "title": "冷战三天，是他先递的水",
+      "content": "为一件很小的事吵起来，之后谁都不说话。三天里我们靠孩子传话。\n第三天晚上我在厨房洗碗，他进来倒了杯水放在我手边，站了一会儿走了。\n我端着那杯水站了很久。\n后来我们约定，谁先递水谁就是求和，不许拿这个说事。到现在用了六年。",
+      "tags": ["婚姻与家庭"],
+      "tier": "tail",
+      "ageHours": 690,
+      "posterStyle": "paper",
+      "posterLine": "他进来倒了杯水放在我手边",
+      "insight": "给冷战一个台阶，比等对方道歉快。",
+      "_topic": "冷战的台阶",
+      "comments": [
+        { "author": "amay", "text": "靠孩子传话这段看得我心里一紧。", "offsetMinutes": 1200, "upCount": 6 }
+      ]
+    },
+    {
+      "id": "hunyin-0012",
+      "author": "xixi",
+      "genre": "share",
+      "title": "搬出来住之后，关系反而好了",
+      "content": "和公婆住了三年，搬出来那天我收拾了一整天，晚上坐在空客厅里哭了一场，说不清是轻松还是舍不得。\n搬出来之后每周回去吃一次饭，带点水果。关系比以前好，话也多了。\n距离这件事，只有真的拉开过才知道。",
+      "tags": ["婚姻与家庭", "租房买房"],
+      "tier": "tail",
+      "ageHours": 880,
+      "posterStyle": "film",
+      "posterLine": "每周回去吃一次饭",
+      "insight": "分开住，是把关系放回一个合适的距离。",
+      "_topic": "搬出来住",
+      "comments": [
+        { "author": "youzi", "text": "距离拉开之后话变多，这个我信。", "offsetMinutes": 1400, "upCount": 5 }
+      ]
+    },
+    {
+      "id": "hunyin-0013",
+      "author": "tutuma",
+      "genre": "share",
+      "title": "婚姻里最难的是接受对方不变",
+      "content": "结婚前我想着，有些习惯慢慢会改。八年过去，他还是把袜子放在椅背上，还是吃饭看手机。\n我倒是改了不少，学会了不念叨。\n有次他问我，你怎么不说我了。我说说累了，也不是什么大事。他笑，说那我把椅子挪近点。\n改变对方的念头放下之后，日子顺了很多。",
+      "tags": ["婚姻与家庭"],
+      "tier": "tail",
+      "ageHours": 1100,
+      "posterStyle": "sticky",
+      "posterLine": "他还是把袜子放在椅背上",
+      "insight": "放下改造对方的念头，日子会顺。",
+      "_topic": "接受对方不变",
+      "comments": [
+        { "author": "anan", "text": "把椅子挪近点，这个回应很温柔。", "offsetMinutes": 1600, "upCount": 8 }
+      ]
+    }
+  ]
+}
