@@ -35,7 +35,8 @@
           "offsetMinutes": 300,
           "upCount": 7
         }
-      ]
+      ],
+      "photoCount": 1
     },
     {
       "id": "caipu-0002",
@@ -65,7 +66,8 @@
           "offsetMinutes": 200,
           "upCount": 9
         }
-      ]
+      ],
+      "photoCount": 1
     },
     {
       "id": "caipu-0003",
@@ -155,7 +157,8 @@
           "offsetMinutes": 200,
           "upCount": 6
         }
-      ]
+      ],
+      "photoCount": 1
     },
     {
       "id": "caipu-0006",
@@ -454,7 +457,8 @@
           "offsetMinutes": 1600,
           "upCount": 7
         }
-      ]
+      ],
+      "photoCount": 1
     }
   ]
 }

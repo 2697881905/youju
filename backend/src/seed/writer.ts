@@ -22,6 +22,8 @@ export interface Logger {
 
 export interface WriteResult {
   created: number;
+  updated: number;
+  unchanged: number;
   skipped: number;
   comments: number;
 }
@@ -84,7 +86,7 @@ function postCreateData(item: PlannedPost, userId: number): Prisma.PostUnchecked
     videoUrl: null,
     videoCover: null,
     videoAspectRatio: null,
-    images: [] as Prisma.InputJsonValue,
+    images: item.images as Prisma.InputJsonValue,
     genre: record.genre,
     tags: record.tags as Prisma.InputJsonValue,
     structuredData: item.derived.structuredData as Prisma.InputJsonValue,
@@ -111,20 +113,31 @@ function postCreateData(item: PlannedPost, userId: number): Prisma.PostUnchecked
   };
 }
 
-async function writeOne(item: PlannedPost, userId: number, commentUserIds: Map<string, number>, update: boolean): Promise<'created' | 'skipped' | 'updated'> {
+async function writeOne(
+  item: PlannedPost,
+  userId: number,
+  commentUserIds: Map<string, number>,
+  update: boolean,
+): Promise<'created' | 'skipped' | 'updated' | 'unchanged'> {
   const existing = await prisma.post.findFirst({
     where: { userId, title: item.record.title },
-    select: { id: true },
+    select: { id: true, coverImage: true, images: true },
   });
 
   if (existing && !update) return 'skipped';
 
   if (existing) {
+    // 内容与媒体引用都没变就不写库：--update 全量跑时避免 300 多条无意义写放大
+    const sameCover = (existing.coverImage ?? null) === item.coverImage;
+    const sameImages = JSON.stringify(existing.images ?? []) === JSON.stringify(item.images);
+    if (sameCover && sameImages) return 'unchanged';
+
     await prisma.post.update({
       where: { id: existing.id },
       data: {
         content: item.record.content,
         coverImage: item.coverImage,
+        images: item.images as Prisma.InputJsonValue,
         genre: item.record.genre,
         tags: item.record.tags as Prisma.InputJsonValue,
         structuredData: item.derived.structuredData as Prisma.InputJsonValue,
@@ -181,6 +194,8 @@ export async function writePosts(
   options: { update: boolean; log: Logger },
 ): Promise<WriteResult> {
   let created = 0;
+  let updated = 0;
+  let unchanged = 0;
   let skipped = 0;
   let comments = 0;
   for (let index = 0; index < plan.length; index += 1) {
@@ -193,14 +208,18 @@ export async function writePosts(
     if (result === 'created') {
       created += 1;
       comments += item.comments.length;
-    } else if (result === 'skipped') {
+    } else if (result === 'updated') {
+      updated += 1;
+    } else if (result === 'unchanged') {
+      unchanged += 1;
+    } else {
       skipped += 1;
     }
     if ((index + 1) % 25 === 0) {
       options.log(`进度 ${index + 1}/${plan.length}`);
     }
   }
-  return { created, skipped, comments };
+  return { created, updated, unchanged, skipped, comments };
 }
 
 /** 圈子计数按真实行重算。useCount 语义是「被多少条已发布帖子用到」。 */

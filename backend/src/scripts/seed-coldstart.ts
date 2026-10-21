@@ -179,7 +179,7 @@ async function main(): Promise<void> {
   const userMap = await upsertAuthors(content.authors, usedSlugs, now, (line) => console.log(`  ${line}`));
   const result = await writePosts(plan, userMap, { update: args.update, log: (line) => console.log(`  ${line}`) });
   printSection(`写入完成（${args.update ? '允许覆盖正文' : '已存在则跳过'}）`);
-  console.log(`新建 ${result.created} 条，跳过 ${result.skipped} 条，评论 ${result.comments} 条`);
+  console.log(`新建 ${result.created} 条，更新 ${result.updated} 条，无变化 ${result.unchanged} 条，跳过 ${result.skipped} 条，评论 ${result.comments} 条`);
   await recountTags((line) => console.log(`  ${line}`));
   process.exit(0);
 }

@@ -75,7 +75,25 @@ describe('planContent', () => {
     const keys = plannedMediaKeys(planContent(CONTENT, NOW));
     expect(keys.length).toBeGreaterThan(0);
     for (const key of keys) {
-      expect(key).toMatch(/^posts\/seed\/[a-z]+-\d{4}\.jpg$/);
+      expect(key).toMatch(/^posts\/seed\/[a-z]+-\d{4}(-\d)?\.jpg$/);
     }
+  });
+
+  it('图文帖 coverImage 与 images[0] 同图，key 按 -N 递增', () => {
+    const content: LoadedContent = {
+      authors: CONTENT.authors,
+      posts: [{ ...REVIEW, photoCount: 2 }],
+      circleOfPost: CONTENT.circleOfPost,
+    };
+    const [photo] = planContent(content, NOW);
+    expect(photo.images).toEqual([
+      'cos://posts/seed/shuma-0001-1.jpg',
+      'cos://posts/seed/shuma-0001-2.jpg',
+    ]);
+    expect(photo.coverImage).toBe(photo.images[0]);
+    const keys = plannedMediaKeys([photo]);
+    expect(keys).toContain('posts/seed/shuma-0001-1.jpg');
+    expect(keys).toContain('posts/seed/shuma-0001-2.jpg');
+    expect(keys).not.toContain('posts/seed/shuma-0001.jpg');
   });
 });

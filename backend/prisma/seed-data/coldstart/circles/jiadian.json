@@ -8,7 +8,10 @@
       "genre": "review",
       "title": "装了二十年空调，说几句业主最常问的",
       "content": "每年入夏前最忙，一天装四台。业主问得最多的一句是买多大匹数，其实先该问的是房间朝向和层高。\n西晒的卧室，十平米配一匹都嫌紧，下午三点开机要半小时才降下来。朝北的同面积，一匹足够。\n还有安装位置。内机对着床吹，制冷再快也难受，宁可多花两百块加长铜管挪到侧墙。\n品牌差距没有价格差那么大，安装师傅的手艺差距很大。抽真空抽够十五分钟，比什么参数都实在。",
-      "tags": ["家电选购", "装修避坑"],
+      "tags": [
+        "家电选购",
+        "装修避坑"
+      ],
       "tier": "hero",
       "ageHours": 12,
       "posterStyle": "paper",
@@ -22,11 +25,33 @@
       },
       "_topic": "空调匹数与安装位置",
       "comments": [
-        { "author": "dayu", "text": "我家就是对着床，夏天只能开睡眠模式。", "offsetMinutes": 90, "upCount": 12 },
-        { "author": "mumu", "text": "抽真空这事真得盯着，我家师傅抽了五分钟就走。", "offsetMinutes": 200, "upCount": 18 },
-        { "author": "wangshu", "text": "五分钟等于没抽，压缩机寿命直接短一截。", "offsetMinutes": 240, "replyToIndex": 1, "upCount": 9 },
-        { "author": "dongdong", "text": "层高够的话，装风管机是不是更省地方。", "offsetMinutes": 500, "upCount": 6 }
-      ]
+        {
+          "author": "dayu",
+          "text": "我家就是对着床，夏天只能开睡眠模式。",
+          "offsetMinutes": 90,
+          "upCount": 12
+        },
+        {
+          "author": "mumu",
+          "text": "抽真空这事真得盯着，我家师傅抽了五分钟就走。",
+          "offsetMinutes": 200,
+          "upCount": 18
+        },
+        {
+          "author": "wangshu",
+          "text": "五分钟等于没抽，压缩机寿命直接短一截。",
+          "offsetMinutes": 240,
+          "replyToIndex": 1,
+          "upCount": 9
+        },
+        {
+          "author": "dongdong",
+          "text": "层高够的话，装风管机是不是更省地方。",
+          "offsetMinutes": 500,
+          "upCount": 6
+        }
+      ],
+      "photoCount": 1
     },
     {
       "id": "jiadian-0002",
@@ -34,7 +59,10 @@
       "genre": "review",
       "title": "洗衣机买的样机，便宜一千二，用了两年没毛病",
       "content": "卖场撤柜的样机，标价三千四，我两千二拿走。外壳有两道划痕，在侧面，靠墙看不见。\n买之前我做了三件事。看生产日期，出厂一年半，还在保修期。让店员当场通电，把每个程序跑一遍。要了书面说明，写明是样机、有划痕、保修从开票日算。\n两年下来唯一的问题是胶圈有点发霉，属于使用习惯，跟样机无关。\n样机能买，但要挑撤柜的，别挑天天被人开合演示的。",
-      "tags": ["家电选购", "二手闲置"],
+      "tags": [
+        "家电选购",
+        "二手闲置"
+      ],
       "tier": "solid",
       "ageHours": 44,
       "posterStyle": "kraft",
@@ -48,9 +76,20 @@
       },
       "_topic": "卖场样机能不能买",
       "comments": [
-        { "author": "shanshan", "text": "关键是保修从开票日算，这条一定要写进单子。", "offsetMinutes": 120, "upCount": 7 },
-        { "author": "baikai", "text": "样机最怕被反复演示，滚筒门开合几百次。", "offsetMinutes": 300, "upCount": 5 }
-      ]
+        {
+          "author": "shanshan",
+          "text": "关键是保修从开票日算，这条一定要写进单子。",
+          "offsetMinutes": 120,
+          "upCount": 7
+        },
+        {
+          "author": "baikai",
+          "text": "样机最怕被反复演示，滚筒门开合几百次。",
+          "offsetMinutes": 300,
+          "upCount": 5
+        }
+      ],
+      "photoCount": 1
     },
     {
       "id": "jiadian-0003",
@@ -58,7 +97,9 @@
       "genre": "review",
       "title": "洗碗机用了半年，先说它洗不干净什么",
       "content": "买之前看了很多测评，都说解放双手。用了半年，说点没人提的。\n蛋羹碗洗不干净，蒸蛋那层膜得先泡。干掉的米饭粒粘在碗底，得先冲一下。不粘锅不能放，涂层会被冲掉。\n但日常的油碟、汤碗、杯子，洗得比手洗干净，尤其是玻璃杯，透亮。\n最大的变化是吵架变少了，谁洗碗这件事不存在了。\n买之前先量橱柜高度，我家拆了一层隔板才塞进去。",
-      "tags": ["家电选购"],
+      "tags": [
+        "家电选购"
+      ],
       "tier": "solid",
       "ageHours": 96,
       "posterStyle": "paper",
@@ -72,9 +113,20 @@
       },
       "_topic": "洗碗机洗不干净的东西",
       "comments": [
-        { "author": "mumu", "text": "不粘锅这条我踩过，一口锅废了。", "offsetMinutes": 180, "upCount": 11 },
-        { "author": "wangshu", "text": "装之前一定要留检修口，后期堵了才好处理。", "offsetMinutes": 700, "upCount": 8 }
-      ]
+        {
+          "author": "mumu",
+          "text": "不粘锅这条我踩过，一口锅废了。",
+          "offsetMinutes": 180,
+          "upCount": 11
+        },
+        {
+          "author": "wangshu",
+          "text": "装之前一定要留检修口，后期堵了才好处理。",
+          "offsetMinutes": 700,
+          "upCount": 8
+        }
+      ],
+      "photoCount": 1
     },
     {
       "id": "jiadian-0004",
@@ -82,7 +134,9 @@
       "genre": "review",
       "title": "冰箱只认一个参数，其他都是次要的",
       "content": "换过两台冰箱，第一台风冷，第二台还是风冷。中间试过一台直冷，三个月就退了。\n直冷会结霜，冷冻室抽屉拉不开，除霜要断电一整天。风冷贵几百块，省下的是每年两次除霜的时间。\n容量按人头算，一个人一百升出头够用，三口之家四百升比较稳。别买刚好够的，逢年过节塞不下。\n变频和定频的差别在噪音，夜里厨房离卧室近的话，变频值得加钱。",
-      "tags": ["家电选购"],
+      "tags": [
+        "家电选购"
+      ],
       "tier": "normal",
       "ageHours": 200,
       "posterStyle": "film",
@@ -96,7 +150,12 @@
       },
       "_topic": "冰箱风冷与直冷",
       "comments": [
-        { "author": "dayu", "text": "风冷把菜吹干这事没人提，我家的青菜两天就蔫。", "offsetMinutes": 400, "upCount": 9 }
+        {
+          "author": "dayu",
+          "text": "风冷把菜吹干这事没人提，我家的青菜两天就蔫。",
+          "offsetMinutes": 400,
+          "upCount": 9
+        }
       ]
     },
     {
@@ -105,7 +164,10 @@
       "genre": "pitfall",
       "title": "热水器安装被加了六百，管子按米算",
       "content": "机器在网上买的，两千一，页面写含基础安装。师傅上门看了一圈，说烟管不够长，加两米，一米八十。燃气管也要换，一百六。角阀两个，一百二。\n装完一算，六百二。我当时赶着住进去，签了字。\n后来问了同行，烟管市场价一米三十左右，角阀二十块一个。\n可以加钱，但该在买之前问清楚含几米管、超出怎么算，让他写在单子上。",
-      "tags": ["家电选购", "装修避坑"],
+      "tags": [
+        "家电选购",
+        "装修避坑"
+      ],
       "tier": "solid",
       "ageHours": 60,
       "posterStyle": "kraft",
@@ -118,8 +180,18 @@
       },
       "_topic": "热水器安装增项",
       "comments": [
-        { "author": "wangshu", "text": "这行就靠辅材挣钱，机器基本不赚。", "offsetMinutes": 150, "upCount": 16 },
-        { "author": "dayu", "text": "我提前买了角阀，师傅脸都黑了。", "offsetMinutes": 400, "upCount": 12 }
+        {
+          "author": "wangshu",
+          "text": "这行就靠辅材挣钱，机器基本不赚。",
+          "offsetMinutes": 150,
+          "upCount": 16
+        },
+        {
+          "author": "dayu",
+          "text": "我提前买了角阀，师傅脸都黑了。",
+          "offsetMinutes": 400,
+          "upCount": 12
+        }
       ]
     },
     {
@@ -128,7 +200,10 @@
       "genre": "pitfall",
       "title": "买电视被推荐了展示机，回家才发现",
       "content": "卖场里那台样机画面特别亮，销售说这台做活动，比标价便宜八百。我看了十分钟就付了钱。\n回家第一晚就发现右上角有一块暗影，白天看不出来，晚上关灯明显。翻说明书才知道，样机长期显示同一画面会留残影。\n找卖场，对方说样机不退不换，单子上写了。我翻单子，确实有一行小字。\n八百块买了个残影，后来只能挂在出租房。买样机可以，但通电时要看纯色画面，白屏和灰屏各看一遍。",
-      "tags": ["家电选购", "消费维权"],
+      "tags": [
+        "家电选购",
+        "消费维权"
+      ],
       "tier": "normal",
       "ageHours": 260,
       "posterStyle": "film",
@@ -141,8 +216,18 @@
       },
       "_topic": "电视样机残影",
       "comments": [
-        { "author": "dongdong", "text": "纯色图这招好用，我买显示器也这么看。", "offsetMinutes": 300, "upCount": 8 },
-        { "author": "baikai", "text": "小字条款最坑，签字前一定看完。", "offsetMinutes": 900, "upCount": 6 }
+        {
+          "author": "dongdong",
+          "text": "纯色图这招好用，我买显示器也这么看。",
+          "offsetMinutes": 300,
+          "upCount": 8
+        },
+        {
+          "author": "baikai",
+          "text": "小字条款最坑，签字前一定看完。",
+          "offsetMinutes": 900,
+          "upCount": 6
+        }
       ]
     },
     {
@@ -151,7 +236,10 @@
       "genre": "pitfall",
       "title": "空调移机，氟利昂被放掉又加钱",
       "content": "搬家把旧空调移到新房，找的搬家师傅顺带做。他说移机三百，包含拆装。\n拆的时候他直接把管子剪了，说铜管老化要换，三米四百五。装完说缺氟，加氟两百。最后一千出头。\n正常移机要回收氟利昂，用机器抽到外机里，装好再放回去。剪管子等于把氟全放了。\n后来我找了品牌售后重做一遍，花两百六，师傅说铜管根本不用换。",
-      "tags": ["家电选购", "消费维权"],
+      "tags": [
+        "家电选购",
+        "消费维权"
+      ],
       "tier": "normal",
       "ageHours": 320,
       "posterStyle": "paper",
@@ -164,8 +252,18 @@
       },
       "_topic": "空调移机加氟套路",
       "comments": [
-        { "author": "laochen", "text": "剪管子是行规里最脏的一招。", "offsetMinutes": 500, "upCount": 14 },
-        { "author": "shanshan", "text": "品牌售后移机也就三四百，还带保修。", "offsetMinutes": 1200, "upCount": 9 }
+        {
+          "author": "laochen",
+          "text": "剪管子是行规里最脏的一招。",
+          "offsetMinutes": 500,
+          "upCount": 14
+        },
+        {
+          "author": "shanshan",
+          "text": "品牌售后移机也就三四百，还带保修。",
+          "offsetMinutes": 1200,
+          "upCount": 9
+        }
       ]
     },
     {
@@ -174,7 +272,9 @@
       "genre": "tutorial",
       "title": "自己清洗洗衣机内筒，一小时能弄完",
       "content": "洗衣机用两年会有一层看不见的垢，衣服晾干后有股味，多半是它。\n我用的办法不需要拆机。先买个内筒清洁剂，倒进去，选最高水位和最热的程序，跑一遍。\n然后处理胶圈。翻开来看，褶皱里会藏毛絮和黑点，用旧牙刷蘸小苏打刷，擦干。\n最后清过滤网，硬币和头发都在那儿。\n一个月做一次，味道基本不会回来。拆机清洗两百多，除非已经发臭，不然没必要。",
-      "tags": ["家电选购"],
+      "tags": [
+        "家电选购"
+      ],
       "tier": "solid",
       "ageHours": 70,
       "posterStyle": "sticky",
@@ -187,8 +287,14 @@
       },
       "_topic": "洗衣机内筒清洁",
       "comments": [
-        { "author": "mumu", "text": "胶圈那圈黑点我一直以为是发霉，刷完真干净了。", "offsetMinutes": 200, "upCount": 10 }
-      ]
+        {
+          "author": "mumu",
+          "text": "胶圈那圈黑点我一直以为是发霉，刷完真干净了。",
+          "offsetMinutes": 200,
+          "upCount": 10
+        }
+      ],
+      "photoCount": 1
     },
     {
       "id": "jiadian-0009",
@@ -196,7 +302,10 @@
       "genre": "tutorial",
       "title": "新房家电进场顺序，别先买冰箱",
       "content": "装修完最容易犯的错是家电买早了，堆在客厅挡着保洁，还容易被磕。\n我的顺序是这样。先装空调和热水器，这两样要在吊顶和墙面前完成，晚了就得开孔。\n然后是烟机灶具，跟着橱柜一起装，尺寸提前给到做柜子的。\n冰箱和洗衣机最后进场，因为要等地面干透、门口通道清空。\n电视更晚，等网络通了再买，型号半年就换一轮，早买早降价。",
-      "tags": ["家电选购", "装修避坑"],
+      "tags": [
+        "家电选购",
+        "装修避坑"
+      ],
       "tier": "normal",
       "ageHours": 380,
       "posterStyle": "kraft",
@@ -209,7 +318,12 @@
       },
       "_topic": "家电进场顺序",
       "comments": [
-        { "author": "dayu", "text": "空调孔这事我吃过亏，装完吊顶才想起来。", "offsetMinutes": 600, "upCount": 7 }
+        {
+          "author": "dayu",
+          "text": "空调孔这事我吃过亏，装完吊顶才想起来。",
+          "offsetMinutes": 600,
+          "upCount": 7
+        }
       ]
     },
     {
@@ -218,7 +332,9 @@
       "genre": "debate",
       "title": "烘干机到底要不要买，南方和北方能吵起来",
       "content": "我家在长江边，梅雨季衣服晾三天还是潮的，烘干机是刚需。\n北方朋友说他家暖气一开，衣服挂一晚就干，烘干机纯属占地方。\n我的看法是看两件事，一年有几个雨天，阳台朝不朝南。两个都不占，确实可以不买。\n但有个附加好处没人提，烘完的毛巾是软的，晾干的毛巾是硬的。",
-      "tags": ["家电选购"],
+      "tags": [
+        "家电选购"
+      ],
       "tier": "solid",
       "ageHours": 110,
       "posterStyle": "sticky",
@@ -232,8 +348,18 @@
       "planBVotes": 41,
       "_topic": "烘干机是否必要",
       "comments": [
-        { "author": "shanshan", "text": "热泵的贵，但电费比冷凝式低一半。", "offsetMinutes": 300, "upCount": 8 },
-        { "author": "baikai", "text": "北方确实用不上，我家那台一年开五次。", "offsetMinutes": 900, "upCount": 11 }
+        {
+          "author": "shanshan",
+          "text": "热泵的贵，但电费比冷凝式低一半。",
+          "offsetMinutes": 300,
+          "upCount": 8
+        },
+        {
+          "author": "baikai",
+          "text": "北方确实用不上，我家那台一年开五次。",
+          "offsetMinutes": 900,
+          "upCount": 11
+        }
       ]
     },
     {
@@ -242,7 +368,10 @@
       "genre": "share",
       "title": "以旧换新把旧洗衣机拉走，抵了八十",
       "content": "旧洗衣机用了九年，脱水时会自己走路。新机下单时勾了以旧换新，页面写最高抵三百。\n师傅送货那天看了一眼，说这台太老，只能抵八十，还问我要不要，不要他就帮忙搬下去。\n我想了想，让他搬走了。自己找回收，上楼费都不止八十。\n后来在楼下看见那台机器被装上一辆三轮车，估计还能再干两年。",
-      "tags": ["家电选购", "二手闲置"],
+      "tags": [
+        "家电选购",
+        "二手闲置"
+      ],
       "tier": "normal",
       "ageHours": 430,
       "posterStyle": "paper",
@@ -250,7 +379,12 @@
       "insight": "以旧换新的抵价，多数时候抵的是搬运费。",
       "_topic": "以旧换新的抵价",
       "comments": [
-        { "author": "mumu", "text": "我家那台抵了五十，还得自己搬到楼下。", "offsetMinutes": 600, "upCount": 6 }
+        {
+          "author": "mumu",
+          "text": "我家那台抵了五十，还得自己搬到楼下。",
+          "offsetMinutes": 600,
+          "upCount": 6
+        }
       ]
     },
     {
@@ -259,7 +393,9 @@
       "genre": "share",
       "title": "客厅电视三年开机不到二十次",
       "content": "装修时坚持要买七十五寸，说看电影爽。装好之后第一周看了两晚，之后基本没开过。\n现在的使用场景是，孩子看动画片用平板，我看新闻用手机，电视只在过年时开一次，放着当背景音。\n上次开机发现系统要更新，更了二十分钟。\n如果重来，我会买小一号，把钱挪到音响上，至少听歌天天用。",
-      "tags": ["家电选购"],
+      "tags": [
+        "家电选购"
+      ],
       "tier": "tail",
       "ageHours": 500,
       "posterStyle": "film",
@@ -267,7 +403,12 @@
       "insight": "电视的使用频率，装修时最容易高估。",
       "_topic": "客厅电视使用率",
       "comments": [
-        { "author": "shanshan", "text": "同感，我家电视现在只用来投屏。", "offsetMinutes": 800, "upCount": 5 }
+        {
+          "author": "shanshan",
+          "text": "同感，我家电视现在只用来投屏。",
+          "offsetMinutes": 800,
+          "upCount": 5
+        }
       ]
     },
     {
@@ -276,7 +417,9 @@
       "genre": "share",
       "title": "冰箱贴满便签，最后都过期了",
       "content": "我妈的习惯是把剩菜写成便签贴冰箱门上，写着日期。刚开始挺管用，一周清一次。\n后来便签越贴越多，一层压一层，最里面那张是三个月前的。\n上个月大扫除，撕下来二十多张，一半的东西早扔了。\n现在改成一块白板，进门顺手擦掉，比便签省事。",
-      "tags": ["家电选购"],
+      "tags": [
+        "家电选购"
+      ],
       "tier": "tail",
       "ageHours": 640,
       "posterStyle": "paper",
@@ -284,7 +427,12 @@
       "insight": "记录方式越顺手，越容易被坚持。",
       "_topic": "冰箱便签",
       "comments": [
-        { "author": "mumu", "text": "白板这招好，我家便签也堆成山了。", "offsetMinutes": 900, "upCount": 4 }
+        {
+          "author": "mumu",
+          "text": "白板这招好，我家便签也堆成山了。",
+          "offsetMinutes": 900,
+          "upCount": 4
+        }
       ]
     },
     {
@@ -293,7 +441,9 @@
       "genre": "share",
       "title": "我妈把洗衣机当储物柜用了两年",
       "content": "回老家发现洗衣机盖子一直盖着，上面堆着米袋和塑料袋。问她，她说反正一周才洗一次，平时放东西方便。\n我打开看，内筒里还有一件忘了拿出来的衬衫，已经发黄。\n后来给她换了个波轮，盖子能完全打开，上面放不了东西，反而老实用了。\n习惯只是一半，机器的形态也在推着人偷懒。",
-      "tags": ["家电选购"],
+      "tags": [
+        "家电选购"
+      ],
       "tier": "tail",
       "ageHours": 820,
       "posterStyle": "kraft",
@@ -301,7 +451,12 @@
       "insight": "家电的形态，会悄悄改变人的习惯。",
       "_topic": "洗衣机当储物柜",
       "comments": [
-        { "author": "wangshu", "text": "波轮这点确实比滚筒好，盖子一开就没法堆。", "offsetMinutes": 1200, "upCount": 7 }
+        {
+          "author": "wangshu",
+          "text": "波轮这点确实比滚筒好，盖子一开就没法堆。",
+          "offsetMinutes": 1200,
+          "upCount": 7
+        }
       ]
     },
     {
@@ -310,7 +465,10 @@
       "genre": "share",
       "title": "二手群淘了个电风扇，用了三个夏天",
       "content": "小区群里有人搬家出风扇，五十块，说是用了两年。我去看的时候叶片上全是灰，但电机声音很稳。\n拿回家拆开洗了一遍，轴承上了点油，到现在第三个夏天还在用。\n新风扇一百多也能买，但那种塑料感的噪音我受不了。老款的电机重，转起来是风声，不是嗡嗡声。",
-      "tags": ["家电选购", "二手闲置"],
+      "tags": [
+        "家电选购",
+        "二手闲置"
+      ],
       "tier": "tail",
       "ageHours": 1100,
       "posterStyle": "sticky",
@@ -318,7 +476,12 @@
       "insight": "二手小家电看电机，不看外壳。",
       "_topic": "二手电风扇",
       "comments": [
-        { "author": "baikai", "text": "老风扇的电机确实耐用，就是重。", "offsetMinutes": 1500, "upCount": 3 }
+        {
+          "author": "baikai",
+          "text": "老风扇的电机确实耐用，就是重。",
+          "offsetMinutes": 1500,
+          "upCount": 3
+        }
       ]
     }
   ]

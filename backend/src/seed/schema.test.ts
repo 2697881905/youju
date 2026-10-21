@@ -101,6 +101,20 @@ describe('validatePost', () => {
     const issues = run(post);
     expect(issues.length).toBeGreaterThanOrEqual(3);
   });
+
+  it('photoCount 合法时不报错', () => {
+    const post = basePost();
+    post.photoCount = 1;
+    expect(run(post).filter((issue) => issue.field === 'photoCount')).toHaveLength(0);
+  });
+
+  it('photoCount 非法值报错', () => {
+    for (const bad of [0, 1.5, 10]) {
+      const post = basePost();
+      post.photoCount = bad;
+      expect(run(post).some((issue) => issue.field === 'photoCount')).toBe(true);
+    }
+  });
 });
 
 describe('validateAuthors', () => {

@@ -8,7 +8,9 @@
       "genre": "review",
       "title": "为了一碗面坐一小时地铁，值不值",
       "content": "店在城郊，从我家过去要换两趟线，单程一小时。\n面是手擀的，汤用牛骨熬，一碗二十二。第一口下去，汤是清的，味道很厚。面有嚼劲，不软。\n吃完我在店里坐了十分钟，看老板一碗一碗地盛。\n值不值看你怎么算。按时间算不划算，按这一碗算，值。",
-      "tags": ["美食探店"],
+      "tags": [
+        "美食探店"
+      ],
       "tier": "hero",
       "ageHours": 18,
       "posterStyle": "paper",
@@ -22,9 +24,20 @@
       },
       "_topic": "城郊面馆",
       "comments": [
-        { "author": "ningmeng", "text": "只收现金这条太真实了，老店都这样。", "offsetMinutes": 100, "upCount": 19 },
-        { "author": "aqi", "text": "汤清味厚，这个描述让我饿了。", "offsetMinutes": 260, "upCount": 9 }
-      ]
+        {
+          "author": "ningmeng",
+          "text": "只收现金这条太真实了，老店都这样。",
+          "offsetMinutes": 100,
+          "upCount": 19
+        },
+        {
+          "author": "aqi",
+          "text": "汤清味厚，这个描述让我饿了。",
+          "offsetMinutes": 260,
+          "upCount": 9
+        }
+      ],
+      "photoCount": 1
     },
     {
       "id": "meishi-0002",
@@ -32,7 +45,9 @@
       "genre": "review",
       "title": "探店三年，我现在只看两个指标",
       "content": "以前看评分、看环境、看摆盘。现在只看两样，附近有没有本地人常来，菜单有多长。\n本地人多说明复购，菜单短说明后厨专注。菜单三十道以上、什么都做的店，通常什么都一般。\n上周去了一家只有八道菜的馆子，四道是招牌，都稳。\n评分可以刷，翻台率和菜单长度骗不了人。",
-      "tags": ["美食探店"],
+      "tags": [
+        "美食探店"
+      ],
       "tier": "solid",
       "ageHours": 42,
       "posterStyle": "kraft",
@@ -46,7 +61,12 @@
       },
       "_topic": "判断一家店",
       "comments": [
-        { "author": "guoguo", "text": "菜单短这条我在后厨待过，确实是这样。", "offsetMinutes": 200, "upCount": 12 }
+        {
+          "author": "guoguo",
+          "text": "菜单短这条我在后厨待过，确实是这样。",
+          "offsetMinutes": 200,
+          "upCount": 12
+        }
       ]
     },
     {
@@ -55,7 +75,9 @@
       "genre": "review",
       "title": "人均两百的店，和人均五十的店，差在哪",
       "content": "两百的店差在环境和服务，菜本身未必好一倍。五十的店胜在味道直接，没有多余的东西。\n我吃过人均两百多但菜很平的，也吃过人均四十却念念不忘的。\n花大钱吃的是那顿饭的氛围，花小钱吃的是那口味道。\n想清楚今天要哪种，就不会觉得冤。",
-      "tags": ["美食探店"],
+      "tags": [
+        "美食探店"
+      ],
       "tier": "normal",
       "ageHours": 190,
       "posterStyle": "film",
@@ -69,7 +91,12 @@
       },
       "_topic": "人均差异",
       "comments": [
-        { "author": "feifei", "text": "请客和吃饭分开想，这个我认同。", "offsetMinutes": 300, "upCount": 8 }
+        {
+          "author": "feifei",
+          "text": "请客和吃饭分开想，这个我认同。",
+          "offsetMinutes": 300,
+          "upCount": 8
+        }
       ]
     },
     {
@@ -78,7 +105,9 @@
       "genre": "review",
       "title": "同一家店，中午和晚上是两回事",
       "content": "常去的一家小馆，中午做盖饭，晚上做炒菜。\n中午的饭十五块，量大，锅气足。晚上的炒菜价格翻倍，味道反而平。\n老板说晚上请的师傅不一样，中午是他自己炒。\n所以我现在只在中午去。\n一家店什么时候好吃，比它评分多少更重要。",
-      "tags": ["美食探店"],
+      "tags": [
+        "美食探店"
+      ],
       "tier": "normal",
       "ageHours": 300,
       "posterStyle": "sticky",
@@ -92,7 +121,12 @@
       },
       "_topic": "午市与晚市",
       "comments": [
-        { "author": "chengzi", "text": "换师傅这条很多人都不知道。", "offsetMinutes": 500, "upCount": 7 }
+        {
+          "author": "chengzi",
+          "text": "换师傅这条很多人都不知道。",
+          "offsetMinutes": 500,
+          "upCount": 7
+        }
       ]
     },
     {
@@ -101,7 +135,9 @@
       "genre": "pitfall",
       "title": "网红店排队两小时，吃完想退款",
       "content": "店里只有六张桌，出餐慢，排队两小时。招牌菜上来是温的，摆盘很讲究，味道一般。\n两个人花了三百二，其中一百是环境费。\n出来后我在楼下吃了碗馄饨。\n现在看到排队超过二十分钟的店，我会先看看菜单和价格，再决定排不排。",
-      "tags": ["美食探店"],
+      "tags": [
+        "美食探店"
+      ],
       "tier": "solid",
       "ageHours": 64,
       "posterStyle": "paper",
@@ -114,8 +150,14 @@
       },
       "_topic": "网红店排队",
       "comments": [
-        { "author": "ningmeng", "text": "饿的时候做决定，这条太真实了。", "offsetMinutes": 200, "upCount": 9 }
-      ]
+        {
+          "author": "ningmeng",
+          "text": "饿的时候做决定，这条太真实了。",
+          "offsetMinutes": 200,
+          "upCount": 9
+        }
+      ],
+      "photoCount": 1
     },
     {
       "id": "meishi-0006",
@@ -123,7 +165,10 @@
       "genre": "pitfall",
       "title": "菜单上的招牌菜，往往是预制菜",
       "content": "有次点了一道招牌，上菜只用了六分钟，摆盘整齐，味道统一得像连锁。\n后来跟做餐饮的朋友聊，他说现在很多店的招牌都是中央厨房配送，加热装盘。\n预制不是罪，问题在于它按现做的价格卖。\n判断方法有两个，上菜太快，味道缺少锅气。想吃现做的，点青菜和需要现炒的。",
-      "tags": ["美食探店", "家常菜谱"],
+      "tags": [
+        "美食探店",
+        "家常菜谱"
+      ],
       "tier": "normal",
       "ageHours": 250,
       "posterStyle": "kraft",
@@ -136,7 +181,12 @@
       },
       "_topic": "预制菜判断",
       "comments": [
-        { "author": "guoguo", "text": "六分钟上菜这个判断很准。", "offsetMinutes": 400, "upCount": 8 }
+        {
+          "author": "guoguo",
+          "text": "六分钟上菜这个判断很准。",
+          "offsetMinutes": 400,
+          "upCount": 8
+        }
       ]
     },
     {
@@ -145,7 +195,9 @@
       "genre": "tutorial",
       "title": "第一次去一家店，先点这三样",
       "content": "判断一家店的基本功，点三样就够。\n第一样是青菜，看火候和油。第二样是汤或者粥，看底子。第三样是店里最便宜的招牌，看它愿不愿意在小钱上认真。\n三样都过关，再点贵的。\n我按这个顺序吃了三年，很少踩雷。",
-      "tags": ["美食探店"],
+      "tags": [
+        "美食探店"
+      ],
       "tier": "solid",
       "ageHours": 92,
       "posterStyle": "sticky",
@@ -157,7 +209,12 @@
       },
       "_topic": "初访点单",
       "comments": [
-        { "author": "aqi", "text": "最便宜的招牌这条，我第一次听到，很妙。", "offsetMinutes": 300, "upCount": 10 }
+        {
+          "author": "aqi",
+          "text": "最便宜的招牌这条，我第一次听到，很妙。",
+          "offsetMinutes": 300,
+          "upCount": 10
+        }
       ]
     },
     {
@@ -166,7 +223,9 @@
       "genre": "debate",
       "title": "探店要不要看评分",
       "content": "评分能筛掉明显的坑，但也容易被营销影响。\n我的经验是看两个数，评分和评价数量。四星半但只有五十条评价，参考价值低。四星但有两千条，比较可信。\n还要看差评的内容，说服务慢可以接受，说食材不新鲜要警惕。\n评分是入口，不是结论。",
-      "tags": ["美食探店"],
+      "tags": [
+        "美食探店"
+      ],
       "tier": "normal",
       "ageHours": 450,
       "posterStyle": "paper",
@@ -180,7 +239,12 @@
       "planBVotes": 79,
       "_topic": "看评分",
       "comments": [
-        { "author": "feifei", "text": "评价数量这条加得好，几十条评分没意义。", "offsetMinutes": 900, "upCount": 7 }
+        {
+          "author": "feifei",
+          "text": "评价数量这条加得好，几十条评分没意义。",
+          "offsetMinutes": 900,
+          "upCount": 7
+        }
       ]
     },
     {
@@ -189,7 +253,9 @@
       "genre": "share",
       "title": "老板记得我不吃香菜",
       "content": "常去一家小面馆，第三次去的时候，老板问都没问就给我上了不放香菜的。\n后来我才知道他在本子上记了。本子很旧，写满了名字和忌口。\n这种店不会上什么榜单，但我会一直去。\n有时候留住客人的不是味道，是被记住。",
-      "tags": ["美食探店"],
+      "tags": [
+        "美食探店"
+      ],
       "tier": "normal",
       "ageHours": 420,
       "posterStyle": "film",
@@ -197,8 +263,14 @@
       "insight": "被记住的客人，会一直回来。",
       "_topic": "老板记忌口",
       "comments": [
-        { "author": "chengzi", "text": "这种小店最难得。", "offsetMinutes": 800, "upCount": 7 }
-      ]
+        {
+          "author": "chengzi",
+          "text": "这种小店最难得。",
+          "offsetMinutes": 800,
+          "upCount": 7
+        }
+      ],
+      "photoCount": 1
     },
     {
       "id": "meishi-0010",
@@ -206,7 +278,9 @@
       "genre": "share",
       "title": "一家开了二十年的小馆子要关门了",
       "content": "老板六十多，儿子不做餐饮，房租涨了三成。\n最后一周我去了三次，每次都点同一道菜。老板认得我，最后一次多给了一勺。\n关门那天门口贴了张纸，写着感谢街坊二十年。\n有些味道，散了就真的没有了。",
-      "tags": ["美食探店"],
+      "tags": [
+        "美食探店"
+      ],
       "tier": "tail",
       "ageHours": 540,
       "posterStyle": "paper",
@@ -214,7 +288,12 @@
       "insight": "老店关门，带走的不只是味道。",
       "_topic": "老店关门",
       "comments": [
-        { "author": "aqi", "text": "多给一勺这个细节，看得人心里发闷。", "offsetMinutes": 1000, "upCount": 9 }
+        {
+          "author": "aqi",
+          "text": "多给一勺这个细节，看得人心里发闷。",
+          "offsetMinutes": 1000,
+          "upCount": 9
+        }
       ]
     },
     {
@@ -223,7 +302,10 @@
       "genre": "share",
       "title": "出差城市的第一顿饭，我总去菜市场",
       "content": "落地之后不去餐厅，先去菜市场。买一份当地的小吃，站在摊边吃完。\n能看出这个地方吃什么、什么贵、什么便宜。\n有次在南方一个市场吃到现做的肠粉，三块五，比后来吃的任何一家都好。\n第一顿饭定调子，菜市场最准。",
-      "tags": ["美食探店", "旅行出行"],
+      "tags": [
+        "美食探店",
+        "旅行出行"
+      ],
       "tier": "tail",
       "ageHours": 700,
       "posterStyle": "kraft",
@@ -231,7 +313,12 @@
       "insight": "到一座城，先吃菜市场。",
       "_topic": "出差第一顿",
       "comments": [
-        { "author": "ningmeng", "text": "三块五这个价格，现在很难得了。", "offsetMinutes": 1200, "upCount": 6 }
+        {
+          "author": "ningmeng",
+          "text": "三块五这个价格，现在很难得了。",
+          "offsetMinutes": 1200,
+          "upCount": 6
+        }
       ]
     },
     {
@@ -240,7 +327,9 @@
       "genre": "share",
       "title": "一个人吃火锅，服务员给我放了个玩偶",
       "content": "点了小锅，坐在靠窗的位置。服务员抱来一只玩偶放在对面，说这样不孤单。\n我先觉得尴尬，后来也习惯了，还给它拍了个照。\n旁边桌是一家人，孩子一直看那只玩偶。\n吃完结账，服务员问好吃吗。我说好吃，下次还来。",
-      "tags": ["美食探店"],
+      "tags": [
+        "美食探店"
+      ],
       "tier": "tail",
       "ageHours": 880,
       "posterStyle": "paper",
@@ -248,7 +337,12 @@
       "insight": "一个人吃饭，也能被照顾到。",
       "_topic": "一个人吃火锅",
       "comments": [
-        { "author": "qiyue", "text": "这个玩偶我也遇到过，一开始真的尴尬。", "offsetMinutes": 1400, "upCount": 7 }
+        {
+          "author": "qiyue",
+          "text": "这个玩偶我也遇到过，一开始真的尴尬。",
+          "offsetMinutes": 1400,
+          "upCount": 7
+        }
       ]
     },
     {
@@ -257,7 +351,9 @@
       "genre": "share",
       "title": "吃到一半发现是小时候的味道",
       "content": "一家新开的店，卖的是糖油饼。咬第一口我停住了，和我小学门口那家一样，外面脆，里面软，甜味不重。\n我问老板配方哪来的，他说是他爸留下的，以前就在学校附近摆摊。\n我说我可能吃过你家的。他笑，说那得送你一个。\n那天我吃了两个，撑到晚上。",
-      "tags": ["美食探店"],
+      "tags": [
+        "美食探店"
+      ],
       "tier": "tail",
       "ageHours": 1120,
       "posterStyle": "film",
@@ -265,7 +361,12 @@
       "insight": "味道能把人送回某个路口。",
       "_topic": "小时候的味道",
       "comments": [
-        { "author": "amay", "text": "他笑说那得送你一个，这句太可爱了。", "offsetMinutes": 1600, "upCount": 8 }
+        {
+          "author": "amay",
+          "text": "他笑说那得送你一个，这句太可爱了。",
+          "offsetMinutes": 1600,
+          "upCount": 8
+        }
       ]
     },
     {
@@ -274,7 +375,9 @@
       "genre": "share",
       "title": "我关了探店账号",
       "content": "做了两年，粉丝三万多。关的原因很简单，吃到后来，我进门先想的是怎么拍，不是好不好吃。\n有家店很难吃，我拍了好看的照片，数据还不错。那天晚上我把账号设成了私密。\n现在吃饭不带相机，好吃的记在心里，不好吃的下次不去。\n探店这件事，探到最后别忘了自己是去吃饭的。",
-      "tags": ["美食探店"],
+      "tags": [
+        "美食探店"
+      ],
       "tier": "tail",
       "ageHours": 1400,
       "posterStyle": "kraft",
@@ -282,7 +385,12 @@
       "insight": "把吃饭变成内容，会先失去吃饭。",
       "_topic": "关掉探店账号",
       "comments": [
-        { "author": "feifei", "text": "数据还不错那天晚上设私密，这个转折很真实。", "offsetMinutes": 1800, "upCount": 7 }
+        {
+          "author": "feifei",
+          "text": "数据还不错那天晚上设私密，这个转折很真实。",
+          "offsetMinutes": 1800,
+          "upCount": 7
+        }
       ]
     }
   ]

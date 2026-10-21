@@ -287,16 +287,21 @@ def main():
         print(f"头像 {len(authors)} 张")
 
     total = 0
+    skipped = 0
     for file in sorted((content_dir / "circles").glob("*.json")):
         if args.only and file.stem != args.only:
             continue
         payload = json.loads(file.read_text(encoding="utf-8"))
         circle = payload["circle"]
         for post in payload["posts"]:
+            # 图文帖的封面是实拍图（posts/seed/<id>-1.jpg），不再渲染文字海报
+            if post.get("photoCount"):
+                skipped += 1
+                continue
             render_poster(post, circle, out_dir / "posts" / "seed" / f"{post['id']}.jpg")
             total += 1
-        print(f"{circle} {len(payload['posts'])} 张")
-    print(f"海报合计 {total} 张，输出目录 {out_dir}")
+        print(f"{circle} {len(payload['posts'])} 条，海报 {sum(1 for p in payload['posts'] if not p.get('photoCount'))} 张")
+    print(f"海报合计 {total} 张（跳过图文帖 {skipped} 张），输出目录 {out_dir}")
     return 0
 
 

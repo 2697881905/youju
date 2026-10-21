@@ -227,6 +227,12 @@ export function validatePost(
   if (post.theme !== undefined && THEMES.indexOf(post.theme) < 0) {
     issues.push({ ...where, field: 'theme', message: '未知主题', severity: 'error' });
   }
+  if (post.photoCount !== undefined) {
+    const count = post.photoCount;
+    if (!Number.isInteger(count) || count < 1 || count > 9) {
+      issues.push({ ...where, field: 'photoCount', message: 'photoCount 需为 1~9 的整数', severity: 'error' });
+    }
+  }
 
   const structured = post.structured;
   if (post.genre !== 'share') {

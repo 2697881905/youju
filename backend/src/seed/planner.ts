@@ -25,6 +25,7 @@ export interface PlannedPost {
   createdAt: Date;
   updatedAt: Date;
   coverImage: string | null;
+  images: string[];
   ups: number;
   bookmarks: number;
   views: number;
@@ -50,7 +51,18 @@ const TIER_STATS: Record<SeedTier, TierRange> = {
 
 const POSTER_STYLES: Array<'paper' | 'film' | 'kraft' | 'sticky'> = ['paper', 'film', 'kraft', 'sticky'];
 
+/**
+ * 图文帖的照片 key。信息流卡片只认 coverImage、详情页轮播只认 images，
+ * 所以 coverImage 取 images[0]，保证两处第一张是同一张图且不重复展示。
+ */
+function imagesFor(post: SeedPostRecord): string[] {
+  if (!post.photoCount || post.photoCount < 1) return [];
+  return Array.from({ length: post.photoCount }, (_, index) => `cos://posts/seed/${post.id}-${index + 1}.jpg`);
+}
+
 function coverFor(post: SeedPostRecord): string | null {
+  const photos = imagesFor(post);
+  if (photos.length > 0) return photos[0];
   // 无图短帖在信息流里会退化成纯文字卡。留一小部分不放封面，是为了让双列瀑布流
   // 有长短差；比例压得很低，且只给分享体裁的短帖，首屏不会出现。
   const rng = rngFor(`${post.id}:cover`);
@@ -119,6 +131,7 @@ export function planContent(content: LoadedContent, now: Date = new Date()): Pla
       createdAt,
       updatedAt: createdAt,
       coverImage: coverFor(post),
+      images: imagesFor(post),
       ups,
       bookmarks,
       views,
@@ -206,9 +219,12 @@ export function assertPlan(plan: PlannedPost[]): string[] {
 }
 
 export function plannedMediaKeys(plan: PlannedPost[]): string[] {
-  return plan
-    .filter((item) => item.coverImage !== null)
-    .map((item) => String(item.coverImage).replace('cos://', ''));
+  const keys = new Set<string>();
+  for (const item of plan) {
+    if (item.coverImage !== null) keys.add(String(item.coverImage).replace('cos://', ''));
+    for (const image of item.images) keys.add(String(image).replace('cos://', ''));
+  }
+  return Array.from(keys);
 }
 
 export { themeForCircle };

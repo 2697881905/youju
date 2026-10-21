@@ -115,6 +115,12 @@ export interface SeedPostRecord {
   posterLine?: string;
   /** 一句话结论，喂给详情页的「结论」块；非 share 体裁必填 */
   insight?: string;
+  /**
+   * 图文帖照片数。缺省 = 纯文字海报帖（coverImage 指向 <id>.jpg 海报）；
+   * 填 1~9 时该帖变成图文帖：coverImage 与 images 都指向
+   * cos://posts/seed/<id>-1.jpg 起的实拍图，海报不再渲染。
+   */
+  photoCount?: number;
   structured?: SeedStructuredFields;
   blocks?: SeedBlockSpec[];
   primaryBlockIndex?: number;
