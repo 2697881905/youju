@@ -1165,6 +1165,15 @@ HdsNavigation
 
 **⚠️ 但"看不到效果"在这两页是数据问题，不是接线问题**：草稿箱当时只有 1 条草稿、废纸篓只有 4 条（双列两行），**两次 fling 后卡片位移都是 0px** —— 内容撑不满一屏就滚不动，永远没有东西经过栏下，材质自然无从折射。接线本身是对的（`Scroll` 节点已从栏下 537 移到窗口原点 106，静止态首屏仍无叠压）。所以这类短列表页验收**不能只看静止帧**，要么先凑够内容再验，要么承认"材质要等内容够长才显形"。
 
+**第四例：`SearchResultPage` 已迁（2026-10-22，真机通过），但它把「穿底」与「栏内裸小字」的冲突量化了。** 这页顶栏是两行结构，映射成 `stackBuilder`（搜索框 + 搜索按钮）+ `bottomBuilder`（结果计数 + 最新/热门分段栏），`TitleBar [0,106][1136,506]` = 128vp = 56 + 72。
+
+- 官方返回键 `Button [50,131][175,256]` / `bg=#00000000`；`SearchField` 落在 x=312（工具栏行左缩 64vp 生效）；分段两颗在 `BottomCustomNode` 内正常。**真点返回确认回到搜索探索页。**
+- **穿底试过，效果是这批页里最好的一次**：内容穿到栏下被渐变模糊，返回键圆内 **210~215 vs 圆外 195**（+18~20 级），折射环真的吸住了背后的暗色卡片 —— 前面几页在纯白画布上只有 2~3 级，这页第一次让人"看出材质"。
+- **但同一帧量出我自己引入的缺陷**：`bottomBuilder` 行里的「找到 N 篇内容」是**无表面的裸小字**（`ColorTokens.secondary`），内容一穿到栏下它就压在渐变模糊的暗背板上，实测**字/背板 1.78:1**，掉出 AA。这页原本是 `BarStyle.STANDARD` 不透明栏，内容从不经过栏下，所以计数一直站在白色上 —— 缺陷是穿底带出来的，不是原有的。
+- **处置：这页退回 `enableComponentSafeArea: true`**（计数区背板复测 255 纯白），保留官方返回键与两行栏结构。**要拿回穿底带来的材质可见性，前提是先把这行计数搬进列表当表头** —— 让它有自己的白色画布可站，而不是让字色去赌背后是什么内容。这正是工程既有规则「小字不压 tint」的又一次落地。
+
+**⚠️ 由此得出一条批量迁移的前置检查**（写进防漂移第 32 条）：给某页开穿底之前，先数一遍它的 `bottomBuilder` 行里有没有**无表面的裸文字**。有 → 要么先搬走，要么这页不穿底。首页/消息之所以能穿，是因为那一行里只有分段栏和 chip，**两者都有自己的官方表面**。
+
 
 ### 7.7 浅色那一档顺手复测（补第 6 节的 TODO）
 
@@ -1268,6 +1277,7 @@ $HDC shell "uitest uiInput click <px-x> <px-y>"   # bounds 是 px，÷3.125 才�
 25. **开了 `enableScrollEffect`，`contentStyle` 就要在 `originalStyle` 和 `scrollEffectStyle` 各写一遍**：`originalStyle` 只管特效生效**之前**，接管后菜单项颜色改读 `scrollEffectStyle`，不传就用 HDS 默认白字。静止态看着正常不等于没问题 —— 必须滚过 `blurEffectiveEndOffset` 再量一次（第 7.6.28 节：只写 originalStyle 时模糊态掉到 1.88:1）。
 26. **`content.menu` 的表面能摘、typography 摘不掉 —— 文字动作不要迁过去**：`HdsNavigationIconItemStyle` 只有 `backgroundColor / iconColor / textColor` 三个槽，`backgroundColor = Transparent` 可以清掉默认那颗浅药丸（排布/命中/按压反馈照样白拿），但**字号与内边距没有任何入口**（真机：墨迹比自绘高 9%、离右缘多 17vp 内缩）。所以官方件这条路只推荐给**图标钮**；纯文字动作要保原本观感就留自绘（第 7.6.28 节，已试过并逐像素回退）。若保留那颗药丸还要重判字色 —— 它会跟着栏变暗（243→169），「裸文字压深色背板 → 模糊后切白」这类规则在有表面后直接反向失效。
 27. **官方 `content.menu` 项要外部量帧，用 `componentId` 而不是自己 `.id()`**：`HdsNavigationIconOptions.componentId` 会原样落到内部 `Button` 节点的 `id` / `key`（dumpLayout 实测 `id = 'homeSearchEntry'`），所以 `componentUtils.getRectangleById()` 这类按 id 取矩形的通路照样命中 —— 一镜到底这种"要拿入口帧当动画起点"的接线迁进官方件不用拆。另外：图标项默认圆底 `#0C000000` 在浅色画布上实测**暗 12 级**，比自绘挂 ULTRA_THIN 白霜（2 级）清楚得多，别默认"必须补栏级 `systemMaterialEffect` 才看得见"（第 7.6.29 节）。
+32. **开穿底（`enableComponentSafeArea: false`）之前，先数 `bottomBuilder` 行里有没有"无表面的裸文字"**：内容一穿到栏下，那些字就压在渐变模糊的背板上，而背板亮度随内容变 —— 没有任何固定字色能同时赢过白画布和暗图（实测「找到 N 篇内容」1.78:1）。首页/消息能穿是因为那一行只有分段栏和 chip，两者都有自己的官方表面。有裸文字就先搬进列表当表头，或者这页干脆不穿底（第 7.6.31 节）。
 29. **`dynamicHideTitleBar` 配 `enableComponentSafeArea: true` 会让内容跑出手指的 2 倍速**：栏体一收，`Scroll` 顶边跟着栏底上抬，卡片位移 = 滚动量 + 栏体收起量（真机 200px 慢拖 → 卡片走 440px）。`hideRatio` 只改收起用时、不改收起总量，治不了。要真 1:1 绑定只能 `enableComponentSafeArea: false` + 内容自己补 `topInset`（「我的」那套），代价是内容穿到栏下绘制。别把它当成调参问题（第 7.6.30 节）。
 30. **系统下拉菜单没有"可编程弹出"入口，所以带 `bindMenu` 的控件一律迁不进 `content.menu`**：整个 SDK 搜 `showMenu` 零命中，菜单只能由 `.bindMenu()` 挂在**自己拥有的节点**上、以它为锚点。`HdsNavigationIconOptions` 没有这个槽位，把这类控件搬进官方菜单，面板就开不出来了。唯一替代是换成 `bindSheet`（相对窗口弹、不需要锚点），但那是改交互形态，得单独拍板（第 8 节 F 条）。
 31. **顶栏里放了全宽可点行，就会吃掉官方返回键／菜单钮的点击**：`StackCustomNode`（stackBuilder）是 `Button`（backIcon）与 `HdsMenuNode` 的**后一个兄弟节点**、z 序在上，所以那条行只要带 `layoutWeight(1)` + `onClick`，就会盖住两侧官方件的命中区（真机：点返回跳到了对端主页）。给 stackBuilder 行留出左右内缩 —— 官方件占 16~56vp，内容从 **64vp** 起。**验收必须真点一次官方返回键**，只看节点长出来了不算过（第 7.6.31 节）。
