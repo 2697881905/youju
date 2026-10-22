@@ -1161,6 +1161,10 @@ HdsNavigation
 
 **⚠️ 顺带修正 §7.6.29 那句「两个字段是一对」**：本页 `scrollEffectOpts.enableScrollEffect = false`（`ManagedPostFeed` 不外露 Scroller，拿不到滚动源），**只传 `systemMaterialEffect` 也照样出了玻璃珠**。所以成对的是「折射观感 ↔ 栏面模糊强度」，不是「玻璃珠 ↔ 滚动特效」：想要那颗圆，`systemMaterialEffect` 单独就够；`IMMERSIVE_GRADIENT_BLUR` 管的是栏面随滚动的模糊，没有滚动源时不开也不影响圆。
 
+**第三例：`TrashBoxPage` 已套同一模板（2026-10-22，真机通过）** —— 官方圆 `Button [50,131][175,256]` / `bg=#00000000`、标题 `废纸篓` 落在 x=200（64vp 让位）、`Scroll` 从 y=106 起（穿底开）、真点返回确认回到「我的」。**模板已稳定到可以直接批量套**：`HdsNavigation` + `titleBar(backIcon + stackBuilder 左缩 64vp)` + `IMMERSIVE_GRADIENT_BLUR`/`systemMaterialEffect` 成对 + `enableComponentSafeArea:false` 配 `topInset = statusBarHeight + 56` + `bindToScrollable`。
+
+**⚠️ 但"看不到效果"在这两页是数据问题，不是接线问题**：草稿箱当时只有 1 条草稿、废纸篓只有 4 条（双列两行），**两次 fling 后卡片位移都是 0px** —— 内容撑不满一屏就滚不动，永远没有东西经过栏下，材质自然无从折射。接线本身是对的（`Scroll` 节点已从栏下 537 移到窗口原点 106，静止态首屏仍无叠压）。所以这类短列表页验收**不能只看静止帧**，要么先凑够内容再验，要么承认"材质要等内容够长才显形"。
+
 
 ### 7.7 浅色那一档顺手复测（补第 6 节的 TODO）
 
