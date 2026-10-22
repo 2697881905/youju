@@ -1,27 +1,45 @@
-// 草稿箱：顶部标题（返回键 + 「草稿箱」）迁入 Navigation 标题栏，下方为内容区
-// （与首页/废纸篓/搜索结果页同构）。列表复用 ManagedPostFeed —— 与首页信息流同款
-// 双列布局、卡片样式与入场错峰过渡。
+// 草稿箱：顶部标题（返回键 + 「草稿箱」）驻留 HdsNavigation 标题栏，下方为内容区。
+// 返回键走官方 `content.backIcon`（40vp 玻璃圆，与「我的」/首页/聊天页同一套栏级材质），
+// 不再自绘 —— 这是「普通 Navigation → HdsNavigation」的第一块试验田（基准 §7.6.31）。
+// 列表复用 ManagedPostFeed —— 与首页信息流同款双列布局、卡片样式与入场错峰过渡。
 //
 // 草稿的 Post 没有 id，列表的稳定 key 由草稿 id 提供，因此点击/删除回调都按 key 反查草稿。
 import { getCurrentUser, getUserId } from '../utils/auth';
 import { removePostDraft, listPostDrafts, SavedPostDraft, subscribePostDrafts } from '../utils/postDraftStore';
 import { Post } from '../models/types';
 import { safeShowToast } from '../utils/toast';
-import { BackButton } from '../design/components/BackButton';
 import { ColorTokens } from '../design/tokens/color';
-import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
+import { SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { publishFlowStore } from '../utils/publishFlowStore';
 import { PublishMode } from '../components/PublishModeSheet';
 import { ManagedPostFeed } from '../components/ManagedPostFeed';
 import { resolveTextPosterStyle } from '../utils/poster/posterTokens';
 import { buildPageTransition } from '../utils/styles';
+import { resolveActionIcon } from '../utils/actionIcons';
+import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import type {
+  HdsNavigationTitleBarOptions,
+  TitleBarContentOptions,
+  TitleBarStyleOptions,
+  ScrollEffectOptions,
+  SystemMaterialParams,
+  HdsTitleBarContentStyle,
+  HdsNavigationIconItemStyle,
+  HdsNavigationBackButtonItemOptions,
+  HdsNavigationIconOptions,
+} from '@kit.UIDesignKit';
+// 栏级沉浸光感：与「我的」/首页/聊天页同一对字段、同一门禁（基准 §7.6.29）。
+import { isImmersiveLightSenseSupported, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
+
+// 官方返回键占 16~56vp（40vp 圆 + 16vp 左内缩）。stackBuilder 那行是全宽的、且在返回键的
+// 后一个兄弟节点上（z 序更高），不留出这段就会**吃掉返回键的点击**（ChatView 试点真机复现）。
+const HDS_BACK_SLOT_END_VP: number = 64;
 
 @Entry
 @Component
 struct DraftBoxPage {
   @State drafts: SavedPostDraft[] = [];
-  @StorageLink('statusBarHeight') statusBarHeight: number = 0;
   private unsubscribeDrafts: () => void = () => {};
 
   aboutToAppear(): void {
@@ -123,12 +141,54 @@ struct DraftBoxPage {
     return this.drafts.map((d: SavedPostDraft): string => resolveTextPosterStyle(d.textPosterStyle).key);
   }
 
-  // 标题栏内容：随页面一起迁入 Navigation 标题栏（沉浸式布局下系统不代为避让状态栏，
-  // 由标题栏自行下移；STANDARD 占位使内容区从栏下开始，内容区不再重复避让）。
+  // 标题栏配置：官方返回键（backIcon）+ stackBuilder 只放「草稿箱」文字。
+  // 状态栏避让交给 avoidLayoutSafeArea(true)，不再手动加 statusBarHeight padding；
+  // enableComponentSafeArea(true) 让内容从栏下开始（等价于原先的 BarStyle.STANDARD 占位）。
+  private draftTitleBarOptions(): HdsNavigationTitleBarOptions {
+    const style: TitleBarStyleOptions = {
+      // 本页内容容器（ManagedPostFeed）没有对外暴露 Scroller，拿不到滚动源 →
+      // 不启用滚动特效，栏静止态即终态。材质与滚动特效是两件事，见下方 systemMaterialEffect。
+      scrollEffectOpts: { enableScrollEffect: false } as ScrollEffectOptions,
+      originalStyle: {
+        backgroundStyle: { backgroundColor: Color.Transparent },
+        contentStyle: {
+          backIconStyle: { iconColor: ColorTokens.primary } as HdsNavigationIconItemStyle,
+        } as HdsTitleBarContentStyle,
+      },
+    };
+    if (isImmersiveLightSenseSupported()) {
+      // 栏级材质：官方圆钮的 rim + 折射只在这一档出图（不传 → 默认 3% 黑平面，无轮廓）。
+      style.systemMaterialEffect = {
+        materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
+        materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE,
+      } as SystemMaterialParams;
+    }
+    // backIcon 带 action 槽 → 返回行为原样保留（还是 router.back()），不会被换成 NavPathStack 默认 pop
+    const backContent: HdsNavigationIconOptions = {
+      icon: resolveActionIcon('back'),
+      label: '返回',
+      action: (): void => { this.getUIContext().getRouter().back(); },
+    };
+    const backIcon: HdsNavigationBackButtonItemOptions = backContent;
+    const content: TitleBarContentOptions = {
+      stackBuilder: (): void => { this.draftTitleRow(); },
+      backIcon: backIcon,
+    };
+    const options: HdsNavigationTitleBarOptions = {
+      content: content,
+      style: style,
+      avoidLayoutSafeArea: true,
+      enableComponentSafeArea: true,
+    };
+    return options;
+  }
+
+  // stackBuilder 行：只剩「草稿箱」标题。
+  // ⚠️ 左内缩必须让开官方返回键 —— 这一行是 width('100%') 且住在 StackCustomNode 里，
+  // 是返回键 Button 的后一个兄弟节点（z 序更高），不留开就会把返回键的点击吃掉（ChatView 实测）。
   @Builder
-  draftTitleBar(): void {
-    Row({ space: SpaceTokens.sm }) {
-      BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
+  draftTitleRow(): void {
+    Row() {
       Text('草稿箱')
         .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
         .fontWeight(TypeTokens.headline.weight)
@@ -136,13 +196,9 @@ struct DraftBoxPage {
         .fontColor(ColorTokens.primary)
     }
     .width('100%')
-    .height(LayoutTokens.minTouchTarget)
+    .height('100%')
     .alignItems(VerticalAlign.Center)
-    .padding({ top: this.statusBarHeight, left: SpaceTokens.md, right: SpaceTokens.md })
-  }
-
-  private titleBarHeight(): number {
-    return this.statusBarHeight + LayoutTokens.minTouchTarget;
+    .padding({ left: HDS_BACK_SLOT_END_VP, right: SpaceTokens.md })
   }
 
   @Builder
@@ -180,7 +236,7 @@ struct DraftBoxPage {
   }
 
   build() {
-    Navigation() {
+    HdsNavigation() {
       Column() {
         this.body()
       }
@@ -188,11 +244,8 @@ struct DraftBoxPage {
       .height('100%')
     }
     .mode(NavigationMode.Stack)
-    .hideTitleBar(false)
-    .title({
-      builder: this.draftTitleBar,
-      height: this.titleBarHeight(),
-    }, { barStyle: BarStyle.STANDARD, backgroundColor: ColorTokens.canvas })
+    .titleBar(this.draftTitleBarOptions())
+    .titleMode(HdsNavigationTitleMode.MINI)
     .width('100%')
     .height('100%')
     .backgroundColor(ColorTokens.canvas)

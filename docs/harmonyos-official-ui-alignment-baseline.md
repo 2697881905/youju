@@ -1152,6 +1152,15 @@ HdsNavigation
 - **⚠️ 会咬人的坑：官方返回键会被 stackBuilder 的全宽可点行吃掉点击。** 第一版装机后点返回键**跳到了对端主页**而不是返回 —— `chatTopRowContent` 里那条对端 Row 挂了 `onClick(goPeer)` 且带 `layoutWeight(1)`，横向铺满 25~979，盖在返回键（50~175）之上，而 `StackCustomNode` 是 `Button` 的后一个兄弟节点、z 序在上。修法：`chatHdsTopRow` 左内边距让开返回键 —— 它占 16~56vp，内容从 **64vp** 起（修后可点行左缘 25→200px、留 8vp 间隙，返回键恢复）。
   **这条对所有"顶栏里有全宽可点行"的迁移都成立**：`content.menu` 那颗在右侧同理会被吃，只是「我的」的标题是左对齐窄条才没暴露。**迁完必须真点一次返回**，不能只看它长出来了。
 
+**第二块试验田：`DraftBoxPage` 已迁完（2026-10-22，真机通过）** —— 「普通 `Navigation` → `HdsNavigation`」的第一例，也是最便宜的一种：顶栏只有一颗返回键 + 一段静态文字，没有成对按钮、没有覆盖层。结果：
+
+- 官方圆 `Button [50,131][175,256]`、`backgroundColor=#00000000`、圆内 **252.3 vs 画布 255 = −2.7 级**（与聊天页 −2.8、「我的」−3.2 同档）。
+- 标题 `Text '草稿箱'` 落在 x=200（= 64vp 让位），返回键右缘 175 → 间隙 8vp；**真点一次确认回到「我的」**（顶栏文本 `草稿箱[200,156]` → `我的[50,144]`）。
+- 栏体 56vp、`NavBarContent` 从 y=281 起 —— 内容照旧从栏下开始，`enableComponentSafeArea: true` 单独就够，原来 `BarStyle.STANDARD` 的占位语义被它替掉了。
+- HDS 默认那条 `Divider [0,280][1136,281]` 实测 **255 = 不可见**，不用特意关。
+
+**⚠️ 顺带修正 §7.6.29 那句「两个字段是一对」**：本页 `scrollEffectOpts.enableScrollEffect = false`（`ManagedPostFeed` 不外露 Scroller，拿不到滚动源），**只传 `systemMaterialEffect` 也照样出了玻璃珠**。所以成对的是「折射观感 ↔ 栏面模糊强度」，不是「玻璃珠 ↔ 滚动特效」：想要那颗圆，`systemMaterialEffect` 单独就够；`IMMERSIVE_GRADIENT_BLUR` 管的是栏面随滚动的模糊，没有滚动源时不开也不影响圆。
+
 
 ### 7.7 浅色那一档顺手复测（补第 6 节的 TODO）
 
