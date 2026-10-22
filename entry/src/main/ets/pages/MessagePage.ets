@@ -112,13 +112,6 @@ export struct MessagePage {
   @State dmTab: string = 'notif'; // 'notif' | 'dm'
   // 分段选中（通知/私信）：由本页 Swiper 与官方分段栏共用，切换动作统一走 @Watch
   @Link @Watch('onDmTabChanged') dmTabIndex: number;
-  // 分段栏滑块位置：连续（浮点）索引，始终有效、不再出现空闲哨兵值。
-  // 由 Swiper 的 onContentDidScroll 逐帧喂入（跟手，含松手后的吸附段），
-  // 吸附收尾由 onAnimationEnd 写整数位（见 slidePosition 喂入口径）。
-  @State private tabSlidePosition: number = 0;
-  // 分页动画在途：onContentDidScroll 第一次回报即置真，onAnimationEnd 置假。
-  // 用来区分「手势换页（滑块逐帧跟手）」与「点击/程序化换页（Swiper 不发滚动回调，滑块必须直接落整数位）」。
-  @State private tabSliding: boolean = false;
   // 分段切换的轻微透明反馈（标题栏分段栏用）
   @Link tabPulse: boolean;
   // 标题栏「全部已读」按钮 → 本页执行（递增序号触发 @Watch）
@@ -943,12 +936,6 @@ export struct MessagePage {
     return notifIconRes(type);
   }
 
-  // 分段跟手值的唯一写入口：连续索引 = index - position（真机逐帧取证：视口内每一页都按同一
-  // 基准回报 position，两页算出的值一致且整段单调，与 selectedIndex 是否翻转无关）。
-  private feedTabSlide(continuous: number): void {
-    this.tabSlidePosition = Math.max(0, Math.min(MESSAGE_SEGMENTS.length - 1, continuous));
-  }
-
   // 分段切换（标题栏点击 / Swiper 落页共用）：统一由 @Watch(dmTabIndex) 触发。
   // 两条路径都只写 dmTabIndex（同值写入不触发 @Watch），加载因此不会重复。
   onDmTabChanged(): void {
@@ -1295,7 +1282,12 @@ export struct MessagePage {
   // stackBuilder 顶栏行：「消息」标题 + 「全部已读」（仅通知分段且已登录；原 Index.messageTitleBar 迁入）。
   // 点击递增 markAllSeq 信号，由本组件 @Watch 承接实际标记动作。
   // 「消息」模糊到位后切白（brandOnBlur 同首页品牌行）；「全部已读」同样切白（用户裁定，
-  // 品牌色在深色模糊背板上仍嫌沉）
+  // 品牌色在深色模糊背板上仍嫌沉）。
+  // ⚠️ 这颗试过官方 content.menu 文字项，退回自绘是用户裁定：官方件只有
+  // backgroundColor / iconColor / textColor 三个槽，**字号与内边距改不掉** —— 实测墨迹比原本高 9%
+  // （46px vs 42px）、离右缘多出 17vp 内缩，而这里的观感要求是「与原本完全一致」。
+  // 官方件的表面倒是能摘（menuStyle.backgroundColor = Transparent），但 typography 不行就没辙。
+  // 结论：文字动作留自绘，官方 content.menu 只用于图标钮。基准 §7.6.28。
   @Builder
   messageBrandRow() {
     Row() {
@@ -1345,9 +1337,9 @@ export struct MessagePage {
     return index === 1 ? this.dmUnread : this.unreadCount;
   }
 
-  // bottomBuilder 分段行：ImmersiveSegmentBar（官方 SegmentButton 轨道+沉浸光感 + 自绘跟手滑块），
-  // 表面由系统组件渲染，滑块吃 Swiper 逐帧喂入的连续索引 → 与页面左右滑动 1:1 跟手。
-  // 本页再加一层未读徽标叠加层（官方 item 没有徽标位）。
+  // bottomBuilder 分段行：ImmersiveSegmentBar = 官方 SegmentButton（tab 档）+ 沉浸光感系统材质，
+  // 选中面/圆角/内缩/投影全部走官方默认，本页不再自绘表面。
+  // 本页只再加一层未读徽标叠加层（官方 item 没有徽标位）。
   @Builder
   messageTabRow() {
     Row() {
@@ -1355,7 +1347,6 @@ export struct MessagePage {
         ImmersiveSegmentBar({
           items: MESSAGE_SEGMENTS,
           selectedIndex: $dmTabIndex,
-          slidePosition: this.tabSlidePosition,
         })
         // 未读徽标层：分段栏把可用宽度等分，逐槽位叠一个「同字号透明标签 + 系统 Badge」，
         // 红点就落在各自标签右上角（与底部页签红点同一视觉语言，>99 自动 99+）。
@@ -1591,26 +1582,9 @@ export struct MessagePage {
         .curve(MotionCurves.springSoft)
         .onChange((index: number): void => {
           hilog.info(0x0000, 'MessagePage', '分段页切换 index=%{public}s', String(index));
-          // 只写共享的选中值（同值写入不触发 @Watch），切换动作统一由 @Watch('onDmTabChanged') 承接。
+          // 只写共享的选中值（同值写入不触发 @Watch），切换动作统一由 @Watch('onDmTabChanged') 承接；
+          // 分段栏是官方 SegmentButton，选中面由它自己的状态动画完成，这里不再驱动任何滑块位。
           this.dmTabIndex = index;
-          // 点击分段栏 / 外部改选中：Swiper 直接换页，真机取证这类切换「一条 onContentDidScroll 都不发」，
-          // 滑块只能在这里交给整数位。手势切换期间（tabSliding）不接管——
-          // onChange 会在吸附动画中途到达，写整数位等于让滑块从页面当前位置跳走。
-          if (!this.tabSliding) {
-            this.tabSlidePosition = index;
-          }
-        })
-        // 逐帧联动滑块（1:1 跟手，含松手后的吸附段——真机取证：position 在整段动画里连续单调）
-        .onContentDidScroll((_selectedIndex: number, index: number, position: number, _mainAxisLength: number): void => {
-          this.tabSliding = true;
-          this.feedTabSlide(index - position);
-        })
-        .onAnimationEnd((index: number): void => {
-          // 吸附收尾：滑块交给**本次动画的落点 index**（回调自带），抹掉最后一帧的浮点残差；
-          // 回弹不换页也走这里。⚠️ 不能读 dmTabIndex —— 真机取证 onChange 在 onAnimationEnd 之后才到，
-          // 那一刻共享选中值还是旧页，写它等于把滑块甩回起点再弹回来（用户看到的「不跟手」）。
-          this.tabSliding = false;
-          this.tabSlidePosition = index;
         })
         .layoutWeight(1)          // 标题栏之外的剩余高度全部给分页区
         .width('100%')

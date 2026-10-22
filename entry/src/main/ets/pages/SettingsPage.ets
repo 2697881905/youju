@@ -344,6 +344,14 @@ export struct SettingsPage {
           this.sectionRow('book', 'HDS 导航验证页（临时）', (): void => {
             this.getUIContext().getRouter().pushUrl({ url: 'pages/HdsNavVerifyPage' });
           })
+          // 临时入口：顶栏官方圆钮验证页（验证 HdsNavigation content.menu，基准 §7.6；完成即连本行一并删除）
+          this.sectionRow('book', 'HDS 顶栏圆钮验证页（临时）', (): void => {
+            this.getUIContext().getRouter().pushUrl({ url: 'pages/HdsMenuVerifyPage' });
+          })
+          // 临时入口：「我的」顶栏官方化原型（验 content.menu 与 bottomBuilder 能否同栏；完成即连本行一并删除）
+          this.sectionRow('book', '我的顶栏官方化原型（临时）', (): void => {
+            this.getUIContext().getRouter().pushUrl({ url: 'pages/ProfileBarProtoPage' });
+          })
           this.sectionRow('book', '关于有据 · 版本 ' + APP_VERSION_NAME, (): void => {
             this.getUIContext().getRouter().pushUrl({ url: 'pages/AboutPage' });
           })

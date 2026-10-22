@@ -28,7 +28,7 @@ import { ProfileHeader } from '../components/ProfileHeader';
 import { ImmersiveSegmentBar } from '../design/components/ImmersiveSegmentBar';
 import { User } from '../models/types';
 import { common } from '@kit.AbilityKit';
-import { window, display } from '@kit.ArkUI';
+import { window, display, LengthMetrics } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { publishFlowStore } from '../utils/publishFlowStore';
 import { AppTab, subscribeTabSwitch, emitTabSwitch, openPostDetail, openPostDetailAtComment, openChat, openFollowList, openUserProfile } from '../utils/nav';
@@ -40,8 +40,23 @@ import { setMainNavStack, setSharedUiContext } from '../utils/navigationTransiti
 import { AnimateCallback, CustomTransition } from '../utils/longTake/customNavigationUtils';
 import { setSerifTypeface, setSerifBodyTypeface } from '../utils/poster/posterText';
 import { drawing } from '@kit.ArkGraphics2D';
-import { HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
-import { isImmersiveLightSenseSupported, isSystemMaterialActive, TopButtonMaterialModifier, GlassBlurStyle, getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
+import { HdsTabs, HdsTabsController, HdsNavigation, HdsNavigationTitleMode,
+  ScrollEffectType } from '@kit.UIDesignKit';
+// 只 import type：这些接口在运行时被擦除，不会像 hdsMaterial 那样在 API 22 上「import 即崩」。
+// 材质档位因此传数值字面量（见 immersiveMaterial 的 HDS_MATERIAL_TYPE_IMMERSIVE / _LEVEL_ADAPTIVE）。
+import type {
+  HdsNavigationTitleBarOptions,
+  TitleBarContentOptions,
+  TitleBarStyleOptions,
+  ScrollEffectOptions,
+  SystemMaterialParams,
+  HdsNavigationBackgroundStyle,
+  HdsNavigationMenuContentOptions,
+  HdsNavigationMenuItemOptions,
+  HdsNavigationIconOptions,
+  HdsTitleBarContentStyle, HdsNavigationIconItemStyle,
+} from '@kit.UIDesignKit';
+import { isImmersiveLightSenseSupported, isSystemMaterialActive, FloatingTopButtonMaterialModifier, GlassBlurStyle, getSheetImmersiveMaterial, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
 import { BottomTabBar } from '../design/components/BottomTabBar';
 import { PostDetailDestination } from './PostDetailDestination';
 import { UserProfileDestination } from './UserProfileDestination';
@@ -58,6 +73,19 @@ import { VideoPlayerDestination } from './VideoPlayerDestination';
 // 待 AGC 批下 release 的 ACL 权限后：把本开关置 true + module.json5 加回声明即可完整复原
 // （utils/clipboardJump.ets 与 components/ClipboardPostSheet.ets 均未删除）。
 const PASTEBOARD_LINK_JUMP_ENABLED: boolean = false;
+
+// —— 「我的」顶栏（迁入内嵌 HdsNavigation，路线 B：与首页/圈子/消息同构）——
+// 结构：content.stackBuilder 自排衬线标题 + content.menu 官方 40vp 圆钮，栏体**只有这一行**。
+// 资料卡与分段栏不再挂 bottomBuilder —— 栏体节点之内抓不到滚动源，装进去就等于从手势里摘出去，
+// 带资料卡那一版实测把屏顶 41%（栏底 1209px）变成滑动盲区。它们回到 ProfilePage 那条 List 里：
+// 资料卡 = 第 0 项（随列表滚走、穿到栏底之下被模糊），分段栏 = 吸顶组头。见基准 §7.6.13b。
+// 官方 MINI 标题行高：实测 175px ÷ 3.125 = 56vp，系统定值、不可调。
+const PROFILE_TITLE_ROW_VP: number = 56;
+// 滚动渐变模糊生效区间终点：与首页/圈子定稿一致
+const PROFILE_BLUR_END_VP: number = 32;
+// 标题栏高斯半径，沿用迁移前外层标题栏 backgroundEffect 的实测值。取值区间 [0,128]。
+// 官方限定只在 GRADIENT_BLUR / IMMERSIVE_GRADIENT_BLUR 下生效，本页用后者。
+const PROFILE_BLUR_RADIUS: number = 50;
 
 // 底部页签数据项（含发布占位 tab）。发布 tab 也走同一 builder，展示 + 图标。
 interface IndexTabItem {
@@ -291,7 +319,6 @@ struct Index {
   // Navigation 标题栏后由本页持有，HomeTab 通过 @Link 共用并联动信息流 ——
   @State feedIndex: number = 0;
   @State feedMode: FeedMode = 'recommend';
-  @State slidePosition: number = -1;
   @State tagIndex: number = 0;
   @State displayTags: Tag[] = [];
   @State showCircleDropdown: boolean = false;
@@ -305,10 +332,18 @@ struct Index {
   @State profileBookmarkSubTab: number = 0;
   // 收藏夹条数：ProfilePage 拉完后回写，标题栏据此决定「管理」入口出不出现（空列表无可管理的东西）
   @State profileFolderCount: number = 0;
-  @State profileSlidePosition: number = -1;
   @State profilePresented: boolean = false;
   @State profileShareSeq: number = 0;
-  @State profileHeroHeight: number = 0;   // 资料区实测高度（onAreaChange 回写 → 栏高自适应）
+  // 顶栏是否该带模糊。官方只有 originalStyle.blurRadius 这一格认模糊半径，而那一格无条件生效
+  // （静止态也糊，见 §7.6.21）—— 所以「滚起来才糊」只能由列表偏移驱动这一格。
+  // 内容顶边静止时正好贴在栏底（contentStartOffset = 状态栏 + 56），偏移一 >0 就有内容进 Title 行，
+  // 于是判据就是「有没有滚过」，不需要额外阈值。
+  @State profileBarScrolled: boolean = false;
+  // 「我的」整页只剩一条 List（资料卡是它的第 0 项，四分段改为点击切换），所以只有一个滚动源。
+  // 交给内嵌 HdsNavigation 的 bindToScrollable 驱动标题栏渐变模糊 —— GRADIENT_BLUR 与
+  // bindToScrollable 是一对，只开模糊不绑源会把列表滚动整条吃掉（真机实证，基准 §7.6.12）。
+  private profileScrollers: Scroller[] = [new Scroller()];
+
   // —— 「消息」页共享状态：分段选中态/未读徽标源（顶栏已迁入 MessagePage 内嵌 HdsNavigation）——
   // （unreadCount/dmUnread 经 AppStorage @StorageLink 直达 MessagePage 与底栏红点）
   @State messageTabIndex: number = 0;
@@ -915,28 +950,30 @@ struct Index {
   }
 
   // —— 首页/圈子/消息 三个 Tab 顶栏均已迁入各自 Tab 内嵌 HdsNavigation（路线 B）——
-  // 「我的」页顶栏仍驻留外层 Navigation 标题栏；发布占位 Tab 与隐私壳无顶栏。
+  // —— 四个主 Tab 顶栏均已迁入各自内嵌 HdsNavigation（路线 B）——
+  // 外层 Navigation 不再承载任何页的标题栏；发布占位 Tab 与隐私壳无顶栏。
 
-  // 「我的」标题栏右上角分享/设置按钮的同源材质修饰器（沉浸光感，标题栏为官方生效区域）
-  private profileActionMaterial: TopButtonMaterialModifier = new TopButtonMaterialModifier();
+  // 「我的」子分段行右侧「管理收藏夹」钮的材质修饰器（这颗不在 content.menu 里，
+  // 它跟着子分段栏走，仍是自排 Pressable，所以保留同源官方材质）。
+  // 带投影那一档：真机对照原生电话顶栏圆钮，表面比背板亮 +6~8 L、下方有 −8 L 钟形落影。
+  // 见基准文档 §7.6.5 / §7.6.6。
+  private profileActionMaterial: FloatingTopButtonMaterialModifier = new FloatingTopButtonMaterialModifier();
 
-  // 顶栏是否显示（hideTitleBar 与内容区状态栏避让共用同一条件，保证两者同步）：
-  // 仅「我的」(4) 有外层顶栏（首页/圈子/消息走内嵌 HdsNavigation，发布占位与隐私壳无顶栏）。
-  // 顶栏为 BarStyle.STACK（覆盖式）→ 栏体已涵盖状态栏区域，内容区不能再重复加内边距；
-  // 内容区从窗口顶部起算，由 ProfilePage 的内容留白让开栏体（见 profileListInset）。
-  private mainTitleBarVisible(): boolean {
-    return this.currentIndex === 4 && this.privacyAgreed === '1';
-  }
-
-  // 顶层标题栏内容：仅「我的」页顶栏（其余 Tab 不走外层标题栏）
-  @Builder
-  mainTitleBar() {
-    this.profileTitleBar()
-  }
-
-  // 标题栏高度（须与 mainTitleBar 的分支一一对应）
-  private mainTitleBarHeight(): number {
-    return this.profileTitleBarHeight();
+  // 栏级沉浸光感：官方圆钮的 rim + 落影 + 玻璃折射只在这一档打开时才出图
+  // （不传 → 默认 3% 黑平面，无轮廓）。
+  // 档位传数值字面量而非 hdsMaterial 枚举：hdsMaterial 模块在 API 22 上不存在，值 import 即崩
+  // （审核问题①根因）；门禁与 HdsTabs 悬浮底栏同源（isImmersiveLightSenseSupported）。
+  private profileSystemMaterial(): SystemMaterialParams | undefined {
+    if (!isImmersiveLightSenseSupported()) {
+      return undefined;
+    }
+    return {
+      materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
+      // 必须是 EXQUISITE 才有「玻璃珠折射」：ADAPTIVE 只出普通半透（同机同字段单变量实测，
+      // 基准 §7.6.17）。代价是放弃「低端机由系统降级」这层保护 —— 该字段没有能力查询接口，
+      // 只能显式取舍。
+      materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE,
+    };
   }
 
   // —— 「我的」页顶栏（我的/分享/设置 + 资料区 + 主分段栏）：驻留 Navigation 标题栏 ——
@@ -972,42 +1009,35 @@ struct Index {
     } catch (e) {
       return 400;
     }
+
   }
 
-  // 资料区首帧高度估算（实测值 profileHeroHeight 到齐前兜底）：
-  // 有背景图 → 16:10 图卡（按屏宽算）；无背景 → 身份块 146 + 统计行 + 已登录的草稿/废纸篓行。
-  private profileHeroEstimate(): number {
-    if (this.profileBackgroundUrl() !== '') {
-      return (this.screenWidthVp() - SpaceTokens.sm * 2) / (16 / 10) + SpaceTokens.xs * 2;
+  // 屏高（vp）：与 screenWidthVp 同法。给「我的」列表的状态页撑底用 —— ListItem 里
+  // constraintSize minHeight 写 '100%' 不生效（List 内容高度无界，百分比没有参照），
+  // 必须给具体 vp 值，见基准 §7.6.25。取不到按 600 兜底。
+  private screenHeightVp(): number {
+    try {
+      const d: number = display.getDefaultDisplaySync().densityPixels;
+      const h: number = display.getDefaultDisplaySync().height;
+      return d > 0 && h > 0 ? h / d : 600;
+    } catch (e) {
+      return 600;
     }
-    return 146 + 44 + SpaceTokens.sm + (this.profileLoggedIn() ? LayoutTokens.segmentedHeight + SpaceTokens.xs + 4 : 0);
   }
 
-  // 「我收藏」子分段栏（帖子 | 收藏夹）为栏体多让出来的那一条：顶部间隙 xs + 控件本体 36。
-  // 只有该分段有二级视图，所以栏高随主分段变化——它也是唯一需要联动 ProfilePage 内容留白的一条
-  // （让位由分段页自己的 padding 补，见 ProfilePage.segmentPage）。
+  // 「我收藏」子分段栏（帖子 | 收藏夹）为栏体多让出来的那一条：顶部间隙 + 栏体本体。
+  // 只有该分段有二级视图，所以栏体高随主分段变化——它也是唯一需要联动资料卡让位量的一条。
   private profileHasSubSeg(): boolean {
     return this.profileTabIdx === 1;
   }
 
-  private profileSubSegExtra(): number {
-    return this.profileHasSubSeg() ? SpaceTokens.xs + LayoutTokens.segmentedHeight : 0;
-  }
 
-  // 「我的」标题栏总高（= 标题栏声明高 = 栏体磨砂矩形覆盖的那一条，一路到最后一条悬浮控件的底边）：
-  // 状态栏 + 顶栏行(36+xs×2) + 资料区 + 分段栏顶部间隙(xs) + 分段栏本体(36) + 子分段那一条（仅「我收藏」）。
-  // 标题栏是 BarStyle.STACK（覆盖式）→ 声明高不再决定内容区起点（内容区从窗口顶部起算），
-  // 它只圈定栏体磨砂/材质画到哪里，因此可以画满整条栏，让帖子一路穿到资料卡底下。
-  private profileTitleBarHeight(): number {
-    const hero: number = this.profileHeroHeight > 0 ? this.profileHeroHeight : this.profileHeroEstimate();
-    return this.statusBarHeight + LayoutTokens.segmentedHeight + SpaceTokens.xs * 2 + hero
-      + SpaceTokens.xs + LayoutTokens.segmentedHeight + this.profileSubSegExtra();
-  }
-
-  // 列表内容要让开的那一条：只到**主分段栏顶边**（子分段栏在它之下，由分段页自己再让一条）。
-  // 与 profileTitleBarHeight 相差「主分段栏本体 + 子分段那一条」。
+  // 交给 List 的 contentStartOffset：内容起始端让开整条 56vp 标题栏，吸顶分段栏也就钉在那儿。
+  // ⚠️ 必须含 statusBarHeight。`enableComponentSafeArea:false` 下 List 的**布局原点仍在窗口 0**，
+  // 节点报 [0,106] 是裁剪后的可视框（防漂移第 12 条）。真机实测：只给 56vp 时资料卡项落在
+  // y=175px，正压在标题栏（106..281）底下、头像被「我的」那行切掉一半；补上 34vp 才落到 281。
   private profileListInset(): number {
-    return this.profileTitleBarHeight() - LayoutTokens.segmentedHeight - this.profileSubSegExtra();
+    return this.statusBarHeight + PROFILE_TITLE_ROW_VP;
   }
 
   // 资料区本体（ProfileHeader 只呈现，跳转/登录引导等意图在这里接线）
@@ -1033,143 +1063,79 @@ struct Index {
     })
   }
 
+  // 资料卡：交给 ProfilePage 整页那条 List 的第 0 项（@BuilderParam heroHeader）。
+  // 不再住在标题栏 bottomBuilder 里 —— 栏体节点之内抓不到滚动源，资料卡留在栏里等于把屏顶
+  // 41% 变成手势盲区，且它不随列表滚走（基准 §7.6.13b）。入场动效留在这一层，观感不变。
   @Builder
-  profileTitleBar() {
-    Column({ space: SpaceTokens.none }) {
-      // 顶栏行：我的 + 分享（外部分享开关开启时）+ 设置
-      Row({ space: SpaceTokens.sm }) {
-        Text('我的')
-          .fontSize(TypeTokens.titleSerif.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.titleSerif.weight)
-          .lineHeight(TypeTokens.titleSerif.lineHeight)
-          .alignSelf(ItemAlign.Start)
-          .fontColor(ColorTokens.primary)
-        Blank()
-        if (EXTERNAL_SHARE_ENABLED) {
-          Pressable({
-            visualHeight: LayoutTokens.segmentedHeight,
-            touchTargetHeight: LayoutTokens.minTouchTarget,
-            action: (): void => {
-              // 递增信号 → ProfilePage @Watch：分享弹层/文案/系统分享仍由本页逻辑完成
-              this.profileShareSeq += 1;
-            },
-          }) {
-            Row() {
-              Image(resolveActionIcon('share'))
-                .width(IconTokens.small)
-                .height(IconTokens.small)
-                .fillColor(ColorTokens.icon)
-            }
-            .width(LayoutTokens.segmentedHeight)
-            .height(LayoutTokens.segmentedHeight)
-            .justifyContent(FlexAlign.Center)
-            // 沉浸光感：标题栏内由系统材质接管表面（低版本自动跳过；无底色/描边，仅材质）
-            .borderRadius(RadiusTokens.lg)
-            .attributeModifier(this.profileActionMaterial)
-            .accessibilityText('分享主页')
-          }
-        }
-        Pressable({
-          visualHeight: LayoutTokens.segmentedHeight,
-          touchTargetHeight: LayoutTokens.minTouchTarget,
-          action: (): void => {
-            this.getUIContext().getRouter().pushUrl({ url: 'pages/SettingsPage' });
-          },
-        }) {
-          Row() {
-            Image(resolveSettingsIcon('gear'))
-              .width(IconTokens.small)
-              .height(IconTokens.small)
-              .fillColor(ColorTokens.icon)
-          }
-          .width(LayoutTokens.segmentedHeight)
-          .height(LayoutTokens.segmentedHeight)
-          .justifyContent(FlexAlign.Center)
-          // 沉浸光感：与分享按钮同源材质（低版本自动跳过；无底色/描边，仅材质）
-          .borderRadius(RadiusTokens.lg)
-          .attributeModifier(this.profileActionMaterial)
-        }
-      }
-      .width('100%')
-      .padding({
-        left: SpaceTokens.sm,
-        right: SpaceTokens.sm,
-        top: SpaceTokens.xs,
-        bottom: SpaceTokens.xs,
-      })
-
-      // 资料区（含背景图变体与入场动效）：高度实测回写 → 栏高随内容自适应
-      Column() {
-        if (this.profileBackgroundUrl() !== '') {
-          Column() {
-            Stack() {
-              Image(resolveDisplayImageUrl(this.profileBackgroundUrl()))
-                .width('100%')
-                .height('100%')
-                .objectFit(ImageFit.Cover);
-              Column() {
-                this.profileHeaderBlock(true);
-              }
+  profileHeroBlock() {
+    Column() {
+      if (this.profileBackgroundUrl() !== '') {
+        Column() {
+          Stack() {
+            Image(resolveDisplayImageUrl(this.profileBackgroundUrl()))
               .width('100%')
               .height('100%')
-              .justifyContent(FlexAlign.End)
-              .backgroundColor('#52000000');
+              .objectFit(ImageFit.Cover);
+            Column() {
+              this.profileHeaderBlock(true);
             }
             .width('100%')
-            .aspectRatio(16 / 10)
-            .borderRadius(RadiusTokens.lg)
-            .clip(true);
+            .height('100%')
+            .justifyContent(FlexAlign.End)
+            .backgroundColor('#52000000');
           }
           .width('100%')
-          .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs, bottom: SpaceTokens.xs });
-        } else {
-          Column() {
-            this.profileHeaderBlock(false);
-          }
-          .width('100%');
+          .aspectRatio(16 / 10)
+          .borderRadius(RadiusTokens.lg)
+          .clip(true);
         }
+        .width('100%')
+        .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs, bottom: SpaceTokens.xs });
+      } else {
+        Column() {
+          this.profileHeaderBlock(false);
+        }
+        .width('100%');
       }
-      .width('100%')
-      .opacity(this.profilePresented ? 1 : 0)
-      .translate({ y: this.profilePresented ? 0 : SpaceTokens.xl })
-      .scale({
-        x: this.profilePresented ? 1 : MotionTokens.enterScale,
-        y: this.profilePresented ? 1 : MotionTokens.enterScale,
-      })
-      .animation({
-        duration: MotionTokens.page,
-        curve: MotionCurves.emphasized,
-      })
-      .onAreaChange((_old: Area, area: Area): void => {
-        // 资料区高度是内容驱动的（不受栏高钳制），实测后回写栏高：
-        // 登录态切换、背景图有无、屏宽变化都会自然修正。
-        const h: number = parseFloat(String(area.height));
-        if (h > 0 && Math.abs(h - this.profileHeroHeight) > 0.5) {
-          this.profileHeroHeight = h;
-        }
-      })
+    }
+    .width('100%')
+    .opacity(this.profilePresented ? 1 : 0)
+    .translate({ y: this.profilePresented ? 0 : SpaceTokens.xl })
+    .scale({
+      x: this.profilePresented ? 1 : MotionTokens.enterScale,
+      y: this.profilePresented ? 1 : MotionTokens.enterScale,
+    })
+    .animation({
+      duration: MotionTokens.page,
+      curve: MotionCurves.emphasized,
+    })
+  }
 
-      // 主分段栏：我发布 / 我收藏 / 我赞过 / 我评论（官方 SegmentButton 轨道 + 沉浸光感 + 自绘跟手滑块）
+  // 主分段 + （子分段）两行控件：交给 ProfilePage 那条 List 的吸顶组头（ListItemGroup.header），
+  // 于是资料卡排在它上面、上滑时先滚走、这一行粘在 56vp 标题栏之下。
+  // 标题行不在这儿——「我的」三个字走 content.stackBuilder，分享/设置走官方 content.menu。
+  @Builder
+  profileSegRows() {
+    Column({ space: SpaceTokens.none }) {
+      // 主分段栏：我发布 / 我收藏 / 我赞过 / 我评论（官方 SegmentButton tab 档 + 沉浸光感系统材质）
+      // 撑满父容器（itemWidth 取默认 0），不再定宽 67×4=268vp 的短栏：
+      // 参考实测智慧生活顶栏轨道 331.5vp / 屏宽 363.52 → 左右各 16vp，这里用 base 内缩正好复现该宽。
       ImmersiveSegmentBar({
         items: PROFILE_SEGMENTS,
         selectedIndex: $profileTabIdx,
-        slidePosition: this.profileSlidePosition,
-        itemWidth: 67,
         onSelect: (idx: number): void => {
-          // 只写选中值：ProfilePage 的分页 Swiper 随即播切换动画，滑块由 onContentDidScroll 逐帧带着走。
-          // 这里预设整数位等于让滑块先跳到终点再被动画拽回来；列表刷新由 @Watch(tabIdx) 承接。
+          // 只写选中值：ProfilePage 的分页 Swiper 随即换页，选中面由官方组件的状态动画完成；
+          // 列表刷新由 @Watch(tabIdx) 承接。
           this.profileTabIdx = idx;
         },
       })
-        .margin({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs })
+        .margin({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.xs })
 
       // 「我收藏」子分段栏（帖子 | 收藏夹）：与主分段栏同一条磨砂区内，材质配置照抄上面那份。
       // 原先它是内容区浮层——uiMaterial 在内容区完全不渲染，只能自绘玻璃，
       // 与栏体材质两套模糊半径/着色叠在一起，接缝就落在两条栏之间那一条 xs 上。
-      // 整行铺满（fillWidth 默认值，两条目各占一半），管理入口靠右，二者靠一层 layoutWeight 容器分格。
-      // 出现/消失走 transition：栏高随 tabIdx 跳变那一帧由淡入遮住，不做逐帧跟手
-      // ——点主栏胶囊时 onSelect 会先把 slidePosition 置成整数，跟手通道在随后的动画帧里
-      // 还要从 0 重新爬一遍，指示器会闪一下。
+      // 整行铺满（官方组件把可用宽度等分给两条目），管理入口靠右，二者靠一层 layoutWeight 容器分格。
+      // 出现/消失走 transition：栏高随 tabIdx 跳变那一帧由淡入遮住。
       if (this.profileHasSubSeg()) {
         Row({ space: SpaceTokens.xs }) {
           // fillWidth 保持整行铺满（两条目各占一半），但外层套一个 layoutWeight(1) 容器：
@@ -1191,7 +1157,7 @@ struct Index {
           if (this.profileBookmarkSubTab === 1 && this.profileFolderCount > 0) {
             Row() {
               Pressable({
-                visualHeight: LayoutTokens.segmentedHeight,
+                visualHeight: LayoutTokens.iconButton,
                 touchTargetHeight: LayoutTokens.minTouchTarget,
                 action: (): void => {
                   this.getUIContext().getRouter().pushUrl({ url: 'pages/BookmarkFolderPage' });
@@ -1199,12 +1165,12 @@ struct Index {
               }) {
                 Row() {
                   Image(resolveSettingsIcon('edit'))
-                    .width(IconTokens.small)
-                    .height(IconTokens.small)
+                    .width(IconTokens.standard)
+                    .height(IconTokens.standard)
                     .fillColor(ColorTokens.icon)
                 }
-                .width(LayoutTokens.segmentedHeight)
-                .height(LayoutTokens.segmentedHeight)
+                .width(LayoutTokens.iconButton)
+                .height(LayoutTokens.iconButton)
                 .justifyContent(FlexAlign.Center)
                 // 与顶栏分享/设置同源材质（低版本自动跳过；无底色/描边，仅材质）
                 .borderRadius(RadiusTokens.lg)
@@ -1219,7 +1185,8 @@ struct Index {
           }
         }
         .width('100%')
-        .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs })
+        // 左右内缩与主分段栏同值（base 16vp），两条栏左边缘必须对齐
+        .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.xs })
         .transition(TransitionEffect.OPACITY.animation({
           duration: MotionTokens.container,
           curve: MotionCurves.emphasized,
@@ -1227,8 +1194,128 @@ struct Index {
       }
     }
     .width('100%')
-    // 全屏沉浸式布局下标题栏不代为避让状态栏：手动下移
-    .padding({ top: this.statusBarHeight })
+    // 这一行**不带任何表面**。它跟着资料区一起滚走，绝大多数时间直接站在页面画布上 ——
+    // 官方 SegmentButton 轨道在画布上的表现已经量过并认定与原生同档（基准 §7.6.18 / §7.7），
+    // 所以不需要再补一层底。
+    //
+    // 曾经垫过的三层底全是否定结论，别再走回头路：
+    // · 实色 canvas → 一条实心白板压在列表上，没有悬浮感；
+    // · backgroundBlurStyle(BACKGROUND_REGULAR/THICK) → 原样透出背板，深色卡片压顶时
+    //   未选中标签实测 4.26~4.50:1，掉出 WCAG AA；
+    // · backgroundBlurStyle(COMPONENT_THICK/REGULAR) → 达标但偏实，悬浮感仍不对。
+    // 根因是吸顶行必须自给表面，而内容区拿不到栏体材质（systemMaterial 挂在内容区普通组件上
+    // 完全不渲染，见 immersiveMaterial.ets:182）。不吸顶，这个需求就消失了。见 §7.6.23。
+    .padding({ bottom: SpaceTokens.xs })
+  }
+
+  // 标题行左侧「我的」：走 content.stackBuilder 而不是 content.title。
+  // 官方 content.title 只有系统字体，保不住工程的衬线字族（titleSerif）；实测 stackBuilder
+  // 与 content.menu 同栏共存、互不挤占（基准 §7.6.10）。
+  @Builder
+  profileStackTitle() {
+    Row() {
+      Text('我的')
+        .fontSize(TypeTokens.titleSerif.size).fontFamily(TypeTokens.fontFamilySerif)
+        .fontWeight(TypeTokens.titleSerif.weight)
+        .lineHeight(TypeTokens.titleSerif.lineHeight)
+        .fontColor(ColorTokens.primary)
+    }
+    .width('100%')
+    .height('100%')
+    .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
+    .alignItems(VerticalAlign.Center)
+  }
+
+  // 右上角官方圆钮排：content.menu 白送 40vp 项宽 / 8vp 间距 / 右缘避让 / 超量折叠成「更多」
+  // / badge / 无障碍（基准 §7.6）。自研那颗 40vp 圆从此退役，只留子分段行的「管理收藏夹」。
+  private profileMenuItems(): Array<HdsNavigationMenuItemOptions> {
+    const settingContent: HdsNavigationIconOptions = {
+      icon: resolveSettingsIcon('gear'),
+      label: '设置',
+      action: (): void => {
+        this.getUIContext().getRouter().pushUrl({ url: 'pages/SettingsPage' });
+      },
+    };
+    const setting: HdsNavigationMenuItemOptions = { content: settingContent };
+    if (!EXTERNAL_SHARE_ENABLED) {
+      return [setting];
+    }
+    const shareContent: HdsNavigationIconOptions = {
+      icon: resolveActionIcon('share'),
+      label: '分享主页',
+      action: (): void => {
+        // 递增信号 → ProfilePage @Watch：分享弹层/文案/系统分享仍由 ProfilePage 完成
+        this.profileShareSeq += 1;
+      },
+    };
+    const share: HdsNavigationMenuItemOptions = { content: shareContent };
+    return [share, setting];
+  }
+
+  // 「我的」标题栏配置（嵌套 HdsNavigation，路线 B：与首页/圈子/消息同构）
+  // stackBuilder 衬线标题 + content.menu 官方圆 + GRADIENT_BLUR + avoid/!enableComponentSafeArea
+  // （后者是穿底的前提，基准 §7.6.9）。栏体只剩这一行 56vp，与官方参照页节点同尺寸（§7.6.13b）。
+  // 逐层显式标注 SDK 类型。
+  private profileTitleBarOptions(): HdsNavigationTitleBarOptions {
+    const menu: HdsNavigationMenuContentOptions = { value: this.profileMenuItems() };
+    const content: TitleBarContentOptions = {
+      stackBuilder: (): void => { this.profileStackTitle(); },
+      menu: menu,
+      // 不再挂 bottomBuilder：栏体节点之内抓不到滚动源，装进栏里的东西等于从手势里摘出去。
+      // 资料卡与分段栏都回到列表流里（heroHeader / segHeader），栏体只留这一行 56vp。
+    };
+    const scrollEffect: ScrollEffectOptions = {
+      enableScrollEffect: true,
+      // 必须 GRADIENT_BLUR：`backgroundStyle.blurRadius` 官方只在 GRADIENT_BLUR /
+      // IMMERSIVE_GRADIENT_BLUR 两档下生效，COMMON_BLUR 会把整条栏画成平色（真机实证，
+      // 迁移中一度改用 COMMON_BLUR 绕开滚动锁死，代价就是资料区底下不再糊 —— 基准 §7.6.14）。
+      // 它要求的滚动源由下面 bindToScrollable 供给。
+      scrollEffectType: ScrollEffectType.IMMERSIVE_GRADIENT_BLUR,
+      blurEffectiveStartOffset: LengthMetrics.vp(0),
+      blurEffectiveEndOffset: LengthMetrics.vp(PROFILE_BLUR_END_VP),
+    };
+    // `originalStyle` 官方语义是「scroll 特效生效**之前**的样式」—— 在这里写 blurRadius 等于
+    // 要求静止态就糊，于是顶栏永远带一层模糊、且材质在纯白画布上被点成白底白图标
+    // （真机实测静止时栏带 L254.3、图标字形 L250，对比度 1.03:1）。
+    // 对照已上线的「消息」页 MessagePage.ets:1262：同一个槽位只给 backgroundColor，不给 blurRadius。
+    // 模糊只由下面的 scrollEffect 在滚动时提供。
+    // 模糊半径 + 遮罩高度成对配置，缺一就反向：
+    // · blurRadius 实测只有挂在 originalStyle 上才出图（挂 scrollEffectStyle 数值零变化），
+    //   而静止态栏下是均匀白画布，糊白底=白底，所以「挂 originalStyle」并不会让顶栏看着常年糊。
+    // · maskExtraHeight 官方**默认 32vp**，且文档写明「实际遮罩高 = 栏高 + maskExtraHeight」——
+    //   也就是说模糊区天生往栏底之下多伸 32vp，把资料卡顶边一起糊掉。用户看到的「一直是模糊」
+    //   是这一条，不是静止态本身。压到 0 让磨砂正好停在栏底。
+    const backgroundStyle: HdsNavigationBackgroundStyle = {
+      backgroundColor: Color.Transparent,
+      blurRadius: this.profileBarScrolled ? PROFILE_BLUR_RADIUS : 0,
+      maskExtraHeight: 0,
+    };
+    // content.menu 图标色默认是**白**（HDS 的约定：静止态那条透明栏压在 hero 媒体上）。
+    // 本页静止时栏下是页面画布（浅色 L255），白图标直接和白底重合 —— 真机实测圆盘 L252 /
+    // 字形 L251，对比度 1.02:1，两颗钮完全看不见；而左侧「我的」是黑的，因为 stackBuilder
+    // 那层我们自己写了 fontColor。同一个槽位没人管，就只有菜单图标翻车。
+    // 官方出口是 originalStyle.contentStyle.menuStyle.iconColor（menuStyle 只暴露
+    // backgroundColor / iconColor / textColor 三个纯色，见 HdsMenuVerifyPage.ets:158）。
+    // 用 token 不用常量：深色模式下画布是 #121212，图标要跟着翻白。
+    const menuStyle: HdsNavigationIconItemStyle = { iconColor: ColorTokens.primary };
+    const contentStyle: HdsTitleBarContentStyle = { menuStyle: menuStyle };
+    const style: TitleBarStyleOptions = {
+      scrollEffectOpts: scrollEffect,
+      originalStyle: { backgroundStyle: backgroundStyle, contentStyle: contentStyle },
+    };
+    const material: SystemMaterialParams | undefined = this.profileSystemMaterial();
+    if (material !== undefined) {
+      style.systemMaterialEffect = material;
+    }
+    const options: HdsNavigationTitleBarOptions = {
+      content: content,
+      style: style,
+      avoidLayoutSafeArea: true,
+      // true 会把内容区顶到栏体之下（实测 Scroll 起点 = 栏底）→ 帖子穿不到栏底下。
+      // 改 false 让内容区从窗口原点起算，让位由 ProfilePage 的 topInset 承担。
+      enableComponentSafeArea: false,
+    };
+    return options;
   }
 
   // —— 「消息」页顶栏（消息/全部已读 + 通知|私信分段 + 三类快捷筛选）：已迁入 MessagePage 内嵌 HdsNavigation。
@@ -1248,7 +1335,6 @@ struct Index {
       HomeTab({
         feedIndex: $feedIndex,
         feedMode: $feedMode,
-        slidePosition: $slidePosition,
         tagIndex: $tagIndex,
         displayTags: $displayTags,
         showCircleDropdown: $showCircleDropdown,
@@ -1280,25 +1366,54 @@ struct Index {
     }
       .clip(false)
       .tabBar(this.tabBarBuilder(3))
-    // 「我的」：顶栏已整体迁入 Navigation 标题栏，这里通过 @Link 共享顶栏状态
+    // 「我的」：顶栏迁入本页内嵌 HdsNavigation（路线 B，与首页/圈子/消息同构）。
+    // 顶栏状态仍由 Index 持有、@Link 下发给 ProfilePage —— 迁移只搬了渲染位置，没搬数据归属。
     TabContent() {
-      ProfilePage({
-        user: $profileUser,
-        followingCount: $profileFollowingCount,
-        followerCount: $profileFollowerCount,
-        totalLikes: $profileTotalLikes,
-        tabIdx: $profileTabIdx,
-        // 「我收藏」子分段选中态：控件在本页标题栏，动作（拉收藏夹/刷新收藏）在 ProfilePage 的 @Watch
-        bookmarkSubTab: $profileBookmarkSubTab,
-        folderCount: $profileFolderCount,
-        slidePosition: $profileSlidePosition,
-        profilePresented: $profilePresented,
-        profileShareSeq: $profileShareSeq,
-        // 穿底内缩：标题栏是 STACK 覆盖式 + 栏体透明磨砂，内容区从窗口顶部起算，
-        // 列表内容自己让开整条顶栏（到分段栏顶边），帖子因此能一路穿到资料卡图层之下。
-        topInset: this.profileListInset(),
-      })
+      HdsNavigation() {
+        ProfilePage({
+          user: $profileUser,
+          followingCount: $profileFollowingCount,
+          followerCount: $profileFollowerCount,
+          totalLikes: $profileTotalLikes,
+          tabIdx: $profileTabIdx,
+          // 「我收藏」子分段选中态：控件在本页标题栏，动作（拉收藏夹/刷新收藏）在 ProfilePage 的 @Watch
+          bookmarkSubTab: $profileBookmarkSubTab,
+          folderCount: $profileFolderCount,
+          profilePresented: $profilePresented,
+          profileShareSeq: $profileShareSeq,
+          // 资料卡下发给列表第 0 项：它跟着列表滚走、穿到栏底之下，不再占住标题栏的手势盲区
+          heroHeader: (): void => { this.profileHeroBlock(); },
+          // 分段栏两行：资料卡之下、列表之上，随列表滚到顶后吸住
+          segHeader: (): void => { this.profileSegRows(); },
+          // 单一滚动源下发：标题栏渐变模糊要读它的滚动偏移
+          scrollers: this.profileScrollers,
+          // 只在翻转的那一帧写 @State：逐帧写会让标题栏配置逐帧重建。
+          onListScroll: (offsetY: number): void => {
+            const on: boolean = offsetY > 0;
+            if (on !== this.profileBarScrolled) {
+              this.profileBarScrolled = on;
+            }
+          },
+          // 穿底内缩：栏体是覆盖式（enableComponentSafeArea:false）+ 材质透明，内容区从窗口原点起算，
+          // 资料卡自己让开「标题行 + 两行分段控件」（这段留白随它一起滚走，帖子才能穿到栏底下）。
+          topInset: this.profileListInset(),
+          viewportMinHeightVp: this.screenHeightVp(),
+        })
+      }
+      .titleMode(HdsNavigationTitleMode.MINI)
+      .titleBar(this.profileTitleBarOptions())
+      // 「我的」是 Tab 根页，可这层 HdsNavigation 嵌在外层 Navigation 里，官方仍会画一颗返回钮，
+      // 它的材质圆盘正好压在衬线标题底下（实测 Button [50,131][175,256] 与 Text「我的」同区）。
+      // 关掉：既去掉幽灵返回，也让 stackBuilder 从 x=50 起排不留空洞。
+      .hideBackButton(true)
+      // GRADIENT_BLUR 的滚动源。整页只剩一条 List，引用恒定，不再需要切段时换绑。
+      .bindToScrollable(this.profileScrollers)
+      .width('100%')
+      .height('100%')
+      // 资料区入场动效（translate/scale）与分段栏材质投影都要溢出各自行边界，链路上不能留 clip(true)
+      .clip(false)
     }
+      .clip(false)
       .tabBar(this.tabBarBuilder(4))
   }
 
@@ -1409,7 +1524,9 @@ struct Index {
           // 让开整条顶栏由 ProfilePage 的内容留白承担（帖子才能穿到资料卡底下）；
           // 首页/圈子/消息由各自内嵌 HdsNavigation 避让；
           // 发布占位 Tab（空占位）没有顶栏，仍需手动避让状态栏（隐私壳为全屏覆盖层，不受影响）。
-          .padding({ top: this.mainTitleBarVisible() ? 0 : (this.currentIndex === 2 ? this.statusBarHeight : 0) })
+          // 四个主 Tab 的顶栏都在各自内嵌 HdsNavigation 里，外层不再让位；
+          // 只有发布占位 Tab（2）没有顶栏，仍需手动避让状态栏（隐私壳为全屏覆盖层，不受影响）。
+          .padding({ top: this.currentIndex === 2 ? this.statusBarHeight : 0 })
 
           // API 20-22 分支：自绘悬浮玻璃药丸底栏（BottomTabBar，纯标准 ArkUI，无 HDS 依赖）。
           // 与 API 23+ 的 HdsTabs 悬浮条同款视觉；三键导航避让由 margin 承担（审核问题③）。
@@ -1444,25 +1561,11 @@ struct Index {
       // navBarWidthRange + 空态展开，单独立项。
       .mode(NavigationMode.Stack)
       .id('mainNav')
-      // 标题栏承载「我的」页整块顶栏（我的/分享/设置 + 资料区 + 主分段栏）——
-      // uiMaterial 沉浸光感的官方生效区域。首页/圈子/消息顶栏已迁入各自内嵌 HdsNavigation。
-      // 仅「我的」(4) 显示（隐私未同意时不显示）；其它 Tab 完全隐藏，不占用各页顶部布局。
-      // barStyle: STACK = 标题栏覆盖在内容区上（官方语义）；STANDARD 是排在内容区上方（占位），
-      // 占位模式下列表盒子永远从栏底开始，帖子物理上穿不到任何一层底下。
-      // 栏底改为「无色罩的纯高斯」：真机实测 BlurStyle.BACKGROUND_THICK 确实采样到了底下
-      // 滚过的列表（留白列灰度从静止 230 变成滚动中 214→118 的渐变），但它自带一层灰白
-      // 着色，静止时整条栏 230 vs 内容区 255 → 分段栏底下又出现一条常驻灰带（上一轮刚
-      // 消灭的病灶）。改用 backgroundEffect：只给 radius、color 保持透明，静止时糊的是
-      // 白底=255（与内容区无缝），有内容穿过来时才显出模糊形状。
-      .hideTitleBar(!this.mainTitleBarVisible())
-      .title({
-        builder: this.mainTitleBar,
-        height: this.mainTitleBarHeight(),
-      }, {
-        barStyle: BarStyle.STACK,
-        backgroundColor: Color.Transparent,
-        backgroundEffect: { radius: 50, color: Color.Transparent },
-      })
+      // 外层标题栏彻底退役：四个主 Tab 的顶栏都在各自内嵌 HdsNavigation 里（「我的」是最后
+      // 一个，本轮迁入）。原先它用 BarStyle.STACK + 无色罩纯高斯承载「我的」整块顶栏，
+      // 那套数学（状态栏 + 顶栏行 + 资料区实测回写）现已由 HdsNavigation 的
+      // avoidLayoutSafeArea + bottomBuilder 声明高等价接管，见基准 §7.6.9 / §7.6.10。
+      .hideTitleBar(true)
       // 首页每日一帖飞行卡向上抛射需一路溢出到窗口顶部（状态栏区域），
       // 关闭 Navigation 内容裁剪（详情页全屏、快照转场在独立层，均不受影响）。
       .clip(false)

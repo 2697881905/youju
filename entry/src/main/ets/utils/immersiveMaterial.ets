@@ -52,8 +52,15 @@ export function isImmersiveLightSenseSupported(): boolean {
   return immersiveSupported;
 }
 
-// 沉浸光感档位：一律交给系统自适应（ADAPTIVE=10），禁止在低端设备写死 EXQUISITE。
+// 沉浸光感档位。**ADAPTIVE(10) 不等于「系统会挑最好」—— 真机实测它不出折射。**
+// 同一颗 content.menu 圆、同一台机、只差这一个字段：
+//   EXQUISITE → 玻璃珠：压住色块时边缘出现暗色折射环、内部颜色被汇聚、邻侧色块在圆边处折弯；
+//   ADAPTIVE  → 普通半透：只是一个细描边圈，背后内容均匀透过去，无透镜边。
+// 所以「要折射就得写 EXQUISITE」。原注释「一律自适应、禁止写死 EXQUISITE」的顾虑是低端机开销，
+// 取舍要显式做，不能靠 ADAPTIVE 兜底 —— 它兜出来的是另一种观感。见基准 §7.6.17。
 export const HDS_MATERIAL_LEVEL_ADAPTIVE: number = 10;
+// hdsMaterial.MaterialLevel.EXQUISITE=0（沉浸光感最高档，带折射）。
+export const HDS_MATERIAL_LEVEL_EXQUISITE: number = 0;
 // hdsMaterial.MaterialType.IMMERSIVE=101（数值与 SDK 枚举一致，见文件头对照表）。
 export const HDS_MATERIAL_TYPE_IMMERSIVE: number = 101;
 

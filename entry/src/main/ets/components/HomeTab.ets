@@ -18,7 +18,6 @@ import { resolveActionIcon } from '../utils/actionIcons';
 import { EmptyState } from '../design/components/EmptyState';
 import { SegmentedItem } from '../design/components/SegmentedControl';
 import { ImmersiveSegmentBar } from '../design/components/ImmersiveSegmentBar';
-import { Pressable } from '../design/motion/Pressable';
 import { DailyPostDeck } from './DailyPostDeck';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
@@ -29,14 +28,22 @@ import { TypeTokens } from '../design/tokens/type';
 import { barBottomReserve } from '../utils/cardTokens';
 import { gridColumnsForBreakpoint } from '../utils/responsive';
 import { feedItemTransition } from '../utils/feedMotion';
-import { TopButtonMaterialModifier } from '../utils/immersiveMaterial';
+// 栏级沉浸光感：与「我的」顶栏同一对字段、同一门禁（Index.ets profileSystemMaterial 同款）。
+// 档位传数值字面量而非 hdsMaterial 枚举 —— hdsMaterial 模块在 API 22 上不存在，值 import 即崩。
+import { isImmersiveLightSenseSupported, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
 import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit';
 import type {
   HdsNavigationTitleBarOptions,
   TitleBarContentOptions,
   TitleBarStyleOptions,
   ScrollEffectOptions,
+  SystemMaterialParams,
   BottomBuilderParams,
+  HdsNavigationMenuContentOptions,
+  HdsNavigationMenuItemOptions,
+  HdsNavigationIconOptions,
+  HdsTitleBarContentStyle,
+  HdsNavigationIconItemStyle,
 } from '@kit.UIDesignKit';
 import { LengthMetrics } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
@@ -125,11 +132,6 @@ export struct HomeTab {
   @Link feedMode: FeedMode;
   // 标题栏分段栏切换走这里写入；@Watch 负责把「外部切换」翻译成信息源加载（见 onFeedIndexChanged）
   @Link @Watch('onFeedIndexChanged') feedIndex: number;
-  // 分段滑块位置：Swiper 逐帧喂入的连续索引（1:1 跟手，含松手后的吸附段），收尾为整数落点位
-  @Link slidePosition: number;
-  // 分页动画在途：onContentDidScroll 首次回报置真、onAnimationEnd 置假。
-  // 点击分段栏/程序化换页时 Swiper 不发滚动回调（真机取证），那条路径要由 onChange 直接把滑块落到整数位。
-  @State private feedSliding: boolean = false;
   // 圈子下拉面板开合（标题栏 chip ↔ 本页面板 共享）
   @Link showCircleDropdown: boolean;
   @State needLogin: boolean = false; // 关注流且未登录的引导态
@@ -167,8 +169,8 @@ export struct HomeTab {
   private feedScrollers: Scroller[] = [new Scroller(), new Scroller()];
 
   // bindToScrollable 的绑定数组：仅随分段切换整体替换（实例引用稳定）。
-  // ⚠️ 不可在 build 里每次返回新数组：滑动的逐帧状态变化（slidePosition）会让 HomeTab
-  // 逐帧重渲染，新数组实例 = 逐帧重订阅 HDS 背板，相邻页（每日一帖卡堆）在切段瞬间
+  // ⚠️ 不可在 build 里每次返回新数组：滑动的逐帧状态变化会让 HomeTab 逐帧重渲染，
+  // 新数组实例 = 逐帧重订阅 HDS 背板，相邻页（每日一帖卡堆）在切段瞬间
   // 闪现（真机实证）。由 onSwiperChanged → syncFeedScrollerBinding 按分段更新。
   @State boundFeedScrollers: Scroller[] = [this.feedScrollers[0]];
 
@@ -181,17 +183,12 @@ export struct HomeTab {
       this.boundFeedScrollers = next;
     }
   }
-  // 搜索按钮同源材质修饰器（沉浸光感，HDS 标题栏 = 官方生效区域）
-  private searchMaterial: TopButtonMaterialModifier = new TopButtonMaterialModifier();
   // 标语收合态：信息流滚过阈值后收起「真实经验，有据可循」（品牌块 56→32，Row 自动居中「有据」行）
   @State brandCompact: boolean = false;
-  // 模糊完成态：滚动过模糊终点（HOME_FEED_BLUR_END_VP）后品牌行切白——模糊背板变深，
-  // 深色品牌字对比度不足（系统标题的 originalStyle/scrollEffectStyle 颜色过渡管不到自绘 stackBuilder）
-  @State brandOnBlur: boolean = false;
+  // 原先这里还有一个 `brandOnBlur`（滚动到位把品牌行/分段栏切白）。已随顶栏换材质退役：
+  // IMMERSIVE + EXQUISITE 档下栏面是亮的，切白反而隐形。基准 §7.6.29 / 防漂移第 28 条。
 
-  // 滚动驱动标语收合 + 品牌行切白：读当前页 Scroller 的绝对偏移，各自独立判断翻转
-  //（⚠️ 两个阈值不能共用 early-return——否则先翻转的状态会挡住后一个的判断，切白永远不触发）。
-  // 每日一帖（seg=2）无 Scroll，保持当前状态不翻转。
+  // 滚动驱动标语收合：读当前页 Scroller 的绝对偏移，过阈值翻转。每日一帖（seg=2）无 Scroll，不翻转。
   private updateBrandCompact(seg: number): void {
     if (seg > 1) {
       return;
@@ -201,15 +198,9 @@ export struct HomeTab {
     // 2026-10-09 Pocket 2）——未就绪时按 0（静止态）处理，Scroll 创建后 onDidScroll 自然接管
     const offset: number = this.feedScrollers[seg]?.currentOffset()?.yOffset ?? 0;
     const compact: boolean = offset > BRAND_COMPACT_THRESHOLD_VP;
-    const onBlur: boolean = offset > HOME_FEED_BLUR_END_VP;
     if (compact !== this.brandCompact) {
       this.getUIContext().animateTo({ duration: MotionTokens.base, curve: MotionCurves.decelerate }, () => {
         this.brandCompact = compact;
-      });
-    }
-    if (onBlur !== this.brandOnBlur) {
-      this.getUIContext().animateTo({ duration: MotionTokens.base, curve: MotionCurves.decelerate }, () => {
-        this.brandOnBlur = onBlur;
       });
     }
   }
@@ -458,18 +449,7 @@ export struct HomeTab {
 
   // 左右滑动切换由 Swiper 原生接管（跟手、相邻页可见、松手吸附）。
   // Swiper.onChange → 这里更新 feedMode/needLogin 并懒加载该页数据。
-  // 分段跟手值的唯一写入口：连续索引 = index - position（真机逐帧取证：视口内每一页都按同一
-  // 基准回报 position，两页算出的值一致且整段单调，与 selectedIndex 是否翻转无关）。
-  private feedSlide(continuous: number): void {
-    this.slidePosition = Math.max(0, Math.min(FEED_SEGMENTS.length - 1, continuous));
-  }
-
   private onSwiperChanged(index: number): void {
-    // 点击分段栏 / 外部改选中：Swiper 直接换页、不发滚动回调，滑块在这里落整数位；
-    // 手势期间（feedSliding）不接管，交给逐帧喂入，否则滑块会从手指当前位置跳走。
-    if (!this.feedSliding) {
-      this.slidePosition = index;
-    }
     // 切段后按新页的滚动偏移重算标语收合态（每日一帖 seg=2 保持现状）
     this.updateBrandCompact(index);
     // 分段切换 → 同步 bindToScrollable 绑定（动态重估模糊，见 syncFeedScrollerBinding 注释）
@@ -980,24 +960,74 @@ export struct HomeTab {
 
   // 瀑布流（WaterFlow + LazyForEach）在 Swiper 三页下数据源无法按页隔离，
   // 且滚动终点被钳制在底部安全区之上；统一回退到 Scroll 双列（feedScroll）。
+  // 搜索入口交给官方 content.menu（基准 §8-F：官方件只用于图标钮，文字动作留自绘）。
+  // componentId 是这条迁移的唯一未知 —— 一镜到底发起器要靠它量到按钮屏幕帧
+  // （openSearchPanelNav.ets:24 cardRectOf(SEARCH_ENTRY_ID)）。量不到时发起器自己兜底：
+  // 无飞行动画但点击不吞，功能完整。
+  private homeMenuItems(): Array<HdsNavigationMenuItemOptions> {
+    const searchContent: HdsNavigationIconOptions = {
+      icon: resolveActionIcon('search'),
+      label: '搜索',
+      componentId: SEARCH_ENTRY_ID,
+      action: (): void => {
+        // 搜索入口跳转独立搜索页（与首页解耦）；Navigation 未就绪时兜底 router 整页
+        openSearchPanelViaNav(this.getUIContext());
+      },
+    };
+    const search: HdsNavigationMenuItemOptions = { content: searchContent };
+    return [search];
+  }
+
   // —— 顶栏标题栏配置（嵌套 HdsNavigation，路线 B：验证页第七轮定稿结构）——
-  // MINI 模式 + stackBuilder 品牌行（品牌 + 搜索同行）+ bottomBuilder 分段行（分段 + 圈子 chip）
-  // + GRADIENT_BLUR 滚动模糊（0 → 64vp）+ 透明起步 + 安全区双开关。逐层显式标注 SDK 类型。
+  // MINI 模式 + stackBuilder 品牌行（品牌字标）+ content.menu 官方搜索圆钮
+  // + bottomBuilder 分段行（分段 + 圈子 chip）
+  // + 沉浸光感滚动模糊（0 → 64vp）+ 栏级材质 + 透明起步 + 安全区双开关。逐层显式标注 SDK 类型。
   private homeHdsTitleBarOptions(): HdsNavigationTitleBarOptions {
+    // 「我的」那两颗圆是**玻璃珠**（边缘暗折射环、内部汇聚、邻侧色块在圆边折弯），
+    // 首页这颗之前是**平色圆盘**（默认 #0C000000 三 percent 黑、无轮廓）—— 差在两个字段上，
+    // 而且这两个字段是一对的，都是 @6.1.0(23)：
+    //   · scrollEffectType = IMMERSIVE_GRADIENT_BLUR（不是普通 GRADIENT_BLUR）
+    //   · style.systemMaterialEffect = {IMMERSIVE(101), EXQUISITE(0)}
+    // 见 Index.ets:1267-1309（「我的」）与 HdsMenuVerifyPage.ets:181/249/260（单变量取证处）。
+    // ⚠️ `systemMaterialEffect` 是**栏级**入口，官方没有给 content.menu 逐颗材质的槽位 ——
+    // 想要那颗玻璃珠，整条栏就得接同一种材质。基准 §7.6.17 / §7.6.29。
+    const immersive: boolean = isImmersiveLightSenseSupported();
     const scrollEffect: ScrollEffectOptions = {
       enableScrollEffect: true,
-      scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
+      scrollEffectType: immersive ? ScrollEffectType.IMMERSIVE_GRADIENT_BLUR : ScrollEffectType.GRADIENT_BLUR,
       blurEffectiveStartOffset: LengthMetrics.vp(0),
       blurEffectiveEndOffset: LengthMetrics.vp(HOME_FEED_BLUR_END_VP),
+    };
+    // 官方菜单项图标色必须**两个态各写一遍**：`originalStyle` 只管 scroll 特效生效之前，
+    // 接管后改读 `scrollEffectStyle`，不传就用 HDS 默认白字（基准 §7.6.28 第 2 条，消息页实测掉到 1.88:1）。
+    // 两个态同值 = ColorTokens.primary：与「我的」那颗圆同口径，也压得住 IMMERSIVE 档下偏亮的栏面。
+    // （旧写法在这里填白是给深色磨砂背板准备的，换材质后白glyph 会隐形。）
+    const restContentStyle: HdsTitleBarContentStyle = {
+      menuStyle: { iconColor: ColorTokens.primary } as HdsNavigationIconItemStyle,
+    };
+    const blurContentStyle: HdsTitleBarContentStyle = {
+      menuStyle: { iconColor: ColorTokens.primary } as HdsNavigationIconItemStyle,
     };
     const style: TitleBarStyleOptions = {
       scrollEffectOpts: scrollEffect,
       originalStyle: {
         backgroundStyle: { backgroundColor: Color.Transparent },
+        contentStyle: restContentStyle,
       },
+      scrollEffectStyle: { contentStyle: blurContentStyle },
     };
+    if (immersive) {
+      // 档位传数值字面量而非 hdsMaterial 枚举：hdsMaterial 模块在 API 22 上不存在，值 import 即崩。
+      // EXQUISITE 而非 ADAPTIVE：ADAPTIVE 只出普通半透（细描边圈），没有折射透镜边。
+      style.systemMaterialEffect = {
+        materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
+        materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE,
+      } as SystemMaterialParams;
+    }
+    const menu: HdsNavigationMenuContentOptions = { value: this.homeMenuItems() };
     const content: TitleBarContentOptions = {
       stackBuilder: (): void => { this.homeBrandRow(); },
+      menu: menu,
       bottomBuilder: {
         builder: (): void => { this.homeTabRow(); },
         height: HOME_TAB_ROW_HEIGHT,
@@ -1014,10 +1044,13 @@ export struct HomeTab {
     return options;
   }
 
-  // stackBuilder 品牌行：品牌块（有据 + SUBSTANTIATE / 标语，旧首页同款宋体规格）与搜索按钮同一行。
+  // stackBuilder 品牌行：只剩品牌块（有据 + SUBSTANTIATE / 标语，旧首页同款宋体规格）。
   // stackBuilder 行固定 56vp（旧 POC 实测）——品牌块 32 + 24 = 56 顶格排布（无额外 space）。
-  // 搜索按钮保持一镜到底接线（SEARCH_ENTRY_ID 供发起器量帧/截图定位）。
-  // 字色：静止态深色（品牌规范）；模糊到位后切白（模糊背板变深，深字对比度不足）。
+  // 搜索钮已交出去：由 content.menu 的官方图标项承担（见 homeMenuItems），40vp 圆 / 8vp 间距 /
+  // 右缘避让都归官方排布，不再自绘表面。
+  // 字色：两态都用深色墨。原先「模糊到位切白」是给旧 GRADIENT_BLUR 定的 —— 那一档把栏面压成
+  // 深色磨砂，深字压不住。换成 IMMERSIVE_GRADIENT_BLUR + EXQUISITE 材质后栏面是**亮**的，
+  // 白字直接隐形（浅色模式真机复现）。与「我的」同口径：那条栏的标题一直是 ColorTokens.primary。
   @Builder
   homeBrandRow() {
     Row() {
@@ -1028,54 +1061,25 @@ export struct HomeTab {
             .fontFamily(TypeTokens.fontFamilySerif)
             .fontWeight(TypeTokens.titleSerif.weight)
             .lineHeight(TypeTokens.titleSerif.lineHeight)
-            .fontColor(this.brandOnBlur ? Color.White : ColorTokens.primary)
+            .fontColor(ColorTokens.primary)
           Text('SUBSTANTIATE')
             .fontSize(TypeTokens.overline.size)
             .fontFamily(TypeTokens.fontFamily)
             .fontWeight(TypeTokens.overline.weight)
-            .fontColor(this.brandOnBlur ? '#99FFFFFF' : ColorTokens.tertiary)
+            .fontColor(ColorTokens.tertiary)
         }
         Text('真实经验，有据可循')
           .fontSize(TypeTokens.headline.size)
           .fontFamily(TypeTokens.fontFamilySerif)
           .fontWeight(TypeTokens.headline.weight)
           .lineHeight(TypeTokens.headline.lineHeight)
-          .fontColor(this.brandOnBlur ? Color.White : ColorTokens.primary)
+          .fontColor(ColorTokens.primary)
           // 上滑收标语（只收这一行）：高度+透明度一次收合，品牌块 56→32 由 Row 自动居中「有据」行；
           // dynamicHideTitleBar 粒度为区域级，做不到只收标语 → 自定义滚动驱动
           .height(this.brandCompact ? 0 : TypeTokens.headline.lineHeight)
           .opacity(this.brandCompact ? 0 : 1)
       }
       .alignItems(HorizontalAlign.Start)
-      Blank()
-      Pressable({
-        visualHeight: LayoutTokens.minTouchTarget,
-        touchTargetHeight: LayoutTokens.minTouchTarget,
-        action: (): void => {
-          // 搜索入口跳转独立搜索页（与首页解耦）；Navigation 未就绪时兜底 router 整页
-          openSearchPanelViaNav(this.getUIContext());
-        },
-      }) {
-        Row() {
-          Image(resolveActionIcon('search'))
-            .width(IconTokens.small)
-            .height(IconTokens.small)
-            .fillColor(this.brandOnBlur ? Color.White : ColorTokens.icon)
-        }
-        .width(LayoutTokens.minTouchTarget)
-        .height(LayoutTokens.minTouchTarget)
-        .border({
-          width: LayoutTokens.glassBorderWidth,
-          color: this.brandOnBlur ? '#66FFFFFF' : ColorTokens.barBorder,
-          style: BorderStyle.Solid,
-        })
-        .borderRadius(RadiusTokens.lg)
-        .justifyContent(FlexAlign.Center)
-        .alignItems(VerticalAlign.Center)
-        .attributeModifier(this.searchMaterial)
-        .id(SEARCH_ENTRY_ID)
-        .accessibilityText('搜索')
-      }
     }
     .width('100%')
     .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
@@ -1088,13 +1092,15 @@ export struct HomeTab {
       ImmersiveSegmentBar({
         items: FEED_SEGMENTS,
         selectedIndex: $feedIndex,
-        slidePosition: this.slidePosition,
         // 定宽三槽（与旧自绘栏同宽，右侧 TagNav 靠 layoutWeight 吃剩余）
         itemWidth: 66,
         // 官方 item 的 8vp 横内边距会把「每日一帖」4 字截断，压到 4vp
         buttonHorizontalPadding: 4,
-        // 模糊到位后随品牌行一起切白（浅色内容态）
-        lightContent: this.brandOnBlur,
+        // 表面与标签色一律交回官方默认档：不再随滚动切白。
+        // 旧写法是 `lightContent / overrideTrackMaterial = brandOnBlur`（切白标签 + ULTRA_THIN 轨道），
+        // 那是给旧 GRADIENT_BLUR 的深色磨砂背板配的。顶栏换成 IMMERSIVE_GRADIENT_BLUR + EXQUISITE
+        // 材质后栏面是亮的，白标签压亮轨道直接隐形（浅色模式真机复现，与品牌行同一根因）。
+        // 现在与「我的」「消息」同口径：官方默认轨道 + 深色标签，两态不变。
         onSelect: (idx: number): void => {
           // 只写选中值：Swiper 随即播切换动画，滑块由 onContentDidScroll 逐帧带着走（与滑动同款衔接），
           // 这里不预设整数位——预设等于让滑块先跳到终点再被动画拽回来。
@@ -1112,8 +1118,6 @@ export struct HomeTab {
           dropdownOnly: true,
           // 沉浸光感：圈子按钮与分段栏同源材质
           useSystemMaterial: true,
-          // 模糊到位后随品牌行一起切白（浅色内容态）
-          lightContent: this.brandOnBlur,
         })
           .layoutWeight(1)
       }
@@ -1149,18 +1153,6 @@ export struct HomeTab {
         .duration(MotionTokens.container)
         .curve(MotionCurves.springSoft)
         .onChange((index: number): void => { this.onSwiperChanged(index); })
-        // 逐帧联动滑块（1:1 跟手，含松手后的吸附段——真机取证：position 在整段动画里连续单调）
-        .onContentDidScroll((_selectedIndex: number, index: number, position: number, _mainAxisLength: number): void => {
-          this.feedSliding = true;
-          this.feedSlide(index - position);
-        })
-        .onAnimationEnd((index: number): void => {
-          // 吸附收尾：滑块交给**本次动画的落点 index**（回调自带），抹掉最后一帧的浮点残差；回弹不换页也走这里。
-          // ⚠️ 不能读 feedIndex —— 真机取证 onChange 在 onAnimationEnd 之后才到，那一刻它还是旧页，
-          // 写它等于把滑块甩回起点再弹回来（用户看到的「不跟手」）。
-          this.feedSliding = false;
-          this.slidePosition = index;
-        })
         .width('100%')
         .height('100%')
         .layoutWeight(1)

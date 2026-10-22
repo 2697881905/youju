@@ -30,6 +30,8 @@
     "pages/BookmarkFolderPage",
     "pages/BookmarkFolderDetailPage",
     "pages/InterestTagsPage",
-    "pages/HdsNavVerifyPage"
+    "pages/HdsNavVerifyPage",
+    "pages/HdsMenuVerifyPage",
+    "pages/ProfileBarProtoPage"
   ]
 }

@@ -17,8 +17,8 @@ export struct BackButton {
     }) {
       Row() {
         Image(resolveActionIcon('back'))
-          .width(IconTokens.small)
-          .height(IconTokens.small)
+          .width(IconTokens.standard)
+          .height(IconTokens.standard)
           .fillColor(ColorTokens.icon)
       }
       .width(LayoutTokens.minTouchTarget)

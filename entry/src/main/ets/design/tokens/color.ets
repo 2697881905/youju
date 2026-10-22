@@ -16,6 +16,14 @@ export class ColorTokens {
   static readonly overlay: ResourceColor = $r('app.color.ds_overlay');
   static readonly overlayBorder: ResourceColor = $r('app.color.ds_overlay_border');
 
+  // 承载系统材质（沉浸光感）的画布底：浅色 #F1F3F5 / 深色 #121212。
+  // 为什么不是 canvas：canvas 浅色侧是纯白 #FFFFFF，官方材质圆铺在上面时 rim 与落影
+  // 没有可比背板、全被压平（实测圆/底反差 +5 L → 换 #F1F3F5 后 +9 L）。原生电话
+  // Navigation 节点真值正是 #F1F3F5（浅）/ #121212（深）。
+  // ⚠️ 必须成对：写死 #F1F3F5 会在深色模式下让官方标题与图标出白字压浅底（实测不可读）。
+  // 见 docs/harmonyos-official-ui-alignment-baseline.md §7.6.3 / §7.6.8 / 决策点 E 候选 0。
+  static readonly materialCanvas: ResourceColor = $r('app.color.ds_material_canvas');
+
   static readonly primary: ResourceColor = $r('app.color.ds_text_primary');
   static readonly secondary: ResourceColor = $r('app.color.ds_text_secondary');
   // 图标专用色：浅色 #3C3C43（比次要文字 #5A5A60 深一档，线条更挺括），深色为纯白。

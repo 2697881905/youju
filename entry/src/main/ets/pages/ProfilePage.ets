@@ -67,11 +67,6 @@ export struct ProfilePage {
   @Link followerCount: number;
   @Link totalLikes: number; // 获赞总数
   @Link @Watch('onTabIdxChanged') tabIdx: number; // 0 我发布, 1 我收藏, 2 我赞过, 3 我评论
-  // 分段滑块位置：Swiper 逐帧喂入的连续索引（1:1 跟手，含松手后的吸附段），收尾为整数落点位
-  @Link slidePosition: number;
-  // 分页动画在途：onContentDidScroll 首次回报置真、onAnimationEnd 置假。
-  // 点击分段栏（标题栏那条）/程序化换页时 Swiper 不发滚动回调（真机取证），那条路径要由 onChange 直接落整数位。
-  @State private tabSliding: boolean = false;
   // 标题栏分享按钮 → 本页分享流程的信号：递增序号触发 @Watch，
   // 分享弹层 / 文案 / 剪贴板逻辑仍全部留在本页（Index 只负责发起）。
   @Link @Watch('onShareRequested') profileShareSeq: number;
@@ -104,6 +99,25 @@ export struct ProfilePage {
   // 而是把这一条用在「列表内容的顶部留白 / 悬浮件位置 / 刷新指示器偏移」上。
   // 数值由 Index 按标题栏实测高度下发（资料卡高度是内容驱动的）。
   @Prop topInset: number = 0;
+  // 状态页撑底高度（vp）。整页一条 List，切段瞬间新分段缓存为空会渲染 loading/空态；
+  // 它若只有几十 vp，列表总高骤降 → 滚动位被钳死且回不来 = 「点分段栏画面跳一下」。
+  // ListItem 里 constraintSize minHeight 写 '100%' 实测不生效，必须给具体值（§7.6.25）。
+  @Prop viewportMinHeightVp: number = 0;
+  // 单一滚动源：整页一条 List（四分段改点击切换，不再有 4 页 Swiper 各带一条 Scroll）。
+  // 必须**从上游往下传**而不是本页造好再回调上去——后者要让 Index 等一次异步握手，
+  // 首帧绑定为空就等于没绑，模糊慢一帧才出现。
+  scrollers: Scroller[] = [new Scroller()];
+  // 资料卡本体由 Index 以 @Builder 下发，渲染在这里第 0 个 ListItem 里。
+  // 留在 Index 是因为它读的那批资料状态（profileUser/计数/编辑入口）都在 Index，搬过来要连
+  // 一串 @Link 一起挪；@BuilderParam 里读的仍是父组件的 this，响应式不受影响。
+  @BuilderParam heroHeader: () => void = this.emptyHero;
+  // 主分段 + （子分段）两行：作为 List 的吸顶组头渲染，位置在资料卡之下、列表之上。
+  @BuilderParam segHeader: () => void = this.emptySegRows;
+  // 列表纵向偏移上抛（只在 Index 需要据此改样式时用得到）：
+  // 顶栏模糊半径官方只有 originalStyle.blurRadius 这一格认，而那一格是无条件生效的
+  // —— 静止态也糊。官方声明式配置表达不出「滚起来才糊」，只能由我们拿滚动源来切。
+  // 见基准 §7.6.21 / §7.6.22。
+  onListScroll?: (offsetY: number) => void = undefined;
   // 当前激活的底部 Tab（由 Index 经 AppStorage 广播），用于感知「我的」页是否可见，
   // 切到本页时重新拉取列表，使「我赞过/我收藏」在跨页点赞、取消收藏后即时刷新。
   @StorageLink('activeTab') @Watch('onActiveTab') activeTab: number = 0;
@@ -500,6 +514,11 @@ export struct ProfilePage {
   // 主分段变更（标题栏点击 / Swiper 滑动共用）：统一由 @Watch(tabIdx) 触发加载。
   // 两条路径都只写 tabIdx（同值写入不触发 @Watch），刷新因此不会重复。
   onTabIdxChanged(): void {
+    // 这里**不要**回顶。分段栏现在是列表里的普通一项，用户能点到它就说明它就在眼前，
+    // scrollTo(0,0) 等于把当前滚动位白白扔掉 —— 真机实测点一次「我收藏」整屏弹回 324px
+    // （分段栏 y 707→1031），就是「画面跳一下」的成因（基准 §7.6.25）。
+    // 换段后列表停在原偏移是正确行为：新分段的瀑布流就地换内容，滚动深度由各自的
+    // 内容高度自然钳制。
     this.refresh();
   }
 
@@ -540,6 +559,7 @@ export struct ProfilePage {
 
   // 收藏子分段切换：切到「收藏夹」时懒加载收藏夹列表，回到「帖子」时刷新收藏列表
   onBookmarkSubTabChange(): void {
+    // 同主分段：不回顶。子分段栏也在列表里，回顶同样会造成一次可见弹跳。
     if (this.bookmarkSubTab === 1) {
       this.loadFolders();
     } else {
@@ -628,59 +648,6 @@ export struct ProfilePage {
     }
   }
 
-  // 「我收藏 → 收藏夹」列表视图（单列列表行：缩略图 + 名称 + 条数 + 箭头）
-  @Builder
-  foldersView(): void {
-    Scroll() {
-      Column({ space: SpaceTokens.sm }) {
-        if (!this.foldersReady) {
-          Row({ space: SpaceTokens.inline }) {
-            LoadingProgress().width(IconTokens.compact).height(IconTokens.compact)
-            Text('加载中…')
-              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-              .fontColor(ColorTokens.secondary)
-          }
-          .width('100%').justifyContent(FlexAlign.Center).padding({ top: SpaceTokens.xl })
-        } else if (this.folders.length === 0) {
-          Text('还没有收藏夹\n收藏帖子时可创建收藏夹')
-            .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-            .fontColor(ColorTokens.secondary)
-            .textAlign(TextAlign.Center)
-            .width('100%')
-            .padding({ top: SpaceTokens.xl })
-        } else {
-          // 收藏夹计数行。「管理」入口已上移到标题栏的子分段行右侧（常驻，不再随列表滚走）；
-          // 当年它挂在这一行时被满宽的分段控件挤偏，如今控件包在加权格子里，右侧那一格才放得下它。
-          Text('共 ' + this.folders.length + ' 个收藏夹')
-            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-            .fontWeight(TypeTokens.caption.weight)
-            .lineHeight(TypeTokens.caption.lineHeight)
-            .fontColor(ColorTokens.secondary)
-            .textAlign(TextAlign.Start)
-            .width('100%')
-          ForEach(this.folders, (f: BookmarkFolderItem) => {
-            this.folderListItem(f)
-          }, (f: BookmarkFolderItem) => 'folder-list-' + String(f.id))
-        }
-        Column() {
-          Blank().width('100%').height(barBottomReserve())
-        }
-        .width('100%')
-      }
-      .width('100%')
-      // constraintSize minHeight 撑满视口：内容不足一屏时从顶部贴齐（规避 Scroll 内容垂直居中）
-      .constraintSize({ minHeight: '100%' })
-      .padding({
-        left: SpaceTokens.sm,
-        right: SpaceTokens.sm,
-        // 主分段 + 子分段均悬浮于顶部，内容需让出整条顶栏 + 两层分段栏高度
-        top: this.topInset + 2 * LayoutTokens.segmentedHeight + 3 * SpaceTokens.xs,
-        bottom: SpaceTokens.md,
-      })
-    }
-    .scrollable(ScrollDirection.Vertical)
-    .width('100%').height('100%')
-  }
 
   @Builder
   refreshBuilder(): void {
@@ -799,155 +766,187 @@ export struct ProfilePage {
 
   // 分页内容：每个分段一页。每页只读自己那份缓存，因此拖动过程中相邻页显示的是它自己的内容，
   // 而不是当前分段的数据；未访问过的分段缓存为空，页内会先呈现加载态。
+  // 整页一条 List（不再有 4 页 Swiper）。资料卡是它的第 0 项 —— 于是资料卡会随列表滚走、
+  // 并穿到顶栏底下被栏体模糊，而不是钉死在标题栏 bottomBuilder 里占住 41% 屏高的手势盲区
+  // （基准 §7.6.13b：栏体节点 [0,106][1136,1209] 之内一律抓不到滚动源）。
+  // 分段栏仍留在标题栏里（它是控件行，不吃滚动是应有之义），栏体因此从 1103px 缩到约 425px。
   @Builder
-  segmentPage(seg: number) {
-    Column() {
-      // 未登录优先：既不该显示「还没有…」，也不该转圈等一个永远不会来的响应
-      if (!this.isLoggedIn()) {
-        this.loginGate(seg)
-      } else if (seg === 1 && this.bookmarkSubTab === 1) {
-        // 「我收藏 → 收藏夹」子视图（子分段栏 + 双列卡片流），优先于帖子网格渲染
-        this.foldersView()
-      } else if (this.pagePostsOf(seg).length === 0 && (seg !== this.tabIdx || !this.ready || this.loading)) {
-        // 状态页不参与穿底：内容区盒子已伸到窗口顶部，满高居中的状态图要自己让开整条顶栏。
-        Column() {
-          PostCollectionState({ loading: true });
+  feedBody(): void {
+    if (!this.isLoggedIn()) {
+      this.loginGate(this.tabIdx)
+    } else if (this.tabIdx === 1 && this.bookmarkSubTab === 1) {
+      this.folderListBody()
+    } else if (this.pagePostsOf(this.tabIdx).length === 0 && (!this.ready || this.loading)) {
+      // ⚠️ 状态页必须撑满一屏（constraintSize minHeight 100%）。整页只有一条 List，
+      // 切段瞬间新分段缓存为空会渲染这一支；它若只有几十 vp，列表总高骤降 → 当前滚动位
+      // 被钳死 → 数据回来后内容长回去但滚动位回不来，表现为「点分段栏画面跳一下」
+      // 实测 +235px 整屏位移；预热缓存（不触发这一支）后位移归零，据此定位。
+      // 旧版每条 Scroll 的内层 Column 本来就有这条 minHeight，改单条 List 时丢过一次。
+      Column() {
+        PostCollectionState({ loading: true });
+      }
+      .width('100%')
+      .constraintSize({ minHeight: this.viewportMinHeightVp })
+      .padding({ top: SpaceTokens.xl, bottom: SpaceTokens.xl })
+    } else if (this.pagePostsOf(this.tabIdx).length === 0) {
+      Column() {
+        PostCollectionState({
+          error: this.error,
+          emptyTitle: this.tabIdx === 0
+            ? '还没有发布过帖子'
+            : this.tabIdx === 1
+              ? '还没有收藏过帖子'
+                : this.tabIdx === 2 ? '还没有赞过的帖子' : '还没有评论过帖子',
+          onRetry: (): void => { this.refresh(); },
+        });
+      }
+      .width('100%')
+      .constraintSize({ minHeight: this.viewportMinHeightVp })
+      .padding({ top: SpaceTokens.xl, bottom: SpaceTokens.xl })
+    } else {
+      // refreshing 走 $$ 双向绑定（对齐 HomeTab.ets:836）：单向表达式会让内部手势态与外部
+      // 变量不同源，「刷新中…」常驻收不回。onRefreshing 里不能再手动置 true。
+      this.twoColumnFeed(this.tabIdx)
+      this.postFooter()
+    }
+  }
+
+  // 显式双列：偶数项固定左列、奇数项固定右列，首项始终位于左上角。
+  // 两列独立排列，保留瀑布流的紧凑效果且不受 WaterFlow 列测量顺序影响。
+  @Builder
+  twoColumnFeed(seg: number): void {
+    Row({ space: SpaceTokens.xs }) {
+      Column({ space: SpaceTokens.xs }) {
+        ForEach(this.pagePostsOf(seg).filter((_post: Post, idx: number) => idx % 2 === 0), (post: Post) => {
+          this.profilePostCard(post, seg)
+        }, (post: Post) => seg + '-left-' + (post.id ?? ''))
+      }
+      .layoutWeight(1)
+      Column({ space: SpaceTokens.xs }) {
+        ForEach(this.pagePostsOf(seg).filter((_post: Post, idx: number) => idx % 2 === 1), (post: Post) => {
+          this.profilePostCard(post, seg)
+        }, (post: Post) => seg + '-right-' + (post.id ?? ''))
+      }
+      .layoutWeight(1)
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Top)
+  }
+
+  // 「我收藏 → 收藏夹」列表本体（单列行：缩略图 + 名称 + 条数 + 箭头）。
+  // 原先它自带一条 Scroll，现在滚动统一交给整页那一条 List。
+  @Builder
+  folderListBody(): void {
+    Column({ space: SpaceTokens.sm }) {
+      if (!this.foldersReady) {
+        Row({ space: SpaceTokens.inline }) {
+          LoadingProgress().width(IconTokens.compact).height(IconTokens.compact)
+          Text('加载中…')
+            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+            .fontColor(ColorTokens.secondary)
         }
-        .width('100%')
-        .height('100%')
-        .padding({ top: this.topInset })
-      } else if (this.pagePostsOf(seg).length === 0) {
-        Column() {
-          PostCollectionState({
-            error: this.error,
-            emptyTitle: seg === 0
-              ? '还没有发布过帖子'
-              : seg === 1
-                ? '还没有收藏过帖子'
-                : seg === 2 ? '还没有赞过的帖子' : '还没有评论过帖子',
-            onRetry: (): void => { this.refresh(); },
-          });
-        }
-        .width('100%')
-        .height('100%')
-        .padding({ top: this.topInset })
+        .width('100%').justifyContent(FlexAlign.Center).padding({ top: SpaceTokens.xl })
+      } else if (this.folders.length === 0) {
+        Text('还没有收藏夹\n收藏帖子时可创建收藏夹')
+          .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+          .fontColor(ColorTokens.secondary)
+          .textAlign(TextAlign.Center)
+          .width('100%')
+          .padding({ top: SpaceTokens.xl })
       } else {
-        // refreshing 走 $$ 双向绑定（对齐 HomeTab.ets:836 / MyFollowView.ets:239）：
-        // 旧实现 `seg === this.tabIdx ? this.isRefreshing : false` 是单向表达式，组件内部手势态
-        // 与外部变量不同源——Swiper 里横向切页时手势竞争，内部停在刷新态而外部已置 false，
-        // 顶部「刷新中…」常驻收不回。
-        // 注意：onRefreshing 里不能再手动置 true，也不能加 isRefreshing 重入守卫——
-        // 双向绑定下组件已置 true，提前 return 会永远停在 true。
-        Refresh({ refreshing: $$this.isRefreshing, builder: this.refreshBuilder }) {
-          // 显式双列：偶数项固定左列、奇数项固定右列，首项始终位于左上角。
-          // 两列独立排列，保留瀑布流的紧凑效果且不受 WaterFlow 列测量顺序影响。
-          Scroll() {
-            Column() {
-              Row({ space: SpaceTokens.xs }) {
-                Column({ space: SpaceTokens.xs }) {
-                  ForEach(this.pagePostsOf(seg).filter((_post: Post, idx: number) => idx % 2 === 0), (post: Post) => {
-                    this.profilePostCard(post, seg)
-                  }, (post: Post) => seg + '-left-' + (post.id ?? ''))
-                }
-                .layoutWeight(1)
-                Column({ space: SpaceTokens.xs }) {
-                  ForEach(this.pagePostsOf(seg).filter((_post: Post, idx: number) => idx % 2 === 1), (post: Post) => {
-                    this.profilePostCard(post, seg)
-                  }, (post: Post) => seg + '-right-' + (post.id ?? ''))
-                }
-                .layoutWeight(1)
-              }
-              .width('100%')
-              .alignItems(VerticalAlign.Top)
-              // 列表底部：finished 时显示「没有更多了」，并保留悬浮底栏避让占位
-              this.postFooter()
-            }
-            .width('100%')
-            // constraintSize minHeight 撑满视口：内容不足一屏时从顶部贴齐（规避 Scroll 内容垂直居中）
-            .constraintSize({ minHeight: '100%' })
-            .padding({
-              left: SpaceTokens.sm,
-              right: SpaceTokens.sm,
-              // 内容区盒子顶边在窗口顶部（标题栏覆盖式）：首屏内容要让开整条顶栏
-              // （到分段栏顶边为止，topInset 已含这一条）+ 分段栏本身，「我收藏」再让一层子分段。
-              top: this.topInset + PROFILE_SEG_ROW_HEIGHT + SpaceTokens.md
-                + (seg === 1 ? LayoutTokens.segmentedHeight + 2 * SpaceTokens.xs : 0),
-              bottom: SpaceTokens.md,
-            })
-          }
-          .scrollable(ScrollDirection.Vertical)
-          .onScrollEdge((edge: Edge) => {
-            if (edge === Edge.Bottom) {
-              this.loadMore();
-            }
-          })
-        }
-        .onStateChange((state: RefreshStatus) => {
-          // 拉拽/刷新全程显示指示器；空闲与完成回弹隐藏
-          this.refreshIndicatorVisible = state === RefreshStatus.Drag
-            || state === RefreshStatus.OverDrag || state === RefreshStatus.Refresh;
-        })
-        .onRefreshing(() => {
-          this.refresh().finally(() => {
-            this.isRefreshing = false;
-          });
-        })
-        .width('100%').height('100%')
+        Text('共 ' + this.folders.length + ' 个收藏夹')
+          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.caption.weight)
+          .lineHeight(TypeTokens.caption.lineHeight)
+          .fontColor(ColorTokens.secondary)
+          .textAlign(TextAlign.Start)
+          .width('100%')
+        ForEach(this.folders, (f: BookmarkFolderItem) => {
+          this.folderListItem(f)
+        }, (f: BookmarkFolderItem) => 'folder-list-' + String(f.id))
       }
     }
     .width('100%')
-    .height('100%')
   }
 
-  // 分段跟手值的唯一写入口：连续索引 = index - position（真机逐帧取证：视口内每一页都按同一
-  // 基准回报 position，各页算出的值一致且整段单调，与 selectedIndex 是否翻转无关）。
-  private feedSlide(continuous: number): void {
-    this.slidePosition = Math.max(0, Math.min(PROFILE_SEGMENTS.length - 1, continuous));
+  @Builder
+  emptyHero(): void {
+  }
+
+  @Builder
+  emptySegRows(): void {
   }
 
   build() {
-    Column() {
-      // 顶栏（我的/分享/设置）+ 资料区 + 主分段栏 + 「我收藏」子分段栏已整体迁入 Navigation
-      // 标题栏（uiMaterial 沉浸光感的官方生效区域）；这里只剩列表本体。
-      // 四个分段做成真正的分页：内容跟手位移、松手按速度吸附，与消息页同一套系统实现。
-      // 前提是每一页都能立刻拿到「自己的」内容 —— 列表已按分段各自缓存（postsCache）。
-      // 手势由 Swiper 自带，页面不再绑任何横向手势（两套会互相抢事件）。
-      Swiper() {
-        this.segmentPage(0)
-        this.segmentPage(1)
-        this.segmentPage(2)
-        this.segmentPage(3)
-      }
-      .index(this.tabIdx)
-      .loop(false)                 // 到边界不循环：与分段栏两端不可再点一致
-      .indicator(false)            // 进度点由分段栏承担
-      .duration(MotionTokens.container)
-      .curve(MotionCurves.springSoft)
-      .onChange((index: number): void => {
-        // 只写选中值（同值写入不触发 @Watch）；列表刷新由 @Watch(tabIdx) 承接。
-        this.tabIdx = index;
-        // 点击标题栏分段：Swiper 直接换页、不发滚动回调，滑块在这里落整数位；
-        // 手势期间不接管（onChange 会在吸附动画中途到达，写整数位等于让滑块从页面当前位置跳走）。
-        if (!this.tabSliding) {
-          this.slidePosition = index;
+    Refresh({ refreshing: $$this.isRefreshing, builder: this.refreshBuilder }) {
+      // scroller 由 Index 创建并下发：标题栏渐变模糊（bindToScrollable）要读滚动源。
+      // 必须从上游往下传，本页造好再回调上去会让首帧绑定为空、模糊慢一帧才出现。
+      //
+      // 视口仍从窗口原点起（资料卡能一路滑到 56vp 标题栏底下、被栏体材质糊掉 = 穿底），
+      // 让位改由 contentStartOffset 承担：内容起始端挪到标题栏之下，吸顶组头也就粘在那儿。
+      // 于是「资料卡 → 主分段 → 子分段 → 列表」这条已上线的视觉顺序原样保住，
+      // 而资料卡不再是标题栏的一部分 —— 栏体节点之内抓不到滚动源，它留在栏里会把屏顶
+      // 41% 变成手势盲区（基准 §7.6.13b）。
+      List({ scroller: this.scrollers[0] }) {
+        ListItem() {
+          Column() {
+            this.heroHeader()
+          }
+          .width('100%')
         }
-      })
-      // 逐帧联动滑块（1:1 跟手，含松手后的吸附段——真机取证：position 在整段动画里连续单调）
-      .onContentDidScroll((_selectedIndex: number, index: number, position: number, _mainAxisLength: number): void => {
-        this.tabSliding = true;
-        this.feedSlide(index - position);
-      })
-      .onAnimationEnd((index: number): void => {
-        // 吸附收尾：滑块交给**本次动画的落点 index**（回调自带），抹掉最后一帧的浮点残差；回弹不换页也走这里。
-        // ⚠️ 不能读 tabIdx —— 真机取证 onChange 在 onAnimationEnd 之后才到，那一刻它还是旧页，
-        // 写它等于把滑块甩回起点再弹回来（用户看到的「不跟手」）。
-        this.tabSliding = false;
-        this.slidePosition = index;
-      })
+        .width('100%')
+
+        // 分段栏两行是**普通列表项**，跟着资料区一起滚走 —— 与官方参照一致
+        //（智慧生活「我的 | 探索」那条也在 Scroll 里）。
+        // 不吸顶是刻意的：吸顶就得给这一行自带表面，而内容区拿不到栏体材质
+        //（systemMaterial 在内容区普通组件上不渲染），只能退 backgroundBlurStyle，
+        // 于是要么实心板要么丢对比度，来回三版都收不了口（基准 §7.6.19 / §7.6.23）。
+        // 让它滚走后这一行不需要任何底，官方轨道直接站在页面画布上 —— 那正是已验证
+        // 与原生同档的情形。代价：滚深后要换分段得先回顶，收藏夹的管理入口也会跟着卷走。
+        ListItem() {
+          Column() {
+            this.segHeader()
+          }
+          .width('100%')
+        }
+        .width('100%')
+
+        ListItem() {
+          Column() {
+            this.feedBody()
+          }
+          .width('100%')
+          .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+        }
+        .width('100%')
+      }
       .width('100%')
       .height('100%')
+      .scrollBar(BarState.Off)
+      .contentStartOffset(this.topInset)
+      .onDidScroll((_x: number, y: number): void => {
+        if (this.onListScroll !== undefined) {
+          this.onListScroll(y);
+        }
+      })
+      .edgeEffect(EdgeEffect.Spring)
+      .divider({ strokeWidth: 0 })
+      .onReachEnd((): void => {
+        this.loadMore();
+      })
     }
-    .width('100%').height('100%')
+    .onStateChange((state: RefreshStatus) => {
+      // 拉拽/刷新全程显示指示器；空闲与完成回弹隐藏
+      this.refreshIndicatorVisible = state === RefreshStatus.Drag
+        || state === RefreshStatus.OverDrag || state === RefreshStatus.Refresh;
+    })
+    .onRefreshing(() => {
+      this.refresh().finally(() => {
+        this.isRefreshing = false;
+      });
+    })
+    .width('100%')
+    .height('100%')
     .backgroundColor(ColorTokens.canvas)
   }
 }

@@ -239,6 +239,10 @@
     {
       "name": "glow_tint",
       "value": "#330066CC"
+    },
+    {
+      "name": "ds_material_canvas",
+      "value": "#F1F3F5"
     }
   ]
 }

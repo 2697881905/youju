@@ -287,12 +287,15 @@ export struct CircleDetailView {
           onSelect: (index: number): void => { this.switchSort(index); },
         })
         Blank()
-        // 加入/退出圈子：驻留标题栏，由系统材质接管按钮表面（低版本回退原描边样式）
+        // 加入/退出圈子：这一整块确实挂在 .title({ builder })（见本文件 build 尾部），材质出图。
+        // 但仍走描边而非让材质接管表面：ULTRA_THIN 在浅色栏面上只比画布亮 2 级（真机 253 vs 255），
+        // 而 DesignButton 挂材质时会把自绘描边一并置 0（DesignButton.ets:103）—— 换来的那 2 级读不出来，
+        // 按钮却没了可点性。描边才是这颗钮的实际表面。
         DesignButton({
           label: this.joined ? '退出圈子' : '加入圈子',
           variant: 'outlined',
           disabled: this.joining,
-          useSystemMaterial: true,
+          useSystemMaterial: false,
           action: (): void => { this.toggleJoin(); },
         })
       }

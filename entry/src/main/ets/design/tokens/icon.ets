@@ -5,7 +5,9 @@ export class IconTokens {
   static readonly compact: number = 16;
   static readonly small: number = 20;
   static readonly standard: number = 24;
-  static readonly tabBar: number = 26;
+  // 底部页签图标：对齐官方 App 实测 24×24（智慧生活 TabBar 单项 60×48 内图标 24）。
+  // 原值 26 是比官方大一档的自选值，无外部依据，故收敛到与 standard 同值。
+  static readonly tabBar: number = 24;
   static readonly avatarCompact: number = 24;
   static readonly avatarProfile: number = 68;
   static readonly empty: number = 44;
