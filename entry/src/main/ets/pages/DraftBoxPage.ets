@@ -17,7 +17,8 @@ import { ManagedPostFeed } from '../components/ManagedPostFeed';
 import { resolveTextPosterStyle } from '../utils/poster/posterTokens';
 import { buildPageTransition } from '../utils/styles';
 import { resolveActionIcon } from '../utils/actionIcons';
-import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit';
+import { LengthMetrics } from '@kit.ArkUI';
 import type {
   HdsNavigationTitleBarOptions,
   TitleBarContentOptions,
@@ -35,11 +36,20 @@ import { isImmersiveLightSenseSupported, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERI
 // 官方返回键占 16~56vp（40vp 圆 + 16vp 左内缩）。stackBuilder 那行是全宽的、且在返回键的
 // 后一个兄弟节点上（z 序更高），不留出这段就会**吃掉返回键的点击**（ChatView 试点真机复现）。
 const HDS_BACK_SLOT_END_VP: number = 64;
+// 栏体高（vp）：MINI 标题区实测 175px ÷ 3.125 = 56vp。穿底时内容要按这个值让位。
+const DRAFT_BAR_ROW_VP: number = 56;
+// 渐变模糊生效区间终点（vp）：与聊天页/消息页同量级
+const DRAFT_BLUR_END_VP: number = 32;
 
 @Entry
 @Component
 struct DraftBoxPage {
   @State drafts: SavedPostDraft[] = [];
+  // 穿底配方要按状态栏高度自己让位（enableComponentSafeArea=false 后系统不再代为顶开内容）
+  @StorageLink('statusBarHeight') statusBarHeight: number = 0;
+  // 交给 HdsNavigation.bindToScrollable，驱动顶栏渐变模糊 —— 没有它，栏后拿不到内容可采样，
+  // 玻璃珠材质在纯白画布上只差 2~3 级，肉眼等于没变化（用户复看时指出的正是这一点）
+  private feedScroller: Scroller = new Scroller();
   private unsubscribeDrafts: () => void = () => {};
 
   aboutToAppear(): void {
@@ -142,13 +152,18 @@ struct DraftBoxPage {
   }
 
   // 标题栏配置：官方返回键（backIcon）+ stackBuilder 只放「草稿箱」文字。
-  // 状态栏避让交给 avoidLayoutSafeArea(true)，不再手动加 statusBarHeight padding；
-  // enableComponentSafeArea(true) 让内容从栏下开始（等价于原先的 BarStyle.STANDARD 占位）。
+  // 状态栏避让交给 avoidLayoutSafeArea(true)；内容侧改用 enableComponentSafeArea(false)
+  // + 自己补 topInset，让草稿卡片能穿到栏下被渐变模糊采样 —— 材质才有东西可折射。
   private draftTitleBarOptions(): HdsNavigationTitleBarOptions {
+    const immersive: boolean = isImmersiveLightSenseSupported();
+    const scrollEffect: ScrollEffectOptions = {
+      enableScrollEffect: true,
+      scrollEffectType: immersive ? ScrollEffectType.IMMERSIVE_GRADIENT_BLUR : ScrollEffectType.GRADIENT_BLUR,
+      blurEffectiveStartOffset: LengthMetrics.vp(0),
+      blurEffectiveEndOffset: LengthMetrics.vp(DRAFT_BLUR_END_VP),
+    };
     const style: TitleBarStyleOptions = {
-      // 本页内容容器（ManagedPostFeed）没有对外暴露 Scroller，拿不到滚动源 →
-      // 不启用滚动特效，栏静止态即终态。材质与滚动特效是两件事，见下方 systemMaterialEffect。
-      scrollEffectOpts: { enableScrollEffect: false } as ScrollEffectOptions,
+      scrollEffectOpts: scrollEffect,
       originalStyle: {
         backgroundStyle: { backgroundColor: Color.Transparent },
         contentStyle: {
@@ -156,7 +171,7 @@ struct DraftBoxPage {
         } as HdsTitleBarContentStyle,
       },
     };
-    if (isImmersiveLightSenseSupported()) {
+    if (immersive) {
       // 栏级材质：官方圆钮的 rim + 折射只在这一档出图（不传 → 默认 3% 黑平面，无轮廓）。
       style.systemMaterialEffect = {
         materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
@@ -178,7 +193,8 @@ struct DraftBoxPage {
       content: content,
       style: style,
       avoidLayoutSafeArea: true,
-      enableComponentSafeArea: true,
+      // false = 内容从窗口原点起算、可以画到栏下（穿底）；让位量由 body 的 topInset 补回
+      enableComponentSafeArea: false,
     };
     return options;
   }
@@ -224,6 +240,9 @@ struct DraftBoxPage {
         deletable: true,
         // 草稿未发布，没有真实互动数据 → 不显示互动数据行（其余仍与首页卡片一致）
         showStats: false,
+        // 穿底：把滚动源交给顶栏驱动渐变模糊，并补回「状态栏 + 栏高」的让位量
+        scroller: this.feedScroller,
+        topInset: this.statusBarHeight + DRAFT_BAR_ROW_VP,
         onOpen: (_post: Post, key: string): void => {
           const draft: SavedPostDraft | undefined = this.draftOf(key);
           if (draft !== undefined) {
@@ -246,6 +265,10 @@ struct DraftBoxPage {
     .mode(NavigationMode.Stack)
     .titleBar(this.draftTitleBarOptions())
     .titleMode(HdsNavigationTitleMode.MINI)
+    // 渐变模糊的滚动源：没有它，栏后拿不到内容可采样，材质在纯白画布上只差 2~3 级看不出
+    .bindToScrollable([this.feedScroller])
+    // 穿底绘制链路：HdsNavigation 自身不裁切（内容需画到栏下被模糊采样）
+    .clip(false)
     .width('100%')
     .height('100%')
     .backgroundColor(ColorTokens.canvas)

@@ -47,6 +47,16 @@ export struct ManagedPostFeed {
   // 信息区是否显示互动数据行（StatRow 点赞/评论）。
   // 首页信息流 / 废纸篓：true（帖子有真实互动数据）；草稿：false（未发布，无真实数据）。
   @Prop showStats: boolean = true;
+  // 外层顶栏要驱动渐变模糊时，需要这个 Scroll 的滚动源（HdsNavigation.bindToScrollable）。
+  // ⚠️ 普通成员而非 @Prop：@Prop 会对传入对象做值语义处理，Scroller 实例一旦被复制，
+  // 外层拿到的就是另一个对象，bindToScrollable 绑不上真实滚动源。
+  // ⚠️ Scroll() 构造器收的是 Scroller 本身（本 SDK 的 ScrollOptions 是 scrollTo 的参数，
+  // 没有 scroller 字段），所以这里直传、不包 { scroller }。
+  scroller: Scroller = new Scroller();
+  // 穿底让位量（vp）：宿主把 `enableComponentSafeArea` 关掉让内容画到顶栏之下时，
+  // 用这个字段补回「状态栏 + 栏高」，静止态首屏仍落在栏下，滚动时才穿进去被模糊。
+  // 默认 0 = 不额外让位（配合 enableComponentSafeArea: true 的旧用法）。
+  @Prop topInset: number = 0;
   // 点击卡片：回传 Post 与该单元的稳定 key（草稿场景 Post 无 id，需靠 key 反查业务对象）
   onOpen: (post: Post, key: string) => void = (): void => {};
   // 删除回调：回传该单元的稳定 key（= itemKeys 对应值）
@@ -147,7 +157,7 @@ export struct ManagedPostFeed {
   }
 
   build() {
-    Scroll() {
+    Scroll(this.scroller) {
       Column({ space: SpaceTokens.sm }) {
         Row({ space: SpaceTokens.xs }) {
           Column({ space: SpaceTokens.xs }) {
@@ -184,10 +194,10 @@ export struct ManagedPostFeed {
       }
       .width('100%')
       .constraintSize({ minHeight: '100%' })
-      // 左右留白与首页信息流同值（SpaceTokens.sm）
+      // 左右留白与首页信息流同值（SpaceTokens.sm）；top 在 5vp 呼吸之外叠加穿底让位量
       .padding({
         left: SpaceTokens.sm, right: SpaceTokens.sm,
-        top: 5, bottom: SpaceTokens.md,
+        top: 5 + this.topInset, bottom: SpaceTokens.md,
       })
     }
     .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
