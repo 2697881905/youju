@@ -1095,6 +1095,30 @@ HdsNavigation
 
 **与 §7.6.24 的分工**：那条讲的是「分段栏该不该吸顶」，结论是别吸顶、跟着资料区滚走；本条是同一诉求在**首页结构**下的官方实现路径（不搬进 List，而是让栏体自己收）。
 
+**真机复核结果（2026-10-22，1136×2690，`uitest dumpLayout` 量节点边界）**：
+
+| 检查 | 静止 | 滚一段后 | 判定 |
+|---|---|---|---|
+| `TitleBar` | `[0,106][1136,537]`（431px） | `[0,106][1136,281]`（175px） | 收起到只剩品牌行 ✓ |
+| `BottomCustomNode` | `[0,280][1136,536]` | **整行从树里消失** | 分段行真的走了，不是被盖住 ✓ |
+| `StackCustomNode` / `HdsMenuNode` | `[0,106][1136,281]` / `[961,106][1086,281]` | **一字未动** | 品牌行与搜索圆不被牵连 ✓ |
+| 内容 `Scroll` 顶边 | **537** | **281** | 恰等于品牌行底 → **无叠压**，但也意味着内容区跟着回流 |
+| 回顶后 | 全部复原 | — | 收/放对称，不卡态 ✓ |
+| 每日一帖（无 Scroll） | `[0,106][1136,537]` | 两次 fling 后**不变** | 不收起也不卡死，分段行始终可达 ✓ |
+
+**但「绑定」没做到，量出来了**：用 200px **无惯性慢拖**（`uiInput drag ... 200`）测同一批卡片的位移 —— **卡片上移 440px**，是手指距离的 **2.2 倍**。
+
+成因就是 `Scroll` 顶边跟着栏底从 537 抬到 281：卡片屏幕位置 = `Scroll.top + 内容偏移 − 滚动量`，`Scroll.top` 自己又抬了 256px，两笔叠加。所以栏体收起那一段里内容会**从手指底下跑掉**，收起完成后才回到 1:1 —— 有一个速度断点。
+
+`hideRatio` 治不了这个：它只改收起**用时**，不改收起**总量**（恒为那 256px），额外位移始终存在。
+
+**要真 1:1 只有一条路**：`enableComponentSafeArea: false`，让 `Scroll` 顶边固定在窗口原点、不跟栏底跑，栏体收起只是"让出遮挡"而非"改变布局"；代价是内容会**穿到栏下绘制**（正是「我的」那套），且三页 Swiper 各自要补 `statusBar + 品牌行 + 分段行` 的 `topInset`。这属于结构改动，不是调参，待拍板。
+
+**操作教训**：栏体收起后分段行的坐标就失效了，照静止态的坐标再点会点到卡片上（本轮就这么误开过一次帖子详情页，`keyEvent Back` 退回）。**每次点顶栏前必须重新 dump 取坐标**，别复用上一帧的。
+
+
+### 7.7 浅色那一档顺手复测（补第 6 节的 TODO）
+
 
 ### 7.7 浅色那一档顺手复测（补第 6 节的 TODO）
 
@@ -1195,4 +1219,5 @@ $HDC shell "uitest uiInput click <px-x> <px-y>"   # bounds 是 px，÷3.125 才�
 25. **开了 `enableScrollEffect`，`contentStyle` 就要在 `originalStyle` 和 `scrollEffectStyle` 各写一遍**：`originalStyle` 只管特效生效**之前**，接管后菜单项颜色改读 `scrollEffectStyle`，不传就用 HDS 默认白字。静止态看着正常不等于没问题 —— 必须滚过 `blurEffectiveEndOffset` 再量一次（第 7.6.28 节：只写 originalStyle 时模糊态掉到 1.88:1）。
 26. **`content.menu` 的表面能摘、typography 摘不掉 —— 文字动作不要迁过去**：`HdsNavigationIconItemStyle` 只有 `backgroundColor / iconColor / textColor` 三个槽，`backgroundColor = Transparent` 可以清掉默认那颗浅药丸（排布/命中/按压反馈照样白拿），但**字号与内边距没有任何入口**（真机：墨迹比自绘高 9%、离右缘多 17vp 内缩）。所以官方件这条路只推荐给**图标钮**；纯文字动作要保原本观感就留自绘（第 7.6.28 节，已试过并逐像素回退）。若保留那颗药丸还要重判字色 —— 它会跟着栏变暗（243→169），「裸文字压深色背板 → 模糊后切白」这类规则在有表面后直接反向失效。
 27. **官方 `content.menu` 项要外部量帧，用 `componentId` 而不是自己 `.id()`**：`HdsNavigationIconOptions.componentId` 会原样落到内部 `Button` 节点的 `id` / `key`（dumpLayout 实测 `id = 'homeSearchEntry'`），所以 `componentUtils.getRectangleById()` 这类按 id 取矩形的通路照样命中 —— 一镜到底这种"要拿入口帧当动画起点"的接线迁进官方件不用拆。另外：图标项默认圆底 `#0C000000` 在浅色画布上实测**暗 12 级**，比自绘挂 ULTRA_THIN 白霜（2 级）清楚得多，别默认"必须补栏级 `systemMaterialEffect` 才看得见"（第 7.6.29 节）。
+29. **`dynamicHideTitleBar` 配 `enableComponentSafeArea: true` 会让内容跑出手指的 2 倍速**：栏体一收，`Scroll` 顶边跟着栏底上抬，卡片位移 = 滚动量 + 栏体收起量（真机 200px 慢拖 → 卡片走 440px）。`hideRatio` 只改收起用时、不改收起总量，治不了。要真 1:1 绑定只能 `enableComponentSafeArea: false` + 内容自己补 `topInset`（「我的」那套），代价是内容穿到栏下绘制。别把它当成调参问题（第 7.6.30 节）。
 28. **改顶栏的模糊档 / 材质档，必须同时重判这条栏上所有「滚动驱动的字色翻转」**：`brandOnBlur ? White : 墨` 这类开关是为**某一档背板亮度**定的。`GRADIENT_BLUR` 把栏面压深 → 白字是对的；换 `IMMERSIVE_GRADIENT_BLUR` + EXQUISITE 后栏面变亮 → 同一个开关立刻变成白字压亮面（第 7.6.29 节，浅色模式一滑动就复现）。所以换档那一次就要把这条栏上所有吃该开关的着色逐个过一遍，别只改触发它的那颗按钮。
