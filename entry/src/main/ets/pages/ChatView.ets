@@ -25,7 +25,6 @@ import { KeyboardAvoidMode, LengthMetrics } from '@kit.ArkUI';
 import { common } from '@kit.AbilityKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { fileIo } from '@kit.CoreFileKit';
-import { BackButton } from '../design/components/BackButton';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
@@ -43,7 +42,16 @@ import type {
   TitleBarContentOptions,
   TitleBarStyleOptions,
   ScrollEffectOptions,
+  SystemMaterialParams,
+  HdsTitleBarContentStyle,
+  HdsNavigationIconItemStyle,
+  HdsNavigationBackButtonItemOptions,
+  HdsNavigationIconOptions,
 } from '@kit.UIDesignKit';
+// 栏级沉浸光感：与「我的」/首页同一对字段、同一门禁（基准 §7.6.29）。
+// 档位传数值字面量而非 hdsMaterial 枚举 —— hdsMaterial 模块在 API 22 上不存在，值 import 即崩。
+import { isImmersiveLightSenseSupported, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
+import { resolveActionIcon } from '../utils/actionIcons';
 
 // HDS 顶栏渐变模糊生效区间终点（vp）：0 → 32，滚动 32vp 内模糊线性到位（与消息页同量级）
 const CHAT_BLUR_END_VP: number = 32;
@@ -1256,7 +1264,8 @@ export struct ChatView {
       .height('100%')
     }
     .mode(NavigationMode.Stack)
-    .hideBackButton(true)
+    // 独立页用官方返回键；分栏右栏（embedded）不是独立页面、没有可返回的层级，仍要藏掉
+    .hideBackButton(this.embedded)
     .titleBar(this.chatTitleBarOptions())
     .titleMode(HdsNavigationTitleMode.MINI)
     .bindToScrollable([this.listScroller])
@@ -1284,23 +1293,49 @@ export struct ChatView {
     .transition(buildPageTransition())
   }
 
-  // HDS 标题栏配置（同消息页路线 B 口径）：MINI + stackBuilder 对端行 + GRADIENT_BLUR
-  // 0→32vp + 透明起步 + avoid/enableComponentSafeArea 双开。逐层显式标注 SDK 类型。
+  // HDS 标题栏配置：MINI + 官方返回键（backIcon）+ stackBuilder 对端行 + 渐变模糊 0→32vp + 透明起步。
+  // 返回键从自绘 BackButton 换成官方 backIcon —— 这是一次**验证性试点**（基准 §7.6.31）：
+  // 全仓 6 处 HdsNavigation 过去都写了 hideBackButton(true)，官方那颗返回键从没在本 app 渲染过，
+  // 它接了栏级材质后出不出折射玻璃珠、backIconStyle 压不压得住默认白，都要靠这一次看。
+  // 行为不变：backIcon 带 action 槽，直接接回原来的 backAction()（nav 模式走宿主 onBack、
+  // router 模式走 router.back()），没有换成 NavPathStack 默认 pop。
   private chatTitleBarOptions(): HdsNavigationTitleBarOptions {
+    const immersive: boolean = isImmersiveLightSenseSupported();
     const scrollEffect: ScrollEffectOptions = {
       enableScrollEffect: true,
-      scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
+      // 折射要这两个字段成对开，且同为 @6.1.0(23)（§7.6.29）
+      scrollEffectType: immersive ? ScrollEffectType.IMMERSIVE_GRADIENT_BLUR : ScrollEffectType.GRADIENT_BLUR,
       blurEffectiveStartOffset: LengthMetrics.vp(0),
       blurEffectiveEndOffset: LengthMetrics.vp(CHAT_BLUR_END_VP),
     };
+    // 官方返回键默认色按 HDS 约定是白的（假定栏压在 hero 媒体上）；本页栏下是聊天背景，必须点名。
+    // 两个态各写一遍：originalStyle 只管 scroll 特效生效之前，接管后改读 scrollEffectStyle
+    //（防漂移第 25 条）。本页从不切白（对端昵称/举报都是静态 token），所以两态同值。
+    const backIconStyle: HdsNavigationIconItemStyle = { iconColor: ColorTokens.primary };
+    const contentStyle: HdsTitleBarContentStyle = { backIconStyle: backIconStyle };
     const style: TitleBarStyleOptions = {
       scrollEffectOpts: scrollEffect,
       originalStyle: {
         backgroundStyle: { backgroundColor: Color.Transparent },
+        contentStyle: contentStyle,
       },
+      scrollEffectStyle: { contentStyle: contentStyle },
     };
+    if (immersive) {
+      style.systemMaterialEffect = {
+        materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
+        materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE,
+      } as SystemMaterialParams;
+    }
+    const backContent: HdsNavigationIconOptions = {
+      icon: resolveActionIcon('back'),
+      label: '返回',
+      action: (): void => { this.backAction(); },
+    };
+    const backIcon: HdsNavigationBackButtonItemOptions = backContent;
     const content: TitleBarContentOptions = {
       stackBuilder: (): void => { this.chatHdsTopRow(); },
+      backIcon: backIcon,
     };
     const options: HdsNavigationTitleBarOptions = {
       content: content,
@@ -1323,13 +1358,11 @@ export struct ChatView {
     }
   }
 
-  // 顶栏内容（不含外层尺寸）：返回键（仅独立页；分栏右栏不是独立页面不显示）
-  // + 对端头像/昵称（点击跳主页）+ 举报入口（审核要求：聊天模块提供举报渠道）
+  // 顶栏内容（不含外层尺寸）：对端头像/昵称（点击跳主页）+ 举报入口（审核要求：聊天模块提供举报渠道）。
+  // 返回键不再由这里画 —— 独立页走 HdsNavigation 的官方 backIcon（见 chatTitleBarOptions），
+  // 分栏右栏 embedded 本来就没有可返回层级，由 hideBackButton(this.embedded) 藏掉。
   @Builder
   chatTopRowContent() {
-    if (!this.embedded) {
-      BackButton({ action: (): void => { this.backAction(); } })
-    }
     Row({ space: 8 }) {
       AvatarView({ avatar: this.peerAvatar, name: this.peerName, avatarSize: 32, ringWidth: 0 })
       Text(this.peerName !== '' ? this.peerName : '用户')
