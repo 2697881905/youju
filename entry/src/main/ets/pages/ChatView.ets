@@ -1390,7 +1390,14 @@ export struct ChatView {
   }
 
   // HDS stackBuilder 行：撑满 MINI 标题区（系统定值；行高不足时区域余量变成栏内空隙，
-  // 同消息页品牌行结论），仅水平内边距。
+  // 同消息页品牌行结论）。
+  // ⚠️ 左侧留白必须让开官方返回键：这一行的 chatTopRowContent 里那条对端 Row 带 layoutWeight(1)
+  // 且挂了 onClick(goPeer)，它会铺满整行并**盖在返回键之上把点击吃掉**（真机实证：点返回键
+  // 跳到了对端主页）。返回键占 16~56vp（40vp 圆 + 16vp 左内缩），所以内容从 64vp 起。
+  private chatHdsLeftInset(): number {
+    return this.embedded ? 8 : 64;
+  }
+
   @Builder
   chatHdsTopRow() {
     Row() {
@@ -1398,7 +1405,7 @@ export struct ChatView {
     }
     .width('100%')
     .height('100%')
-    .padding({ left: 8, right: 8 })
+    .padding({ left: this.chatHdsLeftInset(), right: 8 })
   }
 
   // 旧自绘顶栏（embedded 分栏专用）：原 Row 规格 + 名字下方细分隔线

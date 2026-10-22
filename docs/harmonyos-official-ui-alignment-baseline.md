@@ -1144,6 +1144,14 @@ HdsNavigation
 
 **⚠️ 一个尚未知的点，排期前必须先验**：全仓 6 处 `HdsNavigation` **无一例外都写了 `.hideBackButton(true)`**，也就是说**官方那颗返回键从没在这个 app 里渲染过**。它接到栏级材质后到底出不出玻璃珠、`backIconStyle` 能不能压住默认白色，都是推断而非实测。所以 ChatView 那一处应当当成**验证性试点**做，而不是当成"稳赚的改动"直接铺开。
 
+**试点已完成（2026-10-22，ChatView，真机通过）—— 上面那个未知已消**：
+
+- **官方返回键会渲染，且拿到同一套材质表面**：`Button [50,131][175,256]` = **40vp 正圆**、左内缩 16vp、图标 24vp；节点 `backgroundColor` 从默认 `#0C000000` 翻成 **`#00000000`**（材质接管的标志，与「我的」那四颗同现象）。圆内均值 **252.2 vs 画布 255 = −2.8 级**，与「我的」的 −3.2 同档 —— **`backIcon` 和 `content.menu` 项吃同一个栏级材质**，不用额外配。
+- **`backIconStyle.iconColor` 有效**，压得住 HDS 默认白；两个态仍各写一遍（防漂移第 25 条）。
+- **`backIcon.action` 存在可用** —— 换官方返回键**不需要改返回行为**：原 `backAction()`（nav 模式走宿主 `onBack`、router 模式走 `router.back()`）原样接回，没被换成 NavPathStack 默认 pop。
+- **⚠️ 会咬人的坑：官方返回键会被 stackBuilder 的全宽可点行吃掉点击。** 第一版装机后点返回键**跳到了对端主页**而不是返回 —— `chatTopRowContent` 里那条对端 Row 挂了 `onClick(goPeer)` 且带 `layoutWeight(1)`，横向铺满 25~979，盖在返回键（50~175）之上，而 `StackCustomNode` 是 `Button` 的后一个兄弟节点、z 序在上。修法：`chatHdsTopRow` 左内边距让开返回键 —— 它占 16~56vp，内容从 **64vp** 起（修后可点行左缘 25→200px、留 8vp 间隙，返回键恢复）。
+  **这条对所有"顶栏里有全宽可点行"的迁移都成立**：`content.menu` 那颗在右侧同理会被吃，只是「我的」的标题是左对齐窄条才没暴露。**迁完必须真点一次返回**，不能只看它长出来了。
+
 
 ### 7.7 浅色那一档顺手复测（补第 6 节的 TODO）
 
@@ -1249,4 +1257,5 @@ $HDC shell "uitest uiInput click <px-x> <px-y>"   # bounds 是 px，÷3.125 才�
 27. **官方 `content.menu` 项要外部量帧，用 `componentId` 而不是自己 `.id()`**：`HdsNavigationIconOptions.componentId` 会原样落到内部 `Button` 节点的 `id` / `key`（dumpLayout 实测 `id = 'homeSearchEntry'`），所以 `componentUtils.getRectangleById()` 这类按 id 取矩形的通路照样命中 —— 一镜到底这种"要拿入口帧当动画起点"的接线迁进官方件不用拆。另外：图标项默认圆底 `#0C000000` 在浅色画布上实测**暗 12 级**，比自绘挂 ULTRA_THIN 白霜（2 级）清楚得多，别默认"必须补栏级 `systemMaterialEffect` 才看得见"（第 7.6.29 节）。
 29. **`dynamicHideTitleBar` 配 `enableComponentSafeArea: true` 会让内容跑出手指的 2 倍速**：栏体一收，`Scroll` 顶边跟着栏底上抬，卡片位移 = 滚动量 + 栏体收起量（真机 200px 慢拖 → 卡片走 440px）。`hideRatio` 只改收起用时、不改收起总量，治不了。要真 1:1 绑定只能 `enableComponentSafeArea: false` + 内容自己补 `topInset`（「我的」那套），代价是内容穿到栏下绘制。别把它当成调参问题（第 7.6.30 节）。
 30. **系统下拉菜单没有"可编程弹出"入口，所以带 `bindMenu` 的控件一律迁不进 `content.menu`**：整个 SDK 搜 `showMenu` 零命中，菜单只能由 `.bindMenu()` 挂在**自己拥有的节点**上、以它为锚点。`HdsNavigationIconOptions` 没有这个槽位，把这类控件搬进官方菜单，面板就开不出来了。唯一替代是换成 `bindSheet`（相对窗口弹、不需要锚点），但那是改交互形态，得单独拍板（第 8 节 F 条）。
+31. **顶栏里放了全宽可点行，就会吃掉官方返回键／菜单钮的点击**：`StackCustomNode`（stackBuilder）是 `Button`（backIcon）与 `HdsMenuNode` 的**后一个兄弟节点**、z 序在上，所以那条行只要带 `layoutWeight(1)` + `onClick`，就会盖住两侧官方件的命中区（真机：点返回跳到了对端主页）。给 stackBuilder 行留出左右内缩 —— 官方件占 16~56vp，内容从 **64vp** 起。**验收必须真点一次官方返回键**，只看节点长出来了不算过（第 7.6.31 节）。
 28. **改顶栏的模糊档 / 材质档，必须同时重判这条栏上所有「滚动驱动的字色翻转」**：`brandOnBlur ? White : 墨` 这类开关是为**某一档背板亮度**定的。`GRADIENT_BLUR` 把栏面压深 → 白字是对的；换 `IMMERSIVE_GRADIENT_BLUR` + EXQUISITE 后栏面变亮 → 同一个开关立刻变成白字压亮面（第 7.6.29 节，浅色模式一滑动就复现）。所以换档那一次就要把这条栏上所有吃该开关的着色逐个过一遍，别只改触发它的那颗按钮。
