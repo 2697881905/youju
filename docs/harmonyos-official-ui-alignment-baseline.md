@@ -1072,6 +1072,30 @@ HdsNavigation
 **别顺手照抄到消息页**：`MessagePage` 仍保留自己的 `brandOnBlur` 切白，因为那条栏**还是旧 `GRADIENT_BLUR`**（深色磨砂背板），白字在那儿是对的。只有把某条栏换成 IMMERSIVE + EXQUISITE，才需要同时退役它上面的切白开关 —— 即防漂移第 28 条。
 
 
+#### 7.6.30 首页分段栏改「与内容绑定、随滚动一起走」：用官方 `dynamicHideTitleBar`
+
+首页的分段栏住在标题栏 `bottomBuilder` 那一行，原先是**钉死**的 —— 信息流从它底下滚过去，它自己不动。「我的」那条栏早就改成跟着内容滚走（§7.6.24），首页要同口径。
+
+**没有自绘、没有搬出栏体**：HDS 有现成入口 `HdsNavigation.dynamicHideTitleBar(DynamicHideParams)`，**@6.0.0(20) 与工程 compatibleSdk 同档，不需要版本门禁**（这点和 `systemMaterialEffect` / `IMMERSIVE_GRADIENT_BLUR` 不同）。参数语义（SDK 注释原文）：
+
+| 字段 | 默认 | 本次取值 | 依据 |
+|---|---|---|---|
+| `hideBottomBuilder` | false | **true** | 只收分段那一行 |
+| `hideTitleArea` | false | 不设（false） | 品牌行留在原地 |
+| `mode` | `SCROLL_UP_TO` | `SCROLL_UP_TO` | 按绝对偏移收/放，回滚对称还原 |
+| `hideOffset` | 0 | 0 | 一起步就开始收 |
+| `hideRatio` | **2.0** | **1.0** | 官方语义：内容每滚 1vp，栏收 `1/hideRatio` vp。默认 2.0 是**半速跟随**，要「绑死」得显式给 1.0 |
+
+前置条件：需要滚动源，首页已有 `.bindToScrollable(this.boundFeedScrollers)`。
+
+**待复看的三处风险**（本轮只做到"构建过 + 装机起"，观感未复核）：
+1. 首页是 `enableComponentSafeArea: true`（内容让位到栏下）。栏体高度随滚动收缩时，**内容区会不会跟着上跳/回流** —— 「我的」的口径是穿底要改 `false`，这里没改，是本次最需要盯的一处。
+2. 分段行收起过程中与品牌行的**叠压关系**，以及 `TagNav` 那个「圈子」chip 的落点。
+3. **每日一帖那一页没有 Scroll**（`boundFeedScrollers` 不绑它）→ 切到第三段后分段栏还收不收、会不会卡在收起态。
+
+**与 §7.6.24 的分工**：那条讲的是「分段栏该不该吸顶」，结论是别吸顶、跟着资料区滚走；本条是同一诉求在**首页结构**下的官方实现路径（不搬进 List，而是让栏体自己收）。
+
+
 ### 7.7 浅色那一档顺手复测（补第 6 节的 TODO）
 
 原生电话·浅色的分段栏与文字（同一套几何，只有色不同）：

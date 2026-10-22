@@ -31,7 +31,7 @@ import { feedItemTransition } from '../utils/feedMotion';
 // 栏级沉浸光感：与「我的」顶栏同一对字段、同一门禁（Index.ets profileSystemMaterial 同款）。
 // 档位传数值字面量而非 hdsMaterial 枚举 —— hdsMaterial 模块在 API 22 上不存在，值 import 即崩。
 import { isImmersiveLightSenseSupported, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
-import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit';
+import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType, HideMode } from '@kit.UIDesignKit';
 import type {
   HdsNavigationTitleBarOptions,
   TitleBarContentOptions,
@@ -1177,6 +1177,18 @@ export struct HomeTab {
     .titleBar(this.homeHdsTitleBarOptions())
     .titleMode(HdsNavigationTitleMode.MINI)
     .hideBackButton(true)
+    // 分段栏（bottomBuilder 那一行）与内容区绑定：滚动时它跟着一起走，不再钉在栏里。
+    // 走官方 dynamicHideTitleBar（@6.0.0(20)，与工程 compatibleSdk 同档，不需要版本门禁），
+    // 只摘 hideBottomBuilder、不动 hideTitleArea —— 品牌行留在原地，收走的只有分段那一行。
+    // hideRatio=1.0 是「绑死」的关键：官方默认 2.0 = 内容每滚 1vp 栏只收 0.5vp（半速跟随），
+    // 设成 1.0 才是滚 1vp 收 1vp，观感上等于这一行被内容推着走。hideOffset=0 = 一起步就开始收。
+    // 滚动源由下面的 bindToScrollable 供给（每日一帖那一页无 Scroll，见 boundFeedScrollers）。
+    .dynamicHideTitleBar({
+      hideBottomBuilder: true,
+      mode: HideMode.SCROLL_UP_TO,
+      hideOffset: 0,
+      hideRatio: 1.0,
+    })
     // 动态绑定当前分段的 Scroller（数组仅随分段切换替换，见 boundFeedScrollers 注释）
     .bindToScrollable(this.boundFeedScrollers)
     // 穿底绘制链路：HdsNavigation 自身不裁切（内容需画到栏下被模糊采样）
