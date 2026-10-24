@@ -17,13 +17,18 @@
 //   ⑤ 资料区住在 bottomBuilder 内、保住「标题行 → 资料区 → 分段栏」原顺序，栏体高随内容/分段重配
 //     （→ 依赖 bottomBuilder.height 运行期可重配，已验，见基准 §7.6.9）。
 //
-// 本轮新增要回答的问题：**栏体能不能随滚动自动收起，以及收起时的三点代价**
-//   ⑥ 上滑时整条 bottomBuilder（资料区 + 两条分段栏）按 1:1 被收走，栏体收到 56vp 后不再变；
-//   ⑦ 收起过程中内容是否「原地露出」—— 列表已改回从窗口原点起（穿底），不再加让位块，
-//     所以收栏时露出的应是卡片本身，而不是一条空白画布；
-//   ⑧ 起手死区：静止态从资料区起手能否滑动（预期不能，§7.6.13b 的机制），以及收栏后死区降到多少。
-//   ⑨ 资料区落进栏体材质后的可读性（头像/昵称/简介压在系统磨砂上，浅深各抓一帧）。
-import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType, HideMode, hdsMaterial } from '@kit.UIDesignKit';
+// 本轮新增要回答的问题：**栏体能不能随滚动自动收起，以及收起时的三点代价**（2026-10-24 全部装机实测）
+//   ⑥ ✅ 能收，但不能用官方 dynamicHideTitleBar：那个 API 只认**字面量** bottomBuilder.height，
+//      height 传表达式（资料区高度是内容驱动的）就一动不动。改成本页自己算 barCollapseVp
+//      → height，真机跟手（滑 200px 栏收 185px），且粒度能只收资料区、分段栏常驻。
+//   ⑦ ✅ enableComponentSafeArea 必须 false：true 时 Scroll 顶边跟着栏底上抬，
+//      栏 750→539px 的同时顶边也抬 211px（防漂移第 29 条那条 2 倍速）。false 时原点固定在
+//      y=106，滚 1vp 内容走 1vp。
+//   ⑧ ✗ 死区原样回来：静止态从资料区（y=420）起手滑 200px，卡片位置纹丝不动、栏高也不变；
+//      同一手势从栏下（y=1500）起手正常收栏。死区 = 整条栏体 240vp ≈ 31% 屏高。
+//   ⑨ ✗ 资料区背板不再是画布：内容穿底后，昵称/简介是裸文字压在滚动的卡片上，
+//      滚动中对比度随背板漂（中期帧实测「抹茶味的琴」压在晨间阅读的紫蓝卡上）。
+import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType, hdsMaterial } from '@kit.UIDesignKit';
 import type {
   HdsNavigationTitleBarOptions,
   TitleBarContentOptions,
@@ -111,8 +116,10 @@ struct ProfileBarProtoPage {
   @State materialProbeText: string = '（材质探测未执行）';
   @State mainSegIdx: number = 0;
   @State subSegIdx: number = 0;
-  // 资料区实测高（vp）：0 = 尚未测到，用 HERO_FALLBACK_VP 兜底。bottomBuilder 高度靠它跟随内容。
+  // 资料区实测高（vp）：0 = 尚未测到，用 HERO_FALLBACK_VP 兜底。收起上限靠它。
   @State heroHVp: number = 0;
+  // 资料区已收起的高度（vp）：由列表偏移驱动，0 = 全展开。
+  @State barCollapseVp: number = 0;
   private supported: boolean = isHdsNavSupported();
   private material: SystemMaterialParams | undefined = undefined;
   private scroller: Scroller = new Scroller();
@@ -125,9 +132,29 @@ struct ProfileBarProtoPage {
     return this.mainSegIdx === 1;
   }
 
-  // bottomBuilder 声明高 = 资料区 + 主分段行 + （子分段行，仅「我收藏」）
+  // bottomBuilder 声明高 = 资料区 + 主分段行 + （子分段行，仅「我收藏」）− 已收起的资料区高度。
+  // ⚠️ 2026-10-24 实测两条结论，决定了这里为什么自己算而不是交给官方 dynamicHideTitleBar：
+  //   ① 官方 dynamicHideTitleBar 只认**字面量** height：同一份配置，height 写 184 → 上滑 700px
+  //      栏体 856→281px（收干净）；height 写 this.barBuilderHeight()（首帧 174、随后变 184）
+  //      → 上滑后栏体恒 856px，一动不动。首页能收是因为它传的是常量 HOME_TAB_ROW_HEIGHT，
+  //      同一台机器上 494→281 正常。
+  //   ② 「只收资料区、分段栏常驻」这个粒度官方也给不了：hideBottomBuilder 是整块收，
+  //      收完滚深就没有分段栏可点。自己算 collapse 上限 = 资料区高，分段栏永远留在栏里。
   private barBuilderHeight(): number {
-    return this.heroHeight() + MAIN_SEG_ROW_VP + (this.hasSubSeg() ? SUB_SEG_ROW_VP : 0);
+    const full: number = this.heroHeight() + MAIN_SEG_ROW_VP + (this.hasSubSeg() ? SUB_SEG_ROW_VP : 0);
+    return Math.max(0, full - this.barCollapseVp);
+  }
+
+  // 资料区收起量（vp）：0 = 完全展开，heroHeight() = 资料区刚好收没、分段栏贴到标题行下。
+  // 由 Scroll.onDidScroll 的绝对偏移驱动，逐帧写 —— 首页「标语收合」是同款做法（读 Scroller
+  // 的 currentOffset，而不是逐帧 setState 一个动画值），这里沿用。
+  private syncCollapse(offsetY: number): void {
+    const limit: number = this.heroHeight();
+    const next: number = offsetY < 0 ? 0 : (offsetY > limit ? limit : offsetY);
+    // 只在变化超过半像素时写，避免静止态抖动
+    if (Math.abs(next - this.barCollapseVp) > 0.5) {
+      this.barCollapseVp = next;
+    }
   }
 
   // 列表让位量已退役：本轮验证「滚动时栏自动收起」，列表必须从窗口原点起、内容穿到栏下，
@@ -193,8 +220,8 @@ struct ProfileBarProtoPage {
     const menu: HdsNavigationMenuContentOptions = { value: this.menuItems() };
     const segRow: BottomBuilderParams = {
       builder: (): void => { this.barBody(); },
-      // 随状态重配已实测成立（82→126→82vp 双向跟手，基准 §7.6.9），所以资料区可以住进栏体，
-      // 保住已上线「我的」的视觉顺序：标题行 → 资料区 → 主分段 → 子分段。
+      // 自己算的收起量（见 barBuilderHeight 注释：官方 dynamicHideTitleBar 只认字面量高度，
+      // 而资料区高度是内容驱动的，两者不可兼得）。
       height: this.barBuilderHeight(),
     };
     const content: TitleBarContentOptions = {
@@ -221,9 +248,11 @@ struct ProfileBarProtoPage {
       content: content,
       style: style,
       avoidLayoutSafeArea: true,
-      // 实验②（单变量）：true 时内容区被栏体顶开、列表永远穿不到栏底（实测 Scroll 起点 = 栏底
-      // y=675px，与已上线「我的」的 BarStyle.STACK 覆盖式观感不等价）。改 false 让内容区从窗口
-      // 原点起算，穿底由列表自己的 topInset 让位 —— 这才是旧栏的等价配置。
+      // ⚠️ 2026-10-24 追加实测：false 下**官方 dynamicHideTitleBar 完全不动**（上滑 700px 后
+      // TitleBar 仍 [0,106][1136,750]）—— 它需要内容区跟着栏底走。但 true 的代价是
+      // 卡片位移 = 滚动量 + 栏体收起量（实测栏 750→539 时 Scroll 顶边同步上抬 211px，
+      // 即防漂移第 29 条那条 2 倍速）。本页的收起已改成自己算 height（不依赖官方 API），
+      // 所以这里回到 false —— 内容区原点固定在窗口顶，滚 1vp 内容就走 1vp。
       enableComponentSafeArea: false,
     };
     return options;
@@ -251,7 +280,22 @@ struct ProfileBarProtoPage {
   @Builder
   barBody() {
     Column() {
-      this.heroBlock()
+      // 资料区收缩窗：可视窗（外层）随 barCollapseVp 变矮，内容（内层）保持原高并整体上移，
+      // 于是被裁掉的是资料区下半段 —— 观感等于资料区被上面吸走，分段栏跟着往上贴。
+      // 不铺任何底色：栏级材质要整块铺过去，垫实色会在资料区与分段栏之间留接缝。
+      Column() {
+        Column() {
+          this.heroBlock()
+        }
+        .width('100%')
+        .height(this.heroHeight())
+        .offset({ y: -this.barCollapseVp })
+      }
+      .width('100%')
+      .height(this.heroHeight() - this.barCollapseVp)
+      .clip(true)
+      .align(Alignment.Top)
+
       ImmersiveSegmentBar({
         items: PROFILE_SEGMENTS,
         selectedIndex: $mainSegIdx,
@@ -338,6 +382,10 @@ struct ProfileBarProtoPage {
           .borderRadius(RadiusTokens.md)
         }, (c: ProtoCard) => c.title)
 
+        Text(`收起 ${this.barCollapseVp.toFixed(0)} / hero ${this.heroHVp.toFixed(0)} / 栏 ${this.barBuilderHeight().toFixed(0)}vp`)
+          .fontSize(TypeTokens.caption.size)
+          .fontFamily(TypeTokens.fontFamily)
+          .fontColor(ColorTokens.tertiary)
         Text(this.materialProbeText)
           .fontSize(TypeTokens.caption.size)
           .fontFamily(TypeTokens.fontFamily)
@@ -355,6 +403,13 @@ struct ProfileBarProtoPage {
     .scrollBar(BarState.Off)
     .align(Alignment.TopStart)
     .clip(false)
+    // 滚动 → 资料区收起量。读 Scroller 的绝对偏移，与首页标语收合同一款做法
+    // （HomeTab.updateBrandCompact）—— 两参回调在 bindToScrollable 场景下拿不到可靠 yOffset，
+    // 实测栏高纹丝不动、探针显示「收起 0」，改成无参 + currentOffset 才走通。
+    .onDidScroll((): void => {
+      const offset: number = this.scroller.currentOffset()?.yOffset ?? 0;
+      this.syncCollapse(offset);
+    })
   }
 
   build() {
@@ -365,18 +420,12 @@ struct ProfileBarProtoPage {
       .titleMode(HdsNavigationTitleMode.MINI)
       .titleBar(this.protoTitleBarOptions())
       // 本轮新增：栏体（资料区 + 两条分段栏）随滚动自动收起。
-      // 参数与已上线首页同一配方（HomeTab.ets:1226）：
-      //   · hideBottomBuilder 只收 bottomBuilder，标题行不动；
-      //   · hideRatio 1.0 = 滚 1vp 收 1vp（官方默认 2.0 是半速跟随，观感像栏在拖后腿）；
-      //   · hideOffset 0 = 一起步就收。
-      // 未知项（本轮要量的）：收栏时 bottomBuilder 的内容是被裁掉还是被推走、栏高是否平滑跟手、
-      // 以及栏底材质在收合过程中有没有接缝。@since 6.0.0(20)，与 compatibleSdk 同档。
-      .dynamicHideTitleBar({
-        hideBottomBuilder: true,
-        mode: HideMode.SCROLL_UP_TO,
-        hideOffset: 0,
-        hideRatio: 1.0,
-      })
+      // ⚠️ 官方 dynamicHideTitleBar 在这里**用不了**（2026-10-24 单变量实测）：
+      //   height 传字面量 184 → 上滑 700px 栏体 856→281px，收干净；
+      //   height 传 this.barBuilderHeight()（首帧 174、实测后 184）→ 栏体恒 856px，一动不动。
+      //   首页能收是因为它传常量 HOME_TAB_ROW_HEIGHT。资料区高度是内容驱动的，不可定死，
+      //   所以收起改由本页自己算（barCollapseVp → height），粒度还能做到「只收资料区、
+      //   分段栏常驻」——官方 hideBottomBuilder 是整块收，收完滚深就没分段栏了。
       .bindToScrollable([this.scroller])
       .width('100%')
       .height('100%')
