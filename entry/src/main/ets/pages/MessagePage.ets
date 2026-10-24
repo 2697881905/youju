@@ -38,6 +38,7 @@ import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { TypeTokens } from '../design/tokens/type';
 import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit';
+import type { BottomBuilderParams } from '@kit.UIDesignKit';
 import type {
   HdsNavigationTitleBarOptions,
   TitleBarContentOptions,
@@ -64,6 +65,8 @@ export const MESSAGE_SEGMENTS: SegmentedItem[] = [
 // 投影被裁成灰带（docs/tutorial-titlebar-immersive-light.md 案例 9 同源）。
 // 自绘分段栏（36vp）行高：上 xs 呼吸位 + 底部 28vp 材质投影净空（与首页同口径）
 const MESSAGE_TITLE_ROW_VP: number = 56;
+// bottomBuilder 分段行高：36 控件 + 上 xs 呼吸位 + 下 28 材质投影净空（配平值）
+const MESSAGE_TAB_ROW_HEIGHT: number = LayoutTokens.segmentedHeight + SpaceTokens.xs + LayoutTokens.segmentBarShadowRoom;
 // 滚动模糊生效区间终点（vp）：与首页定稿一致（0 → 32 线性到位）
 const MESSAGE_BLUR_END_VP: number = 32;
 // 「上滑收起快捷筛选栏」的实现取舍（真机两轮实证）：
@@ -175,10 +178,10 @@ export struct MessagePage {
     return [this.dmTabIndex === 1 ? this.dmScroller : this.notifScroller];
   }
 
-  // 穿底内缩：内容区从窗口原点起算（真机实证 Row 起于 y0+inset），让位必须含 statusBarHeight
-  //（基准 §7.6.11/12，同 Index.profileListInset）——只给 56vp 时分段栏会顶进标题行里。
+  // 穿底内缩：内容区从窗口原点起算（真机实证），让位 = 状态栏 + 56vp 标题行 + bottomBuilder
+  // 分段行（基准 §7.6.11/12 同 Index.profileListInset；分段栏已放回标题栏，行高须一并让出）。
   private messageListInset(): number {
-    return this.statusBarHeight + MESSAGE_TITLE_ROW_VP;
+    return this.statusBarHeight + MESSAGE_TITLE_ROW_VP + MESSAGE_TAB_ROW_HEIGHT;
   }
 
   // 「全部已读」可见性：仅通知分段且已登录（原 Index.messageMarkAllVisible 逻辑迁入）
@@ -1180,8 +1183,6 @@ export struct MessagePage {
         // scroller 显式挂载：bindToScrollable 驱动标题栏渐变模糊；Refresh/Scroll 均需关裁切（穿底链路）
         Scroll(this.dmScroller) {
           Column({ space: SpaceTokens.none }) {
-            // 分段栏（穿底架构）：滚动内容首行，随列表滚走
-            this.messageTabRow()
             ForEach(
               this.conversations,
               (c: Conversation, idx: number) => {
@@ -1285,8 +1286,13 @@ export struct MessagePage {
     };
     const content: TitleBarContentOptions = {
       stackBuilder: (): void => { this.messageBrandRow(); },
-      // 不再挂 bottomBuilder：分段栏迁入内容流（复用「我的」页 §7.6.19 三件套——穿底模糊/
-      // 滚动源绑定/全页手势区；栏体节点之内抓不到滚动源，装进栏里等于摘出手势区）。
+      // 分段栏放回标题栏 bottomBuilder（用户拍板）：标题栏=材质生效区，栏上挂的
+      // 系统材质/浮起投影由此出图（1.0.1 同款）。穿底保持——内容穿到整条栏底下被
+      // 渐变模糊，同首页路线 B；栏行自带材质表面，不需要让位净空以外的处理。
+      bottomBuilder: {
+        builder: (): void => { this.messageTabRow(); },
+        height: MESSAGE_TAB_ROW_HEIGHT,
+      } as BottomBuilderParams,
     };
     const options: HdsNavigationTitleBarOptions = {
       content: content,
@@ -1374,12 +1380,12 @@ export struct MessagePage {
     .opacity((this.refreshing || this.refreshIndicatorVisible) ? 1 : 0)
     .hitTestBehavior((this.refreshing || this.refreshIndicatorVisible) ? HitTestMode.Default : HitTestMode.None)
     .offset({ y: this.messageListInset() + SpaceTokens.sm })
+    // ↑ messageListInset 已含分段行高：指示器落在分段栏之下的内容区顶部（栏已回标题栏）
   }
 
-  // 分段行（自绘 SegmentedControl）：渲染在两个分页各自的滚动内容首行——随列表滚走、
-  // 上滑穿到标题栏底下被渐变模糊（复用「我的」页 §7.6.19 架构，标题栏只剩 56vp）。
+  // 分段行（自绘 SegmentedControl，bottomBuilder）：标题栏=材质生效区，挂着的系统材质
+  // （浮起档，自带投影）由此出图——1.0.1 同款玻璃面+底部阴影；低版本回退 outlined 描边。
   // 未读徽标叠加层保留（自绘/官方栏都没有徽标位）。
-  // systemMaterial 挂否保持原样不动——内容区内材质不渲染，是否调整等用户指令。
   @Builder
   messageTabRow() {
     Row() {
@@ -1478,9 +1484,9 @@ export struct MessagePage {
   }
 
   build() {
-    // 穿底架构（复用「我的」页 §7.6.19 三件套）：MINI + stackBuilder（56vp 标题行）+
-    // GRADIENT_BLUR + enableComponentSafeArea:false；分段栏在两个分页的滚动内容首行随列表
-    // 滚走，内容穿到栏底之下被渐变模糊；滚动源由 bindToScrollable(activeScrollers) 动态绑定。
+    // 穿底架构（同首页路线 B）：MINI + stackBuilder 标题行 + bottomBuilder 分段行（材质生效区）
+    // + GRADIENT_BLUR + enableComponentSafeArea:false——内容穿到整条栏底下被渐变模糊，
+    // 滚动源由 bindToScrollable(activeScrollers) 动态绑定。
     HdsNavigation() {
     Column() {
       // 顶栏（消息 + 全部已读）、分段栏（通知/私信）、三类快捷筛选已整体迁入
@@ -1529,7 +1535,6 @@ export struct MessagePage {
               // 举报中心入口的消息）→ 空态，但常驻入口仍要可点
               Scroll() {
                 Column({ space: SpaceTokens.none }) {
-                  this.messageTabRow()
                   this.messageShortcutsRow()
                   this.pinnedEntries()
                   Column() {
@@ -1563,8 +1568,6 @@ export struct MessagePage {
               // scroller 显式挂载：bindToScrollable 驱动标题栏渐变模糊；Refresh/Scroll 均需关裁切
               Scroll(this.notifScroller) {
               Column({ space: SpaceTokens.none }) {
-              // 分段栏（穿底架构）：滚动内容首行，随列表滚走（顶部让位由本 Column 的 top padding 承担）
-              this.messageTabRow()
               // 快捷筛选行：随列表滚动的首个内容（上滑跟手收起，见 messageShortcutsRow 注释）
               this.messageShortcutsRow()
               // 置顶入口（举报中心/系统通知）：位于列表最前，随列表一起滚动（不固定）
