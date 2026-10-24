@@ -49,14 +49,13 @@ import type {
   TitleBarContentOptions,
   TitleBarStyleOptions,
   ScrollEffectOptions,
-  SystemMaterialParams,
   HdsNavigationBackgroundStyle,
   HdsNavigationMenuContentOptions,
   HdsNavigationMenuItemOptions,
   HdsNavigationIconOptions,
   HdsTitleBarContentStyle, HdsNavigationIconItemStyle,
 } from '@kit.UIDesignKit';
-import { isImmersiveLightSenseSupported, isSystemMaterialActive, FloatingTopButtonMaterialModifier, GlassBlurStyle, getSheetImmersiveMaterial, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
+import { isImmersiveLightSenseSupported, isSystemMaterialActive, FloatingTopButtonMaterialModifier, GlassBlurStyle, getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
 import { BottomTabBar } from '../design/components/BottomTabBar';
 import { PostDetailDestination } from './PostDetailDestination';
 import { UserProfileDestination } from './UserProfileDestination';
@@ -334,11 +333,6 @@ struct Index {
   @State profileFolderCount: number = 0;
   @State profilePresented: boolean = false;
   @State profileShareSeq: number = 0;
-  // 顶栏是否该带模糊。官方只有 originalStyle.blurRadius 这一格认模糊半径，而那一格无条件生效
-  // （静止态也糊，见 §7.6.21）—— 所以「滚起来才糊」只能由列表偏移驱动这一格。
-  // 内容顶边静止时正好贴在栏底（contentStartOffset = 状态栏 + 56），偏移一 >0 就有内容进 Title 行，
-  // 于是判据就是「有没有滚过」，不需要额外阈值。
-  @State profileBarScrolled: boolean = false;
   // 「我的」整页只剩一条 List（资料卡是它的第 0 项，四分段改为点击切换），所以只有一个滚动源。
   // 交给内嵌 HdsNavigation 的 bindToScrollable 驱动标题栏渐变模糊 —— GRADIENT_BLUR 与
   // bindToScrollable 是一对，只开模糊不绑源会把列表滚动整条吃掉（真机实证，基准 §7.6.12）。
@@ -962,20 +956,6 @@ struct Index {
   // 栏级沉浸光感：官方圆钮的 rim + 落影 + 玻璃折射只在这一档打开时才出图
   // （不传 → 默认 3% 黑平面，无轮廓）。
   // 档位传数值字面量而非 hdsMaterial 枚举：hdsMaterial 模块在 API 22 上不存在，值 import 即崩
-  // （审核问题①根因）；门禁与 HdsTabs 悬浮底栏同源（isImmersiveLightSenseSupported）。
-  private profileSystemMaterial(): SystemMaterialParams | undefined {
-    if (!isImmersiveLightSenseSupported()) {
-      return undefined;
-    }
-    return {
-      materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
-      // 必须是 EXQUISITE 才有「玻璃珠折射」：ADAPTIVE 只出普通半透（同机同字段单变量实测，
-      // 基准 §7.6.17）。代价是放弃「低端机由系统降级」这层保护 —— 该字段没有能力查询接口，
-      // 只能显式取舍。
-      materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE,
-    };
-  }
-
   // —— 「我的」页顶栏（我的/分享/设置 + 资料区 + 主分段栏）：驻留 Navigation 标题栏 ——
   // 数据来自 ProfilePage 的共享态（@Link），跳转/登录引导在此接线；分享流程仍由 ProfilePage 完成。
   private profileLoggedIn(): boolean {
@@ -1282,28 +1262,19 @@ struct Index {
     };
     const scrollEffect: ScrollEffectOptions = {
       enableScrollEffect: true,
-      // 必须 GRADIENT_BLUR：`backgroundStyle.blurRadius` 官方只在 GRADIENT_BLUR /
-      // IMMERSIVE_GRADIENT_BLUR 两档下生效，COMMON_BLUR 会把整条栏画成平色（真机实证，
-      // 迁移中一度改用 COMMON_BLUR 绕开滚动锁死，代价就是资料区底下不再糊 —— 基准 §7.6.14）。
-      // 它要求的滚动源由下面 bindToScrollable 供给。
-      scrollEffectType: ScrollEffectType.IMMERSIVE_GRADIENT_BLUR,
+      // GRADIENT_BLUR（与「消息」页统一）：偏移驱动渐变、停住保持——不依赖任何 JS 侧开关。
+      // 此前用 IMMERSIVE_GRADIENT_BLUR 是 353vp 高栏时代的选型（§7.6.14），栏体已缩到 56vp，
+      // 且 IMMERSIVE 变体的模糊只在 originalStyle.blurRadius 出图时可见，曾靠每帧滚动增量
+      // 正负开关该值——松手弹簧回弹的负增量会把开关打灭（用户报「松手模糊消失」的根因）。
+      // 滚动源由 bindToScrollable 供给。
+      scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
       blurEffectiveStartOffset: LengthMetrics.vp(0),
       blurEffectiveEndOffset: LengthMetrics.vp(PROFILE_BLUR_END_VP),
     };
-    // `originalStyle` 官方语义是「scroll 特效生效**之前**的样式」—— 在这里写 blurRadius 等于
-    // 要求静止态就糊，于是顶栏永远带一层模糊、且材质在纯白画布上被点成白底白图标
-    // （真机实测静止时栏带 L254.3、图标字形 L250，对比度 1.03:1）。
-    // 对照已上线的「消息」页 MessagePage.ets:1262：同一个槽位只给 backgroundColor，不给 blurRadius。
-    // 模糊只由下面的 scrollEffect 在滚动时提供。
-    // 模糊半径 + 遮罩高度成对配置，缺一就反向：
-    // · blurRadius 实测只有挂在 originalStyle 上才出图（挂 scrollEffectStyle 数值零变化），
-    //   而静止态栏下是均匀白画布，糊白底=白底，所以「挂 originalStyle」并不会让顶栏看着常年糊。
-    // · maskExtraHeight 官方**默认 32vp**，且文档写明「实际遮罩高 = 栏高 + maskExtraHeight」——
-    //   也就是说模糊区天生往栏底之下多伸 32vp，把资料卡顶边一起糊掉。用户看到的「一直是模糊」
-    //   是这一条，不是静止态本身。压到 0 让磨砂正好停在栏底。
+    // originalStyle 只给透明底 + maskExtraHeight 0（磨砂正好停在栏底）：模糊完全由上面的
+    // scrollEffect 随滚动偏移渐变供给，静止在滚动态时保持——与「消息」页同一配方。
     const backgroundStyle: HdsNavigationBackgroundStyle = {
       backgroundColor: Color.Transparent,
-      blurRadius: this.profileBarScrolled ? PROFILE_BLUR_RADIUS : 0,
       maskExtraHeight: 0,
     };
     // content.menu 图标色默认是**白**（HDS 的约定：静止态那条透明栏压在 hero 媒体上）。
@@ -1319,10 +1290,6 @@ struct Index {
       scrollEffectOpts: scrollEffect,
       originalStyle: { backgroundStyle: backgroundStyle, contentStyle: contentStyle },
     };
-    const material: SystemMaterialParams | undefined = this.profileSystemMaterial();
-    if (material !== undefined) {
-      style.systemMaterialEffect = material;
-    }
     const options: HdsNavigationTitleBarOptions = {
       content: content,
       style: style,
@@ -1403,13 +1370,6 @@ struct Index {
           segHeader: (): void => { this.profileSegRows(); },
           // 单一滚动源下发：标题栏渐变模糊要读它的滚动偏移
           scrollers: this.profileScrollers,
-          // 只在翻转的那一帧写 @State：逐帧写会让标题栏配置逐帧重建。
-          onListScroll: (offsetY: number): void => {
-            const on: boolean = offsetY > 0;
-            if (on !== this.profileBarScrolled) {
-              this.profileBarScrolled = on;
-            }
-          },
           // 穿底内缩：栏体是覆盖式（enableComponentSafeArea:false）+ 材质透明，内容区从窗口原点起算，
           // 资料卡自己让开「标题行 + 两行分段控件」（这段留白随它一起滚走，帖子才能穿到栏底下）。
           topInset: this.profileListInset(),

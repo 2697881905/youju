@@ -113,11 +113,6 @@ export struct ProfilePage {
   @BuilderParam heroHeader: () => void = this.emptyHero;
   // 主分段 + （子分段）两行：作为 List 的吸顶组头渲染，位置在资料卡之下、列表之上。
   @BuilderParam segHeader: () => void = this.emptySegRows;
-  // 列表纵向偏移上抛（只在 Index 需要据此改样式时用得到）：
-  // 顶栏模糊半径官方只有 originalStyle.blurRadius 这一格认，而那一格是无条件生效的
-  // —— 静止态也糊。官方声明式配置表达不出「滚起来才糊」，只能由我们拿滚动源来切。
-  // 见基准 §7.6.21 / §7.6.22。
-  onListScroll?: (offsetY: number) => void = undefined;
   // 当前激活的底部 Tab（由 Index 经 AppStorage 广播），用于感知「我的」页是否可见，
   // 切到本页时重新拉取列表，使「我赞过/我收藏」在跨页点赞、取消收藏后即时刷新。
   @StorageLink('activeTab') @Watch('onActiveTab') activeTab: number = 0;
@@ -936,11 +931,6 @@ export struct ProfilePage {
       .height('100%')
       .scrollBar(BarState.Off)
       .contentStartOffset(this.topInset)
-      .onDidScroll((_x: number, y: number): void => {
-        if (this.onListScroll !== undefined) {
-          this.onListScroll(y);
-        }
-      })
       .edgeEffect(EdgeEffect.Spring)
       .divider({ strokeWidth: 0 })
       // ⚠️ 不要给这条 List 挂自定义手势（PanGesture/SwipeGesture 都试过）：挂上之后快速
