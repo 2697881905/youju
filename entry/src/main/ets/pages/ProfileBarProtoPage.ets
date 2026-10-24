@@ -16,7 +16,14 @@
 //   ④ 列表能穿到标题栏底下被渐变模糊，回弹还原（→ 需 enableComponentSafeArea:false，已验）；
 //   ⑤ 资料区住在 bottomBuilder 内、保住「标题行 → 资料区 → 分段栏」原顺序，栏体高随内容/分段重配
 //     （→ 依赖 bottomBuilder.height 运行期可重配，已验，见基准 §7.6.9）。
-import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType, hdsMaterial } from '@kit.UIDesignKit';
+//
+// 本轮新增要回答的问题：**栏体能不能随滚动自动收起，以及收起时的三点代价**
+//   ⑥ 上滑时整条 bottomBuilder（资料区 + 两条分段栏）按 1:1 被收走，栏体收到 56vp 后不再变；
+//   ⑦ 收起过程中内容是否「原地露出」—— 列表已改回从窗口原点起（穿底），不再加让位块，
+//     所以收栏时露出的应是卡片本身，而不是一条空白画布；
+//   ⑧ 起手死区：静止态从资料区起手能否滑动（预期不能，§7.6.13b 的机制），以及收栏后死区降到多少。
+//   ⑨ 资料区落进栏体材质后的可读性（头像/昵称/简介压在系统磨砂上，浅深各抓一帧）。
+import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType, HideMode, hdsMaterial } from '@kit.UIDesignKit';
 import type {
   HdsNavigationTitleBarOptions,
   TitleBarContentOptions,
@@ -54,8 +61,8 @@ const BLUR_END_OFFSET_VP: number = 64;
 const MAIN_SEG_ROW_VP: number = LayoutTokens.segmentBarTopRoom + LayoutTokens.segmentBarHeight
   + LayoutTokens.segmentBarShadowRoom;
 const SUB_SEG_ROW_VP: number = SpaceTokens.xs + LayoutTokens.segmentBarHeight;
-// 标题行（官方 MINI 标题区 + 圆钮那一行）实测高 175px ÷ 3.125 = 56vp，系统定值不可调
-const TITLE_ROW_VP: number = 56;
+// 标题行（官方 MINI 标题区 + 圆钮那一行）实测高 175px ÷ 3.125 = 56vp，系统定值不可调；
+// 收栏后栏体只剩这一行 —— 回收终点由它决定，代码里不再作为让位量使用（见 cardList 注释）。
 // 资料区首帧高度兜底（实测到齐前用），与已上线页的 profileHeroEstimate 同量级
 const HERO_FALLBACK_VP: number = 92;
 
@@ -123,10 +130,9 @@ struct ProfileBarProtoPage {
     return this.heroHeight() + MAIN_SEG_ROW_VP + (this.hasSubSeg() ? SUB_SEG_ROW_VP : 0);
   }
 
-  // 列表要让开的那一条：内容区原点就在状态栏下沿，整条栏（标题行 + bottomBuilder）都盖在它上面
-  private listInset(): number {
-    return TITLE_ROW_VP + this.barBuilderHeight();
-  }
+  // 列表让位量已退役：本轮验证「滚动时栏自动收起」，列表必须从窗口原点起、内容穿到栏下，
+  // 收起那一刻露出的才是卡片本身。若保留让位块，栏缩了而空白块还在 —— 顶会闪出一条空白画布，
+  // 把要验的东西盖掉。首页同结构（HomeTab.feedScroll 无 contentStartOffset）。
 
   aboutToAppear(): void {
     this.material = this.probeMaterial();
@@ -315,10 +321,9 @@ struct ProfileBarProtoPage {
   cardList() {
     Scroll(this.scroller) {
       Column({ space: SpaceTokens.sm }) {
-        // 让开整条栏（标题行 + 栏体），列表首颗卡片才落在资料区下面；
-        // 栏体高随内容/分段变化，所以这里必须与 barBuilderHeight 同源，不能写死。
-        Column().width('100%').height(this.listInset())
-
+        // 不再垫让位块：内容从窗口原点起算，穿到栏体（资料区+分段栏）之下被磨砂糊住。
+        // 上滑时栏体按 1:1 收起，露出的就是卡片 —— 这正是本轮要看的「掀帘子」观感。
+        // 顶部只留 sm：让首卡与栏底之间不贴死（真机看下来 5vp 量级即可，与首页一致）。
         ForEach(PROTO_CARDS, (c: ProtoCard) => {
           Column() {
             Text(c.title)
@@ -359,6 +364,19 @@ struct ProfileBarProtoPage {
       }
       .titleMode(HdsNavigationTitleMode.MINI)
       .titleBar(this.protoTitleBarOptions())
+      // 本轮新增：栏体（资料区 + 两条分段栏）随滚动自动收起。
+      // 参数与已上线首页同一配方（HomeTab.ets:1226）：
+      //   · hideBottomBuilder 只收 bottomBuilder，标题行不动；
+      //   · hideRatio 1.0 = 滚 1vp 收 1vp（官方默认 2.0 是半速跟随，观感像栏在拖后腿）；
+      //   · hideOffset 0 = 一起步就收。
+      // 未知项（本轮要量的）：收栏时 bottomBuilder 的内容是被裁掉还是被推走、栏高是否平滑跟手、
+      // 以及栏底材质在收合过程中有没有接缝。@since 6.0.0(20)，与 compatibleSdk 同档。
+      .dynamicHideTitleBar({
+        hideBottomBuilder: true,
+        mode: HideMode.SCROLL_UP_TO,
+        hideOffset: 0,
+        hideRatio: 1.0,
+      })
       .bindToScrollable([this.scroller])
       .width('100%')
       .height('100%')
