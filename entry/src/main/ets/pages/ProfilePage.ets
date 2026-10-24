@@ -103,6 +103,9 @@ export struct ProfilePage {
   // 它若只有几十 vp，列表总高骤降 → 滚动位被钳死且回不来 = 「点分段栏画面跳一下」。
   // ListItem 里 constraintSize minHeight 写 '100%' 实测不生效，必须给具体值（§7.6.25）。
   @Prop viewportMinHeightVp: number = 0;
+  // 列表纵向**绝对偏移**上抛：顶栏模糊出图开关（IMMERSIVE 变体的 blurRadius 门控）读它。
+  // 用 currentOffset 而非每帧增量——增量正负会被松手回弹的负帧打灭（「松手模糊消失」根因）。
+  onListScroll?: (offsetY: number) => void = undefined;
   // 单一滚动源：整页一条 List（四分段改点击切换，不再有 4 页 Swiper 各带一条 Scroll）。
   // 必须**从上游往下传**而不是本页造好再回调上去——后者要让 Index 等一次异步握手，
   // 首帧绑定为空就等于没绑，模糊慢一帧才出现。
@@ -931,6 +934,11 @@ export struct ProfilePage {
       .height('100%')
       .scrollBar(BarState.Off)
       .contentStartOffset(this.topInset)
+      .onDidScroll((): void => {
+        if (this.onListScroll !== undefined) {
+          this.onListScroll(this.scrollers[0].currentOffset().yOffset);
+        }
+      })
       .edgeEffect(EdgeEffect.Spring)
       .divider({ strokeWidth: 0 })
       // ⚠️ 不要给这条 List 挂自定义手势（PanGesture/SwipeGesture 都试过）：挂上之后快速
