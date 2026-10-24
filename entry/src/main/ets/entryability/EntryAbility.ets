@@ -100,6 +100,12 @@ export default class EntryAbility extends UIAbility {
             // 全屏切换失败不阻断：直接补系统栏配色（部分设备全屏后无需额外设置）
             this.applySystemBarColor();
           });
+        // ⚠️ HDS 标题栏/系统层在挂载期会回写系统栏属性，把首帧的设置覆盖掉（真机实证
+        // 2026-10-25：首帧调用返回 OK 但图标仍按系统深浅渲白，首帧后 3s 补设一次即恢复）。
+        // 该补设与 onForeground / onConfigurationUpdate 的重设共同覆盖后续窗口状态变化。
+        setTimeout((): void => {
+          this.applySystemBarColor();
+        }, 3000);
       } catch (e) {
         this.applySystemBarColor();
       }
@@ -134,13 +140,21 @@ export default class EntryAbility extends UIAbility {
         //   1) 它会盖住画到状态栏下面的页面内容 —— 例如收藏夹管理页的标题上半截被截断；
         //   2) 下拉通知栏时，这条系统色带不随页面一起变暗/虚化，顶部就出现一条有轻微色差的横带。
         // 透明后该区域显示的就是页面自己的背景，随页面一起响应，两处现象一并消除。
-        // 状态栏图标颜色仍由 statusBarContentColor 显式指定，不依赖背景色。
+        // 内容色之外还必须显式给**图标**开关（真机实证 2026-10-25）：statusBarContentColor
+        // 只染住了时间等文字，右侧信号/WiFi/电池图标仍按系统默认渲成白色（浅色模式白底上
+        // 不可见）。isStatusBarLightIcon(@since 7) 才是图标的语义位，按主题显式设：
+        // 浅色 false=深色图标 / 深色 true=浅色图标；两处同设，谁生效用谁。
+        isStatusBarLightIcon: dark,
+        isNavigationBarLightIcon: dark,
         navigationBarColor: '#00000000',
         navigationBarContentColor: barContentColor,
         statusBarColor: '#00000000',
         statusBarContentColor: barContentColor,
-      }).catch((): void => {
-        // 系统栏着色失败可忽略：窗口背景色已兜底底部区域配色
+      }).then((): void => {
+        hilog.info(DOMAIN, 'testTag', 'setWindowSystemBarProperties OK icon=%{public}s', String(dark));
+      }).catch((e: Error): void => {
+        // 系统栏着色失败记日志（排查期）：窗口背景色已兜底底部区域配色
+        hilog.warn(DOMAIN, 'testTag', 'setWindowSystemBarProperties FAIL: %{public}s', JSON.stringify(e));
       });
     } catch (e) {
       // 窗口不可用时跳过（如页面销毁竞态），下次主题变化/前台恢复会重试
