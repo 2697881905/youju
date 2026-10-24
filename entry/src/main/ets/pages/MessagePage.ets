@@ -1227,6 +1227,9 @@ export struct MessagePage {
         .onDidScroll((): void => {
           this.updateBarOnBlur(1);
         })
+        .onScrollStop((): void => {
+          this.updateBarOnBlur(1);
+        })
         .width('100%')
         .layoutWeight(1)
       }
@@ -1638,6 +1641,10 @@ export struct MessagePage {
               // 不裁剪 + 滚动驱动顶栏切白（通知列表）
               .clip(false)
               .onDidScroll((): void => {
+                this.updateBarOnBlur(0);
+              })
+              // 滚动停止权威复核（同 ProfilePage：兜住拖尾帧丢失导致开关停在旧值）
+              .onScrollStop((): void => {
                 this.updateBarOnBlur(0);
               })
               .onScrollEdge((edge: Edge) => {

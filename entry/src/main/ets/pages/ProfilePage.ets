@@ -939,6 +939,13 @@ export struct ProfilePage {
           this.onListScroll(this.scrollers[0].currentOffset().yOffset);
         }
       })
+      // 滚动停止的权威复核：万一拖尾帧的 onDidScroll 丢失，静止后开关可能停在旧值
+      //（表现为松手后模糊异常消失/残留）——停止时按最终偏移重算一次，兜住所有手势路径
+      .onScrollStop((): void => {
+        if (this.onListScroll !== undefined) {
+          this.onListScroll(this.scrollers[0].currentOffset().yOffset);
+        }
+      })
       .edgeEffect(EdgeEffect.Spring)
       .divider({ strokeWidth: 0 })
       // ⚠️ 不要给这条 List 挂自定义手势（PanGesture/SwipeGesture 都试过）：挂上之后快速
