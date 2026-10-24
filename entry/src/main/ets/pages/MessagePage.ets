@@ -38,7 +38,7 @@ import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { TypeTokens } from '../design/tokens/type';
 import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit';
-import type { BottomBuilderParams } from '@kit.UIDesignKit';
+import type { BottomBuilderParams, SystemMaterialParams } from '@kit.UIDesignKit';
 import type {
   HdsNavigationTitleBarOptions,
   TitleBarContentOptions,
@@ -47,7 +47,7 @@ import type {
 } from '@kit.UIDesignKit';
 import { LengthMetrics } from '@kit.ArkUI';
 import { SegmentedControl } from '../design/components/SegmentedControl';
-import { isSystemMaterialActive } from '../utils/immersiveMaterial';
+import { isSystemMaterialActive, isImmersiveLightSenseSupported, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
 
 // 消息分段：通知 | 私信（导出给 Index 的标题栏渲染；本页 Swiper 与之共享选中态）
 export const MESSAGE_SEGMENTS: SegmentedItem[] = [
@@ -69,6 +69,9 @@ const MESSAGE_TITLE_ROW_VP: number = 56;
 const MESSAGE_TAB_ROW_HEIGHT: number = LayoutTokens.segmentedHeight + SpaceTokens.xs + LayoutTokens.segmentBarShadowRoom;
 // 滚动模糊生效区间终点（vp）：与首页定稿一致（0 → 32 线性到位）
 const MESSAGE_BLUR_END_VP: number = 32;
+// IMMERSIVE 变体的模糊出图半径（同 PROFILE_BLUR_RADIUS：栏级材质会盖掉普通 GRADIENT_BLUR
+// 的透过模糊，必须换 IMMERSIVE_GRADIENT_BLUR + 本值动态门控——「我的」页同配方）
+const MESSAGE_BLUR_RADIUS: number = 50;
 // 「上滑收起快捷筛选栏」的实现取舍（真机两轮实证）：
 // ✗ bottomBuilder.height 动态重配 → 只在首帧生效，运行期改高度无效（快筛行首测"丢失"根因）；
 // ✗ dynamicHideTitleBar({ hideBottomBuilder: true }) → 触发式整段收起（非跟手），真机割裂感；
@@ -151,6 +154,9 @@ export struct MessagePage {
   private dmScroller: Scroller = new Scroller();
   // 模糊完成态：滚动过模糊终点后顶栏切白（同首页定稿行为）
   @State brandOnBlur: boolean = false;
+  // 模糊出图开关：**绝对偏移** >0 即开（updateBarOnBlur 喂 currentOffset）——每帧增量正负
+  // 会被松手回弹的负帧打灭（「松手模糊消失」根因，「我的」页同款修复）
+  @State msgBarScrolled: boolean = false;
   // 状态栏高度（Index 启动时写入 AppStorage）：穿底内缩 = 状态栏 + 56vp 标题行
   @StorageProp('statusBarHeight') statusBarHeight: number = 0;
   // 刷新指示器显隐：Refresh 的 builder 内容永远参与绘制，必须属性级门控（同 ProfilePage.refreshBuilder）
@@ -162,6 +168,10 @@ export struct MessagePage {
   private updateBarOnBlur(seg: number): void {
     const scroller: Scroller = seg === 1 ? this.dmScroller : this.notifScroller;
     const offset: number = scroller?.currentOffset()?.yOffset ?? 0;
+    const scrolled: boolean = offset > 0;
+    if (scrolled !== this.msgBarScrolled) {
+      this.msgBarScrolled = scrolled;
+    }
     const onBlur: boolean = offset > MESSAGE_BLUR_END_VP;
     if (onBlur === this.brandOnBlur) {
       return;
@@ -1272,16 +1282,22 @@ export struct MessagePage {
   private messageHdsTitleBarOptions(): HdsNavigationTitleBarOptions {
     const scrollEffect: ScrollEffectOptions = {
       enableScrollEffect: true,
-      scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
+      // IMMERSIVE_GRADIENT_BLUR：栏级 EXQUISITE 材质会盖掉普通 GRADIENT_BLUR 的透过模糊
+      //（真机实测滚动帧 0/80 透过），IMMERSIVE 变体与材质共存、模糊经 originalStyle.blurRadius
+      // 出图，由 msgBarScrolled（绝对偏移 >0）门控——「我的」页同配方。
+      scrollEffectType: ScrollEffectType.IMMERSIVE_GRADIENT_BLUR,
       blurEffectiveStartOffset: LengthMetrics.vp(0),
       blurEffectiveEndOffset: LengthMetrics.vp(MESSAGE_BLUR_END_VP),
     };
     const style: TitleBarStyleOptions = {
       scrollEffectOpts: scrollEffect,
       originalStyle: {
-        // maskExtraHeight 官方默认 32vp（模糊区往栏底之下多伸 32vp）——穿底后会把栏下内容
-        // 多糊一截，压到 0 让磨砂正好停在栏底（同「我的」页 profileTitleBarOptions）。
-        backgroundStyle: { backgroundColor: Color.Transparent, maskExtraHeight: 0 },
+        // maskExtraHeight 压 0 让磨砂正好停在栏底；blurRadius 即模糊出图开关（见上）
+        backgroundStyle: {
+          backgroundColor: Color.Transparent,
+          blurRadius: this.msgBarScrolled ? MESSAGE_BLUR_RADIUS : 0,
+          maskExtraHeight: 0,
+        },
       },
     };
     const content: TitleBarContentOptions = {
@@ -1294,6 +1310,13 @@ export struct MessagePage {
         height: MESSAGE_TAB_ROW_HEIGHT,
       } as BottomBuilderParams,
     };
+    // 栏级 EXQUISITE 材质（同「我的」页 profileSystemMaterial）：作用于整条标题栏——
+    // 分段栏住在 bottomBuilder 行内，其区域由此获得同款沉浸磨砂/折射表面（用户拍板对齐）。
+    // 分段栏自身的通用组件材质（ULTRA_THIN）已撤：两轨不等价且叠加会成两层玻璃。
+    const material: SystemMaterialParams | undefined = this.messageSystemMaterial();
+    if (material !== undefined) {
+      style.systemMaterialEffect = material;
+    }
     const options: HdsNavigationTitleBarOptions = {
       content: content,
       style: style,
@@ -1303,6 +1326,18 @@ export struct MessagePage {
       enableComponentSafeArea: false,
     };
     return options;
+  }
+
+  // 栏级沉浸材质（EXQUISITE 才有折射，ADAPTIVE 只出普通半透——基准 §7.6.17）。
+  // 低版本/模拟器门禁不通过返回 undefined，栏面回退透明底。
+  private messageSystemMaterial(): SystemMaterialParams | undefined {
+    if (!isImmersiveLightSenseSupported()) {
+      return undefined;
+    }
+    return {
+      materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
+      materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE,
+    };
   }
 
   // stackBuilder 顶栏行：「消息」标题 + 「全部已读」（仅通知分段且已登录；原 Index.messageTitleBar 迁入）。
@@ -1397,9 +1432,9 @@ export struct MessagePage {
           immersive: !isSystemMaterialActive(),
           outlined: isSystemMaterialActive(),
           glowEnabled: false,
-          // 1.0.1 同款：系统材质 + 浮起档（材质自带投影，自绘阴影仅低版本回退）
-          useSystemMaterial: true,
-          useFloatingMaterial: true,
+          // 不挂通用组件材质：标题栏已挂栏级 EXQUISITE（见 messageHdsTitleBarOptions），
+          // 分段栏保持透明描边直接站在栏级材质表面上——叠加 ULTRA_THIN 会成两层玻璃
+          useSystemMaterial: false,
         })
         // 未读徽标层：分段栏把可用宽度等分，逐槽位叠一个「同字号透明标签 + 系统 Badge」，
         // 红点就落在各自标签右上角（与底部页签红点同一视觉语言，>99 自动 99+）。
