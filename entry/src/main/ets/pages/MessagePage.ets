@@ -43,7 +43,6 @@ import type {
   TitleBarContentOptions,
   TitleBarStyleOptions,
   ScrollEffectOptions,
-  BottomBuilderParams,
 } from '@kit.UIDesignKit';
 import { LengthMetrics } from '@kit.ArkUI';
 import { SegmentedControl } from '../design/components/SegmentedControl';
@@ -64,7 +63,7 @@ export const MESSAGE_SEGMENTS: SegmentedItem[] = [
 // 同理，官方分段栏（SegmentButton）材质自带的环境投影**必须**由行高买单：行高只给 36+4 时
 // 投影被裁成灰带（docs/tutorial-titlebar-immersive-light.md 案例 9 同源）。
 // 自绘分段栏（36vp）行高：上 xs 呼吸位 + 底部 28vp 材质投影净空（与首页同口径）
-const MESSAGE_TAB_ROW_HEIGHT: number = LayoutTokens.segmentedHeight + SpaceTokens.xs + LayoutTokens.segmentBarShadowRoom;
+const MESSAGE_TITLE_ROW_VP: number = 56;
 // 滚动模糊生效区间终点（vp）：与首页定稿一致（0 → 32 线性到位）
 const MESSAGE_BLUR_END_VP: number = 32;
 // 「上滑收起快捷筛选栏」的实现取舍（真机两轮实证）：
@@ -149,6 +148,10 @@ export struct MessagePage {
   private dmScroller: Scroller = new Scroller();
   // 模糊完成态：滚动过模糊终点后顶栏切白（同首页定稿行为）
   @State brandOnBlur: boolean = false;
+  // 状态栏高度（Index 启动时写入 AppStorage）：穿底内缩 = 状态栏 + 56vp 标题行
+  @StorageProp('statusBarHeight') statusBarHeight: number = 0;
+  // 刷新指示器显隐：Refresh 的 builder 内容永远参与绘制，必须属性级门控（同 ProfilePage.refreshBuilder）
+  @State refreshIndicatorVisible: boolean = false;
 
   // 滚动驱动顶栏切白：读当前列表 Scroller 的绝对偏移，过模糊终点翻转（一次 animateTo）。
   // currentOffset() 加空值防御：类型声明非可选但滚动容器未创建/绑定时运行时返回 undefined
@@ -170,6 +173,12 @@ export struct MessagePage {
   // （两页同时绑定时 HDS 不感知可见页切换，模糊停留在最后滚动过的列表状态）。
   private activeScrollers(): Scroller[] {
     return [this.dmTabIndex === 1 ? this.dmScroller : this.notifScroller];
+  }
+
+  // 穿底内缩：内容区从窗口原点起算（真机实证 Row 起于 y0+inset），让位必须含 statusBarHeight
+  //（基准 §7.6.11/12，同 Index.profileListInset）——只给 56vp 时分段栏会顶进标题行里。
+  private messageListInset(): number {
+    return this.statusBarHeight + MESSAGE_TITLE_ROW_VP;
   }
 
   // 「全部已读」可见性：仅通知分段且已登录（原 Index.messageMarkAllVisible 逻辑迁入）
@@ -1103,6 +1112,7 @@ export struct MessagePage {
       }
       .layoutWeight(1)
       .height('100%')
+      .padding({ top: this.messageListInset() })
     }
     .width('100%')
     .height('100%')
@@ -1164,12 +1174,14 @@ export struct MessagePage {
       .width('100%')
       .justifyContent(FlexAlign.Center)
     } else {
-      Refresh({ refreshing: $$this.refreshing, offset: 80, friction: 48 }) {
+      Refresh({ refreshing: $$this.refreshing, builder: this.msgRefreshBuilder, offset: 80, friction: 48 }) {
         // 私信会话列表：Scroll 单列（懒加载 List 实测把滚动终点钳制在底部非安全区之上、
         // 露出窗口底色横带截断末行，Scroll 滚动范围天然到物理屏底）。
         // scroller 显式挂载：bindToScrollable 驱动标题栏渐变模糊；Refresh/Scroll 均需关裁切（穿底链路）
         Scroll(this.dmScroller) {
           Column({ space: SpaceTokens.none }) {
+            // 分段栏（穿底架构）：滚动内容首行，随列表滚走
+            this.messageTabRow()
             ForEach(
               this.conversations,
               (c: Conversation, idx: number) => {
@@ -1193,6 +1205,7 @@ export struct MessagePage {
           .padding({
             left: SpaceTokens.sm,
             right: SpaceTokens.sm,
+            top: this.messageListInset(),
             bottom: SpaceTokens.sm,
           })
         }
@@ -1210,6 +1223,10 @@ export struct MessagePage {
         this.loadConversations().finally(() => {
           this.refreshing = false;
         });
+      })
+      .onStateChange((state: RefreshStatus) => {
+        this.refreshIndicatorVisible = state === RefreshStatus.Drag
+          || state === RefreshStatus.OverDrag || state === RefreshStatus.Refresh;
       })
       .clip(false)
       .layoutWeight(1)
@@ -1261,21 +1278,23 @@ export struct MessagePage {
     const style: TitleBarStyleOptions = {
       scrollEffectOpts: scrollEffect,
       originalStyle: {
-        backgroundStyle: { backgroundColor: Color.Transparent },
+        // maskExtraHeight 官方默认 32vp（模糊区往栏底之下多伸 32vp）——穿底后会把栏下内容
+        // 多糊一截，压到 0 让磨砂正好停在栏底（同「我的」页 profileTitleBarOptions）。
+        backgroundStyle: { backgroundColor: Color.Transparent, maskExtraHeight: 0 },
       },
     };
     const content: TitleBarContentOptions = {
       stackBuilder: (): void => { this.messageBrandRow(); },
-      bottomBuilder: {
-        builder: (): void => { this.messageTabRow(); },
-        height: MESSAGE_TAB_ROW_HEIGHT,
-      } as BottomBuilderParams,
+      // 不再挂 bottomBuilder：分段栏迁入内容流（复用「我的」页 §7.6.19 三件套——穿底模糊/
+      // 滚动源绑定/全页手势区；栏体节点之内抓不到滚动源，装进栏里等于摘出手势区）。
     };
     const options: HdsNavigationTitleBarOptions = {
       content: content,
       style: style,
       avoidLayoutSafeArea: true,
-      enableComponentSafeArea: true,
+      // 穿底前提（基准 §7.6.9）：内容区从窗口原点起算，让位由各滚动内容顶部的
+      // messageListInset() padding 承担（同 ProfilePage 的 topInset 思路）。
+      enableComponentSafeArea: false,
     };
     return options;
   }
@@ -1329,7 +1348,7 @@ export struct MessagePage {
       left: SpaceTokens.sm,
       right: SpaceTokens.sm,
       top: SpaceTokens.xs,
-      bottom: LayoutTokens.segmentBarShadowRoom,
+      bottom: SpaceTokens.xs,
     })
   }
 
@@ -1338,9 +1357,29 @@ export struct MessagePage {
     return index === 1 ? this.dmUnread : this.unreadCount;
   }
 
-  // bottomBuilder 分段行（回迁 1.0.1 自绘 SegmentedControl）：透明轨道 + 滑块弹性动画；
-  // 栏住标题栏 bottomBuilder，useSystemMaterial 让系统材质接管表面（低版本回退描边）。
+  // 刷新指示器（穿底架构）：builder 内容永远参与绘制，显隐必须属性级驱动（opacity，
+  // 禁止 if 条件化——指示区高度参与布局，抽空会塌陷，真机实证同 HomeTab/ProfilePage）。
+  // 槽位在窗口顶部、整条藏在标题栏底下——offset 只挪绘制，把图形画到栏底之下。
+  @Builder
+  msgRefreshBuilder(): void {
+    Row({ space: SpaceTokens.inline }) {
+      LoadingProgress().width(IconTokens.compact).height(IconTokens.compact)
+      Text('刷新中…')
+        .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+        .fontWeight(TypeTokens.caption.weight)
+        .lineHeight(TypeTokens.caption.lineHeight)
+        .letterSpacing(TypeTokens.caption.tracking)
+        .fontColor(ColorTokens.secondary)
+    }
+    .opacity((this.refreshing || this.refreshIndicatorVisible) ? 1 : 0)
+    .hitTestBehavior((this.refreshing || this.refreshIndicatorVisible) ? HitTestMode.Default : HitTestMode.None)
+    .offset({ y: this.messageListInset() + SpaceTokens.sm })
+  }
+
+  // 分段行（自绘 SegmentedControl）：渲染在两个分页各自的滚动内容首行——随列表滚走、
+  // 上滑穿到标题栏底下被渐变模糊（复用「我的」页 §7.6.19 架构，标题栏只剩 56vp）。
   // 未读徽标叠加层保留（自绘/官方栏都没有徽标位）。
+  // systemMaterial 挂否保持原样不动——内容区内材质不渲染，是否调整等用户指令。
   @Builder
   messageTabRow() {
     Row() {
@@ -1390,6 +1429,9 @@ export struct MessagePage {
         // BLOCK_DESCENDANTS(@since 20) 才把自身与全部后代一起摘掉。compatibleSdkVersion 已是 6.0.0(20)。
         .hitTestBehavior(HitTestMode.BLOCK_DESCENDANTS)
       }
+      // ⚠️ 必须定高：徽标层是 height('100%')，父容器不定高时它会把 Stack 连带拉满整个
+      // 滚动内容（minHeight 100% 链），栏再被 Stack 默认居中顶到内容中部（真机 y1407 巨Gap）。
+      .height(LayoutTokens.segmentedHeight)
       // 官方组件不支持通用属性，按压/切换反馈挂在这层容器上：只改透明度，避免高度跳变
       .opacity(this.tabPulse ? 0.96 : 1)
       .animation({
@@ -1398,12 +1440,12 @@ export struct MessagePage {
       })
     }
     .width('100%')
-    // 左右 16vp = 参考App 轨道边距实测 50px；上下净空全部让给材质的环境投影（行高已按此配平）
+    // 左右 16vp = 参考App 轨道边距实测 50px；上 xs 呼吸位、底 14vp 供自绘软阴影衰减
     .padding({
       left: SpaceTokens.base,
       right: SpaceTokens.base,
       top: SpaceTokens.xs,
-      bottom: LayoutTokens.segmentBarShadowRoom,
+      bottom: 14,
     })
   }
 
@@ -1436,8 +1478,9 @@ export struct MessagePage {
   }
 
   build() {
-    // 顶栏（消息 + 全部已读 + 分段栏）迁入嵌套 HdsNavigation（路线 B，同首页定稿结构）：
-    // MINI + stackBuilder + bottomBuilder + GRADIENT_BLUR；内容区 = 游客态 / 通知|私信分页。
+    // 穿底架构（复用「我的」页 §7.6.19 三件套）：MINI + stackBuilder（56vp 标题行）+
+    // GRADIENT_BLUR + enableComponentSafeArea:false；分段栏在两个分页的滚动内容首行随列表
+    // 滚走，内容穿到栏底之下被渐变模糊；滚动源由 bindToScrollable(activeScrollers) 动态绑定。
     HdsNavigation() {
     Column() {
       // 顶栏（消息 + 全部已读）、分段栏（通知/私信）、三类快捷筛选已整体迁入
@@ -1486,6 +1529,7 @@ export struct MessagePage {
               // 举报中心入口的消息）→ 空态，但常驻入口仍要可点
               Scroll() {
                 Column({ space: SpaceTokens.none }) {
+                  this.messageTabRow()
                   this.messageShortcutsRow()
                   this.pinnedEntries()
                   Column() {
@@ -1503,6 +1547,7 @@ export struct MessagePage {
                 .padding({
                   left: SpaceTokens.sm,
                   right: SpaceTokens.sm,
+                  top: this.messageListInset(),
                   bottom: SpaceTokens.sm,
                 })
               }
@@ -1512,12 +1557,14 @@ export struct MessagePage {
               .width('100%')
               .layoutWeight(1)
             } else {
-              Refresh({ refreshing: $$this.refreshing, offset: 80, friction: 48 }) {
+              Refresh({ refreshing: $$this.refreshing, builder: this.msgRefreshBuilder, offset: 80, friction: 48 }) {
               // 通知列表：Scroll 单列（懒加载 List 会把滚动终点钳制在底部非安全区之上，
               // 露出窗口底色横带截断末行；Scroll 滚动范围天然到物理屏底）。
               // scroller 显式挂载：bindToScrollable 驱动标题栏渐变模糊；Refresh/Scroll 均需关裁切
               Scroll(this.notifScroller) {
               Column({ space: SpaceTokens.none }) {
+              // 分段栏（穿底架构）：滚动内容首行，随列表滚走（顶部让位由本 Column 的 top padding 承担）
+              this.messageTabRow()
               // 快捷筛选行：随列表滚动的首个内容（上滑跟手收起，见 messageShortcutsRow 注释）
               this.messageShortcutsRow()
               // 置顶入口（举报中心/系统通知）：位于列表最前，随列表一起滚动（不固定）
@@ -1544,6 +1591,7 @@ export struct MessagePage {
                 .padding({
                   left: SpaceTokens.sm,
                   right: SpaceTokens.sm,
+                  top: this.messageListInset(),
                   bottom: SpaceTokens.sm,
                 })
               }
@@ -1566,6 +1614,11 @@ export struct MessagePage {
                 this.loadFirst().finally(() => {
                   this.refreshing = false;
                 });
+              })
+              .onStateChange((state: RefreshStatus) => {
+                // 拉拽/刷新全程显示指示器；空闲与完成回弹隐藏（builder 常驻绘制的门控）
+                this.refreshIndicatorVisible = state === RefreshStatus.Drag
+                  || state === RefreshStatus.OverDrag || state === RefreshStatus.Refresh;
               })
               .clip(false)
               .layoutWeight(1)
