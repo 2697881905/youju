@@ -153,7 +153,6 @@ export struct MessagePage {
   private notifScroller: Scroller = new Scroller();
   private dmScroller: Scroller = new Scroller();
   // 模糊完成态：滚动过模糊终点后顶栏切白（同首页定稿行为）
-  @State brandOnBlur: boolean = false;
   // 模糊出图开关：**绝对偏移** >0 即开（updateBarOnBlur 喂 currentOffset）——每帧增量正负
   // 会被松手回弹的负帧打灭（「松手模糊消失」根因，「我的」页同款修复）
   @State msgBarScrolled: boolean = false;
@@ -172,13 +171,6 @@ export struct MessagePage {
     if (scrolled !== this.msgBarScrolled) {
       this.msgBarScrolled = scrolled;
     }
-    const onBlur: boolean = offset > MESSAGE_BLUR_END_VP;
-    if (onBlur === this.brandOnBlur) {
-      return;
-    }
-    this.getUIContext().animateTo({ duration: MotionTokens.base, curve: MotionCurves.decelerate }, () => {
-      this.brandOnBlur = onBlur;
-    });
   }
 
   // bindToScrollable 动态只绑当前可见分段的 Scroller：切分段时数组变化触发重绑，
@@ -1345,8 +1337,8 @@ export struct MessagePage {
 
   // stackBuilder 顶栏行：「消息」标题 + 「全部已读」（仅通知分段且已登录；原 Index.messageTitleBar 迁入）。
   // 点击递增 markAllSeq 信号，由本组件 @Watch 承接实际标记动作。
-  // 「消息」模糊到位后切白（brandOnBlur 同首页品牌行）；「全部已读」同样切白（用户裁定，
-  // 品牌色在深色模糊背板上仍嫌沉）。
+  // 标题文字两态恒为 token 色（不再滚动切白）：IMMERSIVE+EXQUISITE 栏面在浅色模式是亮的，
+  // 白字压亮面隐形（首页同根因退役；用户拍板 2026-10-25 浅色滚动应保持深色文字）。
   // ⚠️ 这颗试过官方 content.menu 文字项，退回自绘是用户裁定：官方件只有
   // backgroundColor / iconColor / textColor 三个槽，**字号与内边距改不掉** —— 实测墨迹比原本高 9%
   // （46px vs 42px）、离右缘多出 17vp 内缩，而这里的观感要求是「与原本完全一致」。
@@ -1360,7 +1352,9 @@ export struct MessagePage {
         .fontWeight(TypeTokens.titleSerif.weight)
         .lineHeight(TypeTokens.titleSerif.lineHeight)
         .layoutWeight(1)
-        .fontColor(this.brandOnBlur ? Color.White : ColorTokens.primary)
+        // 两态都用 token：IMMERSIVE+EXQUISITE 的模糊栏面是亮的（浅色模式），
+        // 切白会隐形（首页同根因退役切白）；token 自带深浅色适配（浅=深墨/深=浅色）
+        .fontColor(ColorTokens.primary)
       if (this.markAllVisible()) {
         Pressable({
           visualHeight: LayoutTokens.minTouchTarget,
@@ -1375,7 +1369,7 @@ export struct MessagePage {
             .fontWeight(TypeTokens.headline.weight)
             .lineHeight(TypeTokens.callout.lineHeight)
             .letterSpacing(TypeTokens.callout.tracking)
-            .fontColor(this.brandOnBlur ? Color.White : ColorTokens.brand)
+            .fontColor(ColorTokens.brand)
             .height(LayoutTokens.minTouchTarget)
             .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
             .textAlign(TextAlign.Center)
