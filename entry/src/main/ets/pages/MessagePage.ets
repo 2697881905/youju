@@ -46,7 +46,8 @@ import type {
   BottomBuilderParams,
 } from '@kit.UIDesignKit';
 import { LengthMetrics } from '@kit.ArkUI';
-import { ImmersiveSegmentBar } from '../design/components/ImmersiveSegmentBar';
+import { SegmentedControl } from '../design/components/SegmentedControl';
+import { isSystemMaterialActive } from '../utils/immersiveMaterial';
 
 // 消息分段：通知 | 私信（导出给 Index 的标题栏渲染；本页 Swiper 与之共享选中态）
 export const MESSAGE_SEGMENTS: SegmentedItem[] = [
@@ -62,8 +63,8 @@ export const MESSAGE_SEGMENTS: SegmentedItem[] = [
 // 不对称。分段栏位置 = 标题区下沿，结构上不可上移。
 // 同理，官方分段栏（SegmentButton）材质自带的环境投影**必须**由行高买单：行高只给 36+4 时
 // 投影被裁成灰带（docs/tutorial-titlebar-immersive-light.md 案例 9 同源）。
-const MESSAGE_TAB_ROW_HEIGHT: number = LayoutTokens.segmentBarHeight + LayoutTokens.segmentBarShadowRoom +
-  LayoutTokens.segmentBarTopRoom;
+// 自绘分段栏（36vp）行高：材质投影净空随官方栏退役，上下各留 xs（与首页同口径）
+const MESSAGE_TAB_ROW_HEIGHT: number = LayoutTokens.segmentedHeight + 2 * SpaceTokens.xs;
 // 滚动模糊生效区间终点（vp）：与首页定稿一致（0 → 32 线性到位）
 const MESSAGE_BLUR_END_VP: number = 32;
 // 「上滑收起快捷筛选栏」的实现取舍（真机两轮实证）：
@@ -1337,16 +1338,21 @@ export struct MessagePage {
     return index === 1 ? this.dmUnread : this.unreadCount;
   }
 
-  // bottomBuilder 分段行：ImmersiveSegmentBar = 官方 SegmentButton（tab 档）+ 沉浸光感系统材质，
-  // 选中面/圆角/内缩/投影全部走官方默认，本页不再自绘表面。
-  // 本页只再加一层未读徽标叠加层（官方 item 没有徽标位）。
+  // bottomBuilder 分段行（回迁 1.0.1 自绘 SegmentedControl）：透明轨道 + 滑块弹性动画；
+  // 栏住标题栏 bottomBuilder，useSystemMaterial 让系统材质接管表面（低版本回退描边）。
+  // 未读徽标叠加层保留（自绘/官方栏都没有徽标位）。
   @Builder
   messageTabRow() {
     Row() {
       Stack() {
-        ImmersiveSegmentBar({
+        SegmentedControl({
           items: MESSAGE_SEGMENTS,
           selectedIndex: $dmTabIndex,
+          itemWidth: 88,
+          immersive: !isSystemMaterialActive(),
+          outlined: isSystemMaterialActive(),
+          glowEnabled: false,
+          useSystemMaterial: true,
         })
         // 未读徽标层：分段栏把可用宽度等分，逐槽位叠一个「同字号透明标签 + 系统 Badge」，
         // 红点就落在各自标签右上角（与底部页签红点同一视觉语言，>99 自动 99+）。
@@ -1394,8 +1400,8 @@ export struct MessagePage {
     .padding({
       left: SpaceTokens.base,
       right: SpaceTokens.base,
-      top: LayoutTokens.segmentBarTopRoom,
-      bottom: LayoutTokens.segmentBarShadowRoom,
+      top: SpaceTokens.xs,
+      bottom: SpaceTokens.xs,
     })
   }
 

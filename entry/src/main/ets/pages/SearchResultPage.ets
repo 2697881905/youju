@@ -16,7 +16,7 @@ import { resolveActionIcon } from '../utils/actionIcons';
 import { GRID_GAP, GRID_PADDING } from '../utils/cardTokens';
 import { EmptyState } from '../design/components/EmptyState';
 import { SegmentedItem } from '../design/components/SegmentedControl';
-import { ImmersiveSegmentBar } from '../design/components/ImmersiveSegmentBar';
+import { SegmentedControl } from '../design/components/SegmentedControl';
 import { isSystemMaterialActive, FloatingTopButtonMaterialModifier } from '../utils/immersiveMaterial';
 import { Skeleton } from '../design/motion/Skeleton';
 import { ColorTokens } from '../design/tokens/color';
@@ -47,7 +47,8 @@ const SEARCH_FIELD_HEIGHT: number = 40;
 const HDS_BACK_SLOT_END_VP: number = 64;
 // bottomBuilder 分段行高 = 官方分段栏本体 + 材质投影净空 + 行底留白
 //（投影净空必须给足，否则材质落影被行裁成一条硬边灰带，见 immersiveMaterial.ets 顶部注释）
-const RESULTS_SEG_ROW_VP: number = LayoutTokens.segmentBarHeight + LayoutTokens.segmentBarShadowRoom + SpaceTokens.xs;
+// 自绘分段栏行高（材质投影净空随官方栏退役，与首页/消息同口径）
+const RESULTS_SEG_ROW_VP: number = LayoutTokens.segmentedHeight + 2 * SpaceTokens.xs;
 // 渐变模糊生效区间终点（vp）：与草稿箱/聊天页同量级
 const RESULTS_BLUR_END_VP: number = 32;
 
@@ -335,10 +336,16 @@ struct SearchResultPage {
         .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
         .fontColor(ColorTokens.secondary)
       Blank()
-      ImmersiveSegmentBar({
+      // 排序分段（回迁 1.0.1 自绘样式）：标题栏生效区内系统材质接管表面
+      SegmentedControl({
         items: SEARCH_SORTS,
         selectedIndex: $sortIndex,
         itemWidth: 54,
+        fillWidth: false,
+        immersive: !isSystemMaterialActive(),
+        outlined: isSystemMaterialActive(),
+        glowEnabled: false,
+        useSystemMaterial: true,
         onSelect: (index: number): void => { this.onSortChange(index); },
       })
     }

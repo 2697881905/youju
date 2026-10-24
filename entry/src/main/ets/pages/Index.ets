@@ -25,7 +25,7 @@ import { resolveActionIcon } from '../utils/actionIcons';
 import { resolveSettingsIcon } from '../utils/settingsIcons';
 import { EXTERNAL_SHARE_ENABLED } from '../utils/share';
 import { ProfileHeader } from '../components/ProfileHeader';
-import { ImmersiveSegmentBar } from '../design/components/ImmersiveSegmentBar';
+import { SegmentedControl } from '../design/components/SegmentedControl';
 import { User } from '../models/types';
 import { common } from '@kit.AbilityKit';
 import { window, display, LengthMetrics } from '@kit.ArkUI';
@@ -1120,12 +1120,19 @@ struct Index {
       // 主分段栏：我发布 / 我收藏 / 我赞过 / 我评论（官方 SegmentButton tab 档 + 沉浸光感系统材质）
       // 撑满父容器（itemWidth 取默认 0），不再定宽 67×4=268vp 的短栏：
       // 参考实测智慧生活顶栏轨道 331.5vp / 屏宽 363.52 → 左右各 16vp，这里用 base 内缩正好复现该宽。
-      ImmersiveSegmentBar({
+      // 主分段栏：我发布 / 我收藏 / 我赞过 / 我评论（自绘 SegmentedControl，回迁 1.0.1 样式）
+      // 参数照抄 1.0.1（c50f8318）：材质生效时描边底透出系统材质；本栏现住列表流（非标题栏
+      // 生效区），材质不渲染 → 呈现即 1.0.1 的「透明轨道 + #99EFEFF2 滑块」观感。
+      SegmentedControl({
         items: PROFILE_SEGMENTS,
         selectedIndex: $profileTabIdx,
+        itemWidth: 67,
+        immersive: !isSystemMaterialActive(),
+        outlined: isSystemMaterialActive(),
+        glowEnabled: false,
+        useSystemMaterial: true,
         onSelect: (idx: number): void => {
-          // 只写选中值：ProfilePage 的分页 Swiper 随即换页，选中面由官方组件的状态动画完成；
-          // 列表刷新由 @Watch(tabIdx) 承接。
+          // 只写选中值：滑块弹性动画由 SharedSlide 承担，列表刷新由 @Watch(tabIdx) 承接
           this.profileTabIdx = idx;
         },
       })
@@ -1142,9 +1149,17 @@ struct Index {
           // 控件根节点是 width('100%')，直接和右侧图标同排会按**父 Row** 全宽解析、把分段栏挤偏
           // （它当年被移出顶栏就是这个原因）；包一层加权容器后 100% 落在扣掉图标的那一格上。
           Column() {
-            ImmersiveSegmentBar({
+            // 子分段栏（帖子 | 收藏夹）：与主分段栏**同款配置**（outlined 透明轨道 + 标题栏外
+            // 由描边承载、低版本回退沉浸玻璃）——1.0.1 原参数是 immersive 玻璃底，
+            // 与主栏两套观感；统一后两条栏一致（用户拍板 2026-10-24）。
+            SegmentedControl({
               items: BOOKMARK_SEGMENTS,
               selectedIndex: $profileBookmarkSubTab,
+              itemWidth: 46,
+              immersive: !isSystemMaterialActive(),
+              outlined: isSystemMaterialActive(),
+              glowEnabled: false,
+              useSystemMaterial: true,
             })
           }
           .layoutWeight(1)

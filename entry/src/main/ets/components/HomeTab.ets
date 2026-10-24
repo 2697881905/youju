@@ -17,7 +17,7 @@ import { safeShowToast } from '../utils/toast';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { EmptyState } from '../design/components/EmptyState';
 import { SegmentedItem } from '../design/components/SegmentedControl';
-import { ImmersiveSegmentBar } from '../design/components/ImmersiveSegmentBar';
+import { SegmentedControl } from '../design/components/SegmentedControl';
 import { DailyPostDeck } from './DailyPostDeck';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
@@ -68,8 +68,9 @@ const SORT_KEYS: SortKey[] = ['hot', 'latest', 'recommend'];
 // —— 顶栏（路线 B，验证页第七轮定稿结构）——
 // bottomBuilder 分段行高：40 控件（官方分段栏轨道）+ 上方 14 / 下方 28 材质投影净空
 // （与消息页同口径：bottomBuilder 行对内容双向裁切，投影铺不开就在分段栏下沿压出一条灰带）
-const HOME_TAB_ROW_HEIGHT: number = LayoutTokens.segmentBarHeight + LayoutTokens.segmentBarShadowRoom +
-  LayoutTokens.segmentBarTopRoom;
+// 自绘分段栏（36vp）行高：官方栏时代的材质投影净空（+28/+14）随官方栏退役，
+// 上下各留 xs 呼吸位即可——否则栏与信息流之间出现 ~9vp 空带（用户反馈 2026-10-24）。
+const HOME_TAB_ROW_HEIGHT: number = LayoutTokens.segmentedHeight + 2 * SpaceTokens.xs;
 // 滚动模糊生效区间终点（vp）：0 → 32 线性到位（原 64 偏慢，按用户裁定调小一档；验证页定稿值为 64）
 const HOME_FEED_BLUR_END_VP: number = 32;
 // 标语收合滚动阈值（vp）：信息流滚过该高度后收起「真实经验，有据可循」。dynamicHideTitleBar
@@ -134,6 +135,11 @@ export struct HomeTab {
   @Link @Watch('onFeedIndexChanged') feedIndex: number;
   // 圈子下拉面板开合（标题栏 chip ↔ 本页面板 共享）
   @Link showCircleDropdown: boolean;
+  // 分段栏滑块跟手位置（回迁 1.0.1）：Swiper 拖动/吸附逐帧喂入的连续（浮点）索引；
+  // -1 = 未在滚动（回退整数选中索引，点击切换走弹性动画）。
+  @State slidePosition: number = -1;
+  // Swiper 内容区宽（px）：onGestureSwipe 用 currentOffset/页宽 换算连续索引
+  @State swiperWidth: number = 0;
   @State needLogin: boolean = false; // 关注流且未登录的引导态
   // 关注流的关注数缓存（空态 A/B 区分）。取值三态，见 FOLLOWING_COUNT_* 常量：
   // 保留上次取到的真实值，切回关注 Tab 时不会先闪加载态（关注数极少变，够用）。
@@ -1089,22 +1095,24 @@ export struct HomeTab {
   @Builder
   homeTabRow() {
     Row() {
-      ImmersiveSegmentBar({
+      // 分段栏（回迁 1.0.1 自绘样式）：透明轨道 + 滑块弹性跟手；栏住标题栏 bottomBuilder，
+      // useSystemMaterial 让系统材质接管表面（低版本回退 outlined 描边）。
+      SegmentedControl({
         items: FEED_SEGMENTS,
         selectedIndex: $feedIndex,
-        // 定宽三槽（与旧自绘栏同宽，右侧 TagNav 靠 layoutWeight 吃剩余）
+        // Swiper 拖动/吸附逐帧喂入的连续索引：滑块 1:1 跟手（-1 = 未在滚动）
+        slidePosition: this.slidePosition,
         itemWidth: 66,
-        // 官方 item 的 8vp 横内边距会把「每日一帖」4 字截断，压到 4vp
-        buttonHorizontalPadding: 4,
-        // 表面与标签色一律交回官方默认档：不再随滚动切白。
-        // 旧写法是 `lightContent / overrideTrackMaterial = brandOnBlur`（切白标签 + ULTRA_THIN 轨道），
-        // 那是给旧 GRADIENT_BLUR 的深色磨砂背板配的。顶栏换成 IMMERSIVE_GRADIENT_BLUR + EXQUISITE
-        // 材质后栏面是亮的，白标签压亮轨道直接隐形（浅色模式真机复现，与品牌行同一根因）。
-        // 现在与「我的」「消息」同口径：官方默认轨道 + 深色标签，两态不变。
+        fillWidth: false,
+        glass: false,
+        outlined: true,
+        // 关闭按压/长按光斑：顶栏材质/描边风格上光斑过于抢眼（1.0.1 同款取舍）
+        glowEnabled: false,
+        useSystemMaterial: true,
         onSelect: (idx: number): void => {
-          // 只写选中值：Swiper 随即播切换动画，滑块由 onContentDidScroll 逐帧带着走（与滑动同款衔接），
-          // 这里不预设整数位——预设等于让滑块先跳到终点再被动画拽回来。
+          // 点击立即落整数位（弹性动画由 SharedSlide 整数分支承担）；
           // 信息源加载由本组件 @Watch(feedIndex) 承接（见 onFeedIndexChanged）
+          this.slidePosition = idx;
           this.feedIndex = idx;
         },
       })
@@ -1124,12 +1132,12 @@ export struct HomeTab {
     }
     .width('100%')
     .height(HOME_TAB_ROW_HEIGHT)
-    // 左右 sm 沿用首页栅格留白；上下净空全部让给材质的环境投影（行高已按此配平）
+    // 左右 sm 沿用首页栅格留白；上下 xs 呼吸位（自绘栏无材质投影，不再需要投影净空）
     .padding({
       left: SpaceTokens.sm,
       right: SpaceTokens.sm,
-      top: LayoutTokens.segmentBarTopRoom,
-      bottom: LayoutTokens.segmentBarShadowRoom,
+      top: SpaceTokens.xs,
+      bottom: SpaceTokens.xs,
     })
   }
 
@@ -1153,6 +1161,34 @@ export struct HomeTab {
         .duration(MotionTokens.container)
         .curve(MotionCurves.springSoft)
         .onChange((index: number): void => { this.onSwiperChanged(index); })
+        // —— 滑块 1:1 跟手（回迁 1.0.1）：连续索引 = 选中页 - 位移比例 ——
+        .onContentDidScroll((selectedIndex: number, index: number, position: number, _mainAxisLength: number): void => {
+          if (index !== selectedIndex) {
+            return;
+          }
+          const continuous: number = selectedIndex - position;
+          this.slidePosition = Math.max(0, Math.min(FEED_SEGMENTS.length - 1, continuous));
+        })
+        // 拖拽逐帧跟手：手势拖动期 onContentDidScroll 不保证回调，由本事件兜底
+        .onGestureSwipe((index: number, event: SwiperAnimationEvent): void => {
+          if (this.swiperWidth <= 0) {
+            return;
+          }
+          const continuous: number = index - event.currentOffset / this.swiperWidth;
+          this.slidePosition = Math.max(0, Math.min(FEED_SEGMENTS.length - 1, continuous));
+        })
+        .onAreaChange((_old: Area, area: Area): void => {
+          const w: number = parseFloat(String(area.width));
+          if (w > 0 && Math.abs(w - this.swiperWidth) > 0.5) {
+            this.swiperWidth = w;
+          }
+        })
+        .onAnimationEnd((): void => {
+          // 吸附收尾：回到整数位才清除跟手覆盖；中途打断的动画保持浮点，避免滑块闪跳
+          if (Math.abs(this.slidePosition - Math.round(this.slidePosition)) < 0.01) {
+            this.slidePosition = -1;
+          }
+        })
         .width('100%')
         .height('100%')
         .layoutWeight(1)
@@ -1168,8 +1204,9 @@ export struct HomeTab {
       .height('100%')
       .alignItems(HorizontalAlign.Start)
       .backgroundColor(ColorTokens.canvas)
-      // 圈子下拉菜单不再需要内容区宿主：chip 上的 bindMenu 由系统弹层承载，
-      // 定位、点外关闭、越界翻转都归系统管（旧「面板 + 2000vp 遮罩」实例已删）。
+
+      // 圈子下拉：交互保持新版 bindMenu 系统弹层（用户拍板 2026-10-24：下拉菜单交互不变，
+      // 仅样式材质随旧版——chip 本就与 1.0.1 同款：透明底+细描边+标题栏内系统材质接管）。
     }
     .width('100%')
     .height('100%')

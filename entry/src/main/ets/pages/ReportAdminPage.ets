@@ -24,7 +24,8 @@ import { BaseCard } from '../design/components/BaseCard';
 import { DesignButton } from '../design/components/DesignButton';
 import { EmptyState } from '../design/components/EmptyState';
 import { SegmentedItem } from '../design/components/SegmentedControl';
-import { ImmersiveSegmentBar } from '../design/components/ImmersiveSegmentBar';
+import { SegmentedControl } from '../design/components/SegmentedControl';
+import { isSystemMaterialActive } from '../utils/immersiveMaterial';
 import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
@@ -1073,19 +1074,27 @@ export struct ReportAdminPage {
   }
 
   // 两个分段栏：上「板块」（被举报对象类型：帖子/评论/用户），下「状态」（该板块内的状态）。
-  // 都用官方分段栏（ImmersiveSegmentBar：官方 SegmentButton 轨道 + 沉浸光感 + 自绘滑块），
-  // 选中项由 @Link 双向绑定；驻留标题栏后由系统材质接管表面。
+  // 回迁 1.0.1 自绘 SegmentedControl（滑块 + 跟手扫选 + 按压回弹）；
+  // 驻留标题栏由系统材质接管表面（沉浸光感）。
   @Builder
   segBars(): void {
     Column({ space: SpaceTokens.sm }) {
-      ImmersiveSegmentBar({
+      SegmentedControl({
         items: TYPE_ITEMS,
         selectedIndex: $typeIndex,
+        immersive: !isSystemMaterialActive(),
+        outlined: isSystemMaterialActive(),
+        glowEnabled: false,
+        useSystemMaterial: true,
         onSelect: (index: number): void => { this.onTypeSelect(index); },
       })
-      ImmersiveSegmentBar({
+      SegmentedControl({
         items: STATUS_ITEMS,
         selectedIndex: $statusIndex,
+        immersive: !isSystemMaterialActive(),
+        outlined: isSystemMaterialActive(),
+        glowEnabled: false,
+        useSystemMaterial: true,
         onSelect: (index: number): void => { this.onStatusSelect(index); },
       })
     }

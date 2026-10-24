@@ -43,7 +43,10 @@ export struct ImmersiveSegmentBar {
   // options 是官方组件的 @ObjectLink：只在 aboutToAppear 与影响样式的入参变化时重建，
   // 逐帧重建会打断组件内部状态。
   @State private barOptions: SegmentButtonOptions | undefined = undefined;
-  @State private indexes: number[] = [0];
+  // @Watch 必须挂着：官方页签组件**自带拖动选择**（慢拖松手即选释放点分段），它只回写
+  // selectedIndexes（双向绑定落到这里的 indexes）、**不走 onItemClicked**——不监听的话
+  // 选中面会动而宿主状态不动，表现为「滑动了分段栏但页面没切换」（真机实证 2026-10-24）。
+  @State @Watch('onIndexesChanged') private indexes: number[] = [0];
 
   aboutToAppear(): void {
     this.indexes = [this.selectedIndex];
@@ -53,6 +56,29 @@ export struct ImmersiveSegmentBar {
   // 宿主侧改选中值（滑动落页、外部跳转）时回灌官方组件的选中索引。
   private syncIndexes(): void {
     this.indexes = [this.selectedIndex];
+  }
+
+  // 官方组件拖动选择（以及点击）回写 indexes 后的唯一同步出口：回灌宿主 selectedIndex
+  // 并触发 onSelect，与点击同一条数据通路。
+  // ⚠️ 必须延迟到下一轮任务再写宿主：官方组件会在**自身更新期**回写 selectedIndexes
+  //（双向绑定的回灌，日志里每次切换后的 no-op 回调即是），此时同步写 selectedIndex
+  // 等于把状态修改嵌进渲染期——ArkUI 会丢掉这一轮重渲染，真机表现为「选中面切过去了、
+  // 列表内容冻结在旧分段」（快速多次切换复现 2026-10-24）。timeout 闭包内重新校验，
+  // 连续多次回写时只有与宿主最新值不同的那次会提交。
+  private onIndexesChanged(): void {
+    const idx: number = this.indexes[0] ?? -1;
+    if (idx < 0 || idx === this.selectedIndex) {
+      return;
+    }
+    setTimeout((): void => {
+      if (idx < 0 || idx === this.selectedIndex) {
+        return;
+      }
+      this.selectedIndex = idx;
+      if (this.onSelect !== undefined) {
+        this.onSelect(idx);
+      }
+    }, 0);
   }
 
   private rebuildOptions(): void {

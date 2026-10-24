@@ -11,7 +11,8 @@ import { TagIcon } from '../components/TagIcon';
 import { DesignButton } from '../design/components/DesignButton';
 import { EmptyState } from '../design/components/EmptyState';
 import { SegmentedItem } from '../design/components/SegmentedControl';
-import { ImmersiveSegmentBar } from '../design/components/ImmersiveSegmentBar';
+import { SegmentedControl } from '../design/components/SegmentedControl';
+import { isSystemMaterialActive } from '../utils/immersiveMaterial';
 import { BackButton } from '../design/components/BackButton';
 import { Pressable } from '../design/motion/Pressable';
 import { Reveal } from '../design/motion/Reveal';
@@ -280,10 +281,16 @@ export struct CircleDetailView {
       .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: SpaceTokens.sm, bottom: SpaceTokens.item })
 
       Row() {
-        ImmersiveSegmentBar({
+        // 排序分段（回迁 1.0.1 自绘样式）：标题栏生效区内系统材质接管表面
+        SegmentedControl({
           items: FEED_SEGMENTS,
           selectedIndex: $sortIndex,
           itemWidth: 64,
+          fillWidth: false,
+          immersive: !isSystemMaterialActive(),
+          outlined: isSystemMaterialActive(),
+          glowEnabled: false,
+          useSystemMaterial: true,
           onSelect: (index: number): void => { this.switchSort(index); },
         })
         Blank()

@@ -913,7 +913,19 @@ export struct ProfilePage {
 
         ListItem() {
           Column() {
-            this.feedBody()
+            // ⚠️ 每个分段独占一个 if 分支（分支体相同是有意的）：快速多次切换分段时，
+            // 同一分支内的数据源换段更新存在丢帧——build 重跑、数据就位，但 List 子树
+            // 不上屏且不再自愈（真机复现 2026-10-24，冻结后连下拉/换 Tab 都唤不回）。
+            // 分支切换是结构变化，强制框架走节点重建路径，绕开同分支 diff 的更新丢失。
+            if (this.tabIdx === 0) {
+              this.feedBody()
+            } else if (this.tabIdx === 1) {
+              this.feedBody()
+            } else if (this.tabIdx === 2) {
+              this.feedBody()
+            } else {
+              this.feedBody()
+            }
           }
           .width('100%')
           .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
@@ -931,6 +943,11 @@ export struct ProfilePage {
       })
       .edgeEffect(EdgeEffect.Spring)
       .divider({ strokeWidth: 0 })
+      // ⚠️ 不要给这条 List 挂自定义手势（PanGesture/SwipeGesture 都试过）：挂上之后快速
+      // 多次切换分段，List 子树的重渲染会被框架丢弃——选中面照常切换、fetch/setPagePosts
+      // 照常执行，但列表内容冻结在旧分段的渲染上且不再自愈（真机复现 2026-10-24，
+      // 连手势回调里延迟写状态都救不了，手势挂载本身就是触发条件）。
+      // 屏幕横滑切分段因此不可用；分段切换走 点击 + 官方分段栏拖动（indexes @Watch 同步）。
       .onReachEnd((): void => {
         this.loadMore();
       })
@@ -947,6 +964,8 @@ export struct ProfilePage {
     })
     .width('100%')
     .height('100%')
+    // 画布回白（1.0.1 原色）：材质画布（#F1F3F5）是为让官方 SegmentButton 轨道显层次引入的，
+    // 分段栏已回迁自绘（透明轨道不吃画布层次），该适配随之退役。
     .backgroundColor(ColorTokens.canvas)
   }
 }
