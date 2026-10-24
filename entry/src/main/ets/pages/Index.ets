@@ -1130,7 +1130,8 @@ struct Index {
         immersive: !isSystemMaterialActive(),
         outlined: isSystemMaterialActive(),
         glowEnabled: false,
-        useSystemMaterial: true,
+        // 不挂系统材质（列表区本就不渲染；全线纯自绘，保住底部软阴影）
+        useSystemMaterial: false,
         onSelect: (idx: number): void => {
           // 只写选中值：滑块弹性动画由 SharedSlide 承担，列表刷新由 @Watch(tabIdx) 承接
           this.profileTabIdx = idx;
@@ -1159,7 +1160,7 @@ struct Index {
               immersive: !isSystemMaterialActive(),
               outlined: isSystemMaterialActive(),
               glowEnabled: false,
-              useSystemMaterial: true,
+              useSystemMaterial: false,
             })
           }
           .layoutWeight(1)

@@ -68,9 +68,9 @@ const SORT_KEYS: SortKey[] = ['hot', 'latest', 'recommend'];
 // —— 顶栏（路线 B，验证页第七轮定稿结构）——
 // bottomBuilder 分段行高：40 控件（官方分段栏轨道）+ 上方 14 / 下方 28 材质投影净空
 // （与消息页同口径：bottomBuilder 行对内容双向裁切，投影铺不开就在分段栏下沿压出一条灰带）
-// 自绘分段栏（36vp）行高：官方栏时代的材质投影净空（+28/+14）随官方栏退役，
-// 上下各留 xs 呼吸位即可——否则栏与信息流之间出现 ~9vp 空带（用户反馈 2026-10-24）。
-const HOME_TAB_ROW_HEIGHT: number = LayoutTokens.segmentedHeight + 2 * SpaceTokens.xs;
+// 自绘分段栏（36vp）行高：上 xs 呼吸位 + 底部 28vp 材质投影净空（segmentBarShadowRoom
+// 配平值——1.0.1 同款系统材质环境投影需要衰减空间，净空不足会被 bottomBuilder 行裁成硬边）。
+const HOME_TAB_ROW_HEIGHT: number = LayoutTokens.segmentedHeight + SpaceTokens.xs + LayoutTokens.segmentBarShadowRoom;
 // 滚动模糊生效区间终点（vp）：0 → 32 线性到位（原 64 偏慢，按用户裁定调小一档；验证页定稿值为 64）
 const HOME_FEED_BLUR_END_VP: number = 32;
 // 标语收合滚动阈值（vp）：信息流滚过该高度后收起「真实经验，有据可循」。dynamicHideTitleBar
@@ -1108,7 +1108,10 @@ export struct HomeTab {
         outlined: true,
         // 关闭按压/长按光斑：顶栏材质/描边风格上光斑过于抢眼（1.0.1 同款取舍）
         glowEnabled: false,
+        // 1.0.1 同款：系统材质接管表面（玻璃+环境光感），浮起档保留材质自带投影
+        // （applyShadow:true）——底部阴影由此而来，自绘 outlined 阴影仅作低版本回退
         useSystemMaterial: true,
+        useFloatingMaterial: true,
         onSelect: (idx: number): void => {
           // 点击立即落整数位（弹性动画由 SharedSlide 整数分支承担）；
           // 信息源加载由本组件 @Watch(feedIndex) 承接（见 onFeedIndexChanged）
@@ -1132,12 +1135,12 @@ export struct HomeTab {
     }
     .width('100%')
     .height(HOME_TAB_ROW_HEIGHT)
-    // 左右 sm 沿用首页栅格留白；上下 xs 呼吸位（自绘栏无材质投影，不再需要投影净空）
+    // 左右 sm 沿用首页栅格留白；上 xs 呼吸位、底 28vp 材质投影净空
     .padding({
       left: SpaceTokens.sm,
       right: SpaceTokens.sm,
       top: SpaceTokens.xs,
-      bottom: SpaceTokens.xs,
+      bottom: LayoutTokens.segmentBarShadowRoom,
     })
   }
 

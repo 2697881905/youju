@@ -47,8 +47,8 @@ const SEARCH_FIELD_HEIGHT: number = 40;
 const HDS_BACK_SLOT_END_VP: number = 64;
 // bottomBuilder 分段行高 = 官方分段栏本体 + 材质投影净空 + 行底留白
 //（投影净空必须给足，否则材质落影被行裁成一条硬边灰带，见 immersiveMaterial.ets 顶部注释）
-// 自绘分段栏行高（材质投影净空随官方栏退役，与首页/消息同口径）
-const RESULTS_SEG_ROW_VP: number = LayoutTokens.segmentedHeight + 2 * SpaceTokens.xs;
+// 自绘分段栏行高：上 xs 呼吸位 + 底部 28vp 材质投影净空（与首页/消息同口径）
+const RESULTS_SEG_ROW_VP: number = LayoutTokens.segmentedHeight + SpaceTokens.xs + LayoutTokens.segmentBarShadowRoom;
 // 渐变模糊生效区间终点（vp）：与草稿箱/聊天页同量级
 const RESULTS_BLUR_END_VP: number = 32;
 
@@ -345,7 +345,9 @@ struct SearchResultPage {
         immersive: !isSystemMaterialActive(),
         outlined: isSystemMaterialActive(),
         glowEnabled: false,
+        // 1.0.1 同款：系统材质 + 浮起档（材质自带投影）
         useSystemMaterial: true,
+        useFloatingMaterial: true,
         onSelect: (index: number): void => { this.onSortChange(index); },
       })
     }

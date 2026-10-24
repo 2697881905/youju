@@ -304,9 +304,12 @@ export struct SegmentedControl {
       style: BorderStyle.Solid,
     })
     .shadow({
-      radius: this.immersive ? 0 : (this.glass ? 18 : 0),
-      color: this.immersive ? Color.Transparent : (this.glass ? ColorTokens.barShadow : Color.Transparent),
-      offsetY: this.immersive ? 0 : (this.glass ? 8 : 0),
+      // outlined 补 1.0.1 同款底部软阴影（当时来自材质默认 applyShadow:true，真机实测
+      // ~2.4L、延续约 14vp）：材质投影在 bottomBuilder 行内会被裁成硬边灰带（§7.6），
+      // 用自绘阴影复刻。宿主行需给 ≥14vp 底部留白供阴影衰减。
+      radius: this.immersive ? 0 : (this.glass ? 18 : (this.outlined ? 10 : 0)),
+      color: this.immersive ? Color.Transparent : ((this.glass || this.outlined) ? ColorTokens.barShadow : Color.Transparent),
+      offsetY: this.immersive ? 0 : (this.glass ? 8 : (this.outlined ? 4 : 0)),
     })
     // 不裁切：滑块是自带圆角的独立子组件，背景圆角不需要靠裁切保障；
     // 按压光斑（glowOverlay）本就比栏宽，clip(true) 会把它切成一条硬边

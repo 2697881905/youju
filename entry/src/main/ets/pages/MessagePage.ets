@@ -63,8 +63,8 @@ export const MESSAGE_SEGMENTS: SegmentedItem[] = [
 // 不对称。分段栏位置 = 标题区下沿，结构上不可上移。
 // 同理，官方分段栏（SegmentButton）材质自带的环境投影**必须**由行高买单：行高只给 36+4 时
 // 投影被裁成灰带（docs/tutorial-titlebar-immersive-light.md 案例 9 同源）。
-// 自绘分段栏（36vp）行高：材质投影净空随官方栏退役，上下各留 xs（与首页同口径）
-const MESSAGE_TAB_ROW_HEIGHT: number = LayoutTokens.segmentedHeight + 2 * SpaceTokens.xs;
+// 自绘分段栏（36vp）行高：上 xs 呼吸位 + 底部 28vp 材质投影净空（与首页同口径）
+const MESSAGE_TAB_ROW_HEIGHT: number = LayoutTokens.segmentedHeight + SpaceTokens.xs + LayoutTokens.segmentBarShadowRoom;
 // 滚动模糊生效区间终点（vp）：与首页定稿一致（0 → 32 线性到位）
 const MESSAGE_BLUR_END_VP: number = 32;
 // 「上滑收起快捷筛选栏」的实现取舍（真机两轮实证）：
@@ -1329,7 +1329,7 @@ export struct MessagePage {
       left: SpaceTokens.sm,
       right: SpaceTokens.sm,
       top: SpaceTokens.xs,
-      bottom: SpaceTokens.xs,
+      bottom: LayoutTokens.segmentBarShadowRoom,
     })
   }
 
@@ -1352,7 +1352,9 @@ export struct MessagePage {
           immersive: !isSystemMaterialActive(),
           outlined: isSystemMaterialActive(),
           glowEnabled: false,
+          // 1.0.1 同款：系统材质 + 浮起档（材质自带投影，自绘阴影仅低版本回退）
           useSystemMaterial: true,
+          useFloatingMaterial: true,
         })
         // 未读徽标层：分段栏把可用宽度等分，逐槽位叠一个「同字号透明标签 + 系统 Badge」，
         // 红点就落在各自标签右上角（与底部页签红点同一视觉语言，>99 自动 99+）。
@@ -1401,7 +1403,7 @@ export struct MessagePage {
       left: SpaceTokens.base,
       right: SpaceTokens.base,
       top: SpaceTokens.xs,
-      bottom: SpaceTokens.xs,
+      bottom: LayoutTokens.segmentBarShadowRoom,
     })
   }
 

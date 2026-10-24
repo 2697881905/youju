@@ -1085,7 +1085,9 @@ export struct ReportAdminPage {
         immersive: !isSystemMaterialActive(),
         outlined: isSystemMaterialActive(),
         glowEnabled: false,
+        // 1.0.1 同款：系统材质 + 浮起档（材质自带投影）
         useSystemMaterial: true,
+        useFloatingMaterial: true,
         onSelect: (index: number): void => { this.onTypeSelect(index); },
       })
       SegmentedControl({
@@ -1094,7 +1096,9 @@ export struct ReportAdminPage {
         immersive: !isSystemMaterialActive(),
         outlined: isSystemMaterialActive(),
         glowEnabled: false,
+        // 1.0.1 同款：系统材质 + 浮起档（材质自带投影）
         useSystemMaterial: true,
+        useFloatingMaterial: true,
         onSelect: (index: number): void => { this.onStatusSelect(index); },
       })
     }
