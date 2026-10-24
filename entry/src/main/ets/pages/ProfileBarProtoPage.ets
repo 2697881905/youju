@@ -46,6 +46,7 @@ import hilog from '@ohos.hilog';
 import { ColorTokens } from '../design/tokens/color';
 import { TypeTokens } from '../design/tokens/type';
 import { SpaceTokens, LayoutTokens } from '../design/tokens/space';
+import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { RadiusTokens } from '../design/tokens/radius';
 import { ImmersiveSegmentBar } from '../design/components/ImmersiveSegmentBar';
 import type { SegmentedItem } from '../design/components/SegmentedControl';
@@ -70,6 +71,9 @@ const SUB_SEG_ROW_VP: number = SpaceTokens.xs + LayoutTokens.segmentBarHeight;
 // 收栏后栏体只剩这一行 —— 回收终点由它决定，代码里不再作为让位量使用（见 cardList 注释）。
 // 资料区首帧高度兜底（实测到齐前用），与已上线页的 profileHeroEstimate 同量级
 const HERO_FALLBACK_VP: number = 92;
+// 收起阈值（vp）：滚过这一格就收起资料区。与首页标语收合同量级（BRAND_COMPACT_THRESHOLD_VP = 12），
+// 取 6 是因为这里的资料区是整块消失，早收一点比「滚了半天还没动静」自然。
+const COLLAPSE_THRESHOLD_VP: number = 6;
 
 function isHdsNavSupported(): boolean {
   try {
@@ -118,8 +122,8 @@ struct ProfileBarProtoPage {
   @State subSegIdx: number = 0;
   // 资料区实测高（vp）：0 = 尚未测到，用 HERO_FALLBACK_VP 兜底。收起上限靠它。
   @State heroHVp: number = 0;
-  // 资料区已收起的高度（vp）：由列表偏移驱动，0 = 全展开。
-  @State barCollapseVp: number = 0;
+  // 资料区是否已收起（两态，不做逐帧中间值 —— 逐帧会让整条栏体逐帧重排、分段栏闪烁）。
+  @State barCollapsed: boolean = false;
   private supported: boolean = isHdsNavSupported();
   private material: SystemMaterialParams | undefined = undefined;
   private scroller: Scroller = new Scroller();
@@ -132,29 +136,33 @@ struct ProfileBarProtoPage {
     return this.mainSegIdx === 1;
   }
 
-  // bottomBuilder 声明高 = 资料区 + 主分段行 + （子分段行，仅「我收藏」）− 已收起的资料区高度。
-  // ⚠️ 2026-10-24 实测两条结论，决定了这里为什么自己算而不是交给官方 dynamicHideTitleBar：
+  // bottomBuilder 声明高 = 分段行（+子分段行）+ 展开时的资料区高度。
+  // ⚠️ 2026-10-24 实测三条结论，决定了这里为什么自己算、且只做两态：
   //   ① 官方 dynamicHideTitleBar 只认**字面量** height：同一份配置，height 写 184 → 上滑 700px
   //      栏体 856→281px（收干净）；height 写 this.barBuilderHeight()（首帧 174、随后变 184）
-  //      → 上滑后栏体恒 856px，一动不动。首页能收是因为它传的是常量 HOME_TAB_ROW_HEIGHT，
-  //      同一台机器上 494→281 正常。
-  //   ② 「只收资料区、分段栏常驻」这个粒度官方也给不了：hideBottomBuilder 是整块收，
-  //      收完滚深就没有分段栏可点。自己算 collapse 上限 = 资料区高，分段栏永远留在栏里。
+  //      → 上滑后栏体恒 856px，一动不动。首页能收是因为它传的是常量 HOME_TAB_ROW_HEIGHT。
+  //   ② 「只收资料区、分段栏常驻」这个粒度官方也给不了：hideBottomBuilder 是整块收。
+  //   ③ **逐帧改这一格会闪**（用户实测「滚动过程中分段栏一直闪烁」）：bottomBuilder.height 是
+  //      系统每帧重排栏体的入口，分段栏连同它的材质/投影跟着逐帧重绘。改成两态 + animateTo，
+  //      栏高只在跨阈值那一帧变一次。
   private barBuilderHeight(): number {
-    const full: number = this.heroHeight() + MAIN_SEG_ROW_VP + (this.hasSubSeg() ? SUB_SEG_ROW_VP : 0);
-    return Math.max(0, full - this.barCollapseVp);
+    const seg: number = MAIN_SEG_ROW_VP + (this.hasSubSeg() ? SUB_SEG_ROW_VP : 0);
+    return seg + (this.barCollapsed ? 0 : this.heroHeight());
   }
 
-  // 资料区收起量（vp）：0 = 完全展开，heroHeight() = 资料区刚好收没、分段栏贴到标题行下。
-  // 由 Scroll.onDidScroll 的绝对偏移驱动，逐帧写 —— 首页「标语收合」是同款做法（读 Scroller
-  // 的 currentOffset，而不是逐帧 setState 一个动画值），这里沿用。
+  // 资料区收起态：滚过阈值就整块收起（资料区高度归零、分段栏贴到标题行下），回到顶部再展开。
+  // 不做逐帧跟手 —— 逐帧写 height 会让整条栏体（含分段栏材质）逐帧重排 = 闪烁，实测已否。
   private syncCollapse(offsetY: number): void {
-    const limit: number = this.heroHeight();
-    const next: number = offsetY < 0 ? 0 : (offsetY > limit ? limit : offsetY);
-    // 只在变化超过半像素时写，避免静止态抖动
-    if (Math.abs(next - this.barCollapseVp) > 0.5) {
-      this.barCollapseVp = next;
+    const next: boolean = offsetY > COLLAPSE_THRESHOLD_VP;
+    if (next === this.barCollapsed) {
+      return;
     }
+    this.getUIContext().animateTo({
+      duration: MotionTokens.container,
+      curve: MotionCurves.emphasized,
+    }, () => {
+      this.barCollapsed = next;
+    });
   }
 
   // 列表让位量已退役：本轮验证「滚动时栏自动收起」，列表必须从窗口原点起、内容穿到栏下，
@@ -276,25 +284,22 @@ struct ProfileBarProtoPage {
     .alignItems(VerticalAlign.Center)
   }
 
-  // 栏体内容：资料区 + 主分段 + （子分段）。整块由 bottomBuilder 承载，高度由 barBuilderHeight 声明。
+  // 栏体内容：资料区（展开态）+ 主分段 + （子分段）。整块由 bottomBuilder 承载，高度由 barBuilderHeight 声明。
   @Builder
   barBody() {
     Column() {
-      // 资料区收缩窗：可视窗（外层）随 barCollapseVp 变矮，内容（内层）保持原高并整体上移，
-      // 于是被裁掉的是资料区下半段 —— 观感等于资料区被上面吸走，分段栏跟着往上贴。
+      // 资料区只在展开态存在：结构级增删（不是改容器高度），因此不会每帧重排；
+      // 收起/展开由 animateTo 包住，配 transition 淡出+上移，避免「啪一下没了」。
       // 不铺任何底色：栏级材质要整块铺过去，垫实色会在资料区与分段栏之间留接缝。
-      Column() {
+      if (!this.barCollapsed) {
         Column() {
           this.heroBlock()
         }
         .width('100%')
-        .height(this.heroHeight())
-        .offset({ y: -this.barCollapseVp })
+        .transition(TransitionEffect.OPACITY
+          .combine(TransitionEffect.translate({ y: -SpaceTokens.xs }))
+          .animation({ duration: MotionTokens.container, curve: MotionCurves.emphasized }))
       }
-      .width('100%')
-      .height(this.heroHeight() - this.barCollapseVp)
-      .clip(true)
-      .align(Alignment.Top)
 
       ImmersiveSegmentBar({
         items: PROFILE_SEGMENTS,
@@ -382,7 +387,7 @@ struct ProfileBarProtoPage {
           .borderRadius(RadiusTokens.md)
         }, (c: ProtoCard) => c.title)
 
-        Text(`收起 ${this.barCollapseVp.toFixed(0)} / hero ${this.heroHVp.toFixed(0)} / 栏 ${this.barBuilderHeight().toFixed(0)}vp`)
+        Text(`收起 ${this.barCollapsed ? '是' : '否'} / hero ${this.heroHVp.toFixed(0)} / 栏 ${this.barBuilderHeight().toFixed(0)}vp`)
           .fontSize(TypeTokens.caption.size)
           .fontFamily(TypeTokens.fontFamily)
           .fontColor(ColorTokens.tertiary)
