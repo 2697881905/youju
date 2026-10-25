@@ -377,11 +377,6 @@ export struct CircleTab {
   }
 
   // 圈子页仅负责浏览和进入；加入或退出必须在详情页中明确选择。
-  // —— 同城层回调：关注事实与星图共用（joinedNames 是唯一事实源）——
-  private cityIsJoined(name: string): boolean {
-    return this.joinedNames.includes(name);
-  }
-
   // 同城圈加入：城市圈不在星图行星集（this.circles）里，applyJoinLocal 管不到，
   // 直接走关注接口 + joinedNames 上抛（标题栏计数/城市行按钮即时刷新）+ 通用成员信号。
   private async cityJoin(name: string): Promise<void> {
@@ -1455,7 +1450,7 @@ export struct CircleTab {
           CityLayer({
             selectedCity: $selectedCity,
             visible: this.cityLayerVisible,
-            isJoined: (name: string): boolean => this.cityIsJoined(name),
+            joinedNames: this.joinedNames,
             onJoin: (name: string): void => { this.cityJoin(name); },
             onUnjoin: (name: string): void => { this.cityUnjoin(name); },
             onOpenCircle: (name: string): void => { this.jumpCircle(name); },

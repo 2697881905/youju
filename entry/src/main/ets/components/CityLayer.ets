@@ -1,11 +1,12 @@
 // 同城层（星图子模式「降落地球」，Phase 1）：
 // 圈子页星图内的城市维度入口层——未选城市时是选城页（热门城市格 + 搜索 + 按省分组全量），
 // 选定后是城市页（城市圈列表，进入复用 CircleDetailPage 的 tag 过滤通道）。
-// Phase 2 将在此层接入华为地图：城市页头图换静态地图，选城页增「地图选城」（MapComponent，
-// syscap 门禁：SystemCapability.Map.Core 不可用时自动隐藏，索引选城永远可用）。
+// Phase 2 已接入华为地图：选城页增「地图选城」（MapComponent 全屏交互图，syscap 门禁：
+// SystemCapability.Map.Core 不可用时自动隐藏，索引选城永远可用）与「定位我的城市」
+//（定位→reverseGeocode 反解→白名单匹配，拒绝授权安静降级）。
 //
-// 父子关系（用户拍板）：星图是父模式，本层是子模式——由星图上的「降落地球」入口唤起，
-// 关闭即回到星图；加入/退出同城圈会同步父模式的行星与关注集（回调上抛）。
+// 父子关系（用户拍板）：星图是父模式，本层是子模式——由星图上的「📍同城」入口唤起，
+// 关闭即回到星图；加入/退出同城圈与星图共用 joinedNames 关注事实（回调上抛）。
 import { CitySummary, listCities, listCityTags, followTag, unfollowTag } from '../services/api';
 import { Tag } from '../models/types';
 import { Pressable } from '../design/motion/Pressable';
@@ -34,13 +35,12 @@ export struct CityLayer {
   // 已选城市（null = 选城页）；由 CircleTab 持有并传入（父模式记忆选城）
   @Link selectedCity: CitySummary | null;
   visible: boolean = false;
-  // 父模式的关注集查询：星图行星的 joined 态与城市圈行共用一份事实
-  isJoined: (name: string) => boolean = (_name: string): boolean => false;
+  // 父模式关注集（@Prop）：joinedNames 变化驱动本层重渲染——按钮「加入/已加入」才会翻转
+  @Prop joinedNames: string[] = [];
   onJoin: (name: string) => void = (_name: string): void => {};
   onUnjoin: (name: string) => void = (_name: string): void => {};
   onOpenCircle: (name: string) => void = (_name: string): void => {};
   onClose: () => void = (): void => {};
-  // 城市列表（选城页数据；由宿主缓存传入或本层自取——本层自取并缓存于父不必要）
   @State private cities: CitySummary[] = [];
   @State private citiesReady: boolean = false;
   @State private keyword: string = '';
@@ -49,6 +49,8 @@ export struct CityLayer {
   // 地图选城（Phase 2）：syscap 门禁——模拟器/OpenHarmony 无 HMS 地图时不出入口
   @State private mapMode: boolean = false;
   @State private locating: boolean = false;
+  // 状态栏高度（Index 启动时写入 AppStorage）：覆盖层自管状态栏避让
+  @StorageProp('statusBarHeight') statusBarHeight: number = 0;
 
   aboutToAppear(): void {
     this.loadCities();
@@ -76,26 +78,6 @@ export struct CityLayer {
       this.tags = [];
     } finally {
       this.tagsLoading = false;
-    }
-  }
-
-  // 定位自动选城（Phase 2）：失败安静降级（权限拒绝/超时/白名单之外都返回 null）
-  private async locateAndPick(): Promise<void> {
-    if (this.locating) {
-      return;
-    }
-    this.locating = true;
-    try {
-      const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
-      const located = await locateCurrentCity(ctx);
-      if (located !== null) {
-        const hit: CitySummary | undefined = this.cities.find((c: CitySummary): boolean => c.name === located.cityName);
-        if (hit !== undefined) {
-          this.pickCity(hit);
-        }
-      }
-    } finally {
-      this.locating = false;
     }
   }
 
@@ -139,10 +121,30 @@ export struct CityLayer {
 
   private toggleJoin(t: Tag): void {
     const name: string = t.name ?? '';
-    if (this.isJoined(name)) {
+    if (this.joinedNames.includes(name)) {
       this.onUnjoin(name);
     } else {
       this.onJoin(name);
+    }
+  }
+
+  // 定位自动选城（Phase 2）：失败安静降级（权限拒绝/超时/白名单之外都返回 null）
+  private async locateAndPick(): Promise<void> {
+    if (this.locating) {
+      return;
+    }
+    this.locating = true;
+    try {
+      const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      const located = await locateCurrentCity(ctx);
+      if (located !== null) {
+        const hit: CitySummary | undefined = this.cities.find((c: CitySummary): boolean => c.name === located.cityName);
+        if (hit !== undefined) {
+          this.pickCity(hit);
+        }
+      }
+    } finally {
+      this.locating = false;
     }
   }
 
@@ -183,7 +185,8 @@ export struct CityLayer {
       }
     }
     .width('100%')
-    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+    // 覆盖层自管状态栏避让（盖住了 HdsNavigation 标题栏，Index 只给 CircleTab 让位）
+    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: this.statusBarHeight + SpaceTokens.sm })
   }
 
   @Builder
@@ -280,7 +283,6 @@ export struct CityLayer {
       } else {
         Scroll() {
           Column({ space: SpaceTokens.base }) {
-            // 热门城市：2 行 5 列胶囊格
             Text('热门城市')
               .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
               .fontWeight(TypeTokens.overline.weight)
@@ -288,7 +290,6 @@ export struct CityLayer {
               .width('100%')
             Flex({ wrap: FlexWrap.Wrap }) {
               ForEach(this.hotCities(), (c: CitySummary) => {
-                // 自定义组件（Pressable）不能直接挂通用属性，外包 Column 承载间距
                 Column() {
                   Pressable({
                     visualHeight: 40,
@@ -404,49 +405,57 @@ export struct CityLayer {
     .height('100%')
   }
 
+  // 城市圈行：**两个点击区完全分离**（信息区进详情 / 按钮加退）——嵌套 Pressable
+  // 会被外层行吃掉按钮点击（点「加入」直接进了详情页，真机实证 2026-10-25）
   @Builder
   private circleRow(t: Tag): void {
-    Pressable({
-      fillWidth: true,
-      fullResponseRegion: true,
-      action: (): void => { this.onOpenCircle(t.name ?? ''); },
-    }) {
-      Row() {
-        Column({ space: 2 }) {
-          Text(t.name ?? '')
-            .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
-            .fontWeight(TypeTokens.headline.weight)
-            .fontColor(ColorTokens.primary)
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-          Text((t.description ?? '') + ' · ' + (t.followCount ?? 0) + ' 人')
-            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-            .fontColor(ColorTokens.secondary)
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-        }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
+    Row({ space: SpaceTokens.sm }) {
+      // layoutWeight 挂在容器 Column 上（Pressable 尾随属性链在 ArkTS 解析受限）
+      Column() {
         Pressable({
-          visualHeight: 36,
-          touchTargetHeight: LayoutTokens.minTouchTarget,
-          action: (): void => { this.toggleJoin(t); },
+          fillWidth: true,
+          fullResponseRegion: true,
+          action: (): void => { this.onOpenCircle(t.name ?? ''); },
         }) {
-          Text(this.isJoined(t.name ?? '') ? '已加入' : '加入')
-            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-            .fontWeight(TypeTokens.headline.weight)
-            .fontColor(this.isJoined(t.name ?? '') ? ColorTokens.secondary : ColorTokens.brand)
-            .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-            .height(36)
-            .backgroundColor(this.isJoined(t.name ?? '') ? ColorTokens.sunken : ColorTokens.brandTint)
-            .borderRadius(RadiusTokens.lg)
+          Column({ space: 2 }) {
+            Text(t.name ?? '')
+              .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
+              .fontWeight(TypeTokens.headline.weight)
+              .fontColor(ColorTokens.primary)
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+            Text((t.description ?? '') + ' · ' + (t.followCount ?? 0) + ' 人')
+              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+              .fontColor(ColorTokens.secondary)
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+          }
+          .alignItems(HorizontalAlign.Start)
+          .width('100%')
         }
       }
-      .width('100%')
-      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
-      .backgroundColor(ColorTokens.elevated)
-      .borderRadius(RadiusTokens.md)
+      .layoutWeight(1)
+      Pressable({
+        visualHeight: 36,
+        touchTargetHeight: LayoutTokens.minTouchTarget,
+        action: (): void => { this.toggleJoin(t); },
+      }) {
+        Text(this.joinedNames.includes(t.name ?? '') ? '已加入' : '加入')
+          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.headline.weight)
+          .fontColor(this.joinedNames.includes(t.name ?? '') ? ColorTokens.secondary : ColorTokens.brand)
+          .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+          .height(36)
+          .backgroundColor(this.joinedNames.includes(t.name ?? '') ? ColorTokens.sunken : ColorTokens.brandTint)
+          .borderRadius(RadiusTokens.lg)
+      }
     }
+    .width('100%')
+    .justifyContent(FlexAlign.End)
+    .alignItems(VerticalAlign.Center)
+    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+    .backgroundColor(ColorTokens.elevated)
+    .borderRadius(RadiusTokens.md)
   }
 
   build() {
