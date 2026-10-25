@@ -11,6 +11,7 @@ import { EmptyState } from '../design/components/EmptyState';
 import { CountRoll } from '../design/motion/CountRoll';
 import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
+import { GlassTokens } from '../design/tokens/GlassTokens';
 import { IconTokens } from '../design/tokens/icon';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { RadiusTokens } from '../design/tokens/radius';
@@ -1302,8 +1303,16 @@ export struct CircleTab {
         }
         .height(36)
         .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-        .backgroundColor(this.cosmicMode ? COSMIC_GLASS : ColorTokens.glassWhite)
-        .border({ width: LayoutTokens.glassBorderWidth, color: this.cosmicMode ? COSMIC_GLASS_BORDER : ColorTokens.separator, style: BorderStyle.Solid })
+        // 「已加入」药丸同族观感（星图三颗悬浮件一套脸）。内容区渲染不出系统材质
+        // （真机实证：守卫清空自绘表面后材质不出图=裸文字），故用分段栏同款假玻璃
+        // （SEGMENT_BLUR+半透白+高光描边）逼近药丸材质；浅色档与药丸兜底档（subtle）一致。
+        .backdropBlur(GlassTokens.SEGMENT_BLUR)
+        .backgroundColor(this.cosmicMode ? GlassTokens.SEGMENT_BG : ColorTokens.subtle)
+        .border({
+          width: LayoutTokens.glassBorderWidth,
+          color: this.cosmicMode ? GlassTokens.SEGMENT_BORDER : ColorTokens.separator,
+          style: BorderStyle.Solid,
+        })
         .borderRadius(RadiusTokens.pill)
         .shadow(ShadowTokens.cardContact)
         .alignItems(VerticalAlign.Center)
@@ -1333,8 +1342,16 @@ export struct CircleTab {
         }
         .height(36)
         .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-        .backgroundColor(this.cosmicMode ? COSMIC_GLASS : ColorTokens.glassWhite)
-        .border({ width: LayoutTokens.glassBorderWidth, color: this.cosmicMode ? COSMIC_GLASS_BORDER : ColorTokens.separator, style: BorderStyle.Solid })
+        // 「已加入」药丸同族观感（星图三颗悬浮件一套脸）。内容区渲染不出系统材质
+        // （真机实证：守卫清空自绘表面后材质不出图=裸文字），故用分段栏同款假玻璃
+        // （SEGMENT_BLUR+半透白+高光描边）逼近药丸材质；浅色档与药丸兜底档（subtle）一致。
+        .backdropBlur(GlassTokens.SEGMENT_BLUR)
+        .backgroundColor(this.cosmicMode ? GlassTokens.SEGMENT_BG : ColorTokens.subtle)
+        .border({
+          width: LayoutTokens.glassBorderWidth,
+          color: this.cosmicMode ? GlassTokens.SEGMENT_BORDER : ColorTokens.separator,
+          style: BorderStyle.Solid,
+        })
         .borderRadius(RadiusTokens.pill)
         .shadow(ShadowTokens.cardContact)
         .alignItems(VerticalAlign.Center)
