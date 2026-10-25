@@ -12,12 +12,18 @@ import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
 import { SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
+import { resolveActionIcon } from '../utils/actionIcons';
+
+// 悬浮在浅色地图上的操作件墨色：固定深色，不随深浅模式翻转（浅玻璃底 + 白字不可读）
+const MAP_OVERLAY_INK: string = '#2B2B2B';
 
 @Component
 export struct MapCityPicker {
   cities: CitySummary[] = [];
   onPick: (city: CitySummary) => void = (_city: CitySummary): void => {};
   onClose: () => void = (): void => {};
+  // 状态栏高度（Index 启动时写入 AppStorage）：全屏覆盖层自管状态栏避让
+  @StorageProp('statusBarHeight') statusBarHeight: number = 0;
   private mapController: map.MapComponentController | null = null;
   // marker id → 城市：marker 点击回调只给 id，靠这张表换回城市对象
   private markerCity: Map<string, CitySummary> = new Map();
@@ -64,11 +70,12 @@ export struct MapCityPicker {
         .width('100%')
         .height('100%')
 
-      // 顶行：提示 + 关闭（地图全屏沉浸，操作件悬浮其上）
+      // 顶行：提示 + 关闭（地图全屏沉浸，操作件悬浮其上；覆盖层自管状态栏避让）。
+      // 悬浮件墨色固定深色不随主题翻转：glassWhite 是浅玻璃，深色模式下 primary=白字压白珠不可读
       Row() {
         Text('点亮的城市均可降落 · 点标记选城')
           .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-          .fontColor(ColorTokens.primary)
+          .fontColor(MAP_OVERLAY_INK)
           .height(36)
           .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
           .backgroundColor(ColorTokens.glassWhite)
@@ -80,18 +87,23 @@ export struct MapCityPicker {
           touchTargetHeight: 44,
           action: (): void => { this.onClose(); },
         }) {
-          Text('关闭')
-            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-            .fontWeight(TypeTokens.headline.weight)
-            .fontColor(ColorTokens.brand)
-            .height(36)
-            .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-            .backgroundColor(ColorTokens.glassWhite)
-            .borderRadius(RadiusTokens.pill)
+          // 关闭走全应用统一 close 图标（close_x），玻璃珠承载（同提示 chip 表面）
+          Row() {
+            Image(resolveActionIcon('close'))
+              .width(IconTokens.compact)
+              .height(IconTokens.compact)
+              .fillColor(MAP_OVERLAY_INK)
+          }
+          .width(36)
+          .height(36)
+          .justifyContent(FlexAlign.Center)
+          .backgroundColor(ColorTokens.glassWhite)
+          .borderRadius(RadiusTokens.pill)
+          .accessibilityText('关闭')
         }
       }
       .width('100%')
-      .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.base })
+      .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: this.statusBarHeight + SpaceTokens.base })
       .alignItems(VerticalAlign.Top)
     }
     .width('100%')

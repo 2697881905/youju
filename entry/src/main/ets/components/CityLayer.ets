@@ -9,6 +9,10 @@
 // 关闭即回到星图；加入/退出同城圈与星图共用 joinedNames 关注事实（回调上抛）。
 import { CitySummary, listCities, listCityTags, followTag, unfollowTag } from '../services/api';
 import { Tag } from '../models/types';
+import { BackButton } from '../design/components/BackButton';
+import { DesignButton } from '../design/components/DesignButton';
+import { EmptyState } from '../design/components/EmptyState';
+import { GlowInput } from '../design/components/GlowInput';
 import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
@@ -152,19 +156,13 @@ export struct CityLayer {
   private headerBar(title: string, showBack: boolean): void {
     Row() {
       if (showBack) {
-        Pressable({
-          visualHeight: LayoutTokens.minTouchTarget,
-          touchTargetHeight: LayoutTokens.minTouchTarget,
+        // 全应用统一返回件（44vp 触控 + 无障碍标注），不再手搓图标按钮
+        BackButton({
           action: (): void => {
             // 城市页 → 选城页（不关闭层；层关闭走右上）
             this.selectedCity = null;
           },
-        }) {
-          Image(resolveActionIcon('back'))
-            .width(IconTokens.standard)
-            .height(IconTokens.standard)
-            .fillColor(ColorTokens.icon)
-        }
+        })
       }
       Text(title)
         .fontSize(TypeTokens.titleSerif.size).fontFamily(TypeTokens.fontFamilySerif)
@@ -173,18 +171,16 @@ export struct CityLayer {
         .fontColor(ColorTokens.primary)
         .layoutWeight(1)
         .padding({ left: showBack ? SpaceTokens.none : SpaceTokens.sm })
-      Pressable({
-        visualHeight: LayoutTokens.minTouchTarget,
-        touchTargetHeight: LayoutTokens.minTouchTarget,
+      // 顶栏次级动作标准件（同发布页「清空」的 ghost 变体）
+      DesignButton({
+        label: '回到星图',
+        variant: 'ghost',
+        visualHeight: LayoutTokens.segmentedHeight,
         action: (): void => { this.onClose(); },
-      }) {
-        Text('回到星图')
-          .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-          .fontWeight(TypeTokens.headline.weight)
-          .fontColor(ColorTokens.brand)
-      }
+      })
     }
     .width('100%')
+    .alignItems(VerticalAlign.Center)
     // 覆盖层自管状态栏避让（盖住了 HdsNavigation 标题栏，Index 只给 CircleTab 让位）
     .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: this.statusBarHeight + SpaceTokens.sm })
   }
@@ -225,49 +221,30 @@ export struct CityLayer {
   private cityPicker(): void {
     Column() {
       this.headerBar('降落地球 · 选择城市', false)
-      TextInput({ text: this.keyword, placeholder: '搜索城市或省份' })
-        .width('100%')
-        .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
-        .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
+      // 统一输入件（官方原生样式：subtle 底 + lg 胶囊），替换裸 TextInput
+      GlowInput({
+        placeholder: '搜索城市或省份',
+        text: $keyword,
+        fillWidth: false,
+      })
         .margin({ top: SpaceTokens.sm })
-        .onChange((v: string): void => { this.keyword = v; })
 
       // 地图选城 / 定位（Phase 2）：仅华为地图 syscap 可用时展示；定位失败安静降级
       if (isMapKitAvailable()) {
         Row({ space: SpaceTokens.sm }) {
-          Pressable({
-            visualHeight: 36,
-            touchTargetHeight: 44,
+          DesignButton({
+            label: '地图选城',
+            variant: 'outlined',
+            visualHeight: LayoutTokens.segmentedHeight,
             action: (): void => { this.mapMode = true; },
-          }) {
-            Text('🗺 地图选城')
-              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-              .fontWeight(TypeTokens.headline.weight)
-              .fontColor(ColorTokens.brand)
-              .height(36)
-              .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-              .backgroundColor(ColorTokens.brandTint)
-              .borderRadius(RadiusTokens.lg)
-          }
-          Pressable({
-            visualHeight: 36,
-            touchTargetHeight: 44,
+          })
+          DesignButton({
+            label: this.locating ? '定位中…' : '定位我的城市',
+            variant: 'outlined',
+            visualHeight: LayoutTokens.segmentedHeight,
+            disabled: this.locating,
             action: (): void => { this.locateAndPick(); },
-          }) {
-            Row({ space: SpaceTokens.xs }) {
-              if (this.locating) {
-                LoadingProgress().width(16).height(16)
-              }
-              Text('📍 定位我的城市')
-                .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-                .fontWeight(TypeTokens.headline.weight)
-                .fontColor(ColorTokens.brand)
-                .height(36)
-                .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-                .backgroundColor(ColorTokens.brandTint)
-                .borderRadius(RadiusTokens.lg)
-            }
-          }
+          })
         }
         .width('100%')
         .margin({ top: SpaceTokens.sm })
@@ -292,17 +269,18 @@ export struct CityLayer {
               ForEach(this.hotCities(), (c: CitySummary) => {
                 Column() {
                   Pressable({
-                    visualHeight: 40,
+                    visualHeight: LayoutTokens.segmentedHeight,
                     action: (): void => { this.pickCity(c); },
                   }) {
+                    // 芯片家族标准规格（同 ChipRow 未选中态：sunken 底 + sm 圆角 + 36 高）
                     Text(c.name)
                       .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
                       .fontWeight(TypeTokens.headline.weight)
                       .fontColor(ColorTokens.primary)
-                      .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-                      .height(40)
-                      .backgroundColor(ColorTokens.elevated)
-                      .borderRadius(RadiusTokens.lg)
+                      .padding({ left: SpaceTokens.item, right: SpaceTokens.item })
+                      .height(LayoutTokens.segmentedHeight)
+                      .backgroundColor(ColorTokens.sunken)
+                      .borderRadius(RadiusTokens.sm)
                   }
                 }
                 .margin({ right: SpaceTokens.sm, bottom: SpaceTokens.sm })
@@ -382,9 +360,11 @@ export struct CityLayer {
             .justifyContent(FlexAlign.Center)
           } else if (this.tags.length === 0) {
             Column() {
-              Text('这座城市还没有同城圈')
-                .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-                .fontColor(ColorTokens.secondary)
+              EmptyState({
+                icon: resolveActionIcon('guide'),
+                title: '这座城市还没有同城圈',
+                message: '换个城市看看，或回到星图探索全球圈子',
+              })
             }
             .width('100%')
             .padding({ top: SpaceTokens.x2l, bottom: SpaceTokens.x2l })
@@ -439,20 +419,13 @@ export struct CityLayer {
         }
       }
       .layoutWeight(1)
-      Pressable({
-        visualHeight: 36,
-        touchTargetHeight: LayoutTokens.minTouchTarget,
+      // 加退按钮走全应用统一件（同圈子详情「加入圈子」的 outlined 变体，label 翻转表状态）
+      DesignButton({
+        label: this.joinedNames.includes(t.name ?? '') ? '退出' : '加入',
+        variant: 'outlined',
+        visualHeight: LayoutTokens.segmentedHeight,
         action: (): void => { this.toggleJoin(t); },
-      }) {
-        Text(this.joinedNames.includes(t.name ?? '') ? '已加入' : '加入')
-          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-          .fontWeight(TypeTokens.headline.weight)
-          .fontColor(this.joinedNames.includes(t.name ?? '') ? ColorTokens.secondary : ColorTokens.brand)
-          .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-          .height(36)
-          .backgroundColor(this.joinedNames.includes(t.name ?? '') ? ColorTokens.sunken : ColorTokens.brandTint)
-          .borderRadius(RadiusTokens.lg)
-      }
+      })
     }
     .width('100%')
     .justifyContent(FlexAlign.End)
