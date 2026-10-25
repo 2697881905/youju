@@ -1,0 +1,8 @@
+{
+    "string": [
+        {
+            "name": "location_permission_reason",
+            "value": "Used to locate your city for the local circles page; you can also pick a city manually"
+        }
+    ]
+}

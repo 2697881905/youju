@@ -2,9 +2,12 @@ import { prisma } from '../prisma';
 import { Tag } from '@prisma/client';
 import { sensitiveWordService } from './sensitiveWordService';
 import { SensitiveWordError, ValidationError } from '../utils/errors';
+import { SUPPORTED_CITIES, findCity } from '../utils/cities';
 
 // 星图 Live 三期：分类白名单（与客户端 CIRCLE_META 的五大类一致）
-export const TAG_CATEGORIES: string[] = ['消费选购', '动手改造', '职场与收入', '生活与家庭', '兴趣休闲'];
+// 「同城」为星图子模式「降落地球」专用类：只服务挂靠城市的圈子，不进星图行星分类。
+export const TAG_CATEGORIES: string[] = ['消费选购', '动手改造', '职场与收入', '生活与家庭', '兴趣休闲', '同城'];
+export const CITY_CATEGORY = '同城';
 
 // 获取所有标签（按使用次数降序）
 export async function listTags() {
@@ -26,14 +29,69 @@ export async function searchTags(keyword?: string): Promise<Tag[]> {
   return prisma.tag.findMany({ where, orderBy: [{ activeScore: 'desc' }, { followCount: 'desc' }] });
 }
 
+// 同城圈列表：挂靠某城市的圈子按活跃度降序（城市页主体数据）。
+export async function listCityTags(cityCode: string): Promise<Tag[]> {
+  return prisma.tag.findMany({
+    where: { cityCode },
+    orderBy: [{ activeScore: 'desc' }, { followCount: 'desc' }],
+  });
+}
+
+export interface CitySummary {
+  code: string;
+  name: string;
+  province: string;
+  circleCount: number;
+  postCount: number;
+  lng: number; // 参考坐标（GCJ-02）：地图选城 marker / 定位反解比对用
+  lat: number;
+}
+
+// 城市列表（选城页）：白名单全量 + 每城圈子数/帖子数聚合。
+// postCount 按发帖所选城市（Post.cityCode）统计；同城圈内容按 tag 过滤，此处只做展示计数。
+export async function listCities(): Promise<CitySummary[]> {
+  const [circleRows, postRows] = await Promise.all([
+    prisma.tag.groupBy({ by: ['cityCode'], where: { cityCode: { not: null } }, _count: { _all: true } }),
+    prisma.post.groupBy({ by: ['cityCode'], where: { cityCode: { not: null }, deletedAt: null, status: 1 }, _count: { _all: true } }),
+  ]);
+  const circleMap = new Map(circleRows.map((r) => [r.cityCode as string, r._count._all]));
+  const postMap = new Map(postRows.map((r) => [r.cityCode as string, r._count._all]));
+  return SUPPORTED_CITIES.map((c) => ({
+    code: c.code,
+    name: c.name,
+    province: c.province,
+    circleCount: circleMap.get(c.code) ?? 0,
+    postCount: postMap.get(c.code) ?? 0,
+    lng: c.lng,
+    lat: c.lat,
+  }));
+}
+
 // 创建圈子（点亮新星）：名称唯一 + 敏感词 + 分类白名单；创建者自动关注并计入 followCount。
-export async function createTag(userId: number, name: string, category: string, description: string): Promise<Tag> {
+// cityCode 可选：带值 = 同城圈（分类必须为「同城」且城市在白名单内），落 Tag.cityCode。
+export async function createTag(
+  userId: number,
+  name: string,
+  category: string,
+  description: string,
+  cityCode?: string,
+): Promise<Tag> {
   const trimmed = name.trim();
   if (trimmed.length < 2 || trimmed.length > 8) {
     throw new ValidationError('圈子名字需 2~8 个字');
   }
   if (!TAG_CATEGORIES.includes(category)) {
     throw new ValidationError('分类无效');
+  }
+  let city: string | null = null;
+  if (cityCode !== undefined && cityCode !== null && cityCode !== '') {
+    if (!findCity(cityCode)) {
+      throw new ValidationError('暂不支持该城市');
+    }
+    if (category !== CITY_CATEGORY) {
+      throw new ValidationError('同城圈子分类必须为「同城」');
+    }
+    city = cityCode;
   }
   const desc = description.trim();
   if (desc.length === 0 || desc.length > 24) {
@@ -47,7 +105,7 @@ export async function createTag(userId: number, name: string, category: string, 
     throw new ValidationError('已有同名圈子');
   }
   const created = await prisma.tag.create({
-    data: { name: trimmed, category, description: desc, emoji: '🌟' },
+    data: { name: trimmed, category, description: desc, emoji: '🌟', cityCode: city },
   });
   // 创建者自动加入（复用 followTag 的幂等 +1 逻辑）
   await followTag(userId, trimmed);

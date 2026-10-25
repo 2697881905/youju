@@ -672,6 +672,28 @@ export function listAllTags(keyword?: string): Promise<Tag[]> {
   return api.get<Tag[]>('/v1/tags?all=1' + q);
 }
 
+// —— 同城维（星图子模式「降落地球」）——
+export interface CitySummary {
+  code: string;
+  name: string;
+  province: string;
+  circleCount: number;
+  postCount: number;
+  // 参考坐标（GCJ-02）：地图选城 marker / 定位反解比对用
+  lng: number;
+  lat: number;
+}
+
+// 城市列表（选城页）：白名单全量 + 每城圈子/帖子计数。GET /v1/cities
+export function listCities(): Promise<CitySummary[]> {
+  return api.get<CitySummary[]>('/v1/cities');
+}
+
+// 某城市的同城圈列表（城市页主体）。GET /v1/tags?cityCode=
+export function listCityTags(cityCode: string): Promise<Tag[]> {
+  return api.get<Tag[]>('/v1/tags?cityCode=' + encodeURIComponent(cityCode));
+}
+
 // 创建圈子请求体（点亮新星）：POST /v1/tags
 export interface CreateTagBody {
   name: string;

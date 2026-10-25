@@ -66,6 +66,29 @@ async function main() {
     });
   }
   console.log(`Seeded ${tags.length} tags.`);
+
+  // 同城维（星图子模式「降落地球」）：每座白名单城市预置一个官方同城广场圈，
+  // 零冷启动——用户选完城市立刻有内容容器。幂等：存在即跳过，计数交还线上业务。
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { SUPPORTED_CITIES } = require('../src/utils/cities');
+  let seededCities = 0;
+  for (const c of SUPPORTED_CITIES) {
+    const exists = await prisma.tag.findUnique({ where: { name: `${c.name}同城` } });
+    if (exists) {
+      continue;
+    }
+    await prisma.tag.create({
+      data: {
+        name: `${c.name}同城`,
+        emoji: '🏙️',
+        category: '同城',
+        description: `${c.name}的真实经验，同在这座城的人一起聊`,
+        cityCode: c.code,
+      },
+    });
+    seededCities += 1;
+  }
+  console.log(`Seeded ${seededCities} city circles.`);
 }
 
 main()

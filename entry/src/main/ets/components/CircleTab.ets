@@ -19,12 +19,14 @@ import { TypeTokens } from '../design/tokens/type';
 import { ShadowTokens } from '../design/tokens/shadow';
 import { TopButtonMaterialModifier, isSystemMaterialActive } from '../utils/immersiveMaterial';
 import { openCircleDetail, openPostDetail } from '../utils/nav';
+import { CityLayer } from './CityLayer';
+import type { CitySummary } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 import { JoinedCirclesDialog } from './JoinedCirclesDialog';
 import { CircleUniverse } from './CircleUniverse';
 import { CircleExploreSheet, CatalogItem, CatalogGroup } from './CircleExploreSheet';
 import { CircleOrbitCanvas, OrbitCircleItem, OrbitSeedPost } from './CircleOrbitCanvas';
-import { followTag } from '../services/api';
+import { followTag, unfollowTag } from '../services/api';
 import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit';
 import type {
   HdsNavigationTitleBarOptions,
@@ -181,6 +183,11 @@ export struct CircleTab {
   // 星图画布高度回退成 galaxySize（方形）导致深空背景不铺满整屏。
   @State scrollViewportHeight: number = screenViewportHeightVp();
   @State ringDragging: boolean = false;
+  // —— 同城子模式（星图之子，「降落地球」）：cityLayerVisible=层可见；selectedCity 持久记忆
+  //（null=未选城，进选城页）。星图是父模式：层关闭即回星图，加入/退出同城圈同步行星关注集。
+  @State cityLayerVisible: boolean = false;
+  @State selectedCity: CitySummary | null = null;
+
   // —— 星图 Live 一期：降落页 + 深空目录 ——
   @State landingName: string = '';
   @State @Watch('onLandingVisibleChanged') landingVisible: boolean = false;
@@ -370,6 +377,41 @@ export struct CircleTab {
   }
 
   // 圈子页仅负责浏览和进入；加入或退出必须在详情页中明确选择。
+  // —— 同城层回调：关注事实与星图共用（joinedNames 是唯一事实源）——
+  private cityIsJoined(name: string): boolean {
+    return this.joinedNames.includes(name);
+  }
+
+  // 同城圈加入：城市圈不在星图行星集（this.circles）里，applyJoinLocal 管不到，
+  // 直接走关注接口 + joinedNames 上抛（标题栏计数/城市行按钮即时刷新）+ 通用成员信号。
+  private async cityJoin(name: string): Promise<void> {
+    if (getToken() === '') {
+      safeShowToast(this.getUIContext(), { message: '请先登录后再加入圈子' });
+      return;
+    }
+    try {
+      await followTag(name);
+      if (!this.joinedNames.includes(name)) {
+        this.joinedNames = this.joinedNames.concat([name]);
+      }
+      const version: number = AppStorage.get<number>('circleMembershipVersion') ?? 0;
+      AppStorage.setOrCreate('circleMembershipVersion', version + 1);
+    } catch (e) {
+      safeShowToast(this.getUIContext(), { message: '加入失败：' + (e as Error).message });
+    }
+  }
+
+  private async cityUnjoin(name: string): Promise<void> {
+    try {
+      await unfollowTag(name);
+      this.joinedNames = this.joinedNames.filter((n: string): boolean => n !== name);
+      const version: number = AppStorage.get<number>('circleMembershipVersion') ?? 0;
+      AppStorage.setOrCreate('circleMembershipVersion', version + 1);
+    } catch (e) {
+      safeShowToast(this.getUIContext(), { message: '退出失败：' + (e as Error).message });
+    }
+  }
+
   private jumpCircle(name: string): void {
     if (name.length === 0) {
       return;
@@ -1277,6 +1319,36 @@ export struct CircleTab {
     .padding({ right: SpaceTokens.base })
   }
 
+  // 同城子模式入口「降落地球」（悬浮星图左上，与右上探索星云对称）：
+  // 已选城市时显示城市名，未选显示「同城」。点击进入同城层（选城/城市页）。
+  @Builder
+  cityFab() {
+    Column() {
+      Pressable({
+        visualHeight: 36,
+        touchTargetHeight: LayoutTokens.minTouchTarget,
+        action: (): void => { this.dismissStarHint(); this.cityLayerVisible = true; },
+      }) {
+        Row({ space: SpaceTokens.xs }) {
+          Text('📍').fontSize(14)
+          Text(this.selectedCity !== null ? this.selectedCity.name : '同城')
+            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.headline.weight)
+            .fontColor(this.cosmicMode ? COSMIC_INK : ColorTokens.primary)
+        }
+        .height(36)
+        .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+        .backgroundColor(this.cosmicMode ? COSMIC_GLASS : ColorTokens.glassWhite)
+        .border({ width: LayoutTokens.glassBorderWidth, color: this.cosmicMode ? COSMIC_GLASS_BORDER : ColorTokens.separator, style: BorderStyle.Solid })
+        .borderRadius(RadiusTokens.pill)
+        .shadow(ShadowTokens.cardContact)
+        .alignItems(VerticalAlign.Center)
+      }
+    }
+    .position({ x: 0, y: this.circleTitleBarHeight() + SpaceTokens.xs })
+    .padding({ left: SpaceTokens.base })
+  }
+
   // 星图 Live：底部操作提示胶囊（原型 s2hint）。自定义组件不能直接挂 position，外包 Column。
   @Builder
   starHintBar() {
@@ -1372,7 +1444,29 @@ export struct CircleTab {
 
       if (this.circles.length > 0) {
         this.exploreFab()
+        this.cityFab()
         this.starHintBar()
+      }
+
+      // 同城子模式层（星图之子「降落地球」）：整层覆盖星图；未选城市=选城页，已选=城市页。
+      // 加入/退出的关注事实与星图共用（joinedNames），关层即回星图。
+      if (this.cityLayerVisible) {
+        Column() {
+          CityLayer({
+            selectedCity: $selectedCity,
+            visible: this.cityLayerVisible,
+            isJoined: (name: string): boolean => this.cityIsJoined(name),
+            onJoin: (name: string): void => { this.cityJoin(name); },
+            onUnjoin: (name: string): void => { this.cityUnjoin(name); },
+            onOpenCircle: (name: string): void => { this.jumpCircle(name); },
+            onClose: (): void => { this.cityLayerVisible = false; },
+          })
+        }
+        .width('100%')
+        .height('100%')
+        .backgroundColor(ColorTokens.canvas)
+        .transition(TransitionEffect.OPACITY
+          .animation({ duration: MotionTokens.container, curve: MotionCurves.emphasized }))
       }
 
       // 圈子宇宙：点行星坠入该圈专属宇宙（帖子化作星星），Tab 栏在 HdsNavigation 外天然保留。

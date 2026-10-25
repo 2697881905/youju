@@ -1,40 +1,44 @@
 {
-  "string": [
-    {
-      "name": "module_desc",
-      "value": "module description"
-    },
-    {
-      "name": "EntryAbility_desc",
-      "value": "description"
-    },
-    {
-      "name": "EntryAbility_label",
-      "value": "有据"
-    },
-    {
-      "name": "font_family",
-      "value": "HarmonyOS Sans"
-    },
-    {
-      "name": "font_family_serif",
-      "value": "Noto Serif SC"
-    },
-    {
-      "name": "font_family_serif_body",
-      "value": "Noto Serif SC Body"
-    },
-    {
-      "name": "permission_internet_reason",
-      "value": "用于联网加载数据、发布与浏览内容，以及图片视频的传输"
-    },
-    {
-      "name": "permission_gesture_reason",
-      "value": "用于识别握持姿态，将操作按钮调整至握持手侧，便于单手使用"
-    },
-    {
-      "name": "permission_pasteboard_reason",
-      "value": "在你复制了有据帖子分享链接后，识别链接并提示是否打开对应帖子"
-    }
-  ]
+    "string": [
+        {
+            "name": "module_desc",
+            "value": "module description"
+        },
+        {
+            "name": "EntryAbility_desc",
+            "value": "description"
+        },
+        {
+            "name": "EntryAbility_label",
+            "value": "有据"
+        },
+        {
+            "name": "font_family",
+            "value": "HarmonyOS Sans"
+        },
+        {
+            "name": "font_family_serif",
+            "value": "Noto Serif SC"
+        },
+        {
+            "name": "font_family_serif_body",
+            "value": "Noto Serif SC Body"
+        },
+        {
+            "name": "permission_internet_reason",
+            "value": "用于联网加载数据、发布与浏览内容，以及图片视频的传输"
+        },
+        {
+            "name": "permission_gesture_reason",
+            "value": "用于识别握持姿态，将操作按钮调整至握持手侧，便于单手使用"
+        },
+        {
+            "name": "permission_pasteboard_reason",
+            "value": "在你复制了有据帖子分享链接后，识别链接并提示是否打开对应帖子"
+        },
+        {
+            "name": "location_permission_reason",
+            "value": "用于圈子同城页自动定位你所在的城市；拒绝后可手动选择城市"
+        }
+    ]
 }

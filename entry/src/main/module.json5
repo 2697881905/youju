@@ -102,6 +102,26 @@
       // 2026-10-08 AGC 已批准；发布 Profile youju-release-key4-acl-20261008Release.p7b
       // 的 allowed-acls 已包含本权限，包内声明与 Profile 口径一致（不再触发 7014）。
       {
+        "name": "ohos.permission.APPROXIMATELY_LOCATION",
+        "reason": "$string:location_permission_reason",
+        "usedScene": {
+          "abilities": [
+            "EntryAbility"
+          ],
+          "when": "inuse"
+        }
+      },
+      {
+        "name": "ohos.permission.LOCATION",
+        "reason": "$string:location_permission_reason",
+        "usedScene": {
+          "abilities": [
+            "EntryAbility"
+          ],
+          "when": "inuse"
+        }
+      },
+      {
         "name": "ohos.permission.READ_PASTEBOARD",
         "reason": "$string:permission_pasteboard_reason",
         "usedScene": {

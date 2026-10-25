@@ -9,8 +9,14 @@ import { asyncHandler } from '../middleware/asyncHandler';
 
 const router = Router();
 
-// 标签列表：GET /v1/tags ；all=1 时返回深空目录全量（可按 keyword 过滤）
+// 标签列表：GET /v1/tags ；all=1 时返回深空目录全量（可按 keyword 过滤）；
+// cityCode=xx 时返回该城市的同城圈（星图子模式「降落地球」城市页主体）。
 router.get('/', asyncHandler(async (req, res: Response) => {
+  const cityCode = req.query.cityCode as string | undefined;
+  if (cityCode) {
+    const tags = await tagService.listCityTags(cityCode);
+    return ok(res, tags);
+  }
   if (String(req.query.all ?? '') === '1') {
     const tags = await tagService.searchTags(req.query.keyword as string | undefined);
     return ok(res, tags);
@@ -21,11 +27,11 @@ router.get('/', asyncHandler(async (req, res: Response) => {
 
 // 创建圈子（点亮新星）：POST /v1/tags { name, category, description }
 router.post('/', auth, tagCreateLimiter, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const { name, category, description } = req.body ?? {};
+  const { name, category, description, cityCode } = req.body ?? {};
   if (typeof name !== 'string' || typeof category !== 'string' || typeof description !== 'string') {
     return fail(res, CODE.BAD_REQUEST, '缺少 name/category/description');
   }
-  const tag = await tagService.createTag(req.userId!, name, category, description);
+  const tag = await tagService.createTag(req.userId!, name, category, description, cityCode);
   return ok(res, tag);
 }));
 
