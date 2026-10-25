@@ -2,7 +2,21 @@
 import { buildPageTransition, buildFadePageTransition } from '../utils/styles';
 import { TypeTokens } from '../design/tokens/type';
 import { ColorTokens } from '../design/tokens/color';
-import { BackButton } from '../design/components/BackButton';
+import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit';
+import type {
+  HdsNavigationTitleBarOptions,
+  TitleBarContentOptions,
+  TitleBarStyleOptions,
+  ScrollEffectOptions,
+  HdsTitleBarContentStyle,
+  HdsNavigationIconItemStyle,
+  HdsNavigationIconOptions,
+  HdsNavigationBackButtonItemOptions,
+  SystemMaterialParams,
+} from '@kit.UIDesignKit';
+import { LengthMetrics } from '@kit.ArkUI';
+import { isImmersiveLightSenseSupported, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
+import { requestSystemBarRefresh } from '../utils/systemBar';
 import { IconTokens } from '../design/tokens/icon';
 import {
   getPost,
@@ -196,6 +210,26 @@ export struct PostDetailView {
   // 顶栏（返回/分享/更多）驻留 Navigation 标题栏后的动作按钮材质（沉浸光感官方生效区域）。
   // 低版本（API < 26）门禁不通过 → 材质自动跳过，按钮保持原透明图标观感。
   private detailActionMaterial: TopButtonMaterialModifier = new TopButtonMaterialModifier();
+  // 穿底架构（复用「我的」页三件套）：MINI 栏 56vp + 官方返回键 + stackBuilder 动作行；
+  // 模糊出图开关——IMMERSIVE 变体的 blurRadius 由**绝对偏移** >0 门控（松手回弹打不灭，
+  // 基准 §36 / 2026-10-25 消息页同款修复）
+  @State detailBarScrolled: boolean = false;
+  // 滚动内容顶部让位 = 状态栏 + 56vp 标题行（enableComponentSafeArea:false 后自管）
+  private detailListInset(): number {
+    return this.statusBarHeight + 56;
+  }
+
+  // 滚动态 → 模糊出图开关 + 系统栏补设（绝对偏移，同消息页 msgBarScrolled 口径）
+  private syncBarScrolled(): void {
+    const offset: number = this.detailScroller?.currentOffset()?.yOffset ?? 0;
+    const scrolled: boolean = offset > 0;
+    if (scrolled !== this.detailBarScrolled) {
+      this.detailBarScrolled = scrolled;
+    }
+    if (offset <= 0) {
+      requestSystemBarRefresh();
+    }
+  }
   // 系统栏测量来源（挂着 avoidAreaChange 监听，页面销毁时注销）
   private navSourceWin: window.Window | undefined = undefined;
   // 进页前的键盘避让模式（退页还原）。本页切入 RESIZE：输入栏锚在页面底部，
@@ -1577,89 +1611,121 @@ export struct PostDetailView {
   // 顶栏迁入标题栏后的栏高：状态栏 + 上间距(sm) + 44 触控行 + 下间距(xs)。
   // 与 detailTitleBar 的行内边距严格同源；内容固定（图标按钮，无折行/媒体等不定因素），
   // 按教程 Step 3「固定内容用 token 表达式直算」，无需 onAreaChange 实测回写。
-  private detailTitleBarHeight(): number {
-    return this.statusBarHeight + SpaceTokens.sm + LayoutTokens.minTouchTarget + SpaceTokens.xs;
+  // HdsNavigation 标题栏配置（草稿箱模板 + 消息页模糊配方）：
+  // MINI + 官方返回键 backIcon（action 槽接 navigateBack，不换成栈默认 pop）+ stackBuilder 动作行
+  // + IMMERSIVE_GRADIENT_BLUR + 栏级 EXQUISITE 材质（栏级材质会盖掉普通 GRADIENT_BLUR 的透过
+  // 模糊，共存必须 IMMERSIVE 变体 + 动态 blurRadius——基准 §36）+ 穿底（safeArea:false）。
+  private detailTitleBarOptions(): HdsNavigationTitleBarOptions {
+    const immersive: boolean = isImmersiveLightSenseSupported();
+    const scrollEffect: ScrollEffectOptions = {
+      enableScrollEffect: true,
+      scrollEffectType: immersive ? ScrollEffectType.IMMERSIVE_GRADIENT_BLUR : ScrollEffectType.GRADIENT_BLUR,
+      blurEffectiveStartOffset: LengthMetrics.vp(0),
+      blurEffectiveEndOffset: LengthMetrics.vp(32),
+    };
+    const style: TitleBarStyleOptions = {
+      scrollEffectOpts: scrollEffect,
+      originalStyle: {
+        backgroundStyle: {
+          backgroundColor: Color.Transparent,
+          blurRadius: this.detailBarScrolled ? 50 : 0,
+          maskExtraHeight: 0,
+        },
+        contentStyle: {
+          backIconStyle: { iconColor: ColorTokens.primary } as HdsNavigationIconItemStyle,
+        } as HdsTitleBarContentStyle,
+      },
+    };
+    if (immersive) {
+      style.systemMaterialEffect = {
+        materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
+        materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE,
+      } as SystemMaterialParams;
+    }
+    const backContent: HdsNavigationIconOptions = {
+      icon: resolveActionIcon('back'),
+      label: '返回',
+      action: (): void => { this.navigateBack(); },
+    };
+    const backIcon: HdsNavigationBackButtonItemOptions = backContent;
+    const content: TitleBarContentOptions = {
+      stackBuilder: (): void => { this.detailTitleRow(); },
+      backIcon: backIcon,
+    };
+    return {
+      content: content,
+      style: style,
+      avoidLayoutSafeArea: true,
+      // 穿底前提（基准 §7.6.9）：内容从窗口原点起算，让位由滚动内容顶部 inset 承担
+      enableComponentSafeArea: false,
+    };
   }
 
   // 标题栏：原 DetailToolbar（返回 + 分享 + 更多）整体驻留于此。
-  // 为什么迁：通用属性 systemMaterial（沉浸光感）只在 Navigation/NavDestination 标题栏
-  // 生效，内容区设置不报错但完全不渲染（官方 FAQ 生效范围），详见
-  // docs/tutorial-titlebar-immersive-light.md。结构约定：
-  // - 根节点单容器；全屏布局下标题栏不代为避让状态栏 → 根容器手动下移（避让只此一处，
-  //   内容区根容器不再加状态栏 padding）；
-  // - 分享/更多是原生 Row 表面：材质直接 attributeModifier 挂 44×44 节点，lg 圆角给材质
-  //   定形（低版本无材质时透明圆角无观感差异）；按钮无自绘底/边框/阴影，无需让位处理；
-  // - 返回键 BackButton 是尾随闭包组件（Pressable），闭包后不能再接属性链 → 材质无法从
-  //   外部挂到内层表面，与圈子详情标题栏同口径：纯图标无自绘样式，交由应用级 enable 自动材质。
+  // stackBuilder 动作行：分享 / 更多（44×44 材质圆，标题栏生效区内出图）。
+  // ⚠️ 左内缩 64vp 让开官方返回键（16~56vp 圆钮）——本行 width('100%') 且住在
+  // StackCustomNode（返回键 Button 的后一个兄弟节点、z 序更高），不留开会吃掉返回键点击
+  //（ChatView 实测，基准防漂移 31）。「更多」的官方 Menu 仍锚在本钮（bindMenu 挂自有节点，
+  // 官方 menu 项没有可编程弹菜单入口，不迁 content.menu——基准第 30 条）。
   @Builder
-  detailTitleBar(): void {
-    Column() {
-      Row({ space: SpaceTokens.sm }) {
-        BackButton({ action: (): void => { this.navigateBack(); } })
-        // 居中标题位保留为纯撑开空间：让右侧动作组继续贴右边缘（与原 DetailToolbar 一致）
-        Blank()
-        Row({ space: SpaceTokens.xs }) {
-          // 每个动作独立 44×44 命中区，图标 24vp（与原 DetailToolbar 相同的规格）
-          Row() {
-            Image(resolveActionIcon('share'))
-              .width(IconTokens.standard)
-              .height(IconTokens.standard)
-              .fillColor(ColorTokens.icon)
-              .draggable(false)
-          }
-          .width(LayoutTokens.minTouchTarget)
-          .height(LayoutTokens.minTouchTarget)
-          .justifyContent(FlexAlign.Center)
-          .alignItems(VerticalAlign.Center)
-          .borderRadius(RadiusTokens.lg)
-          .attributeModifier(this.detailActionMaterial)
-          .accessibilityText('分享')
-          .onClick((): void => { this.onShare(); })
-
-          Row() {
-            Image(resolveActionIcon('more'))
-              .width(IconTokens.standard)
-              .height(IconTokens.standard)
-              .fillColor(ColorTokens.icon)
-              .draggable(false)
-          }
-          .width(LayoutTokens.minTouchTarget)
-          .height(LayoutTokens.minTouchTarget)
-          .justifyContent(FlexAlign.Center)
-          .alignItems(VerticalAlign.Center)
-          .borderRadius(RadiusTokens.lg)
-          .attributeModifier(this.detailActionMaterial)
-          .accessibilityText('更多操作')
-          // 官方 Menu：从按钮处弹出，条目样式由 postActionsMenu 内的 Menu/MenuItem 决定
-          .bindMenu(this.postActionsMenu)
-        }
-        .height(LayoutTokens.minTouchTarget)
-        .alignItems(VerticalAlign.Center)
+  detailTitleRow(): void {
+    Row({ space: SpaceTokens.xs }) {
+      Blank()
+      Row() {
+        Image(resolveActionIcon('share'))
+          .width(IconTokens.standard)
+          .height(IconTokens.standard)
+          .fillColor(ColorTokens.icon)
+          .draggable(false)
       }
-      .width('100%')
-      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.sm, bottom: SpaceTokens.xs })
+      .width(LayoutTokens.minTouchTarget)
+      .height(LayoutTokens.minTouchTarget)
+      .justifyContent(FlexAlign.Center)
+      .alignItems(VerticalAlign.Center)
+      .borderRadius(RadiusTokens.lg)
+      .attributeModifier(this.detailActionMaterial)
+      .accessibilityText('分享')
+      .onClick((): void => { this.onShare(); })
+
+      Row() {
+        Image(resolveActionIcon('more'))
+          .width(IconTokens.standard)
+          .height(IconTokens.standard)
+          .fillColor(ColorTokens.icon)
+          .draggable(false)
+      }
+      .width(LayoutTokens.minTouchTarget)
+      .height(LayoutTokens.minTouchTarget)
+      .justifyContent(FlexAlign.Center)
+      .alignItems(VerticalAlign.Center)
+      .borderRadius(RadiusTokens.lg)
+      .attributeModifier(this.detailActionMaterial)
+      .accessibilityText('更多操作')
+      .bindMenu(this.postActionsMenu)
     }
     .width('100%')
-    // 手动避让状态栏（含在栏高内）；与行内边距分放两层节点，避免同节点 padding 互相覆盖
-    .padding({ top: this.statusBarHeight })
+    .height('100%')
+    .padding({ left: 64, right: SpaceTokens.sm })
+    .alignItems(VerticalAlign.Center)
   }
 
   build() {
     Stack() {
-      Navigation() {
+      HdsNavigation() {
         Column() {
           this.detailBody()
         }
         .width('100%')
         .height('100%')
       }
-      .mode(NavigationMode.Stack)
-      .title({
-        builder: this.detailTitleBar,
-        height: this.detailTitleBarHeight(),
-      }, { barStyle: BarStyle.STANDARD, backgroundColor: ColorTokens.canvas })
+      .titleMode(HdsNavigationTitleMode.MINI)
+      .titleBar(this.detailTitleBarOptions())
+      // 滚动源绑定：IMMERSIVE_GRADIENT_BLUR 的滚动特效与内容穿栏都由它驱动（§7.6.12）
+      .bindToScrollable([this.detailScroller])
       .width('100%')
       .height('100%')
+      // 一镜到底飞行/材质圆溢出各行边界，链路不留 clip
+      .clip(false)
 
       // —— 全屏覆盖层（if 分支渲染）：必须盖过标题栏与状态栏 ——
       // STANDARD 标题栏为占位式，Navigation 内容区从栏下开始：覆盖层若留在内容区会被压到
@@ -1863,7 +1929,7 @@ export struct PostDetailView {
               .width('100%')
               .height(barBottomReserve())
           }
-          .padding(16)
+          .padding({ left: 16, right: 16, top: 16 + this.detailListInset(), bottom: 16 })
           .width('100%')
           // 宽屏限宽居中：折叠展开/平板上正文列不再拉满全宽（通用对齐默认水平居中）
           .constraintSize({ maxWidth: LayoutTokens.contentMaxWidth })
@@ -1872,6 +1938,10 @@ export struct PostDetailView {
         .width('100%')
         .height('100%')
         .id(DETAIL_CONTENT_SCROLL_ID)
+        // 模糊出图开关：绝对偏移驱动（增量正负会被回弹负帧打灭——基准 §36 同款修复）；
+        // 滚回顶部时触发系统栏内容色补设（HDS 回写竞速，见 utils/systemBar.ets）
+        .onDidScroll((): void => { this.syncBarScrolled(); })
+        .onScrollStop((): void => { this.syncBarScrolled(); })
 
         // @提及候选 + 底部互动栏：评论输入态下输入「@昵称」时在栏上方弹候选，点选回填精确 userId
         Column() {
