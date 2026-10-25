@@ -1369,6 +1369,10 @@ export struct CircleTab {
   }
 
   build() {
+    // 根 Stack：同城层必须盖过 HdsNavigation 标题栏——星图标题「圈子」+「已加入」药丸
+    // 悬浮于内容区之上且星图模式透明底，CityLayer 埋在内容区里会与自家 headerBar 叠印
+    //（真机实证 2026-10-26）。与 PostDetailView 覆盖层同一范式：HdsNavigation 为底，层作兄弟节点浮其上。
+    Stack() {
     // 顶栏（圈子标题 + 已加入药丸）迁入嵌套 HdsNavigation（路线 B，同首页定稿结构）
     HdsNavigation() {
     Stack({ alignContent: Alignment.TopStart }) {
@@ -1443,27 +1447,6 @@ export struct CircleTab {
         this.starHintBar()
       }
 
-      // 同城子模式层（星图之子「降落地球」）：整层覆盖星图；未选城市=选城页，已选=城市页。
-      // 加入/退出的关注事实与星图共用（joinedNames），关层即回星图。
-      if (this.cityLayerVisible) {
-        Column() {
-          CityLayer({
-            selectedCity: $selectedCity,
-            visible: this.cityLayerVisible,
-            joinedNames: this.joinedNames,
-            onJoin: (name: string): void => { this.cityJoin(name); },
-            onUnjoin: (name: string): void => { this.cityUnjoin(name); },
-            onOpenCircle: (name: string): void => { this.jumpCircle(name); },
-            onClose: (): void => { this.cityLayerVisible = false; },
-          })
-        }
-        .width('100%')
-        .height('100%')
-        .backgroundColor(ColorTokens.canvas)
-        .transition(TransitionEffect.OPACITY
-          .animation({ duration: MotionTokens.container, curve: MotionCurves.emphasized }))
-      }
-
       // 圈子宇宙：点行星坠入该圈专属宇宙（帖子化作星星），Tab 栏在 HdsNavigation 外天然保留。
       // 点行星的「镜头俯冲」运镜（galaxyDive）顺理成章变成「坠入宇宙」。
       if (this.landingVisible && this.landingCircle() !== undefined) {
@@ -1504,5 +1487,30 @@ export struct CircleTab {
     .width('100%')
     .height('100%')
     .backgroundColor(this.cosmicMode ? COSMIC_PAGE_BG : ColorTokens.canvas)
+
+    // 同城子模式层（星图之子「降落地球」）：整层覆盖星图与标题栏；未选城市=选城页，已选=城市页。
+    // 加入/退出的关注事实与星图共用（joinedNames），关层即回星图。
+    // 底色随星际模式取深空色，与 CircleTab 底色切换动画同源（浅色纸白模式取画布色）。
+    if (this.cityLayerVisible) {
+      Column() {
+        CityLayer({
+          selectedCity: $selectedCity,
+          visible: this.cityLayerVisible,
+          joinedNames: this.joinedNames,
+          onJoin: (name: string): void => { this.cityJoin(name); },
+          onUnjoin: (name: string): void => { this.cityUnjoin(name); },
+          onOpenCircle: (name: string): void => { this.jumpCircle(name); },
+          onClose: (): void => { this.cityLayerVisible = false; },
+        })
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor(this.cosmicMode ? COSMIC_PAGE_BG : ColorTokens.canvas)
+      .transition(TransitionEffect.OPACITY
+        .animation({ duration: MotionTokens.container, curve: MotionCurves.emphasized }))
+    }
+    }
+    .width('100%')
+    .height('100%')
   }
 }

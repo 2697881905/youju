@@ -336,6 +336,8 @@ export struct CityLayer {
         }
         .scrollBar(BarState.Off)
         .edgeEffect(EdgeEffect.Spring)
+        // Scroll 内容矮于视口时默认垂直居中（搜索只剩一两个结果时整页下坠），显式顶对齐
+        .align(Alignment.Top)
         .layoutWeight(1)
         .width('100%')
       }
@@ -398,6 +400,8 @@ export struct CityLayer {
       }
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
+      // 同上：城市圈少时内容矮于视口，Scroll 默认居中会把头卡坠到屏幕中部（真机实证）
+      .align(Alignment.Top)
       .layoutWeight(1)
       .width('100%')
     }
