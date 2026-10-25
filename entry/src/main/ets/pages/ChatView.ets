@@ -37,6 +37,7 @@ import { openUserProfile, openVideoPlayer, takeChatIntent, openPostDetail } from
 import { getMainNavStack, PostDetailNavParams, UserProfileNavParams } from '../utils/navigationTransition';
 import { openExternalUrl } from '../utils/openExternal';
 import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit';
+import { requestSystemBarRefresh } from '../utils/systemBar';
 import type {
   HdsNavigationTitleBarOptions,
   TitleBarContentOptions,
@@ -126,7 +127,26 @@ export struct ChatView {
   // 内容级底部安全内边距（三键避让与手势指示条取大，见 utils/navMode.ets）：
   // 输入栏避让取此单一响应源；手势下不会落进指示条触发区（AGC 导航栏审核项）。
   @StorageLink('bottomBarInsetVp') bottomBarInsetVp: number = 0;
+  // 状态栏高度（Index 启动时写入 AppStorage）：穿底让位用
+  @StorageProp('statusBarHeight') statusBarHeight: number = 0;
+  // 模糊出图开关（IMMERSIVE 变体的 blurRadius 门控，绝对偏移驱动——§36 同款）
+  @State chatBarScrolled: boolean = false;
   private listScroller: Scroller = new Scroller();
+  // 穿底让位：状态栏 + 56vp 标题行（enableComponentSafeArea:false 后自管）
+  private chatListInset(): number {
+    return this.statusBarHeight + 56;
+  }
+  // 滚动状态 → 模糊出图开关（绝对偏移>0，IMMERSIVE 变体门控）+ 系统栏内容色补设（竞速）
+  private onChatScroll(): void {
+    const offset: number = this.listScroller?.currentOffset()?.yOffset ?? 0;
+    const scrolled: boolean = offset > 0;
+    if (scrolled !== this.chatBarScrolled) {
+      this.chatBarScrolled = scrolled;
+    }
+    if (offset <= 0) {
+      requestSystemBarRefresh();
+    }
+  }
   // HdsNavigation 独立导航栈（仅本页顶栏宿主使用；跳用户主页/帖子详情仍走 getMainNavStack）
   private chatNavStack: NavPathStack = new NavPathStack();
   private originalKeyboardMode: KeyboardAvoidMode | null = null;
@@ -1316,7 +1336,14 @@ export struct ChatView {
     const style: TitleBarStyleOptions = {
       scrollEffectOpts: scrollEffect,
       originalStyle: {
-        backgroundStyle: { backgroundColor: Color.Transparent },
+        // blurRadius 是 IMMERSIVE 变体的模糊出图开关（基准 §36：不设则全页无磨砂，
+        // 消息锐利透出——2026-10-25 实测），由 chatBarScrolled（绝对偏移>0）门控；
+        // maskExtraHeight 0 = 磨砂正好停在栏底
+        backgroundStyle: {
+          backgroundColor: Color.Transparent,
+          blurRadius: this.chatBarScrolled ? 50 : 0,
+          maskExtraHeight: 0,
+        },
         contentStyle: contentStyle,
       },
       scrollEffectStyle: { contentStyle: contentStyle },
@@ -1341,7 +1368,9 @@ export struct ChatView {
       content: content,
       style: style,
       avoidLayoutSafeArea: true,
-      enableComponentSafeArea: true,
+      // 穿底（复用「我的」页三件套，2026-10-25 序位②）：内容从窗口原点起算，
+      // 让位由消息 Column 的 top padding（chatListInset）承担
+      enableComponentSafeArea: false,
     };
     return options;
   }
@@ -1454,7 +1483,7 @@ export struct ChatView {
             )
           }
           .width('100%')
-          .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+          .padding({ left: 12, right: 12, top: 8 + this.chatListInset(), bottom: 8 })
           .onAreaChange((_old: Area, area: Area) => {
             // 记录消息内容高度，供 scrollToBottom 判断是否需要滚动（不足一屏保持顶部）
             this.msgContentHeight = area.height as number;
@@ -1468,6 +1497,9 @@ export struct ChatView {
         .height('100%')
         // 穿底绘制链路（HDS 顶栏）：不裁切，消息向上滚动时画到标题栏下方被渐变模糊采样
         .clip(false)
+        // 滚回顶部时触发系统栏内容色补设（HDS 回弹回写竞速，utils/systemBar.ets）
+        .onDidScroll((): void => { this.onChatScroll(); })
+        .onScrollStop((): void => { this.onChatScroll(); })
         .align(Alignment.TopStart);
       }
 
