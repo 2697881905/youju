@@ -8,7 +8,7 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
-import { Pressable } from '../design/motion/Pressable';
+import { IconButton } from '../design/components/IconButton';
 
 @CustomDialog
 export struct FolderNameDialog {
@@ -46,16 +46,7 @@ export struct FolderNameDialog {
             .lineHeight(TypeTokens.headline.lineHeight)
             .fontColor(ColorTokens.primary)
             .layoutWeight(1)
-          Pressable({
-            visualHeight: IconTokens.compact,
-            touchTargetHeight: LayoutTokens.minTouchTarget,
-            action: (): void => { this.controller.close(); },
-          }) {
-            Image(resolveActionIcon('close'))
-              .width(IconTokens.compact)
-              .height(IconTokens.compact)
-              .fillColor(ColorTokens.icon)
-          }
+          IconButton({ icon: 'close', a11yText: '关闭', action: (): void => { this.controller.close(); } })
         }
         .width('100%')
         .alignItems(VerticalAlign.Center)

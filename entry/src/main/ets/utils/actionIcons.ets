@@ -32,6 +32,7 @@ const ACTION_ICONS: Map<string, Resource> = new Map<string, Resource>([
   ['phone', $r('app.media.device_phone')],
   ['book', $r('app.media.book_doc')],
   ['draftBox', $r('app.media.draft_box')],
+  ['trash', $r('app.media.set_trash')],
   ['check', $r('app.media.check_round')],
   // 分享类型按钮
   ['shareWechat', $r('app.media.share_wechat')],

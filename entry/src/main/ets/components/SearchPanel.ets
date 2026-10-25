@@ -3,6 +3,7 @@ import { listSearchHistory, clearSearchHistory, listHotKeywords, listSearchSugge
 import { safeShowToast } from '../utils/toast';
 import { GlassPanel } from '../design/components/GlassPanel';
 import { Pressable } from '../design/motion/Pressable';
+import { IconButton } from '../design/components/IconButton';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
@@ -365,16 +366,7 @@ export struct SearchPanel {
                     .fontWeight(TypeTokens.headline.weight)
                     .fontColor(ColorTokens.primary)
                   Blank()
-                  Pressable({
-                    visualHeight: LayoutTokens.segmentedHeight,
-                    touchTargetHeight: LayoutTokens.minTouchTarget,
-                    action: (): void => { this.clearHistory(); },
-                  }) {
-                    Image($r('app.media.set_trash'))
-                      .width(IconTokens.compact)
-                      .height(IconTokens.compact)
-                      .fillColor(ColorTokens.icon)
-                  }
+                  IconButton({ icon: 'trash', a11yText: '清空搜索历史', action: (): void => { this.clearHistory(); } })
                 }
                 .width('100%')
                 // 换行容器：胶囊按实测宽度流式断行 —— 固定「每行 3 个」时长词整行溢出、短词留大片空白

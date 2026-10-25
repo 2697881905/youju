@@ -6,13 +6,11 @@
 // 未开通时地图区域空白但城市列表/索引选城不受影响（降级路径天然存在）。
 import { MapComponent, mapCommon, map } from '@kit.MapKit';
 import { CitySummary } from '../services/api';
-import { Pressable } from '../design/motion/Pressable';
+import { IconButton } from '../design/components/IconButton';
 import { ColorTokens } from '../design/tokens/color';
-import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
 import { SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
-import { resolveActionIcon } from '../utils/actionIcons';
 
 // 悬浮在浅色地图上的操作件墨色：固定深色，不随深浅模式翻转（浅玻璃底 + 白字不可读）
 const MAP_OVERLAY_INK: string = '#2B2B2B';
@@ -82,25 +80,8 @@ export struct MapCityPicker {
           .borderRadius(RadiusTokens.pill)
           .alignSelf(ItemAlign.Start)
         Blank()
-        Pressable({
-          visualHeight: 36,
-          touchTargetHeight: 44,
-          action: (): void => { this.onClose(); },
-        }) {
-          // 关闭走全应用统一 close 图标（close_x），玻璃珠承载（同提示 chip 表面）
-          Row() {
-            Image(resolveActionIcon('close'))
-              .width(IconTokens.compact)
-              .height(IconTokens.compact)
-              .fillColor(MAP_OVERLAY_INK)
-          }
-          .width(36)
-          .height(36)
-          .justifyContent(FlexAlign.Center)
-          .backgroundColor(ColorTokens.glassWhite)
-          .borderRadius(RadiusTokens.pill)
-          .accessibilityText('关闭')
-        }
+        // 关闭珠走 IconButton bead 档（浅玻璃珠 + 固定深墨，配方收在模板内）
+        IconButton({ icon: 'close', bead: true, a11yText: '关闭', action: (): void => { this.onClose(); } })
       }
       .width('100%')
       .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: this.statusBarHeight + SpaceTokens.base })

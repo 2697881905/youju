@@ -20,12 +20,12 @@
 // valueColors 双色（brand = 实际值 / sunken = 余量），不是手绘进度条。
 import { resolveActionIcon } from '../utils/actionIcons';
 import { ColorTokens } from '../design/tokens/color';
-import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
-import { Pressable } from '../design/motion/Pressable';
+import { IconButton } from '../design/components/IconButton';
+import { SoftChip } from '../design/components/SoftChip';
 import { formatCount } from '../utils/format';
 import { PostStats } from '../services/api';
 
@@ -149,16 +149,7 @@ export struct PostStatsDialog {
           }
           .layoutWeight(1)
           .alignItems(HorizontalAlign.Start)
-          Pressable({
-            visualHeight: IconTokens.compact,
-            touchTargetHeight: LayoutTokens.minTouchTarget,
-            action: (): void => { this.onClose(); },
-          }) {
-            Image(resolveActionIcon('close'))
-              .width(IconTokens.compact)
-              .height(IconTokens.compact)
-              .fillColor(ColorTokens.icon)
-          }
+          IconButton({ icon: 'close', a11yText: '关闭', action: (): void => { this.onClose(); } })
         }
         .width('100%')
         .alignItems(VerticalAlign.Center)
@@ -228,19 +219,11 @@ export struct PostStatsDialog {
               .fontColor(ColorTokens.secondary)
               .textAlign(TextAlign.Center)
             if (this.error !== '') {
-              Pressable({
-                visualHeight: 30,
-                touchTargetHeight: LayoutTokens.minTouchTarget,
+              SoftChip({
+                label: '重试',
+                tone: 'brand',
                 action: (): void => { this.onRetry(); },
-              }) {
-                Text('重试')
-                  .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-                  .fontWeight(TypeTokens.headline.weight)
-                  .fontColor(ColorTokens.onBrand)
-                  .backgroundColor(ColorTokens.brand)
-                  .borderRadius(RadiusTokens.pill)
-                  .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: 6, bottom: 6 })
-              }
+              })
             }
           }
           .width('100%')

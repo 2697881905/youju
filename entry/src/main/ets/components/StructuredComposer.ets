@@ -33,6 +33,8 @@ import {
 import { structuredSummaryFromDocument } from '../utils/structuredBlocks';
 import { StructuredSummaryCard } from './StructuredSummaryCard';
 import { Collapse } from '../design/motion/Collapse';
+import { ToggleChip } from '../design/components/ToggleChip';
+import { SoftChip } from '../design/components/SoftChip';
 import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
@@ -171,17 +173,8 @@ export struct StructuredComposer {
   }
 
   @Builder
-  private miniAction(label: string, action: () => void, selected: boolean = false): void {    Pressable({ visualHeight: 28, touchTargetHeight: LayoutTokens.minTouchTarget, action: action }) {
-      Text(label)
-        .fontSize(TypeTokens.overline.size)
-        .fontFamily(TypeTokens.fontFamily)
-        .fontWeight(selected ? 600 : 450)
-        // 选中态：tint 底 + 墨字（brand 字压 brandTint 深色 3.58:1，11px 不达 AA），加粗负责区分主次
-        .fontColor(selected ? ColorTokens.primary : ColorTokens.secondary)
-        .backgroundColor(selected ? ColorTokens.brandTint : ColorTokens.elevated)
-        .borderRadius(RadiusTokens.pill)
-        .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: 6, bottom: 6 })
-    }
+  private miniAction(label: string, action: () => void, selected: boolean = false): void {
+    ToggleChip({ label: label, selected: selected, action: action })
   }
 
   @Builder
@@ -608,22 +601,16 @@ export struct StructuredComposer {
         .fontColor(ColorTokens.secondary)
       Flex({ direction: FlexDirection.Row, wrap: FlexWrap.Wrap }) {
         ForEach(this.availableBlockTypes(), (type: StructuredBlockType) => {
-          Pressable({
-            visualHeight: 36,
-            touchTargetHeight: LayoutTokens.minTouchTarget,
-            disabled: this.document.blocks.length >= 8,
-            action: (): void => { this.onDocumentChange(addStructuredBlock(this.document, type)); },
-          }) {
-            Text('+ ' + structuredBlockTypeLabel(type))
-              .fontSize(TypeTokens.callout.size)
-              .fontFamily(TypeTokens.fontFamily)
-              .fontColor(this.document.blocks.length >= 8 ? ColorTokens.quaternary : ColorTokens.primary)
-              .backgroundColor(ColorTokens.elevated)
-              .borderRadius(RadiusTokens.pill)
-              .border({ width: LayoutTokens.hairlineWidth, color: ColorTokens.separator, style: BorderStyle.Solid })
-              .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: 8, bottom: 8 })
-              .margin({ right: SpaceTokens.sm, bottom: SpaceTokens.sm })
+          Column() {
+            SoftChip({
+              label: '+ ' + structuredBlockTypeLabel(type),
+              tone: 'neutral',
+              visualHeight: 36,
+              disabled: this.document.blocks.length >= 8,
+              action: (): void => { this.onDocumentChange(addStructuredBlock(this.document, type)); },
+            })
           }
+          .margin({ right: SpaceTokens.sm, bottom: SpaceTokens.sm })
         }, (type: StructuredBlockType) => type)
       }
       .width('100%')

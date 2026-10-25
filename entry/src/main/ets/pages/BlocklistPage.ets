@@ -12,6 +12,7 @@ import { Avatar } from '../design/components/Avatar';
 import { EmptyState } from '../design/components/EmptyState';
 import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
+import { SoftChip } from '../design/components/SoftChip';
 import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
@@ -19,7 +20,6 @@ import { TypeTokens } from '../design/tokens/type';
 import { getUserId } from '../utils/auth';
 
 // 危险操作按钮底色：ds_danger(#FF3B30) 的 ~10% 透明度，与 ds_brand_tint 同 alpha 约定
-const DANGER_TINT: string = '#1AFF3B30';
 
 @Entry
 @Component
@@ -171,23 +171,12 @@ export struct BlocklistPage {
                   .alignItems(HorizontalAlign.Start)
                   .layoutWeight(1)
 
-                  // 取消拉黑（危险操作，danger 药丸按钮）
-                  Pressable({
-                    visualHeight: 30,
-                    touchTargetHeight: LayoutTokens.minTouchTarget,
+                  // 取消拉黑（危险动作）走 SoftChip danger 档（tint 底 + danger 字全应用统一）
+                  SoftChip({
+                    label: '取消拉黑',
+                    tone: 'danger',
                     action: (): void => { this.onUnblock(user); },
-                  }) {
-                    Text('取消拉黑')
-                      .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-                      .fontWeight(TypeTokens.callout.weight)
-                      .lineHeight(TypeTokens.caption.lineHeight)
-                      .fontColor(ColorTokens.danger)
-                      .height(30)
-                      .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
-                      .textAlign(TextAlign.Center)
-                      .backgroundColor(DANGER_TINT)
-                      .borderRadius(RadiusTokens.pill)
-                  }
+                  })
                 }
                 .width('100%')
                 .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: SpaceTokens.sm, bottom: SpaceTokens.sm })

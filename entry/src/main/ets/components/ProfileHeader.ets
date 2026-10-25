@@ -1,18 +1,12 @@
 import { ProfileIdentity } from './ProfileIdentity';
 import { ProfileStatItem } from './ProfileStatItem';
-import { resolveActionIcon } from '../utils/actionIcons';
-import { Pressable } from '../design/motion/Pressable';
+import { GlassPillButton } from '../design/components/GlassPillButton';
 import { ColorTokens } from '../design/tokens/color';
-import { IconTokens } from '../design/tokens/icon';
-import { RadiusTokens } from '../design/tokens/radius';
-import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
-import { TypeTokens } from '../design/tokens/type';
-import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
+import { SpaceTokens } from '../design/tokens/space';
 
 // 个人资料区只负责呈现与操作意图；页面决定跳转、分享和数据加载等领域行为。
-// 本组件当前唯一宿主是 Navigation 标题栏（首页/我的顶栏迁入方案）——
-// 因此三处按钮（编辑资料 / 草稿箱 / 废纸篓）直接挂系统材质（uiMaterial 沉浸光感，
-// 仅标题栏等官方生效区域会渲染；低版本设备门禁不通过时保留原玻璃/描边样式）。
+// 三颗按钮（编辑资料 / 草稿箱 / 废纸篓）统一走 GlassPillButton 模板（useSystemMaterial=false：
+// 本组件宿主在内容区，材质渲染不出图，玻璃兜底配方收在模板内部，见基准 §7.6.26）。
 @Component
 export struct ProfileHeader {
   @Prop avatar: string = '';
@@ -60,109 +54,38 @@ export struct ProfileHeader {
         })
         ProfileStatItem({ value: this.totalLikes, label: '获赞', onBackground: this.onBackground })
         Blank().layoutWeight(1)
-        Pressable({
-          visualHeight: LayoutTokens.segmentedHeight,
-          touchTargetHeight: LayoutTokens.minTouchTarget,
+        GlassPillButton({
+          label: this.isLoggedIn ? '编辑资料' : '去登录',
+          highlight: !this.isLoggedIn,
           action: (): void => { this.isLoggedIn ? this.onEdit() : this.onLogin(); },
-        }) {
-          Text(this.isLoggedIn ? '编辑资料' : '去登录')
-            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-            .fontWeight(TypeTokens.headline.weight)
-            .lineHeight(TypeTokens.caption.lineHeight)
-            // 未登录态底是 brandTint：12px 蓝字压 tint 深色只 3.58:1，压深一档到 brandPress（4.56:1 起）
-            .fontColor(this.isLoggedIn ? ColorTokens.primary : ColorTokens.brandPress)
-            .width(76)
-            .height(LayoutTokens.segmentedHeight)
-            .textAlign(TextAlign.Center)
-            // 这三颗在**内容区**（资料卡已是列表的一项），拿不到栏级系统材质：
-            // 真机实测原先押 systemMaterial 时胶囊内部纹理与外部一样锐利 —— 材质根本没出图，
-            // 按钮退化成「只剩一圈描边的透明壳」。改回常驻 backgroundBlurStyle + 阴影，
-            // 与底部 Dock 同一配方（模糊常驻、实色仅在系统材质不支持时兜底）。见基准 §7.6.26。
-            .backgroundBlurStyle(GlassBlurStyle.Press)
-            .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : (this.isLoggedIn ? ColorTokens.barSurface : ColorTokens.brandTint))
-            .border({ width: LayoutTokens.glassBorderWidth, color: this.isLoggedIn ? ColorTokens.barBorder : ColorTokens.brand, style: BorderStyle.Solid })
-            .borderRadius(RadiusTokens.floatingBar)
-            .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
-        }
+        })
       }
       .width('100%')
       .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, bottom: SpaceTokens.sm })
 
       if (this.isLoggedIn) {
         Row({ space: SpaceTokens.sm }) {
-        Column() {
-          Pressable({
-            fillWidth: true,
-            visualHeight: LayoutTokens.segmentedHeight,
-            touchTargetHeight: LayoutTokens.minTouchTarget,
-            action: (): void => { this.onOpenDrafts(); },
-          }) {
-            Row({ space: SpaceTokens.inlineTight }) {
-              Image(resolveActionIcon('draftBox'))
-                .width(IconTokens.compact)
-                .height(IconTokens.compact)
-                .fillColor(ColorTokens.icon)
-              Text('草稿箱')
-                .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-                .fontWeight(TypeTokens.headline.weight)
-                .lineHeight(TypeTokens.caption.lineHeight)
-                .fontColor(ColorTokens.primary)
-            }
-            .width('100%')
-            .height(LayoutTokens.segmentedHeight)
-            .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-            .alignItems(VerticalAlign.Center)
-            .justifyContent(FlexAlign.Center)
-            // 这三颗在**内容区**（资料卡已是列表的一项），拿不到栏级系统材质：
-            // 真机实测原先押 systemMaterial 时胶囊内部纹理与外部一样锐利 —— 材质根本没出图，
-            // 按钮退化成「只剩一圈描边的透明壳」。改回常驻 backgroundBlurStyle + 阴影，
-            // 与底部 Dock 同一配方（模糊常驻、实色仅在系统材质不支持时兜底）。见基准 §7.6.26。
-            .backgroundBlurStyle(GlassBlurStyle.Press)
-            .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
-            .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-            .borderRadius(RadiusTokens.floatingBar)
-            .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
+          Column() {
+            GlassPillButton({
+              label: '草稿箱',
+              icon: 'draftBox',
+              fillWidth: true,
+              action: (): void => { this.onOpenDrafts(); },
+            })
           }
-        }
-        .layoutWeight(1)
-        Column() {
-          Pressable({
-            fillWidth: true,
-            visualHeight: LayoutTokens.segmentedHeight,
-            touchTargetHeight: LayoutTokens.minTouchTarget,
-            action: (): void => { this.onOpenTrash(); },
-          }) {
-            Row({ space: SpaceTokens.inlineTight }) {
-              Image($r('app.media.set_trash'))
-                .width(IconTokens.compact)
-                .height(IconTokens.compact)
-                .fillColor(ColorTokens.icon)
-              Text('废纸篓')
-                .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-                .fontWeight(TypeTokens.headline.weight)
-                .lineHeight(TypeTokens.caption.lineHeight)
-                .fontColor(ColorTokens.primary)
-            }
-            .width('100%')
-            .height(LayoutTokens.segmentedHeight)
-            .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-            .alignItems(VerticalAlign.Center)
-            .justifyContent(FlexAlign.Center)
-            // 这三颗在**内容区**（资料卡已是列表的一项），拿不到栏级系统材质：
-            // 真机实测原先押 systemMaterial 时胶囊内部纹理与外部一样锐利 —— 材质根本没出图，
-            // 按钮退化成「只剩一圈描边的透明壳」。改回常驻 backgroundBlurStyle + 阴影，
-            // 与底部 Dock 同一配方（模糊常驻、实色仅在系统材质不支持时兜底）。见基准 §7.6.26。
-            .backgroundBlurStyle(GlassBlurStyle.Press)
-            .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
-            .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-            .borderRadius(RadiusTokens.floatingBar)
-            .shadow({ radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
+          .layoutWeight(1)
+          Column() {
+            GlassPillButton({
+              label: '废纸篓',
+              icon: 'trash',
+              fillWidth: true,
+              action: (): void => { this.onOpenTrash(); },
+            })
           }
+          .layoutWeight(1)
         }
-        .layoutWeight(1)
-      }
-      .width('100%')
-      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, bottom: SpaceTokens.xs })
+        .width('100%')
+        .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, bottom: SpaceTokens.xs })
       }
     }
     .width('100%')

@@ -1,5 +1,6 @@
 import { TagIcon } from './TagIcon';
 import { Pressable } from '../design/motion/Pressable';
+import { IconButton } from '../design/components/IconButton';
 import { SpringPanel } from '../design/motion/SpringPanel';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { ColorTokens } from '../design/tokens/color';
@@ -82,16 +83,7 @@ export struct JoinedCirclesDialog {
           }
           .layoutWeight(1)
           .alignItems(HorizontalAlign.Start)
-          Pressable({
-            visualHeight: IconTokens.compact,
-            touchTargetHeight: LayoutTokens.minTouchTarget,
-            action: (): void => { this.controller.close(); },
-          }) {
-            Image(resolveActionIcon('close'))
-              .width(IconTokens.compact)
-              .height(IconTokens.compact)
-              .fillColor(ColorTokens.icon)
-          }
+          IconButton({ icon: 'close', a11yText: '关闭', action: (): void => { this.controller.close(); } })
         }
         .width('100%')
         .alignItems(VerticalAlign.Center)

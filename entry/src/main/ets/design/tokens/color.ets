@@ -48,6 +48,9 @@ export class ColorTokens {
   // danger 实色底上的文字（未读数徽标 / 系统 Badge）：浅色白字 5.44:1 达标；
   // 深色 #FF453A 是亮底，白字只有 3.41:1（11–12px 小字不达 AA），必须压 #121212 墨字 = 5.50:1。
   static readonly onDanger: ResourceColor = $r('app.color.ds_on_danger');
+  // 危险按钮的 tint 底（SoftChip danger 档「取消拉黑」同款）：10% danger 红。
+  // 危险动作用 tint 底 + danger 字而非实色 danger 底——示警不抢层级
+  static readonly dangerTint: ResourceColor = '#1AFF3B30';
   static readonly like: ResourceColor = $r('app.color.ds_like');
   static readonly bookmark: ResourceColor = $r('app.color.ds_bookmark');
   static readonly separator: ResourceColor = $r('app.color.ds_separator');

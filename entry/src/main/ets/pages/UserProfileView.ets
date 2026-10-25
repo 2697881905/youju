@@ -15,12 +15,12 @@ import { buildPageTransition } from '../utils/styles';
 import { ColorTokens } from '../design/tokens/color';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { RadiusTokens } from '../design/tokens/radius';
-import { ShadowTokens } from '../design/tokens/shadow';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { TypeTokens } from '../design/tokens/type';
 import { BackButton } from '../design/components/BackButton';
+import { DesignButton } from '../design/components/DesignButton';
+import { GlassPillButton } from '../design/components/GlassPillButton';
 import { PostCollectionState } from '../components/PostCollectionState';
-import { isImmersiveLightSenseSupported, isSystemMaterialActive, GlassBlurStyle, TopButtonMaterialModifier } from '../utils/immersiveMaterial';
 
 // 关注态局部补丁（乐观更新时只传要改的字段）
 interface ProfileFollowPatch {
@@ -68,7 +68,6 @@ export struct UserProfileView {
   // 标题栏（导航行 + 资料区）驻留 Navigation 标题栏后：资料区高度实测回写（内容驱动，
   // 首帧用与 Builder 同源的估算兜底，见教程模板 E）；关注/私信按钮由系统材质接管表面。
   @State titleBarProfileHeight: number = 0;
-  private followActionMaterial: TopButtonMaterialModifier = new TopButtonMaterialModifier();
   private profileEntranceTimer: number = 0;
   private followPulseTimer: number = 0;
   // 订阅帖子删除事件：该作者帖子被删除后，本页网格即时移除（不依赖刷新/重进）
@@ -593,57 +592,27 @@ export struct UserProfileView {
 
       if (!this.profile.deleted && !this.isSelf()) {
         Row({ space: SpaceTokens.sm }) {
+          // 关注/私信走 GlassPillButton 模板（useSystemMaterial=true：驻留标题栏材质能出图，
+          // 让位守卫收在模板内）；关注成功的 spring 脉冲由 successPulse 承接
           Column() {
-          Pressable({
-            disabled: this.followPending,
-            fillWidth: true,
-            visualHeight: LayoutTokens.segmentedHeight,
-            touchTargetHeight: LayoutTokens.minTouchTarget,
-            action: (): void => { this.onFollowClick(); },
-          }) {
-            Text(this.followPending ? '处理中' : this.followBtnText())
-              .width('100%')
-              .height(LayoutTokens.segmentedHeight)
-              .textAlign(TextAlign.Center)
-              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-              .fontWeight(TypeTokens.headline.weight)
-              .fontColor(this.profile.isFollowing ? ColorTokens.secondary : ColorTokens.primary)
-              // 沉浸光感（驻留标题栏后）：材质生效时自绘让位——blur 置 NONE（背景模糊遮挡
-              // 材质，官方 FAQ）、描边/阴影归零（否则实心毛玻璃/双圈描边/脏阴影），系统材质
-              // 接管表面；低版本门禁不通过 → 保留原 HDS 玻璃兜底（blur + barSurface + 描边）
-              .backgroundBlurStyle(isSystemMaterialActive() ? BlurStyle.NONE : GlassBlurStyle.Press)
-              .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
-              .border({ width: isSystemMaterialActive() ? 0 : LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-              .borderRadius(RadiusTokens.floatingBar)
-              .shadow(isSystemMaterialActive() ? ShadowTokens.none : { radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
-              .attributeModifier(this.followActionMaterial)
-              .scale({ x: this.followPulse ? MotionTokens.successScale : 1, y: this.followPulse ? MotionTokens.successScale : 1 })
-              .animation({ duration: MotionTokens.emphasis, curve: MotionCurves.springSoft });
-          }
+            GlassPillButton({
+              label: this.followPending ? '处理中' : this.followBtnText(),
+              fillWidth: true,
+              disabled: this.followPending,
+              muted: this.profile.isFollowing,
+              successPulse: this.followPulse,
+              useSystemMaterial: true,
+              action: (): void => { this.onFollowClick(); },
+            })
           }
           .layoutWeight(1)
           Column() {
-          Pressable({
-            fillWidth: true,
-            visualHeight: LayoutTokens.segmentedHeight,
-            touchTargetHeight: LayoutTokens.minTouchTarget,
-            action: (): void => { this.onMessageClick(); },
-          }) {
-            Text('私信')
-              .width('100%')
-              .height(LayoutTokens.segmentedHeight)
-              .textAlign(TextAlign.Center)
-              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-              .fontWeight(TypeTokens.headline.weight)
-              .fontColor(ColorTokens.primary)
-              // 与关注按钮同一套材质让位规则（见上方注释）
-              .backgroundBlurStyle(isSystemMaterialActive() ? BlurStyle.NONE : GlassBlurStyle.Press)
-              .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
-              .border({ width: isSystemMaterialActive() ? 0 : LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-              .borderRadius(RadiusTokens.floatingBar)
-              .shadow(isSystemMaterialActive() ? ShadowTokens.none : { radius: 12, color: ColorTokens.barShadow, offsetY: 4 })
-              .attributeModifier(this.followActionMaterial);
-          }
+            GlassPillButton({
+              label: '私信',
+              fillWidth: true,
+              useSystemMaterial: true,
+              action: (): void => { this.onMessageClick(); },
+            })
           }
           .layoutWeight(1)
         }
@@ -707,10 +676,8 @@ export struct UserProfileView {
             .fontColor($r('app.color.text_secondary'))
             .textAlign(TextAlign.Center)
             .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
-          Pressable({
-            fillWidth: false,
-            visualHeight: LayoutTokens.segmentedHeight,
-            touchTargetHeight: LayoutTokens.minTouchTarget,
+          GlassPillButton({
+            label: '去登录',
             action: (): void => {
               const stack = getMainNavStack();
               if (this.navMode && stack !== null) {
@@ -719,20 +686,7 @@ export struct UserProfileView {
                 this.getUIContext().getRouter().pushUrl({ url: 'pages/LoginPage' });
               }
             },
-          }) {
-            Text('去登录')
-              .width(120)
-              .height(LayoutTokens.segmentedHeight)
-              .textAlign(TextAlign.Center)
-              .fontSize(TypeTokens.callout.size)
-              .fontFamily(TypeTokens.fontFamily)
-              .fontWeight(TypeTokens.headline.weight)
-              .fontColor(ColorTokens.primary)
-              .backgroundBlurStyle(GlassBlurStyle.Press)
-              .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : ColorTokens.barSurface)
-              .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-              .borderRadius(RadiusTokens.floatingBar);
-          }
+          })
         }
         .layoutWeight(1)
         .width('100%')
@@ -747,23 +701,11 @@ export struct UserProfileView {
             .fontColor($r('app.color.text_secondary'))
             .textAlign(TextAlign.Center)
             .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
-          Pressable({
-            fillWidth: false,
-            visualHeight: LayoutTokens.segmentedHeight,
-            touchTargetHeight: LayoutTokens.minTouchTarget,
+          DesignButton({
+            label: '返回',
+            variant: 'outlined',
             action: (): void => { this.backAction(); },
-          }) {
-            Text('返回')
-              .width(120)
-              .height(LayoutTokens.segmentedHeight)
-              .textAlign(TextAlign.Center)
-              .fontSize(TypeTokens.callout.size)
-              .fontFamily(TypeTokens.fontFamily)
-              .fontWeight(TypeTokens.headline.weight)
-              .fontColor(ColorTokens.primary)
-              .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
-              .borderRadius(RadiusTokens.lg);
-          }
+          })
         }
         .layoutWeight(1)
         .width('100%')
