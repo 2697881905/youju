@@ -13,7 +13,22 @@ import { EmptyState } from '../design/components/EmptyState';
 import { SegmentedItem } from '../design/components/SegmentedControl';
 import { SegmentedControl } from '../design/components/SegmentedControl';
 import { isSystemMaterialActive } from '../utils/immersiveMaterial';
-import { BackButton } from '../design/components/BackButton';
+import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit';
+import type {
+  HdsNavigationTitleBarOptions,
+  TitleBarContentOptions,
+  TitleBarStyleOptions,
+  ScrollEffectOptions,
+  HdsTitleBarContentStyle,
+  HdsNavigationIconItemStyle,
+  HdsNavigationIconOptions,
+  HdsNavigationBackButtonItemOptions,
+  SystemMaterialParams,
+} from '@kit.UIDesignKit';
+import { LengthMetrics } from '@kit.ArkUI';
+import { isImmersiveLightSenseSupported, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
+import { requestSystemBarRefresh } from '../utils/systemBar';
+import { resolveActionIcon } from '../utils/actionIcons';
 import { Pressable } from '../design/motion/Pressable';
 import { Reveal } from '../design/motion/Reveal';
 import { ColorTokens } from '../design/tokens/color';
@@ -54,6 +69,10 @@ export struct CircleDetailView {
   // 标题栏（导航行 + 圈子信息行 + 最新/热门分段栏与加入圈子按钮）驻留 Navigation 标题栏 ——
   // uiMaterial 沉浸光感的官方生效区域；栏高由内容实测回写（首帧用估算兜底）。
   @State titleBarContentHeight: number = 0;
+  // 模糊出图开关（IMMERSIVE 变体门控，绝对偏移驱动）
+  @State circleBarScrolled: boolean = false;
+  // 帖子网格滚动源（bindToScrollable 驱动渐变模糊）
+  private gridScroller: Scroller = new Scroller();
   private listVersion: number = 0;
 
   // 统一返回入口：Navigation 壳走 onBack（navStack.pop），router 壳走普通返回
@@ -232,29 +251,75 @@ export struct CircleDetailView {
     return this.titleBarContentHeight > 0 ? this.titleBarContentHeight : this.circleTitleBarEstimate();
   }
 
-  // 标题栏：原页头整体驻留于此（导航行 + 圈子信息行 + 最新/热门分段栏与加入圈子按钮）。
-  // 全屏沉浸式布局下标题栏不代为避让状态栏：由本 Builder 手动下移（与首页/搜索页标题栏同一写法）。
+  // 滚动态 → 模糊出图开关 + 系统栏补设（绝对偏移，§36/竞速同款）
+  private syncCircleScroll(): void {
+    const offset: number = this.gridScroller?.currentOffset()?.yOffset ?? 0;
+    const scrolled: boolean = offset > 0;
+    if (scrolled !== this.circleBarScrolled) {
+      this.circleBarScrolled = scrolled;
+    }
+    if (offset <= 0) {
+      requestSystemBarRefresh();
+    }
+  }
+
+  // 穿底让位：状态栏 + stackBuilder 实测高（enableComponentSafeArea:false 后自管）
+  private circleListInset(): number {
+    return this.statusBarHeight + this.circleTitleBarHeight();
+  }
+
+  // HdsNavigation 标题栏配置（详情页同款配方）
+  private circleTitleBarOptions(): HdsNavigationTitleBarOptions {
+    const immersive: boolean = isImmersiveLightSenseSupported();
+    const scrollEffect: ScrollEffectOptions = {
+      enableScrollEffect: true,
+      scrollEffectType: immersive ? ScrollEffectType.IMMERSIVE_GRADIENT_BLUR : ScrollEffectType.GRADIENT_BLUR,
+      blurEffectiveStartOffset: LengthMetrics.vp(0),
+      blurEffectiveEndOffset: LengthMetrics.vp(32),
+    };
+    const style: TitleBarStyleOptions = {
+      scrollEffectOpts: scrollEffect,
+      originalStyle: {
+        backgroundStyle: {
+          backgroundColor: Color.Transparent,
+          blurRadius: this.circleBarScrolled ? 50 : 0,
+          maskExtraHeight: 0,
+        },
+        contentStyle: {
+          backIconStyle: { iconColor: ColorTokens.primary } as HdsNavigationIconItemStyle,
+        } as HdsTitleBarContentStyle,
+      },
+    };
+    if (immersive) {
+      style.systemMaterialEffect = {
+        materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
+        materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE,
+      } as SystemMaterialParams;
+    }
+    const backContent: HdsNavigationIconOptions = {
+      icon: resolveActionIcon('back'),
+      label: '返回',
+      action: (): void => { this.backAction(); },
+    };
+    const backIcon: HdsNavigationBackButtonItemOptions = backContent;
+    const content: TitleBarContentOptions = {
+      stackBuilder: (): void => { this.circleStackContent(); },
+      backIcon: backIcon,
+    };
+    return {
+      content: content,
+      style: style,
+      avoidLayoutSafeArea: true,
+      enableComponentSafeArea: false,
+    };
+  }
+
+  // 标题栏（穿底三件套·消息页路线 B 模板，序位③）：官方返回键 + 多行 stackBuilder
+  //（圈子信息行 + 最新/热门分段行与加入按钮）。原居中「圈子」导航行随 BackButton 一并退役
+  //——信息行已承载身份。高度由 onAreaChange 实测（titleBarContentHeight），内容让位量共用它。
   @Builder
-  circleTitleBar(): void {
+  circleStackContent(): void {
     Column() {
-      Row() {
-        BackButton({ action: (): void => { this.backAction(); } })
-
-        Blank()
-        Text('圈子')
-          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.title.weight)
-          .lineHeight(TypeTokens.title.lineHeight)
-          .fontColor(ColorTokens.primary)
-        Blank()
-        Text('')
-          .width(LayoutTokens.minTouchTarget)
-          .height(LayoutTokens.minTouchTarget)
-      }
-      .width('100%')
-      .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: SpaceTokens.md, bottom: SpaceTokens.sm })
-      .alignItems(VerticalAlign.Center)
-
       Row({ space: SpaceTokens.item }) {
         TagIcon({ name: this.circleName, iconSize: IconTokens.avatarProfile + 2, tint: ColorTokens.brand })
           .width(IconTokens.avatarProfile)
@@ -278,7 +343,7 @@ export struct CircleDetailView {
         .layoutWeight(1)
       }
       .width('100%')
-      .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: SpaceTokens.sm, bottom: SpaceTokens.item })
+      .padding({ left: SpaceTokens.sm, right: SpaceTokens.pageCompact, top: SpaceTokens.sm, bottom: SpaceTokens.item })
 
       Row() {
         // 排序分段（回迁 1.0.1 自绘样式）：标题栏生效区内系统材质接管表面
@@ -313,8 +378,9 @@ export struct CircleDetailView {
       .alignItems(VerticalAlign.Center)
     }
     .width('100%')
-    // 手动避让状态栏（含在栏高内），实测高度供 .title({ height }) 使用
-    .padding({ top: this.statusBarHeight })
+    // ⚠️ 左内缩 64vp 让开官方返回键（stackBuilder 行是返回键 Button 的后兄弟、z 序更高，
+    // 全宽可点会吃掉返回键——防漂移 31）
+    .padding({ left: 64, top: SpaceTokens.xs, bottom: SpaceTokens.sm })
     .onAreaChange((_old: Area, area: Area): void => {
       const h: number = parseFloat(String(area.height));
       if (h > 0 && Math.abs(h - this.titleBarContentHeight) > 0.5) {
@@ -335,7 +401,7 @@ export struct CircleDetailView {
   }
 
   build() {
-    Navigation() {
+    HdsNavigation() {
       Column() {
         if (this.posts.length === 0 && this.loading) {
           Column({ space: SpaceTokens.item }) {
@@ -363,7 +429,7 @@ export struct CircleDetailView {
         } else {
           // refreshing 走 $$ 双向绑定，置位交给组件内部状态机；勿在 onRefreshing 里手动置 true（见 HomeTab.ets:831）
           Refresh({ refreshing: $$this.refreshing, builder: this.refreshBuilder }) {
-            Grid() {
+            Grid(this.gridScroller) {
               ForEach(this.posts, (post: Post, index: number) => {
                 GridItem() {
                   Reveal({ index: index % 5 }) {
@@ -386,10 +452,12 @@ export struct CircleDetailView {
               }
             }
             .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+            .onDidScroll((): void => { this.syncCircleScroll(); })
+            .onScrollStop((): void => { this.syncCircleScroll(); })
             .columnsTemplate(this.gridTemplate)
             .columnsGap(GRID_GAP)
             .rowsGap(GRID_GAP)
-            .padding({ left: GRID_PADDING, right: GRID_PADDING, top: GRID_PADDING, bottom: GRID_PADDING })
+            .padding({ left: GRID_PADDING, right: GRID_PADDING, top: GRID_PADDING + this.circleListInset(), bottom: GRID_PADDING })
             .onScrollIndex((_start: number, end: number) => {
               if (end >= this.posts.length - 1) {
                 this.loadMore();
@@ -408,11 +476,11 @@ export struct CircleDetailView {
       .backgroundColor(ColorTokens.canvas)
       .alignItems(HorizontalAlign.Start)
     }
-    .mode(NavigationMode.Stack)
-    .title({
-      builder: this.circleTitleBar,
-      height: this.circleTitleBarHeight(),
-    }, { barStyle: BarStyle.STANDARD, backgroundColor: ColorTokens.canvas })
+    .titleMode(HdsNavigationTitleMode.MINI)
+    .titleBar(this.circleTitleBarOptions())
+    // 滚动源绑定：帖子网格驱动栏体渐变模糊（§7.6.12）
+    .bindToScrollable([this.gridScroller])
+    .clip(false)
     .width('100%')
     .height('100%')
   }

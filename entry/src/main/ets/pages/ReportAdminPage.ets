@@ -19,7 +19,21 @@ import { resolveActionIcon } from '../utils/actionIcons';
 import { openPostDetail, openUserProfile } from '../utils/nav';
 import { bottomNavInset } from '../utils/cardTokens';
 import { Avatar } from '../design/components/Avatar';
-import { BackButton } from '../design/components/BackButton';
+import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit';
+import type {
+  HdsNavigationTitleBarOptions,
+  TitleBarContentOptions,
+  TitleBarStyleOptions,
+  ScrollEffectOptions,
+  HdsTitleBarContentStyle,
+  HdsNavigationIconItemStyle,
+  HdsNavigationIconOptions,
+  HdsNavigationBackButtonItemOptions,
+  SystemMaterialParams,
+} from '@kit.UIDesignKit';
+import { LengthMetrics } from '@kit.ArkUI';
+import { isImmersiveLightSenseSupported, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
+import { requestSystemBarRefresh } from '../utils/systemBar';
 import { BaseCard } from '../design/components/BaseCard';
 import { DesignButton } from '../design/components/DesignButton';
 import { EmptyState } from '../design/components/EmptyState';
@@ -333,6 +347,7 @@ struct ResolveReasonDialog {
 
   @State reason: string = '';
 
+
   build() {
     Column({ space: SpaceTokens.md }) {
       Text('成立理由')
@@ -410,6 +425,10 @@ export struct ReportAdminPage {
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
   // 标题栏内容实测高度（内容驱动）：到齐前用 titleBarEstimate() 兜底，避免首帧标题栏与内容错位
   @State titleBarContentHeight: number = 0;
+  // 模糊出图开关（IMMERSIVE 变体门控，绝对偏移驱动）
+  @State reportBarScrolled: boolean = false;
+  // 列表滚动源（bindToScrollable 驱动渐变模糊）
+  private reportScroller: Scroller = new Scroller();
   // 请求序号：过期响应整体丢弃（与 974f859 的 HomeTab 同方案）。
   // 旧实现用 `if (this.loading) return` 守卫，正在加载时点筛选会被静默吞掉。
   private fetchSeq: number = 0;
@@ -972,12 +991,12 @@ export struct ReportAdminPage {
   // 放内容区可以设置但不渲染，所以控件要先进标题栏才有资格挂材质。
   // 全屏沉浸布局下标题栏不代为避让状态栏：由本 Builder 手动下移（避让只此一处，
   // 内容区不再补 statusBarHeight），实测高度供 .title({ height }) 使用。
+  // 标题栏（穿底三件套·序位③）：官方返回键 + 多行 stackBuilder（标题+操作行、双分段行）
   @Builder
   pageTitleBar(): void {
     Column() {
-      // ① 导航行：返回 + 标题 + 操作按钮（刷新/删除，或选择态的取消/全选/删除选中）
+      // ① 导航行：标题 + 操作按钮（刷新/删除，或选择态的取消/全选/删除选中）；返回键交官方 backIcon
       Row() {
-        BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
         Blank()
         Text('举报中心')
           .fontSize(TypeTokens.title.size)
@@ -1000,7 +1019,8 @@ export struct ReportAdminPage {
       this.segBars()
     }
     .width('100%')
-    .padding({ top: this.statusBarHeight })
+    // ⚠️ 左内缩 64vp 让开官方返回键（stackBuilder 全宽可点行会吃掉返回键——防漂移 31）
+    .padding({ left: 64, top: SpaceTokens.xs })
     .onAreaChange((_old: Area, area: Area): void => {
       const h: number = parseFloat(String(area.height));
       if (h > 0 && Math.abs(h - this.titleBarContentHeight) > 0.5) {
@@ -1556,24 +1576,89 @@ export struct ReportAdminPage {
     }
   }
 
+
+  // 穿底让位：状态栏 + stackBuilder 实测高
+  private reportListInset(): number {
+    return this.statusBarHeight + this.titleBarHeight();
+  }
+
+  // 滚动态 → 模糊出图开关 + 系统栏补设（绝对偏移，§36/竞速同款）
+  private syncReportScroll(): void {
+    const offset: number = this.reportScroller?.currentOffset()?.yOffset ?? 0;
+    const scrolled: boolean = offset > 0;
+    if (scrolled !== this.reportBarScrolled) {
+      this.reportBarScrolled = scrolled;
+    }
+    if (offset <= 0) {
+      requestSystemBarRefresh();
+    }
+  }
+
+  // HdsNavigation 标题栏配置（详情页同款配方）
+  private reportTitleBarOptions(): HdsNavigationTitleBarOptions {
+    const immersive: boolean = isImmersiveLightSenseSupported();
+    const scrollEffect: ScrollEffectOptions = {
+      enableScrollEffect: true,
+      scrollEffectType: immersive ? ScrollEffectType.IMMERSIVE_GRADIENT_BLUR : ScrollEffectType.GRADIENT_BLUR,
+      blurEffectiveStartOffset: LengthMetrics.vp(0),
+      blurEffectiveEndOffset: LengthMetrics.vp(32),
+    };
+    const style: TitleBarStyleOptions = {
+      scrollEffectOpts: scrollEffect,
+      originalStyle: {
+        backgroundStyle: {
+          backgroundColor: Color.Transparent,
+          blurRadius: this.reportBarScrolled ? 50 : 0,
+          maskExtraHeight: 0,
+        },
+        contentStyle: {
+          backIconStyle: { iconColor: ColorTokens.primary } as HdsNavigationIconItemStyle,
+        } as HdsTitleBarContentStyle,
+      },
+    };
+    if (immersive) {
+      style.systemMaterialEffect = {
+        materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
+        materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE,
+      } as SystemMaterialParams;
+    }
+    const backContent: HdsNavigationIconOptions = {
+      icon: resolveActionIcon('back'),
+      label: '返回',
+      action: (): void => { this.getUIContext().getRouter().back(); },
+    };
+    const backIcon: HdsNavigationBackButtonItemOptions = backContent;
+    const content: TitleBarContentOptions = {
+      stackBuilder: (): void => { this.pageTitleBar(); },
+      backIcon: backIcon,
+    };
+    return {
+      content: content,
+      style: style,
+      avoidLayoutSafeArea: true,
+      enableComponentSafeArea: false,
+    };
+  }
+
   build() {
-    // 页面自带 Navigation（router 壳与 NavDestination 壳共用一份实现的同款写法）：
-    // 顶栏（导航行 + 两个分段栏）驻留标题栏，内容区只剩列表三态。
-    Navigation() {
+    // 穿底三件套（序位③）：HdsNavigation 顶栏驻留（导航行 + 两个分段栏），内容区只剩列表三态。
+    HdsNavigation() {
       Column() {
         // 三态与列表统一包在 Refresh + Scroll 里：空态 / 错误态也能下拉刷新。
         // 全屏沉浸壳内列表一律用 Scroll（List/WaterFlow/Grid 的滚动终点会被底部非安全区钳制）。
         Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
-          Scroll() {
+          Scroll(this.reportScroller) {
             Column() {
               this.stateArea()
             }
             .width('100%')
             .constraintSize({ minHeight: '100%' })
             .justifyContent(this.stateCentered() ? FlexAlign.Center : FlexAlign.Start)
-            .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, bottom: SpaceTokens.x2l })
+            .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: this.reportListInset(), bottom: SpaceTokens.x2l })
           }
           .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+          .onDidScroll((): void => { this.syncReportScroll(); })
+          .onScrollStop((): void => { this.syncReportScroll(); })
           .layoutWeight(1)
           .width('100%')
           .scrollBar(BarState.Off)
@@ -1595,12 +1680,10 @@ export struct ReportAdminPage {
       .backgroundColor(ColorTokens.canvas)
       .alignItems(HorizontalAlign.Start)
     }
-    .mode(NavigationMode.Stack)
-    .hideTitleBar(false)
-    .title({
-      builder: this.pageTitleBar,
-      height: this.titleBarHeight(),
-    }, { barStyle: BarStyle.STANDARD, backgroundColor: ColorTokens.canvas })
+    .titleMode(HdsNavigationTitleMode.MINI)
+    .titleBar(this.reportTitleBarOptions())
+    // 滚动源绑定：列表驱动栏体渐变模糊（§7.6.12）
+    .bindToScrollable([this.reportScroller])
     .width('100%')
     .height('100%')
     .backgroundColor(ColorTokens.canvas)
