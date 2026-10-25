@@ -7,6 +7,7 @@ import { initBreakpointCenter } from '../utils/breakpointCenter';
 import { initSessionStore } from '../utils/sessionStore';
 import { stepCheckStore } from '../utils/stepCheckStore';
 import { initThemeContext, loadThemeFromPrefs, applyLaunchTheme, applySystemFollowMode, isDarkMode } from '../utils/theme';
+import { setSystemBarRefresher } from '../utils/systemBar';
 import { enqueuePushRoute, readPushRoute, readDeepLinkRoute } from '../utils/push';
 
 const DOMAIN = 0x0000;
@@ -20,6 +21,8 @@ export default class EntryAbility extends UIAbility {
     // 会话改由 dataPreferences 独立文件恢复；此处传双上下文（应用级存会话，ability 级定位旧文件迁移）。
     initSessionStore(this.context.getApplicationContext(), this.context);
     initThemeContext(this.context.getApplicationContext());
+    // 系统栏补设通道（见 utils/systemBar.ets）：滚动回顶时由各页触发去抖补设
+    setSystemBarRefresher((): void => { this.applySystemBarColor(); });
     stepCheckStore.init(this.context.getApplicationContext());
     loadThemeFromPrefs();
     const sysDark: boolean = Number(this.context.config.colorMode) === ConfigurationConstant.ColorMode.COLOR_MODE_DARK;

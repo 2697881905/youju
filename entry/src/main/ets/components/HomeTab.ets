@@ -18,6 +18,7 @@ import { resolveActionIcon } from '../utils/actionIcons';
 import { EmptyState } from '../design/components/EmptyState';
 import { SegmentedItem } from '../design/components/SegmentedControl';
 import { SegmentedControl } from '../design/components/SegmentedControl';
+import { requestSystemBarRefresh } from '../utils/systemBar';
 import { DailyPostDeck } from './DailyPostDeck';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
@@ -203,6 +204,10 @@ export struct HomeTab {
     // 会返回 undefined（类型声明非可选但真机已复现，release 包因此崩溃杀进程，见故障报告
     // 2026-10-09 Pocket 2）——未就绪时按 0（静止态）处理，Scroll 创建后 onDidScroll 自然接管
     const offset: number = this.feedScrollers[seg]?.currentOffset()?.yOffset ?? 0;
+    // 滚回顶部：HDS 会在此回写系统栏内容色，去抖补设（utils/systemBar.ets）
+    if (offset <= 0) {
+      requestSystemBarRefresh();
+    }
     const compact: boolean = offset > BRAND_COMPACT_THRESHOLD_VP;
     if (compact !== this.brandCompact) {
       this.getUIContext().animateTo({ duration: MotionTokens.base, curve: MotionCurves.decelerate }, () => {

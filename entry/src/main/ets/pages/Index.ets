@@ -57,6 +57,7 @@ import type {
   HdsTitleBarContentStyle, HdsNavigationIconItemStyle,
 } from '@kit.UIDesignKit';
 import { isImmersiveLightSenseSupported, isSystemMaterialActive, FloatingTopButtonMaterialModifier, GlassBlurStyle, getSheetImmersiveMaterial, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
+import { requestSystemBarRefresh } from '../utils/systemBar';
 import { BottomTabBar } from '../design/components/BottomTabBar';
 import { PostDetailDestination } from './PostDetailDestination';
 import { UserProfileDestination } from './UserProfileDestination';
@@ -1397,6 +1398,10 @@ struct Index {
             const on: boolean = offsetY > 0;
             if (on !== this.profileBarScrolled) {
               this.profileBarScrolled = on;
+            }
+            // 滚回顶部：HDS 会在此回写系统栏内容色，去抖补设（utils/systemBar.ets）
+            if (offsetY <= 0) {
+              requestSystemBarRefresh();
             }
           },
           // 穿底内缩：栏体是覆盖式（enableComponentSafeArea:false）+ 材质透明，内容区从窗口原点起算，

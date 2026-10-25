@@ -48,6 +48,7 @@ import type {
 import { LengthMetrics } from '@kit.ArkUI';
 import { SegmentedControl } from '../design/components/SegmentedControl';
 import { isSystemMaterialActive, isImmersiveLightSenseSupported, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
+import { requestSystemBarRefresh } from '../utils/systemBar';
 
 // 消息分段：通知 | 私信（导出给 Index 的标题栏渲染；本页 Swiper 与之共享选中态）
 export const MESSAGE_SEGMENTS: SegmentedItem[] = [
@@ -170,6 +171,10 @@ export struct MessagePage {
     const scrolled: boolean = offset > 0;
     if (scrolled !== this.msgBarScrolled) {
       this.msgBarScrolled = scrolled;
+    }
+    // 滚回顶部：HDS 会在此回写系统栏内容色，去抖补设（utils/systemBar.ets）
+    if (offset <= 0) {
+      requestSystemBarRefresh();
     }
   }
 
