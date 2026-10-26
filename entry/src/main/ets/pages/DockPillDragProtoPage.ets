@@ -19,8 +19,11 @@
 //    页面与胶囊必然同终态）。
 // ④ 速度按 vp/s 归一：原文「vp/帧」依赖手势回调帧率，120Hz 设备形变约为 60Hz 的一半。
 // ⑤ animateTo 一律走 this.getUIContext()（全局 animateTo 已废弃，工程规范）。
-// ⑥ blur 改连续函数：原文 blur 0/40 二值跳变且 40 在 9fp 文本上完全不可读；本页按
-//    「距最近锚点的距离」线性起雾，峰值 18，保留液感又不至于内容消失。
+// ⑥ 图标不跟胶囊跑（用户拍板 2026-10-26，对原文的又一处偏离）：胶囊是纯光标，飞行/拖拽中
+//    官方页签全部留在原地显示（胶囊压过的图标在磨砂下短暂糊化，读作「液体流过图标」）；
+//    仅落定后由胶囊接管目标图标的清晰副本——真磨砂会把压在下面的官方份糊到不可读
+//    （主框架实测），不接管则选中槽没有可读图标。原文的「近锚显影」是图标跟跑的伴生
+//    特性，随之一并删除。
 
 import { HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
 import { isImmersiveLightSenseSupported } from '../utils/immersiveMaterial';
@@ -55,11 +58,6 @@ const SPEED_SMOOTH: number = 0.3;
 // 停顿判定：超过 90ms 无 200vp/s 以上的速度视为停顿，重置形变方向（原文 80ms 同量级）。
 const PAUSE_MS: number = 90;
 const PAUSE_SPEED_VP: number = 200;
-// 近锚显影：距最近锚点超过 45% 槽距开始起雾，2 倍该距离雾到峰值
-// （原文固定 28vp 阈值；改比例值适配任意槽距）。
-const NEAR_RATIO: number = 0.45;
-// 显雾峰值：原文 40 完全糊掉内容；18 保留"液感"且图标轮廓仍可辨。
-const BLUR_MAX: number = 18;
 // 边缘阻尼：首/尾槽往界外拖的跟手衰减（原文同款 0.3）。
 const EDGE_DAMPING: number = 0.3;
 // 行进/落定动画时长与曲线（主框架 dockPillTravel 同款，真机已验证的手感）。
@@ -109,7 +107,8 @@ struct DockPillDragProtoPage {
 
   // —— 胶囊渲染态 ——
   @State private pillReady: boolean = false;
-  // 被胶囊盖住（官方份隐掉、由胶囊带清晰副本）的页签下标；-1 = 未落位。
+  // 被胶囊盖住（官方份隐掉、由胶囊带清晰副本接管）的页签下标；-1 = 纯光标态
+  // （飞行/拖拽中官方份全部显示，图标不跟胶囊跑）。
   @State private coveredIndex: number = -1;
   @State private pillX: number = 0;
   @State private pillY: number = 0;
@@ -117,10 +116,6 @@ struct DockPillDragProtoPage {
   @State private pillH: number = 0;
   // 拖拽实时偏移（translate）：拖拽中逐帧直写跟手，travel 里随 animateTo 归零插值。
   @State private dragOffsetX: number = 0;
-  // 胶囊内副本显示的页签（拖拽中跟随最近锚点，雾中预切换）。
-  @State private displayIndex: number = 0;
-  // 副本内容雾值（vp），拖拽中按距锚距离连续计算，静止恒 0。
-  @State private contentBlur: number = 0;
   // 页面当前所在页（onChange 同步），驱动自定义页签的选中染色。
   @State private currentIndex: number = 0;
   // 调参读数（速度/形变/拖距），拖拽中每帧刷新。
@@ -219,7 +214,6 @@ struct DockPillDragProtoPage {
     this.pillH = frame.h;
     this.pillIndex = index;
     this.coveredIndex = index;
-    this.displayIndex = index;
     this.pillReady = true;
     return true;
   }
@@ -270,10 +264,11 @@ struct DockPillDragProtoPage {
       this.settleTimer = -1;
     }
     this.pillIndex = index;
-    // 行进一开始就把目标槽官方份隐掉：胶囊带着清晰副本飞过去，读作「图标被玻璃托走」；
-    // 来源槽那份同时恢复，不会出现两份并存的重影（主框架同款语义）。
-    this.coveredIndex = index;
-    this.displayIndex = index;
+    // 行进期间胶囊是纯光标（用户拍板 2026-10-26：图标不跟着指示器跑）：
+    // 官方份全部恢复显示，胶囊扫过谁、谁的图标在磨砂下短暂糊化，读作「液体从图标上流过」。
+    // 落定后（settle 到点）才由胶囊接管目标图标的清晰副本——真磨砂（backdropBlur 20）会把
+    // 压在下面的官方份糊到不可读（主框架实测），不接管则选中槽没有可读图标。
+    this.coveredIndex = -1;
     const restW: number = frame.w;
     const restH: number = frame.h;
     this.getUIContext().animateTo({
@@ -285,7 +280,6 @@ struct DockPillDragProtoPage {
       this.pillW = restW + PILL_BULGE;
       this.pillH = restH + PILL_BULGE;
       this.dragOffsetX = 0;
-      this.contentBlur = 0;
     });
     this.settleTimer = setTimeout((): void => {
       this.settleTimer = -1;
@@ -296,6 +290,8 @@ struct DockPillDragProtoPage {
         this.pillW = restW;
         this.pillH = restH;
       });
+      // 落定即接管：目标槽官方份隐掉、胶囊内清晰副本顶上（与官方份逐像素重合，无跳变）。
+      this.coveredIndex = index;
       // 胶囊落位再切页（原文是 310ms 死等后切，这里由 timer 统一承载，先清后设无竞态）。
       if (index !== this.currentIndex) {
         this.currentIndex = index;
@@ -318,7 +314,8 @@ struct DockPillDragProtoPage {
     this.initialDirection = 0;
     this.lastActiveTs = 0;
     this.pauseDetected = false;
-    this.displayIndex = this.pillIndex;
+    // 拖拽即纯光标：官方份全部露出，图标留在槽位里（胶囊压着的那个会短暂糊化）。
+    this.coveredIndex = -1;
     // 起手轻鼓包：从静止尺寸进入"被拿起"的状态（animateTo 短补间，不跟手指抢帧）。
     this.getUIContext().animateTo({
       duration: MotionTokens.fast,
@@ -386,22 +383,6 @@ struct DockPillDragProtoPage {
       this.dragOffsetX = x;
     }
 
-    // 近锚显影：找最近锚点，雾值随距离线性上升；副本内容在雾中预切换。
-    const currentX: number = this.anchors[this.pillIndex] + this.dragOffsetX;
-    let nearestIndex: number = this.pillIndex;
-    let nearestDist: number = Number.MAX_VALUE;
-    for (let i = 0; i < this.anchors.length; i++) {
-      const dist: number = Math.abs(currentX - this.anchors[i]);
-      if (dist < nearestDist) {
-        nearestDist = dist;
-        nearestIndex = i;
-      }
-    }
-    this.displayIndex = nearestIndex;
-    this.coveredIndex = nearestIndex;
-    const nearRange: number = Math.max(this.pitch * NEAR_RATIO, 1);
-    this.contentBlur = Math.min(Math.max((nearestDist - nearRange) / nearRange, 0), 1) * BLUR_MAX;
-
     this.debugText = `v=${Math.round(this.smoothedVp)}vp/s · Δw=${deformW.toFixed(1)} Δh=${deformH.toFixed(1)} · dx=${this.dragOffsetX.toFixed(0)}`;
   }
 
@@ -417,21 +398,18 @@ struct DockPillDragProtoPage {
 
   // —— 渲染 ——
 
-  // 页签内容：官方槽位与胶囊副本共用同一 builder（抄两份必然逐像素漂移）。
-  // withBlur 只有胶囊副本为 true：雾值由拖拽距离连续驱动，官方份恒清晰。
+  // 页签内容：官方槽位与胶囊内副本共用同一 builder（抄两份必然逐像素漂移）。
   @Builder
-  tabItemContent(index: number, withBlur: boolean) {
+  tabItemContent(index: number) {
     Column({ space: 3 }) {
       Image(this.protoTabs[index].icon)
         .width(24)
         .height(24)
         .objectFit(ImageFit.Contain)
         .fillColor(this.currentIndex === index ? $r('app.color.ds_brand') : $r('app.color.ds_icon'))
-        .blur(withBlur ? this.contentBlur : 0)
       Text(this.protoTabs[index].title)
         .fontSize(10)
         .fontColor(this.currentIndex === index ? $r('app.color.ds_brand') : $r('app.color.ds_icon'))
-        .blur(withBlur ? this.contentBlur : 0)
     }
     .justifyContent(FlexAlign.Center)
     .alignItems(HorizontalAlign.Center)
@@ -442,7 +420,7 @@ struct DockPillDragProtoPage {
   @Builder
   tabBarBuilder(index: number) {
     Stack({ alignContent: Alignment.Center }) {
-      this.tabItemContent(index, false)
+      this.tabItemContent(index)
     }
     .width(64)
     .height(54)
@@ -483,11 +461,14 @@ struct DockPillDragProtoPage {
         // 玻璃配方三件套（主框架同款，缺一退化为色块贴片）：
         // 透底磨砂 + 中性半透面 + 亮 rim/近距落影。
         Column() {
-          // ⚠️ @Builder 参数是值快照：用 key 随 displayIndex 变化的单元素 ForEach 强制重建
-          // 副本（主框架真机实证：直接传变量落位后内容不刷新）。
-          ForEach([this.displayIndex], (i: number) => {
-            this.tabItemContent(i, true)
-          }, (i: number): string => `pill${i}`)
+          // 落定态才渲染副本（coveredIndex >= 0）：飞行/拖拽中是空玻璃光标。
+          // ⚠️ @Builder 参数是值快照：用 key 随 coveredIndex 变化的单元素 ForEach 强制
+          // 重建副本（主框架真机实证：直接传变量落位后内容不刷新）。
+          if (this.coveredIndex >= 0) {
+            ForEach([this.coveredIndex], (i: number) => {
+              this.tabItemContent(i)
+            }, (i: number): string => `pill${i}`)
+          }
         }
         .width(this.pillW)
         .height(this.pillH)
