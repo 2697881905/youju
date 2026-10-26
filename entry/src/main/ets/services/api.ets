@@ -4,12 +4,14 @@ import { Post, DailyPost, Comment, Tag, User, Pagination, Genre, StructuredMetri
 
 // 以构建期布尔 DEBUG 为准选择后端地址（调试包 true → 本地，released → 生产）。
 const BUILD_MODE: string = BUILD_MODE_NAME;
-// ⚠️ 本地联调后端地址（仅 debug 形态使用）。固定走 rport 隧道，设备端端口用 3001：
-//   hdc -t <设备> rport tcp:3001 tcp:3000   （设备 3001 → 宿主后端 3000）
-//   ⚠️ 设备端 3000 会被残留的旧转发规则占死（设备重连/换网后常见，报
-//   「TCP Port listen failed at 3000」，killall hdcd 无 root 清不掉），
-//   rm 子命令在本机 hdc 版本上始终报 Incorrect forward command —— 换 3001 绕开。
-const DEBUG_API_HOST: string = 'http://127.0.0.1:3001';
+// ⚠️ 本地联调后端地址（仅 debug 形态使用）。用 LAN IP 直连（Mac 与真机同网段）：
+//   Mac 当前 IP 192.168.3.1（手机开在 Mac 热点下，192.168.3.2）。换网络后用
+//   `ipconfig getifaddr en0`（或 ifconfig）重查，改这里重编。
+// ⚠️ 历史方案 rport（hdc -t <设备> rport tcp:3001 tcp:3000）在 Pocket 2 上不可信：
+//   设备本地系统服务会抢答 localhost 端口（3000/3001 实测均回 HTTP/2 200、恒定
+//   75107 字节非 JSON），App 拿到 200 但无 code 字段 → api:177 报「请求失败」。
+//   已于 2026-10-26 弃用，改走 LAN 直连。
+const DEBUG_API_HOST: string = 'http://192.168.3.1:3000';
 export const BASE_URL: string =
   DEBUG === true
     ? DEBUG_API_HOST

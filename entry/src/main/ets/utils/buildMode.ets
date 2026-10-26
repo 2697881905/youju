@@ -2,7 +2,7 @@
 // 让 ArkTSCheck / IDE 也能直接解析，消除 "Cannot find module 'BuildProfile'" 报错。
 // 发布上架形态：BUILD_MODE_NAME = 'release'，DEBUG = false（release 下测试登录桩自动隐藏）。
 export const BUILD_MODE_NAME: string = 'debug'; // 本地联调临时（同城真机验证 2026-10-25），验证后还原 'release'
-// DEBUG=true → 后端走本地调试后端 http://127.0.0.1:3001（需先建 hdc rport：hdc -t <设备> rport tcp:3001 tcp:3000，设备端用 3001 绕开残留占用）
+// DEBUG=true → 后端走本地调试后端 http://192.168.3.1:3000（Mac LAN IP 直连，换网后用 ipconfig getifaddr en0 重查并重编；rport 方案在 Pocket 2 上被设备系统服务抢答，已弃用）
 // DEBUG=false → 后端走线上 https://api.youju.chat（DNS：youju.chat→114.132.102.189）。
 // ⚠️ 本地联调验证完毕后务必还原为 false 再上架。
 export const DEBUG: boolean = true; // 本地联调（同城子模式真机验证 2026-10-25），验证后还原
