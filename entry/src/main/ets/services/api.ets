@@ -1,4 +1,5 @@
 import { http } from '@kit.NetworkKit';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { BUILD_MODE_NAME, DEBUG } from '../utils/buildMode';
 import { Post, DailyPost, Comment, Tag, User, Pagination, Genre, StructuredMetricKind, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody, ReportAction, NotificationPrefs, BlockUser, PrivacySettingsData, UserExportData, DebateVoteResult, Conversation, DmMessage, DmSharePayload, AdminReportItem, ReportTargetType, BookmarkFolderItem, MentionRef, MentionCandidate, StructuredDocument, PendingReportSummary } from '../models/types';
 
@@ -180,6 +181,8 @@ async function request<T>(method: string, path: string, body?: Object, extraHead
   } catch (e) {
     const err: Error = e as Error;
     const rawMsg: string = err.message ? err.message : '请求发生未知错误';
+    // TEMP-DEBUG: 失败请求日志（排查全页面「请求失败」，验证后删除）
+    hilog.error(0x0000, 'ApiDebug', '%{public}s %{public}s FAIL: %{public}s', method, path, rawMsg);
     // 连接失败（ECONNREFUSED 等）：debug 形态给开发提示（含 rport 排查指引），
     // 发布包必须给用户可理解的网络文案——禁止把「后端/rport」等开发细节暴露给用户与审核员。
     if (isNetworkConnectionError(rawMsg)) {
