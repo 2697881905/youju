@@ -519,11 +519,15 @@ struct DockPillDragProtoPage {
         // 液态玻璃珠 = ohpm 三方组件 HdsMiniBarButton（hds_button@1.0.1）：
         // 内部用「Row 包 HdsTabs」借悬浮态 barFloatingStyle 的官方材质渲染通道，
         // 在覆盖层里出真沉浸光感玻璃（折射/磨砂/高光），这是自绘 tint+rim 无法
-        // 复刻的效果，也是此前几版「没有液态玻璃感」的根因。用法与原文一致：
-        // maskColor 全透明、barWidth/Height 动态、材质 IMMERSIVE+EXQUISITE。
-        // ⚠️ HdsMiniBarButton 是 @ComponentV2 自定义组件，不能直接挂通用属性——
-        // 包一层 Stack 承载 clip/position/translate/hitTest/gesture。Stack 居中包裹
-        // 带余量的 Row，玻璃条中心即 Stack 中心，position 只需反向补偿 contentPadding。
+        // 复刻的效果，也是此前几版「没有液态玻璃感」的根因。
+        // ⚠️ 三层结构（全部居中叠放），坑与主框架 dockSelectionPill 同源：
+        // 玻璃层：HdsMiniBarButton 只出玻璃（内容槽留空）；
+        // 副本层：⚠️ 副本不能画进 HdsMiniBarButton 尾随闭包——组件是 @ComponentV2，闭包里
+        //   读页面 V1 @State（displayIndex）不触发 V2 渲染更新，副本停留在旧值
+        //   （图标被玻璃带着走，真机实证 2026-10-26）；副本层落在 V1 上下文（本 Stack
+        //   直接子节点）才响应 displayIndex 变化；
+        // 命中层：HdsMiniBarButton 的 bar 是 HdsTabs native 层，触摸被内部消费，
+        //   PanGesture 挂玻璃上收不到——玻璃上方叠同尺寸透明命中层独占触摸。
         Stack() {
           HdsMiniBarButton({
             maskColor: '#00ffffff',
@@ -534,29 +538,45 @@ struct DockPillDragProtoPage {
             materialType: 101,
             materialLevel: 0,
           }) {
-            // 玻璃内清晰副本：拖拽中跟随最近锚点（displayIndex），落定吸附目标槽。
-            // 真玻璃会把压在下面的官方图标磨砂糊化，清晰内容必须由玻璃自带（原文同款）。
-            Column({ space: 3 }) {
-              Image(this.protoTabs[this.displayIndex].icon)
-                .width(24)
-                .height(24)
-                .objectFit(ImageFit.Contain)
-                .fillColor(this.currentIndex === this.displayIndex
-                  ? $r('app.color.ds_brand') : $r('app.color.ds_icon'))
-              Text(this.protoTabs[this.displayIndex].title)
-                .fontSize(10)
-                .fontColor(this.currentIndex === this.displayIndex
-                  ? $r('app.color.ds_brand') : $r('app.color.ds_icon'))
-            }
-            .width('100%')
-            .height('100%')
-            .justifyContent(FlexAlign.Center)
-            .alignItems(HorizontalAlign.Center)
+            Column()
           }
+          // 清晰副本层：拖拽中跟随最近锚点（displayIndex），落定吸附目标槽。
+          Column({ space: 3 }) {
+            Image(this.protoTabs[this.displayIndex].icon)
+              .width(24)
+              .height(24)
+              .objectFit(ImageFit.Contain)
+              .fillColor(this.currentIndex === this.displayIndex
+                ? $r('app.color.ds_brand') : $r('app.color.ds_icon'))
+            Text(this.protoTabs[this.displayIndex].title)
+              .fontSize(10)
+              .fontColor(this.currentIndex === this.displayIndex
+                ? $r('app.color.ds_brand') : $r('app.color.ds_icon'))
+          }
+          .width(this.pillW)
+          .height(this.pillH)
+          .justifyContent(FlexAlign.Center)
+          .alignItems(HorizontalAlign.Center)
+          // 命中层：铺满定位容器（= Row 尺寸），独占玻璃区域的触摸。
+          Column()
+            .width(this.pillW + MINI_BAR_PAD * 2)
+            .height(this.pillH + MINI_BAR_PAD * 2)
+            .gesture(
+              PanGesture({ direction: PanDirection.Horizontal, fingers: 1, distance: 5 })
+                .onActionStart((): void => {
+                  this.handleDragStart();
+                })
+                .onActionUpdate((event: GestureEvent): void => {
+                  this.handleDragUpdate(event);
+                })
+                .onActionEnd((): void => {
+                  this.handleDragEnd();
+                })
+            )
         }
         .clip(false)
-        // ⚠️ HdsMiniBarButton 容器自带 contentPadding=8（防光效裁切），Row 比玻璃条大
-        // 16vp——position 以 Stack 左上角为锚，需反向补偿 padding 让玻璃条中心对准锚点。
+        // ⚠️ 容器 size 公式是「barHeight + padding×4」（比玻璃条大 16vp）且玻璃条居中——
+        // position 以容器左上角为锚，反向补偿 padding×2=16（只补 8 残差偏下 8vp，真机实证）。
         .position({
           x: this.pillX - this.pillW / 2 - MINI_BAR_PAD,
           y: this.pillY - this.pillH / 2 - MINI_BAR_PAD,
@@ -564,18 +584,6 @@ struct DockPillDragProtoPage {
         // 拖拽跟手与 travel 归零插值都走这一个 translate。
         .translate({ x: this.dragOffsetX })
         .hitTestBehavior(HitTestMode.Transparent)
-        .gesture(
-          PanGesture({ direction: PanDirection.Horizontal, fingers: 1, distance: 5 })
-            .onActionStart((): void => {
-              this.handleDragStart();
-            })
-            .onActionUpdate((event: GestureEvent): void => {
-              this.handleDragUpdate(event);
-            })
-            .onActionEnd((): void => {
-              this.handleDragEnd();
-            })
-        )
       }
     }
     .width('100%')

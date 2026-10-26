@@ -1245,6 +1245,15 @@ struct Index {
         // 「没有液态玻璃感」的根因）。材质参数传数值字面量（IMMERSIVE=101/EXQUISITE=0，
         // 组件本地化已斩断 hdsMaterial 依赖，见 components/HdsMiniBarButton.ets 头注释）。
         // ⚠️ @ComponentV2 自定义组件不能直接挂通用属性，包一层 Stack 承载定位/按压/命中。
+        // 三层结构（全部居中叠放）：
+        //   玻璃渲染层（HdsMiniBarButton）—— 只出玻璃，内容槽位留空；
+        //   清晰副本层（V1 上下文）—— ⚠️ 副本绝不能画进 HdsMiniBarButton 的尾随闭包：
+        //     该组件是 @ComponentV2，闭包里读页面 V1 @State（dockPillCovered）不触发 V2
+        //     渲染更新——副本会停留在旧值，读作「图标被玻璃带着走」（真机实证 2026-10-26）。
+        //     副本层落在 V1 上下文（本 Stack 的直接子节点）才能响应 covered 变化；
+        //   命中层 —— HdsMiniBarButton 的 bar 是 HdsTabs 的 native 渲染层，触摸被内部
+        //     直接消费，PanGesture 挂在玻璃上收不到（真机实证：scrollable(false) 也无效）。
+        //     玻璃上方叠同尺寸透明命中层独占触摸，手势与按压全挂它。
         Stack() {
           HdsMiniBarButton({
             maskColor: '#00ffffff',
@@ -1253,33 +1262,54 @@ struct Index {
             materialType: DOCK_MATERIAL_TYPE,
             materialLevel: DOCK_MATERIAL_LEVEL,
           }) {
-            Column() {
-              // 真玻璃会把压在下面的官方图标糊掉（磨砂对内容不可逆），清晰的那份
-              // 必须由玻璃自己带；配合 tabBarBuilder 里对被盖槽的 opacity 0，玻璃下面
-              // 只剩 Dock 表面，不会再透出同色光晕。
-              // ⚠️ 不能直接 this.tabItemContent(this.dockPillCovered)：@Builder 的参数是**值快照**，
-              // 落位后 index 变了那份副本不会刷新（真机实证：胶囊飞到「消息」里画的还是「首页」）。
-              // 用 key 随 dockPillCovered 变化的单元素 ForEach 强制重建这一项 —— key 生成器必须
-              // 含会变的字段，否则等于没 key。
-              if (this.dockPillCovered >= 0) {
-                ForEach([this.dockPillCovered], (i: number) => {
-                  this.tabItemContent(i)
-                }, (i: number): string => String(i))
-              }
-            }
-            .width('100%')
-            .height('100%')
-            // 副本必须与官方那份**逐像素重合**，否则落位瞬间图标会跳一下：官方那份是被
-            // Stack(alignContent: Center) 居中的，这里 Column 主轴默认从顶排，必须显式居中
-            // （真机实测漏写时副本比官方高 9px = 2.9vp）。
-            .justifyContent(FlexAlign.Center)
-            .alignItems(HorizontalAlign.Center)
+            Column()
           }
+          // 清晰副本层：真玻璃会把压在下面的官方图标糊掉（磨砂对内容不可逆），落定接管
+          // 时由这一层把清晰副本顶到玻璃表面。与玻璃条中心对齐（Stack 居中 + 同尺寸）。
+          // ⚠️ 不能直接 this.tabItemContent(this.dockPillCovered)：@Builder 的参数是**值快照**，
+          // 落位后 index 变了那份副本不会刷新（真机实证：胶囊飞到「消息」里画的还是「首页」）。
+          // 用 key 随 dockPillCovered 变化的单元素 ForEach 强制重建这一项 —— key 生成器必须
+          // 含会变的字段，否则等于没 key。
+          Column() {
+            if (this.dockPillCovered >= 0) {
+              ForEach([this.dockPillCovered], (i: number) => {
+                this.tabItemContent(i)
+              }, (i: number): string => String(i))
+            }
+          }
+          .width(this.dockPillW)
+          .height(this.dockPillH)
+          // 副本必须与官方那份**逐像素重合**，否则落位瞬间图标会跳一下：官方那份是被
+          // Stack(alignContent: Center) 居中的，这里 Column 主轴默认从顶排，必须显式居中
+          // （真机实测漏写时副本比官方高 9px = 2.9vp）。
+          .justifyContent(FlexAlign.Center)
+          .alignItems(HorizontalAlign.Center)
+          // 命中层：铺满定位容器（= Row 尺寸），独占玻璃区域的触摸。
+          Column()
+            .width(this.dockPillW + DOCK_PILL_MINI_PAD * 2)
+            .height(this.dockPillH + DOCK_PILL_MINI_PAD * 2)
+            .onTouch((event: TouchEvent): void => {
+              const type: TouchType = event.type;
+              this.dockPillPressed = type === TouchType.Down || type === TouchType.Move;
+            })
+            .gesture(
+              PanGesture({ direction: PanDirection.Horizontal, fingers: 1, distance: 5 })
+                .onActionStart((): void => {
+                  this.handleDockPillDragStart();
+                })
+                .onActionUpdate((event: GestureEvent): void => {
+                  this.handleDockPillDragUpdate(event);
+                })
+                .onActionEnd((): void => {
+                  this.handleDockPillDragEnd();
+                })
+            )
         }
         .clip(false)
-        // ⚠️ HdsMiniBarButton 容器自带 contentPadding=8（防光效裁切），Row 比玻璃条大
-        // 16vp——position 以 Stack 左上角为锚，需反向补偿 padding 让玻璃条中心对准锚点，
-        // 副本与官方份的逐像素重合才成立。
+        // ⚠️ HdsMiniBarButton 容器自带 contentPadding=8（防光效裁切），容器 size 公式是
+        // 「barHeight + padding×4」（比玻璃条大 16vp）且玻璃条在容器内居中——position 以
+        // 容器左上角为锚，需反向补偿 padding×2=16 让玻璃条中心对准锚点，副本与官方份的
+        // 逐像素重合才成立（上一版只补 8，残差偏下 8vp 致底部溢出，真机实证）。
         .position({
           x: this.dockPillX - this.dockPillW / 2 - DOCK_PILL_MINI_PAD,
           y: this.dockPillY - this.dockPillH / 2 - DOCK_PILL_MINI_PAD,
@@ -1291,28 +1321,11 @@ struct Index {
           y: this.dockPillPressed ? MotionTokens.pressSlideScale : 1,
         })
         .animation({ duration: MotionTokens.fast, curve: MotionCurves.springInteract })
-        // ⚠️ 必须是 Transparent 而不是 None：None 时玻璃收不到手指，按住底栏整颗胶囊毫无反应
-        // （用户实测反馈）。Transparent 让玻璃自己收到按压，同时把命中继续透给下层官方页签
-        // —— 这正是原文覆盖层用 HitTestMode.Transparent 的原因。改命中模式后必须真点一次
-        // 切页，确认没吃掉官方页签的点击（防漂移第 31/39 条同源，已真机复点五格）。
-        .onTouch((event: TouchEvent): void => {
-          const type: TouchType = event.type;
-          this.dockPillPressed = type === TouchType.Down || type === TouchType.Move;
-        })
         // 拖拽跟手与 travel 归零插值都走这一个 translate。
         .translate({ x: this.dockPillDragOffsetX })
-        .gesture(
-          PanGesture({ direction: PanDirection.Horizontal, fingers: 1, distance: 5 })
-            .onActionStart((): void => {
-              this.handleDockPillDragStart();
-            })
-            .onActionUpdate((event: GestureEvent): void => {
-              this.handleDockPillDragUpdate(event);
-            })
-            .onActionEnd((): void => {
-              this.handleDockPillDragEnd();
-            })
-        )
+        // ⚠️ 必须是 Transparent 而不是 None：定位容器要把自己（含命中层）的触摸收进来，
+        // 同时把玻璃区域以外的命中透给下层官方页签。改命中模式后必须真点一次切页，
+        // 确认没吃掉官方页签的点击（防漂移第 31/39 条同源，已真机复点五格）。
         .hitTestBehavior(HitTestMode.Transparent)
       }
     }
