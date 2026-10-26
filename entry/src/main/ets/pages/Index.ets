@@ -14,7 +14,7 @@ import { SearchPanelDestination } from './SearchPanelDestination';
 import { SpringPanel } from '../design/motion/SpringPanel';
 import { DesignButton } from '../design/components/DesignButton';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
-import { bottomNavInset, DOCK_WIDTH_SMALL, DOCK_BOTTOM_MARGIN_BASE, DOCK_SIDE_MARGIN_MIN, DOCK_GRADIENT_MASK_HEIGHT, DOCK_MATERIAL_TYPE, DOCK_MATERIAL_LEVEL } from '../utils/cardTokens';
+import { bottomNavInset, DOCK_WIDTH_SMALL, DOCK_BOTTOM_MARGIN_BASE, DOCK_SIDE_MARGIN_MIN, DOCK_GRADIENT_MASK_HEIGHT, DOCK_MATERIAL_TYPE, DOCK_MATERIAL_LEVEL, DOCK_BAR_HEIGHT_VP } from '../utils/cardTokens';
 import { refreshBottomNavInset } from '../utils/navMode';
 import { RadiusTokens } from '../design/tokens/radius';
 import { ColorTokens } from '../design/tokens/color';
@@ -114,6 +114,22 @@ const DOCK_PILL_TRAVEL_MS: number = 300;
 const DOCK_PILL_SETTLE_MS: number = 400;
 // HdsMiniBarButton 容器 contentPadding（防光效裁切的余量），胶囊 position 需反向补偿。
 const DOCK_PILL_MINI_PAD: number = 8;
+// —— 拖拽液态交互参数（原型页 DockPillDragProtoPage 真机定档 2026-10-26，移植进主框架）——
+// 速度形变上限（vp）：快甩的拉扯感。
+const DOCK_PILL_SPEED_MAX_DEFORM: number = 22;
+// 反方向（回拉）交叉形变系数：回拉收宽涨高。
+const DOCK_PILL_DEFORM_CROSS: number = 0.5;
+// 速度归一基准（vp/s）：轻甩约 400-600、快甩约 1200-1800。
+const DOCK_PILL_SPEED_NORMALIZE_VP: number = 1200;
+// 速度低于此值不形变（滤手抖噪声）。
+const DOCK_PILL_SPEED_MIN_VP: number = 120;
+// 速度指数平滑因子。
+const DOCK_PILL_SPEED_SMOOTH: number = 0.3;
+// 停顿判定：超过 90ms 无 200vp/s 以上速度视为停顿，重置形变方向。
+const DOCK_PILL_PAUSE_MS: number = 90;
+const DOCK_PILL_PAUSE_SPEED_VP: number = 200;
+// 边缘阻尼：首/尾槽往界外拖的跟手衰减。
+const DOCK_PILL_EDGE_DAMPING: number = 0.3;
 // 冷启动时覆盖层与 TabBar 槽位的先后不确定，量不到就按帧重试这么多回。
 const DOCK_PILL_MEASURE_RETRIES: number = 6;
 
@@ -392,6 +408,18 @@ struct Index {
   private dockPillMeasurePending: boolean = false;
   private dockPillMeasureRetries: number = 0;
   private dockPillSettleTimer: number = -1;
+  // —— 玻璃珠拖拽（原型页验证过的交互移植，2026-10-26）——
+  // 拖拽实时偏移：逐帧直写跟手，travel 里随 animateTo 归零插值。
+  @State dockPillDragOffsetX: number = 0;
+  // 拖拽过程量（非渲染态）：采样点 / 平滑速度 / 形变方向 / 停顿检测。
+  private dockPillLastGestureX: number = 0;
+  private dockPillLastGestureTs: number = 0;
+  private dockPillSmoothedVp: number = 0;
+  private dockPillInitialDirection: number = 0;
+  private dockPillLastActiveTs: number = 0;
+  private dockPillPauseDetected: boolean = false;
+  // 实测槽距缓存：拖拽松手换算「拖了几个槽」（dockPillFrameOf 成功路径顺带回填）。
+  private dockPillPitch: number = 0;
   // —— 首页顶栏共享状态：顶部区域（品牌标题/搜索/分段栏/圈子按钮）整体驻留
   // Navigation 标题栏后由本页持有，HomeTab 通过 @Link 共用并联动信息流 ——
   @State feedIndex: number = 0;
@@ -994,13 +1022,15 @@ struct Index {
     const firstCx: number = first.x - layer.x + first.w / 2;
     const lastCx: number = last.x - layer.x + last.w / 2;
     const cx: number = slot.x - layer.x + slot.w / 2;
-    // ⚠️ 槽位上报的 globalPosition.y 少算了一档 Dock 的 barBottomMargin：系统把悬浮条整体
-    // 上提了这个量，而 TabBar 子树里的矩形是按上提之前算的。真机实测差 88px = 28.16vp，
-    // 与我们传进去的 DOCK_BOTTOM_MARGIN_BASE + bottomNavInset() = 28 吻合到 0.4px。
-    // X 不受影响（没有侧向 margin，实测槽位 x 误差 0.6px）。
-    const cy: number = slot.y - layer.y - (DOCK_BOTTOM_MARGIN_BASE + bottomNavInset()) + slot.h / 2;
+    // ⚠️ Y 不取槽位上报值：其 globalPosition 相对真实位置带一档 barBottomMargin 偏差，
+    // 旧版「上报值 − 28」的修正在 HdsMiniBarButton 玻璃珠上真机实测仍偏下（用户反馈
+    // 2026-10-26）。改锚 Dock 栏体几何中心——barBottomMargin 与栏高（DOCK_BAR_HEIGHT_VP）
+    // 都是本页传给系统的已知量，零上报依赖（原型页 DockPillDragProtoPage 同款已验证）。
+    // X 不受该偏差影响，仍用各槽实测中心。
+    const cy: number = layer.h - (DOCK_BOTTOM_MARGIN_BASE + bottomNavInset()) - DOCK_BAR_HEIGHT_VP / 2;
     // 槽距由两端中心反算（不写死）：换 barWidth 档、换导航方式、转屏都会变。
     const pitch: number = count > 1 ? (lastCx - firstCx) / (count - 1) : first.w;
+    this.dockPillPitch = pitch;
     const frame: DockPillFrame = {
       cx: cx,
       cy: cy,
@@ -1039,19 +1069,22 @@ struct Index {
       this.dockPillSnap(index);
       return;
     }
-    // 同一次切换会被 onTabBarClick 与 onAnimationStart 各触发一次；已经到位就不要再发一遍
-    // 动画（否则胶囊会在终点上重新鼓一次包）。
-    if (this.dockPillCovered === index && Math.abs(this.dockPillX - frame.cx) < 0.5) {
+    // 同一次切换会被 onTabBarClick 与 onAnimationStart 各触发一次；已经到位且无拖拽
+    // 残留就不要再发一遍动画（否则胶囊会在终点上重新鼓一次包）。
+    if (this.dockPillCovered === index && Math.abs(this.dockPillDragOffsetX) < 0.5
+      && Math.abs(this.dockPillX - frame.cx) < 0.5) {
       return;
     }
-    // 行进一开始就把"被盖住"切到目标槽：目标槽官方那份立刻隐掉、由胶囊带着清晰副本飞过去，
-    // 读作「图标被玻璃托起来搬走」；来源槽那份同时恢复，不会出现两份并存的重影。
-    this.dockPillCovered = index;
+    // 「落定才接管」（用户拍板 2026-10-26：图标不跟玻璃跑）：行进期间玻璃珠是纯光标，
+    // 官方份全部显示、图标留在槽位里（玻璃扫过谁、谁的图标在磨砂下短暂糊化）；settle
+    // 到点才由玻璃接管目标槽——真磨砂下选中槽不接管则图标不可读，落定接管是唯一兼顾。
+    this.dockPillCovered = -1;
     this.getUIContext().animateTo({ duration: DOCK_PILL_TRAVEL_MS, curve: MotionCurves.springSoft }, () => {
       this.dockPillX = frame.cx;
       this.dockPillY = frame.cy;
       this.dockPillW = frame.w + DOCK_PILL_BULGE;
       this.dockPillH = frame.h + DOCK_PILL_BULGE;
+      this.dockPillDragOffsetX = 0;
     });
     if (this.dockPillSettleTimer >= 0) {
       clearTimeout(this.dockPillSettleTimer);
@@ -1064,7 +1097,116 @@ struct Index {
         this.dockPillW = restW;
         this.dockPillH = restH;
       });
+      // 落定即接管：目标槽官方份隐掉、玻璃内清晰副本顶上（与官方份逐像素重合，无跳变）。
+      this.dockPillCovered = index;
     }, DOCK_PILL_TRAVEL_MS);
+  }
+
+  // —— 玻璃珠拖拽三阶段（原型页 DockPillDragProtoPage 真机验证版移植）——
+  // 手势只挂在玻璃珠本体（覆盖层 hitTest None + 珠体 Transparent），与整页左右滑
+  // 分区共存：内容区滑动归 HdsTabs，Dock 上的横向拖拽归玻璃珠。
+  // 拖拽中玻璃珠是纯光标（官方份全显、图标原位），松手过半格吸附、边缘阻尼。
+
+  private handleDockPillDragStart(): void {
+    // 打断在途 settle：手指接管，一切以手势为准。
+    if (this.dockPillSettleTimer >= 0) {
+      clearTimeout(this.dockPillSettleTimer);
+      this.dockPillSettleTimer = -1;
+    }
+    this.dockPillLastGestureX = 0;
+    this.dockPillLastGestureTs = 0;
+    this.dockPillSmoothedVp = 0;
+    this.dockPillInitialDirection = 0;
+    this.dockPillLastActiveTs = 0;
+    this.dockPillPauseDetected = false;
+    // 拖拽即纯光标：官方份全部露出，图标留在槽位里。
+    this.dockPillCovered = -1;
+    // 起手鼓包：从静止尺寸"被拿起"（springBounce 一记明显轻弹）。
+    const frame: DockPillFrame | null = this.dockPillFrameOf(this.currentIndex);
+    if (frame === null) {
+      return;
+    }
+    this.getUIContext().animateTo({
+      duration: MotionTokens.fast,
+      curve: MotionCurves.springBounce,
+    }, () => {
+      this.dockPillW = frame.w + DOCK_PILL_BULGE;
+      this.dockPillH = frame.h + DOCK_PILL_BULGE;
+    });
+  }
+
+  private handleDockPillDragUpdate(event: GestureEvent): void {
+    if (!this.dockPillReady || this.dockPillPitch <= 0) {
+      return;
+    }
+    const x: number = event.offsetX;
+    const now: number = Date.now();
+    // 速度按 vp/s 归一（不依赖手势回调帧率），指数平滑滤抖。
+    if (this.dockPillLastGestureTs > 0) {
+      const dt: number = Math.max(now - this.dockPillLastGestureTs, 1);
+      const instVp: number = (x - this.dockPillLastGestureX) / dt * 1000;
+      this.dockPillSmoothedVp = this.dockPillSmoothedVp * (1 - DOCK_PILL_SPEED_SMOOTH)
+        + instVp * DOCK_PILL_SPEED_SMOOTH;
+    }
+    this.dockPillLastGestureX = x;
+    this.dockPillLastGestureTs = now;
+    // 停顿检测：短促停顿后视为新一轮甩动，重置形变方向。
+    if (Math.abs(this.dockPillSmoothedVp) >= DOCK_PILL_PAUSE_SPEED_VP) {
+      this.dockPillLastActiveTs = now;
+    }
+    if (this.dockPillLastActiveTs > 0 && Math.abs(this.dockPillSmoothedVp) < DOCK_PILL_PAUSE_SPEED_VP
+      && now - this.dockPillLastActiveTs >= DOCK_PILL_PAUSE_MS) {
+      this.dockPillPauseDetected = true;
+      this.dockPillInitialDirection = 0;
+      this.dockPillLastActiveTs = 0;
+    }
+    // 速度 → 形变：sqrt 缓动，同向拉宽缩高、反向收宽涨高。
+    const absV: number = Math.abs(this.dockPillSmoothedVp);
+    let deformW: number = 0;
+    let deformH: number = 0;
+    if (absV >= DOCK_PILL_SPEED_MIN_VP) {
+      if (this.dockPillInitialDirection === 0 || this.dockPillPauseDetected) {
+        this.dockPillInitialDirection = this.dockPillSmoothedVp > 0 ? 1 : -1;
+        this.dockPillPauseDetected = false;
+      }
+      const eased: number = Math.sqrt(Math.min(absV / DOCK_PILL_SPEED_NORMALIZE_VP, 1));
+      const deform: number = eased * DOCK_PILL_SPEED_MAX_DEFORM;
+      const sameDir: boolean = (this.dockPillSmoothedVp > 0 ? 1 : -1) === this.dockPillInitialDirection;
+      if (sameDir) {
+        deformW = deform;
+        deformH = -deform * DOCK_PILL_DEFORM_CROSS;
+      } else {
+        deformW = -deform * DOCK_PILL_DEFORM_CROSS;
+        deformH = deform;
+      }
+    }
+    const frame: DockPillFrame | null = this.dockPillFrameOf(this.currentIndex);
+    if (frame === null) {
+      return;
+    }
+    this.dockPillW = frame.w + DOCK_PILL_BULGE + deformW;
+    this.dockPillH = frame.h + DOCK_PILL_BULGE + deformH;
+    // 边缘阻尼：首槽往左/尾槽往右拖时跟手衰减（rubber-band 手感）。
+    const lastIndex: number = this.bottomTabItems().length - 1;
+    if ((this.currentIndex === 0 && x < 0) || (this.currentIndex === lastIndex && x > 0)) {
+      this.dockPillDragOffsetX = x * DOCK_PILL_EDGE_DAMPING;
+    } else {
+      this.dockPillDragOffsetX = x;
+    }
+  }
+
+  private handleDockPillDragEnd(): void {
+    // 按实测槽距取整：过半格吸附。
+    const slots: number = this.dockPillPitch > 0 ? Math.round(this.dockPillDragOffsetX / this.dockPillPitch) : 0;
+    const lastIndex: number = this.bottomTabItems().length - 1;
+    const target: number = Math.max(0, Math.min(lastIndex, this.currentIndex + slots));
+    if (target === this.currentIndex) {
+      // 未过半格：回弹到当前槽（travel 的去重条件含拖拽偏移判断，会正常执行回弹）。
+      this.dockPillTravel(target);
+      return;
+    }
+    // 过半格吸附：走 selectTab 统一链路（页面切换 + 玻璃珠飞行 + 落定接管）。
+    this.selectTab(target);
   }
 
   // 覆盖层尺寸一变（转屏 / 折叠 / 分栏拖宽 / 导航区高度回写）就重新贴一次实测槽位。
@@ -1155,6 +1297,20 @@ struct Index {
           const type: TouchType = event.type;
           this.dockPillPressed = type === TouchType.Down || type === TouchType.Move;
         })
+        // 拖拽跟手与 travel 归零插值都走这一个 translate。
+        .translate({ x: this.dockPillDragOffsetX })
+        .gesture(
+          PanGesture({ direction: PanDirection.Horizontal, fingers: 1, distance: 5 })
+            .onActionStart((): void => {
+              this.handleDockPillDragStart();
+            })
+            .onActionUpdate((event: GestureEvent): void => {
+              this.handleDockPillDragUpdate(event);
+            })
+            .onActionEnd((): void => {
+              this.handleDockPillDragEnd();
+            })
+        )
         .hitTestBehavior(HitTestMode.Transparent)
       }
     }
