@@ -17,8 +17,6 @@ import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { bottomNavInset, DOCK_WIDTH_SMALL, DOCK_BOTTOM_MARGIN_BASE, DOCK_SIDE_MARGIN_MIN, DOCK_GRADIENT_MASK_HEIGHT, DOCK_MATERIAL_TYPE, DOCK_MATERIAL_LEVEL } from '../utils/cardTokens';
 import { refreshBottomNavInset } from '../utils/navMode';
 import { RadiusTokens } from '../design/tokens/radius';
-import { ShadowTokens } from '../design/tokens/shadow';
-import { GlassTokens } from '../design/tokens/GlassTokens';
 import { ColorTokens } from '../design/tokens/color';
 import { TypeTokens } from '../design/tokens/type';
 import { IconTokens } from '../design/tokens/icon';
@@ -44,6 +42,7 @@ import { setSerifTypeface, setSerifBodyTypeface } from '../utils/poster/posterTe
 import { drawing } from '@kit.ArkGraphics2D';
 import { HdsTabs, HdsTabsController, HdsNavigation, HdsNavigationTitleMode,
   ScrollEffectType } from '@kit.UIDesignKit';
+import { HdsMiniBarButton } from '../components/HdsMiniBarButton';
 // 只 import type：这些接口在运行时被擦除，不会像 hdsMaterial 那样在 API 22 上「import 即崩」。
 // 材质档位因此传数值字面量（见 immersiveMaterial 的 HDS_MATERIAL_TYPE_IMMERSIVE / _LEVEL_ADAPTIVE）。
 import type {
@@ -108,22 +107,26 @@ const PROFILE_BLUR_RADIUS: number = 50;
 const DOCK_PILL_W_RATIO: number = 1.22;
 // 相对实测槽高（54vp；栏高 56vp，槽位框向下溢 2vp）
 const DOCK_PILL_H_RATIO: number = 0.96;
-// 镜面 rim 描边宽度：参照图顶缘高光比 Dock 亮 +86 级，是玻璃"读得出来"的第一来源。
-const DOCK_PILL_RIM_VP: number = 1.5;
-// 行进中的额外放大（原文静止 92×54 → 行进 110×74.5；我们胶囊更小，按等比缩到 +6）。
-const DOCK_PILL_BULGE: number = 6;
+// 行进中的额外放大（用户拍板 2026-10-26 弹动加强：+6 → +10）。
+const DOCK_PILL_BULGE: number = 10;
 const DOCK_PILL_TRAVEL_MS: number = 300;
-const DOCK_PILL_SETTLE_MS: number = 240;
+// 落定回弹时长：曲线换 springBounce（overshoot 果冻感）后给足走完物理行程的余量。
+const DOCK_PILL_SETTLE_MS: number = 400;
+// HdsMiniBarButton 容器 contentPadding（防光效裁切的余量），胶囊 position 需反向补偿。
+const DOCK_PILL_MINI_PAD: number = 8;
 // 冷启动时覆盖层与 TabBar 槽位的先后不确定，量不到就按帧重试这么多回。
 const DOCK_PILL_MEASURE_RETRIES: number = 6;
 
-// ⚠️ 点光源（hdsEffect）在这颗自绘玻璃上**不可用**，试过三档、结论记在这里免得再走一遍：
+// ⚠️ 点光源（hdsEffect）在自绘玻璃上**不可用**，试过三档、结论记在这里免得再走一遍：
 //   BRIGHT + BORDER_CONTENT → 整块过曝（胶囊 231→255、图标 86→252，内容被擦掉）；
 //   SOFT + BORDER → +4 级，等于没反应；BRIGHT + BORDER → 同样 +4 级。
 // 机理：`illuminatedType` 的「照边框」作用在**材质自己的边框**上，而覆盖层拿不到
 // systemMaterial（§7.6.26 + 本轮判定实验），所以只有「照内容」那条路会出效果 —— 而它
 // 洗的正是我们要保持清晰的图标。原文那档 BORDER_CONTENT 是深色底，光打上去是反光；
 // 压到近乎纯白的 Dock（251，上限 255）上就只剩白化。按压反馈改走按压缩放，见 dockSelectionPill。
+// ✅ 2026-10-26 终解：胶囊本体换 HdsMiniBarButton（hds_button 源码本地集成，见
+// components/HdsMiniBarButton.ets）——它内部「Row 包 HdsTabs」借悬浮态官方材质通道，
+// 在覆盖层出真沉浸光感玻璃，自绘 tint/rim/backdropBlur 全部退役。
 
 // Dock 指示器的一帧几何：中心点相对 dockPillLayer 左上角，单位 vp。
 interface DockPillFrame {
@@ -1057,7 +1060,7 @@ struct Index {
     const restH: number = frame.h;
     this.dockPillSettleTimer = setTimeout((): void => {
       this.dockPillSettleTimer = -1;
-      this.getUIContext().animateTo({ duration: DOCK_PILL_SETTLE_MS, curve: MotionCurves.springInteract }, () => {
+      this.getUIContext().animateTo({ duration: DOCK_PILL_SETTLE_MS, curve: MotionCurves.springBounce }, () => {
         this.dockPillW = restW;
         this.dockPillH = restH;
       });
@@ -1092,47 +1095,58 @@ struct Index {
   dockSelectionPill() {
     Stack({ alignContent: Alignment.TopStart }) {
       if (this.dockPillReady) {
-        // 玻璃配方三件套，缺一不可（少任何一件都会退化成"色块贴片"）：
-        // ① 透底模糊 —— Dock 是 barOverlap 悬浮的，信息流会从它背后穿过，磨砂要糊得掉它；
-        // ② 中性半透面 —— 参照图是暗底提亮 +29 级，白底 Dock 镜像过来就是压暗；不偏品牌色，
-        //    品牌色留给图标和文字，玻璃本身不该有颜色；
-        // ③ 亮镜面 rim + 贴得很近的落影 —— 浅色画布上"更亮"没有余量（Dock 252、上限 255），
-        //    立得住全靠 rim 与投影，见基准 §7.6.27 结论 3。
-        Column() {
-          // 真磨砂会把底下的官方图标糊掉（backdropBlur 20 实测糊到不可读），所以清晰的那份
-          // 必须由玻璃自己带；配合 tabBarBuilder 里对被盖槽的 opacity 0，玻璃下面只剩
-          // Dock 表面，不会再透出同色光晕。
-          if (this.dockPillCovered >= 0) {
-            // ⚠️ 不能直接 this.tabItemContent(this.dockPillCovered)：@Builder 的参数是**值快照**，
-            // 落位后 index 变了那份副本不会刷新（真机实证：胶囊飞到「消息」里画的还是「首页」）。
-            // 用 key 随 dockPillCovered 变化的单元素 ForEach 强制重建这一项 —— key 生成器必须
-            // 含会变的字段，否则等于没 key。
-            ForEach([this.dockPillCovered], (i: number) => {
-              this.tabItemContent(i)
-            }, (i: number): string => String(i))
+        // 液态玻璃珠 = HdsMiniBarButton（hds_button 源码本地集成，见 components/）：
+        // 内部「Row 包 HdsTabs」借悬浮态官方材质通道，在覆盖层出真沉浸光感玻璃——
+        // 自绘 tint/rim/backdropBlur 全部退役（自绘复刻不出玻璃折射，用户多轮反馈
+        // 「没有液态玻璃感」的根因）。材质参数传数值字面量（IMMERSIVE=101/EXQUISITE=0，
+        // 组件本地化已斩断 hdsMaterial 依赖，见 components/HdsMiniBarButton.ets 头注释）。
+        // ⚠️ @ComponentV2 自定义组件不能直接挂通用属性，包一层 Stack 承载定位/按压/命中。
+        Stack() {
+          HdsMiniBarButton({
+            maskColor: '#00ffffff',
+            barWidth: this.dockPillW,
+            barHeight: this.dockPillH,
+            materialType: DOCK_MATERIAL_TYPE,
+            materialLevel: DOCK_MATERIAL_LEVEL,
+          }) {
+            Column() {
+              // 真玻璃会把压在下面的官方图标糊掉（磨砂对内容不可逆），清晰的那份
+              // 必须由玻璃自己带；配合 tabBarBuilder 里对被盖槽的 opacity 0，玻璃下面
+              // 只剩 Dock 表面，不会再透出同色光晕。
+              // ⚠️ 不能直接 this.tabItemContent(this.dockPillCovered)：@Builder 的参数是**值快照**，
+              // 落位后 index 变了那份副本不会刷新（真机实证：胶囊飞到「消息」里画的还是「首页」）。
+              // 用 key 随 dockPillCovered 变化的单元素 ForEach 强制重建这一项 —— key 生成器必须
+              // 含会变的字段，否则等于没 key。
+              if (this.dockPillCovered >= 0) {
+                ForEach([this.dockPillCovered], (i: number) => {
+                  this.tabItemContent(i)
+                }, (i: number): string => String(i))
+              }
+            }
+            .width('100%')
+            .height('100%')
+            // 副本必须与官方那份**逐像素重合**，否则落位瞬间图标会跳一下：官方那份是被
+            // Stack(alignContent: Center) 居中的，这里 Column 主轴默认从顶排，必须显式居中
+            // （真机实测漏写时副本比官方高 9px = 2.9vp）。
+            .justifyContent(FlexAlign.Center)
+            .alignItems(HorizontalAlign.Center)
           }
         }
-        .width(this.dockPillW)
-        .height(this.dockPillH)
-        // 副本必须与官方那份**逐像素重合**，否则落位瞬间图标会跳一下：官方那份是被
-        // Stack(alignContent: Center) 居中的，这里 Column 主轴默认从顶排，必须显式居中
-        // （真机实测漏写时副本比官方高 9px = 2.9vp）。
-        .justifyContent(FlexAlign.Center)
-        .alignItems(HorizontalAlign.Center)
-        .borderRadius(this.dockPillH / 2)
-        .backdropBlur(GlassTokens.SEGMENT_BLUR)
-        .backgroundColor($r('app.color.glass_pill_fill'))
-        .border({ width: DOCK_PILL_RIM_VP, color: $r('app.color.glass_pill_rim') })
-        .shadow(this.dockPillPressed ? ShadowTokens.cardContact : ShadowTokens.pillFloat)
-        // 按压反馈：玻璃被按下去一档（pressSlideScale=0.94，华为应用商店同款按压缩放），
-        // 同时落影从 pillFloat(radius 8/offsetY 3) 收到 cardContact(radius 1/offsetY 0)
-        // —— 影变短贴近背板，这两件一起才读得出「按下去了」。
+        .clip(false)
+        // ⚠️ HdsMiniBarButton 容器自带 contentPadding=8（防光效裁切），Row 比玻璃条大
+        // 16vp——position 以 Stack 左上角为锚，需反向补偿 padding 让玻璃条中心对准锚点，
+        // 副本与官方份的逐像素重合才成立。
+        .position({
+          x: this.dockPillX - this.dockPillW / 2 - DOCK_PILL_MINI_PAD,
+          y: this.dockPillY - this.dockPillH / 2 - DOCK_PILL_MINI_PAD,
+        })
+        // 按压反馈：玻璃被按下去一档（pressSlideScale=0.94，华为应用商店同款按压缩放）；
+        // 材质自带落影，自绘 shadow 不再叠加。
         .scale({
           x: this.dockPillPressed ? MotionTokens.pressSlideScale : 1,
           y: this.dockPillPressed ? MotionTokens.pressSlideScale : 1,
         })
         .animation({ duration: MotionTokens.fast, curve: MotionCurves.springInteract })
-        .position({ x: this.dockPillX - this.dockPillW / 2, y: this.dockPillY - this.dockPillH / 2 })
         // ⚠️ 必须是 Transparent 而不是 None：None 时玻璃收不到手指，按住底栏整颗胶囊毫无反应
         // （用户实测反馈）。Transparent 让玻璃自己收到按压，同时把命中继续透给下层官方页签
         // —— 这正是原文覆盖层用 HitTestMode.Transparent 的原因。改命中模式后必须真点一次

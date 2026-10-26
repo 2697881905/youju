@@ -7,13 +7,21 @@
 // ⚠️ 为什么不直接 ohpm 依赖：该 HAR 声明的 compatibleSdkVersion 高于本工程的
 // 6.0.0(20)，hvigor 构建期 SDK 校验（00306004）直接拒绝。本页仅在 API 23+ 设备
 // 进入（设置页入口已按 isImmersiveLightSenseSupported() 门禁），运行时安全由入口
-// 保证，故将源码落库本地集成。除本头注释外代码与上游 1.0.1 一致。
+// 保证，故将源码落库本地集成。
 //
 // 原理：内部用「Row 包 HdsTabs」借悬浮态 barFloatingStyle 的官方材质渲染通道，
 // 在任意容器里出真沉浸光感玻璃（磨砂/折射/高光）——普通组件挂 systemMaterial
 // 在覆盖层不出图（§7.6.26），这是唯一能在覆盖层拿到玻璃质感的通道。
+//
+// ⚠️⚠️ 与上游 1.0.1 的第二处差异（有据工程铁律，AGC 审核问题①）：上游 import 了
+// @hms.hds.hdsMaterial 用于材质参数的枚举类型——该模块在 API 22 及以下设备运行时
+// 不存在，任何静态 import 它的文件进启动链路都会加载即崩。本组件被主框架 Index.ets
+// （启动页）引用，必须斩断：materialType/materialLevel 参数类型从枚举改为 number，
+// 使用处传数值字面量（IMMERSIVE=101 / EXQUISITE=0 / ADAPTIVE=10，对照见
+// utils/immersiveMaterial.ets 头部；HdsTabs.barFloatingStyle 的 systemMaterialEffect
+// 接受数值字面量，Index.ets 已真机验证）。除上述两处外代码与上游 1.0.1 一致。
 
-import { hdsMaterial, HdsTabs } from '@kit.UIDesignKit';
+import { HdsTabs } from '@kit.UIDesignKit';
 
 /**
  * HdsMiniBarButton 浮动迷你栏按钮组件
@@ -85,13 +93,13 @@ export struct HdsMiniBarButton {
    * 材质类型（沉浸式效果）
    * @default hdsMaterial.MaterialType.IMMERSIVE
    */
-  @Param materialType: hdsMaterial.MaterialType = hdsMaterial.MaterialType.IMMERSIVE;
+  @Param materialType: number = 101;
 
   /**
    * 材质级别
    * @default hdsMaterial.MaterialLevel.ADAPTIVE
    */
-  @Param materialLevel: hdsMaterial.MaterialLevel = hdsMaterial.MaterialLevel.ADAPTIVE;
+  @Param materialLevel: number = 10;
 
   // ==================== 布局参数 ====================
 

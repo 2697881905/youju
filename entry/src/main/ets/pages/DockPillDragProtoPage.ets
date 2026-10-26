@@ -46,7 +46,7 @@
 // ⚠️ 兼容性：hds_button 的声明文件静态 import @hms.hds.hdsMaterial，API 22 设备加载本页
 //    即崩——设置页入口已按 isImmersiveLightSenseSupported()（API 23+）条件显示兜住。
 
-import { HdsNavigation, HdsNavigationTitleMode, HdsTabs, HdsTabsController, hdsMaterial } from '@kit.UIDesignKit';
+import { HdsNavigation, HdsNavigationTitleMode, HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
 import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 // hds_button@1.0.1 的源码本地集成（HAR 声明的 compatibleSdkVersion 高于工程 6.0.0(20)，
 // ohpm 依赖过不了构建期 SDK 校验，见 components/HdsMiniBarButton.ets 头注释）。
@@ -528,8 +528,10 @@ struct DockPillDragProtoPage {
             maskColor: '#00ffffff',
             barWidth: this.pillW,
             barHeight: this.pillH,
-            materialType: hdsMaterial.MaterialType.IMMERSIVE,
-            materialLevel: hdsMaterial.MaterialLevel.EXQUISITE,
+            // 材质数值字面量（IMMERSIVE=101 / EXQUISITE=0），与主框架同源常量语义；
+            // 组件本地化后参数是 number，斩断 hdsMaterial 静态依赖（工程铁律）。
+            materialType: 101,
+            materialLevel: 0,
           }) {
             // 玻璃内清晰副本：拖拽中跟随最近锚点（displayIndex），落定吸附目标槽。
             // 真玻璃会把压在下面的官方图标磨砂糊化，清晰内容必须由玻璃自带（原文同款）。
