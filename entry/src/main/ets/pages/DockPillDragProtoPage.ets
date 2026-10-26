@@ -63,8 +63,9 @@ import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 // 宽 = 1.10×槽距、高 = 0.92×槽高，介于「嫌大」与「液态盖过槽位」之间；嫌大/嫌小改这两个数。
 const PILL_W_RATIO: number = 1.1;
 const PILL_H_RATIO: number = 0.92;
-// HdsMiniBarButton 容器 contentPadding（防光效裁切的余量），position 定位需补偿。
-const MINI_BAR_PAD: number = 8;
+// HdsMiniBarButton 容器 contentPadding（防光效裁切的余量）。⚠️ 补偿量 = contentPadding×2
+// = 16（容器 size 公式 +padding×4、玻璃条居中——只补 8 会残差偏下 8vp，真机实证）。
+const MINI_BAR_PAD: number = 16;
 // 拖拽起手/行进的鼓包：用户要求弹动更明显（2026-10-26），6 → 10。
 const PILL_BULGE: number = 10;
 // 速度形变上限：用户要求弹动更明显，14 → 22（接近 45 的等比上限，甩动的拉扯感拉满）。

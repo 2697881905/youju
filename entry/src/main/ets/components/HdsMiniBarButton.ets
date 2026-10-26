@@ -20,6 +20,11 @@
 // 使用处传数值字面量（IMMERSIVE=101 / EXQUISITE=0 / ADAPTIVE=10，对照见
 // utils/immersiveMaterial.ets 头部；HdsTabs.barFloatingStyle 的 systemMaterialEffect
 // 接受数值字面量，Index.ets 已真机验证）。除上述两处外代码与上游 1.0.1 一致。
+//
+// ⚠️ 与上游的第三处差异：内部 HdsTabs 加 .scrollable(false)。上游没关内部滑动，
+// Tabs 内置滑动手势（子节点）会在手势竞争中吃掉横向滑动，宿主挂在外层的
+// PanGesture 永远收不到 onActionUpdate——玻璃珠无法拖动（真机实证 2026-10-26）。
+// 本组件作为指示器使用，内部只有一颗空 TabContent，禁滑无副作用。
 
 import { HdsTabs } from '@kit.UIDesignKit';
 
@@ -175,6 +180,8 @@ export struct HdsMiniBarButton {
       .barHeight(this.barHeight)
       .barOverlap(this.barOverlap)
       .barPosition(this.barPosition)
+      // 本地化第三处差异：禁内部滑动——否则 Tabs 内置手势吃掉宿主的 PanGesture（见头注释）。
+      .scrollable(false)
       .barFloatingStyle({
         gradientMask: {
           maskColor: this.maskColor

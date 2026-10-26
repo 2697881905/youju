@@ -112,8 +112,10 @@ const DOCK_PILL_BULGE: number = 10;
 const DOCK_PILL_TRAVEL_MS: number = 300;
 // 落定回弹时长：曲线换 springBounce（overshoot 果冻感）后给足走完物理行程的余量。
 const DOCK_PILL_SETTLE_MS: number = 400;
-// HdsMiniBarButton 容器 contentPadding（防光效裁切的余量），胶囊 position 需反向补偿。
-const DOCK_PILL_MINI_PAD: number = 8;
+// HdsMiniBarButton 容器 contentPadding（防光效裁切的余量）。⚠️ 容器 size 公式是
+// 「barHeight + contentPadding×4」（高 32）而玻璃条在容器内居中——position 补偿量 =
+// 容器半高 − 玻璃半高 = contentPadding×2 = 16（上一版只补 8，残差偏下 8vp 致底部溢出）。
+const DOCK_PILL_MINI_PAD: number = 16;
 // —— 拖拽液态交互参数（原型页 DockPillDragProtoPage 真机定档 2026-10-26，移植进主框架）——
 // 速度形变上限（vp）：快甩的拉扯感。
 const DOCK_PILL_SPEED_MAX_DEFORM: number = 22;
