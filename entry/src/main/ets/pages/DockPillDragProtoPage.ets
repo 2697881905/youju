@@ -193,7 +193,10 @@ struct DockPillDragProtoPage {
   }
 
   private restFrameOf(index: number): PillFrame | null {
-    if (!this.pillReady || index < 0 || index >= this.anchors.length) {
+    // 只看实测数据是否就位（anchors 由 recomputeGeometry 填充）。
+    // ⚠️ 不能加 !this.pillReady 门禁：pillReady 由 pillSnap 成功后才置位，而 pillSnap
+    // 本身要先过这里取几何——加门禁即死锁，胶囊永不出现（真机已踩：Dock 正常、指示器消失）。
+    if (index < 0 || index >= this.anchors.length) {
       return null;
     }
     return {
