@@ -150,14 +150,24 @@ async function request<T>(method: string, path: string, body?: Object, extraHead
       method: method as http.RequestMethod,
       header,
       extraData: body ? JSON.stringify(body) : undefined,
-      expectDataType: http.HttpDataType.OBJECT,
+      // STRING + 手动 parse：OBJECT 模式在真机上对超过 ~64KB 的响应会把 result
+      // 降级成原始字符串（/v1/posts 列表 75KB 稳定触发），code 字段读不到 →
+      // 全部业务接口报「请求失败」。STRING 模式无此限制，解析失败时回退旧路径。
+      expectDataType: http.HttpDataType.STRING,
       connectTimeout: 10000,
       readTimeout: 10000,
     });
-    // 先尝试解析 body 中的业务错误（后端 400/409/404 等返回 {code, message}）
-    // 让后端业务错误 message 透传到前端 catch 块（如"内容含敏感词"、"你已举报过该内容"）
-    const result = resp.result as ApiResult<T>;
-    if (result && typeof result.code === 'number') {
+    // 手动 parse：合法 JSON → ApiResult；非法/空 → null，走下方 fallback
+    let result: ApiResult<T> | null = null;
+    const rawText: string = typeof resp.result === 'string' ? resp.result : '';
+    if (rawText.length > 0) {
+      try {
+        result = JSON.parse(rawText) as ApiResult<T>;
+      } catch (_) {
+        result = null;
+      }
+    }
+    if (result !== null && typeof result.code === 'number') {
       if (result.code !== 0) {
         // 401 统一拦截：登录态失效（token 过期/被撤销）→ 打全局标记 + 明确文案，
         // 由 Index 监听后清登录态并引导重新登录（避免用户"看起来还登录着"却处处失败）
