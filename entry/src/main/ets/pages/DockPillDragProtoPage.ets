@@ -299,9 +299,11 @@ struct DockPillDragProtoPage {
     this.displayIndex = index;
     const restW: number = frame.w;
     const restH: number = frame.h;
+    // 行进曲线用 emphasized（无过冲）：springSoft 带 ~10% 位置过冲，松手吸附时会冲过
+    // 目标槽再弹回（「弹一下」）；弹动感由落定 springBounce 的尺寸果冻承担。
     this.getUIContext().animateTo({
       duration: TRAVEL_MS,
-      curve: MotionCurves.springSoft,
+      curve: MotionCurves.emphasized,
     }, () => {
       this.pillX = frame.cx;
       this.pillY = frame.cy;

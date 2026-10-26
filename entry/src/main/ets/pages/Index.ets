@@ -1081,7 +1081,10 @@ struct Index {
     // 官方份全部显示、图标留在槽位里（玻璃扫过谁、谁的图标在磨砂下短暂糊化）；settle
     // 到点才由玻璃接管目标槽——真磨砂下选中槽不接管则图标不可读，落定接管是唯一兼顾。
     this.dockPillCovered = -1;
-    this.getUIContext().animateTo({ duration: DOCK_PILL_TRAVEL_MS, curve: MotionCurves.springSoft }, () => {
+    // 行进曲线用 emphasized（无过冲）：springSoft 带 ~10% 位置过冲，拖拽松手时玻璃珠
+    // 会冲过目标槽再弹回，读作「弹一下」（真机反馈 2026-10-26）；吸附要的是"利落到位"，
+    // 弹动感由落定的 springBounce 尺寸果冻承担。
+    this.getUIContext().animateTo({ duration: DOCK_PILL_TRAVEL_MS, curve: MotionCurves.emphasized }, () => {
       this.dockPillX = frame.cx;
       this.dockPillY = frame.cy;
       this.dockPillW = frame.w + DOCK_PILL_BULGE;
