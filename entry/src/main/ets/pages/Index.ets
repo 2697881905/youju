@@ -1205,8 +1205,15 @@ struct Index {
     const slots: number = this.dockPillPitch > 0 ? Math.round(this.dockPillDragOffsetX / this.dockPillPitch) : 0;
     const lastIndex: number = this.bottomTabItems().length - 1;
     const target: number = Math.max(0, Math.min(lastIndex, this.currentIndex + slots));
+    // ⚠️ 落袋为安：玻璃视觉位置 = dockPillX(position) + dragOffsetX(translate) 两个属性之和。
+    // 松手瞬间先把合成位置一次性写入 dockPillX（直写）、dragOffsetX 同帧清零（直写）——
+    // 同帧两次直写只渲染一次，视觉零跳变；之后 travel 只需动画 dockPillX 单属性。
+    // 不能依赖 travel 的 animateTo 同时插值两个属性：translate 的归零若未按预期走动画
+    // （瞬间生效），玻璃会先跳回锚点再滑向目标——「从原来的方向重新滑过来」（真机实证）。
+    this.dockPillX = this.dockPillX + this.dockPillDragOffsetX;
+    this.dockPillDragOffsetX = 0;
     if (target === this.currentIndex) {
-      // 未过半格：回弹到当前槽（travel 的去重条件含拖拽偏移判断，会正常执行回弹）。
+      // 未过半格：回弹到当前槽（travel 从快照位插回锚点，去重条件已含拖拽偏移判断）。
       this.dockPillTravel(target);
       return;
     }
