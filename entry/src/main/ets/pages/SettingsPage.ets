@@ -10,6 +10,7 @@ import { buildPageTransition } from '../utils/styles';
 import { CARD_RADIUS } from '../utils/cardTokens';
 import { APP_VERSION_NAME } from '../utils/buildMode';
 import { resolveSettingsIcon } from '../utils/settingsIcons';
+import { isImmersiveLightSenseSupported } from '../utils/immersiveMaterial';
 import { window } from '@kit.ArkUI';
 import { BackButton } from '../design/components/BackButton';
 import { shareUserDataExport } from '../utils/dataExport';
@@ -353,10 +354,14 @@ export struct SettingsPage {
             this.getUIContext().getRouter().pushUrl({ url: 'pages/ProfileBarProtoPage' });
           })
           // 临时入口：Dock 胶囊拖拽原型（验证沉浸光感 tabbar 优化方案的拖拽液态交互，
-          // 参数定档见页首常量组；真机调参完成后决定是否合入主框架，完成即连本行一并删除）
-          this.sectionRow('book', 'Dock 胶囊拖拽原型（临时）', (): void => {
-            this.getUIContext().getRouter().pushUrl({ url: 'pages/DockPillDragProtoPage' });
-          })
+          // 参数定档见页首常量组；真机调参完成后决定是否合入主框架，完成即连本行一并删除）。
+          // ⚠️ 仅在支持沉浸光感的设备显示：hds_button 声明文件静态 import hdsMaterial，
+          // API 22 设备加载该页即崩，入口必须门禁兜住。
+          if (isImmersiveLightSenseSupported()) {
+            this.sectionRow('book', 'Dock 胶囊拖拽原型（临时）', (): void => {
+              this.getUIContext().getRouter().pushUrl({ url: 'pages/DockPillDragProtoPage' });
+            })
+          }
           this.sectionRow('book', '关于有据 · 版本 ' + APP_VERSION_NAME, (): void => {
             this.getUIContext().getRouter().pushUrl({ url: 'pages/AboutPage' });
           })

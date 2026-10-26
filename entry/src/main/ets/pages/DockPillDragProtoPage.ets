@@ -37,15 +37,25 @@
 // ⑩ 结构对齐原文（用户指出漏了包裹层）：根 Stack → HdsNavigation 包裹 HdsTabs，覆盖层
 //    与 HdsNavigation 同级、声明在后（层级更高）。原顶部说明覆盖层删除：操作指引挪进
 //    标题栏 subTitle，调参读数挪进各演示页内容顶部。
+// ⑪ 液态玻璃珠落地（用户反馈「还是没有液态玻璃的效果」）：胶囊本体换成 ohpm 三方组件
+//    HdsMiniBarButton（hds_button@1.0.1，原文同款）——它内部「Row 包 HdsTabs」借悬浮态
+//    barFloatingStyle 的官方材质渲染通道，在覆盖层里出真沉浸光感玻璃；此前自绘
+//    tint+rim/透明圈复刻不出玻璃折射，是根因。玻璃内清晰副本随 displayIndex 跟随最近
+//    锚点（原文同款）——真玻璃会磨砂官方图标，清晰内容必须由玻璃自带，此前「图标不跟
+//    跑」的拍板在真玻璃下无法保持，随原文回归。
+// ⚠️ 兼容性：hds_button 的声明文件静态 import @hms.hds.hdsMaterial，API 22 设备加载本页
+//    即崩——设置页入口已按 isImmersiveLightSenseSupported()（API 23+）条件显示兜住。
 
-import { HdsNavigation, HdsNavigationTitleMode, HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
+import { HdsNavigation, HdsNavigationTitleMode, HdsTabs, HdsTabsController, hdsMaterial } from '@kit.UIDesignKit';
 import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
+// hds_button@1.0.1 的源码本地集成（HAR 声明的 compatibleSdkVersion 高于工程 6.0.0(20)，
+// ohpm 依赖过不了构建期 SDK 校验，见 components/HdsMiniBarButton.ets 头注释）。
+import { HdsMiniBarButton } from '../components/HdsMiniBarButton';
 import { isImmersiveLightSenseSupported } from '../utils/immersiveMaterial';
 import { bottomNavInset, DOCK_WIDTH_SMALL, DOCK_BOTTOM_MARGIN_BASE, DOCK_SIDE_MARGIN_MIN,
   DOCK_GRADIENT_MASK_HEIGHT, DOCK_MATERIAL_TYPE, DOCK_MATERIAL_LEVEL,
   DOCK_BAR_HEIGHT_VP } from '../utils/cardTokens';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
-import { ShadowTokens } from '../design/tokens/shadow';
 
 // —— 参数定档（真机调参入口，全部集中于此；对照原文的推导写在每行注释里）——
 
@@ -53,8 +63,8 @@ import { ShadowTokens } from '../design/tokens/shadow';
 // 宽 = 1.10×槽距、高 = 0.92×槽高，介于「嫌大」与「液态盖过槽位」之间；嫌大/嫌小改这两个数。
 const PILL_W_RATIO: number = 1.1;
 const PILL_H_RATIO: number = 0.92;
-// 亮 rim 描边宽度：玻璃"读得出来"的第一来源（主框架同款）。
-const PILL_RIM_VP: number = 1.5;
+// HdsMiniBarButton 容器 contentPadding（防光效裁切的余量），position 定位需补偿。
+const MINI_BAR_PAD: number = 8;
 // 拖拽起手/行进的鼓包：用户要求弹动更明显（2026-10-26），6 → 10。
 const PILL_BULGE: number = 10;
 // 速度形变上限：用户要求弹动更明显，14 → 22（接近 45 的等比上限，甩动的拉扯感拉满）。
@@ -133,6 +143,9 @@ struct DockPillDragProtoPage {
   @State private pillH: number = 0;
   // 拖拽实时偏移（translate）：拖拽中逐帧直写跟手，travel 里随 animateTo 归零插值。
   @State private dragOffsetX: number = 0;
+  // 胶囊内清晰副本显示的页签：拖拽中跟随最近锚点（原文同款）——HdsMiniBarButton 是
+  // 真玻璃（HdsTabs 悬浮态磨砂），官方图标压在下面必然糊化，清晰内容必须由玻璃自带。
+  @State private displayIndex: number = 0;
   // 页面当前所在页（onChange 同步），驱动自定义页签的选中染色。
   @State private currentIndex: number = 0;
   // 调参读数（速度/形变/拖距），拖拽中每帧刷新。
@@ -231,6 +244,7 @@ struct DockPillDragProtoPage {
     this.pillW = frame.w;
     this.pillH = frame.h;
     this.pillIndex = index;
+    this.displayIndex = index;
     this.pillReady = true;
     return true;
   }
@@ -281,6 +295,7 @@ struct DockPillDragProtoPage {
       this.settleTimer = -1;
     }
     this.pillIndex = index;
+    this.displayIndex = index;
     const restW: number = frame.w;
     const restH: number = frame.h;
     this.getUIContext().animateTo({
@@ -326,6 +341,8 @@ struct DockPillDragProtoPage {
     this.initialDirection = 0;
     this.lastActiveTs = 0;
     this.pauseDetected = false;
+    // 起手副本回到当前吸附槽（原文同款），随后拖拽中跟随最近锚点。
+    this.displayIndex = this.pillIndex;
     // 起手鼓包：从静止尺寸"被拿起"，springBounce 给一记明显的轻弹。
     this.getUIContext().animateTo({
       duration: MotionTokens.fast,
@@ -392,6 +409,19 @@ struct DockPillDragProtoPage {
     } else {
       this.dragOffsetX = x;
     }
+
+    // 胶囊内清晰副本跟随最近锚点（原文同款）：玻璃里预显示即将到达的页签内容。
+    const currentX: number = this.anchors[this.pillIndex] + this.dragOffsetX;
+    let nearestIndex: number = this.pillIndex;
+    let nearestDist: number = Number.MAX_VALUE;
+    for (let i = 0; i < this.anchors.length; i++) {
+      const dist: number = Math.abs(currentX - this.anchors[i]);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearestIndex = i;
+      }
+    }
+    this.displayIndex = nearestIndex;
 
     this.debugText = `v=${Math.round(this.smoothedVp)}vp/s · Δw=${deformW.toFixed(1)} Δh=${deformH.toFixed(1)} · dx=${this.dragOffsetX.toFixed(0)}`;
   }
@@ -485,17 +515,49 @@ struct DockPillDragProtoPage {
   dockPillLayer() {
     Stack({ alignContent: Alignment.TopStart }) {
       if (this.pillReady) {
-        // 透明液态光标（用户拍板 2026-10-26：透明的，不要模糊的）：无 backdropBlur，
-        // 图标全程透过胶囊清晰可见；玻璃感由淡 tint（8% 黑）+ 亮 rim（65% 白）
-        // + 近距落影三件承载，缺 rim/影则只剩一块看不见的空圈。
-        Column()
-          .width(this.pillW)
-          .height(this.pillH)
-          .borderRadius(this.pillH / 2)
-          .backgroundColor($r('app.color.glass_pill_fill'))
-          .border({ width: PILL_RIM_VP, color: $r('app.color.glass_pill_rim') })
-          .shadow(ShadowTokens.pillFloat)
-        .position({ x: this.pillX - this.pillW / 2, y: this.pillY - this.pillH / 2 })
+        // 液态玻璃珠 = ohpm 三方组件 HdsMiniBarButton（hds_button@1.0.1）：
+        // 内部用「Row 包 HdsTabs」借悬浮态 barFloatingStyle 的官方材质渲染通道，
+        // 在覆盖层里出真沉浸光感玻璃（折射/磨砂/高光），这是自绘 tint+rim 无法
+        // 复刻的效果，也是此前几版「没有液态玻璃感」的根因。用法与原文一致：
+        // maskColor 全透明、barWidth/Height 动态、材质 IMMERSIVE+EXQUISITE。
+        // ⚠️ HdsMiniBarButton 是 @ComponentV2 自定义组件，不能直接挂通用属性——
+        // 包一层 Stack 承载 clip/position/translate/hitTest/gesture。Stack 居中包裹
+        // 带余量的 Row，玻璃条中心即 Stack 中心，position 只需反向补偿 contentPadding。
+        Stack() {
+          HdsMiniBarButton({
+            maskColor: '#00ffffff',
+            barWidth: this.pillW,
+            barHeight: this.pillH,
+            materialType: hdsMaterial.MaterialType.IMMERSIVE,
+            materialLevel: hdsMaterial.MaterialLevel.EXQUISITE,
+          }) {
+            // 玻璃内清晰副本：拖拽中跟随最近锚点（displayIndex），落定吸附目标槽。
+            // 真玻璃会把压在下面的官方图标磨砂糊化，清晰内容必须由玻璃自带（原文同款）。
+            Column({ space: 3 }) {
+              Image(this.protoTabs[this.displayIndex].icon)
+                .width(24)
+                .height(24)
+                .objectFit(ImageFit.Contain)
+                .fillColor(this.currentIndex === this.displayIndex
+                  ? $r('app.color.ds_brand') : $r('app.color.ds_icon'))
+              Text(this.protoTabs[this.displayIndex].title)
+                .fontSize(10)
+                .fontColor(this.currentIndex === this.displayIndex
+                  ? $r('app.color.ds_brand') : $r('app.color.ds_icon'))
+            }
+            .width('100%')
+            .height('100%')
+            .justifyContent(FlexAlign.Center)
+            .alignItems(HorizontalAlign.Center)
+          }
+        }
+        .clip(false)
+        // ⚠️ HdsMiniBarButton 容器自带 contentPadding=8（防光效裁切），Row 比玻璃条大
+        // 16vp——position 以 Stack 左上角为锚，需反向补偿 padding 让玻璃条中心对准锚点。
+        .position({
+          x: this.pillX - this.pillW / 2 - MINI_BAR_PAD,
+          y: this.pillY - this.pillH / 2 - MINI_BAR_PAD,
+        })
         // 拖拽跟手与 travel 归零插值都走这一个 translate。
         .translate({ x: this.dragOffsetX })
         .hitTestBehavior(HitTestMode.Transparent)
