@@ -46,4 +46,8 @@ export const DOCK_SIDE_MARGIN_MIN: number = 16;
 // 首页系统 HdsTabs.barFloatingStyle 的材质参数；详情页 Dock 只在系统组件不可用时降级。
 export const DOCK_GRADIENT_MASK_HEIGHT: number = 92;
 export const DOCK_MATERIAL_TYPE: number = 101;
-export const DOCK_MATERIAL_LEVEL: number = 10;
+// 材质档位：ADAPTIVE(10) → EXQUISITE(0)，与四条顶栏的栏级材质同档。
+// 依据：真机实测 ADAPTIVE 只出普通半透（无折射），EXQUISITE 才出玻璃折射（基准 §7.6.17）；
+// 沉浸光感 tabbar 优化方案（华为开发者文章 03212848303315412）同样把底栏写成 EXQUISITE。
+// ⚠️ 这是**已上线过审表面**的观感变更，回退只需把本行改回 10（单字段、无连带改动）。
+export const DOCK_MATERIAL_LEVEL: number = 0;

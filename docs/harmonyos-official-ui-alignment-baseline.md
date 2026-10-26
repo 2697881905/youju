@@ -1175,6 +1175,58 @@ HdsNavigation
 **⚠️ 由此得出一条批量迁移的前置检查**（写进防漂移第 32 条）：给某页开穿底之前，先数一遍它的 `bottomBuilder` 行里有没有**无表面的裸文字**。有 → 要么先搬走，要么这页不穿底。首页/消息之所以能穿，是因为那一行里只有分段栏和 chip，**两者都有自己的官方表面**。
 
 
+#### 7.6.32 沉浸光感 tabbar 优化落地：给 Dock 加「液态选中指示器」（2026-10-26）
+
+来源：华为开发者联盟文章 [`03212848303315412`《对沉浸光感tabbar的优化改造》](https://developer.huawei.com/consumer/cn/blog/topic/03212848303315412)（2026-04-29 发布）。原文两条痛点，逐条对表我们自己的真机基线：
+
+| 原文痛点 | 我们命中吗 | 真机基线证据（LEM-AL00 / HarmonyOS 7.0 / 1136×2690 / px÷vp=3.125） |
+|---|---|---|
+| ① 高光与图标同层，切换时高光盖住图标，看不清「镂空→填充」 | **不存在** | 我们的 Dock 压根没有选中高光 —— `TabBar [99,2427][1037,2602]` 下只有 5 个 `Column`，每个 `Image + Text`，无任何表面节点 |
+| ② 只靠图标样式变化，通透背景下辨识度不足 | **正中** | 选中态唯一的差别是 `fillColor`：`#0066CC` vs `#3C3C43`，压在 252 灰度的 Dock 表面上。图标本身五颗都保持镂空，连「镂空→填充」都没有 |
+
+**原文方案的六个可分离动作，逐条处置**：
+
+| 动作 | 处置 | 理由 |
+|---|---|---|
+| 底栏材质写 `IMMERSIVE + EXQUISITE` | **采纳** | `DOCK_MATERIAL_LEVEL` 10(ADAPTIVE) → 0。§7.6.17 已实测 ADAPTIVE 不出折射，顶栏四条都停在 EXQUISITE，Dock 是唯一掉队的。⚠️ 这是**已上线过审表面**的观感变更，回退只需把 `cardTokens.ets` 该字段改回 10 |
+| 覆盖层加液态指示器（`Stack` 根、与 `HdsNavigation` 同级、z 序更高、贴在悬浮条区域） | **采纳（改样）** | 见下方实现细节。原文的 `HdsMiniBarButton`（`import ... from 'hds_button'`）**不在 SDK 里** —— `@kit.UIDesignKit` 只导出 `HdsTabsMiniBar`，那是「折叠成小条」的另一件事，不是指示器。所以指示器只能自建 |
+| 胶囊内复制一份图标+文字、行进中 `.blur(40)` | **不采纳** | 内容区拿不到系统材质（§7.6.26），加模糊只会把底下的官方图标糊成一团；不复制也就不必隐藏官方件，否则目标槽会先空出一个洞再被填上 |
+| 拖拽胶囊切页（`PanGesture` + 速度形变 + 边界衰减） | **不采纳** | 改交互。本应用 `.scrollable(false)` 是明确决策，且用户此前已因「交互也要变了」否掉过同类方案。原文的速度形变只服务于拖拽，故一并留在门外 |
+| `barFloatingStyle.adaptToHandedness`（智感握姿） | **暂不采纳** | 它会把整条 Dock 朝持机手平移，指示器要跟着重测，且底栏位置不再稳定。要开得单独一轮 |
+| `lightColor` / `animationDuration(0)` / `barHeight(59)` / 三档 `barWidth` 同值 | **不采纳** | 我们已有各自的定稿值（`barWidth` 三档差异是 2026-10 为「切页时底栏忽长忽短」修的），原文那套是 4 页签 330vp 的参数，不通用 |
+
+**实现要点（`Index.ets`，只服务 `hdsFloatingBar` 分支）**：几何一律实测、不写死 —— 五颗页签各自 `onAreaChange` 回抛窗口矩形，覆盖层同样回抛，胶囊宽度取**反算槽距**（`(末槽中心 − 首槽中心) / (n-1)`）而不是槽位节点宽度。这条必须如此：页签 `Column` 写死 64vp，但系统按 `barWidth` 档排出来的实际中心间距只有 **55.2vp**（实测中心 222/394/567/740/912px，间距 172.5px），**相邻槽位框互叠 27.5px**，照节点宽度画会盖住邻居。
+
+**⚠️ 本轮最贵的一块地：TabBar 子树的 y 坐标两个 API 一起少算一档 `barBottomMargin`**（详见防漂移第 37 条）。落地后第一版胶囊甩到 Dock 底下 88px：
+
+| 量 | 接口回报 | 真机实际（dumpLayout） | 差 |
+|---|---|---|---|
+| 槽位 `windowOffset.y`（`componentUtils.getRectangleById`） | 2527px | 2439px | **+88px** |
+| 槽位 `globalPosition.y`（`Area`，÷3.125 后 808.64vp） | 2527px | 2439px | **+88px** |
+| 槽位 x | 122.35px | 122px | +0.6px（无需修正） |
+
+两个不同源的 API 给同一个偏差，说明不是接口 bug 而是坐标语义：**系统把悬浮条整体上提了 `barBottomMargin`，但 TabBar 子树里的矩形是按上提之前算的**。88px = 28.16vp，与我们传进去的 `DOCK_BOTTOM_MARGIN_BASE(28) + bottomNavInset()(0) = 28` 吻合到 0.4px。X 方向没有对应 margin，所以只有纵向偏。修法即把这一档减回去。
+
+另一处对表坑：覆盖层 `dockPillLayer` 的 `globalPosition` 报 `(0,0)`、`Area.height` 报 860.8vp（= 整窗 2690px），而 dumpLayout 给它的 bounds 是 `[0,106][1136,2690]`。**`.position()` 用的是前者那一套**（实测 `position.y=812.64vp` 落在窗口 2539px）—— 别拿 dump 的 bounds 去校 `.position()`，会差一整条状态栏。
+
+**落地几何与动效**：静止 `43.26 × 48vp`、圆角 = 高/2；`brandTint` 面（浅色 10% 蓝 / 深色 20% 蓝）+ `ds_brand_pill_border` 描边（18% / 30% 蓝）+ `ShadowTokens.cardAmbient`。切页 = 300ms `springSoft` 位移并鼓包 +6，到点 240ms `springInteract` 收回静止尺寸。整层（含胶囊）`hitTestBehavior(HitTestMode.None)`，不吃任何点击。
+
+**验收（真机，浅色）**：
+
+| 场景 | 结果 |
+|---|---|
+| 冷启落位 | 胶囊中心 x=222.5（槽 0 中心 222）、y 中心 807.64vp（真值 807.52）✓ |
+| 点「圈子」 | 行进后落在 x 320..463（中心 391.5 vs 槽 1 中心 394）✓，页面切到圈子（顶栏「已加入 0 个」） |
+| 点「我的」→「首页」 | 两次都落回正确槽 ✓ |
+| 点「发布」 | 半模态「选择发布方式」正常弹出，**胶囊不动**（index 2 守卫）✓；面板收起后仍在圈子 ✓ |
+| 点击命中 | 五颗页签 + 首页搜索钮（一镜到底入口，面板弹出）全部照常响应 ✓ |
+| 退到桌面再热恢复 | 胶囊落位正确 ✓ |
+
+**未验（如实记录）**：① 行进动效的观感 —— `snapshot_display` 抓不到 300ms 中间帧（见 [[hdc-snapshot-frame-cache]]），只能真人眼验；② 深色档表面强度；③ 信息流滚动 / 一镜到底飞行的回归 —— dev 后端 `127.0.0.1:3000` 的 `hdc rport` 在设备换址后失效，首页是「加载失败」空态，没有可滚内容。
+
+**边界**：指示器只在 `hdsFloatingBar`（API 23+）分支画。API 20-22 走自绘 `BottomTabBar`，它自带高亮件，两套选中语言不并存。
+
+
 ### 7.7 浅色那一档顺手复测（补第 6 节的 TODO）
 
 原生电话·浅色的分段栏与文字（同一套几何，只有色不同）：
@@ -1286,3 +1338,4 @@ $HDC shell "uitest uiInput click <px-x> <px-y>"   # bounds 是 px，÷3.125 才�
 34. **官方 `SegmentButton`（tab 档）自带"拖到哪个分段松手就选哪个"，但它不走 `onItemClicked`**：拖动选择只回写双向绑定的 `selectedIndexes`，宿主若只监听 `onItemClicked`，就会出现「选中面动了、页面不切换」。修法：给封装内部承接 `selectedIndexes` 的 `@State` 挂 `@Watch` 反向同步宿主，且**同步写宿主状态要 `setTimeout` 延迟一拍**——官方组件会在自身更新期回写，同步嵌进渲染期会加剧丢更新。同值守卫防 `syncIndexes` 回灌死循环（`ImmersiveSegmentBar.ets`，真机 2026-10-24）。
 35. **产品拍板（2026-10-24，两轮修正后定稿）：分段栏回迁 1.0.1 自绘版；下拉菜单交互保持新版**。①9 处分段栏换回自绘 `SegmentedControl`（参数逐站照抄 1.0.1 c50f8318：透明轨道 + `#99EFEFF2` 滑块 + 弹簧跟手扫选，标题栏内 `useSystemMaterial` 保留），首页滑块跟手机制（`onContentDidScroll`/`onGestureSwipe` 喂 `slidePosition`）恢复；②圈子下拉**保持 bindMenu 系统弹层**——chip 与 1.0.1 本就同款样式（透明底+细描边+系统材质接管），改回内联面板被用户否决（「下拉菜单交互不要变，只改变按钮样式材质」）；③发布页体裁**保持分段选择交互**（自绘分段栏，即迁移前状态），1.0.1 的滚轮弹窗方案试过后撤回。`ImmersiveSegmentBar`（官方 SegmentButton 封装）仅剩两个临时验证页在用，勿据此推断产品形态。第 16/17/22/34 条的技术结论仍然成立（那是官方组件本身的边界），只是产品不再走那条路；「我的」页画布随之回白（材质画布是为官方轨道层次引入的）。
 36. **栏级 EXQUISITE 材质会盖掉普通 GRADIENT_BLUR 的透过模糊——两者要共存必须换 IMMERSIVE_GRADIENT_BLUR + originalStyle.blurRadius 动态门控**：给标题栏挂 `systemMaterialEffect`（EXQUISITE）后，普通 `GRADIENT_BLUR` 的滚动透过模糊实测归零（消息页真机 0/80 采样），材质表面把穿栏内容整个挡住。唯一共存配方 = `IMMERSIVE_GRADIENT_BLUR` + `originalStyle.blurRadius`（绝对滚动偏移 >0 门控，**不能用每帧增量正负**——松手弹簧回弹的负帧会打灭开关，「松手模糊消失」根因）+ `maskExtraHeight: 0`。另外：分段栏住在 bottomBuilder 时不要同时挂通用组件材质（ULTRA_THIN）——两轨不等价（第 24 条）且叠加成两层玻璃；让栏透明描边直接站在栏级材质上即可（消息页 2026-10-24/25 落地，与「我的」页同配方）。
+37. **给官方悬浮 `TabBar` 的子节点做覆盖层定位，y 要自己补回 `barBottomMargin`**：`componentUtils.getRectangleById().windowOffset` 和 `Area.globalPosition` 两个 API 在这一点上**给出同一个错值** —— 真机实测槽位报 y=2527px，dumpLayout 量到实际渲染在 2439px，差 88px = 28.16vp，正好等于我们传给 `barFloatingStyle.barBottomMargin` 的 `28 + bottomNavInset()(0)`。语义是「系统把悬浮条整体上提了，但 TabBar 子树的矩形按上提之前算」。所以拿这两个接口任一者做覆盖层 `.position()` 都会把东西画到 Dock 底下，必须显式减回这一档；X 方向没有对应 margin，不要顺手也减。另记：覆盖层自己的 `globalPosition`/`Area.height` 报的是**整窗**（(0,0) / 860.8vp），而 dumpLayout 给它的 bounds 从状态栏下沿起算（y=106）—— `.position()` 吃前者，**别拿 dump 的 bounds 校 `.position()`**，会差一整条状态栏（第 7.6.32 节）。

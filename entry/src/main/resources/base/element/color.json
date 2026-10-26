@@ -173,6 +173,10 @@
       "value": "#1A0066CC"
     },
     {
+      "name": "ds_brand_pill_border",
+      "value": "#2E0066CC"
+    },
+    {
       "name": "ds_brand_press",
       "value": "#0055BB"
     },
