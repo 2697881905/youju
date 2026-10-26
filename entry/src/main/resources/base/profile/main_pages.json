@@ -32,6 +32,7 @@
     "pages/InterestTagsPage",
     "pages/HdsNavVerifyPage",
     "pages/HdsMenuVerifyPage",
-    "pages/ProfileBarProtoPage"
+    "pages/ProfileBarProtoPage",
+    "pages/DockPillDragProtoPage"
   ]
 }

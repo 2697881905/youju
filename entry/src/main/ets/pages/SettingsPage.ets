@@ -352,6 +352,11 @@ export struct SettingsPage {
           this.sectionRow('book', '我的顶栏官方化原型（临时）', (): void => {
             this.getUIContext().getRouter().pushUrl({ url: 'pages/ProfileBarProtoPage' });
           })
+          // 临时入口：Dock 胶囊拖拽原型（验证沉浸光感 tabbar 优化方案的拖拽液态交互，
+          // 参数定档见页首常量组；真机调参完成后决定是否合入主框架，完成即连本行一并删除）
+          this.sectionRow('book', 'Dock 胶囊拖拽原型（临时）', (): void => {
+            this.getUIContext().getRouter().pushUrl({ url: 'pages/DockPillDragProtoPage' });
+          })
           this.sectionRow('book', '关于有据 · 版本 ' + APP_VERSION_NAME, (): void => {
             this.getUIContext().getRouter().pushUrl({ url: 'pages/AboutPage' });
           })
