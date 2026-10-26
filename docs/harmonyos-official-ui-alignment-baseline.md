@@ -1175,54 +1175,76 @@ HdsNavigation
 **⚠️ 由此得出一条批量迁移的前置检查**（写进防漂移第 32 条）：给某页开穿底之前，先数一遍它的 `bottomBuilder` 行里有没有**无表面的裸文字**。有 → 要么先搬走，要么这页不穿底。首页/消息之所以能穿，是因为那一行里只有分段栏和 chip，**两者都有自己的官方表面**。
 
 
-#### 7.6.32 沉浸光感 tabbar 优化落地：给 Dock 加「液态选中指示器」（2026-10-26）
+#### 7.6.32 沉浸光感 tabbar 优化落地：Dock 玻璃选中指示器（2026-10-26）
 
-来源：华为开发者联盟文章 [`03212848303315412`《对沉浸光感tabbar的优化改造》](https://developer.huawei.com/consumer/cn/blog/topic/03212848303315412)（2026-04-29 发布）。原文两条痛点，逐条对表我们自己的真机基线：
+来源：华为开发者联盟文章 [`03212848303315412`《对沉浸光感tabbar的优化改造》](https://developer.huawei.com/consumer/cn/blog/topic/03212848303315412)（2026-04-29）。原文两条痛点逐条对表真机基线：
 
-| 原文痛点 | 我们命中吗 | 真机基线证据（LEM-AL00 / HarmonyOS 7.0 / 1136×2690 / px÷vp=3.125） |
+| 原文痛点 | 我们命中吗 | 真机基线（LEM-AL00 / HarmonyOS 7.0 / 1136×2690 / px÷vp=3.125） |
 |---|---|---|
-| ① 高光与图标同层，切换时高光盖住图标，看不清「镂空→填充」 | **不存在** | 我们的 Dock 压根没有选中高光 —— `TabBar [99,2427][1037,2602]` 下只有 5 个 `Column`，每个 `Image + Text`，无任何表面节点 |
-| ② 只靠图标样式变化，通透背景下辨识度不足 | **正中** | 选中态唯一的差别是 `fillColor`：`#0066CC` vs `#3C3C43`，压在 252 灰度的 Dock 表面上。图标本身五颗都保持镂空，连「镂空→填充」都没有 |
+| ① 高光与图标同层，切换时盖住图标 | **不存在** | `TabBar [99,2427][1037,2602]` 下只有 5 个 `Column`，无任何表面节点 |
+| ② 只靠图标样式变化，通透背景下辨识度不足 | **正中** | 选中态唯一差别是 `fillColor`（`#0066CC` vs `#3C3C43`），压在 251 灰度的 Dock 面上；五颗图标还都保持镂空 |
 
-**原文方案的六个可分离动作，逐条处置**：
+### 先记一次做错的：把「玻璃」做成了「色块贴片」
 
-| 动作 | 处置 | 理由 |
-|---|---|---|
-| 底栏材质写 `IMMERSIVE + EXQUISITE` | **采纳** | `DOCK_MATERIAL_LEVEL` 10(ADAPTIVE) → 0。§7.6.17 已实测 ADAPTIVE 不出折射，顶栏四条都停在 EXQUISITE，Dock 是唯一掉队的。⚠️ 这是**已上线过审表面**的观感变更，回退只需把 `cardTokens.ets` 该字段改回 10 |
-| 覆盖层加液态指示器（`Stack` 根、与 `HdsNavigation` 同级、z 序更高、贴在悬浮条区域） | **采纳（改样）** | 见下方实现细节。原文的 `HdsMiniBarButton`（`import ... from 'hds_button'`）**不在 SDK 里** —— `@kit.UIDesignKit` 只导出 `HdsTabsMiniBar`，那是「折叠成小条」的另一件事，不是指示器。所以指示器只能自建 |
-| 胶囊内复制一份图标+文字、行进中 `.blur(40)` | **不采纳** | 内容区拿不到系统材质（§7.6.26），加模糊只会把底下的官方图标糊成一团；不复制也就不必隐藏官方件，否则目标槽会先空出一个洞再被填上 |
-| 拖拽胶囊切页（`PanGesture` + 速度形变 + 边界衰减） | **不采纳** | 改交互。本应用 `.scrollable(false)` 是明确决策，且用户此前已因「交互也要变了」否掉过同类方案。原文的速度形变只服务于拖拽，故一并留在门外 |
-| `barFloatingStyle.adaptToHandedness`（智感握姿） | **暂不采纳** | 它会把整条 Dock 朝持机手平移，指示器要跟着重测，且底栏位置不再稳定。要开得单独一轮 |
-| `lightColor` / `animationDuration(0)` / `barHeight(59)` / 三档 `barWidth` 同值 | **不采纳** | 我们已有各自的定稿值（`barWidth` 三档差异是 2026-10 为「切页时底栏忽长忽短」修的），原文那套是 4 页签 330vp 的参数，不通用 |
+第一版落地的是一颗 `brandTint` 10% 蓝填充 + 1px 蓝描边 + `cardAmbient` 投影、**尺寸往槽位里内缩**、且**不在胶囊里放内容**的贴片，理由写的是「内容区拿不到系统材质，加模糊只会糊掉官方图标，不如半透色面清楚」。这个理由是错的，而且错在三个地方 —— 全部由参照图（文章的效果预览，360×240）量化后打回：
 
-**实现要点（`Index.ets`，只服务 `hdsFloatingBar` 分支）**：几何一律实测、不写死 —— 五颗页签各自 `onAreaChange` 回抛窗口矩形，覆盖层同样回抛，胶囊宽度取**反算槽距**（`(末槽中心 − 首槽中心) / (n-1)`）而不是槽位节点宽度。这条必须如此：页签 `Column` 写死 64vp，但系统按 `barWidth` 档排出来的实际中心间距只有 **55.2vp**（实测中心 222/394/567/740/912px，间距 172.5px），**相邻槽位框互叠 27.5px**，照节点宽度画会盖住邻居。
-
-**⚠️ 本轮最贵的一块地：TabBar 子树的 y 坐标两个 API 一起少算一档 `barBottomMargin`**（详见防漂移第 37 条）。落地后第一版胶囊甩到 Dock 底下 88px：
-
-| 量 | 接口回报 | 真机实际（dumpLayout） | 差 |
+| 属性 | 参照图实测 | 第一版 | 错在哪 |
 |---|---|---|---|
-| 槽位 `windowOffset.y`（`componentUtils.getRectangleById`） | 2527px | 2439px | **+88px** |
-| 槽位 `globalPosition.y`（`Area`，÷3.125 后 808.64vp） | 2527px | 2439px | **+88px** |
-| 槽位 x | 122.35px | 122px | +0.6px（无需修正） |
+| 胶囊面 vs Dock 面 | 53 vs 24 → **亮 +29 级** | 与 Dock 同亮度、只偏蓝 10% | 没有表面差就没有体积。白底 Dock 是 251、上限 255，**"更亮"这条路没有余量**，只能反向压暗（见 §7.6.27 结论 3） |
+| 边缘 | 顶缘高光比 Dock **亮 +86 级**的一条镜面弧 | 均匀 1px 蓝线 | 玻璃读得出来主要靠 rim，不是靠填充色 |
+| 内容 | 胶囊里是**清晰**的图标+文字 | 只有下层官方那份 | 见下：真磨砂必然毁掉下层，副本是**必需品**不是装饰 |
+| 尺寸 | 宽 ≈ **1.22 倍槽距**、高 ≈ 0.93 倍栏高，行进中**溢出 Dock 圆端** | 比槽位还窄（内缩 6/3vp） | 方向整个反了，玻璃无从谈起 |
 
-两个不同源的 API 给同一个偏差，说明不是接口 bug 而是坐标语义：**系统把悬浮条整体上提了 `barBottomMargin`，但 TabBar 子树里的矩形是按上提之前算的**。88px = 28.16vp，与我们传进去的 `DOCK_BOTTOM_MARGIN_BASE(28) + bottomNavInset()(0) = 28` 吻合到 0.4px。X 方向没有对应 margin，所以只有纵向偏。修法即把这一档减回去。
+**「不给胶囊加 blur」这个决定本身，正是把玻璃做成贴片的原因。** 加上 `backdropBlur(SEGMENT_BLUR=20)` 之后真机实拍：底下的官方图标被糊成一团蓝色光晕、完全不可读 —— 这才看懂原文为什么要在胶囊内复制一份图标+文字。**副本不是可选的美化，是真磨砂的必然配套**。
 
-另一处对表坑：覆盖层 `dockPillLayer` 的 `globalPosition` 报 `(0,0)`、`Area.height` 报 860.8vp（= 整窗 2690px），而 dumpLayout 给它的 bounds 是 `[0,106][1136,2690]`。**`.position()` 用的是前者那一套**（实测 `position.y=812.64vp` 落在窗口 2539px）—— 别拿 dump 的 bounds 去校 `.position()`，会差一整条状态栏。
+### 材质轨：一次性判定实验，覆盖层拿不到官方材质
 
-**落地几何与动效**：静止 `43.26 × 48vp`、圆角 = 高/2；`brandTint` 面（浅色 10% 蓝 / 深色 20% 蓝）+ `ds_brand_pill_border` 描边（18% / 30% 蓝）+ `ShadowTokens.cardAmbient`。切页 = 300ms `springSoft` 位移并鼓包 +6，到点 240ms `springInteract` 收回静止尺寸。整层（含胶囊）`hitTestBehavior(HitTestMode.None)`，不吃任何点击。
+挂 `uiMaterial.ImmersiveMaterial({style: THIN, applyShadow: true})`（场景规范「底部悬浮 → THIN」）、同时把自绘表面**全清空**，装机看像素：胶囊整个消失（247~254 vs Dock 252，无差）。与 §7.6.26 一致 —— `systemMaterial` 只在 `TitleBar` 子树渲染，`NavBarContent` 下的覆盖层拿不到。**Dock 指示器只能自绘玻璃，这条到此封死**（`immersiveMaterial.ets` 里已把该实验结论写成注释，不留死代码）。
 
-**验收（真机，浅色）**：
+### 最终配方
+
+| 项 | 值 | 依据 |
+|---|---|---|
+| 尺寸 | 宽 = 实测槽距 × 1.22，高 = 实测槽高 × 0.96（≈52vp），圆角 = 高/2 | 参照图比例；槽位框实测 64vp 但**中心间距只有 55.2vp**（中心 222/394/567/740/912px，互叠 27.5px），所以宽度只能取反算槽距，取节点宽度会盖住邻居 |
+| ① 透底模糊 | `backdropBlur(GlassTokens.SEGMENT_BLUR)` | Dock 是 `barOverlap(true)` 悬浮的，信息流会从背后穿过，磨砂要糊得掉它 |
+| ② 中性半透面 | `glass_pill_fill`：浅色 `#14000000` / 深色 `#26FFFFFF` | 参照图暗底提亮，白底镜像过来就是压暗；**玻璃本身不着色**，品牌色留给图标和文字 |
+| ③ 镜面 rim | 1.5vp，`glass_pill_rim`：浅色 `#A6FFFFFF` / 深色 `#40FFFFFF` | 参照图顶缘 +86 级 |
+| ④ 落影 | `ShadowTokens.pillFloat`（radius 8 / 15% 黑 / offsetY 3） | 实测胶囊下方 215~241 一条影；`floating`(16/6) 对 52vp 的件太大 |
+| ⑤ 胶囊内副本 | 复用官方那份的 `tabItemContent(index)`，同时把被盖槽的官方件 `opacity(0)` | 不隐就会「清晰副本 + 磨砂光晕」叠成脏；隐了玻璃下面只剩 Dock 表面。副本与官方位差实测 1px |
+| 动效 | 300ms `springSoft` 位移 + 鼓包 +6 → 240ms `springInteract` 收回 | 原文 tap 分支（它的速度形变只服务拖拽，本应用不接） |
+
+**⚠️ 两个必须记住的坑**：
+1. **胶囊里那份不能用 `this.tabItemContent(this.dockPillCovered)`** —— `@Builder` 参数是值快照，落位后 index 变了副本不刷（真机实证：胶囊飞到「消息」里画的还是「首页」）。改成 key 随 `dockPillCovered` 变化的单元素 `ForEach` 强制重建。见 [[arkui-builder-param-value-snapshot]]。
+2. **承载副本的 `Column` 必须显式 `justifyContent(Center)` + `alignItems(Center)`** —— 官方那份是被 `Stack(alignContent: Center)` 居中的，Column 主轴默认从顶排，漏写会高 9px = 2.9vp，落位瞬间图标跳一下。
+
+### 覆盖层坐标：本轮最贵的一块地（详见防漂移第 37 条）
+
+| 量 | 接口回报 | dumpLayout 实际 | 差 |
+|---|---|---|---|
+| 槽位 `windowOffset.y`（`getRectangleById`） | 2527px | 2439px | **+88px** |
+| 槽位 `globalPosition.y`（`Area`） | 808.64vp = 2527px | 2439px | **+88px** |
+| 槽位 x | 122.35px | 122px | +0.6px（不修正） |
+
+两个不同源的 API 给同一个偏差 ⇒ 不是接口 bug，是坐标语义：系统把悬浮条整体上提了 `barBottomMargin`，但 TabBar 子树的矩形按上提之前算。88px = 28.16vp，与传进去的 `DOCK_BOTTOM_MARGIN_BASE(28) + bottomNavInset()(0)` 吻合到 0.4px。另：覆盖层 `globalPosition` 报 (0,0)、`Area.height` 报 860.8vp（整窗），而 dumpLayout 给它 `[0,106]` 起算 —— `.position()` 吃前者，别拿 dump bounds 校它。
+
+### 底栏材质档
+
+`DOCK_MATERIAL_LEVEL` ADAPTIVE(10) → EXQUISITE(0)，与四条顶栏同档（§7.6.17 实测 ADAPTIVE 无折射，原文同样写 EXQUISITE）。⚠️ **已上线过审表面**的观感变更，回退只需把 `cardTokens.ets` 该字段改回 10。
+
+**未采纳**：`adaptToHandedness`（智感握姿会平移整条 Dock，指示器要跟着重测、底栏位置不再稳定）、`lightColor`、`animationDuration(0)`、`barHeight(59)`、三档 `barWidth` 同值（我们那三档差异是为修「切页时底栏忽长忽短」定的）。**拖拽切页仍不采纳** —— 改交互，`scrollable(false)` 是明确决策。
+
+### 验收（真机，浅色）
 
 | 场景 | 结果 |
 |---|---|
-| 冷启落位 | 胶囊中心 x=222.5（槽 0 中心 222）、y 中心 807.64vp（真值 807.52）✓ |
-| 点「圈子」 | 行进后落在 x 320..463（中心 391.5 vs 槽 1 中心 394）✓，页面切到圈子（顶栏「已加入 0 个」） |
-| 点「我的」→「首页」 | 两次都落回正确槽 ✓ |
-| 点「发布」 | 半模态「选择发布方式」正常弹出，**胶囊不动**（index 2 守卫）✓；面板收起后仍在圈子 ✓ |
-| 点击命中 | 五颗页签 + 首页搜索钮（一镜到底入口，面板弹出）全部照常响应 ✓ |
-| 退到桌面再热恢复 | 胶囊落位正确 ✓ |
+| 冷启落位 | 中心 x 222.5（槽 0 = 222）、y 807.64vp（真值 807.52）✓ |
+| 表面量化 | 胶囊 231~235 vs Dock 251 = **−16~−20 级**；rim 亮边；下方落影 215~241 ✓ |
+| 点消息（跨发布槽行进） | 落在槽 3、副本是**清晰的品牌蓝消息图标**、官方那份已隐、其余四颗照常 ✓ |
+| 副本与官方对位 | `[190,2553]` vs `[191,2554]` = 1px ✓ |
+| 点发布 | 半模态弹出、**胶囊不动**、被盖槽不切换 ✓ |
+| 点击命中 | 五颗页签 + 首页搜索钮（一镜到底入口）全部照常 ✓ |
 
-**未验（如实记录）**：① 行进动效的观感 —— `snapshot_display` 抓不到 300ms 中间帧（见 [[hdc-snapshot-frame-cache]]），只能真人眼验；② 深色档表面强度；③ 信息流滚动 / 一镜到底飞行的回归 —— dev 后端 `127.0.0.1:3000` 的 `hdc rport` 在设备换址后失效，首页是「加载失败」空态，没有可滚内容。
+**未验**：① 行进动效观感（`snapshot_display` 抓不到 300ms 中间帧，要真人眼验）；② 深色档表面强度（配方给了 `#26FFFFFF`/`#40FFFFFF` 一套，未上机）；③ 信息流从 Dock 背后穿过时磨砂是否够（dev 后端 `127.0.0.1:3000` 的 `hdc rport` 随设备换址失效，首页是「加载失败」空态，没有可滚内容）。
 
 **边界**：指示器只在 `hdsFloatingBar`（API 23+）分支画。API 20-22 走自绘 `BottomTabBar`，它自带高亮件，两套选中语言不并存。
 
@@ -1339,3 +1361,4 @@ $HDC shell "uitest uiInput click <px-x> <px-y>"   # bounds 是 px，÷3.125 才�
 35. **产品拍板（2026-10-24，两轮修正后定稿）：分段栏回迁 1.0.1 自绘版；下拉菜单交互保持新版**。①9 处分段栏换回自绘 `SegmentedControl`（参数逐站照抄 1.0.1 c50f8318：透明轨道 + `#99EFEFF2` 滑块 + 弹簧跟手扫选，标题栏内 `useSystemMaterial` 保留），首页滑块跟手机制（`onContentDidScroll`/`onGestureSwipe` 喂 `slidePosition`）恢复；②圈子下拉**保持 bindMenu 系统弹层**——chip 与 1.0.1 本就同款样式（透明底+细描边+系统材质接管），改回内联面板被用户否决（「下拉菜单交互不要变，只改变按钮样式材质」）；③发布页体裁**保持分段选择交互**（自绘分段栏，即迁移前状态），1.0.1 的滚轮弹窗方案试过后撤回。`ImmersiveSegmentBar`（官方 SegmentButton 封装）仅剩两个临时验证页在用，勿据此推断产品形态。第 16/17/22/34 条的技术结论仍然成立（那是官方组件本身的边界），只是产品不再走那条路；「我的」页画布随之回白（材质画布是为官方轨道层次引入的）。
 36. **栏级 EXQUISITE 材质会盖掉普通 GRADIENT_BLUR 的透过模糊——两者要共存必须换 IMMERSIVE_GRADIENT_BLUR + originalStyle.blurRadius 动态门控**：给标题栏挂 `systemMaterialEffect`（EXQUISITE）后，普通 `GRADIENT_BLUR` 的滚动透过模糊实测归零（消息页真机 0/80 采样），材质表面把穿栏内容整个挡住。唯一共存配方 = `IMMERSIVE_GRADIENT_BLUR` + `originalStyle.blurRadius`（绝对滚动偏移 >0 门控，**不能用每帧增量正负**——松手弹簧回弹的负帧会打灭开关，「松手模糊消失」根因）+ `maskExtraHeight: 0`。另外：分段栏住在 bottomBuilder 时不要同时挂通用组件材质（ULTRA_THIN）——两轨不等价（第 24 条）且叠加成两层玻璃；让栏透明描边直接站在栏级材质上即可（消息页 2026-10-24/25 落地，与「我的」页同配方）。
 37. **给官方悬浮 `TabBar` 的子节点做覆盖层定位，y 要自己补回 `barBottomMargin`**：`componentUtils.getRectangleById().windowOffset` 和 `Area.globalPosition` 两个 API 在这一点上**给出同一个错值** —— 真机实测槽位报 y=2527px，dumpLayout 量到实际渲染在 2439px，差 88px = 28.16vp，正好等于我们传给 `barFloatingStyle.barBottomMargin` 的 `28 + bottomNavInset()(0)`。语义是「系统把悬浮条整体上提了，但 TabBar 子树的矩形按上提之前算」。所以拿这两个接口任一者做覆盖层 `.position()` 都会把东西画到 Dock 底下，必须显式减回这一档；X 方向没有对应 margin，不要顺手也减。另记：覆盖层自己的 `globalPosition`/`Area.height` 报的是**整窗**（(0,0) / 860.8vp），而 dumpLayout 给它的 bounds 从状态栏下沿起算（y=106）—— `.position()` 吃前者，**别拿 dump 的 bounds 校 `.position()`**，会差一整条状态栏（第 7.6.32 节）。
+38. **「玻璃件」的判定标准是「表面差 + 镜面 rim + 落影 + 模糊」四件齐全，缺模糊就不算玻璃；而一旦真加了模糊，就必须自带清晰副本并隐掉被它盖住的官方那份**：Dock 选中指示器第一版做成 `brandTint` 10% 蓝填充 + 1px 蓝描边、还往槽位里**内缩**，被判定为「色块贴片不是玻璃」——四条全缺，且尺寸方向整个反了（参照图胶囊宽是 **1.22 倍槽距**、盖过槽位并溢出 Dock 圆端，不是嵌在槽位里）。补上 `backdropBlur` 后真机实拍：底下的官方图标被糊成不可读的蓝色光晕，**这才看懂参照图里胶囊自带一份清晰图标+文字是必然配套，不是装饰**。配套三条：① 被盖那槽的官方件 `opacity(0)`，否则「清晰副本 + 磨砂光晕」叠成脏；② 副本与官方那份**逐像素重合**（承载容器要显式 `justifyContent/alignItems` 居中 —— Column 主轴默认从顶排，漏写真机实测高 2.9vp、落位瞬间图标跳一下）；③ 副本的 index 会随落位变化，**不能走 @Builder 参数**（值快照，见第 21 条同源问题），要用 key 含该状态的单元素 `ForEach` 强制重建。另：白底画布上「更亮」没有余量（Dock 251、上限 255），玻璃只能反向压暗、靠 rim 与投影立住（§7.6.27 结论 3）。第 7.6.32 节，含参照图量化表。

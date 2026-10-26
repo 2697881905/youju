@@ -36,8 +36,6 @@ export class ColorTokens {
   static readonly brandTint: ResourceColor = $r('app.color.ds_brand_tint');
   static readonly brandPress: ResourceColor = $r('app.color.ds_brand_press');
   static readonly onBrand: ResourceColor = $r('app.color.ds_on_brand');
-  // Dock 液态选中指示器的描边档（比 brandTint 深一档，让胶囊在近乎纯白的 Dock 表面上立得住）。
-  static readonly brandPillBorder: ResourceColor = $r('app.color.ds_brand_pill_border');
   // @提及专用靛蓝：品牌色改蓝后，与 #话题#（brand 蓝 #0066CC）靠色相区分（靛 243° vs 蓝 210°），
   // 让用户一眼看出点的是「人」而不是「话题」。
   // 两套色板均按 WCAG AA 校过对比度：浅色 #5856D6 对 ds_canvas #FFFFFF ≈ 5.65:1；

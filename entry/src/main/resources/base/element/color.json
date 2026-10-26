@@ -173,8 +173,12 @@
       "value": "#1A0066CC"
     },
     {
-      "name": "ds_brand_pill_border",
-      "value": "#2E0066CC"
+      "name": "glass_pill_fill",
+      "value": "#14000000"
+    },
+    {
+      "name": "glass_pill_rim",
+      "value": "#A6FFFFFF"
     },
     {
       "name": "ds_brand_press",

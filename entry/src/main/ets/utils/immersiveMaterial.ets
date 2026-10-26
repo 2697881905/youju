@@ -176,6 +176,11 @@ export class FloatingTopButtonMaterialModifier implements AttributeModifier<Comm
   }
 }
 
+// ⚠️ 已证伪、故不实现：把 systemMaterial 挂在 Dock 之上的覆盖层**不出图**。
+// 真机一次性判定实验（2026-10-26）：自绘表面全清空、只挂 THIN + applyShadow 材质 →
+// 整个胶囊消失（像素 247~254 vs Dock 252，无差）。与 §7.6.26 边界一致：材质只在
+// TitleBar 子树渲染，NavBarContent 下的覆盖层拿不到，Dock 指示器只能自绘玻璃。
+
 // 半模态/弹框材质实例进程级缓存：只在门禁内创建，低版本设备永不执行构造。
 let sheetImmersiveMaterial: uiMaterial.Material | null = null;/**
  * 半模态（bindSheet）沉浸光感材质工厂。**载体纠正**（本次「面板全透明」根因）：

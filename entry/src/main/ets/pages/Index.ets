@@ -18,6 +18,7 @@ import { bottomNavInset, DOCK_WIDTH_SMALL, DOCK_BOTTOM_MARGIN_BASE, DOCK_SIDE_MA
 import { refreshBottomNavInset } from '../utils/navMode';
 import { RadiusTokens } from '../design/tokens/radius';
 import { ShadowTokens } from '../design/tokens/shadow';
+import { GlassTokens } from '../design/tokens/GlassTokens';
 import { ColorTokens } from '../design/tokens/color';
 import { TypeTokens } from '../design/tokens/type';
 import { IconTokens } from '../design/tokens/icon';
@@ -101,11 +102,14 @@ const PROFILE_BLUR_RADIUS: number = 50;
 // ③ 宽度按**实测槽距**而非槽位节点宽度 —— 页签 Column 写死 64vp，但系统按 barWidth 档
 //    排出的实际中心间距只有 55.2vp（实测中心 222/394/567/740/912px，间距 172.5px），
 //    相邻槽位框互叠 27.5px，照节点宽度画会盖住邻居。
-// INSET：胶囊比「实测槽距 / 实测槽高」各再窄/矮这么多（负向净空，vp）。
-const DOCK_PILL_INSET_X: number = 6;
-// Y 档取 3：槽位框实测 54vp、内容（图标+文字）实测占 44.8vp，胶囊留 48vp 时
-// 图标上缘余 2px、文字下缘余 8px —— 再小一档文字就会贴到胶囊下沿。
-const DOCK_PILL_INSET_Y: number = 3;
+// 胶囊尺寸按参照图的**比例**来，不是往槽位里塞：原文效果预览量到胶囊宽 ≈ 1.22 倍槽距、
+// 高 ≈ 0.93 倍栏高 —— 它是盖过槽位、并在行进中溢出 Dock 圆端的。上一版做成"槽位内缩
+// 6/3vp"，尺寸方向整个反了：胶囊比内容还窄，玻璃的体积感无从谈起。
+const DOCK_PILL_W_RATIO: number = 1.22;
+// 相对实测槽高（54vp；栏高 56vp，槽位框向下溢 2vp）
+const DOCK_PILL_H_RATIO: number = 0.96;
+// 镜面 rim 描边宽度：参照图顶缘高光比 Dock 亮 +86 级，是玻璃"读得出来"的第一来源。
+const DOCK_PILL_RIM_VP: number = 1.5;
 // 行进中的额外放大（原文静止 92×54 → 行进 110×74.5；我们胶囊更小，按等比缩到 +6）。
 const DOCK_PILL_BULGE: number = 6;
 const DOCK_PILL_TRAVEL_MS: number = 300;
@@ -360,6 +364,8 @@ struct Index {
   // —— Dock 液态选中指示器（几何全部来自实测，不写死槽位坐标）——
   // 中心点相对 dockPillLayer 左上角，单位 vp；ready 前不绘制，避免首帧在 (0,0) 闪一下。
   @State dockPillReady: boolean = false;
+  // 胶囊当前盖住（并代替官方那份显示清晰副本）的页签下标；-1 = 还没落位，官方全部照常绘制。
+  @State dockPillCovered: number = -1;
   @State dockPillX: number = 0;
   @State dockPillY: number = 0;
   @State dockPillW: number = 0;
@@ -1018,8 +1024,8 @@ struct Index {
     const frame: DockPillFrame = {
       cx: cx,
       cy: cy,
-      w: pitch - DOCK_PILL_INSET_X * 2,
-      h: slot.h - DOCK_PILL_INSET_Y * 2,
+      w: pitch * DOCK_PILL_W_RATIO,
+      h: slot.h * DOCK_PILL_H_RATIO,
     };
     return frame;
   }
@@ -1034,6 +1040,7 @@ struct Index {
     this.dockPillY = frame.cy;
     this.dockPillW = frame.w;
     this.dockPillH = frame.h;
+    this.dockPillCovered = index;
     this.dockPillReady = true;
     return true;
   }
@@ -1052,6 +1059,9 @@ struct Index {
       this.dockPillSnap(index);
       return;
     }
+    // 行进一开始就把"被盖住"切到目标槽：目标槽官方那份立刻隐掉、由胶囊带着清晰副本飞过去，
+    // 读作「图标被玻璃托起来搬走」；来源槽那份同时恢复，不会出现两份并存的重影。
+    this.dockPillCovered = index;
     this.getUIContext().animateTo({ duration: DOCK_PILL_TRAVEL_MS, curve: MotionCurves.springSoft }, () => {
       this.dockPillX = frame.cx;
       this.dockPillY = frame.cy;
@@ -1100,14 +1110,38 @@ struct Index {
   dockSelectionPill() {
     Stack({ alignContent: Alignment.TopStart }) {
       if (this.dockPillReady) {
+        // 玻璃配方三件套，缺一不可（少任何一件都会退化成"色块贴片"）：
+        // ① 透底模糊 —— Dock 是 barOverlap 悬浮的，信息流会从它背后穿过，磨砂要糊得掉它；
+        // ② 中性半透面 —— 参照图是暗底提亮 +29 级，白底 Dock 镜像过来就是压暗；不偏品牌色，
+        //    品牌色留给图标和文字，玻璃本身不该有颜色；
+        // ③ 亮镜面 rim + 贴得很近的落影 —— 浅色画布上"更亮"没有余量（Dock 252、上限 255），
+        //    立得住全靠 rim 与投影，见基准 §7.6.27 结论 3。
         Column() {
+          // 真磨砂会把底下的官方图标糊掉（backdropBlur 20 实测糊到不可读），所以清晰的那份
+          // 必须由玻璃自己带；配合 tabBarBuilder 里对被盖槽的 opacity 0，玻璃下面只剩
+          // Dock 表面，不会再透出同色光晕。
+          if (this.dockPillCovered >= 0) {
+            // ⚠️ 不能直接 this.tabItemContent(this.dockPillCovered)：@Builder 的参数是**值快照**，
+            // 落位后 index 变了那份副本不会刷新（真机实证：胶囊飞到「消息」里画的还是「首页」）。
+            // 用 key 随 dockPillCovered 变化的单元素 ForEach 强制重建这一项 —— key 生成器必须
+            // 含会变的字段，否则等于没 key。
+            ForEach([this.dockPillCovered], (i: number) => {
+              this.tabItemContent(i)
+            }, (i: number): string => String(i))
+          }
         }
         .width(this.dockPillW)
         .height(this.dockPillH)
+        // 副本必须与官方那份**逐像素重合**，否则落位瞬间图标会跳一下：官方那份是被
+        // Stack(alignContent: Center) 居中的，这里 Column 主轴默认从顶排，必须显式居中
+        // （真机实测漏写时副本比官方高 9px = 2.9vp）。
+        .justifyContent(FlexAlign.Center)
+        .alignItems(HorizontalAlign.Center)
         .borderRadius(this.dockPillH / 2)
-        .backgroundColor(ColorTokens.brandTint)
-        .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.brandPillBorder })
-        .shadow(ShadowTokens.cardAmbient)
+        .backdropBlur(GlassTokens.SEGMENT_BLUR)
+        .backgroundColor($r('app.color.glass_pill_fill'))
+        .border({ width: DOCK_PILL_RIM_VP, color: $r('app.color.glass_pill_rim') })
+        .shadow(ShadowTokens.pillFloat)
         .position({ x: this.dockPillX - this.dockPillW / 2, y: this.dockPillY - this.dockPillH / 2 })
         .hitTestBehavior(HitTestMode.None)
       }
@@ -1126,11 +1160,11 @@ struct Index {
     })
   }
 
-  // 官方 HdsTabs 页签：图标 + 文字，选中态品牌色；消息 tab（index=3）叠加未读红点。
-  // 每颗用 onAreaChange 回抛自己的窗口矩形，供 Dock 指示器实测槽位——槽位宽/间距由系统
-  // 按 barWidth 档位自己排，写死坐标会在换档或换导航方式时错位。
+  // 页签内容（图标 + 可选未读红点 + 文字）。**被两处复用**：官方 TabBar 的每一颗，
+  // 以及 Dock 玻璃胶囊内部。必须共用同一个 builder —— 胶囊里的副本要和官方那份逐像素重合，
+  // 抄两份必然漂移（字号/间距/红点样式任何一处不一致，切到那一页就会看出重影）。
   @Builder
-  tabBarBuilder(index: number) {
+  tabItemContent(index: number) {
     Column({ space: 3 }) {
       Stack({ alignContent: Alignment.Center }) {
         if (index === 3 && (this.unreadCount + this.dmUnread) > 0) {
@@ -1156,9 +1190,22 @@ struct Index {
         .fontSize(10)
         .fontColor(this.currentIndex === index ? $r('app.color.ds_brand') : $r('app.color.ds_icon'))
     }
-    .width(64).height(54)
     .justifyContent(FlexAlign.Center)
     .alignItems(HorizontalAlign.Center)
+  }
+
+  // 官方 HdsTabs 页签：图标 + 文字，选中态品牌色；消息 tab（index=3）叠加未读红点。
+  // 每颗用 onAreaChange 回抛自己的窗口矩形，供指示器实测槽位——槽位宽/间距由系统
+  // 按 barWidth 档位自己排，写死坐标会在换档或换导航方式时错位。
+  // 被玻璃胶囊盖住的那一颗整份隐掉（opacity 0）：胶囊是真磨砂，留着它只会在玻璃下面
+  // 糊出一团同色光晕，而清晰的那份由胶囊自己带（见 tabItemContent）。
+  @Builder
+  tabBarBuilder(index: number) {
+    Stack({ alignContent: Alignment.Center }) {
+      this.tabItemContent(index)
+    }
+    .width(64).height(54)
+    .opacity(this.dockPillCovered === index ? 0 : 1)
     .onAreaChange((_o: Area, n: Area): void => { this.recordDockSlotArea(index, n); })
   }
 
