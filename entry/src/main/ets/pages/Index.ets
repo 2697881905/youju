@@ -1024,12 +1024,12 @@ struct Index {
     const firstCx: number = first.x - layer.x + first.w / 2;
     const lastCx: number = last.x - layer.x + last.w / 2;
     const cx: number = slot.x - layer.x + slot.w / 2;
-    // ⚠️ Y 不取槽位上报值：其 globalPosition 相对真实位置带一档 barBottomMargin 偏差，
-    // 旧版「上报值 − 28」的修正在 HdsMiniBarButton 玻璃珠上真机实测仍偏下（用户反馈
-    // 2026-10-26）。改锚 Dock 栏体几何中心——barBottomMargin 与栏高（DOCK_BAR_HEIGHT_VP）
-    // 都是本页传给系统的已知量，零上报依赖（原型页 DockPillDragProtoPage 同款已验证）。
-    // X 不受该偏差影响，仍用各槽实测中心。
-    const cy: number = layer.h - (DOCK_BOTTOM_MARGIN_BASE + bottomNavInset()) - DOCK_BAR_HEIGHT_VP / 2;
+    // ⚠️ Y 回到「槽位上报值 − barBottomMargin」公式（自绘版真机实测偏差 88px=28.16vp 吻合
+    // 到 0.4px，HdsMiniBarButton 版沿用后位置已验证）。曾试改锚栏体几何中心（原型页公式），
+    // 但落定接管时玻璃内副本（= 栏中心）与官方份（= 槽位中心，向下溢 2vp）差约 1vp，
+    // 每次切页副本顶替官方份瞬间图标跳一下——回到与官方份同源的槽位公式，重合才精确
+    // （位置残差由 MINI_PAD 补偿承担，两者已分别验证）。
+    const cy: number = slot.y - layer.y - (DOCK_BOTTOM_MARGIN_BASE + bottomNavInset()) + slot.h / 2;
     // 槽距由两端中心反算（不写死）：换 barWidth 档、换导航方式、转屏都会变。
     const pitch: number = count > 1 ? (lastCx - firstCx) / (count - 1) : first.w;
     this.dockPillPitch = pitch;
@@ -1207,8 +1207,13 @@ struct Index {
       this.dockPillTravel(target);
       return;
     }
-    // 过半格吸附：走 selectTab 统一链路（页面切换 + 玻璃珠飞行 + 落定接管）。
+    // 过半格吸附：走 selectTab 统一链路（状态 + 玻璃珠飞行 + 落定接管）。
     this.selectTab(target);
+    // ⚠️ 页面切换必须显式 changeIndex：HdsTabs 非受控（无 index 绑定），点页签由官方
+    // 内部切页、整页左右滑由官方手势切页，唯独拖拽路径官方一无所知——不补 changeIndex
+    // 则页面内容停在旧页，玻璃状态与页面状态失步，后续任何切页都会让玻璃珠跳变
+    // （真机实证 2026-10-26）。重入的 onAnimationStart/onChange 由 travel 去重挡住。
+    this.hdsController.changeIndex(target);
   }
 
   // 覆盖层尺寸一变（转屏 / 折叠 / 分栏拖宽 / 导航区高度回写）就重新贴一次实测槽位。
