@@ -4,14 +4,12 @@ import { Post, DailyPost, Comment, Tag, User, Pagination, Genre, StructuredMetri
 
 // 以构建期布尔 DEBUG 为准选择后端地址（调试包 true → 本地，released → 生产）。
 const BUILD_MODE: string = BUILD_MODE_NAME;
-// ⚠️ 本地联调后端地址（仅 debug 形态使用）。两种可选方式：
-//   A) 127.0.0.1:3000 + hdc 端口转发（与网络环境解耦）：hdc -t <设备> rport tcp:3000 tcp:3000
-//      —— 注意：若主机已有进程占用 3000（后端本身），部分 hdc 版本会报
-//      「TCP Port listen failed at 3000」而建不起转发，此时用方式 B。
-//   B) 本机 LAN IP（要求真机/模拟器与 Mac 在同一网段）：ipconfig getifaddr en0 查当前 IP 后填入。
-// 历史坑：写死 LAN IP 后换网络（换热点/换网段）即失效 → 真机报「无法连接后端服务」
-// （os_errno 111 ECONNREFUSED）；反之 rport 在设备重连后也会失效。两者互为备份。
-const DEBUG_API_HOST: string = 'http://127.0.0.1:3000';
+// ⚠️ 本地联调后端地址（仅 debug 形态使用）。固定走 rport 隧道，设备端端口用 3001：
+//   hdc -t <设备> rport tcp:3001 tcp:3000   （设备 3001 → 宿主后端 3000）
+//   ⚠️ 设备端 3000 会被残留的旧转发规则占死（设备重连/换网后常见，报
+//   「TCP Port listen failed at 3000」，killall hdcd 无 root 清不掉），
+//   rm 子命令在本机 hdc 版本上始终报 Incorrect forward command —— 换 3001 绕开。
+const DEBUG_API_HOST: string = 'http://127.0.0.1:3001';
 export const BASE_URL: string =
   DEBUG === true
     ? DEBUG_API_HOST
