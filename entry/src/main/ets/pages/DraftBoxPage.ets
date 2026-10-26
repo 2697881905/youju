@@ -12,7 +12,7 @@ import { ColorTokens } from '../design/tokens/color';
 import { SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { publishFlowStore } from '../utils/publishFlowStore';
-import { PublishMode } from '../components/PublishModeSheet';
+import { PublishMode } from '../components/PublishModePanel';
 import { ManagedPostFeed } from '../components/ManagedPostFeed';
 import { resolveTextPosterStyle } from '../utils/poster/posterTokens';
 import { buildPageTransition } from '../utils/styles';

@@ -1247,7 +1247,7 @@ HdsNavigation
 
 `DOCK_MATERIAL_LEVEL` ADAPTIVE(10) → EXQUISITE(0)，与四条顶栏同档（§7.6.17 实测 ADAPTIVE 无折射，原文同样写 EXQUISITE）。⚠️ **已上线过审表面**的观感变更，回退只需把 `cardTokens.ets` 该字段改回 10。
 
-**未采纳**：`adaptToHandedness`（智感握姿会平移整条 Dock，指示器要跟着重测、底栏位置不再稳定）、`lightColor`、`animationDuration(0)`、`barHeight(59)`、三档 `barWidth` 同值（我们那三档差异是为修「切页时底栏忽长忽短」定的）。**拖拽切页仍不采纳** —— 改交互，`scrollable(false)` 是明确决策。
+**未采纳**：`adaptToHandedness`（智感握姿会平移整条 Dock，指示器要跟着重测、底栏位置不再稳定）、`lightColor`、`animationDuration(0)`、`barHeight(59)`、三档 `barWidth` 同值（我们那三档差异是为修「切页时底栏忽长忽短」定的）。**拖拽切页暂不做** —— 原先否掉它的理由（`scrollable(false)` 是明确决策）已被 §7.6.33 推翻，但拖胶囊本身是叠在滑动切页之上的第二个手势，且 HDS 没给逐帧回调，做了也只能自己拖自己飞。
 
 ### 验收（真机，浅色）
 
@@ -1264,6 +1264,32 @@ HdsNavigation
 
 **边界**：指示器只在 `hdsFloatingBar`（API 23+）分支画。API 20-22 走自绘 `BottomTabBar`，它自带高亮件，两套选中语言不并存。
 
+
+#### 7.6.33 开放整页左右滑动：发布从半模态面板改成实体页（2026-10-26）
+
+承接 §7.6.32。用户要求「可以左右滑动切页」，落地时撞到一个结构性冲突，必须先把发布占位改掉。
+
+**为什么非改不可**：`Tabs` 的滑动是**相邻索引逐格推进**，而 `onContentWillChange` 的官方触发条件第 1 条就是「用户滑动 TabContent 切页」——也就是说本应用为了消除"先切走再弹回"而写的 `if (comingIndex === 2) return false;` **同时挡住了点击和滑动**。发布占位夹在圈子(1)与消息(3)中间，只要它不可停靠，圈子↔消息之间就永远滑不过去。三条出路里选了「发布改成可滑到的实体页、内联发布面板」。
+
+**改动**：`PublishModeSheet`（固定 344 宽 + 右上 ✕ + 表面交给 SheetOptions）→ `PublishModePanel`（整宽、无 ✕、自己站页面画布上）。随之删掉：`bindSheet` 整块、`showPublishSheet`、`publishModeSheetBuilder`、`showPublishModeDialog`、`handleTabBarClick`、`lastPageIndex`、两个分支的 `onContentWillChange` 与 `onChange` 回跳。未登录闸门从「点发布时」挪到「选定方式、真要进编辑器时」（`openPublish`）—— 停在发布页不要求登录，取消登录返回时露出的就是用户站着的那一页，不再莫名弹走。
+
+**⚠️ 顺带修掉一个从没暴露的缺陷**：包着 Tabs 的那个 `Column` 上有一条 `.padding({ top: currentIndex === 2 ? statusBarHeight : 0 })`。发布页不可停靠时它永远不生效；一旦能停，它会把**整条 Tabs 连 Dock 一起**下推一档（Dock 是 `barPosition(End)`）。实测对照：删掉后发布页与首页的 `TabBar` bounds 都是 `[99,2427][1037,2602]`，完全一致。避让改由 `PublishModePanel` 自己在页面内做（状态栏 + 整条 Dock：`DOCK_BAR_HEIGHT_VP(56，实测栏高) + DOCK_BOTTOM_MARGIN_BASE(28) + bottomNavInset()`）。**教训：给共享容器写的"某一页才生效"的补偿，一旦那一页真的可达，就会连累容器里的其他东西。**
+
+**滑动矩阵（真机，从标题栏 y=170 起滑，来回各四格）**：
+
+| 方向 | 链路 | 结果 |
+|---|---|---|
+| 左滑 | 首页→圈子→发布→消息→我的 | 逐格通过，穿过发布格两个方向都成立 ✓ |
+| 右滑 | 我的→消息→发布→圈子→首页 | 同上 ✓ |
+| 端点 | 我的再左滑 / 首页再右滑 | 停住不动（链的两端，正确行为）✓ |
+| 胶囊落位 | 每次滑动后按 dump 找重复标签 | 圈子→`圈子[362]`+副本`[363]`；发布→`发布[535]`+`[536]`；回滑→回圈子 ✓ |
+
+**内容区横向手势归内容自己**：在首页信息流区域（y≥1200）起滑不会切页 —— 那里横向手势归首页自己的分段 `Swiper`（推荐/关注/每日一帖，`HomeTab` 明确交给 Swiper 原生接管）。这是正确的嵌套归属，不是缺陷；但它意味着**"能不能滑动切页"取决于起滑点**，验收要分别在标题栏区与内容区各试一次。
+
+**⚠️ 玻璃胶囊做不到"贴着手指走"**：`HdsTabsAttribute` 枚举出来的 28 个方法里**没有** `onGestureSwipe`，也没有 `onContentDidScroll`（普通 `Tabs` 两个都有，前者 @11、后者 @23）—— HDS 封装把逐帧回调收掉了。所以胶囊只能挂 `onAnimationStart(index, targetIndex, event)`：翻页动画起点触发，与页面同批飞行（`onChange` 是落定之后才发，挂那里会"页面滑完了玻璃才动"）。要真跟手，得照原文那样在胶囊自己手上加 `PanGesture` 拖胶囊 —— 那是**第二个手势**，未做。
+
+**验收**：发布页渲染正常（标题 `[37,155][150,230]`、三张瓦片 `图文/视频/长文` 在 y 642~767，远在 Dock 之上）；点发布格直接进页面不再弹面板；滑动切页与胶囊落位如上表。
+**未验**：发布页选定方式后的登录跳转链（后端 rport 未连，未登录态）；深色档发布页。
 
 ### 7.7 浅色那一档顺手复测（补第 6 节的 TODO）
 
@@ -1379,3 +1405,4 @@ $HDC shell "uitest uiInput click <px-x> <px-y>"   # bounds 是 px，÷3.125 才�
 37. **给官方悬浮 `TabBar` 的子节点做覆盖层定位，y 要自己补回 `barBottomMargin`**：`componentUtils.getRectangleById().windowOffset` 和 `Area.globalPosition` 两个 API 在这一点上**给出同一个错值** —— 真机实测槽位报 y=2527px，dumpLayout 量到实际渲染在 2439px，差 88px = 28.16vp，正好等于我们传给 `barFloatingStyle.barBottomMargin` 的 `28 + bottomNavInset()(0)`。语义是「系统把悬浮条整体上提了，但 TabBar 子树的矩形按上提之前算」。所以拿这两个接口任一者做覆盖层 `.position()` 都会把东西画到 Dock 底下，必须显式减回这一档；X 方向没有对应 margin，不要顺手也减。另记：覆盖层自己的 `globalPosition`/`Area.height` 报的是**整窗**（(0,0) / 860.8vp），而 dumpLayout 给它的 bounds 从状态栏下沿起算（y=106）—— `.position()` 吃前者，**别拿 dump 的 bounds 校 `.position()`**，会差一整条状态栏（第 7.6.32 节）。
 38. **「玻璃件」的判定标准是「表面差 + 镜面 rim + 落影 + 模糊」四件齐全，缺模糊就不算玻璃；而一旦真加了模糊，就必须自带清晰副本并隐掉被它盖住的官方那份**：Dock 选中指示器第一版做成 `brandTint` 10% 蓝填充 + 1px 蓝描边、还往槽位里**内缩**，被判定为「色块贴片不是玻璃」——四条全缺，且尺寸方向整个反了（参照图胶囊宽是 **1.22 倍槽距**、盖过槽位并溢出 Dock 圆端，不是嵌在槽位里）。补上 `backdropBlur` 后真机实拍：底下的官方图标被糊成不可读的蓝色光晕，**这才看懂参照图里胶囊自带一份清晰图标+文字是必然配套，不是装饰**。配套三条：① 被盖那槽的官方件 `opacity(0)`，否则「清晰副本 + 磨砂光晕」叠成脏；② 副本与官方那份**逐像素重合**（承载容器要显式 `justifyContent/alignItems` 居中 —— Column 主轴默认从顶排，漏写真机实测高 2.9vp、落位瞬间图标跳一下）；③ 副本的 index 会随落位变化，**不能走 @Builder 参数**（值快照，见第 21 条同源问题），要用 key 含该状态的单元素 `ForEach` 强制重建。另：白底画布上「更亮」没有余量（Dock 251、上限 255），玻璃只能反向压暗、靠 rim 与投影立住（§7.6.27 结论 3）。第 7.6.32 节，含参照图量化表。
 39. **覆盖式玻璃件要响应按压，`hitTestBehavior` 只能是 `Transparent`；而在拿不到材质的面上，点光源要么无感要么过曝，按压反馈只能用「缩放 + 落影收紧」**：`HitTestMode.None` 时覆盖层自己收不到手指，按下去整颗胶囊毫无反应（用户实测反馈）；`Transparent` 才既响应自身触摸、又把命中继续透给下层官方页签 —— 原文覆盖层用它正是这个原因。**改命中模式后必须真点一次切页**（防漂移第 31 条同源）。官方点光源（`CommonMethod.visualEffect()`@12 + `hdsEffect.HdsEffectBuilder().pointLight()`@20）在三档实测里：`BRIGHT+BORDER_CONTENT` 把胶囊从 231 冲到 255、图标从 86 洗到 252（内容消失）；`SOFT+BORDER` 与 `BRIGHT+BORDER` 都只有 +4（无感）。机理：「照边框」作用在**材质自己的边框**上，覆盖层拿不到 `systemMaterial`（§7.6.26），于是只有「照内容」会出效果，而它洗掉的正是要保持清晰的图标。原文那档是深色底、光是反光，压到近白 Dock（251、上限 255）上只剩白化 —— 第 38 条「白画布没有亮度余量」的第二次应验。可用配方：`.scale(MotionTokens.pressSlideScale)` + 落影从 `pillFloat` 换 `cardContact`（影变短=贴近背板），按住帧面积比实测 ×0.879 ≈ 0.94²（第 7.6.32 节）。
+40. **`onContentWillChange` 返回 false 会同时挡住点击和手指滑动，所以"某一格不可停靠"与"开放左右滑动切页"不能并存**：官方触发条件第 1 条即「用户滑动 TabContent 切页」。`Tabs` 滑动是相邻索引逐格推进，中间那格不可停靠 = 两侧永远滑不过去。要开放滑动，中间格必须成为可停靠的真实页面（本项目：发布从半模态面板改成 `PublishModePanel` 页面）。另记两条同源坑：① 给共享容器写的"只有那一页才生效"的补偿 padding，一旦那页真的可达就会连累容器（本项目实测：包 Tabs 的 Column 上按 `currentIndex===2` 加 top padding，会让整条 Dock 上跳一档）；② `HdsTabsAttribute` 只留 28 个方法，**没有** `onGestureSwipe`/`onContentDidScroll`，普通 `Tabs` 都有 —— 想在 HDS 页签上做逐帧跟手（玻璃指示器贴手指）没有入口，只能退到 `onAnimationStart` 与页面同批飞，或自己再加一个拖拽手势（第 7.6.33 节）。

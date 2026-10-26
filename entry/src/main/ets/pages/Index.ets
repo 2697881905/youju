@@ -9,7 +9,7 @@ import { initAuthStorage, getToken, getUserId, setPrivacyAgreed, isPrivacyAgreed
 import { getUnreadCount, getDmUnreadCount, getMe, recordPrivacyConsent, followTag, listTags, getPost, PostWithComments, resolveDisplayImageUrl } from '../services/api';
 import { Tag } from '../models/types';
 import { safeShowToast } from '../utils/toast';
-import { PublishMode, PublishModeSheet } from '../components/PublishModeSheet';
+import { PublishMode, PublishModePanel } from '../components/PublishModePanel';
 import { SearchPanelDestination } from './SearchPanelDestination';
 import { SpringPanel } from '../design/motion/SpringPanel';
 import { DesignButton } from '../design/components/DesignButton';
@@ -95,11 +95,11 @@ const PROFILE_BLUR_RADIUS: number = 50;
 // 真机 dumpLayout 只量到 TabBar > Column > {Image, Text}，选中仅换 fillColor
 // （首页 255 画布上蓝 0066CC vs 灰 3C3C43），正是原文说的「状态指示辨识度不足」。
 // 故按原文思路在 Dock 之上叠一层覆盖式指示器，靠「行进 + 鼓包 + 落地回弹」讲清选中位置。
-// 与原文三处刻意偏离（理由见基准 §7.6.32）：
-// ① 不在胶囊内复制一份图标/文字，也不给胶囊加 backdropBlur —— 内容区渲染不出系统材质
-//    （§7.6.26 已实证），加模糊只会把底下的官方图标糊成一团，反而不如半透色面清楚；
-// ② 不接拖拽切页 —— 那是交互改动，本应用刻意关掉了 Tabs 左右滑（scrollable(false)）；
-// ③ 宽度按**实测槽距**而非槽位节点宽度 —— 页签 Column 写死 64vp，但系统按 barWidth 档
+// 与原文的两处偏离（理由见基准 §7.6.32 / §7.6.33）：
+// ① 不接拖拽切页 —— 整页左右滑已开放（§7.6.33），再给胶囊单独挂 PanGesture 就是叠第二个
+//    手势；且 HdsTabsAttribute 没有 onGestureSwipe，胶囊无法与页面同帧跟手，只能挂
+//    onAnimationStart 与翻页动画同批飞。
+// ② 宽度按**实测槽距**而非槽位节点宽度 —— 页签 Column 写死 64vp，但系统按 barWidth 档
 //    排出的实际中心间距只有 55.2vp（实测中心 222/394/567/740/912px，间距 172.5px），
 //    相邻槽位框互叠 27.5px，照节点宽度画会盖住邻居。
 // 胶囊尺寸按参照图的**比例**来，不是往槽位里塞：原文效果预览量到胶囊宽 ≈ 1.22 倍槽距、
@@ -150,7 +150,7 @@ interface IndexTabItem {
 }
 
 // 首启/更新隐私同意弹窗。
-// 样式层完全对齐应用设计系统，面板规格与 PublishModeSheet / FolderNameDialog 同规格
+// 样式层完全对齐应用设计系统，面板规格与 PublishModePanel / FolderNameDialog 同规格
 // （panelWidth 344 / panelPadding lg / radius lg / solid 实色档）：
 //   · 材质走 solid 档（elevated 实色暖纸底 + separator 1px 发丝描边 + cardAmbient 阴影）。
 //     承载合规正文的浮层不用半透明玻璃 —— 玻璃底会让正文对比度随背景漂移，
@@ -223,7 +223,7 @@ struct PrivacyConsentDialog {
   build() {
     SpringPanel({ panelWidth: this.panelWidth(), panelPadding: SpaceTokens.lg, solid: true }) {
       Column({ space: SpaceTokens.base }) {
-        // 标题：衬线 + headline 字级（与 PublishModeSheet / FolderNameDialog 弹窗标题同规格）
+        // 标题：衬线 + headline 字级（与 PublishModePanel / FolderNameDialog 弹窗标题同规格）
         Text(this.getIsUpdate() ? '隐私政策更新' : '隐私政策与用户协议')
           .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
           .fontWeight(TypeTokens.headline.weight)
@@ -368,7 +368,6 @@ struct Index {
   // TypeError（方法不存在）导致首页无法渲染。isImmersiveLightSenseSupported() 现为同步确定值
   // （deviceInfo.sdkApiVersion + canIUse，进程级缓存），不会运行期翻转 → 组件不会重建。
   private hdsFloatingBar: boolean = isImmersiveLightSenseSupported();
-  @State lastPageIndex: number = 0;   // 发布前的实际页面 tab，用于发布后回跳
   // —— Dock 液态选中指示器（几何全部来自实测，不写死槽位坐标）——
   // 中心点相对 dockPillLayer 左上角，单位 vp；ready 前不绘制，避免首帧在 (0,0) 闪一下。
   @State dockPillReady: boolean = false;
@@ -436,7 +435,6 @@ struct Index {
   private unsubscribeTabSwitch: () => void = () => {};
   // 发布方式面板：bindSheet 半模态（SheetType.CENTER + detents FIT_CONTENT），双向绑定控制显隐。
   // 手势下滑 / 返回键 / 点遮罩关闭时由 $$ 与 onDisappear 同步回 false，无需 CustomDialogController。
-  @State showPublishSheet: boolean = false;
   // 剪贴板分享链接确认面板：命中 youju.chat/post/{id} 后由用户决定是否打开
   private clipboardSheetController: CustomDialogController = new CustomDialogController({
     builder: ClipboardPostSheet({
@@ -921,49 +919,23 @@ struct Index {
     this.dockPillTravel(index);
   }
 
+  // 未登录闸门：原先在页签点击拦截里（点发布先判登录），发布成为实体页之后挪到这里 ——
+  // 停在发布页不要求登录，选定方式、真要进编辑器时才拦。取消登录返回时露出的就是发布页
+  // （用户就站在这页上，可以再选一次或滑走），不会被莫名弹到别的页。
   private openPublish(mode: PublishMode): void {
+    if (getToken() === '') {
+      this.getUIContext().getRouter().pushUrl({ url: 'pages/LoginPage' });
+      return;
+    }
     publishFlowStore.startNew(mode);
     const url: string = mode === 'video' ? 'pages/VideoPublishPage'
       : (mode === 'text' ? 'pages/TextPublishPage' : 'pages/PhotoPublishPage');
     this.getUIContext().getRouter().pushUrl({ url: url });
   }
 
-  // 发布方式面板内容：选项点击先同步收起面板（dismiss），再走发布流程；
-  // 面板内关闭按钮同样走 dismiss，状态由 showPublishSheet 单点驱动
-  @Builder
-  publishModeSheetBuilder() {
-    PublishModeSheet({
-      onSelect: (mode: PublishMode): void => { this.openPublish(mode); },
-      dismiss: (): void => { this.showPublishSheet = false; },
-    })
-  }
-
-  private showPublishModeDialog(): void {
-    this.showPublishSheet = true;
-  }
-
   private broadcastCircleLogoDismissal(): void {
     const version: number = AppStorage.get<number>('circleLogoDismissVersion') ?? 0;
     AppStorage.setOrCreate<number>('circleLogoDismissVersion', version + 1);
-  }
-
-  // 发布占位 tab（index=2）点击拦截：只弹发布弹窗，通过 onContentWillChange 返回 false
-  // 阻止 HdsTabs 切换到发布占位页（不再"先切走再弹回"，消除横向闪烁动画）。
-  private handleTabBarClick(index: number): void {
-    if (index === 2) {
-      // 未登录：在这里就拦住，直接引导登录，**不**弹发布方式弹窗、更不入发布页。
-      // 旧实现缺这道闸门 —— 登录跳转发生在发布页内部（ImagePicker/VideoPicker/预览页的
-      // ensureLogin 把 LoginPage 压在发布页之上），用户取消登录返回时露出的就是发布页，
-      // 而不是主页（用户反馈的实际现象）。
-      if (getToken() === '') {
-        this.getUIContext().getRouter().pushUrl({ url: 'pages/LoginPage' });
-        return;
-      }
-      this.showPublishModeDialog();
-      return;
-    }
-    this.lastPageIndex = index;
-    this.selectTab(index);
   }
 
   // 导航目的地注册：pushPathByName(name, params) 对应的 NavDestination
@@ -991,11 +963,6 @@ struct Index {
   }
 
   // —— Dock 液态选中指示器：几何全部来自实测，动画来自 UIContext.animateTo ——
-
-  // 指示器应该停靠的页签：发布占位（2）不是页面，回落到发布前的实际页。
-  private dockPillHomeIndex(): number {
-    return this.currentIndex === 2 ? this.lastPageIndex : this.currentIndex;
-  }
 
   // 记录某个页签槽位的窗口矩形（vp）。五颗各回调一次，去重后统一补一次定位。
   private recordDockSlotArea(index: number, area: Area): void {
@@ -1058,7 +1025,7 @@ struct Index {
   // 切页：先鼓包 + 位移（行进），到点再 spring 收回静止尺寸 —— 原文那套「液态」观感的
   // tap 分支。（原文的速度形变只服务于它的拖拽手势，本应用不接拖拽，故不搬。）
   private dockPillTravel(index: number): void {
-    if (!this.hdsFloatingBar || index === 2) {
+    if (!this.hdsFloatingBar) {
       return;
     }
     const frame: DockPillFrame | null = this.dockPillFrameOf(index);
@@ -1067,6 +1034,11 @@ struct Index {
     }
     if (!this.dockPillReady) {
       this.dockPillSnap(index);
+      return;
+    }
+    // 同一次切换会被 onTabBarClick 与 onAnimationStart 各触发一次；已经到位就不要再发一遍
+    // 动画（否则胶囊会在终点上重新鼓一次包）。
+    if (this.dockPillCovered === index && Math.abs(this.dockPillX - frame.cx) < 0.5) {
       return;
     }
     // 行进一开始就把"被盖住"切到目标槽：目标槽官方那份立刻隐掉、由胶囊带着清晰副本飞过去，
@@ -1101,7 +1073,7 @@ struct Index {
     this.dockPillMeasurePending = true;
     setTimeout((): void => {
       this.dockPillMeasurePending = false;
-      if (this.dockPillSnap(this.dockPillHomeIndex())) {
+      if (this.dockPillSnap(this.currentIndex)) {
         this.dockPillMeasureRetries = 0;
         return;
       }
@@ -1164,7 +1136,7 @@ struct Index {
         // ⚠️ 必须是 Transparent 而不是 None：None 时玻璃收不到手指，按住底栏整颗胶囊毫无反应
         // （用户实测反馈）。Transparent 让玻璃自己收到按压，同时把命中继续透给下层官方页签
         // —— 这正是原文覆盖层用 HitTestMode.Transparent 的原因。改命中模式后必须真点一次
-        // 切页，确认没吃掉官方页签的点击（防漂移第 31 条同源）。
+        // 切页，确认没吃掉官方页签的点击（防漂移第 31/39 条同源，已真机复点五格）。
         .onTouch((event: TouchEvent): void => {
           const type: TouchType = event.type;
           this.dockPillPressed = type === TouchType.Down || type === TouchType.Move;
@@ -1617,7 +1589,7 @@ struct Index {
 
   // 「消息」顶栏（标题 + 全部已读 + 分段栏）已迁入 MessagePage 内嵌 HdsNavigation（路线 B）。
 
-  // 五个页签内容：发布占位（index=2）点击由 handleTabBarClick 拦截，不展示任何内容。
+  // 五个页签内容：首页 / 圈子 / 发布 / 消息 / 我的，五格全部可停靠、可左右滑到达。
   @Builder
   mainTabContents() {
     // TabContent 默认在页面边界裁剪内容：每日一帖的飞行卡向上抛射需溢出到
@@ -1644,8 +1616,13 @@ struct Index {
     }
       .clip(false)
       .tabBar(this.tabBarBuilder(1))
-    // 发布占位：内容为空，点击由 handleTabBarClick 拦截弹窗，不展示任何内容。
-    TabContent() { Column() {} }
+    // 发布：一整页的发布方式选择（原先是半模态面板）。它可以被滑到、也可以停在上面，
+    // 状态栏与悬浮 Dock 的避让由 PublishModePanel 自己做（本页没有内嵌 HdsNavigation）。
+    TabContent() {
+      PublishModePanel({
+        onSelect: (mode: PublishMode): void => { this.openPublish(mode); },
+      })
+    }
       .tabBar(this.tabBarBuilder(2))
     // 「消息」：顶栏（消息 + 全部已读 + 分段栏）已迁入 MessagePage 内嵌 HdsNavigation（路线 B），
     // TabContent 关闭裁剪：列表滚动需穿出顶边画到 HDS 标题栏下方（模糊采样素材）
@@ -1747,24 +1724,16 @@ struct Index {
         materialLevel: DOCK_MATERIAL_LEVEL,
       },
     })
-    .scrollable(false)                       // 禁止页面主体左右滑动切换 Tab，仅点击底部页签切换
-    .onContentWillChange((currentIndex: number, comingIndex: number): boolean => {
-      // 发布占位 tab 不可切换：点击发布 tab 时阻止内容切换（配合 onTabBarClick 弹窗），
-      // 从根上消除"先切走再弹回"的横向动画
-      if (comingIndex === 2) {
-        return false;
-      }
-      return true;
+    .scrollable(true)                        // 整页左右滑动切页已开放（发布是实体页，滑动链无断点）
+    // 胶囊起飞点：挂在 onAnimationStart 而不是 onChange —— onChange 是**落定之后**才发，
+    // 挂那里的话页面已经滑完了玻璃才飞过去，看着像两件事。动画起点触发才与翻页同批。
+    // ⚠️ 做不到"贴着手指走"：HdsTabsAttribute 把 Tabs 的 onGestureSwipe / onContentDidScroll
+    // 两个逐帧回调都收掉了（枚举其 28 个方法确认），HDS 封装没留这个口。
+    .onAnimationStart((index: number, targetIndex: number, _e: TabsAnimationEvent): void => {
+      this.dockPillTravel(targetIndex);
     })
-    .onTabBarClick((index: number): void => { this.handleTabBarClick(index); })
-    .onChange((index: number): void => {
-      // 防发布占位页误切换：即使当前瞬时 index=2，也回跳并拒绝广播，确保 activeTab 不驻留 2。
-      if (index === 2) {
-        this.hdsController.changeIndex(this.currentIndex === 2 ? this.lastPageIndex : this.currentIndex);
-        return;
-      }
-      this.selectTab(index);
-    })
+    .onTabBarClick((index: number): void => { this.selectTab(index); })
+    .onChange((index: number): void => { this.selectTab(index); })
   }
 
   // API 20-22 / 模拟器分支：HdsTabs.barFloatingStyle @since 23 不可用，但视觉不降级——
@@ -1780,22 +1749,10 @@ struct Index {
     .height('100%')
     .clip(false)                             // 首页飞行卡向上抛射需溢出页面边界（状态栏区域）
     .vertical(false)
-    .scrollable(false)
+    .scrollable(true)
     .barHeight(0)
     .divider({ strokeWidth: 0, color: Color.Transparent })
-    .onContentWillChange((currentIndex: number, comingIndex: number): boolean => {
-      if (comingIndex === 2) {
-        return false;
-      }
-      return true;
-    })
-    .onChange((index: number): void => {
-      if (index === 2) {
-        this.tabsController.changeIndex(this.currentIndex === 2 ? this.lastPageIndex : this.currentIndex);
-        return;
-      }
-      this.selectTab(index);
-    })
+    .onChange((index: number): void => { this.selectTab(index); })
   }
 
   build() {
@@ -1817,13 +1774,10 @@ struct Index {
           }
           .width('100%')
           .height('100%')
-          // 「我的」页顶栏是 BarStyle.STACK（覆盖式，不占内容区）→ 内容区从窗口顶部开始，
-          // 让开整条顶栏由 ProfilePage 的内容留白承担（帖子才能穿到资料卡底下）；
-          // 首页/圈子/消息由各自内嵌 HdsNavigation 避让；
-          // 发布占位 Tab（空占位）没有顶栏，仍需手动避让状态栏（隐私壳为全屏覆盖层，不受影响）。
-          // 四个主 Tab 的顶栏都在各自内嵌 HdsNavigation 里，外层不再让位；
-          // 只有发布占位 Tab（2）没有顶栏，仍需手动避让状态栏（隐私壳为全屏覆盖层，不受影响）。
-          .padding({ top: this.currentIndex === 2 ? this.statusBarHeight : 0 })
+          // 外层不给任何 Tab 让状态栏：四个主 Tab 的顶栏在各自内嵌 HdsNavigation 里，
+          // 发布页由 PublishModePanel 自己避让。⚠️ 这条 padding 曾经按 currentIndex===2
+          // 加在**包着 Tabs 的 Column** 上 —— 发布页可停留之后，它会把整条 Tabs 连 Dock
+          // 一起下推/上跳一档（Dock 是 Tabs 的 barPosition(End)），所以必须留在页面内解决。
 
           // Dock 液态选中指示器：只服务 API 23+ 的官方悬浮条（低版本分支的 BottomTabBar
           // 自带高亮，两套选中语言不并存）。放在 Column 之后 → 天然压在 Dock 之上。
@@ -1841,10 +1795,8 @@ struct Index {
                 currentIndex: $currentIndex,
                 unreadCount: this.unreadCount + this.dmUnread,
                 onSelect: (index: number): void => {
-                  this.handleTabBarClick(index);
-                  if (index !== 2) {
-                    this.tabsController.changeIndex(index);
-                  }
+                  this.selectTab(index);
+                  this.tabsController.changeIndex(index);
                 },
               })
             }
@@ -1933,37 +1885,5 @@ struct Index {
     // 所有页面点击统一通知圈子页；Logo 点击由 CircleTab 的时间戳保护过滤。
     .onClick((): void => { this.broadcastCircleLogoDismissal(); })
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
-    // 发布方式面板（原 CustomDialogController + PublishModeSheet 改造）：系统半模态承载，
-    // CENTER 形态 + FIT_CONTENT 自适应高度。可读表面完全由 SheetOptions 原生参数承担：
-    // ① 沉浸光感的唯一正确载体是 SheetOptions.systemMaterial（@since 26，官方：半模态转场属
-    //    弹窗类接口、可全页面生效，材质经 options.systemMaterial 设置）；挂在内容 Column 的通用
-    //    属性 systemMaterial 在 API 26 内容区不渲染（此前面板全透明的根因）。
-    // ② 两分支都有可读底：高版本交给系统 ULTRA_THICK 材质；低版本/模拟器用 blurStyle 原生毛玻璃
-    //    + elevated 实色兜底。禁止靠调内部元素透明度救面板（audit §根因提醒）。
-    // 关闭按钮/标题栏由内容自绘（showClose:false），手势/返回/遮罩关闭后 onDisappear 同步状态。
-    .bindSheet($$this.showPublishSheet, this.publishModeSheetBuilder(), {
-      detents: [SheetSize.FIT_CONTENT],
-      preferType: SheetType.CENTER,
-      showClose: false,
-      dragBar: false,
-      // 半模态沉浸光感材质：API≥26 返回 ULTRA_THICK 材质，否则 undefined（内部按门禁惰性构造）。
-      systemMaterial: getSheetImmersiveMaterial(),
-      // 始终叠一层系统原生半模态毛玻璃（BACKGROUND_THICK）：材质生效时增强通透，
-      // 材质不生效（低版本/模拟器/OS 回退）时它本身就是不透光的可读磨砂面。
-      blurStyle: GlassBlurStyle.Floating,
-      // 材质生效时背景交给系统材质；否则用 canvas 底——面板内三张卡是 elevated 表面，
-      // canvas→elevated 正是全 app 既有卡片惯例（BaseCard），保证卡片在深浅色下都浮得起、可读。
-      backgroundColor: isSystemMaterialActive() ? undefined : ColorTokens.canvas,
-      radius: {
-        topLeft: RadiusTokens.lg,
-        topRight: RadiusTokens.lg,
-        bottomLeft: RadiusTokens.lg,
-        bottomRight: RadiusTokens.lg,
-      },
-      // 低版本实色底配 1px separator 描边确立边界；材质档由系统自带边缘高光，去掉自绘描边。
-      borderWidth: isSystemMaterialActive() ? 0 : 1,
-      borderColor: ColorTokens.separator,
-      onDisappear: (): void => { this.showPublishSheet = false; },
-    })
   }
 }

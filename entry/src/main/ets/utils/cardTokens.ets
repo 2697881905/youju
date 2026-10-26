@@ -43,6 +43,9 @@ export const DOCK_WIDTH_SMALL: number = 300;
 export const DOCK_BOTTOM_MARGIN_BASE: number = 28;
 // barSideMargin：Dock 距屏幕侧边的最小留白
 export const DOCK_SIDE_MARGIN_MIN: number = 16;
+// 悬浮条自身高度：真机 dumpLayout 实测 TabBar bounds [99,2427][1037,2602] → 175px ÷ 3.125。
+// 系统未开放查询栏高，需要"让开整条 Dock"的消费方（发布页底部避让、选中指示器）按此计算。
+export const DOCK_BAR_HEIGHT_VP: number = 56;
 // 首页系统 HdsTabs.barFloatingStyle 的材质参数；详情页 Dock 只在系统组件不可用时降级。
 export const DOCK_GRADIENT_MASK_HEIGHT: number = 92;
 export const DOCK_MATERIAL_TYPE: number = 101;
