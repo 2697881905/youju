@@ -30,22 +30,25 @@
 //    EXQUISITE）却看不出玻璃，根因是原型页 Dock 背后是纯色空背景——沉浸光感材质要
 //    折射/模糊背后的内容，无内容可采样就只是一块平淡半透板。TabContent 改为滚动色块
 //    列表铺到底部，色块穿过 Dock 底下时玻璃折射立现。
-// ⑨ 胶囊尺寸收敛（用户反馈「静止时溢出 tabbar 栏」）：宽 1.22→1.0、高 0.96→0.86 倍槽距/槽高。
+// ⑨ 胶囊尺寸收敛 + Y 定位改锚栏体几何中心（用户反馈「静止时溢出 tabbar 栏」）：溢出主因
+//    是 Y 偏下（槽位上报 y 的 barBottomMargin 偏差在本页结构上修正不足），Y 改由
+//    barBottomMargin + DOCK_BAR_HEIGHT_VP 直接推栏体中心，零上报依赖；尺寸定中档
+//    宽 1.10×槽距、高 0.92×槽高。
 
 import { HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
 import { isImmersiveLightSenseSupported } from '../utils/immersiveMaterial';
 import { bottomNavInset, DOCK_WIDTH_SMALL, DOCK_BOTTOM_MARGIN_BASE, DOCK_SIDE_MARGIN_MIN,
-  DOCK_GRADIENT_MASK_HEIGHT, DOCK_MATERIAL_TYPE, DOCK_MATERIAL_LEVEL } from '../utils/cardTokens';
+  DOCK_GRADIENT_MASK_HEIGHT, DOCK_MATERIAL_TYPE, DOCK_MATERIAL_LEVEL,
+  DOCK_BAR_HEIGHT_VP } from '../utils/cardTokens';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { ShadowTokens } from '../design/tokens/shadow';
 
 // —— 参数定档（真机调参入口，全部集中于此；对照原文的推导写在每行注释里）——
 
-// 尺寸收敛（用户反馈 2026-10-26：静止时溢出 tabbar 栏）：宽 = 1.0×槽距、高 = 0.86×槽高，
-// 静止时贴合槽位、不盖邻格、不超栏体；"盖过槽位、溢出 Dock 圆端"只发生在鼓包/速度形变
-// 的行进态。主框架 5 槽槽距窄（55.2vp）1.22 倍不显大；原型页 4 槽槽距宽，照搬就溢出了。
-const PILL_W_RATIO: number = 1.0;
-const PILL_H_RATIO: number = 0.86;
+// 尺寸取中档（用户反馈 2026-10-26：溢出的主因是 Y 定位偏下，位置修正后放宽一档）：
+// 宽 = 1.10×槽距、高 = 0.92×槽高，介于「嫌大」与「液态盖过槽位」之间；嫌大/嫌小改这两个数。
+const PILL_W_RATIO: number = 1.1;
+const PILL_H_RATIO: number = 0.92;
 // 亮 rim 描边宽度：玻璃"读得出来"的第一来源（主框架同款）。
 const PILL_RIM_VP: number = 1.5;
 // 拖拽起手/行进的鼓包：用户要求弹动更明显（2026-10-26），6 → 10。
@@ -177,12 +180,13 @@ struct DockPillDragProtoPage {
       || first.w <= 0) {
       return false;
     }
-    // ⚠️ 系统把悬浮条整体上提了 barBottomMargin，而 TabBar 子树里的矩形按上提前算：
-    // 槽位 globalPosition.y 多算一档 margin（真机实测差值恰等于 DOCK_BOTTOM_MARGIN_BASE
-    // + bottomNavInset()，主框架同款修正）。
-    const yFix: number = DOCK_BOTTOM_MARGIN_BASE + bottomNavInset();
-    this.anchorCy = first.y - layer.y - yFix + first.h / 2;
     this.slotH = first.h;
+    // ⚠️ Y 一律不取槽位上报值：其 globalPosition 相对真实位置带一档 barBottomMargin 偏差，
+    // 主框架按它的结构实测扣 28vp，但本页真机仍见胶囊偏下（之前"溢出栏沿"的真正原因，
+    // 用户反馈 2026-10-26）。改锚 Dock 栏体几何中心——barBottomMargin 与栏高
+    // （DOCK_BAR_HEIGHT_VP）都是本页传给系统的已知量，零上报依赖，天然垂直居中。
+    // X 不受该偏差影响，仍用各槽实测中心。
+    this.anchorCy = layer.h - (DOCK_BOTTOM_MARGIN_BASE + bottomNavInset()) - DOCK_BAR_HEIGHT_VP / 2;
     const firstCx: number = first.x - layer.x + first.w / 2;
     const lastCx: number = last.x - layer.x + last.w / 2;
     this.pitch = count > 1 ? (lastCx - firstCx) / (count - 1) : first.w;
