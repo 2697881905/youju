@@ -1227,6 +1227,22 @@ HdsNavigation
 
 两个不同源的 API 给同一个偏差 ⇒ 不是接口 bug，是坐标语义：系统把悬浮条整体上提了 `barBottomMargin`，但 TabBar 子树的矩形按上提之前算。88px = 28.16vp，与传进去的 `DOCK_BOTTOM_MARGIN_BASE(28) + bottomNavInset()(0)` 吻合到 0.4px。另：覆盖层 `globalPosition` 报 (0,0)、`Area.height` 报 860.8vp（整窗），而 dumpLayout 给它 `[0,106]` 起算 —— `.position()` 吃前者，别拿 dump bounds 校它。
 
+### 按压反馈：点光源这条路在白底上走不通，改按压缩放
+
+用户实测反馈「长按底部栏，玻璃指示器无反应」。根因是我把覆盖层写成 `HitTestMode.None`（当时为了"零交互风险"），玻璃根本收不到手指。原文用 **`HitTestMode.Transparent`** 不是随手写的 —— 它让覆盖层自己响应触摸、同时把命中继续透给下层的官方页签，两者兼得。改回 Transparent 后真机复点确认切页照常（`圈子 [362,2553]` 官方件与 `[363,2553]` 副本同帧，页面确实切过去了）。
+
+接上官方点光源（`CommonMethod.visualEffect()`@12 + `hdsEffect.HdsEffectBuilder().pointLight()`@20，不需要 hdsMaterial 那套门禁）后，**三档实测全部不能用**：
+
+| 档位 | 按压时胶囊面 Δ | 结果 |
+|---|---|---|
+| `BRIGHT + BORDER_CONTENT`（原文档） | 231→**255**、图标 86→252 | 整块过曝，内容被擦掉 |
+| `SOFT + BORDER` | +4 | 等于没反应 |
+| `BRIGHT + BORDER` | +4 | 等于没反应 |
+
+**机理**：`illuminatedType` 的「照边框」作用在**材质自己的边框**上，而覆盖层拿不到 `systemMaterial`（见下节判定实验），所以只有「照内容」那条路会出效果 —— 而它洗掉的正是要保持清晰的图标。原文那档是**深色底**，光打上去是反光；同一档压到近乎纯白的 Dock（251、上限 255）上只剩白化。这是 §7.6.27 结论 3（白画布上没有亮度余量）在按压反馈上的第二次应验。
+
+**改走本项目已定稿的按压范式**：`.scale(pressSlideScale=0.94)`（华为应用商店同款按压缩放）**同时**把落影从 `pillFloat`(radius 8 / offsetY 3) 收到 `cardContact`(radius 1 / offsetY 0) —— 影变短 = 件贴近背板，两件一起才读得出"按下去了"。真机按住帧量得：胶囊暗部面积 38726→34035 = **×0.879**，与 0.94² = 0.884 吻合；顶缘下移 9~15px；松手后回满尺寸无残留。
+
 ### 底栏材质档
 
 `DOCK_MATERIAL_LEVEL` ADAPTIVE(10) → EXQUISITE(0)，与四条顶栏同档（§7.6.17 实测 ADAPTIVE 无折射，原文同样写 EXQUISITE）。⚠️ **已上线过审表面**的观感变更，回退只需把 `cardTokens.ets` 该字段改回 10。
@@ -1362,3 +1378,4 @@ $HDC shell "uitest uiInput click <px-x> <px-y>"   # bounds 是 px，÷3.125 才�
 36. **栏级 EXQUISITE 材质会盖掉普通 GRADIENT_BLUR 的透过模糊——两者要共存必须换 IMMERSIVE_GRADIENT_BLUR + originalStyle.blurRadius 动态门控**：给标题栏挂 `systemMaterialEffect`（EXQUISITE）后，普通 `GRADIENT_BLUR` 的滚动透过模糊实测归零（消息页真机 0/80 采样），材质表面把穿栏内容整个挡住。唯一共存配方 = `IMMERSIVE_GRADIENT_BLUR` + `originalStyle.blurRadius`（绝对滚动偏移 >0 门控，**不能用每帧增量正负**——松手弹簧回弹的负帧会打灭开关，「松手模糊消失」根因）+ `maskExtraHeight: 0`。另外：分段栏住在 bottomBuilder 时不要同时挂通用组件材质（ULTRA_THIN）——两轨不等价（第 24 条）且叠加成两层玻璃；让栏透明描边直接站在栏级材质上即可（消息页 2026-10-24/25 落地，与「我的」页同配方）。
 37. **给官方悬浮 `TabBar` 的子节点做覆盖层定位，y 要自己补回 `barBottomMargin`**：`componentUtils.getRectangleById().windowOffset` 和 `Area.globalPosition` 两个 API 在这一点上**给出同一个错值** —— 真机实测槽位报 y=2527px，dumpLayout 量到实际渲染在 2439px，差 88px = 28.16vp，正好等于我们传给 `barFloatingStyle.barBottomMargin` 的 `28 + bottomNavInset()(0)`。语义是「系统把悬浮条整体上提了，但 TabBar 子树的矩形按上提之前算」。所以拿这两个接口任一者做覆盖层 `.position()` 都会把东西画到 Dock 底下，必须显式减回这一档；X 方向没有对应 margin，不要顺手也减。另记：覆盖层自己的 `globalPosition`/`Area.height` 报的是**整窗**（(0,0) / 860.8vp），而 dumpLayout 给它的 bounds 从状态栏下沿起算（y=106）—— `.position()` 吃前者，**别拿 dump 的 bounds 校 `.position()`**，会差一整条状态栏（第 7.6.32 节）。
 38. **「玻璃件」的判定标准是「表面差 + 镜面 rim + 落影 + 模糊」四件齐全，缺模糊就不算玻璃；而一旦真加了模糊，就必须自带清晰副本并隐掉被它盖住的官方那份**：Dock 选中指示器第一版做成 `brandTint` 10% 蓝填充 + 1px 蓝描边、还往槽位里**内缩**，被判定为「色块贴片不是玻璃」——四条全缺，且尺寸方向整个反了（参照图胶囊宽是 **1.22 倍槽距**、盖过槽位并溢出 Dock 圆端，不是嵌在槽位里）。补上 `backdropBlur` 后真机实拍：底下的官方图标被糊成不可读的蓝色光晕，**这才看懂参照图里胶囊自带一份清晰图标+文字是必然配套，不是装饰**。配套三条：① 被盖那槽的官方件 `opacity(0)`，否则「清晰副本 + 磨砂光晕」叠成脏；② 副本与官方那份**逐像素重合**（承载容器要显式 `justifyContent/alignItems` 居中 —— Column 主轴默认从顶排，漏写真机实测高 2.9vp、落位瞬间图标跳一下）；③ 副本的 index 会随落位变化，**不能走 @Builder 参数**（值快照，见第 21 条同源问题），要用 key 含该状态的单元素 `ForEach` 强制重建。另：白底画布上「更亮」没有余量（Dock 251、上限 255），玻璃只能反向压暗、靠 rim 与投影立住（§7.6.27 结论 3）。第 7.6.32 节，含参照图量化表。
+39. **覆盖式玻璃件要响应按压，`hitTestBehavior` 只能是 `Transparent`；而在拿不到材质的面上，点光源要么无感要么过曝，按压反馈只能用「缩放 + 落影收紧」**：`HitTestMode.None` 时覆盖层自己收不到手指，按下去整颗胶囊毫无反应（用户实测反馈）；`Transparent` 才既响应自身触摸、又把命中继续透给下层官方页签 —— 原文覆盖层用它正是这个原因。**改命中模式后必须真点一次切页**（防漂移第 31 条同源）。官方点光源（`CommonMethod.visualEffect()`@12 + `hdsEffect.HdsEffectBuilder().pointLight()`@20）在三档实测里：`BRIGHT+BORDER_CONTENT` 把胶囊从 231 冲到 255、图标从 86 洗到 252（内容消失）；`SOFT+BORDER` 与 `BRIGHT+BORDER` 都只有 +4（无感）。机理：「照边框」作用在**材质自己的边框**上，覆盖层拿不到 `systemMaterial`（§7.6.26），于是只有「照内容」会出效果，而它洗掉的正是要保持清晰的图标。原文那档是深色底、光是反光，压到近白 Dock（251、上限 255）上只剩白化 —— 第 38 条「白画布没有亮度余量」的第二次应验。可用配方：`.scale(MotionTokens.pressSlideScale)` + 落影从 `pillFloat` 换 `cardContact`（影变短=贴近背板），按住帧面积比实测 ×0.879 ≈ 0.94²（第 7.6.32 节）。

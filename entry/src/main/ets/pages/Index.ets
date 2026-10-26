@@ -117,6 +117,14 @@ const DOCK_PILL_SETTLE_MS: number = 240;
 // 冷启动时覆盖层与 TabBar 槽位的先后不确定，量不到就按帧重试这么多回。
 const DOCK_PILL_MEASURE_RETRIES: number = 6;
 
+// ⚠️ 点光源（hdsEffect）在这颗自绘玻璃上**不可用**，试过三档、结论记在这里免得再走一遍：
+//   BRIGHT + BORDER_CONTENT → 整块过曝（胶囊 231→255、图标 86→252，内容被擦掉）；
+//   SOFT + BORDER → +4 级，等于没反应；BRIGHT + BORDER → 同样 +4 级。
+// 机理：`illuminatedType` 的「照边框」作用在**材质自己的边框**上，而覆盖层拿不到
+// systemMaterial（§7.6.26 + 本轮判定实验），所以只有「照内容」那条路会出效果 —— 而它
+// 洗的正是我们要保持清晰的图标。原文那档 BORDER_CONTENT 是深色底，光打上去是反光；
+// 压到近乎纯白的 Dock（251，上限 255）上就只剩白化。按压反馈改走按压缩放，见 dockSelectionPill。
+
 // Dock 指示器的一帧几何：中心点相对 dockPillLayer 左上角，单位 vp。
 interface DockPillFrame {
   cx: number;
@@ -366,6 +374,8 @@ struct Index {
   @State dockPillReady: boolean = false;
   // 胶囊当前盖住（并代替官方那份显示清晰副本）的页签下标；-1 = 还没落位，官方全部照常绘制。
   @State dockPillCovered: number = -1;
+  // 手指正按在玻璃上：按压缩放 + 落影收紧，见 dockSelectionPill。
+  @State dockPillPressed: boolean = false;
   @State dockPillX: number = 0;
   @State dockPillY: number = 0;
   @State dockPillW: number = 0;
@@ -1141,9 +1151,25 @@ struct Index {
         .backdropBlur(GlassTokens.SEGMENT_BLUR)
         .backgroundColor($r('app.color.glass_pill_fill'))
         .border({ width: DOCK_PILL_RIM_VP, color: $r('app.color.glass_pill_rim') })
-        .shadow(ShadowTokens.pillFloat)
+        .shadow(this.dockPillPressed ? ShadowTokens.cardContact : ShadowTokens.pillFloat)
+        // 按压反馈：玻璃被按下去一档（pressSlideScale=0.94，华为应用商店同款按压缩放），
+        // 同时落影从 pillFloat(radius 8/offsetY 3) 收到 cardContact(radius 1/offsetY 0)
+        // —— 影变短贴近背板，这两件一起才读得出「按下去了」。
+        .scale({
+          x: this.dockPillPressed ? MotionTokens.pressSlideScale : 1,
+          y: this.dockPillPressed ? MotionTokens.pressSlideScale : 1,
+        })
+        .animation({ duration: MotionTokens.fast, curve: MotionCurves.springInteract })
         .position({ x: this.dockPillX - this.dockPillW / 2, y: this.dockPillY - this.dockPillH / 2 })
-        .hitTestBehavior(HitTestMode.None)
+        // ⚠️ 必须是 Transparent 而不是 None：None 时玻璃收不到手指，按住底栏整颗胶囊毫无反应
+        // （用户实测反馈）。Transparent 让玻璃自己收到按压，同时把命中继续透给下层官方页签
+        // —— 这正是原文覆盖层用 HitTestMode.Transparent 的原因。改命中模式后必须真点一次
+        // 切页，确认没吃掉官方页签的点击（防漂移第 31 条同源）。
+        .onTouch((event: TouchEvent): void => {
+          const type: TouchType = event.type;
+          this.dockPillPressed = type === TouchType.Down || type === TouchType.Move;
+        })
+        .hitTestBehavior(HitTestMode.Transparent)
       }
     }
     .width('100%')
