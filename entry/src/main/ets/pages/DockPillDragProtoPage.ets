@@ -26,6 +26,11 @@
 //    图标全程透过胶囊清晰可见，副本/接管机制整套删除；玻璃感由淡 tint + 亮 rim + 落影
 //    承载。弹动同步加强：鼓包 6→10、速度形变 14→22、交叉系数 0.45→0.5、落定回弹换
 //    springBounce（overshoot 自带果冻感）。
+// ⑧ 穿底演示内容（用户反馈「tabbar 栏不是玻璃」）：材质参数与主框架同源（IMMERSIVE +
+//    EXQUISITE）却看不出玻璃，根因是原型页 Dock 背后是纯色空背景——沉浸光感材质要
+//    折射/模糊背后的内容，无内容可采样就只是一块平淡半透板。TabContent 改为滚动色块
+//    列表铺到底部，色块穿过 Dock 底下时玻璃折射立现。
+// ⑨ 胶囊尺寸收敛（用户反馈「静止时溢出 tabbar 栏」）：宽 1.22→1.0、高 0.96→0.86 倍槽距/槽高。
 
 import { HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
 import { isImmersiveLightSenseSupported } from '../utils/immersiveMaterial';
@@ -36,10 +41,11 @@ import { ShadowTokens } from '../design/tokens/shadow';
 
 // —— 参数定档（真机调参入口，全部集中于此；对照原文的推导写在每行注释里）——
 
-// 尺寸沿用主框架实测比例：胶囊宽 ≈ 1.22 倍槽距、高 ≈ 0.96 倍槽高
-// （盖过槽位、行进中溢出 Dock 圆端；原文静止 92×54 是它自己 330 宽 4 槽的槽距 90 的 1.02 倍）。
-const PILL_W_RATIO: number = 1.22;
-const PILL_H_RATIO: number = 0.96;
+// 尺寸收敛（用户反馈 2026-10-26：静止时溢出 tabbar 栏）：宽 = 1.0×槽距、高 = 0.86×槽高，
+// 静止时贴合槽位、不盖邻格、不超栏体；"盖过槽位、溢出 Dock 圆端"只发生在鼓包/速度形变
+// 的行进态。主框架 5 槽槽距窄（55.2vp）1.22 倍不显大；原型页 4 槽槽距宽，照搬就溢出了。
+const PILL_W_RATIO: number = 1.0;
+const PILL_H_RATIO: number = 0.86;
 // 亮 rim 描边宽度：玻璃"读得出来"的第一来源（主框架同款）。
 const PILL_RIM_VP: number = 1.5;
 // 拖拽起手/行进的鼓包：用户要求弹动更明显（2026-10-26），6 → 10。
@@ -98,6 +104,12 @@ struct DockPillDragProtoPage {
     { title: '圈子', icon: $r('app.media.nav_circle') },
     { title: '消息', icon: $r('app.media.nav_message') },
     { title: '我的', icon: $r('app.media.nav_profile') },
+  ];
+
+  // 穿底演示色块：交替品牌色与系统色，铺到 Dock 底下给玻璃材质采样。
+  private demoBlocks: string[] = [
+    '#34C759', '#0A84FF', '#FF9500', '#AF52DE', '#FF2D55',
+    '#30B0C7', '#5E5CE6', '#FF375F', '#32ADE6', '#8E8E93',
   ];
 
   // —— 实测几何（recomputeGeometry 产出，拖拽/动画全程只读它们）——
@@ -419,26 +431,41 @@ struct DockPillDragProtoPage {
     })
   }
 
-  // 演示页内容：只做最小说明，聚焦胶囊交互本身。
+  // 演示页内容：滚动色块铺到 Dock 底下。沉浸光感材质要折射/模糊背后的内容，
+  // 纯色空背景上玻璃无东西可采样（「tabbar 不是玻璃」的根因）；色块穿过 Dock
+  // 底部时玻璃折射/模糊立现。
   @Builder
   demoPageContent(index: number) {
-    Column({ space: 12 }) {
-      Image(this.protoTabs[index].icon)
-        .width(56)
-        .height(56)
-        .objectFit(ImageFit.Contain)
-        .fillColor($r('app.color.ds_brand'))
-      Text(this.protoTabs[index].title)
-        .fontSize(22)
-        .fontWeight(FontWeight.Medium)
-      Text(`第 ${index + 1} 页 · 按住底部胶囊左右拖，松手按半格吸附`)
-        .fontSize(13)
-        .fontColor($r('app.color.text_secondary'))
+    Scroll() {
+      Column({ space: 12 }) {
+        Text(this.protoTabs[index].title)
+          .fontSize(22)
+          .fontWeight(FontWeight.Medium)
+        Text(`第 ${index + 1} 页 · 上下滚动，看色块穿过 Dock 时的玻璃折射；按住胶囊拖动切页`)
+          .fontSize(13)
+          .fontColor($r('app.color.text_secondary'))
+          .textAlign(TextAlign.Center)
+        ForEach(this.demoBlocks, (color: string, i: number) => {
+          Row() {
+            Text(`色块 ${i + 1}`)
+              .fontSize(14)
+              .fontColor('#FFFFFF')
+          }
+          .width('100%')
+          .height(120)
+          .borderRadius(16)
+          .backgroundColor(color)
+          .justifyContent(FlexAlign.Center)
+        }, (color: string, i: number): string => `${index}-${i}`)
+      }
+      .width('100%')
+      .padding({ left: 16, right: 16, top: 12, bottom: 120 })
     }
     .width('100%')
     .height('100%')
-    .justifyContent(FlexAlign.Center)
-    .alignItems(HorizontalAlign.Center)
+    .align(Alignment.Top)
+    .scrollBar(BarState.Off)
+    .edgeEffect(EdgeEffect.Spring)
   }
 
   // Dock 之上的覆盖式胶囊。整层 hitTestBehavior=None：不吃点击（页签命中归官方 TabBar），
