@@ -34,8 +34,12 @@
 //    是 Y 偏下（槽位上报 y 的 barBottomMargin 偏差在本页结构上修正不足），Y 改由
 //    barBottomMargin + DOCK_BAR_HEIGHT_VP 直接推栏体中心，零上报依赖；尺寸定中档
 //    宽 1.10×槽距、高 0.92×槽高。
+// ⑩ 结构对齐原文（用户指出漏了包裹层）：根 Stack → HdsNavigation 包裹 HdsTabs，覆盖层
+//    与 HdsNavigation 同级、声明在后（层级更高）。原顶部说明覆盖层删除：操作指引挪进
+//    标题栏 subTitle，调参读数挪进各演示页内容顶部。
 
-import { HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
+import { HdsNavigation, HdsNavigationTitleMode, HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
+import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import { isImmersiveLightSenseSupported } from '../utils/immersiveMaterial';
 import { bottomNavInset, DOCK_WIDTH_SMALL, DOCK_BOTTOM_MARGIN_BASE, DOCK_SIDE_MARGIN_MIN,
   DOCK_GRADIENT_MASK_HEIGHT, DOCK_MATERIAL_TYPE, DOCK_MATERIAL_LEVEL,
@@ -449,6 +453,9 @@ struct DockPillDragProtoPage {
           .fontSize(13)
           .fontColor($r('app.color.text_secondary'))
           .textAlign(TextAlign.Center)
+        Text(this.debugText)
+          .fontSize(11)
+          .fontColor($r('app.color.text_tertiary'))
         ForEach(this.demoBlocks, (color: string, i: number) => {
           Row() {
             Text(`色块 ${i + 1}`)
@@ -520,68 +527,82 @@ struct DockPillDragProtoPage {
     })
   }
 
+  // 标题栏：MINI 双行（标题 + 操作指引），栏体挂沉浸光感（数值同 Dock，避免 import
+  // hdsMaterial——API 22 上不存在，工程铁律）。hideBackButton(true) 是工程惯例：
+  // 官方返回钮在本 app 从未渲染过，返回靠系统侧滑。
+  private protoTitleBarOptions(): HdsNavigationTitleBarOptions {
+    const options: HdsNavigationTitleBarOptions = {
+      content: {
+        title: {
+          mainTitle: 'Dock 胶囊拖拽原型',
+          subTitle: '按住胶囊左右拖 · 快甩拉长回拉收窄 · 松手过半格吸附',
+        },
+      },
+      style: {
+        systemMaterialEffect: {
+          materialType: DOCK_MATERIAL_TYPE,
+          materialLevel: DOCK_MATERIAL_LEVEL,
+        },
+      },
+    };
+    return options;
+  }
+
   build() {
+    // 结构对齐原文：根 Stack → HdsNavigation 包裹 HdsTabs（悬浮导航栏样式），覆盖层与
+    // HdsNavigation 同级、声明在后（层级更高），落在悬浮导航栏区域充当液态指示器。
     Stack({ alignContent: Alignment.Bottom }) {
       if (isImmersiveLightSenseSupported()) {
-        HdsTabs({ controller: this.hdsController }) {
-          ForEach(this.protoTabs, (tab: ProtoTab, index: number) => {
-            TabContent() {
-              this.demoPageContent(index)
-            }
-            .tabBar(this.tabBarBuilder(index))
-          }, (tab: ProtoTab): string => tab.title)
+        HdsNavigation() {
+          HdsTabs({ controller: this.hdsController }) {
+            ForEach(this.protoTabs, (tab: ProtoTab, index: number) => {
+              TabContent() {
+                this.demoPageContent(index)
+              }
+              .tabBar(this.tabBarBuilder(index))
+            }, (tab: ProtoTab): string => tab.title)
+          }
+          .width('100%')
+          .height('100%')
+          .barOverlap(true)
+          .barPosition(BarPosition.End)
+          .vertical(false)
+          .barFloatingStyle({
+            barWidth: {
+              smallWidth: DOCK_WIDTH_SMALL,
+              mediumWidth: DOCK_WIDTH_SMALL,
+              largeWidth: DOCK_WIDTH_SMALL,
+            },
+            barSideMargin: DOCK_SIDE_MARGIN_MIN,
+            barBottomMargin: DOCK_BOTTOM_MARGIN_BASE + bottomNavInset(),
+            gradientMask: { maskColor: $r('app.color.bar_gradient_mask'), maskHeight: DOCK_GRADIENT_MASK_HEIGHT },
+            systemMaterialEffect: {
+              materialType: DOCK_MATERIAL_TYPE,
+              materialLevel: DOCK_MATERIAL_LEVEL,
+            },
+          })
+          // 原文同款：页面滑动与原生动画全关，切页与动效完全由胶囊驱动。
+          .scrollable(false)
+          .animationDuration(0)
+          .onTabBarClick((index: number): void => {
+            this.pillTravelTo(index);
+          })
+          .onChange((index: number): void => {
+            // changeIndex 回环：胶囊动画已在 pillTravelTo 里发起，这里只同步染色。
+            this.currentIndex = index;
+          })
         }
         .width('100%')
         .height('100%')
-        .barOverlap(true)
-        .barPosition(BarPosition.End)
-        .vertical(false)
-        .barFloatingStyle({
-          barWidth: {
-            smallWidth: DOCK_WIDTH_SMALL,
-            mediumWidth: DOCK_WIDTH_SMALL,
-            largeWidth: DOCK_WIDTH_SMALL,
-          },
-          barSideMargin: DOCK_SIDE_MARGIN_MIN,
-          barBottomMargin: DOCK_BOTTOM_MARGIN_BASE + bottomNavInset(),
-          gradientMask: { maskColor: $r('app.color.bar_gradient_mask'), maskHeight: DOCK_GRADIENT_MASK_HEIGHT },
-          systemMaterialEffect: {
-            materialType: DOCK_MATERIAL_TYPE,
-            materialLevel: DOCK_MATERIAL_LEVEL,
-          },
-        })
-        // 原文同款：页面滑动与原生动画全关，切页与动效完全由胶囊驱动。
-        .scrollable(false)
-        .animationDuration(0)
-        .onTabBarClick((index: number): void => {
-          this.pillTravelTo(index);
-        })
-        .onChange((index: number): void => {
-          // changeIndex 回环：胶囊动画已在 pillTravelTo 里发起，这里只同步染色。
-          this.currentIndex = index;
-        })
+        .titleMode(HdsNavigationTitleMode.MINI)
+        .hideBackButton(true)
+        .titleBar(this.protoTitleBarOptions())
+        // 原文同款：忽略系统上下安全区——内容区延伸到屏幕底，barBottomMargin 才是
+        // 从屏幕底起算的真实语义，覆盖层的栏体中心公式（anchorCy）与之自洽。
+        .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM],
+          [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])
 
         this.dockPillLayer()
-
-        // 顶部说明 + 调参读数（原型页本职：让参数在真机上可读）。
-        Column({ space: 4 }) {
-          Text('Dock 胶囊拖拽原型')
-            .fontSize(16)
-            .fontWeight(FontWeight.Medium)
-          Text('按住玻璃胶囊左右拖：快甩拉长、回拉收窄，近锚点显影，松手过半格吸附')
-            .fontSize(12)
-            .fontColor($r('app.color.text_secondary'))
-            .textAlign(TextAlign.Center)
-          Text(this.debugText)
-            .fontSize(11)
-            .fontColor($r('app.color.text_tertiary'))
-        }
-        .width('100%')
-        .height('100%')
-        .justifyContent(FlexAlign.Start)
-        .alignItems(HorizontalAlign.Center)
-        .padding({ top: 24, left: 24, right: 24 })
-        .hitTestBehavior(HitTestMode.None)
       } else {
         Text('本机不支持 HdsTabs 悬浮条（需 HarmonyOS 6.1 / API 23+ 且具备 HDS 系统能力）')
           .fontSize(14)
