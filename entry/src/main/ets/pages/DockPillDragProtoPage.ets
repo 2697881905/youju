@@ -8,7 +8,8 @@
 // 与原文实现的差异（全部有意为之，对应文档评审结论）：
 // ① 零新增依赖：原文 HdsMiniBarButton（hds_button HAR）不可得，且其价值已被真机实验
 //    证伪——覆盖层挂不上 systemMaterial（§7.6.26）、hdsEffect 点光源三档无效（Index 常量
-//    注释），胶囊沿用主框架自绘玻璃配方（backdropBlur + 中性半透 + 亮 rim + 落影）。
+//    注释），胶囊自绘：透明 tint + 亮 rim + 落影（初版曾带 backdropBlur 真磨砂，
+//    后按用户拍板 2026-10-26 去磨砂改全透明，见⑥⑦）。
 // ② 锚点全部实测：原文 BASE_POSITIONS=[8.5,85,162.5,241] 是手调魔法数字（间距 76.5/77.5/
 //    78.5 互不相等），换设备/HDS 版本即错位；本页每颗页签 onAreaChange 回抛窗口矩形，
 //    锚点=各槽自身中心、槽距由两端中心反算（同主框架配方，含 barBottomMargin 的 y 偏差修正）。
@@ -20,17 +21,17 @@
 // ④ 速度按 vp/s 归一：原文「vp/帧」依赖手势回调帧率，120Hz 设备形变约为 60Hz 的一半。
 // ⑤ animateTo 一律走 this.getUIContext()（全局 animateTo 已废弃，工程规范）。
 // ⑥ 图标不跟胶囊跑（用户拍板 2026-10-26，对原文的又一处偏离）：胶囊是纯光标，飞行/拖拽中
-//    官方页签全部留在原地显示（胶囊压过的图标在磨砂下短暂糊化，读作「液体流过图标」）；
-//    仅落定后由胶囊接管目标图标的清晰副本——真磨砂会把压在下面的官方份糊到不可读
-//    （主框架实测），不接管则选中槽没有可读图标。原文的「近锚显影」是图标跟跑的伴生
-//    特性，随之一并删除。
+//    官方页签全部留在原地显示。原文的「近锚显影」是图标跟跑的伴生特性，随之一并删除。
+// ⑦ 胶囊透明化（用户拍板 2026-10-26：透明的，不要模糊的）：去掉 backdropBlur 真磨砂，
+//    图标全程透过胶囊清晰可见，副本/接管机制整套删除；玻璃感由淡 tint + 亮 rim + 落影
+//    承载。弹动同步加强：鼓包 6→10、速度形变 14→22、交叉系数 0.45→0.5、落定回弹换
+//    springBounce（overshoot 自带果冻感）。
 
 import { HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
 import { isImmersiveLightSenseSupported } from '../utils/immersiveMaterial';
 import { bottomNavInset, DOCK_WIDTH_SMALL, DOCK_BOTTOM_MARGIN_BASE, DOCK_SIDE_MARGIN_MIN,
   DOCK_GRADIENT_MASK_HEIGHT, DOCK_MATERIAL_TYPE, DOCK_MATERIAL_LEVEL } from '../utils/cardTokens';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
-import { GlassTokens } from '../design/tokens/GlassTokens';
 import { ShadowTokens } from '../design/tokens/shadow';
 
 // —— 参数定档（真机调参入口，全部集中于此；对照原文的推导写在每行注释里）——
@@ -41,13 +42,12 @@ const PILL_W_RATIO: number = 1.22;
 const PILL_H_RATIO: number = 0.96;
 // 亮 rim 描边宽度：玻璃"读得出来"的第一来源（主框架同款）。
 const PILL_RIM_VP: number = 1.5;
-// 拖拽起手/行进的鼓包：原文 92×54 → 110×74.5（约 +20）；本胶囊约 67×52，等比收到 +6。
-const PILL_BULGE: number = 6;
-// 速度形变上限：原文 45vp 对 92×54 的胶囊；本胶囊小一档（面积约 0.55 倍），等比 + 视觉
-// 收敛取 14vp——再大会把胶囊拉出 Dock 圆端过多，玻璃的"贴"感丢失。
-const SPEED_MAX_DEFORM: number = 14;
-// 反方向（回拉）时宽/高的交叉形变系数：原文 0.5，保留。
-const DEFORM_CROSS: number = 0.45;
+// 拖拽起手/行进的鼓包：用户要求弹动更明显（2026-10-26），6 → 10。
+const PILL_BULGE: number = 10;
+// 速度形变上限：用户要求弹动更明显，14 → 22（接近 45 的等比上限，甩动的拉扯感拉满）。
+const SPEED_MAX_DEFORM: number = 22;
+// 反方向（回拉）时宽/高的交叉形变系数：回到原文同款 0.5。
+const DEFORM_CROSS: number = 0.5;
 // 速度归一基准（vp/s）：真机轻甩约 400-600、快甩约 1200-1800；1200 起满形变，
 // 配合 sqrt 缓出让轻甩也有可感知的拉伸。
 const SPEED_NORMALIZE_VP: number = 1200;
@@ -60,9 +60,10 @@ const PAUSE_MS: number = 90;
 const PAUSE_SPEED_VP: number = 200;
 // 边缘阻尼：首/尾槽往界外拖的跟手衰减（原文同款 0.3）。
 const EDGE_DAMPING: number = 0.3;
-// 行进/落定动画时长与曲线（主框架 dockPillTravel 同款，真机已验证的手感）。
+// 行进/落定动画：行进保持 springSoft（位移要稳，太弹会晃）；落定换 springBounce——
+// 用户要求弹动更明显（2026-10-26）。springMotion 系时长由曲线物理决定，duration 仅占位。
 const TRAVEL_MS: number = 300;
-const SETTLE_MS: number = 240;
+const SETTLE_MS: number = 400;
 // 槽位测量重试次数（覆盖层与 TabBar 首帧先后不确定，主框架同款）。
 const MEASURE_RETRIES: number = 6;
 
@@ -107,9 +108,6 @@ struct DockPillDragProtoPage {
 
   // —— 胶囊渲染态 ——
   @State private pillReady: boolean = false;
-  // 被胶囊盖住（官方份隐掉、由胶囊带清晰副本接管）的页签下标；-1 = 纯光标态
-  // （飞行/拖拽中官方份全部显示，图标不跟胶囊跑）。
-  @State private coveredIndex: number = -1;
   @State private pillX: number = 0;
   @State private pillY: number = 0;
   @State private pillW: number = 0;
@@ -213,7 +211,6 @@ struct DockPillDragProtoPage {
     this.pillW = frame.w;
     this.pillH = frame.h;
     this.pillIndex = index;
-    this.coveredIndex = index;
     this.pillReady = true;
     return true;
   }
@@ -242,7 +239,7 @@ struct DockPillDragProtoPage {
   // —— 切页单一入口（点按直达与拖拽松手都走这里，最新目标胜出）——
   //
   // 时序：行进（鼓包 + 位移 + 拖偏归零，TRAVEL_MS springSoft）→ settle 到点
-  // （收回静止尺寸，SETTLE_MS springInteract）→ 同一批里 changeIndex 切页。
+  // （收回静止尺寸，SETTLE_MS springBounce）→ 同一批里 changeIndex 切页。
   // 中途被新目标打断时旧 timer 被清、旧目标不再 changeIndex——页面与胶囊必然同终态，
   // 这正是原文 isProgrammaticChange 门禁 + 不可取消 setTimeout 想解决而没解决的问题。
   private pillTravelTo(index: number): void {
@@ -264,11 +261,6 @@ struct DockPillDragProtoPage {
       this.settleTimer = -1;
     }
     this.pillIndex = index;
-    // 行进期间胶囊是纯光标（用户拍板 2026-10-26：图标不跟着指示器跑）：
-    // 官方份全部恢复显示，胶囊扫过谁、谁的图标在磨砂下短暂糊化，读作「液体从图标上流过」。
-    // 落定后（settle 到点）才由胶囊接管目标图标的清晰副本——真磨砂（backdropBlur 20）会把
-    // 压在下面的官方份糊到不可读（主框架实测），不接管则选中槽没有可读图标。
-    this.coveredIndex = -1;
     const restW: number = frame.w;
     const restH: number = frame.h;
     this.getUIContext().animateTo({
@@ -283,15 +275,15 @@ struct DockPillDragProtoPage {
     });
     this.settleTimer = setTimeout((): void => {
       this.settleTimer = -1;
+      // 落定回弹：宽度从鼓包弹回静止尺寸，springBounce 的 overshoot 会先压扁再弹开，
+      // 自带果冻感；透明胶囊下图标全程在槽位里，无需任何接管动作。
       this.getUIContext().animateTo({
         duration: SETTLE_MS,
-        curve: MotionCurves.springInteract,
+        curve: MotionCurves.springBounce,
       }, () => {
         this.pillW = restW;
         this.pillH = restH;
       });
-      // 落定即接管：目标槽官方份隐掉、胶囊内清晰副本顶上（与官方份逐像素重合，无跳变）。
-      this.coveredIndex = index;
       // 胶囊落位再切页（原文是 310ms 死等后切，这里由 timer 统一承载，先清后设无竞态）。
       if (index !== this.currentIndex) {
         this.currentIndex = index;
@@ -314,12 +306,10 @@ struct DockPillDragProtoPage {
     this.initialDirection = 0;
     this.lastActiveTs = 0;
     this.pauseDetected = false;
-    // 拖拽即纯光标：官方份全部露出，图标留在槽位里（胶囊压着的那个会短暂糊化）。
-    this.coveredIndex = -1;
-    // 起手轻鼓包：从静止尺寸进入"被拿起"的状态（animateTo 短补间，不跟手指抢帧）。
+    // 起手鼓包：从静止尺寸"被拿起"，springBounce 给一记明显的轻弹。
     this.getUIContext().animateTo({
       duration: MotionTokens.fast,
-      curve: MotionCurves.springInteract,
+      curve: MotionCurves.springBounce,
     }, () => {
       this.pillW = this.pitch * PILL_W_RATIO + PILL_BULGE;
       this.pillH = this.slotH * PILL_H_RATIO + PILL_BULGE;
@@ -398,7 +388,7 @@ struct DockPillDragProtoPage {
 
   // —— 渲染 ——
 
-  // 页签内容：官方槽位与胶囊内副本共用同一 builder（抄两份必然逐像素漂移）。
+  // 页签内容：只有官方槽位使用（胶囊透明化后图标全程原位可见，无需副本）。
   @Builder
   tabItemContent(index: number) {
     Column({ space: 3 }) {
@@ -415,8 +405,8 @@ struct DockPillDragProtoPage {
     .alignItems(HorizontalAlign.Center)
   }
 
-  // 官方 HdsTabs 页签：onAreaChange 回抛窗口矩形供锚点实测；
-  // 被胶囊盖住的那颗整份隐掉（真磨砂会把官方图标糊成光晕，清晰副本由胶囊自带）。
+  // 官方 HdsTabs 页签：onAreaChange 回抛窗口矩形供锚点实测。
+  // 胶囊透明化后图标全程原位显示，无需隐藏/接管逻辑。
   @Builder
   tabBarBuilder(index: number) {
     Stack({ alignContent: Alignment.Center }) {
@@ -424,7 +414,6 @@ struct DockPillDragProtoPage {
     }
     .width(64)
     .height(54)
-    .opacity(this.coveredIndex === index ? 0 : 1)
     .onAreaChange((_old: Area, area: Area): void => {
       this.recordSlotArea(index, area);
     })
@@ -458,28 +447,16 @@ struct DockPillDragProtoPage {
   dockPillLayer() {
     Stack({ alignContent: Alignment.TopStart }) {
       if (this.pillReady) {
-        // 玻璃配方三件套（主框架同款，缺一退化为色块贴片）：
-        // 透底磨砂 + 中性半透面 + 亮 rim/近距落影。
-        Column() {
-          // 落定态才渲染副本（coveredIndex >= 0）：飞行/拖拽中是空玻璃光标。
-          // ⚠️ @Builder 参数是值快照：用 key 随 coveredIndex 变化的单元素 ForEach 强制
-          // 重建副本（主框架真机实证：直接传变量落位后内容不刷新）。
-          if (this.coveredIndex >= 0) {
-            ForEach([this.coveredIndex], (i: number) => {
-              this.tabItemContent(i)
-            }, (i: number): string => `pill${i}`)
-          }
-        }
-        .width(this.pillW)
-        .height(this.pillH)
-        // 副本与官方份逐像素重合：官方份被 Stack(Center) 居中，这里必须显式居中。
-        .justifyContent(FlexAlign.Center)
-        .alignItems(HorizontalAlign.Center)
-        .borderRadius(this.pillH / 2)
-        .backdropBlur(GlassTokens.SEGMENT_BLUR)
-        .backgroundColor($r('app.color.glass_pill_fill'))
-        .border({ width: PILL_RIM_VP, color: $r('app.color.glass_pill_rim') })
-        .shadow(ShadowTokens.pillFloat)
+        // 透明液态光标（用户拍板 2026-10-26：透明的，不要模糊的）：无 backdropBlur，
+        // 图标全程透过胶囊清晰可见；玻璃感由淡 tint（8% 黑）+ 亮 rim（65% 白）
+        // + 近距落影三件承载，缺 rim/影则只剩一块看不见的空圈。
+        Column()
+          .width(this.pillW)
+          .height(this.pillH)
+          .borderRadius(this.pillH / 2)
+          .backgroundColor($r('app.color.glass_pill_fill'))
+          .border({ width: PILL_RIM_VP, color: $r('app.color.glass_pill_rim') })
+          .shadow(ShadowTokens.pillFloat)
         .position({ x: this.pillX - this.pillW / 2, y: this.pillY - this.pillH / 2 })
         // 拖拽跟手与 travel 归零插值都走这一个 translate。
         .translate({ x: this.dragOffsetX })
