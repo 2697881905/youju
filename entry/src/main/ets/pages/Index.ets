@@ -413,6 +413,11 @@ struct Index {
   // —— 玻璃珠拖拽（原型页验证过的交互移植，2026-10-26）——
   // 拖拽实时偏移：逐帧直写跟手，travel 里随 animateTo 归零插值。
   @State dockPillDragOffsetX: number = 0;
+  // 拖拽形变的 scale 变换（1 = 无形变）：⚠️ 形变绝不能直写 dockPillW/H——那是
+  // HdsMiniBarButton 内部真 HdsTabs 的布局尺寸，逐帧直写 = 每帧重布局 + 材质重采样
+  // （拖动中卡顿/闪烁的根因）；scale 是 GPU 合成变换，零重布局。
+  @State dockPillDeformScaleX: number = 1;
+  @State dockPillDeformScaleY: number = 1;
   // 拖拽过程量（非渲染态）：采样点 / 平滑速度 / 形变方向 / 停顿检测。
   private dockPillLastGestureX: number = 0;
   private dockPillLastGestureTs: number = 0;
@@ -1126,6 +1131,9 @@ struct Index {
     this.dockPillPauseDetected = false;
     // 拖拽即纯光标：官方份全部露出，图标留在槽位里。
     this.dockPillCovered = -1;
+    // 拖拽全程基准尺寸恒定（rest+BULGE），形变由 deformScale 承担（见 DragUpdate）。
+    this.dockPillDeformScaleX = 1;
+    this.dockPillDeformScaleY = 1;
     // 起手鼓包：从静止尺寸"被拿起"（springBounce 一记明显轻弹）。
     const frame: DockPillFrame | null = this.dockPillFrameOf(this.currentIndex);
     if (frame === null) {
@@ -1166,6 +1174,9 @@ struct Index {
       this.dockPillLastActiveTs = 0;
     }
     // 速度 → 形变：sqrt 缓动，同向拉宽缩高、反向收宽涨高。
+    // ⚠️ 形变走 scale 渲染变换而非直写 dockPillW/H：barWidth/Height 是 HdsMiniBarButton
+    // 内部真 HdsTabs 的布局尺寸，逐帧直写 = 每帧重布局 + 材质重采样（拖动中卡顿/闪烁
+    // 的根因）；scale 是 GPU 合成变换，零重布局。基准尺寸（rest+BULGE）拖拽全程恒定。
     const absV: number = Math.abs(this.dockPillSmoothedVp);
     let deformW: number = 0;
     let deformH: number = 0;
@@ -1189,8 +1200,10 @@ struct Index {
     if (frame === null) {
       return;
     }
-    this.dockPillW = frame.w + DOCK_PILL_BULGE + deformW;
-    this.dockPillH = frame.h + DOCK_PILL_BULGE + deformH;
+    const baseW: number = frame.w + DOCK_PILL_BULGE;
+    const baseH: number = frame.h + DOCK_PILL_BULGE;
+    this.dockPillDeformScaleX = (baseW + deformW) / baseW;
+    this.dockPillDeformScaleY = (baseH + deformH) / baseH;
     // 边缘阻尼：首槽往左/尾槽往右拖时跟手衰减（rubber-band 手感）。
     const lastIndex: number = this.bottomTabItems().length - 1;
     if ((this.currentIndex === 0 && x < 0) || (this.currentIndex === lastIndex && x > 0)) {
@@ -1212,6 +1225,14 @@ struct Index {
     // （瞬间生效），玻璃会先跳回锚点再滑向目标——「从原来的方向重新滑过来」（真机实证）。
     this.dockPillX = this.dockPillX + this.dockPillDragOffsetX;
     this.dockPillDragOffsetX = 0;
+    // 形变随飞行同步收回（scale 与位置同一批 animateTo，emphasized 曲线）。
+    this.getUIContext().animateTo({
+      duration: DOCK_PILL_TRAVEL_MS,
+      curve: MotionCurves.emphasized,
+    }, () => {
+      this.dockPillDeformScaleX = 1;
+      this.dockPillDeformScaleY = 1;
+    });
     if (target === this.currentIndex) {
       // 未过半格：回弹到当前槽（travel 从快照位插回锚点，去重条件已含拖拽偏移判断）。
       this.dockPillTravel(target);
@@ -1299,13 +1320,22 @@ struct Index {
           // （真机实测漏写时副本比官方高 9px = 2.9vp）。
           .justifyContent(FlexAlign.Center)
           .alignItems(HorizontalAlign.Center)
-          // 命中层：铺满定位容器（= Row 尺寸），独占玻璃区域的触摸。
+          // 命中层：铺满定位容器（= Row 尺寸），独占玻璃区域的触摸（手势与按压全挂它）。
           Column()
             .width(this.dockPillW + DOCK_PILL_MINI_PAD * 2)
             .height(this.dockPillH + DOCK_PILL_MINI_PAD * 2)
             .onTouch((event: TouchEvent): void => {
               const type: TouchType = event.type;
-              this.dockPillPressed = type === TouchType.Down || type === TouchType.Move;
+              const pressed: boolean = type === TouchType.Down || type === TouchType.Move;
+              if (pressed !== this.dockPillPressed) {
+                // 按压反馈的平滑：显式 animateTo（外层胶囊不挂 .animation，见 scale 注释）。
+                this.getUIContext().animateTo({
+                  duration: MotionTokens.fast,
+                  curve: MotionCurves.springInteract,
+                }, () => {
+                  this.dockPillPressed = pressed;
+                });
+              }
             })
             .gesture(
               PanGesture({ direction: PanDirection.Horizontal, fingers: 1, distance: 5 })
@@ -1329,13 +1359,14 @@ struct Index {
           x: this.dockPillX - this.dockPillW / 2 - DOCK_PILL_MINI_PAD,
           y: this.dockPillY - this.dockPillH / 2 - DOCK_PILL_MINI_PAD,
         })
-        // 按压反馈：玻璃被按下去一档（pressSlideScale=0.94，华为应用商店同款按压缩放）；
+        // 按压反馈（pressSlideScale=0.94）× 拖拽形变（deformScale）合成缩放；
         // 材质自带落影，自绘 shadow 不再叠加。
         .scale({
-          x: this.dockPillPressed ? MotionTokens.pressSlideScale : 1,
-          y: this.dockPillPressed ? MotionTokens.pressSlideScale : 1,
+          x: (this.dockPillPressed ? MotionTokens.pressSlideScale : 1) * this.dockPillDeformScaleX,
+          y: (this.dockPillPressed ? MotionTokens.pressSlideScale : 1) * this.dockPillDeformScaleY,
         })
-        .animation({ duration: MotionTokens.fast, curve: MotionCurves.springInteract })
+        // ⚠️ 不挂 .animation：deformScale 拖拽中逐帧直写必须即时生效（挂了会被属性动画
+        // 平滑、形变滞后于手势）；按压反馈的平滑由命中层 onTouch 里显式 animateTo 承担。
         // 拖拽跟手与 travel 归零插值都走这一个 translate。
         .translate({ x: this.dockPillDragOffsetX })
         // ⚠️ 必须是 Transparent 而不是 None：定位容器要把自己（含命中层）的触摸收进来，
