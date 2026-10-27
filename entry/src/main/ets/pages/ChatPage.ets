@@ -2,7 +2,7 @@
 // 本文件仅作为 main_pages.json「pages/ChatPage」的 @Entry 入口，
 // 保持消息页等 router 入口跳入聊天页的既有行为。
 import { ChatView } from './ChatView';
-import { consumeOverlayBack } from '../utils/overlayBackGuard';
+import { consumeOverlayBackFor, OVERLAY_GUARD_CHAT } from '../utils/overlayBackGuard';
 
 @Entry
 @Component
@@ -12,7 +12,7 @@ struct ChatPage {
   // 因为它是 @Component（双壳共享）而从来没被调用过，属于「写了但不生效」的死代码。
   // Navigation 壳的对应拦截见 ChatDestination.onBackPressed。
   onBackPress(): boolean {
-    return consumeOverlayBack();
+    return consumeOverlayBackFor(OVERLAY_GUARD_CHAT);
   }
 
   // 页面重新显示（router 返回）→ 递增刷新信号：ChatView @Watch 承接静默重拉。

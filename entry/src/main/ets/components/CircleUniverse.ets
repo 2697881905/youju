@@ -8,6 +8,7 @@ import { listPosts, followTag, unfollowTag } from '../services/api';
 import { getToken } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
 import { openPostDetail } from '../utils/nav';
+import { getMainNavStack, PostDetailNavParams } from '../utils/navigationTransition';
 import { TagIcon } from './TagIcon';
 import { ColorTokens } from '../design/tokens/color';
 import { StarPalette, DARK_PALETTE, PAPER_PALETTE, StarDot, STAR_DOTS } from '../design/tokens/starPalette';
@@ -49,6 +50,9 @@ export struct CircleUniverse {
   @Prop @Watch('onVisibleChanged') visible: boolean = false;
   @StorageLink('isDarkMode') darkMode: boolean = false;
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
+  // 底部悬浮 Dock 的避让：LayoutTokens.floatingBarReserve + 系统导航条高度。
+  // 必须走 StorageLink 建立响应式绑定，三键导航切换时才能即时重排。
+  @StorageLink('navBarHeight') navBarHeight: number = 0;
   onTakeoff: () => void = (): void => {};
   onOpenFull: () => void = (): void => {};
   onJoinChanged: (joined: boolean) => void = (_joined: boolean): void => {};
@@ -73,6 +77,22 @@ export struct CircleUniverse {
 
   private pal(): StarPalette {
     return this.darkMode ? DARK_PALETTE : PAPER_PALETTE;
+  }
+
+  // 点星星读帖：优先主 Navigation 栈，未就绪才回退 router 整页。
+  private openPost(postId: number): void {
+    if (postId <= 0) {
+      return;
+    }
+    openPostDetail(String(postId));
+    const nav: NavPathStack | null = getMainNavStack();
+    if (nav !== null) {
+      const params: PostDetailNavParams = new PostDetailNavParams();
+      params.postId = postId;
+      nav.pushPathByName('PostDetail', params);
+      return;
+    }
+    this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
   }
 
   // 圈子主题色 + 透明度 → ARGB（accentColor 形如 '#RRGGBB'）
@@ -329,10 +349,7 @@ export struct CircleUniverse {
               .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
               .fontWeight(TypeTokens.headline.weight)
               .fontColor(this.pal().icon)
-              .onClick((): void => {
-                openPostDetail(String(star.postId));
-                this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
-              })
+              .onClick((): void => { this.openPost(star.postId); })
           }
           .width('100%')
         }
@@ -352,10 +369,7 @@ export struct CircleUniverse {
         ))
         .gesture(
           TapGesture({ count: 1 })
-            .onAction((): void => {
-              openPostDetail(String(star.postId));
-              this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
-            })
+            .onAction((): void => { this.openPost(star.postId); })
         )
       }
     }, (star: UniverseStar) => 'card_' + String(star.postId))
@@ -489,7 +503,10 @@ export struct CircleUniverse {
       }
       .width('100%')
       .alignItems(HorizontalAlign.Center)
-      .position({ x: 0, y: this.areaH - 86 })
+      // 贴底 + 让开悬浮 Dock 与系统导航条：原来固定 areaH-86 会被 Dock 盖住。
+      .position({ x: 0, y: '100%' })
+      .markAnchor({ y: '100%' })
+      .padding({ bottom: LayoutTokens.floatingBarReserve + this.navBarHeight + SpaceTokens.sm })
       .hitTestBehavior(HitTestMode.Transparent)
 
       // —— 预览卡 ——

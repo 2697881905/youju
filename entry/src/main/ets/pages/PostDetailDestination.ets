@@ -17,7 +17,7 @@ import { CustomTransition } from '../utils/longTake/customNavigationUtils';
 import { LongTakeAnimationProperties, LongTakeParams } from '../utils/longTake/longTakeAnimationProperties';
 import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
-import { consumeOverlayBack } from '../utils/overlayBackGuard';
+import { consumeOverlayBackFor, OVERLAY_GUARD_POST_DETAIL } from '../utils/overlayBackGuard';
 
 const TAG: string = 'PostDetailDest';
 // 转场超时：超时由框架兜底结束，避免动画异常时页面卡住不放行
@@ -48,7 +48,7 @@ export struct PostDetailDestination {
   private back(): void {
     // 页内覆盖层（图片查看器 / 分享卡预览 / 数据面板）打开时，页内返回按钮先关覆盖层，
     // 与系统返回手势保持一致（系统手势的拦截见下面的 onBackPressed）
-    if (consumeOverlayBack()) {
+    if (consumeOverlayBackFor(OVERLAY_GUARD_POST_DETAIL)) {
       return;
     }
     const nav: NavPathStack | null = getMainNavStack();
@@ -195,7 +195,7 @@ export struct PostDetailDestination {
     .backgroundColor(ColorTokens.canvas)
     // 系统返回手势/返回键：页内覆盖层打开时先关覆盖层（返回 true = 已处理，不执行默认 pop）。
     // Navigation 壳取代了 router 壳的 onBackPress —— 两者都要接，见 DetailPage.ets。
-    .onBackPressed((): boolean => consumeOverlayBack())
+    .onBackPressed((): boolean => consumeOverlayBackFor(OVERLAY_GUARD_POST_DETAIL))
     .onReady((ctx: NavDestinationContext) => {
       const param: PostDetailNavParams = ctx.pathInfo.param as PostDetailNavParams;
       // postId <= 0 视为「未带参数」（PostDetailNavParams.postId 默认 0，非 undefined）：

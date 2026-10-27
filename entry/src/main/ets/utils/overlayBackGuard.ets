@@ -36,6 +36,8 @@ const guards: OverlayBackGuard[] = [];
 // 守卫 id 的单一出处，避免各处手写字符串拼错
 export const OVERLAY_GUARD_POST_DETAIL: string = 'postDetailView';
 export const OVERLAY_GUARD_CHAT: string = 'chatView';
+// 圈子页的页内覆盖层（降落宇宙 / 同城层）：由 Index 根页消费
+export const OVERLAY_GUARD_CIRCLE: string = 'circleTab';
 
 export function registerOverlayBackGuard(id: string, isOpen: OverlayProbe, close: OverlayCloser): void {
   unregisterOverlayBackGuard(id);
@@ -51,16 +53,23 @@ export function unregisterOverlayBackGuard(id: string): void {
 }
 
 /**
- * 返回拦截：若某个登记中的覆盖层正打开，关掉它并返回 true
- * （调用方看到 true 就不要再 pop 页面）；没有覆盖层打开时返回 false，让默认返回照常执行。
+ * 按页面 id 消费返回：只允许关闭「调用方自己登记」的覆盖层。
+ *
+ * 为什么需要页面 id：圈子页登记守卫后会长期挂载（TabContent 不销毁），
+ * 若上层帖子详情页使用无差别的全局消费，返回手势会先关掉下层的圈子降落层，
+ * 而不是退出详情页。页面级消费把这类跨页误关挡在源头。
  */
-export function consumeOverlayBack(): boolean {
+export function consumeOverlayBackFor(id: string): boolean {
   for (let i: number = guards.length - 1; i >= 0; i--) {
     const guard: OverlayBackGuard = guards[i];
+    if (guard.id !== id) {
+      continue;
+    }
     if (guard.isOpen()) {
       guard.close();
       return true;
     }
+    return false;
   }
   return false;
 }

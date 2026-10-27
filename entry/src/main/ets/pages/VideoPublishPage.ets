@@ -7,7 +7,7 @@ import { safeShowToast } from '../utils/toast';
 import { findActiveAtMention, applyAtMention } from '../utils/atMention';
 import { AtMentionSuggest } from '../components/AtMentionSuggest';
 import { Reveal } from '../design/motion/Reveal';
-import { SegmentedControl } from '../design/components/SegmentedControl';
+import { ImmersiveSegmentBar } from '../design/components/ImmersiveSegmentBar';
 import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
 import { SpaceTokens } from '../design/tokens/space';
@@ -351,11 +351,11 @@ struct VideoPublishPage {
     Reveal({ index: 0 }) {
       Column({ space: SpaceTokens.sm }) {
         this.sectionLabel('内容体裁')
-        SegmentedControl({
+        // 内容体裁分段（官方 SegmentButton 默认轨道材质，内容区正常出图）
+        ImmersiveSegmentBar({
           items: PUBLISH_GENRE_SEGMENTS,
           selectedIndex: $genreIndex,
           itemWidth: 64,
-          glass: true,
           onSelect: (index: number): void => { this.selectGenre(index); },
         })
         Text(this.currentGenreHint())

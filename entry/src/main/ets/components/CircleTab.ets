@@ -20,6 +20,8 @@ import { TypeTokens } from '../design/tokens/type';
 import { ShadowTokens } from '../design/tokens/shadow';
 import { TopButtonMaterialModifier, isSystemMaterialActive } from '../utils/immersiveMaterial';
 import { openCircleDetail, openPostDetail } from '../utils/nav';
+import { getMainNavStack, openCircleDetailViaNav, PostDetailNavParams } from '../utils/navigationTransition';
+import { registerOverlayBackGuard, unregisterOverlayBackGuard, OVERLAY_GUARD_CIRCLE } from '../utils/overlayBackGuard';
 import { CityLayer } from './CityLayer';
 import type { CitySummary } from '../services/api';
 import { safeShowToast } from '../utils/toast';
@@ -82,7 +84,9 @@ const CIRCLE_META: CircleMeta[] = [
 ];
 
 // 标签宽度必须纳入最外轨道的安全边距计算；过大会在 375vp 视口的左右边缘被裁切。
-const PLANET_BOX_WIDTH: number = 64;
+// 与 CircleOrbitCanvas.PLANET_BOX_WIDTH 保持一致：标签从 9px 提升到 11px 后放宽命中盒，
+// 过窄会在标签两侧留下无效空白，也会让外环半径的安全边距算错。
+const PLANET_BOX_WIDTH: number = 72;
 const CENTER_AVATAR_SIZE: number = 64;
 const TOP_ANGLE: number = -90;
 
@@ -217,11 +221,23 @@ export struct CircleTab {
   @StorageLink('activeTab') @Watch('onActiveTab') activeTab: number = 0;
   @StorageLink('circleMembershipVersion') @Watch('onCircleMembershipChanged') circleMembershipVersion: number = 0;
   @StorageLink('circleLogoDismissVersion') @Watch('onCircleLogoDismissed') circleLogoDismissVersion: number = 0;
+  // 圈子详情页标记已读后的即时回写信号：详情页是 Navigation 上的独立页面，
+  // 返回本 Tab 不会再次触发 onActiveTab，必须靠信号把本地未读角标清零。
+  @StorageLink('circleReadVersion') @Watch('onCircleReadSignal') circleReadVersion: number = 0;
+  @StorageLink('circleReadName') circleReadName: string = '';
   private dragOffset: number = 0;
   private inertiaVelocity: number = 0;
   private inertiaTimer: number = 0;
   private autoOrbitTimer: number = 0;
   private focusReturnTimer: number = 0;
+  // 数据加载版本号：多个触发点（切 Tab/登录/成员变化）可能并发 initData，
+  // 旧响应必须丢弃，避免后到的旧数据覆盖新数据。
+  private loadVersion: number = 0;
+  // 最近一次成功加载时间：60s 内切回 Tab 直接复用，不重复请求。
+  private lastLoadedAt: number = 0;
+  // init 防抖：token/账号/成员信号可能在同一次会话切换里连续触发。
+  private initTimer: number = 0;
+  private pendingForceInit: boolean = false;
   private autoOrbitRunning: boolean = false;
   // 三条环各自维护自动旋转开关；任意时刻仅当前选中的一层会暂停。
   private autoOrbitEnabled: boolean[] = [true, true, true];
@@ -238,12 +254,29 @@ export struct CircleTab {
   });
 
   aboutToAppear(): void {
+    // 页内覆盖层返回守卫：Index 是 @Entry，真正的拦截在 Index.onBackPress；
+    // 这里只登记「哪些层算打开、怎么关」，并按页面 id 消费，避免误关详情页的覆盖层。
+    registerOverlayBackGuard(
+      OVERLAY_GUARD_CIRCLE,
+      (): boolean => this.activeTab === 1 && (this.landingVisible || this.cityLayerVisible),
+      (): void => {
+        if (this.landingVisible) {
+          this.takeoffLanding();
+          return;
+        }
+        if (this.cityLayerVisible) {
+          this.cityLayerVisible = false;
+        }
+      },
+    );
     if (this.activeTab === 1) {
-      this.initData();
+      this.scheduleInit(false);
     }
   }
 
   aboutToDisappear(): void {
+    unregisterOverlayBackGuard(OVERLAY_GUARD_CIRCLE);
+    this.clearInitTimer();
     this.stopInertia();
     this.stopAutoOrbit();
     this.clearFocusReturnTimer();
@@ -252,9 +285,15 @@ export struct CircleTab {
 
   onActiveTab(): void {
     if (this.activeTab === 1) {
-      this.initData();
+      this.scheduleInit(false);
     } else {
-      // TabContent 可能保持挂载，切走时主动停止后台角度刷新。
+      // TabContent 可能保持挂载：切走时先收起页内覆盖层，再停止后台角度刷新，
+      // 避免下一次回到本页时仍停在降落/同城层里。
+      if (this.landingVisible) {
+        this.takeoffLanding();
+      }
+      this.cityLayerVisible = false;
+      this.exploreVisible = false;
       this.stopAutoOrbit();
       this.clearFocusReturnTimer();
       this.centeredName = '';
@@ -263,24 +302,67 @@ export struct CircleTab {
 
   private onCircleMembershipChanged(): void {
     if (this.activeTab === 1 && this.token !== '') {
-      this.initData();
+      this.scheduleInit(true);
     }
+  }
+
+  // 多个 @Watch 可能在同一轮状态变化里连续触发（登录会同时改 accountId 与 token），
+  // 统一防抖到下一帧，最多只发一次 initData；force 表示必须跳过 60s 缓存。
+  private scheduleInit(force: boolean): void {
+    this.pendingForceInit = this.pendingForceInit || force;
+    // 首屏在 16ms 防抖窗口内不能先闪一下空态：先立 loading。
+    if (this.circles.length === 0) {
+      this.loading = true;
+    }
+    if (this.initTimer !== 0) {
+      clearTimeout(this.initTimer);
+    }
+    this.initTimer = setTimeout((): void => {
+      this.initTimer = 0;
+      const runForce: boolean = this.pendingForceInit;
+      this.pendingForceInit = false;
+      this.initData(runForce);
+    }, 16) as number;
+  }
+
+  private clearInitTimer(): void {
+    if (this.initTimer !== 0) {
+      clearTimeout(this.initTimer);
+      this.initTimer = 0;
+    }
+    this.pendingForceInit = false;
   }
 
   private onCircleLogoDismissed(): void {
     this.resumePausedOrbits();
   }
 
+  private onCircleReadSignal(): void {
+    const name: string = this.circleReadName;
+    if (name.length === 0) {
+      return;
+    }
+    const circle: CircleTag | undefined = this.circles.find((item: CircleTag): boolean => item.name === name);
+    if (circle !== undefined && circle.unread > 0) {
+      circle.unread = 0;
+      this.circles = this.circles.slice();
+    }
+  }
+
   onTokenReady(): void {
     if (this.token !== '' && this.activeTab === 1) {
-      this.initData();
+      this.scheduleInit(true);
     }
   }
 
   onAccountSwitch(): void {
     likeStore.clear();
+    this.clearInitTimer();
+    // 切号/登出时让在途请求整体作废，避免上一个账号的数据晚到覆盖当前界面。
+    this.loadVersion += 1;
+    this.lastLoadedAt = 0;
     if (getToken() !== '') {
-      this.initData();
+      this.scheduleInit(true);
     } else {
       this.stopAutoOrbit();
       this.circles = [];
@@ -319,61 +401,109 @@ export struct CircleTab {
     }
   }
 
-  private async initData(): Promise<void> {
+  private async initData(force: boolean = false): Promise<void> {
+    // 60s 内切回本 Tab 直接复用内存数据：不再重拉、不重置轨道角度。
+    // 但切走时自转被停了，回来必须重新点火，否则星图静止。
+    if (!force && this.circles.length > 0 && Date.now() - this.lastLoadedAt < 60000) {
+      this.startAutoOrbit();
+      this.syncCosmicMode();
+      return;
+    }
+    const version: number = this.loadVersion + 1;
+    this.loadVersion = version;
+    const hadData: boolean = this.circles.length > 0;
     this.clearFocusReturnTimer();
     this.centeredName = '';
-    this.loading = true;
+    // 已有数据时不做整页 loading（避免切 Tab闪一下），只在首次进入显示加载态。
+    this.loading = !hadData;
     this.error = '';
     this.syncSelfAvatar();
     try {
       const tags: Tag[] = await listTags();
+      if (version !== this.loadVersion) {
+        return;
+      }
       const followed: string[] = getToken() === '' ? [] : await listFollowedTags();
-      this.circles = CIRCLE_META.map((meta: CircleMeta): CircleTag => {
+      if (version !== this.loadVersion) {
+        return;
+      }
+      const next: CircleTag[] = [];
+      // 只保留服务端真实存在的预置圈：改名/删除后不再残留“幽灵行星”。
+      CIRCLE_META.forEach((meta: CircleMeta): void => {
         const remote: Tag | undefined = tags.find((tag: Tag) => tag.name === meta.name);
+        if (remote === undefined) {
+          return;
+        }
         const circle: CircleTag = new CircleTag(meta, remote);
         circle.joined = followed.indexOf(meta.name) >= 0;
-        return circle;
+        next.push(circle);
       });
       // 星图 Live 三期：服务端新建、非预置的圈子（点亮新星）也上星——
       // 统一落外环（ring=2）、小尺寸，简介/星等取服务端值。
+      // 同城圈不属于主星图（城市维度由「同城」子模式承接），必须在这里排除。
       tags.forEach((tag: Tag): void => {
-        if (tag.name === undefined || CIRCLE_META.some((meta: CircleMeta): boolean => meta.name === tag.name)) {
+        if (tag.name === undefined || tag.category === '同城') {
+          return;
+        }
+        if (CIRCLE_META.some((meta: CircleMeta): boolean => meta.name === tag.name)) {
           return;
         }
         const extra: CircleTag = new CircleTag(
           { id: 'server-' + tag.name, name: tag.name, ring: 2, size: 44, color: '#2D7CFF', description: '', category: tag.category ?? '兴趣休闲' },
           tag);
         extra.joined = followed.indexOf(tag.name) >= 0;
-        this.circles.push(extra);
+        next.push(extra);
       });
-      this.joinedNames = this.circles.filter((circle: CircleTag) => circle.joined).map((circle: CircleTag) => circle.name);
-      const initiallySelected: CircleTag | undefined = this.circles.find((circle: CircleTag) => circle.joined) ?? this.circles[0];
-      this.selectedName = initiallySelected?.name ?? '';
-      this.innerOrbitAngle = 0;
-      this.middleOrbitAngle = 0;
-      this.outerOrbitAngle = 0;
+      const previousSelected: string = this.selectedName;
+      this.circles = next;
+      this.joinedNames = next.filter((circle: CircleTag) => circle.joined).map((circle: CircleTag) => circle.name);
       this.stopAutoOrbit();
       this.autoOrbitEnabled = [true, true, true];
-      if (initiallySelected !== undefined) {
-        this.activeRing = this.displayRing(initiallySelected);
-        this.setRingAngle(this.activeRing, this.angleToTop(initiallySelected.name));
+      if (!hadData) {
+        // 首次进入才把环归零并把默认圈转到 12 点；后续刷新保持用户的空间记忆。
+        this.innerOrbitAngle = 0;
+        this.middleOrbitAngle = 0;
+        this.outerOrbitAngle = 0;
+        const initiallySelected: CircleTag | undefined = next.find((circle: CircleTag) => circle.joined) ?? next[0];
+        this.selectedName = initiallySelected?.name ?? '';
+        if (initiallySelected !== undefined) {
+          this.activeRing = this.displayRing(initiallySelected);
+          this.setRingAngle(this.activeRing, this.angleToTop(initiallySelected.name));
+        }
+      } else {
+        // 刷新只校正选中项，不重置角度：用户离开再回来看到的仍是同一张星图。
+        const keep: CircleTag | undefined = next.find((circle: CircleTag) => circle.name === previousSelected)
+          ?? next.find((circle: CircleTag) => circle.joined) ?? next[0];
+        this.selectedName = keep?.name ?? '';
+        if (keep !== undefined) {
+          this.activeRing = this.displayRing(keep);
+        }
       }
       this.startAutoOrbit();
       // 二期：引力档位 + 活跃度/未读角标（登录后异步补齐，失败静默不影响星图）
-      this.fetchOrbitMeta();
+      this.fetchOrbitMeta(version);
       // 星子数据源：一颗 ✦ = 一篇真实新帖（不依赖活跃度字段，见 fetchSeedPosts）
-      this.fetchSeedPosts();
+      this.fetchSeedPosts(version);
       this.maybeShowStarHint();
       this.syncCosmicMode();
+      this.lastLoadedAt = Date.now();
     } catch (e) {
+      if (version !== this.loadVersion) {
+        return;
+      }
+      // 已有数据时后台刷新失败：保留现有星图，不把用户打回空态。
       this.error = (e as Error).message;
-      this.circles = [];
-      this.joinedNames = [];
-      this.selectedName = '';
-      this.centeredName = '';
-      this.cosmicMode = false;
+      if (!hadData) {
+        this.circles = [];
+        this.joinedNames = [];
+        this.selectedName = '';
+        this.centeredName = '';
+        this.cosmicMode = false;
+      }
     } finally {
-      this.loading = false;
+      if (version === this.loadVersion) {
+        this.loading = false;
+      }
     }
   }
 
@@ -412,9 +542,30 @@ export struct CircleTab {
     if (name.length === 0) {
       return;
     }
+    // 内部入口优先走主 Navigation 栈；仅当 Navigation 未就绪时才回退 router 整页。
+    if (openCircleDetailViaNav(name)) {
+      console.info('jumpCircle via nav: ' + name);
+      return;
+    }
     openCircleDetail(name);
-    console.info('jumpCircle: ' + name);
+    console.info('jumpCircle via router: ' + name);
     this.getUIContext().getRouter().pushUrl({ url: 'pages/CircleDetailPage' });
+  }
+
+  // 圈子内点星子/角标 → 帖子详情：与圈子详情一致，优先 Navigation 栈。
+  private openPostViaNav(postId: number): void {
+    if (postId <= 0) {
+      return;
+    }
+    openPostDetail(String(postId));
+    const nav: NavPathStack | null = getMainNavStack();
+    if (nav !== null) {
+      const params: PostDetailNavParams = new PostDetailNavParams();
+      params.postId = postId;
+      nav.pushPathByName('PostDetail', params);
+      return;
+    }
+    this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
   }
 
   // 引力档位 → 显示环：已加入圈子按 weight 落环（1=强→内环0，2=常→中环1，3=轻→外环2），
@@ -534,7 +685,7 @@ export struct CircleTab {
     if (this.autoOrbitRunning) {
       return;
     }
-    if (this.circles.length === 0) {
+    if (!this.hasStarCircles()) {
       return;
     }
     this.autoOrbitRunning = true;
@@ -713,6 +864,10 @@ export struct CircleTab {
       || (circle.useCount ?? 0) > 0);
   }
 
+  private hasStarCircles(): boolean {
+    return this.starCircles().length > 0;
+  }
+
   // Canvas 用基础角度、所属圆环的实时角度和半径共同计算 Logo 位置。
   private orbitItems(): OrbitCircleItem[] {
     return this.starCircles().map((circle: CircleTag): OrbitCircleItem => ({
@@ -758,12 +913,15 @@ export struct CircleTab {
   // ===== 星图 Live 二期：引力拖拽 / 星子 / 活跃度 =====
 
   // 登录后异步补齐引力档位与圈子活跃度/未读；失败静默（星图仍可自转与降落）。
-  private async fetchOrbitMeta(): Promise<void> {
+  private async fetchOrbitMeta(version: number): Promise<void> {
     if (getToken() === '') {
       return;
     }
     try {
       const weights: TagWeightItem[] = await listTagWeights();
+      if (version !== this.loadVersion) {
+        return;
+      }
       const weightMap: Map<string, number> = new Map();
       weights.forEach((w: TagWeightItem): void => { weightMap.set(w.tagName, w.weight); });
       this.circles.forEach((circle: CircleTag): void => {
@@ -777,6 +935,9 @@ export struct CircleTab {
     }
     try {
       const activity: TagActivityItem[] = await listTagActivity();
+      if (version !== this.loadVersion) {
+        return;
+      }
       const actMap: Map<string, TagActivityItem> = new Map();
       activity.forEach((a: TagActivityItem): void => { actMap.set(a.tagName, a); });
       this.circles.forEach((circle: CircleTag): void => {
@@ -794,8 +955,11 @@ export struct CircleTab {
       // 活跃度拉取失败：退回 useCount>0 近似（orbitItems 已兜底）
     }
     this.circles = this.circles.slice();
-    // 活跃度回填后「活跃圈」集合可能变化 → 重估星际模式
+    // 活跃度回填后「活跃圈」集合可能变化 → 重估星际模式；
+    // 首次加载时可能因为没有亮星而没启动自转，这里补一次点火。
+    this.startAutoOrbit();
     this.syncCosmicMode();
+    this.maybeShowStarHint();
   }
 
   // 星等分 → 三档亮度：>=1.5=耀星（带光晕）、>=0.3=常星、其余=暗星；
@@ -901,8 +1065,7 @@ export struct CircleTab {
       circle.latestPostId = target;
     }
     if (target > 0) {
-      openPostDetail(String(target));
-      this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
+      this.openPostViaNav(target);
       return;
     }
     // 兜底：该圈确实取不到任何帖子 → 降落页读帖子流
@@ -915,9 +1078,12 @@ export struct CircleTab {
   // 为什么不用 useCount / 活跃度近似：这两列在老后端恒为 0（发布不计数、activity 接口未上线），
   // 活跃圈集合会塌缩成唯一一个，于是「点多少颗星都打开同一篇帖子」。帖子流是实时真相，
   // 不依赖后端版本，且每颗星本来就该对应一篇具体的帖。
-  private async fetchSeedPosts(): Promise<void> {
+  private async fetchSeedPosts(version: number): Promise<void> {
     try {
       const result = await listPosts({ page: 1, limit: 20, sort: 'latest' });
+      if (version !== this.loadVersion) {
+        return;
+      }
       const names: string[] = this.circles.map((circle: CircleTag): string => circle.name);
       const circleOf = (post: Post): string =>
         (post.tags ?? []).find((tag: string): boolean => names.indexOf(tag) >= 0) ?? '';
@@ -981,6 +1147,9 @@ export struct CircleTab {
   // 星图操作提示：仅首次展示（AppStorage 持久化「已看过」），6 秒淡出；
   // 降落/目录打开即提前收起，不打扰正在操作的用户。
   private maybeShowStarHint(): void {
+    if (this.starCircles().length === 0) {
+      return;
+    }
     const seen: boolean = AppStorage.get<boolean>('circleStarHintSeen') ?? false;
     if (seen || this.starHintVisible) {
       return;
@@ -1406,13 +1575,23 @@ export struct CircleTab {
           .layoutWeight(1)
           .width('100%')
           .justifyContent(FlexAlign.Center)
-        } else if (this.circles.length === 0) {
+        } else if (!this.hasStarCircles()) {
+          // 数据加载成功但没有一颗可用行星（未加入 + 无活跃 + 无内容）：
+          // 不能只留三条空环和一句操作提示，必须给可执行的下一步。
           Column() {
             EmptyState({
-              title: this.error ? '加载失败' : '暂无圈子',
-              message: this.error ? this.error : '发现并加入你感兴趣的话题',
-              actionLabel: this.error ? '重试' : '',
-              onAction: (): void => { this.initData(); },
+              title: this.error && this.circles.length === 0 ? '加载失败' : '星图还没有亮星',
+              message: this.error && this.circles.length === 0
+                ? this.error : '先加入几个圈子，或者去发现正在活跃的圈子',
+              actionLabel: this.error && this.circles.length === 0 ? '重试' : '去发现',
+              onAction: (): void => {
+                if (this.error && this.circles.length === 0) {
+                  this.initData(true);
+                } else {
+                  this.dismissStarHint();
+                  this.exploreVisible = true;
+                }
+              },
             })
           }
           .layoutWeight(1)
@@ -1458,7 +1637,7 @@ export struct CircleTab {
       .height('100%')
       .alignItems(HorizontalAlign.Start)
 
-      if (this.circles.length > 0) {
+      if (this.hasStarCircles()) {
         this.exploreFab()
         this.cityFab()
         this.starHintBar()

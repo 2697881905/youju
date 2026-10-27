@@ -25,7 +25,7 @@ import { resolveActionIcon } from '../utils/actionIcons';
 import { resolveSettingsIcon } from '../utils/settingsIcons';
 import { EXTERNAL_SHARE_ENABLED } from '../utils/share';
 import { ProfileHeader } from '../components/ProfileHeader';
-import { SegmentedControl } from '../design/components/SegmentedControl';
+import { ImmersiveSegmentBar } from '../design/components/ImmersiveSegmentBar';
 import { User } from '../models/types';
 import { common } from '@kit.AbilityKit';
 import { window, display, LengthMetrics } from '@kit.ArkUI';
@@ -36,7 +36,8 @@ import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { takePushRoute, syncPushToken, requestNotificationPermission } from '../utils/push';
 import { readClipboardPostId, markClipboardIdHandled } from '../utils/clipboardJump';
 import { ClipboardPostSheet, ClipboardPostPayload } from '../components/ClipboardPostSheet';
-import { setMainNavStack, setSharedUiContext } from '../utils/navigationTransition';
+import { CircleDetailNavParams, setMainNavStack, setSharedUiContext } from '../utils/navigationTransition';
+import { consumeOverlayBackFor, OVERLAY_GUARD_CIRCLE } from '../utils/overlayBackGuard';
 import { AnimateCallback, CustomTransition } from '../utils/longTake/customNavigationUtils';
 import { setSerifTypeface, setSerifBodyTypeface } from '../utils/poster/posterText';
 import { drawing } from '@kit.ArkGraphics2D';
@@ -542,6 +543,19 @@ struct Index {
     }
   }
 
+  // 系统返回手势/返回键：Tab 根页先消费圈子页的页内覆盖层（降落宇宙/同城层）。
+  // 存在 NavDestination 时（pageStack 非空）交给上层页面自己的 onBackPressed 处理，
+  // 避免根页越过详情页去关下面的圈子层。
+  onBackPress(): boolean {
+    if (this.pageStack.size() > 0) {
+      return false;
+    }
+    if (this.currentIndex === 1) {
+      return consumeOverlayBackFor(OVERLAY_GUARD_CIRCLE);
+    }
+    return false;
+  }
+
   aboutToAppear(): void {
     // 注册全局唯一 UIContext：util 文件（auth/navigationTransition 等）没有组件上下文，
     // 替换已废弃的全局 router/组件工具 API 时从这里取（与 mainNavStack 同一注册时机）。
@@ -977,14 +991,21 @@ struct Index {
   }
 
   // 导航目的地注册：pushPathByName(name, params) 对应的 NavDestination
+  private circleDetailNameOf(param: Object): string {
+    if (param === undefined || param === null) {
+      return '';
+    }
+    return (param as CircleDetailNavParams).circleName ?? '';
+  }
+
   @Builder
-  pageMap(name: string, _param: Object) {
+  pageMap(name: string, param: Object) {
     if (name === 'PostDetail') {
       PostDetailDestination()
     } else if (name === 'UserProfile') {
       UserProfileDestination()
     } else if (name === 'CircleDetail') {
-      CircleDetailDestination()
+      CircleDetailDestination({ initialCircleName: this.circleDetailNameOf(param) })
     } else if (name === 'ChatPage') {
       ChatDestination()
     } else if (name === 'MyFollow') {
@@ -1604,44 +1625,35 @@ struct Index {
   @Builder
   profileSegRows() {
     Column({ space: SpaceTokens.none }) {
-      // 主分段栏：我发布 / 我收藏 / 我赞过 / 我评论（自绘 SegmentedControl）
-      // glass 配方与「编辑资料」按钮（GlassPillButton）同源：玻璃 blur 底 + barSurface 兜底
-      // + 细描边 + floatingBar 圆角 + 柔和阴影；发布页三条分段栏同款，全 App 分段栏观感统一。
-      // 本栏住列表吸顶区（材质不渲染）→ 走 glass 的内容区玻璃兜底分支，滑块 SharedSlide 动画保留。
-      SegmentedControl({
+      // 主分段栏：我发布 / 我收藏 / 我赞过 / 我评论（官方 SegmentButton）
+      // 不传 backgroundSystemMaterial——住在列表吸顶区（uiMaterial 不渲染），走官方
+      // 默认轨道材质（组件表面自带，非 TitleBar 挂载，内容区正常出图）。
+      ImmersiveSegmentBar({
         items: PROFILE_SEGMENTS,
         selectedIndex: $profileTabIdx,
         itemWidth: 67,
-        glass: true,
-        glowEnabled: false,
-        useSystemMaterial: false,
         onSelect: (idx: number): void => {
-          // 只写选中值：滑块弹性动画由 SharedSlide 承担，列表刷新由 @Watch(tabIdx) 承接
+          // 只写选中值：滑块弹性动画由官方状态动画承担，列表刷新由 @Watch(tabIdx) 承接
           this.profileTabIdx = idx;
         },
       })
         .margin({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.xs })
 
-      // 「我收藏」子分段栏（帖子 | 收藏夹）：与主分段栏同一条磨砂区内，材质配置照抄上面那份。
-      // 原先它是内容区浮层——uiMaterial 在内容区完全不渲染，只能自绘玻璃，
-      // 与栏体材质两套模糊半径/着色叠在一起，接缝就落在两条栏之间那一条 xs 上。
-      // 整行铺满（官方组件把可用宽度等分给两条目），管理入口靠右，二者靠一层 layoutWeight 容器分格。
-      // 出现/消失走 transition：栏高随 tabIdx 跳变那一帧由淡入遮住。
+      // 「我收藏」子分段栏（帖子 | 收藏夹）：与主分段栏同一套官方配方（默认轨道材质，
+      // 内容区正常出图）。整行铺满（官方组件把可用宽度等分给两条目），管理入口靠右，
+      // 二者靠一层 layoutWeight 容器分格。出现/消失走 transition：栏高随 tabIdx 跳变那
+      // 一帧由淡入遮住。
       if (this.profileHasSubSeg()) {
         Row({ space: SpaceTokens.xs }) {
           // fillWidth 保持整行铺满（两条目各占一半），但外层套一个 layoutWeight(1) 容器：
           // 控件根节点是 width('100%')，直接和右侧图标同排会按**父 Row** 全宽解析、把分段栏挤偏
           // （它当年被移出顶栏就是这个原因）；包一层加权容器后 100% 落在扣掉图标的那一格上。
           Column() {
-            // 子分段栏（帖子 | 收藏夹）：与主分段栏同款 glass 玻璃胶囊配方
-            // （编辑资料按钮同源），全部分段栏观感统一（用户拍板 2026-10-27）。
-            SegmentedControl({
+            // 子分段栏（帖子 | 收藏夹）：官方 SegmentButton，全部分段栏观感统一。
+            ImmersiveSegmentBar({
               items: BOOKMARK_SEGMENTS,
               selectedIndex: $profileBookmarkSubTab,
               itemWidth: 46,
-              glass: true,
-              glowEnabled: false,
-              useSystemMaterial: false,
             })
           }
           .layoutWeight(1)

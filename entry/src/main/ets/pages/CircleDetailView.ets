@@ -1,5 +1,5 @@
 import { Post } from '../models/types';
-import { followTag, listFollowedTags, listPosts, unfollowTag, trackPostEvent } from '../services/api';
+import { followTag, listFollowedTags, listPosts, markTagRead, unfollowTag, trackPostEvent } from '../services/api';
 import { getToken } from '../utils/auth';
 import { openPostDetail, takeCircleDetailName } from '../utils/nav';
 import { getMainNavStack, EmptyNavParams, PostDetailNavParams } from '../utils/navigationTransition';
@@ -10,8 +10,7 @@ import { PostCard } from '../components/PostCard';
 import { TagIcon } from '../components/TagIcon';
 import { DesignButton } from '../design/components/DesignButton';
 import { EmptyState } from '../design/components/EmptyState';
-import { SegmentedItem } from '../design/components/SegmentedControl';
-import { SegmentedControl } from '../design/components/SegmentedControl';
+import { ImmersiveSegmentBar, SegmentedItem } from '../design/components/ImmersiveSegmentBar';
 import { isSystemMaterialActive } from '../utils/immersiveMaterial';
 import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit';
 import type {
@@ -50,6 +49,8 @@ const FEED_SEGMENTS: SegmentedItem[] = [
 export struct CircleDetailView {
   // —— 壳注入（Navigation 壳 pages/CircleDetailDestination 使用）——
   @Prop navMode: boolean = false;
+  // Navigation 壳经 CircleDetailNavParams 传圈子名；router 壳为空，回退模块级意图通道。
+  @Prop initialCircleName: string = '';
   onBack?: () => void = undefined;     // Navigation 壳：navStack.pop()
   @State circleName: string = '';
   @State posts: Post[] = [];
@@ -74,6 +75,9 @@ export struct CircleDetailView {
   // 帖子网格滚动源（bindToScrollable 驱动渐变模糊）
   private gridScroller: Scroller = new Scroller();
   private listVersion: number = 0;
+  // 已成功加载的排序索引：ImmersiveSegmentBar 会先写 sortIndex 再回调 onSelect，
+  // 必须用独立记录判断「这次点击是不是同一个已加载分段」，否则点当前段也会重拉。
+  private loadedSortIndex: number = 0;
 
   // 统一返回入口：Navigation 壳走 onBack（navStack.pop），router 壳走普通返回
   private backAction(): void {
@@ -85,7 +89,8 @@ export struct CircleDetailView {
   }
 
   aboutToAppear(): void {
-    this.circleName = takeCircleDetailName();
+    this.circleName = this.initialCircleName.length > 0
+      ? this.initialCircleName : takeCircleDetailName();
     // 网格列数：按当前全局断点换算（断点中心异步就绪后经 @Watch 修正）
     this.applyGridColumns();
     this.init();
@@ -108,9 +113,19 @@ export struct CircleDetailView {
       this.error = '圈子信息已失效，请从圈子页重新进入';
       return;
     }
+    // 进入完整圈子页 = 已浏览该圈：清零未读角标（与降落页语义一致）。
+    // 成功后广播 circleRead 信号，让仍挂载在 TabContent 里的星图即时熄灭本地角标
+    // （详情页在 Navigation 上，返回本 Tab 不会再次触发 CircleTab.onActiveTab）。
+    if (getToken() !== '') {
+      markTagRead(this.circleName).then((): void => {
+        AppStorage.setOrCreate<string>('circleReadName', this.circleName);
+        const version: number = AppStorage.get<number>('circleReadVersion') ?? 0;
+        AppStorage.setOrCreate<number>('circleReadVersion', version + 1);
+      }).catch((): void => {});
+    }
     // 帖子流对访客公开可浏览，未登录不拦截；加入/退出圈子时再做登录引导。
-    await this.loadJoined();
-    await this.refresh();
+    // 关注态与首页帖子并行拉取，避免串行多一轮等待。
+    await Promise.all([this.loadJoined(), this.refresh()]);
   }
 
   private async loadJoined(): Promise<void> {
@@ -127,14 +142,22 @@ export struct CircleDetailView {
     }
   }
 
-  private async refresh(): Promise<void> {
+  // keepExisting=true：下拉刷新/切排序时保留旧列表，等新数据回来再替换；
+  // 不再先把 posts 清空导致 Refresh/Grid 被销毁、页面闪白。
+  private async refresh(keepExisting: boolean = false): Promise<void> {
     const version = this.listVersion + 1;
     this.listVersion = version;
     this.page = 1;
     this.finished = false;
     this.error = '';
-    this.posts = [];
+    if (!keepExisting) {
+      this.posts = [];
+    }
     await this.fetch(true, version);
+    if (keepExisting && this.error.length > 0 && this.posts.length > 0) {
+      safeShowToast(this.getUIContext(), { message: '刷新失败：' + this.error });
+      this.error = '';
+    }
   }
 
   private async loadMore(): Promise<void> {
@@ -162,6 +185,9 @@ export struct CircleDetailView {
       }
       this.posts = reset ? result.list : this.posts.concat(result.list);
       this.finished = result.list.length < 20;
+      if (reset) {
+        this.loadedSortIndex = this.sortIndex;
+      }
     } catch (e) {
       if (version === this.listVersion) {
         this.error = (e as Error).message;
@@ -174,11 +200,21 @@ export struct CircleDetailView {
   }
 
   private switchSort(index: number): void {
-    // SegmentedControl 会先更新双向绑定的 sortIndex，再触发 onSelect。
+    // ImmersiveSegmentBar 会先更新双向绑定的 sortIndex，再触发 onSelect；
+    // 因此不能用 sortIndex 判断是否变化，必须对比上次成功加载的分段。
+    const previous: number = this.loadedSortIndex;
     if (this.sortIndex !== index) {
       this.sortIndex = index;
     }
-    this.refresh();
+    if (previous === index) {
+      return;
+    }
+    this.refresh(true).then((): void => {
+      // 拉取失败时把分段拨回上一次成功加载的项，避免“显示热门、列表还是最新”的错位。
+      if (this.loadedSortIndex !== index) {
+        this.sortIndex = this.loadedSortIndex;
+      }
+    });
   }
 
   private async toggleJoin(): Promise<void> {
@@ -346,18 +382,12 @@ export struct CircleDetailView {
       .padding({ left: SpaceTokens.sm, right: SpaceTokens.pageCompact, top: SpaceTokens.sm, bottom: SpaceTokens.item })
 
       Row() {
-        // 排序分段（回迁 1.0.1 自绘样式）：标题栏生效区内系统材质接管表面
-        SegmentedControl({
+        // 排序分段（官方 SegmentButton）：标题栏生效区内浮起档材质接管表面
+        ImmersiveSegmentBar({
           items: FEED_SEGMENTS,
           selectedIndex: $sortIndex,
           itemWidth: 64,
-          fillWidth: false,
-          immersive: !isSystemMaterialActive(),
-          outlined: isSystemMaterialActive(),
-          glowEnabled: false,
-          // 1.0.1 同款：系统材质 + 浮起档（材质自带投影）
-          useSystemMaterial: true,
-          useFloatingMaterial: true,
+          overrideTrackMaterial: true,
           onSelect: (index: number): void => { this.switchSort(index); },
         })
         Blank()
@@ -465,7 +495,7 @@ export struct CircleDetailView {
             })
           }
           .onRefreshing(() => {
-            this.refresh().finally(() => { this.refreshing = false; });
+            this.refresh(true).finally(() => { this.refreshing = false; });
           })
           .layoutWeight(1)
           .width('100%')

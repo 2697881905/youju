@@ -2,6 +2,7 @@ import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
 import { SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
+import { Pressable } from '../design/motion/Pressable';
 import { TagIcon } from './TagIcon';
 
 // 目录条目：由父页面（CircleTab）从服务端数据 + CIRCLE_META 构建后传入。
@@ -168,31 +169,48 @@ export struct CircleExploreSheet {
 
   @Builder
   row(item: CatalogItem): void {
+    // 信息区与按钮必须是两块独立点击区：整行 onClick + 内嵌按钮会让「加入」同时打开详情
+    // （CityLayer.circleRow 已记录同类真机问题，2026-10-25）。
     Row({ space: SpaceTokens.md }) {
-      TagIcon({ name: item.name, iconSize: 24, tint: ColorTokens.brand })
-        .width(34)
-        .height(34)
-      Column({ space: 2 }) {
-        Row({ space: SpaceTokens.xs }) {
-          Text(item.name)
-            .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-            .fontWeight(TypeTokens.headline.weight)
-            .fontColor(ColorTokens.primary)
-          if (item.joined) {
-            Text('✓ 已加入')
-              .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-              .fontWeight(TypeTokens.headline.weight)
-              .fontColor(ColorTokens.warm)
+      Column() {
+        Pressable({
+          fillWidth: true,
+          fullResponseRegion: true,
+          action: (): void => { this.onOpen(item.name); },
+        }) {
+          Row({ space: SpaceTokens.md }) {
+            TagIcon({ name: item.name, iconSize: 24, tint: ColorTokens.brand })
+              .width(34)
+              .height(34)
+            Column({ space: 2 }) {
+              Row({ space: SpaceTokens.xs }) {
+                Text(item.name)
+                  .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+                  .fontWeight(TypeTokens.headline.weight)
+                  .fontColor(ColorTokens.primary)
+                if (item.joined) {
+                  // 11px 小字压暖金在纸白上只有约 4.2:1，达不到 AA；
+                  // 金色语义交给描边/图标，文字回主墨色。
+                  Text('✓ 已加入')
+                    .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
+                    .fontWeight(TypeTokens.headline.weight)
+                    .fontColor(ColorTokens.secondary)
+                }
+              }
+              Text(item.description)
+                .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
+                .fontColor(ColorTokens.tertiary)
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+            }
+            .layoutWeight(1)
+            .alignItems(HorizontalAlign.Start)
           }
+          .width('100%')
+          .alignItems(VerticalAlign.Center)
         }
-        Text(item.description)
-          .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-          .fontColor(ColorTokens.tertiary)
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
       .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
 
       Button(item.joined ? '去看看' : '加入')
         .buttonStyle(ButtonStyleMode.NORMAL)
@@ -213,7 +231,7 @@ export struct CircleExploreSheet {
     }
     .width('100%')
     .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
-    .onClick((): void => { this.onOpen(item.name); })
+    .alignItems(VerticalAlign.Center)
   }
 
   build() {

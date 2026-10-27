@@ -55,6 +55,8 @@ export struct CityLayer {
   @State private locating: boolean = false;
   // 状态栏高度（Index 启动时写入 AppStorage）：覆盖层自管状态栏避让
   @StorageProp('statusBarHeight') statusBarHeight: number = 0;
+  // 底部悬浮 Dock 避让：LayoutTokens.floatingBarReserve + 系统导航条高度（随导航模式即时变化）
+  @StorageLink('navBarHeight') navBarHeight: number = 0;
 
   aboutToAppear(): void {
     this.loadCities();
@@ -310,7 +312,12 @@ export struct CityLayer {
             }
           }
           .width('100%')
-          .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.base, bottom: SpaceTokens.x2l })
+          .padding({
+            left: SpaceTokens.base,
+            right: SpaceTokens.base,
+            top: SpaceTokens.base,
+            bottom: LayoutTokens.floatingBarReserve + this.navBarHeight + SpaceTokens.x2l,
+          })
         }
         .scrollBar(BarState.Off)
         .edgeEffect(EdgeEffect.Spring)
@@ -376,7 +383,12 @@ export struct CityLayer {
           }
         }
         .width('100%')
-        .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.x2l })
+        .padding({
+          left: SpaceTokens.base,
+          right: SpaceTokens.base,
+          // 底部让开悬浮 Dock + 系统导航条：否则最后一行会被盖住。
+          bottom: LayoutTokens.floatingBarReserve + this.navBarHeight + SpaceTokens.x2l,
+        })
       }
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)

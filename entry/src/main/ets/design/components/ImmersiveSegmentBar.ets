@@ -1,7 +1,15 @@
 import { ItemRestriction, SegmentButton, SegmentButtonOptions, SegmentButtonTextItem,
   TabSegmentButtonConstructionOptions, uiMaterial } from '@kit.ArkUI';
 import { getSegmentImmersiveMaterial } from '../../utils/immersiveMaterial';
-import { SegmentedItem } from './SegmentedControl';
+
+/**
+ * 分段数据项。原定义在自绘 SegmentedControl 中，组件退役后收编至此——
+ * 全 App 分段栏统一走官方 SegmentButton（本封装），ImmersiveSegmentBar 是唯一入口。
+ */
+export interface SegmentedItem {
+  key: string;
+  label: string;
+}
 
 /**
  * 官方分段栏（SegmentButton · tab 档）+ 沉浸光感系统材质。

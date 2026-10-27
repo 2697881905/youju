@@ -55,9 +55,10 @@ interface SeedView {
   ring: number;
 }
 
-const PLANET_BOX_WIDTH: number = 64;
-const PLANET_BOX_HEIGHT: number = 86;
-const PLANET_ICON_HIT_SIZE: number = 40;
+const PLANET_BOX_WIDTH: number = 72;
+const PLANET_BOX_HEIGHT: number = 88;
+// 行星热区：从 40 提到 44（≥ 应用最小触控目标），标签跟着加宽。
+const PLANET_ICON_HIT_SIZE: number = 44;
 const CENTER_AVATAR_SIZE: number = 64;
 const RIPPLE_FIRST_SIZE: number = 68;
 const RIPPLE_SECOND_SIZE: number = 88;
@@ -85,8 +86,8 @@ export struct CircleOrbitCanvas {
   @Prop ringDragging: boolean = false;
   @Prop avatar: string = '';
   @Prop nickname: string = '';
-  // Tab 切走时父页面置 false：暂停星子投放（隐藏组件不应持续触发自绘与状态刷新）
-  @Prop live: boolean = true;
+  // Tab 切走时父页面置 false：暂停星子投放与常驻呼吸动画（隐藏组件不应持续触发自绘与状态刷新）
+  @Prop @Watch('onLiveChanged') live: boolean = true;
   // 星子数据源：父页面按「最新帖子流」给出每颗星对应的那篇帖子（空 = 星图不出星子）。
   @Prop @Watch('onOrbitDataChanged') seedPosts: OrbitSeedPost[] = [];
   // 星图双主题：深色=墨空星图 / 浅色=纸上星图（随应用 isDarkMode 切换）
@@ -138,13 +139,20 @@ export struct CircleOrbitCanvas {
   // 背景星尘闪烁：A/B 两组反相呼吸（仅 opacity），锚定星恒亮。
   @State twinkleA: number = 0.15;
   @State twinkleB: number = 0.55;
+  private haloStarted: boolean = false;
+  private haloStaggerTimer: number = 0;
 
   private startHaloBreath(): void {
+    if (!this.live || this.haloStarted) {
+      return;
+    }
+    this.haloStarted = true;
     this.getUIContext().animateTo({ duration: 1600, curve: Curve.EaseInOut, iterations: -1, playMode: PlayMode.Alternate }, () => {
       this.haloScale1 = 1.06;
       this.haloOpacity1 = 0.9;
     });
-    setTimeout((): void => {
+    this.haloStaggerTimer = setTimeout((): void => {
+      this.haloStaggerTimer = 0;
       this.getUIContext().animateTo({ duration: 1600, curve: Curve.EaseInOut, iterations: -1, playMode: PlayMode.Alternate }, () => {
         this.haloScale2 = 1.06;
         this.haloOpacity2 = 0.9;
@@ -154,6 +162,26 @@ export struct CircleOrbitCanvas {
     this.getUIContext().animateTo({ duration: 1300, curve: Curve.EaseInOut, iterations: -1, playMode: PlayMode.Alternate }, () => {
       this.twinkleA = 0.6;
       this.twinkleB = 0.15;
+    });
+  }
+
+  // 隐藏 Tab 时把呼吸态归位：不能只停定时器，否则无限 animateTo 仍在跑。
+  private stopHaloBreath(): void {
+    if (this.haloStaggerTimer !== 0) {
+      clearTimeout(this.haloStaggerTimer);
+      this.haloStaggerTimer = 0;
+    }
+    if (!this.haloStarted) {
+      return;
+    }
+    this.haloStarted = false;
+    this.getUIContext().animateTo({ duration: MotionTokens.none }, () => {
+      this.haloScale1 = 0.96;
+      this.haloOpacity1 = 0.25;
+      this.haloScale2 = 0.96;
+      this.haloOpacity2 = 0.25;
+      this.twinkleA = 0.15;
+      this.twinkleB = 0.55;
     });
   }
 
@@ -173,12 +201,25 @@ export struct CircleOrbitCanvas {
   private openedPostIds: number[] = [];
 
   aboutToAppear(): void {
+    this.startSeedLoop();
+  }
+
+  aboutToDisappear(): void {
+    this.stopSeedLoop(false);
+    this.stopHaloBreath();
+  }
+
+  private startSeedLoop(): void {
+    if (!this.live || this.seedSpawnTimer !== 0 || this.seedIntervalTimer !== 0) {
+      return;
+    }
     // 首颗 1.5s 后出现，之后每 3.2s 尝试投放（原型同款节奏）
     this.seedSpawnTimer = setTimeout((): void => { this.spawnSeed(); }, 1500) as number;
     this.seedIntervalTimer = setInterval((): void => { this.spawnSeed(); }, 3200);
   }
 
-  aboutToDisappear(): void {
+  // clearSeeds=true：切走 Tab 时一并清掉已投放星子，避免长时间离开后回来看到过期星子。
+  private stopSeedLoop(clearSeeds: boolean): void {
     if (this.seedSpawnTimer !== 0) {
       clearTimeout(this.seedSpawnTimer);
       this.seedSpawnTimer = 0;
@@ -189,6 +230,28 @@ export struct CircleOrbitCanvas {
     }
     this.seedTimers.forEach((t: number): void => { clearTimeout(t); });
     this.seedTimers = [];
+    if (clearSeeds && this.seeds.length > 0) {
+      this.seeds = [];
+      this.seedViews = [];
+    }
+    if (!this.live && this.seedPulseStarted) {
+      this.seedPulseStarted = false;
+      this.getUIContext().animateTo({ duration: MotionTokens.none }, () => {
+        this.seedPulseScale = 1;
+        this.seedPulseOpacity = 0.8;
+      });
+    }
+  }
+
+  // Tab 可见性切换：隐藏时停掉一切常驻动画，回来时重新点火。
+  onLiveChanged(): void {
+    if (this.live) {
+      this.startHaloBreath();
+      this.startSeedLoop();
+      return;
+    }
+    this.stopSeedLoop(true);
+    this.stopHaloBreath();
   }
 
   private spawnSeed(): void {
@@ -351,6 +414,7 @@ export struct CircleOrbitCanvas {
       selectedName: this.selectedName,
       centeredName: this.centeredName,
       ringDragging: this.ringDragging,
+      live: this.live,
       onPlanet: (name: string): void => { this.onPlanet(name); },
       onGravityStart: (name: string): void => { this.onGravityStart(name); },
       onGravityEnd: (name: string, distance: number): void => { this.onGravityEnd(name, distance); },
@@ -462,6 +526,8 @@ struct OrbitRingLayer {
   @Prop selectedName: string = '';
   @Prop centeredName: string = '';
   @Prop ringDragging: boolean = false;
+  // 跟随父页面可见性：隐藏时行星不再启动呼吸/脉冲
+  @Prop live: boolean = true;
   // 星图 Live 四期：全屏矩形画布高度（中心=宽/2、高×0.42）
   @Prop canvasH: number = 0;
   @StorageLink('isDarkMode') darkMode: boolean = false;
@@ -509,6 +575,7 @@ struct OrbitRingLayer {
           radius: this.radius,
           baseAngle: circle.baseAngle,
           ringAngle: this.ringAngle,
+          live: this.live,
           onPlanet: (name: string): void => { this.onPlanet(name); },
           onGravityStart: (name: string): void => { this.onGravityStart(name); },
           onGravityEnd: (name: string, distance: number): void => { this.onGravityEnd(name, distance); },
@@ -542,6 +609,8 @@ struct OrbitPlanet {
   @Prop radius: number = 0;
   @Prop baseAngle: number = 0;
   @Prop ringAngle: number = 0;
+  // 与父页面可见性同步：隐藏 Tab 时不启动角标脉冲/光晕/涟漪
+  @Prop @Watch('onLiveChanged') live: boolean = true;
 
   private pal(): StarPalette {
     return this.darkMode ? DARK_PALETTE : PAPER_PALETTE;
@@ -571,30 +640,32 @@ struct OrbitPlanet {
   onSeedTap: (name: string, postId: number) => void = (_name: string, _postId: number): void => {};
 
   aboutToAppear(): void {
-    if (this.isCentered()) {
+    if (this.live && this.isCentered()) {
       this.scheduleRipple();
     }
-    if (this.unread > 0) {
+    if (this.live && this.unread > 0) {
       this.startSeedBreath();
     }
-    if (this.magnitude >= 2) {
+    if (this.live && this.magnitude >= 2) {
       this.startGlowBreath();
     }
   }
 
   aboutToDisappear(): void {
     this.stopRipple();
+    this.stopSeedBreath();
+    this.stopGlowBreath();
   }
 
   // 星子出现时启动脉动（原型 seedPulse：scale 1→1.45 / opacity .8→1 交替）
   private onUnreadChanged(): void {
-    if (this.unread > 0 && !this.seedBreathing) {
+    if (this.live && this.unread > 0 && !this.seedBreathing) {
       this.startSeedBreath();
     }
   }
 
   private startSeedBreath(): void {
-    if (this.seedBreathing) {
+    if (!this.live || this.seedBreathing) {
       return;
     }
     this.seedBreathing = true;
@@ -604,15 +675,26 @@ struct OrbitPlanet {
     });
   }
 
+  private stopSeedBreath(): void {
+    if (!this.seedBreathing) {
+      return;
+    }
+    this.seedBreathing = false;
+    this.getUIContext().animateTo({ duration: MotionTokens.none }, () => {
+      this.seedScale = 1;
+      this.seedOpacity = 0.8;
+    });
+  }
+
   // 耀星光晕呼吸（原型 liveGlow：box-shadow 起伏 → 用 opacity 等效，仅 transform/opacity）
   private onMagnitudeChanged(): void {
-    if (this.magnitude >= 2 && !this.glowBreathing) {
+    if (this.live && this.magnitude >= 2 && !this.glowBreathing) {
       this.startGlowBreath();
     }
   }
 
   private startGlowBreath(): void {
-    if (this.glowBreathing) {
+    if (!this.live || this.glowBreathing) {
       return;
     }
     this.glowBreathing = true;
@@ -621,12 +703,55 @@ struct OrbitPlanet {
     });
   }
 
+  private stopGlowBreath(): void {
+    if (!this.glowBreathing) {
+      return;
+    }
+    this.glowBreathing = false;
+    this.getUIContext().animateTo({ duration: MotionTokens.none }, () => {
+      this.glowBreath = 0.6;
+    });
+  }
+
+  onLiveChanged(): void {
+    if (this.live) {
+      if (this.isCentered()) {
+        this.scheduleRipple();
+      }
+      if (this.unread > 0) {
+        this.startSeedBreath();
+      }
+      if (this.magnitude >= 2) {
+        this.startGlowBreath();
+      }
+      return;
+    }
+    this.stopRipple();
+    this.stopSeedBreath();
+    this.stopGlowBreath();
+  }
+
   private isSelected(): boolean {
     return this.name === this.selectedName;
   }
 
   private isCentered(): boolean {
     return this.name === this.centeredName;
+  }
+
+  // 读屏文案：名称 + 成员身份 + 新帖数 + 选中态，替代纯视觉的金属/亮度编码。
+  private a11yLabel(): string {
+    let label: string = this.name;
+    if (this.joined) {
+      label += '，已加入';
+    }
+    if (this.unread > 0) {
+      label += '，' + this.unread + ' 条新帖';
+    }
+    if (this.isSelected()) {
+      label += '，已选中';
+    }
+    return label;
   }
 
   // 拖拽结束时触点距圆心的距离 = 行星轨道半径位移 + 拖拽位移的合矢量长度。
@@ -653,7 +778,7 @@ struct OrbitPlanet {
   }
 
   private onCenteredNameChanged(): void {
-    if (this.isCentered()) {
+    if (this.live && this.isCentered()) {
       this.scheduleRipple();
     } else {
       this.stopRipple();
@@ -835,10 +960,14 @@ struct OrbitPlanet {
       .width(PLANET_ICON_HIT_SIZE)
       .height(PLANET_ICON_HIT_SIZE)
       .position({ x: (PLANET_BOX_WIDTH - PLANET_ICON_HIT_SIZE) / 2, y: 0 })
+      // 亮度只压图标本体，不压名称标签：暗星态的 9px 灰字曾低到不可读。
+      .opacity(this.planetOpacity())
       .scale({ x: this.isSelected() ? 1.12 : 1, y: this.isSelected() ? 1.12 : 1 })
       .animation({ duration: MotionTokens.base, curve: MotionCurves.standard })
       .translate({ x: this.focusTranslateX(), y: this.focusTranslateY() })
       .animation({ duration: MotionTokens.emphasis, curve: MotionCurves.springSoft })
+      .accessibilityGroup(true)
+      .accessibilityText(this.a11yLabel())
       .onClick((): void => { this.onPlanet(this.name); })
       // 未读角标：行星右上角发光小星（✦+数字），点击直达该圈最新帖。
       // 仅在有未读时出现；hitTest 优先于行星 onClick（子节点先命中）。
@@ -852,7 +981,7 @@ struct OrbitPlanet {
             .strokeWidth(0.6)
             .shadow({ radius: 8, color: this.darkMode ? '#804D9FFF' : '#400066CC', offsetY: 0 })
           Text(this.unread > 99 ? '99+' : String(this.unread))
-            .fontSize(9)
+            .fontSize(10)
             .fontWeight(FontWeight.Bold)
             .fontColor(Color.White)
         }
@@ -862,13 +991,17 @@ struct OrbitPlanet {
         // 星子脉动：呼吸缩放+明暗（animateTo 无限交替，见 startSeedBreath）
         .scale({ x: this.seedScale, y: this.seedScale })
         .opacity(this.seedOpacity)
+        // 视觉 22vp，但响应区补到 44vp，避免小角标不可点。
+        .responseRegion({ x: -11, y: -11, width: 44, height: 44 })
+        .accessibilityGroup(true)
+        .accessibilityText(this.name + '，' + this.unread + ' 条新帖，点击查看最新帖')
         // 未读角标 = 该圈最新一帖（无帖子 id，postId 传 0 由父页面解析）
         .onClick((): void => { this.onSeedTap(this.name, 0); })
       }
       Column({ space: SpaceTokens.inlineTight }) {
         Text(this.name)
           .width(PLANET_BOX_WIDTH)
-          .fontSize(9).fontFamily(TypeTokens.fontFamily)
+          .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
           .fontWeight(TypeTokens.headline.weight)
           .lineHeight(TypeTokens.overline.lineHeight)
           .fontColor(this.isSelected() ? this.pal().icon : this.pal().ink)
@@ -883,7 +1016,6 @@ struct OrbitPlanet {
     .width(PLANET_BOX_WIDTH)
     .height(PLANET_BOX_HEIGHT)
     .hitTestBehavior(HitTestMode.Transparent)
-    .opacity(this.planetOpacity())
     .animation({ duration: MotionTokens.base, curve: MotionCurves.standard })
     .position({ x: 0, y: 0 })
     .translate({ x: this.left() + this.dragX, y: this.top() + this.dragY })
@@ -978,6 +1110,8 @@ struct SeedStar {
     .opacity(this.pulseOpacity)
     .transition(TransitionEffect.OPACITY.animation({ duration: MotionTokens.slow }))
     .hitTestBehavior(HitTestMode.Block)
+    .accessibilityGroup(true)
+    .accessibilityText('新帖，来自' + this.view.name + '，点击阅读')
     .gesture(
       TapGesture({ count: 1 })
         .onAction((): void => { this.onSeedTapId(this.view.id); })

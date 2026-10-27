@@ -15,7 +15,7 @@ import { buildProfileShareText, buildProfileShareUrl, copyToClipboard, EXTERNAL_
 import { PostCollectionState } from '../components/PostCollectionState';
 import { EmptyState } from '../design/components/EmptyState';
 import { ProfileShareSheet } from '../components/ProfileShareSheet';
-import { SegmentedItem } from '../design/components/SegmentedControl';
+import { SegmentedItem } from '../design/components/ImmersiveSegmentBar';
 import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';

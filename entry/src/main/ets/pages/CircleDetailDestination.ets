@@ -7,6 +7,9 @@ import { ColorTokens } from '../design/tokens/color';
 
 @Component
 export struct CircleDetailDestination {
+  // 由 Index.pageMap 从 CircleDetailNavParams 注入；不再依赖模块级意图通道。
+  @Prop initialCircleName: string = '';
+
   private back(): void {
     const nav: NavPathStack | null = getMainNavStack();
     if (nav !== null) {
@@ -16,7 +19,11 @@ export struct CircleDetailDestination {
 
   build() {
     NavDestination() {
-      CircleDetailView({ navMode: true, onBack: (): void => { this.back(); } })
+      CircleDetailView({
+        navMode: true,
+        initialCircleName: this.initialCircleName,
+        onBack: (): void => { this.back(); },
+      })
     }
     .hideTitleBar(true)
     .backgroundColor(ColorTokens.canvas)

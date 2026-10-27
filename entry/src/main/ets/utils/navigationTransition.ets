@@ -89,6 +89,25 @@ export class UserProfileNavParams {
   userId: number = 0;
 }
 
+// 圈子详情跳转参数：Navigation 壳据此取圈子名，不再依赖模块级 takeCircleDetailName()
+export class CircleDetailNavParams {
+  circleName: string = '';
+}
+
+// 内部入口统一走主 Navigation 栈（圈子详情不再是一个 router 整页）。
+// 返回 false 表示 Navigation 尚未就绪，调用方保留 router 兜底。
+// 放在 .ets（而非 nav.ts）里：nav.ts 是 TS 文件，禁止 import ArkTS 模块。
+export function openCircleDetailViaNav(name: string): boolean {
+  const nav: NavPathStack | null = getMainNavStack();
+  if (nav === null || name.length === 0) {
+    return false;
+  }
+  const params: CircleDetailNavParams = new CircleDetailNavParams();
+  params.circleName = name;
+  nav.pushPathByName('CircleDetail', params);
+  return true;
+}
+
 // 独立视频播放器页跳转参数（pushPathByName('VideoPlayer', ...)）
 export class VideoPlayerNavParams {
   url: string = '';

@@ -3,7 +3,7 @@
 import { ChatView } from './ChatView';
 import { getMainNavStack, VideoPlayerNavParams } from '../utils/navigationTransition';
 import { ColorTokens } from '../design/tokens/color';
-import { consumeOverlayBack } from '../utils/overlayBackGuard';
+import { consumeOverlayBackFor, OVERLAY_GUARD_CHAT } from '../utils/overlayBackGuard';
 
 @Component
 export struct ChatDestination {
@@ -27,7 +27,7 @@ export struct ChatDestination {
         onBack: (): void => {
           // 页内全屏查看器（图片）打开时，页内返回按钮先关查看器，
           // 与系统返回手势保持一致（系统手势的拦截见下面的 onBackPressed）
-          if (consumeOverlayBack()) {
+          if (consumeOverlayBackFor(OVERLAY_GUARD_CHAT)) {
             return;
           }
           const nav: NavPathStack | null = getMainNavStack();
@@ -41,7 +41,7 @@ export struct ChatDestination {
     .backgroundColor(ColorTokens.canvas)
     // 系统返回手势/返回键：页内查看器打开时先关查看器（返回 true = 已处理，不执行默认 pop）。
     // Navigation 壳取代了 router 壳的 onBackPress —— 两者都要接，见 ChatPage.ets。
-    .onBackPressed((): boolean => consumeOverlayBack())
+    .onBackPressed((): boolean => consumeOverlayBackFor(OVERLAY_GUARD_CHAT))
     // 重新显示（含从播放器页/他人主页返回）→ 递增刷新信号：ChatView @Watch 承接静默重拉
     // （对方撤回/新消息在停留期间无实时推送，返回页面即同步；首次显示由
     // ChatView.hasLoadedOnce 去重，不会与 aboutToAppear 的首拉叠加）

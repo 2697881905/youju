@@ -2,7 +2,7 @@
 // 本文件仅作为 main_pages.json「pages/DetailPage」的 @Entry 入口，
 // 保持搜索/圈子/我的/收藏等 8 个 router 入口与既有 sharedTransition 一镜到底行为。
 import { PostDetailView } from './PostDetailView';
-import { consumeOverlayBack } from '../utils/overlayBackGuard';
+import { consumeOverlayBackFor, OVERLAY_GUARD_POST_DETAIL } from '../utils/overlayBackGuard';
 
 @Entry
 @Component
@@ -12,7 +12,7 @@ struct DetailPage {
   // ⚠️ onBackPress **只对 @Entry 组件生效**：写在共享的 PostDetailView 里不会被调用。
   // 本文件是 router 壳的 @Entry，Navigation 壳的对应拦截见 PostDetailDestination.onBackPressed。
   onBackPress(): boolean {
-    return consumeOverlayBack();
+    return consumeOverlayBackFor(OVERLAY_GUARD_POST_DETAIL);
   }
 
   build() {

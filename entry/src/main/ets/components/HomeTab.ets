@@ -16,8 +16,7 @@ import { openSearchPanelViaNav, SEARCH_ENTRY_ID } from '../utils/longTake/openSe
 import { safeShowToast } from '../utils/toast';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { EmptyState } from '../design/components/EmptyState';
-import { SegmentedItem } from '../design/components/SegmentedControl';
-import { SegmentedControl } from '../design/components/SegmentedControl';
+import { ImmersiveSegmentBar, SegmentedItem } from '../design/components/ImmersiveSegmentBar';
 import { requestSystemBarRefresh } from '../utils/systemBar';
 import { DailyPostDeck } from './DailyPostDeck';
 import { ColorTokens } from '../design/tokens/color';
@@ -136,11 +135,6 @@ export struct HomeTab {
   @Link @Watch('onFeedIndexChanged') feedIndex: number;
   // 圈子下拉面板开合（标题栏 chip ↔ 本页面板 共享）
   @Link showCircleDropdown: boolean;
-  // 分段栏滑块跟手位置（回迁 1.0.1）：Swiper 拖动/吸附逐帧喂入的连续（浮点）索引；
-  // -1 = 未在滚动（回退整数选中索引，点击切换走弹性动画）。
-  @State slidePosition: number = -1;
-  // Swiper 内容区宽（px）：onGestureSwipe 用 currentOffset/页宽 换算连续索引
-  @State swiperWidth: number = 0;
   @State needLogin: boolean = false; // 关注流且未登录的引导态
   // 关注流的关注数缓存（空态 A/B 区分）。取值三态，见 FOLLOWING_COUNT_* 常量：
   // 保留上次取到的真实值，切回关注 Tab 时不会先闪加载态（关注数极少变，够用）。
@@ -1100,27 +1094,16 @@ export struct HomeTab {
   @Builder
   homeTabRow() {
     Row() {
-      // 分段栏（回迁 1.0.1 自绘样式）：透明轨道 + 滑块弹性跟手；栏住标题栏 bottomBuilder，
-      // useSystemMaterial 让系统材质接管表面（低版本回退 outlined 描边）。
-      SegmentedControl({
+      // 分段栏（官方 SegmentButton）：轨道/滑块/状态动画/命中全系统实现，视觉与原生
+      // App 分段栏同档（基准 §7.6.18/§7.7）。overrideTrackMaterial=ULTRA_THIN 浮起档
+      // ——bottomBuilder 行已按 segmentBarShadowRoom 留出材质投影净空。
+      ImmersiveSegmentBar({
         items: FEED_SEGMENTS,
         selectedIndex: $feedIndex,
-        // Swiper 拖动/吸附逐帧喂入的连续索引：滑块 1:1 跟手（-1 = 未在滚动）
-        slidePosition: this.slidePosition,
         itemWidth: 66,
-        fillWidth: false,
-        glass: false,
-        outlined: true,
-        // 关闭按压/长按光斑：顶栏材质/描边风格上光斑过于抢眼（1.0.1 同款取舍）
-        glowEnabled: false,
-        // 1.0.1 同款：系统材质接管表面（玻璃+环境光感），浮起档保留材质自带投影
-        // （applyShadow:true）——底部阴影由此而来，自绘 outlined 阴影仅作低版本回退
-        useSystemMaterial: true,
-        useFloatingMaterial: true,
+        overrideTrackMaterial: true,
         onSelect: (idx: number): void => {
-          // 点击立即落整数位（弹性动画由 SharedSlide 整数分支承担）；
-          // 信息源加载由本组件 @Watch(feedIndex) 承接（见 onFeedIndexChanged）
-          this.slidePosition = idx;
+          // 点击/拖选落整数位；信息源加载由本组件 @Watch(feedIndex) 承接（见 onFeedIndexChanged）
           this.feedIndex = idx;
         },
       })
@@ -1169,34 +1152,6 @@ export struct HomeTab {
         .duration(MotionTokens.container)
         .curve(MotionCurves.springSoft)
         .onChange((index: number): void => { this.onSwiperChanged(index); })
-        // —— 滑块 1:1 跟手（回迁 1.0.1）：连续索引 = 选中页 - 位移比例 ——
-        .onContentDidScroll((selectedIndex: number, index: number, position: number, _mainAxisLength: number): void => {
-          if (index !== selectedIndex) {
-            return;
-          }
-          const continuous: number = selectedIndex - position;
-          this.slidePosition = Math.max(0, Math.min(FEED_SEGMENTS.length - 1, continuous));
-        })
-        // 拖拽逐帧跟手：手势拖动期 onContentDidScroll 不保证回调，由本事件兜底
-        .onGestureSwipe((index: number, event: SwiperAnimationEvent): void => {
-          if (this.swiperWidth <= 0) {
-            return;
-          }
-          const continuous: number = index - event.currentOffset / this.swiperWidth;
-          this.slidePosition = Math.max(0, Math.min(FEED_SEGMENTS.length - 1, continuous));
-        })
-        .onAreaChange((_old: Area, area: Area): void => {
-          const w: number = parseFloat(String(area.width));
-          if (w > 0 && Math.abs(w - this.swiperWidth) > 0.5) {
-            this.swiperWidth = w;
-          }
-        })
-        .onAnimationEnd((): void => {
-          // 吸附收尾：回到整数位才清除跟手覆盖；中途打断的动画保持浮点，避免滑块闪跳
-          if (Math.abs(this.slidePosition - Math.round(this.slidePosition)) < 0.01) {
-            this.slidePosition = -1;
-          }
-        })
         .width('100%')
         .height('100%')
         .layoutWeight(1)

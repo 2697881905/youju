@@ -37,9 +37,7 @@ import { requestSystemBarRefresh } from '../utils/systemBar';
 import { BaseCard } from '../design/components/BaseCard';
 import { DesignButton } from '../design/components/DesignButton';
 import { EmptyState } from '../design/components/EmptyState';
-import { SegmentedItem } from '../design/components/SegmentedControl';
-import { SegmentedControl } from '../design/components/SegmentedControl';
-import { isSystemMaterialActive } from '../utils/immersiveMaterial';
+import { ImmersiveSegmentBar, SegmentedItem } from '../design/components/ImmersiveSegmentBar';
 import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
@@ -320,7 +318,7 @@ function patchReport(it: AdminReportItem, action: ReportAction): AdminReportItem
 }
 
 // ───────────────────────── 筛选 ─────────────────────────
-// 两级筛选，均用官方分段栏（SegmentedControl）承载：
+// 两级筛选，均用官方分段栏（ImmersiveSegmentBar）承载：
 //   上：板块 = 被举报对象类型（帖子/评论/用户，三选一）
 //   下：状态 = 该板块内的举报状态（待处理/已成立/已驳回，不设「全部」）
 // 板块与状态都下推到服务端（分页与 total 同口径），本地再即时重算一次避免等待网络。
@@ -408,7 +406,7 @@ export struct ReportAdminPage {
   @State isRefreshing: boolean = false;
   @State finished: boolean = false;
   @State page: number = 1;
-  // 两个分段栏的选中项（数值索引，直接与 SegmentedControl 的 @Link 绑定）：
+  // 两个分段栏的选中项（数值索引，直接与 ImmersiveSegmentBar 的 @Link 绑定）：
   // 字符串筛选键由索引派生，避免「索引 + 键」两份状态互相漂移
   @State typeIndex: number = 0; // 板块：0 帖子 / 1 评论 / 2 用户
   @State statusIndex: number = 0; // 状态：0 待处理 / 1 已成立 / 2 已驳回
@@ -432,7 +430,7 @@ export struct ReportAdminPage {
   // 请求序号：过期响应整体丢弃（与 974f859 的 HomeTab 同方案）。
   // 旧实现用 `if (this.loading) return` 守卫，正在加载时点筛选会被静默吞掉。
   private fetchSeq: number = 0;
-  // 已作用到列表的分段栏索引：SegmentedControl 点「已选中」的那一段也会回调 onSelect，
+  // 已作用到列表的分段栏索引：ImmersiveSegmentBar 点「已选中」的那一段也会回调 onSelect，
   // 用它挡住无谓的重拉（失败重试用「刷新」/下拉刷新）。
   private appliedTypeIndex: number = 0;
   private appliedStatusIndex: number = 0;
@@ -1094,31 +1092,22 @@ export struct ReportAdminPage {
   }
 
   // 两个分段栏：上「板块」（被举报对象类型：帖子/评论/用户），下「状态」（该板块内的状态）。
-  // 回迁 1.0.1 自绘 SegmentedControl（滑块 + 跟手扫选 + 按压回弹）；
+  // 回迁 1.0.1 自绘 ImmersiveSegmentBar（滑块 + 跟手扫选 + 按压回弹）；
   // 驻留标题栏由系统材质接管表面（沉浸光感）。
   @Builder
   segBars(): void {
     Column({ space: SpaceTokens.sm }) {
-      SegmentedControl({
+      ImmersiveSegmentBar({
         items: TYPE_ITEMS,
         selectedIndex: $typeIndex,
-        immersive: !isSystemMaterialActive(),
-        outlined: isSystemMaterialActive(),
-        glowEnabled: false,
-        // 1.0.1 同款：系统材质 + 浮起档（材质自带投影）
-        useSystemMaterial: true,
-        useFloatingMaterial: true,
+        // 浮起档：bottomBuilder 行自带材质投影净空
+        overrideTrackMaterial: true,
         onSelect: (index: number): void => { this.onTypeSelect(index); },
       })
-      SegmentedControl({
+      ImmersiveSegmentBar({
         items: STATUS_ITEMS,
         selectedIndex: $statusIndex,
-        immersive: !isSystemMaterialActive(),
-        outlined: isSystemMaterialActive(),
-        glowEnabled: false,
-        // 1.0.1 同款：系统材质 + 浮起档（材质自带投影）
-        useSystemMaterial: true,
-        useFloatingMaterial: true,
+        overrideTrackMaterial: true,
         onSelect: (index: number): void => { this.onStatusSelect(index); },
       })
     }

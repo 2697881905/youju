@@ -28,7 +28,7 @@ import { buildPageTransition } from '../utils/styles';
 import { notifIconRes, resolveActionIcon } from '../utils/actionIcons';
 import { EmptyState } from '../design/components/EmptyState';
 import { MessageRow } from '../design/components/MessageRow';
-import { SegmentedItem } from '../design/components/SegmentedControl';
+import { ImmersiveSegmentBar, SegmentedItem } from '../design/components/ImmersiveSegmentBar';
 import { Pressable } from '../design/motion/Pressable';
 import { Reveal } from '../design/motion/Reveal';
 import { ColorTokens } from '../design/tokens/color';
@@ -46,8 +46,7 @@ import type {
   ScrollEffectOptions,
 } from '@kit.UIDesignKit';
 import { LengthMetrics } from '@kit.ArkUI';
-import { SegmentedControl } from '../design/components/SegmentedControl';
-import { isSystemMaterialActive, isImmersiveLightSenseSupported, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
+import { isImmersiveLightSenseSupported, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
 import { requestSystemBarRefresh } from '../utils/systemBar';
 
 // 消息分段：通知 | 私信（导出给 Index 的标题栏渲染；本页 Swiper 与之共享选中态）
@@ -1420,23 +1419,20 @@ export struct MessagePage {
     // ↑ messageListInset 已含分段行高：指示器落在分段栏之下的内容区顶部（栏已回标题栏）
   }
 
-  // 分段行（自绘 SegmentedControl，bottomBuilder）：标题栏=材质生效区，挂着的系统材质
-  // （浮起档，自带投影）由此出图——1.0.1 同款玻璃面+底部阴影；低版本回退 outlined 描边。
-  // 未读徽标叠加层保留（自绘/官方栏都没有徽标位）。
+  // 分段行（官方 SegmentButton，bottomBuilder）：轨道/滑块/状态动画全系统实现，
+  // 栏体挂栏级 EXQUISITE（见 messageHdsTitleBarOptions），分段栏走官方默认轨道材质。
+  // 未读徽标叠加层保留（官方栏没有徽标位）。
   @Builder
   messageTabRow() {
     Row() {
       Stack() {
-        SegmentedControl({
+        // 分段栏（官方 SegmentButton）：轨道/滑块/状态动画全系统实现。不传
+        // backgroundSystemMaterial——标题栏已挂栏级 EXQUISITE，分段栏走官方默认
+        // 轨道材质直接站在栏级材质表面上，避免两层玻璃叠加。
+        ImmersiveSegmentBar({
           items: MESSAGE_SEGMENTS,
           selectedIndex: $dmTabIndex,
           itemWidth: 88,
-          immersive: !isSystemMaterialActive(),
-          outlined: isSystemMaterialActive(),
-          glowEnabled: false,
-          // 不挂通用组件材质：标题栏已挂栏级 EXQUISITE（见 messageHdsTitleBarOptions），
-          // 分段栏保持透明描边直接站在栏级材质表面上——叠加 ULTRA_THIN 会成两层玻璃
-          useSystemMaterial: false,
         })
         // 未读徽标层：分段栏把可用宽度等分，逐槽位叠一个「同字号透明标签 + 系统 Badge」，
         // 红点就落在各自标签右上角（与底部页签红点同一视觉语言，>99 自动 99+）。

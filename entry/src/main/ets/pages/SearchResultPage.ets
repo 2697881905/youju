@@ -15,8 +15,7 @@ import { buildPageTransition } from '../utils/styles';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { GRID_GAP, GRID_PADDING } from '../utils/cardTokens';
 import { EmptyState } from '../design/components/EmptyState';
-import { SegmentedItem } from '../design/components/SegmentedControl';
-import { SegmentedControl } from '../design/components/SegmentedControl';
+import { ImmersiveSegmentBar, SegmentedItem } from '../design/components/ImmersiveSegmentBar';
 import { isSystemMaterialActive, FloatingTopButtonMaterialModifier } from '../utils/immersiveMaterial';
 import { Skeleton } from '../design/motion/Skeleton';
 import { ColorTokens } from '../design/tokens/color';
@@ -336,18 +335,12 @@ struct SearchResultPage {
         .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
         .fontColor(ColorTokens.secondary)
       Blank()
-      // 排序分段（回迁 1.0.1 自绘样式）：标题栏生效区内系统材质接管表面
-      SegmentedControl({
+      // 排序分段（官方 SegmentButton）：标题栏生效区内浮起档材质接管表面
+      ImmersiveSegmentBar({
         items: SEARCH_SORTS,
         selectedIndex: $sortIndex,
         itemWidth: 54,
-        fillWidth: false,
-        immersive: !isSystemMaterialActive(),
-        outlined: isSystemMaterialActive(),
-        glowEnabled: false,
-        // 1.0.1 同款：系统材质 + 浮起档（材质自带投影）
-        useSystemMaterial: true,
-        useFloatingMaterial: true,
+        overrideTrackMaterial: true,
         onSelect: (index: number): void => { this.onSortChange(index); },
       })
     }

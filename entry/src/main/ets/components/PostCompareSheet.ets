@@ -4,7 +4,7 @@ import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
-import { SegmentedControl, SegmentedItem } from '../design/components/SegmentedControl';
+import { ImmersiveSegmentBar, SegmentedItem } from '../design/components/ImmersiveSegmentBar';
 import { Pressable } from '../design/motion/Pressable';
 import { structuredMetricKindLabel } from '../utils/structuredDocument';
 import { PUBLISH_GENRES, publishGenreMeta } from '../utils/publishGenres';
@@ -241,12 +241,11 @@ export struct PostCompareSheet {
       Row() {
         this.header()
         Blank()
-        SegmentedControl({
+        // 弹层内分段（官方 SegmentButton 默认轨道材质，内容区正常出图）
+        ImmersiveSegmentBar({
           items: ORDER_SEGMENTS,
           selectedIndex: $orderIndex,
           itemWidth: 78,
-          fillWidth: false,
-          glowEnabled: false,
           onSelect: (_index: number): void => { this.load(); },
         })
         // bindSheet 的 showClose 是关掉的（与证据清单弹层同款），面板内必须自己给一个出口
