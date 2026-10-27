@@ -35,7 +35,8 @@
             // 拉起应用（scheme 只声明 youju，host 不限；路径合法性由 EntryAbility 侧解析兜底）。
             // ⚠️ entity.system.browsable 必须有：浏览器发起的隐式 Want 自带该 entity，
             // 缺了它 skill 匹配不上 → 浏览器静默丢弃 scheme 跳转，落地页只能走回落（实测踩过）。
-            // 应用市场级「免确认直拉」走 App Linking（https + domainVerify + AGC 域名关联），后续再接。
+            // 应用市场级「免确认直拉」走 App Linking（https + domainVerify + AGC 域名关联），
+            // 见下方独立 skill（https://youju.chat/post、/user 前缀）。
             "actions": [
               "ohos.want.action.viewData"
             ],
@@ -47,6 +48,33 @@
                 "scheme": "youju"
               }
             ]
+          },
+          {
+            // App Linking（应用链接，免确认直拉）：系统浏览器/扫码打开 https://youju.chat/post/{id}、
+            // /user/{id} 时直接拉起 App，未装则留在网页（落地页本身就是 Web 版内容）。
+            // 域名归属由系统校验：服务器 /.well-known/applinking.json（appIdentifier=APP ID）
+            // + AGC「增长 > App Linking」发布域名；domainVerify: true 开启该校验开关。
+            // ⚠️ 必须是独立 skill 对象：官方要求跳转场景不与入口/Deep Link skill 混写，否则不生效。
+            // pathStartWith 官方口径：取值前后不带斜杠（"post" 匹配 /post/...）。
+            "actions": [
+              "ohos.want.action.viewData"
+            ],
+            "entities": [
+              "entity.system.browsable"
+            ],
+            "uris": [
+              {
+                "scheme": "https",
+                "host": "youju.chat",
+                "pathStartWith": "post"
+              },
+              {
+                "scheme": "https",
+                "host": "youju.chat",
+                "pathStartWith": "user"
+              }
+            ],
+            "domainVerify": true
           }
         ]
       }

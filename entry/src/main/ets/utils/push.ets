@@ -143,17 +143,28 @@ export function readPushRoute(want: Want | undefined): PushRoute | null {
   };
 }
 
-// ===== youju:// Deep Link 解析（分享落地页「去有据看看」按钮拉起）=====
-// 网页侧无法调用应用内的 openLink API，落地页按钮直接跳转 youju://post/{id} / youju://user/{id}，
-// 系统按 module.json5 的 skills（scheme: youju）把意图送进本应用（want.uri 携带原始链接）。
-// 解析结果复用推送的待处理路由通道（enqueuePushRoute/takePushRoute）——Index 的 @Watch
-// 消费逻辑零改动即可跳转，避免再造一套 AppStorage 信号。解析不出的链接一律返回 null 静默忽略。
+// ===== youju:// Deep Link + App Linking 解析 =====
+// 两类链接进来后走同一条路：
+// - youju://post/{id} / youju://user/{id}：分享落地页「去有据看看」按钮（Deep Link，带确认）。
+// - https://youju.chat/post/{id} / /user/{id}：App Linking 免确认直拉。系统按 module.json5
+//   的 domainVerify skill（scheme https + host youju.chat）校验域名归属（服务器
+//   /.well-known/applinking.json + AGC 发布域名）后，把浏览器/扫码的链接意图送进本应用，
+//   want.uri 携带原始链接。
+// 两类解析结果都复用推送的待处理路由通道（enqueuePushRoute/takePushRoute）——Index 的
+// @Watch 消费逻辑零改动即可跳转，避免再造一套 AppStorage 信号。
+// host 白名单防伪：https 链接只认 youju.chat，恶意应用构造的其他域名 want.uri 静默忽略；
+// 解析不出的链接一律返回 null。
 export function readDeepLinkRoute(want: Want | undefined): PushRoute | null {
   const uri: string = want?.uri ?? '';
-  if (!uri.startsWith('youju://')) {
+  let rest: string = '';
+  if (uri.startsWith('youju://')) {
+    rest = uri.slice('youju://'.length);
+  } else if (uri.startsWith('https://youju.chat/')) {
+    rest = uri.slice('https://youju.chat/'.length);
+  } else {
     return null;
   }
-  const path: string = uri.slice('youju://'.length).split('?')[0].replace(/\/+$/, '');
+  const path: string = rest.split('?')[0].replace(/\/+$/, '');
   const segs: string[] = path.split('/').filter((s: string): boolean => s.length > 0);
   if (segs.length !== 2) {
     return null;
