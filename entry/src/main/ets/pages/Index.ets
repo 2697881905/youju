@@ -1029,12 +1029,12 @@ struct Index {
     const firstCx: number = first.x - layer.x + first.w / 2;
     const lastCx: number = last.x - layer.x + last.w / 2;
     const cx: number = slot.x - layer.x + slot.w / 2;
-    // ⚠️ Y 回到「槽位上报值 − barBottomMargin」公式（自绘版真机实测偏差 88px=28.16vp 吻合
-    // 到 0.4px，HdsMiniBarButton 版沿用后位置已验证）。曾试改锚栏体几何中心（原型页公式），
-    // 但落定接管时玻璃内副本（= 栏中心）与官方份（= 槽位中心，向下溢 2vp）差约 1vp，
-    // 每次切页副本顶替官方份瞬间图标跳一下——回到与官方份同源的槽位公式，重合才精确
-    // （位置残差由 MINI_PAD 补偿承担，两者已分别验证）。
-    const cy: number = slot.y - layer.y - (DOCK_BOTTOM_MARGIN_BASE + bottomNavInset()) + slot.h / 2;
+    // ⚠️ Y 锚 Dock 栏体几何中心（原型页同款公式，真机已验证）：槽位上报值 − barBottomMargin
+    // 的旧修正在 HdsMiniBarButton 版上偏下（玻璃底溢出栏沿，真机反馈 2026-10-27）。
+    // 栏高（DOCK_BAR_HEIGHT_VP=56）与 barBottomMargin 都是本页传给系统的已知量，零上报偏差；
+    // 玻璃高 0.96×槽高 < 栏高，中心对齐栏中心后上下各留 ~2vp，不溢出。
+    // X 不受影响，仍用各槽实测中心。
+    const cy: number = layer.h - (DOCK_BOTTOM_MARGIN_BASE + bottomNavInset()) - DOCK_BAR_HEIGHT_VP / 2;
     // 槽距由两端中心反算（不写死）：换 barWidth 档、换导航方式、转屏都会变。
     const pitch: number = count > 1 ? (lastCx - firstCx) / (count - 1) : first.w;
     this.dockPillPitch = pitch;
