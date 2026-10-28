@@ -445,31 +445,6 @@ export struct CircleDetailView {
       }
       .width('100%')
       .padding({ left: SpaceTokens.sm, right: SpaceTokens.pageCompact, top: SpaceTokens.sm, bottom: SpaceTokens.item })
-
-      Row() {
-        // 排序分段（官方 SegmentButton）：标题栏生效区内浮起档材质接管表面
-        ImmersiveSegmentBar({
-          items: FEED_SEGMENTS,
-          selectedIndex: $sortIndex,
-          overrideTrackMaterial: true,
-          onSelect: (index: number): void => { this.switchSort(index); },
-        })
-        Blank()
-        // 加入/退出圈子：这一整块确实挂在 .title({ builder })（见本文件 build 尾部），材质出图。
-        // 但仍走描边而非让材质接管表面：ULTRA_THIN 在浅色栏面上只比画布亮 2 级（真机 253 vs 255），
-        // 而 DesignButton 挂材质时会把自绘描边一并置 0（DesignButton.ets:103）—— 换来的那 2 级读不出来，
-        // 按钮却没了可点性。描边才是这颗钮的实际表面。
-        DesignButton({
-          label: this.joined ? '退出圈子' : '加入圈子',
-          variant: 'outlined',
-          disabled: this.joining,
-          useSystemMaterial: false,
-          action: (): void => { this.toggleJoin(); },
-        })
-      }
-      .width('100%')
-      .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, bottom: SpaceTokens.sm })
-      .alignItems(VerticalAlign.Center)
     }
     .width('100%')
     // ⚠️ 左内缩 64vp 让开官方返回键（stackBuilder 行是返回键 Button 的后兄弟、z 序更高，
@@ -480,6 +455,45 @@ export struct CircleDetailView {
       if (h > 0 && Math.abs(h - this.titleBarContentHeight) > 0.5) {
         this.titleBarContentHeight = h;
       }
+    })
+  }
+
+  // 分段行（最新/热门 + 加入/退出按钮）：固定驻内容区顶部（2026-10-28 移出标题栏，
+  // 原因同举报中心——HdsNavigation 把 content 布局高度钳制 ~76vp，信息行+分段行 ~150vp
+  // 溢出悬浮、列表让位回写被污染，卡片顶与按钮底贴死）。分段栏恢复 itemWidth 64：
+  // 与「加入圈子」按钮并排的定宽场景（推导 45×2=90vp 过窄失衡）；材质走官方组件
+  // 表面通道（overrideTrackMaterial），内容区正常出图。左右 padding 与网格对齐。
+  @Builder
+  circleSegRow(): void {
+    Row() {
+      ImmersiveSegmentBar({
+        items: FEED_SEGMENTS,
+        selectedIndex: $sortIndex,
+        itemWidth: 64,
+        overrideTrackMaterial: true,
+        onSelect: (index: number): void => { this.switchSort(index); },
+      })
+      Blank()
+      // 加入/退出圈子：走描边而非材质接管表面——ULTRA_THIN 在浅色栏面上只比画布亮 2 级
+      //（真机 253 vs 255），DesignButton 挂材质时会把自绘描边一并置 0（DesignButton.ets:103）
+      // ——换来的那 2 级读不出来，按钮却没了可点性。描边才是这颗钮的实际表面。
+      DesignButton({
+        label: this.joined ? '退出圈子' : '加入圈子',
+        variant: 'outlined',
+        disabled: this.joining,
+        useSystemMaterial: false,
+        action: (): void => { this.toggleJoin(); },
+      })
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Center)
+    .padding({
+      left: GRID_PADDING,
+      right: GRID_PADDING,
+      // 全屏沉浸壳内容器从屏顶起排：顶部让位穿底标题栏（statusBar + 信息行实测高），
+      // 与列表原让位口径一致；否则分段行被标题行盖住（同举报中心 8a0ab3a）
+      top: this.circleListInset(),
+      bottom: SpaceTokens.sm,
     })
   }
 
@@ -497,6 +511,8 @@ export struct CircleDetailView {
   build() {
     HdsNavigation() {
       Column() {
+        // 分段行（最新/热门 + 加入/退出）固定区：2026-10-28 移出标题栏，见 circleSegRow 注释
+        this.circleSegRow()
         if (this.posts.length === 0 && this.loading) {
           Column({ space: SpaceTokens.item }) {
             LoadingProgress().width(IconTokens.empty).height(IconTokens.empty)
@@ -562,7 +578,9 @@ export struct CircleDetailView {
             .columnsTemplate(this.gridTemplate)
             .columnsGap(GRID_GAP)
             .rowsGap(GRID_GAP)
-            .padding({ left: GRID_PADDING, right: GRID_PADDING, top: GRID_PADDING + this.circleListInset(), bottom: GRID_PADDING })
+            // 顶部不再补标题栏让位：分段行固定区已承担 circleListInset（见 circleSegRow），
+            // 卡片顶 = 分段行底，再补会出大空隙/贴死按钮（真机实证 2026-10-28）
+            .padding({ left: GRID_PADDING, right: GRID_PADDING, bottom: GRID_PADDING })
             .onScrollIndex((_start: number, end: number) => {
               if (end >= this.posts.length - 1) {
                 this.loadMore();
