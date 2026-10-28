@@ -251,6 +251,7 @@
 ./scripts/mau-report.sh 2026-11          # 我们侧下界：行为月活、冷启代理、新注册、内容水位
 ./scripts/src-report.sh 24h              # 各渠道 ?src= 落地页点击量（已用自投样本反证可抓取）
 ```
+./scripts/daily-ledger.sh 2026-11        # 上面这些数一行写进 deliverables/product-strategy/mau-ledger.md（§10 台账自动追加）
 **官方口径自动取数（已备好脚本，差一个凭据）**：AGC **Reports API** 的 measures 里有
 `activeDevice`（活跃设备数）、`newDevice`、`sumDevice`、`installedDeviceCnt`（存量安装设备数）、`lossDevice`
 与逐日留存 `newUserOneDayRetain*`——也就是说**月活不必自建埋点就能按华为口径读**。
@@ -264,7 +265,10 @@
 
 每周把华为激励后台的「有效月活」真值抄进本文件 §10 台账，两个读数差值就是「游客启动/未登录设备」的规模——它比登录数更接近计分口径。
 
-## 10. 达标台账（每周一填）
+## 10. 达标台账
+
+> 机器可自证的部分已自动化：`./scripts/daily-ledger.sh 2026-11` 每天往 [mau-ledger.md](mau-ledger.md) 追加一行（首行基线 2026-10-28：行为月活 46 / 冷启代理 43 / 新注册 42 / 真实帖 19 / 种子帖 331 / 私信 8 / 渠道点击 5）。
+> 下表只留**必须手抄**的两列：激励后台有效月活真值、商店评分数与均分。
 
 | 周 | 激励后台有效月活 | mau-report 下界 | 真实新注册 | 真实新帖 | 评分数/均分 | 本周主渠道 | 下一步 |
 | --- | --- | --- | --- | --- | --- | --- | --- |

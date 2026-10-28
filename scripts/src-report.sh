@@ -13,10 +13,10 @@ SINCE="${1:-168h}"
 ssh -o ConnectTimeout=20 "$HOST" "bash -s" <<EOF
 L=\$(docker logs --since $SINCE youju-nginx 2>&1)
 echo "== 渠道点击量（--since $SINCE）=="
-echo "\$L" | grep -oE 'src=[A-Za-z0-9_-]+' | sed 's/src=//' | sort | uniq -c | sort -rn
+echo "\$L" | grep -E '"GET /?\\?[^"]*src=' | grep -oE 'src=[A-Za-z0-9_-]+' | sed 's/src=//' | sort | uniq -c | sort -rn
 echo
 echo "== 逐日 x 渠道 =="
-echo "\$L" | grep 'src=' | awk '{
+echo "\$L" | grep -E '"GET /?\\?[^"]*src=' | awk '{
   d = substr(\$4, 2, 11);
   match(\$0, /src=[A-Za-z0-9_-]+/); s = substr(\$0, RSTART+4, RLENGTH-4);
   k = d " " s; c[k]++
