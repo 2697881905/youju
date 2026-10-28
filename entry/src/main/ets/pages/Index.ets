@@ -1654,7 +1654,9 @@ struct Index {
             ImmersiveSegmentBar({
               items: BOOKMARK_SEGMENTS,
               selectedIndex: $profileBookmarkSubTab,
-              // 槽宽按内容自动推导（3 字「收藏夹」→ 60vp）：原手填 46 挤压三字标签
+              // 长条铺满加权格（用户拍板 2026-10-28，与主分段同语义）：两槽等分，
+              // 右侧收藏夹管理入口靠 layoutWeight 分格不受挤占
+              fillWidth: true,
             })
           }
           .layoutWeight(1)
