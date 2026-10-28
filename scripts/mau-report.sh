@@ -58,10 +58,21 @@ SELECT DATE_FORMAT(createdAt,'%m-%d') AS d, COUNT(DISTINCT userId) AS act
 FROM PostEvent
 WHERE createdAt >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) AND userId IS NOT NULL
 GROUP BY d ORDER BY d;
+
+-- 8. 召回名册 Top 20：已装机且最后一次冷启动最近的真实用户（私信与评分引导按此排序）
+SELECT u.id, u.nickname,
+       (SELECT COUNT(*) FROM Post p WHERE p.userId = u.id AND p.deletedAt IS NULL) AS posts,
+       (SELECT COUNT(*) FROM Comment c WHERE c.userId = u.id) AS cmts,
+       (SELECT COUNT(*) FROM Bookmark b WHERE b.userId = u.id) AS marks,
+       DATE_FORMAT((SELECT MAX(pt.updatedAt) FROM PushToken pt WHERE pt.userId = u.id), '%m-%d') AS last_start
+FROM User u
+WHERE u.deletedAt IS NULL AND LEFT(COALESCE(u.openId, u.unionID), 4) <> 'seed'
+  AND (SELECT MAX(pt.updatedAt) FROM PushToken pt WHERE pt.userId = u.id) IS NOT NULL
+ORDER BY last_start DESC LIMIT 20;
 EOF
 )
 
 echo "== 有据运营日报 · ${YM}（起算 ${MONTH_START}）=="
 echo "$SQL" | ssh -o ConnectTimeout=20 "$HOST" \
-  'docker exec -i youju-mysql sh -c "mysql -f -uroot -p\"\$MYSQL_ROOT_PASSWORD\" -t youju"' 2>&1 \
+  'docker exec -i youju-mysql sh -c "mysql -f --default-character-set=utf8mb4 -uroot -p\"\$MYSQL_ROOT_PASSWORD\" -t youju"' 2>&1 \
   | grep -v "Using a password"
