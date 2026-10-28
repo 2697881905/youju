@@ -41,23 +41,29 @@ else
   fail=1
 fi
 
-# 4) 版本号一致（app.json5 vs AboutPage / SettingsPage 里的字面量）
+# 4) 版本号一致：单一真源是 buildMode.ets 的 APP_VERSION_NAME（2026-10-13 收敛，
+#    页面不再写字面量）。旧版这里 grep 页面里的字面量，收敛后必然误报 ❌ 卡住提审。
 VER=$(sed -n 's/.*"versionName": "\([^"]*\)".*/\1/p' AppScope/app.json5 | head -n 1)
-if [ -n "$VER" ]; then
-  miss=0
-  for f in entry/src/main/ets/pages/AboutPage.ets entry/src/main/ets/pages/SettingsPage.ets; do
-    if grep -q "$VER" "$f"; then
-      echo "✅ $(basename "$f") 版本号 = $VER"
-    else
-      echo "❌ $(basename "$f") 的版本号与 app.json5（$VER）不一致"
-      miss=1
-    fi
-  done
-  if [ "$miss" -ne 0 ]; then
+if [ -z "$VER" ]; then
+  echo "❌ 没从 app.json5 读到 versionName"
+  fail=1
+else
+  if grep -q "APP_VERSION_NAME: string = '$VER'" entry/src/main/ets/utils/buildMode.ets; then
+    echo "✅ APP_VERSION_NAME = $VER（与 app.json5 一致）"
+  else
+    echo "❌ buildMode.ets 的 APP_VERSION_NAME 与 app.json5（$VER）不一致 —— 版本号漏改"
     fail=1
   fi
-else
-  echo "⚠️ 读不到 AppScope/app.json5 的 versionName"
+  for f in entry/src/main/ets/pages/AboutPage.ets entry/src/main/ets/pages/SettingsPage.ets; do
+    if grep -q "APP_VERSION_NAME" "$f"; then
+      echo "✅ $(basename "$f") 取单一常量 APP_VERSION_NAME"
+    elif grep -q "$VER" "$f"; then
+      echo "⚠️ $(basename "$f") 仍写死字面量 $VER —— 能过检，但建议改读常量"
+    else
+      echo "❌ $(basename "$f") 既没引用 APP_VERSION_NAME 也没有当前版本号"
+      fail=1
+    fi
+  done
 fi
 
 # 5) 产物字节码字符串表里的内网 IP / 明文调试地址
