@@ -1,4 +1,8 @@
-# 游客引导条 · 待应用补丁（已写好但**未合入**）
+# 游客引导条 · **已合入**（2026-10-28，ArkTS 检查通过）
+
+> 合入状态：`GuestConvertBar.ets` 检查 **no diagnostics**；`HomeTab.ets` **0 Error**，仅 4 条既有类别的 Warning（3 条 SDK 版本 + pushUrl 的 addAsyncCatch，与文件内既有同类调用一致）。
+> 已按 §2 补上水合兜底（`aboutToAppear` 直读 `getToken()` + `guestBarReady` 门控），并给 `pushUrl` 包了 try/catch。
+> **仍未完成的是 §3 的 6 项真机验收** —— 圈子页正在施工，此刻构建会把半成品一起编进去，> 所以视觉与交互验收留到他们收口后一起做。
 
 **为什么先停在这里**（两条硬理由，不是偷懒）：
 1. 这个会话里**没有 ArkTS 编译检查工具**（无 `check_ets_files` / DevEco MCP），我无法证明它能编译通过；

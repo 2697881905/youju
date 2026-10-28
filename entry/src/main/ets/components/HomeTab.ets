@@ -5,7 +5,8 @@
 
 import { DailyPost, Post, Tag } from '../models/types';
 import { listDailyPosts, listPosts, listFollowingPosts, listTags, listFollowedTags, getUserProfile, trackPostEvent, trackDailyOpen, resolveDisplayImageUrl } from '../services/api';
-import { getUserId } from '../utils/auth';
+import { getUserId, getToken } from '../utils/auth';
+import { GuestConvertBar } from './GuestConvertBar';
 import { likeStore } from '../utils/likeStore';
 import { postDeletionStore } from '../utils/postDeletionStore';
 import { PostCard } from './PostCard';
@@ -211,6 +212,11 @@ export struct HomeTab {
   }
 
   aboutToAppear(): void {
+    // 游客引导：@StorageProp 的初值不可信（authToken 已迁出 PersistentStorage，
+    // 冷启动水合前会读到空串 → 已登录用户会看到引导条）。首帧用直读 getToken() 定值，
+    // 之后的登录/登出变化仍由 @StorageProp 驱动。
+    this.authToken = getToken();
+    this.guestBarReady = true;
     this.loadTags();
     // 默认加载推荐公开流（无需登录）；若已登录也保持推荐流默认
     this.refresh();
@@ -903,11 +909,32 @@ export struct HomeTab {
   // 滚动终点钳制在底部非安全区之上、露出窗口底色横带截断末卡（实测 expandSafeArea /
   // ignoreLayoutSafeArea 挂容器自身均无效），Scroll 滚动范围天然到物理屏底。
   // seg 参数：Swiper 每页只读属于自己的 postsCache[seg]，拖动时相邻页显示各自内容。
+  // 游客转化引导：登录态走 @StorageProp（登录后自动消失），首帧由 aboutToAppear 直读兜底
+  @StorageProp('authToken') authToken: string = '';
+  @State guestBarDismissed: boolean = false;
+  @State guestBarReady: boolean = false;
+
   @Builder
   feedScroll(seg: number): void {
     // scroller 显式挂载（位置参数）：交给嵌套 HdsNavigation 的 bindToScrollable 驱动标题栏渐变模糊
     Scroll(this.feedScrollers[seg]) {
       Column({ space: SpaceTokens.sm }) {
+        // 游客态引导条：满幅一行放在两列栅格之前，不参与列数与 key 计算，关掉即消失
+        if (this.guestBarReady && this.authToken === '' && !this.guestBarDismissed) {
+          GuestConvertBar({
+            onLogin: (): void => {
+              // 与 Index.ets 同类调用一致：pushUrl 会抛，包一层避免把引导条变成崩点
+              try {
+                this.getUIContext().getRouter().pushUrl({ url: 'pages/LoginPage' });
+              } catch (e) {
+                safeShowToast(this.getUIContext(), { message: '打开登录页失败，请重试' });
+              }
+            },
+            onDismiss: (): void => {
+              this.guestBarDismissed = true;
+            },
+          })
+        }
         Row({ space: SpaceTokens.xs }) {
           ForEach(this.feedColIndexes(), (colIdx: number) => {
             Column({ space: SpaceTokens.xs }) {

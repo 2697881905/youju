@@ -50,7 +50,7 @@
 | 每日一帖推送（日活引擎） | `backend/src/services/dailyDigestService.ts` + `/v1/admin/daily-digest` | ✅ 代码就绪、**默认关** | 需部署后端；且内容归队前会自动跳过 |
 | 内容归队 SQL | `scripts/seed-rehome.sql` | ⛔ 待授权 | 生产库写操作，等你批 |
 | 计数对账方案 | 本文件 §6.7 | ⛔ 待拍板 | X / Y / Z 三选一 |
-| 游客引导条 | `deliverables/growth/guest-convert-bar-patch.md` | ⛔ 未合入 | 本会话无 ArkTS 编译检查 + 并行会话在构建同一模块 |
+| 游客引导条 | `entry/.../components/GuestConvertBar.ets` + `HomeTab.ets` 挂载 | ✅ **已合入**，ArkTS 检查 0 Error | 待 6 项真机验收（圈子收口后随 1.0.4 一起） |
 | 官网 hero/og 改写 | `site/index.html` | ✅ 已改并提交 | 需你部署 |
 | 分享落地页 CTA 修复 | `backend/src/routes/share.ts` | ✅ 已改，`tsc`+349 例通过 | 需部署后端 |
 | 发布闸门假阴性修复 | `check-release.sh` | ✅ 已修，现只剩「未构建」 | 需你跑 release 构建 |
