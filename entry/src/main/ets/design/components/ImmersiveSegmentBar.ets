@@ -146,7 +146,12 @@ export struct ImmersiveSegmentBar {
   }
 
   build() {
-    Row() {
+    // Stack 是铺满语义的正确包装（真机对照实证 2026-10-28）：Stack 把自己的 content
+    // area 作为子元素约束区传下去，SegmentButton「占据内容区内最大可用宽度」直接成立
+    // ——消息页（Stack 包裹）铺满生效、举报中心（Column 直放、根 Row 拦截）不生效，
+    // 唯一差异就是这层。fillWidth → Stack '100%'；定宽/推导 → Stack 拿确定宽度。
+    // ⚠️ 官方组件不支持通用属性（SegmentButton.d.ets NOTE），.width() 链上去无效。
+    Stack() {
       if (this.barOptions !== undefined) {
         SegmentButton({
           options: this.barOptions,
@@ -160,10 +165,6 @@ export struct ImmersiveSegmentBar {
             }
           },
         })
-        // ⚠️ 官方组件不自带铺满：无显式宽度时按内容收缩——fillWidth 铺 Row、itemWidth
-        // 定宽 Row、推导宽 Row 三种模式下都必须显式 '100%'，槽位等分才成立（真机实证
-        // 2026-10-28：举报中心 fillWidth 后整栏仍短，就是缺这行）。
-        .width('100%')
       }
     }
     .width(this.barWidth())
