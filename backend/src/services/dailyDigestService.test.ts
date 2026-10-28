@@ -27,7 +27,7 @@ const mockNotifySystem = notifySystem as unknown as Fn;
 beforeEach(() => {
   mockPushToken.mockClear(); mockUser.mockClear(); mockNotifFirst.mockClear();
   mockListDailyPosts.mockClear(); mockNotifySystem.mockClear();
-  mockListDailyPosts.mockResolvedValue([{ id: 410, title: '数据挖掘', content: '一段正文' }]);
+  mockListDailyPosts.mockResolvedValue([{ id: 410, title: '数据挖掘', content: '一段正文', userId: 40, metricValue: null }]);
   mockPushToken.mockResolvedValue([{ userId: 1 }, { userId: 2 }, { userId: 3 }, { userId: 4 }]);
   mockUser.mockResolvedValue([
     { id: 1, openId: 'AABreal', unionID: null },
@@ -43,7 +43,7 @@ const SHANGHAI_MORNING = new Date('2026-11-05T01:45:00Z'); // 上海 09:45（窗
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockListDailyPosts.mockResolvedValue([{ id: 410, title: '数据挖掘', content: '一段正文' }]);
+  mockListDailyPosts.mockResolvedValue([{ id: 410, title: '数据挖掘', content: '一段正文', userId: 40, metricValue: null }]);
   mockPushToken.mockResolvedValue([{ userId: 1 }, { userId: 2 }, { userId: 3 }, { userId: 4 }]);
   mockUser.mockResolvedValue([
     { id: 1, openId: 'AABreal', unionID: null },
@@ -91,12 +91,13 @@ describe('runDailyDigest', () => {
     expect(r.queued).toBe(1);
   });
 
-  it('没有任何 push token 时安全返回 0，不去查用户表', async () => {
+  it('没有任何 push token 时安全返回 0 且不发送', async () => {
+    // 注：选帖阶段会查一次 user（取种子 id 集合），所以这里不能断言「没查用户表」
     mockPushToken.mockResolvedValue([]);
-    const r = await runDailyDigest({ at: SHANGHAI_NOON });
+    const r = await runDailyDigest({ dryRun: false, at: SHANGHAI_NOON });
     expect(r.audience).toBe(0);
     expect(r.queued).toBe(0);
-    expect(mockUser).not.toHaveBeenCalled();
+    expect(mockNotifySystem).not.toHaveBeenCalled();
   });
 
   it('每日一帖选不到帖子时不发送', async () => {
@@ -104,6 +105,44 @@ describe('runDailyDigest', () => {
     const r = await runDailyDigest({ dryRun: false, at: SHANGHAI_NOON });
     expect(r.postId).toBeNull();
     expect(mockNotifySystem).not.toHaveBeenCalled();
+  });
+});
+
+describe('选帖：宁可不推也不推伪造亲历', () => {
+  it('候选全部来自种子账号时当天跳过，且不查受众、不发送', async () => {
+    mockListDailyPosts.mockResolvedValue([
+      { id: 1, title: '修了十二年车', content: 'x', userId: 2, metricValue: 5 },
+      { id: 2, title: '搬过五次家', content: 'y', userId: 173, metricValue: 3 },
+    ]);
+    // userId=2 与 173 在 mock 的 user 查询里不是 seed 前缀，这里显式让种子集合命中
+    mockUser.mockResolvedValue([
+      { id: 1, openId: 'AABreal', unionID: null },
+      { id: 2, openId: 'seed_coldstart_1', unionID: null },
+      { id: 3, openId: 'AABreal3', unionID: null },
+      { id: 4, openId: null, unionID: null },
+      { id: 173, openId: 'seed_coldstart_9', unionID: null },
+    ]);
+    const r = await runDailyDigest({ dryRun: false, at: SHANGHAI_NOON });
+    expect(r.postId).toBeNull();
+    expect(r.reason).toContain('种子账号');
+    expect(mockNotifySystem).not.toHaveBeenCalled();
+  });
+
+  it('有真实内容时优先选带主数字的结构化帖', async () => {
+    mockListDailyPosts.mockResolvedValue([
+      { id: 700, title: '普通帖', content: 'a', userId: 40, metricValue: null },
+      { id: 701, title: '踩坑金额 2800 元', content: 'b', userId: 40, metricValue: 2800 },
+    ]);
+    const r = await runDailyDigest({ at: SHANGHAI_NOON });
+    expect(r.postId).toBe(701);
+    expect(r.reason).toBe('结构化内容优先');
+  });
+
+  it('真实内容但没有主数字时退到首条，并在 reason 里说明', async () => {
+    mockListDailyPosts.mockResolvedValue([{ id: 702, title: '没有数字的帖', content: 'c', userId: 40 }]);
+    const r = await runDailyDigest({ at: SHANGHAI_NOON });
+    expect(r.postId).toBe(702);
+    expect(r.reason).toContain('无主数字');
   });
 });
 

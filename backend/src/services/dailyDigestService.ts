@@ -7,6 +7,8 @@ interface DailyPick {
   id: number;
   title?: string | null;
   content?: string | null;
+  userId?: number;
+  metricValue?: number | null;
 }
 
 // 每日一帖推送（运营侧的日活引擎）
@@ -43,6 +45,8 @@ export interface DigestOptions {
 export interface DigestResult {
   date: string;
   postId: number | null;
+  /** 选不到合规内容时的原因（宁可不推，也不把伪造亲历推到人手机上） */
+  reason: string;
   postTitle: string;
   audience: number;
   dupSkipped: number;
@@ -61,13 +65,13 @@ function shanghaiDayStart(d: Date): Date {
   return new Date(`${shanghaiDate(d)}T00:00:00+08:00`);
 }
 
-// listDailyPosts 的返回在路由层直接透传给客户端，这里只取第一条且兼容两种形态
-function firstDailyPost(rows: unknown): DailyPick | null {
+// listDailyPosts 的返回在路由层直接透传给客户端，这里兼容数组与 {list} 两种形态
+function firstDailyList(rows: unknown): DailyPick[] {
   if (Array.isArray(rows)) {
-    return (rows[0] as DailyPick) ?? null;
+    return rows as DailyPick[];
   }
   const wrapped = rows as { list?: DailyPick[] } | null;
-  return (wrapped && Array.isArray(wrapped.list) ? wrapped.list[0] : null) ?? null;
+  return wrapped && Array.isArray(wrapped.list) ? wrapped.list : [];
 }
 
 function digestContent(title: string, excerpt: string): string {
@@ -96,17 +100,43 @@ async function resolveAudience(): Promise<number[]> {
     .map((u: { id: number }): number => u.id);
 }
 
+// 选帖：宁可当天不推，也不推伪造亲历的内容。
+//   1) 候选取当日轮换的前 20 条（listDailyPosts 按上海日期稳定排序）
+//   2) 剔除 seed_coldstart 种子账号的帖子（库里 94% 内容是脚本造的示例，
+//      标题是「修了十二年车」这类第一人称亲历 —— 推给用户等于把假经验当推荐发出去）
+//   3) 剩下的里面优先带「主数字」的结构化帖（metricValue 非空），那才是本产品的差异化
+//   4) 一条都没有 → 返回原因，当天跳过（等内容归队/编辑部产出后自然就有）
+async function pickDigestPost(): Promise<{ post: DailyPick | null; reason: string }> {
+  const rows = await listDailyPosts({ limit: 20 });
+  const list = firstDailyList(rows);
+  if (list.length === 0) {
+    return { post: null, reason: '每日一帖候选为空' };
+  }
+  const seeds = await prisma.user.findMany({
+    where: { OR: [{ openId: { startsWith: 'seed' } }, { unionID: { startsWith: 'seed' } }] },
+    select: { id: true },
+  });
+  const seedIds = new Set<number>(seeds.map((u: { id: number }): number => u.id));
+  const real = list.filter((p: DailyPick): boolean => p.userId === undefined || !seedIds.has(p.userId));
+  if (real.length === 0) {
+    return { post: null, reason: `候选 ${list.length} 条全部来自种子账号，已跳过（先做内容归队）` };
+  }
+  const structured = real.filter((p: DailyPick): boolean => typeof p.metricValue === 'number' && p.metricValue !== null);
+  const post = structured.length > 0 ? structured[0] : real[0];
+  return { post, reason: structured.length > 0 ? '结构化内容优先' : '无主数字内容，取首条真实内容' };
+}
+
 export async function runDailyDigest(opts: DigestOptions = {}): Promise<DigestResult> {
   const dryRun: boolean = opts.dryRun !== false;      // 缺省干跑
   const at: Date = opts.at ?? new Date();
   const date: string = shanghaiDate(at);
   const dayStart: Date = shanghaiDayStart(at);
 
-  const rows = await listDailyPosts({ limit: 1 });
-  const pick: DailyPick | null = firstDailyPost(rows);
-  if (pick === null || pick === undefined) {
-    return { date, postId: null, postTitle: '', audience: 0, dupSkipped: 0, queued: 0, dryRun };
+  const picked = await pickDigestPost();
+  if (picked.post === null) {
+    return { date, postId: null, reason: picked.reason, postTitle: '', audience: 0, dupSkipped: 0, queued: 0, dryRun };
   }
+  const pick: DailyPick = picked.post;
 
   const audience: number[] = await resolveAudience();
   const capped: number[] = typeof opts.limit === 'number' && opts.limit > 0 ? audience.slice(0, opts.limit) : audience;
@@ -132,7 +162,7 @@ export async function runDailyDigest(opts: DigestOptions = {}): Promise<DigestRe
     queued++;
   }
 
-  return { date, postId: pick.id ?? null, postTitle: pick.title ?? '', audience: audience.length, dupSkipped, queued, dryRun };
+  return { date, postId: pick.id ?? null, reason: picked.reason, postTitle: pick.title ?? '', audience: audience.length, dupSkipped, queued, dryRun };
 }
 
 // 是否处于触发窗口（上海时间 09:30–10:00）；配合 30 分钟一轮的定时器 + 当日去重，
