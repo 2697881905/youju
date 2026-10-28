@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import { ok, fail, CODE } from '../utils/response';
-import { auth, AuthRequest } from '../middleware/auth';
+import { auth, AuthRequest, resolveOptionalUserId } from '../middleware/auth';
 import { tagCreateLimiter } from '../middleware/rateLimit';
 import * as tagService from '../services/tagService';
 
@@ -23,6 +23,24 @@ router.get('/', asyncHandler(async (req, res: Response) => {
   }
   const tags = await tagService.listTags();
   return ok(res, tags);
+}));
+
+// 圈子总览（M2）：GET /v1/tags/overview?scope=main|city|all&cityCode=xx
+// 软鉴权：匿名可浏览；带合法 token 时返回 joined/weight/unread 与个性化 digest。
+// 一次返回首屏需要的全部圈子数据，替代客户端同时打 5 个接口。
+router.get('/overview', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const scopeRaw: string = String(req.query.scope ?? 'main');
+  const scope: tagService.CircleOverviewScope =
+    scopeRaw === 'city' || scopeRaw === 'all' ? scopeRaw : 'main';
+  const cityCode: string | undefined =
+    typeof req.query.cityCode === 'string' ? req.query.cityCode : undefined;
+  const name: string | undefined =
+    typeof req.query.name === 'string' && req.query.name.length > 0 ? req.query.name : undefined;
+  if (scope === 'city' && (cityCode === undefined || cityCode.length === 0)) {
+    return fail(res, CODE.BAD_REQUEST, '缺少 cityCode');
+  }
+  const viewerId: number | undefined = await resolveOptionalUserId(req);
+  return ok(res, await tagService.listCircleOverview(viewerId, scope, cityCode, name));
 }));
 
 // 创建圈子（点亮新星）：POST /v1/tags { name, category, description }

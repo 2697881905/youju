@@ -3,6 +3,7 @@ import { Tag } from '@prisma/client';
 import { sensitiveWordService } from './sensitiveWordService';
 import { SensitiveWordError, ValidationError } from '../utils/errors';
 import { SUPPORTED_CITIES, findCity } from '../utils/cities';
+import { getExcludedAuthorIds } from './accessControl';
 
 // 星图 Live 三期：分类白名单（与客户端 CIRCLE_META 的五大类一致）
 // 「同城」为星图子模式「降落地球」专用类：只服务挂靠城市的圈子，不进星图行星分类。
@@ -263,4 +264,219 @@ export async function listTagActivity(userId: number): Promise<TagActivityItem[]
     items.push({ tagName: tag.name, unread, active: recent > 0, activeScore: tag.activeScore, latestPostId: latest?.id ?? null });
   }
   return items;
+}
+
+// ===== 圈子聚合总览（M2）=====
+// 目标：把圈子页首屏需要的「圈子列表 + 关注态 + 权重 + 未读 + 成员数 + 最近帖 + 今日圈内」
+// 收敛到一次请求，避免客户端同时打 tags/followed/weights/activity/posts 五套接口。
+// 最近帖只取全局最近 120 条可见帖做窗口：圈子量级（数十个）下足够覆盖首屏与角标；
+// 超出窗口的长尾内容由圈子详情页自己的分页补齐。
+
+export type CircleOverviewScope = 'main' | 'city' | 'all';
+
+export interface CircleOverviewPost {
+  id: number;
+  title: string;
+  upCount: number;
+}
+
+export interface CircleOverviewItem {
+  name: string;
+  emoji: string;
+  category: string;
+  cityCode: string;
+  description: string;
+  memberCount: number;
+  joined: boolean;
+  weight: number;
+  unread: number;
+  active7d: boolean;
+  lastPostAt: string | null;
+  latestPosts: CircleOverviewPost[];
+}
+
+export interface CircleDigestItem {
+  postId: number;
+  title: string;
+  authorName: string;
+  circleName: string;
+  upCount: number;
+  createdAt: string;
+}
+
+export interface CircleOverview {
+  circles: CircleOverviewItem[];
+  digest: CircleDigestItem[];
+}
+
+const OVERVIEW_POST_WINDOW: number = 120;
+const OVERVIEW_ACTIVE_WINDOW_MS: number = 7 * 86400000;
+const DIGEST_LIMIT: number = 3;
+
+// Json 列里的标签列表：只接受字符串项，脏数据直接丢弃。
+function postTagNames(tags: unknown): string[] {
+  if (!Array.isArray(tags)) {
+    return [];
+  }
+  return tags.filter((item): item is string => typeof item === 'string');
+}
+
+// 圈子总览：main=全球兴趣圈（排除同城），city=指定城市，all=全量（发现页）。
+export async function listCircleOverview(
+  viewerId?: number,
+  scope: CircleOverviewScope = 'main',
+  cityCode?: string,
+  name?: string,
+): Promise<CircleOverview> {
+  const where: any = {};
+  if (name !== undefined && name.length > 0) {
+    // 单圈详情：只取目标圈子，不再叠加 scope 过滤（同城圈也能查）。
+    where.name = name;
+  } else if (scope === 'city') {
+    where.cityCode = cityCode;
+  }
+
+  const tagsRaw: Tag[] = await prisma.tag.findMany({
+    where,
+    orderBy: [{ activeScore: 'desc' }, { followCount: 'desc' }, { useCount: 'desc' }],
+  });
+  if (tagsRaw.length === 0) {
+    return { circles: [], digest: [] };
+  }
+
+  const [followRows, prefRows, readRows, excluded] = await Promise.all([
+    viewerId
+      ? prisma.userFollowTag.findMany({ where: { userId: viewerId }, select: { tagName: true } })
+      : Promise.resolve([]),
+    viewerId
+      ? prisma.userTagPref.findMany({ where: { userId: viewerId }, select: { tagName: true, weight: true } })
+      : Promise.resolve([]),
+    viewerId
+      ? prisma.userTagRead.findMany({ where: { userId: viewerId }, select: { tagName: true, lastReadAt: true } })
+      : Promise.resolve([]),
+    getExcludedAuthorIds(viewerId),
+  ]);
+
+  const joinedNames = new Set<string>(followRows.map((row) => row.tagName));
+  const weightByName = new Map<string, number>(prefRows.map((row) => [row.tagName, row.weight]));
+  const readByName = new Map<string, Date>(readRows.map((row) => [row.tagName, row.lastReadAt]));
+
+  // 主星图排除同城圈；但用户已加入的同城圈要保留，否则「已加入 N 个」与列表数量对不上。
+  const tags: Tag[] = scope === 'main' && name === undefined
+    ? tagsRaw.filter((tag) =>
+      (tag.cityCode === null && tag.category !== CITY_CATEGORY) || joinedNames.has(tag.name))
+    : tagsRaw;
+  if (tags.length === 0) {
+    return { circles: [], digest: [] };
+  }
+
+  const recentPosts = await prisma.post.findMany({
+    where: {
+      status: 1,
+      deletedAt: null,
+      user: { status: 1, deletedAt: null },
+      ...(excluded.length > 0 ? { userId: { notIn: excluded } } : {}),
+    },
+    orderBy: { createdAt: 'desc' },
+    take: OVERVIEW_POST_WINDOW,
+    select: {
+      id: true,
+      title: true,
+      upCount: true,
+      createdAt: true,
+      tags: true,
+      user: { select: { nickname: true } },
+    },
+  });
+
+  const scopeNames = new Set<string>(tags.map((tag) => tag.name));
+  const postsByTag = new Map<string, typeof recentPosts>();
+  for (const post of recentPosts) {
+    for (const name of postTagNames(post.tags)) {
+      if (!scopeNames.has(name)) {
+        continue;
+      }
+      const bucket = postsByTag.get(name);
+      if (bucket === undefined) {
+        postsByTag.set(name, [post]);
+      } else {
+        bucket.push(post);
+      }
+    }
+  }
+
+  const now = Date.now();
+  const activeEdge = now - OVERVIEW_ACTIVE_WINDOW_MS;
+  const readWindowEdge = activeEdge; // 从未读过：只统计近 7 天新帖，避免历史全量算未读
+  const circles: CircleOverviewItem[] = tags.map((tag) => {
+    const bucket = postsByTag.get(tag.name) ?? [];
+    const joined = joinedNames.has(tag.name);
+    const since: Date = readByName.get(tag.name) ?? new Date(readWindowEdge);
+    let unread = 0;
+    if (viewerId) {
+      for (const post of bucket) {
+        if (post.createdAt.getTime() > since.getTime()) {
+          unread += 1;
+        }
+      }
+    }
+    return {
+      name: tag.name,
+      emoji: tag.emoji ?? '',
+      category: tag.category ?? '',
+      cityCode: tag.cityCode ?? '',
+      description: tag.description ?? '',
+      memberCount: tag.followCount,
+      joined,
+      weight: weightByName.get(tag.name) ?? 2,
+      unread,
+      active7d: bucket.length > 0 && bucket[0].createdAt.getTime() >= activeEdge,
+      lastPostAt: bucket.length > 0 ? bucket[0].createdAt.toISOString() : null,
+      latestPosts: bucket.slice(0, 2).map((post) => ({
+        id: post.id,
+        title: post.title,
+        upCount: post.upCount,
+      })),
+    };
+  });
+
+  // 今日圈内：优先「已加入圈子」的最近帖，不足 3 条时用其余可见圈子补齐；
+  // 每个圈子只占一条，避免同一圈子刷屏。
+  const joinedPosts = recentPosts.filter((post) =>
+    postTagNames(post.tags).some((name) => scopeNames.has(name) && joinedNames.has(name)));
+  const fallbackPosts = recentPosts.filter((post) =>
+    postTagNames(post.tags).some((name) => scopeNames.has(name)));
+  const digest: CircleDigestItem[] = [];
+  const usedCircles = new Set<string>();
+  const pushDigest = (post: typeof recentPosts[number]): void => {
+    const circleName = postTagNames(post.tags).find((name) => scopeNames.has(name));
+    if (circleName === undefined || usedCircles.has(circleName)) {
+      return;
+    }
+    usedCircles.add(circleName);
+    digest.push({
+      postId: post.id,
+      title: post.title,
+      authorName: post.user.nickname ?? '',
+      circleName,
+      upCount: post.upCount,
+      createdAt: post.createdAt.toISOString(),
+    });
+  };
+  for (const post of joinedPosts) {
+    if (digest.length >= DIGEST_LIMIT) {
+      break;
+    }
+    pushDigest(post);
+  }
+  if (digest.length < DIGEST_LIMIT) {
+    for (const post of fallbackPosts) {
+      if (digest.length >= DIGEST_LIMIT) {
+        break;
+      }
+      pushDigest(post);
+    }
+  }
+
+  return { circles, digest };
 }
