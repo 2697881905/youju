@@ -1432,7 +1432,9 @@ export struct MessagePage {
         ImmersiveSegmentBar({
           items: MESSAGE_SEGMENTS,
           selectedIndex: $dmTabIndex,
-          // 槽宽按内容自动推导（2 字 → 45vp）：原手填 88 使整栏虚宽 176，收敛到 90
+          // 长条铺满 bottomBuilder 行宽（用户拍板 2026-10-28）：两槽等分，徽标层
+          // Stack 同为 '100%' 逐槽叠加，天然对齐
+          fillWidth: true,
         })
         // 未读徽标层：分段栏把可用宽度等分，逐槽位叠一个「同字号透明标签 + 系统 Badge」，
         // 红点就落在各自标签右上角（与底部页签红点同一视觉语言，>99 自动 99+）。

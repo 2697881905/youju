@@ -160,6 +160,10 @@ export struct ImmersiveSegmentBar {
             }
           },
         })
+        // ⚠️ 官方组件不自带铺满：无显式宽度时按内容收缩——fillWidth 铺 Row、itemWidth
+        // 定宽 Row、推导宽 Row 三种模式下都必须显式 '100%'，槽位等分才成立（真机实证
+        // 2026-10-28：举报中心 fillWidth 后整栏仍短，就是缺这行）。
+        .width('100%')
       }
     }
     .width(this.barWidth())
