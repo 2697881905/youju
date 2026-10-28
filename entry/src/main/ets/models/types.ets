@@ -29,6 +29,8 @@ export interface Tag {
   activeScore?: number;
   // 同城维（星图子模式「降落地球」）：null=全球兴趣圈；有值=挂靠城市 code（如 bj）
   cityCode?: string | null;
+  // 创建者 id：null=预置/同城圈；有值=用户自建圈（仅创建者可删除空圈）
+  creatorId?: number | null;
 }
 
 // 结构化字段（按体裁不同，字段不同；自由 JSON，前端按已知键渲染）

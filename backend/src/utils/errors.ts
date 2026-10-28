@@ -31,6 +31,18 @@ export class ValidationError extends Error {
   }
 }
 
+/** 无权限执行该操作（如非创建者删除圈子）。 */
+export class ForbiddenError extends Error {
+  reason: string = 'forbidden';
+  status: number = 403;
+
+  constructor(message: string = '没有权限执行该操作') {
+    super(message);
+    this.name = 'ForbiddenError';
+    Object.setPrototypeOf(this, ForbiddenError.prototype);
+  }
+}
+
 /** 资源不存在（收藏夹/被回复的父评论等指向的对象不存在或越权时使用）。 */
 export class NotFoundError extends Error {
   reason: string = 'not_found';

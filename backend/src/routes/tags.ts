@@ -1,10 +1,11 @@
 import { Router, Response } from 'express';
 import { ok, fail, CODE } from '../utils/response';
 import { auth, AuthRequest, resolveOptionalUserId } from '../middleware/auth';
-import { tagCreateLimiter } from '../middleware/rateLimit';
+import { tagCreateLimiter, tagDeleteLimiter } from '../middleware/rateLimit';
 import * as tagService from '../services/tagService';
 
-// 标签路由：GET / 列表 | POST / 创建圈子 | POST /:name/follow 关注 | DELETE /:name/follow 取消关注
+// 标签路由：GET / 列表 | POST / 创建圈子 | DELETE /:name 删除自建圈
+// | POST /:name/follow 关注 | DELETE /:name/follow 取消关注
 import { asyncHandler } from '../middleware/asyncHandler';
 
 const router = Router();
@@ -51,6 +52,17 @@ router.post('/', auth, tagCreateLimiter, asyncHandler(async (req: AuthRequest, r
   }
   const tag = await tagService.createTag(req.userId!, name, category, description, cityCode);
   return ok(res, tag);
+}));
+
+// 删除自建圈子：DELETE /v1/tags/:name（仅创建者，且圈子里必须没有帖子）。
+// 预置圈/同城圈的 creatorId 为 NULL，一律拒绝。
+router.delete('/:name', auth, tagDeleteLimiter, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const name = req.params.name;
+  if (!name || name.length > 20) {
+    return fail(res, CODE.BAD_REQUEST, '标签名无效');
+  }
+  await tagService.deleteTag(req.userId!, name);
+  return ok(res, null);
 }));
 
 // 关注标签：POST /v1/tags/:name/follow

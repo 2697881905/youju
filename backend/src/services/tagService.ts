@@ -1,7 +1,7 @@
 import { prisma } from '../prisma';
 import { Tag } from '@prisma/client';
 import { sensitiveWordService } from './sensitiveWordService';
-import { SensitiveWordError, ValidationError } from '../utils/errors';
+import { ForbiddenError, NotFoundError, SensitiveWordError, ValidationError } from '../utils/errors';
 import { SUPPORTED_CITIES, findCity } from '../utils/cities';
 import { getExcludedAuthorIds } from './accessControl';
 
@@ -94,6 +94,10 @@ export async function createTag(
     }
     city = cityCode;
   }
+  // 反向校验：「同城」分类必须带城市，否则会建出既不进主星图、也不进任何城市页的孤儿圈。
+  if (category === CITY_CATEGORY && city === null) {
+    throw new ValidationError('同城圈子需要指定城市');
+  }
   const desc = description.trim();
   if (desc.length === 0 || desc.length > 24) {
     throw new ValidationError('一句话简介需 1~24 字');
@@ -105,13 +109,60 @@ export async function createTag(
   if (existing) {
     throw new ValidationError('已有同名圈子');
   }
-  const created = await prisma.tag.create({
-    data: { name: trimmed, category, description: desc, emoji: '🌟', cityCode: city },
+  // 建圈 + 创建者自动加入必须在同一个事务里：旧实现先建 Tag 再调 followTag（独立事务），
+  // 关注一步失败会留下「圈已建、创建者未加入」的半成品，重试又被重名挡住。
+  try {
+    const created = await prisma.$transaction(async (tx) => {
+      const tag = await tx.tag.create({
+        data: {
+          name: trimmed,
+          category,
+          description: desc,
+          emoji: '🌟',
+          cityCode: city,
+          creatorId: userId,
+        },
+      });
+      await tx.userFollowTag.create({ data: { userId, tagName: trimmed } });
+      await tx.tag.update({
+        where: { name: trimmed },
+        data: { followCount: { increment: 1 } },
+      });
+      return tag;
+    });
+    return await prisma.tag.findUnique({ where: { name: trimmed } }) ?? created;
+  } catch (e) {
+    // 并发重名：findUnique 与 create 之间的竞态由唯一索引兜底，映射成与前置校验一致的文案。
+    if ((e as { code?: string })?.code === 'P2002') {
+      throw new ValidationError('已有同名圈子');
+    }
+    throw e;
+  }
+}
+
+// 删除自建圈子（仅创建者 + 仅空圈）：预置/同城圈 creatorId 为 NULL，永远不可删。
+// 圈子里已有帖子时拒绝，避免帖子留在 tags 里指向一个不存在的圈子。
+export async function deleteTag(userId: number, name: string): Promise<void> {
+  const tag = await prisma.tag.findUnique({ where: { name } });
+  if (!tag) {
+    throw new NotFoundError('圈子不存在');
+  }
+  if (tag.creatorId === null || tag.creatorId !== userId) {
+    throw new ForbiddenError('仅创建者可以删除该圈子');
+  }
+  const postCount = await prisma.post.count({
+    where: { deletedAt: null, tags: { array_contains: name } },
   });
-  // 创建者自动加入（复用 followTag 的幂等 +1 逻辑）
-  await followTag(userId, trimmed);
-  const final = await prisma.tag.findUnique({ where: { name: trimmed } });
-  return final ?? created;
+  if (postCount > 0) {
+    throw new ValidationError('圈子里已有帖子，不能删除');
+  }
+  // 关联行一起清掉：关注 / 引力档位 / 已读游标都不允许指向已删除的圈子。
+  await prisma.$transaction([
+    prisma.userFollowTag.deleteMany({ where: { tagName: name } }),
+    prisma.userTagPref.deleteMany({ where: { tagName: name } }),
+    prisma.userTagRead.deleteMany({ where: { tagName: name } }),
+    prisma.tag.delete({ where: { name } }),
+  ]);
 }
 
 // 星等刷新：近 14 天发帖按时间衰减累加。activeScore>阈值即亮星。
@@ -288,6 +339,8 @@ export interface CircleOverviewItem {
   description: string;
   memberCount: number;
   joined: boolean;
+  // 创建者 id（NULL=预置/同城圈）：客户端据此只给创建者显示「删除圈子」。
+  creatorId: number | null;
   weight: number;
   unread: number;
   active7d: boolean;
@@ -428,6 +481,7 @@ export async function listCircleOverview(
       description: tag.description ?? '',
       memberCount: tag.followCount,
       joined,
+      creatorId: tag.creatorId,
       weight: weightByName.get(tag.name) ?? 2,
       unread,
       active7d: bucket.length > 0 && bucket[0].createdAt.getTime() >= activeEdge,

@@ -699,6 +699,8 @@ export interface CircleOverviewItem {
   description: string;
   memberCount: number;
   joined: boolean;
+  // 创建者 id（null=预置/同城圈）：仅创建者可见「删除圈子」入口
+  creatorId: number | null;
   weight: number;
   unread: number;
   active7d: boolean;
@@ -767,6 +769,12 @@ export interface CreateTagBody {
 export function createTag(name: string, category: string, description: string): Promise<Tag> {
   const body: CreateTagBody = { name: name, category: category, description: description };
   return api.post<Tag>('/v1/tags', body);
+}
+
+// 删除自建圈子：仅创建者、且圈子里还没有帖子；失败（403/400/429）抛错由调用方 toast。
+// DELETE /v1/tags/:name
+export function deleteTag(name: string): Promise<null> {
+  return api.del<null>('/v1/tags/' + encodeURIComponent(name));
 }
 
 // 关注标签（加入圈子）

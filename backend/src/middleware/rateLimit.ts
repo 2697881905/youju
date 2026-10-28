@@ -157,4 +157,15 @@ export const tagCreateLimiter = rateLimit({
   handler,
 });
 
+// 删除自建圈子：同样是低频重操作，10 分钟最多 5 次（误删重试留余量）。
+export const tagDeleteLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userKey,
+  skip: skipTest,
+  handler,
+});
+
 

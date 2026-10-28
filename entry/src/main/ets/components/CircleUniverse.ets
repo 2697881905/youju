@@ -57,6 +57,9 @@ export struct CircleUniverse {
   onTakeoff: () => void = (): void => {};
   onOpenFull: () => void = (): void => {};
   onJoinChanged: (joined: boolean) => void = (_joined: boolean): void => {};
+  // 删除入口：仅创建者本人可见（父页面按 creatorId + 登录态判定，删除接口仍由服务端鉴权）
+  @Prop canDelete: boolean = false;
+  onDelete: () => void = (): void => {};
 
   @State stars: UniverseStar[] = [];
   @State loading: boolean = false;
@@ -511,6 +514,14 @@ export struct CircleUniverse {
         Text('点星读帖 · 点空白收起')
           .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
           .fontColor(ColorTokens.secondary)
+        if (this.canDelete) {
+          // 自建圈的兜底出口：创建后立即降落在这里，误建可以当场删掉（服务端限创建者 + 空圈）。
+          Text('删除这个圈子')
+            .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
+            .fontColor(ColorTokens.danger)
+            .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.xs })
+            .onClick((): void => { this.onDelete(); })
+        }
       }
       .width('100%')
       .alignItems(HorizontalAlign.Center)

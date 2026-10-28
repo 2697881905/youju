@@ -8,6 +8,7 @@ import {
   CircleOverviewItem,
   CircleOverviewPost,
   createTag,
+  deleteTag,
   getCircleOverview,
   getUserProfile,
   listFollowedTags,
@@ -118,6 +119,8 @@ class CircleTag {
   joined: boolean = false;
   // 同城圈：可出现在「已加入」列表与详情，但不进主星图/主目录。
   isCity: boolean = false;
+  // 创建者 id（0=预置/同城圈）：仅创建者可删除自己的空圈
+  creatorId: number = 0;
   // 引力档位（1=强/2=常/3=轻，缺省2）与未读新帖数（角标/星子）
   weight: number = 2;
   unread: number = 0;
@@ -140,6 +143,7 @@ class CircleTag {
     this.joined = overview?.joined ?? false;
     this.isCity = (overview?.cityCode ?? tag?.cityCode ?? '') !== ''
       || (overview?.category ?? tag?.category ?? '') === '同城';
+    this.creatorId = overview?.creatorId ?? tag?.creatorId ?? 0;
     this.weight = overview?.weight ?? 2;
     this.unread = overview?.unread ?? 0;
     this.hasActivity = overview?.active7d ?? false;
@@ -257,6 +261,10 @@ export struct CircleTab {
   private autoOrbitEnabled: boolean[] = [true, true, true];
   private lastPlanetTapAt: number = 0;
   private activeRing: number = 0;
+  // 同环布局计划：圈子名 → 实际所在环（-1 = 拥挤时不上星，仍完整留在发现/已加入入口）。
+  // 容量按环半径与卡片盒宽计算，保证同一星环上任意两颗星的标签盒永不重叠。
+  private ringPlanKey: string = '';
+  private ringPlanCache: Map<string, number> = new Map<string, number>();
   private joinedDialogController: CustomDialogController = new CustomDialogController({
     builder: JoinedCirclesDialog({
       getCircles: (): CircleTag[] => this.joinedCircles(),
@@ -522,7 +530,7 @@ export struct CircleTab {
     this.stopAutoOrbit();
     this.autoOrbitEnabled = [true, true, true];
     // 选中项只能从「会真正上星」的集合里挑，不能落到只在目录里的长尾圈。
-    const visible: CircleTag[] = this.starCircles();
+    const visible: CircleTag[] = this.visibleStarCircles();
     if (!hadData) {
       // 首次进入才把环归零并把默认圈转到 12 点；后续刷新保持用户的空间记忆。
       this.innerOrbitAngle = 0;
@@ -532,7 +540,7 @@ export struct CircleTab {
         visible.find((circle: CircleTag) => circle.joined) ?? visible[0];
       this.selectedName = initiallySelected?.name ?? '';
       if (initiallySelected !== undefined) {
-        this.activeRing = this.displayRing(initiallySelected);
+        this.activeRing = this.effectiveRing(initiallySelected);
         this.setRingAngle(this.activeRing, this.angleToTop(initiallySelected.name));
       }
     } else {
@@ -541,7 +549,7 @@ export struct CircleTab {
         ?? visible.find((circle: CircleTag) => circle.joined) ?? visible[0];
       this.selectedName = keep?.name ?? '';
       if (keep !== undefined) {
-        this.activeRing = this.displayRing(keep);
+        this.activeRing = this.effectiveRing(keep);
       }
     }
     this.startAutoOrbit();
@@ -770,25 +778,120 @@ export struct CircleTab {
     return w === 1 ? 0 : (w === 3 ? 2 : 1);
   }
 
+  // 单个星环的容量：相邻两星的圆心弦距必须 ≥ 卡片盒宽 + 呼吸，
+  // 否则两枚 72vp 宽的标签会在旋转中叠在一起。圆心角 θ = 2·asin(box / 2R)，容量 = ⌊360/θ⌋。
+  private ringCapacity(ring: number): number {
+    const radius: number = this.radiusForRing(ring);
+    if (radius <= 0) {
+      return 1;
+    }
+    const boxChord: number = PLANET_BOX_WIDTH + SpaceTokens.xs;
+    const ratio: number = Math.min(1, boxChord / (2 * radius));
+    const step: number = 2 * Math.asin(ratio) * 180 / Math.PI;
+    return Math.max(1, Math.floor(360 / step));
+  }
+
+  // 拥挤时的让位优先级：已加入 > 有未读 > 仅活跃；同级按名称稳定排序，
+  // 避免刷新后环位在环间乱跳（同一份数据永远得到同一张布局）。
+  private starRank(circle: CircleTag): number {
+    if (circle.joined) {
+      return 0;
+    }
+    return circle.unread > 0 ? 1 : 2;
+  }
+
+  // 环位计划：先按引力档位占位，超出容量的星先向外环顺延、再回内环补位；
+  // 三条环都满时才不上星（-1），这些圈仍完整留在「发现圈子 / 已加入」入口。
+  // 结果按数据内容缓存，逐颗行星取 baseAngle 时不会重复 O(n²) 计算。
+  private ringPlan(): Map<string, number> {
+    const items: CircleTag[] = this.starCircles().slice();
+    let key: string = String(this.galaxySize);
+    for (const circle of items) {
+      key += '|' + circle.name + ',' + this.displayRing(circle) + ',' + this.starRank(circle);
+    }
+    if (key === this.ringPlanKey) {
+      return this.ringPlanCache;
+    }
+    items.sort((first: CircleTag, second: CircleTag): number => {
+      const rank: number = this.starRank(first) - this.starRank(second);
+      if (rank !== 0) {
+        return rank;
+      }
+      if (first.name < second.name) {
+        return -1;
+      }
+      return first.name > second.name ? 1 : 0;
+    });
+    const caps: number[] = [this.ringCapacity(0), this.ringCapacity(1), this.ringCapacity(2)];
+    const used: number[] = [0, 0, 0];
+    const plan: Map<string, number> = new Map<string, number>();
+    const overflow: CircleTag[] = [];
+    for (const circle of items) {
+      const preferred: number = this.displayRing(circle);
+      if (used[preferred] < caps[preferred]) {
+        plan.set(circle.name, preferred);
+        used[preferred] = used[preferred] + 1;
+      } else {
+        overflow.push(circle);
+      }
+    }
+    for (const circle of overflow) {
+      const preferred: number = this.displayRing(circle);
+      let placed: number = -1;
+      for (let ring: number = preferred + 1; ring < 3; ring++) {
+        if (used[ring] < caps[ring]) {
+          placed = ring;
+          break;
+        }
+      }
+      if (placed < 0) {
+        for (let ring: number = 0; ring < preferred; ring++) {
+          if (used[ring] < caps[ring]) {
+            placed = ring;
+            break;
+          }
+        }
+      }
+      if (placed >= 0) {
+        plan.set(circle.name, placed);
+        used[placed] = used[placed] + 1;
+      } else {
+        plan.set(circle.name, -1);
+      }
+    }
+    this.ringPlanKey = key;
+    this.ringPlanCache = plan;
+    return plan;
+  }
+
+  // 行星实际所在的环（拥挤会让位）；-1 表示本轮不上星。
+  private effectiveRing(circle: CircleTag): number {
+    const planned: number | undefined = this.ringPlan().get(circle.name);
+    return planned === undefined ? this.displayRing(circle) : planned;
+  }
+
+  // 真正会出现在星图上的圈子（排除环满时让位的长尾）。
+  private visibleStarCircles(): CircleTag[] {
+    return this.starCircles().filter((circle: CircleTag): boolean => this.effectiveRing(circle) >= 0);
+  }
+
   private ringItems(ring: number): CircleTag[] {
     // 星图 Live 四期：角度均分只按「上星」子集计算——若按全量 circles 排 index，
     // 未上星的长尾圈会占位，导致可见行星角度重叠。
-    return this.starCircles().filter((circle: CircleTag) => this.displayRing(circle) === ring);
+    return this.visibleStarCircles().filter((circle: CircleTag) => this.effectiveRing(circle) === ring);
   }
 
-  // 每颗星的基础角度均分，并给外环一个固定的轻微偏移，避免机械正对。
+  // 每颗星的基础角度在环内严格均分。
+  // 旧实现给每颗星加了 ±8° 的逐个偏移（避免机械正对），但相邻两颗的偏移方向相反时
+  // 会把弦距压掉一大截，正好抵消容量计算——所以偏移改成「整环一个常量」：
+  // 环与环之间不再对齐，环内间距恒定，容量保证才真正成立。
   private baseAngle(circle: CircleTag): number {
-    const dr: number = this.displayRing(circle);
+    const dr: number = this.effectiveRing(circle);
     const items: CircleTag[] = this.ringItems(dr);
     const index: number = Math.max(0, items.findIndex((item: CircleTag) => item.name === circle.name));
     const count: number = Math.max(1, items.length);
-    const jitterMap: number[][] = [
-      [0, -8, 5, -4],
-      [3, -5, 7, -2],
-      [-1, 6, -4, 2],
-    ];
-    const jitter: number = jitterMap[dr]?.[index] ?? 0;
-    return TOP_ANGLE + index * 360 / count + jitter;
+    const ringOffset: number[] = [0, 3, -1];
+    return TOP_ANGLE + index * 360 / count + (ringOffset[dr] ?? 0);
   }
 
   private normalizedAngle(angle: number): number {
@@ -854,8 +957,8 @@ export struct CircleTab {
 
   private selectPlanet(circle: CircleTag): void {
     // 点击当前环时，先恢复之前暂停的环，确保始终只有当前环停住。
-    // 注意用 displayRing（引力档位决定的实际所在环），不是 meta.ring。
-    const dr: number = this.displayRing(circle);
+    // 注意用 effectiveRing（引力档位 + 拥挤让位后的实际所在环），不是 meta.ring。
+    const dr: number = this.effectiveRing(circle);
     this.clearFocusReturnTimer();
     this.pauseOrbitExcept(dr);
     this.stopInertia();
@@ -1057,16 +1160,16 @@ export struct CircleTab {
   }
 
   private hasStarCircles(): boolean {
-    return this.starCircles().length > 0;
+    return this.visibleStarCircles().length > 0;
   }
 
   // Canvas 用基础角度、所属圆环的实时角度和半径共同计算 Logo 位置。
   private orbitItems(): OrbitCircleItem[] {
-    return this.starCircles().map((circle: CircleTag): OrbitCircleItem => ({
+    return this.visibleStarCircles().map((circle: CircleTag): OrbitCircleItem => ({
       name: circle.name,
       category: circle.category,
       size: circle.size,
-      ring: this.displayRing(circle),
+      ring: this.effectiveRing(circle),
       baseAngle: this.baseAngle(circle),
       joined: circle.joined,
       // 活跃度：overview.active7d 是唯一口径
@@ -1119,7 +1222,7 @@ export struct CircleTab {
     }
     this.stopAutoOrbit();
     this.stopInertia();
-    this.pauseOrbitExcept(this.displayRing(circle));
+    this.pauseOrbitExcept(this.effectiveRing(circle));
   }
 
   // 触点距圆心 → 最近档位（1/2/3）。以三条环半径为基准吸附。
@@ -1236,7 +1339,7 @@ export struct CircleTab {
   // 空态、加载、降落层（浅色内容）时回退常规配色，避免白字白底。
   // 浅色模式走「纸上星图」（白底墨线），悬浮元素本就用常规深色文字，无需反白。
   private syncCosmicMode(): void {
-    const hasStars: boolean = this.starCircles().length > 0;
+    const hasStars: boolean = this.hasStarCircles();
     this.cosmicMode = hasStars && !this.landingVisible && this.isDarkMode;
   }
 
@@ -1371,6 +1474,8 @@ export struct CircleTab {
       this.landingName = tagName;
       // 点亮编舞：新行星飞到 12 点，用户「看见自己的新星挂上轨道」
       this.selectPlanet(circle);
+      // 飞到 12 点后再降落进新圈：空态直接给出「去发布」，创建到首帖不必再点一次星。
+      setTimeout((): void => { this.landingVisible = true; }, MotionTokens.emphasis) as number;
       safeShowToast(this.getUIContext(), { message: '「' + tagName + '」已创建，去发第一帖吧' });
       const version: number = AppStorage.get<number>('circleMembershipVersion') ?? 0;
       AppStorage.setOrCreate('circleMembershipVersion', version + 1);
@@ -1378,6 +1483,54 @@ export struct CircleTab {
     } catch (e) {
       safeShowToast(this.getUIContext(), { message: '创建失败：' + (e as Error).message });
       return false;
+    }
+  }
+
+  // 降落页「删除这个圈子」：只有创建者本人可见（creatorId 与当前登录用户一致）。
+  private canDeleteLanding(): boolean {
+    const circle: CircleTag | undefined = this.landingCircle();
+    const uid: number = getUserId();
+    return circle !== undefined && uid > 0 && circle.creatorId === uid;
+  }
+
+  private confirmDeleteLanding(): void {
+    const circle: CircleTag | undefined = this.landingCircle();
+    if (circle === undefined) {
+      return;
+    }
+    const name: string = circle.name;
+    this.getUIContext().showAlertDialog({
+      title: '删除「' + name + '」？',
+      message: '删除后无法恢复，圈子里的关注记录也会清空；圈子里已有帖子时不能删除。',
+      primaryButton: { value: '取消', action: (): void => {} },
+      secondaryButton: {
+        value: '删除',
+        fontColor: $r('app.color.semantic_red'),
+        action: async (): Promise<void> => { await this.deleteLandingCircle(name); },
+      },
+    });
+  }
+
+  private async deleteLandingCircle(name: string): Promise<void> {
+    try {
+      await deleteTag(name);
+      this.circles = this.circles.filter((item: CircleTag) => item.name !== name);
+      this.joinedNames = this.circles
+        .filter((item: CircleTag) => item.joined)
+        .map((item: CircleTag) => item.name);
+      if (this.selectedName === name) {
+        const remaining: CircleTag[] = this.visibleStarCircles();
+        this.selectedName = remaining.length > 0 ? remaining[0].name : '';
+      }
+      if (this.centeredName === name) {
+        this.centeredName = '';
+      }
+      this.takeoffLanding();
+      safeShowToast(this.getUIContext(), { message: '圈子已删除' });
+      const version: number = AppStorage.get<number>('circleMembershipVersion') ?? 0;
+      AppStorage.setOrCreate('circleMembershipVersion', version + 1);
+    } catch (e) {
+      safeShowToast(this.getUIContext(), { message: '删除失败：' + (e as Error).message });
     }
   }
 
@@ -1722,9 +1875,11 @@ export struct CircleTab {
           accentColor: this.landingAccent(),
           joined: this.landingCircle()?.joined ?? false,
           visible: this.landingVisible,
+          canDelete: this.canDeleteLanding(),
           onTakeoff: (): void => { this.takeoffLanding(); },
           onOpenFull: (): void => { this.jumpCircle(this.landingName); },
           onJoinChanged: (joined: boolean): void => { this.onLandingJoinChanged(joined); },
+          onDelete: (): void => { this.confirmDeleteLanding(); },
         })
       }
     }

@@ -983,12 +983,19 @@ struct OrbitPlanet {
       // 仅在有未读时出现；hitTest 优先于行星 onClick（子节点先命中）。
       if (this.unread > 0) {
         Stack({ alignContent: Alignment.Center }) {
-          Circle()
+          // 圆形靠「容器 + 半宽圆角」保证：Circle 形状叠加 shadow 时，
+          // 阴影按形状的外接矩形投影，真机上会在红点外透出一圈方框（2026-10-28 反馈）。
+          // 改用带 borderRadius 的容器，阴影跟随圆角，圆点外不再有矩形边。
+          Column()
             .width(20)
             .height(20)
-            .fill(this.pal().badge)
-            .stroke(this.darkMode ? '#66FFFFFF' : '#33FFFFFF')
-            .strokeWidth(0.6)
+            .backgroundColor(this.pal().badge)
+            .borderRadius(10)
+            .border({
+              width: 0.6,
+              color: this.darkMode ? '#66FFFFFF' : '#33FFFFFF',
+              style: BorderStyle.Solid,
+            })
             .shadow({ radius: 8, color: this.pal().seedBlue + (this.darkMode ? '80' : '40'), offsetY: 0 })
           Text(this.unread > 99 ? '99+' : String(this.unread))
             .fontSize(10)

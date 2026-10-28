@@ -169,6 +169,8 @@ model Tag {
   followCount Int      @default(0) // 被关注（加入圈子）次数
   activeScore Float    @default(0) // 星等（近14天发帖×时间衰减，定时刷新；0=暗星）
   cityCode    String?  @db.VarChar(20) // 同城维（星图子模式「降落地球」）：NULL=全球兴趣圈；有值=挂靠城市（如 bj）
+  // 创建者（点亮新星的用户）：NULL=预置/同城圈，不可由用户删除；有值=用户自建圈，仅创建者可删除空圈
+  creatorId   Int?
   createdAt   DateTime @default(now())
 }
 
