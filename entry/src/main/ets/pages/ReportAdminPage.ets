@@ -973,27 +973,29 @@ export struct ReportAdminPage {
 
   // ───────────────────────── 标题栏（Navigation） ─────────────────────────
 
-  // 标题栏首帧估算：与 Builder 行结构同源（状态栏 + 导航行 + 两个分段栏行），实测回写后不再使用
+  // 标题栏首帧估算：与 Builder 行结构同源（状态栏 + 导航行），实测回写后不再使用
+  // （双分段栏已移出标题栏，见 pageTitleBar 注释）
   private titleBarEstimate(): number {
     const navRow: number = SpaceTokens.sm + LayoutTokens.minTouchTarget + SpaceTokens.sm;
-    const segRows: number = LayoutTokens.segmentedHeight * 2 + SpaceTokens.sm + SpaceTokens.sm;
-    return this.statusBarHeight + navRow + segRows;
+    return this.statusBarHeight + navRow;
   }
 
   private titleBarHeight(): number {
     return this.titleBarContentHeight > 0 ? this.titleBarContentHeight : this.titleBarEstimate();
   }
 
-  // 标题栏：原页头（导航行 + 两个分段栏）整体驻留 Navigation 标题栏 ——
-  // 沉浸光感（uiMaterial 通用属性 systemMaterial）只在 Navigation/NavDestination 标题栏生效，
-  // 放内容区可以设置但不渲染，所以控件要先进标题栏才有资格挂材质。
+  // 标题栏：仅导航行（标题 + 操作按钮）驻留 Navigation 标题栏，沉浸光感由此出图。
+  // ⚠️ 双分段栏已移出标题栏（见 build 内列表上方固定区）：HdsNavigation 会把标题栏
+  // content 的布局高度钳制在 ~76vp，双分段栏（实际占 ~150vp）溢出悬浮、onAreaChange
+  // 回写的又是钳制值，列表让位不足直接压在卡片上（真机截图/UI 树实证 2026-10-28）。
+  // 分段栏的材质不受影响：overrideTrackMaterial 走官方 SegmentButton 组件表面材质
+  // 通道（backgroundSystemMaterial），内容区正常出图（消息页/我的页同款已验证）。
   // 全屏沉浸布局下标题栏不代为避让状态栏：由本 Builder 手动下移（避让只此一处，
-  // 内容区不再补 statusBarHeight），实测高度供 .title({ height }) 使用。
-  // 标题栏（穿底三件套·序位③）：官方返回键 + 多行 stackBuilder（标题+操作行、双分段行）
+  // 内容区不再补 statusBarHeight），实测高度供列表让位使用。
   @Builder
   pageTitleBar(): void {
     Column() {
-      // ① 导航行：标题 + 操作按钮（刷新/删除，或选择态的取消/全选/删除选中）；返回键交官方 backIcon
+      // 导航行：标题 + 操作按钮（刷新/删除，或选择态的取消/全选/删除选中）；返回键交官方 backIcon
       Row() {
         Blank()
         Text('举报中心')
@@ -1012,9 +1014,6 @@ export struct ReportAdminPage {
       .width('100%')
       .alignItems(VerticalAlign.Center)
       .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
-
-      // ② 两个分段栏（板块 + 状态），同样驻留标题栏并挂系统材质
-      this.segBars()
     }
     .width('100%')
     // ⚠️ 左内缩 64vp 让开官方返回键（stackBuilder 全宽可点行会吃掉返回键——防漂移 31）
@@ -1092,17 +1091,17 @@ export struct ReportAdminPage {
   }
 
   // 两个分段栏：上「板块」（被举报对象类型：帖子/评论/用户），下「状态」（该板块内的状态）。
-  // 回迁 1.0.1 自绘 ImmersiveSegmentBar（滑块 + 跟手扫选 + 按压回弹）；
-  // 驻留标题栏由系统材质接管表面（沉浸光感）。
+  // 固定驻内容区顶部（2026-10-28 移出标题栏，原因见 pageTitleBar 注释）；
+  // 左右 padding 与下方列表一致，视觉同宽对齐。
   @Builder
   segBars(): void {
     Column({ space: SpaceTokens.sm }) {
       ImmersiveSegmentBar({
         items: TYPE_ITEMS,
         selectedIndex: $typeIndex,
-        // 表单式两行分段栏：铺满标题栏宽（全 App 唯一 fillWidth 使用点）
+        // 表单式两行分段栏：铺满内容区宽
         fillWidth: true,
-        // 浮起档：bottomBuilder 行自带材质投影净空
+        // 浮起档：官方组件表面材质（内容区正常出图）
         overrideTrackMaterial: true,
         onSelect: (index: number): void => { this.onTypeSelect(index); },
       })
@@ -1115,7 +1114,12 @@ export struct ReportAdminPage {
       })
     }
     .width('100%')
-    .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, bottom: SpaceTokens.sm })
+    .padding({
+      left: SpaceTokens.pageCompact,
+      right: SpaceTokens.pageCompact,
+      top: SpaceTokens.xs,
+      bottom: SpaceTokens.sm,
+    })
   }
 
   // 类型标签：品牌色 10% 底 + primary 墨字（实测 brand 字压 tint 浅 4.50 / 深 3.58，11px 不达 AA；
@@ -1636,6 +1640,10 @@ export struct ReportAdminPage {
     // 穿底三件套（序位③）：HdsNavigation 顶栏驻留（导航行 + 两个分段栏），内容区只剩列表三态。
     HdsNavigation() {
       Column() {
+        // 双分段栏（板块 + 状态）：固定在列表上方（不随滚动）。原驻留标题栏的穿底
+        // 结构被 HdsNavigation 的 content 高度钳制破坏（见 pageTitleBar 注释），移出后
+        // 宽度与列表 padding 对齐、材质走官方组件表面通道照常出图。
+        this.segBars()
         // 三态与列表统一包在 Refresh + Scroll 里：空态 / 错误态也能下拉刷新。
         // 全屏沉浸壳内列表一律用 Scroll（List/WaterFlow/Grid 的滚动终点会被底部非安全区钳制）。
         Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
