@@ -251,6 +251,17 @@
 ./scripts/mau-report.sh 2026-11          # 我们侧下界：行为月活、冷启代理、新注册、内容水位
 ./scripts/src-report.sh 24h              # 各渠道 ?src= 落地页点击量（已用自投样本反证可抓取）
 ```
+**官方口径自动取数（已备好脚本，差一个凭据）**：AGC **Reports API** 的 measures 里有
+`activeDevice`（活跃设备数）、`newDevice`、`sumDevice`、`installedDeviceCnt`（存量安装设备数）、`lossDevice`
+与逐日留存 `newUserOneDayRetain*`——也就是说**月活不必自建埋点就能按华为口径读**。
+端点（官方文档原文）：`POST https://connect-api.cloud.huawei.com/api/oauth2/v1/token` 取 token，
+再 `POST https://connect-api.cloud.huawei.com/api/report/harmony-report/v1/harmony/analyticsReport/{appId}`。
+脚本：`AGC_CLIENT_ID=xxx AGC_CLIENT_SECRET=yyy node scripts/agc-active-devices.mjs [起] [止]`。
+**唯一缺口**：仓库里的 `backend/agc-service-account.json` 是**推送用**的服务账号（`token_uri` 指向 `oauth-login…/oauth2/v3/token`），
+实测被 Connect API 端点拒绝（`missing required parameter: client_id` / `jwt verify error`）。
+需要你在 AGC「项目设置 → API 管理」创建一个 **API 客户端**（角色含分析/报表读取），把 ID 与密钥放进环境变量即可出数。
+> 口径提醒：AGC 报表与「激励计划2026」后台的有效月活**统计方式/周期/维度不同**（官方 FAQ 明示），达标判定仍以激励计划后台为准；AGC 读数用于日常趋势与渠道复盘。
+
 每周把华为激励后台的「有效月活」真值抄进本文件 §10 台账，两个读数差值就是「游客启动/未登录设备」的规模——它比登录数更接近计分口径。
 
 ## 10. 达标台账（每周一填）
