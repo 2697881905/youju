@@ -124,7 +124,18 @@ describe('选帖：宁可不推也不推伪造亲历', () => {
     ]);
     const r = await runDailyDigest({ dryRun: false, at: SHANGHAI_NOON });
     expect(r.postId).toBeNull();
-    expect(r.reason).toContain('种子账号');
+    expect(r.reason).toContain('种子或示例内容');
+    expect(mockNotifySystem).not.toHaveBeenCalled();
+  });
+
+  it('归队后作者变成官方账号，但正文带「示例内容」声明照样被排除', async () => {
+    // 这正是 seed-rehome.sql 跑完后的状态：userId 不再是 seed 前缀，只剩正文标记可判
+    mockListDailyPosts.mockResolvedValue([
+      { id: 800, title: '装了二十年空调', content: '> 示例内容 · 编辑部整理。非当事人亲历\n正文', userId: 40, metricValue: 9 },
+    ]);
+    const r = await runDailyDigest({ dryRun: false, at: SHANGHAI_NOON });
+    expect(r.postId).toBeNull();
+    expect(r.reason).toContain('示例内容');
     expect(mockNotifySystem).not.toHaveBeenCalled();
   });
 

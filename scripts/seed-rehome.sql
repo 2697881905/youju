@@ -52,14 +52,20 @@ WHERE p.deletedAt IS NULL
   AND (p.userId = 40 OR p.userId IN (SELECT id FROM User WHERE LEFT(COALESCE(openId,unionID),4)='seed'));
 
 -- 2.2 给示例帖正文加声明（幂等：已有声明的跳过）
+-- ⚠️ 两个契约，改任何一条都要同步另一条：
+--   ① 幂等判断必须匹配**实际写入的形态**（带 markdown 引用符号 '> '）。
+--      原先写的是 NOT LIKE '示例内容 · 编辑部整理%'，永远匹配不上已加过声明的行，
+--      重跑本脚本会把声明**重复追加**一遍（自查时发现并修正）。
+--   ② 这个标记串同时被 backend/src/services/dailyDigestService.ts 的 EXEMPLAR_MARKER 依赖，
+--      每日一帖推送靠它把示例内容排除在外；改字面量会让推送又开始推伪造亲历。
 UPDATE Post SET content = CONCAT(
   '> 示例内容 · 编辑部整理。非当事人亲历，观点与数据均来自公开资料，可在评论区追问出处。\n\n',
   COALESCE(content, ''))
 WHERE deletedAt IS NULL
   AND userId IN (SELECT id FROM User WHERE LEFT(COALESCE(openId,unionID),4) = 'seed')
-  AND content NOT LIKE '示例内容 · 编辑部整理%';
+  AND (content IS NULL OR content NOT LIKE '%示例内容 · 编辑部整理%');
 
--- 2.3 热榜降权 0.5（用 2.2 打的声明做标记，避免误伤以后编辑部的真内容）
+-- 2.3 热榜降权 0.5（用 2.2 的标记判定，避免误伤以后编辑部的真内容）
 --     ⚠️ 注意：这一步不足以让真实帖上位——见第 3 节「坏消息」。
 UPDATE Post SET hotScore = hotScore * 0.5
 WHERE deletedAt IS NULL AND content LIKE '> 示例内容 · 编辑部整理%';

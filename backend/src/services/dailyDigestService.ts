@@ -33,6 +33,10 @@ interface DailyPick {
 //       dryRun 缺省为 true，只算不发，便于先看受众规模。
 
 export const DAILY_DIGEST_PREFIX: string = '每日一帖：';
+
+// 示例内容标记：与 scripts/seed-rehome.sql 里写进正文头部的声明**必须逐字一致**，
+// 否则归队后（331 篇改挂到非种子的官方账号 id=40）这一层过滤会整体失效、又把伪造亲历推出去。
+export const EXEMPLAR_MARKER: string = '示例内容 · 编辑部整理';
 export const DAILY_DIGEST_HOUR: number = 9;      // 上海时间 09:30 触发
 export const DAILY_DIGEST_MINUTE: number = 30;
 
@@ -117,9 +121,16 @@ async function pickDigestPost(): Promise<{ post: DailyPick | null; reason: strin
     select: { id: true },
   });
   const seedIds = new Set<number>(seeds.map((u: { id: number }): number => u.id));
-  const real = list.filter((p: DailyPick): boolean => p.userId === undefined || !seedIds.has(p.userId));
+  // 两道排除：① 作者仍是 seed 账号；② 正文带「示例内容」声明（归队后作者会变成官方账号，
+  // 只靠①会漏，所以标记必须独立判一次）
+  // 归队 SQL 写进正文的是「> 示例内容 · 编辑部整理…」（带 markdown 引用符号），
+  // 所以不能用 startsWith 判裸标记——那样在真实数据上会静默失效（单测抓到的就是这个）。
+  // 取正文前 40 字判包含：足够覆盖引用符号与前导空白，又不会误伤正文中间偶然提到这句话的帖子。
+  const isExemplar = (p: DailyPick): boolean => (p.content ?? '').slice(0, 40).includes(EXEMPLAR_MARKER);
+  const real = list.filter((p: DailyPick): boolean =>
+    (p.userId === undefined || !seedIds.has(p.userId)) && !isExemplar(p));
   if (real.length === 0) {
-    return { post: null, reason: `候选 ${list.length} 条全部来自种子账号，已跳过（先做内容归队）` };
+    return { post: null, reason: `候选 ${list.length} 条全部是种子或示例内容，已跳过（先补编辑部真实产出）` };
   }
   const structured = real.filter((p: DailyPick): boolean => typeof p.metricValue === 'number' && p.metricValue !== null);
   const post = structured.length > 0 ? structured[0] : real[0];
