@@ -1631,7 +1631,7 @@ struct Index {
       ImmersiveSegmentBar({
         items: PROFILE_SEGMENTS,
         selectedIndex: $profileTabIdx,
-        itemWidth: 67,
+        // 槽宽按内容自动推导（3 字 → 60vp），同字数同宽全 App 统一
         onSelect: (idx: number): void => {
           // 只写选中值：滑块弹性动画由官方状态动画承担，列表刷新由 @Watch(tabIdx) 承接
           this.profileTabIdx = idx;
@@ -1653,7 +1653,7 @@ struct Index {
             ImmersiveSegmentBar({
               items: BOOKMARK_SEGMENTS,
               selectedIndex: $profileBookmarkSubTab,
-              itemWidth: 46,
+              // 槽宽按内容自动推导（3 字「收藏夹」→ 60vp）：原手填 46 挤压三字标签
             })
           }
           .layoutWeight(1)

@@ -339,7 +339,6 @@ struct SearchResultPage {
       ImmersiveSegmentBar({
         items: SEARCH_SORTS,
         selectedIndex: $sortIndex,
-        itemWidth: 54,
         overrideTrackMaterial: true,
         onSelect: (index: number): void => { this.onSortChange(index); },
       })

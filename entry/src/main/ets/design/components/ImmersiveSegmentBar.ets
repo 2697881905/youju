@@ -31,9 +31,13 @@ export interface SegmentedItem {
 export struct ImmersiveSegmentBar {
   @Prop items: SegmentedItem[] = [];
   @Link @Watch('syncIndexes') selectedIndex: number;
-  // 每槽位宽度（vp）：>0 时整栏按 items.length × 该值定宽（标题栏里与 chip/按钮并排的场景），
-  // 0 = 撑满父容器。官方组件把可用宽度等分给各 item，包裹层负责给多少可用宽度。
+  // 每槽位宽度（vp）：>0 = 显式定宽（标题栏里与 chip/按钮并排且推导不合身的场景）；
+  // 0（默认）= 按内容自动推导：最长标签字数 × CHAR_W + 左右 buttonPadding，同字数同宽，
+  // 全 App 分段栏布局由此统一（原 12 处手填 46/54/64/66/67/78/88 七档已全部删除）。
+  // 官方组件把可用宽度等分给各 item，包裹层负责给多少可用宽度。
   @Prop itemWidth: number = 0;
+  // true = 无视 itemWidth 直接铺满父容器（举报管理页两行表单式分段栏唯一使用）。
+  @Prop fillWidth: boolean = false;
   // 官方组件按内容自适应高度（默认实测 99px=31.7vp），参考栏高 40vp → 上下各补 9.5vp。
   // 这是官方 `buttonPadding` 字段，不是自绘尺寸。
   @Prop buttonVerticalPadding: number = 9.5;
@@ -121,8 +125,24 @@ export struct ImmersiveSegmentBar {
     return SegmentButtonOptions.tab(opts);
   }
 
+  // 槽宽推导的中文字宽系数（vp/字）：官方 tab 档默认字号 14fp，中文字符宽 ≈ 字号，
+  // +0.5 字距余量防边缘截断。全 App 分段标签均为纯中文，无需按字符类别细分。
+  private static readonly CHAR_W: number = 14.5;
+
   private barWidth(): Length {
-    return this.itemWidth > 0 ? this.itemWidth * Math.max(1, this.items.length) : '100%';
+    if (this.fillWidth) {
+      return '100%';
+    }
+    if (this.itemWidth > 0) {
+      return this.itemWidth * Math.max(1, this.items.length);
+    }
+    // 自动推导：最长标签字数 × 字宽 + 左右 buttonPadding（同字数标签 → 同槽宽）。
+    let maxLen: number = 1;
+    for (let i = 0; i < this.items.length; i++) {
+      maxLen = Math.max(maxLen, this.items[i].label.length);
+    }
+    return Math.round(maxLen * ImmersiveSegmentBar.CHAR_W + this.buttonHorizontalPadding * 2)
+      * Math.max(1, this.items.length);
   }
 
   build() {

@@ -245,7 +245,6 @@ export struct PostCompareSheet {
         ImmersiveSegmentBar({
           items: ORDER_SEGMENTS,
           selectedIndex: $orderIndex,
-          itemWidth: 78,
           onSelect: (_index: number): void => { this.load(); },
         })
         // bindSheet 的 showClose 是关掉的（与证据清单弹层同款），面板内必须自己给一个出口

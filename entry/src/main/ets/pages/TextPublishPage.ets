@@ -537,7 +537,6 @@ struct TextPublishPage {
         ImmersiveSegmentBar({
           items: PUBLISH_GENRE_SEGMENTS,
           selectedIndex: $genreIndex,
-          itemWidth: 64,
           onSelect: (index: number): void => { this.selectGenre(index); },
         })
         Text(this.currentGenreHint())

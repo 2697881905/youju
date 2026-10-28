@@ -1100,6 +1100,8 @@ export struct ReportAdminPage {
       ImmersiveSegmentBar({
         items: TYPE_ITEMS,
         selectedIndex: $typeIndex,
+        // 表单式两行分段栏：铺满标题栏宽（全 App 唯一 fillWidth 使用点）
+        fillWidth: true,
         // 浮起档：bottomBuilder 行自带材质投影净空
         overrideTrackMaterial: true,
         onSelect: (index: number): void => { this.onTypeSelect(index); },
@@ -1107,6 +1109,7 @@ export struct ReportAdminPage {
       ImmersiveSegmentBar({
         items: STATUS_ITEMS,
         selectedIndex: $statusIndex,
+        fillWidth: true,
         overrideTrackMaterial: true,
         onSelect: (index: number): void => { this.onStatusSelect(index); },
       })

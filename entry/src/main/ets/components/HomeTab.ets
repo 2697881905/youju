@@ -1100,7 +1100,7 @@ export struct HomeTab {
       ImmersiveSegmentBar({
         items: FEED_SEGMENTS,
         selectedIndex: $feedIndex,
-        itemWidth: 66,
+        // 槽宽按内容自动推导（4 字 → 74vp，官方 14fp 下不截断），同字数同宽全 App 统一
         overrideTrackMaterial: true,
         onSelect: (idx: number): void => {
           // 点击/拖选落整数位；信息源加载由本组件 @Watch(feedIndex) 承接（见 onFeedIndexChanged）

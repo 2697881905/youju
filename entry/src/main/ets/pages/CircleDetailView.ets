@@ -117,8 +117,9 @@ export struct CircleDetailView {
     // 成功后广播 circleRead 信号，让仍挂载在 TabContent 里的星图即时熄灭本地角标
     // （详情页在 Navigation 上，返回本 Tab 不会再次触发 CircleTab.onActiveTab）。
     if (getToken() !== '') {
-      markTagRead(this.circleName).then((): void => {
-        AppStorage.setOrCreate<string>('circleReadName', this.circleName);
+      const readName: string = this.circleName;
+      markTagRead(readName).then((): void => {
+        AppStorage.setOrCreate<string>('circleReadName', readName);
         const version: number = AppStorage.get<number>('circleReadVersion') ?? 0;
         AppStorage.setOrCreate<number>('circleReadVersion', version + 1);
       }).catch((): void => {});
@@ -386,7 +387,6 @@ export struct CircleDetailView {
         ImmersiveSegmentBar({
           items: FEED_SEGMENTS,
           selectedIndex: $sortIndex,
-          itemWidth: 64,
           overrideTrackMaterial: true,
           onSelect: (index: number): void => { this.switchSort(index); },
         })
