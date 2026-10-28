@@ -104,6 +104,7 @@ ${imageTag}
   .name{font-size:12px;color:#111827;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
   .brand{margin-left:auto;font-size:10px;color:#8A6548;white-space:nowrap;flex:none}
   .btn{width:min(360px,100%);text-align:center;background:#111827;color:#FFFFFF;font-size:15px;font-weight:600;padding:13px 0;border-radius:12px;text-decoration:none;flex:none}
+  .hint{font-size:12px;line-height:1.5;color:#6B7280;text-align:center;max-width:min(360px,100%);margin:0}
   .icp{font-size:11px;text-align:center}
   .icp a{color:#9CA3AF;text-decoration:none}
 </style>
@@ -117,17 +118,20 @@ ${imageTag}
       ${meta.author ? `<div class="footer"><img class="avatar" src="${esc(meta.avatar || '')}" alt="" referrerpolicy="no-referrer"><span class="name">${esc(meta.author)}</span><span class="brand">有据 · 真实经验，有据可循</span></div>` : `<div class="footer"><span class="brand">有据 · 真实经验，有据可循</span></div>`}
     </div>
   </div>
-  <a class="btn" id="openAppBtn" href="https://youju.chat/">去「有据」看看</a>
+  <a class="btn" id="openAppBtn" href="https://appgallery.huawei.com/app/detail?id=com.youju.app">打开或下载「有据」</a>
+  <p class="hint">已安装会自动打开；未安装会跳到华为应用市场。需 HarmonyOS 5.0 及以上的手机或平板。</p>
   <div class="icp"><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">陕ICP备2026014636号-3</a></div>
   <script>
   (function () {
-    // 「去有据看看」按钮接入应用拉起（Deep Link）。两个实测结论（2026-10-03 真机）：
+    // 「打开或下载」按钮接入应用拉起（Deep Link）。两个实测结论（2026-10-03 真机）：
     // 1) 鸿蒙浏览器只认【用户对 scheme href 锚点的原生点击】——preventDefault 后再
     //    location.href / window.open 跳 youju:// 会被静默丢弃，系统连确认框都不弹；
     // 2) App 侧 skills 必须含 entity.system.browsable，否则浏览器隐式 Want 匹配不上。
     // 故做法：加载后把 <a> 的 href 换成 youju:// 链接，点击原生放行，由系统弹
     // 「打开 App」确认框；拉起成功则页面失活，3 秒仍可见（未安装/被拦截/未确认）
-    // 回落到原行为——打开官网首页。JS 禁用时 href 保持官网链接，行为与接入前一致。
+    // 回落到**应用市场详情页**（2026-10-28 改：原先回落官网首页，未安装的用户还要
+    // 自己再找一次下载入口——分享卡片带来的新客就在这一步漏掉）。JS 禁用时 href
+    // 本身就是应用市场链接。
     var deepLink = '${esc(meta.deepLink ?? '')}';
     if (deepLink === '') { return; }
     var btn = document.getElementById('openAppBtn');
@@ -138,7 +142,7 @@ ${imageTag}
       gone = false;
       setTimeout(function () {
         if (!gone && !document.hidden) {
-          window.location.href = 'https://youju.chat/';
+          window.location.href = 'https://appgallery.huawei.com/app/detail?id=com.youju.app';
         }
       }, 3000);
     });
