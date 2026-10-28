@@ -21,7 +21,7 @@
 | `weibo` | 微博 #鸿蒙# | `share` | 站内分享卡片（默认） |
 | `xhs` | 小红书 | `daily` | 每日一帖推送落地 |
 
-链接写法：`https://youju.chat/?src=huafor`（商店跳转由落地页按钮完成，参数只用于我们侧计数）。
+链接写法：`https://youju.chat/?src=<代号>`（如 `huaweiapp` / `ithome` / `wxma`；商店跳转由落地页按钮完成，参数只用于我们侧计数）。
 
 ---
 
