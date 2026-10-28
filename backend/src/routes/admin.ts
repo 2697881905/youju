@@ -16,6 +16,7 @@ import { recomputeAllHotScores } from '../services/hotScoreService';
 import { parsePage, parseLimit } from '../utils/pagination';
 
 import { asyncHandler } from '../middleware/asyncHandler';
+import { runDailyDigest } from '../services/dailyDigestService';
 
 const router = Router();
 
@@ -119,6 +120,18 @@ router.post('/reports/resolve', asyncHandler(async (req: AuthRequest, res: Respo
     return fail(res, CODE.SERVER_ERROR, '处理失败', 500);
   }
   return ok(res, null, '已处理');
+}));
+
+// POST /v1/admin/daily-digest —— 每日一帖推送（运营日活引擎）。
+// body: { dryRun?: boolean = true, limit?: number }
+// 默认干跑：只回受众与计划条数，不给任何真机发东西；确认数字后再显式 dryRun:false。
+// 当日去重落在 Notification 上（前缀「每日一帖：」），重复调用安全。
+router.post('/daily-digest', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const dryRun: boolean = req.body?.dryRun !== false;
+  const limitRaw = Number(req.body?.limit);
+  const limit: number | undefined = Number.isInteger(limitRaw) && limitRaw > 0 ? limitRaw : undefined;
+  const result = await runDailyDigest({ dryRun, limit });
+  return ok(res, result, dryRun ? '干跑完成（未发送）' : '每日一帖推送已排队');
 }));
 
 // POST /v1/admin/recompute-hot —— 运维/后台专用接口：全量重算热度分（调参、修数后手动触发）。

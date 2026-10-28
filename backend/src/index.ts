@@ -2,6 +2,7 @@ import { app } from './app';
 import { env } from './config/env';
 import { startMediaDeletionWorker } from './services/mediaDeletionService';
 import { startBehaviorRetentionWorker } from './services/retentionService';
+import { runDailyDigest, inDigestWindow, isDigestPushEnabled } from './services/dailyDigestService';
 import { recomputeAllHotScores } from './services/hotScoreService';
 import { recomputeActiveScores } from './services/tagService';
 
@@ -59,4 +60,18 @@ app.listen(env.port, '0.0.0.0', () => {
   };
   runActiveScore();
   setInterval(runActiveScore, 6 * 60 * 60 * 1000);
+
+  // 每日一帖推送（运营日活引擎）：默认关闭，需 DAILY_DIGEST_PUSH=on 才启用。
+  // 每 30 分钟看一次是否落在上海 09:30–10:00 窗口；当日去重落在 Notification 上，
+  // 所以窗口内重复触发不会重复打扰用户。
+  const runDigest = (): void => {
+    if (!isDigestPushEnabled() || !inDigestWindow()) {
+      return;
+    }
+    runDailyDigest({ dryRun: false })
+      .then((r) => console.log(`[dailyDigest] ${r.date} 受众 ${r.audience} 排队 ${r.queued} 去重 ${r.dupSkipped} 帖 ${r.postId}`))
+      .catch((e) => console.warn('[dailyDigest] 推送任务失败:', (e as Error).message));
+  };
+  runDigest();
+  setInterval(runDigest, 30 * 60 * 1000);
 });
