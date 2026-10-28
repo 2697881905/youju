@@ -13,6 +13,8 @@ export struct DetailCommentsSection {
   @Prop highlightCommentId: number = 0;
   // 帖子作者 id（透传给 CommentList：帖主可直接删除自己帖子下的评论）
   @Prop postAuthorId: number = 0;
+  // 宿主是否已在主 Navigation 栈内（透传给 CommentList，话题/提及/头像跳转随之入栈）
+  @Prop navMode: boolean = false;
   onReportComment: (commentId: number) => void = (_commentId: number): void => {};
   onReplyComment: (comment: Comment) => void = (_comment: Comment): void => {};
   // 删除成功回调（CommentList → 详情页，同步 post.comments / commentCount）
@@ -29,6 +31,7 @@ export struct DetailCommentsSection {
         comments: this.comments,
         highlightCommentId: this.highlightCommentId,
         postAuthorId: this.postAuthorId,
+        navMode: this.navMode,
         reportCommentHandler: (commentId: number): void => { this.onReportComment(commentId); },
         onReplyComment: (cmt: Comment): void => { this.onReplyComment(cmt); },
         onDeleted: (cmt: Comment): void => { this.onDeletedComment(cmt); },

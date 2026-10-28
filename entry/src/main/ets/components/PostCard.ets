@@ -14,6 +14,7 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { openUserProfile } from '../utils/nav';
+import { getMainNavStack, UserProfileNavParams } from '../utils/navigationTransition';
 
 @Component
 export struct PostCard {
@@ -35,6 +36,8 @@ export struct PostCard {
   // 文字海报样式 key（草稿专用）：无图无视频时，用本地现渲染的文字海报作封面
   // （首页/搜索的文本帖发布时已把海报上传成 coverImage，不需要它，默认 ''）。
   @Prop textPosterStyle: string = '';
+  // 宿主是否已在主 Navigation 栈内：卡内话题/提及/作者跳转随之入栈（默认 router）。
+  @Prop navMode: boolean = false;
 
   onOpen?: () => void = undefined;
   onCancelBookmark?: (id: number) => void = undefined;
@@ -97,10 +100,20 @@ export struct PostCard {
     if (this.isDeletedUser()) {
       return;
     }
-    if (authorId !== undefined) {
-      openUserProfile(authorId);
-      this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage' });
+    if (authorId === undefined) {
+      return;
     }
+    if (this.navMode) {
+      const nav: NavPathStack | null = getMainNavStack();
+      if (nav !== null) {
+        const p: UserProfileNavParams = new UserProfileNavParams();
+        p.userId = authorId;
+        nav.pushPathByName('UserProfile', p);
+        return;
+      }
+    }
+    openUserProfile(authorId);
+    this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage' });
   }
 
   private openCard(): void {
@@ -280,6 +293,7 @@ export struct PostCard {
             title: this.post.title ?? '',
             compact: this.compact,
             mentions: this.post.mentions ?? [],
+            navMode: this.navMode,
           })
           this.actions()
           if (this.hasFooter()) {

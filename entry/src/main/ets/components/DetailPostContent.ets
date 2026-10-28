@@ -12,6 +12,7 @@ import { doesTextFitInPoster } from '../utils/poster/posterRender';
 import { ShadowTokens } from '../design/tokens/shadow';
 import { HighlightSegment, parseHighlightSegments } from '../utils/textHighlight';
 import { openCircleDetail, openUserProfile } from '../utils/nav';
+import { openCircleDetailViaNav } from '../utils/navigationTransition';
 import { MentionRef, StructuredDocument } from '../models/types';
 import { StructuredSummaryCard } from './StructuredSummaryCard';
 import { structuredSummaryFromPairs } from '../utils/structuredBlocks';
@@ -22,6 +23,8 @@ import { PostCompareSheet } from './PostCompareSheet';
 
 @Component
 export struct DetailPostContent {
+  // 当前详情壳是否走 Navigation：正文里的 #话题# 跟随壳走对应导航方式
+  @Prop navMode: boolean = false;
   // 结构化字段投影（含 kind）：字段表与读取都来自 utils/structuredFields
   @Prop pairs: StructuredFieldPair[] = [];
   @Prop structuredDocument: StructuredDocument | null = null;
@@ -124,6 +127,9 @@ export struct DetailPostContent {
 
   // 点击 #话题# → 圈子详情
   private goCircle(name: string): void {
+    if (this.navMode && openCircleDetailViaNav(name)) {
+      return;
+    }
     openCircleDetail(name);
     this.getUIContext().getRouter().pushUrl({ url: 'pages/CircleDetailPage' });
   }

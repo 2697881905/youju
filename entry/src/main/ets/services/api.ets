@@ -682,6 +682,57 @@ export function listAllTags(keyword?: string): Promise<Tag[]> {
   return api.get<Tag[]>('/v1/tags?all=1' + q);
 }
 
+// ===== 圈子总览（M2：一次拿齐首屏数据）=====
+export type CircleOverviewScope = 'main' | 'city' | 'all';
+
+export interface CircleOverviewPost {
+  id: number;
+  title: string;
+  upCount: number;
+}
+
+export interface CircleOverviewItem {
+  name: string;
+  emoji: string;
+  category: string;
+  cityCode: string;
+  description: string;
+  memberCount: number;
+  joined: boolean;
+  weight: number;
+  unread: number;
+  active7d: boolean;
+  lastPostAt: string | null;
+  latestPosts: CircleOverviewPost[];
+}
+
+export interface CircleDigestItem {
+  postId: number;
+  title: string;
+  authorName: string;
+  circleName: string;
+  upCount: number;
+  createdAt: string;
+}
+
+export interface CircleOverview {
+  circles: CircleOverviewItem[];
+  digest: CircleDigestItem[];
+}
+
+// 圈子总览：GET /v1/tags/overview?scope=main|city|all&cityCode=
+// 软鉴权：匿名返回公开圈；登录后额外返回 joined/weight/unread 与个性化 digest。
+export function getCircleOverview(scope: CircleOverviewScope = 'main', cityCode?: string,
+  name?: string): Promise<CircleOverview> {
+  const cityQuery: string = cityCode !== undefined && cityCode.length > 0
+    ? '&cityCode=' + encodeURIComponent(cityCode)
+    : '';
+  const nameQuery: string = name !== undefined && name.length > 0
+    ? '&name=' + encodeURIComponent(name)
+    : '';
+  return api.get<CircleOverview>('/v1/tags/overview?scope=' + scope + cityQuery + nameQuery);
+}
+
 // —— 同城维（星图子模式「降落地球」）——
 export interface CitySummary {
   code: string;

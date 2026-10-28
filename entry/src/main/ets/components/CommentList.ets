@@ -6,6 +6,7 @@ import { deleteComment, upComment, cancelUpComment } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { openUserProfile } from '../utils/nav';
+import { getMainNavStack, UserProfileNavParams } from '../utils/navigationTransition';
 import { getUserId, getCurrentUser } from '../utils/auth';
 import { Avatar } from '../design/components/Avatar';
 import { HighlightedText } from './HighlightedText';
@@ -23,6 +24,8 @@ export struct CommentList {
   @Prop highlightCommentId: number = 0;
   // 帖子作者 id：若当前登录用户即帖主，可直接删除本帖子下的任意评论（无需举报）
   @Prop postAuthorId: number = 0;
+  // 宿主是否已在主 Navigation 栈内：评论正文的话题/提及跳转与头像跳主页随之入栈
+  @Prop navMode: boolean = false;
   // 举报回调（由 DetailPage 传入，打开 ReportDialog）
   reportCommentHandler: (commentId: number) => void = (_id: number) => {};
   // P1-1 楼中楼：点击评论下「回复」时上报该评论（上层构建回复目标）
@@ -152,10 +155,20 @@ export struct CommentList {
       return;
     }
     const uid: number | undefined = c.userId ?? c.user?.id;
-    if (uid !== undefined) {
-      openUserProfile(uid);
-      this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage' });
+    if (uid === undefined) {
+      return;
     }
+    if (this.navMode) {
+      const nav: NavPathStack | null = getMainNavStack();
+      if (nav !== null) {
+        const p: UserProfileNavParams = new UserProfileNavParams();
+        p.userId = uid;
+        nav.pushPathByName('UserProfile', p);
+        return;
+      }
+    }
+    openUserProfile(uid);
+    this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage' });
   }
 
   // 解析评论头像 URL：优先服务端头像；若该项属于当前登录用户且服务端未带出头像
@@ -336,6 +349,7 @@ export struct CommentList {
         HighlightedText({
           text: '回复 @' + parentName + '：' + (r.content ?? ''),
           mentions: r.mentions ?? [],
+          navMode: this.navMode,
           fontSize: 14,
           lineHeight: 21,
           maxLines: 3,
@@ -390,6 +404,7 @@ export struct CommentList {
                   HighlightedText({
                     text: c.content ?? '',
                     mentions: c.mentions ?? [],
+                    navMode: this.navMode,
                     fontSize: 15,
                     lineHeight: 22,
                   })

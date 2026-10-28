@@ -740,6 +740,7 @@ export struct UserProfileView {
                   // 两列网格小卡用紧凑档（xs 圆角/小字号），与「我的」主页一致；
                   // 默认大圆角(lg)在半宽卡片上与图片比例失调
                   compact: true,
+                  navMode: this.navMode,
                   onOpen: () => {
                     this.goDetail(post);
                   },

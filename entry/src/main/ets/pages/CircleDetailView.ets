@@ -1,7 +1,17 @@
 import { Post } from '../models/types';
-import { followTag, listFollowedTags, listPosts, markTagRead, unfollowTag, trackPostEvent } from '../services/api';
+import {
+  CircleOverviewItem,
+  followTag,
+  getCircleOverview,
+  listFollowedTags,
+  listPosts,
+  markTagRead,
+  unfollowTag,
+  trackPostEvent,
+} from '../services/api';
 import { getToken } from '../utils/auth';
-import { openPostDetail, takeCircleDetailName } from '../utils/nav';
+import { emitTabSwitch, openPostDetail, takeCircleDetailName } from '../utils/nav';
+import { setPendingPublishCircle } from '../utils/publishCircleIntent';
 import { getMainNavStack, EmptyNavParams, PostDetailNavParams } from '../utils/navigationTransition';
 import { gridColumnTemplate, gridColumnsForBreakpoint } from '../utils/responsive';
 import { GRID_GAP, GRID_PADDING } from '../utils/cardTokens';
@@ -30,6 +40,7 @@ import { requestSystemBarRefresh } from '../utils/systemBar';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { Pressable } from '../design/motion/Pressable';
 import { Reveal } from '../design/motion/Reveal';
+import { MotionTokens } from '../design/tokens/motion';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
@@ -53,6 +64,10 @@ export struct CircleDetailView {
   @Prop initialCircleName: string = '';
   onBack?: () => void = undefined;     // Navigation 壳：navStack.pop()
   @State circleName: string = '';
+  // 圈子元信息：来自 /v1/tags/overview?name=，让详情页不再是“只有名字”的空壳。
+  @State circleCategory: string = '';
+  @State circleDescription: string = '';
+  @State circleMemberCount: number = 0;
   @State posts: Post[] = [];
   @State sortIndex: number = 0;
   @State page: number = 1;
@@ -125,8 +140,50 @@ export struct CircleDetailView {
       }).catch((): void => {});
     }
     // 帖子流对访客公开可浏览，未登录不拦截；加入/退出圈子时再做登录引导。
-    // 关注态与首页帖子并行拉取，避免串行多一轮等待。
-    await Promise.all([this.loadJoined(), this.refresh()]);
+    // 关注态、圈子元信息与首页帖子并行拉取，避免串行多轮等待。
+    await Promise.all([this.loadJoined(), this.loadCircleMeta(), this.refresh()]);
+  }
+
+  private async loadCircleMeta(): Promise<void> {
+    try {
+      const overview = await getCircleOverview('all', undefined, this.circleName);
+      const item: CircleOverviewItem | undefined =
+        overview.circles.find((circle: CircleOverviewItem): boolean => circle.name === this.circleName);
+      if (item !== undefined) {
+        this.circleCategory = item.category;
+        this.circleDescription = item.description;
+        this.circleMemberCount = item.memberCount;
+      }
+    } catch (e) {
+      // 元信息失败不影响帖子流：标题栏退回通用副标题。
+    }
+  }
+
+  private circleSubtitle(): string {
+    const parts: string[] = [];
+    if (this.circleMemberCount > 0) {
+      parts.push(this.circleMemberCount + ' 人已加入');
+    }
+    if (this.circleCategory.length > 0) {
+      parts.push(this.circleCategory);
+    }
+    if (this.circleDescription.length > 0) {
+      parts.push(this.circleDescription);
+    }
+    return parts.length > 0 ? parts.join(' · ') : '浏览这个圈子里的真实帖子';
+  }
+
+  // 空态「去发布」：把当前圈子作为预选意图带进发布流，再退出详情页切到发布 Tab。
+  private goPublish(): void {
+    // 把当前圈子带进发布流：用户选好文/图/视频后，新建草稿会自动预选它。
+    setPendingPublishCircle(this.circleName);
+    // 先退出当前详情壳，再切发布 Tab；router 壳不能只切 Tab（页面还压在栈顶）。
+    if (this.navMode) {
+      this.backAction();
+    } else {
+      this.getUIContext().getRouter().back();
+    }
+    setTimeout((): void => { emitTabSwitch(2); }, MotionTokens.fast) as number;
   }
 
   private async loadJoined(): Promise<void> {
@@ -358,7 +415,12 @@ export struct CircleDetailView {
   circleStackContent(): void {
     Column() {
       Row({ space: SpaceTokens.item }) {
-        TagIcon({ name: this.circleName, iconSize: IconTokens.avatarProfile + 2, tint: ColorTokens.brand })
+        TagIcon({
+          name: this.circleName,
+          category: this.circleCategory,
+          iconSize: IconTokens.avatarProfile + 2,
+          tint: ColorTokens.brand,
+        })
           .width(IconTokens.avatarProfile)
           .height(IconTokens.avatarProfile)
 
@@ -370,11 +432,13 @@ export struct CircleDetailView {
             .fontColor(ColorTokens.primary)
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
-          Text('浏览这个圈子里的真实帖子')
+          Text(this.circleSubtitle())
             .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
             .fontWeight(TypeTokens.callout.weight)
             .lineHeight(TypeTokens.callout.lineHeight)
             .fontColor(ColorTokens.secondary)
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
         }
         .alignItems(HorizontalAlign.Start)
         .layoutWeight(1)
@@ -449,8 +513,14 @@ export struct CircleDetailView {
             EmptyState({
               title: this.error ? '加载失败' : '这个圈子还没有帖子',
               message: this.error ? this.error : '第一篇相关内容发布后会显示在这里',
-              actionLabel: this.error ? '重试' : '',
-              onAction: (): void => { this.refresh(); },
+              actionLabel: this.error ? '重试' : '去发布',
+              onAction: (): void => {
+                if (this.error) {
+                  this.refresh();
+                } else {
+                  this.goPublish();
+                }
+              },
             })
           }
           .layoutWeight(1)
@@ -463,7 +533,12 @@ export struct CircleDetailView {
               ForEach(this.posts, (post: Post, index: number) => {
                 GridItem() {
                   Reveal({ index: index % 5 }) {
-                    PostCard({ post: post, compact: true, onOpen: (): void => { this.openPost(post); } })
+                    PostCard({
+                      post: post,
+                      compact: true,
+                      navMode: this.navMode,
+                      onOpen: (): void => { this.openPost(post); },
+                    })
                   }
                 }
               }, (post: Post) => this.circleName + '-' + (post.id?.toString() ?? ''))

@@ -14,6 +14,7 @@ import { ColorTokens } from '../design/tokens/color';
 import { StarPalette, DARK_PALETTE, PAPER_PALETTE, StarDot, STAR_DOTS } from '../design/tokens/starPalette';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { RadiusTokens } from '../design/tokens/radius';
+import { ShadowTokens } from '../design/tokens/shadow';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 
@@ -44,8 +45,8 @@ export struct CircleUniverse {
   @Prop description: string = '';
   @Prop category: string = '';
   @Prop memberCount: number = 0;
-  // 圈子主题色（CIRCLE_META color）：宇宙泛光/核心光环染上该圈专属色，一圆一宇宙
-  @Prop accentColor: string = '#2D7CFF';
+  // 圈子分类色相：宇宙泛光/核心光环染上该圈所属分类的低饱和色
+  @Prop accentColor: string = '#0066CC';
   @Prop joined: boolean = false;
   @Prop @Watch('onVisibleChanged') visible: boolean = false;
   @StorageLink('isDarkMode') darkMode: boolean = false;
@@ -228,7 +229,7 @@ export struct CircleUniverse {
         this.playIgnite();
       }
       this.onJoinChanged(!wasJoined);
-      safeShowToast(this.getUIContext(), { message: wasJoined ? '已退出圈子' : '已加入圈子 · 新星已点亮' });
+      safeShowToast(this.getUIContext(), { message: wasJoined ? '已退出圈子' : '已加入圈子' });
     } catch (e) {
       this.joinedNow = wasJoined;
       safeShowToast(this.getUIContext(), { message: '操作失败：' + (e as Error).message });
@@ -301,8 +302,8 @@ export struct CircleUniverse {
           .textShadow({
             radius: this.darkMode ? 12 : 7,
             color: star.gold
-              ? (this.darkMode ? '#A0640088' : '#40A06400')
-              : (this.darkMode ? '#4D9FFF88' : '#300066CC'),
+              ? this.pal().gold + (this.darkMode ? '88' : '40')
+              : this.accentColor + (this.darkMode ? '88' : '30'),
             offsetY: 0,
           })
           .scale({
@@ -336,16 +337,16 @@ export struct CircleUniverse {
             .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
             .fontWeight(TypeTokens.headline.weight)
             .lineHeight(20)
-            .fontColor(this.darkMode ? '#ECE8DF' : '#1A1A1A')
+            .fontColor(ColorTokens.primary)
             .maxLines(2)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
           Text('@' + star.author + ' · ▲ ' + String(star.ups) + (star.time.length > 0 ? ' · ' + star.time : ''))
             .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-            .fontColor(this.darkMode ? '#9AA3B5' : '#5A5A60')
+            .fontColor(ColorTokens.secondary)
             .maxLines(1)
           Row() {
             Blank()
-            Text('看全文 ▸')
+            Text('阅读全文 ›')
               .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
               .fontWeight(TypeTokens.headline.weight)
               .fontColor(this.pal().icon)
@@ -356,10 +357,10 @@ export struct CircleUniverse {
         .width(CARD_WIDTH)
         .alignItems(HorizontalAlign.Start)
         .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
-        .backgroundColor(this.darkMode ? '#F2182033' : '#F8FFFFFF')
-        .border({ width: 1, color: this.darkMode ? '#40FFFFFF' : ColorTokens.separator, style: BorderStyle.Solid })
+        .backgroundColor(ColorTokens.elevated)
+        .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
         .borderRadius(RadiusTokens.md)
-        .shadow({ radius: 24, color: this.darkMode ? '#66000000' : '#1A000000', offsetY: 8 })
+        .shadow(ShadowTokens.floating)
         .position({ x: this.cardX(star), y: this.cardY(star) })
         .transition(TransitionEffect.asymmetric(
           TransitionEffect.scale({ x: 0.92, y: 0.92 })
@@ -421,14 +422,14 @@ export struct CircleUniverse {
           .scale({ x: this.coreHaloScale, y: this.coreHaloScale })
           .hitTestBehavior(HitTestMode.None)
         Column({ space: SpaceTokens.xs }) {
-          TagIcon({ name: this.circleName, iconSize: 30, tint: this.pal().icon, colorful: false })
+          TagIcon({ name: this.circleName, category: this.category, iconSize: 30, tint: this.pal().icon, colorful: false })
         }
         .width(58)
         .height(58)
         .backgroundColor(this.pal().discFill)
         .border({ width: 0.8, color: this.pal().discStroke, style: BorderStyle.Solid })
         .borderRadius(29)
-        .shadow({ radius: this.darkMode ? 14 : 8, color: this.darkMode ? '#66000000' : '#1A000000', offsetY: 3 })
+        .shadow(ShadowTokens.pillFloat)
         .justifyContent(FlexAlign.Center)
         .alignItems(HorizontalAlign.Center)
         .scale({ x: this.coreScale, y: this.coreScale })
@@ -445,10 +446,17 @@ export struct CircleUniverse {
           .fontWeight(TypeTokens.titleSerif.weight)
           .fontColor(this.pal().ink)
           .textAlign(TextAlign.Center)
+        if (this.category.length > 0 || this.memberCount > 0) {
+          Text((this.category.length > 0 ? this.category + ' · ' : '') + this.memberCount + ' 人已加入')
+            .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
+            .fontColor(ColorTokens.secondary)
+            .textAlign(TextAlign.Center)
+            .maxLines(1)
+        }
         if (this.description.length > 0) {
           Text(this.description)
             .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-            .fontColor(this.darkMode ? '#9AA3B5' : '#5A5A60')
+            .fontColor(ColorTokens.secondary)
             .textAlign(TextAlign.Center)
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -475,7 +483,10 @@ export struct CircleUniverse {
           .type(ButtonType.Capsule)
           .controlSize(ControlSize.SMALL)
           .fontSize(TypeTokens.caption.size)
-          .fontColor(this.joinedNow ? this.pal().gold : ColorTokens.onBrand)
+          // 浅色纸面上暖金 12px 字对比不足；金只留给描边/图标，文字回主墨色。
+          .fontColor(this.joinedNow
+            ? (this.darkMode ? this.pal().gold : ColorTokens.primary)
+            : ColorTokens.onBrand)
           .backgroundColor(this.joinedNow ? Color.Transparent : this.pal().icon)
           .borderWidth(this.joinedNow ? 1 : 0)
           .borderColor(this.pal().gold)
@@ -492,14 +503,14 @@ export struct CircleUniverse {
 
       // —— 底部提示 + 完整圈子页入口 ——
       Column({ space: SpaceTokens.xs }) {
-        Text('进入完整圈子页 ▸')
+        Text('进入圈子 ›')
           .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-          .fontColor(this.darkMode ? '#9AA3B5' : '#5A5A60')
+          .fontColor(ColorTokens.secondary)
           .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
           .onClick((): void => { this.onOpenFull(); })
-        Text('点星星读帖 · 点空白收起')
+        Text('点星读帖 · 点空白收起')
           .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-          .fontColor(this.darkMode ? '#6B7280' : '#8E8E96')
+          .fontColor(ColorTokens.secondary)
       }
       .width('100%')
       .alignItems(HorizontalAlign.Center)
@@ -518,7 +529,7 @@ export struct CircleUniverse {
           LoadingProgress().width(36).height(36).color(this.pal().icon)
           Text('坠入「' + this.circleName + '」…')
             .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-            .fontColor(this.darkMode ? '#9AA3B5' : '#5A5A60')
+            .fontColor(ColorTokens.secondary)
         }
         .width('100%')
         .position({ x: 0, y: this.areaH * 0.4 })
@@ -526,17 +537,16 @@ export struct CircleUniverse {
       } else if (this.error.length > 0 && this.stars.length === 0) {
         Text('宇宙信号丢失：' + this.error)
           .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-          .fontColor(this.darkMode ? '#9AA3B5' : '#5A5A60')
+          .fontColor(ColorTokens.secondary)
           .width('80%')
           .textAlign(TextAlign.Center)
           .position({ x: this.areaW * 0.1, y: this.areaH * 0.4 })
           .hitTestBehavior(HitTestMode.None)
       } else if (!this.loading && this.stars.length === 0) {
         Column({ space: SpaceTokens.sm }) {
-          Text('🌙').fontSize(28)
-          Text('这颗新星还没有帖子\n去发第一帖，点亮它的第一盏灯')
+          Text('这个圈子还没有帖子\n去发第一帖吧')
             .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-            .fontColor(this.darkMode ? '#9AA3B5' : '#5A5A60')
+            .fontColor(ColorTokens.secondary)
             .textAlign(TextAlign.Center)
             .lineHeight(20)
         }
@@ -547,7 +557,7 @@ export struct CircleUniverse {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(this.darkMode ? '#0B1224' : '#FAFAFB')
+    .backgroundColor(this.pal().bgMid)
     .transition(TransitionEffect.move(TransitionEdge.BOTTOM)
       .animation({ duration: MotionTokens.page, curve: MotionCurves.emphasized }))
     .onAreaChange((_old: Area, area: Area) => {

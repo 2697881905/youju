@@ -3,11 +3,13 @@ import { resolveDisplayImageUrl } from '../services/api';
 import { ColorTokens } from '../design/tokens/color';
 import { StarDot, StarPalette, DARK_PALETTE, PAPER_PALETTE, STAR_DOTS } from '../design/tokens/starPalette';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
+import { ShadowTokens } from '../design/tokens/shadow';
 import { SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 
 export interface OrbitCircleItem {
   name: string;
+  category: string;
   size: number;
   ring: number;
   baseAngle: number;
@@ -563,6 +565,7 @@ struct OrbitRingLayer {
       ForEach(this.circles, (circle: OrbitCircleItem) => {
         OrbitPlanet({
           name: circle.name,
+          category: circle.category,
           planetSize: circle.size,
           joined: circle.joined,
           active: circle.active,
@@ -594,6 +597,7 @@ struct OrbitRingLayer {
 @Component
 struct OrbitPlanet {
   @Prop name: string = '';
+  @Prop category: string = '';
   @Prop planetSize: number = 46;
   @Prop joined: boolean = false;
   @Prop active: boolean = true;
@@ -927,7 +931,7 @@ struct OrbitPlanet {
           .fill(this.pal().discFill)
           .stroke(this.pal().discStroke)
           .strokeWidth(0.8)
-          .shadow({ radius: this.darkMode ? 10 : 6, color: this.darkMode ? '#66000000' : '#1A000000', offsetY: this.darkMode ? 3 : 2 })
+          .shadow(this.darkMode ? ShadowTokens.pillFloat : ShadowTokens.cardContact)
           .hitTestBehavior(HitTestMode.None)
         // 成员身份金环：已加入圈子行星外圈一道细金环（与涟漪/选中态独立叠加）
         if (this.joined) {
@@ -938,7 +942,7 @@ struct OrbitPlanet {
             .stroke(this.pal().gold)
             .strokeWidth(1.5)
             .opacity(0.95)
-            .shadow({ radius: this.darkMode ? 6 : 0, color: '#80A06400', offsetY: 0 })
+            .shadow({ radius: this.darkMode ? 6 : 0, color: this.pal().gold + '80', offsetY: 0 })
             .hitTestBehavior(HitTestMode.None)
         }
         // 星图 Live 三期：耀星星等光晕——中心亮、边缘衰减的软光斑，衬托图标。
@@ -955,7 +959,13 @@ struct OrbitPlanet {
             .animation({ duration: MotionTokens.base, curve: MotionCurves.standard })
             .hitTestBehavior(HitTestMode.None)
         }
-        TagIcon({ name: this.name, iconSize: Math.min(28, this.planetSize * 0.46), tint: this.pal().icon, colorful: false })
+        TagIcon({
+          name: this.name,
+          category: this.category,
+          iconSize: Math.min(28, this.planetSize * 0.46),
+          tint: this.pal().icon,
+          colorful: false,
+        })
       }
       .width(PLANET_ICON_HIT_SIZE)
       .height(PLANET_ICON_HIT_SIZE)
@@ -969,7 +979,7 @@ struct OrbitPlanet {
       .accessibilityGroup(true)
       .accessibilityText(this.a11yLabel())
       .onClick((): void => { this.onPlanet(this.name); })
-      // 未读角标：行星右上角发光小星（✦+数字），点击直达该圈最新帖。
+      // 未读角标：行星右上角红底数字，点击直达该圈最新帖。
       // 仅在有未读时出现；hitTest 优先于行星 onClick（子节点先命中）。
       if (this.unread > 0) {
         Stack({ alignContent: Alignment.Center }) {
@@ -979,10 +989,11 @@ struct OrbitPlanet {
             .fill(this.pal().badge)
             .stroke(this.darkMode ? '#66FFFFFF' : '#33FFFFFF')
             .strokeWidth(0.6)
-            .shadow({ radius: 8, color: this.darkMode ? '#804D9FFF' : '#400066CC', offsetY: 0 })
+            .shadow({ radius: 8, color: this.pal().seedBlue + (this.darkMode ? '80' : '40'), offsetY: 0 })
           Text(this.unread > 99 ? '99+' : String(this.unread))
             .fontSize(10)
             .fontWeight(FontWeight.Bold)
+            // 未读角标统一红底白字：深/浅两套色板下都满足对比度。
             .fontColor(Color.White)
         }
         .width(22)
@@ -1097,8 +1108,8 @@ struct SeedStar {
         .textShadow({
           radius: this.darkMode ? 12 : 7,
           color: this.view.gold
-            ? (this.darkMode ? '#A0640088' : '#40A06400')
-            : (this.darkMode ? '#4D9FFF88' : '#300066CC'),
+            ? this.pal().seedGold + (this.darkMode ? '88' : '40')
+            : this.pal().seedBlue + (this.darkMode ? '88' : '30'),
           offsetY: 0,
         })
         .scale({ x: this.pulseScale, y: this.pulseScale })

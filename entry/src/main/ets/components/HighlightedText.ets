@@ -9,6 +9,7 @@ import { MentionRef, MentionCandidate } from '../models/types';
 import { HighlightSegment, parseHighlightSegments } from '../utils/textHighlight';
 import { searchMentionUsers } from '../services/api';
 import { openCircleDetail, openUserProfile } from '../utils/nav';
+import { openCircleDetailViaNav, getMainNavStack, UserProfileNavParams } from '../utils/navigationTransition';
 import { ColorTokens } from '../design/tokens/color';
 import { TypeTokens } from '../design/tokens/type';
 import { safeShowToast } from '../utils/toast';
@@ -28,6 +29,9 @@ export struct HighlightedText {
   @Prop serif: boolean = false;
   @Prop bold: boolean = false;
   @Prop letterSpacing: number = 0;
+  // true：宿主已在主 Navigation 栈内，话题/提及跳转必须入同一个栈，
+  // 否则 router 会把新页压在栈之上，返回手势与页面归属都会错位。
+  @Prop navMode: boolean = false;
 
   // 分段配色：正文常规 / @提及蓝 / #话题# 品牌棕
   private colorOf(type: string): ResourceColor {
@@ -44,8 +48,26 @@ export struct HighlightedText {
   // 真正的导航必须由调用方自己 push —— 两者缺一不可，只调前者会「什么都不发生」。
   // 这两行的组合是全项目通行写法，见 CommentList / PostCard / MessagePage 的头像跳转。
   private openProfile(userId: number): void {
+    if (this.navMode) {
+      const nav: NavPathStack | null = getMainNavStack();
+      if (nav !== null) {
+        const p: UserProfileNavParams = new UserProfileNavParams();
+        p.userId = userId;
+        nav.pushPathByName('UserProfile', p);
+        return;
+      }
+    }
     openUserProfile(userId);
     this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage' });
+  }
+
+  // 点 #话题#：nav 模式入主栈；主栈未注册时保留 router 兜底（与圈子真星图同一口径）
+  private openCircle(name: string): void {
+    if (this.navMode && openCircleDetailViaNav(name)) {
+      return;
+    }
+    openCircleDetail(name);
+    this.getUIContext().getRouter().pushUrl({ url: 'pages/CircleDetailPage' });
   }
 
   // 点 @提及：优先用精确映射，没有则退化为按昵称搜索
@@ -82,8 +104,7 @@ export struct HighlightedText {
           .fontWeight(seg.type === 'text' ? FontWeight.Normal : FontWeight.Medium)
           .onClick(() => {
             if (seg.type === 'tag') {
-              openCircleDetail(seg.name);
-              this.getUIContext().getRouter().pushUrl({ url: 'pages/CircleDetailPage' });
+              this.openCircle(seg.name);
             } else if (seg.type === 'mention') {
               this.tapMention(seg.name);
             }

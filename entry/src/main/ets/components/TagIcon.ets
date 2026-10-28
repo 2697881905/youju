@@ -6,15 +6,17 @@ import { resolveTagColor, resolveTagIcon } from '../utils/tagIcons';
 @Component
 export struct TagIcon {
   @Prop name: string = '';       // 标签名（与 tagIcons 映射一致）
+  @Prop category: string = '';   // 分类：新圈图标/色相的兜底依据
   @Prop iconSize: number = 20;   // 图标边长 vp
   @Prop tint: ResourceColor = $r('app.color.text_primary'); // 着色（选中反白/默认主文色）
-  @Prop colorful: boolean = true; // 默认使用标签专属颜色；选中态可关闭以保留高对比 tint
+  @Prop colorful: boolean = true; // 默认使用分类色相；选中态可关闭以保留高对比 tint
+  @StorageLink('isDarkMode') darkMode: boolean = false;
 
   build() {
-    Image(resolveTagIcon(this.name))
+    Image(resolveTagIcon(this.name, this.category))
       .width(this.iconSize)
       .height(this.iconSize)
-      .fillColor(this.colorful ? resolveTagColor(this.name) : this.tint)
+      .fillColor(this.colorful ? resolveTagColor(this.name, this.category, this.darkMode) : this.tint)
       .objectFit(ImageFit.Contain)
   }
 }

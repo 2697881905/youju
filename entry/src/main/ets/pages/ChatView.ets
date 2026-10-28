@@ -1023,6 +1023,7 @@ export struct ChatView {
             HighlightedText({
               text: m.content,
               mentions: m.mentions ?? [],
+              navMode: this.navMode,
               fontSize: 15,
               lineHeight: 22,
             })

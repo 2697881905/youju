@@ -29,18 +29,20 @@ export interface StarPalette {
   bgBottom: string;
 }
 
+// M3 色板收敛：去掉海军蓝/霓虹蓝，回到「墨空 / 纸上」两套暖中性色。
+// 语义固定：金=已加入，红=未读/新帖，蓝=可交互/选中，灰=冷圈。
 export const DARK_PALETTE: StarPalette = {
-  ink: '#ECE8DF', ring: '#26FFFFFF', glow: '#2E4D9FFF', halo: '#3D7DB8FF',
-  star: '#C8D4E8', discFill: '#1A2233', discStroke: '#33FFFFFF', gold: '#D9A441',
-  icon: '#7DB8FF', seedBlue: '#7DB8FF', seedGold: '#FFD27D', badge: '#4D9FFF',
-  bgTop: '#070B16', bgMid: '#0B1224', bgBottom: '#0E1830',
+  ink: '#ECE6DA', ring: '#24ECE6DA', glow: '#26D9A441', halo: '#33D9A441',
+  star: '#B8AFA0', discFill: '#17171A', discStroke: '#2EECE6DA', gold: '#D9A441',
+  icon: '#8FAFC9', seedBlue: '#C86B5A', seedGold: '#D9A441', badge: '#B4453A',
+  bgTop: '#111110', bgMid: '#151513', bgBottom: '#1B1A17',
 };
 
 export const PAPER_PALETTE: StarPalette = {
-  ink: '#1A1A1A', ring: '#4D1A1A1A', glow: '#290066CC', halo: '#400066CC',
-  star: '#1A1A1A', discFill: '#FFFFFF', discStroke: '#E0E0E5', gold: '#A06400',
-  icon: '#0066CC', seedBlue: '#0066CC', seedGold: '#A06400', badge: '#0066CC',
-  bgTop: '#FFFFFF', bgMid: '#FAFAFB', bgBottom: '#F1F2F5',
+  ink: '#1F1C18', ring: '#3D1F1C18', glow: '#1FA06400', halo: '#26A06400',
+  star: '#9A8E7E', discFill: '#FFFDF9', discStroke: '#D9D0C0', gold: '#A06400',
+  icon: '#4F6B85', seedBlue: '#B4453A', seedGold: '#A06400', badge: '#B4453A',
+  bgTop: '#FBF8F2', bgMid: '#F7F2E9', bgBottom: '#F2ECDF',
 };
 
 // 取当前主题色板（组件内 pal() 的共享实现）。

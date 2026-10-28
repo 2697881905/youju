@@ -1,3 +1,5 @@
+import { Tag } from '../models/types';
+import { CircleOverviewItem, CitySummary, getCircleOverview, listCities, listCityTags } from '../services/api';
 import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
 import { SpaceTokens } from '../design/tokens/space';
@@ -26,11 +28,14 @@ export interface CatalogGroup {
 export struct CircleExploreSheet {
   @Prop groups: CatalogGroup[] = [];
   @Prop keyword: string = '';
-  @Prop totalCount: number = 0;
+  // 当前关注集：同城行据此即时翻转「已加入」，不必等整张目录重拉。
+  @Prop @Watch('onJoinedNamesChanged') joinedNames: string[] = [];
   // 创建圈子的分类白名单（与后端 TAG_CATEGORIES 一致，由父页面传入）
   @Prop categories: string[] = [];
   onKeywordChange: (kw: string) => void = (_kw: string): void => {};
   onJoin: (name: string) => void = (_name: string): void => {};
+  // 同城圈加入：走父页面的城市关注通道（城市圈不在主星图 circles 里）
+  onJoinCity: (name: string) => void = (_name: string): void => {};
   onOpen: (name: string) => void = (_name: string): void => {};
   // 三期：创建圈子回调（父页面调 POST /v1/tags 并上演「点亮新星」编舞）；
   // 返回 true=创建成功（父页面已关目录），false=失败（表单保留供重试）。
@@ -43,6 +48,106 @@ export struct CircleExploreSheet {
   @State newCategory: string = '';
   @State newDesc: string = '';
   @State submitting: boolean = false;
+  // —— 同城（并入发现，不再单开全屏层）——
+  @State private cities: CitySummary[] = [];
+  @State private cityCode: string = '';
+  @State private cityItems: CatalogItem[] = [];
+  @State private cityLoading: boolean = false;
+  private cityRequestId: number = 0;
+
+  aboutToAppear(): void {
+    this.loadCities();
+  }
+
+  private async loadCities(): Promise<void> {
+    try {
+      this.cities = await listCities();
+    } catch (e) {
+      // 城市列表失败：同城区不展示，搜索/分类目录照常可用
+      this.cities = [];
+    }
+  }
+
+  private toCatalog(item: CircleOverviewItem): CatalogItem {
+    return {
+      name: item.name,
+      category: item.category,
+      description: item.description,
+      memberCount: item.memberCount,
+      joined: item.joined || this.joinedNames.indexOf(item.name) >= 0,
+    };
+  }
+
+  // 旧后端还没有 overview 接口时的同城兜底（/v1/tags?cityCode=）。
+  private tagToCatalog(tag: Tag): CatalogItem {
+    const name: string = tag.name ?? '';
+    return {
+      name,
+      category: tag.category ?? '',
+      description: tag.description ?? '',
+      memberCount: tag.followCount ?? 0,
+      joined: this.joinedNames.indexOf(name) >= 0,
+    };
+  }
+
+  private async pickCity(city: CitySummary): Promise<void> {
+    if (this.cityCode === city.code) {
+      this.cityCode = '';
+      this.cityItems = [];
+      this.cityLoading = false;
+      this.cityRequestId += 1;
+      return;
+    }
+    const requestId: number = this.cityRequestId + 1;
+    this.cityRequestId = requestId;
+    this.cityCode = city.code;
+    this.cityLoading = true;
+    this.cityItems = [];
+    try {
+      const overview = await getCircleOverview('city', city.code);
+      if (requestId !== this.cityRequestId) {
+        return;
+      }
+      this.cityItems = overview.circles.map((item: CircleOverviewItem): CatalogItem => this.toCatalog(item));
+    } catch (e) {
+      if (requestId !== this.cityRequestId) {
+        return;
+      }
+      // overview 不存在（旧后端）→ 退回按 cityCode 拉圈子；仍失败才显示空态。
+      try {
+        const tags: Tag[] = await listCityTags(city.code);
+        if (requestId === this.cityRequestId) {
+          this.cityItems = tags
+            .filter((tag: Tag): boolean => (tag.name ?? '').length > 0)
+            .map((tag: Tag): CatalogItem => this.tagToCatalog(tag));
+        }
+      } catch (legacyError) {
+        if (requestId === this.cityRequestId) {
+          this.cityItems = [];
+        }
+      }
+    } finally {
+      if (requestId === this.cityRequestId) {
+        this.cityLoading = false;
+      }
+    }
+  }
+
+  private onJoinedNamesChanged(): void {
+    if (this.cityItems.length === 0) {
+      return;
+    }
+    this.cityItems = this.cityItems.map((item: CatalogItem): CatalogItem => {
+      const joined: boolean = this.joinedNames.indexOf(item.name) >= 0;
+      return {
+        name: item.name,
+        category: item.category,
+        description: item.description,
+        memberCount: item.memberCount,
+        joined,
+      };
+    });
+  }
 
   // 名称 2~8 字、简介 1~24 字、分类必选（与后端 createTag 校验同口径，前端先拦一层）
   private canSubmit(): boolean {
@@ -64,25 +169,23 @@ export struct CircleExploreSheet {
 
   @Builder
   createEntry(): void {
-    // 原型 cccreate：金色虚线边框卡片（区别于普通行，突出「点燃新星」的仪式感）
     Row({ space: SpaceTokens.md }) {
       Text('＋')
         .fontSize(18).fontFamily(TypeTokens.fontFamily)
         .fontWeight(TypeTokens.headline.weight)
         .fontColor(ColorTokens.warm)
-      Text(this.creating ? '收起创建' : '点亮一颗新星 · 创建圈子')
+      Text(this.creating ? '收起创建' : '创建一个圈子')
         .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
         .fontWeight(TypeTokens.headline.weight)
-        // 彩色微文案不压 tint（warm 字 #A06400 在浅 tint 上 4.19:1，12px 不达 AA）：
-        // 金色语义交给虚线描边 + 「＋」，文字回 primary 墨。
+        // 彩色微文案不压 tint：金色语义交给「＋」这一处图形，文字回 primary 墨。
         .fontColor(ColorTokens.primary)
         .layoutWeight(1)
     }
     .width('100%')
     .padding(SpaceTokens.md)
     .margin({ top: SpaceTokens.md })
-    .backgroundColor(ColorTokens.brandTint)
-    .border({ width: 1, color: ColorTokens.warm, style: BorderStyle.Dashed })
+    .backgroundColor(ColorTokens.canvas)
+    .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
     .borderRadius(RadiusTokens.md)
     .onClick((): void => {
       if (this.creating) {
@@ -145,7 +248,7 @@ export struct CircleExploreSheet {
           .fontSize(TypeTokens.callout.size)
           .onChange((value: string): void => { this.newDesc = value; })
       }
-      Button(this.submitting ? '点亮中…' : '✦ 点亮新星')
+      Button(this.submitting ? '创建中…' : '创建圈子')
         .width('100%')
         .height(44)
         .enabled(this.canSubmit())
@@ -168,7 +271,7 @@ export struct CircleExploreSheet {
   }
 
   @Builder
-  row(item: CatalogItem): void {
+  row(item: CatalogItem, fromCity: boolean = false): void {
     // 信息区与按钮必须是两块独立点击区：整行 onClick + 内嵌按钮会让「加入」同时打开详情
     // （CityLayer.circleRow 已记录同类真机问题，2026-10-25）。
     Row({ space: SpaceTokens.md }) {
@@ -179,7 +282,7 @@ export struct CircleExploreSheet {
           action: (): void => { this.onOpen(item.name); },
         }) {
           Row({ space: SpaceTokens.md }) {
-            TagIcon({ name: item.name, iconSize: 24, tint: ColorTokens.brand })
+            TagIcon({ name: item.name, category: item.category, iconSize: 24, tint: ColorTokens.brand })
               .width(34)
               .height(34)
             Column({ space: 2 }) {
@@ -197,7 +300,7 @@ export struct CircleExploreSheet {
                     .fontColor(ColorTokens.secondary)
                 }
               }
-              Text(item.description)
+              Text((item.description.length > 0 ? item.description + ' · ' : '') + item.memberCount + ' 人')
                 .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
                 .fontColor(ColorTokens.tertiary)
                 .maxLines(1)
@@ -224,6 +327,8 @@ export struct CircleExploreSheet {
         .onClick((): void => {
           if (item.joined) {
             this.onOpen(item.name);
+          } else if (fromCity) {
+            this.onJoinCity(item.name);
           } else {
             this.onJoin(item.name);
           }
@@ -232,6 +337,100 @@ export struct CircleExploreSheet {
     .width('100%')
     .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
     .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  cityChip(city: CitySummary): void {
+    Pressable({
+      visualHeight: 34,
+      touchTargetHeight: 44,
+      action: (): void => { this.pickCity(city); },
+    }) {
+      Text(city.name + (city.circleCount > 0 ? ' ' + city.circleCount : ''))
+        .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
+        .fontWeight(this.cityCode === city.code ? TypeTokens.headline.weight : FontWeight.Regular)
+        .fontColor(this.cityCode === city.code ? ColorTokens.primary : ColorTokens.secondary)
+        .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: 6, bottom: 6 })
+        .backgroundColor(this.cityCode === city.code ? ColorTokens.brandTint : ColorTokens.subtle)
+        .border({
+          width: 1,
+          color: this.cityCode === city.code ? ColorTokens.brand : ColorTokens.separator,
+          style: BorderStyle.Solid,
+        })
+        .borderRadius(RadiusTokens.pill)
+    }
+  }
+
+  @Builder
+  citySection(): void {
+    Column({ space: SpaceTokens.sm }) {
+      Row({ space: SpaceTokens.xs }) {
+        Text('同城圈子')
+          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.headline.weight)
+          .fontColor(ColorTokens.primary)
+        Text('· 按城市看')
+          .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
+          .fontColor(ColorTokens.tertiary)
+        Blank()
+        if (this.cityCode.length > 0) {
+          Text('清除筛选')
+            .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
+            .fontColor(ColorTokens.brand)
+            .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: 6, bottom: 6 })
+            .onClick((): void => {
+              this.cityCode = '';
+              this.cityItems = [];
+              this.cityLoading = false;
+              this.cityRequestId += 1;
+            })
+        }
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      // 全部白名单城市横向滚动：保留原城市层「所有城市可选」的能力，
+      // 又不再单开一整个全屏层。
+      Scroll() {
+        Row({ space: SpaceTokens.sm }) {
+          ForEach(this.cities, (city: CitySummary) => {
+            this.cityChip(city)
+          }, (city: CitySummary) => 'city-' + city.code)
+        }
+        .padding({ right: SpaceTokens.md })
+      }
+      .scrollable(ScrollDirection.Horizontal)
+      .scrollBar(BarState.Off)
+      .height(48)
+      .width('100%')
+
+      if (this.cityCode.length > 0) {
+        if (this.cityLoading) {
+          Row({ space: SpaceTokens.sm }) {
+            LoadingProgress().width(20).height(20)
+            Text('正在加载同城圈子…')
+              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+              .fontColor(ColorTokens.secondary)
+          }
+          .width('100%')
+          .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+        } else if (this.cityItems.length === 0) {
+          Text('这座城市还没有同城圈，换个城市看看')
+            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+            .fontColor(ColorTokens.secondary)
+            .width('100%')
+            .padding({ top: SpaceTokens.md, bottom: SpaceTokens.md })
+        } else {
+          ForEach(this.cityItems, (item: CatalogItem) => {
+            this.row(item, true)
+            Divider().color(ColorTokens.separator).strokeWidth(0.5)
+          }, (item: CatalogItem) => 'city-item-' + item.name)
+        }
+      }
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+    .padding({ top: SpaceTokens.md, bottom: SpaceTokens.sm })
   }
 
   build() {
@@ -251,33 +450,40 @@ export struct CircleExploreSheet {
             Divider().color(ColorTokens.separator).strokeWidth(0.5)
           }
 
-          ForEach(this.groups, (group: CatalogGroup) => {
-            Text(group.category)
-              .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-              .fontWeight(TypeTokens.headline.weight)
-              .fontColor(ColorTokens.tertiary)
-              .letterSpacing(2)
-              .alignSelf(ItemAlign.Start)
-              .margin({ top: SpaceTokens.md, bottom: SpaceTokens.xs })
-            ForEach(group.items, (item: CatalogItem) => {
-              this.row(item)
-              Divider().color(ColorTokens.separator).strokeWidth(0.5)
-            }, (item: CatalogItem) => item.name)
-          }, (group: CatalogGroup) => group.category)
+          if (this.cities.length > 0) {
+            this.citySection()
+            Divider().color(ColorTokens.separator).strokeWidth(0.5)
+          }
 
-          if (this.groups.length === 0) {
-            Column({ space: SpaceTokens.sm }) {
-              Text('✦').fontSize(26).fontColor(ColorTokens.warm)
-              Text(this.keyword.length > 0
-                ? '深空里没有叫「' + this.keyword + '」的圈子\n也许，该由你来点亮它'
-                : '深空目录加载中…')
-                .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+          // 选了城市就只看同城圈；点「清除筛选」回到全部圈子。
+          if (this.cityCode.length === 0) {
+            ForEach(this.groups, (group: CatalogGroup) => {
+              Text(group.category)
+                .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
+                .fontWeight(TypeTokens.headline.weight)
                 .fontColor(ColorTokens.tertiary)
-                .textAlign(TextAlign.Center)
-                .lineHeight(20)
+                .letterSpacing(2)
+                .alignSelf(ItemAlign.Start)
+                .margin({ top: SpaceTokens.md, bottom: SpaceTokens.xs })
+              ForEach(group.items, (item: CatalogItem) => {
+                this.row(item)
+                Divider().color(ColorTokens.separator).strokeWidth(0.5)
+              }, (item: CatalogItem) => item.name)
+            }, (group: CatalogGroup) => group.category)
+
+            if (this.groups.length === 0) {
+              Column({ space: SpaceTokens.sm }) {
+                Text(this.keyword.length > 0
+                  ? '没有找到「' + this.keyword + '」相关的圈子\n可以换个关键词，或创建一个新圈子'
+                  : '圈子目录加载中…')
+                  .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+                  .fontColor(ColorTokens.secondary)
+                  .textAlign(TextAlign.Center)
+                  .lineHeight(20)
+              }
+              .width('100%')
+              .margin({ top: SpaceTokens.x3l })
             }
-            .width('100%')
-            .margin({ top: SpaceTokens.x3l })
           }
         }
         .width('100%')

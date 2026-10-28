@@ -867,6 +867,7 @@ export struct HomeTab {
       // （其余 PostCard 列表面默认不挂，防跨面同帖 id 撞车量错飞行起点）
       mediaTag: 'cardMedia-',
       compact: true,
+      navMode: true,
       onOpen: () => {
         if (post.id !== undefined) {
           trackPostEvent(post.id, 'click', 'feed');

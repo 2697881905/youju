@@ -23,6 +23,7 @@ import { PublishTagPanel } from '../components/PublishTagPanel';
 import { PUBLISH_GENRES, PUBLISH_GENRE_SEGMENTS, publishGenreMeta } from '../utils/publishGenres';
 import { PublishSection } from '../components/PublishSection';
 import { PublishCircleSelector } from '../components/PublishCircleSelector';
+import { consumePendingPublishCircle } from '../utils/publishCircleIntent';
 import { PublishTopBar } from '../components/PublishTopBar';
 import { GlassBlurStyle, getSheetImmersiveMaterial, isSystemMaterialActive } from '../utils/immersiveMaterial';
 
@@ -298,7 +299,8 @@ struct PhotoPublishPage {
   private reset(): void {
     this.genre = 'share';
     this.genreIndex = 4; // share 位于 PUBLISH_GENRES 下标 4
-    this.selectedTags = [];
+    const pendingCircle: string = consumePendingPublishCircle();
+    this.selectedTags = pendingCircle.length > 0 ? [pendingCircle] : [];
     this.title = '';
     this.content = '';
     this.sd = {};

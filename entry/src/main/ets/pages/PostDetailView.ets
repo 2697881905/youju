@@ -1894,6 +1894,7 @@ export struct PostDetailView {
               .opacity(this.heroOpacity())
 
               DetailPostContent({
+                navMode: this.navMode,
                 pairs: this.fields,
                 structuredDocument: this.post.structuredDocument ?? null,
                 genre: this.post.genre ?? '',
@@ -1918,6 +1919,7 @@ export struct PostDetailView {
               commentCount: this.commentCount,
               highlightCommentId: this.highlightCommentId,
               postAuthorId: this.authorId() ?? 0,
+              navMode: this.navMode,
               onReportComment: (commentId: number): void => { this.openCommentReport(commentId); },
               onReplyComment: (comment: Comment): void => { this.onReplyComment(comment); },
               onDeletedComment: (comment: Comment): void => { this.onCommentDeleted(comment); },
