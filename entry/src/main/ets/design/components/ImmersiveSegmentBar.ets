@@ -1,5 +1,6 @@
 import { ItemRestriction, SegmentButton, SegmentButtonOptions, SegmentButtonTextItem,
   TabSegmentButtonConstructionOptions, uiMaterial } from '@kit.ArkUI';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { getSegmentImmersiveMaterial } from '../../utils/immersiveMaterial';
 
 /**
@@ -168,5 +169,12 @@ export struct ImmersiveSegmentBar {
       }
     }
     .width(this.barWidth())
+    // 【临时排查】举报中心铺满问题：打印模式、计算宽与实测宽，验证后连 import 一并删除
+    .onAreaChange((_old: Area, area: Area): void => {
+      hilog.info(0x0000, 'SegBarW',
+        'fillWidth=%{public}s itemW=%{public}f calc=%{public}s measured=%{public}f items=%{public}d',
+        String(this.fillWidth), this.itemWidth, String(this.barWidth()),
+        parseFloat(String(area.width)), this.items.length);
+    })
   }
 }
