@@ -15,6 +15,33 @@
 
 ---
 
+## 0.5 交付索引（本会话产出与状态，2026-10-28）
+
+| 资产 | 路径 | 状态 | 卡在哪 |
+| --- | --- | --- | --- |
+| 作战方案（本文件） | `deliverables/product-strategy/growth-400mau-youju-2026-10-28.md` | ✅ 可用 | — |
+| 渠道弹药包 A–N | `deliverables/product-strategy/growth-channel-assets-youju-2026-10-28.md` | ✅ 可复制即发 | 发送需你的身份 |
+| 编辑部成稿 6 篇 | `deliverables/content/editorial-2026-11-dual11.md` | ✅ 带法条出处，可按字段录入 | 发布要你的账号 |
+| 运营日报（DB 下界） | `scripts/mau-report.sh` | ✅ 实测可用 | — |
+| 渠道点击归因 | `scripts/src-report.sh` | ✅ 自投样本反证 | 渠道链接要带 `?src=` |
+| 自动台账 | `scripts/daily-ledger.sh` → `mau-ledger.md` | ✅ 首行基线已写入 | — |
+| 设备量级估计（含游客） | `scripts/app-device-ips.sh` | ✅ 实测可用 | — |
+| AGC 官方活跃设备数 | `scripts/agc-active-devices.mjs` | ⛔ 差凭据 | 需你在 AGC 建 **API 客户端** |
+| 每日一帖推送（日活引擎） | `backend/src/services/dailyDigestService.ts` + `/v1/admin/daily-digest` | ✅ 代码就绪、**默认关** | 需部署后端；且内容归队前会自动跳过 |
+| 内容归队 SQL | `scripts/seed-rehome.sql` | ⛔ 待授权 | 生产库写操作，等你批 |
+| 计数对账方案 | 本文件 §6.7 | ⛔ 待拍板 | X / Y / Z 三选一 |
+| 游客引导条 | `deliverables/growth/guest-convert-bar-patch.md` | ⛔ 未合入 | 本会话无 ArkTS 编译检查 + 并行会话在构建同一模块 |
+| 官网 hero/og 改写 | `site/index.html` | ✅ 已改并提交 | 需你部署 |
+| 分享落地页 CTA 修复 | `backend/src/routes/share.ts` | ✅ 已改，`tsc`+349 例通过 | 需部署后端 |
+| 发布闸门假阴性修复 | `check-release.sh` | ✅ 已修，现只剩「未构建」 | 需你跑 release 构建 |
+| IT之家投稿成稿 | 弹药包 §N | ✅ 820 字成稿 | 投递需你操作 |
+
+**关键路径（顺序不可颠倒）**：内容归队 → 编辑部补 10 篇 → 计数对账 → 提审新版本（解锁游客引导 + 推送覆盖）→ 商店页文案与隐私标签 → 编辑推荐邮箱申请 → 媒体/社区/群渠道 → 25 条私信召回 → 打开每日一帖。
+
+**读数口径**：达标判定只看「激励计划上架应用数据查询界面」；AGC 报表看趋势；`mau-report.sh` 与 `app-device-ips.sh` 是自建下界与量级估计，三者不可互相替代。
+
+---
+
 ## 1. 规则核实（2026-10-28 官网原文，与 8 月方案的差异是致命的）
 
 | 项目 | 8 月方案记载（已作废） | 官方现行规则 |
