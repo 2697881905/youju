@@ -1117,7 +1117,9 @@ export struct ReportAdminPage {
     .padding({
       left: SpaceTokens.pageCompact,
       right: SpaceTokens.pageCompact,
-      top: SpaceTokens.xs,
+      // 全屏沉浸壳内容器从屏顶起排，顶部让位穿底标题栏（statusBar + 导航行实测高），
+      // 与下方列表原让位口径一致；否则分段栏被标题行盖住（真机实证 2026-10-28）
+      top: this.reportListInset(),
       bottom: SpaceTokens.sm,
     })
   }
@@ -1654,7 +1656,9 @@ export struct ReportAdminPage {
             .width('100%')
             .constraintSize({ minHeight: '100%' })
             .justifyContent(this.stateCentered() ? FlexAlign.Center : FlexAlign.Start)
-            .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: this.reportListInset(), bottom: SpaceTokens.x2l })
+            // 顶部不再补标题栏让位：分段栏固定区已承担 reportListInset（见 segBars），
+            // 列表顶 = 分段栏底，再补会出大空隙
+            .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, bottom: SpaceTokens.x2l })
           }
           .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
           .onDidScroll((): void => { this.syncReportScroll(); })
