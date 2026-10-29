@@ -66,4 +66,14 @@ export const STAR_DOTS: StarDot[] = [
   { x: 77, y: 65, size: 2, tw: 1 }, { x: 89, y: 71, size: 1, tw: 2 }, { x: 9, y: 80, size: 2, tw: 0 },
   { x: 21, y: 87, size: 1, tw: 1 }, { x: 35, y: 82, size: 2, tw: 2 }, { x: 50, y: 89, size: 1, tw: 0 },
   { x: 64, y: 84, size: 2, tw: 1 }, { x: 78, y: 91, size: 1, tw: 2 }, { x: 91, y: 86, size: 2, tw: 0 },
+  // 深空加层：细碎小星填补上半部（标题区）与环带空隙，让底色不只是一层均匀噪点。
+  { x: 9, y: 14, size: 1, tw: 2 }, { x: 18, y: 9, size: 1, tw: 1 }, { x: 27, y: 17, size: 1, tw: 0 },
+  { x: 36, y: 8, size: 1, tw: 2 }, { x: 47, y: 14, size: 1, tw: 1 }, { x: 58, y: 18, size: 1, tw: 0 },
+  { x: 68, y: 12, size: 1, tw: 2 }, { x: 79, y: 19, size: 1, tw: 1 }, { x: 90, y: 11, size: 1, tw: 0 },
+  { x: 6, y: 33, size: 1, tw: 1 }, { x: 20, y: 35, size: 1, tw: 2 }, { x: 33, y: 38, size: 1, tw: 0 },
+  { x: 46, y: 34, size: 1, tw: 1 }, { x: 60, y: 39, size: 1, tw: 2 }, { x: 74, y: 36, size: 1, tw: 0 },
+  { x: 86, y: 40, size: 1, tw: 1 }, { x: 96, y: 45, size: 1, tw: 2 },
+  { x: 3, y: 52, size: 1, tw: 0 }, { x: 13, y: 55, size: 1, tw: 1 }, { x: 24, y: 58, size: 1, tw: 2 },
+  { x: 38, y: 54, size: 1, tw: 0 }, { x: 52, y: 59, size: 1, tw: 1 }, { x: 66, y: 56, size: 1, tw: 2 },
+  { x: 80, y: 60, size: 1, tw: 0 },
 ];

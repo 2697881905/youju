@@ -3,6 +3,7 @@ import { resolveDisplayImageUrl } from '../services/api';
 import { ColorTokens } from '../design/tokens/color';
 import { StarDot, StarPalette, DARK_PALETTE, PAPER_PALETTE, STAR_DOTS } from '../design/tokens/starPalette';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
+import { categoryHue } from '../design/tokens/category';
 import { ShadowTokens } from '../design/tokens/shadow';
 import { SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
@@ -66,6 +67,29 @@ const RIPPLE_FIRST_SIZE: number = 68;
 const RIPPLE_SECOND_SIZE: number = 88;
 const RIPPLE_CYCLE_DURATION: number = 920;
 const RIPPLE_STAGGER: number = 180;
+
+// ===== 星轨：轨道不再画「粗环 / 光带」，而是「极细引力线 + 沿轨星尘」 =====
+// 内环密、外环疏；颗粒越靠外越小越淡，制造由近及远的纵深。
+const RING_LINE_OPACITIES: number[] = [0.85, 0.5, 0.28];
+const RING_DUST_COUNTS: number[] = [18, 24, 30];
+const RING_DUST_SIZES: number[] = [2.0, 1.6, 1.2];
+const RING_DUST_OPACITIES: number[] = [0.38, 0.24, 0.14];
+
+// 星尘角度：等分 + 固定伪随机抖动（±5°），既避免机械对齐，也保证每次渲染星位一致。
+function dustAnglesOf(count: number): number[] {
+  const angles: number[] = [];
+  for (let index: number = 0; index < count; index++) {
+    const jitter: number = ((index * 37) % 11) - 5;
+    angles.push(index * 360 / count + jitter);
+  }
+  return angles;
+}
+
+const RING_DUST_ANGLES: number[][] = [
+  dustAnglesOf(RING_DUST_COUNTS[0]),
+  dustAnglesOf(RING_DUST_COUNTS[1]),
+  dustAnglesOf(RING_DUST_COUNTS[2]),
+];
 
 // 全屏矩形画布的星系中心：水平居中、垂直 42%（原型 cy≈40%，标题栏之下留出呼吸位）。
 function canvasCenterY(height: number): number {
@@ -410,6 +434,7 @@ export struct CircleOrbitCanvas {
     OrbitRingLayer({
       galaxySize: this.galaxySize,
       canvasH: this.canvasHeight(),
+      ringIndex: ring,
       radius: this.radiusFor(ring),
       ringAngle: this.angleFor(ring),
       circles: this.circlesFor(ring),
@@ -522,6 +547,8 @@ export struct CircleOrbitCanvas {
 @Component
 struct OrbitRingLayer {
   @Prop galaxySize: number = 343;
+  // 环序（0=内/1=中/2=外）：线感与星尘密度按环递减，形成纵深
+  @Prop ringIndex: number = 0;
   @Prop radius: number = 0;
   @Prop ringAngle: number = 0;
   @Prop circles: OrbitCircleItem[] = [];
@@ -547,33 +574,68 @@ struct OrbitRingLayer {
     return this.darkMode ? DARK_PALETTE : PAPER_PALETTE;
   }
 
+  private lineOpacity(): number {
+    return RING_LINE_OPACITIES[this.ringIndex] ?? 0.5;
+  }
+
+  private dustSize(): number {
+    return RING_DUST_SIZES[this.ringIndex] ?? 1.2;
+  }
+
+  private dustOpacity(): number {
+    return RING_DUST_OPACITIES[this.ringIndex] ?? 0.12;
+  }
+
+  private dustAngles(): number[] {
+    return RING_DUST_ANGLES[this.ringIndex] ?? RING_DUST_ANGLES[0];
+  }
+
+  // 每 5 颗一颗锚星：尺寸 ×1.5、亮度 ×1.7。
+  private dustSizeAt(index: number): number {
+    return this.dustSize() * (index % 5 === 0 ? 1.5 : 1);
+  }
+
+  private dustOpacityAt(index: number): number {
+    return this.dustOpacity() * (index % 5 === 0 ? 1.7 : 1);
+  }
+
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
-      // 轨道线：深色=夜空细白环+微光 / 浅色=纸上墨细线（原型 glowline / 墨线轨道）
-      // 微光层：形状组件的 shadow 按外接矩形投影（真机方晕，与未读角标同源根因），
-      // 改用「粗描边 + 低透明度」双层近似——外圈 8vp 柔光，内圈 1vp 实线，圆外不再有直角。
-      Circle()
-        .width(this.radius * 2 + 8)
-        .height(this.radius * 2 + 8)
-        .fill(Color.Transparent)
-        .stroke(this.pal().glow)
-        .strokeWidth(8)
-        .position({
-          x: this.galaxySize / 2 - this.radius - 4,
-          y: canvasCenterY(this.ch()) - this.radius - 4,
-        })
-        .hitTestBehavior(HitTestMode.None)
+      // 引力线：0.8vp 极细暖白线，只作为拖拽换档的参照；越外环越淡，溶进夜空。
       Circle()
         .width(this.radius * 2)
         .height(this.radius * 2)
         .fill(Color.Transparent)
         .stroke(this.pal().ring)
-        .strokeWidth(1)
-        .opacity(0.9)
+        .strokeWidth(0.8)
+        .opacity(this.lineOpacity())
         .position({ x: this.galaxySize / 2 - this.radius, y: canvasCenterY(this.ch()) - this.radius })
         .rotate({ angle: this.ringAngle, centerX: '50%', centerY: '50%' })
         .animation({ duration: this.ringDragging ? MotionTokens.instant : MotionTokens.fast, curve: MotionCurves.standard })
         .hitTestBehavior(HitTestMode.None)
+      // 星尘轨：沿圆周铺 18/24/30 颗 1.2–2vp 微粒，随环公转；内环密而亮、外环疏而淡。
+      // 整层一起 rotate（只 3 个容器动画），不逐颗重算坐标。
+      Stack({ alignContent: Alignment.TopStart }) {
+        ForEach(this.dustAngles(), (angle: number, index: number) => {
+          // 每 5 颗挑一颗做「锚星」：更大更亮，轨道才读得出来是星轨而不是一圈噪点。
+          Column()
+            .width(this.dustSizeAt(index))
+            .height(this.dustSizeAt(index))
+            .borderRadius(this.dustSizeAt(index) / 2)
+            .backgroundColor(this.pal().star)
+            .opacity(this.dustOpacityAt(index))
+            .position({
+              x: this.radius + this.radius * Math.cos(angle * Math.PI / 180) - this.dustSizeAt(index) / 2,
+              y: this.radius + this.radius * Math.sin(angle * Math.PI / 180) - this.dustSizeAt(index) / 2,
+            })
+        }, (angle: number) => 'ring-' + this.ringIndex + '-' + angle)
+      }
+      .width(this.radius * 2)
+      .height(this.radius * 2)
+      .position({ x: this.galaxySize / 2 - this.radius, y: canvasCenterY(this.ch()) - this.radius })
+      .rotate({ angle: this.ringAngle, centerX: '50%', centerY: '50%' })
+      .animation({ duration: this.ringDragging ? MotionTokens.instant : MotionTokens.fast, curve: MotionCurves.standard })
+      .hitTestBehavior(HitTestMode.None)
       ForEach(this.circles, (circle: OrbitCircleItem) => {
         OrbitPlanet({
           name: circle.name,
@@ -612,10 +674,10 @@ struct OrbitPlanet {
   @Prop category: string = '';
   @Prop planetSize: number = 46;
   @Prop joined: boolean = false;
-  @Prop active: boolean = true;
+  @Prop @Watch('onActiveChanged') active: boolean = true;
   @Prop @Watch('onUnreadChanged') unread: number = 0;
-  // 星图 Live 三期：星等 0=暗星 1=常星 2=耀星（光晕 + 亮度分级）
-  @Prop @Watch('onMagnitudeChanged') magnitude: number = 1;
+  // 星图 Live 三期：星等 0=暗星 1=常星 2=耀星（亮度分级）
+  @Prop magnitude: number = 1;
   @Prop selectedName: string = '';
   @Prop @Watch('onCenteredNameChanged') centeredName: string = '';
   @Prop galaxySize: number = 343;
@@ -642,7 +704,7 @@ struct OrbitPlanet {
   // 星子脉动（原型 seedPulse 2.2s）：有未读时角标呼吸缩放
   @State seedScale: number = 1;
   @State seedOpacity: number = 0.8;
-  // 耀星光晕呼吸（原型 liveGlow 2.6s）：星等 2 的光斑明暗起伏
+  // 耀星光晕呼吸（原型 liveGlow 2.6s）：活跃星的柔光缓慢明暗起伏
   @State glowBreath: number = 0.6;
   private seedBreathing: boolean = false;
   private glowBreathing: boolean = false;
@@ -662,7 +724,7 @@ struct OrbitPlanet {
     if (this.live && this.unread > 0) {
       this.startSeedBreath();
     }
-    if (this.live && this.magnitude >= 2) {
+    if (this.live && this.active) {
       this.startGlowBreath();
     }
   }
@@ -702,9 +764,9 @@ struct OrbitPlanet {
     });
   }
 
-  // 耀星光晕呼吸（原型 liveGlow：box-shadow 起伏 → 用 opacity 等效，仅 transform/opacity）
-  private onMagnitudeChanged(): void {
-    if (this.live && this.magnitude >= 2 && !this.glowBreathing) {
+  // 星芒呼吸（原型 liveGlow：box-shadow 起伏 → 用 opacity 等效，仅 transform/opacity）
+  private onActiveChanged(): void {
+    if (this.live && this.active && !this.glowBreathing) {
       this.startGlowBreath();
     }
   }
@@ -737,7 +799,7 @@ struct OrbitPlanet {
       if (this.unread > 0) {
         this.startSeedBreath();
       }
-      if (this.magnitude >= 2) {
+      if (this.active) {
         this.startGlowBreath();
       }
       return;
@@ -905,14 +967,6 @@ struct OrbitPlanet {
     return 0.5;
   }
 
-  // 耀星光晕半径（星等 2 才有；选中额外增强）。返回 0 表示不绘制光晕。
-  private glowSize(): number {
-    if (this.magnitude < 2) {
-      return 0;
-    }
-    return this.isSelected() ? PLANET_ICON_HIT_SIZE + 26 : PLANET_ICON_HIT_SIZE + 16;
-  }
-
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
       Stack({ alignContent: Alignment.Center }) {
@@ -969,15 +1023,16 @@ struct OrbitPlanet {
             .opacity(0.95)
             .hitTestBehavior(HitTestMode.None)
         }
-        // 星图 Live 三期：耀星星等光晕——中心亮、边缘衰减的软光斑，衬托图标。
-        if (this.glowSize() > 0) {
+        // 星芒：近 7 天有新帖的圈子带一圈「分类色」柔光（中心亮 → 边缘透明），
+        // 让活跃行星在夜空里发光；颜色取分类色板，不再统一压成金色。
+        if (this.active) {
           Column()
-            .width(this.glowSize())
-            .height(this.glowSize())
+            .width(PLANET_ICON_HIT_SIZE + 26)
+            .height(PLANET_ICON_HIT_SIZE + 26)
             .radialGradient({
-              center: [this.glowSize() / 2, this.glowSize() / 2],
-              radius: this.glowSize() / 2,
-              colors: [[this.pal().glow, 0], [ColorTokens.glassClear, 1]],
+              center: [(PLANET_ICON_HIT_SIZE + 26) / 2, (PLANET_ICON_HIT_SIZE + 26) / 2],
+              radius: (PLANET_ICON_HIT_SIZE + 26) / 2,
+              colors: [[categoryHue(this.category, this.darkMode) + '3D', 0], [ColorTokens.glassClear, 1]],
             })
             .opacity(this.glowBreath)
             .animation({ duration: MotionTokens.base, curve: MotionCurves.standard })
