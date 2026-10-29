@@ -22,10 +22,9 @@ import { Genre, StructuredData } from '../models/types';
 //   shortText → 单行输入 / 单行文本
 //   longText  → 多行输入 / 带左侧色条的段落块
 //   steps     → 多行输入 / 有序步骤流（按换行与分号拆条，拆不出条目时回退段落块）
-//   rating    → 数值输入 / 星级 + 数值
 //   amount    → 单行输入 / 醒目金额
 //   chips     → 单行输入 / 标签行（按顿号、逗号、斜杠拆）
-export type StructuredFieldKind = 'shortText' | 'longText' | 'steps' | 'rating' | 'amount' | 'chips';
+export type StructuredFieldKind = 'shortText' | 'longText' | 'steps' | 'amount' | 'chips';
 
 export interface StructuredFieldMeta {
   key: keyof StructuredData;
@@ -44,8 +43,6 @@ const REVIEW_FIELDS: StructuredFieldMeta[] = [
     hint: '续航强、系统流畅' },
   { key: 'cons', label: '缺点', kind: 'longText', maxLength: 200, essential: true,
     hint: '重量偏重、价格偏高' },
-  { key: 'rating', label: '推荐指数', kind: 'rating', maxLength: 3, essential: true,
-    hint: '4.5（0-5，可带一位小数）' },
   { key: 'targetAudience', label: '适合人群', kind: 'chips', maxLength: 40, essential: false,
     hint: '学生党、摄影党（用顿号分隔）' },
 ];
@@ -97,7 +94,6 @@ export function readStructuredField(data: StructuredData, key: keyof StructuredD
   switch (key) {
     case 'pros': return data.pros;
     case 'cons': return data.cons;
-    case 'rating': return data.rating;
     case 'targetAudience': return data.targetAudience;
     case 'pitfallExperience': return data.pitfallExperience;
     case 'lossAmount': return data.lossAmount;
@@ -118,7 +114,6 @@ export function cloneStructuredData(src: StructuredData): StructuredData {
     coverOnlyTextPoster: src.coverOnlyTextPoster,
     pros: src.pros,
     cons: src.cons,
-    rating: src.rating,
     targetAudience: src.targetAudience,
     pitfallExperience: src.pitfallExperience,
     lossAmount: src.lossAmount,
@@ -136,7 +131,6 @@ export function withStructuredField(data: StructuredData, key: keyof StructuredD
   switch (key) {
     case 'pros': next.pros = value; break;
     case 'cons': next.cons = value; break;
-    case 'rating': next.rating = value; break;
     case 'targetAudience': next.targetAudience = value; break;
     case 'pitfallExperience': next.pitfallExperience = value; break;
     case 'lossAmount': next.lossAmount = value; break;

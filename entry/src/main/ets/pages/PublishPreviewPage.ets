@@ -20,10 +20,9 @@ import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { bottomNavInset } from '../utils/cardTokens';
 import { TypeTokens } from '../design/tokens/type';
 import { structuredFieldPairs, withCoverOnlyTextPoster } from '../utils/structuredFields';
-import { structuredSummaryOf } from '../utils/structuredBlocks';
-import { StructuredSummaryCard } from '../components/StructuredSummaryCard';
 import { StructuredFlowView } from '../components/StructuredFlowView';
-import { collectStructuredDocument, emptyStructuredDocument, structuredDocumentFromLegacy } from '../utils/structuredDocument';
+import { collectStructuredDocument, emptyStructuredDocument, structuredDocumentFromLegacy, structuredDocumentHasContent } from '../utils/structuredDocument';
+import { publishGenreMeta } from '../utils/publishGenres';
 import { FALLBACK_VIDEO_ASPECT_RATIO, normalizeVideoAspectRatio } from '../utils/video';
 
 const TEXT_POSTER_TIMEOUT: number = 20000;
@@ -230,9 +229,12 @@ struct PublishPreviewPage {
     if (this.publishing || this.draft === null) {
       return;
     }
-    // 结构化信息流是「可选表达」，不是必填项：信息块为空也一次点击直接发布。
-    // （旧的「提示 + 二次确认」软闸门已移除：它依赖 structuredData 的核心字段，
-    //   而字段输入 UI 早已不在发布链路里，导致四个体裁每次发布都被拦一次。）
+    const previewDraft: PublishDraft | null = this.draft;
+    if (previewDraft !== null && publishGenreMeta(previewDraft.genre).structured &&
+      !structuredDocumentHasContent(this.currentStructuredDocument())) {
+      safeShowToast(this.getUIContext(), { message: '请至少填写一个信息块（数字、结论、清单、步骤或对比）' });
+      return;
+    }
     let user: User | null = null;
     try {
       user = await ensureLogin();
@@ -584,11 +586,6 @@ struct PublishPreviewPage {
       StructuredFlowView({ document: collectStructuredDocument(this.currentStructuredDocument()) })
     } else if (this.previewFields().length > 0) {
       Column({ space: SpaceTokens.sm }) {
-        StructuredSummaryCard({
-          summary: structuredSummaryOf(this.currentDraft().structuredData, this.currentDraft().genre,
-            this.currentStructuredDocument()),
-          compact: false,
-        })
         GlassPanel({ panelPadding: SpaceTokens.md, radius: RadiusTokens.md }) {
           Column({ space: SpaceTokens.sm }) {
             Text('完整信息')

@@ -228,7 +228,9 @@ export struct StructuredFlowView {
   @Builder
   private blockHeading(block: StructuredBlock, primary: boolean): void {
     Row({ space: SpaceTokens.sm }) {
-      Text(primary ? '主视觉' : structuredBlockTypeLabel(block.type))
+      // 「主视觉」概念退役（2026-10-29 社区评分替代作者推荐指数）：标签回归块类型名；
+      // primary 的强调底色/字号保留为纯排版层次（旧文档 primaryBlockId 排序兼容）
+      Text(structuredBlockTypeLabel(block.type))
         .fontSize(TypeTokens.overline.size)
         .fontFamily(TypeTokens.fontFamily)
         .fontWeight(TypeTokens.overline.weight)

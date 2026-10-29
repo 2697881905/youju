@@ -14,7 +14,7 @@ export interface PublishGenreItem {
 }
 
 export const PUBLISH_GENRES: PublishGenreItem[] = [
-  { key: 'review', label: '测评', hint: '优缺点与推荐指数', iconRes: $r('app.media.genre_review'), structured: true },
+  { key: 'review', label: '测评', hint: '优缺点与实测结论', iconRes: $r('app.media.genre_review'), structured: true },
   { key: 'pitfall', label: '避坑', hint: '踩坑经历与正确做法', iconRes: $r('app.media.genre_pitfall'), structured: true },
   { key: 'tutorial', label: '教程', hint: '工具与步骤拆解', iconRes: $r('app.media.genre_tutorial'), structured: true },
   { key: 'debate', label: '辩论', hint: 'A/B 方案投票', iconRes: $r('app.media.genre_debate'), structured: true },

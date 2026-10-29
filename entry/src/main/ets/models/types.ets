@@ -39,7 +39,6 @@ export interface StructuredData {
   coverOnlyTextPoster?: boolean;
   pros?: string;
   cons?: string;
-  rating?: number | string;
   targetAudience?: string;
   pitfallExperience?: string;
   lossAmount?: string;
@@ -141,6 +140,11 @@ export interface Post {
   bookmarkCount?: number;
   commentCount?: number;
   viewCount?: number; // 详情浏览次数（创作者数据面板基础）
+  // —— 社区评分（2026-10-29 替代作者主观推荐指数）——
+  // ratingAvg=均星（一位小数，无人打分为 null）；ratingCount=人数；myRating=我的评分（半星×2 整数 2..10，未打为 null）
+  ratingAvg?: number | null;
+  ratingCount?: number;
+  myRating?: number | null;
   hotScore?: number; // 热度综合分（推荐/热榜排序信号，只读展示用）
   // —— 帖子主数字（后端从 metric 块抽出的派生列；没有可比数字时后端给 null）——
   // 跨帖对比表按它排序；后端 JSON 的 null 不等于 undefined，可空性必须写进类型。

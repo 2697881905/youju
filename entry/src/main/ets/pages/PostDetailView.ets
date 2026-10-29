@@ -46,7 +46,7 @@ import { FolderNameDialog } from '../components/FolderNameDialog';
 import { PostStatsDialog } from '../components/PostStatsDialog';
 import { openUserProfile, openVideoPlayer, takePostDetailId, takePostDetailCommentId, takePostDetailIntent, PostDetailIntent } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
-import { getUserId, getToken } from '../utils/auth';
+import { getUserId, getToken, ensureLogin, writeActionError, getCurrentUser } from '../utils/auth';
 import { startGripTracking, stopGripTracking, KEY_GRIP_ON_RIGHT } from '../utils/gripAwareness';
 import { likeStore } from '../utils/likeStore';
 import { postDeletionStore } from '../utils/postDeletionStore';
@@ -166,6 +166,10 @@ export struct PostDetailView {
   // 直接改 post.commentCount 这类嵌套属性刷新不稳定，会出现「删了评论但计数不变」。
   @State commentCount: number = 0;
   @State fields: StructuredFieldPair[] = [];
+  // 社区评分（2026-10-29）：随详情加载初始化，打分回调回写触发重渲染
+  @State ratingAvg: number | null = null;
+  @State ratingCount: number = 0;
+  @State myRating: number = 0;
   @State images: string[] = [];
   @State videoUrl: string = '';
   @State videoCover: string = '';
@@ -180,6 +184,7 @@ export struct PostDetailView {
   @State bookmarkFeedbackVersion: number = 0;
   @State commenting: boolean = false;
   @State commentText: string = '';
+  @State commentAsFact: boolean = false;
   // 楼中楼回复目标：replyTargetId>0 时当前输入处于「回复 @xxx」态（清零即退出）
   @State replyTargetId: number = 0;
   @State replyTargetName: string = '';
@@ -552,6 +557,9 @@ export struct PostDetailView {
       }
       this.post = p;
       this.commentCount = p.commentCount ?? 0;
+      this.ratingAvg = p.ratingAvg ?? null;
+      this.ratingCount = p.ratingCount ?? 0;
+      this.myRating = p.myRating ?? 0;
       // 依据后端返回的 myUp/myBookmark 初始化互动态，确保已点赞/已收藏帖进入详情时
       // 高亮态正确（避免初始 false 导致再次点击「顶」重复 upPost 造成 upCount 膨胀）。
       this.interaction = new DetailInteractionState(
@@ -1876,6 +1884,23 @@ export struct PostDetailView {
               authorName: this.authorName(),
               authorAvatar: this.authorAvatar(),
               createdAt: this.post.createdAt,
+              postId: this.post.id ?? 0,
+              ratingAvg: this.ratingAvg,
+              ratingCount: this.ratingCount,
+              myRating: this.myRating,
+              onRatingUpdated: (avg: number, count: number, my: number): void => {
+                this.ratingAvg = avg;
+                this.ratingCount = count;
+                this.myRating = my;
+              },
+              onExpandRequest: (): boolean => {
+                const user = getCurrentUser();
+                if (user !== null && getToken() !== '') {
+                  return true;
+                }
+                ensureLogin();
+                return false;
+              },
               onOpenAuthor: (): void => { this.openAuthorProfile(); },
             })
               .transition(this.animLayerEnter(80))

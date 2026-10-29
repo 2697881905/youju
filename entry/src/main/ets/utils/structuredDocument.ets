@@ -468,6 +468,10 @@ export function collectStructuredDocument(document: StructuredDocument): Structu
   return next;
 }
 
+export function structuredDocumentHasContent(document: StructuredDocument): boolean {
+  return collectStructuredDocument(document).blocks.length > 0;
+}
+
 function legacyText(value: string | number | undefined): string {
   if (typeof value === 'number') return String(value);
   return typeof value === 'string' ? value.trim() : '';
@@ -482,14 +486,6 @@ function appendLegacyBlock(document: StructuredDocument, block: StructuredBlock)
 // 老草稿首次打开时转换为 V2；老帖子仍保留 structuredData 作为只读兼容数据。
 export function structuredDocumentFromLegacy(data: StructuredData, _genre?: Genre): StructuredDocument {
   const document: StructuredDocument = emptyStructuredDocument();
-  const rating: string = legacyText(data.rating);
-  if (rating.length > 0) {
-    const metric: StructuredBlock = createStructuredBlock('metric');
-    metric.title = '推荐指数';
-    metric.value = rating;
-    metric.unit = '/ 5';
-    appendLegacyBlock(document, metric);
-  }
   const loss: string = legacyText(data.lossAmount);
   if (loss.length > 0) {
     const metric: StructuredBlock = createStructuredBlock('metric');

@@ -1,7 +1,6 @@
 import { StructuredFieldPair } from '../utils/structuredFields';
 import { StructuredFieldBlock, withoutHeadline } from './StructuredFieldView';
-import { formatCount } from '../utils/format';
-import { resolveActionIcon } from '../utils/actionIcons';
+import { formatCount } from '../utils/format';import { resolveActionIcon } from '../utils/actionIcons';
 import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
@@ -14,8 +13,6 @@ import { HighlightSegment, parseHighlightSegments } from '../utils/textHighlight
 import { openCircleDetail, openUserProfile } from '../utils/nav';
 import { openCircleDetailViaNav } from '../utils/navigationTransition';
 import { MentionRef, StructuredDocument } from '../models/types';
-import { StructuredSummaryCard } from './StructuredSummaryCard';
-import { structuredSummaryFromPairs } from '../utils/structuredBlocks';
 import { StructuredFlowView } from './StructuredFlowView';
 import { PostCompareSheet } from './PostCompareSheet';
 
@@ -319,11 +316,6 @@ export struct DetailPostContent {
         // 因此多出一大段空白（结构化帖 FlowView 有真实内容，无此问题）。
         // 必须整段跳过，让它们连槽位都不占。
         if (this.pairs.length > 0) {
-          StructuredSummaryCard({
-            summary: structuredSummaryFromPairs(this.pairs, this.genre),
-            compact: false,
-          })
-            .gesture(this.contentLongPress())
           StructuredFieldBlock({ pairs: this.bodyPairs() })
             .gesture(this.contentLongPress())
         }

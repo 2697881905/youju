@@ -43,6 +43,7 @@ model User {
   searchHistories SearchHistory[]
   bindings       UserBinding[] // 账号绑定关系（虚拟关系，FK 落在 UserBinding.userId，不新增列）
   pushTokens     PushToken[]   // 华为推送 Token（同一用户可多设备）
+  postRatings    PostRating[]  // 社区评分（一人一帖一票，可改票）
 }
 
 // 帖子表
@@ -87,6 +88,7 @@ model Post {
   comments Comment[]
   ups      Up[]
   bookmarks Bookmark[]
+  ratings  PostRating[]
 
   @@index([hotScore, status, deletedAt]) // 推荐/热榜按热度检索（未删+已发布过滤走 where，索引前缀含 hotScore）
   @@index([genre, status, deletedAt, metricValue]) // 跨帖对比表：同体裁内按主数字排序取前 N
@@ -432,4 +434,21 @@ model PushLog {
 
   @@index([userId])
   @@index([status, createdAt])
+}
+
+// 帖子社区评分（2026-10-29）：替代作者主观「推荐指数」——登录用户一人一帖一票，可改票。
+// score 存半星步进×2 的整数（2=1星 3=1.5星 … 10=5星），避免浮点存取与聚合误差；
+// 均值/人数由查询端 aggregate 实时计算（社区早期量级小，不做冗余列双写）。
+model PostRating {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  postId    Int
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  score     Int // 2..10（实星 = score/2）
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, postId])
+  @@index([postId])
 }

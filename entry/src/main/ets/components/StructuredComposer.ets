@@ -30,8 +30,6 @@ import {
   withStructuredMetricKind,
   StructuredBlockTextField,
 } from '../utils/structuredDocument';
-import { structuredSummaryFromDocument } from '../utils/structuredBlocks';
-import { StructuredSummaryCard } from './StructuredSummaryCard';
 import { Collapse } from '../design/motion/Collapse';
 import { ToggleChip } from '../design/components/ToggleChip';
 import { SoftChip } from '../design/components/SoftChip';
@@ -554,9 +552,6 @@ export struct StructuredComposer {
       this.evidenceSection(block)
 
       Row({ space: SpaceTokens.sm }) {
-        this.miniAction(block.id === this.document.primaryBlockId ? '主视觉' : '设为主视觉', (): void => {
-          this.onDocumentChange(setStructuredPrimary(this.document, block.id));
-        }, block.id === this.document.primaryBlockId)
         Blank().layoutWeight(1)
         this.miniAction('复制', (): void => { this.onDocumentChange(duplicateStructuredBlock(this.document, block.id)); })
         this.miniAction('删除', (): void => { this.onDocumentChange(removeStructuredBlock(this.document, block.id)); })
@@ -628,7 +623,7 @@ export struct StructuredComposer {
           .fontFamily(TypeTokens.fontFamily)
           .fontWeight(600)
           .fontColor(ColorTokens.secondary)
-        Text('模板只负责起步，选完仍可自由增删、排序和换主视觉。')
+        Text('模板只负责起步，选完仍可自由增删和排序。')
           .fontSize(TypeTokens.caption.size)
           .fontFamily(TypeTokens.fontFamily)
           .fontColor(ColorTokens.tertiary)
@@ -687,7 +682,7 @@ export struct StructuredComposer {
               .lineHeight(TypeTokens.headline.lineHeight)
               .fontColor(ColorTokens.primary)
             Text(this.document.blocks.length === 0 ? '选一条体裁骨架，改词就能发' :
-              String(this.document.blocks.length) + ' 个信息块 · 长按 ⠿ 拖动排序 · 可设主视觉')
+              String(this.document.blocks.length) + ' 个信息块 · 长按 ⠿ 拖动排序')
               .fontSize(TypeTokens.caption.size)
               .fontFamily(TypeTokens.fontFamily)
               .fontColor(ColorTokens.secondary)
@@ -712,10 +707,6 @@ export struct StructuredComposer {
                 .fontWeight(600)
                 .letterSpacing(1)
                 .fontColor(ColorTokens.tertiary)
-              StructuredSummaryCard({
-                summary: structuredSummaryFromDocument(this.document, this.genreLabel),
-                compact: false,
-              })
             }
             .width('100%')
             .alignItems(HorizontalAlign.Start)

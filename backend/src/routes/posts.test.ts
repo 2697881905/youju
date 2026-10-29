@@ -56,6 +56,14 @@ jest.mock('../prisma', () => ({
       findMany: jest.fn().mockResolvedValue([]),
       findUnique: jest.fn().mockResolvedValue(null),
     },
+    // 社区评分（2026-10-29）：列表 groupBy / 详情 aggregate / 打分 upsert+findUnique
+    postRating: {
+      groupBy: jest.fn().mockResolvedValue([]),
+      aggregate: jest.fn().mockResolvedValue({ _avg: { score: null }, _count: { score: 0 } }),
+      findUnique: jest.fn().mockResolvedValue(null),
+      upsert: jest.fn().mockResolvedValue({}),
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
     $transaction: jest.fn().mockImplementation((ops: any) => Promise.all(ops ?? [])),
   },
 }));
@@ -504,5 +512,52 @@ describe('废纸篓路由', () => {
     expect(res.status).toBe(200);
     expect(res.json.message).toBe('已恢复');
     expect(mockPrisma.post.update).toHaveBeenCalledWith({ where: { id: 9 }, data: { deletedAt: null } });
+  });
+});
+
+describe('POST /v1/posts/:id/rating（社区评分）', () => {
+  const mockAgg = (avgScore: number | null, count: number) =>
+    mockPrisma.postRating.aggregate.mockResolvedValue({
+      _avg: { score: avgScore },
+      _count: { score: count },
+    });
+
+  it('登录用户打分成功，返回聚合均值与我的评分', async () => {
+    mockPrisma.post.findFirst.mockResolvedValue({ id: 7 });
+    mockPrisma.postRating.upsert.mockResolvedValue({ id: 1, score: 9 });
+    mockAgg(8.6, 3);
+
+    const res = await req('POST', '/v1/posts/7/rating', { score: 9 }, authHeader());
+
+    expect(res.status).toBe(200);
+    expect(res.json.code).toBe(0);
+    expect(res.json.data.ratingAvg).toBe(4.3);
+    expect(res.json.data.ratingCount).toBe(3);
+    expect(res.json.data.myRating).toBe(9);
+    expect(mockPrisma.postRating.upsert).toHaveBeenCalledWith({
+      where: { userId_postId: { userId: TEST_USER_ID, postId: 7 } },
+      create: { userId: TEST_USER_ID, postId: 7, score: 9 },
+      update: { score: 9 },
+    });
+  });
+
+  it('非法分数（<2 / >10 / 非整数）返回 400', async () => {
+    for (const bad of [1, 11, 4.5, 0]) {
+      const res = await req('POST', '/v1/posts/7/rating', { score: bad }, authHeader());
+      expect(res.status).toBe(400);
+    }
+    expect(mockPrisma.postRating.upsert).not.toHaveBeenCalled();
+  });
+
+  it('帖子不存在（软删/未过审）返回 404 且不落库', async () => {
+    mockPrisma.post.findFirst.mockResolvedValue(null);
+    const res = await req('POST', '/v1/posts/999/rating', { score: 8 }, authHeader());
+    expect(res.status).toBe(404);
+    expect(mockPrisma.postRating.upsert).not.toHaveBeenCalled();
+  });
+
+  it('未登录返回 401', async () => {
+    const res = await req('POST', '/v1/posts/7/rating', { score: 8 });
+    expect([401, 403]).toContain(res.status);
   });
 });

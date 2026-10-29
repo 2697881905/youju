@@ -14,7 +14,7 @@ const SKELETON_GENRES: Genre[] = ['review', 'pitfall', 'tutorial', 'debate'];
 // 骨架的作用不是给空壳，而是把这个体裁该有的表达顺序摆好、标题填好、数值类型选好，
 // 让作者改词而不是搭架子——选完体裁就该看出「这是一篇测评 / 这是一篇教程」。
 export const STRUCTURED_TEMPLATES: StructuredTemplateMeta[] = [
-  { key: 'review_score', title: '推荐指数', description: '评分 + 结论 + 优缺点 + 适合谁', genres: ['review'] },
+  { key: 'review_score', title: '实测速览', description: '价格 + 结论 + 优缺点 + 适合谁', genres: ['review'] },
   { key: 'pitfall_case', title: '踩坑复盘', description: '坑是什么 + 怎么识别 + 正确做法', genres: ['pitfall'] },
   { key: 'tutorial_path', title: '上手路径', description: '准备清单 + 分步操作 + 关键提醒', genres: ['tutorial'] },
   { key: 'debate_side', title: '正反对照', description: '双方论点 + 支持度 + 我的立场', genres: ['debate'] },
@@ -47,10 +47,10 @@ function block(type: 'metric' | 'insight' | 'list' | 'steps' | 'compare', title:
 export function structuredDocumentFromTemplate(key: string): StructuredDocument {
   const document: StructuredDocument = emptyStructuredDocument();
   if (key === 'review_score') {
-    const score: StructuredBlock = block('metric', '推荐指数');
-    score.unit = '/5';
-    score.kind = 'score';
-    append(document, score);
+    const price: StructuredBlock = block('metric', '到手价格');
+    price.unit = '元';
+    price.kind = 'amount';
+    append(document, price);
     append(document, block('insight', '一句话结论'));
     const pros: StructuredBlock = block('compare', '优点与缺点');
     pros.leftLabel = '优点';

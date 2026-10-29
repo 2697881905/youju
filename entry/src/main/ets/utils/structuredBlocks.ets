@@ -123,18 +123,6 @@ export function structuredSummaryFromPairs(pairs: StructuredFieldPair[], genre?:
     return null;
   }
 
-  const rating: string = pairValueOf(pairs, '推荐指数');
-  if (rating.length > 0) {
-    return {
-      mode: 'metric',
-      eyebrow: genreLabel(genre),
-      label: '推荐指数',
-      primary: rating,
-      secondary: secondaryText(pairs, ['targetAudience', '适合人群', 'pros'], 2),
-      helper: '/ 5',
-    };
-  }
-
   const loss: string = pairValueOf(pairs, '损失金额');
   if (loss.length > 0) {
     return {

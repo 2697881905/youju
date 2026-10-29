@@ -3,6 +3,7 @@ import { Avatar } from '../design/components/Avatar';
 import { ColorTokens } from '../design/tokens/color';
 import { SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
+import { PostRatingPill } from './PostRatingPill';
 
 // 阅读头部只负责文章元信息和作者入口；帖子请求、删除态判断仍由详情页处理。
 //
@@ -19,6 +20,14 @@ export struct DetailPostHeader {
   @Prop authorName: string = '';
   @Prop authorAvatar: string = '';
   @Prop createdAt: string = '';
+  // 社区评分（Title 附近胶囊，2026-10-29 替代作者主观推荐指数主视觉）
+  @Prop postId: number = 0;
+  @Prop ratingAvg: number | null = null;
+  @Prop ratingCount: number = 0;
+  @Prop myRating: number = 0;
+  onRatingUpdated: (avg: number, count: number, my: number) => void = (): void => {};
+  // 展开打分条前询问宿主：已登录 true / 未登录宿主拉登录并 false
+  onExpandRequest: () => boolean = (): boolean => true;
   // true = 右手握持（整组居右）；false = 左手/未知/不支持（默认居左）
   @StorageProp('gripOnRight') gripOnRight: boolean = false;
   onOpenAuthor: () => void = (): void => {};
@@ -52,6 +61,20 @@ export struct DetailPostHeader {
       .backgroundColor(ColorTokens.brandTint)
       .borderRadius(4)
       .padding({ left: 8, right: 8, top: 3, bottom: 3 })
+
+      Blank().layoutWeight(1)
+
+      // 社区评分胶囊：Title 正下方第一行右缘（用户拍板「放 Title 附近、不用大卡片」）
+      PostRatingPill({
+        postId: this.postId,
+        ratingAvg: this.ratingAvg,
+        ratingCount: this.ratingCount,
+        myRating: this.myRating,
+        onUpdated: (avg: number, count: number, my: number): void => {
+          this.onRatingUpdated(avg, count, my);
+        },
+        onExpandRequest: (): boolean => { return this.onExpandRequest(); },
+      })
       if (this.tags.length > 0) {
         Row({ space: 8 }) {
           ForEach(this.tags, (tag: string) => {

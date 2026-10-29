@@ -126,9 +126,14 @@ function markAuthExpired(): void {
   AppStorage.setOrCreate<number>(AUTH_EXPIRED_KEY, now);
 }
 
-// 登录/换码类接口自身的 401 属业务流程错误（如授权码无效），不触发全局过期引导。
+// 仅登录/换码接口的 401 是业务流程错误（授权码无效等），不触发全局过期引导。
+// /v1/auth/me、privacy-consent、deactivate 等已持 token 的接口必须走过期清态，
+// 否则冷启动 getMe 失败时用户会「看起来还登录着」。
 function isAuthEndpoint(path: string): boolean {
-  return path.startsWith('/v1/auth/');
+  return path.indexOf('/auth/login') >= 0 ||
+    path.indexOf('/auth/huawei/') >= 0 ||
+    path.indexOf('/users/login') >= 0 ||
+    path.indexOf('/users/huawei/') >= 0;
 }
 
 async function request<T>(method: string, path: string, body?: Object, extraHeaders?: Record<string, string>): Promise<T> {
@@ -540,6 +545,24 @@ export async function unregisterPushToken(token: string): Promise<void> {
 // POST/DELETE /v1/posts/:id/up
 export async function upPost(id: number): Promise<void> {
   await api.post<null>('/v1/posts/' + id + '/up');
+}
+
+// ===== 社区评分（2026-10-29）=====
+// POST /v1/posts/:id/rating { score: 2..10 }（半星×2 整数：3=1.5星 … 10=5星）
+// 登录即可打，一人一帖一票可改票；返回打分后的聚合（均值一位小数/人数/我的评分）。
+export interface PostRatingResult {
+  ratingAvg: number;
+  ratingCount: number;
+  myRating: number;
+}
+
+interface RatingBody {
+  score: number;
+}
+
+export async function ratePost(postId: number, score: number): Promise<PostRatingResult> {
+  const body: RatingBody = { score: Math.round(score) };
+  return api.post<PostRatingResult>('/v1/posts/' + postId + '/rating', body);
 }
 
 export async function cancelUpPost(id: number): Promise<void> {

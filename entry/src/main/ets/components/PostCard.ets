@@ -221,6 +221,16 @@ export struct PostCard {
             .fontColor(ColorTokens.tertiary)
             .margin({ right: SpaceTokens.sm })
         }
+        // 社区评分（2026-10-29）：有人打分才显示 ★均值·人数（信息流轻量呈现）
+        if ((this.post.ratingCount ?? 0) > 0 && this.post.ratingAvg !== null
+          && this.post.ratingAvg !== undefined) {
+          Text('★' + this.post.ratingAvg.toFixed(1) + '·' + String(this.post.ratingCount))
+            .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.caption.weight)
+            .lineHeight(TypeTokens.overline.lineHeight)
+            .fontColor(ColorTokens.secondary)
+            .margin({ right: SpaceTokens.sm })
+        }
         if (this.showAuthor && this.hasAuthor()) {
           PostCardAuthor({
             name: this.authorName(),

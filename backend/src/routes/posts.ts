@@ -26,6 +26,34 @@ const VALID_REASONS = [
   'other',
 ];
 
+// —— 社区评分聚合（2026-10-29）——
+// 一次 groupBy 拿一批帖子的均值/人数，按 postId merge 回列表项。
+// score 存半星×2 整数（2..10），均值 = avg(score)/2 保留一位小数。
+async function attachRatingAgg(posts: Array<Record<string, unknown>>): Promise<void> {
+  const ids = posts.map((p) => Number(p.id)).filter((n) => Number.isFinite(n));
+  if (ids.length === 0) {
+    return;
+  }
+  const agg = await prisma.postRating.groupBy({
+    by: ['postId'],
+    where: { postId: { in: ids } },
+    _avg: { score: true },
+    _count: { score: true },
+  });
+  const map = new Map<number, { avg: number; count: number }>();
+  for (const row of agg) {
+    map.set(row.postId, {
+      avg: Math.round((row._avg.score ?? 0) / 2 * 10) / 10,
+      count: row._count.score,
+    });
+  }
+  for (const p of posts) {
+    const hit = map.get(Number(p.id));
+    p.ratingAvg = hit ? hit.avg : null;
+    p.ratingCount = hit ? hit.count : 0;
+  }
+}
+
 // 帖子列表：GET /v1/posts?page=1&limit=20&sort=hot|latest|recommend&tag=数码选购&author=1
 // 软鉴权：匿名可浏览；带合法 token 时按 viewerId 批量打标 myUp/myBookmark。
 router.get('/', asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -40,6 +68,7 @@ router.get('/', asyncHandler(async (req: AuthRequest, res: Response) => {
     keyword: keyword as string | undefined,
     viewerId,
   });
+  await attachRatingAgg(data.list as Array<Record<string, unknown>>);
   return ok(res, data);
 }));
 
@@ -108,7 +137,53 @@ router.get('/:id', asyncHandler(async (req: AuthRequest, res: Response) => {
   const viewerId = await resolveOptionalUserId(req);
   const post = await postService.getPost(id, viewerId);
   if (!post) return fail(res, CODE.NOT_FOUND, '帖子不存在', 404);
+  // 社区评分聚合：均值（一位小数）/ 人数 / 当前登录用户的评分（半星×2 整数）
+  const ratingAgg = await prisma.postRating.aggregate({
+    where: { postId: id },
+    _avg: { score: true },
+    _count: { score: true },
+  });
+  (post as Record<string, unknown>).ratingAvg = ratingAgg._count.score > 0
+    ? Math.round((ratingAgg._avg.score ?? 0) / 2 * 10) / 10
+    : null;
+  (post as Record<string, unknown>).ratingCount = ratingAgg._count.score;
+  (post as Record<string, unknown>).myRating = viewerId
+    ? (await prisma.postRating.findUnique({
+        where: { userId_postId: { userId: viewerId, postId: id } },
+      }))?.score ?? null
+    : null;
   return ok(res, post);
+}));
+
+// 社区评分：POST /v1/posts/:id/rating  { score: 2..10 }（半星×2 整数，前端 1..5 半星步进）
+// 登录即可打；一人一帖一票（upsert，可改票）。分数校验 2..10 且为整数。
+router.post('/:id/rating', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const id = Number(req.params.id);
+  const score = Number(req.body?.score);
+  if (!id) return fail(res, CODE.BAD_REQUEST, '无效帖子ID');
+  if (!Number.isInteger(score) || score < 2 || score > 10) {
+    return fail(res, CODE.BAD_REQUEST, '评分无效（0.5-5 星，半星步进）');
+  }
+  const post = await prisma.post.findFirst({
+    where: { id, deletedAt: null, status: 1 },
+    select: { id: true },
+  });
+  if (!post) return fail(res, CODE.NOT_FOUND, '帖子不存在', 404);
+  await prisma.postRating.upsert({
+    where: { userId_postId: { userId: req.userId as number, postId: id } },
+    create: { userId: req.userId as number, postId: id, score },
+    update: { score },
+  });
+  const agg = await prisma.postRating.aggregate({
+    where: { postId: id },
+    _avg: { score: true },
+    _count: { score: true },
+  });
+  return ok(res, {
+    ratingAvg: Math.round((agg._avg.score ?? 0) / 2 * 10) / 10,
+    ratingCount: agg._count.score,
+    myRating: score,
+  });
 }));
 
 // 发布帖子（进入待审核）：POST /v1/posts

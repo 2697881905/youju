@@ -82,20 +82,6 @@ export function splitSteps(text: string): string[] {
   return out.length >= 2 ? out : [];
 }
 
-// 星级：0-5，四舍五入到整颗（小数精度由旁边的数值承担，不引入半星字形）
-export function starText(value: string): string {
-  const num: number = Number(value);
-  if (!Number.isFinite(num)) {
-    return '';
-  }
-  const filled: number = Math.max(0, Math.min(5, Math.round(num)));
-  let out: string = '';
-  for (let i = 0; i < 5; i++) {
-    out += i < filled ? '★' : '☆';
-  }
-  return out;
-}
-
 // 左侧色条：用色而不只用字，让优缺点在扫读时第一眼可分（同时保留文字标签，不只靠颜色）
 export function accentOf(key: string): ResourceColor {
   if (key === 'pros' || key === 'correctApproach') {
@@ -111,7 +97,7 @@ export function accentOf(key: string): ResourceColor {
 }
 
 // 结论卡上「提前展示」的字段：这些值从字段块里移除，避免同一屏出现两次
-const HEADLINE_KEYS: string[] = ['rating', 'lossAmount'];
+const HEADLINE_KEYS: string[] = ['lossAmount'];
 
 export function headlineKeys(): string[] {
   return HEADLINE_KEYS;
@@ -142,15 +128,12 @@ export struct StructuredConclusionCard {
   @Prop pairs: StructuredFieldPair[] = [];
 
   build() {
-    if (findPair(this.pairs, 'rating') !== undefined || findPair(this.pairs, 'lossAmount') !== undefined ||
+    if (findPair(this.pairs, 'lossAmount') !== undefined ||
       findPair(this.pairs, 'targetAudience') !== undefined) {
       Column({ space: SpaceTokens.md }) {
         Row({ space: SpaceTokens.md }) {
-          if (findPair(this.pairs, 'rating') !== undefined) {
-            this.metric('推荐指数', findPair(this.pairs, 'rating')!.value, true);
-          }
           if (findPair(this.pairs, 'lossAmount') !== undefined) {
-            this.metric('损失金额', findPair(this.pairs, 'lossAmount')!.value, false);
+            this.metric('损失金额', findPair(this.pairs, 'lossAmount')!.value);
           }
           Blank()
         }
@@ -171,7 +154,7 @@ export struct StructuredConclusionCard {
   }
 
   @Builder
-  private metric(label: string, value: string, withStars: boolean): void {
+  private metric(label: string, value: string): void {
     Column({ space: 2 }) {
       Text(label)
         .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
@@ -182,13 +165,6 @@ export struct StructuredConclusionCard {
           .fontSize(26).fontFamily(TypeTokens.fontFamilySerif)
           .fontWeight(TypeTokens.titleSerif.weight)
           .fontColor(ColorTokens.primary)
-        if (withStars) {
-          Text(starText(value))
-            .fontSize(13).fontFamily(TypeTokens.fontFamily)
-            .letterSpacing(1)
-            .fontColor(ColorTokens.brand)
-            .margin({ bottom: 3 })
-        }
       }
       .alignItems(VerticalAlign.Bottom)
     }
@@ -244,9 +220,7 @@ export struct StructuredFieldBlock {
 
   @Builder
   private fieldRow(pair: StructuredFieldPair): void {
-    if (pair.kind === 'rating') {
-      this.ratingRow(pair)
-    } else if (pair.kind === 'amount') {
+    if (pair.kind === 'amount') {
       this.amountRow(pair)
     } else if (pair.kind === 'chips') {
       this.chipRow(pair)
@@ -263,29 +237,6 @@ export struct StructuredFieldBlock {
       .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
       .letterSpacing(TypeTokens.overline.tracking)
       .fontColor(ColorTokens.secondary)
-  }
-
-  @Builder
-  private ratingRow(pair: StructuredFieldPair): void {
-    Column({ space: SpaceTokens.inlineTight }) {
-      this.label(pair.label)
-      Row({ space: SpaceTokens.inline }) {
-        Text(starText(pair.value))
-          .fontSize(16).fontFamily(TypeTokens.fontFamily)
-          .letterSpacing(2)
-          .fontColor(ColorTokens.brand)
-        Text(pair.value)
-          .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamilySerifBody)
-          .fontWeight(600)
-          .fontColor(ColorTokens.primary)
-        Text('/ 5')
-          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-          .fontColor(ColorTokens.tertiary)
-      }
-      .alignItems(VerticalAlign.Center)
-    }
-    .width('100%')
-    .alignItems(HorizontalAlign.Start)
   }
 
   @Builder
