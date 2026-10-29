@@ -35,6 +35,14 @@ export class ColorTokens {
   static readonly brand: ResourceColor = $r('app.color.ds_brand');
   static readonly brandTint: ResourceColor = $r('app.color.ds_brand_tint');
   static readonly brandPress: ResourceColor = $r('app.color.ds_brand_press');
+  // brand **实色大面积底**（主按钮 / 选中 chip / 头像圆牌）专用，与作文字色、描边用的 brand 分开。
+  // 为什么单独一档：深色 ds_brand 是 #0A84FF，白字压上去只有 3.65:1（14fp 半粗不达 AA）。
+  // 试过「字改墨」——但禁用态整颗按钮被 .opacity(0.45) 往背板压，墨字与暗化后的蓝底会塌到
+  // 1.73:1（比改前白字的 2.61 还差），除非重设计禁用态否则无解。所以改立面：
+  // 深色 #0050A0 → 启用态白字 7.91:1、禁用态 3.33:1（原 2.61），两处都不需要新增特例。
+  // 浅色侧保持 #0066CC 不变（白字 5.57:1）。
+  static readonly brandSolid: ResourceColor = $r('app.color.ds_brand_solid');
+  // brandSolid 实色底上的文字。
   static readonly onBrand: ResourceColor = $r('app.color.ds_on_brand');
   // @提及专用靛蓝：品牌色改蓝后，与 #话题#（brand 蓝 #0066CC）靠色相区分（靛 243° vs 蓝 210°），
   // 让用户一眼看出点的是「人」而不是「话题」。
@@ -73,4 +81,38 @@ export class ColorTokens {
   static readonly barShadow: ResourceColor = $r('app.color.bar_shadow');
   static readonly barSelectionSurface: ResourceColor = $r('app.color.bar_selection_surface');
   static readonly barSelectionBorder: ResourceColor = $r('app.color.bar_selection_border');
+
+  // 官方 SegmentButton（tab 档）的选中面。不传这个字段时官方取
+  // sys.color.segment_button_checked_foreground_color，深色实测 #E5E5E5 —— 它不随主题翻，
+  // 而选中文字 text_primary 翻了白 → 白字压白珠 1.20:1（真机首页/我的页三处实拍一致）。
+  // 深色给 20% 白：压在实测 #313131 的轨道上合成约 L90，白字 6.8:1，
+  // 且保持「选中面只比轨道亮一档」的原生观感（参考实现 84.5 vs 79.6）。
+  static readonly barTabSelectedBg: ResourceColor = $r('app.color.bar_tab_selected_bg');
+
+  // 结构化文档主题（warm/cool）的两套表面与强调色。
+  // 这六个值原先写死在 StructuredFlowView 里，只有浅色一档：卡面钉在 L249 而块内正文
+  // 走 ColorTokens.primary（深 #F2F2F4 = L246）→ 真机实测对比度 1.03:1，整块读不出来。
+  // 深色侧按「accent 低透明叠 elevated」推导，保证 primary/secondary/tertiary 三档文字
+  // 与 accent 字全部 ≥5:1。
+  static readonly warmSurfacePrimary: ResourceColor = $r('app.color.ds_warm_surface_primary');
+  static readonly warmSurfaceSecondary: ResourceColor = $r('app.color.ds_warm_surface_secondary');
+  static readonly coolSurfacePrimary: ResourceColor = $r('app.color.ds_cool_surface_primary');
+  static readonly coolSurfaceSecondary: ResourceColor = $r('app.color.ds_cool_surface_secondary');
+  static readonly warmAccent: ResourceColor = $r('app.color.ds_warm_accent');
+  static readonly coolAccent: ResourceColor = $r('app.color.ds_cool_accent');
+
+  // 每日一帖「无封面」时的编辑部衬线海报卡面（活 UI，不是作者发布时烤好的海报资产，
+  // 所以要随主题翻）。同层标题用 ColorTokens.primary，写死白底即白字压白底。
+  static readonly posterFaceTop: ResourceColor = $r('app.color.ds_poster_face_top');
+  static readonly posterFaceBottom: ResourceColor = $r('app.color.ds_poster_face_bottom');
+  static readonly posterSeal: ResourceColor = $r('app.color.ds_poster_seal');
+  // 卡堆拖拽提示药丸：同层字 tertiary、描边 separator 都是成对 token，底不能是单值白。
+  static readonly hintPillBg: ResourceColor = $r('app.color.ds_hint_pill_bg');
+
+  // 性别徽章（男=蓝、女=粉）。定稿的是「淡底 + 同色相深字」这套关系，
+  // 不是那两块淡粉淡蓝本身 —— 深色下换成深底 + 提亮字，色相身份保留。
+  static readonly genderMaleSurface: ResourceColor = $r('app.color.ds_gender_male_surface');
+  static readonly genderMaleText: ResourceColor = $r('app.color.ds_gender_male_text');
+  static readonly genderFemaleSurface: ResourceColor = $r('app.color.ds_gender_female_surface');
+  static readonly genderFemaleText: ResourceColor = $r('app.color.ds_gender_female_text');
 }

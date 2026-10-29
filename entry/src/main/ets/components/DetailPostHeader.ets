@@ -56,6 +56,9 @@ export struct DetailPostHeader {
           Image(this.genreIcon)
             .width(14)
             .height(14)
+            // genre_*.svg 是 fill="currentColor"，渲染点漏 fillColor 会按 SVG 自带色落成黑墨
+            // ——深色 tint 底上图标隐身而文字正常（真机实拍）。与同排文字同取 primary。
+            .fillColor(ColorTokens.primary)
           Text(this.genreLabel)
             .fontSize(12).fontFamily($r('app.string.font_family'))
             // brand 字压 brandTint 底深色只有 3.58:1（12px 不达 AA）：字回 primary 墨（深 11.68:1），

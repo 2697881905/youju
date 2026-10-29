@@ -193,7 +193,7 @@ struct DeckSlotCard {
         .fontWeight(TypeTokens.overline.weight)
         .letterSpacing(4)
         .fontColor(ColorTokens.brand)
-        .border({ width: 1, color: '#570066CC', style: BorderStyle.Solid })
+        .border({ width: 1, color: ColorTokens.posterSeal, style: BorderStyle.Solid })
         .borderRadius(RadiusTokens.pill)
         .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.inlineTight, bottom: SpaceTokens.inlineTight })
       Text(this.post.title ?? this.post.content ?? '一条值得读的经验')
@@ -209,7 +209,7 @@ struct DeckSlotCard {
     .width('100%')
     .height('100%')
     .justifyContent(FlexAlign.Center)
-    .linearGradient({ angle: 160, colors: [['#FFFFFF', 0], ['#F7F7F8', 1]] })
+    .linearGradient({ angle: 160, colors: [[ColorTokens.posterFaceTop, 0], [ColorTokens.posterFaceBottom, 1]] })
     .clip(true)
   }
 
@@ -843,7 +843,8 @@ export struct DailyPostDeck {
       Column()
         .width('100%')
         .aspectRatio(DECK_MEDIA_RATIO)
-        .linearGradient({ angle: 110, colors: [['#E9E9EC', 0.3], ['#F2F2F4', 0.42], ['#E9E9EC', 0.54]] })
+        .linearGradient({ angle: 110, colors: [[ColorTokens.skeletonBase, 0.3],
+          [ColorTokens.skeletonHighlight, 0.42], [ColorTokens.skeletonBase, 0.54]] })
       Column({ space: SpaceTokens.xs }) {
         Row().width('70%').height(16).borderRadius(4).backgroundColor(ColorTokens.skeletonBase)
         Row().width('45%').height(10).borderRadius(4).backgroundColor(ColorTokens.skeletonBase)
@@ -1045,7 +1046,7 @@ export struct DailyPostDeck {
                 .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
                 .borderRadius(RadiusTokens.pill)
                 .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.inlineTight, bottom: SpaceTokens.inlineTight })
-                .backgroundColor('#CCFFFFFF')
+                .backgroundColor(ColorTokens.hintPillBg)
             }
           }
           .width('100%')

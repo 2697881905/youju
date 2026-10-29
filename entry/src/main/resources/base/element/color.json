@@ -189,6 +189,10 @@
       "value": "#FFFFFF"
     },
     {
+      "name": "ds_brand_solid",
+      "value": "#0066CC"
+    },
+    {
       "name": "ds_warm",
       "value": "#A06400"
     },
@@ -251,6 +255,66 @@
     {
       "name": "ds_material_canvas",
       "value": "#F1F3F5"
+    },
+    {
+      "name": "bar_tab_selected_bg",
+      "value": "#FFFFFFFF"
+    },
+    {
+      "name": "ds_warm_surface_primary",
+      "value": "#FFFFF1E2"
+    },
+    {
+      "name": "ds_warm_surface_secondary",
+      "value": "#FFFFF8F1"
+    },
+    {
+      "name": "ds_cool_surface_primary",
+      "value": "#FFE8F5F2"
+    },
+    {
+      "name": "ds_cool_surface_secondary",
+      "value": "#FFF4F9F8"
+    },
+    {
+      "name": "ds_warm_accent",
+      "value": "#FFA85D24"
+    },
+    {
+      "name": "ds_cool_accent",
+      "value": "#FF2D746E"
+    },
+    {
+      "name": "ds_poster_face_top",
+      "value": "#FFFFFFFF"
+    },
+    {
+      "name": "ds_poster_face_bottom",
+      "value": "#FFF7F7F8"
+    },
+    {
+      "name": "ds_poster_seal",
+      "value": "#570066CC"
+    },
+    {
+      "name": "ds_hint_pill_bg",
+      "value": "#CCFFFFFF"
+    },
+    {
+      "name": "ds_gender_male_surface",
+      "value": "#FFE8F0FF"
+    },
+    {
+      "name": "ds_gender_male_text",
+      "value": "#FF2563EB"
+    },
+    {
+      "name": "ds_gender_female_surface",
+      "value": "#FFFFF0F5"
+    },
+    {
+      "name": "ds_gender_female_text",
+      "value": "#FFD94F87"
     }
   ]
 }

@@ -77,7 +77,7 @@ export struct ChipRow {
                 right: this.compact ? SpaceTokens.sm : SpaceTokens.item,
               })
               .backgroundColor(this.selectedIndex === index
-                ? (this.compact ? ColorTokens.elevated : (this.glass ? ColorTokens.brandTint : ColorTokens.brand))
+                ? (this.compact ? ColorTokens.elevated : (this.glass ? ColorTokens.brandTint : ColorTokens.brandSolid))
                 : (this.compact ? Color.Transparent : (this.glass ? Color.Transparent : ColorTokens.sunken)))
               .border({
                 width: this.compact || this.glass ? 1 : 0,

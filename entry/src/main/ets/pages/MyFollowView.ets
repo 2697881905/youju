@@ -245,8 +245,8 @@ export struct MyFollowView {
                   Image(resolveDisplayImageUrl(item.avatar)).width(44).height(44).borderRadius(22).objectFit(ImageFit.Cover);
                 } else {
                   Text((item.nickname !== '' ? item.nickname : '?').charAt(0))
-                    .width(44).height(44).borderRadius(22).fontSize(18).fontFamily($r('app.string.font_family')).fontColor('#fff')
-                    .backgroundColor($r('app.color.brand_primary')).textAlign(TextAlign.Center);
+                    .width(44).height(44).borderRadius(22).fontSize(18).fontFamily($r('app.string.font_family')).fontColor($r('app.color.ds_on_brand'))
+                    .backgroundColor($r('app.color.ds_brand_solid')).textAlign(TextAlign.Center);
                 }
                 Column({ space: 4 }) {
                   Text(item.nickname).fontSize(15).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_primary'));
@@ -262,8 +262,8 @@ export struct MyFollowView {
 
                 Button(item.isFollowing ? '已关注' : '回关')
                   .height(32).borderRadius(16).padding({ left: 16, right: 16 })
-                  .backgroundColor(item.isFollowing ? $r('app.color.card_bg') : $r('app.color.brand_primary'))
-                  .fontColor(item.isFollowing ? $r('app.color.text_primary') : '#fff')
+                  .backgroundColor(item.isFollowing ? $r('app.color.card_bg') : $r('app.color.ds_brand_solid'))
+                  .fontColor(item.isFollowing ? $r('app.color.text_primary') : $r('app.color.ds_on_brand'))
                   .onClick(() => {
                     this.onToggle(item);
                   });

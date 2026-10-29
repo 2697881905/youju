@@ -1,6 +1,7 @@
 import { ItemRestriction, SegmentButton, SegmentButtonOptions, SegmentButtonTextItem,
   TabSegmentButtonConstructionOptions, uiMaterial } from '@kit.ArkUI';
 import { getSegmentImmersiveMaterial } from '../../utils/immersiveMaterial';
+import { ColorTokens } from '../tokens/color';
 
 /**
  * 分段数据项。原定义在自绘 SegmentedControl 中，组件退役后收编至此——
@@ -14,10 +15,11 @@ export interface SegmentedItem {
 /**
  * 官方分段栏（SegmentButton · tab 档）+ 沉浸光感系统材质。
  *
- * 表面全部交回官方：选中面、文字颜色/字号/字重、圆角、内缩、投影一律不传，
- * 走官方默认（V1 tab 档这些字段的 Default value 均为 "auto"，选中面取
- * `sys.color.segment_button_checked_foreground_color`，圆角/内缩取 `sys.float.*` 系统值）。
- * 本文件不再自绘任何表面层。
+ * 表面交回官方：文字颜色/字号/字重、圆角、内缩、投影一律不传，
+ * 走官方默认（V1 tab 档这些字段的 Default value 均为 "auto"，圆角/内缩取 `sys.float.*` 系统值）。
+ * 唯一自己给的是**选中面底色**：官方默认 `sys.color.segment_button_checked_foreground_color`
+ * 在深色实测是 #E5E5E5、不随主题翻，而选中文字（text_primary）翻了白 → 白字压白珠 1.20:1
+ * （真机首页三档 + 我的页四档实拍同值）。本文件不再自绘任何表面层。
  *
  * 参考实测（智慧生活 场景页「我的 | 探索」，2026-10-20/21 真机两档）：
  *   浅色 轨道 L246 / 滑块 L255（页面底 L243）；深色 轨道 L79.6 / 选中面 L84.5（页面底 L69.6）
@@ -110,7 +112,9 @@ export struct ImmersiveSegmentBar {
         bottom: this.buttonVerticalPadding,
         left: this.buttonHorizontalPadding,
       } as Padding,
-      // 选中面底色 / 圆角 / 投影一律不传：官方默认（"auto"）即参考实现的那套系统材质语义。
+      // 选中面：官方默认值在深色下不翻（实测 #E5E5E5），会与翻白的选中文字撞成 1.20:1，
+      // 所以这一档必须自己给成对值；圆角 / 投影仍不传，走官方默认（"auto"）。
+      selectedBackgroundColor: ColorTokens.barTabSelectedBg,
     };
     if (this.lightContent) {
       opts.fontColor = '#99FFFFFF';

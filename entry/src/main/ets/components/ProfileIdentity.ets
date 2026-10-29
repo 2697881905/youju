@@ -20,12 +20,15 @@ export struct ProfileIdentity {
   }
 
   private genderColor(): ResourceColor {
-    // 男=淡蓝底蓝字（用户定稿）；文字用 #2563EB 保证浅底上的辨识度
-    return this.gender === 1 ? '#2563EB' : this.gender === 2 ? '#D94F87' : ColorTokens.secondary;
+    // 男=淡蓝底蓝字（用户定稿的是「淡底 + 同色相深字」这层关系）；
+    // 深浅成对，深色侧换深底提亮字，色相身份保留。与 EditableProfilePreview 同款，改色需两处同步。
+    return this.gender === 1 ? ColorTokens.genderMaleText
+      : this.gender === 2 ? ColorTokens.genderFemaleText : ColorTokens.secondary;
   }
 
   private genderSurface(): ResourceColor {
-    return this.gender === 1 ? '#E8F0FF' : this.gender === 2 ? '#FFF0F5' : ColorTokens.sunken;
+    return this.gender === 1 ? ColorTokens.genderMaleSurface
+      : this.gender === 2 ? ColorTokens.genderFemaleSurface : ColorTokens.sunken;
   }
 
   build() {

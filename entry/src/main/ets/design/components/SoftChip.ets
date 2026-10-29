@@ -26,7 +26,7 @@ export struct SoftChip {
 
   private bg(): ResourceColor {
     if (this.tone === 'brand') {
-      return ColorTokens.brand;
+      return ColorTokens.brandSolid;
     }
     if (this.tone === 'danger') {
       return ColorTokens.dangerTint;

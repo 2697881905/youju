@@ -93,7 +93,7 @@ export struct AtMentionSuggest {
       .width(AVATAR_SIZE)
       .height(AVATAR_SIZE)
       .borderRadius(AVATAR_SIZE / 2)
-      .backgroundColor(ColorTokens.brand)
+      .backgroundColor(ColorTokens.brandSolid)
 
       Text(c.nickname)
         .fontSize(TypeTokens.caption.size)

@@ -61,7 +61,7 @@ export struct PublishTagPanel {
       .width('100%')
       .padding({ left: SpaceTokens.item, right: SpaceTokens.item })
       .justifyContent(FlexAlign.Center)
-      .backgroundColor(this.isSelected(tag) ? ColorTokens.brand : ColorTokens.sunken)
+      .backgroundColor(this.isSelected(tag) ? ColorTokens.brandSolid : ColorTokens.sunken)
       .borderRadius(RadiusTokens.pill)
       .alignItems(VerticalAlign.Center)
       .animation({ duration: MotionTokens.fast, curve: MotionCurves.standard })

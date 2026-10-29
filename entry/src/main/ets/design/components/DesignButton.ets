@@ -97,7 +97,7 @@ export struct DesignButton {
         .width(this.fillWidth ? '100%' : 'auto')
         .padding({ left: SpaceTokens.block, right: SpaceTokens.block })
         .textAlign(TextAlign.Center)
-        .backgroundColor(this.isPrimary() ? ColorTokens.brand : (this.isGlass() ? ColorTokens.elevated : Color.Transparent))
+        .backgroundColor(this.isPrimary() ? ColorTokens.brandSolid : (this.isGlass() ? ColorTokens.elevated : Color.Transparent))
         .border({
           // 材质生效时自绘描边让位（材质已接管表面，自绘边框会叠成第二圈描边）
           width: (this.useSystemMaterial && isSystemMaterialActive())

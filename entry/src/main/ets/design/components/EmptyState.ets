@@ -62,7 +62,7 @@ export struct EmptyState {
           .height(LayoutTokens.minTouchTarget)
           .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
           .justifyContent(FlexAlign.Center)
-          .backgroundColor(ColorTokens.brand)
+          .backgroundColor(ColorTokens.brandSolid)
           .borderRadius(RadiusTokens.md)
         }
       }

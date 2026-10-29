@@ -77,17 +77,23 @@ export struct StructuredFlowView {
   }
 
   private accentColor(): ResourceColor {
-    if (this.document?.theme === 'warm') return '#A85D24';
-    if (this.document?.theme === 'cool') return '#2D746E';
+    if (this.document?.theme === 'warm') return ColorTokens.warmAccent;
+    if (this.document?.theme === 'cool') return ColorTokens.coolAccent;
     // brandPress（浅 #0055BB / 深 #3D9BFF）：本函数的返回值既做图形（进度条、勾选、序号球）
     // 也做 11–14px 标签文字，而文字会落在 brandTint 主视觉卡或 subtle 药丸底上；
     // brand 字压 tint 深色只有 3.58:1（不达 AA），brandPress 最差 4.56:1，蓝调不变。
     return ColorTokens.brandPress;
   }
 
+  // warm/cool 两档必须走成对资源，不能写死浅色值：块内正文用 ColorTokens.primary，
+  // 深色侧翻成 #F2F2F4 后压在写死的 #FFF8F1 上实测只有 1.03:1（真机暖主题帖整块不可读）。
   private surfaceColor(primary: boolean): ResourceColor {
-    if (this.document?.theme === 'warm') return primary ? '#FFF1E2' : '#FFF8F1';
-    if (this.document?.theme === 'cool') return primary ? '#E8F5F2' : '#F4F9F8';
+    if (this.document?.theme === 'warm') {
+      return primary ? ColorTokens.warmSurfacePrimary : ColorTokens.warmSurfaceSecondary;
+    }
+    if (this.document?.theme === 'cool') {
+      return primary ? ColorTokens.coolSurfacePrimary : ColorTokens.coolSurfaceSecondary;
+    }
     return primary ? ColorTokens.brandTint : ColorTokens.subtle;
   }
 

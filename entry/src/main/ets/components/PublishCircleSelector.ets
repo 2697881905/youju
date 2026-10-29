@@ -49,7 +49,7 @@ export struct PublishCircleSelector {
         }
         .height(LayoutTokens.segmentedHeight)
         .padding({ left: SpaceTokens.item, right: SpaceTokens.xs })
-        .backgroundColor(ColorTokens.brand)
+        .backgroundColor(ColorTokens.brandSolid)
         .borderRadius(RadiusTokens.pill)
         .alignItems(VerticalAlign.Center)
       }

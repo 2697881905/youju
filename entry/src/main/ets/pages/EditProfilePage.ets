@@ -28,12 +28,15 @@ export struct EditProfilePage {
   @State selectedGender: string = '1'; // '1'=男 '2'=女 '0'=保密
   @State @Watch('onGenderIndexesChange') genderIndexes: number[] = [2];
   // 官方 SegmentButton（tab 样式）：三档性别，选中态由 selectedIndexes 双向同步
+  // selectedBackgroundColor 必须自己给：官方 tab 档默认选中面在深色实测 #E5E5E5、不随主题翻，
+  // 而选中文字翻了白 → 白字压白珠 1.21:1（真机编辑资料页性别档实拍）。与 ImmersiveSegmentBar 同值。
   @State genderOptions: SegmentButtonOptions = SegmentButtonOptions.tab({
     buttons: [
       { text: '男' },
       { text: '女' },
       { text: '保密' },
     ] as ItemRestriction<SegmentButtonTextItem>,
+    selectedBackgroundColor: ColorTokens.barTabSelectedBg,
   });
   @State avatar: string = ''; // 当前头像 URL 或 base64 data URI（COS 不可用时降级）
   @State avatarPreview: image.PixelMap | null = null; // 选图后的本地即时预览（不依赖网络/COS）

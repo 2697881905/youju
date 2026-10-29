@@ -66,7 +66,7 @@ export struct FolderNameDialog {
           .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
           .fontWeight(TypeTokens.headline.weight)
           .fontColor(ColorTokens.onBrand)
-          .backgroundColor(ColorTokens.brand)
+          .backgroundColor(ColorTokens.brandSolid)
           .borderRadius(RadiusTokens.md)
           .onClick((): void => { this.submit(); })
       }

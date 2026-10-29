@@ -242,8 +242,10 @@ export struct BookmarkFolderPage {
         .width('calc(100% - 32vp)')
         .height(44)
         .margin({ left: 16, right: 16, top: 8, bottom: 20 })
-        .backgroundColor($r('app.color.brand_primary'))
-        .fontColor(Color.White)
+        .backgroundColor($r('app.color.ds_brand_solid'))
+        // 深色 brand 实色底走 ds_brand_solid（#0050A0），白字 7.91:1；
+        // 直接用 ds_brand #0A84FF 时白字只有 3.65:1，不达 AA
+        .fontColor($r('app.color.ds_on_brand'))
         .borderRadius(22)
         .onClick(() => { this.openCreate(); });
     }
