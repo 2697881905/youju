@@ -440,9 +440,11 @@ export struct CircleExploreSheet {
 
   build() {
     Column() {
+      // 顶边不留边距：系统关闭按钮贴在内容区顶部（实测其中心比带 8vp 上边距的搜索框高 8vp），
+      // 搜索框与它顶对齐后两者水平中线一致（2026-10-29 反馈）。
       Search({ value: this.keyword, placeholder: '搜索圈子名或分类…' })
         .height(40)
-        .margin({ left: SpaceTokens.xl, right: SHEET_CLOSE_RESERVE, top: SpaceTokens.sm })
+        .margin({ left: SpaceTokens.xl, right: SHEET_CLOSE_RESERVE, top: 0 })
         .onChange((value: string): void => { this.onKeywordChange(value); })
 
       Scroll() {

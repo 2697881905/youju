@@ -937,16 +937,29 @@ struct OrbitPlanet {
             .hitTestBehavior(HitTestMode.None)
         }
         // 星盘底：深色=深空蓝灰圆盘+细白边（悬浮夜空）/ 浅色=白盘+浅灰边（纸上星球）
-        Circle()
+        // 圆形改用「容器 + 半宽圆角」：Circle 形状挂 shadow 时阴影按外接矩形投影，
+        // 真机上每个星球外会多出一圈方框（2026-10-29 反馈）；圆角容器的阴影跟随圆角。
+        Stack()
           .width(PLANET_ICON_HIT_SIZE)
           .height(PLANET_ICON_HIT_SIZE)
-          .fill(this.pal().discFill)
-          .stroke(this.pal().discStroke)
-          .strokeWidth(0.8)
+          .backgroundColor(this.pal().discFill)
+          .border({ width: 0.8, color: this.pal().discStroke, style: BorderStyle.Solid })
+          .borderRadius(PLANET_ICON_HIT_SIZE / 2)
           .shadow(this.darkMode ? ShadowTokens.pillFloat : ShadowTokens.cardContact)
           .hitTestBehavior(HitTestMode.None)
-        // 成员身份金环：已加入圈子行星外圈一道细金环（与涟漪/选中态独立叠加）
+        // 成员身份金环：已加入圈子行星外圈一道细金环（与涟漪/选中态独立叠加）。
+        // 金环柔光同样不能用形状 shadow（会投出金色方框），深色用一圈低透明度粗描边近似。
         if (this.joined) {
+          if (this.darkMode) {
+            Circle()
+              .width(PLANET_ICON_HIT_SIZE + 20)
+              .height(PLANET_ICON_HIT_SIZE + 20)
+              .fill(Color.Transparent)
+              .stroke(this.pal().gold)
+              .strokeWidth(6)
+              .opacity(0.16)
+              .hitTestBehavior(HitTestMode.None)
+          }
           Circle()
             .width(PLANET_ICON_HIT_SIZE + 8)
             .height(PLANET_ICON_HIT_SIZE + 8)
@@ -954,7 +967,6 @@ struct OrbitPlanet {
             .stroke(this.pal().gold)
             .strokeWidth(1.5)
             .opacity(0.95)
-            .shadow({ radius: this.darkMode ? 6 : 0, color: this.pal().gold + '80', offsetY: 0 })
             .hitTestBehavior(HitTestMode.None)
         }
         // 星图 Live 三期：耀星星等光晕——中心亮、边缘衰减的软光斑，衬托图标。
