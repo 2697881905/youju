@@ -167,7 +167,7 @@ def main() -> None:
             "number": "02 / 06",
             "stem": "preview-02-structured",
             "title": "结构化发布，逐步写清",
-            "subtitle": "优缺点与推荐指数，按信息块组织",
+            "subtitle": "优缺点与社区评分，按信息块组织",
             "source": "structured.png",
         },
         {

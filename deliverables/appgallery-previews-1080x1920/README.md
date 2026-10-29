@@ -7,7 +7,7 @@
 ## 当前 6 张
 
 - `preview-01-home.png`：首页，推荐/关注/每日一帖
-- `preview-02-structured.png`：结构化发布，优缺点与推荐指数字段
+- `preview-02-structured.png`：结构化发布，优缺点与社区评分字段
 - `preview-03-search.png`：搜索你关心的经验和问题
 - `preview-04-circles.png`：圈子地图，按问题找到主题圈子
 - `preview-05-daily.png`：每日一帖，今日精选卡片
