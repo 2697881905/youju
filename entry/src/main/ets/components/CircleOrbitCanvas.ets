@@ -550,6 +550,19 @@ struct OrbitRingLayer {
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
       // 轨道线：深色=夜空细白环+微光 / 浅色=纸上墨细线（原型 glowline / 墨线轨道）
+      // 微光层：形状组件的 shadow 按外接矩形投影（真机方晕，与未读角标同源根因），
+      // 改用「粗描边 + 低透明度」双层近似——外圈 8vp 柔光，内圈 1vp 实线，圆外不再有直角。
+      Circle()
+        .width(this.radius * 2 + 8)
+        .height(this.radius * 2 + 8)
+        .fill(Color.Transparent)
+        .stroke(this.pal().glow)
+        .strokeWidth(8)
+        .position({
+          x: this.galaxySize / 2 - this.radius - 4,
+          y: canvasCenterY(this.ch()) - this.radius - 4,
+        })
+        .hitTestBehavior(HitTestMode.None)
       Circle()
         .width(this.radius * 2)
         .height(this.radius * 2)
@@ -557,7 +570,6 @@ struct OrbitRingLayer {
         .stroke(this.pal().ring)
         .strokeWidth(1)
         .opacity(0.9)
-        .shadow({ radius: 6, color: this.pal().glow, offsetY: 0 })
         .position({ x: this.galaxySize / 2 - this.radius, y: canvasCenterY(this.ch()) - this.radius })
         .rotate({ angle: this.ringAngle, centerX: '50%', centerY: '50%' })
         .animation({ duration: this.ringDragging ? MotionTokens.instant : MotionTokens.fast, curve: MotionCurves.standard })

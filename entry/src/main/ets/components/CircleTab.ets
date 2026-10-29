@@ -753,11 +753,11 @@ export struct CircleTab {
   }
 
   // 圈子内点星子/角标 → 帖子详情：与圈子详情一致，优先 Navigation 栈。
+  // 只有真正回退 router 时才写 nav 意图，避免 nav 模式下多写一次无用的模块变量。
   private openPostViaNav(postId: number): void {
     if (postId <= 0) {
       return;
     }
-    openPostDetail(String(postId));
     const nav: NavPathStack | null = getMainNavStack();
     if (nav !== null) {
       const params: PostDetailNavParams = new PostDetailNavParams();
@@ -765,6 +765,7 @@ export struct CircleTab {
       nav.pushPathByName('PostDetail', params);
       return;
     }
+    openPostDetail(String(postId));
     this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
   }
 
