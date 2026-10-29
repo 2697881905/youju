@@ -7,6 +7,11 @@ import { TypeTokens } from '../design/tokens/type';
 import { Pressable } from '../design/motion/Pressable';
 import { TagIcon } from './TagIcon';
 
+// bindSheet 自带的关闭按钮固定在右上角（40vp 触控区、距右约 16vp）。
+// 搜索框与它同处第一行，右侧让开 64vp = 触控区 + 边距 + 呼吸，
+// 既不会被图标压住，也不会被它的热区抢走搜索框右端点击（2026-10-29 反馈）。
+const SHEET_CLOSE_RESERVE: number = 64;
+
 // 目录条目：由父页面（CircleTab）从服务端数据 + CIRCLE_META 构建后传入。
 export interface CatalogItem {
   name: string;
@@ -437,7 +442,7 @@ export struct CircleExploreSheet {
     Column() {
       Search({ value: this.keyword, placeholder: '搜索圈子名或分类…' })
         .height(40)
-        .margin({ left: SpaceTokens.xl, right: SpaceTokens.xl, top: SpaceTokens.sm })
+        .margin({ left: SpaceTokens.xl, right: SHEET_CLOSE_RESERVE, top: SpaceTokens.sm })
         .onChange((value: string): void => { this.onKeywordChange(value); })
 
       Scroll() {
