@@ -219,33 +219,18 @@ struct DeckSlotCard {
   mediaFace(): void {
     Stack({ alignContent: Alignment.TopStart }) {
       if (this.hasMedia()) {
-        // 竖版文字海报（1080×1440，即 3:4）塞进 4:3 横版卡面时，Cover 会把顶部标题与
-        // 底部落款裁掉，只剩中间几行正文。改为「模糊延伸底 + 完整前景」：
-        // 前景 Contain 保证整张海报可见，底层用同图放大模糊补满两侧，不留生硬留白。
-        Stack({ alignContent: Alignment.Center }) {
-          Image(resolveDisplayImageUrl(this.mediaUrl()))
-            .width('100%')
-            .height('100%')
-            .objectFit(ImageFit.Cover)
-            .interpolation(ImageInterpolation.High)
-            .blur(26)
-            .opacity(0.92)
-            .draggable(false)
-          Image(resolveDisplayImageUrl(this.mediaUrl()))
-            .width('100%')
-            .height('100%')
-            .objectFit(ImageFit.Contain)
-            .interpolation(ImageInterpolation.High)
-            .draggable(false)
-        }
-        // id 必须挂在**外层铺满 4:3 卡面的 Stack** 上：详情页「一镜到底」用
-        // componentUtils 量这个 id 的屏幕帧作飞行起点，挂到内层 Contain 图上会让
-        // 起点 rect 随图片实际比例收缩，飞行起点偏小。
-        .id('deckCardMedia-' + String(this.post.id ?? ''))
-        .width('100%')
-        .height('100%')
-        .backgroundColor(ColorTokens.sunken)
-        .clip(true)
+        // 封面直接 Cover 填充 4:3 卡面（用户拍板 2026-10-29：从「模糊延伸底 + Contain
+        // 完整前景」改为填充，接受竖版海报上下裁切）；模糊延伸底层随之退役。
+        // id 必须挂在铺满 4:3 卡面的节点上：详情页「一镜到底」用它量屏幕帧作飞行起点
+        //（单图 100%×100% 与原外层 Stack 铺满等价）。
+        Image(resolveDisplayImageUrl(this.mediaUrl()))
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Cover)
+          .interpolation(ImageInterpolation.High)
+          .draggable(false)
+          .id('deckCardMedia-' + String(this.post.id ?? ''))
+          .clip(true)
       } else {
         this.textPoster()
       }
