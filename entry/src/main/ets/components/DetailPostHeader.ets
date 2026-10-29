@@ -48,33 +48,40 @@ export struct DetailPostHeader {
         // 选中底色用品牌暖色 token（selectedBackgroundColor，API 14+），贴合主题。
         .copyOption(CopyOptions.LocalDevice)
         .selectedBackgroundColor(ColorTokens.brandTint)
-      Row({ space: 4 }) {
-        Image(this.genreIcon)
-          .width(14)
-          .height(14)
-        Text(this.genreLabel)
-          .fontSize(12).fontFamily($r('app.string.font_family'))
-          // brand 字压 brandTint 底深色只有 3.58:1（12px 不达 AA）：字回 primary 墨（深 11.68:1），
-          // 体裁的蓝色身份交给 tint 底与前面的体裁图标。
-          .fontColor(ColorTokens.primary)
+      // 体裁 chip + 社区评分胶囊同行（2026-10-29）：⚠️ Blank 必须在这一行的 Row 内部
+      // 才是横向推开——放在根 Column 里 layoutWeight 是纵向权重，会把胶囊/标签/作者行
+      // 全部推到页面底部（真机事故实证）。握持手镜像不翻转此行（评分固定右缘锚点）。
+      Row() {
+        Row({ space: 4 }) {
+          Image(this.genreIcon)
+            .width(14)
+            .height(14)
+          Text(this.genreLabel)
+            .fontSize(12).fontFamily($r('app.string.font_family'))
+            // brand 字压 brandTint 底深色只有 3.58:1（12px 不达 AA）：字回 primary 墨（深 11.68:1），
+            // 体裁的蓝色身份交给 tint 底与前面的体裁图标。
+            .fontColor(ColorTokens.primary)
+        }
+        .backgroundColor(ColorTokens.brandTint)
+        .borderRadius(4)
+        .padding({ left: 8, right: 8, top: 3, bottom: 3 })
+
+        Blank().layoutWeight(1)
+
+        // 社区评分胶囊：Title 正下方第一行右缘（用户拍板「放 Title 附近、不用大卡片」）
+        PostRatingPill({
+          postId: this.postId,
+          ratingAvg: this.ratingAvg,
+          ratingCount: this.ratingCount,
+          myRating: this.myRating,
+          onUpdated: (avg: number, count: number, my: number): void => {
+            this.onRatingUpdated(avg, count, my);
+          },
+          onExpandRequest: (): boolean => { return this.onExpandRequest(); },
+        })
       }
-      .backgroundColor(ColorTokens.brandTint)
-      .borderRadius(4)
-      .padding({ left: 8, right: 8, top: 3, bottom: 3 })
-
-      Blank().layoutWeight(1)
-
-      // 社区评分胶囊：Title 正下方第一行右缘（用户拍板「放 Title 附近、不用大卡片」）
-      PostRatingPill({
-        postId: this.postId,
-        ratingAvg: this.ratingAvg,
-        ratingCount: this.ratingCount,
-        myRating: this.myRating,
-        onUpdated: (avg: number, count: number, my: number): void => {
-          this.onRatingUpdated(avg, count, my);
-        },
-        onExpandRequest: (): boolean => { return this.onExpandRequest(); },
-      })
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
       if (this.tags.length > 0) {
         Row({ space: 8 }) {
           ForEach(this.tags, (tag: string) => {
