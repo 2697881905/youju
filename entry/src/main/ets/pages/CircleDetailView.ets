@@ -82,9 +82,8 @@ export struct CircleDetailView {
   // 网格列数由全局断点驱动（全 app 唯一窗口尺寸监听，见 utils/breakpointCenter.ets）
   @StorageProp('currentBreakpoint') @Watch('onBreakpointChanged') currentBreakpoint: string = 'sm';
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
-  // 标题栏（导航行 + 圈子信息行 + 最新/热门分段栏与加入圈子按钮）驻留 Navigation 标题栏 ——
-  // uiMaterial 沉浸光感的官方生效区域；栏高由内容实测回写（首帧用估算兜底）。
-  @State titleBarContentHeight: number = 0;
+  // 2026-10-29 信息行/分段行已移出标题栏（见 circlePageHeader）：标题栏回归纯官方返回键，
+  // 让位量改用固定 MINI 栏高（MINI_BAR_HEIGHT），不再回写实测。
   // 模糊出图开关（IMMERSIVE 变体门控，绝对偏移驱动）
   @State circleBarScrolled: boolean = false;
   // 帖子网格滚动源（bindToScrollable 驱动渐变模糊）
@@ -331,18 +330,12 @@ export struct CircleDetailView {
     this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
   }
 
-  // 标题栏首帧估算：与 Builder 三行的内边距/控件高度同源（实测回写后不再使用）
-  private circleTitleBarEstimate(): number {
-    const navRow: number = SpaceTokens.md + LayoutTokens.minTouchTarget + SpaceTokens.sm;
-    const infoRow: number = SpaceTokens.sm
-      + TypeTokens.display.lineHeight + SpaceTokens.inlineTight + TypeTokens.callout.lineHeight
-      + SpaceTokens.item;
-    const segRow: number = LayoutTokens.minTouchTarget + SpaceTokens.sm;
-    return this.statusBarHeight + navRow + infoRow + segRow;
-  }
+  // 官方 MINI 标题栏体高（真机实测 57vp，2026-10-29）：标题栏回归纯返回键后无自定义
+  // 内容可量，让位用固定值——statusBar 由 @StorageLink 注入
+  private static readonly MINI_BAR_HEIGHT: number = 58;
 
   private circleTitleBarHeight(): number {
-    return this.titleBarContentHeight > 0 ? this.titleBarContentHeight : this.circleTitleBarEstimate();
+    return CircleDetailView.MINI_BAR_HEIGHT;
   }
 
   // 滚动态 → 模糊出图开关 + 系统栏补设（绝对偏移，§36/竞速同款）
@@ -396,8 +389,10 @@ export struct CircleDetailView {
       action: (): void => { this.backAction(); },
     };
     const backIcon: HdsNavigationBackButtonItemOptions = backContent;
+    // 标题栏回归纯官方（2026-10-29）：仅返回键，无 stackBuilder——MINI 栏体 57vp 装不下
+    // 双行信息行（~88vp），此前溢出栏底 3vp 且让位回写被污染。信息行驻内容区页头
+    //（见 circlePageHeader），身份承载不变。
     const content: TitleBarContentOptions = {
-      stackBuilder: (): void => { this.circleStackContent(); },
       backIcon: backIcon,
     };
     return {
@@ -408,11 +403,12 @@ export struct CircleDetailView {
     };
   }
 
-  // 标题栏（穿底三件套·消息页路线 B 模板，序位③）：官方返回键 + 多行 stackBuilder
-  //（圈子信息行 + 最新/热门分段行与加入按钮）。原居中「圈子」导航行随 BackButton 一并退役
-  //——信息行已承载身份。高度由 onAreaChange 实测（titleBarContentHeight），内容让位量共用它。
+  // 内容区页头：圈子信息行（图标 + 名称 + 副标题）+ 分段行（见 circleSegRow）。
+  // 2026-10-29 整体移出标题栏：MINI 标题栏本体仅 57vp，双行信息行（~88vp）物理放不下，
+  // 副标题溢出栏底 3vp、分段行让位回写被污染——标题栏回归纯官方（仅返回键，零自定义
+  // 内容即零溢出）。信息行左右 padding 与网格对齐。
   @Builder
-  circleStackContent(): void {
+  circlePageHeader(): void {
     Column() {
       Row({ space: SpaceTokens.item }) {
         TagIcon({
@@ -444,18 +440,14 @@ export struct CircleDetailView {
         .layoutWeight(1)
       }
       .width('100%')
-      .padding({ left: SpaceTokens.sm, right: SpaceTokens.pageCompact, top: SpaceTokens.sm, bottom: SpaceTokens.item })
+      .padding({ left: GRID_PADDING, right: GRID_PADDING, bottom: SpaceTokens.item })
+
+      this.circleSegRow()
     }
     .width('100%')
-    // ⚠️ 左内缩 64vp 让开官方返回键（stackBuilder 行是返回键 Button 的后兄弟、z 序更高，
-    // 全宽可点会吃掉返回键——防漂移 31）
-    .padding({ left: 64, top: SpaceTokens.xs, bottom: SpaceTokens.sm })
-    .onAreaChange((_old: Area, area: Area): void => {
-      const h: number = parseFloat(String(area.height));
-      if (h > 0 && Math.abs(h - this.titleBarContentHeight) > 0.5) {
-        this.titleBarContentHeight = h;
-      }
-    })
+    // 全屏沉浸壳内容器从屏顶起排：顶部让位穿底标题栏（statusBar + 官方 MINI 栏体高），
+    // 否则页头被返回键行盖住（同举报中心 8a0ab3a 口径）
+    .padding({ top: this.circleListInset() })
   }
 
   // 分段行（最新/热门 + 加入/退出按钮）：固定驻内容区顶部（2026-10-28 移出标题栏，
@@ -490,9 +482,6 @@ export struct CircleDetailView {
     .padding({
       left: GRID_PADDING,
       right: GRID_PADDING,
-      // 全屏沉浸壳内容器从屏顶起排：顶部让位穿底标题栏（statusBar + 信息行实测高），
-      // 与列表原让位口径一致；否则分段行被标题行盖住（同举报中心 8a0ab3a）
-      top: this.circleListInset(),
       bottom: SpaceTokens.sm,
     })
   }
@@ -511,8 +500,8 @@ export struct CircleDetailView {
   build() {
     HdsNavigation() {
       Column() {
-        // 分段行（最新/热门 + 加入/退出）固定区：2026-10-28 移出标题栏，见 circleSegRow 注释
-        this.circleSegRow()
+        // 页头固定区（信息行 + 分段行）：2026-10-29 整体移出标题栏，见 circlePageHeader 注释
+        this.circlePageHeader()
         if (this.posts.length === 0 && this.loading) {
           Column({ space: SpaceTokens.item }) {
             LoadingProgress().width(IconTokens.empty).height(IconTokens.empty)
