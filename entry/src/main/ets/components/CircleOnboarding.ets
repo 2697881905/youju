@@ -27,8 +27,11 @@ export struct CircleOnboarding {
   }
 
   private confirmLabel(): string {
+    // 0 选时这颗钮是禁用的（见下方 disabled），标签就不能说「进入首页」——
+    // 那是它还兼着跳过入口时的旧文案，加门禁后点不动却仍写着可进入，等于骗人点击。
+    // 「至少选 1 个」的理由由上方副标题承担，这里只说不做假承诺的动作名。
     if (this.selectedNames.length === 0) {
-      return '进入首页';
+      return '加入圈子';
     }
     return this.submitting ? '正在加入...' : '加入 ' + this.selectedNames.length + ' 个圈子';
   }
@@ -62,7 +65,7 @@ export struct CircleOnboarding {
       .padding(SpaceTokens.sm)
       .justifyContent(FlexAlign.Center)
       .backgroundBlurStyle(GlassBlurStyle.Card)
-      .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : (this.isSelected(tag.name ?? '') ? ColorTokens.brand : ColorTokens.barSurface))
+      .backgroundColor(isImmersiveLightSenseSupported() ? Color.Transparent : (this.isSelected(tag.name ?? '') ? ColorTokens.brandSolid : ColorTokens.barSurface))
       .border({
         width: LayoutTokens.glassBorderWidth,
         color: this.isSelected(tag.name ?? '') ? ColorTokens.brand : ColorTokens.barBorder,

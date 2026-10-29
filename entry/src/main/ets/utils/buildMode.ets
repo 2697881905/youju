@@ -8,4 +8,4 @@ export const BUILD_MODE_NAME: string = 'release'; // 上架形态（2026-10-26 �
 export const DEBUG: boolean = false; // 上架形态（2026-10-26 还原）
 // 对外展示的版本名：与 AppScope/app.json5 的 versionName 同步改，UI 只从这里取值。
 // 此前 AboutPage 与 SettingsPage 各写一份字面量，1.0.3 发版时设置页那行漏改成了 1.0.1。
-export const APP_VERSION_NAME: string = '1.0.3';
+export const APP_VERSION_NAME: string = '1.0.4';
