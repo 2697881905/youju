@@ -71,9 +71,29 @@ const RIPPLE_STAGGER: number = 180;
 // ===== 星轨：轨道不再画「粗环 / 光带」，而是「极细引力线 + 沿轨星尘」 =====
 // 内环密、外环疏；颗粒越靠外越小越淡，制造由近及远的纵深。
 const RING_LINE_OPACITIES: number[] = [0.85, 0.5, 0.28];
-const RING_DUST_COUNTS: number[] = [18, 24, 30];
 const RING_DUST_SIZES: number[] = [2.0, 1.6, 1.2];
-const RING_DUST_OPACITIES: number[] = [0.38, 0.24, 0.14];
+const RING_DUST_OPACITIES: number[] = [0.38, 0.24, 0.42];
+
+// 最外环断成 3 段星尘弧（每段 80° + 40° 缺口，段透明度递减），像长曝光留下的星轨。
+// 不用 Path 画弧：ArkUI 的 Path 会按弧几何外包盒布局，圆心会偏、弧会飞出色环；
+// 用已知能正确渲染的小圆点铺弧，形状与布局都可控。
+const OUTER_TRAIL_ARCS: number = 3;
+const OUTER_TRAIL_DOTS: number = 22;
+const OUTER_TRAIL_SPAN: number = 80;
+const OUTER_TRAIL_GAP: number = 40;
+const OUTER_TRAIL_OPACITIES: number[] = [0.42, 0.26, 0.14];
+
+function outerTrailAngles(): number[] {
+  const angles: number[] = [];
+  for (let arc: number = 0; arc < OUTER_TRAIL_ARCS; arc++) {
+    for (let dot: number = 0; dot < OUTER_TRAIL_DOTS; dot++) {
+      const t: number = dot / (OUTER_TRAIL_DOTS - 1);
+      const jitter: number = ((dot * 13 + arc * 7) % 7) - 3;
+      angles.push(arc * (OUTER_TRAIL_SPAN + OUTER_TRAIL_GAP) + t * OUTER_TRAIL_SPAN + jitter);
+    }
+  }
+  return angles;
+}
 
 // 星尘角度：等分 + 固定伪随机抖动（±5°），既避免机械对齐，也保证每次渲染星位一致。
 function dustAnglesOf(count: number): number[] {
@@ -86,9 +106,9 @@ function dustAnglesOf(count: number): number[] {
 }
 
 const RING_DUST_ANGLES: number[][] = [
-  dustAnglesOf(RING_DUST_COUNTS[0]),
-  dustAnglesOf(RING_DUST_COUNTS[1]),
-  dustAnglesOf(RING_DUST_COUNTS[2]),
+  dustAnglesOf(18),
+  dustAnglesOf(24),
+  outerTrailAngles(),
 ];
 
 // 全屏矩形画布的星系中心：水平居中、垂直 42%（原型 cy≈40%，标题栏之下留出呼吸位）。
@@ -591,28 +611,81 @@ struct OrbitRingLayer {
   }
 
   // 每 5 颗一颗锚星：尺寸 ×1.5、亮度 ×1.7。
+  // 外环：22 颗/段，段头 1.8vp、段内 1.3vp；内/中环：每 5 颗一颗锚星。
   private dustSizeAt(index: number): number {
+    if (this.ringIndex === 2) {
+      return index % 8 === 0 ? 1.8 : 1.3;
+    }
     return this.dustSize() * (index % 5 === 0 ? 1.5 : 1);
   }
 
   private dustOpacityAt(index: number): number {
+    if (this.ringIndex === 2) {
+      const arc: number = Math.min(OUTER_TRAIL_ARCS - 1, Math.floor(index / OUTER_TRAIL_DOTS));
+      const inArc: number = index % OUTER_TRAIL_DOTS;
+      // 段内做尾迹衰减：弧头亮、弧尾淡，三段整体也递减。
+      const tail: number = 1 - inArc / OUTER_TRAIL_DOTS * 0.45;
+      return (OUTER_TRAIL_OPACITIES[arc] ?? 0.2) * tail;
+    }
     return this.dustOpacity() * (index % 5 === 0 ? 1.7 : 1);
+  }
+
+  @Builder
+  private meteorDot(step: number, size: number, opacity: number): void {
+    Column()
+      .width(size)
+      .height(size)
+      .borderRadius(size / 2)
+      .backgroundColor(this.pal().star)
+      .opacity(opacity)
+      .position({
+        x: this.meteorX(step) - size / 2,
+        y: this.meteorY(step) - size / 2,
+      })
+  }
+
+  private meteorBaseAngle(): number {
+    const angles: number[] = [205, 55, 315];
+    return angles[this.ringIndex] ?? 120;
+  }
+
+  // 尾迹方向 = 环运动反方向：内/外环顺时针、中环逆时针，所以中环取正号。
+  // 步长按 4vp 弧长折算成角度，保证不同半径下拖尾长度一致。
+  private meteorAngle(step: number): number {
+    if (this.radius <= 0) {
+      return 0;
+    }
+    const backwards: number = this.ringIndex === 1 ? 1 : -1;
+    return this.meteorBaseAngle() + backwards * step * 4 / this.radius * 180 / Math.PI;
+  }
+
+  private meteorX(step: number): number {
+    const angle: number = this.meteorAngle(step) * Math.PI / 180;
+    return this.radius + this.radius * Math.cos(angle);
+  }
+
+  private meteorY(step: number): number {
+    const angle: number = this.meteorAngle(step) * Math.PI / 180;
+    return this.radius + this.radius * Math.sin(angle);
   }
 
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
       // 引力线：0.8vp 极细暖白线，只作为拖拽换档的参照；越外环越淡，溶进夜空。
-      Circle()
-        .width(this.radius * 2)
-        .height(this.radius * 2)
-        .fill(Color.Transparent)
-        .stroke(this.pal().ring)
-        .strokeWidth(0.8)
-        .opacity(this.lineOpacity())
-        .position({ x: this.galaxySize / 2 - this.radius, y: canvasCenterY(this.ch()) - this.radius })
-        .rotate({ angle: this.ringAngle, centerX: '50%', centerY: '50%' })
-        .animation({ duration: this.ringDragging ? MotionTokens.instant : MotionTokens.fast, curve: MotionCurves.standard })
-        .hitTestBehavior(HitTestMode.None)
+      // 外环不画实线——三段星尘断弧本身就是轨道；内/中环保留细线做档位参照。
+      if (this.ringIndex !== 2) {
+        Circle()
+          .width(this.radius * 2)
+          .height(this.radius * 2)
+          .fill(Color.Transparent)
+          .stroke(this.pal().ring)
+          .strokeWidth(0.8)
+          .opacity(this.lineOpacity())
+          .position({ x: this.galaxySize / 2 - this.radius, y: canvasCenterY(this.ch()) - this.radius })
+          .rotate({ angle: this.ringAngle, centerX: '50%', centerY: '50%' })
+          .animation({ duration: this.ringDragging ? MotionTokens.instant : MotionTokens.fast, curve: MotionCurves.standard })
+          .hitTestBehavior(HitTestMode.None)
+      }
       // 星尘轨：沿圆周铺 18/24/30 颗 1.2–2vp 微粒，随环公转；内环密而亮、外环疏而淡。
       // 整层一起 rotate（只 3 个容器动画），不逐颗重算坐标。
       Stack({ alignContent: Alignment.TopStart }) {
@@ -629,6 +702,12 @@ struct OrbitRingLayer {
               y: this.radius + this.radius * Math.sin(angle * Math.PI / 180) - this.dustSizeAt(index) / 2,
             })
         }, (angle: number) => 'ring-' + this.ringIndex + '-' + angle)
+        // 流星：每环一颗，头亮尾淡；随环公转，尾迹指向运动反方向（中环反向）。
+        this.meteorDot(0, 7, 0.08)
+        this.meteorDot(0, 3.2, 0.95)
+        this.meteorDot(1, 2.4, 0.55)
+        this.meteorDot(2, 1.8, 0.28)
+        this.meteorDot(3, 1.4, 0.12)
       }
       .width(this.radius * 2)
       .height(this.radius * 2)
@@ -704,6 +783,9 @@ struct OrbitPlanet {
   // 星子脉动（原型 seedPulse 2.2s）：有未读时角标呼吸缩放
   @State seedScale: number = 1;
   @State seedOpacity: number = 0.8;
+  // 径向浮动幅度（vp）：每颗星按名字取不同相位/时长，制造轻微视差
+  @State floatOffset: number = 0;
+  private floating: boolean = false;
   // 耀星光晕呼吸（原型 liveGlow 2.6s）：活跃星的柔光缓慢明暗起伏
   @State glowBreath: number = 0.6;
   private seedBreathing: boolean = false;
@@ -727,12 +809,16 @@ struct OrbitPlanet {
     if (this.live && this.active) {
       this.startGlowBreath();
     }
+    if (this.live) {
+      this.startFloat();
+    }
   }
 
   aboutToDisappear(): void {
     this.stopRipple();
     this.stopSeedBreath();
     this.stopGlowBreath();
+    this.stopFloat();
   }
 
   // 星子出现时启动脉动（原型 seedPulse：scale 1→1.45 / opacity .8→1 交替）
@@ -802,11 +888,13 @@ struct OrbitPlanet {
       if (this.active) {
         this.startGlowBreath();
       }
+      this.startFloat();
       return;
     }
     this.stopRipple();
     this.stopSeedBreath();
     this.stopGlowBreath();
+    this.stopFloat();
   }
 
   private isSelected(): boolean {
@@ -858,8 +946,10 @@ struct OrbitPlanet {
   private onCenteredNameChanged(): void {
     if (this.live && this.isCentered()) {
       this.scheduleRipple();
+      this.stopFloat();
     } else {
       this.stopRipple();
+      this.startFloat();
     }
   }
 
@@ -930,12 +1020,55 @@ struct OrbitPlanet {
 
   private left(): number {
     const angle: number = (this.baseAngle + this.ringAngle) * Math.PI / 180;
-    return this.galaxySize / 2 + this.radius * Math.cos(angle) - PLANET_BOX_WIDTH / 2;
+    return this.galaxySize / 2 + this.driftRadius() * Math.cos(angle) - PLANET_BOX_WIDTH / 2;
   }
 
   private top(): number {
     const angle: number = (this.baseAngle + this.ringAngle) * Math.PI / 180;
-    return canvasCenterY(this.canvasH) + this.radius * Math.sin(angle) - PLANET_ICON_HIT_SIZE / 2;
+    return canvasCenterY(this.canvasH) + this.driftRadius() * Math.sin(angle) - PLANET_ICON_HIT_SIZE / 2;
+  }
+
+  // 公转半径 + 轻微径向浮动：中心聚焦/拖拽中冻结浮动，避免落点漂移。
+  private driftRadius(): number {
+    if (this.isCentered() || this.gravityDragging) {
+      return this.radius;
+    }
+    return this.radius + this.floatOffset;
+  }
+
+  // 幅度 2.4–3.6vp、时长 5.2–7.6s：同一环上的星也各不相同，看起来像各自的轨道微扰。
+  private floatAmplitude(): number {
+    return 2.4 + (this.name.length % 3) * 0.6;
+  }
+
+  private floatDuration(): number {
+    const seed: number = this.name.length > 0 ? this.name.charCodeAt(0) % 5 : 0;
+    return 5200 + seed * 620;
+  }
+
+  private startFloat(): void {
+    if (!this.live || this.floating) {
+      return;
+    }
+    this.floating = true;
+    this.getUIContext().animateTo({
+      duration: this.floatDuration(),
+      curve: Curve.EaseInOut,
+      iterations: -1,
+      playMode: PlayMode.Alternate,
+    }, () => {
+      this.floatOffset = this.floatAmplitude();
+    });
+  }
+
+  private stopFloat(): void {
+    if (!this.floating) {
+      return;
+    }
+    this.floating = false;
+    this.getUIContext().animateTo({ duration: MotionTokens.none }, () => {
+      this.floatOffset = 0;
+    });
   }
 
   private focusTranslateX(): number {
