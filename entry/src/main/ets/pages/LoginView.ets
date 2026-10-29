@@ -5,7 +5,7 @@
 // 配色随主题：浅棕羊皮纸底色 + 暖金氛围光晕，与全站主色调一致。
 
 import { exchangeHuaweiCode, LoginResult } from '../services/api';
-import { setSession, loginWithDevStub, loginWithDevStub2, markCircleOnboardingPending } from '../utils/auth';
+import { setSession, loginWithDevStub, loginWithDevStub2, markCircleOnboardingPending, isPrivacyAgreed } from '../utils/auth';
 import { HuaweiLoginButton } from '../components/HuaweiLoginButton';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
@@ -26,7 +26,7 @@ export struct LoginView {
   @State v2Submitting: boolean = false;
   @State huaweiSubmitting: boolean = false;
   @State devLoginVisible: boolean = BUILD_MODE !== 'release';
-  @State privacyAgreed: boolean = false;
+  @State privacyAgreed: boolean = isPrivacyAgreed();
 
   build() {
     Stack() {

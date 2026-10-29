@@ -511,10 +511,10 @@ struct Index {
   private bottomTabItems(): IndexTabItem[] {
     return [
       { key: 'home', title: '首页', icon: $r('app.media.nav_home'), color: $r('app.color.ds_brand') },
-      { key: 'circle', title: '圈子', icon: $r('app.media.nav_circle'), color: '#34C759' },
-      { key: 'publish', title: '发布', icon: $r('app.media.nav_publish'), color: '#FF9500' },
-      { key: 'message', title: '消息', icon: $r('app.media.nav_message'), color: '#AF52DE' },
-      { key: 'profile', title: '我的', icon: $r('app.media.nav_profile'), color: '#FF2D55' },
+      { key: 'circle', title: '圈子', icon: $r('app.media.nav_circle'), color: $r('app.color.ds_brand') },
+      { key: 'publish', title: '发布', icon: $r('app.media.nav_publish'), color: $r('app.color.ds_brand') },
+      { key: 'message', title: '消息', icon: $r('app.media.nav_message'), color: $r('app.color.ds_brand') },
+      { key: 'profile', title: '我的', icon: $r('app.media.nav_profile'), color: $r('app.color.ds_brand') },
     ];
   }
 
@@ -879,7 +879,7 @@ struct Index {
       return;
     }
     if (this.onboardingSelectedNames.length === 0) {
-      this.finishCircleOnboarding();
+      safeShowToast(this.getUIContext(), { message: '请至少选择 1 个圈子，每日一帖才有依据' });
       return;
     }
     this.onboardingSubmitting = true;

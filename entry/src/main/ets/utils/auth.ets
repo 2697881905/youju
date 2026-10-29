@@ -107,6 +107,19 @@ export function persistSessionSnapshot(): void {
 
 // 确保登录态：有登录态直接返回当前用户；无登录态则跳到 LoginPage 由用户显式登录，并返回 null。
 // 不再静默用 dev 桩建号（原 MVP 行为），避免真实登录入口被绕过。
+export function isLoggedIn(): boolean {
+  return getToken().length > 0 && getUserId() > 0;
+}
+
+// 写操作失败文案：有后端 message 就原样展示，不再一律说「请先登录」。
+export function writeActionError(e: Object): string {
+  const msg: string = e instanceof Error && e.message.length > 0 ? e.message : '';
+  if (msg.length > 0) {
+    return msg;
+  }
+  return '操作失败，请稍后重试';
+}
+
 export async function ensureLogin(): Promise<User | null> {
   const existing: User | null = getCurrentUser();
   if (existing && getToken()) {

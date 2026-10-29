@@ -80,7 +80,7 @@ export struct CircleOnboarding {
           .fontWeight(TypeTokens.title.weight)
           .lineHeight(TypeTokens.title.lineHeight)
           .fontColor(ColorTokens.primary)
-        Text(this.selectedNames.length > 0 ? '已选择 ' + this.selectedNames.length + ' 个' : '可多选')
+        Text(this.selectedNames.length > 0 ? '已选择 ' + this.selectedNames.length + ' 个' : '至少选 1 个，每日一帖会按你的圈子来')
           .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
           .fontWeight(TypeTokens.callout.weight)
           .lineHeight(TypeTokens.callout.lineHeight)
@@ -125,7 +125,7 @@ export struct CircleOnboarding {
         .layoutWeight(1)
         DesignButton({
           label: this.confirmLabel(),
-          disabled: this.loading || this.submitting,
+          disabled: this.loading || this.submitting || this.selectedNames.length === 0,
           action: this.onConfirm,
         })
         .layoutWeight(2)

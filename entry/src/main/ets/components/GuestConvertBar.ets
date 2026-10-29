@@ -28,13 +28,13 @@ export struct GuestConvertBar {
           .fontFamily(TypeTokens.fontFamily)
           .fontWeight(FontWeight.Medium)
           .fontColor(ColorTokens.primary)
-          .maxLines(1)
+          .maxLines(2)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
         Text('华为账号一键登录，不用填资料')
           .fontSize(12)
           .fontFamily(TypeTokens.fontFamily)
           .fontColor(ColorTokens.tertiary)
-          .maxLines(1)
+          .maxLines(2)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
       .layoutWeight(1)
@@ -54,11 +54,11 @@ export struct GuestConvertBar {
         })
 
       Text('✕')
-        .fontSize(13)
+        .fontSize(16)
         .fontFamily(TypeTokens.fontFamily)
         .fontColor(ColorTokens.tertiary)
-        .width(24)
-        .height(24)
+        .width(44)
+        .height(44)
         .textAlign(TextAlign.Center)
         .onClick((): void => {
           this.onDismiss();
