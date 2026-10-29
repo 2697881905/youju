@@ -115,9 +115,19 @@ for (const file of files) {
       continue;
     }
     const guarded = /utils\/overlayBackGuard/.test(src);
-    if (!guarded) {
-      errors.push(rel + ' —— 渲染了 ' + comp + ' 但没有登记返回守卫（import utils/overlayBackGuard），返回手势会直接退出宿主页');
+    if (guarded) {
+      continue;
     }
+    // 豁免必须在站点上显式声明并给理由，形如：
+    //   // overlay-back-guard: exempt —— 本页即播放器，返回退出该页就是正确行为
+    // 这样规则不会因「某个页面其实不需要」而长期误报，也不会变成静默的硬编码白名单：
+    // 删掉注释即重新报警，理由为空同样不认。
+    const exempt = src.match(/overlay-back-guard:\s*exempt\s*[—-]+\s*(\S[^\n]*)/);
+    if (exempt) {
+      pending.push(rel + ' —— 渲染了 ' + comp + ' 但已声明豁免：' + exempt[1].trim());
+      continue;
+    }
+    errors.push(rel + ' —— 渲染了 ' + comp + ' 但没有登记返回守卫（import utils/overlayBackGuard），返回手势会直接退出宿主页；若本页确实不需要（页面本身就是覆盖层），在文件头写 `// overlay-back-guard: exempt —— <理由>` 声明豁免');
   }
 }
 

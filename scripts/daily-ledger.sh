@@ -7,10 +7,36 @@
 set -euo pipefail
 HOST="${YOUJU_PROD_HOST:-ubuntu@114.132.102.189}"
 YM="${1:-$(date +%Y-%m)}"
+CUR_YM="$(date +%Y-%m)"
 MONTH_START="${YM}-01"
+
+# 行标签必须跟着被统计的那个月走。原脚本恒用「今天」当行标签，于是
+# `daily-ledger.sh 2026-11` 会在 10 月写出一个「日期=10-30、内容全是 11 月的 0」的假行
+# （11 月还没开始，月活/新注册/私信必然为 0）。未来月直接拒绝，过去月按月末落标签。
+if [ "$YM" \> "$CUR_YM" ]; then
+  echo "跳过：$YM 是未来月份（现在是 $CUR_YM），该月还没有任何数据，写进台账就是假行。" >&2
+  exit 0
+fi
+if [ "$YM" = "$CUR_YM" ]; then
+  ROW_DATE="$(date +%Y-%m-%d)"
+  BACKFILL=0
+else
+  Y="${YM%-*}"; M=$((10#${YM#*-}))
+  case "$M" in
+    1|3|5|7|8|10|12) LAST=31 ;;
+    4|6|9|11) LAST=30 ;;
+    2)
+      if [ $((Y % 4)) -eq 0 ] && { [ $((Y % 100)) -ne 0 ] || [ $((Y % 400)) -eq 0 ]; }; then
+        LAST=29
+      else
+        LAST=28
+      fi ;;
+  esac
+  ROW_DATE="$YM-$(printf '%02d' "$LAST")"
+  BACKFILL=1
+fi
 HERE="$(cd "$(dirname "$0")" && pwd)"
 LEDGER=$(cd "$HERE/../deliverables/product-strategy" && pwd)/mau-ledger.md
-TODAY="$(date +%Y-%m-%d)"
 
 SQL="
 SET @s = DATE('${MONTH_START}');
@@ -35,13 +61,19 @@ OUT=$(echo "$SQL" | ssh -o ConnectTimeout=25 "$HOST" \
 get() { echo "$OUT" | awk -v k="$1" '$1==k {print $2; found=1} END {if(!found) print "-"}'; }
 EVT=$(get evt_users); DEV=$(get dev_starts); NEW=$(get new_users)
 RP=$(get real_posts); SP=$(get seed_posts); DM=$(get dm_sent)
-SRC=$(ssh -o ConnectTimeout=20 "$HOST" 'bash -s' <<'EOS'
+if [ "$BACKFILL" = "1" ]; then
+  # 「24h 渠道点击」取的是 nginx 最近 24 小时日志，与目标月份无关：回填历史月时它只能是
+  # 「今天」的值，写进历史行会造假，故置 -。
+  SRC="-"
+else
+  SRC=$(ssh -o ConnectTimeout=20 "$HOST" 'bash -s' <<'EOS'
 docker logs --since 24h youju-nginx 2>&1 | grep -cE '"GET /?\?[^"]*src=' || true
 EOS
 )
+fi
 HEADER='| 日期 | 行为月活(下界) | 冷启设备(代理) | 当月新注册 | 真实帖 / 种子帖 | 当月私信 | 24h 渠道点击 |'
 SEP='| --- | ---: | ---: | ---: | --- | ---: | ---: |'
-ROW="| $TODAY | $EVT | $DEV | $NEW | $RP / $SP | $DM | $SRC |"
+ROW="| $ROW_DATE | $EVT | $DEV | $NEW | $RP / $SP | $DM | $SRC |"
 
 if [ ! -f "$LEDGER" ]; then
   {

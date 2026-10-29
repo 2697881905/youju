@@ -44,6 +44,10 @@ jest.mock('../prisma', () => ({
       findMany: jest.fn().mockResolvedValue([]),
       findUnique: jest.fn().mockResolvedValue(null),
     },
+    // 关注流现在与推荐流一样注入社区评分聚合（attachRatingAgg 走 groupBy）
+    postRating: {
+      groupBy: jest.fn().mockResolvedValue([]),
+    },
   },
 }));
 

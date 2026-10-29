@@ -1,6 +1,8 @@
 // 独立视频播放器页（router 壳）：main_pages.json「pages/VideoPlayerPage」入口，
 // 服务非 Navigation 栈的入口（路由壳详情页 / 分享链接冷启动等）。
 // 与 VideoPlayerDestination 同为独立页面：参数经 utils/nav 的意图通道传入，返回走 router。
+// overlay-back-guard: exempt —— 本页本身就是全屏播放器，返回退出该页即正确行为，
+//                      没有宿主内容需要留在原地，故不登记 overlayBackGuard。
 import { VideoViewer } from '../components/VideoViewer';
 import { takeVideoPlayerIntent, VideoPlayerIntent } from '../utils/nav';
 

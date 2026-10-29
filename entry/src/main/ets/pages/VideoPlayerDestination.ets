@@ -3,7 +3,8 @@
 // 解耦要点：播放器不再以「页内浮层」形式挂在帖子详情等宿主页面里（那会与宿主布局、
 // 返回守卫、状态机耦合，并且整屏图层会参与宿主列布局），而是作为独立页面存在：
 // - 播放参数只经导航参数传入，页面对宿主一无所知；
-// - 返回由 Navigation 栈自身负责（系统返回手势/返回键直接 pop），无需 overlayBackGuard；
+// overlay-back-guard: exempt —— 本页本身就是全屏播放器，没有「底下的宿主内容」要返回；
+//                      系统返回手势/返回键直接 pop 该页即正确行为，故不登记 overlayBackGuard。
 // - 页面卸载即销毁播放器，音频必然停止，无需宿主额外停播。
 import { VideoViewer } from '../components/VideoViewer';
 import { getMainNavStack, VideoPlayerNavParams } from '../utils/navigationTransition';

@@ -86,6 +86,9 @@ router.get('/following', auth, asyncHandler(async (req: AuthRequest, res: Respon
     following: true,
     viewerId: req.userId,
   });
+  // 关注流与推荐流共用同一个 PostCard（首页两个可滑分段），评分胶囊按 ratingCount>0 渲染；
+  // 漏这一步会让同一条帖在推荐流显示 ★、划到关注流就消失。
+  await attachRatingAgg(data.list as Array<Record<string, unknown>>);
   return ok(res, data);
 }));
 

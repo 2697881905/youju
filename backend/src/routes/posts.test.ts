@@ -561,3 +561,39 @@ describe('POST /v1/posts/:id/rating（社区评分）', () => {
     expect([401, 403]).toContain(res.status);
   });
 });
+
+describe('GET /v1/posts/following（关注流的社区评分注入）', () => {
+  // 关注流与推荐流在首页是同屏可滑的两个分段、共用同一个 PostCard，而胶囊只在
+  // ratingCount>0 时渲染。列表路由漏注入会让「同一条帖在推荐流有 ★、划到关注流就没」，
+  // 故这里锁住注入本身，不只是 200。
+  beforeEach(() => {
+    mockPrisma.follow.findMany.mockResolvedValue([{ followingId: 2 }]);
+    mockedPostFindMany.mockResolvedValue([{ id: 5, user: {} }]);
+    mockedPostCount.mockResolvedValue(1);
+    // 外层 beforeEach 的 clearAllMocks 会清掉工厂里的 mockResolvedValue，打标查询需显式给值
+    mockedUpFindMany.mockResolvedValue([]);
+    mockedBmFindMany.mockResolvedValue([]);
+  });
+
+  it('列表项带 ratingAvg/ratingCount，均值口径与推荐流一致（avg(score)/2 一位小数）', async () => {
+    mockPrisma.postRating.groupBy.mockResolvedValue([
+      { postId: 5, _avg: { score: 8.4 }, _count: { score: 5 } },
+    ]);
+
+    const res = await req('GET', '/v1/posts/following', undefined, authHeader());
+
+    expect(res.status).toBe(200);
+    expect(res.json.data.list[0].ratingAvg).toBe(4.2);
+    expect(res.json.data.list[0].ratingCount).toBe(5);
+  });
+
+  it('无人评分时置 null / 0（前端据此不渲染胶囊，不得留 undefined）', async () => {
+    mockPrisma.postRating.groupBy.mockResolvedValue([]);
+
+    const res = await req('GET', '/v1/posts/following', undefined, authHeader());
+
+    expect(res.status).toBe(200);
+    expect(res.json.data.list[0].ratingAvg).toBeNull();
+    expect(res.json.data.list[0].ratingCount).toBe(0);
+  });
+});
