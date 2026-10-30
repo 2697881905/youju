@@ -8,9 +8,14 @@
 //       showType = -1 → 未显示三键导航（全面屏手势 / 导航条）
 //     读取与监听：settings.getValueSync / settings.registerKeyObserver（均 @since 11，
 //     工程下限 API 20 覆盖）；读 USER_PROPERTY 不需要任何权限（仅写需要）。
-//  2) 兜底信号：navBarHeight = max(TYPE_SYSTEM, TYPE_NAVIGATION_INDICATOR) 的 bottomRect(vp)，
-//     高度阈值 >24vp 判三键 —— 手势导航条约 16-24vp、三键导航条约 28-42vp，区间不重叠。
-//     settings 键缺失（模拟器 / 部分云手机 / 非华为 ROM）时退回此判据，行为与历史版本一致。
+//  2) 兜底信号（仅 settings 键缺失时）：navBarHeight = max(TYPE_SYSTEM, TYPE_NAVIGATION_INDICATOR)
+//     的 bottomRect 高度(vp)。**只看高度判不开两种模式**——模拟器手势条实测 27.9vp，真机三键栏
+//     实测 27.8vp，区间完全重叠（旧注释"16-24 / 28-42 不重叠"是错的，模拟器上直接后果是把
+//     手势条当三键、Dock 白抬 28.9vp）。改用物理量判别：三键栏的避让矩形必然横贯整屏
+//     （左/右两颗键不可能落在自己的避让区之外），手势指示条是居中的窄胶囊
+//     （模拟器实测 bottomRect 宽 137vp / 屏宽 391vp = 35%）。故要求「高度 > 24vp **且** 宽度
+//     ≥ 屏宽 90%」才判三键；上报缺项时一律保守判手势（避让 0，维持原布局）。
+//     settings 键缺失（模拟器 / 部分云手机 / 非华为 ROM）时走此判据。
 //
 // 响应式约定（两次实测踩坑后定稿）：
 //  消费方必须 @StorageLink(BOTTOM_NAV_INSET_KEY) 并在 build 属性里**直接读该状态变量**
@@ -45,8 +50,14 @@ export const BOTTOM_NAV_INSET_KEY: string = 'bottomNavInsetVp';
 // 底栏维持原设计不整体顶高），二者混用会让手势设备上的主底栏位置变化。
 export const BOTTOM_BAR_INSET_KEY: string = 'bottomBarInsetVp';
 
-// 高度阈值兜底判别：手势导航条约 16-24vp、三键导航条约 28-42vp，区间不重叠
+// 高度阈值兜底判别（单独不够，见文件头：模拟器手势条 27.9vp 与真机三键栏 27.8vp 重叠，
+// 必须与「避让矩形是否横贯整屏」联合判别）
 export const GESTURE_INDICATOR_MAX: number = 24;
+// 三键栏判定所需的避让矩形最小宽度占比：三键栏必然满宽（左右两颗键不能被排除在避让区外），
+// 手势指示条是居中窄胶囊（实测 35%）。取 0.9 留分屏/小窗余量。
+export const THREE_BUTTON_MIN_WIDTH_RATIO: number = 0.9;
+// 兜底判据的实测宽度比（1=满宽三键栏 / 0=窄胶囊或尚未上报）
+export const NAV_BAR_SPANS_WIDTH_KEY: string = 'navBarSpansWidth';
 // 三键避让的额外呼吸空间（vp）。初版 10 → 7 → 3 → 1（2026-09-28 用户多轮实测下调）：
 // 总避让 ≈27.8+1=28.8vp，贴着审核 28vp 线；再降（0）会顶到导航栏上沿，不建议。
 export const NAV_INSET_EXTRA: number = 1;
@@ -67,7 +78,8 @@ export function isThreeButtonNav(): boolean {
   if (mode === NAV_MODE_THREE_BUTTON) {
     return true;
   }
-  return (AppStorage.get<number>('navBarHeight') ?? 0) > GESTURE_INDICATOR_MAX;
+  return (AppStorage.get<number>('navBarHeight') ?? 0) > GESTURE_INDICATOR_MAX
+    && (AppStorage.get<number>(NAV_BAR_SPANS_WIDTH_KEY) ?? 0) === 1;
 }
 
 // 计算当前底部避让量（vp）：三键 = max(settings 真实栏高, 避让区测量) + 呼吸；
@@ -98,6 +110,16 @@ export function computeBottomBarInset(): number {
   return computeBottomNavInset();
 }
 
+// 底部避让区实测值上报（Index.setupFullScreen / PostDetailView.applyWindowInsets 两处）。
+// 三个量必须同时上报：兜底判据要拿 bottomRect 的**宽度**和屏宽比，只给高度会把
+// 模拟器的手势条误判成三键栏（实测差出一整档 28.9vp 避让）。
+export function reportBottomAvoid(heightVp: number, bottomRectWidthVp: number, windowWidthVp: number): void {
+  AppStorage.setOrCreate<number>('navBarHeight', heightVp);
+  const spans: boolean = windowWidthVp > 0 && bottomRectWidthVp >= windowWidthVp * THREE_BUTTON_MIN_WIDTH_RATIO;
+  AppStorage.setOrCreate<number>(NAV_BAR_SPANS_WIDTH_KEY, spans ? 1 : 0);
+  refreshBottomNavInset();
+}
+
 // 重算避让量并写回 AppStorage（@StorageLink 的消费方随即重渲染）。
 // 两个键同刻更新：Dock 边距 + 内容级内边距。日志留痕便于真机核对切模式是否生效。
 export function refreshBottomNavInset(): void {
@@ -105,7 +127,10 @@ export function refreshBottomNavInset(): void {
   const content: number = computeBottomBarInset();
   AppStorage.setOrCreate<number>(BOTTOM_NAV_INSET_KEY, dock);
   AppStorage.setOrCreate<number>(BOTTOM_BAR_INSET_KEY, content);
-  hilog.info(DOMAIN, TAG, 'bottom insets: dock=%{public}fvp content=%{public}fvp', dock, content);
+  // ⚠️ 占位符必须是 %{public}s：写成 %{public}f 时 hilog 把 'f' 当字面量吞掉，
+  // 日志只剩 "dock=}fvp"（2026-10-30 模拟器取证实测），等于没打。
+  hilog.info(DOMAIN, TAG, 'bottom insets: dock=%{public}s content=%{public}s mode=%{public}s',
+    dock.toFixed(2), content.toFixed(2), AppStorage.get<string>(NAV_MODE_KEY) ?? 'unknown');
 }
 
 // 非响应式消费方（既有 5 处调用点）：读 AppStorage 现值，尚未初始化时现算

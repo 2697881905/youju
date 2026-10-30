@@ -14,8 +14,8 @@ import { SearchPanelDestination } from './SearchPanelDestination';
 import { SpringPanel } from '../design/motion/SpringPanel';
 import { DesignButton } from '../design/components/DesignButton';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
-import { bottomNavInset, DOCK_WIDTH_SMALL, DOCK_BOTTOM_MARGIN_BASE, DOCK_SIDE_MARGIN_MIN, DOCK_GRADIENT_MASK_HEIGHT, DOCK_MATERIAL_TYPE, DOCK_MATERIAL_LEVEL, DOCK_BAR_HEIGHT_VP } from '../utils/cardTokens';
-import { refreshBottomNavInset } from '../utils/navMode';
+import { DOCK_WIDTH_SMALL, DOCK_BOTTOM_MARGIN_BASE, DOCK_SIDE_MARGIN_MIN, DOCK_GRADIENT_MASK_HEIGHT, DOCK_MATERIAL_TYPE, DOCK_MATERIAL_LEVEL, DOCK_BAR_HEIGHT_VP } from '../utils/cardTokens';
+import { reportBottomAvoid, BOTTOM_NAV_INSET_KEY } from '../utils/navMode';
 import { RadiusTokens } from '../design/tokens/radius';
 import { ColorTokens } from '../design/tokens/color';
 import { TypeTokens } from '../design/tokens/type';
@@ -382,6 +382,10 @@ struct Index {
   @State onboardingSubmitting: boolean = false;
   @State statusBarHeight: number = 0;
   @State navBarHeight: number = 0;
+  // Dock 底部避让量：barBottomMargin 与指示器 cy **共用这一个变量**。
+  // 之前两处各自调 bottomNavInset()（普通函数、无 UI 绑定），实测值在 setupFullScreen
+  // 异步回来后翻了一档，栏体停在旧值、指示器跟到新值 → 模拟器上差出 31.7vp。
+  @StorageLink(BOTTOM_NAV_INSET_KEY) @Watch('onDockNavInsetChange') dockNavInset: number = 0;
   @State launchComplete: boolean = false;
   private hdsController: HdsTabsController = new HdsTabsController();
   // API 20-22 分支用内置 Tabs（API 7）承载内容，底栏由自绘玻璃药丸（BottomTabBar）负责。
@@ -604,18 +608,22 @@ struct Index {
       await win.setWindowLayoutFullScreen(true);
       const area = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
       this.statusBarHeight = this.getUIContext().px2vp(area.topRect.height);
-      // 底部导航高度（审核问题③）：三键导航条区域在 NEXT 上由 TYPE_NAVIGATION_INDICATOR 报告
-      //（TYPE_SYSTEM bottomRect 实测为 0），手势指示条也在该类型。取两者最大值——
-      // 三键 ≈28-40vp 抬升避让，手势 ≈16vp 顺带避开指示条。
+      // 底部避让区实测（审核问题③）：三键栏与手势指示条在 NEXT 上都由 TYPE_NAVIGATION_INDICATOR
+      // 报告（TYPE_SYSTEM bottomRect 实测为 0），取两者最大值。
+      // ⚠️ 高度分不开两种模式：模拟器手势条实测 27.9vp，真机三键栏 27.8vp。必须连 bottomRect
+      // 的**宽度**一起上报，由 navMode 用「是否横贯整屏」判别，否则模拟器会把手势条当三键栏、
+      // Dock 白抬 28.9vp（玻璃珠偏上 31.7vp 的真因）。
       const sysBottom = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
       const navIndicator = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
-      this.navBarHeight = Math.max(this.getUIContext().px2vp(sysBottom.bottomRect.height), this.getUIContext().px2vp(navIndicator.bottomRect.height));
+      const sysH: number = this.getUIContext().px2vp(sysBottom.bottomRect.height);
+      const navH: number = this.getUIContext().px2vp(navIndicator.bottomRect.height);
+      this.navBarHeight = Math.max(sysH, navH);
       AppStorage.setOrCreate<number>('statusBarHeight', this.statusBarHeight);
-      AppStorage.setOrCreate<number>('navBarHeight', this.navBarHeight);
-      // 首帧实测回写后立即重算避让量：initNavModeWatcher 在窗口实测之前跑过一轮
-      // （那时 navBarHeight 还没测出来，非华为 ROM 上靠它兜底判三键会算成 0）。
-      // 这里补齐，避免「详情页外的底栏避让量停在 0」。
-      refreshBottomNavInset();
+      // 宽度取「贡献了那个最大高度的那条 rect」，否则满宽三键栏会被窄的手势条带偏。
+      // 这里补齐一轮重算：initNavModeWatcher 在窗口实测之前跑过，那时 navBarHeight 还是 0。
+      reportBottomAvoid(this.navBarHeight,
+        this.getUIContext().px2vp(navH >= sysH ? navIndicator.bottomRect.width : sysBottom.bottomRect.width),
+        this.screenWidthVp());
     } catch (e) {
       // 失败不阻断
     }
@@ -1053,9 +1061,11 @@ struct Index {
     // ⚠️ Y 锚 Dock 栏体几何中心（原型页同款公式，真机已验证）：槽位上报值 − barBottomMargin
     // 的旧修正在 HdsMiniBarButton 版上偏下（玻璃底溢出栏沿，真机反馈 2026-10-27）。
     // 栏高（DOCK_BAR_HEIGHT_VP=56）与 barBottomMargin 都是本页传给系统的已知量，零上报偏差；
-    // 玻璃高 0.96×槽高 < 栏高，中心对齐栏中心后上下各留 ~2vp，不溢出。
-    // X 不受影响，仍用各槽实测中心。
-    const cy: number = layer.h - (DOCK_BOTTOM_MARGIN_BASE + bottomNavInset()) - DOCK_BAR_HEIGHT_VP / 2;
+    // 玻璃高 0.96×槽高 < 栏高，中心对齐栏中心后上下各留 ~2vp，不溢出。X 不受影响，仍用各槽实测中心。
+    // ⚠️ 这里的避让量**必须**和 barFloatingStyle.barBottomMargin 读同一个 @StorageLink 变量
+    // （dockNavInset），不能各自调 bottomNavInset()：该值在 setupFullScreen 异步实测后会变，
+    // 两处分别取值就会一个停在旧值、一个跟到新值（模拟器实测差 31.7vp，玻璃珠整体偏上）。
+    const cy: number = layer.h - (DOCK_BOTTOM_MARGIN_BASE + this.dockNavInset) - DOCK_BAR_HEIGHT_VP / 2;
     // 槽距由两端中心反算（不写死）：换 barWidth 档、换导航方式、转屏都会变。
     const pitch: number = count > 1 ? (lastCx - firstCx) / (count - 1) : first.w;
     this.dockPillPitch = pitch;
@@ -1266,6 +1276,12 @@ struct Index {
     // 则页面内容停在旧页，玻璃状态与页面状态失步，后续任何切页都会让玻璃珠跳变
     // （真机实证 2026-10-26）。重入的 onAnimationStart/onChange 由 travel 去重挡住。
     this.hdsController.changeIndex(target);
+  }
+
+  // 避让量变了（首帧实测回写 / 系统里切换导航方式）→ 指示器立刻按新边距重贴。
+  // build 里的 barBottomMargin 由 @StorageLink 自动刷新，这一路只补命令式的那份。
+  private onDockNavInsetChange(): void {
+    this.scheduleDockPillRemeasure();
   }
 
   // 覆盖层尺寸一变（转屏 / 折叠 / 分栏拖宽 / 导航区高度回写）就重新贴一次实测槽位。
@@ -1957,7 +1973,7 @@ struct Index {
         largeWidth: 560,
       },
       barSideMargin: DOCK_SIDE_MARGIN_MIN,
-      barBottomMargin: DOCK_BOTTOM_MARGIN_BASE + bottomNavInset(),
+      barBottomMargin: DOCK_BOTTOM_MARGIN_BASE + this.dockNavInset,
       gradientMask: { maskColor: $r('app.color.bar_gradient_mask'), maskHeight: DOCK_GRADIENT_MASK_HEIGHT },
       systemMaterialEffect: {
         materialType: DOCK_MATERIAL_TYPE,
@@ -2042,7 +2058,7 @@ struct Index {
             }
             .width('100%')
             .padding({ left: LayoutTokens.tabBarSideMargin, right: LayoutTokens.tabBarSideMargin })
-            .margin({ bottom: LayoutTokens.tabBarBottomGap + bottomNavInset() })
+            .margin({ bottom: LayoutTokens.tabBarBottomGap + this.dockNavInset })
             .zIndex(50)
           }
         }

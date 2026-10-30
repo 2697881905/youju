@@ -72,7 +72,7 @@ import { DetailActionBar } from '../components/DetailActionBar';
 import { AtMentionSuggest } from '../components/AtMentionSuggest';
 import { findActiveAtMention, applyAtMention, AtMentionMatch } from '../utils/atMention';
 import { barBottomReserve } from '../utils/cardTokens';
-import { refreshBottomNavInset } from '../utils/navMode';
+import { reportBottomAvoid } from '../utils/navMode';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { RadiusTokens } from '../design/tokens/radius';
 import { FALLBACK_VIDEO_ASPECT_RATIO, normalizeVideoAspectRatio } from '../utils/video';
@@ -485,10 +485,12 @@ export struct PostDetailView {
       const sys = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
       const indicator = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
       this.statusBarHeight = this.getUIContext().px2vp(sys.topRect.height);
-      AppStorage.setOrCreate<number>('navBarHeight',
-        Math.max(this.getUIContext().px2vp(sys.bottomRect.height), this.getUIContext().px2vp(indicator.bottomRect.height)));
-      // navBarHeight 变了，底部避让量随之重算（三键/手势切换或分屏时导航区高度变化）
-      refreshBottomNavInset();
+      const sysH: number = this.getUIContext().px2vp(sys.bottomRect.height);
+      const navH: number = this.getUIContext().px2vp(indicator.bottomRect.height);
+      // 高度 + 宽度占比一起上报（兜底判据要区分手势条与三键栏，见 navMode 文件头）
+      reportBottomAvoid(Math.max(sysH, navH),
+        this.getUIContext().px2vp(navH >= sysH ? indicator.bottomRect.width : sys.bottomRect.width),
+        this.getUIContext().px2vp(win.getWindowProperties().windowRect.width));
     } catch (e) {
       // 单独一次测量失败不影响已生效值
     }
