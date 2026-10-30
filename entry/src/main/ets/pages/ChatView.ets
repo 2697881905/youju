@@ -132,8 +132,13 @@ export struct ChatView {
   // 模糊出图开关（IMMERSIVE 变体的 blurRadius 门控，绝对偏移驱动——§36 同款）
   @State chatBarScrolled: boolean = false;
   private listScroller: Scroller = new Scroller();
-  // 穿底让位：状态栏 + 56vp 标题行（enableComponentSafeArea:false 后自管）
+  // 穿底让位：状态栏 + 56vp 标题行（enableComponentSafeArea:false 后自管）。
+  // 内嵌分栏不走穿底：右列外层已按 messageListInset 让开标题栏，顶栏是流内自绘行，
+  // 再叠一遍会让消息从半屏起排、少消息时整块悬在pane 中部（md 真机复拍认定）。
   private chatListInset(): number {
+    if (this.embedded) {
+      return 0;
+    }
     return this.statusBarHeight + 56;
   }
   // 滚动状态 → 模糊出图开关（绝对偏移>0，IMMERSIVE 变体门控）+ 系统栏内容色补设（竞速）
