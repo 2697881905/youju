@@ -53,7 +53,10 @@ export struct PostDetailDestination {
     }
     const nav: NavPathStack | null = getMainNavStack();
     if (nav !== null) {
-      nav.pop(false);
+      // 必须是**带动画**的 pop：pop(false) 会让系统直接换页、根本不问 customNavContentTransition，
+      // 于是页内返回按钮没有反向一镜到底（系统返回手势走的是带动画路径，所以只有按钮这条断）。
+      // 全工程其余 7 个目的地都用 nav.pop()，这里是唯一的例外。
+      nav.pop();
     }
   }
 
@@ -197,11 +200,16 @@ export struct PostDetailDestination {
       .clip(true)
       .backgroundColor(ColorTokens.canvas)
       .expandSafeArea([SafeAreaType.SYSTEM])
-      .onAreaChange((_oldValue: Area, newValue: Area): void => {
-        this.onWindowSizeChanged(newValue.width as number, newValue.height as number);
-      })
     }
     .hideTitleBar(true)
+    // ⚠️ 尺寸守卫必须挂在 NavDestination 上，不能挂在飞行盒上：飞行盒的 .width(clipWidth)
+    // /.height(clipHeight) 本身就是被动画驱动的那一个，进场一跑它就会连续回调不同尺寸，
+    // onWindowSizeChanged 会把「盒子在变形」误判成「窗口在改尺寸」→ unregisterNavParam →
+    // POP 时查不到自定义转场，返回动画整段消失（Mate X7 实测：点返回 1.0s 已完全落回首页，
+    // 而 DURATION_MS=3000；且日志里没有任何 "window size changed"，因为守卫是在盒子上触发的）。
+    .onAreaChange((_o: Area, n: Area): void => {
+      this.onWindowSizeChanged(n.width as number, n.height as number);
+    })
     .backgroundColor(ColorTokens.canvas)
     // 系统返回手势/返回键：页内覆盖层打开时先关覆盖层（返回 true = 已处理，不执行默认 pop）。
     // Navigation 壳取代了 router 壳的 onBackPress —— 两者都要接，见 DetailPage.ets。
