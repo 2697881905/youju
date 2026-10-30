@@ -1686,6 +1686,8 @@ export struct ReportAdminPage {
     }
     .titleMode(HdsNavigationTitleMode.MINI)
     .titleBar(this.reportTitleBarOptions())
+    // 默认 Auto 在展开宽度切 Split，navBar 列被压成 240vp、右栏常驻预留 → 整页挤在左侧。
+    .mode(NavigationMode.Stack)
     // 滚动源绑定：列表驱动栏体渐变模糊（§7.6.12）
     .bindToScrollable([this.reportScroller])
     .width('100%')

@@ -1209,6 +1209,9 @@ export struct HomeTab {
     }
     .titleBar(this.homeHdsTitleBarOptions())
     .titleMode(HdsNavigationTitleMode.MINI)
+    // 默认 Auto 在展开宽度（Mate X7 实测 707.2vp）切 Split：navBar 列被压成 240vp 且右栏常驻
+    // 预留，整页挤在左侧窄列。单栏页必须显式 Stack，同 mainNav（见 Index.ets 内注释）。
+    .mode(NavigationMode.Stack)
     .hideBackButton(true)
     // 分段栏（bottomBuilder 那一行）与内容区绑定：滚动时它跟着一起走，不再钉在栏里。
     // 走官方 dynamicHideTitleBar（@6.0.0(20)，与工程 compatibleSdk 同档，不需要版本门禁），

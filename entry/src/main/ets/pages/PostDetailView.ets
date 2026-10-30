@@ -1730,6 +1730,8 @@ export struct PostDetailView {
       }
       .titleMode(HdsNavigationTitleMode.MINI)
       .titleBar(this.detailTitleBarOptions())
+      // 默认 Auto 在展开宽度切 Split，navBar 列被压成 240vp、右栏常驻预留 → 整页挤在左侧。
+      .mode(NavigationMode.Stack)
       // 滚动源绑定：IMMERSIVE_GRADIENT_BLUR 的滚动特效与内容穿栏都由它驱动（§7.6.12）
       .bindToScrollable([this.detailScroller])
       .width('100%')

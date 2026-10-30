@@ -1936,6 +1936,11 @@ struct Index {
       // 它的材质圆盘正好压在衬线标题底下（实测 Button [50,131][175,256] 与 Text「我的」同区）。
       // 关掉：既去掉幽灵返回，也让 stackBuilder 从 x=50 起排不留空洞。
       .hideBackButton(true)
+      // 与主导航同源的第二处：mode 留在默认 Auto 时，展开宽度（Mate X7 实测 707.2vp）会把这层
+      // 内嵌 HdsNavigation 切成 Split，navBar 列只给 240vp 且右栏内容区常驻预留 —— 整页内容
+      // （标题栏、资料区、分段栏、列表全在 NavBarContent 里）被压进左侧 240vp 窄列、右半全空。
+      // 见 mainNav 同款注释。
+      .mode(NavigationMode.Stack)
       // GRADIENT_BLUR 的滚动源。整页只剩一条 List，引用恒定，不再需要切段时换绑。
       .bindToScrollable(this.profileScrollers)
       .width('100%')

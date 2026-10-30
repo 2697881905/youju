@@ -1900,6 +1900,8 @@ export struct CircleTab {
     }
     .titleBar(this.circleHdsTitleBarOptions())
     .titleMode(HdsNavigationTitleMode.MINI)
+    // 默认 Auto 在展开宽度切 Split，navBar 列被压成 240vp、右栏常驻预留 → 整页挤在左侧。
+    .mode(NavigationMode.Stack)
     .hideBackButton(true)
     // 星环视口滚动绑定：内容超高时驱动标题栏渐变模糊
     .bindToScrollable([this.circleScroller])

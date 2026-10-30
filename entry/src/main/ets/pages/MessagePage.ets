@@ -1701,6 +1701,8 @@ export struct MessagePage {
     }
     .titleBar(this.messageHdsTitleBarOptions())
     .titleMode(HdsNavigationTitleMode.MINI)
+    // 默认 Auto 在展开宽度切 Split，navBar 列被压成 240vp、右栏常驻预留 → 整页挤在左侧。
+    .mode(NavigationMode.Stack)
     .hideBackButton(true)
     // 动态绑定当前分段的 Scroller（切分段重估模糊，见 activeScrollers 注释）
     .bindToScrollable(this.activeScrollers())
