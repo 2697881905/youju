@@ -1079,6 +1079,11 @@ export struct MessagePage {
     }
   }
 
+  // 宽屏双栏左列（会话/通知主列表）定宽：分段栏在分屏时收进同一宽度（主从栏范式）。
+  private dmListColumnWidth(): number {
+    return this.currentBreakpoint === 'lg' ? 340 : 300;
+  }
+
   // 宽屏双栏：左列会话列表（定宽）+ 右列内嵌会话（未选=空态）。
   // 右栏仅在消息页处于激活 Tab 时挂载：切走消息页即卸载，停掉聊天轮询（省接口配额）；
   // 回页时随选中会话重挂载并静默重拉（ChatView 挂载即 load + 标读）。
@@ -1088,14 +1093,20 @@ export struct MessagePage {
       Column() {
         this.dmList()
       }
-      .width(this.currentBreakpoint === 'lg' ? 340 : 300)
+      .width(this.dmListColumnWidth())
       .height('100%')
 
-      Divider()
-        .vertical(true)
-        .strokeWidth(0.5)
-        .color(ColorTokens.separator)
-        .height('100%')
+      // 分隔线只画内容区：整条 height('100%') 会向上穿透标题栏（穿底架构下内容原点在
+      // 窗口 0），在「消息」标题右侧留一条悬空竖线。
+      Column() {
+        Divider()
+          .vertical(true)
+          .strokeWidth(0.5)
+          .color(ColorTokens.separator)
+          .height('100%')
+      }
+      .height('100%')
+      .padding({ top: this.messageListInset() })
 
       Column() {
         if (this.splitPeerId > 0 && this.activeTab === 3) {
@@ -1425,6 +1436,7 @@ export struct MessagePage {
   @Builder
   messageTabRow() {
     Row() {
+      Row() {
       Stack() {
         // 分段栏（官方 SegmentButton）：轨道/滑块/状态动画全系统实现。不传
         // backgroundSystemMaterial——标题栏已挂栏级 EXQUISITE，分段栏走官方默认
@@ -1480,14 +1492,20 @@ export struct MessagePage {
         curve: MotionCurves.springSoft,
       })
     }
-    .width('100%')
-    // 左右 16vp = 参考App 轨道边距实测 50px；上 xs 呼吸位、底 14vp 供自绘软阴影衰减
-    .padding({
-      left: SpaceTokens.base,
-      right: SpaceTokens.base,
-      top: SpaceTokens.xs,
-      bottom: 14,
-    })
+      .width(this.isWidePane && this.dmTabIndex === 1 ? this.dmListColumnWidth() : '100%')
+      // 分屏（私信段）时栏收进左主列表列宽并贴左：分段 govern 的是左列主列表，
+      // 满幅会把「私信」槽悬到右聊天 pane 头顶（md 真机复拍认定）；窄屏与通知段仍满幅。
+      .padding({
+        left: this.isWidePane && this.dmTabIndex === 1 ? SpaceTokens.sm : SpaceTokens.base,
+        right: this.isWidePane && this.dmTabIndex === 1 ? SpaceTokens.sm : SpaceTokens.base,
+        top: SpaceTokens.xs,
+        bottom: 14,
+      })
+      }
+      // bottomBuilder 行内容默认水平居中：收宽后必须外套满幅容器显式贴左，
+      // 否则栏会悬在窗口正中、与左列主列表错开（md 真机复拍认定）
+      .width('100%')
+      .justifyContent(FlexAlign.Start)
   }
 
   // 快捷筛选行（内容区顶部）：赞和收藏/新增关注/评论。
