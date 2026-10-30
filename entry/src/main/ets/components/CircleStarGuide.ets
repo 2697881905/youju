@@ -10,6 +10,18 @@ import { DesignButton } from '../design/components/DesignButton';
 @Component
 export struct CircleStarGuide {
   onDismiss: () => void = (): void => {};
+  @StorageProp('currentBreakpoint') currentBreakpoint: string = 'sm';
+
+  // 图例是竖排三行短文，展开屏满幅 707vp 会留出一半死白；按断点限宽后由外层居中。
+  private cardWidth(): Length {
+    if (this.currentBreakpoint === 'lg') {
+      return 600;
+    }
+    if (this.currentBreakpoint === 'md') {
+      return 520;
+    }
+    return '100%';
+  }
 
   @Builder
   private legendRow(marker: string, markerColor: ResourceColor, label: string, detail: string): void {
@@ -73,7 +85,7 @@ export struct CircleStarGuide {
       })
         .width('100%')
     }
-    .width('100%')
+    .width(this.cardWidth())
     .padding(SpaceTokens.md)
     .backgroundColor(ColorTokens.elevated)
     .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })

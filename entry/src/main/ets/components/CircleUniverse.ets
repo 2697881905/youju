@@ -154,7 +154,10 @@ export struct CircleUniverse {
       this.stars = [];
       return;
     }
-    const minDim: number = Math.min(w, h);
+    // 散布基准取「宽」与「高×0.65」的较小者：星环是绕核心的正圆，展开屏宽 707vp
+    // 时若以宽为基准，第三圈半径 283vp 会顶穿星星顶界(高×0.20)被 clamp 成一条横线。
+    // sm 上 高×0.65(≈507) 大于宽(363.5)，行为不变。
+    const minDim: number = Math.min(w, h * 0.65);
     const cx: number = w / 2;
     const cy: number = h * 0.46;
     const top: number = h * STAR_AREA_TOP_RATIO;

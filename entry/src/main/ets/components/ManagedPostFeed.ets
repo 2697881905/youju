@@ -17,6 +17,7 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { feedItemTransition } from '../utils/feedMotion';
+import { gridColumnsForBreakpoint } from '../utils/responsive';
 
 // 列内单元：把「稳定 key」与「列内错峰下标」在分列时一次算好，
 // 避免在 ForEach 里再按过滤后下标反查原数组（原数组下标 ≠ 列内下标）。
@@ -62,21 +63,34 @@ export struct ManagedPostFeed {
   // 删除回调：回传该单元的稳定 key（= itemKeys 对应值）
   onDelete: (key: string) => void = (): void => {};
   onReachEnd?: () => void = undefined;
+  @StorageProp('currentBreakpoint') currentBreakpoint: string = 'sm';
 
-  // 分列：parity 0 = 左列（偶数项），1 = 右列（奇数项）。列内下标用于错峰延迟。
-  private columns(parity: number): FeedCell[] {
+  private columnCount(): number {
+    return gridColumnsForBreakpoint(this.currentBreakpoint);
+  }
+
+  private columnIndexes(): number[] {
+    const out: number[] = [];
+    for (let i = 0; i < this.columnCount(); i++) {
+      out.push(i);
+    }
+    return out;
+  }
+
+  // 分列：colIdx 为列号（第 i 项落在 i % 列数 列）。列内下标用于错峰延迟。
+  private columns(colIdx: number): FeedCell[] {
     const out: FeedCell[] = [];
-    let colIdx: number = 0;
+    let inCol: number = 0;
     for (let i = 0; i < this.posts.length; i++) {
-      if (i % 2 === parity) {
+      if (i % this.columnCount() === colIdx) {
         const cell: FeedCell = new FeedCell();
         cell.post = this.posts[i];
-        cell.idx = colIdx;
+        cell.idx = inCol;
         cell.srcIdx = i;
         cell.key = (i < this.itemKeys.length && this.itemKeys[i].length > 0)
           ? this.itemKeys[i] : String(this.posts[i].id ?? i);
         out.push(cell);
-        colIdx++;
+        inCol++;
       }
     }
     return out;
@@ -160,18 +174,14 @@ export struct ManagedPostFeed {
     Scroll(this.scroller) {
       Column({ space: SpaceTokens.sm }) {
         Row({ space: SpaceTokens.xs }) {
-          Column({ space: SpaceTokens.xs }) {
-            ForEach(this.columns(0), (cell: FeedCell) => {
-              this.cellView(cell)
-            }, (cell: FeedCell) => 'l-' + cell.key)
-          }
-          .layoutWeight(1)
-          Column({ space: SpaceTokens.xs }) {
-            ForEach(this.columns(1), (cell: FeedCell) => {
-              this.cellView(cell)
-            }, (cell: FeedCell) => 'r-' + cell.key)
-          }
-          .layoutWeight(1)
+          ForEach(this.columnIndexes(), (colIdx: number) => {
+            Column({ space: SpaceTokens.xs }) {
+              ForEach(this.columns(colIdx), (cell: FeedCell) => {
+                this.cellView(cell)
+              }, (cell: FeedCell) => 'c' + colIdx + '-' + cell.key)
+            }
+            .layoutWeight(1)
+          }, (colIdx: number) => colIdx.toString())
         }
         .width('100%')
         .alignItems(VerticalAlign.Top)

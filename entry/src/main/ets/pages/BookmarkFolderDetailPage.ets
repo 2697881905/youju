@@ -8,12 +8,14 @@ import { safeShowToast } from '../utils/toast';
 import { FolderPickDialog } from '../components/FolderPickDialog';
 import { FolderNameDialog } from '../components/FolderNameDialog';
 import { getUserId } from '../utils/auth';
+import { gridColumnsForBreakpoint } from '../utils/responsive';
 
 @Entry
 @Component
 export struct BookmarkFolderDetailPage {
   // 独立 @Entry 页无主框架顶部安全区：读全局状态栏高度，标题栏避让不顶到屏幕外
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
+  @StorageProp('currentBreakpoint') currentBreakpoint: string = 'sm';
   @State folderId: number = 0;
   @State folderName: string = '';
   @State posts: Post[] = [];
@@ -214,7 +216,20 @@ export struct BookmarkFolderDetailPage {
     }
   }
 
-  // 夹内帖子卡片 + 操作行（移动到… / 取消收藏），双列卡片流
+  // 列数随断点（sm2/md3/lg4）：第 i 项落在 i % 列数 列，列号进 key 保证换档重建
+  private columnCount(): number {
+    return gridColumnsForBreakpoint(this.currentBreakpoint);
+  }
+
+  private columnIndexes(): number[] {
+    const out: number[] = [];
+    for (let i = 0; i < this.columnCount(); i++) {
+      out.push(i);
+    }
+    return out;
+  }
+
+  // 夹内帖子卡片 + 操作行（移动到… / 取消收藏），多列卡片流
   @Builder
   folderPostCard(p: Post) {
     Column({ space: 6 }) {
@@ -267,18 +282,14 @@ export struct BookmarkFolderDetailPage {
         Scroll() {
           Column() {
             Row({ space: 6 }) {
-              Column({ space: 8 }) {
-                ForEach(this.posts.filter((_p: Post, idx: number) => idx % 2 === 0), (p: Post) => {
-                  this.folderPostCard(p)
-                }, (p: Post) => 'left-' + String(p.id))
-              }
-              .layoutWeight(1)
-              Column({ space: 8 }) {
-                ForEach(this.posts.filter((_p: Post, idx: number) => idx % 2 === 1), (p: Post) => {
-                  this.folderPostCard(p)
-                }, (p: Post) => 'right-' + String(p.id))
-              }
-              .layoutWeight(1)
+              ForEach(this.columnIndexes(), (colIdx: number) => {
+                Column({ space: 8 }) {
+                  ForEach(this.posts.filter((_p: Post, idx: number) => idx % this.columnCount() === colIdx), (p: Post) => {
+                    this.folderPostCard(p)
+                  }, (p: Post) => 'col' + colIdx + '-' + String(p.id))
+                }
+                .layoutWeight(1)
+              }, (colIdx: number) => colIdx.toString())
             }
             .width('100%')
             .alignItems(VerticalAlign.Top)

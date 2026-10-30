@@ -21,6 +21,7 @@ import { BackButton } from '../design/components/BackButton';
 import { DesignButton } from '../design/components/DesignButton';
 import { GlassPillButton } from '../design/components/GlassPillButton';
 import { PostCollectionState } from '../components/PostCollectionState';
+import { gridColumnTemplate, gridColumnsForBreakpoint } from '../utils/responsive';
 
 // 关注态局部补丁（乐观更新时只传要改的字段）
 interface ProfileFollowPatch {
@@ -65,6 +66,7 @@ export struct UserProfileView {
     width: 344,
   });
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
+  @StorageProp('currentBreakpoint') currentBreakpoint: string = 'sm';
   // 标题栏（导航行 + 资料区）驻留 Navigation 标题栏后：资料区高度实测回写（内容驱动，
   // 首帧用与 Builder 同源的估算兜底，见教程模板 E）；关注/私信按钮由系统材质接管表面。
   @State titleBarProfileHeight: number = 0;
@@ -72,6 +74,18 @@ export struct UserProfileView {
   private followPulseTimer: number = 0;
   // 订阅帖子删除事件：该作者帖子被删除后，本页网格即时移除（不依赖刷新/重进）
   private unsubDeletion: () => void = () => {};
+
+  // 封面是 16:10 横幅：展开屏满幅 707vp 会拉成 442vp 高的巨幅，头像与昵称被甩到两角。
+  // 与「我的」页封面同口径限宽（md 520 / lg 600），限宽后由外层 Column 居中。
+  private coverWidthVp(): Length {
+    if (this.currentBreakpoint === 'lg') {
+      return 600;
+    }
+    if (this.currentBreakpoint === 'md') {
+      return 520;
+    }
+    return '100%';
+  }
 
   aboutToAppear(): void {
     this.resolveTarget();
@@ -406,7 +420,7 @@ export struct UserProfileView {
               .justifyContent(FlexAlign.End)
               .backgroundColor('#52000000');
             }
-            .width('100%')
+            .width(this.coverWidthVp())
             .aspectRatio(16 / 10)
             .borderRadius(10)
             .clip(true)
@@ -753,11 +767,11 @@ export struct UserProfileView {
                   .fontSize(12).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary'))
                   .width('100%').textAlign(TextAlign.Center).padding(16);
               }
-              .columnStart(0).columnEnd(1);
+              .columnStart(0).columnEnd(gridColumnsForBreakpoint(this.currentBreakpoint) - 1);
             }
           }
           .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
-          .columnsTemplate('1fr 1fr')
+          .columnsTemplate(gridColumnTemplate(gridColumnsForBreakpoint(this.currentBreakpoint)))
           .columnsGap(12).rowsGap(12).padding(12)
           .onScrollIndex((_start: number, end: number) => {
             if (end >= this.posts.length - 1) {

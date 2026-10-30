@@ -21,8 +21,6 @@ export class SpaceTokens {
 
 export class LayoutTokens {
   static readonly gridGutter: number = SpaceTokens.md;
-  static readonly compactBreakpoint: number = 440;
-  static readonly expandedBreakpoint: number = 840;
   static readonly contentMaxWidth: number = 720;
   static readonly minTouchTarget: number = 44;
   // 帖子封面统一使用 3:4 竖版比例，保证信息流中的图片完整可见。

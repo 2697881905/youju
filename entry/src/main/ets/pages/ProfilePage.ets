@@ -804,31 +804,42 @@ export struct ProfilePage {
     } else {
       // refreshing 走 $$ 双向绑定（对齐 HomeTab.ets:836）：单向表达式会让内部手势态与外部
       // 变量不同源，「刷新中…」常驻收不回。onRefreshing 里不能再手动置 true。
-      this.twoColumnFeed(this.tabIdx)
+      this.multiColumnFeed(this.tabIdx)
       this.postFooter()
     }
   }
 
-  // 显式双列：偶数项固定左列、奇数项固定右列，首项始终位于左上角。
-  // 两列独立排列，保留瀑布流的紧凑效果且不受 WaterFlow 列测量顺序影响。
+  // 显式多列：帖子按其在页面数组中的原始下标对列数取模分列（原「偶左奇右两列」的泛化），
+  // 首项始终位于左上角，各列独立排列，不受 WaterFlow 列测量顺序影响。
+  // ⚠️ 改前 gridColumns 在 onBreakpointChanged 里算好却**无人消费** —— 断点线只接了一半，
+  // md 折叠展开仍是 2 列、卡片被拉成 ~336vp 一条（Mate X7 展开实测），与首页 3 列不一致。
   @Builder
-  twoColumnFeed(seg: number): void {
+  multiColumnFeed(seg: number): void {
     Row({ space: SpaceTokens.xs }) {
-      Column({ space: SpaceTokens.xs }) {
-        ForEach(this.pagePostsOf(seg).filter((_post: Post, idx: number) => idx % 2 === 0), (post: Post) => {
-          this.profilePostCard(post, seg)
-        }, (post: Post) => seg + '-left-' + (post.id ?? ''))
-      }
-      .layoutWeight(1)
-      Column({ space: SpaceTokens.xs }) {
-        ForEach(this.pagePostsOf(seg).filter((_post: Post, idx: number) => idx % 2 === 1), (post: Post) => {
-          this.profilePostCard(post, seg)
-        }, (post: Post) => seg + '-right-' + (post.id ?? ''))
-      }
-      .layoutWeight(1)
+      ForEach(this.gridColumnIndexes(), (colIdx: number) => {
+        Column({ space: SpaceTokens.xs }) {
+          ForEach(this.pagePostsOf(seg).filter((_post: Post, idx: number) => idx % this.gridColumnCount() === colIdx),
+            (post: Post) => {
+              this.profilePostCard(post, seg)
+            }, (post: Post) => seg + '-col' + colIdx + '-' + (post.id ?? ''))
+        }
+        .layoutWeight(1)
+      }, (colIdx: number) => colIdx.toString())
     }
     .width('100%')
     .alignItems(VerticalAlign.Top)
+  }
+
+  private gridColumnCount(): number {
+    return Math.max(2, Math.min(4, this.gridColumns));
+  }
+
+  private gridColumnIndexes(): number[] {
+    const arr: number[] = [];
+    for (let i = 0; i < this.gridColumnCount(); i++) {
+      arr.push(i);
+    }
+    return arr;
   }
 
   // 「我收藏 → 收藏夹」列表本体（单列行：缩略图 + 名称 + 条数 + 箭头）。

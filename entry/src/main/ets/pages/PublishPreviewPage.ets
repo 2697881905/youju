@@ -74,6 +74,19 @@ struct PublishPreviewPage {
   // 页面销毁标记：防止字体兜底重绘在 aboutToDisappear 之后仍创建 PixelMap 造成内存泄漏。
   private previewDisposed: boolean = false;
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
+  @StorageProp('currentBreakpoint') currentBreakpoint: string = 'sm';
+
+  // 预览/编辑是单列表单：展开屏满幅 707vp 会让海报与输入行拉得过长。限宽后整列居中，
+  // 顶栏与底部主操作同宽对齐（sm 不变）。
+  private formWidth(): Length {
+    if (this.currentBreakpoint === 'lg') {
+      return 640;
+    }
+    if (this.currentBreakpoint === 'md') {
+      return 560;
+    }
+    return '100%';
+  }
 
   aboutToAppear(): void {
     this.draft = publishFlowStore.getSession().previewDraft;
@@ -640,12 +653,14 @@ struct PublishPreviewPage {
             .width('100%')
             .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
           }
-          .width('100%')
+          .width(this.formWidth())
           .alignItems(HorizontalAlign.Start)
         }
         .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .layoutWeight(1)
         .width('100%')
+        // 限宽列在宽屏上水平居中、顶部贴齐（Scroll 默认会把矮内容垂直居中）
+        .align(Alignment.Top)
         .scrollBar(BarState.Off)
         Row({ space: SpaceTokens.sm }) {
           // 次级操作 → outlined；主级 CTA → primary（与 CircleOnboarding 确认 / PublishTagPanel 完成同档）
@@ -665,7 +680,7 @@ struct PublishPreviewPage {
           })
           .layoutWeight(1)
         }
-        .width('100%')
+        .width(this.formWidth())
         .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
         .alignItems(VerticalAlign.Center)
       } else {

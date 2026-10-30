@@ -1564,6 +1564,20 @@ struct Index {
     return this.statusBarHeight + PROFILE_TITLE_ROW_VP;
   }
 
+  // 「我的」资料卡封面宽（按档给值）。封面是 .aspectRatio(16/10) 且吃容器宽，
+  // 不封顶时 md 707.2vp 窗口下它是 707×442vp —— 一张图吃掉过半屏高，头像压在左下角、
+  // 昵称与「编辑资料」被顶到最右角，两者相距 500vp，资料区读起来是散的不是一个整体。
+  // 封顶后由父 Column 的默认水平居中自动居中；sm 仍 '100%'，与改前同一表达式。
+  private profileCoverWidthVp(): Length {
+    if (this.currentBreakpoint === 'lg') {
+      return 600;
+    }
+    if (this.currentBreakpoint === 'md') {
+      return 520;
+    }
+    return '100%';
+  }
+
   // 资料区本体（ProfileHeader 只呈现，跳转/登录引导等意图在这里接线）
   @Builder
   profileHeaderBlock(onBackground: boolean) {
@@ -1608,7 +1622,7 @@ struct Index {
             .justifyContent(FlexAlign.End)
             .backgroundColor('#52000000');
           }
-          .width('100%')
+          .width(this.profileCoverWidthVp())
           .aspectRatio(16 / 10)
           .borderRadius(RadiusTokens.lg)
           .clip(true);
@@ -1619,7 +1633,8 @@ struct Index {
         Column() {
           this.profileHeaderBlock(false);
         }
-        .width('100%');
+        // 无封面时资料行同样限宽：否则 md 上头像与「编辑资料」被甩到 707vp 的两端
+        .width(this.profileCoverWidthVp());
       }
     }
     .width('100%')

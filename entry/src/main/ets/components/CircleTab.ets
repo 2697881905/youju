@@ -806,7 +806,7 @@ export struct CircleTab {
   // 结果按数据内容缓存，逐颗行星取 baseAngle 时不会重复 O(n²) 计算。
   private ringPlan(): Map<string, number> {
     const items: CircleTag[] = this.starCircles().slice();
-    let key: string = String(this.galaxySize);
+    let key: string = String(this.galaxySize) + '/' + String(this.scrollViewportHeight);
     for (const circle of items) {
       key += '|' + circle.name + ',' + this.displayRing(circle) + ',' + this.starRank(circle);
     }
@@ -1128,16 +1128,28 @@ export struct CircleTab {
     this.startInertia();
   }
 
+  // 环半径的基准边长：窄屏取画布宽（环被左右边距约束），宽屏改受竖向净空约束。
+  // 星环是正圆，展开屏宽 707vp 但可视高只有 ~773vp：若仍以宽为基准，外环半径 325vp
+  // 会把顶部行星送进标题栏、底部行星送进 Dock。竖向净空 = 圆心(高×0.42) 到标题栏底
+  // 再让出行星半盒与一档呼吸；sm 上该基准(≈369)大于画布宽(363.5)，行为不变。
+  private orbitBasis(): number {
+    const centerY: number = this.scrollViewportHeight * 0.42;
+    const verticalBudget: number = centerY - this.circleTitleBarHeight() - PLANET_BOX_WIDTH / 2 - SpaceTokens.md;
+    const budgetBasis: number = Math.max(240, (verticalBudget - SpaceTokens.xs) / 0.46);
+    return Math.min(this.galaxySize, budgetBasis);
+  }
+
   private radiusForRing(ring: number): number {
     // 先确定内环距头像的安全距离，再在可用空间内等分两段。
     // 不能从外环按大间距硬向内回推，否则 375vp 视口会把内环压到头像上。
+    const basis: number = this.orbitBasis();
     const maxOuterRadius: number = Math.max(
       0,
       // 星系视口本身已有 4vp 页边距，无需在半径内重复预留，外环可再向外扩展。
-      this.galaxySize / 2 - PLANET_BOX_WIDTH / 2,
+      basis / 2 - PLANET_BOX_WIDTH / 2,
     );
     // 标签容器不再参与选中缩放，可安全借用页面两侧的 4vp 边距再外扩一档。
-    const outerRadius: number = Math.min(this.galaxySize * 0.46, maxOuterRadius) + SpaceTokens.xs;
+    const outerRadius: number = Math.min(basis * 0.46, maxOuterRadius) + SpaceTokens.xs;
     // 从头像外缘到最外环的可用径向距离严格三等分：
     // avatar→内环 = 内环→中环 = 中环→外环。
     const avatarEdgeRadius: number = CENTER_AVATAR_SIZE / 2;

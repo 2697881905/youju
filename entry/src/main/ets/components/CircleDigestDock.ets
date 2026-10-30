@@ -15,6 +15,18 @@ export struct CircleDigestDock {
   // 小屏只放 2 条，避免 Dock 压到最外环的行星标签。
   @Prop maxItems: number = 3;
   onOpen: (postId: number) => void = (_postId: number): void => {};
+  @StorageProp('currentBreakpoint') currentBreakpoint: string = 'sm';
+
+  // 每行是「圈名药丸 + 单行标题」，展开屏满幅会把标题拉得过长、右侧留死白；限宽后由外层居中。
+  private cardWidth(): Length {
+    if (this.currentBreakpoint === 'lg') {
+      return 600;
+    }
+    if (this.currentBreakpoint === 'md') {
+      return 520;
+    }
+    return '100%';
+  }
 
   private visibleItems(): CircleDigestItem[] {
     return this.items.slice(0, Math.max(1, this.maxItems));
@@ -87,7 +99,7 @@ export struct CircleDigestDock {
         this.digestRow(item, index === this.visibleItems().length - 1)
       }, (item: CircleDigestItem) => String(item.postId))
     }
-    .width('100%')
+    .width(this.cardWidth())
     .padding(SpaceTokens.md)
     .backgroundColor(ColorTokens.elevated)
     .borderRadius(RadiusTokens.lg)
