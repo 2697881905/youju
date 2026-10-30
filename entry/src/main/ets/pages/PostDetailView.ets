@@ -1615,7 +1615,11 @@ export struct PostDetailView {
         }
         .width('100%')
       }
-      .padding(16)
+      // ⚠️ 壳的顶部让位必须与真实正文列**同式**（16 + 状态栏 + 56 标题行）。
+      // 原先只写 .padding(16)，比真实内容整体高 95.04vp（Mate X7 实测壳 hero y=152.32，
+      // 真实 hero y=274.88）—— 卡片截图按壳的槽位飞完，真媒体一到就往下闪一格，
+      // 观感即「落点先偏上、再闪到正确位置」，直板机与折叠屏同因。
+      .padding({ left: 16, right: 16, top: 16 + this.detailListInset(), bottom: 16 })
       .width('100%')
     } else {
       Column() {
