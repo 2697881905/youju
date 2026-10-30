@@ -75,18 +75,6 @@ export struct UserProfileView {
   // 订阅帖子删除事件：该作者帖子被删除后，本页网格即时移除（不依赖刷新/重进）
   private unsubDeletion: () => void = () => {};
 
-  // 封面是 16:10 横幅：展开屏满幅 707vp 会拉成 442vp 高的巨幅，头像与昵称被甩到两角。
-  // 与「我的」页封面同口径限宽（md 520 / lg 600），限宽后由外层 Column 居中。
-  private coverWidthVp(): Length {
-    if (this.currentBreakpoint === 'lg') {
-      return 600;
-    }
-    if (this.currentBreakpoint === 'md') {
-      return 520;
-    }
-    return '100%';
-  }
-
   aboutToAppear(): void {
     this.resolveTarget();
     // 登录态 + 有效的目标用户 id 才发起加载；targetId 为 0 时发 getUserProfile(0) 是无效请求，
@@ -420,7 +408,7 @@ export struct UserProfileView {
               .justifyContent(FlexAlign.End)
               .backgroundColor('#52000000');
             }
-            .width(this.coverWidthVp())
+            .width('100%')
             .aspectRatio(16 / 10)
             .borderRadius(10)
             .clip(true)
