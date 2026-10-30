@@ -187,6 +187,12 @@ export struct PostDetailDestination {
       })
       .width(this.longTakeAnimationProperties.clipWidth)
       .height(this.longTakeAnimationProperties.clipHeight)
+      // ⚠️ 必须把飞行盒的布局原点钉在父 (0,0)：NavDestination 会**居中**它的子节点，
+      // 盒宽写 '100%'（填满父）时居中无位移、看不出问题；盒宽一旦改成「对应节点宽」
+      // （双栏后节点只是左栏），居中就把整段飞行平移 (父宽-盒宽)/2 —— Mate X7 实测
+      // 起飞盒落在 x=182vp 而卡片在 x=9vp，差 176.3vp = (707.2-354.7)/2。
+      // 纵向同理：盒高 clipHeight < 父高，原先也一直被居中抬着，ty 的公式按 Y0=0 推的。
+      .position({ x: 0, y: 0 })
       .borderRadius(this.longTakeAnimationProperties.radius)
       .clip(true)
       .backgroundColor(ColorTokens.canvas)
