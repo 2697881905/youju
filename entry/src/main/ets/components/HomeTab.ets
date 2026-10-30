@@ -255,6 +255,23 @@ export struct HomeTab {
   }
 
   // 分页只读自己那份缓存：Swiper 拖动过程中相邻页显示的是它自己的内容
+  // 每日一帖卡堆的宽（按档给值，不给宽屏留档=把手机卡等比放大）。
+  // 卡是 4:3 横版海报且内部 .width('100%').aspectRatio(...)，所以容器多宽卡就多宽：
+  // md 707.2vp 窗口下实测卡 683.5×345vp = 手机卡的 2.06 倍，下部文字块上方空出一大片，
+  // 扇面错位（DECK_FAN_X=30 / 倾角 4°）也是照手机宽调的，宽屏没有自己的档。
+  // 封顶 md 460 / lg 520：卡片回到接近手机的观感比例，多出来的宽度留给两侧呼吸。
+  // ⚠️ 必须用 .width() 而不是 constraintSize.maxWidth —— 后者不重测子级，
+  //    卡内 .width('100%') 仍按原始宽排版（本工程实测踩过，判据是 dump 里 origBounds≠bounds）。
+  private dailyDeckWidthVp(): Length {
+    if (this.currentBreakpoint === 'lg') {
+      return 520;
+    }
+    if (this.currentBreakpoint === 'md') {
+      return 460;
+    }
+    return '100%';
+  }
+
   private pagePostsOf(seg: number): DailyPost[] {
     return this.postsCache[seg] ?? [];
   }
@@ -822,7 +839,7 @@ export struct HomeTab {
                 }
               },
             })
-              .width('100%')
+              .width(this.dailyDeckWidthVp())
               .layoutWeight(1)
           }
           .width('100%')
