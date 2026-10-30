@@ -73,6 +73,7 @@ import { AtMentionSuggest } from '../components/AtMentionSuggest';
 import { findActiveAtMention, applyAtMention, AtMentionMatch } from '../utils/atMention';
 import { barBottomReserve } from '../utils/cardTokens';
 import { reportBottomAvoid } from '../utils/navMode';
+import { KEY_CURRENT_BREAKPOINT, KEY_IS_WIDE_PANE } from '../utils/breakpointCenter';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { RadiusTokens } from '../design/tokens/radius';
 import { FALLBACK_VIDEO_ASPECT_RATIO, normalizeVideoAspectRatio } from '../utils/video';
@@ -96,6 +97,8 @@ export const DETAIL_HERO_ID: string = 'detailHeroMedia';
 export const DETAIL_HERO_SHELL_ID: string = 'detailHeroShellMedia';
 // 详情内容滚动视口 id：通知「跳转到具体评论」时量取视口矩形，换算滚动目标偏移
 const DETAIL_CONTENT_SCROLL_ID: string = 'detailContentScroll';
+// 宽屏双栏下评论区自己的滚动视口 id（评论锚点定位改量这一侧，见 locateTargetComment）
+const DETAIL_COMMENT_SCROLL_ID: string = 'detailCommentScroll';
 
 
 // 底部互动使用不可变快照。每次替换顶层 @State，保证 ArkUI 当帧重新渲染计数和选中态。
@@ -161,6 +164,11 @@ export struct PostDetailView {
   @State highlightCommentId: number = 0;
   // 详情内容滚动器：定位评论时按目标偏移平滑滚动
   private detailScroller: Scroller = new Scroller();
+  // 宽屏双栏下评论区独立的滚动器（正文侧仍是 detailScroller，顶栏模糊只认它）
+  private commentScroller: Scroller = new Scroller();
+  // 断点：宽屏（md/lg，窗口 ≥600vp）走 SideBarContainer 双栏，窄屏走单条 Scroll
+  @StorageProp(KEY_IS_WIDE_PANE) isWidePane: boolean = false;
+  @StorageProp(KEY_CURRENT_BREAKPOINT) currentBreakpoint: string = 'sm';
   @State post: PostWithComments | null = null;
   // 评论区计数独立快照：与 interaction 同理，评论删除走顶层替换 @State 才能当帧刷新；
   // 直接改 post.commentCount 这类嵌套属性刷新不稳定，会出现「删了评论但计数不变」。
@@ -620,10 +628,14 @@ export struct PostDetailView {
         return;
       }
       let deltaVp: number = Number.NaN;
+      // 宽屏双栏下评论挂在右栏独立的滚动容器里，参照视口与滚动器都要换成右栏那一侧；
+      // 窄屏仍是正文与评论同一条 Scroll，走原口径。
+      const paneScroller: Scroller = this.isWidePane ? this.commentScroller : this.detailScroller;
+      const paneScrollId: string = this.isWidePane ? DETAIL_COMMENT_SCROLL_ID : DETAIL_CONTENT_SCROLL_ID;
       try {
         const utils = this.getUIContext().getComponentUtils();
         const commentRect = utils.getRectangleById(commentAnchorId(cid));
-        const scrollRect = utils.getRectangleById(DETAIL_CONTENT_SCROLL_ID);
+        const scrollRect = utils.getRectangleById(paneScrollId);
         if (commentRect && scrollRect) {
           deltaVp = this.getUIContext().px2vp(
             (commentRect.windowOffset?.y ?? 0) - (scrollRect.windowOffset?.y ?? 0)
@@ -639,8 +651,8 @@ export struct PostDetailView {
         return;
       }
       // 评论当前在视口内的相对偏移 + 已滚动量 = 目标绝对偏移；上留 12vp 呼吸空间
-      const target: number = Math.max(0, this.detailScroller.currentOffset().yOffset + deltaVp - 12);
-      this.detailScroller.scrollTo({
+      const target: number = Math.max(0, paneScroller.currentOffset().yOffset + deltaVp - 12);
+      paneScroller.scrollTo({
         xOffset: 0,
         yOffset: target,
         animation: { duration: 360, curve: Curve.EaseOut },
@@ -1718,6 +1730,161 @@ export struct PostDetailView {
     .padding({ left: 64, right: SpaceTokens.sm })
     .alignItems(VerticalAlign.Center)
   }
+  // ── 宽屏左右分栏（官方 SideBarContainer）── 三段式装配：正文列 / 评论流 / 评论右栏
+  // build() 里 `else if (this.post)` 的类型收窄不会带进独立 @Builder，故正文值统一走这个
+  // 非空读口 —— 三个 builder 只在 post 非空的分支里被调用，渲染期取不到 null。
+  private dp(): PostWithComments {
+    return this.post as PostWithComments;
+  }
+
+  // 评论区（窄屏挂在正文 Scroll 内、宽屏挂在右栏 Scroll 内，两处共用同一份，不复制 JSX）
+  @Builder
+  detailCommentsFlow() {
+    DetailCommentsSection({
+      comments: this.dp().comments ?? [],
+      commentCount: this.commentCount,
+      highlightCommentId: this.highlightCommentId,
+      postAuthorId: this.authorId() ?? 0,
+      navMode: this.navMode,
+      onReportComment: (commentId: number): void => { this.openCommentReport(commentId); },
+      onReplyComment: (comment: Comment): void => { this.onReplyComment(comment); },
+      onDeletedComment: (comment: Comment): void => { this.onCommentDeleted(comment); },
+    })
+      .transition(this.animLayerEnter(180))
+  }
+
+  // 正文列（含待审核横幅/标题/媒体+正文）。窄屏时后面接评论流，宽屏时评论搬去右栏。
+  @Builder
+  detailBodyScroll() {
+    Scroll(this.detailScroller) {
+      Column({ space: 16 }) {
+        // 待审核横幅（作者查看自己 status=0 帖子时显示）
+        if (this.dp().status === 0 && this.dp().userId === getUserId()) {
+          Row({ space: 8 }) {
+            Text('该帖子正在审核中，仅你自己可见')
+              .fontSize(13).fontFamily($r('app.string.font_family'))
+              .fontColor('#FF9500')
+          }
+          .width('100%')
+          .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+          .backgroundColor($r('app.color.warning_surface'))
+          .borderRadius(8)
+        }
+
+        DetailPostHeader({
+          title: this.dp().title ?? '',
+          genreLabel: genreMeta(this.dp().genre).label,
+          genreIcon: genreMeta(this.dp().genre).iconRes,
+          tags: this.dp().tags ?? [],
+          authorName: this.authorName(),
+          authorAvatar: this.authorAvatar(),
+          createdAt: this.dp().createdAt,
+          postId: this.dp().id ?? 0,
+          ratingAvg: this.ratingAvg,
+          ratingCount: this.ratingCount,
+          myRating: this.myRating,
+          onRatingUpdated: (avg: number, count: number, my: number): void => {
+            this.ratingAvg = avg;
+            this.ratingCount = count;
+            this.myRating = my;
+          },
+          onExpandRequest: (): boolean => {
+            const user = getCurrentUser();
+            if (user !== null && getToken() !== '') {
+              return true;
+            }
+            ensureLogin();
+            return false;
+          },
+          onOpenAuthor: (): void => { this.openAuthorProfile(); },
+        })
+          .transition(this.animLayerEnter(80))
+
+        // 媒体+正文编为一组（组内间距 8）：图/视频紧贴正文。
+        // 不用负 margin——Column({ space }) 对负 margin 不生效（实测间距无变化）；
+        // 组外与 标题/评论区 之间仍是父容器的 16，两层间距互不干扰。
+        Column({ space: 8 }) {
+          // 媒体区（视频/轮播）：真实媒体直接展示。这个 id 是「一镜到底的对应节点」——
+          // 目的地页把它缩放/挪移到卡片帧，因此加载壳里的占位必须挂同一个 id。
+          Stack() {
+            this.mediaSlot()
+          }
+          .width('100%')
+          .id(DETAIL_HERO_ID)
+          .opacity(this.heroOpacity())
+
+          DetailPostContent({
+            navMode: this.navMode,
+            pairs: this.fields,
+            structuredDocument: this.dp().structuredDocument ?? null,
+            genre: this.dp().genre ?? '',
+            content: this.dp().content ?? '',
+            coverOnlyTextPoster: this.dp().structuredData?.coverOnlyTextPoster ?? false,
+            planA: this.planTextOf('方案A'),
+            planB: this.planTextOf('方案B'),
+            votePostId: this.dp().id ?? 0,
+            metricValue: this.dp().metricValue ?? null,
+            metricLabel: this.dp().metricLabel ?? '',
+            metricText: this.dp().metricText ?? '',
+            mentions: this.dp().mentions ?? [],
+            onVote: (choice: string): void => { this.onDebateVote(choice); },
+            // 长按结构化卡片弹「复制正文」菜单（正文 Text 自带系统文本选择，见组件内说明）
+            onLongPressContent: (event: GestureEvent): void => { this.openContentMenu(event); },
+          })
+            .transition(this.animLayerEnter(120))
+        }
+
+        // 窄屏：评论接在正文之后，与正文共用这一条滚动容器（连续单列语义一字不改）。
+        if (!this.isWidePane) {
+          this.detailCommentsFlow()
+        }
+
+        // 真实滚动内容占位，末尾评论可完整滑出悬浮互动栏下方。
+        Blank()
+          .width('100%')
+          .height(barBottomReserve())
+      }
+      .padding({ left: 16, right: 16, top: 16 + this.detailListInset(), bottom: 16 })
+      .width('100%')
+      // 宽屏限宽居中：折叠展开/平板上正文列不再拉满全宽（通用对齐默认水平居中）
+      .constraintSize({ maxWidth: LayoutTokens.contentMaxWidth })
+    }
+    .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+    .width('100%')
+    .height('100%')
+    .id(DETAIL_CONTENT_SCROLL_ID)
+    // 模糊出图开关：绝对偏移驱动（增量正负会被回弹负帧打灭——基准 §36 同款修复）；
+    // 滚回顶部时触发系统栏内容色补设（HDS 回写竞速，见 utils/systemBar.ets）
+    .onDidScroll((): void => { this.syncBarScrolled(); })
+    .onScrollStop((): void => { this.syncBarScrolled(); })
+  }
+
+  // 宽屏右栏：SideBarContainer 的第一个子组件（侧边栏，靠 End 落到右侧）= 独立滚动的评论区
+  @Builder
+  detailCommentPane() {
+    Scroll(this.commentScroller) {
+      Column({ space: 16 }) {
+        this.detailCommentsFlow()
+        Blank()
+          .width('100%')
+          .height(barBottomReserve())
+      }
+      .padding({ left: 16, right: 16, top: 16 + this.detailListInset(), bottom: 16 })
+      .width('100%')
+    }
+    // SideBarContainer 给侧边栏画了自带底（实测 #F3F3F3，与页面 canvas #FFF 不同色）。
+    // 底色必须压在 Scroll 上而不是内层 Column 上 —— 评论不满一屏时 Column 到底就是视口，
+    // 露出来的那段是 Scroll 自己的高度（实测右栏底部一块灰底，2026-10-30 Mate X7）。
+    .backgroundColor(ColorTokens.canvas)
+    // Scroll 默认把不满视口的子节点**垂直居中**：正文列永远超长看不出来，右栏只有两条评论时
+    // 顶出来就是 100vp 空洞（Mate X7 实测子节点落在 140.5vp 而非视口顶 + 内边距处）。
+    .align(Alignment.Top)
+    .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+    .width('100%')
+    .height('100%')
+    .id(DETAIL_COMMENT_SCROLL_ID)
+  }
+
 
   build() {
     Stack() {
@@ -1865,114 +2032,27 @@ export struct PostDetailView {
       .justifyContent(FlexAlign.Center)
     } else if (this.post) {
       Stack({ alignContent: Alignment.Bottom }) {
-        Scroll(this.detailScroller) {
-          Column({ space: 16 }) {
-            // 待审核横幅（作者查看自己 status=0 帖子时显示）
-            if (this.post.status === 0 && this.post.userId === getUserId()) {
-              Row({ space: 8 }) {
-                Text('该帖子正在审核中，仅你自己可见')
-                  .fontSize(13).fontFamily($r('app.string.font_family'))
-                  .fontColor('#FF9500')
-              }
-              .width('100%')
-              .padding({ left: 12, right: 12, top: 8, bottom: 8 })
-              .backgroundColor($r('app.color.warning_surface'))
-              .borderRadius(8)
-            }
-
-            DetailPostHeader({
-              title: this.post.title ?? '',
-              genreLabel: genreMeta(this.post.genre).label,
-              genreIcon: genreMeta(this.post.genre).iconRes,
-              tags: this.post.tags ?? [],
-              authorName: this.authorName(),
-              authorAvatar: this.authorAvatar(),
-              createdAt: this.post.createdAt,
-              postId: this.post.id ?? 0,
-              ratingAvg: this.ratingAvg,
-              ratingCount: this.ratingCount,
-              myRating: this.myRating,
-              onRatingUpdated: (avg: number, count: number, my: number): void => {
-                this.ratingAvg = avg;
-                this.ratingCount = count;
-                this.myRating = my;
-              },
-              onExpandRequest: (): boolean => {
-                const user = getCurrentUser();
-                if (user !== null && getToken() !== '') {
-                  return true;
-                }
-                ensureLogin();
-                return false;
-              },
-              onOpenAuthor: (): void => { this.openAuthorProfile(); },
-            })
-              .transition(this.animLayerEnter(80))
-
-            // 媒体+正文编为一组（组内间距 8）：图/视频紧贴正文。
-            // 不用负 margin——Column({ space }) 对负 margin 不生效（实测间距无变化）；
-            // 组外与 标题/评论区 之间仍是父容器的 16，两层间距互不干扰。
-            Column({ space: 8 }) {
-              // 媒体区（视频/轮播）：真实媒体直接展示。这个 id 是「一镜到底的对应节点」——
-              // 目的地页把它缩放/挪移到卡片帧，因此加载壳里的占位必须挂同一个 id。
-              Stack() {
-                this.mediaSlot()
-              }
-              .width('100%')
-              .id(DETAIL_HERO_ID)
-              .opacity(this.heroOpacity())
-
-              DetailPostContent({
-                navMode: this.navMode,
-                pairs: this.fields,
-                structuredDocument: this.post.structuredDocument ?? null,
-                genre: this.post.genre ?? '',
-                content: this.post.content ?? '',
-                coverOnlyTextPoster: this.post.structuredData?.coverOnlyTextPoster ?? false,
-                planA: this.planTextOf('方案A'),
-                planB: this.planTextOf('方案B'),
-                votePostId: this.post.id ?? 0,
-                metricValue: this.post.metricValue ?? null,
-                metricLabel: this.post.metricLabel ?? '',
-                metricText: this.post.metricText ?? '',
-                mentions: this.post.mentions ?? [],
-                onVote: (choice: string): void => { this.onDebateVote(choice); },
-                // 长按结构化卡片弹「复制正文」菜单（正文 Text 自带系统文本选择，见组件内说明）
-                onLongPressContent: (event: GestureEvent): void => { this.openContentMenu(event); },
-              })
-                .transition(this.animLayerEnter(120))
-            }
-
-            DetailCommentsSection({
-              comments: this.post.comments ?? [],
-              commentCount: this.commentCount,
-              highlightCommentId: this.highlightCommentId,
-              postAuthorId: this.authorId() ?? 0,
-              navMode: this.navMode,
-              onReportComment: (commentId: number): void => { this.openCommentReport(commentId); },
-              onReplyComment: (comment: Comment): void => { this.onReplyComment(comment); },
-              onDeletedComment: (comment: Comment): void => { this.onCommentDeleted(comment); },
-            })
-              .transition(this.animLayerEnter(180))
-
-            // 真实滚动内容占位，末尾评论可完整滑出悬浮互动栏下方。
-            Blank()
-              .width('100%')
-              .height(barBottomReserve())
+        if (this.isWidePane) {
+          // 官方「分栏布局」里，图文详情+评论区被点名归入**侧边栏**那一类（侧边栏不控制
+          // 内容区路由），不是单/双栏那一类（Navigation 分栏的右栏是可被返回手势 pop 的
+          // NavDestination，评论不该是一级可返回页）。故用 SideBarContainer。
+          // 约定：第一个子组件=侧边栏（sideBarPosition End → 落在右侧）=评论区；第二个=内容区=正文。
+          SideBarContainer(SideBarContainerType.Embed) {
+            this.detailCommentPane()
+            this.detailBodyScroll()
           }
-          .padding({ left: 16, right: 16, top: 16 + this.detailListInset(), bottom: 16 })
+          .sideBarPosition(SideBarPosition.End)
+          .sideBarWidth(this.currentBreakpoint === 'lg' ? 380 : 320)
+          .minSideBarWidth(300)
+          .maxSideBarWidth(460)
+          .showSideBar(true)
+          .showControlButton(false)
+          .divider({ strokeWidth: 0.5, color: ColorTokens.separator })
           .width('100%')
-          // 宽屏限宽居中：折叠展开/平板上正文列不再拉满全宽（通用对齐默认水平居中）
-          .constraintSize({ maxWidth: LayoutTokens.contentMaxWidth })
+          .height('100%')
+        } else {
+          this.detailBodyScroll()
         }
-        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
-        .width('100%')
-        .height('100%')
-        .id(DETAIL_CONTENT_SCROLL_ID)
-        // 模糊出图开关：绝对偏移驱动（增量正负会被回弹负帧打灭——基准 §36 同款修复）；
-        // 滚回顶部时触发系统栏内容色补设（HDS 回写竞速，见 utils/systemBar.ets）
-        .onDidScroll((): void => { this.syncBarScrolled(); })
-        .onScrollStop((): void => { this.syncBarScrolled(); })
 
         // @提及候选 + 底部互动栏：评论输入态下输入「@昵称」时在栏上方弹候选，点选回填精确 userId
         Column() {
