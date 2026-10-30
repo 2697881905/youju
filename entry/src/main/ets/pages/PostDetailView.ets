@@ -1582,44 +1582,44 @@ export struct PostDetailView {
   @Builder
   transitionLoadingShell(): void {
     if (this.intent !== null && this.flightAspect() > 0) {
-      Column({ space: 16 }) {
-        DetailPostHeader({
-          title: this.intent.title,
-          genreLabel: genreMeta(this.intent.genre as Genre).label,
-          genreIcon: genreMeta(this.intent.genre as Genre).iconRes,
-          tags: this.intent.tags,
-          authorName: this.intent.authorName,
-          authorAvatar: this.intent.authorAvatar,
-          createdAt: this.intent.createdAt,
-          onOpenAuthor: (): void => {},
-        })
-        // 这个盒子只承担一个职责：给一镜到底提供**可量的「对应节点」**
-        // （转场开始那一刻就要量它的宽高与位置，量不到动画整体不出现）。
-        // 因此它必须与真实 hero 同比例（飞行目标框比例 flightAspect），但**不能画任何东西**：
-        // 卡片截图位于内容层**之下**，这里一旦有底色就会把截图盖住
-        // （观感变成「卡片图 → 灰块 → 照片」）；不加 opacity 也免得赌
-        // 「完全透明是否被渲染层裁掉」这种实现细节——空盒子照样能量。
-        // id 用独立的 DETAIL_HERO_SHELL_ID：与真实 hero 不同名（防 duplicate id）。
-        // ⚠️ 宽屏双栏下必须撑出与右栏等宽的空洞：转场开始那一刻真内容还没到，initParams
-        // 量的是这个壳。壳若按整页宽铺（实测 675.2vp）而真实 hero 只有左栏（354.6vp），
-        // scale 会算小一半，首帧飞成两倍宽的白块、右栏评论跟着一起飞（Mate X7 实测）。
-        Row() {
+      // ⚠️ 壳必须与真实正文列**同宽、同顶**，两处缺一不可：
+      // ① 顶部让位同式（16 + 状态栏 + 56 标题行）。原先只写 .padding(16)，壳整体高
+      //    95.04vp（实测壳 hero y=152.32 vs 真实 274.88）。
+      // ② header 也得关进左栏宽度内。真实 header 在左栏（386.6vp）里这句标题折两行
+      //    （实测 174px），壳若按整页宽铺（707.2vp）同一句标题只占一行（87px，且右端
+      //    溢出到 x=1232 > 栏沿 1208），差出的 87px 正是余下那 27.84vp 偏上量。
+      //    所以右侧要撑出与右栏等宽的空洞包住**整列**，而不是只把占位塞进 Row。
+      Row() {
+        Column({ space: 16 }) {
+          DetailPostHeader({
+            title: this.intent.title,
+            genreLabel: genreMeta(this.intent.genre as Genre).label,
+            genreIcon: genreMeta(this.intent.genre as Genre).iconRes,
+            tags: this.intent.tags,
+            authorName: this.intent.authorName,
+            authorAvatar: this.intent.authorAvatar,
+            createdAt: this.intent.createdAt,
+            onOpenAuthor: (): void => {},
+          })
+          // 这个盒子只承担一个职责：给一镜到底提供**可量的「对应节点」**
+          // （转场开始那一刻就要量它的宽高与位置，量不到动画整体不出现）。
+          // 因此它必须与真实 hero 同比例（飞行目标框比例 flightAspect），但**不能画任何东西**：
+          // 卡片截图位于内容层**之下**，这里一旦有底色就会把截图盖住
+          // （观感变成「卡片图 → 灰块 → 照片」）；不加 opacity 也免得赌
+          // 「完全透明是否被渲染层裁掉」这种实现细节——空盒子照样能量。
+          // id 用独立的 DETAIL_HERO_SHELL_ID：与真实 hero 不同名（防 duplicate id）。
           Stack()
+            .width('100%')
             .aspectRatio(this.flightAspect())
-            .layoutWeight(1)
             .id(DETAIL_HERO_SHELL_ID)
-          if (this.isWidePane) {
-            Column()
-              .width(this.commentPaneWidthVp() + DETAIL_SPLIT_DIVIDER_VP)
-          }
         }
-        .width('100%')
+        .layoutWeight(1)
+        .padding({ left: 16, right: 16, top: 16 + this.detailListInset(), bottom: 16 })
+        if (this.isWidePane) {
+          Column()
+            .width(this.commentPaneWidthVp() + DETAIL_SPLIT_DIVIDER_VP)
+        }
       }
-      // ⚠️ 壳的顶部让位必须与真实正文列**同式**（16 + 状态栏 + 56 标题行）。
-      // 原先只写 .padding(16)，比真实内容整体高 95.04vp（Mate X7 实测壳 hero y=152.32，
-      // 真实 hero y=274.88）—— 卡片截图按壳的槽位飞完，真媒体一到就往下闪一格，
-      // 观感即「落点先偏上、再闪到正确位置」，直板机与折叠屏同因。
-      .padding({ left: 16, right: 16, top: 16 + this.detailListInset(), bottom: 16 })
       .width('100%')
     } else {
       Column() {
