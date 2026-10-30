@@ -66,6 +66,11 @@ export class LongTakeAnimationProperties {
   translateX: number = 0;
   translateY: number = 0;
   clipWidth: Dimension = '100%';
+  // 页面真实宽（vp，initParams 量得；0 = 还没量到，消费方回退 '100%'）。
+  // 飞行盒宽已改成「对应节点宽」，内层页面必须按这个值**钉死**，
+  // 否则内层 width('100%') 会跟着飞行盒从 nodeW 长到页宽，整页在 350ms 里持续重排
+  // （折叠展开态的双栏会边飞边改列宽）。
+  pageWidthVp: number = 0;
   clipHeight: Dimension = '100%';
   radius: number = RADIUS_CARD;
   positionXValue: number = 0;
@@ -194,19 +199,22 @@ export class LongTakeAnimationProperties {
     this.snapShotWidth = ui.px2vp(nodeWidth_px);
 
     this.initScale = cardWidth_px / nodeWidth_px;
-    this.initClipWidth = '100%';
+    // 飞行盒宽 = 对应节点宽，不是页宽。盒子的可视宽 = 盒宽 × scale，而
+    // scale = 卡片宽 / 节点宽 ⇒ 只有盒宽 == 节点宽时首帧才恰好等于卡片宽。
+    // 原先写 '100%' 隐含前提是「媒体满幅」：sm 下页宽/节点宽 = 1.096，多出的 9.6% 正好是
+    // 媒体两侧那 16vp 纸边，肉眼看不出来；折叠展开态双栏后节点只剩左栏
+    // （707.2 / 354.6 = 1.99），首帧就飞成两倍宽的白块，右栏评论跟着一起飞（Mate X7 实测）。
+    this.initClipWidth = ui.px2vp(nodeWidth_px);
+    this.pageWidthVp = ui.px2vp(rootWidth_px);
     const clipHeight_px: number = cardHeight_px / Math.max(this.initScale, 0.0001);
     this.initClipHeight = ui.px2vp(clipHeight_px);
 
     const rootPositionX_px: number = ui.vp2px(rootPositionX_vp);
     const rootPositionY_px: number = ui.vp2px(rootPositionY_vp);
-    // 水平位移：把「对应节点」的左上角对齐到卡片左边缘。
-    // 官方式子减 (rootW - cardW)/2，隐含前提是「节点宽 == 窗口宽」（媒体满幅）：
-    // 本项目媒体位两侧各内缩 16vp（nodeW = 页宽 - 32），窗口比卡片宽 rootW/nodeW 倍，
-    // 照搬会让落点整体左移 (rootW·s - cardW)/2（信息流卡 ≈8vp、卡堆 ≈16vp）——
-    // 进场首帧偏左被飞行掩盖，返回收尾定格时可见（轻微偏左后瞬移到卡片原位）。
-    // 用一般式：节点宽 == 窗口宽时与官方式子完全等价。
-    this.initTranslateX = ui.px2vp(cardLeft_px - rootPositionX_px - rootWidth_px * (1 - this.initScale) / 2);
+    // 水平位移：内层已把节点挪到盒子左边缘（initPositionValueX = -nodeLocalX），
+    // 盒子绕自身中心（盒宽/2 = 节点宽/2）缩放，故首帧落点减 nodeW·(1-s)/2。
+    // 节点满幅（nodeW == rootW）时与原先按页宽算的式子逐项等价，sm 行为不变。
+    this.initTranslateX = ui.px2vp(cardLeft_px - rootPositionX_px - nodeWidth_px * (1 - this.initScale) / 2);
     this.initTranslateY =
       ui.px2vp(cardTop_px - rootPositionY_px - (clipHeight_px - clipHeight_px * this.initScale) / 2);
 

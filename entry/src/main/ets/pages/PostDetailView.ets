@@ -99,6 +99,8 @@ export const DETAIL_HERO_SHELL_ID: string = 'detailHeroShellMedia';
 const DETAIL_CONTENT_SCROLL_ID: string = 'detailContentScroll';
 // 宽屏双栏下评论区自己的滚动视口 id（评论锚点定位改量这一侧，见 locateTargetComment）
 const DETAIL_COMMENT_SCROLL_ID: string = 'detailCommentScroll';
+// 双栏分割线宽（vp）：SideBarContainer 的 divider 与加载壳的右栏占位共用同一出处
+const DETAIL_SPLIT_DIVIDER_VP: number = 0.5;
 
 
 // 底部互动使用不可变快照。每次替换顶层 @State，保证 ArkUI 当帧重新渲染计数和选中态。
@@ -230,6 +232,12 @@ export struct PostDetailView {
   // 滚动内容顶部让位 = 状态栏 + 56vp 标题行（enableComponentSafeArea:false 后自管）
   private detailListInset(): number {
     return this.statusBarHeight + 56;
+  }
+
+  // 双栏右栏宽（单一出处）：SideBarContainer.sideBarWidth 与加载壳的右栏占位都读它。
+  // 改这里两处同步，否则壳量出的 hero 宽与真实 hero 不一致，一镜到底首帧就会错位。
+  private commentPaneWidthVp(): number {
+    return this.currentBreakpoint === 'lg' ? 380 : 320;
   }
 
   // 滚动态 → 模糊出图开关 + 系统栏补设（绝对偏移，同消息页 msgBarScrolled 口径）
@@ -1592,10 +1600,20 @@ export struct PostDetailView {
         // （观感变成「卡片图 → 灰块 → 照片」）；不加 opacity 也免得赌
         // 「完全透明是否被渲染层裁掉」这种实现细节——空盒子照样能量。
         // id 用独立的 DETAIL_HERO_SHELL_ID：与真实 hero 不同名（防 duplicate id）。
-        Stack()
-          .width('100%')
-          .aspectRatio(this.flightAspect())
-          .id(DETAIL_HERO_SHELL_ID)
+        // ⚠️ 宽屏双栏下必须撑出与右栏等宽的空洞：转场开始那一刻真内容还没到，initParams
+        // 量的是这个壳。壳若按整页宽铺（实测 675.2vp）而真实 hero 只有左栏（354.6vp），
+        // scale 会算小一半，首帧飞成两倍宽的白块、右栏评论跟着一起飞（Mate X7 实测）。
+        Row() {
+          Stack()
+            .aspectRatio(this.flightAspect())
+            .layoutWeight(1)
+            .id(DETAIL_HERO_SHELL_ID)
+          if (this.isWidePane) {
+            Column()
+              .width(this.commentPaneWidthVp() + DETAIL_SPLIT_DIVIDER_VP)
+          }
+        }
+        .width('100%')
       }
       .padding(16)
       .width('100%')
@@ -2042,12 +2060,12 @@ export struct PostDetailView {
             this.detailBodyScroll()
           }
           .sideBarPosition(SideBarPosition.End)
-          .sideBarWidth(this.currentBreakpoint === 'lg' ? 380 : 320)
+          .sideBarWidth(this.commentPaneWidthVp())
           .minSideBarWidth(300)
           .maxSideBarWidth(460)
           .showSideBar(true)
           .showControlButton(false)
-          .divider({ strokeWidth: 0.5, color: ColorTokens.separator })
+          .divider({ strokeWidth: DETAIL_SPLIT_DIVIDER_VP, color: ColorTokens.separator })
           .width('100%')
           .height('100%')
         } else {

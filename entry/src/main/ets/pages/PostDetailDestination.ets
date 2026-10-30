@@ -165,7 +165,11 @@ export struct PostDetailDestination {
               .hitTestBehavior(HitTestMode.None)
           }
         }
-        .width('100%')
+        // 飞行盒宽已改成「对应节点宽」，内层若继续吃 '100%' 就会跟着盒子一起从
+        // nodeW 长到页宽 —— 整页在 350ms 里持续重排（双栏下连列宽都在动）。
+        // 故按 initParams 量到的页宽钉死；没量到（0）时回退 '100%'，与改前一致。
+        .width(this.longTakeAnimationProperties.pageWidthVp > 0
+          ? this.longTakeAnimationProperties.pageWidthVp : '100%')
         .id(PAGE_ROOT_ID)
         // 把「对应节点」挪到卡片位置
         .position({
