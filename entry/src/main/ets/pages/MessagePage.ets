@@ -1096,8 +1096,8 @@ export struct MessagePage {
       .width(this.dmListColumnWidth())
       .height('100%')
 
-      // 分隔线只画内容区：整条 height('100%') 会向上穿透标题栏（穿底架构下内容原点在
-      // 窗口 0），在「消息」标题右侧留一条悬空竖线。
+      // 分隔线只画内容区：整条 height('100%') 会向上穿透状态栏行（穿底架构下内容原点在
+      // 窗口 0）。起点与右栏聊天顶栏同高（状态栏下沿）。
       Column() {
         Divider()
           .vertical(true)
@@ -1106,7 +1106,7 @@ export struct MessagePage {
           .height('100%')
       }
       .height('100%')
-      .padding({ top: this.messageListInset() })
+      .padding({ top: this.statusBarHeight })
 
       Column() {
         if (this.splitPeerId > 0 && this.activeTab === 3) {
@@ -1132,7 +1132,9 @@ export struct MessagePage {
       }
       .layoutWeight(1)
       .height('100%')
-      .padding({ top: this.messageListInset() })
+      // 聊天顶栏要到顶：只让开状态栏，与左栏「消息」标题行同高起排；
+      // 再让标题行+分段行两档会把聊天顶栏压到分段栏之下（md 真机复拍认定）。
+      .padding({ top: this.statusBarHeight })
     }
     .width('100%')
     .height('100%')
