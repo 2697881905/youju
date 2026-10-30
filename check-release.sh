@@ -84,6 +84,34 @@ if [ -n "$HAP" ]; then
   fi
 fi
 
+# 6) 签名身份核验：产物内嵌 profile 必须是 release 型、不得带设备白名单。
+#    背景（2026-10-30 实测）：build-profile.json5 里名为 "release" 的 signingConfig 曾指向
+#    release_HarmonyProject1_*.{cer,p7b,p12} 三件套——文件名写着 release，实际叶子证书是
+#    ",Development"、profile 是 type=debug 且带 4 条 udid 设备白名单。这样出的包只能装白名单机，
+#    上传 AppGallery 必被拒。上面 1)~5) 全绿也拦不住它，因为它压根不看签名身份。
+#    profile 不在 zip 条目里，是随签名块嵌进产物的，故直接按字节判。
+if [ -n "$HAP" ]; then
+  SIGINFO=$(python3 - "$HAP" <<'PY'
+import sys, re
+b = open(sys.argv[1], 'rb').read()
+m = re.search(rb'"type":"(debug|release)"', b)
+print((m.group(1).decode() if m else 'unknown') + '|' + str(b.count(b'udid')))
+PY
+)
+  PTYPE=${SIGINFO%%|*}
+  PUDID=${SIGINFO##*|}
+  if [ "$PTYPE" = "release" ] && [ "${PUDID:-1}" = "0" ]; then
+    echo "✅ 签名 profile：type=release 且无设备白名单"
+  else
+    echo "❌ 签名 profile 是 type=$PTYPE、udid 标记 $PUDID 处 —— 这是调试签名，上传必被拒。"
+    echo "   改 build-profile.json5 的 release signingConfig 指向真正的发布三件套："
+    echo "   ~/.ohos/config/youju-release-key4-20260815.{p12,cer} +"
+    echo "   ~/.ohos/config/youju-release-key4-acl-20261008Release.p7b（含 READ_PASTEBOARD ACL）"
+    echo "   口令只能在 DevEco 签名面板里填（它写加密值），填完重新构建再跑本脚本。"
+    fail=1
+  fi
+fi
+
 if [ "$fail" -ne 0 ]; then
   echo ""
   echo "⛔ 存在上述问题，先修复再提交代码 / 上传产物"
