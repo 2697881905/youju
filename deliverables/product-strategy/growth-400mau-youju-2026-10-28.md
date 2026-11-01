@@ -147,7 +147,7 @@ sh check-release.sh                                    # 全绿才提审
 **审核期不是空等**：B5 编辑推荐申请表（评审有等待期且无进度查询）、B6 AGC API 客户端（2 分钟，之后 `agc-active-devices.mjs` 出官方活跃设备数）、
 渠道弹药包 §D/§E/§N 的自发内容 —— 这三件都不依赖 1.0.4 过审，今天就能做完。
 
-### B2 / B6 执行结果（11-02 本轮，代码侧已做完，控制台侧剩两次点击）
+### B2 / B6 执行结果（11-02 本轮：代码侧已做完并真机装机验证，控制台侧剩两次点击）
 
 - **B6 结论变了**：不是"差凭据"，是**差角色**。16 格鉴权矩阵扫下来，
   `aud=token_uri + alg=RS256 + form → oauth-login/v3/token` 这一格 **HTTP 200 拿到 token**
@@ -160,11 +160,38 @@ sh check-release.sh                                    # 全绿才提审
   ——定位权限随 `55fced2`(10-25) 的地图选城进来，功能在 `250061f`(10-28) 被删成手动选城，声明与文案留在原地；
   站内隐私页甚至写着"仅当你使用同城页定位功能时采集位置"。在架 1.0.1 还没这两条权限（10-25 才加），
   **所以 1.0.4 是第一个带着"权限与包体不符"进审核的包**。
-  已改（进 1.0.5）：`module.json5` 删两条定位声明、`location_permission_reason`（base + en_US）随之删、
+  已改（进 1.0.5）：`module.json5` 删两条定位声明、`location_permission_reason` 随之删
+  （base 删条目、**en_US 整份 override 文件删掉**——理由见下条构建坑）、
   `PrivacyPage.ets` 权限清单从 5 项改 3 项并补"不申请定位，同城靠手动选城"，另把 ODID 只在本机派生密钥不上传写进采集条。
-  验证：`check_ets_files(PrivacyPage.ets)` 仅剩既有 Warning、无 Error；三个源码目录已无残留引用；两个 `string.json` JSON 合法。
+- **本轮装机验证（真机 LEM-AL00，11-02 01:47 新包）**：`BUILD SUCCESSFUL in 5 s`；产物 `module.json` 权限实测 3 项，
+  新文案「本应用申请的权限共 3 项」在包里，旧「共 5 项」与「自动定位你所在的城市」字节级探针**查无**；
+  `hdc install -r` 成功、冷启动不崩，`bm dump` 设备侧权限清单收敛为 `INTERNET / DETECT_GESTURE / READ_PASTEBOARD`，
+  首页 dump 无游客引导条（登录态）。`check_ets_files(PrivacyPage.ets)` 仅剩既有 Warning、无 Error；三个源码目录已无残留引用。
+- **踩到一个构建期硬约束**：把 `en_US/element/string.json` 的唯一条目删空成 `"string": []`，
+  `CompileResource` 直接拒（`Error 11203005 The array or object node 'string' cannot be empty`）——
+  第一次构建就是这么失败的，而**产物 mtime 仍停在 11-01 22:22**，不核 mtime 就会拿旧包当"已构建"接着装机。
+  正确做法：语言 override 文件如果只剩空壳就**整份删掉**（本例连 `en_US` 目录一起清空删除），回落 base。
 - **AGC 侧现在就能勾的**（不需包体，逐项证据在弹药包 §K7）：取消「联系人信息」、取消「位置信息」、
   保留账号/设备标识/剪贴板/握持姿态/推送令牌。清单按**真实采集**填，别为了跟包体对齐把假声明勾回来。
+
+#### 这两次点击长什么样（照着走，别在控制台里翻）
+
+**B2 · AGC 数据收集清单**
+1. AGC 控制台确认在「有据」所在项目 → 「发布与更新 → 应用信息 → 隐私与合规 / 数据收集说明」（不同版本叫法：数据收集清单 / 隐私标签）。
+2. 逐项改成：**取消勾选**「联系人信息」「位置信息」；保留「账号信息（昵称/头像/OpenID）」「设备标识符」「剪贴板」「推送标识」；
+   「握持姿态」按清单里是否有该项决定。
+3. 保存后要走一次「提交审核」（隐私标签是独立审核，不影响在架版本状态）。
+4. 验：回应用信息页重新读一遍勾选项并截图存 `deliverables/`；别只看"保存成功"提示。
+   **顺序**：先改清单再改商店文案，两者走同一审核队列，分开提交才容易定位被拒原因。
+
+**B6 · AGC API 客户端**
+1. AGC → 「用户与访问」→「API密钥」→「Connect API」→ 切到 **API 客户端** 页签 →「创建」。
+2. 名称随意（如 `youju-growth-report`），**角色勾「查看分析数据」**（有的版本叫「分析/报表只读」）→ 确认生成。
+3. 复制「ID」与「密钥」（密钥只显示一次），**不要写进仓库**，跑：
+   `AGC_CLIENT_ID=<ID> AGC_CLIENT_SECRET=<密钥> node scripts/agc-active-devices.mjs`
+4. 验：应打印 `token OK via …`，再输出 activeDevice / newDevice / sumDevice / installedDeviceCnt 的按日数组；
+   若仍 401 且 `ret.code=205524993`，是角色没勾上，回第 2 步补——不是代码问题。
+5. 出数后把 10 月那一行抄进 §10 台账，与 `mau-report.sh` 的下界做首次标定（我们的下界系数到底差多少）。
 
 ---
 

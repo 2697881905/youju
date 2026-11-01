@@ -300,10 +300,13 @@ AGC 改商品信息仍需审核（通常比发版快）；**先只改文案与�
 | 网络信息（IP/UA） | nginx access log + `clientIp` | 是 | ✅ 保留（已在「设备与日志信息」条内） |
 
 **这次顺手改掉的两处（进 1.0.5，不在审核中的 1.0.4 里）**
-1. `module.json5` 删掉 `APPROXIMATELY_LOCATION` + `LOCATION` 两条声明（连同 `$string:location_permission_reason`，base 与 en_US 各一处）；权限从 5 项收到 3 项。
+1. `module.json5` 删掉 `APPROXIMATELY_LOCATION` + `LOCATION` 两条声明（连同 `$string:location_permission_reason`：
+   base 删条目；en_US 那份 override 只剩这一条，删空成 `"string": []` 会被 `CompileResource` 判
+   `Error 11203005 The array or object node 'string' cannot be empty`，所以**整份文件连 `en_US` 目录一起删**，语言回落 base）；权限从 5 项收到 3 项。
    `LOCATION` 是普通 user_grant、不在发布 Profile 的 allowed-acls 依赖里，删它**不需要重签名**；`READ_PASTEBOARD` 是 ACL，10-08 已批准，保持原样。
 2. `PrivacyPage.ets` 两处文案：删「位置信息…」整条；「本应用申请的权限共 5 项」改成 3 项并补一句**不申请定位、同城靠手动选城**。
    验证：`check_ets_files(PrivacyPage.ets)` 仅剩一条既有 Warning（`@Entry` 导出风格），无 Error；`entry/src`、`backend/src`、`scripts` 内已无 `APPROXIMATELY_LOCATION` / `location_permission_reason` 残留。
+   11-02 已出包装机：产物 `module.json` 权限实测 3 项、旧「共 5 项」与「自动定位你所在的城市」字节级探针查无；设备 `bm dump` 同为 3 项，冷启动不崩，首页无游客引导条（登录态）。
 
 **审核期怎么动标签（关键顺序）**：清单按**真实采集**勾，位置与联系人都取消。
 风险点是「包里申请了定位权限、清单却没勾位置」可能被问——**答案是：1.0.5 会把这两条权限删掉**，
