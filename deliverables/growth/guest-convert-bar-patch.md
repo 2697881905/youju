@@ -90,6 +90,20 @@ import { GuestConvertBar } from './GuestConvertBar';
 
 **2026-10-30 验收结论**：sm 档已真机像素确认（引导条 y≤713，卡片列容器自 y=766 起，两列 x 25–562 / 574–1111 各宽 537px 对称，栅格未被挤动）。md 档本机不可达，改由代码侧收口：`GuestConvertBar` 是 `Row`（列容器）之前的满幅兄弟节点，`feedColIndexes()` / `feedColCount()` 与 ForEach key `seg+'-feed-'+colIdx+'-'+post.id` 均不引用引导条，故列数从 2 变 3 不改变引导条的排布语义；且 md 下 `layoutWeight(1)` 的文字列更宽，主标题只会**减少**换行，不会新增截断面。残余风险仅在于「3 列下的整体观感」，与引导条无关。
 
+**2026-11-02 复核（1.0.4 已提审，逐条标状态与证据）**
+
+| # | 项 | 状态 | 证据 |
+| --- | --- | --- | --- |
+| 1 | 游客态出现 | ⏳ 待目视 | 需退出登录（会清掉你机上的会话，由你决定做不做） |
+| 2 | **已登录绝不闪现** | ✅ **代码级已证** | 水合链全程同步且早于首帧：`EntryAbility.ets:22` 在 `onCreate` 调 `initSessionStore()`（`preferences.getPreferencesSync` + `getSync` + `cryptoFramework` 同步 SHA-256，见 `sessionStore.ets:186-213/215-242`），`onCreate` 先于 `onWindowStageCreate`→`loadContent`（`EntryAbility.ets:77-86`）；`HomeTab.ets:220` 在 `aboutToAppear` 里同步 `getToken()` 后才把 `guestBarReady` 置 true（:221），挂载条件是 `guestBarReady && authToken === ''`（:943）——首帧就具备真值，**不存在"先闪一下再消失"的窗口** |
+| 3 | 点登录→返回后消失 | ⏳ 待目视 | 依赖 #1 的游客态 |
+| 4 | ✕ 关闭当次不再出现 | ⏳ 待目视 | `guestBarDismissed` 是 `@State`（进程内），代码形态正确；滚动/切分段/刷新不重建 `HomeTab` 需肉眼确认 |
+| 5 | 深色模式对比度 | ⏳ 待实拍 | token 走 `ColorTokens.canvas/separator/primary`，会随 colorMode 翻；注意冷启 `colorMode` 拿不到值的已知坑（用 canvas/ink 亮度兜底） |
+| 6 | 折叠屏两档 | ✅ 10-30 已收口 | 见上一段（sm 像素实测 + md 代码侧证明不参与列计算） |
+
+**残余风险评级：低。** 唯一会导致「必须撤回提审」的第 2 项已由证据链关闭；#1/#3/#4/#5 是游客态的观感项，
+最坏情况是引导条文案在某档换行不好看，不影响已登录老用户，也不涉及权限与数据采集。
+
 ---
 
 ## 4. 预期收益与测量（别凭感觉判断它有没有用）
