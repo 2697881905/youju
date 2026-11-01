@@ -35,10 +35,6 @@
         {
             "name": "permission_pasteboard_reason",
             "value": "在你复制了有据帖子分享链接后，识别链接并提示是否打开对应帖子"
-        },
-        {
-            "name": "location_permission_reason",
-            "value": "用于圈子同城页自动定位你所在的城市；拒绝后可手动选择城市"
         }
     ]
 }

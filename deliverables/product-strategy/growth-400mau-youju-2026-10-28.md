@@ -65,11 +65,11 @@
 | # | 动作 | 入口 | 耗时 | 为什么现在做 |
 | --- | --- | --- | --- | --- |
 | B1 | 商店页文案与关键词 | AGC「应用信息」，**不需要新包体** | 20 min | 副标题现在还是旧口号、无品类词；所有渠道的最后一步都落在这页 |
-| B2 | 取消「联系人信息」收集声明 | AGC 数据收集清单 | 5 min | 与 A6 同一件事，审核被问就是硬伤 |
+| B2 | 取消「联系人信息」**和「位置信息」**收集声明 | AGC 数据收集清单，逐项真值见弹药包 §K7 | 5 min | 11-02 取证：全仓零处定位代码（`@kit.LocationKit` 无引用，同城靠 `pickCity()` 手动选城），定位权限是 `55fced2` 加的、功能在 `250061f` 删了却没删声明——站内隐私页还在承诺这个功能，已随 1.0.5 改掉 |
 | B3 | 内容归队 SQL | `scripts/seed-rehome.sql`（先跑第 1 步只读预览） | 10 min | 首屏 20 条 100% 是伪造亲历；编辑点进来一眼看穿 |
 | B4 | 计数对账（X/Y/Z 拍板） | §6.7，备份 → 行为表回填 → `POST /v1/admin/recompute-hot` | 20 min | 不修则真实内容永远进不了首屏，每日一帖也发不出 |
 | B5 | 编辑推荐申请表 | 下载官方 .xlsx + 内容包 → `developer@huawei.com` | 40 min | 评审有等待期且无进度查询，**越早发越好**；材料用弹药包 §B |
-| B6 | AGC 建 API 客户端 | AGC「项目设置 → API 管理」 | 2 min | 之后 `agc-active-devices.mjs` 可日测官方活跃设备数 |
+| B6 | AGC 建 API 客户端（角色勾「查看分析数据」） | AGC「用户与访问 → API密钥 → Connect API → API 客户端」 | 2 min | 11-02 实测：仓库服务账号用 **RS256** 已能取到 token，但报表回 `205524993 client token auth failed` → **缺角色，不缺代码** |
 
 ### C. 明确不进本次提审（防范围蔓延）
 
@@ -147,6 +147,25 @@ sh check-release.sh                                    # 全绿才提审
 **审核期不是空等**：B5 编辑推荐申请表（评审有等待期且无进度查询）、B6 AGC API 客户端（2 分钟，之后 `agc-active-devices.mjs` 出官方活跃设备数）、
 渠道弹药包 §D/§E/§N 的自发内容 —— 这三件都不依赖 1.0.4 过审，今天就能做完。
 
+### B2 / B6 执行结果（11-02 本轮，代码侧已做完，控制台侧剩两次点击）
+
+- **B6 结论变了**：不是"差凭据"，是**差角色**。16 格鉴权矩阵扫下来，
+  `aud=token_uri + alg=RS256 + form → oauth-login/v3/token` 这一格 **HTTP 200 拿到 token**
+  （仓库原脚本与 `huaweiPush.ts` 用的 PS256 只在"JWT 直接当 Bearer 打推送"那条路上成立，
+  经 oauth 交换会被判 1101/20504；aud 填 connect-api 会被判 20506 —— 推送能跑不代表报表能跑，别去动推送代码）。
+  拿这个 token 打报表仍回 `205524993 client token auth failed`，`client_id` 取 APP_ID / project_id / sub_account 三种都一样。
+  ⇒ **代码不用再改**，去 AGC「用户与访问 → API密钥 → Connect API」建 **API 客户端**（角色勾「查看分析数据」），
+  然后 `AGC_CLIENT_ID=… AGC_CLIENT_SECRET=… node scripts/agc-active-devices.mjs` 即出数。
+- **B2 顺出一条比「联系人信息」更硬的合规缺陷**：应用**申请了 `APPROXIMATELY_LOCATION` + `LOCATION`，但全仓零处定位代码**
+  ——定位权限随 `55fced2`(10-25) 的地图选城进来，功能在 `250061f`(10-28) 被删成手动选城，声明与文案留在原地；
+  站内隐私页甚至写着"仅当你使用同城页定位功能时采集位置"。在架 1.0.1 还没这两条权限（10-25 才加），
+  **所以 1.0.4 是第一个带着"权限与包体不符"进审核的包**。
+  已改（进 1.0.5）：`module.json5` 删两条定位声明、`location_permission_reason`（base + en_US）随之删、
+  `PrivacyPage.ets` 权限清单从 5 项改 3 项并补"不申请定位，同城靠手动选城"，另把 ODID 只在本机派生密钥不上传写进采集条。
+  验证：`check_ets_files(PrivacyPage.ets)` 仅剩既有 Warning、无 Error；三个源码目录已无残留引用；两个 `string.json` JSON 合法。
+- **AGC 侧现在就能勾的**（不需包体，逐项证据在弹药包 §K7）：取消「联系人信息」、取消「位置信息」、
+  保留账号/设备标识/剪贴板/握持姿态/推送令牌。清单按**真实采集**填，别为了跟包体对齐把假声明勾回来。
+
 ---
 
 ## 0.5 交付索引（本会话产出与状态，2026-10-28）
@@ -160,7 +179,7 @@ sh check-release.sh                                    # 全绿才提审
 | 渠道点击归因 | `scripts/src-report.sh` | ✅ 自投样本反证 | 渠道链接要带 `?src=` |
 | 自动台账 | `scripts/daily-ledger.sh` → `mau-ledger.md` | ✅ 首行基线已写入 | — |
 | 设备量级估计（含游客） | `scripts/app-device-ips.sh` | ✅ 实测可用 | — |
-| AGC 官方活跃设备数 | `scripts/agc-active-devices.mjs` | ⛔ 差凭据 | 需你在 AGC 建 **API 客户端** |
+| AGC 官方活跃设备数 | `scripts/agc-active-devices.mjs` | 🟡 token 已通（RS256 修正），**差一个报表角色** | 需你在 AGC 建 **API 客户端**（勾「查看分析数据」）|
 | 每日一帖推送（日活引擎） | `backend/src/services/dailyDigestService.ts` + `/v1/admin/daily-digest` | ✅ 代码就绪、**默认关** | 需部署后端；且内容归队前会自动跳过 |
 | 内容归队 SQL | `scripts/seed-rehome.sql` | ⛔ 待授权 | 生产库写操作，等你批 |
 | 计数对账方案 | 本文件 §6.7 | ⛔ 待拍板 | X / Y / Z 三选一 |
