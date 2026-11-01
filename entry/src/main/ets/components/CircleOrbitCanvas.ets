@@ -738,7 +738,11 @@ struct OrbitRingLayer {
           onGravityBlocked: (name: string): void => { this.onGravityBlocked(name); },
           onSeedTap: (name: string, postId: number): void => { this.onSeedTap(name, postId); },
         })
-      }, (circle: OrbitCircleItem) => circle.name)
+      // key 必须带上 unread：ArkUI ForEach 键值相同则完全复用子组件、不刷新 @Prop——
+      // 只用 name 作 key 时，读帖清零后 unread 3→0 不会传导到红点（条件渲染不消失，
+      // 真机实证 2026-11-01）。拼上 unread 使未读变化触发该行星重建（动画状态由
+      // aboutToAppear 重启，位置由角度计算无漂移）。
+      }, (circle: OrbitCircleItem) => circle.name + ':' + String(circle.unread))
     }
     .width(this.galaxySize)
     .height(this.ch())
