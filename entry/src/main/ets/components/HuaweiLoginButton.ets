@@ -11,6 +11,10 @@ const TAG: string = 'HuaweiLoginButton';
 
 @Component
 export struct HuaweiLoginButton {
+  // 明示同意闸门：父页隐私复选框未勾选时传 false。
+  // 必须打在 LoginWithHuaweiIDButton 自身节点上——父组件链式的 .enabled() 只作用于
+  // 本自定义组件的容器节点，系统按钮仍可能独立响应点击。
+  @Prop privacyAgreed: boolean = true;
   // 成功回调：父组件拿到 authorizationCode 后自行请求服务端
   onHuaweiSuccess: (code: string) => void = (code: string): void => {};
   // 失败回调：父组件自行降级（toast / 展示其他登录方式）
@@ -49,5 +53,6 @@ export struct HuaweiLoginButton {
     })
       .width('100%')
       .height(48)
+      .enabled(this.privacyAgreed)
   }
 }

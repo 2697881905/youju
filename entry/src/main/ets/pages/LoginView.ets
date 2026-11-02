@@ -3,9 +3,11 @@
 // 品牌标语「有据可依 更好的生活」传达产品核心价值与定位。
 // 隐私协议需用户主动勾选后方可点击登录按钮，未勾选时所有登录入口禁用。
 // 配色随主题：浅棕羊皮纸底色 + 暖金氛围光晕，与全站主色调一致。
+// ⚠️ 合规硬约束（AGC 审核《指南》7.5 明示同意）：复选框每次进入本页都必须从空白开始，
+// 不能继承首启隐私弹窗的 privacyAgreed 标记——否则登录界面呈「默认同意」，本轮提审即因此被拒。
 
 import { exchangeHuaweiCode, LoginResult } from '../services/api';
-import { setSession, loginWithDevStub, loginWithDevStub2, markCircleOnboardingPending, isPrivacyAgreed } from '../utils/auth';
+import { setSession, loginWithDevStub, loginWithDevStub2, markCircleOnboardingPending } from '../utils/auth';
 import { HuaweiLoginButton } from '../components/HuaweiLoginButton';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
@@ -26,7 +28,7 @@ export struct LoginView {
   @State v2Submitting: boolean = false;
   @State huaweiSubmitting: boolean = false;
   @State devLoginVisible: boolean = BUILD_MODE !== 'release';
-  @State privacyAgreed: boolean = isPrivacyAgreed();
+  @State privacyAgreed: boolean = false;
 
   build() {
     Stack() {
@@ -107,7 +109,11 @@ export struct LoginView {
           }
 
           // 主登录：华为账号一键登录（系统组件）
+          // privacyAgreed 走 @Prop 传进组件，最终打在 LoginWithHuaweiIDButton **自身节点**的
+          // enabled 上：外层链式的 .enabled() 只作用在自定义组件的容器节点，Account Kit
+          // 那颗系统按钮仍可能吃到点击（未勾选就能拉起华为授权 = 同意前采集个人信息）。
           HuaweiLoginButton({
+            privacyAgreed: this.privacyAgreed,
             onHuaweiSuccess: (code: string): void => {
               this.handleHuaweiSuccess(code);
             },

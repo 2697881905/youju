@@ -510,6 +510,10 @@ struct Index {
     }),
     alignment: DialogAlignment.Center,
     customStyle: true,
+    // 明示同意弹窗只能走「同意并继续 / 不同意」两条明路。默认 autoCancel=true 时点面板外或
+    // 按返回键会直接把弹窗关掉：privacyAgreed 仍是 '0'，而 privacyDialogShown 没置位 →
+    // onPageShow 不再重弹，用户停在未同意空壳里（既绕过告知—同意闸门，也再也找不回入口）。
+    autoCancel: false,
   });
 
   private bottomTabItems(): IndexTabItem[] {
