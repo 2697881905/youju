@@ -24,7 +24,7 @@
 | 签名配置 | ✅ release 签名配置完整（.cer/.p7b/.p12 + SHA256withECDSA） | `build-profile.json5:3-16` |
 | 隐私政策弹窗 | ✅ 首次启动拦截 + 版本更新重新弹窗 + 同意才进入 + 不同意退出 App | `Index.ets:218,321-339` |
 | 账号注销入口 | ✅ 设置页"账号注销"，两层确认 + 调用 `deactivateAccount()` API + 清理本地 + 跳登录页 | `SettingsPage.ets:62-88,388` |
-| 隐私政策链接 | ✅ `privacy-policy.html` 内容完整（生效日期、收集范围、第三方共享、SDK 清单、注销说明、联系方式） | 项目根目录 |
+| 隐私政策链接 | ✅ `backend/nginx-static/privacy/index.html`（V1.2，公网 https://youju.chat/privacy/ 的部署源）内容完整：生效日期、收集范围、剪贴板/握持姿态/推送令牌三项处理活动、3 项权限清单、第三方共享、SDK 清单、注销与数据导出说明、联系方式 | nginx 挂载 `alias /usr/share/nginx/html/privacy/` |
 | AIGC 标识 | ✅ 不涉及 — 应用为 UGC 社区，无 AI 文生图/视频生成能力 | 全局 grep 无相关代码 |
 
 ---
@@ -68,7 +68,7 @@
 
 ### 3.4 隐私政策内容完整性 ✅
 
-`privacy-policy.html` 已覆盖：
+`backend/nginx-static/privacy/index.html` 已覆盖（仓库根 `privacy-policy.html` 自 2026-11-02 起是它的逐字节镜像，由 `scripts/verify-policy-texts.py` 断言一致，不再作为可各自漂移的第二份副本）：
 
 - ✅ 运营主体：白逸飞
 - ✅ 生效日期：2026-08-14

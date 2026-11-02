@@ -87,7 +87,10 @@ export const env = {
   },
   // 当前生效的隐私政策版本（前端弹窗同意时上报此版本；低于此版本视为需重新征求）
   // 1.1.0：补充「个性化推荐与自动化决策」专节（算法原理/信息范围/应用内关闭路径）
-  privacyPolicyVersion: process.env.PRIVACY_POLICY_VERSION ?? '1.1.0',
+  // 1.2.0：政策文本 V1.2（2026-10-30）——补披露剪贴板 / 握持姿态 / 推送令牌三项处理活动，权限清单更正为 3 项。
+  //        本值必须与 entry/src/main/ets/utils/auth.ets 的 PRIVACY_POLICY_VERSION 一致，
+  //        且**先于客户端上线**：不一致时 /v1/auth/privacy-consent 返回 409，用户会每次启动被重问一次。
+  privacyPolicyVersion: process.env.PRIVACY_POLICY_VERSION ?? '1.2.0',
   // 每日一贴个性化推荐灰度比例（0-100，按 userId 稳定 hash 分流）。
   // 100 = 全量个性化（默认，行为与历史一致）；0 = 全部走非个性化对照组；
   // 中间值 = A/B 实验。改配置 + 重启即可放量/回滚，无需发版。

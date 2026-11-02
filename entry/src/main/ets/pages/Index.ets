@@ -353,6 +353,10 @@ struct Index {
   @State currentIndex: number = 0;
   @State privacyDialogShown: boolean = false; // 防隐私弹窗重复弹出
   @State privacyDialogIsUpdate: boolean = false;
+  // 版本更新二次征求的本次启动闸门（见 checkPrivacyUpdate）：非 @State，不参与渲染
+  private privacyUpdateChecked: boolean = false;
+  // 登录后补记隐私同意的本次启动闸门（见 reportPendingPrivacyConsent）
+  private privacyConsentReported: boolean = false;
   // 隐私同意标记（PersistentStorage 字符串 '0'/'1'，见 utils/auth.ets）。
   // 未同意前不构建主 Tab 内容——TabContent 的子组件会立即挂载，而 HomeTab/CircleTab/
   // MessagePage/ProfilePage 的 aboutToAppear 里就会发网络请求（continueLaunchFlow 的
@@ -594,7 +598,23 @@ struct Index {
       // 登录/切号返回首页时补推送初始化：冷启动为访客时 startInit 会跳过推送注册，
       // 这里兜住「游客 → 应用内登录」路径（syncPushToken 幂等，已上报则空跑）
       this.initPushCapabilities();
+      // 同意落库的补记钩子（见 reportPendingPrivacyConsent）
+      this.reportPendingPrivacyConsent();
     }
+  }
+
+  // 首启隐私弹窗出现在登录之前——那一刻没有 token，/v1/auth/privacy-consent 会被整条跳过，
+  // 服务端的 PIPL 同意留痕因此永远为空（2026-11-02 实测：线上 142 个账号 privacyPolicyVersion 全 NULL）。
+  // 用户已在弹窗里对当前文本做过明示同意，登录完成后补记一次只是把该同意的版本与时间戳落库，
+  // 不构成新的征求。每次启动最多试一次：失败（离线/版本不一致 409）留给下次冷启动。
+  private reportPendingPrivacyConsent(): void {
+    if (this.privacyConsentReported || !isPrivacyAgreed() || getToken() === '') {
+      return;
+    }
+    this.privacyConsentReported = true;
+    recordPrivacyConsent(PRIVACY_POLICY_VERSION).catch((e: Error): void => {
+      hilog.warn(0x0000, 'Index', '登录后补记隐私同意失败（不阻断）: %{public}s', String(e.message));
+    });
   }
 
   aboutToDisappear(): void {
@@ -646,6 +666,8 @@ struct Index {
     }
     this.validateStartupSession();
     this.refreshUnread();
+    // 政策改版的二次征求（服务端按版本号权威判定）：放在圈子引导之前，避免两个弹窗叠在一起
+    this.checkPrivacyUpdate();
     this.maybeShowCircleOnboarding();
     this.initPushCapabilities();
     // 冷启动若来自通知点击，路由意图在 Index 挂载前已由 EntryAbility 写入 AppStorage，此处补消费
@@ -923,10 +945,14 @@ struct Index {
 
   // 登录态稳定后异步核对服务端隐私同意版本；过期则重新弹窗（版本更新场景）。
   // 网络失败/未配置时不阻断使用，以本地 privacyAgreed 标记为准。
+  // ⚠️ 每次启动最多问一次：agreePrivacy() 会重走 startInit()。若服务端要求的版本与本机上报的
+  // 版本暂时不一致（后端 PRIVACY_POLICY_VERSION 未随包发布时 /privacy-consent 返回 409），
+  // privacyRequired 会一直为 true，不设闸就是「同意 → 立刻又弹」的死循环。
   private checkPrivacyUpdate(): void {
-    if (this.privacyDialogShown) {
+    if (this.privacyDialogShown || this.privacyUpdateChecked) {
       return;
     }
+    this.privacyUpdateChecked = true;
     getMe().then((me) => {
       if (me.privacyRequired) {
         this.privacyDialogShown = true;

@@ -14,7 +14,10 @@ const BUILD_MODE: string = BUILD_MODE_NAME;
 
 // 当前隐私政策版本（须与后端 env.privacyPolicyVersion 默认一致；后端可用 PRIVACY_POLICY_VERSION 环境变量覆盖）。
 // 前端弹窗"同意"时上报此版本，后端据其对齐并判断是否需要重新征求。
-export const PRIVACY_POLICY_VERSION: string = '1.1.0';
+// ⚠️ 发布顺序：后端必须先于本包上线到同一版本号。/v1/auth/privacy-consent 对不一致的上报返回 409，
+// 若线上 env 仍是旧值，服务端 privacyRequired 会一直为 true → 用户每次启动都被问一次。
+// 1.2.0 对应政策文本 V1.2（2026-10-30：补剪贴板 / 握持姿态 / 推送令牌三项处理活动与权限清单）。
+export const PRIVACY_POLICY_VERSION: string = '1.2.0';
 
 // 登录态持久化已迁出 PersistentStorage → utils/sessionStore.ets（dataPreferences 独立文件）。
 // 真机实测（2026-10）：覆盖安装（hdc install -r / DevEco Run）后的冷启动，PersistentStorage
