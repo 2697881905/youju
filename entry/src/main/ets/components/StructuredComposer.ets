@@ -4,7 +4,6 @@ import {
   StructuredBlockType,
   StructuredDocument,
   StructuredEvidence,
-  StructuredMetricKind,
 } from '../models/types';
 import {
   addStructuredBlock,
@@ -22,12 +21,10 @@ import {
   structuredBlockTypeHint,
   structuredBlockTypeLabel,
   structuredItemsText,
-  structuredMetricKindLabel,
   withStructuredBlockItems,
   withStructuredBlockText,
   withStructuredEvidenceNote,
   withStructuredEvidenceRef,
-  withStructuredMetricKind,
   StructuredBlockTextField,
 } from '../utils/structuredDocument';
 import { Collapse } from '../design/motion/Collapse';
@@ -50,8 +47,6 @@ import { resolveDisplayImageUrl, uploadChatMedia } from '../services/api';
 import { ensureLogin } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
 import { User } from '../models/types';
-
-const METRIC_KIND_OPTIONS: StructuredMetricKind[] = ['score', 'amount', 'duration', 'percent', 'count', 'plain'];
 
 // V2 共享编辑器：发布入口只持有 document 状态，块的增删、排序与主视觉选择集中在这里。
 @Component
@@ -259,59 +254,33 @@ export struct StructuredComposer {
   }
 
   @Builder
-  private metricKindChips(block: StructuredBlock): void {
-    // kind 决定详情页大数字的读法（4.8 是评分还是金额），也是 M3 跨帖对比的排序键；
-    // 协议里有类型、编辑器里没有入口，作者就只能发出一条「没人知道单位」的数字。
-    Row({ space: SpaceTokens.sm }) {
-      Text('数字类型')
-        .fontSize(TypeTokens.overline.size)
-        .fontFamily(TypeTokens.fontFamily)
-        .fontColor(ColorTokens.tertiary)
-    }
-    Flex({ direction: FlexDirection.Row, wrap: FlexWrap.Wrap }) {
-      ForEach(METRIC_KIND_OPTIONS, (kind: StructuredMetricKind) => {
-        Column() {
-          this.miniAction(structuredMetricKindLabel(kind), (): void => {
-            this.onDocumentChange(withStructuredMetricKind(this.document, block.id, kind));
-          }, block.kind === kind)
-        }
-        .margin({ right: SpaceTokens.sm, bottom: SpaceTokens.xs })
-      }, (kind: StructuredMetricKind) => 'kind_' + kind)
-    }
-    .width('100%')
-  }
-
-  @Builder
   private blockFields(block: StructuredBlock): void {
+    // metric（数字块）2026-11-05 停止新增：作者自填裸数字无出处无口径（详见规格 5.1）。
+    // 仅存量的编辑保留最小分支（值+单位），kind chips 随入口一起退役——已存的 kind 值只读透传。
     if (block.type === 'metric') {
-      Column({ space: SpaceTokens.sm }) {
-        Row({ space: SpaceTokens.sm }) {
-          TextInput({ text: block.value, placeholder: '例如 4.8' })
-            .layoutWeight(1)
-            .fontSize(TypeTokens.headline.size)
-            .fontFamily(TypeTokens.fontFamilySerif)
-            .fontColor(ColorTokens.primary)
-            .backgroundColor(ColorTokens.elevated)
-            .borderRadius(RadiusTokens.sm)
-            .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-            .maxLength(30)
-            .onChange((value: string): void => { this.updateText(block.id, 'value', value); })
-          TextInput({ text: block.unit, placeholder: '单位' })
-            .width(88)
-            .fontSize(TypeTokens.callout.size)
-            .fontFamily(TypeTokens.fontFamily)
-            .fontColor(ColorTokens.secondary)
-            .backgroundColor(ColorTokens.elevated)
-            .borderRadius(RadiusTokens.sm)
-            .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
-            .maxLength(16)
-            .onChange((value: string): void => { this.updateText(block.id, 'unit', value); })
-        }
-        .width('100%')
-        this.metricKindChips(block)
+      Row({ space: SpaceTokens.sm }) {
+        TextInput({ text: block.value, placeholder: '数值' })
+          .layoutWeight(1)
+          .fontSize(TypeTokens.headline.size)
+          .fontFamily(TypeTokens.fontFamilySerif)
+          .fontColor(ColorTokens.primary)
+          .backgroundColor(ColorTokens.elevated)
+          .borderRadius(RadiusTokens.sm)
+          .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+          .maxLength(30)
+          .onChange((value: string): void => { this.updateText(block.id, 'value', value); })
+        TextInput({ text: block.unit, placeholder: '单位' })
+          .width(88)
+          .fontSize(TypeTokens.callout.size)
+          .fontFamily(TypeTokens.fontFamily)
+          .fontColor(ColorTokens.secondary)
+          .backgroundColor(ColorTokens.elevated)
+          .borderRadius(RadiusTokens.sm)
+          .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+          .maxLength(16)
+          .onChange((value: string): void => { this.updateText(block.id, 'unit', value); })
       }
       .width('100%')
-      .alignItems(HorizontalAlign.Start)
     } else if (block.type === 'insight') {
       this.standardInput(block, 'value', '一句话写清你的判断，不要先铺垫', true, 300)
     } else if (block.type === 'list' || block.type === 'steps') {

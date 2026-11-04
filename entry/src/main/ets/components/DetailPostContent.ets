@@ -150,9 +150,7 @@ export struct DetailPostContent {
 
   private totalVotes(): number {
     return this.planAVotes + this.planBVotes;
-  }
-
-  private voteWidth(votes: number): string {
+  }  private voteWidth(votes: number): string {
     const total: number = this.totalVotes();
     return total > 0 ? (votes / total) * 100 + '%' : '0%';
   }
@@ -234,6 +232,11 @@ export struct DetailPostContent {
     .clip(true);
   }
 
+  // V2 信息流判定：与 build 的分支条件同源。V1 辩论帖（无信息流）继续走独立投票面板。
+  private hasStructuredFlow(): boolean {
+    return this.structuredDocument !== null && this.structuredDocument.blocks.length > 0;
+  }
+
   // 字段块内容：头条指标（推荐指数/损失金额）已由结论卡承担，这里去掉避免同屏重复；
   // 辩论体裁的方案文字已合并进投票卡片，也不再重复展示。
   private bodyPairs(): StructuredFieldPair[] {
@@ -307,8 +310,18 @@ export struct DetailPostContent {
   build() {
     Column({ space: SpaceTokens.lg }) {
       // V2 用完整视觉信息流；历史帖子继续走旧字段投影，不要求数据迁移后才能阅读。
-      if (this.structuredDocument !== null && this.structuredDocument.blocks.length > 0) {
-        StructuredFlowView({ document: this.structuredDocument, checkInPostId: this.votePostId })
+      if (this.hasStructuredFlow()) {
+        StructuredFlowView({
+          document: this.structuredDocument,
+          checkInPostId: this.votePostId,
+          genre: this.genre,
+          // 辩论对决槽的投票接线：票数快照与回调透传，请求/回滚仍由 DetailPage 持有
+          planAVotes: this.planAVotes,
+          planBVotes: this.planBVotes,
+          myVote: this.myVote,
+          debateInteractive: this.genre === 'debate',
+          onVote: (choice: string): void => { this.onVote(choice); },
+        })
           .gesture(this.contentLongPress())
       } else {
         // ⚠️ 字段为空时这两个组件 build 出来是"零节点"，但仍占用父/根 Column 的子槽位——
@@ -319,13 +332,16 @@ export struct DetailPostContent {
           StructuredFieldBlock({ pairs: this.bodyPairs() })
             .gesture(this.contentLongPress())
         }
+        // 独立投票面板仅 V1 辩论帖保留：V2 辩论帖的对决槽已含投票，重复渲染会让
+        // 方案文案出现两次（2026-11-05 重设计）。
+        if (this.genre === 'debate') {
+          this.debatePanel();
+        }
       }
       // 只有后端抽出了可比数字才给入口：没有数字的帖子点进去只能看到一张空表。
+      // metric 块退役后新帖无派生值，此入口自然只服务存量帖（规格 5.1）。
       if (this.metricValue !== null) {
         this.compareEntry()
-      }
-      if (this.genre === 'debate') {
-        this.debatePanel();
       }
       if (this.content.length > 0) {
         // 文字海报已完整容纳正文时不再冗余展示纯文本；

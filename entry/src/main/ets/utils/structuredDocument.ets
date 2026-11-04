@@ -62,10 +62,12 @@ export function structuredBlockTypesForGenre(genre?: Genre): StructuredBlockType
   switch (genre) {
     // 测评的体裁副标题就是「优缺点与推荐指数」，所以 compare 必须在允许列表里：
     // 缺了它，签名骨架的优缺点块会在切体裁时被 filterStructuredDocumentForGenre 丢掉。
-    case 'review': return ['metric', 'insight', 'compare', 'list'];
+    // metric（数字块）2026-11-05 退役：作者自填的裸数字无出处无口径，制造幻觉排名；
+    // 存量帖里的数字块仍可读（渲染层降级为普通行），只是新建入口关闭。
+    case 'review': return ['insight', 'compare', 'list'];
     case 'pitfall': return ['insight', 'steps', 'list'];
     case 'tutorial': return ['steps', 'list', 'insight'];
-    case 'debate': return ['compare', 'insight', 'metric'];
+    case 'debate': return ['compare', 'insight'];
     // 分享不做结构化：返回空数组，既用来隐藏发布页的编辑区，
     // 也让切换体裁时 filterStructuredDocumentForGenre 把已有信息块清空（避免留下孤儿块）。
     case 'share': return [];

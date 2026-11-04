@@ -596,7 +596,10 @@ struct PublishPreviewPage {
   @Builder
   structuredPreview(): void {
     if (this.currentStructuredDocument().blocks.length > 0) {
-      StructuredFlowView({ document: collectStructuredDocument(this.currentStructuredDocument()) })
+      StructuredFlowView({
+        document: collectStructuredDocument(this.currentStructuredDocument()),
+        genre: this.draft !== null ? this.draft.genre : '',
+      })
     } else if (this.previewFields().length > 0) {
       Column({ space: SpaceTokens.sm }) {
         GlassPanel({ panelPadding: SpaceTokens.md, radius: RadiusTokens.md }) {
