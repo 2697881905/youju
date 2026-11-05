@@ -27,6 +27,9 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    volumes:
+      # 华为推送服务账号凭证（HUAWEI_PUSH_SERVICE_ACCOUNT_PATH 默认指向 /app 下同名文件）
+      - ./agc-service-account.json:/app/agc-service-account.json
     networks:
       - youju_ext
 
