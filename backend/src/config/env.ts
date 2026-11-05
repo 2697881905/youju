@@ -100,6 +100,17 @@ export const env = {
   behaviorRetentionDays: clampPositiveInt(process.env.BEHAVIOR_RETENTION_DAYS, 180),
   // 是否启用行为数据到期清理（默认启用；本地调试或需保留样本时可设为 false）
   behaviorRetentionEnabled: (process.env.BEHAVIOR_RETENTION_ENABLED ?? 'true') !== 'false',
+  // AI 辅助创作：调用 OpenAI 兼容 chat completions 的服务商（DeepSeek / 火山方舟 / 通义均兼容）。
+  // 三项凭证任一留空 = AI 功能整体下线（GET /v1/ai/status 返回 enabled:false，前端隐藏入口），不报错。
+  ai: {
+    apiBase: process.env.AI_API_BASE ?? '',
+    apiKey: process.env.AI_API_KEY ?? '',
+    model: process.env.AI_MODEL ?? '',
+    // 单次上游调用超时：结构化整理是长输出，默认 30s
+    timeoutMs: clampPositiveInt(process.env.AI_TIMEOUT_MS, 30000),
+    // 每用户每日调用上限（polish-title 与 structure-draft 合并计数），防刷量兜底
+    dailyLimit: clampPositiveInt(process.env.AI_DAILY_LIMIT, 20),
+  },
 };
 
 // 生产环境安全闸口：BACKEND_PUBLIC_URL 必须使用 https，避免下发明文 http 链接（F-005）。

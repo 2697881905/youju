@@ -168,4 +168,17 @@ export const tagDeleteLimiter = rateLimit({
   handler,
 });
 
+// AI 辅助创作（/v1/ai/*）：每次调用都是真实上游成本（按 token 计费）。
+// 突刺限流每用户每分钟 6 次（「改词再试」远够，脚本刷接口打不动）；
+// 日配额由 aiService.consumeQuota 另行兜底（每日 20 次，两函数合并计数）。
+export const aiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 6,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userKey,
+  skip: skipTest,
+  handler,
+});
+
 

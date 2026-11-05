@@ -1,9 +1,10 @@
 // 视频发布页 — 独立 @Entry 页面，仅处理视频发布，不耦合图文/长文发布逻辑。
 // 媒体区直接渲染 VideoPicker，无 mediaTypeSelector 切换行。
-import { listTags } from '../services/api';
+import { listTags, aiAssistEnabled, aiPolishTitle, AiTitleResult } from '../services/api';
 import { Genre, StructuredData, StructuredDocument, Tag, MentionRef, MentionCandidate } from '../models/types';
 import { VideoPicker } from '../components/VideoPicker';
 import { safeShowToast } from '../utils/toast';
+import { AiAssistChip } from '../components/AiAssistChip';
 import { findActiveAtMention, applyAtMention } from '../utils/atMention';
 import { AtMentionSuggest } from '../components/AtMentionSuggest';
 import { Reveal } from '../design/motion/Reveal';
@@ -44,6 +45,35 @@ struct VideoPublishPage {
   @State genreIndex: number = 4; // share 位于 PUBLISH_GENRES 下标 4
   @State selectedTags: string[] = [];
   @State title: string = '';
+  // —— AI 标题优化：服务端未配置 LLM 时 aiEnabled=false → 入口隐藏 ——
+  @State aiTitleBusy: boolean = false;
+  @State aiEnabled: boolean = false;
+
+  // 基于已写正文生成更具体、可核验的标题；结果回填输入框（$$ 双向绑定），作者可继续手改
+  private aiPolishTitle(): void {
+    if (this.aiTitleBusy) {
+      return;
+    }
+    if (this.content.trim().length === 0) {
+      safeShowToast(this.getUIContext(), { message: '先写点正文，AI 才有依据优化标题' });
+      return;
+    }
+    this.aiTitleBusy = true;
+    aiPolishTitle(this.title, this.content, this.genre)
+      .then((result: AiTitleResult): void => {
+        if (result.title.length > 0) {
+          this.title = result.title;
+          safeShowToast(this.getUIContext(), { message: '标题已优化，可继续手改' });
+        }
+      })
+      .catch((e: Object): void => {
+        const err: Error = e as Error;
+        safeShowToast(this.getUIContext(), { message: err.message.length > 0 ? err.message : 'AI 优化失败，请稍后再试' });
+      })
+      .finally((): void => {
+        this.aiTitleBusy = false;
+      });
+  }
   @State content: string = '';
   @State sd: StructuredData = {};
   @State structuredDocument: StructuredDocument = emptyStructuredDocument();
@@ -96,6 +126,7 @@ struct VideoPublishPage {
   }
 
   aboutToAppear(): void {
+    aiAssistEnabled().then((enabled: boolean): void => { this.aiEnabled = enabled; });
     // 登录闸门（纵深防御）：发布页只该从 Index 底栏进入，而未登录在那边已被拦住。
     // 这里是第二道 —— 将来若新增入口直接 push 本页，也不允许带着空登录态进来。
     // 用 replaceUrl 而非 push：本页从路由栈里被替换掉，用户取消登录返回时落到主页，
@@ -382,8 +413,19 @@ struct VideoPublishPage {
   bodySection(): void {
     PublishSection({ title: '正文', meta: '标题 + 说明', index: 2 }) {
       Column({ space: SpaceTokens.sm }) {
-        this.sectionLabel('标题')
-        TextInput({ text: this.title, placeholder: '一句话标题' })
+        Row({ space: SpaceTokens.sm }) {
+          this.sectionLabel('标题')
+          Blank().layoutWeight(1)
+          AiAssistChip({
+            label: 'AI 优化标题',
+            busy: this.aiTitleBusy,
+            available: this.aiEnabled,
+            action: (): void => { this.aiPolishTitle(); },
+          })
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+        TextInput({ text: $$this.title, placeholder: '一句话标题' })
           .maxLength(MAX_VIDEO_TITLE_LENGTH)
           .width('100%')
           .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
@@ -459,6 +501,7 @@ struct VideoPublishPage {
         StructuredComposer({
           document: this.structuredDocument,
           genreLabel: this.genre,
+          contentText: this.content,
           expanded: $showFields,
           onDocumentChange: (document: StructuredDocument): void => { this.structuredDocument = document; },
         })

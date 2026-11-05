@@ -1330,3 +1330,52 @@ export function voteDebate(postId: number, choice: string): Promise<DebateVoteRe
 export function exportUserData(): Promise<UserExportData> {
   return api.get<UserExportData>('/v1/me/export');
 }
+
+// ===== AI 辅助创作（发布页：标题优化 / 正文整理结构化） =====
+// 服务端未配置 LLM 凭证时 /v1/ai/status 返回 enabled:false，入口整体隐藏（不报错不打扰）。
+// 铁律：AI 只做原文驱动的整理，产出灌入 StructuredComposer 由作者逐块确认；证据永远人工挂。
+
+export interface AiStatusResult {
+  enabled: boolean;
+}
+
+export interface AiTitleResult {
+  title: string;
+}
+
+export interface AiDraftResult {
+  document: StructuredDocument;
+}
+
+interface AiTitleRequest {
+  title: string;
+  content: string;
+  genre: string;
+}
+
+interface AiDraftRequest {
+  content: string;
+  genre: string;
+}
+
+// 查询 AI 功能是否可用；任何失败（网络/未登录/未配置）一律降级为 false，入口隐藏。
+export async function aiAssistEnabled(): Promise<boolean> {
+  try {
+    const result: AiStatusResult = await api.get<AiStatusResult>('/v1/ai/status');
+    return result.enabled;
+  } catch {
+    return false;
+  }
+}
+
+// POST /v1/ai/polish-title：标题优化。失败抛 Error（message 为用户可读文案）。
+export function aiPolishTitle(title: string, content: string, genre: string): Promise<AiTitleResult> {
+  const body: AiTitleRequest = { title: title, content: content, genre: genre };
+  return api.post<AiTitleResult>('/v1/ai/polish-title', body);
+}
+
+// POST /v1/ai/structure-draft：正文整理结构化，返回合法 V2/V3 文档草稿。
+export function aiStructureDraft(content: string, genre: string): Promise<AiDraftResult> {
+  const body: AiDraftRequest = { content: content, genre: genre };
+  return api.post<AiDraftResult>('/v1/ai/structure-draft', body);
+}

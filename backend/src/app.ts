@@ -28,6 +28,7 @@ import messageRouter from './routes/messages';
 import pushRouter from './routes/push';
 import metricsRouter from './routes/metrics';
 import shareRouter from './routes/share';
+import aiRouter from './routes/ai';
 import { sensitiveWordService } from './services/sensitiveWordService';
 import { errorHandler } from './middleware/errorHandler';
 import { globalLimiter, loginLimiter, uploadLimiter } from './middleware/rateLimit';
@@ -115,6 +116,8 @@ app.use('/v1', exportRouter);
 app.use('/v1', pushRouter);
 // 行为埋点（POST /v1/metrics/post-event）
 app.use('/v1/metrics', metricsRouter);
+// AI 辅助创作（GET /v1/ai/status、POST /v1/ai/polish-title、POST /v1/ai/structure-draft）
+app.use('/v1/ai', aiRouter);
 // 分享落地页的 CSP 定制：页面内的封面/头像图托管在 API 域（BACKEND_PUBLIC_URL，如
 // https://api.youju.chat），与落地页所在的主站域（youju.chat）不同源。全局 helmet 默认
 // CSP 的 img-src 'self' 会直接拦掉这类跨源 <img>，表现为落地页封面与头像留白

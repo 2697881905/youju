@@ -10,6 +10,7 @@ import {
   addStructuredEvidence,
   duplicateStructuredBlock,
   evidenceOf,
+  filterStructuredDocumentForGenre,
   MAX_EVIDENCE_NOTE,
   MAX_EVIDENCE_PER_BLOCK,
   MAX_EVIDENCE_SOURCE_REF,
@@ -43,9 +44,10 @@ import {
 } from '../utils/structuredTemplates';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { compressImage } from '../utils/image';
-import { resolveDisplayImageUrl, uploadChatMedia } from '../services/api';
+import { resolveDisplayImageUrl, uploadChatMedia, aiAssistEnabled, aiStructureDraft, AiDraftResult } from '../services/api';
 import { ensureLogin } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
+import { AiAssistChip } from './AiAssistChip';
 import { User } from '../models/types';
 
 // V2 共享编辑器：发布入口只持有 document 状态，块的增删、排序与主视觉选择集中在这里。
@@ -54,12 +56,25 @@ export struct StructuredComposer {
   @Prop document: StructuredDocument;
   @Prop genreLabel: string = '';
   @Link expanded: boolean;
+  // AI 整理的原料：发布页正文。AI 只做原文驱动的整理，没有正文就没有依据（规格铁律）
+  @Prop contentText: string = '';
   @State private evidenceUploading: boolean = false;
+  // 服务端未配置 LLM 凭证时 aiEnabled=false → AI 入口整行隐藏
+  @State private aiEnabled: boolean = false;
+  @State private aiBusy: boolean = false;
   // 落点高亮必须是 @State：拖拽过程中要立刻换掉目标卡的描边。
   // 被拖块的 id 反而刻意不用 @State——拖拽进行中改它会重建源卡，系统会把这次拖拽取消。
   @State private dropTargetBlockId: string = '';
   private draggingBlockId: string = '';
   onDocumentChange: (document: StructuredDocument) => void = (_document: StructuredDocument): void => {};
+
+  aboutToAppear(): void {
+    aiAssistEnabled().then((enabled: boolean): void => {
+      this.aiEnabled = enabled;
+    }).catch((): void => {
+      this.aiEnabled = false;
+    });
+  }
 
   private blockTitleById(blockId: string): string {
     for (const block of this.document.blocks) {
@@ -159,6 +174,49 @@ export struct StructuredComposer {
 
   private availableBlockTypes(): StructuredBlockType[] {
     return structuredBlockTypesForGenre(this.currentGenre());
+  }
+
+  // —— AI 整理成结构化：正文 → 服务端 LLM → 合法 V2/V3 文档草稿 → 灌入编辑器。
+  // 只做原文驱动的整理（后端铁律），产出由作者逐块确认修改后才发布；证据不自动生成。
+  private runAiStructure(): void {
+    if (this.aiBusy) {
+      return;
+    }
+    if (this.contentText.trim().length === 0) {
+      safeShowToast(this.getUIContext(), { message: '先写点正文，AI 才有依据整理' });
+      return;
+    }
+    if (this.document.blocks.length > 0) {
+      this.getUIContext().showAlertDialog({
+        title: '覆盖现有信息块？',
+        message: 'AI 整理会替换当前 ' + String(this.document.blocks.length) + ' 个信息块，确定继续吗？',
+        primaryButton: { value: '取消', action: (): void => {} },
+        secondaryButton: { value: '继续', action: (): void => { this.requestAiDraft(); } },
+      });
+      return;
+    }
+    this.requestAiDraft();
+  }
+
+  private requestAiDraft(): void {
+    this.aiBusy = true;
+    aiStructureDraft(this.contentText, this.genreLabel)
+      .then((result: AiDraftResult): void => {
+        const doc: StructuredDocument = filterStructuredDocumentForGenre(result.document, this.currentGenre());
+        if (doc.blocks.length === 0) {
+          safeShowToast(this.getUIContext(), { message: 'AI 没整理出可用信息块，请补充更多细节' });
+          return;
+        }
+        this.onDocumentChange(doc);
+        safeShowToast(this.getUIContext(), { message: 'AI 整理好了，逐块确认修改后再发布' });
+      })
+      .catch((e: Object): void => {
+        const err: Error = e as Error;
+        safeShowToast(this.getUIContext(), { message: err.message.length > 0 ? err.message : 'AI 整理失败，请稍后再试' });
+      })
+      .finally((): void => {
+        this.aiBusy = false;
+      });
   }
 
   private updateText(blockId: string, field: StructuredBlockTextField, value: string): void {
@@ -668,6 +726,25 @@ export struct StructuredComposer {
       }
       Collapse({ expanded: this.expanded }) {
         Column({ space: SpaceTokens.base }) {
+          // AI 整理入口：服务端未配置 LLM（aiEnabled=false）时整行隐藏，不打扰
+          if (this.aiEnabled) {
+            Row({ space: SpaceTokens.sm }) {
+              AiAssistChip({
+                label: 'AI 整理成结构化',
+                busy: this.aiBusy,
+                available: true,
+                action: (): void => { this.runAiStructure(); },
+              })
+              if (this.contentText.trim().length === 0) {
+                Text('先写正文，AI 才有依据整理')
+                  .fontSize(TypeTokens.caption.size)
+                  .fontFamily(TypeTokens.fontFamily)
+                  .fontColor(ColorTokens.tertiary)
+              }
+            }
+            .width('100%')
+            .alignItems(VerticalAlign.Center)
+          }
           if (this.document.blocks.length > 0) {
             Column({ space: SpaceTokens.sm }) {
               Text('实时信息流预览')

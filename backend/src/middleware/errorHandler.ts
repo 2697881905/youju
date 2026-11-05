@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { CODE } from '../utils/response';
-import { SensitiveWordError, ValidationError } from '../utils/errors';
+import { AiUnavailableError, SensitiveWordError, ValidationError } from '../utils/errors';
 import { env } from '../config/env';
 
 /**
@@ -22,6 +22,13 @@ export function errorHandler(
   // 敏感词命中：统一 400 友好提示
   if (err instanceof SensitiveWordError) {
     res.status(400).json({ code: CODE.BAD_REQUEST, data: null, message: err.message });
+    return;
+  }
+
+  // AI 服务不可用：503 + 可读文案。必须先于通用 5xx 分支——
+  // 通用分支会把 5xx 消息归一化成「服务器内部错误」，吃掉「AI 服务暂时不可用」这类用户可理解的提示。
+  if (err instanceof AiUnavailableError) {
+    res.status(503).json({ code: CODE.SERVER_ERROR, data: null, message: err.message });
     return;
   }
 

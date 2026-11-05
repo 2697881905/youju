@@ -54,3 +54,18 @@ export class NotFoundError extends Error {
     Object.setPrototypeOf(this, NotFoundError.prototype);
   }
 }
+
+/**
+ * AI 服务不可用/调用失败（凭证未配置、上游超时、返回不合法 JSON、校验未通过）。
+ * errorHandler 特判为 503 + 本错误的可读 message（避免被 5xx 归一化文案吃掉）。
+ */
+export class AiUnavailableError extends Error {
+  reason: string = 'ai_unavailable';
+  status: number = 503;
+
+  constructor(message: string = 'AI 服务暂时不可用，请稍后再试') {
+    super(message);
+    this.name = 'AiUnavailableError';
+    Object.setPrototypeOf(this, AiUnavailableError.prototype);
+  }
+}
