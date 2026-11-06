@@ -551,14 +551,24 @@ struct TextPublishPage {
   // 不再是一整张巨卡里用 5 条 Divider 切字段。
 
   @Builder
-  sectionLabel(text: string): void {
-    Text(text)
-      .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-      .fontWeight(TypeTokens.overline.weight)
-      .lineHeight(TypeTokens.overline.lineHeight)
-      .letterSpacing(TypeTokens.overline.tracking)
-      .fontColor(ColorTokens.tertiary)
-      .width('100%')
+  sectionLabel(text: string, fullWidth: boolean = true): void {
+    // fullWidth=false 供 Row 内标题行使用：100% 宽会把同行的 Blank/AI 胶囊挤出屏幕。
+    if (fullWidth) {
+      Text(text)
+        .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
+        .fontWeight(TypeTokens.overline.weight)
+        .lineHeight(TypeTokens.overline.lineHeight)
+        .letterSpacing(TypeTokens.overline.tracking)
+        .fontColor(ColorTokens.tertiary)
+        .width('100%')
+    } else {
+      Text(text)
+        .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
+        .fontWeight(TypeTokens.overline.weight)
+        .lineHeight(TypeTokens.overline.lineHeight)
+        .letterSpacing(TypeTokens.overline.tracking)
+        .fontColor(ColorTokens.tertiary)
+    }
   }
 
   // 体裁：直接从 5 个候选里点选，取代「自绘玻璃按钮 → 系统滚轮弹窗 → 确认」三步。
@@ -590,7 +600,7 @@ struct TextPublishPage {
     PublishSection({ title: '正文', meta: '标题 + 正文', index: 1 }) {
       Column({ space: SpaceTokens.sm }) {
         Row({ space: SpaceTokens.sm }) {
-          this.sectionLabel('标题')
+          this.sectionLabel('标题', false)
           Blank().layoutWeight(1)
           AiAssistChip({
             label: 'AI 优化标题',
