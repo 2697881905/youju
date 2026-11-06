@@ -1345,6 +1345,10 @@ export interface AiTitleResult {
 
 export interface AiDraftResult {
   document: StructuredDocument;
+  // LLM 推断（或回退作者标记）的体裁；审稿层据此回填发布页体裁分段栏。
+  genre: string;
+  // 推荐骨架 key（review_score / pitfall_case / tutorial_path / debate_side / insight）。
+  template: string;
 }
 
 interface AiTitleRequest {

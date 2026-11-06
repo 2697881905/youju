@@ -219,8 +219,9 @@ describe('POST /v1/ai/structure-draft', () => {
     expect(res.json.message).toContain('正文太短');
   });
 
-  it('happy path：过滤已退役的 metric 与未知类型，主视觉指向 insight，文档过硬校验', async () => {
+  it('happy path：过滤已退役的 metric 与未知类型，主视觉指向 insight，响应带推断体裁与骨架', async () => {
     mockChatContent(JSON.stringify({
+      genre: 'review',
       blocks: [
         { type: 'insight', value: '续航是最大惊喜' },
         { type: 'metric', value: '4.8', unit: '分' },
@@ -242,10 +243,48 @@ describe('POST /v1/ai/structure-draft', () => {
     expect(document.blocks[1].type).toBe('compare');
     // id 由服务端重生成，杜绝模型伪造
     expect(document.blocks[0].id).toMatch(/^ai_\d+_\d+$/);
+    expect(res.json.data.genre).toBe('review');
+    expect(res.json.data.template).toBe('review_score');
+  });
+
+  it('作者未传 genre：LLM 推断体裁生效，模板按推断体裁回表', async () => {
+    mockChatContent(JSON.stringify({
+      genre: 'tutorial',
+      blocks: [
+        { type: 'steps', items: ['下载固件', '刷入系统'] },
+        { type: 'insight', value: '先备份再动手' },
+      ],
+    }));
+    const res = await req('POST', '/v1/ai/structure-draft', {
+      content: '给旧手机刷轻量系统前先备份数据，下载对应固件，然后进入开发者模式逐步操作。',
+    }, authHeader());
+    expect(res.status).toBe(200);
+    expect(res.json.data.genre).toBe('tutorial');
+    expect(res.json.data.template).toBe('tutorial_path');
+    expect(res.json.data.document.blocks).toHaveLength(2);
+  });
+
+  it('模型返回未知 genre → 回退作者标记的体裁，块类型按回退体裁过滤', async () => {
+    mockChatContent(JSON.stringify({
+      genre: 'essay',
+      blocks: [
+        { type: 'insight', value: '结论有效' },
+        { type: 'steps', items: ['步骤不该出现在 review'] },
+      ],
+    }));
+    const res = await req('POST', '/v1/ai/structure-draft', {
+      content: '这段正文足够长，用来验证未知体裁回退到作者标记体裁后的块类型过滤逻辑。',
+      genre: 'review',
+    }, authHeader());
+    expect(res.status).toBe(200);
+    expect(res.json.data.genre).toBe('review');
+    // steps 不在 review 的可用类型里 → 被丢弃
+    expect(res.json.data.document.blocks).toHaveLength(1);
+    expect(res.json.data.document.blocks[0].type).toBe('insight');
   });
 
   it('AI 返回空 blocks → 503 + 可理解文案', async () => {
-    mockChatContent('{"blocks":[]}');
+    mockChatContent('{"genre":"review","blocks":[]}');
     const res = await req('POST', '/v1/ai/structure-draft', {
       content: '这段正文足够长，但是模型返回了空的块列表，服务应当给出可理解的失败提示。',
       genre: 'review',
@@ -255,7 +294,7 @@ describe('POST /v1/ai/structure-draft', () => {
   });
 
   it('整理结果命中敏感词 → 400（AI 输出不豁免）', async () => {
-    mockChatContent('{"blocks":[{"type":"insight","value":"含违禁词的结论"}]}');
+    mockChatContent('{"genre":"review","blocks":[{"type":"insight","value":"含违禁词的结论"}]}');
     mockCheckText.mockReturnValue(true);
     const res = await req('POST', '/v1/ai/structure-draft', {
       content: '这段正文足够长，用来通过最短长度检查，内容本身并不重要。',

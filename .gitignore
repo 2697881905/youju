@@ -70,6 +70,8 @@ Thumbs.db
 /hyperframes-demo/renders/
 
 /.preview
+/.preview2
+/entry/.preview
 
 # 应用图标改版时的原图备份（PNG 原图，仅本地回滚用）
 /.icon_backup/

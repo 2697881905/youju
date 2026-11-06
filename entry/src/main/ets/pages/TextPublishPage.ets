@@ -21,6 +21,8 @@ import { PublishSession, publishFlowStore } from '../utils/publishFlowStore';
 import { collectStructuredData } from '../utils/structuredFields';
 import { emptyStructuredDocument, filterStructuredDocumentForGenre } from '../utils/structuredDocument';
 import { StructuredComposer } from '../components/StructuredComposer';
+import { StructuredReviewSheet } from '../components/StructuredReviewSheet';
+import { executePublish, PublishOutcome } from '../utils/publishExecutor';
 import { PublishTagPanel } from '../components/PublishTagPanel';
 import { PUBLISH_GENRES, PUBLISH_GENRE_SEGMENTS, publishGenreMeta } from '../utils/publishGenres';
 import { PublishSection } from '../components/PublishSection';
@@ -106,9 +108,13 @@ struct TextPublishPage {
   // 默认款：素纸（暖纸 + 纯排印，最克制、最像书页，也最像 App 里的东西）
   @State textPosterStyle: string = 'paper';
   @State tags: Tag[] = [];
-  // 结构化区默认展开：它是产品核心特色，藏在折叠里等于没有（覆盖率的最大杀手）
-  @State showFields: boolean = true;
+  // 结构化区默认折叠（2026-11-07 发布流改版）：主路径是「写正文 → 点发布 → AI 拆块 → 审稿」，
+  // 编辑器不再是每个作者都要面对的第一屏；想手填/挂证据的作者手动展开。
+  @State showFields: boolean = false;
   @State showTagPanel: boolean = false;
+  // —— 结构化审稿层（点发布弹出；revision 用于弹层复用时强制重新初始化） ——
+  @State reviewSheetShown: boolean = false;
+  @State reviewSheetRevision: number = 0;
   @State editingSavedDraftId: string = '';
   @StorageLink('authUserId') @Watch('onUserChange') uid: string = '';
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
@@ -158,7 +164,7 @@ struct TextPublishPage {
     if (this.selectedTags.length === 0) {
       return '选一个圈子';
     }
-    return '可以预览了';
+    return '可以发布了';
   }
 
   aboutToAppear(): void {
@@ -376,7 +382,9 @@ struct TextPublishPage {
     }
   }
 
-  private openPreview(): void {
+  // 点发布：结构化体裁进审稿层（AI 拆块 → 逐块确认 → 确认即发布），
+  // 分享体裁保持「预览页 → 确认发布」原路径。发布永不被 AI 卡死：层内自带手动骨架兜底。
+  private onPublish(): void {
     if (!this.title.trim()) {
       safeShowToast(this.getUIContext(), { message: '请填写标题' });
       return;
@@ -385,9 +393,34 @@ struct TextPublishPage {
       safeShowToast(this.getUIContext(), { message: '长文最多 ' + MAX_LONG_FORM_CONTENT_LENGTH + ' 字' });
       return;
     }
+    if (publishGenreMeta(this.genre).structured) {
+      this.reviewSheetRevision = this.reviewSheetRevision + 1;
+      this.reviewSheetShown = true;
+      return;
+    }
     const draft: PublishDraft = this.currentPublishDraft();
     publishFlowStore.beginPreview(draft, this.editingSavedDraftId);
     this.getUIContext().getRouter().pushUrl({ url: 'pages/PublishPreviewPage' });
+  }
+
+  // 审稿层确认：回填最终信息块与 AI 推断体裁，直接走共享发布链路（不再经过预览页）。
+  private async confirmPublish(document: StructuredDocument, genre: string): Promise<void> {
+    this.reviewSheetShown = false;
+    this.structuredDocument = document;
+    if (genre.length > 0 && genre !== this.genre) {
+      for (let i = 0; i < PUBLISH_GENRES.length; i++) {
+        if (PUBLISH_GENRES[i].key === genre) {
+          this.genreIndex = i;
+          this.genre = PUBLISH_GENRES[i].key;
+          break;
+        }
+      }
+    }
+    const draft: PublishDraft = this.currentPublishDraft();
+    const outcome: PublishOutcome = await executePublish(draft, this.getUIContext());
+    if (outcome.ok) {
+      this.getUIContext().getRouter().back();
+    }
   }
 
   private currentPublishDraft(): PublishDraft {
@@ -420,7 +453,7 @@ struct TextPublishPage {
     this.structuredDocument = draft.structuredDocument;
     this.textPosterStyle = resolveTextPosterStyle(draft.textPosterStyle).key;
     this.editingSavedDraftId = savedDraftId;
-    this.showFields = true;
+    this.showFields = false;
     this.showTagPanel = false;
     this.closeMention();
     this.mentionRefs = draft.mentions !== undefined ? draft.mentions.map((m: MentionRef): MentionRef => ({
@@ -467,7 +500,7 @@ struct TextPublishPage {
     this.structuredDocument = emptyStructuredDocument();
     this.textPosterStyle = 'paper';
     this.editingSavedDraftId = '';
-    this.showFields = true;
+    this.showFields = false;
     this.showTagPanel = false;
     this.mentionRefs = [];
     this.closeMention();
@@ -747,7 +780,7 @@ struct TextPublishPage {
           hint: this.draftHint(),
           previewDisabled: this.title.trim().length === 0,
           onClear: (): void => { this.reset(); },
-          onPreview: (): void => { this.openPreview(); },
+          onPreview: (): void => { this.onPublish(); },
           onBack: (): void => { this.getUIContext().getRouter().back(); },
         })
       }
@@ -774,6 +807,25 @@ struct TextPublishPage {
     .bindContentCover(this.aiSheetShown, this.aiPolishSheet(), {
       modalTransition: ModalTransition.DEFAULT,
       onDisappear: (): void => { this.aiSheetShown = false; },
+    })
+    // 结构化审稿：点发布弹出（AI 拆块 → 逐块确认 → 确认即发布）
+    .bindContentCover(this.reviewSheetShown, this.reviewSheet(), {
+      modalTransition: ModalTransition.DEFAULT,
+      onDisappear: (): void => { this.reviewSheetShown = false; },
+    })
+  }
+
+  // 结构化审稿弹层：revision 递增驱动内部重新初始化（复用实例时 aboutToAppear 不会再跑）
+  @Builder
+  reviewSheet(): void {
+    StructuredReviewSheet({
+      genre: this.genre,
+      contentText: this.content,
+      initialDocument: this.structuredDocument,
+      aiAvailable: this.aiEnabled,
+      resetKey: this.reviewSheetRevision,
+      onConfirm: (document: StructuredDocument, genre: string): void => { this.confirmPublish(document, genre); },
+      onClose: (): void => { this.reviewSheetShown = false; },
     })
   }
 

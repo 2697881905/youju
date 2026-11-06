@@ -67,7 +67,7 @@ export struct PublishTopBar {
         action: (): void => { this.onClear(); },
       })
       DesignButton({
-        label: '预览',
+        label: '发布',
         variant: 'primary',
         visualHeight: LayoutTokens.segmentedHeight,
         disabled: this.previewDisabled,

@@ -745,18 +745,6 @@ export struct StructuredComposer {
             .width('100%')
             .alignItems(VerticalAlign.Center)
           }
-          if (this.document.blocks.length > 0) {
-            Column({ space: SpaceTokens.sm }) {
-              Text('实时信息流预览')
-                .fontSize(TypeTokens.overline.size)
-                .fontFamily(TypeTokens.fontFamily)
-                .fontWeight(600)
-                .letterSpacing(1)
-                .fontColor(ColorTokens.tertiary)
-            }
-            .width('100%')
-            .alignItems(HorizontalAlign.Start)
-          }
           this.templatePicker()
           ForEach(this.document.blocks, (block: StructuredBlock) => {
             this.blockEditor(block)

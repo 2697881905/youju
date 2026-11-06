@@ -1,11 +1,12 @@
-import { createPost, resolveDisplayImageUrl } from '../services/api';
+import { resolveDisplayImageUrl } from '../services/api';
 import { LengthMetrics } from '@kit.ArkUI';
-import { ensureLogin, getUserId } from '../utils/auth';
-import { Genre, StructuredData, StructuredDocument, User } from '../models/types';
+import { getUserId } from '../utils/auth';
+import { Genre, StructuredData, StructuredDocument } from '../models/types';
 import { PublishDraft } from '../utils/publishDraft';
 import { savePostDraft, SavedPostDraft } from '../utils/postDraftStore';
 import { publishFlowStore } from '../utils/publishFlowStore';
-import { uploadTextPoster, renderPosterPixelMap } from '../utils/poster/posterRender';
+import { executePublish, PublishOutcome } from '../utils/publishExecutor';
+import { renderPosterPixelMap } from '../utils/poster/posterRender';
 import { isSerifTypefaceReady } from '../utils/poster/posterText';
 import { TEXT_POSTER_ASPECT_RATIO, TEXT_POSTER_STYLES, TextPosterStyleOption } from '../utils/poster/posterTokens';
 import { image } from '@kit.ImageKit';
@@ -19,13 +20,11 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { bottomNavInset } from '../utils/cardTokens';
 import { TypeTokens } from '../design/tokens/type';
-import { structuredFieldPairs, withCoverOnlyTextPoster } from '../utils/structuredFields';
+import { structuredFieldPairs } from '../utils/structuredFields';
 import { StructuredFlowView } from '../components/StructuredFlowView';
-import { collectStructuredDocument, emptyStructuredDocument, structuredDocumentFromLegacy, structuredDocumentHasContent } from '../utils/structuredDocument';
-import { publishGenreMeta } from '../utils/publishGenres';
+import { collectStructuredDocument, emptyStructuredDocument, structuredDocumentFromLegacy } from '../utils/structuredDocument';
 import { FALLBACK_VIDEO_ASPECT_RATIO, normalizeVideoAspectRatio } from '../utils/video';
 
-const TEXT_POSTER_TIMEOUT: number = 20000;
 // 预览倍率必须恒为 1，不能为省内存调小——这是「预览即发布产物」的前提。
 // 尺寸关系（已实测）：预览页海报容器的实际显示宽度约 310vp，在主流 3x 屏上约 930 物理像素；
 // 而发布产物本身是 1080×1440，在信息流卡片里同样缩小显示（1080 → 约 930px，缩小约 0.86 倍）。
@@ -197,8 +196,7 @@ struct PublishPreviewPage {
     return draft.structuredDocument ?? structuredDocumentFromLegacy(draft.structuredData, draft.genre);
   }
 
-  private hasPreviewVideo(): boolean {
-    const videoUrl: string = this.currentDraft().videoUrl ?? '';
+  private hasPreviewVideo(): boolean {    const videoUrl: string = this.currentDraft().videoUrl ?? '';
     return videoUrl.length > 0;
   }
 
@@ -213,104 +211,17 @@ struct PublishPreviewPage {
     return rows;
   }
 
-  private uploadTextPosterWithTimeout(draft: PublishDraft): Promise<string> {
-    return new Promise<string>((resolve: (url: string) => void, reject: (reason: Error) => void): void => {
-      let settled: boolean = false;
-      let timer: number = 0;
-      const finish = (error?: Error, url?: string): void => {
-        if (settled) {
-          return;
-        }
-        settled = true;
-        clearTimeout(timer);
-        if (error !== undefined) {
-          reject(error);
-        } else {
-          resolve(url ?? '');
-        }
-      };
-      timer = setTimeout((): void => {
-        finish(new Error('文字海报生成超时'));
-      }, TEXT_POSTER_TIMEOUT) as number;
-      uploadTextPoster(draft.title, draft.content, draft.genre, draft.textPosterStyle)
-        .then((url: string): void => { finish(undefined, url); })
-        .catch((e: Error): void => { finish(e); });
-    });
-  }
-
+  // 发布动作全部委托 executePublish（与审稿弹层共用同一份链路：校验→登录→海报→createPost→completePublish）。
+  // 本页只管 publishing 状态与路由；进度/失败提示由执行器内部 toast。
   private async publish(): Promise<void> {
     if (this.publishing || this.draft === null) {
       return;
     }
-    const previewDraft: PublishDraft | null = this.draft;
-    if (previewDraft !== null && publishGenreMeta(previewDraft.genre).structured &&
-      !structuredDocumentHasContent(this.currentStructuredDocument())) {
-      safeShowToast(this.getUIContext(), { message: '请至少填写一个信息块（数字、结论、清单、步骤或对比）' });
-      return;
-    }
-    let user: User | null = null;
-    try {
-      user = await ensureLogin();
-    } catch (e) {
-      const message: string = e instanceof Error && e.message.length > 0 ? e.message : '未知错误';
-      safeShowToast(this.getUIContext(), { message: '登录失败：' + message });
-      return;
-    }
-    if (user === null) {
-      return;
-    }
     this.publishing = true;
-    const draft: PublishDraft = this.currentDraft();
-    try {
-      let images: string[] = draft.images;
-      let coverImage: string | undefined = images.length > 0 ? images[0] : undefined;
-      const coverOnlyTextPoster: boolean = draft.mode === 'photo' && images.length === 0;
-      let videoUrl: string | undefined;
-      let videoCover: string | undefined;
-      let videoAspectRatio: number | undefined;
-      if (draft.videoUrl && draft.videoUrl.length > 0) {
-        // 视频模式：不生成文字海报，封面取首帧抓图
-        videoUrl = draft.videoUrl;
-        videoCover = draft.videoCover;
-        videoAspectRatio = normalizeVideoAspectRatio(draft.videoAspectRatio ?? FALLBACK_VIDEO_ASPECT_RATIO);
-        images = [];
-      } else if (images.length === 0) {
-        safeShowToast(this.getUIContext(), { message: '正在生成文字海报…' });
-        try {
-          const posterUrl: string = await this.uploadTextPosterWithTimeout(draft);
-          if (posterUrl.length === 0) {
-            throw new Error('文字海报地址为空');
-          }
-          // The generated poster is an information-flow cover, not detail media.
-          coverImage = posterUrl;
-        } catch (e) {
-          const message: string = e instanceof Error && e.message.length > 0 ? e.message : '未知错误';
-          safeShowToast(this.getUIContext(), { message: '文字海报失败，已按纯文字发布：' + message });
-        }
-      }
-      await createPost({
-        title: draft.title,
-        publishMode: draft.mode,
-        content: draft.content,
-        genre: draft.genre,
-        tags: draft.tags,
-        structuredData: withCoverOnlyTextPoster(draft.structuredData, coverOnlyTextPoster),
-        structuredDocument: collectStructuredDocument(this.currentStructuredDocument()),
-        mentions: draft.mentions,
-        images: images,
-        videoUrl: videoUrl,
-        videoCover: videoCover,
-        videoAspectRatio: videoAspectRatio,
-        coverImage: videoCover && videoCover.length > 0 ? videoCover : coverImage,
-      });
-      publishFlowStore.completePublish();
-      safeShowToast(this.getUIContext(), { message: '发布成功' });
+    const outcome: PublishOutcome = await executePublish(this.currentDraft(), this.getUIContext());
+    this.publishing = false;
+    if (outcome.ok) {
       this.getUIContext().getRouter().back();
-    } catch (e) {
-      const message: string = e instanceof Error && e.message.length > 0 ? e.message : '未知错误';
-      safeShowToast(this.getUIContext(), { message: '发布失败：' + message });
-    } finally {
-      this.publishing = false;
     }
   }
 

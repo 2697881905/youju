@@ -24,6 +24,17 @@ const GENRE_BLOCK_TYPES: Record<string, string[]> = {
   debate: ['compare', 'insight'],
 };
 
+// AI 推断体裁的白名单与推荐骨架：响应带 { document, genre, template }，
+// 前端审稿层据此回填体裁分段栏、展示「参考了哪副骨架」。share 是轻量体裁，骨架用通用「一句结论」。
+const GENRE_WHITELIST: string[] = ['review', 'pitfall', 'tutorial', 'debate', 'share'];
+const GENRE_TEMPLATE: Record<string, string> = {
+  review: 'review_score',
+  pitfall: 'pitfall_case',
+  tutorial: 'tutorial_path',
+  debate: 'debate_side',
+  share: 'insight',
+};
+
 // 长度上限与后端 validateStructuredDocument 的校验口径对齐；AI 输出先截断再校验，
 // 避免「模型话多」直接变成用户可见的 400。
 const LIMIT_VALUE = 300;
@@ -148,33 +159,39 @@ export async function polishTitle(userId: number, title: string, content: string
   return { title: polished };
 }
 
-// —— P0：正文整理结构化。产出合法 V2/V3 文档草稿，前端灌入 StructuredComposer 由作者逐块确认。 ——
-export async function structureDraft(userId: number, content: string, genre: string): Promise<{ document: Record<string, unknown> }> {
+// —— P0：正文整理结构化。产出合法 V2/V3 文档草稿，前端灌入审稿层由作者逐块确认。
+// genre 允许为空：空则 LLM 从正文自行推断体裁（隐式发布流不再强迫作者先懂「体裁」）；
+// 非空则作为作者倾向传入，模型优先尊重、明显不符才推翻。响应扩为 { document, genre, template }。
+export async function structureDraft(userId: number, content: string, genre: string): Promise<{ document: Record<string, unknown>; genre: string; template: string }> {
   consumeQuota(userId);
   const body: string = content.trim();
   if (body.length < DRAFT_MIN_CONTENT) {
     throw new ValidationError('正文太短（至少 ' + DRAFT_MIN_CONTENT + ' 字），AI 整理不出有价值的结构');
   }
-  const allowed: string[] = GENRE_BLOCK_TYPES[genre] ?? ['insight', 'list'];
-  const typeHints: string[] = [];
-  for (const type of allowed) {
-    if (type === 'insight') typeHints.push('{"type":"insight","value":"一句话结论"}');
-    else if (type === 'compare') typeHints.push('{"type":"compare","leftLabel":"优点","leftValue":"...","rightLabel":"缺点","rightValue":"..."}');
-    else typeHints.push('{"type":"' + type + '","items":["条目一","条目二"]}');
-  }
+  const userGenre: string = GENRE_WHITELIST.indexOf(genre) >= 0 ? genre : '';
+  const genreLine: string = userGenre.length > 0
+    ? '作者在发布页标记的体裁是「' + userGenre + '」，优先尊重；只有正文明显不符时才推翻。'
+    : '作者未标记体裁，请从正文内容判断。';
   const system: string = [
-    '你是社区「有据」的结构化编辑助手。任务：把作者已写的正文整理成结构化信息块草稿。',
+    '你是社区「有据」的结构化编辑助手。任务：先判断正文的体裁，再把正文整理成结构化信息块草稿。',
+    '体裁候选：review（测评/实测对比）、pitfall（踩坑与正确做法）、tutorial（教程/步骤拆解）、debate（正反观点对照）、share（经验见闻）。',
+    genreLine,
     '铁律：',
     '1. 只允许使用正文里已有的事实与表述，禁止新增、推测、夸大任何内容；',
     '2. 禁止生成任何出处、来源、证据——证据只能由作者本人提供；',
     '3. 语言风格与正文保持一致，不写套话；',
     '4. 块数量 2-' + MAX_BLOCKS + ' 个，宁缺毋滥；每条 item 不超过 40 字。',
-    '可用块类型（只能用这些）：' + allowed.join('、') + '。',
-    '示例形态：' + typeHints.join('；'),
-    '输出：仅一个 JSON 对象 {"blocks":[...]}，不要输出任何解释或 markdown 代码块。',
+    '块类型按体裁选用：review 用 insight、compare、list；pitfall 用 insight、steps、list；tutorial 用 steps、list、insight；debate 用 compare、insight；share 用 insight、list。',
+    '示例形态：{"type":"insight","value":"一句话结论"}；{"type":"compare","leftLabel":"优点","leftValue":"...","rightLabel":"缺点","rightValue":"..."}；{"type":"steps","items":["步骤一","步骤二"]}；{"type":"list","items":["条目一","条目二"]}。',
+    '输出：仅一个 JSON 对象 {"genre":"体裁","blocks":[...]}，不要输出任何解释或 markdown 代码块。',
   ].join('\n');
-  const user: string = '体裁：' + (genre.length > 0 ? genre : '未指定') + '\n正文：' + body.slice(0, 3000);
-  const raw: Record<string, unknown> = extractJson(await chatJson(system, user));
+  const user: string = '体裁倾向：' + (userGenre.length > 0 ? userGenre : '未指定') + '\n正文：' + body.slice(0, 3000);
+  const raw: Record<string, unknown> = extractJson(await chatJson(system, user, 1200));
+  // 推断体裁必须过白名单：模型幻觉出未知体裁时回退作者标记，再回退 share（最通用的轻量体裁）。
+  const inferred: string = asText(raw.genre);
+  const finalGenre: string = GENRE_WHITELIST.indexOf(inferred) >= 0 ? inferred
+    : (userGenre.length > 0 ? userGenre : 'share');
+  const allowed: string[] = GENRE_BLOCK_TYPES[finalGenre] ?? ['insight', 'list'];
   const rawBlocks: unknown[] = Array.isArray(raw.blocks) ? raw.blocks : [];
 
   // 清洗：类型白名单过滤（未知/已退役的 metric 直接丢弃）+ 键白名单 + 截断 + id 服务端重生成
@@ -247,7 +264,7 @@ export async function structureDraft(userId: number, content: string, genre: str
   if (invalid !== null) {
     throw new AiUnavailableError('AI 整理结果未通过校验，请重试');
   }
-  return { document: document };
+  return { document: document, genre: finalGenre, template: GENRE_TEMPLATE[finalGenre] ?? '' };
 }
 
 // —— P2：标题 + 正文联合润色。保持原意与段落结构，但表达要有可感知的升级：
