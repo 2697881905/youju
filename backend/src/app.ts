@@ -41,6 +41,18 @@ export const app = express();
 // 且限流 IP 可被 X-Forwarded-For 伪造绕过；设为 1 可消除该告警并让限流按真实 IP 生效。
 app.set('trust proxy', 1);
 
+// 开发期访问日志：逐请求打印方法/路径/状态码/来源 IP。
+// 用途：联调时判定「App 是否真的发出了请求」——App 端 aiAssistEnabled 等失败一律静默降级，
+// 无服务端观测就无法区分「没发」与「发了但失败」。生产（isProduction）不挂载，避免刷屏。
+if (!env.isProduction) {
+  app.use((req, res, next) => {
+    res.on('finish', () => {
+      console.log(`[req] ${req.method} ${req.originalUrl} -> ${res.statusCode} from ${req.ip}`);
+    });
+    next();
+  });
+}
+
 // 本地文件上传目录（无真实对象存储的开发期兜底）：启动时确保存在
 try {
   fs.mkdirSync(env.uploadsDir, { recursive: true });
