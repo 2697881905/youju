@@ -78,7 +78,7 @@ interface AiChatMessage {
   content: string;
 }
 
-async function chatJson(system: string, user: string, maxTokens: number = 800): Promise<string> {
+async function chatJson(system: string, user: string, maxTokens: number = 800, temperature: number = 0.3): Promise<string> {
   if (!aiEnabled()) {
     throw new AiUnavailableError();
   }
@@ -92,7 +92,7 @@ async function chatJson(system: string, user: string, maxTokens: number = 800): 
     const resp: Response = await fetch(env.ai.apiBase.replace(/\/+$/, '') + '/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + env.ai.apiKey },
-      body: JSON.stringify({ model: env.ai.model, messages: messages, temperature: 0.3, max_tokens: maxTokens }),
+      body: JSON.stringify({ model: env.ai.model, messages: messages, temperature: temperature, max_tokens: maxTokens }),
       signal: controller.signal,
     });
     if (!resp.ok) {
@@ -250,11 +250,19 @@ export async function structureDraft(userId: number, content: string, genre: str
   return { document: document };
 }
 
-// —— P2：标题 + 正文联合润色。轻度润色：保持原意与段落结构，只改语病、提流畅度、精炼表达。
+// —— P2：标题 + 正文联合润色。保持原意与段落结构，但表达要有可感知的升级：
+// 实测教训——prompt 只说「改语病」时，DeepSeek 对通顺的原稿几乎原样返回（101 字只改 4 字），
+// 用户观感就是「正文没变」。因此指令必须是「可见的改进」，并用 normalizeSame + 重试兜底。
 // 与 structureDraft 同一铁律：禁止新增/推测任何事实、数字、证据；输出不豁免敏感词闸。
 // maxContent 由前端按发布页限制传入（图文说明 300 / 长文 5000），后端钳制到 [200, 5000]。
 const POLISH_MIN_KEEP_RATIO = 0.3; // 底线：润色结果不得短于原文 30%（防模型偷懒只回一半）
 const POLISH_MAX_TOKENS = 2000;   // 正文可长达数千字，800 token 会截断 JSON
+
+// 归一化后比对是否「原样返回」：剔除空白与标点，只看实义字符序列
+function normalizeSame(a: string, b: string): boolean {
+  const strip = (s: string): string => s.replace(/[\s，。、；：！？「」『』（）【】,.:;!?'"\-—…·]/g, '');
+  return strip(a) === strip(b) && strip(a).length > 0;
+}
 
 export async function polishDraft(
   userId: number,
@@ -271,9 +279,13 @@ export async function polishDraft(
   const requested: number = Number.isFinite(maxContent) ? Math.floor(maxContent) : 0;
   const cap: number = Math.max(200, Math.min(requested > 0 ? requested : 5000, 5000));
   const system: string = [
-    '你是社区「有据」的文稿编辑。任务：对作者的帖子做「轻度润色」——标题更具体、有信息量；正文只改语病、提升流畅度、精炼表达。',
+    '你是社区「有据」的代笔编辑。任务：读懂作者的帖子，然后【用你自己的话把同一件事重新讲一遍】——事实、数字、体验、结论与原文完全一致，但表达整体重写。',
+    '硬性要求：不要复用原句的措辞和句式（目数、型号、专有名词除外）；语序重组、句式替换、口语换书面、啰嗦句提炼成利落短句，都是你的手段。',
+    '改前：今天用了这个锅觉得还挺不错的，导热挺快的，然后清洗也方便，价格也不贵，总的来说值得买。',
+    '改后：一口锅三天用下来，值不值看三点：导热快、好清洗、价格不虚高。这台都占了。',
+    '交付标准：润色稿与原稿并排放，读者应一眼看出被重新写过。',
     '铁律：',
-    '1. 保持作者原意与段落结构，禁止新增、推测、夸大任何事实、数字、体验或结论；',
+    '1. 不改变任何事实、数字、体验或结论，禁止新增、推测、夸大；',
     '2. 禁止生成任何出处、来源、证据——证据只能由作者本人提供；',
     '3. 不堆砌感叹号与夸张词，不写套话；标题不超过 24 个字；',
     '4. 润色后的正文不超过 ' + cap + ' 个字。',
@@ -282,7 +294,15 @@ export async function polishDraft(
   const user: string = '体裁：' + (genre.length > 0 ? genre : '未指定')
     + '\n当前标题：' + (asText(title).length > 0 ? asText(title) : '（无）')
     + '\n正文：' + body.slice(0, 4000);
-  const raw: Record<string, unknown> = extractJson(await chatJson(system, user, POLISH_MAX_TOKENS));
+
+  // 两次机会：0.7 温度仍原样返回，则 0.9 再试；依旧原样则如实告知（不硬造差异）
+  let raw: Record<string, unknown> = extractJson(await chatJson(system, user, POLISH_MAX_TOKENS, 0.7));
+  if (normalizeSame(asText(raw.content), body)) {
+    raw = extractJson(await chatJson(system, user, POLISH_MAX_TOKENS, 0.9));
+    if (normalizeSame(asText(raw.content), body)) {
+      throw new AiUnavailableError('这篇正文已经写得很干净，AI 没找到值得润色的地方');
+    }
+  }
   const polishedTitle: string = clampText(raw.title, LIMIT_TITLE);
   const polishedContent: string = clampText(raw.content, cap);
   if (polishedTitle.length === 0 || polishedContent.length === 0) {
