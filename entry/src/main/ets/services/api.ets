@@ -11,7 +11,7 @@ const BUILD_MODE: string = BUILD_MODE_NAME;
 //   设备本地系统服务会抢答 localhost 端口（3000/3001 实测均回 HTTP/2 200、恒定
 //   75107 字节非 JSON），App 拿到 200 但无 code 字段 → api:177 报「请求失败」。
 //   已于 2026-10-26 弃用，改走 LAN 直连。
-const DEBUG_API_HOST: string = 'http://192.168.3.1:3000';
+const DEBUG_API_HOST: string = 'http://192.168.2.1:3000';
 export const BASE_URL: string =
   DEBUG === true
     ? DEBUG_API_HOST
