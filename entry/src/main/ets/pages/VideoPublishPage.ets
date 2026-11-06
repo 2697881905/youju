@@ -1,10 +1,11 @@
 // 视频发布页 — 独立 @Entry 页面，仅处理视频发布，不耦合图文/长文发布逻辑。
 // 媒体区直接渲染 VideoPicker，无 mediaTypeSelector 切换行。
-import { listTags, aiAssistEnabled, aiPolishTitle, AiTitleResult } from '../services/api';
+import { listTags, aiAssistEnabled, aiPolishDraft, AiPolishDraftResult } from '../services/api';
 import { Genre, StructuredData, StructuredDocument, Tag, MentionRef, MentionCandidate } from '../models/types';
 import { VideoPicker } from '../components/VideoPicker';
 import { safeShowToast } from '../utils/toast';
 import { AiAssistChip } from '../components/AiAssistChip';
+import { AiPolishPreviewSheet } from '../components/AiPolishPreviewSheet';
 import { findActiveAtMention, applyAtMention } from '../utils/atMention';
 import { AtMentionSuggest } from '../components/AtMentionSuggest';
 import { Reveal } from '../design/motion/Reveal';
@@ -45,26 +46,32 @@ struct VideoPublishPage {
   @State genreIndex: number = 4; // share 位于 PUBLISH_GENRES 下标 4
   @State selectedTags: string[] = [];
   @State title: string = '';
-  // —— AI 标题优化：服务端未配置 LLM 时 aiEnabled=false → 入口隐藏 ——
+  // —— AI 联合优化（标题 + 正文轻度润色）：结果先进「新旧对照」预览，作者确认才回填 ——
   @State aiTitleBusy: boolean = false;
   @State aiEnabled: boolean = false;
+  @State aiSheetShown: boolean = false;
+  @State aiOldTitle: string = '';
+  @State aiNewTitle: string = '';
+  @State aiOldContent: string = '';
+  @State aiNewContent: string = '';
 
-  // 基于已写正文生成更具体、可核验的标题；结果回填输入框（$$ 双向绑定），作者可继续手改
-  private aiPolishTitle(): void {
+  // 一次点击同时产出优化标题与润色正文（轻度润色：只改语病，不新增事实）；确认后才覆盖
+  private aiPolish(): void {
     if (this.aiTitleBusy) {
       return;
     }
     if (this.content.trim().length === 0) {
-      safeShowToast(this.getUIContext(), { message: '先写点正文，AI 才有依据优化标题' });
+      safeShowToast(this.getUIContext(), { message: '先写点正文，AI 才有依据优化' });
       return;
     }
     this.aiTitleBusy = true;
-    aiPolishTitle(this.title, this.content, this.genre)
-      .then((result: AiTitleResult): void => {
-        if (result.title.length > 0) {
-          this.title = result.title;
-          safeShowToast(this.getUIContext(), { message: '标题已优化，可继续手改' });
-        }
+    aiPolishDraft(this.title, this.content, this.genre, MAX_VIDEO_CONTENT_LENGTH)
+      .then((result: AiPolishDraftResult): void => {
+        this.aiOldTitle = this.title;
+        this.aiNewTitle = result.title;
+        this.aiOldContent = this.content;
+        this.aiNewContent = result.content;
+        this.aiSheetShown = true;
       })
       .catch((e: Object): void => {
         const err: Error = e as Error;
@@ -73,6 +80,13 @@ struct VideoPublishPage {
       .finally((): void => {
         this.aiTitleBusy = false;
       });
+  }
+
+  private applyAiPolish(): void {
+    this.title = this.aiNewTitle;
+    this.content = this.aiNewContent;
+    this.aiSheetShown = false;
+    safeShowToast(this.getUIContext(), { message: '已应用 AI 优化，可继续手改' });
   }
   @State content: string = '';
   @State sd: StructuredData = {};
@@ -427,10 +441,10 @@ struct VideoPublishPage {
           this.sectionLabel('标题', false)
           Blank().layoutWeight(1)
           AiAssistChip({
-            label: 'AI 优化标题',
+            label: 'AI 优化',
             busy: this.aiTitleBusy,
             available: this.aiEnabled,
-            action: (): void => { this.aiPolishTitle(); },
+            action: (): void => { this.aiPolish(); },
           })
         }
         .width('100%')
@@ -568,6 +582,24 @@ struct VideoPublishPage {
       showClose: false,
       maskColor: '#33000000',
       onDisappear: (): void => { this.showTagPanel = false; },
+    })
+    // AI 优化预览：全屏内容覆盖层，应用/取消都由弹层内按钮驱动
+    .bindContentCover(this.aiSheetShown, this.aiPolishSheet(), {
+      modalTransition: ModalTransition.DEFAULT,
+      onDisappear: (): void => { this.aiSheetShown = false; },
+    })
+  }
+
+  // AI 优化新旧对照弹层：确认后回填标题与正文
+  @Builder
+  aiPolishSheet(): void {
+    AiPolishPreviewSheet({
+      oldTitle: this.aiOldTitle,
+      newTitle: this.aiNewTitle,
+      oldContent: this.aiOldContent,
+      newContent: this.aiNewContent,
+      onApply: (): void => { this.applyAiPolish(); },
+      onClose: (): void => { this.aiSheetShown = false; },
     })
   }
 

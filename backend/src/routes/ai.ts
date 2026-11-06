@@ -3,7 +3,7 @@ import { ok } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { aiLimiter } from '../middleware/rateLimit';
-import { aiEnabled, polishTitle, structureDraft } from '../services/aiService';
+import { aiEnabled, polishTitle, polishDraft, structureDraft } from '../services/aiService';
 import { ValidationError } from '../utils/errors';
 
 const router = Router();
@@ -30,6 +30,21 @@ router.get('/status', (_req, res: Response) => {
 router.post('/polish-title', auth, aiLimiter, asyncHandler(async (req: AuthRequest, res: Response) => {
   const userId: number = userIdOf(req);
   const result = await polishTitle(userId, stringField(req.body, 'title'), stringField(req.body, 'content'), stringField(req.body, 'genre'));
+  return ok(res, result);
+}));
+
+// POST /v1/ai/polish-draft：标题 + 正文联合轻度润色。{ title, content, genre, maxContent } → { title, content }
+// maxContent：前端按发布页正文上限传入（图文说明 300 / 长文 5000），后端钳制并写进 prompt。
+router.post('/polish-draft', auth, aiLimiter, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const userId: number = userIdOf(req);
+  const maxContent = Number((req.body as Record<string, unknown>)?.maxContent);
+  const result = await polishDraft(
+    userId,
+    stringField(req.body, 'title'),
+    stringField(req.body, 'content'),
+    stringField(req.body, 'genre'),
+    maxContent
+  );
   return ok(res, result);
 }));
 

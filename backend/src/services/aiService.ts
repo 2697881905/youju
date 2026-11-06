@@ -78,7 +78,7 @@ interface AiChatMessage {
   content: string;
 }
 
-async function chatJson(system: string, user: string): Promise<string> {
+async function chatJson(system: string, user: string, maxTokens: number = 800): Promise<string> {
   if (!aiEnabled()) {
     throw new AiUnavailableError();
   }
@@ -92,7 +92,7 @@ async function chatJson(system: string, user: string): Promise<string> {
     const resp: Response = await fetch(env.ai.apiBase.replace(/\/+$/, '') + '/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + env.ai.apiKey },
-      body: JSON.stringify({ model: env.ai.model, messages: messages, temperature: 0.3, max_tokens: 800 }),
+      body: JSON.stringify({ model: env.ai.model, messages: messages, temperature: 0.3, max_tokens: maxTokens }),
       signal: controller.signal,
     });
     if (!resp.ok) {
@@ -248,4 +248,51 @@ export async function structureDraft(userId: number, content: string, genre: str
     throw new AiUnavailableError('AI 整理结果未通过校验，请重试');
   }
   return { document: document };
+}
+
+// —— P2：标题 + 正文联合润色。轻度润色：保持原意与段落结构，只改语病、提流畅度、精炼表达。
+// 与 structureDraft 同一铁律：禁止新增/推测任何事实、数字、证据；输出不豁免敏感词闸。
+// maxContent 由前端按发布页限制传入（图文说明 300 / 长文 5000），后端钳制到 [200, 5000]。
+const POLISH_MIN_KEEP_RATIO = 0.3; // 底线：润色结果不得短于原文 30%（防模型偷懒只回一半）
+const POLISH_MAX_TOKENS = 2000;   // 正文可长达数千字，800 token 会截断 JSON
+
+export async function polishDraft(
+  userId: number,
+  title: string,
+  content: string,
+  genre: string,
+  maxContent: number
+): Promise<{ title: string; content: string }> {
+  consumeQuota(userId);
+  const body: string = content.trim();
+  if (body.length === 0) {
+    throw new ValidationError('先写点正文，AI 才有依据润色');
+  }
+  const requested: number = Number.isFinite(maxContent) ? Math.floor(maxContent) : 0;
+  const cap: number = Math.max(200, Math.min(requested > 0 ? requested : 5000, 5000));
+  const system: string = [
+    '你是社区「有据」的文稿编辑。任务：对作者的帖子做「轻度润色」——标题更具体、有信息量；正文只改语病、提升流畅度、精炼表达。',
+    '铁律：',
+    '1. 保持作者原意与段落结构，禁止新增、推测、夸大任何事实、数字、体验或结论；',
+    '2. 禁止生成任何出处、来源、证据——证据只能由作者本人提供；',
+    '3. 不堆砌感叹号与夸张词，不写套话；标题不超过 24 个字；',
+    '4. 润色后的正文不超过 ' + cap + ' 个字。',
+    '输出：仅一个 JSON 对象 {"title":"...","content":"..."}，不要输出任何解释或 markdown 代码块。',
+  ].join('\n');
+  const user: string = '体裁：' + (genre.length > 0 ? genre : '未指定')
+    + '\n当前标题：' + (asText(title).length > 0 ? asText(title) : '（无）')
+    + '\n正文：' + body.slice(0, 4000);
+  const raw: Record<string, unknown> = extractJson(await chatJson(system, user, POLISH_MAX_TOKENS));
+  const polishedTitle: string = clampText(raw.title, LIMIT_TITLE);
+  const polishedContent: string = clampText(raw.content, cap);
+  if (polishedTitle.length === 0 || polishedContent.length === 0) {
+    throw new AiUnavailableError();
+  }
+  if (polishedContent.length < body.length * POLISH_MIN_KEEP_RATIO) {
+    throw new AiUnavailableError('AI 润色结果过短，请重试');
+  }
+  if (sensitiveWordService.checkText(polishedTitle + '\n' + polishedContent)) {
+    throw new SensitiveWordError('AI 润色的内容未通过安全检查，请手动修改');
+  }
+  return { title: polishedTitle, content: polishedContent };
 }

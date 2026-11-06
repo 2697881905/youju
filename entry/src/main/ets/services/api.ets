@@ -1353,6 +1353,18 @@ interface AiTitleRequest {
   genre: string;
 }
 
+export interface AiPolishDraftResult {
+  title: string;
+  content: string;
+}
+
+interface AiPolishDraftRequest {
+  title: string;
+  content: string;
+  genre: string;
+  maxContent: number;
+}
+
 interface AiDraftRequest {
   content: string;
   genre: string;
@@ -1372,6 +1384,13 @@ export async function aiAssistEnabled(): Promise<boolean> {
 export function aiPolishTitle(title: string, content: string, genre: string): Promise<AiTitleResult> {
   const body: AiTitleRequest = { title: title, content: content, genre: genre };
   return api.post<AiTitleResult>('/v1/ai/polish-title', body);
+}
+
+// POST /v1/ai/polish-draft：标题 + 正文联合轻度润色。maxContent = 发布页正文上限（后端钳制）。
+// 失败抛 Error；调用方弹「新旧对照」预览，作者确认后才覆盖输入框。
+export function aiPolishDraft(title: string, content: string, genre: string, maxContent: number): Promise<AiPolishDraftResult> {
+  const body: AiPolishDraftRequest = { title: title, content: content, genre: genre, maxContent: maxContent };
+  return api.post<AiPolishDraftResult>('/v1/ai/polish-draft', body);
 }
 
 // POST /v1/ai/structure-draft：正文整理结构化，返回合法 V2/V3 文档草稿。

@@ -160,6 +160,58 @@ describe('POST /v1/ai/polish-title', () => {
   });
 });
 
+describe('POST /v1/ai/polish-draft', () => {
+  const LONG_BODY = '这三周我每天记录这台手机的亮屏时间，平均 8.4 小时，超出官方标称；缺点是 20W 充电回血慢，出门必须带充电宝，体验上有明显取舍。';
+
+  it('缺 Authorization → 401', async () => {
+    const res = await req('POST', '/v1/ai/polish-draft', { title: 't', content: '正文内容' });
+    expect(res.status).toBe(401);
+  });
+
+  it('正文为空 → 400', async () => {
+    const res = await req('POST', '/v1/ai/polish-draft', { title: 't', content: '   ' }, authHeader());
+    expect(res.status).toBe(400);
+    expect(res.json.message).toContain('先写点正文');
+  });
+
+  it('happy path → 200 + 标题与正文都返回', async () => {
+    mockChatContent('{"title":"续航实测：8.4 小时亮屏","content":"三周实测亮屏平均 8.4 小时，超出官方标称；20W 充电回血偏慢，出门需带充电宝。"}');
+    const res = await req('POST', '/v1/ai/polish-draft', { title: '随便写写', content: LONG_BODY, genre: 'review', maxContent: 5000 }, authHeader());
+    expect(res.status).toBe(200);
+    expect(res.json.data.title).toBe('续航实测：8.4 小时亮屏');
+    expect(res.json.data.content.length).toBeGreaterThan(0);
+  });
+
+  it('maxContent 上限生效：超长润色结果被钳制', async () => {
+    const longPolished = '很'.repeat(600);
+    mockChatContent(JSON.stringify({ title: '好标题', content: longPolished }));
+    const res = await req('POST', '/v1/ai/polish-draft', { title: 't', content: LONG_BODY, maxContent: 300 }, authHeader());
+    expect(res.status).toBe(200);
+    expect(res.json.data.content.length).toBeLessThanOrEqual(300);
+  });
+
+  it('润色结果过短（低于原文 30%）→ 503', async () => {
+    mockChatContent('{"title":"短","content":"太短了"}');
+    const res = await req('POST', '/v1/ai/polish-draft', { title: 't', content: LONG_BODY }, authHeader());
+    expect(res.status).toBe(503);
+    expect(res.json.message).toContain('过短');
+  });
+
+  it('上游非法 JSON → 503', async () => {
+    mockChatContent('我做不到');
+    const res = await req('POST', '/v1/ai/polish-draft', { title: 't', content: LONG_BODY }, authHeader());
+    expect(res.status).toBe(503);
+  });
+
+  it('润色内容命中敏感词 → 400', async () => {
+    mockChatContent('{"title":"好标题","content":"这句含违禁词。这句含违禁词。这句含违禁词。这句含违禁词。这句含违禁词。"}');
+    mockCheckText.mockReturnValue(true);
+    const res = await req('POST', '/v1/ai/polish-draft', { title: 't', content: LONG_BODY }, authHeader());
+    expect(res.status).toBe(400);
+    expect(res.json.message).toContain('安全检查');
+  });
+});
+
 describe('POST /v1/ai/structure-draft', () => {
   it('正文太短 → 400', async () => {
     const res = await req('POST', '/v1/ai/structure-draft', { content: '太短了', genre: 'review' }, authHeader());
