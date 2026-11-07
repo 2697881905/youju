@@ -152,6 +152,9 @@ export interface Post {
   metricKind?: string | null; // score | amount | duration | percent | count | plain
   metricLabel?: string | null; // 在比什么：推荐指数 / 到手价 / 耗时
   metricText?: string | null; // 作者原样的展示串："4.6 分" / "1,299 元"
+  // 结构化块展平后的检索文本（服务端发布时落库，块标题/值/证据说明拼接）。
+  // feed 卡摘要行的兜底数据源：无主数字但有结构化内容时取前 48 字（纯数据派生，零 AI 调用）。
+  structuredSearchText?: string | null;
   // —— 当前登录用户对帖子的互动态（后端按 viewerId 计算返回，纯增量字段）——
   myUp?: boolean; // 我是否点赞
   myBookmark?: boolean; // 我是否收藏

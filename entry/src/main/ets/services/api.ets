@@ -1339,10 +1339,6 @@ export interface AiStatusResult {
   enabled: boolean;
 }
 
-export interface AiTitleResult {
-  title: string;
-}
-
 export interface AiDraftResult {
   document: StructuredDocument;
   // LLM 推断（或回退作者标记）的体裁；审稿层据此回填发布页体裁分段栏。
@@ -1351,10 +1347,22 @@ export interface AiDraftResult {
   template: string;
 }
 
-interface AiTitleRequest {
-  title: string;
+export interface AiSuggestTagsResult {
+  tags: string[];
+}
+
+interface AiSuggestTagsRequest {
   content: string;
   genre: string;
+  excludeTags: string[];
+}
+
+export interface AiSearchRescueResult {
+  suggestions: string[];
+}
+
+interface AiSearchRescueRequest {
+  keyword: string;
 }
 
 export interface AiPolishDraftResult {
@@ -1384,10 +1392,18 @@ export async function aiAssistEnabled(): Promise<boolean> {
   }
 }
 
-// POST /v1/ai/polish-title：标题优化。失败抛 Error（message 为用户可读文案）。
-export function aiPolishTitle(title: string, content: string, genre: string): Promise<AiTitleResult> {
-  const body: AiTitleRequest = { title: title, content: content, genre: genre };
-  return api.post<AiTitleResult>('/v1/ai/polish-title', body);
+// POST /v1/ai/suggest-tags：发布页标签推荐。LLM 只从标签白名单里挑，白名单外被服务端剔除；
+// 挑不出（全部无效）抛 Error，调用方静默降级（推荐是增益不是依赖）。
+export function aiSuggestTags(content: string, genre: string, excludeTags: string[]): Promise<AiSuggestTagsResult> {
+  const body: AiSuggestTagsRequest = { content: content, genre: genre, excludeTags: excludeTags };
+  return api.post<AiSuggestTagsResult>('/v1/ai/suggest-tags', body);
+}
+
+// POST /v1/ai/search-rescue：搜索空结果救援。把查询改写成「库里搜得到」的短词；
+// 无建议时抛 Error，调用方静默降级维持现有空态。
+export function aiSearchRescue(keyword: string): Promise<AiSearchRescueResult> {
+  const body: AiSearchRescueRequest = { keyword: keyword };
+  return api.post<AiSearchRescueResult>('/v1/ai/search-rescue', body);
 }
 
 // POST /v1/ai/polish-draft：标题 + 正文联合轻度润色。maxContent = 发布页正文上限（后端钳制）。

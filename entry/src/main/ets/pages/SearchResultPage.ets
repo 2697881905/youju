@@ -7,7 +7,7 @@
 // 两行结构映射成 stackBuilder（工具栏）+ bottomBuilder（计数/分段行）。
 
 import { Post } from '../models/types';
-import { searchPosts, trackPostEvent } from '../services/api';
+import { searchPosts, trackPostEvent, aiSearchRescue, AiSearchRescueResult } from '../services/api';
 import { ManagedPostFeed } from '../components/ManagedPostFeed';
 import { openPostDetail, takeSearchKeyword } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
@@ -56,6 +56,10 @@ const SEARCH_SORTS: SegmentedItem[] = [
   { key: 'hot', label: '热门' },
 ];
 
+// AI 搜索救援缓存（spec 1e）：本页是 @Entry 路由页，每次进入都是新实例，
+// 组件级 @State 跨不了会话——「同关键词不重复请求」必须放模块级 Map（App 冷启动即清）。
+const rescueCache: Map<string, string[]> = new Map();
+
 @Entry
 @Component
 struct SearchResultPage {
@@ -75,6 +79,10 @@ struct SearchResultPage {
   @State pageNum: number = 1;
   @State sortIndex: number = 0;
   private readonly limitNum: number = 10;
+  // AI 搜索救援（spec 1e）：空结果时把查询改写成「搜得到」的词；失败静默，空态维持原样。
+  @State rescueWords: string[] = [];
+  @State rescueBusy: boolean = false;
+  private rescueAsked: string = '';
 
   aboutToAppear(): void {
     this.keyword = takeSearchKeyword();
@@ -105,7 +113,40 @@ struct SearchResultPage {
       return;
     }
     this.keyword = kw;
+    this.rescueWords = [];
     this.refresh();
+  }
+
+  // AI 搜索救援（spec 1e）：空结果时自动请求一次；同关键词走模块级缓存/去重，不烧配额。
+  // AI 不可用/未登录/无建议一律静默降级——救援是增益不是依赖，空态文案不因此变化。
+  private maybeRescue(): void {
+    const kw: string = this.keyword.trim();
+    if (kw.length === 0 || this.rescueAsked === kw || this.rescueBusy) {
+      return;
+    }
+    this.rescueAsked = kw;
+    const hit: string[] | undefined = rescueCache.get(kw);
+    if (hit !== undefined) {
+      this.rescueWords = hit;
+      return;
+    }
+    this.rescueBusy = true;
+    this.rescueWords = [];
+    aiSearchRescue(kw)
+      .then((result: AiSearchRescueResult): void => {
+        const words: string[] = result.suggestions ?? [];
+        rescueCache.set(kw, words);
+        // 竞态守卫：期间用户已换关键词则只写缓存不展示
+        if (this.keyword.trim() === kw) {
+          this.rescueWords = words;
+        }
+      })
+      .catch((): void => {
+        // 静默降级
+      })
+      .finally((): void => {
+        this.rescueBusy = false;
+      });
   }
 
   private onSortChange(index: number): void {
@@ -155,6 +196,10 @@ struct SearchResultPage {
       if (reset) {
         this.searchList = res.list;
         this.total = res.pagination.total;
+        // 空结果且无错误 → 触发 AI 搜索救援（同关键词模块级缓存不重复请求）
+        if (this.searchList.length === 0) {
+          this.maybeRescue();
+        }
       } else {
         this.searchList = this.searchList.concat(res.list);
       }
@@ -394,13 +439,42 @@ struct SearchResultPage {
         .width('100%')
         .justifyContent(FlexAlign.Center)
       } else if (this.searchList.length === 0) {
-        // 空态
-        Column() {
+        // 空态：搜索救援建议词（spec 1e）——点选即用该词重搜；AI 不可用时静默维持原空态
+        Column({ space: SpaceTokens.md }) {
           EmptyState({
             icon: resolveActionIcon('search'),
             title: '暂时没有相关内容',
             message: '换个关键词，可能会有新发现',
           })
+          if (this.rescueBusy) {
+            Text('正在帮你换个说法…')
+              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+              .fontColor(ColorTokens.tertiary)
+          } else if (this.rescueWords.length > 0) {
+            Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Center }) {
+              ForEach(this.rescueWords, (w: string) => {
+                Text('✦ ' + w)
+                  .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+                  .fontColor(ColorTokens.brand)
+                  .padding({
+                    left: SpaceTokens.md,
+                    right: SpaceTokens.md,
+                    top: SpaceTokens.xs,
+                    bottom: SpaceTokens.xs,
+                  })
+                  .border({
+                    width: LayoutTokens.hairlineWidth,
+                    color: ColorTokens.brandPress,
+                    style: BorderStyle.Solid,
+                  })
+                  .borderRadius(RadiusTokens.pill)
+                  .margin({ right: SpaceTokens.sm, bottom: SpaceTokens.sm })
+                  .onClick((): void => { this.doSearch(w); })
+              }, (w: string) => w)
+            }
+            .width('100%')
+            .padding({ left: GRID_PADDING, right: GRID_PADDING })
+          }
         }
         .layoutWeight(1)
         .width('100%')

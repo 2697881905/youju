@@ -5,6 +5,7 @@
 // 表面：材质载体是 SheetOptions.systemMaterial（见发布页 bindSheet），面板内部不再自绘
 // 暖纸底/描边/阴影——那层自绘会盖住系统材质；低版本（材质门禁不通过）回退 elevated 实色。
 import { Tag } from '../models/types';
+import { aiSuggestTags, AiSuggestTagsResult } from '../services/api';
 import { TagIcon } from './TagIcon';
 import { DesignButton } from '../design/components/DesignButton';
 import { Pressable } from '../design/motion/Pressable';
@@ -26,6 +27,13 @@ export struct PublishTagPanel {
   @Prop tagsByCategory: Record<string, Tag[]> = {};
   @Prop selectedTags: string[] = [];
   @Prop maxSelected: number = 3;
+  // AI 标签推荐（2026-11-07 spec 1d）：LLM 只从标签白名单里挑（服务端交集兜底）。
+  // 手动触发尊重配额；失败静默——推荐是增益不是依赖，面板原功能不依赖它。
+  @Prop content: string = '';
+  @Prop genre: string = '';
+  @Prop aiEnabled: boolean = false;
+  @State recommendBusy: boolean = false;
+  @State recommendTags: string[] = [];
   onToggle: (name: string) => void = (_name: string): void => {};
   onClose: () => void = (): void => {};
 
@@ -35,6 +43,103 @@ export struct PublishTagPanel {
 
   private isSelected(tag: Tag): boolean {
     return this.selectedTags.indexOf(this.tagName(tag)) >= 0;
+  }
+
+  private isNameSelected(name: string): boolean {
+    return this.selectedTags.indexOf(name) >= 0;
+  }
+
+  private requestRecommend(): void {
+    if (this.recommendBusy || this.content.trim().length < 10) {
+      return;
+    }
+    this.recommendBusy = true;
+    aiSuggestTags(this.content.trim(), this.genre, this.selectedTags)
+      .then((result: AiSuggestTagsResult): void => {
+        this.recommendTags = result.tags ?? [];
+      })
+      .catch((): void => {
+        // 静默降级：宁可没有推荐，也不打断选圈子流程
+        this.recommendTags = [];
+      })
+      .finally((): void => {
+        this.recommendBusy = false;
+      });
+  }
+
+  @Builder
+  private recommendChip(name: string): void {
+    Pressable({
+      visualHeight: LayoutTokens.segmentedHeight,
+      action: (): void => { this.onToggle(name); },
+    }) {
+      Row({ space: SpaceTokens.inline }) {
+        Text('✦')
+          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+          .fontColor(this.isNameSelected(name) ? ColorTokens.onBrand : ColorTokens.brandPress)
+        Text(name)
+          .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(this.isNameSelected(name) ? TypeTokens.headline.weight : TypeTokens.callout.weight)
+          .lineHeight(TypeTokens.callout.lineHeight)
+          .fontColor(this.isNameSelected(name) ? ColorTokens.onBrand : ColorTokens.primary)
+      }
+      .height(LayoutTokens.segmentedHeight)
+      .padding({ left: SpaceTokens.item, right: SpaceTokens.item })
+      .justifyContent(FlexAlign.Center)
+      .backgroundColor(this.isNameSelected(name) ? ColorTokens.brandSolid : ColorTokens.elevated)
+      .border({
+        width: LayoutTokens.hairlineWidth,
+        color: this.isNameSelected(name) ? ColorTokens.brandSolid : ColorTokens.brandPress,
+        style: BorderStyle.Solid,
+      })
+      .borderRadius(RadiusTokens.pill)
+      .alignItems(VerticalAlign.Center)
+      .animation({ duration: MotionTokens.fast, curve: MotionCurves.standard })
+    }
+  }
+
+  @Builder
+  private recommendSection(): void {
+    Column({ space: SpaceTokens.sm }) {
+      Row({ space: SpaceTokens.sm }) {
+        Text('✦')
+          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+          .fontColor(ColorTokens.brandPress)
+        Text('AI 推荐圈子')
+          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+          .fontColor(ColorTokens.secondary)
+        Blank()
+        Text(this.recommendBusy ? '挑选中…' : (this.recommendTags.length > 0 ? '再挑一次' : '试试让 AI 挑'))
+          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+          .fontColor(ColorTokens.brand)
+          .padding({
+            left: SpaceTokens.sm,
+            right: SpaceTokens.xs,
+            top: SpaceTokens.xs,
+            bottom: SpaceTokens.xs,
+          })
+      }
+      .width('100%')
+      .onClick((): void => { this.requestRecommend(); })
+
+      if (this.recommendTags.length > 0) {
+        Flex({ wrap: FlexWrap.Wrap }) {
+          ForEach(this.recommendTags, (name: string) => {
+            Row() {
+              this.recommendChip(name)
+            }
+            .margin({ right: SpaceTokens.sm, bottom: SpaceTokens.sm })
+          }, (name: string) => name)
+        }
+        .width('100%')
+      }
+    }
+    .width('100%')
+    .padding({
+      left: SpaceTokens.base,
+      right: SpaceTokens.base,
+      bottom: SpaceTokens.sm,
+    })
   }
 
   @Builder
@@ -108,6 +213,10 @@ export struct PublishTagPanel {
       .width('100%')
       .alignItems(VerticalAlign.Center)
       .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.base, bottom: SpaceTokens.sm })
+
+      if (this.aiEnabled && this.content.trim().length >= 10) {
+        this.recommendSection()
+      }
 
       if (this.categoryList.length === 0) {
         Column() {

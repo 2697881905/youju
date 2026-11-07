@@ -9,12 +9,53 @@ import { TypeTokens } from '../design/tokens/type';
 @Component
 export struct AiPolishPreviewSheet {
   @Prop oldTitle: string = '';
-  @Prop newTitle: string = '';
+  @Prop @Watch('syncChecks') newTitle: string = '';
   @Prop oldContent: string = '';
-  @Prop newContent: string = '';
+  @Prop @Watch('syncChecks') newContent: string = '';
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
-  onApply: () => void = (): void => {};
+  // 分项采纳（2026-11-07 spec 1c）：作者可以只要标题或只要正文，
+  // 消除「只想改标题却被迫接受正文重写」的摩擦。零 AI 调用，纯交互粒度改进。
+  @State applyTitle: boolean = true;
+  @State applyContent: boolean = true;
+  onApply: (applyTitle: boolean, applyContent: boolean) => void = (): void => {};
   onClose: () => void = (): void => {};
+
+  // 默认按新旧差异预勾选：哪部分真的变了就勾哪部分
+  private syncChecks(): void {
+    this.applyTitle = this.newTitle !== this.oldTitle;
+    this.applyContent = this.newContent !== this.oldContent;
+  }
+
+  aboutToAppear(): void {
+    this.syncChecks();
+  }
+
+  @Builder
+  checkRow(label: string, on: boolean): void {
+    Row({ space: SpaceTokens.xs }) {
+      Row() {
+        if (on) {
+          Text('✓')
+            .fontSize(TypeTokens.caption.size)
+            .fontFamily(TypeTokens.fontFamily)
+            .fontColor(ColorTokens.onBrand)
+        }
+      }
+      .width(16)
+      .height(16)
+      .borderRadius(RadiusTokens.xs)
+      .backgroundColor(on ? ColorTokens.brandSolid : Color.Transparent)
+      .border({
+        width: LayoutTokens.hairlineWidth,
+        color: on ? ColorTokens.brandSolid : ColorTokens.separator,
+        style: BorderStyle.Solid,
+      })
+      Text(label)
+        .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+        .fontColor(ColorTokens.secondary)
+    }
+    .alignItems(VerticalAlign.Center)
+  }
 
   @Builder
   compareBlock(label: string, oldText: string, newText: string): void {
@@ -96,7 +137,20 @@ export struct AiPolishPreviewSheet {
       .align(Alignment.Top)
       .width('100%')
 
-      Button('应用优化')
+      Row({ space: SpaceTokens.lg }) {
+        Row() {
+          this.checkRow('替换标题', this.applyTitle)
+        }
+        .onClick((): void => { this.applyTitle = !this.applyTitle; })
+        Row() {
+          this.checkRow('替换正文', this.applyContent)
+        }
+        .onClick((): void => { this.applyContent = !this.applyContent; })
+        Blank()
+      }
+      .width('100%')
+
+      Button('应用所选')
         .width('100%')
         .height(LayoutTokens.minTouchTarget)
         .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamily)
@@ -104,7 +158,9 @@ export struct AiPolishPreviewSheet {
         .fontColor(ColorTokens.onBrand)
         .backgroundColor(ColorTokens.brandSolid)
         .borderRadius(RadiusTokens.md)
-        .onClick((): void => { this.onApply(); })
+        .opacity(this.applyTitle || this.applyContent ? 1 : 0.4)
+        .enabled(this.applyTitle || this.applyContent)
+        .onClick((): void => { this.onApply(this.applyTitle, this.applyContent); })
     }
     .width('100%')
     .height('100%')

@@ -84,9 +84,14 @@ struct VideoPublishPage {
       });
   }
 
-  private applyAiPolish(): void {
-    this.title = this.aiNewTitle;
-    this.content = this.aiNewContent;
+  private applyAiPolish(applyTitle: boolean, applyContent: boolean): void {
+    // 分项采纳（spec 1c）：只应用作者勾选的部分，未勾选的保持原稿
+    if (applyTitle) {
+      this.title = this.aiNewTitle;
+    }
+    if (applyContent) {
+      this.content = this.aiNewContent;
+    }
     this.aiSheetShown = false;
     safeShowToast(this.getUIContext(), { message: '已应用 AI 优化，可继续手改' });
   }
@@ -481,7 +486,13 @@ struct VideoPublishPage {
         }
         .width('100%')
         .alignItems(VerticalAlign.Center)
-        TextInput({ text: $$this.title, placeholder: '一句话标题' })
+        TextInput({
+          text: $$this.title,
+          // 空标题引导（spec 1c）：正文就绪且 AI 可用时，提示润色可顺带起标题
+          placeholder: this.aiEnabled && this.title.length === 0 && this.content.trim().length > 0
+            ? '写完正文了？AI 润色可顺带起标题'
+            : '一句话标题',
+        })
           .maxLength(MAX_VIDEO_TITLE_LENGTH)
           .width('100%')
           .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
@@ -649,7 +660,7 @@ struct VideoPublishPage {
       newTitle: this.aiNewTitle,
       oldContent: this.aiOldContent,
       newContent: this.aiNewContent,
-      onApply: (): void => { this.applyAiPolish(); },
+      onApply: (applyTitle: boolean, applyContent: boolean): void => { this.applyAiPolish(applyTitle, applyContent); },
       onClose: (): void => { this.aiSheetShown = false; },
     })
   }
@@ -662,6 +673,9 @@ struct VideoPublishPage {
       tagsByCategory: this.tagsByCategory,
       selectedTags: this.selectedTags,
       maxSelected: MAX_SELECTED_TAGS,
+      content: this.content,
+      genre: this.genre,
+      aiEnabled: this.aiEnabled,
       onToggle: (name: string): void => { this.toggleTag(name); },
       onClose: (): void => { this.showTagPanel = false; },
     })

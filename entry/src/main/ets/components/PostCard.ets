@@ -95,6 +95,21 @@ export struct PostCard {
     return false;
   }
 
+  // 结构化摘要行（2026-11-07，spec：docs/superpowers/specs/2026-11-07-ai-effectiveness-plan-design.md）：
+  // 主数字 → 展平正文截 48 字 → 空串（不渲染）。纯数据派生零 AI 调用；
+  // 块 title 字段不可用（手建块是模板兜底词、AI 块恒空串），故取服务端已展平的 structuredSearchText。
+  private summaryLine(): string {
+    const metric: string = (this.post.metricText ?? '').trim();
+    if (metric.length > 0) {
+      return metric;
+    }
+    const flat: string = (this.post.structuredSearchText ?? '').trim();
+    if (flat.length === 0) {
+      return '';
+    }
+    return flat.length > 48 ? flat.slice(0, 48) : flat;
+  }
+
   private goUser(): void {
     const authorId: number | undefined = this.authorId();
     if (this.isDeletedUser()) {
@@ -297,7 +312,7 @@ export struct PostCard {
             mediaId: this.cardMediaId(),
           })
         }
-        // 信息区：标题 + 互动/作者 合并为一块（统一 elevated 底 + 细边框 + 圆角）
+        // 信息区：标题 + 摘要行 + 互动/作者 合并为一块（统一 elevated 底 + 细边框 + 圆角）
         Column({ space: this.compact ? SpaceTokens.inlineTight : SpaceTokens.sm }) {
           PostCardTitle({
             title: this.post.title ?? '',
@@ -305,6 +320,16 @@ export struct PostCard {
             mentions: this.post.mentions ?? [],
             navMode: this.navMode,
           })
+          if (this.summaryLine().length > 0) {
+            Text(this.summaryLine())
+              .fontSize(TypeTokens.caption.size)
+              .fontFamily(TypeTokens.fontFamily)
+              .lineHeight(TypeTokens.caption.lineHeight)
+              .fontColor(ColorTokens.secondary)
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .width('100%')
+          }
           this.actions()
           if (this.hasFooter()) {
             this.footerSlot()
