@@ -10,15 +10,19 @@
 - 最贵的错误不是「少做一个 AI 功能」，而是「做了一个没人用的 AI 功能还维护它」。`polish-title` 孤儿接口（后端已实现+测试、前端零调用）就是现成证据。
 - 所以此轮投入是：**给已有 AI 装上仪表盘（Phase 0）→ 榨干结构化数据红利而非新增 AI（Phase 1）→ 砍掉孤儿代码（Phase 1）→ 大方向挂起并写明重启条件（Phase 2）**。
 
+**第二轮挖掘（用户便利性视角）**：用户要求进一步发掘「看不见的角落」。按「用户旅程里的体力活还没被消灭」重新扫了一遍发布/消费/检索链路，产出三项增量，全部经代码核实：①润色预览整包覆盖的采纳粒度摩擦（解法是纯 UI 分项采纳，不需要新 AI 调用）；②标签面板纯手动无推荐，而标签是检索基建（AI 从白名单挑，过审）；③搜索空结果无兜底，内容量小阶段空结果就是常态（LLM 改写查询给建议词，过审）。三项都已并入 Phase 1，且都能被 Phase 0 统计直接度量。
+
 ## 二、目标 / 非目标 / 反目标
 
 **目标**
 1. AI 调用有按接口×按日的采用数据（管理员可查），两周后能回答「润色/拆块有没有人在用」。
 2. feed 双列卡片用结构化数据派生一行摘要，信息密度提升且不花一次 AI 配额。
 3. `polish-title` 孤儿接口整体删除（后端+前端+测试）。
+4. 润色预览支持分项采纳（仅标题/仅正文），消除「只想改标题被迫接受正文重写」的摩擦。
+5. 发布页标签推荐（AI 从白名单挑 2-3 个候选）与搜索空结果救援（改写查询给建议词）——两个轻量 AI 场景，各一次调用，输出可点选可忽略。
 
 **非目标**
-- 不新增任何 LLM 调用场景；不改配额（20 次/日/人）与限流（6 次/分/人）。
+- 不新增会话式/生成事实类 AI 场景；本轮新增的标签推荐与搜索救援都是「挑选/改写」类，单次调用；不改配额（20 次/日/人）与限流（6 次/分/人）。
 - 不做帖子追问、语义搜索、合规预检、话题聚合（Phase 2 条件触发，本文档只记录不实现）。
 - 不动详情页/对比表——`metricText` 在那里已有渲染。
 
@@ -37,6 +41,9 @@
 | 语义搜索/推荐 | 早期几百帖，关键词索引够用；上游 /embeddings 未验证 | ⏸ 条件挂起 |
 | 合规预检 | 敏感词库做八成；AI 误报伤早期创作者 | ⏸ AGC 上架后重评 |
 | 话题聚合 | 内容量不足 | ⏸ YAGNI |
+| AI 起标题（第二轮） | polishDraft 已覆盖空标题生成，缺口在「整包覆盖」的采纳粒度 | ✅ 转纯 UI：润色预览分项采纳（零 AI 调用） |
+| AI 推荐标签（第二轮） | 纯手动挑标签是真实体力活；从白名单挑=零幻觉 | ✅ Phase 1d |
+| 搜索空结果救援（第二轮） | 空结果在内容量小阶段是常态；改写查询不需 embeddings | ✅ Phase 1e |
 
 Phase 0 的统计存储二选一：内存 Map（复用配额 Map 模式，零迁移，但**每次部署清零**，跨两周度量不可靠）→ 否；**专用小表**（走既有 upgrade/downgrade SQL 手写对模式）→ 采纳。
 
@@ -49,7 +56,7 @@ Phase 0 的统计存储二选一：内存 Map（复用配额 Map 模式，零迁
 ```
 model AiCallStat {
   id        Int      @id @default(autoincrement())
-  endpoint  String   @db.VarChar(32)   // polish-draft | structure-draft（未来新 AI 接口在此追加）
+  endpoint  String   @db.VarChar(32)   // polish-draft | structure-draft | suggest-tags | search-rescue（未来新 AI 接口在此追加）
   day       String   @db.Char(10)      // UTC 日期 YYYY-MM-DD，与配额 usage Map 同口径
   userId    Int                        // 触发调用的用户；管理员调用也记录，查询侧过滤
   createdAt DateTime @default(now())
@@ -59,7 +66,7 @@ model AiCallStat {
 
 配套 `prisma/upgrade-add-ai-call-stat.sql`（CREATE TABLE + 索引）与 `downgrade-add-ai-call-stat.sql`（DROP）。表名/列名与 schema.prisma 一致（本项目 prisma 不跑 migrate，DDL 靠手写 SQL 对，generate 只出客户端类型）。
 
-**写入**（`backend/src/services/aiService.ts`）：新增 `recordAiCall(endpoint: string, userId: number): void`——insert 一行，失败静默吞掉（统计永不影响主流程）。调用点：`polishDraft` 与 `structureDraft` **成功返回前**各一行（只记成功=只记真实拿到的价值；配额拒绝/上游失败不记）。
+**写入**（`backend/src/services/aiService.ts`）：新增 `recordAiCall(endpoint: string, userId: number): void`——insert 一行，失败静默吞掉（统计永不影响主流程）。调用点：`polishDraft`、`structureDraft`、`suggestTags`（1d 新增）、`searchRescue`（1e 新增）**成功返回前**各一行（只记成功=只记真实拿到的价值；配额拒绝/上游失败不记）。
 
 **读取**（`backend/src/routes/admin.ts` 追加，天然继承文件头 `router.use(auth, adminAuth)`）：
 
@@ -88,6 +95,40 @@ model AiCallStat {
 - 前端：`services/api.ets` 删 `AiTitleResult`（1342）、`AiTitleRequest`（1354）、`aiPolishTitle`（1388-1391）。全仓无其他引用（已 grep 验证）。
 - 无数据库影响。
 
+### Phase 1c · 润色预览分项采纳（纯 UI，零 AI 调用）
+
+**现状摩擦**（已核实 `aiService.ts:289-340`）：polishDraft 返回 `{title, content}` 整包，空标题也会强制生成新标题（即 AI 起标题能力已存在）；但前端确认预览是标题+正文整包覆盖——用户只想改标题时被迫接受正文重写。
+
+**改动**：
+- `entry/src/main/ets/components/AiPolishPreviewSheet.ets`：采纳动作改为两项勾选（「替换标题」「替换正文」，默认按新旧差异预勾选：标题变了勾标题、正文变了勾正文），确认按钮应用所选项，未选项输入框保持原样。
+- 三个发布页（`TextPublishPage`/`PhotoPublishPage`/`VideoPublishPage`）：标题输入框为空且正文非空时，标题框提示文案引导「写完正文了？AI 润色可顺带起标题」（复用现有 draftHint/提示机制，不新增组件）。
+
+### Phase 1d · AI 推荐标签
+
+**现状**（已核实 `PublishTagPanel.ets:24-28`）：标签纯手动从分类树挑，无推荐机制；标签是检索基建（搜索 `tags array_contains`）。
+
+**后端**：新增 `POST /v1/ai/suggest-tags`（auth + aiLimiter），body `{ content, genre? }` → `{ tags: string[] }`：
+- `aiService.suggestTags(userId, content, genre)`：consumeQuota + recordAiCall('suggest-tags')；prompt 输入 = 正文（截 2000 字）+ **现有标签白名单**（与 tags 路由 listTags 同一数据源，含分类归属）；要求 LLM 只从白名单挑选 2-3 个。
+- 服务端兜底：返回 tags 与白名单取交集并按白名单顺序输出；交集为空视为 AiUnavailableError（宁可不给，不给编造标签）。
+- 敏感词检查不需要（输出是白名单子集）。
+
+**前端**：`PublishTagPanel` 顶部加「AI 推荐」入口（手动触发，尊重配额；不自动调用），加载态短暂、失败静默（推荐是增益不是依赖）；推荐结果渲染为可点选 chips（点击=选中，与现有标签选中态同构）；已有选中标签时请求带上，让 LLM 避免重复推荐。
+
+### Phase 1e · 搜索空结果救援
+
+**现状**（已核实 `searchService.ts`）：空结果无任何兜底，空态干巴巴。
+
+**后端**：新增 `POST /v1/ai/search-rescue`（auth + aiLimiter），body `{ keyword }` → `{ suggestions: string[] }`（2-3 个改写词）：
+- `aiService.searchRescue(userId, keyword)`：consumeQuota + recordAiCall('search-rescue')；prompt 输入 = 原查询 + 标签白名单；要求输出「库里搜得到内容的短词」（标签词或常见名词改写），禁止编造产品型号/事实。
+- 服务端钳制：每词 ≤ 20 字、≤ 3 个、过 `sensitiveWordService.checkText`，失败/空建议静默降级为无建议。
+
+**前端**（构建者审查修正落点）：`SearchPanel.ets` 是搜索探索页（最近搜索/热词/输入联想），**不执行搜索、没有空结果态**——空结果态在 `SearchResultPage.ets`（`EmptyState '暂时没有相关内容'`，约 396-407 行）。改动全部落在 `SearchResultPage`：
+
+- 触发：`fetch(reset=true)` 完成且 `searchList.length === 0 && error === ''` 时自动调用一次（用户已受挫，不加二次点击）。
+- 建议词渲染为可点选 chips（空态区内），点击 = 以该词走现成的 `doSearch(raw)` 重新搜索。
+- **同关键词不重复调用**的缓存放**模块级 Map**（key=关键词，值=建议词；App 冷启动即清）——该页是 `@Entry` 路由页，每次进入都是新实例，组件级 `@State` 跨不了会话，退化为「本页实例内不重复」没有意义。
+- 失败静默，空态维持现有文案；状态命名避开探索页的输入联想语义（如 `rescueWords`）。
+
 ### Phase 2 · 条件触发（只记录，不排期）
 
 | 方向 | 重启条件 | 届时第一步 |
@@ -99,9 +140,9 @@ model AiCallStat {
 
 ## 五、测试与验证
 
-- 后端 jest：admin ai-stats（管理员 200 / 普通用户 403 / 聚合口径正确 / 管理员自身调用被排除）；删除 polish-title 后 AI 路由测试数从 21 降至 18 左右，全量保持绿。
-- 前端：`hvigorw assembleHap` 通过；真机抽查三种卡片形态（有主数字的结构化帖 / 无主数字但展平列有内容的结构化帖 / share 海报帖——应不渲染摘要行）。
-- 度量验收：发布一篇帖子走一次润色+一次拆块 → `/v1/admin/ai-stats` 次日窗口出现对应计数（当天即可见）。
+- 后端 jest：admin ai-stats（管理员 200 / 普通用户 403 / 聚合口径正确 / 管理员自身调用被排除）；删除 polish-title 后 AI 路由测试相应减少、新增 suggest-tags（白名单交集过滤：LLM 返回白名单外的 tag 被剔除、全被剔时 503 语义 / 401 / 配额）与 search-rescue（长度钳制 / 敏感词拦截 / 空建议降级 / 401 / 配额）各 3-5 例；全量保持绿。
+- 前端：`hvigorw assembleHap` 通过；真机抽查：①三种卡片形态（有主数字 / 无主数字有展平列 / share 海报帖应无摘要行）；②润色预览分项采纳（只勾标题→正文不变）；③标签推荐 chips 点选即选中、失败静默；④搜索空结果出现建议词、点击重新搜索、同词不重复请求。
+- 度量验收：发布一篇帖子走一次润色+一次拆块+一次标签推荐 → `/v1/admin/ai-stats` 出现三个 endpoint 的计数（当天即可见）。
 
 ## 六、留给构建者的部分
 
