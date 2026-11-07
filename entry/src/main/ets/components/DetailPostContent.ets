@@ -231,7 +231,7 @@ export struct DetailPostContent {
     return this.structuredDocument !== null && this.structuredDocument.blocks.length > 0;
   }
 
-  // 字段块内容：头条指标（推荐指数/损失金额）已由结论卡承担，这里去掉避免同屏重复；
+  // 字段块内容：头条指标（损失金额）已由结论卡承担，这里去掉避免同屏重复；
   // 辩论体裁的方案文字已合并进投票卡片，也不再重复展示。
   private bodyPairs(): StructuredFieldPair[] {
     if (this.genre === 'debate') {

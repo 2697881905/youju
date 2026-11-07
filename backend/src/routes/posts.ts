@@ -195,7 +195,7 @@ router.post('/', auth, postCreateLimiter, asyncHandler(async (req: AuthRequest, 
   if (!['review', 'pitfall', 'tutorial', 'debate', 'share'].includes(genre)) {
     return fail(res, CODE.BAD_REQUEST, '体裁参数无效');
   }
-  // 结构化字段校验：键白名单 + 字段长度上限 + 推荐指数字式。
+  // 结构化字段校验：键白名单 + 字段长度上限。
   // 此前 structuredData 完全不校验，任意键/任意长度/任意类型都会落到 Json 列里。
   const structuredError = validateStructuredData(req.body?.structuredData, genre);
   if (structuredError) {

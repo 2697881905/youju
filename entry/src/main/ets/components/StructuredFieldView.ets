@@ -7,7 +7,7 @@ import { TypeTokens } from '../design/tokens/type';
 // 结构化字段的展示层：由 StructuredFieldPair.kind 决定渲染形态。
 //
 // 改造前所有字段一律渲染成「label 宽 88 + value」的同一张两列表，
-// 字段类型带来的信息（推荐指数是个分数、损失金额是笔钱、准备工具是清单、
+// 字段类型带来的信息（损失金额是笔钱、准备工具是清单、
 // 步骤拆解是有序流程）全部被抹平 —— 结构化对读者完全不可见。
 //
 // 这里只做展示，不做业务判断；字段表与 kind 都来自 utils/structuredFields 的唯一定义处。
