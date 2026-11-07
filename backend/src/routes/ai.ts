@@ -3,7 +3,7 @@ import { ok } from '../utils/response';
 import { auth, AuthRequest } from '../middleware/auth';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { aiLimiter } from '../middleware/rateLimit';
-import { aiEnabled, polishTitle, polishDraft, structureDraft } from '../services/aiService';
+import { aiEnabled, polishDraft, structureDraft, suggestTags, searchRescue } from '../services/aiService';
 import { ValidationError } from '../utils/errors';
 
 const router = Router();
@@ -26,13 +26,6 @@ router.get('/status', (_req, res: Response) => {
   ok(res, { enabled: aiEnabled() });
 });
 
-// POST /v1/ai/polish-title：标题优化。{ title, content, genre } → { title }
-router.post('/polish-title', auth, aiLimiter, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const userId: number = userIdOf(req);
-  const result = await polishTitle(userId, stringField(req.body, 'title'), stringField(req.body, 'content'), stringField(req.body, 'genre'));
-  return ok(res, result);
-}));
-
 // POST /v1/ai/polish-draft：标题 + 正文联合轻度润色。{ title, content, genre, maxContent } → { title, content }
 // maxContent：前端按发布页正文上限传入（图文说明 300 / 长文 5000），后端钳制并写进 prompt。
 router.post('/polish-draft', auth, aiLimiter, asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -54,6 +47,31 @@ router.post('/polish-draft', auth, aiLimiter, asyncHandler(async (req: AuthReque
 router.post('/structure-draft', auth, aiLimiter, asyncHandler(async (req: AuthRequest, res: Response) => {
   const userId: number = userIdOf(req);
   const result = await structureDraft(userId, stringField(req.body, 'content'), stringField(req.body, 'genre'));
+  return ok(res, result);
+}));
+
+// POST /v1/ai/suggest-tags：发布页标签推荐。{ content, genre?, excludeTags? } → { tags: string[] }
+// LLM 只从标签白名单里挑（服务端交集过滤，见 suggestTags），挑不出即 503，不编造标签。
+router.post('/suggest-tags', auth, aiLimiter, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const userId: number = userIdOf(req);
+  const excludeRaw: unknown = (req.body as Record<string, unknown>)?.excludeTags;
+  const excludeTags: string[] = Array.isArray(excludeRaw)
+    ? excludeRaw.filter((v): v is string => typeof v === 'string')
+    : [];
+  const result = await suggestTags(
+    userId,
+    stringField(req.body, 'content'),
+    stringField(req.body, 'genre'),
+    excludeTags
+  );
+  return ok(res, result);
+}));
+
+// POST /v1/ai/search-rescue：搜索空结果救援。{ keyword } → { suggestions: string[] }
+// 把查询改写成「库里搜得到」的短词；空建议/敏感词全命中时 503，前端静默降级维持原空态。
+router.post('/search-rescue', auth, aiLimiter, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const userId: number = userIdOf(req);
+  const result = await searchRescue(userId, stringField(req.body, 'keyword'));
   return ok(res, result);
 }));
 

@@ -452,3 +452,17 @@ model PostRating {
   @@unique([userId, postId])
   @@index([postId])
 }
+
+// AI 调用统计（2026-11-07）：每成功一次 LLM 调用落一行，采用率按 endpoint×day 聚合。
+// 定位是「先证明 AI 功能有效」的度量地基：只记成功=只记真实拿到的价值；
+// 管理员调用也记录，但查询侧按 env.adminUserIds 排除，避免自测污染采用率。
+// 进程重启不丢（区别于配额的内存 Map）；量级小（20 次/日/人上限），无需分区。
+model AiCallStat {
+  id        Int      @id @default(autoincrement())
+  endpoint  String   @db.VarChar(32) // polish-draft | structure-draft | suggest-tags | search-rescue
+  day       String   @db.Char(10) // UTC 日期 YYYY-MM-DD，与配额 usage Map 同口径
+  userId    Int
+  createdAt DateTime @default(now())
+
+  @@index([endpoint, day])
+}

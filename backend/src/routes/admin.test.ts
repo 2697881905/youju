@@ -42,6 +42,10 @@ jest.mock('../prisma', () => ({
       findUnique: jest.fn().mockResolvedValue({ deletedAt: null }),
       findMany: jest.fn().mockResolvedValue([]),
     },
+    // AI 调用统计（GET /ai-stats）：落库行由用例注入
+    aiCallStat: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
     // notificationPrefService（notifySystem 链路）依赖：默认无偏好记录 → 全部允许
     notificationPreference: {
       findUnique: jest.fn().mockResolvedValue(null),
@@ -389,5 +393,55 @@ describe('GET /v1/admin/reports/summary + POST /v1/admin/reports/delete', () => 
     const res = await req('POST', '/v1/admin/reports/delete', { ids }, authHeader(1));
     expect(res.status).toBe(400);
     expect(res.json.message).toContain('最多删除');
+  });
+});
+
+describe('GET /v1/admin/ai-stats', () => {
+  it('缺 Authorization → UNAUTHORIZED(401)', async () => {
+    const res = await req('GET', '/v1/admin/ai-stats');
+    expect(res.status).toBe(401);
+  });
+
+  it('非 admin 用户 → FORBIDDEN(403)', async () => {
+    const res = await req('GET', '/v1/admin/ai-stats', undefined, authHeader(999));
+    expect(res.status).toBe(403);
+  });
+
+  it('admin：空数据 → 200 + 空列表', async () => {
+    (env as any).adminUserIds = [1];
+    const res = await req('GET', '/v1/admin/ai-stats', undefined, authHeader(1));
+    expect(res.status).toBe(200);
+    expect(res.json.data.list).toEqual([]);
+    expect(res.json.data.totals).toEqual([]);
+  });
+
+  it('聚合口径：endpoint×day 计数 + 去重用户 + totals 汇总', async () => {
+    (env as any).adminUserIds = [1];
+    mockPrisma.aiCallStat.findMany.mockResolvedValue([
+      { endpoint: 'polish-draft', day: '2026-11-06', userId: 2 },
+      { endpoint: 'polish-draft', day: '2026-11-06', userId: 2 },
+      { endpoint: 'polish-draft', day: '2026-11-07', userId: 3 },
+      { endpoint: 'structure-draft', day: '2026-11-07', userId: 3 },
+    ]);
+    const res = await req('GET', '/v1/admin/ai-stats?days=14', undefined, authHeader(1));
+    expect(res.status).toBe(200);
+    const list = res.json.data.list;
+    expect(list).toHaveLength(3);
+    expect(list).toContainEqual({ endpoint: 'polish-draft', day: '2026-11-06', calls: 2, users: 1 });
+    expect(list).toContainEqual({ endpoint: 'polish-draft', day: '2026-11-07', calls: 1, users: 1 });
+    expect(list).toContainEqual({ endpoint: 'structure-draft', day: '2026-11-07', calls: 1, users: 1 });
+    const totals = res.json.data.totals;
+    expect(totals[0]).toEqual({ endpoint: 'polish-draft', calls: 3, users: 2 });
+    expect(totals[1]).toEqual({ endpoint: 'structure-draft', calls: 1, users: 1 });
+  });
+
+  it('管理员自身调用被排除在聚合查询之外（userId notIn adminUserIds）', async () => {
+    (env as any).adminUserIds = [1, 40];
+    await req('GET', '/v1/admin/ai-stats?days=7', undefined, authHeader(1));
+    expect(mockPrisma.aiCallStat.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ userId: { notIn: [1, 40] } }),
+      })
+    );
   });
 });

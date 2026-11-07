@@ -141,4 +141,46 @@ router.post('/recompute-hot', asyncHandler(async (req: AuthRequest, res: Respons
   return ok(res, { count }, '热榜已重算');
 }));
 
+// GET /v1/admin/ai-stats?days=14 —— AI 调用统计（按 endpoint×day 聚合，采用率度量）。
+// 定位：先证明 AI 功能有效再投入——看润色/拆块/标签推荐/搜索救援各有多少真实使用。
+// 只聚合非管理员调用（管理员自测不计入采用率）；days 钳制 1..90；UTC 日界与落库同口径。
+// 量级小（20 次/日/人上限），内存聚合足够，不引入 groupBy distinct 的复杂度。
+router.get('/ai-stats', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const daysRaw = Number(req.query.days);
+  const days: number = Number.isInteger(daysRaw) && daysRaw > 0 ? Math.min(daysRaw, 90) : 14;
+  const since = new Date();
+  since.setUTCDate(since.getUTCDate() - (days - 1));
+  const sinceDay: string = since.toISOString().slice(0, 10);
+  const rows = await prisma.aiCallStat.findMany({
+    where: { day: { gte: sinceDay }, userId: { notIn: env.adminUserIds } },
+    select: { endpoint: true, day: true, userId: true },
+  });
+  const byKey = new Map<string, { endpoint: string; day: string; calls: number; users: Set<number> }>();
+  const byEndpoint = new Map<string, { calls: number; users: Set<number> }>();
+  for (const r of rows) {
+    const key: string = r.endpoint + '|' + r.day;
+    let cell = byKey.get(key);
+    if (!cell) {
+      cell = { endpoint: r.endpoint, day: r.day, calls: 0, users: new Set<number>() };
+      byKey.set(key, cell);
+    }
+    cell.calls += 1;
+    cell.users.add(r.userId);
+    let tot = byEndpoint.get(r.endpoint);
+    if (!tot) {
+      tot = { calls: 0, users: new Set<number>() };
+      byEndpoint.set(r.endpoint, tot);
+    }
+    tot.calls += 1;
+    tot.users.add(r.userId);
+  }
+  const list = Array.from(byKey.values())
+    .map((c) => ({ endpoint: c.endpoint, day: c.day, calls: c.calls, users: c.users.size }))
+    .sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : a.endpoint < b.endpoint ? -1 : 1));
+  const totals = Array.from(byEndpoint.entries())
+    .map(([endpoint, t]) => ({ endpoint: endpoint, calls: t.calls, users: t.users.size }))
+    .sort((a, b) => b.calls - a.calls);
+  return ok(res, { days: days, list: list, totals: totals });
+}));
+
 export default router;

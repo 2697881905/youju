@@ -11,16 +11,18 @@ jest.mock('../services/sensitiveWordService', () => ({
 
 // auth 中间件在鉴权后会查一次 user（注销/封禁校验），必须 mock，否则真实 Prisma
 // 因无 DATABASE_URL 抛错 → 被 auth 自己的 catch 转成 500「鉴权失败」。
+// aiCallStat/tag：recordAiCall 与 suggest-tags/search-rescue 的落库、白名单查询走 mock。
 jest.mock('../prisma', () => ({
   prisma: {
     user: { findUnique: jest.fn() },
+    aiCallStat: { create: jest.fn().mockResolvedValue({}) },
+    tag: { findMany: jest.fn().mockResolvedValue([]) },
   },
 }));
 
 import express from 'express';
 import http from 'http';
 import jwt from 'jsonwebtoken';
-import { CODE } from '../utils/response';
 import { env } from '../config/env';
 import { prisma } from '../prisma';
 import aiRouter from './ai';
@@ -122,41 +124,6 @@ describe('GET /v1/ai/status', () => {
     const disabled = await req('GET', '/v1/ai/status');
     expect(disabled.json.data.enabled).toBe(false);
     env.ai.apiKey = saved;
-  });
-});
-
-describe('POST /v1/ai/polish-title', () => {
-  it('缺 Authorization → UNAUTHORIZED(401)', async () => {
-    const res = await req('POST', '/v1/ai/polish-title', { title: 't', content: '正文内容' });
-    expect(res.status).toBe(401);
-    expect(res.json.code).toBe(CODE.UNAUTHORIZED);
-  });
-
-  it('正文为空 → 400', async () => {
-    const res = await req('POST', '/v1/ai/polish-title', { title: 't', content: '   ' }, authHeader());
-    expect(res.status).toBe(400);
-    expect(res.json.message).toContain('先写点正文');
-  });
-
-  it('上游返回合法 JSON → 200 + 清洗后的标题', async () => {
-    mockChatContent('```json\n{"title":"续航实测：8.4 小时亮屏"}\n```');
-    const res = await req('POST', '/v1/ai/polish-title', { title: '随便写写', content: '这三周我每天记录亮屏时间……' }, authHeader());
-    expect(res.status).toBe(200);
-    expect(res.json.data.title).toBe('续航实测：8.4 小时亮屏');
-  });
-
-  it('上游返回非法 JSON → 503（AiUnavailableError）', async () => {
-    mockChatContent('抱歉，我无法完成这个任务');
-    const res = await req('POST', '/v1/ai/polish-title', { title: 't', content: '这三周我每天记录亮屏时间……' }, authHeader());
-    expect(res.status).toBe(503);
-  });
-
-  it('AI 标题命中敏感词 → 400 + 专属文案（AI 输出不豁免敏感词闸）', async () => {
-    mockChatContent('{"title":"违规标题"}');
-    mockCheckText.mockReturnValue(true);
-    const res = await req('POST', '/v1/ai/polish-title', { title: 't', content: '这三周我每天记录亮屏时间……' }, authHeader());
-    expect(res.status).toBe(400);
-    expect(res.json.message).toContain('安全检查');
   });
 });
 
@@ -305,6 +272,92 @@ describe('POST /v1/ai/structure-draft', () => {
   });
 });
 
+describe('POST /v1/ai/suggest-tags', () => {
+  const LONG_BODY = '这三周我每天记录这台手机的亮屏时间，平均 8.4 小时，超出官方标称，充电回血慢是明显短板。';
+
+  it('缺 Authorization → 401', async () => {
+    const res = await req('POST', '/v1/ai/suggest-tags', { content: LONG_BODY });
+    expect(res.status).toBe(401);
+  });
+
+  it('正文太短 → 400', async () => {
+    const res = await req('POST', '/v1/ai/suggest-tags', { content: '太短了' }, authHeader());
+    expect(res.status).toBe(400);
+    expect(res.json.message).toContain('先写点正文');
+  });
+
+  it('happy path：白名单外的编造标签被剔除，成功后落一条 aiCallStat', async () => {
+    mockPrisma.tag.findMany.mockResolvedValue([{ name: '数码选购' }, { name: '手机' }]);
+    mockChatContent('{"tags":["数码选购","手机","编造的新标签"]}');
+    const res = await req('POST', '/v1/ai/suggest-tags', { content: LONG_BODY, genre: 'review' }, authHeader());
+    expect(res.status).toBe(200);
+    expect(res.json.data.tags).toEqual(['数码选购', '手机']);
+    expect(mockPrisma.aiCallStat.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ endpoint: 'suggest-tags' }) })
+    );
+  });
+
+  it('excludeTags 生效：已选标签不重复推荐', async () => {
+    mockPrisma.tag.findMany.mockResolvedValue([{ name: '数码选购' }, { name: '手机' }]);
+    mockChatContent('{"tags":["数码选购","手机"]}');
+    const res = await req('POST', '/v1/ai/suggest-tags', { content: LONG_BODY, excludeTags: ['手机'] }, authHeader());
+    expect(res.status).toBe(200);
+    expect(res.json.data.tags).toEqual(['数码选购']);
+  });
+
+  it('LLM 全在白名单外 → 503（宁可不给，不编造）', async () => {
+    mockPrisma.tag.findMany.mockResolvedValue([{ name: '数码选购' }]);
+    mockChatContent('{"tags":["完全无关","胡编乱造"]}');
+    const res = await req('POST', '/v1/ai/suggest-tags', { content: LONG_BODY }, authHeader());
+    expect(res.status).toBe(503);
+    expect(res.json.message).toContain('挑出合适的标签');
+  });
+});
+
+describe('POST /v1/ai/search-rescue', () => {
+  // 独立 userId：consumeQuota 同文件内跨用例累积，避免挤占 user 1 的 20 次/日测试预算
+  const RESCUE_USER = 98;
+
+  it('缺 Authorization → 401', async () => {
+    const res = await req('POST', '/v1/ai/search-rescue', { keyword: '续航' });
+    expect(res.status).toBe(401);
+  });
+
+  it('keyword 为空 → 400', async () => {
+    const res = await req('POST', '/v1/ai/search-rescue', { keyword: '   ' }, authHeader(RESCUE_USER));
+    expect(res.status).toBe(400);
+  });
+
+  it('happy path：改写词返回，成功后落一条 aiCallStat', async () => {
+    mockChatContent('{"suggestions":["手机续航","电池实测"]}');
+    const res = await req('POST', '/v1/ai/search-rescue', { keyword: '电池不太行' }, authHeader(RESCUE_USER));
+    expect(res.status).toBe(200);
+    expect(res.json.data.suggestions).toEqual(['手机续航', '电池实测']);
+    expect(mockPrisma.aiCallStat.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ endpoint: 'search-rescue' }) })
+    );
+  });
+
+  it('超长改写词被钳制到 20 字内', async () => {
+    mockChatContent(JSON.stringify({ suggestions: ['很'.repeat(30)] }));
+    const res = await req('POST', '/v1/ai/search-rescue', { keyword: '一个查询词' }, authHeader(RESCUE_USER));
+    expect(res.status).toBe(200);
+    expect(res.json.data.suggestions[0].length).toBeLessThanOrEqual(20);
+  });
+
+  it('敏感词逐个过滤：坏词剔除、好词保留；全坏 → 503', async () => {
+    mockChatContent('{"suggestions":["好建议","坏建议一"]}');
+    mockCheckText.mockImplementation((t: string) => t.startsWith('坏建议'));
+    const keep = await req('POST', '/v1/ai/search-rescue', { keyword: '查询词' }, authHeader(RESCUE_USER));
+    expect(keep.status).toBe(200);
+    expect(keep.json.data.suggestions).toEqual(['好建议']);
+
+    mockChatContent('{"suggestions":["坏建议一","坏建议二"]}');
+    const drop = await req('POST', '/v1/ai/search-rescue', { keyword: '查询词' }, authHeader(RESCUE_USER));
+    expect(drop.status).toBe(503);
+  });
+});
+
 describe('AI 配额与管理员豁免', () => {
   // 独立 userId：consumeQuota 是模块级内存计数，与 TEST_USER_ID=1 的既有用例互不污染
   const QUOTA_USER = 99;
@@ -318,11 +371,11 @@ describe('AI 配额与管理员豁免', () => {
   it('非管理员超日配额 → 400 已用完', async () => {
     env.ai.dailyLimit = 1;
     env.adminUserIds = [];
-    mockChatContent(JSON.stringify({ title: '优化后的标题' }));
-    const body = { title: '随便写写', content: '这三周我每天记录亮屏时间，平均 8.4 小时。' };
-    const first = await req('POST', '/v1/ai/polish-title', body, authHeader(QUOTA_USER));
+    mockChatContent('{"genre":"review","blocks":[{"type":"insight","value":"续航实测 8.4 小时"}]}');
+    const body = { content: '这三周我每天记录亮屏时间，平均 8.4 小时。', genre: 'review' };
+    const first = await req('POST', '/v1/ai/structure-draft', body, authHeader(QUOTA_USER));
     expect(first.status).toBe(200);
-    const second = await req('POST', '/v1/ai/polish-title', body, authHeader(QUOTA_USER));
+    const second = await req('POST', '/v1/ai/structure-draft', body, authHeader(QUOTA_USER));
     expect(second.status).toBe(400);
     expect(second.json.message).toContain('已用完');
   });
@@ -330,10 +383,10 @@ describe('AI 配额与管理员豁免', () => {
   it('管理员（ADMIN_USER_IDS）豁免日配额：同账号连续调用不受 20 次/日限制', async () => {
     env.ai.dailyLimit = 1;
     env.adminUserIds = [QUOTA_USER];
-    const body = { title: '随便写写', content: '这三周我每天记录亮屏时间，平均 8.4 小时。' };
+    const body = { content: '这三周我每天记录亮屏时间，平均 8.4 小时。', genre: 'review' };
     for (let i = 0; i < 3; i++) {
-      mockChatContent(JSON.stringify({ title: '优化后的标题 ' + i }));
-      const res = await req('POST', '/v1/ai/polish-title', body, authHeader(QUOTA_USER));
+      mockChatContent('{"genre":"review","blocks":[{"type":"insight","value":"续航实测 ' + i + ' 小时"}]}');
+      const res = await req('POST', '/v1/ai/structure-draft', body, authHeader(QUOTA_USER));
       expect(res.status).toBe(200);
     }
   });

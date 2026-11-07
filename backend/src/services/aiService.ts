@@ -2,6 +2,8 @@ import { env } from '../config/env';
 import { AiUnavailableError, SensitiveWordError, ValidationError } from '../utils/errors';
 import { sensitiveWordService } from './sensitiveWordService';
 import { validateStructuredDocument } from '../utils/structuredDocument';
+import { prisma } from '../prisma';
+import * as tagService from './tagService';
 
 // ============================================================================
 // AI 辅助创作服务（发布页：标题优化 / 正文整理结构化）。
@@ -65,6 +67,21 @@ function consumeQuota(userId: number): void {
     throw new ValidationError('今天的 AI 次数已用完（' + env.ai.dailyLimit + ' 次），明天再来');
   }
   usage.set(userId, { day: day, count: count + 1 });
+}
+
+// —— AI 调用统计（2026-11-07）：每成功一次 LLM 调用落一行，采用率按 endpoint×day 聚合 ——
+// 定位是「先证明 AI 功能有效」的度量地基：只记成功=只记真实拿到的价值（配额拒绝/上游失败不计）。
+// 落库失败静默吞掉——统计永不影响主流程，量级小（20 次/日/人上限），偶发丢失可接受。
+// day 与配额 usage Map 同口径（UTC）。管理员调用也落库，查询侧 /v1/admin/ai-stats 按需排除。
+export function recordAiCall(endpoint: string, userId: number): void {
+  try {
+    const day: string = new Date().toISOString().slice(0, 10);
+    prisma.aiCallStat.create({ data: { endpoint: endpoint, day: day, userId: userId } }).catch((): void => {
+      // 异步失败同样静默：统计不参与任何业务判断
+    });
+  } catch {
+    // 同步异常（客户端异常等）也不影响主流程
+  }
 }
 
 function stripFence(text: string): string {
@@ -138,30 +155,6 @@ function asText(value: unknown): string {
 function clampText(value: unknown, max: number): string {
   const s: string = asText(value);
   return s.length > max ? s.slice(0, max) : s;
-}
-
-// —— P1：标题优化。更具体、有信息量、突出可核验细节；禁止标题党与编造。 ——
-export async function polishTitle(userId: number, title: string, content: string, _genre: string): Promise<{ title: string }> {
-  consumeQuota(userId);
-  const body: string = content.trim();
-  if (body.length === 0) {
-    throw new ValidationError('先写点正文，AI 才有依据优化标题');
-  }
-  const system: string = [
-    '你是社区「有据」的标题编辑。基于帖子正文优化标题：更具体、有信息量，突出一个可核验的细节或数字。',
-    '禁止标题党、禁止编造正文没有的事实、禁止堆砌感叹号与夸张词，不超过 24 个字。',
-    '输出：仅一个 JSON 对象 {"title":"..."}，不要输出任何解释或 markdown 代码块。',
-  ].join('\n');
-  const user: string = '当前标题：' + (asText(title).length > 0 ? asText(title) : '（无）') + '\n正文：' + body.slice(0, 2000);
-  const raw: Record<string, unknown> = extractJson(await chatJson(system, user));
-  let polished: string = clampText(raw.title, LIMIT_TITLE);
-  if (polished.length === 0) {
-    throw new AiUnavailableError();
-  }
-  if (sensitiveWordService.checkText(polished)) {
-    throw new SensitiveWordError('AI 优化的标题未通过安全检查，请手动修改标题');
-  }
-  return { title: polished };
 }
 
 // —— P0：正文整理结构化。产出合法 V2/V3 文档草稿，前端灌入审稿层由作者逐块确认。
@@ -269,6 +262,7 @@ export async function structureDraft(userId: number, content: string, genre: str
   if (invalid !== null) {
     throw new AiUnavailableError('AI 整理结果未通过校验，请重试');
   }
+  recordAiCall('structure-draft', userId);
   return { document: document, genre: finalGenre, template: GENRE_TEMPLATE[finalGenre] ?? '' };
 }
 
@@ -336,5 +330,93 @@ export async function polishDraft(
   if (sensitiveWordService.checkText(polishedTitle + '\n' + polishedContent)) {
     throw new SensitiveWordError('AI 润色的内容未通过安全检查，请手动修改');
   }
+  recordAiCall('polish-draft', userId);
   return { title: polishedTitle, content: polishedContent };
+}
+
+// —— 标签推荐（2026-11-07）：LLM 只从现有标签白名单里挑，服务端交集兜底 ——
+// 标签是检索基建（搜索按 tags 过滤），编造的标签搜不到东西还污染体系。
+// 所以铁律是「挑选而非创造」：白名单外的名字一律剔除，挑不出就宁可不给。
+export async function suggestTags(userId: number, content: string, genre: string, excludeTags: string[]): Promise<{ tags: string[] }> {
+  consumeQuota(userId);
+  const body: string = content.trim();
+  if (body.length < 10) {
+    throw new ValidationError('先写点正文，AI 才有依据推荐标签');
+  }
+  // 白名单与 GET /v1/tags 同源（tagService.listTags，按 useCount 降序）；截前 60 个防 prompt 膨胀
+  const allTags = await tagService.listTags();
+  const names: string[] = [];
+  for (const t of allTags) {
+    if (typeof t.name === 'string' && t.name.length > 0) {
+      names.push(t.name);
+    }
+    if (names.length >= 60) break;
+  }
+  if (names.length === 0) {
+    throw new AiUnavailableError('标签库为空，请手动选择标签');
+  }
+  const genreLine: string = GENRE_WHITELIST.indexOf(genre) >= 0 ? '（体裁：' + genre + '）' : '';
+  const system: string = [
+    '你是社区「有据」的标签助手。任务：读完帖子正文，从「可选标签」列表里挑出 2-3 个最能帮帖子被搜到的标签。',
+    '铁律：只能从可选标签里挑，禁止创造列表外的新标签；禁止输出列表里与正文无关的标签。',
+    '输出：仅一个 JSON 对象 {"tags":["标签1","标签2"]}，不要输出任何解释或 markdown 代码块。',
+  ].join('\n');
+  const user: string = '可选标签：' + names.join('、') + genreLine + '\n正文：' + body.slice(0, 2000);
+  const raw: Record<string, unknown> = extractJson(await chatJson(system, user, 300));
+  const picked: unknown[] = Array.isArray(raw.tags) ? raw.tags : [];
+  const exclude = new Set<string>(excludeTags);
+  const out: string[] = [];
+  for (const p of picked) {
+    const name: string = asText(p);
+    if (name.length === 0 || exclude.has(name) || out.indexOf(name) >= 0) continue;
+    if (names.indexOf(name) < 0) continue; // 白名单外一律剔除
+    out.push(name);
+    if (out.length >= 3) break;
+  }
+  if (out.length === 0) {
+    throw new AiUnavailableError('AI 没有从标签库里挑出合适的标签，可手动选择');
+  }
+  recordAiCall('suggest-tags', userId);
+  return { tags: out };
+}
+
+// —— 搜索空结果救援（2026-11-07）：把用户查询改写成「库里搜得到」的短词 ——
+// 定位：内容量小阶段关键词命中率低是常态，救援把「搜不到」变成「知道该搜什么」；
+// 输出是改写词不是内容生成，不引入事实；内容量上来后空结果自然变少，本功能自然闲置。
+export async function searchRescue(userId: number, keyword: string): Promise<{ suggestions: string[] }> {
+  consumeQuota(userId);
+  const q: string = asText(keyword).slice(0, 50);
+  if (q.length === 0) {
+    throw new ValidationError('搜索词为空');
+  }
+  const allTags = await tagService.listTags();
+  const names: string[] = [];
+  for (const t of allTags) {
+    if (typeof t.name === 'string' && t.name.length > 0) {
+      names.push(t.name);
+    }
+    if (names.length >= 60) break;
+  }
+  const system: string = [
+    '你是社区「有据」的搜索助手。用户刚搜过一个词但没有结果。任务：把用户的搜索词改写成 2-3 个更常见的说法或近义词，让内容更容易被搜到。',
+    '铁律：只输出改写后的搜索词本身；参考「标签库」里的既有词优先；禁止编造产品型号、品牌或任何事实；每个词不超过 12 个字。',
+    '输出：仅一个 JSON 对象 {"suggestions":["词1","词2"]}，不要输出任何解释或 markdown 代码块。',
+  ].join('\n');
+  const user: string = '标签库：' + (names.length > 0 ? names.join('、') : '（空）') + '\n用户搜索词：' + q;
+  const raw: Record<string, unknown> = extractJson(await chatJson(system, user, 300));
+  const picked: unknown[] = Array.isArray(raw.suggestions) ? raw.suggestions : [];
+  const out: string[] = [];
+  for (const p of picked) {
+    const w: string = clampText(p, 20);
+    if (w.length === 0 || w === q || out.indexOf(w) >= 0) continue;
+    out.push(w);
+    if (out.length >= 3) break;
+  }
+  // 敏感词逐个过滤而非整体失败：一个坏词不该连累其他干净建议
+  const clean: string[] = out.filter((w: string): boolean => !sensitiveWordService.checkText(w));
+  if (clean.length === 0) {
+    throw new AiUnavailableError();
+  }
+  recordAiCall('search-rescue', userId);
+  return { suggestions: clean };
 }
