@@ -96,13 +96,9 @@ export struct PostCard {
   }
 
   // 结构化摘要行（2026-11-07，spec：docs/superpowers/specs/2026-11-07-ai-effectiveness-plan-design.md）：
-  // 主数字 → 展平正文截 48 字 → 空串（不渲染）。纯数据派生零 AI 调用；
+  // 展平正文截 48 字 → 空串（不渲染）。纯数据派生零 AI 调用；
   // 块 title 字段不可用（手建块是模板兜底词、AI 块恒空串），故取服务端已展平的 structuredSearchText。
   private summaryLine(): string {
-    const metric: string = (this.post.metricText ?? '').trim();
-    if (metric.length > 0) {
-      return metric;
-    }
     const flat: string = (this.post.structuredSearchText ?? '').trim();
     if (flat.length === 0) {
       return '';

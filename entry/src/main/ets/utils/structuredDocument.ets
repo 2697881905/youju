@@ -60,8 +60,8 @@ export function structuredBlockTypeHint(type: StructuredBlockType): string {
 
 export function structuredBlockTypesForGenre(genre?: Genre): StructuredBlockType[] {
   switch (genre) {
-    // 测评的体裁副标题就是「优缺点与推荐指数」，所以 compare 必须在允许列表里：
-    // 缺了它，签名骨架的优缺点块会在切体裁时被 filterStructuredDocumentForGenre 丢掉。
+    // compare（优缺点对照块）必须在测评允许列表里：缺了它，签名骨架的优缺点块
+    // 会在切体裁时被 filterStructuredDocumentForGenre 丢掉。
     // metric（数字块）2026-11-05 退役：作者自填的裸数字无出处无口径，制造幻觉排名；
     // 存量帖里的数字块仍可读（渲染层降级为普通行），只是新建入口关闭。
     case 'review': return ['insight', 'compare', 'list'];
