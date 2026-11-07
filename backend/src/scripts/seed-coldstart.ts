@@ -97,10 +97,9 @@ async function main(): Promise<void> {
     printSection('线上核对');
     console.log(`种子帖 ${result.seedPosts} 条`);
     console.log(`评论数不一致 ${result.commentCountMismatch} 条`);
-    console.log(`测评/辩论缺主数字 ${result.metricMissing} 条`);
     console.log(`封面引用异常 ${result.coverMissing} 条`);
     console.log(`标题重复 ${result.duplicateTitles} 条`);
-    process.exit(result.commentCountMismatch + result.metricMissing + result.coverMissing + result.duplicateTitles > 0 ? 1 : 0);
+    process.exit(result.commentCountMismatch + result.coverMissing + result.duplicateTitles > 0 ? 1 : 0);
   }
 
   if (args.wipe) {

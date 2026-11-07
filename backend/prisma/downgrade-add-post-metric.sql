@@ -1,4 +1,4 @@
--- 有据：回滚 upgrade-add-post-metric.sql。
+-- 有据：回滚 upgrade-add-post-metric.sql / upgrade-drop-post-metric.sql（两者互逆，SQL 相同）。
 -- 四列是派生列（随时可由 structuredDocument 重算），删掉不丢作者内容。
 DROP INDEX `Post_genre_status_deletedAt_metricValue_idx` ON `Post`;
 
