@@ -53,6 +53,11 @@ export function aiEnabled(): boolean {
 const usage = new Map<number, { day: string; count: number }>();
 
 function consumeQuota(userId: number): void {
+  // ADMIN_USER_IDS 内的账号豁免日配额：管理员测试/运营操作不受 20 次/日限制
+  // （2026-11-07：真机联调连点发布撞 429；普通用户防刷不变）。突刺限流豁免在 rateLimit.aiLimiter。
+  if (env.adminUserIds.includes(userId)) {
+    return;
+  }
   const day: string = new Date().toISOString().slice(0, 10);
   const hit = usage.get(userId);
   const count: number = hit && hit.day === day ? hit.count : 0;

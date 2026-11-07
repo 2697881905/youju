@@ -304,3 +304,37 @@ describe('POST /v1/ai/structure-draft', () => {
     expect(res.json.message).toContain('安全检查');
   });
 });
+
+describe('AI 配额与管理员豁免', () => {
+  // 独立 userId：consumeQuota 是模块级内存计数，与 TEST_USER_ID=1 的既有用例互不污染
+  const QUOTA_USER = 99;
+  const savedDailyLimit = env.ai.dailyLimit;
+
+  afterAll(() => {
+    env.ai.dailyLimit = savedDailyLimit;
+    env.adminUserIds = [];
+  });
+
+  it('非管理员超日配额 → 400 已用完', async () => {
+    env.ai.dailyLimit = 1;
+    env.adminUserIds = [];
+    mockChatContent(JSON.stringify({ title: '优化后的标题' }));
+    const body = { title: '随便写写', content: '这三周我每天记录亮屏时间，平均 8.4 小时。' };
+    const first = await req('POST', '/v1/ai/polish-title', body, authHeader(QUOTA_USER));
+    expect(first.status).toBe(200);
+    const second = await req('POST', '/v1/ai/polish-title', body, authHeader(QUOTA_USER));
+    expect(second.status).toBe(400);
+    expect(second.json.message).toContain('已用完');
+  });
+
+  it('管理员（ADMIN_USER_IDS）豁免日配额：同账号连续调用不受 20 次/日限制', async () => {
+    env.ai.dailyLimit = 1;
+    env.adminUserIds = [QUOTA_USER];
+    const body = { title: '随便写写', content: '这三周我每天记录亮屏时间，平均 8.4 小时。' };
+    for (let i = 0; i < 3; i++) {
+      mockChatContent(JSON.stringify({ title: '优化后的标题 ' + i }));
+      const res = await req('POST', '/v1/ai/polish-title', body, authHeader(QUOTA_USER));
+      expect(res.status).toBe(200);
+    }
+  });
+});

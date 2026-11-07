@@ -1,6 +1,7 @@
 import rateLimit from 'express-rate-limit';
 import { Response } from 'express';
 import { isIPv4 } from 'net';
+import { env } from '../config/env';
 
 const handler = (_req: any, res: Response) => {
   res.status(429).json({ code: 429, data: null, message: '请求过于频繁，请稍后再试' });
@@ -171,13 +172,21 @@ export const tagDeleteLimiter = rateLimit({
 // AI 辅助创作（/v1/ai/*）：每次调用都是真实上游成本（按 token 计费）。
 // 突刺限流每用户每分钟 6 次（「改词再试」远够，脚本刷接口打不动）；
 // 日配额由 aiService.consumeQuota 另行兜底（每日 20 次，两函数合并计数）。
+// ADMIN_USER_IDS 内的账号豁免：管理员高频测试/运营不应被突刺限流挡住
+//（2026-11-07 定位：真机联调点发布→AI 拆块→返回→再点，一分钟内即撞 429）；
+// 挂载在 auth 之后，req.userId 已解析。普通用户防刷行为不变。
+function isAdminUser(req: any): boolean {
+  const userId = Number(req.userId ?? 0);
+  return userId > 0 && env.adminUserIds.includes(userId);
+}
+
 export const aiLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 6,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: userKey,
-  skip: skipTest,
+  skip: (req: any): boolean => skipTest(req) || isAdminUser(req),
   handler,
 });
 
