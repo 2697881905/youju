@@ -9,7 +9,7 @@
  * structuredData 是无 schema 的 Json 列，历史上任何键、任何长度、任何类型都能进库；
  * 脏数据一旦落库，详情渲染、检索、分享都要写兼容分支，且无法回溯清洗。
  */
-export type StructuredFieldKind = 'shortText' | 'longText' | 'steps' | 'rating' | 'amount' | 'chips';
+export type StructuredFieldKind = 'shortText' | 'longText' | 'steps' | 'amount' | 'chips';
 
 export interface StructuredFieldMeta {
   key: string;
@@ -23,7 +23,6 @@ export interface StructuredFieldMeta {
 const REVIEW_FIELDS: StructuredFieldMeta[] = [
   { key: 'pros', label: '优点', kind: 'longText', maxLength: 200, essential: true },
   { key: 'cons', label: '缺点', kind: 'longText', maxLength: 200, essential: true },
-  { key: 'rating', label: '推荐指数', kind: 'rating', maxLength: 3, essential: true },
   { key: 'targetAudience', label: '适合人群', kind: 'chips', maxLength: 40, essential: false },
 ];
 
@@ -57,9 +56,6 @@ const FIELDS_BY_GENRE: Record<string, StructuredFieldMeta[]> = {
 
 /** 内部标记（是否用文字海报当封面），不是内容字段 */
 const INTERNAL_KEYS: string[] = ['coverOnlyTextPoster'];
-
-/** 推荐指数：0-5，整数或一位小数 */
-const RATING_PATTERN = /^[0-5](\.\d)?$/;
 
 export function genreFieldMeta(genre?: string | null): StructuredFieldMeta[] {
   const key = String(genre ?? '').trim();
@@ -119,14 +115,6 @@ export function validateStructuredData(input: unknown, genre?: string | null): s
     const text = String(value).trim();
     if (text.length === 0) {
       continue;   // 空值视为未填，交由客户端收敛（collectStructuredData 会丢弃）
-    }
-    // 推荐指数先判格式：正则本身已把长度约束在 3 字内，
-    // 若先判长度会出现「4.55 → 最多 3 字」这类误导性文案。
-    if (field.kind === 'rating') {
-      if (!RATING_PATTERN.test(text)) {
-        return '推荐指数需为 0-5 的数字（可带一位小数）';
-      }
-      continue;
     }
     if (text.length > field.maxLength) {
       return `${field.label}最多 ${field.maxLength} 字`;

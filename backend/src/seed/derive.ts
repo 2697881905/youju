@@ -1,9 +1,9 @@
 // 派生字段的唯一出口。
 //
 // 作者只写人话（正文、优缺点、步骤、结论），信息块由这里按体裁装配。两条原则：
-//   1) 复用生产代码里的同一批函数（buildStructuredSearchText / buildPostMetricPatch /
-//      validateStructuredDocument），不另写一套，否则造出来的数据在详情页和搜索里的
-//      表现会和真实发布的帖子不一致，验收时看不出问题、上线后才炸。
+//   1) 复用生产代码里的同一批函数（buildStructuredSearchText / validateStructuredDocument），
+//      不另写一套，否则造出来的数据在详情页和搜索里的表现会和真实发布的帖子不一致，
+//      验收时看不出问题、上线后才炸。
 //   2) 装配带变化：同一体裁不该每条帖子都长成「数字 + 结论 + 对比」三件套，
 //      用帖子 id 取种决定用哪套骨架，观感上更像不同人写的。
 
@@ -12,7 +12,6 @@ import {
   StructuredBlockType,
   StructuredDocument,
 } from './types';
-import { buildPostMetricPatch } from '../utils/postMetric';
 import { buildStructuredSearchText } from '../utils/structuredSearchText';
 import { themeForCircle } from './catalog';
 import { rngFor } from './rng';
@@ -22,12 +21,6 @@ export interface DerivedContent {
   structuredData: Record<string, unknown>;
   structuredDocument: StructuredDocument | null;
   structuredSearchText: string | null;
-  metric: {
-    metricValue: number | null;
-    metricKind: string | null;
-    metricLabel: string | null;
-    metricText: string | null;
-  };
 }
 
 function splitItems(text: string | undefined, limit: number): string[] {
@@ -83,14 +76,6 @@ function toBlock(spec: SeedBlockSpec, id: string): StructuredBlock {
 
 function reviewBlocks(post: SeedPostRecord, structured: SeedStructuredFields, seed: string): StructuredBlock[] {
   const blocks: StructuredBlock[] = [];
-  const rating = typeof structured.rating === 'number' ? structured.rating : Number(structured.rating ?? 0);
-  const metric = emptyBlock('metric', `${seed}-b0`, '推荐指数');
-  metric.value = String(rating);
-  metric.unit = '分';
-  metric.kind = 'score';
-  metric.numberValue = rating;
-  blocks.push(metric);
-
   const insight = emptyBlock('insight', `${seed}-b1`, '一句话结论');
   insight.value = post.insight ?? '';
   blocks.push(insight);
@@ -213,6 +198,5 @@ export function deriveContent(post: SeedPostRecord, circleName: string): Derived
     structuredData,
     structuredDocument: document,
     structuredSearchText: buildStructuredSearchText(document, structuredData),
-    metric: buildPostMetricPatch(document),
   };
 }

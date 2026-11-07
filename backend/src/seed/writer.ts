@@ -94,10 +94,6 @@ function postCreateData(item: PlannedPost, userId: number): Prisma.PostUnchecked
       ? Prisma.DbNull
       : (item.derived.structuredDocument as unknown as Prisma.InputJsonValue),
     structuredSearchText: item.derived.structuredSearchText,
-    metricValue: item.derived.metric.metricValue,
-    metricKind: item.derived.metric.metricKind,
-    metricLabel: item.derived.metric.metricLabel,
-    metricText: item.derived.metric.metricText,
     mentions: Prisma.DbNull,
     upCount: item.ups,
     bookmarkCount: item.bookmarks,
@@ -145,10 +141,6 @@ async function writeOne(
           ? Prisma.DbNull
           : (item.derived.structuredDocument as unknown as Prisma.InputJsonValue),
         structuredSearchText: item.derived.structuredSearchText,
-        metricValue: item.derived.metric.metricValue,
-        metricKind: item.derived.metric.metricKind,
-        metricLabel: item.derived.metric.metricLabel,
-        metricText: item.derived.metric.metricText,
         updatedAt: new Date(),
       },
     });
@@ -301,7 +293,6 @@ export async function wipeSeedData(apply: boolean, log: Logger): Promise<WipeSum
 export interface VerifyResult {
   seedPosts: number;
   commentCountMismatch: number;
-  metricMissing: number;
   coverMissing: number;
   duplicateTitles: number;
 }
@@ -313,11 +304,11 @@ export async function verifySeedData(): Promise<VerifyResult> {
   });
   const userIds = users.map((user) => user.id);
   if (userIds.length === 0) {
-    return { seedPosts: 0, commentCountMismatch: 0, metricMissing: 0, coverMissing: 0, duplicateTitles: 0 };
+    return { seedPosts: 0, commentCountMismatch: 0, coverMissing: 0, duplicateTitles: 0 };
   }
   const posts = await prisma.post.findMany({
     where: { userId: { in: userIds } },
-    select: { id: true, title: true, genre: true, commentCount: true, coverImage: true, metricValue: true },
+    select: { id: true, title: true, genre: true, commentCount: true, coverImage: true },
   });
   const actualComments = await prisma.comment.groupBy({
     by: ['postId'],
@@ -334,7 +325,6 @@ export async function verifySeedData(): Promise<VerifyResult> {
   return {
     seedPosts: posts.length,
     commentCountMismatch: posts.filter((post) => (commentMap.get(post.id) ?? 0) !== post.commentCount).length,
-    metricMissing: posts.filter((post) => (post.genre === 'review' || post.genre === 'debate') && post.metricValue === null).length,
     coverMissing: posts.filter((post) => post.coverImage !== null && !post.coverImage.startsWith('cos://posts/seed/')).length,
     duplicateTitles,
   };

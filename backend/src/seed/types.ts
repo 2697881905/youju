@@ -58,7 +58,6 @@ export interface SeedAuthorsFile {
 export interface SeedStructuredFields {
   pros?: string;
   cons?: string;
-  rating?: number;
   targetAudience?: string;
   pitfallExperience?: string;
   lossAmount?: string;

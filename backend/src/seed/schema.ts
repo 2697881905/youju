@@ -30,7 +30,7 @@ const TIERS: SeedTier[] = ['hero', 'solid', 'normal', 'tail'];
 // 与 entry/src/main/ets/utils/structuredDocument.ets 的 structuredBlockTypesForGenre 一致。
 // 不同步就会出现「发布页能选、详情页被过滤掉」的空块。
 export const BLOCK_TYPES_BY_GENRE: Record<Genre, StructuredBlockType[]> = {
-  review: ['metric', 'insight', 'compare', 'list'],
+  review: ['insight', 'compare', 'list'],
   pitfall: ['insight', 'steps', 'list'],
   tutorial: ['steps', 'list', 'insight'],
   debate: ['compare', 'insight', 'metric'],
@@ -47,7 +47,6 @@ const TIER_AGE_RANGE: Record<SeedTier, [number, number]> = {
 const POSTER_STYLES = ['paper', 'film', 'kraft', 'sticky'];
 const THEMES = ['editorial', 'warm', 'cool'];
 const ID_PATTERN = /^[a-z]{3,12}-\d{4}$/;
-const RATING_PATTERN = /^[0-5](\.\d)?$/;
 
 function textLength(text: string): number {
   return Array.from(text).length;
@@ -246,17 +245,11 @@ export function validatePost(
     if (error) {
       issues.push({ ...where, field: 'structured', message: error, severity: 'error' });
     }
-    if (structured.rating !== undefined && !RATING_PATTERN.test(String(structured.rating))) {
-      issues.push({ ...where, field: 'structured.rating', message: '推荐指数需 0~5 且最多一位小数', severity: 'error' });
-    }
     if (post.genre === 'review') {
       for (const key of ['pros', 'cons'] as const) {
         if (!structured[key] || String(structured[key]).trim().length === 0) {
           issues.push({ ...where, field: `structured.${key}`, message: '测评必须写优点与缺点', severity: 'error' });
         }
-      }
-      if (structured.rating === undefined) {
-        issues.push({ ...where, field: 'structured.rating', message: '测评必须给推荐指数', severity: 'error' });
       }
     }
     if (post.genre === 'pitfall') {

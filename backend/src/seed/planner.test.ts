@@ -13,7 +13,7 @@ const REVIEW: SeedPostRecord = {
   tier: 'solid',
   ageHours: 40,
   insight: '薄和防摔只能挑一个。',
-  structured: { pros: '薄', cons: '贵', rating: 4.2, targetAudience: '不喜欢厚重手感的人' },
+  structured: { pros: '薄', cons: '贵', targetAudience: '不喜欢厚重手感的人' },
   comments: [
     { author: 'laozhang', text: '补充一句，原厂壳的按键是独立的。', offsetMinutes: 30 },
     { author: 'laozhang', text: '再补一句，边角确实容易磨白。', offsetMinutes: 60, replyToIndex: 0 },
@@ -63,12 +63,12 @@ describe('planContent', () => {
     }
   });
 
-  it('测评有主数字，分享没有结构化文档', () => {
+  it('测评有结论块，分享没有结构化文档', () => {
     const [review, share] = planContent(CONTENT, NOW);
-    expect(review.derived.metric.metricValue).toBeCloseTo(4.2);
-    expect(review.derived.metric.metricKind).toBe('score');
+    const reviewTypes = (review.derived.structuredDocument?.blocks ?? []).map((block) => block.type);
+    expect(reviewTypes).toContain('insight');
+    expect(reviewTypes).not.toContain('metric');
     expect(share.derived.structuredDocument).toBeNull();
-    expect(share.derived.metric.metricValue).toBeNull();
   });
 
   it('封面 key 形如 cos://posts/seed/<id>.jpg', () => {

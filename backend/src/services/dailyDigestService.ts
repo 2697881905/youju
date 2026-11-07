@@ -8,7 +8,6 @@ interface DailyPick {
   title?: string | null;
   content?: string | null;
   userId?: number;
-  metricValue?: number | null;
 }
 
 // 每日一帖推送（运营侧的日活引擎）
@@ -108,8 +107,7 @@ async function resolveAudience(): Promise<number[]> {
 //   1) 候选取当日轮换的前 20 条（listDailyPosts 按上海日期稳定排序）
 //   2) 剔除 seed_coldstart 种子账号的帖子（库里 94% 内容是脚本造的示例，
 //      标题是「修了十二年车」这类第一人称亲历 —— 推给用户等于把假经验当推荐发出去）
-//   3) 剩下的里面优先带「主数字」的结构化帖（metricValue 非空），那才是本产品的差异化
-//   4) 一条都没有 → 返回原因，当天跳过（等内容归队/编辑部产出后自然就有）
+//   3) 一条都没有 → 返回原因，当天跳过（等内容归队/编辑部产出后自然就有）
 async function pickDigestPost(): Promise<{ post: DailyPick | null; reason: string }> {
   const rows = await listDailyPosts({ limit: 20 });
   const list = firstDailyList(rows);
@@ -132,9 +130,8 @@ async function pickDigestPost(): Promise<{ post: DailyPick | null; reason: strin
   if (real.length === 0) {
     return { post: null, reason: `候选 ${list.length} 条全部是种子或示例内容，已跳过（先补编辑部真实产出）` };
   }
-  const structured = real.filter((p: DailyPick): boolean => typeof p.metricValue === 'number' && p.metricValue !== null);
-  const post = structured.length > 0 ? structured[0] : real[0];
-  return { post, reason: structured.length > 0 ? '结构化内容优先' : '无主数字内容，取首条真实内容' };
+  const post = real[0];
+  return { post, reason: '取首条真实内容' };
 }
 
 export async function runDailyDigest(opts: DigestOptions = {}): Promise<DigestResult> {

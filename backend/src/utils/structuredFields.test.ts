@@ -10,7 +10,7 @@ import { validateStructuredData, genreFieldMeta, allowedStructuredKeys } from '.
 describe('validateStructuredData', () => {
   test('合法的各体裁字段通过', () => {
     expect(validateStructuredData(
-      { pros: '续航强', cons: '偏重', rating: '4.5', targetAudience: '学生党' }, 'review',
+      { pros: '续航强', cons: '偏重', targetAudience: '学生党' }, 'review',
     )).toBeNull();
     expect(validateStructuredData(
       { pitfallExperience: '贪便宜', lossAmount: '3200 元', correctApproach: '先查评测' }, 'pitfall',
@@ -66,22 +66,6 @@ describe('validateStructuredData', () => {
     expect(validateStructuredData({ lossAmount: 'x'.repeat(21) }, 'pitfall')).toBe('损失金额最多 20 字');
   });
 
-  test('推荐指数格式：0-5，整数或一位小数', () => {
-    expect(validateStructuredData({ rating: '4.5' }, 'review')).toBeNull();
-    expect(validateStructuredData({ rating: '0.5' }, 'review')).toBeNull();
-    expect(validateStructuredData({ rating: '5' }, 'review')).toBeNull();
-    expect(validateStructuredData({ rating: 4 }, 'review')).toBeNull();
-    // 格式错误优先于长度错误，避免出现「4.55 → 最多 3 字」这种误导文案
-    expect(validateStructuredData({ rating: '4.55' }, 'review'))
-      .toBe('推荐指数需为 0-5 的数字（可带一位小数）');
-    expect(validateStructuredData({ rating: '6' }, 'review'))
-      .toBe('推荐指数需为 0-5 的数字（可带一位小数）');
-    expect(validateStructuredData({ rating: '-1' }, 'review'))
-      .toBe('推荐指数需为 0-5 的数字（可带一位小数）');
-    expect(validateStructuredData({ rating: '很好' }, 'review'))
-      .toBe('推荐指数需为 0-5 的数字（可带一位小数）');
-  });
-
   test('内部标记 coverOnlyTextPoster 只接受布尔', () => {
     expect(validateStructuredData({ coverOnlyTextPoster: true }, 'review')).toBeNull();
     expect(validateStructuredData({ coverOnlyTextPoster: false }, 'review')).toBeNull();
@@ -96,7 +80,7 @@ describe('validateStructuredData', () => {
 
 describe('字段表', () => {
   test('各体裁键集合与前端镜像一致', () => {
-    expect(allowedStructuredKeys('review')).toEqual(['pros', 'cons', 'rating', 'targetAudience']);
+    expect(allowedStructuredKeys('review')).toEqual(['pros', 'cons', 'targetAudience']);
     expect(allowedStructuredKeys('pitfall')).toEqual(['pitfallExperience', 'lossAmount', 'correctApproach']);
     expect(allowedStructuredKeys('tutorial')).toEqual(['tools', 'steps', 'timeDifficulty']);
     expect(allowedStructuredKeys('debate')).toEqual(['planA', 'planB']);

@@ -30,7 +30,6 @@ function basePost(): SeedPostRecord {
     structured: {
       pros: '薄，按键手感接近裸机，边角不割手。',
       cons: '价格贵，掉地上基本不缓冲。',
-      rating: 4.2,
       targetAudience: '不喜欢厚重手感的人',
     },
     comments: [
@@ -73,12 +72,6 @@ describe('validatePost', () => {
     post.structured = { pitfallExperience: '被加价两千', correctApproach: '先签闭口合同' };
     post.blocks = [{ type: 'metric', title: '损失', value: '2000', unit: '元' }];
     expect(run(post).some((issue) => issue.message.includes('不支持 metric'))).toBe(true);
-  });
-
-  it('推荐指数越界会报错', () => {
-    const post = basePost();
-    post.structured = { ...post.structured, rating: 6 };
-    expect(run(post).some((issue) => issue.field === 'structured.rating')).toBe(true);
   });
 
   it('评论时间偏移超过帖子年龄会报错', () => {
