@@ -104,7 +104,10 @@ export struct MessagePage {
   @State error: string = '';
   @State page: number = 1;
   @State hasMore: boolean = true;
-  @State refreshing: boolean = false;
+  // 通知/私信两个 Refresh 各自持有刷新态：Swiper 会同时挂载两页，共用一个 $$ 变量时
+  // 一页的手势态会写进另一页的状态机（下拉互相触发、指示器被对方带亮）。
+  @State notifRefreshing: boolean = false;
+  @State dmRefreshing: boolean = false;
   // 与 Index 共享的红点计数（@StorageLink 双向，写回即同步红点）
   @StorageLink('unreadMessageCount') unreadCount: number = 0;
   // 按类型未读分布（服务端 unread-count 的 byType）：三类快捷筛选红点的数据源
@@ -158,8 +161,6 @@ export struct MessagePage {
   @State msgBarScrolled: boolean = false;
   // 状态栏高度（Index 启动时写入 AppStorage）：穿底内缩 = 状态栏 + 56vp 标题行
   @StorageProp('statusBarHeight') statusBarHeight: number = 0;
-  // 刷新指示器显隐：Refresh 的 builder 内容永远参与绘制，必须属性级门控（同 ProfilePage.refreshBuilder）
-  @State refreshIndicatorVisible: boolean = false;
 
   // 滚动驱动顶栏切白：读当前列表 Scroller 的绝对偏移，过模糊终点翻转（一次 animateTo）。
   // currentOffset() 加空值防御：类型声明非可选但滚动容器未创建/绑定时运行时返回 undefined
@@ -330,7 +331,8 @@ export struct MessagePage {
     this.hasMore = true;
     this.loading = false;
     this.dmLoading = false;
-    this.refreshing = false;
+    this.notifRefreshing = false;
+    this.dmRefreshing = false;
     this.activeFilter = 'up_bookmark';
     this.unreadCount = 0;
     this.dmUnread = 0;
@@ -1196,7 +1198,7 @@ export struct MessagePage {
       .width('100%')
       .justifyContent(FlexAlign.Center)
     } else {
-      Refresh({ refreshing: $$this.refreshing, builder: this.msgRefreshBuilder, offset: 80, friction: 48 }) {
+      Refresh({ refreshing: $$this.dmRefreshing, builder: this.msgRefreshBuilder, offset: 80, friction: 48 }) {
         // 私信会话列表：Scroll 单列（懒加载 List 实测把滚动终点钳制在底部非安全区之上、
         // 露出窗口底色横带截断末行，Scroll 滚动范围天然到物理屏底）。
         // scroller 显式挂载：bindToScrollable 驱动标题栏渐变模糊；Refresh/Scroll 均需关裁切（穿底链路）
@@ -1244,12 +1246,8 @@ export struct MessagePage {
       }
       .onRefreshing(() => {
         this.loadConversations().finally(() => {
-          this.refreshing = false;
+          this.dmRefreshing = false;
         });
-      })
-      .onStateChange((state: RefreshStatus) => {
-        this.refreshIndicatorVisible = state === RefreshStatus.Drag
-          || state === RefreshStatus.OverDrag || state === RefreshStatus.Refresh;
       })
       .clip(false)
       .layoutWeight(1)
@@ -1415,6 +1413,8 @@ export struct MessagePage {
   // 刷新指示器（穿底架构）：builder 内容永远参与绘制，显隐必须属性级驱动（opacity，
   // 禁止 if 条件化——指示区高度参与布局，抽空会塌陷，真机实证同 HomeTab/ProfilePage）。
   // 槽位在窗口顶部、整条藏在标题栏底下——offset 只挪绘制，把图形画到栏底之下。
+  // 只在真正进入刷新时点亮：不再用 onStateChange 的 Drag/OverDrag 驱动——滚动回弹/
+  // Swiper 另一页的 Refresh 手势都可能上报 Drag，把「刷新中…」在普通滚动时带亮（用户反馈）。
   @Builder
   msgRefreshBuilder(): void {
     Row({ space: SpaceTokens.inline }) {
@@ -1426,8 +1426,8 @@ export struct MessagePage {
         .letterSpacing(TypeTokens.caption.tracking)
         .fontColor(ColorTokens.secondary)
     }
-    .opacity((this.refreshing || this.refreshIndicatorVisible) ? 1 : 0)
-    .hitTestBehavior((this.refreshing || this.refreshIndicatorVisible) ? HitTestMode.Default : HitTestMode.None)
+    .opacity((this.notifRefreshing || this.dmRefreshing) ? 1 : 0)
+    .hitTestBehavior((this.notifRefreshing || this.dmRefreshing) ? HitTestMode.Default : HitTestMode.None)
     .offset({ y: this.messageListInset() + SpaceTokens.sm })
     // ↑ messageListInset 已含分段行高：指示器落在分段栏之下的内容区顶部（栏已回标题栏）
   }
@@ -1617,7 +1617,7 @@ export struct MessagePage {
               .width('100%')
               .layoutWeight(1)
             } else {
-              Refresh({ refreshing: $$this.refreshing, builder: this.msgRefreshBuilder, offset: 80, friction: 48 }) {
+              Refresh({ refreshing: $$this.notifRefreshing, builder: this.msgRefreshBuilder, offset: 80, friction: 48 }) {
               // 通知列表：Scroll 单列（懒加载 List 会把滚动终点钳制在底部非安全区之上，
               // 露出窗口底色横带截断末行；Scroll 滚动范围天然到物理屏底）。
               // scroller 显式挂载：bindToScrollable 驱动标题栏渐变模糊；Refresh/Scroll 均需关裁切
@@ -1674,13 +1674,8 @@ export struct MessagePage {
               }
               .onRefreshing(() => {
                 this.loadFirst().finally(() => {
-                  this.refreshing = false;
+                  this.notifRefreshing = false;
                 });
-              })
-              .onStateChange((state: RefreshStatus) => {
-                // 拉拽/刷新全程显示指示器；空闲与完成回弹隐藏（builder 常驻绘制的门控）
-                this.refreshIndicatorVisible = state === RefreshStatus.Drag
-                  || state === RefreshStatus.OverDrag || state === RefreshStatus.Refresh;
               })
               .clip(false)
               .layoutWeight(1)
