@@ -220,14 +220,29 @@ SQL
 
 这段等价于 `scripts/seed-rehome.sql` 第 0/2 步 + `scripts/growth-day0-2026-11-15.sql` 的全部写操作；`scripts/` 两份文件仍留作审计与回滚依据。`示例内容 · 编辑部整理` 这个标记串被 `dailyDigestService.ts` 的 `EXEMPLAR_MARKER` 依赖，**一个字都不能改**。
 
-预期读数：`up_before=15081 / bookmark_before=4648` → `up_after=36 / bookmark_after=15`。数字不对就停，别往下走。`mysql` **故意没带 `-f`**：遇错即停；别为了「跑通」加回去。`CountBackup20261115` 建表不带 `IF NOT EXISTS`，重复执行会直接报错停下，这是防覆盖保护，**别删表重跑**。
+`mysql` **故意没带 `-f`**：遇错即停；别为了「跑通」加回去。`CountBackup20261115` 建表不带 `IF NOT EXISTS`，重复执行会直接报错停下，这是防覆盖保护，**别删表重跑**。
+
+### 3.6 执行结果（2026-11-15 01:16，已成功）
+
+| 指标 | 10-28 快照预期 | 实测 | 判读 |
+| --- | ---: | ---: | --- |
+| `posts`（`deletedAt IS NULL`） | 350 | **360** | 10-28 后新增 10 篇真实帖 |
+| `up_before` | 15081 | **15129** | +48 = 新增真实顶 |
+| `up_after` | 36 | **84** | `Up` 表真实行数 36 → 84，同样是 +48 |
+| `bookmark_before` | 4648 | **4670** | +22 = 新增真实收藏 |
+| `bookmark_after` | 15 | **37** | `Bookmark` 表 15 → 37，同样是 +22 |
+| `backed_up_rows` | — | **367** | 比 360 多 7，是软删帖；备份表 `SELECT` 不带 `deletedAt` 过滤，正常 |
+
+**交叉验证**：假计数部分 `15129-84=15045` 顶、`4670-37=4633` 收藏，与 10-28 快照的 `15081-36` / `4648-15` **完全一致**。说明回填只覆盖了灌水部分，新增的真实互动一条没丢。事务已 `COMMIT`，两张备份表已建，**无需回滚**。
+
+**尚未执行**：hotScore 重算（见下）。对账只改了计数列，热度分还是旧值，首屏排序此刻仍未改变。
 
 **计数回填 SQL 已落成脚本**：`scripts/growth-day0-2026-11-15.sql`，字段名已核 `backend/prisma/schema.prisma`。它先建 `CountBackup20261115`，再打印前后读数、回填、再打印验证读数；重复执行会因备份表已存在而报错，这是防覆盖保护，**别删表重跑**。
 
 **重算 hotScore（二选一，别都做）**：
 
 - 带管理员 token 调 `POST https://api.youju.chat/v1/admin/recompute-hot`（`backend/src/routes/admin.ts:139`）。
-- 或重启 backend 容器：`backend/src/index.ts:52` 启动时就会全量 `recomputeAllHotScores()`，用你现有的部署命令，不需要 token。
+- 或（**最省事，推荐**）在服务器执行 `docker restart youju-backend`：`backend/src/index.ts:52` 启动时无条件全量 `recomputeAllHotScores()`，不需要管理员 token。重启后 `docker logs youju-backend --tail 30 | grep hotScore` 应看到「初始化热度分完成」。
 
 重算后所有帖子 hotScore 回落到接近 0，排序退到 `createdAt desc`。
 
