@@ -131,12 +131,12 @@ async function main() {
 
   if (accessToken === '') {
     console.error('[agc] 取 token 全部失败，最后一条：', lastErr);
-    console.error(cred === null
-      ? '[agc] 未找到服务账号文件；请走 API 客户端路径（AGC_CLIENT_ID / AGC_CLIENT_SECRET）。'
-      : '[agc] 服务账号能取 token 但没有报表角色；别改签名代码，去 AGC 加角色或改走路径 A。');
-    console.error('[agc] 一次性配置：AGC「用户与访问 → API密钥 → Connect API → API 客户端」创建凭据，');
-    console.error('      角色勾「查看分析数据」，然后：');
-    console.error('      AGC_CLIENT_ID=xxx AGC_CLIENT_SECRET=yyy node scripts/agc-active-devices.mjs');
+    console.error('[agc] 11-15 实测：新版 HarmonyOS 开发者中心「开发者管理 → ID、证书和Profile → 凭证」');
+    console.error('      只有「服务账号凭证 / API Key 凭证 / 应用级 OAuth 客户端」，没有旧版 AGC');
+    console.error('      「用户与访问 → API密钥 → Connect API → API 客户端」入口，别再找 AGC_CLIENT_ID/SECRET 了。');
+    console.error('      可行路径：① 给项目级服务账号补「运营 / 查看分析数据」角色，用 AGC_CRED_PATH 指向其 JSON；');
+    console.error('      ② 直接在控制台看「激励计划 → 有效活跃及评分明细数据」或 AGC 分析看板。');
+    console.error('      注：AGC 登录账号密码、OAuth 2.0 Client ID/Secret 都不是 Connect API 凭据。');
     process.exit(2);
   }
   clientIdForHeader = clientIdForHeader || (cred === null ? cid : String(cred.project_id));
