@@ -270,7 +270,7 @@ ssh -o ConnectTimeout=20 ubuntu@114.132.102.189 'docker exec -i youju-mysql sh -
 
 AGC 侧（你本人控制台操作）：
 
-1. **商店页文案已整份写好**：`entry/Docs/AGC_STORE_COPY.md` 按新口径重写完毕（副标题 / 简介 / 标签 / 关键词 / 审核红线自查），可直接复制。副标题 `消费避坑 · 真实测评 · 经验社区` 与关键词不含功能承诺，**现在就能改**；完整简介提到四种结构化体裁，**随下一版提审一起提交**，与包体对齐。
+1. **商店页文案已整份写好**：`entry/Docs/AGC_STORE_COPY.md` 按新口径重写完毕（副标题 `消费避坑 · 真实测评 · 经验社区` / 简介 / 标签 / 关键词 / 审核红线自查）。**11-15 AGC 控制台实证：应用信息页不可编辑，所有改动必须随新版本提审才生效**——原方案「副标题/关键词可先行单独改」的判断作废。
 2. 隐私标签取消「联系人信息」「位置信息」声明（真值见弹药包 §K7）。
 3. 确认「鸿蒙应用开发者激励计划 2026」报名状态与商户服务审核（12-25 / 12-31 双截止）。
 4. 在「用户与访问 → API 密钥 → Connect API → API 客户端」建一对 ID/Secret，角色勾「查看分析数据」。`scripts/agc-active-devices.mjs` 已修好：不再强制要求 `backend/agc-service-account.json`，有 `AGC_CLIENT_ID` / `AGC_CLIENT_SECRET` 就能跑（已实测网络可达，假 ID 返回 `invalid client id`）。拿到官方活跃设备真值才能判达标。
