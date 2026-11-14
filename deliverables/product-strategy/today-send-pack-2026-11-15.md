@@ -176,22 +176,51 @@
 ./scripts/src-report.sh 168h
 ```
 
-**备份命令**（生产库，需你确认后跑）：
+**备份命令**（同样在目标服务器终端执行，**不要 ssh 到自己**——那会多一次密码交互且毫无必要）：
 
 ```bash
-ssh -o ConnectTimeout=20 ubuntu@114.132.102.189 'docker exec -i youju-mysql sh -c "mysqldump -uroot -p\"\$MYSQL_ROOT_PASSWORD\" youju Post Up Bookmark"' > ~/youju-backup-20261115.sql
+docker exec -i youju-mysql sh -c 'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" youju Post Up Bookmark' > ~/youju-backup-20261115.sql
 ```
 
-先确认落盘文件非空再往下。若容器内没有 `mysqldump`，改用 seed-rehome.sql 自带的 `RelabelBackup202610` 备份表覆盖归队部分，并单独导出 `Up` / `Bookmark` 两张行为表——**别跳过备份**。
+先 `ls -lh ~/youju-backup-20261115.sql` 确认落盘文件非空再往下。若容器内没有 `mysqldump`，改用 seed-rehome.sql 自带的 `RelabelBackup202610` 备份表覆盖归队部分，并单独导出 `Up` / `Bookmark` 两张行为表——**别跳过备份**。
 
-**归队 + 对账（两条，整块粘贴；重定向的是本地 SQL 文件，不是终端命令）**：
+**归队 + 对账：一条命令，零依赖（11-15 修正）**
+
+> ⚠️ **在目标服务器终端执行**（提示符 `ubuntu@VM-0-7-ubuntu:~$`），**不是本机 Mac 终端**。
+> 不要 `git pull`、不要 `git stash`、不要动工作区：服务器上没有 `scripts/` 文件时 `< scripts/xxx.sql` 必然报 `No such file or directory`；本机主检出有未提交改动时 `git pull` 会被拒。下面用 heredoc 直接把 SQL 喂进容器，不依赖任何本地文件、不依赖网络、不碰 git。
+> **整块只跑一次**。`CHAR(10)` 是 SQL 里的换行，不是命令换行；不要改成别的写法。
 
 ```bash
-ssh -o ConnectTimeout=20 ubuntu@114.132.102.189 'docker exec -i youju-mysql sh -c "mysql --default-character-set=utf8mb4 -uroot -p\"\$MYSQL_ROOT_PASSWORD\" youju"' < scripts/seed-rehome.sql
-ssh -o ConnectTimeout=20 ubuntu@114.132.102.189 'docker exec -i youju-mysql sh -c "mysql --default-character-set=utf8mb4 -uroot -p\"\$MYSQL_ROOT_PASSWORD\" youju"' < scripts/growth-day0-2026-11-15.sql
+docker exec -i youju-mysql sh -c 'mysql --default-character-set=utf8mb4 -uroot -p"$MYSQL_ROOT_PASSWORD" youju' <<'SQL'
+CREATE TABLE IF NOT EXISTS RelabelBackup202610 AS
+SELECT p.id AS postId, p.userId AS oldUserId, p.hotScore AS oldHotScore,
+       p.content AS oldContent, p.title AS oldTitle, u.nickname AS oldNickname, u.bio AS oldBio
+FROM Post p JOIN User u ON u.id = p.userId WHERE 1 = 0;
+START TRANSACTION;
+INSERT INTO RelabelBackup202610
+SELECT p.id, p.userId, p.hotScore, p.content, p.title, u.nickname, u.bio
+FROM Post p JOIN User u ON u.id = p.userId
+WHERE p.deletedAt IS NULL AND (p.userId = 40 OR p.userId IN (SELECT id FROM User WHERE LEFT(COALESCE(openId,unionID),4)='seed'));
+UPDATE Post SET content = CONCAT('> 示例内容 · 编辑部整理。非当事人亲历，观点与数据均来自公开资料，可在评论区追问出处。', CHAR(10), CHAR(10), COALESCE(content, ''))
+WHERE deletedAt IS NULL AND userId IN (SELECT id FROM User WHERE LEFT(COALESCE(openId, unionID), 4) = 'seed')
+  AND (content IS NULL OR content NOT LIKE '%示例内容 · 编辑部整理%');
+UPDATE Post SET hotScore = hotScore * 0.5 WHERE deletedAt IS NULL AND content LIKE '> 示例内容 · 编辑部整理%';
+UPDATE Post SET userId = 40 WHERE deletedAt IS NULL AND userId IN (SELECT id FROM User WHERE LEFT(COALESCE(openId, unionID), 4) = 'seed');
+UPDATE User SET nickname = '有据编辑部', bio = '官方内容 · 编辑部整理，每条都给出处。这里不发广告、不装亲历。' WHERE id = 40;
+COMMIT;
+CREATE TABLE CountBackup20261115 AS
+SELECT id AS postId, upCount AS oldUpCount, bookmarkCount AS oldBookmarkCount, hotScore AS oldHotScore FROM Post;
+SELECT COUNT(*) AS posts, SUM(upCount) AS up_before, SUM(bookmarkCount) AS bookmark_before FROM Post WHERE deletedAt IS NULL;
+UPDATE Post p SET p.upCount = (SELECT COUNT(*) FROM Up u WHERE u.postId = p.id);
+UPDATE Post p SET p.bookmarkCount = (SELECT COUNT(*) FROM Bookmark b WHERE b.postId = p.id);
+SELECT COUNT(*) AS posts, SUM(upCount) AS up_after, SUM(bookmarkCount) AS bookmark_after FROM Post WHERE deletedAt IS NULL;
+SELECT COUNT(*) AS backed_up_rows FROM CountBackup20261115;
+SQL
 ```
 
-两条 SQL 都会打印前后对照读数：对账前 `up_sum=15081 / bookmark_sum=4648`，对账后应为 `36 / 15`。数字不对就停，别往下走。命令里**故意没带 `-f`**：遇错即停；别为了「跑通」把它加回去。
+这段等价于 `scripts/seed-rehome.sql` 第 0/2 步 + `scripts/growth-day0-2026-11-15.sql` 的全部写操作；`scripts/` 两份文件仍留作审计与回滚依据。`示例内容 · 编辑部整理` 这个标记串被 `dailyDigestService.ts` 的 `EXEMPLAR_MARKER` 依赖，**一个字都不能改**。
+
+预期读数：`up_before=15081 / bookmark_before=4648` → `up_after=36 / bookmark_after=15`。数字不对就停，别往下走。`mysql` **故意没带 `-f`**：遇错即停；别为了「跑通」加回去。`CountBackup20261115` 建表不带 `IF NOT EXISTS`，重复执行会直接报错停下，这是防覆盖保护，**别删表重跑**。
 
 **计数回填 SQL 已落成脚本**：`scripts/growth-day0-2026-11-15.sql`，字段名已核 `backend/prisma/schema.prisma`。它先建 `CountBackup20261115`，再打印前后读数、回填、再打印验证读数；重复执行会因备份表已存在而报错，这是防覆盖保护，**别删表重跑**。
 
