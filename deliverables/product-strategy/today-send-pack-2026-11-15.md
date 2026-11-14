@@ -356,15 +356,31 @@ AGC 侧（你本人控制台操作）：
 
 ### 7.1 自动取数（服务器终端，私钥不出服务器）
 
-服务器仓库里已有 `backend/agc-service-account.json`（`youju-push-server` 的私钥），`scripts/agc-active-devices.mjs` 默认就读这个相对路径。**不用传密钥、不用新建凭据**。在服务器终端执行：
+**服务器宿主机没有 `node`（11-15 实测 `Command 'node' not found`），别 `apt install nodejs` 给生产机做加法。** 后端容器里本来就有 Node，私钥也已挂载在 `/app/agc-service-account.json`，直接用 `docker exec -i youju-backend node -` 从标准输入跑，私钥不出容器、不新建凭据、不装任何东西。
+
+在服务器终端粘贴：
 
 ```bash
-REPO=$(dirname "$(dirname "$(find ~ -path '*/scripts/agc-active-devices.mjs' -print -quit 2>/dev/null)")"); cd "$REPO" && node scripts/agc-active-devices.mjs 2026-11-01 2026-11-14
+docker exec -i youju-backend node - <<'JS'
+const c=require('/app/agc-service-account.json'),cr=require('crypto');
+const b=s=>Buffer.from(s).toString('base64url');
+const n=Math.floor(Date.now()/1000);
+const hdr=b(JSON.stringify({kid:c.key_id,typ:'JWT',alg:'RS256'}));
+const pl=b(JSON.stringify({aud:c.token_uri,iss:c.sub_account,sub:c.sub_account,exp:n+3600,iat:n}));
+const sig=cr.sign('sha256',Buffer.from(hdr+'.'+pl),{key:c.private_key,padding:cr.constants.RSA_PKCS1_PADDING}).toString('base64url');
+(async()=>{
+const t=await fetch(c.token_uri,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'urn:ietf:params:oauth:grant-type:jwt-bearer',assertion:hdr+'.'+pl+'.'+sig})});
+const tj=await t.json();
+if(!tj.access_token){console.log('TOKEN_FAIL',JSON.stringify(tj));return;}
+const r=await fetch('https://connect-api.cloud.huawei.com/api/report/harmony-report/v1/harmony/analyticsReport/6917613566723435312',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+tj.access_token,client_id:String(c.project_id)},body:JSON.stringify({measures:['activeDevice','newDevice','sumDevice','installedDeviceCnt'],startTime:'2026-11-01T00:00:00',endTime:'2026-11-14T23:59:59',frequency:'day',chainStartTime:'2026-10-02T00:00:00',chainEndTime:'2026-10-15T23:59:59',order:'day'})});
+console.log(await r.text());
+})();
+JS
 ```
 
-- 服务器上的脚本是 10-28 旧版，能跑；失败提示仍指向旧版路径，忽略即可。
-- 返回 `205524993 client token auth failed` = 服务账号角色不含报表读取。**别改 `youju-push-server` 的角色**（它是线上推送账号，会影响 Push Kit），改为新建一个专用服务账号只给报表角色。
-- 成功则输出 `activeDevice / newDevice / sumDevice / installedDeviceCnt` 逐日数据。注意 AGC 口径与激励活动有效月活口径不同，只作趋势参照。
+- 成功：输出 `activeDevice / newDevice / sumDevice / installedDeviceCnt` 逐日数据。**AGC 口径与激励活动有效月活口径不同，只作趋势参照。**
+- `205524993 client token auth failed` = 服务账号角色不含报表读取。**别改 `youju-push-server` 的角色**（线上推送账号，会影响 Push Kit），改为新建专用服务账号只给报表角色。
+- **止损线**：这一条跑完，无论结果如何都不再为取数加轮次——11 月是渠道验证期，判定真值到 12 月才需要，先去发渠道。
 
 **未执行**：所有生产库写操作、所有对外发送动作、所有 AGC 控制台改动。
 
