@@ -44,7 +44,14 @@ const spanDays = Math.max(1, Math.round((new Date(endArg) - new Date(startArg)) 
 const chainStart = day(30 + spanDays * 2);
 const chainEnd = day(30 + spanDays);
 
-const cred = JSON.parse(readFileSync(CRED, 'utf8'));
+// 路径 A（API 客户端）不需要服务账号文件；只有回退到路径 B 时才必须存在。
+// 旧版在这里无条件 readFileSync，导致只给了 AGC_CLIENT_ID/SECRET 的机器直接 ENOENT 崩溃。
+let cred = null;
+try {
+  cred = JSON.parse(readFileSync(CRED, 'utf8'));
+} catch {
+  cred = null;
+}
 
 function b64urlRaw(buf) {
   return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -95,7 +102,7 @@ async function main() {
   // 路径 B：Service Account JWT。实测只有 oauth-login + form + RS256 这一格能取到 token
   // （connect-api 收该断言一律 400 空体；PS256 被判 1101/20504）。
   let tokenFromServiceAccount = false;
-  if (accessToken === '') {
+  if (accessToken === '' && cred !== null) {
     const tokenUrls = [
       cred.token_uri,
       process.env.AGC_TOKEN_URL || 'https://connect-api.cloud.huawei.com/api/oauth2/v1/token',
@@ -124,12 +131,15 @@ async function main() {
 
   if (accessToken === '') {
     console.error('[agc] 取 token 全部失败，最后一条：', lastErr);
-    console.error('[agc] 下一步（一次性）：AGC「用户与访问 → API密钥 → Connect API → API 客户端」创建凭据，');
+    console.error(cred === null
+      ? '[agc] 未找到服务账号文件；请走 API 客户端路径（AGC_CLIENT_ID / AGC_CLIENT_SECRET）。'
+      : '[agc] 服务账号能取 token 但没有报表角色；别改签名代码，去 AGC 加角色或改走路径 A。');
+    console.error('[agc] 一次性配置：AGC「用户与访问 → API密钥 → Connect API → API 客户端」创建凭据，');
     console.error('      角色勾「查看分析数据」，然后：');
     console.error('      AGC_CLIENT_ID=xxx AGC_CLIENT_SECRET=yyy node scripts/agc-active-devices.mjs');
     process.exit(2);
   }
-  clientIdForHeader = clientIdForHeader || String(cred.project_id);
+  clientIdForHeader = clientIdForHeader || (cred === null ? cid : String(cred.project_id));
   const reportUrl = `https://connect-api.cloud.huawei.com/api/report/harmony-report/v1/harmony/analyticsReport/${APP_ID}`;
   const body = {
     measures: ['activeDevice', 'newDevice', 'sumDevice', 'installedDeviceCnt'],
