@@ -188,7 +188,7 @@ interface IndexTabItem {
 // 仅调整样式层：打开/关闭、协议跳转、同意/不同意行为与回调签名均未改动。
 @CustomDialog
 struct PrivacyConsentDialog {
-  controller: CustomDialogController;
+  controller?: CustomDialogController;
   getIsUpdate: () => boolean = (): boolean => false;
   onReadPrivacy: () => void = (): void => {};
   onReadAgreement: () => void = (): void => {};
@@ -325,7 +325,7 @@ struct PrivacyConsentDialog {
               }
             })
             .onClick((): void => {
-              this.controller.close();
+              this.controller?.close();
               this.onDecline();
             })
 
@@ -334,7 +334,7 @@ struct PrivacyConsentDialog {
             fillWidth: true,
             visualHeight: LayoutTokens.minTouchTarget,
             action: (): void => {
-              this.controller.close();
+              this.controller?.close();
               this.onAgree();
             },
           })

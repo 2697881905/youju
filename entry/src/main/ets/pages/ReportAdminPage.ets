@@ -340,7 +340,7 @@ const STATUS_ITEMS: SegmentedItem[] = [
 // 成立理由弹窗（自原内容审核台的驳回弹窗并入）：理由选填，填写后随「未通过审核」通知发给作者
 @CustomDialog
 struct ResolveReasonDialog {
-  controller: CustomDialogController;
+  controller?: CustomDialogController;
   onSubmit: (reason: string) => void = (_r: string) => {};
 
   @State reason: string = '';
@@ -372,7 +372,7 @@ struct ResolveReasonDialog {
           this.reason = v;
         })
       Row({ space: SpaceTokens.md }) {
-        DesignButton({ label: '取消', variant: 'outlined', fillWidth: true, action: (): void => { this.controller.close(); } })
+        DesignButton({ label: '取消', variant: 'outlined', fillWidth: true, action: (): void => { this.controller?.close(); } })
           .layoutWeight(1)
         DesignButton({
           label: '确认成立',
@@ -380,7 +380,7 @@ struct ResolveReasonDialog {
           fillWidth: true,
           action: (): void => {
             const r: string = this.reason.trim();
-            this.controller.close();
+            this.controller?.close();
             this.onSubmit(r);
           },
         })
