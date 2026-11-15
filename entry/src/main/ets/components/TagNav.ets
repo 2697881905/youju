@@ -19,6 +19,7 @@ import {
   FloatingTopButtonMaterialModifier,
 } from '../utils/immersiveMaterial';
 import { ImmersiveSurface } from '../design/components/ImmersiveSurface';
+import { FEED_ZONE_LABELS, zoneLabel } from '../utils/feedZones';
 
 // 下拉菜单最多显示的行数，超出交给系统菜单自身滚动（maxHeight 亦为 26+ 才有的选项）。
 const DROPDOWN_MAX_ROWS: number = 8;
@@ -30,14 +31,17 @@ const DROPDOWN_ROW_HEIGHT: number = 48;
 // ⚠️ 不能挂在 chip 那颗 Row 上：节点被 attributeModifier(systemMaterial) 接管表面后
 // .shadow() 完全不出图（连 #66000000 深色实测都零变化）。必须挂在不带材质的外层 Column，
 // 且该 Column 要显式 width/height/borderRadius 与 chip 对齐，否则阴影底边会上移 12px。
-// 定值：radius 56 / 10% 黑 / offsetY 5 → 底边下方 3px 实测 232（分段栏 228）。
-// 上一档 12.5% 黑实测 229，用户复看判「偏重」，故回落一档；再淡中远段会明显脱节。
-const CHIP_SHADOW: ShadowOptions = { radius: 56, color: '#1A000000', offsetY: 5 };
+// 定值：radius 56 / 8.6% 黑 / offsetY 5 → 底边下方 3px 实测 232（分段栏 228）。
+// 梯度记录：12.5% 黑实测 229（用户判偏重）→ 10% 232 → 8.6% 232，两轮复看逐档调轻。
+// 下限：再淡中远段会明显脱节（453 处已差分段栏 7 级），不要继续降 alpha。
+const CHIP_SHADOW: ShadowOptions = { radius: 56, color: '#16000000', offsetY: 5 };
 
 @Component
 export struct TagNav {
   @Prop tags: Tag[] = [];
   @Link selectedIndex: number;
+  // 首页内容分区（干货/生活）：与圈子是两个独立筛选维度，各自持有选中态。
+  @Link zoneIndex: number;
   // 下拉展开态：由宿主共享 —— 标题栏 chip 与系统菜单弹层靠它同步开合
   // （bindMenu 走 isShow 受控 + options.onDisappear 回写）。
   @Link dropdownVisible: boolean;
@@ -69,10 +73,9 @@ export struct TagNav {
     });
   }
 
+  // chip 常驻显示一级维度（内容区）；圈子名退回菜单里的系统选中对勾。
   private selectedLabel(): string {
-    const selected: Tag | undefined = this.tags[this.selectedIndex];
-    const name: string = selected?.name ?? '';
-    return name.length > 0 && name !== '全部' ? name : '圈子';
+    return zoneLabel(this.zoneIndex);
   }
 
   private setDropdownVisible(visible: boolean): void {
@@ -83,7 +86,8 @@ export struct TagNav {
 
   // 菜单高度上限：按行折算（行高取真机实测 48vp），超出交给系统菜单滚动。
   private menuMaxHeight(): number {
-    const rows: number = Math.min(DROPDOWN_MAX_ROWS, Math.max(1, this.tags.length));
+    // 区组与圈子组共用一份滚动上限；异常态（只有「全部」）也要留出区组两行。
+    const rows: number = Math.min(DROPDOWN_MAX_ROWS, Math.max(1, this.tags.length + FEED_ZONE_LABELS.length));
     return rows * DROPDOWN_ROW_HEIGHT + SpaceTokens.base;
   }
 
@@ -229,29 +233,46 @@ export struct TagNav {
     }
   }
 
-  // 圈子下拉菜单内容：系统 Menu + MenuItem（图标 + 文案 + 系统选中对勾）。
-  // 用 MenuItemOptions（固定样式）而不是自定义 builder：自定义内容会丢掉系统的
-  // 行高/分隔/对勾，等于又回到自绘。
+  // 下拉菜单分两组：内容区与圈子是两个独立维度，各用各的选中态与系统对勾，
+  // 可同时生效（如「干货 + 手机数码」）。MenuItemGroup 的 header 是系统原生分组标题，
+  // 不需要自定义 builder，也不改变 bindMenu 的交互。
   @Builder
   circleMenu() {
     Menu() {
-      ForEach(
-        this.tags,
-        (t: Tag, index: number) => {
-          MenuItem({
-            startIcon: resolveTagIcon(t.name ?? ''),
-            content: t.name ?? '',
-          })
-            .selected(this.selectedIndex === index)
-            // 选中态交给系统对勾（selectIcon 只在 selected=true 时出图），不再靠自绘品牌色染字
-            .selectIcon(true)
-            .onClick((): void => {
-              this.selectedIndex = index;
-              this.setDropdownVisible(false);
+      MenuItemGroup({ header: '内容区' }) {
+        ForEach(
+          FEED_ZONE_LABELS,
+          (label: string, index: number) => {
+            MenuItem({ content: label })
+              .selected(this.zoneIndex === index)
+              .selectIcon(true)
+              .onClick((): void => {
+                this.zoneIndex = index;
+                this.setDropdownVisible(false);
+              })
+          },
+          (label: string) => 'zone_' + label
+        )
+      }
+      MenuItemGroup({ header: '圈子' }) {
+        ForEach(
+          this.tags,
+          (t: Tag, index: number) => {
+            MenuItem({
+              startIcon: resolveTagIcon(t.name ?? ''),
+              content: t.name ?? '',
             })
-        },
-        (t: Tag) => t.name ?? ''
-      )
+              .selected(this.selectedIndex === index)
+              // 选中态交给系统对勾（selectIcon 只在 selected=true 时出图），不再靠自绘品牌色染字
+              .selectIcon(true)
+              .onClick((): void => {
+                this.selectedIndex = index;
+                this.setDropdownVisible(false);
+              })
+          },
+          (t: Tag) => t.name ?? ''
+        )
+      }
     }
   }
 
