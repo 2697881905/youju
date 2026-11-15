@@ -9,6 +9,7 @@ import { IconTokens } from '../design/tokens/icon';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
+import { ShadowTokens } from '../design/tokens/shadow';
 import { TypeTokens } from '../design/tokens/type';
 import {
   isImmersiveLightSenseSupported,
@@ -23,6 +24,14 @@ import { ImmersiveSurface } from '../design/components/ImmersiveSurface';
 const DROPDOWN_MAX_ROWS: number = 8;
 // 系统 MenuItem 的实测行高：真机 dumpLayout 单行 150px ÷ 3.125 = 48vp。
 const DROPDOWN_ROW_HEIGHT: number = 48;
+// 圈子 chip 的补影（真机逐档取证 2026-11-15）：同参数材质挂在自绘 Row 上时，系统给的落影
+// 比官方 SegmentButton 轨道浅 11 级（胶囊底边下方 3px：分段栏 230 / chip 241 / 画布 255）。
+// 官方没有调投影浓度的开关，只能自绘补一层。
+// ⚠️ 不能挂在 chip 那颗 Row 上：节点被 attributeModifier(systemMaterial) 接管表面后
+// .shadow() 完全不出图（连 #66000000 深色实测都零变化）。必须挂在不带材质的外层 Column，
+// 且该 Column 要显式 width/height/borderRadius 与 chip 对齐，否则阴影底边会上移 12px。
+// 定值：radius 56 / 12.5% 黑 / offsetY 5 → 底边下方 3px 实测 229（分段栏 228）。
+const CHIP_SHADOW: ShadowOptions = { radius: 56, color: '#20000000', offsetY: 5 };
 
 @Component
 export struct TagNav {
@@ -172,6 +181,12 @@ export struct TagNav {
           .bindMenu(this.dropdownVisible, this.circleMenu(), this.menuOptions())
         }
       }
+      // 阴影承载层：尺寸/圆角与内层 chip 完全对齐；材质挂内层、阴影挂本层（无材质），互不吞掉。
+      // 低版本门禁不过时不出自绘阴影，保留 outlined 兜底。
+      .width(this.dropdownOnly ? 88 : LayoutTokens.minTouchTarget)
+      .height(LayoutTokens.segmentedHeight)
+      .borderRadius(RadiusTokens.lg)
+      .shadow((this.useSystemMaterial && isSystemMaterialActive()) ? CHIP_SHADOW : ShadowTokens.none)
       .margin({
         left: SpaceTokens.xs,
         right: this.dropdownOnly ? SpaceTokens.none : (this.glass ? SpaceTokens.xs : SpaceTokens.pageCompact),
