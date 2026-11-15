@@ -30,8 +30,9 @@ const DROPDOWN_ROW_HEIGHT: number = 48;
 // ⚠️ 不能挂在 chip 那颗 Row 上：节点被 attributeModifier(systemMaterial) 接管表面后
 // .shadow() 完全不出图（连 #66000000 深色实测都零变化）。必须挂在不带材质的外层 Column，
 // 且该 Column 要显式 width/height/borderRadius 与 chip 对齐，否则阴影底边会上移 12px。
-// 定值：radius 56 / 12.5% 黑 / offsetY 5 → 底边下方 3px 实测 229（分段栏 228）。
-const CHIP_SHADOW: ShadowOptions = { radius: 56, color: '#20000000', offsetY: 5 };
+// 定值：radius 56 / 10% 黑 / offsetY 5 → 底边下方 3px 实测 232（分段栏 228）。
+// 上一档 12.5% 黑实测 229，用户复看判「偏重」，故回落一档；再淡中远段会明显脱节。
+const CHIP_SHADOW: ShadowOptions = { radius: 56, color: '#1A000000', offsetY: 5 };
 
 @Component
 export struct TagNav {
