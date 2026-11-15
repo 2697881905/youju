@@ -8,6 +8,7 @@ import { listDailyPosts, listPosts, listFollowingPosts, listTags, listFollowedTa
 import { getUserId, getToken } from '../utils/auth';
 import { GuestConvertBar } from './GuestConvertBar';
 import { likeStore } from '../utils/likeStore';
+import { zoneKey } from '../utils/feedZones';
 import { postDeletionStore } from '../utils/postDeletionStore';
 import { PostCard } from './PostCard';
 import { TagNav } from './TagNav';
@@ -125,6 +126,8 @@ export struct HomeTab {
   @State tagsLoaded: boolean = false;
   @State sortIndex: number = 0;
   @Link @Watch('onTagChanged') tagIndex: number;
+  // 首页内容分区：由 Index 持有（顶栏 chip 读它），切区等于换一次信息流查询。
+  @Link @Watch('onZoneChanged') zoneIndex: number;
   @State page: number = 1;
   @State loading: boolean = false;
   @State finished: boolean = false;
@@ -432,6 +435,10 @@ export struct HomeTab {
     this.refresh();
   }
 
+  onZoneChanged(): void {
+    this.refresh();
+  }
+
   onCircleMembershipChanged(): void {
     if (this.token !== '') {
       this.loadTags();
@@ -442,9 +449,9 @@ export struct HomeTab {
     return this.tagIndex > 0 ? this.displayTags[this.tagIndex]?.name : undefined;
   }
 
-  // 信息流缓存 key：feedMode|tag|sort（每日一帖不缓存）
+  // 信息流缓存 key：feedMode|zone|tag|sort（每日一帖不缓存）
   private feedCacheKey(): string {
-    return this.feedMode + '|' + (this.currentTag() ?? '') + '|' + SORT_KEYS[this.sortIndex];
+    return this.feedMode + '|' + zoneKey(this.zoneIndex) + '|' + (this.currentTag() ?? '') + '|' + SORT_KEYS[this.sortIndex];
   }
 
   // 切换信息源：推荐 / 关注 / 每日一帖
@@ -538,8 +545,8 @@ export struct HomeTab {
       }
       const res =
         this.feedMode === 'following'
-          ? await listFollowingPosts({ page: this.page, limit: 20, sort, tag: this.currentTag() })
-          : await listPosts({ page: this.page, limit: 20, sort, tag: this.currentTag() });
+          ? await listFollowingPosts({ page: this.page, limit: 20, sort, tag: this.currentTag(), zone: zoneKey(this.zoneIndex) })
+          : await listPosts({ page: this.page, limit: 20, sort, tag: this.currentTag(), zone: zoneKey(this.zoneIndex) });
       if (seq !== this.fetchSeq) {
         return; // 过期响应：丢弃，不写列表、不改 finished/页码
       }
@@ -1160,6 +1167,7 @@ export struct HomeTab {
         TagNav({
           tags: this.displayTags,
           selectedIndex: $tagIndex,
+          zoneIndex: $zoneIndex,
           dropdownVisible: $showCircleDropdown,
           compact: true,
           glass: false,

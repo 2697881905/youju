@@ -12,6 +12,7 @@ import { parsePage, parseLimit } from '../utils/pagination';
 import { postCreateLimiter } from '../middleware/rateLimit';
 
 import { asyncHandler } from '../middleware/asyncHandler';
+import { isFeedZone, FeedZone } from '../utils/feedZones';
 
 const router = Router();
 
@@ -54,10 +55,14 @@ async function attachRatingAgg(posts: Array<Record<string, unknown>>): Promise<v
   }
 }
 
-// 帖子列表：GET /v1/posts?page=1&limit=20&sort=hot|latest|recommend&tag=数码选购&author=1
+// 帖子列表：GET /v1/posts?page=1&limit=20&sort=hot|latest|recommend&tag=数码选购&author=1&zone=insight|life
+// zone 是首页内容分区（干货区=4 个结构化体裁，生活区=share），由 genre 派生，不落库。
 // 软鉴权：匿名可浏览；带合法 token 时按 viewerId 批量打标 myUp/myBookmark。
 router.get('/', asyncHandler(async (req: AuthRequest, res: Response) => {
-  const { page, limit, sort, tag, author, keyword } = req.query;
+  const { page, limit, sort, tag, author, keyword, zone } = req.query;
+  if (zone !== undefined && !isFeedZone(zone)) {
+    return fail(res, CODE.BAD_REQUEST, '内容分区参数无效');
+  }
   const viewerId = await resolveOptionalUserId(req);
   const data = await postService.listPosts({
     page: parsePage(page),
@@ -66,23 +71,28 @@ router.get('/', asyncHandler(async (req: AuthRequest, res: Response) => {
     tag: tag as string | undefined,
     author: author ? Number(author) : undefined,
     keyword: keyword as string | undefined,
+    zone: zone as FeedZone | undefined,
     viewerId,
   });
   await attachRatingAgg(data.list as Array<Record<string, unknown>>);
   return ok(res, data);
 }));
 
-// 关注流：GET /v1/posts/following?page=&limit=&sort=&tag=&keyword=
+// 关注流：GET /v1/posts/following?page=&limit=&sort=&tag=&keyword=&zone=
 // 仅当前用户关注的人的公开帖（必须登录，由 auth 中间件保证）
 // ⚠️ 必须注册在 GET /:id 之前，否则 /following 会被当作 id='following' 命中详情路由。
 router.get('/following', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const { page, limit, sort, tag, keyword } = req.query;
+  const { page, limit, sort, tag, keyword, zone } = req.query;
+  if (zone !== undefined && !isFeedZone(zone)) {
+    return fail(res, CODE.BAD_REQUEST, '内容分区参数无效');
+  }
   const data = await postService.listPosts({
     page: parsePage(page),
     limit: parseLimit(limit, 20),
     sort: (sort as postService.SortType) ?? 'latest',
     tag: tag as string | undefined,
     keyword: keyword as string | undefined,
+    zone: zone as FeedZone | undefined,
     following: true,
     viewerId: req.userId,
   });

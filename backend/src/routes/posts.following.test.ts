@@ -189,4 +189,28 @@ describe('GET /v1/posts/following', () => {
       }),
     );
   });
+
+  it('zone 与 tag 叠加生效（关注流内也是两个独立维度）', async () => {
+    mockPrisma.follow.findMany.mockResolvedValue([{ followingId: 5 }]);
+    mockPrisma.post.findMany.mockResolvedValue([]);
+    mockPrisma.post.count.mockResolvedValue(0);
+    mockedUpFindMany.mockResolvedValue([]);
+    mockedBmFindMany.mockResolvedValue([]);
+    const res = await req('GET', '/v1/posts/following?zone=life&tag=数码', undefined, authHeader());
+    expect(res.status).toBe(200);
+    expect(mockPrisma.post.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          genre: { in: ['share'] },
+          tags: { array_contains: '数码' },
+        }),
+      }),
+    );
+  });
+
+  it('非法 zone → 400', async () => {
+    const res = await req('GET', '/v1/posts/following?zone=bad', undefined, authHeader());
+    expect(res.status).toBe(400);
+    expect(res.json.code).toBe(CODE.BAD_REQUEST);
+  });
 });

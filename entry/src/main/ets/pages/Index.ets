@@ -441,6 +441,8 @@ struct Index {
   @State feedIndex: number = 0;
   @State feedMode: FeedMode = 'recommend';
   @State tagIndex: number = 0;
+  // 首页内容分区：0=有据干货区，1=生活随记区。默认落在干货区（与「有据」定位一致）。
+  @State zoneIndex: number = 0;
   @State displayTags: Tag[] = [];
   @State showCircleDropdown: boolean = false;
   // —— 「我的」页顶栏共享状态：顶栏（我的/分享/设置 + 资料区 + 主分段栏）同样驻留标题栏 ——
@@ -1888,6 +1890,7 @@ struct Index {
         feedIndex: $feedIndex,
         feedMode: $feedMode,
         tagIndex: $tagIndex,
+        zoneIndex: $zoneIndex,
         displayTags: $displayTags,
         showCircleDropdown: $showCircleDropdown,
       })

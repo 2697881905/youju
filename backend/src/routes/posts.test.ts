@@ -417,6 +417,51 @@ describe('GET /v1/posts（信息流，软鉴权）', () => {
     expect(res.json.data.list[0].myUp).toBe(true);
     expect(res.json.data.list[0].myBookmark).toBe(false);
   });
+
+  it('zone=insight → where.genre 限定 4 个结构化体裁', async () => {
+    mockedPostFindMany.mockResolvedValue([]);
+    mockedPostCount.mockResolvedValue(0);
+
+    const res = await req('GET', '/v1/posts?zone=insight');
+
+    expect(res.status).toBe(200);
+    expect(mockedPostFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ genre: { in: ['review', 'pitfall', 'tutorial', 'debate'] } }),
+      }),
+    );
+  });
+
+  it('zone=life → where.genre 只含 share', async () => {
+    mockedPostFindMany.mockResolvedValue([]);
+    mockedPostCount.mockResolvedValue(0);
+
+    const res = await req('GET', '/v1/posts?zone=life');
+
+    expect(res.status).toBe(200);
+    expect(mockedPostFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ genre: { in: ['share'] } }),
+      }),
+    );
+  });
+
+  it('非法 zone → 400 且不查 post 表', async () => {
+    const res = await req('GET', '/v1/posts?zone=unknown');
+    expect(res.status).toBe(400);
+    expect(res.json.code).toBe(CODE.BAD_REQUEST);
+    expect(mockedPostFindMany).not.toHaveBeenCalled();
+  });
+
+  it('不带 zone → where 不含 genre（旧客户端不受影响）', async () => {
+    mockedPostFindMany.mockResolvedValue([]);
+    mockedPostCount.mockResolvedValue(0);
+
+    const res = await req('GET', '/v1/posts');
+
+    expect(res.status).toBe(200);
+    expect(mockedPostFindMany.mock.calls[0][0].where.genre).toBeUndefined();
+  });
 });
 
 describe('GET /v1/posts/:id（详情，软鉴权）', () => {

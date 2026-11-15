@@ -22,6 +22,7 @@ import {
 import { isPersonalizationEnabled } from './privacyService';
 import { buildStructuredSearchText } from '../utils/structuredSearchText';
 import { normalizeStructuredDocumentMedia } from '../utils/structuredDocument';
+import { FEED_ZONE_GENRES, FeedZone } from '../utils/feedZones';
 
 export type SortType = 'hot' | 'latest' | 'recommend';
 
@@ -32,6 +33,7 @@ export interface ListParams {
   tag?: string;
   author?: number;
   keyword?: string;
+  zone?: FeedZone; // 首页内容分区：按 genre 分组过滤，不新增分类字段
   following?: boolean; // 关注流：仅返回当前用户关注的人发布的帖子
   viewerId?: number; // 当前登录用户 id（来自 auth 中间件 req.userId）
 }
@@ -62,12 +64,16 @@ export async function listPosts(params: ListParams) {
       tag: params.tag,
       author: params.author,
       sort,
+      zone: params.zone,
       following: params.following,
       viewerId: params.viewerId,
     });
   }
   if (params.tag) {
     where.tags = { array_contains: params.tag };
+  }
+  if (params.zone) {
+    where.genre = { in: FEED_ZONE_GENRES[params.zone] };
   }
   if (params.author) {
     where.userId = params.author;

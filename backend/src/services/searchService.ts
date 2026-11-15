@@ -1,6 +1,7 @@
 import { prisma } from '../prisma';
 import { USER_PUBLIC_SELECT, publicUserView } from '../utils/userView';
 import { getExcludedAuthorIds, getDislikedAuthorIds } from './accessControl';
+import { FEED_ZONE_GENRES, FeedZone } from '../utils/feedZones';
 
 // 搜索历史项
 export interface SearchHistoryItem {
@@ -77,6 +78,7 @@ export interface SearchPostsParams {
   sort?: 'relevance' | 'hot' | 'latest';
   following?: boolean;
   viewerId?: number;
+  zone?: FeedZone;
 }
 
 // 相关度评分：标题命中权重最高；全字/前缀/包含逐级递减；标签、体裁、正文兜底
@@ -138,6 +140,9 @@ export async function searchPosts(params: SearchPostsParams) {
   };
   if (params.tag) {
     where.tags = { array_contains: params.tag };
+  }
+  if (params.zone) {
+    where.genre = { in: FEED_ZONE_GENRES[params.zone] };
   }
   if (params.author) {
     where.userId = params.author;

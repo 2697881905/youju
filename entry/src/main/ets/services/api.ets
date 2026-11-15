@@ -1,5 +1,6 @@
 import { http } from '@kit.NetworkKit';
 import { BUILD_MODE_NAME, DEBUG } from '../utils/buildMode';
+import { FeedZone } from '../utils/feedZones';
 import { Post, DailyPost, Comment, Tag, User, Pagination, Genre, StructuredMetricKind, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody, ReportAction, NotificationPrefs, BlockUser, PrivacySettingsData, UserExportData, DebateVoteResult, Conversation, DmMessage, DmSharePayload, AdminReportItem, ReportTargetType, BookmarkFolderItem, MentionRef, MentionCandidate, StructuredDocument, PendingReportSummary } from '../models/types';
 
 // 以构建期布尔 DEBUG 为准选择后端地址（调试包 true → 本地，released → 生产）。
@@ -250,6 +251,7 @@ export interface ListPostsParams {
   sort?: SortType;
   tag?: string;
   author?: number;
+  zone?: FeedZone;
 }
 
 export interface SearchPostsParams {
@@ -346,7 +348,7 @@ function toQuery(fields: Array<[string, string | number | undefined]>): string {
 }
 
 // ===== 帖子 =====
-// GET /v1/posts?page=&limit=&sort=hot|latest|recommend&tag=&author=
+// GET /v1/posts?page=&limit=&sort=hot|latest|recommend&tag=&author=&zone=insight|life
 export function listPosts(params: ListPostsParams = {}): Promise<ListResult<Post>> {
   const path = '/v1/posts' + toQuery([
     ['page', params.page],
@@ -354,6 +356,7 @@ export function listPosts(params: ListPostsParams = {}): Promise<ListResult<Post
     ['sort', params.sort],
     ['tag', params.tag],
     ['author', params.author],
+    ['zone', params.zone],
   ]);
   return api.get<ListResult<Post>>(path);
 }
@@ -363,7 +366,7 @@ export function getPost(id: number): Promise<PostWithComments> {
   return api.get<PostWithComments>('/v1/posts/' + id);
 }
 
-// GET /v1/posts/following?page=&limit=&sort=hot|latest|recommend&tag=
+// GET /v1/posts/following?page=&limit=&sort=hot|latest|recommend&tag=&zone=
 // 关注流：仅当前用户关注的人的公开帖（需登录，request 自动带 Bearer）
 export function listFollowingPosts(params: ListPostsParams = {}): Promise<ListResult<Post>> {
   const path: string = '/v1/posts/following' + toQuery([
@@ -371,6 +374,7 @@ export function listFollowingPosts(params: ListPostsParams = {}): Promise<ListRe
     ['limit', params.limit],
     ['sort', params.sort],
     ['tag', params.tag],
+    ['zone', params.zone],
   ]);
   return api.get<ListResult<Post>>(path);
 }
