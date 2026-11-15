@@ -15,7 +15,7 @@ import {
   isSystemMaterialActive,
   GlassBlurStyle,
   getMenuImmersiveMaterial,
-  TopButtonMaterialModifier,
+  FloatingTopButtonMaterialModifier,
 } from '../utils/immersiveMaterial';
 import { ImmersiveSurface } from '../design/components/ImmersiveSurface';
 
@@ -44,7 +44,9 @@ export struct TagNav {
   // 默认 false = 原有 token 配色；仅影响 chip 按钮形态（chipBarInner），下拉菜单不受影响。
   @Prop lightContent: boolean = false;
 
-  private chipMaterialModifier: TopButtonMaterialModifier = new TopButtonMaterialModifier();
+  // 与同排官方分段栏同源：ULTRA_THIN / interactive / applyShadow:true。
+  // 不用 TopButtonMaterialModifier（那份关投影，是给窄行裁切场景的）。
+  private chipMaterialModifier: FloatingTopButtonMaterialModifier = new FloatingTopButtonMaterialModifier();
 
   private chipItems(): ChipItem[] {
     return this.tags.map((tag: Tag): ChipItem => {
@@ -149,19 +151,20 @@ export struct TagNav {
           .height(LayoutTokens.segmentedHeight)
           .justifyContent(FlexAlign.Center)
           .alignItems(VerticalAlign.Center)
-          // 与首页分段栏（SegmentedControl 的 outlined 分支）同款规格：
-          // 透明底 + glassBorderWidth 细描边 barBorder + lg 大圆角，无实色垫底、无阴影。
+          // 表面：材质生效时交给系统，自绘细描边必须让位，否则叠成第二圈描边；
+          // 低版本门禁不过时保留 outlined 兜底（透明底 + glassBorderWidth/barBorder + lg 圆角，无实色垫底）。
           // 注：36 高的元素半径上限为半高 18，lg(20) 与 pill(999) 在此高度渲染结果一致（均为全胶囊），
           // 统一取 lg 只为与分段栏共用同一个形状 token，两处圆角不会再走散。
           .backgroundColor(Color.Transparent)
           .border({
-            width: LayoutTokens.glassBorderWidth,
+            width: (this.useSystemMaterial && isSystemMaterialActive()) ? 0 : LayoutTokens.glassBorderWidth,
             color: this.lightContent ? '#66FFFFFF' : ColorTokens.barBorder,
             style: BorderStyle.Solid,
           })
           .borderRadius(RadiusTokens.lg)
-          // 沉浸光感（systemMaterial，@since 26.0.0）：驻留标题栏时由系统材质接管表面；
-          // 低版本设备门禁不通过 → 保留上面的细描边样式（见 utils/immersiveMaterial.ets）。
+          // 沉浸光感（systemMaterial，@since 26.0.0）：与同排官方 SegmentButton 同档材质
+          // （getSegmentImmersiveMaterial 同参数），bottomBuilder 行已按 segmentBarShadowRoom 留净空；
+          // 低版本设备门禁不通过 → 不设材质，保留上面的细描边样式（见 utils/immersiveMaterial.ets）。
           .attributeModifier(this.useSystemMaterial ? this.chipMaterialModifier : undefined)
           // 下拉菜单交给系统弹层（bindMenu @since 11）：定位、点外关闭、越界翻转、滚动都由系统承担，
           // 取代原先「内容区自绘玻璃面板 + 2000vp 透明遮罩 + 共享开合态」那一套。
