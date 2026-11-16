@@ -593,6 +593,18 @@ struct VideoPublishPage {
       .height('100%')
       .scrollBar(BarState.Off)
       .backgroundColor(ColorTokens.canvas)
+      // 全模态（AI 预览 / 结构化审稿）必须绑在「不承担 bindSheet 的另一个组件」上。
+      // 平台规格：同一组件同时绑 bindSheet 与 bindContentCover 时半模态生效、全模态静默不生效
+      // （表现为接口成功却弹不出预览），故圈子面板留在根 Stack、两个全模态挂这里。
+      .bindContentCover(this.aiSheetShown, this.aiPolishSheet(), {
+        modalTransition: ModalTransition.DEFAULT,
+        onDisappear: (): void => { this.aiSheetShown = false; },
+      })
+      // 结构化审稿：点发布弹出（AI 拆块 → 逐块确认 → 确认即发布）
+      .bindContentCover(this.reviewSheetShown, this.reviewSheet(), {
+        modalTransition: ModalTransition.DEFAULT,
+        onDisappear: (): void => { this.reviewSheetShown = false; },
+      })
 
       // 顶栏是压在 Scroll 之上的浮层（本页不是 Navigation 页），CustomComponent 不能挂
       // 通用属性 → 状态栏留白交给外层 Row
@@ -625,16 +637,6 @@ struct VideoPublishPage {
       showClose: false,
       maskColor: '#33000000',
       onDisappear: (): void => { this.showTagPanel = false; },
-    })
-    // AI 优化预览：全屏内容覆盖层，应用/取消都由弹层内按钮驱动
-    .bindContentCover(this.aiSheetShown, this.aiPolishSheet(), {
-      modalTransition: ModalTransition.DEFAULT,
-      onDisappear: (): void => { this.aiSheetShown = false; },
-    })
-    // 结构化审稿：点发布弹出（AI 拆块 → 逐块确认 → 确认即发布）
-    .bindContentCover(this.reviewSheetShown, this.reviewSheet(), {
-      modalTransition: ModalTransition.DEFAULT,
-      onDisappear: (): void => { this.reviewSheetShown = false; },
     })
   }
 
