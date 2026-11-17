@@ -95,6 +95,10 @@ export const env = {
   // 100 = 全量个性化（默认，行为与历史一致）；0 = 全部走非个性化对照组；
   // 中间值 = A/B 实验。改配置 + 重启即可放量/回滚，无需发版。
   dailyPersonalizationRollout: clampPercent(process.env.DAILY_PERSONALIZATION_ROLLOUT),
+  // 主信息流（sort=recommend）个性化灰度比例（0-100，按 userId 稳定 hash 分流）。
+  // 与每日一贴独立：主信息流是全站默认 tab、影响面更大，默认 0（关闭）保持纯热度排序，
+  // 需服务端显式配置放量；改配置 + 重启即可回滚，无需发版。
+  feedPersonalizationRollout: clampPercent(process.env.FEED_PERSONALIZATION_ROLLOUT ?? '0'),
   // 行为明细数据（PostEvent 浏览/互动埋点、SearchHistory 搜索历史）的留存天数。
   // 到期由后台任务自动清理明细（PIPL 第 19 条：保存期限应为实现目的所必需的最短时间）。
   behaviorRetentionDays: clampPositiveInt(process.env.BEHAVIOR_RETENTION_DAYS, 180),

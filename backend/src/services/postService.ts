@@ -85,6 +85,18 @@ export async function listPosts(params: ListParams) {
     orderBy = [{ hotScore: 'desc' }, { createdAt: 'desc' }];
   }
 
+  // 推荐流首屏个性化（页内重排）：
+  // - 仅 sort=recommend + 第 1 页 + 登录用户。第 2 页起保持原热度序，保证跨页集合稳定（不重不漏）。
+  // - 双重开关：用户隐私开关 personalizedRecommendation + 服务端灰度 FEED_PERSONALIZATION_ROLLOUT。
+  // - 画像构建失败在 dailyScoreService 内降级为空画像，这里不额外兜底。
+  // - asOf 用上海零点日切快照，同一自然日内重排结果稳定（翻回首页不会换序）。
+  const feedPersonalize = params.sort === 'recommend' && page === 1
+    && !!params.viewerId && !params.keyword && !params.tag && !params.author
+    && await isPersonalizationEnabled(params.viewerId)
+    && isInFeedPersonalizationRollout(params.viewerId);
+  const feedAsOf = feedPersonalize ? shanghaiDayStart(new Date()) : null;
+  const feedProfile = feedPersonalize ? await buildViewerProfile(params.viewerId, feedAsOf!) : null;
+
   // 关注流：仅返回当前用户关注的人发布的帖子（公开流不进入此分支）
   let followIds: number[] | undefined;
   if (params.following && params.viewerId) {
@@ -142,6 +154,10 @@ export async function listPosts(params: ListParams) {
     prisma.post.count({ where }),
   ]);
 
+  // 首屏页内重排：候选池就是这一页的 limit 条，只改顺序不改成员。
+  // total 与分页锚点全部不变 → 第 2 页仍从 original skip 取，跨页不重不漏。
+  const displayList = feedProfile ? rankPostsByDailyScore(list, feedProfile, feedAsOf!) : list;
+
   // 批量打标 myUp / myBookmark / myVote：仅当有 viewerId 且列表非空时执行，
   // 整页只额外发 3 次查询（up / bookmark / debateVote 各一次，与列表长度无关，杜绝 N+1）。
   // 无 viewerId 时短路，直接返回原 list，保证匿名请求不打标、不触发多余查询。
@@ -173,7 +189,7 @@ export async function listPosts(params: ListParams) {
     for (const v of votes) {
       voteMap.set(v.postId, v.choice);
     }
-    const enriched = list.map((p) => ({
+    const enriched = displayList.map((p) => ({
       ...p,
       myUp: upSet.has(p.id),
       myBookmark: bmSet.has(p.id),
@@ -186,7 +202,7 @@ export async function listPosts(params: ListParams) {
   }
 
   return {
-    list: list.map((p) => ({ ...p, user: publicUserView(p.user) })),
+    list: displayList.map((p) => ({ ...p, user: publicUserView(p.user) })),
     pagination: { page, limit, total },
   };
 }
@@ -321,6 +337,24 @@ function isInDailyPersonalizationRollout(viewerId?: number): boolean {
     return false;
   }
   return stableOffset('daily-rollout:' + viewerId, 100) < rollout;
+}
+
+/**
+ * 推荐流个性化实验分流：与每日一贴独立开关，按 userId 稳定 hash。
+ * 默认 rollout=0 → 全部走对照组（纯热度序）；游客画像恒为空，返回 true 不强制分组。
+ */
+function isInFeedPersonalizationRollout(viewerId?: number): boolean {
+  if (!viewerId) {
+    return true;
+  }
+  const rollout = env.feedPersonalizationRollout;
+  if (rollout >= 100) {
+    return true;
+  }
+  if (rollout <= 0) {
+    return false;
+  }
+  return stableOffset('feed-rollout:' + viewerId, 100) < rollout;
 }
 
 async function fetchDailyPartition(

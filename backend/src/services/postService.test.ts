@@ -1,5 +1,23 @@
 import { listPosts, getPost, listLikedPosts, listCommentedPosts, listBookmarks } from './postService';
 import { prisma } from '../prisma';
+import { env } from '../config/env';
+import { buildViewerProfile, rankPostsByDailyScore } from './dailyScoreService';
+import { isPersonalizationEnabled } from './privacyService';
+
+// 推荐流首屏个性化：画像/重排/隐私开关全部替身，单测只验证接线与门控，不依赖真实画像算法
+jest.mock('./dailyScoreService', () => ({
+  buildViewerProfile: jest.fn(),
+  emptyProfile: jest.fn(() => ({})),
+  rankPostsByDailyScore: jest.fn((rows: unknown[]) => rows),
+  shanghaiDayStart: jest.fn(() => new Date('2026-11-17T00:00:00Z')),
+}));
+jest.mock('./privacyService', () => ({
+  isPersonalizationEnabled: jest.fn(),
+}));
+
+const mockedBuildProfile = buildViewerProfile as jest.Mock;
+const mockedRank = rankPostsByDailyScore as jest.Mock;
+const mockedIsPersonalizationEnabled = isPersonalizationEnabled as jest.Mock;
 
 // mock searchService：listPosts 收到 keyword 后转交相关度排序，无需真实检索逻辑
 jest.mock('./searchService', () => ({
@@ -51,6 +69,9 @@ jest.mock('../prisma', () => ({
     blocklist: {
       findMany: jest.fn().mockResolvedValue([]),
       findUnique: jest.fn().mockResolvedValue(null),
+    },
+    dislike: {
+      findMany: jest.fn().mockResolvedValue([]),
     },
     follow: {
       findMany: jest.fn().mockResolvedValue([]),
@@ -487,5 +508,74 @@ describe('listBookmarks - 我收藏的帖子（过滤已删除帖）', () => {
     expect(mockedBmCount).toHaveBeenCalledWith({ where });
     expect(res.list).toHaveLength(1);
     expect(res.pagination.total).toBe(1);
+  });
+});
+
+describe('listPosts - 推荐流首屏个性化（页内重排 + 灰度门控）', () => {
+  const originalRollout = env.feedPersonalizationRollout;
+  const makePosts = (): any[] => [
+    { id: 1, title: 'A', tags: ['数码'], hotScore: 90, createdAt: new Date(), user: { id: 11, nickname: 'u1' } },
+    { id: 2, title: 'B', tags: ['旅行'], hotScore: 80, createdAt: new Date(), user: { id: 12, nickname: 'u2' } },
+  ];
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedFindMany.mockResolvedValue(makePosts());
+    mockedCount.mockResolvedValue(2);
+    mockedBuildProfile.mockResolvedValue({ tagW: new Map([['旅行', 10]]) });
+    mockedIsPersonalizationEnabled.mockResolvedValue(true);
+    mockedRank.mockImplementation((rows: any[]) => [...rows].reverse());
+  });
+
+  afterAll(() => {
+    env.feedPersonalizationRollout = originalRollout;
+  });
+
+  it('灰度关闭（默认 0）：不构建画像、不重排，保持热度序', async () => {
+    env.feedPersonalizationRollout = 0;
+    const res = await listPosts({ sort: 'recommend', page: 1, viewerId: 3 });
+    expect(mockedBuildProfile).not.toHaveBeenCalled();
+    expect(mockedRank).not.toHaveBeenCalled();
+    expect(res.list.map((p: any) => p.id)).toEqual([1, 2]);
+  });
+
+  it('灰度 100 + 首屏：构建画像并页内重排，成员不变仅顺序变', async () => {
+    env.feedPersonalizationRollout = 100;
+    const res = await listPosts({ sort: 'recommend', page: 1, viewerId: 3 });
+    expect(mockedBuildProfile).toHaveBeenCalledTimes(1);
+    expect(mockedRank).toHaveBeenCalledTimes(1);
+    expect(res.list.map((p: any) => p.id)).toEqual([2, 1]);
+    expect(res.pagination).toEqual({ page: 1, limit: 20, total: 2 });
+  });
+
+  it('第 2 页不重排：跨页集合稳定（不重不漏）', async () => {
+    env.feedPersonalizationRollout = 100;
+    await listPosts({ sort: 'recommend', page: 2, viewerId: 3 });
+    expect(mockedBuildProfile).not.toHaveBeenCalled();
+    expect(mockedRank).not.toHaveBeenCalled();
+  });
+
+  it('游客不重排（无画像可用）', async () => {
+    env.feedPersonalizationRollout = 100;
+    await listPosts({ sort: 'recommend', page: 1 });
+    expect(mockedBuildProfile).not.toHaveBeenCalled();
+    expect(mockedRank).not.toHaveBeenCalled();
+  });
+
+  it('用户关闭个性化：不构建画像、不读取行为数据', async () => {
+    env.feedPersonalizationRollout = 100;
+    mockedIsPersonalizationEnabled.mockResolvedValue(false);
+    const res = await listPosts({ sort: 'recommend', page: 1, viewerId: 3 });
+    expect(mockedIsPersonalizationEnabled).toHaveBeenCalledWith(3);
+    expect(mockedBuildProfile).not.toHaveBeenCalled();
+    expect(res.list.map((p: any) => p.id)).toEqual([1, 2]);
+  });
+
+  it('hot / latest 流不受影响（仅 recommend 生效）', async () => {
+    env.feedPersonalizationRollout = 100;
+    await listPosts({ sort: 'hot', page: 1, viewerId: 3 });
+    await listPosts({ sort: 'latest', page: 1, viewerId: 3 });
+    expect(mockedBuildProfile).not.toHaveBeenCalled();
+    expect(mockedRank).not.toHaveBeenCalled();
   });
 });
