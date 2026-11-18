@@ -73,7 +73,7 @@ export struct ProfileIdentity {
             .fontWeight(TypeTokens.headline.weight)
             .lineHeight(TypeTokens.headline.lineHeight)
             .letterSpacing(TypeTokens.headline.tracking)
-            .fontColor(this.onBackground ? '#FFFFFFFF' : ColorTokens.primary)
+            .fontColor(this.onBackground ? ColorTokens.onHero : ColorTokens.primary)
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
           if (!this.deleted) {
@@ -94,7 +94,7 @@ export struct ProfileIdentity {
             .fontWeight(TypeTokens.caption.weight)
             .lineHeight(TypeTokens.caption.lineHeight)
             .letterSpacing(TypeTokens.caption.tracking)
-            .fontColor(this.onBackground ? '#E6FFFFFF' : ColorTokens.secondary)
+            .fontColor(this.onBackground ? ColorTokens.onHeroSecondary : ColorTokens.secondary)
             .maxLines(2)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
         }
@@ -104,7 +104,7 @@ export struct ProfileIdentity {
           .lineHeight(TypeTokens.caption.lineHeight)
           .letterSpacing(TypeTokens.caption.tracking)
           .fontFeature(TypeTokens.tabularFeature)
-          .fontColor(this.onBackground ? '#CCFFFFFF' : ColorTokens.tertiary)
+          .fontColor(this.onBackground ? ColorTokens.onHeroTertiary : ColorTokens.tertiary)
       }
       .alignItems(HorizontalAlign.End)
       .layoutWeight(1)

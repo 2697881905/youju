@@ -41,11 +41,11 @@ export struct EditableProfilePreview {
     Column({ space: SpaceTokens.inlineTight }) {
       Text(String(value))
         .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
-        .fontWeight(TypeTokens.headline.weight).fontColor(Color.White)
+        .fontWeight(TypeTokens.headline.weight).fontColor(ColorTokens.onHero)
         .margin({ left: 5 })
       Text(label)
         .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-        .fontColor('#E6FFFFFF')
+        .fontColor(ColorTokens.onHeroSecondary)
     }
     .width(LayoutTokens.profileStatWidth)
     .alignItems(HorizontalAlign.Start)
@@ -77,7 +77,7 @@ export struct EditableProfilePreview {
           Row({ space: SpaceTokens.inline }) {
             Text(this.nickname.length > 0 ? this.nickname : '你的昵称')
               .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
-              .fontWeight(TypeTokens.headline.weight).fontColor(Color.White).maxLines(1)
+              .fontWeight(TypeTokens.headline.weight).fontColor(ColorTokens.onHero).maxLines(1)
             Text(this.genderText())
               .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
               .fontWeight(TypeTokens.overline.weight)
@@ -93,9 +93,9 @@ export struct EditableProfilePreview {
           }
           Text(this.bio.length > 0 ? this.bio : '在这里写下你的个人介绍')
             .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-            .fontColor('#E6FFFFFF').maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
+            .fontColor(ColorTokens.onHeroSecondary).maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
           Text('ID: ' + (this.profileId > 0 ? String(this.profileId) : '-'))
-            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily).fontColor('#CCFFFFFF')
+            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily).fontColor(ColorTokens.onHeroTertiary)
         }
         .layoutWeight(1).alignItems(HorizontalAlign.End)
       }

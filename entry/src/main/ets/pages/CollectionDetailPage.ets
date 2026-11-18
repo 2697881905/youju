@@ -1,5 +1,7 @@
 // 合集详情页：有序帖子目录；作者可加帖（从自己已发布帖子中选）与移除
 import { BackButton } from '../design/components/BackButton';
+import { EmptyState } from '../design/components/EmptyState';
+import { resolveActionIcon } from '../utils/actionIcons';
 import {
   getCollection, addPostToCollection, removePostFromCollection, listPosts,
 } from '../services/api';
@@ -153,7 +155,7 @@ export struct CollectionDetailPage {
         } else {
           Column() {
             Text(String(index + 1).padStart(2, '0'))
-              .fontSize(24).fontFamily(TypeTokens.fontFamilySerif)
+              .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
               .fontColor(ColorTokens.secondary)
           }
           .width('100%')
@@ -247,7 +249,8 @@ export struct CollectionDetailPage {
       Row() {
         BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
         Text(this.title)
-          .fontSize(17).fontFamily($r('app.string.font_family')).fontWeight(600)
+          .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.headline.weight).lineHeight(TypeTokens.headline.lineHeight)
           .layoutWeight(1).textAlign(TextAlign.Center)
           .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis });
         Text('').width(44);
@@ -257,15 +260,19 @@ export struct CollectionDetailPage {
       if (!this.ready) {
         Column() {
           LoadingProgress().width(28).height(28);
-          Text('加载中…').fontSize(13).fontFamily($r('app.string.font_family'))
-            .fontColor($r('app.color.text_secondary')).margin({ top: 10 });
+          Text('加载中…').fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+            .fontColor(ColorTokens.secondary).margin({ top: 10 });
         }
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
       } else if (this.error !== '') {
         Column() {
-          Text('加载失败：' + this.error).fontSize(14).fontFamily($r('app.string.font_family'))
-            .fontColor($r('app.color.text_secondary'));
-          Button('重试').margin({ top: 12 }).onClick(() => { this.error = ''; this.load(); });
+          EmptyState({
+            icon: resolveActionIcon('warning'),
+            title: '加载失败',
+            message: this.error,
+            actionLabel: '重试',
+            onAction: (): void => { this.error = ''; this.load(); },
+          })
         }
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
       } else {
@@ -284,13 +291,10 @@ export struct CollectionDetailPage {
         }
         if (this.posts.length === 0) {
           Column() {
-            Text('合集还是空的').fontSize(14).fontFamily($r('app.string.font_family'))
-              .fontColor(ColorTokens.tertiary);
-            if (this.isOwner) {
-              Text('点下方「添加帖子」开始连载').fontSize(12)
-                .fontFamily($r('app.string.font_family')).fontColor(ColorTokens.tertiary)
-                .margin({ top: 6 });
-            }
+            EmptyState({
+              title: '合集还是空的',
+              message: this.isOwner ? '点下方「添加帖子」开始连载' : '',
+            })
           }
           .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
         } else {

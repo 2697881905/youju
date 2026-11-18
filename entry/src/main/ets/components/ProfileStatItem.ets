@@ -24,7 +24,7 @@ export struct ProfileStatItem {
         CountRoll({
           value: this.value,
           textSize: TypeTokens.headline.size,
-          textColor: this.onBackground ? '#FFFFFFFF' : ColorTokens.primary,
+          textColor: this.onBackground ? ColorTokens.onHero : ColorTokens.primary,
         })
           .margin({ left: 3 })
         Text(this.label)
@@ -32,7 +32,7 @@ export struct ProfileStatItem {
           .fontWeight(TypeTokens.caption.weight)
           .lineHeight(TypeTokens.caption.lineHeight)
           .letterSpacing(TypeTokens.caption.tracking)
-          .fontColor(this.onBackground ? '#E6FFFFFF' : ColorTokens.secondary)
+          .fontColor(this.onBackground ? ColorTokens.onHeroSecondary : ColorTokens.secondary)
       }
       .width(LayoutTokens.profileStatWidth)
       .alignItems(HorizontalAlign.Start)

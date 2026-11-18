@@ -31,6 +31,13 @@ export class ColorTokens {
   static readonly icon: ResourceColor = $r('app.color.ds_icon');
   static readonly tertiary: ResourceColor = $r('app.color.ds_text_tertiary');
   static readonly quaternary: ResourceColor = $r('app.color.ds_text_quaternary');
+  // 封面/hero 背景上的白字三档：背景是用户自定义封面图（明暗不定），文字必须固定为白系，
+  // 不能随主题翻成深墨（浅色模式下深墨压深色封面会不可读）。原先散落在 ProfileStatItem /
+  // ProfileIdentity / EditableProfilePreview 三处硬编码 #FFFFFFFF/#E6FFFFFF/#CCFFFFFF，
+  // 同一场景三套色阶（有的两档、有的三档），收敛为这一组共享 token。
+  static readonly onHero: ResourceColor = '#FFFFFFFF';
+  static readonly onHeroSecondary: ResourceColor = '#E6FFFFFF';
+  static readonly onHeroTertiary: ResourceColor = '#CCFFFFFF';
 
   static readonly brand: ResourceColor = $r('app.color.ds_brand');
   static readonly brandTint: ResourceColor = $r('app.color.ds_brand_tint');
