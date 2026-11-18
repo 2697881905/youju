@@ -6,6 +6,7 @@ import QRCode from 'qrcode';
 import { prisma } from '../prisma';
 import { env } from '../config/env';
 import { canViewerSeeAuthorPosts } from '../services/accessControl';
+import { asyncHandler } from '../middleware/asyncHandler';
 
 const router = Router();
 
@@ -157,7 +158,7 @@ ${imageTag}
 }
 
 // GET /v1/share/post/:id — 帖子落地页（微信卡片：标题+摘要+封面）
-router.get('/post/:id', async (req: Request, res: Response) => {
+router.get('/post/:id', asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (!id || isNaN(id)) {
     res.status(404).send('Not Found');
@@ -193,10 +194,10 @@ router.get('/post/:id', async (req: Request, res: Response) => {
       deepLink: 'youju://post/' + id,
     })
   );
-});
+}));
 
 // GET /v1/share/user/:id — 用户主页落地页
-router.get('/user/:id', async (req: Request, res: Response) => {
+router.get('/user/:id', asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (!id || isNaN(id)) {
     res.status(404).send('Not Found');
@@ -227,11 +228,11 @@ router.get('/user/:id', async (req: Request, res: Response) => {
       deepLink: 'youju://user/' + id,
     })
   );
-});
+}));
 
 // GET /v1/share/qr/:type/:id — 分享卡图二维码（匿名，仅允许生成 youju.chat 域下的落地页链接）。
 // 前端分享卡片绘制时拉取此图嵌入，扫一扫 → youju.chat/post/{id} 或 /user/{id}。
-router.get('/qr/:type/:id', async (req: Request, res: Response) => {
+router.get('/qr/:type/:id', asyncHandler(async (req: Request, res: Response) => {
   const type = req.params.type;
   const id = Number(req.params.id);
   if (!['post', 'user'].includes(type) || !id || isNaN(id)) {
@@ -251,6 +252,6 @@ router.get('/qr/:type/:id', async (req: Request, res: Response) => {
   } catch (e) {
     res.status(500).json({ code: 500, message: 'generate failed' });
   }
-});
+}));
 
 export default router;

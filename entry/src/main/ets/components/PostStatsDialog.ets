@@ -203,12 +203,13 @@ export struct PostStatsDialog {
 
           this.hairline()
 
-          // 流量转化：曝光为漏斗顶端，三行比例条共用同一分母
+          // 流量转化：曝光→点击。两者同为 PostEvent 埋点、口径一致（均仅登录用户）。
+          // 「浏览」(viewCount) 含游客且 1h 去重、且已在上方 Hero 单独展示，
+          // 放进这条漏斗会因口径不同导致比例条误导，故不在此重复（2026-11-19 修）。
           this.sectionHeader('流量转化', this.clickRateText())
           Column({ space: SpaceTokens.sm }) {
             this.funnelRow('曝光', this.stats.expose, this.funnelMax())
             this.funnelRow('点击', this.stats.click, this.funnelMax())
-            this.funnelRow('浏览', this.stats.viewCount, this.funnelMax())
           }
           .width('100%')
         } else {

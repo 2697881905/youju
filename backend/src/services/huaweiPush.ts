@@ -157,9 +157,25 @@ async function sendToTokens(
     },
     body: JSON.stringify(reqBody),
   });
+  const text: string = await resp.text();
   if (!resp.ok) {
-    const text: string = await resp.text();
     throw new Error(`华为推送下发失败: ${resp.status} ${text}`);
+  }
+  // ⚠️ HTTP 200 ≠ 下发成功：华为 v3 的鉴权错误/token 全无效/限流等都以 HTTP 200 返回，
+  //    真实结果在响应体的顶层 code（业务码）。此前只判 resp.ok 就把这些全部记成 sent，
+  //    PushLog 的"成功"全是假的，到达率统计因此完全失真（2026-11-19 修）。
+  //    code 可能是字符串 "200" 或数字 200，统一转字符串比较。
+  let respBody: Record<string, unknown>;
+  try {
+    respBody = JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    throw new Error(`华为推送响应非 JSON: ${text.slice(0, 200)}`);
+  }
+  const code: string = String(respBody['code'] ?? '');
+  if (code !== '200') {
+    // 截断 msg，避免把华为可能返回的超长 JSON 串撑爆错误列
+    const msg: string = String(respBody['msg'] ?? '').slice(0, 200);
+    throw new Error(`华为推送业务失败: code=${code} msg=${msg}`);
   }
 }
 
