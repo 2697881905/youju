@@ -7,10 +7,17 @@ import { Post, CollectionDetail } from '../models/types';
 import { openPostDetail } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 import { getUserId } from '../utils/auth';
+import { Pressable } from '../design/motion/Pressable';
+import { PostCardMedia } from '../components/PostCardMedia';
 import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
-import { SpaceTokens } from '../design/tokens/space';
+import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
+
+interface IndexedPost {
+  index: number;
+  post: Post;
+}
 
 @Entry
 @Component
@@ -115,35 +122,86 @@ export struct CollectionDetailPage {
     });
   }
 
-  @Builder
-  postRow(index: number, post: Post) {
-    Row({ space: SpaceTokens.sm }) {
-      Text(String(index + 1))
-        .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-        .fontColor(ColorTokens.brand).width(24).textAlign(TextAlign.Center)
-      Column({ space: SpaceTokens.xs }) {
-        Text(post.title ?? '')
-          .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
-          .fontColor(ColorTokens.primary).maxLines(2)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        if (post.user !== undefined && post.user.nickname !== undefined) {
-          Text(post.user.nickname)
-            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-            .fontColor(ColorTokens.tertiary)
-        }
-      }
-      .alignItems(HorizontalAlign.Start)
-      .layoutWeight(1)
-      .onClick(() => { openPostDetail(String(post.id ?? 0)); })
-      if (this.isOwner) {
-        Text('移除')
-          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-          .fontColor($r('app.color.semantic_red'))
-          .onClick(() => { this.confirmRemove(post); });
+  // 双列分列：raw 下标 % 2，与主页信息流口径一致（首项左上角）
+  private colPosts(colIdx: number): IndexedPost[] {
+    const out: IndexedPost[] = [];
+    for (let i: number = 0; i < this.posts.length; i += 1) {
+      if (i % 2 === colIdx) {
+        out.push({ index: i, post: this.posts[i] });
       }
     }
-    .width('100%')
-    .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+    return out;
+  }
+
+  @Builder
+  postCard(index: number, post: Post) {
+    Pressable({
+      fillWidth: true,
+      fullResponseRegion: true,
+      action: (): void => { openPostDetail(String(post.id ?? 0)); },
+    }) {
+      Column({ space: SpaceTokens.none }) {
+        // 3:4 封面（复用主页 PostCardMedia，视频封面/首图口径一致）；无封面用序号占位
+        if ((typeof post.coverImage === 'string' && post.coverImage.length > 0)
+          || (post.videoUrl ?? '').length > 0) {
+          PostCardMedia({
+            imageUrl: typeof post.coverImage === 'string' ? post.coverImage : '',
+            videoUrl: post.videoUrl ?? '',
+            videoCover: post.videoCover ?? '',
+            compact: true,
+          })
+        } else {
+          Column() {
+            Text(String(index + 1).padStart(2, '0'))
+              .fontSize(24).fontFamily(TypeTokens.fontFamilySerif)
+              .fontColor(ColorTokens.secondary)
+          }
+          .width('100%')
+          .aspectRatio(LayoutTokens.cardMediaAspectRatio)
+          .backgroundColor(ColorTokens.sunken)
+          .borderRadius({ topLeft: RadiusTokens.xs, topRight: RadiusTokens.xs, bottomLeft: 0, bottomRight: 0 })
+          .justifyContent(FlexAlign.Center)
+          .clip(true)
+        }
+        // 信息区：序号 + 标题 + 作者，elevated 底（与帖子卡信息区一致）
+        Column({ space: SpaceTokens.inlineTight }) {
+          Row({ space: SpaceTokens.xs }) {
+            Text(String(index + 1))
+              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+              .fontColor(ColorTokens.brand)
+            Text(post.title ?? '')
+              .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
+              .fontColor(ColorTokens.primary).maxLines(2)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .layoutWeight(1)
+          }
+          .width('100%')
+          if ((post.user !== undefined && post.user.nickname !== undefined) || this.isOwner) {
+            Row() {
+              if (post.user !== undefined && post.user.nickname !== undefined) {
+                Text(post.user.nickname)
+                  .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+                  .fontColor(ColorTokens.tertiary).layoutWeight(1)
+                  .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+              }
+              if (this.isOwner) {
+                Text('移除')
+                  .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+                  .fontColor($r('app.color.semantic_red'))
+                  .onClick(() => { this.confirmRemove(post); });
+              }
+            }
+            .width('100%')
+          }
+        }
+        .padding(SpaceTokens.xs)
+        .width('100%')
+      }
+      .width('100%')
+      .backgroundColor(ColorTokens.elevated)
+      .borderRadius(RadiusTokens.xs)
+      .clip(true)
+    }
   }
 
   @Builder
@@ -236,12 +294,29 @@ export struct CollectionDetailPage {
           }
           .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
         } else {
-          List() {
-            ForEach(this.posts, (post: Post, index: number) => {
-              ListItem() { this.postRow(index, post) }
-            }, (post: Post) => String(post.id));
+          // 双列卡片流（与主页信息流同构）：Scroll > Row > 两列 Column，raw 下标 %2 分列
+          Scroll() {
+            Column({ space: SpaceTokens.xs }) {
+              Row({ space: SpaceTokens.xs }) {
+                ForEach([0, 1], (colIdx: number) => {
+                  Column({ space: SpaceTokens.xs }) {
+                    ForEach(this.colPosts(colIdx), (entry: IndexedPost) => {
+                      this.postCard(entry.index, entry.post)
+                    }, (entry: IndexedPost) => String(entry.post.id))
+                  }
+                  .layoutWeight(1)
+                }, (colIdx: number) => String(colIdx))
+              }
+              .width('100%')
+              .alignItems(VerticalAlign.Top)
+            }
+            .width('100%')
+            // 内容不足一屏时撑满视口，否则 Scroll 会把卡片垂直居中（顶部留白）
+            .constraintSize({ minHeight: '100%' })
+            .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs, bottom: SpaceTokens.md })
           }
           .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+          .scrollable(ScrollDirection.Vertical)
           .layoutWeight(1).width('100%');
         }
         if (this.isOwner) {
