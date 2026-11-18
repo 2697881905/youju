@@ -27,6 +27,7 @@ import { PublishTagPanel } from '../components/PublishTagPanel';
 import { PUBLISH_GENRES, PUBLISH_GENRE_SEGMENTS, publishGenreMeta } from '../utils/publishGenres';
 import { PublishSection } from '../components/PublishSection';
 import { PublishCircleSelector } from '../components/PublishCircleSelector';
+import { PublishCollectionPicker } from '../components/PublishCollectionPicker';
 import { consumePendingPublishCircle } from '../utils/publishCircleIntent';
 import { PublishTopBar } from '../components/PublishTopBar';
 import { GlassBlurStyle, getSheetImmersiveMaterial, isSystemMaterialActive } from '../utils/immersiveMaterial';
@@ -46,6 +47,7 @@ struct PhotoPublishPage {
   @State genre: Genre = 'share';
   @State genreIndex: number = 4; // share 位于 PUBLISH_GENRES 下标 4
   @State selectedTags: string[] = [];
+  @State selectedCollectionId: number = 0;
   @State title: string = '';
   // —— AI 联合优化（标题 + 正文轻度润色）：结果先进「新旧对照」预览，作者确认才回填 ——
   @State aiTitleBusy: boolean = false;
@@ -325,6 +327,7 @@ struct PhotoPublishPage {
       structuredDocument: this.structuredDocument,
       images: this.images,
       mentions: this.mentionRefs.length > 0 ? this.mentionRefs : undefined,
+      collectionId: this.selectedCollectionId,
     };
   }
 
@@ -342,6 +345,7 @@ struct PhotoPublishPage {
     this.sd = draft.structuredData;
     this.structuredDocument = draft.structuredDocument;
     this.images = [...draft.images];
+    this.selectedCollectionId = draft.collectionId ?? 0;
     this.editingSavedDraftId = savedDraftId;
     this.showFields = false;
     this.showTagPanel = false;
@@ -544,12 +548,15 @@ struct PhotoPublishPage {
       meta: '已选 ' + this.selectedTags.length + '/' + MAX_SELECTED_TAGS,
       index: 3,
     }) {
-      PublishCircleSelector({
-        selectedTags: this.selectedTags,
-        maxSelected: MAX_SELECTED_TAGS,
-        onAdd: (): void => { this.showTagPanel = true; },
-        onRemove: (name: string): void => { this.toggleTag(name); },
-      })
+      Column({ space: SpaceTokens.md }) {
+        PublishCircleSelector({
+          selectedTags: this.selectedTags,
+          maxSelected: MAX_SELECTED_TAGS,
+          onAdd: (): void => { this.showTagPanel = true; },
+          onRemove: (name: string): void => { this.toggleTag(name); },
+        })
+        PublishCollectionPicker({ selectedId: $selectedCollectionId })
+      }
     }
   }
 

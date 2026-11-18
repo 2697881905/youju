@@ -3,7 +3,8 @@
 // 不再经过独立预览页——预览页与审稿层共用本函数，避免两份发布逻辑漂移。
 // 职责：结构化校验 → 登录 → 文字海报/视频处理 → createPost → completePublish。
 // 进度与失败提示在本函数内 toast；调用方只按返回值决定路由（成功才 back）。
-import { createPost } from '../services/api';
+import { createPost, addPostToCollection } from '../services/api';
+import { Post } from '../models/types';
 import { ensureLogin } from './auth';
 import { publishFlowStore } from './publishFlowStore';
 import { PublishDraft } from './publishDraft';
@@ -97,8 +98,9 @@ export async function executePublish(draft: PublishDraft, uiContext: UIContext):
       safeShowToast(uiContext, { message: '文字海报失败，已按纯文字发布：' + message });
     }
   }
+  let newPostId: number = 0;
   try {
-    await createPost({
+    const created: Post = await createPost({
       title: draft.title,
       publishMode: draft.mode,
       content: draft.content,
@@ -113,12 +115,25 @@ export async function executePublish(draft: PublishDraft, uiContext: UIContext):
       videoAspectRatio: videoAspectRatio,
       coverImage: videoCover && videoCover.length > 0 ? videoCover : coverImage,
     });
+    newPostId = typeof created.id === 'number' && created.id > 0 ? created.id : 0;
   } catch (e) {
     const message: string = e instanceof Error && e.message.length > 0 ? e.message : '未知错误';
     safeShowToast(uiContext, { message: '发布失败：' + message });
     return { ok: false };
   }
+  // 发布前选了合集：发布成功后加入。加帖失败不判定发布失败（帖已落地），但要明确提示，
+  // 否则用户以为进了合集、实际没有，且无从补救（只能去合集页手动加）。
+  const collectionId: number = draft.collectionId ?? 0;
+  if (collectionId > 0 && newPostId > 0) {
+    try {
+      await addPostToCollection(collectionId, newPostId);
+    } catch (e) {
+      safeShowToast(uiContext, { message: '发布成功，但加入合集失败，请到合集页手动添加' });
+      publishFlowStore.completePublish();
+      return { ok: true };
+    }
+  }
   publishFlowStore.completePublish();
-  safeShowToast(uiContext, { message: '发布成功' });
+  safeShowToast(uiContext, { message: collectionId > 0 ? '发布成功，已加入合集' : '发布成功' });
   return { ok: true };
 }

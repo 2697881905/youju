@@ -27,6 +27,7 @@ import { PublishTagPanel } from '../components/PublishTagPanel';
 import { PUBLISH_GENRES, PUBLISH_GENRE_SEGMENTS, publishGenreMeta } from '../utils/publishGenres';
 import { PublishSection } from '../components/PublishSection';
 import { PublishCircleSelector } from '../components/PublishCircleSelector';
+import { PublishCollectionPicker } from '../components/PublishCollectionPicker';
 import { consumePendingPublishCircle } from '../utils/publishCircleIntent';
 import { PublishTopBar } from '../components/PublishTopBar';
 import { GlassBlurStyle, getSheetImmersiveMaterial, isSystemMaterialActive } from '../utils/immersiveMaterial';
@@ -47,6 +48,7 @@ struct VideoPublishPage {
   @State genre: Genre = 'share';
   @State genreIndex: number = 4; // share 位于 PUBLISH_GENRES 下标 4
   @State selectedTags: string[] = [];
+  @State selectedCollectionId: number = 0;
   @State title: string = '';
   // —— AI 联合优化（标题 + 正文轻度润色）：结果先进「新旧对照」预览，作者确认才回填 ——
   @State aiTitleBusy: boolean = false;
@@ -327,6 +329,7 @@ struct VideoPublishPage {
       videoCover: this.videoCover,
       videoAspectRatio: this.videoAspectRatio,
       mentions: this.mentionRefs.length > 0 ? this.mentionRefs : undefined,
+      collectionId: this.selectedCollectionId,
     };
   }
 
@@ -346,6 +349,7 @@ struct VideoPublishPage {
     this.videoUrl = draft.videoUrl ?? '';
     this.videoCover = draft.videoCover ?? '';
     this.videoAspectRatio = draft.videoAspectRatio ?? FALLBACK_VIDEO_ASPECT_RATIO;
+    this.selectedCollectionId = draft.collectionId ?? 0;
     this.editingSavedDraftId = savedDraftId;
     this.showFields = false;
     this.showTagPanel = false;
@@ -547,12 +551,15 @@ struct VideoPublishPage {
       meta: '已选 ' + this.selectedTags.length + '/' + MAX_SELECTED_TAGS,
       index: 3,
     }) {
-      PublishCircleSelector({
-        selectedTags: this.selectedTags,
-        maxSelected: MAX_SELECTED_TAGS,
-        onAdd: (): void => { this.showTagPanel = true; },
-        onRemove: (name: string): void => { this.toggleTag(name); },
-      })
+      Column({ space: SpaceTokens.md }) {
+        PublishCircleSelector({
+          selectedTags: this.selectedTags,
+          maxSelected: MAX_SELECTED_TAGS,
+          onAdd: (): void => { this.showTagPanel = true; },
+          onRemove: (name: string): void => { this.toggleTag(name); },
+        })
+        PublishCollectionPicker({ selectedId: $selectedCollectionId })
+      }
     }
   }
 

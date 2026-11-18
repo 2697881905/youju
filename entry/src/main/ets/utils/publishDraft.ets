@@ -18,6 +18,7 @@ export interface PublishDraft {
   videoAspectRatio?: number; // 视频真实宽/高，供预览与详情按原比例展示
   textPosterStyle?: string;
   mentions?: MentionRef[]; // 编辑器显式选择的 @提及（精确到 userId，随发布透传）
+  collectionId?: number; // 发布后自动加入的合集（0/缺省=不加入）；随草稿跨页带到预览页
 }
 
 export function clonePublishDraft(draft: PublishDraft): PublishDraft {
@@ -41,5 +42,6 @@ export function clonePublishDraft(draft: PublishDraft): PublishDraft {
       name: m.name,
       userId: m.userId,
     })) : undefined,
+    collectionId: draft.collectionId,
   };
 }
