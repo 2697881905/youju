@@ -228,6 +228,8 @@ export struct CollectionPage {
             .alignItems(VerticalAlign.Top)
           }
           .width('100%')
+          // 撑满视口：否则内容不足一屏时 Scroll 会把卡片垂直居中（顶部留大片空白）。
+          .constraintSize({ minHeight: '100%' })
           .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs, bottom: SpaceTokens.md })
         }
         .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
