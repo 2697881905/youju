@@ -198,33 +198,70 @@ export async function buildViewerProfile(viewerId: number | undefined, asOf: Dat
     applyBehaviors(profile, bookmarks, W_BOOKMARK, asOf);
     applyBehaviors(profile, comments, W_COMMENT, asOf);
 
-    // DebateVote 无 post 关系：批量回查帖子标签后再累加
-    const votePostIds: number[] = [];
+    // 点击信号（P0，W_CLICK=1）：PostEvent 无 post 关系，且新表查询在部分 mock/降级环境
+    // 可能缺失，单独 try/catch 兜底 —— 读不到只跳过点击，不拖垮其它画像信号。
+    // 同一帖多次点击按最新一条去重（点击是二值信号，防重复点击刷高亲和）。
+    let clicks: { postId: number; createdAt: Date }[] = [];
+    try {
+      const clickRows = await prisma.postEvent.findMany({
+        where: { userId: viewerId, action: 'click', createdAt: { lte: asOf }, postId: { not: null } },
+        select: { createdAt: true, postId: true },
+      });
+      const latestClick = new Map<number, Date>();
+      for (const row of clickRows) {
+        if (row.postId == null) {
+          continue;
+        }
+        const prev = latestClick.get(row.postId);
+        if (!prev || row.createdAt.getTime() > prev.getTime()) {
+          latestClick.set(row.postId, row.createdAt);
+        }
+      }
+      clicks = Array.from(latestClick, ([postId, createdAt]) => ({ postId, createdAt }));
+    } catch (e) {
+      console.warn('[dailyScore] 点击信号读取降级：', (e as Error).message);
+    }
+
+    // DebateVote / PostEvent 均无 post 关系：合并 postId 一次性批量回查帖子标签，省一次往返
+    const backfillIds: number[] = [];
     for (const row of votes) {
-      if (!votePostIds.includes(row.postId)) {
-        votePostIds.push(row.postId);
+      if (!backfillIds.includes(row.postId)) {
+        backfillIds.push(row.postId);
       }
     }
-    if (votePostIds.length > 0) {
-      const votePosts = await prisma.post.findMany({
-        where: { id: { in: votePostIds } },
+    for (const row of clicks) {
+      if (!backfillIds.includes(row.postId)) {
+        backfillIds.push(row.postId);
+      }
+    }
+    if (backfillIds.length > 0) {
+      const posts = await prisma.post.findMany({
+        where: { id: { in: backfillIds } },
         select: { id: true, tags: true, userId: true },
       });
-      const votePostMap = new Map<number, { tags: unknown; userId: number }>();
-      for (const post of votePosts) {
-        votePostMap.set(post.id, { tags: post.tags, userId: post.userId });
+      const postMap = new Map<number, { tags: unknown; userId: number }>();
+      for (const post of posts) {
+        postMap.set(post.id, { tags: post.tags, userId: post.userId });
       }
       const voteRows: BehaviorRow[] = [];
       for (const row of votes) {
-        const post = votePostMap.get(row.postId);
+        const post = postMap.get(row.postId);
         if (post) {
           voteRows.push({ createdAt: row.createdAt, post });
         }
       }
       applyBehaviors(profile, voteRows, W_COMMENT, asOf);
+      const clickRows: BehaviorRow[] = [];
+      for (const row of clicks) {
+        const post = postMap.get(row.postId);
+        if (post) {
+          clickRows.push({ createdAt: row.createdAt, post });
+        }
+      }
+      applyBehaviors(profile, clickRows, W_CLICK, asOf);
     }
 
-    profile.actionCount = ups.length + bookmarks.length + comments.length + votes.length;
+    profile.actionCount = ups.length + bookmarks.length + comments.length + votes.length + clicks.length;
     return profile;
   } catch (e) {
     console.warn('[dailyScore] 画像构建降级为空画像：', (e as Error).message);
@@ -254,7 +291,14 @@ export function computeDailyScore(
   for (const tag of tags) {
     affinity += profile.tagW.get(tag) ?? 0;
   }
-  const affinityPart = Math.tanh(affinity / AFF_NORM);
+  // 冷启动降级链接线：仅 shrunk 档（1~9 次行为）做贝叶斯收缩，向大盘均值 0 收缩，
+  // 防 1~2 次行为 tanh 满额过拟合。全冷档（0 行为）需保留显式关注标签的亲和信号，
+  // 高活跃档（≥10 行为）信号充足不收缩 —— 两档均原样使用 affinity。
+  const stage = coldStartChain(profile, profile.followed.size);
+  const effectiveAffinity = stage === 'shrunk'
+    ? shrinkAffinity(affinity, 0, profile.actionCount)
+    : affinity;
+  const affinityPart = Math.tanh(effectiveAffinity / AFF_NORM);
 
   const created = post.createdAt instanceof Date ? post.createdAt : null;
   const freshPart = created === null ? 0 : Math.max(0, 1 - ageHours(created, asOf) / FRESH_WINDOW_HOURS);
