@@ -19,6 +19,7 @@ import notificationRouter from './routes/notifications';
 import userRouter from './routes/users';
 import adminRouter from './routes/admin';
 import appealsRouter from './routes/appeals';
+import collectionsRouter from './routes/collections';
 // 用户安全设置类路由（通知偏好 / 拉黑 / 隐私 / 数据导出），均挂 /v1 前缀
 import notificationPrefRouter from './routes/notificationPrefs';
 import blockRouter from './routes/block';
@@ -119,6 +120,8 @@ app.use('/v1', interactRouter);
 app.use('/v1/bookmark-folders', bookmarkFolderRouter);
 // 内容处置申诉：/v1/appeals（提交/我的申诉），管理端复核在 /v1/admin/appeals
 app.use('/v1/appeals', appealsRouter);
+// 合集（连载）：/v1/collections（创建/列表/详情/加帖），按 ?authorId= 查他人合集
+app.use('/v1/collections', collectionsRouter);
 // admin 处置 API（GET /v1/admin/reports、POST /v1/admin/reports/resolve、封禁/解封、热榜重算）
 app.use('/v1/admin', adminRouter);
 // 用户安全设置（通知偏好 / 拉黑 / 隐私 / 数据导出），统一挂 /v1

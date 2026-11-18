@@ -337,6 +337,33 @@ export interface AppealListResult {
   list: AppealItem[];
 }
 
+// ===== 合集（连载）=====
+export interface CollectionCover {
+  postId: number;
+  title: string;
+  image: string;
+  genre: string;
+}
+
+export interface CollectionItem {
+  id: number;
+  authorId: number;
+  title: string;
+  description: string | null;
+  postCount: number;
+  cover: CollectionCover | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CollectionDetail {
+  id: number;
+  authorId: number;
+  title: string;
+  description: string | null;
+  postCount: number;
+}
+
 // 举报人快照（admin 台账随举报记录返回，仅昵称）
 export interface AdminReporter {
   nickname?: string | null;

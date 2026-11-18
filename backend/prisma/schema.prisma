@@ -82,6 +82,7 @@ model Post {
   ups      Up[]
   bookmarks Bookmark[]
   ratings  PostRating[]
+  collectionEntries CollectionPost[] // 合集内条目（一篇帖子至多一个条目，见 CollectionPost.postId 唯一）
 
   @@index([hotScore, status, deletedAt]) // 推荐/热榜按热度检索（未删+已发布过滤走 where，索引前缀含 hotScore）
 }
@@ -150,6 +151,36 @@ model BookmarkFolder {
   updatedAt DateTime @updatedAt
 
   @@index([userId])
+}
+
+// 合集（连载）：作者公开发布的有序帖子集合，与私人收藏夹（BookmarkFolder）是两回事。
+// 仅作者可增删条目；条目挂 CollectionPost，可跨多次编辑重排。
+model Collection {
+  id          Int      @id @default(autoincrement())
+  authorId    Int
+  title       String   @db.VarChar(50)
+  description String?  @db.VarChar(300)
+  postCount   Int      @default(0) // 冗余计数，增/删条目时同步维护
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  entries     CollectionPost[]
+
+  @@index([authorId, createdAt])
+}
+
+// 合集内帖子（有序）：postId 唯一归属于一个合集（一篇帖子同一时间只进一个合集）
+model CollectionPost {
+  id           Int      @id @default(autoincrement())
+  collectionId Int
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  postId       Int
+  post         Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  addedAt      DateTime @default(now())
+
+  @@unique([collectionId, postId])
+  @@unique([postId])          // 一篇帖子只属于一个合集
+  @@index([collectionId, addedAt])
 }
 
 // 标签表

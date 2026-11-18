@@ -1,7 +1,7 @@
 import { http } from '@kit.NetworkKit';
 import { BUILD_MODE_NAME, DEBUG } from '../utils/buildMode';
 import { FeedZone } from '../utils/feedZones';
-import { Post, DailyPost, Comment, Tag, User, Pagination, Genre, StructuredMetricKind, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody, ReportAction, NotificationPrefs, BlockUser, PrivacySettingsData, UserExportData, DebateVoteResult, Conversation, DmMessage, DmSharePayload, AdminReportItem, ReportTargetType, AppealTargetType, AppealListResult, BookmarkFolderItem, MentionRef, MentionCandidate, StructuredDocument, PendingReportSummary } from '../models/types';
+import { Post, DailyPost, Comment, Tag, User, Pagination, Genre, StructuredMetricKind, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody, ReportAction, NotificationPrefs, BlockUser, PrivacySettingsData, UserExportData, DebateVoteResult, Conversation, DmMessage, DmSharePayload, AdminReportItem, ReportTargetType, AppealTargetType, AppealListResult, CollectionItem, CollectionDetail, BookmarkFolderItem, MentionRef, MentionCandidate, StructuredDocument, PendingReportSummary } from '../models/types';
 
 // 以构建期布尔 DEBUG 为准选择后端地址（调试包 true → 本地，released → 生产）。
 const BUILD_MODE: string = BUILD_MODE_NAME;
@@ -1076,6 +1076,66 @@ export async function createAppeal(targetType: AppealTargetType, targetId: numbe
 // GET /v1/appeals/mine（我提交的申诉，最多 100 条）
 export function listMyAppeals(): Promise<AppealListResult> {
   return api.get<AppealListResult>('/v1/appeals/mine');
+}
+
+// ===== 合集（连载）=====
+interface CollectionListResult {
+  list: CollectionItem[];
+}
+
+interface CollectionDetailResult {
+  collection: CollectionDetail;
+  list: Post[];
+  pagination: Pagination;
+}
+
+interface CollectionWriteBody {
+  title: string;
+  description: string | null;
+}
+
+interface CollectionAddPostBody {
+  postId: number;
+}
+
+// GET /v1/collections?authorId=（不传则查自己的合集）
+export function listCollections(authorId?: number): Promise<CollectionListResult> {
+  const path = '/v1/collections' + toQuery([['authorId', authorId]]);
+  return api.get<CollectionListResult>(path);
+}
+
+// POST /v1/collections — 创建合集
+export async function createCollection(title: string, description: string): Promise<CollectionItem> {
+  const body: CollectionWriteBody = { title: title, description: description };
+  return api.post<CollectionItem>('/v1/collections', body);
+}
+
+// PATCH /v1/collections/:id — 编辑合集
+export async function updateCollection(id: number, title: string, description: string): Promise<CollectionItem> {
+  const body: CollectionWriteBody = { title: title, description: description };
+  return api.patch<CollectionItem>('/v1/collections/' + id, body);
+}
+
+// DELETE /v1/collections/:id — 删除合集
+export async function deleteCollection(id: number): Promise<void> {
+  await api.del<null>('/v1/collections/' + id);
+}
+
+// GET /v1/collections/:id?page=&limit= — 合集详情（含有序帖子）
+export function getCollection(id: number, page: number = 1, limit: number = 20): Promise<CollectionDetailResult> {
+  const path = '/v1/collections/' + id + toQuery([['page', page], ['limit', limit]]);
+  return api.get<CollectionDetailResult>(path);
+}
+
+// POST /v1/collections/:id/posts — 加帖
+export async function addPostToCollection(id: number, postId: number): Promise<void> {
+  const body: CollectionAddPostBody = { postId: postId };
+  await api.post<null>('/v1/collections/' + id + '/posts', body);
+}
+
+// DELETE /v1/collections/:id/posts/:postId — 移除帖子
+export async function removePostFromCollection(id: number, postId: number): Promise<void> {
+  await api.del<null>('/v1/collections/' + id + '/posts/' + postId);
 }
 
 // ===== 内容治理（admin）=====

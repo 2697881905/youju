@@ -1678,17 +1678,50 @@ struct Index {
       // 主分段栏：我发布 / 我收藏 / 我赞过 / 我评论（官方 SegmentButton）
       // 不传 backgroundSystemMaterial——住在列表吸顶区（uiMaterial 不渲染），走官方
       // 默认轨道材质（组件表面自带，非 TitleBar 挂载，内容区正常出图）。
-      ImmersiveSegmentBar({
-        items: PROFILE_SEGMENTS,
-        selectedIndex: $profileTabIdx,
-        // 长条铺满整行（减左右 margin，用户拍板 2026-10-28）：四槽等分
-        fillWidth: true,
-        onSelect: (idx: number): void => {
-          // 只写选中值：滑块弹性动画由官方状态动画承担，列表刷新由 @Watch(tabIdx) 承接
-          this.profileTabIdx = idx;
-        },
-      })
-        .margin({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.xs })
+      // 外层 Row 给「我发布」右侧的合集入口留位；不显示时分段栏独占整行。
+      Row({ space: SpaceTokens.xs }) {
+        Column() {
+          ImmersiveSegmentBar({
+            items: PROFILE_SEGMENTS,
+            selectedIndex: $profileTabIdx,
+            // 长条铺满整行（减左右 margin，用户拍板 2026-10-28）：四槽等分
+            fillWidth: true,
+            onSelect: (idx: number): void => {
+              // 只写选中值：滑块弹性动画由官方状态动画承担，列表刷新由 @Watch(tabIdx) 承接
+              this.profileTabIdx = idx;
+            },
+          })
+        }
+        .layoutWeight(1)
+        // 合集入口：仅「我发布」分段显示，进入自己的合集管理页
+        //（与收藏夹管理入口同一套 Pressable + 材质配方，避免裸图标误触）
+        if (this.profileTabIdx === 0) {
+          Row() {
+            Pressable({
+              visualHeight: LayoutTokens.iconButton,
+              touchTargetHeight: LayoutTokens.minTouchTarget,
+              action: (): void => {
+                this.getUIContext().getRouter().pushUrl({ url: 'pages/CollectionPage' });
+              },
+            }) {
+              Row() {
+                Image(resolveSettingsIcon('book'))
+                  .width(IconTokens.standard)
+                  .height(IconTokens.standard)
+                  .fillColor(ColorTokens.icon)
+              }
+              .width(LayoutTokens.iconButton)
+              .height(LayoutTokens.iconButton)
+              .justifyContent(FlexAlign.Center)
+              .borderRadius(RadiusTokens.lg)
+              .attributeModifier(this.profileActionMaterial)
+              .accessibilityText('我的合集')
+            }
+          }
+        }
+      }
+        .width('100%')
+        .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.xs })
 
       // 「我收藏」子分段栏（帖子 | 收藏夹）：与主分段栏同一套官方配方（默认轨道材质，
       // 内容区正常出图）。整行铺满（官方组件把可用宽度等分给两条目），管理入口靠右，
