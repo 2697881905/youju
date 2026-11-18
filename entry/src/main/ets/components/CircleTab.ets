@@ -1681,7 +1681,8 @@ export struct CircleTab {
     }
     .width('100%')
     .alignItems(VerticalAlign.Center)
-    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs, bottom: SpaceTokens.xs })
+    // 标题左右边距统一为「我的」页基准 base(16vp)，四页 Title 与屏幕左缘等距。
+    .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.xs, bottom: SpaceTokens.xs })
   }
 
   private landingCircle(): CircleTag | undefined {

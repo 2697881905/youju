@@ -1397,9 +1397,10 @@ export struct MessagePage {
     // 行高不足时区域余量会成为标题与分段栏之间的空隙（真机实证「看似未上移」的根因）。
     // 撑满后空隙归零，分段栏视觉上紧贴标题块。
     .height('100%')
+    // 标题左右边距统一为「我的」页基准 base(16vp)，四页 Title 与屏幕左缘等距。
     .padding({
-      left: SpaceTokens.sm,
-      right: SpaceTokens.sm,
+      left: SpaceTokens.base,
+      right: SpaceTokens.base,
       top: SpaceTokens.xs,
       bottom: SpaceTokens.xs,
     })

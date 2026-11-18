@@ -100,7 +100,8 @@ export struct PublishModePanel {
       .width('100%')
       .height(TITLE_ROW_VP)
       .alignItems(VerticalAlign.Center)
-      .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+      // 标题左右边距统一为「我的」页基准 base(16vp)，四页 Title 与屏幕左缘等距。
+      .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
 
       Text('记录此刻，选择一种方式开始创作')
         .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
