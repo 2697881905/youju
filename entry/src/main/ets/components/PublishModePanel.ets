@@ -88,11 +88,13 @@ export struct PublishModePanel {
   build() {
     Column() {
       // 标题行：衬线标题，位置对齐其余 Tab 的 HdsNavigation 标题行（状态栏 + 56vp）。
+      // 字体规格统一用 titleSerif（21/700/32），与圈子/消息/我的三个主 Tab 标题完全一致；
+      // 原用 headline（18/600/24）导致发布页标题明显偏小、偏细，切页时字号跳变。
       Row() {
         Text('发布')
-          .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.headline.weight)
-          .lineHeight(TypeTokens.headline.lineHeight)
+          .fontSize(TypeTokens.titleSerif.size).fontFamily(TypeTokens.fontFamilySerif)
+          .fontWeight(TypeTokens.titleSerif.weight)
+          .lineHeight(TypeTokens.titleSerif.lineHeight)
           .fontColor(ColorTokens.primary)
       }
       .width('100%')
