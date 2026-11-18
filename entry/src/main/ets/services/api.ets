@@ -1,7 +1,7 @@
 import { http } from '@kit.NetworkKit';
 import { BUILD_MODE_NAME, DEBUG } from '../utils/buildMode';
 import { FeedZone } from '../utils/feedZones';
-import { Post, DailyPost, Comment, Tag, User, Pagination, Genre, StructuredMetricKind, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody, ReportAction, NotificationPrefs, BlockUser, PrivacySettingsData, UserExportData, DebateVoteResult, Conversation, DmMessage, DmSharePayload, AdminReportItem, ReportTargetType, BookmarkFolderItem, MentionRef, MentionCandidate, StructuredDocument, PendingReportSummary } from '../models/types';
+import { Post, DailyPost, Comment, Tag, User, Pagination, Genre, StructuredMetricKind, Provider, BindingItem, BindAccountBody, UnbindResult, NotificationItem, UnreadCount, UserProfile, FollowUser, FollowListResult, ReportBody, ReportAction, NotificationPrefs, BlockUser, PrivacySettingsData, UserExportData, DebateVoteResult, Conversation, DmMessage, DmSharePayload, AdminReportItem, ReportTargetType, AppealTargetType, AppealListResult, BookmarkFolderItem, MentionRef, MentionCandidate, StructuredDocument, PendingReportSummary } from '../models/types';
 
 // 以构建期布尔 DEBUG 为准选择后端地址（调试包 true → 本地，released → 生产）。
 const BUILD_MODE: string = BUILD_MODE_NAME;
@@ -1058,6 +1058,24 @@ export async function reportComment(id: number, body: ReportBody): Promise<void>
 // POST /v1/users/:id/report（举报用户：私信骚扰等场景，聊天模块举报渠道）
 export async function reportUser(id: number, body: ReportBody): Promise<void> {
   await api.post<null>('/v1/users/' + id + '/report', body);
+}
+
+// ===== 内容处置申诉 =====
+interface AppealBody {
+  targetType: AppealTargetType;
+  targetId: number;
+  reason: string;
+}
+
+// POST /v1/appeals（作者对自己被下架的帖子/评论提交复核申请）
+export async function createAppeal(targetType: AppealTargetType, targetId: number, reason: string): Promise<void> {
+  const body: AppealBody = { targetType: targetType, targetId: targetId, reason: reason };
+  await api.post<null>('/v1/appeals', body);
+}
+
+// GET /v1/appeals/mine（我提交的申诉，最多 100 条）
+export function listMyAppeals(): Promise<AppealListResult> {
+  return api.get<AppealListResult>('/v1/appeals/mine');
 }
 
 // ===== 内容治理（admin）=====

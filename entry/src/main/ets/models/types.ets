@@ -153,6 +153,7 @@ export interface Post {
   myUp?: boolean; // 我是否点赞
   myBookmark?: boolean; // 我是否收藏
   myVote?: string; // 我的辩论投票选项 'A' | 'B' | ''（后端按 viewerId 计算返回）
+  reportCount?: number; // 被举报次数；>0 且 status=0 表示被举报处置下架（申诉入口门控）
   status?: number;
   deletedAt?: string;
   createdAt?: string;
@@ -314,6 +315,27 @@ export interface ReportBody {
 
 // 举报目标类型
 export type ReportTargetType = 'post' | 'comment' | 'user';
+
+// 内容处置申诉（仅作者可申诉自己的 post/comment）
+export type AppealTargetType = 'post' | 'comment';
+export type AppealStatus = 'pending' | 'approved' | 'rejected';
+
+export interface AppealItem {
+  id: number;
+  targetType: AppealTargetType;
+  targetId: number;
+  authorId: number;
+  reason: string;
+  status: AppealStatus;
+  createdAt: string;
+  reviewedAt?: string | null;
+  reviewerId?: number | null;
+  reviewNote?: string | null;
+}
+
+export interface AppealListResult {
+  list: AppealItem[];
+}
 
 // 举报人快照（admin 台账随举报记录返回，仅昵称）
 export interface AdminReporter {

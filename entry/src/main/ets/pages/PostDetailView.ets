@@ -34,6 +34,7 @@ import {
   voteDebate,
   reportPost,
   reportComment,
+  createAppeal,
   resolveDisplayImageUrl,
   PostWithComments,
   getPostStats,
@@ -201,6 +202,10 @@ export struct PostDetailView {
   // 评论输入内显式选择的 @提及（精确 userId，随发送透传，后端防重名误通知）
   private commentMentionRefs: MentionRef[] = [];
   @State commentReportId: number = 0;
+  // 自己被下架帖子的申诉面板：仅在作者查看 status=0 帖子时出现
+  @State appealPanelVisible: boolean = false;
+  @State appealReason: string = '';
+  @State appealSubmitting: boolean = false;
   @State viewingImage: string = ''; // 全屏看图
   @State shareCardPreview: image.PixelMap | null = null; // 分享卡图 App 内预览
   // ===== 长按结构化内容小菜单：复制正文（自绘浮层，替代 bindContextMenu）=====
@@ -1279,6 +1284,40 @@ export struct PostDetailView {
     }
   }
 
+  // 仅「自己的、被举报处置下架」的帖子可申诉；status=0 还包含待审核，需用 reportCount 区分。
+  private canAppealPost(): boolean {
+    const p: PostWithComments | null = this.post;
+    return p !== null && p.status === 0 && (p.reportCount ?? 0) > 0 && p.userId === getUserId();
+  }
+
+  // 提交帖子处置申诉；失败保留输入，便于修改理由后重试。
+  private async submitPostAppeal(): Promise<void> {
+    const targetId: number = (typeof this.post?.id === 'number' && this.post.id > 0) ? this.post.id : this.pid;
+    const reason: string = this.appealReason.trim();
+    if (!Number.isInteger(targetId) || targetId <= 0) {
+      safeShowToast(this.getUIContext(), { message: '无效帖子ID' });
+      return;
+    }
+    if (reason.length === 0 || reason.length > 500) {
+      safeShowToast(this.getUIContext(), { message: '申诉理由须在 1–500 字之间' });
+      return;
+    }
+    if (this.appealSubmitting) {
+      return;
+    }
+    this.appealSubmitting = true;
+    try {
+      await createAppeal('post', targetId, reason);
+      this.appealPanelVisible = false;
+      this.appealReason = '';
+      safeShowToast(this.getUIContext(), { message: '申诉已提交，复核后会通知你' });
+    } catch (e) {
+      safeShowToast(this.getUIContext(), { message: (e as Error).message });
+    } finally {
+      this.appealSubmitting = false;
+    }
+  }
+
   // —— 评论输入 @提及 编辑辅助 ——
   // 文尾正在输入「@昵称」时显示候选（与发帖页/私信同策略：只看文本，不额外要求输入态）。
   // 此前这里有 `if (!this.commenting) return null` 守卫，但 commenting 全文件只在
@@ -1780,12 +1819,44 @@ export struct PostDetailView {
   detailBodyScroll() {
     Scroll(this.detailScroller) {
       Column({ space: 16 }) {
-        // 待审核横幅（作者查看自己 status=0 帖子时显示）
+        // status=0 横幅（作者可见）：待审核只提示；被举报处置下架则额外给申诉入口
         if (this.dp().status === 0 && this.dp().userId === getUserId()) {
-          Row({ space: 8 }) {
-            Text('该帖子正在审核中，仅你自己可见')
-              .fontSize(13).fontFamily($r('app.string.font_family'))
-              .fontColor('#FF9500')
+          Column({ space: 8 }) {
+            Row({ space: 8 }) {
+              Text(this.canAppealPost() ? '该帖子已被处置，仅你自己可见' : '该帖子正在审核中，仅你自己可见')
+                .fontSize(13).fontFamily($r('app.string.font_family'))
+                .fontColor('#FF9500')
+                .layoutWeight(1)
+              if (this.canAppealPost()) {
+                Text(this.appealPanelVisible ? '收起' : '申诉')
+                  .fontSize(13).fontFamily($r('app.string.font_family'))
+                  .fontColor(ColorTokens.brand)
+                  .onClick(() => { this.appealPanelVisible = !this.appealPanelVisible; })
+              }
+            }
+            .width('100%')
+            if (this.canAppealPost() && this.appealPanelVisible) {
+              Column({ space: 8 }) {
+                TextInput({ text: this.appealReason, placeholder: '请说明申诉理由（1-500字）' })
+                  .width('100%')
+                  .height(40)
+                  .fontSize(13).fontFamily($r('app.string.font_family'))
+                  .fontColor(ColorTokens.primary)
+                  .placeholderColor(ColorTokens.tertiary)
+                  .backgroundColor(ColorTokens.elevated)
+                  .borderRadius(RadiusTokens.sm)
+                  .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+                  .maxLength(500)
+                  .onChange((value: string): void => { this.appealReason = value; })
+                Button(this.appealSubmitting ? '提交中…' : '提交申诉')
+                  .width('100%')
+                  .height(40)
+                  .fontSize(14)
+                  .enabled(!this.appealSubmitting)
+                  .onClick(() => { this.submitPostAppeal(); })
+              }
+              .width('100%')
+            }
           }
           .width('100%')
           .padding({ left: 12, right: 12, top: 8, bottom: 8 })

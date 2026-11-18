@@ -307,6 +307,26 @@ model Report {
   @@index([status, createdAt])                  // 审核队列按状态+时间排序
 }
 
+// 内容处置申诉（三道 UGC 合规防线的复核出口）：作者对被下架的内容/评论提交申诉，
+// 管理员复核后 approved 走既有 resolveReportsByTarget(restore) 恢复内容，rejected 仅标记。
+// 不改动 Report/敏感词/举报/人审的任何既有裁决逻辑——申诉只加一层流程，不放宽审核。
+model Appeal {
+  id         Int       @id @default(autoincrement())
+  targetType String    @db.VarChar(10)    // 'post' | 'comment'
+  targetId   Int
+  authorId   Int                          // 申诉人 = 内容作者（提交时校验归属）
+  reason     String    @db.VarChar(500)   // 申诉理由
+  status     String    @default("pending") @db.VarChar(20) // pending/approved/rejected
+  createdAt  DateTime  @default(now())
+  reviewedAt DateTime?
+  reviewerId Int?
+  reviewNote String?   @db.VarChar(500)
+
+  @@unique([targetType, targetId, authorId])   // 同一作者同一内容仅可申诉一次
+  @@index([status, createdAt])                  // 管理端审核队列
+  @@index([authorId, createdAt])                // 用户查自己的申诉
+}
+
 // 通知偏好开关表（用户可控的通知类别开关，默认全开）
 model NotificationPreference {
   id        Int      @id @default(autoincrement())

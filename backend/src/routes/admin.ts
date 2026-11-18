@@ -4,6 +4,8 @@
 // POST /v1/admin/reports/resolve     处置某目标：resolved 成立并下架 / dismissed 驳回并恢复 / restore 改判恢复
 // POST /v1/admin/reports/delete      批量删除举报台账记录
 // POST /v1/admin/users/:id/ban|unban 封禁 / 解封用户
+// GET  /v1/admin/appeals              申诉复核队列（支持 status 过滤）
+// POST /v1/admin/appeals/:id/review   复核申诉（approved 恢复 / rejected 维持下架）
 // POST /v1/admin/recompute-hot       运维专用：全量重算热度分
 import { Router, Response } from 'express';
 import { ok, fail, CODE } from '../utils/response';
@@ -12,6 +14,7 @@ import { adminAuth } from '../middleware/adminAuth';
 import { prisma } from '../prisma';
 import { env } from '../config/env';
 import * as reportService from '../services/reportService';
+import * as appealService from '../services/appealService';
 import { recomputeAllHotScores } from '../services/hotScoreService';
 import { parsePage, parseLimit } from '../utils/pagination';
 
@@ -120,6 +123,44 @@ router.post('/reports/resolve', asyncHandler(async (req: AuthRequest, res: Respo
     return fail(res, CODE.SERVER_ERROR, '处理失败', 500);
   }
   return ok(res, null, '已处理');
+}));
+
+// 申诉状态白名单（与 Appeal.status 取值一致），非法值按「不过滤」处理
+const APPEAL_STATUSES: string[] = ['pending', 'approved', 'rejected'];
+
+// GET /v1/admin/appeals?status=pending|approved|rejected — 申诉复核队列（待处理优先）
+router.get('/appeals', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const raw = req.query.status ? String(req.query.status) : undefined;
+  const status = raw && APPEAL_STATUSES.includes(raw)
+    ? raw as 'pending' | 'approved' | 'rejected'
+    : undefined;
+  const list = await appealService.listAppeals(status);
+  return ok(res, { list });
+}));
+
+// POST /v1/admin/appeals/:id/review — 复核申诉（approved 恢复内容 / rejected 维持下架）
+router.post('/appeals/:id/review', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return fail(res, CODE.BAD_REQUEST, '申诉 ID 无效');
+  }
+  const decision = req.body?.decision;
+  if (decision !== 'approved' && decision !== 'rejected') {
+    return fail(res, CODE.BAD_REQUEST, '复核结果无效');
+  }
+  const note = typeof req.body?.note === 'string' ? req.body.note : undefined;
+  try {
+    await appealService.reviewAppeal(id, req.userId!, decision, note);
+  } catch (e: any) {
+    if (e?.reason === 'has_pending') {
+      return fail(res, CODE.BAD_REQUEST, '仍有待处理举报，请先处置举报');
+    }
+    if (e?.reason === 'not_found') {
+      return fail(res, CODE.NOT_FOUND, '申诉或目标内容不存在', 404);
+    }
+    throw e;
+  }
+  return ok(res, null, '已复核');
 }));
 
 // POST /v1/admin/daily-digest —— 每日一帖推送（运营日活引擎）。
