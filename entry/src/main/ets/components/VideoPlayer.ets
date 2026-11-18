@@ -1,4 +1,5 @@
 import { resolveDisplayImageUrl } from '../services/api';
+import { ColorTokens } from '../design/tokens/color';
 
 // 沉浸式短视频播放器：未播放时用「封面 Image」盖住 Video 表面——
 // Video 首次解码首帧可能需几百毫秒，期间表面为纯黑，直接显示会“闪黑”；
@@ -60,7 +61,7 @@ export struct VideoPlayer {
     .height(68)
     .justifyContent(FlexAlign.Center)
     .alignItems(HorizontalAlign.Center)
-    .backgroundColor('#66000000')
+    .backgroundColor(ColorTokens.mediaScrim)
     .border({ width: 1, color: '#80FFFFFF', style: BorderStyle.Solid })
     .borderRadius(34)
     .onClick((): void => { this.togglePlayback(); })

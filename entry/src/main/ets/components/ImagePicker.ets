@@ -11,6 +11,7 @@ import { getUploadSignature, resolveDisplayImageUrl, resolveUploadPutUrl, toStor
 import { ensureLogin } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
 import { User } from '../models/types';
+import { ColorTokens } from '../design/tokens/color';
 
 interface PickedImage {
   id: string; // 稳定 key
@@ -237,7 +238,7 @@ export struct ImagePicker {
       Text('×')
         .fontSize(16).fontFamily($r('app.string.font_family'))
         .fontColor(Color.White)
-        .backgroundColor('#00000066')
+        .backgroundColor(ColorTokens.mediaScrim)
         .width(20)
         .height(20)
         .borderRadius(10)

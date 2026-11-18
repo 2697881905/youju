@@ -69,6 +69,11 @@ export class ColorTokens {
   static readonly like: ResourceColor = $r('app.color.ds_like');
   static readonly bookmark: ResourceColor = $r('app.color.ds_bookmark');
   static readonly separator: ResourceColor = $r('app.color.ds_separator');
+  // 媒体控件压在图片/视频上的半透明遮罩底（删除键圆底 / 播放键大圆）：40% 黑。
+  // ⚠️ 8 位 hex 是 #AARRGGBB（高位 alpha），40% 黑须写 #66000000。
+  // 原 ImagePicker 误写成 #00000066（alpha=00 全透明蓝），白色删除叉失去黑底，
+  // 在浅色缩略图上不可读 —— 统一走此 token 一次性修正并收敛同档值。
+  static readonly mediaScrim: ResourceColor = '#66000000';
 
   static readonly skeletonBase: ResourceColor = $r('app.color.ds_skeleton_base');
   static readonly skeletonHighlight: ResourceColor = $r('app.color.ds_skeleton_highlight');
