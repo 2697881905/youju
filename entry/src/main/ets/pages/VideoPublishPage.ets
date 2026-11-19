@@ -4,6 +4,7 @@ import { listTags, aiAssistEnabled, aiPolishDraft, AiPolishDraftResult } from '.
 import { Genre, StructuredData, StructuredDocument, Tag, MentionRef, MentionCandidate } from '../models/types';
 import { VideoPicker } from '../components/VideoPicker';
 import { safeShowToast } from '../utils/toast';
+import { AiAssistChip } from '../components/AiAssistChip';
 import { AiPolishPreviewSheet } from '../components/AiPolishPreviewSheet';
 import { findActiveAtMention, applyAtMention } from '../utils/atMention';
 import { AtMentionSuggest } from '../components/AtMentionSuggest';
@@ -11,7 +12,7 @@ import { Reveal } from '../design/motion/Reveal';
 import { ImmersiveSegmentBar } from '../design/components/ImmersiveSegmentBar';
 import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
-import { SpaceTokens } from '../design/tokens/space';
+import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { PublishDraft } from '../utils/publishDraft';
 import { removePostDraft } from '../utils/postDraftStore';
@@ -436,69 +437,67 @@ struct VideoPublishPage {
     this.structuredDocument = filterStructuredDocumentForGenre(this.structuredDocument, nextGenre);
   }
 
-  // ─────────────── 版式：体裁 → 媒体 → 正文 → 分类 → 结构化 ───────────────
-  // 每个环节一张卡（PublishSection 自带衬线小节标题与错峰入场），
-  // 不再是一整张巨卡里用 5 条 Divider 切字段。
+  // ─────────────── 版式（创作纸）：媒体附件 → 标题/正文纸面 → 发布设置托盘 → 结构化 ───────────────
+  // 写作是主角：标题与正文直接落在纸面上，不套表单卡；体裁/圈子/合集/AI/清空收进单一设置托盘。
 
-  // 体裁：直接从 5 个候选里点选，取代「自绘玻璃按钮 → 系统滚轮弹窗 → 确认」三步。
+  // 轻量分区题头（无卡壳）：左标签 + 右元信息，用于媒体附件区与托盘内分组。
   @Builder
-  genreBar(): void {
+  blockCaption(label: string, meta: string): void {
+    Row() {
+      Text(label)
+        .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
+        .fontWeight(TypeTokens.overline.weight)
+        .lineHeight(TypeTokens.overline.lineHeight)
+        .letterSpacing(TypeTokens.overline.tracking)
+        .fontColor(ColorTokens.tertiary)
+      Blank().layoutWeight(1)
+      if (meta.length > 0) {
+        Text(meta)
+          .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.overline.weight)
+          .lineHeight(TypeTokens.overline.lineHeight)
+          .letterSpacing(TypeTokens.overline.tracking)
+          .fontColor(ColorTokens.tertiary)
+      }
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Center)
+  }
+
+  // 媒体附件：紧凑落在纸面上，不套表单卡。
+  @Builder
+  mediaBlock(): void {
     Reveal({ index: 0 }) {
       Column({ space: SpaceTokens.sm }) {
-        // 内容体裁分段（官方 SegmentButton 默认轨道材质，内容区正常出图）
-        ImmersiveSegmentBar({
-          items: PUBLISH_GENRE_SEGMENTS,
-          selectedIndex: $genreIndex,
-          onSelect: (index: number): void => { this.selectGenre(index); },
-        })
-        Text(this.currentGenreHint())
-          .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-          .fontWeight(TypeTokens.callout.weight)
-          .lineHeight(TypeTokens.callout.lineHeight)
-          .fontColor(ColorTokens.secondary)
-          .width('100%')
+        this.blockCaption('视频', '封面自动取首帧')
+        VideoPicker({ videoUrl: $videoUrl, videoCover: $videoCover, videoAspectRatio: $videoAspectRatio })
       }
       .width('100%')
       .alignItems(HorizontalAlign.Start)
     }
   }
 
+  // 创作纸：标题 hero（大号衬线 + 发丝下划线）+ 软质正文编辑面板，写作是绝对主角。
   @Builder
-  mediaSection(): void {
-    PublishSection({ title: '视频', meta: '封面自动取首帧', index: 1 }) {
-      VideoPicker({ videoUrl: $videoUrl, videoCover: $videoCover, videoAspectRatio: $videoAspectRatio })
-    }
-  }
-
-  @Builder
-  bodySection(): void {
-    PublishSection({
-      title: '正文',
-      index: 2,
-      actionLabel: 'AI 优化',
-      actionBusy: this.aiTitleBusy,
-      actionAvailable: this.aiEnabled,
-      onAction: (): void => { this.aiPolish(); },
-    }) {
-      Column({ space: SpaceTokens.sm }) {
+  writingSheet(): void {
+    Reveal({ index: 1 }) {
+      Column({ space: SpaceTokens.md }) {
         TextInput({
           text: $$this.title,
-          // 空标题引导（spec 1c）：正文就绪且 AI 可用时，提示润色可顺带起标题
           placeholder: this.aiEnabled && this.title.length === 0 && this.content.trim().length > 0
             ? '写完正文了？AI 润色可顺带起标题'
-            : '一句话标题',
+            : '给这篇起个标题',
         })
           .maxLength(MAX_VIDEO_TITLE_LENGTH)
           .width('100%')
-          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.title.weight)
-          .lineHeight(TypeTokens.title.lineHeight)
-          .letterSpacing(TypeTokens.title.tracking)
+          .fontSize(TypeTokens.displaySerif.size).fontFamily(TypeTokens.fontFamilySerif)
+          .fontWeight(TypeTokens.displaySerif.weight)
+          .lineHeight(TypeTokens.displaySerif.lineHeight)
           .fontColor(ColorTokens.primary)
           .placeholderColor(ColorTokens.tertiary)
-          .backgroundColor(ColorTokens.subtle)
-          .borderRadius(RadiusTokens.md)
-          .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+          .backgroundColor(Color.Transparent)
+          .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+          .border({ width: { bottom: LayoutTokens.hairlineWidth }, color: ColorTokens.separator })
           .enterKeyType(EnterKeyType.Next)
           .onChange((value: string) => { this.title = value; })
         // @提及候选：输入框「上方」的横向条（左右滑动、点选回填）
@@ -520,9 +519,8 @@ struct VideoPublishPage {
           .fontColor(ColorTokens.primary)
           .placeholderColor(ColorTokens.tertiary)
           .backgroundColor(ColorTokens.subtle)
-          .borderRadius(RadiusTokens.md)
-          .padding(SpaceTokens.md)
-          // 系统字数计数器：视频页此前完全没有字数提示
+          .borderRadius(RadiusTokens.lg)
+          .padding(SpaceTokens.base)
           .showCounter(true, { highlightBorder: false })
           .onChange((value: string) => {
             this.content = value;
@@ -534,34 +532,87 @@ struct VideoPublishPage {
     }
   }
 
+  // 发布设置托盘：体裁 / 圈子 / 合集 / AI / 清空 收进单一卡，发丝线分组。
   @Builder
-  circleSection(): void {
-    PublishSection({
-      title: '圈子与合集',
-      meta: '已选 ' + this.selectedTags.length + '/' + MAX_SELECTED_TAGS,
-      index: 3,
-    }) {
+  settingsTray(): void {
+    PublishSection({ title: '发布设置', index: 2 }) {
       Column({ space: SpaceTokens.md }) {
-        PublishCircleSelector({
-          selectedTags: this.selectedTags,
-          maxSelected: MAX_SELECTED_TAGS,
-          onAdd: (): void => { this.showTagPanel = true; },
-          onRemove: (name: string): void => { this.toggleTag(name); },
-        })
+        Column({ space: SpaceTokens.sm }) {
+          this.blockCaption('体裁', '')
+          ImmersiveSegmentBar({
+            items: PUBLISH_GENRE_SEGMENTS,
+            selectedIndex: $genreIndex,
+            onSelect: (index: number): void => { this.selectGenre(index); },
+          })
+          Text(this.currentGenreHint())
+            .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.callout.weight)
+            .lineHeight(TypeTokens.callout.lineHeight)
+            .fontColor(ColorTokens.secondary)
+            .width('100%')
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
+
+        Divider().strokeWidth(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
+
+        Column({ space: SpaceTokens.sm }) {
+          this.blockCaption('圈子', '已选 ' + this.selectedTags.length + '/' + MAX_SELECTED_TAGS)
+          PublishCircleSelector({
+            selectedTags: this.selectedTags,
+            maxSelected: MAX_SELECTED_TAGS,
+            onAdd: (): void => { this.showTagPanel = true; },
+            onRemove: (name: string): void => { this.toggleTag(name); },
+          })
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
+
+        Divider().strokeWidth(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
+
         PublishCollectionPicker({ selectedId: $selectedCollectionId })
+
+        Divider().strokeWidth(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
+
+        Row() {
+          Row() {
+            AiAssistChip({
+              label: 'AI 优化',
+              busy: this.aiTitleBusy,
+              available: this.aiEnabled,
+              action: (): void => { this.aiPolish(); },
+            })
+          }
+          .height(LayoutTokens.minTouchTarget)
+          .alignItems(VerticalAlign.Center)
+          .onClick((): void => { this.aiPolish(); })
+          Blank().layoutWeight(1)
+          Row() {
+            Text('清空草稿')
+              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+              .fontWeight(TypeTokens.callout.weight)
+              .fontColor(ColorTokens.tertiary)
+          }
+          .height(LayoutTokens.minTouchTarget)
+          .alignItems(VerticalAlign.Center)
+          .onClick((): void => { this.confirmClear(); })
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
       }
+      .width('100%')
+      .alignItems(HorizontalAlign.Start)
     }
   }
 
   @Builder
   compositionColumn(): void {
-    this.genreBar()
-    this.mediaSection()
-    this.bodySection()
-    this.circleSection()
+    this.mediaBlock()
+    this.writingSheet()
+    this.settingsTray()
     // 分享体裁是轻量图文，不展示结构化信息流编辑区（见 publishGenres 的 structured 标记）
     if (publishGenreMeta(this.genre).structured) {
-      Reveal({ index: 4 }) {
+      Reveal({ index: 3 }) {
         StructuredComposer({
           document: this.structuredDocument,
           genreLabel: this.genre,
@@ -606,11 +657,11 @@ struct VideoPublishPage {
       // 通用属性 → 状态栏留白交给外层 Row
       Row() {
         PublishTopBar({
+          modeLabel: '发布视频',
           progressValue: this.calcDraftProgress(),
           progressTotal: DRAFT_PROGRESS_TOTAL,
           hint: this.draftHint(),
           previewDisabled: this.title.trim().length === 0,
-          onClear: (): void => { this.confirmClear(); },
           onPreview: (): void => { this.onPublish(); },
           onBack: (): void => { this.getUIContext().getRouter().back(); },
         })

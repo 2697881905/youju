@@ -1,8 +1,8 @@
-// 发布页顶栏：返回 · 「发布内容」+ 原生进度条 + 下一步提示 · 清空 / 预览。
-// 旧版把标题列用 Stack 压在按钮行正中，窄屏上与「清空」互撞；改为单行三段式布局。
-// 进度用系统 Progress（Linear，自带 enableSmoothEffect 补间），不再用手写「草稿完成 2/3」纯文本。
-// 栏底铺纯色 canvas（非磨砂）：发布页是表单不是信息流，内容会从栏下滚过，
-// 半透明材质会在标题区切出一条与页面底色不一致的灰带（首页分段栏灰带同因），故用实色遮挡。
+// 发布页顶栏（创作纸版）：返回 · 模式标题 + 细进度条与下一步提示 · 单一「发布」主钮。
+// 改版要点：顶栏只保留一个清晰主操作；「清空」是低频破坏性动作，下沉到「发布设置」托盘，
+// 不再与「发布」并排同高，避免误触。标题随模式（发布图文/长文/视频）给出身份。
+// 栏底铺纯色 canvas（非磨砂）：发布页是创作纸不是信息流，内容会从栏下滚过，
+// 半透明材质会在标题区切出一条与页面底色不一致的灰带，故用实色遮挡。
 import { BackButton } from '../design/components/BackButton';
 import { DesignButton } from '../design/components/DesignButton';
 import { ColorTokens } from '../design/tokens/color';
@@ -15,11 +15,11 @@ const BAR_CONTENT_HEIGHT: number = LayoutTokens.minTouchTarget + SpaceTokens.xs;
 
 @Component
 export struct PublishTopBar {
+  @Prop modeLabel: string = '发布内容';
   @Prop progressValue: number = 0;
   @Prop progressTotal: number = 3;
   @Prop hint: string = '';
   @Prop previewDisabled: boolean = false;
-  onClear: () => void = (): void => {};
   onPreview: () => void = (): void => {};
   onBack: () => void = (): void => {};
 
@@ -32,12 +32,14 @@ export struct PublishTopBar {
       BackButton({ action: (): void => { this.onBack(); } })
 
       Column({ space: SpaceTokens.xs }) {
-        Text('发布内容')
+        Text(this.modeLabel)
           .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
           .fontWeight(TypeTokens.headline.weight)
           .lineHeight(TypeTokens.headline.lineHeight)
           .letterSpacing(TypeTokens.headline.tracking)
           .fontColor(ColorTokens.primary)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
         Row({ space: SpaceTokens.inline }) {
           Progress({ value: this.progressValue, total: this.progressTotal, type: ProgressType.Linear })
             .width(44)
@@ -58,14 +60,8 @@ export struct PublishTopBar {
         .alignItems(VerticalAlign.Center)
       }
       .layoutWeight(1)
-      .alignItems(HorizontalAlign.Center)
+      .alignItems(HorizontalAlign.Start)
 
-      DesignButton({
-        label: '清空',
-        variant: 'ghost',
-        visualHeight: LayoutTokens.segmentedHeight,
-        action: (): void => { this.onClear(); },
-      })
       DesignButton({
         label: '发布',
         variant: 'primary',
