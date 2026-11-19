@@ -5,7 +5,7 @@ import { CircleDigestItem } from '../services/api';
 import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
 import { ShadowTokens } from '../design/tokens/shadow';
-import { SpaceTokens } from '../design/tokens/space';
+import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { immersiveCardWidth } from '../design/tokens/galaxy';
 import { Pressable } from '../design/motion/Pressable';
@@ -93,6 +93,7 @@ export struct CircleDigestDock {
     .padding(SpaceTokens.md)
     .backgroundColor(ColorTokens.elevated)
     .borderRadius(RadiusTokens.lg)
+    .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.separator, style: BorderStyle.Solid })
     .shadow(ShadowTokens.floating)
     .alignItems(HorizontalAlign.Start)
   }

@@ -7,6 +7,7 @@ import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { Pressable } from '../design/motion/Pressable';
 import { EmptyState } from '../design/components/EmptyState';
+import { DesignButton } from '../design/components/DesignButton';
 import { TagIcon } from './TagIcon';
 
 // bindSheet 自带的关闭按钮固定在右上角（40vp 触控区、距右约 16vp）。
@@ -255,12 +256,12 @@ export struct CircleExploreSheet {
           .fontSize(TypeTokens.callout.size)
           .onChange((value: string): void => { this.newDesc = value; })
       }
-      Button(this.submitting ? '创建中…' : '创建圈子')
-        .width('100%')
-        .height(44)
-        .enabled(this.canSubmit())
-        .opacity(this.canSubmit() ? 1 : 0.5)
-        .onClick(async (): Promise<void> => {
+      DesignButton({
+        label: this.submitting ? '创建中…' : '创建圈子',
+        variant: 'primary',
+        fillWidth: true,
+        disabled: !this.canSubmit(),
+        action: async (): Promise<void> => {
           if (!this.canSubmit()) {
             return;
           }
@@ -271,7 +272,8 @@ export struct CircleExploreSheet {
           if (success) {
             this.resetForm();
           }
-        })
+        },
+      })
     }
     .width('100%')
     .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.md })
@@ -329,7 +331,7 @@ export struct CircleExploreSheet {
         .fontSize(TypeTokens.overline.size)
         .fontColor(item.joined ? ColorTokens.warm : ColorTokens.brand)
         .backgroundColor(Color.Transparent)
-        .borderWidth(1)
+        .borderWidth(LayoutTokens.glassBorderWidth)
         .borderColor(item.joined ? ColorTokens.warm : ColorTokens.brand)
         .onClick((): void => {
           if (item.joined) {

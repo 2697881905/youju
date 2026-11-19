@@ -1744,7 +1744,7 @@ export struct CircleTab {
         // 内容区悬浮件只保留一种材质：实色纸面 + 1px 细线，不再用假玻璃逼近标题栏材质。
         .backgroundColor(this.cosmicMode ? ColorTokens.elevated : ColorTokens.canvas)
         .border({
-          width: 1,
+          width: LayoutTokens.glassBorderWidth,
           color: this.cosmicMode ? COSMIC_GLASS_BORDER : ColorTokens.separator,
           style: BorderStyle.Solid,
         })
