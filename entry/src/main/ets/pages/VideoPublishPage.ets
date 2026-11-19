@@ -138,12 +138,14 @@ struct VideoPublishPage {
   }
 
   // 顶栏进度条旁边那句「下一步做什么」：只报缺口，不报已完成的事。
+  // 与 calcDraftProgress / executePublish 的必填口径同源：标题必填；视频与正文二选一
+  // （无视频时正文走文字海报兜底），故提示写「视频或写句说明」，不把视频当硬性前提。
   private draftHint(): string {
-    if (this.videoUrl.length === 0) {
-      return '先选一条视频';
-    }
     if (this.title.trim().length === 0) {
-      return '再写一句标题';
+      return '先写一句标题';
+    }
+    if (this.content.trim().length === 0 && this.videoUrl.length === 0) {
+      return '配视频或写句说明';
     }
     if (this.selectedTags.length === 0) {
       return '选一个圈子';
