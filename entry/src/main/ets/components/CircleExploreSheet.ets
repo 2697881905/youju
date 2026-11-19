@@ -192,7 +192,9 @@ export struct CircleExploreSheet {
         .layoutWeight(1)
     }
     .width('100%')
-    .padding(SpaceTokens.md)
+    // 左右内缩归零：这一行的「＋」此前比搜索框/分组标题多缩进 12vp，左缘出现锯齿。
+    // 热区仍靠 width('100%') 覆盖整行。
+    .padding({ top: SpaceTokens.md, bottom: SpaceTokens.md })
     .margin({ top: SpaceTokens.md })
     // 这是一个动作行，不是输入区：不铺任何底色，靠上下 Divider 与「＋/收起创建」文案定位。
     // 一度铺过 canvas / subtle / 系统三级背景，真机上三种都会和相邻的输入框撞成同一张「输入框」。
@@ -470,16 +472,21 @@ export struct CircleExploreSheet {
           // 选了城市就只看同城圈；点「清除筛选」回到全部圈子。
           if (this.cityCode.length === 0) {
             ForEach(this.groups, (group: CatalogGroup) => {
+              // 分组标题：原先 overline(11)+tertiary+字距2，读起来像注释。
+              // 升 caption(12)+secondary，组间距从 20 拉到 40（8 行底 + 32 标题顶），
+              // 让「组」和「行」（行距 16）在节奏上真正分开。
               Text(group.category)
-                .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
+                .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
                 .fontWeight(TypeTokens.headline.weight)
-                .fontColor(ColorTokens.tertiary)
-                .letterSpacing(2)
+                .fontColor(ColorTokens.secondary)
                 .alignSelf(ItemAlign.Start)
-                .margin({ top: SpaceTokens.md, bottom: SpaceTokens.xs })
-              ForEach(group.items, (item: CatalogItem) => {
+                .margin({ top: SpaceTokens.x2l, bottom: SpaceTokens.sm })
+              ForEach(group.items, (item: CatalogItem, index: number) => {
                 this.row(item)
-                Divider().color(ColorTokens.separator).strokeWidth(LayoutTokens.hairlineWidth)
+                // 组末不留线：否则最后一行与下一组标题之间会多出一条，切断分组感。
+                if (index < group.items.length - 1) {
+                  Divider().color(ColorTokens.separator).strokeWidth(LayoutTokens.hairlineWidth)
+                }
               }, (item: CatalogItem) => item.name)
             }, (group: CatalogGroup) => group.category)
 
