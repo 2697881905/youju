@@ -35,7 +35,6 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { GalaxyTokens } from '../design/tokens/galaxy';
 import { TypeTokens } from '../design/tokens/type';
-import { ShadowTokens } from '../design/tokens/shadow';
 import {
   TopButtonMaterialModifier,
   isSystemMaterialActive,
@@ -174,22 +173,23 @@ const COSMIC_PAGE_BG: string = '#151513';      // 页面底（与画布渐变中
 const COSMIC_INK: string = '#ECE6DA';          // 标题/主文字（暖白星光）
 const COSMIC_SUB: string = '#A8A094';          // 次级文字（暖灰）
 const COSMIC_GLASS: string = '#1AECE6DA';      // 药丸兜底底/提示条
-const COSMIC_GLASS_BORDER: string = '#26ECE6DA'; // 暖色描边
 
 // 「已加入」与「发现圈子」共用的药丸（唯一样式源，两处只传内容与动作，不再各写一份配方）。
-// 尺寸/内边距/圆角/底色/描边/阴影全部在此定义；内容由调用方以尾随闭包传入
+// 尺寸/内边距/圆角/字色/表面全部在此定义；内容由调用方以尾随闭包传入
 // （「已加入」= 文案 + CountRoll，「发现圈子」= 文案）。
 //
-// 材质按承载位置分档（硬约束，非取舍）：
-// - inTitleBar=true（驻留 TitleBar）：系统材质官方生效区。材质态底色透明、描边/阴影归零，
-//   由 systemMaterial 接管表面；低版本门禁不通过时回落 subtle 底 + 描边 + 轻影。
-// - inTitleBar=false（内容区）：systemMaterial 在内容区不出图（挂载即整个胶囊消失，
-//   真机 2026-10-26 证伪，见 utils/immersiveMaterial.ets 尾注），
-//   故按该药丸材质态观感复刻：纯白面 + 无描边 + 轻影。
+// 表面只有一种：系统沉浸光感（systemMaterial）。
+// - inTitleBar=true（驻留 TitleBar）：材质官方生效区，底色透明，表面完全交给系统。
+// - inTitleBar=false（星图右上）：同一颗材质挂上去**不出图**——真机二次复验（2026-11-19，
+//   装包后整颗胶囊只剩文字，见 utils/immersiveMaterial.ets 尾注），故按材质实测着色复刻：
+//   25% 白叠浅色暖底 = 249,246,239，与标题栏那颗材质的实渲染色 249,246,239 逐级相同。
+//   只复刻着色不做模糊：本页底是平滑暖色渐变，模糊在这里无可辨差异。
+const PILL_MATERIAL_FILL: string = '#40FFFFFF';
 @Component
 struct CircleHeaderPill {
   @BuilderParam content: () => void = this.emptyContent;
   @Prop cosmicMode: boolean = false;
+  @Prop darkMode: boolean = false;
   @Prop inTitleBar: boolean = false;
   action: () => void = (): void => {};
   private materialModifier: TopButtonMaterialModifier = new TopButtonMaterialModifier();
@@ -201,14 +201,6 @@ struct CircleHeaderPill {
     return this.inTitleBar && isSystemMaterialActive();
   }
 
-  // 材质态由系统材质兜面，描边必须归零；内容区材质不出图，按材质态观感复刻为无描边。
-  private pillBorderWidth(): number {
-    if (this.materialActive()) {
-      return 0;
-    }
-    return this.inTitleBar ? LayoutTokens.glassBorderWidth : 0;
-  }
-
   private pillBackground(): ResourceColor {
     if (this.cosmicMode) {
       return COSMIC_GLASS;
@@ -216,7 +208,8 @@ struct CircleHeaderPill {
     if (this.materialActive()) {
       return Color.Transparent;
     }
-    return this.inTitleBar ? ColorTokens.subtle : ColorTokens.canvas;
+    // 深色无星（空态）时没有 COSMIC_GLASS 兜底，用 overlay 的 12.5% 白取同档抬升。
+    return this.darkMode ? ColorTokens.overlay : PILL_MATERIAL_FILL;
   }
 
   build() {
@@ -231,15 +224,9 @@ struct CircleHeaderPill {
       .height(LayoutTokens.segmentedHeight)
       .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
       .backgroundColor(this.pillBackground())
-      .border({
-        width: this.pillBorderWidth(),
-        color: this.cosmicMode ? COSMIC_GLASS_BORDER : ColorTokens.separator,
-        style: BorderStyle.Solid,
-      })
       .borderRadius(RadiusTokens.pill)
-      .shadow(this.materialActive() ? ShadowTokens.none : ShadowTokens.cardContact)
       .alignItems(VerticalAlign.Center)
-      .attributeModifier(this.inTitleBar ? this.materialModifier : undefined)
+      .attributeModifier(this.materialModifier)
     }
   }
 }
@@ -1713,6 +1700,7 @@ export struct CircleTab {
       Blank()
       CircleHeaderPill({
         cosmicMode: this.cosmicMode,
+        darkMode: this.isDarkMode,
         inTitleBar: true,
         action: (): void => {
           // 递增信号 → 本组件 @Watch：JoinedCirclesDialog 仍由本组件打开
@@ -1783,7 +1771,7 @@ export struct CircleTab {
     Column() {
       CircleHeaderPill({
         cosmicMode: this.cosmicMode,
-        inTitleBar: false,
+        darkMode: this.isDarkMode,
         action: (): void => { this.dismissStarGuide(); this.exploreVisible = true; },
       }) {
         Text('发现圈子')
