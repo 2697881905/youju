@@ -435,7 +435,6 @@ export struct CircleDiscoverPage {
 
   @Builder
   discoverTab(): void {
-    Scroll(this.scroller) {
       Column() {
         if (this.recommended().length > 0) {
           this.eyebrow('为你挑的')
@@ -474,16 +473,10 @@ export struct CircleDiscoverPage {
       .width('100%')
       .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.x3l })
       .alignItems(HorizontalAlign.Start)
-    }
-    .layoutWeight(1)
-    .scrollBar(BarState.Off)
-    .edgeEffect(EdgeEffect.Spring)
-    .align(Alignment.TopStart)
   }
 
   @Builder
   joinedTab(): void {
-    Scroll(this.scroller) {
       Column() {
         this.eyebrow(String(this.joinedItems().length) + ' 个圈子 · '
           + String(this.unreadTotal()) + ' 条未读')
@@ -544,11 +537,6 @@ export struct CircleDiscoverPage {
       .width('100%')
       .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.x3l })
       .alignItems(HorizontalAlign.Start)
-    }
-    .layoutWeight(1)
-    .scrollBar(BarState.Off)
-    .edgeEffect(EdgeEffect.Spring)
-    .align(Alignment.TopStart)
   }
 
   // 让位量：外壳 enableComponentSafeArea=false，内容从窗口原点起算，
@@ -567,6 +555,7 @@ export struct CircleDiscoverPage {
         onAction: (): void => { this.searchVisible = !this.searchVisible; },
         onBack: (): void => { this.onBack(); },
       }) {
+        Scroll(this.scroller) {
         Column() {
           Row().height(this.topInset()).width('100%')
 
@@ -583,8 +572,6 @@ export struct CircleDiscoverPage {
           }
           .width('100%')
           .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.sm })
-          // 分段栏固定：给实色底，滚动内容滑到它下面时干净截断，不会露半行
-          .backgroundColor(ColorTokens.canvas)
 
           if (this.loading && this.circles.length === 0) {
             Column() {
@@ -614,7 +601,12 @@ export struct CircleDiscoverPage {
           }
         }
         .width('100%')
+        }
+        .width('100%')
         .height('100%')
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
+        .align(Alignment.TopStart)
       }
     }
     .width('100%')
