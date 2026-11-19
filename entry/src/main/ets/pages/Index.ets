@@ -474,7 +474,6 @@ struct Index {
   // —— 「圈子」页顶栏共享状态：顶栏（圈子标题 + 已加入药丸）迁入标题栏 ——
   // （星环画布、选中卡片等仍在 CircleTab 内容区，不经此处）
   @State circleJoinedCount: number = 0;   // 已加入 N 个：CircleTab 加载后经 @Link 回写
-  @State circleJoinedSeq: number = 0;     // 点击药丸的递增信号，弹窗仍由 CircleTab 承接
   // 顶栏分段切换的透明反馈动画遵循系统「减弱动态效果」
   @StorageLink('reduceMotion') reduceMotion: boolean = false;
   @StorageLink('systemReduceMotion') systemReduceMotion: boolean = false;
@@ -1947,7 +1946,6 @@ struct Index {
     TabContent() {
       CircleTab({
         circleJoinedCount: $circleJoinedCount,
-        circleJoinedSeq: $circleJoinedSeq,
       })
     }
       .clip(false)

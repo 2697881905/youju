@@ -47,9 +47,7 @@ import { openCircleDetail, openPostDetail } from '../utils/nav';
 import { getMainNavStack, openCircleDetailViaNav, openCircleDiscoverViaNav, PostDetailNavParams } from '../utils/navigationTransition';
 import { registerOverlayBackGuard, unregisterOverlayBackGuard, OVERLAY_GUARD_CIRCLE } from '../utils/overlayBackGuard';
 import { safeShowToast } from '../utils/toast';
-import { JoinedCirclesDialog } from './JoinedCirclesDialog';
 import { CircleUniverse } from './CircleUniverse';
-import { CircleExploreSheet, CatalogItem, CatalogGroup } from './CircleExploreSheet';
 import { CircleDigestDock } from './CircleDigestDock';
 import { CircleStarGuide } from './CircleStarGuide';
 import { CircleOrbitCanvas, OrbitCircleItem, OrbitSeedPost } from './CircleOrbitCanvas';
@@ -157,9 +155,6 @@ class CircleTag {
   }
 }
 
-// 星图 Live 三期：创建圈子的分类白名单（与后端 TAG_CATEGORIES 一致）。
-const CIRCLE_CATEGORIES: string[] = ['消费选购', '动手改造', '职场与收入', '生活与家庭', '兴趣休闲'];
-
 // 屏幕可视高度（vp）：星图深空背景首帧即铺满整屏，不等待 onAreaChange 测量。
 function screenViewportHeightVp(): number {
   try {
@@ -249,7 +244,6 @@ export struct CircleTab {
   // 计数经 @Link 回写标题栏；标题栏按钮点击经 seq 信号回传，由本组件 @Watch 承接弹窗
   // （profileShareSeq 同款「点击写值、@Watch 承接动作」接线，见教程 Step 2 状态归属）。
   @Link circleJoinedCount: number;
-  @Link @Watch('onJoinedEntryRequested') circleJoinedSeq: number;
   // —— 顶栏（嵌套 HdsNavigation，路线 B，同首页结构）——
   // 星环视口 Scroller：交给 bindToScrollable 驱动标题栏渐变模糊（内容超高滚动时生效）
   private circleScroller: Scroller = new Scroller();
@@ -271,8 +265,6 @@ export struct CircleTab {
   // —— 星图 Live 一期：降落页 + 深空目录 ——
   @State landingName: string = '';
   @State @Watch('onLandingVisibleChanged') landingVisible: boolean = false;
-  @State exploreVisible: boolean = false;
-  @State exploreKeyword: string = '';
   // 降落「镜头俯冲」（原型 holder scale+fade）：行星飞到中心后星图整体推近淡出，
   // 与降落层升起构成一段运镜；起飞时回位。仅 transform/opacity。
   @State galaxyDiveScale: number = 1;
@@ -323,17 +315,6 @@ export struct CircleTab {
   // 容量按环半径与卡片盒宽计算，保证同一星环上任意两颗星的标签盒永不重叠。
   private ringPlanKey: string = '';
   private ringPlanCache: Map<string, number> = new Map<string, number>();
-  private joinedDialogController: CustomDialogController = new CustomDialogController({
-    builder: JoinedCirclesDialog({
-      getCircles: (): CircleTag[] => this.joinedCircles(),
-      onOpenCircle: (name: string): void => { this.jumpCircle(name); },
-      onExplore: (): void => { this.exploreVisible = true; },
-    }),
-    alignment: DialogAlignment.Center,
-    customStyle: false,
-    autoCancel: true,
-  });
-
   aboutToAppear(): void {
     // 页内覆盖层返回守卫：Index 是 @Entry，真正的拦截在 Index.onBackPress；
     // 这里只登记「哪些层算打开、怎么关」，并按页面 id 消费，避免误关详情页的覆盖层。
@@ -365,7 +346,6 @@ export struct CircleTab {
       if (this.landingVisible) {
         this.takeoffLanding();
       }
-      this.exploreVisible = false;
       this.stopAutoOrbit();
       this.clearFocusReturnTimer();
       this.centeredName = '';
@@ -756,44 +736,6 @@ export struct CircleTab {
       return;
     }
     this.applyCircleData(next, digest, hadData);
-  }
-
-  // 圈子页仅负责浏览和进入；加入或退出必须在详情页中明确选择。
-  // 同城圈加入：城市圈不在星图行星集（this.circles）里，applyJoinLocal 管不到，
-  // 直接走关注接口 + joinedNames 上抛（标题栏计数/城市行按钮即时刷新）+ 通用成员信号。
-  private async cityJoin(name: string): Promise<void> {
-    if (getToken() === '') {
-      safeShowToast(this.getUIContext(), { message: '请先登录后再加入圈子' });
-      return;
-    }
-    try {
-      await followTag(name);
-      // 同城圈不在主星图列表里：加入后单独拉一次单圈元信息，本地补进 circles，
-      // 「已加入 N 个」与已加入列表立即一致；不广播版本，避免当前发现 Sheet 被重拉重置。
-      const existing: CircleTag | undefined = this.circles.find((item: CircleTag): boolean => item.name === name);
-      if (existing !== undefined) {
-        existing.joined = true;
-        this.circles = this.circles.slice();
-      } else {
-        try {
-          const overview = await getCircleOverview('all', undefined, name);
-          if (overview.circles.length > 0) {
-            const circle: CircleTag = new CircleTag(this.visualFor(overview.circles[0]), undefined, overview.circles[0]);
-            circle.joined = true;
-            this.circles.push(circle);
-            this.circles = this.circles.slice();
-          }
-        } catch (e) {
-          // 元信息补拉失败不影响关注事实，下一次 overview 会带回
-        }
-      }
-      if (!this.joinedNames.includes(name)) {
-        this.joinedNames = this.joinedNames.concat([name]);
-      }
-      safeShowToast(this.getUIContext(), { message: '已加入「' + name + '」' });
-    } catch (e) {
-      safeShowToast(this.getUIContext(), { message: '加入失败：' + (e as Error).message });
-    }
   }
 
   private jumpCircle(name: string): void {
@@ -1472,91 +1414,6 @@ export struct CircleTab {
     this.applyJoinLocal(this.landingName, joined);
   }
 
-  // —— 深空目录数据：全量圈子按分类分组，支持名字/分类/简介过滤 ——
-  private catalogGroups(): CatalogGroup[] {
-    const order: string[] = [];
-    const map: Map<string, CatalogItem[]> = new Map();
-    const kw: string = this.exploreKeyword.trim();
-    this.circles.forEach((circle: CircleTag): void => {
-      // 已加入的同城圈只出现在同城筛选里，不再重复进主目录。
-      if (circle.isCity) {
-        return;
-      }
-      if (kw.length > 0
-        && !circle.name.includes(kw) && !circle.category.includes(kw) && !circle.description.includes(kw)) {
-        return;
-      }
-      if (!map.has(circle.category)) {
-        map.set(circle.category, []);
-        order.push(circle.category);
-      }
-      map.get(circle.category)?.push({
-        name: circle.name,
-        category: circle.category,
-        description: circle.description,
-        memberCount: circle.followCount,
-        joined: circle.joined,
-      });
-    });
-    return order.map((category: string): CatalogGroup => ({ category: category, items: map.get(category) ?? [] }));
-  }
-
-  // 目录内直接加入：成功后关目录（星图金环即时更新）；失败仅 toast。
-  private async joinFromCatalog(name: string): Promise<void> {
-    if (getToken() === '') {
-      safeShowToast(this.getUIContext(), { message: '请先登录后再加入圈子' });
-      return;
-    }
-    const circle: CircleTag | undefined = this.circles.find((item: CircleTag) => item.name === name);
-    if (circle === undefined || circle.joined) {
-      return;
-    }
-    try {
-      await followTag(name);
-      this.exploreVisible = false;
-      this.landingName = name;
-      this.onLandingJoinChanged(true);
-      // 目录加入的点亮编舞：让对应行星飞到 12 点再收场，用户「看见自己的新星挂上轨道」
-      this.selectPlanet(circle);
-      safeShowToast(this.getUIContext(), { message: '已加入「' + name + '」' });
-      const version: number = AppStorage.get<number>('circleMembershipVersion') ?? 0;
-      AppStorage.setOrCreate('circleMembershipVersion', version + 1);
-    } catch (e) {
-      safeShowToast(this.getUIContext(), { message: '加入失败：' + (e as Error).message });
-    }
-  }
-
-  // 星图 Live 三期：目录内点亮新星（创建圈子）。成功后新行星即时上星 + 飞心编舞，
-  // 等价于「加入」路径（后端已让创建者自动关注）。
-  private async createFromCatalog(name: string, category: string, description: string): Promise<boolean> {
-    if (getToken() === '') {
-      safeShowToast(this.getUIContext(), { message: '请先登录后再创建圈子' });
-      return false;
-    }
-    try {
-      const tag: Tag = await createTag(name, category, description);
-      const tagName: string = tag.name ?? name;
-      const circle: CircleTag = new CircleTag(this.visualForTag(tag), tag);
-      circle.joined = true;
-      this.circles.push(circle);
-      this.circles = this.circles.slice();
-      this.joinedNames = this.circles.filter((item: CircleTag) => item.joined).map((item: CircleTag) => item.name);
-      this.exploreVisible = false;
-      this.landingName = tagName;
-      // 点亮编舞：新行星飞到 12 点，用户「看见自己的新星挂上轨道」
-      this.selectPlanet(circle);
-      // 飞到 12 点后再降落进新圈：空态直接给出「去发布」，创建到首帖不必再点一次星。
-      setTimeout((): void => { this.landingVisible = true; }, MotionTokens.emphasis) as number;
-      safeShowToast(this.getUIContext(), { message: '「' + tagName + '」已创建，去发第一帖吧' });
-      const version: number = AppStorage.get<number>('circleMembershipVersion') ?? 0;
-      AppStorage.setOrCreate('circleMembershipVersion', version + 1);
-      return true;
-    } catch (e) {
-      safeShowToast(this.getUIContext(), { message: '创建失败：' + (e as Error).message });
-      return false;
-    }
-  }
-
   // 降落页「删除这个圈子」：只有创建者本人可见（creatorId 与当前登录用户一致）。
   private canDeleteLanding(): boolean {
     const circle: CircleTag | undefined = this.landingCircle();
@@ -1607,15 +1464,6 @@ export struct CircleTab {
 
   private joinedCircles(): CircleTag[] {
     return this.circles.filter((circle: CircleTag) => circle.joined);
-  }
-
-  private showJoinedList(): void {
-    this.joinedDialogController.open();
-  }
-
-  // 标题栏「已加入」药丸点击（Index 经 circleJoinedSeq 递增信号触发）
-  private onJoinedEntryRequested(): void {
-    this.showJoinedList();
   }
 
   // 已加入列表变化 → 回写标题栏计数（Index 的 circleTitleBar 读取）
@@ -1764,34 +1612,6 @@ export struct CircleTab {
     return circle !== undefined ? categoryHue(circle.category, this.cosmicMode) : GalaxyTokens.brandAccentFallback;
   }
 
-  @Builder
-  exploreSheet() {
-    CircleExploreSheet({
-      groups: this.catalogGroups(),
-      keyword: this.exploreKeyword,
-      joinedNames: this.joinedNames,
-      categories: CIRCLE_CATEGORIES,
-      onKeywordChange: (kw: string): void => { this.exploreKeyword = kw; },
-      onJoin: (name: string): void => { this.joinFromCatalog(name); },
-      onJoinCity: (name: string): void => { this.cityJoin(name); },
-      onCreate: (name: string, category: string, description: string): Promise<boolean> =>
-        this.createFromCatalog(name, category, description),
-      onOpen: (name: string): void => {
-        this.exploreVisible = false;
-        const circle: CircleTag | undefined = this.circles.find((item: CircleTag) => item.name === name);
-        if (circle !== undefined) {
-          this.lastPlanetTapAt = Date.now();
-          this.selectPlanet(circle);
-          this.landingName = name;
-          setTimeout((): void => { this.landingVisible = true; }, MotionTokens.emphasis) as number;
-          return;
-        }
-        // 同城圈不在主星图 circles 里：关目录后直接进圈子详情。
-        setTimeout((): void => { this.jumpCircle(name); }, MotionTokens.fast) as number;
-      },
-    })
-  }
-
   // 今日圈内 Dock：内容优先，0 次点击可读；没有 digest 时才退回操作提示胶囊。
   @Builder
   digestDock() {
@@ -1853,7 +1673,7 @@ export struct CircleTab {
                   this.initData(true);
                 } else {
                   this.dismissStarGuide();
-                  this.exploreVisible = true;
+                  openCircleDiscoverViaNav(0);
                 }
               },
             })
@@ -1934,17 +1754,6 @@ export struct CircleTab {
     // 深浅色切换（星际↔纸白）走底色过渡动画
     .backgroundColor(this.cosmicMode ? COSMIC_PAGE_BG : ColorTokens.canvas)
     .animation({ duration: MotionTokens.base, curve: MotionCurves.standard })
-    .bindSheet($$this.exploreVisible, this.exploreSheet(), {
-      detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-      // 材质载体是 SheetOptions.systemMaterial（半模态的唯一生效入口），
-      // 面板内部不再自绘底；材质生效时 blurStyle / backgroundColor 必须让位，
-      // 否则实色底与自绘模糊会把系统材质遮死（官方 FAQ）。
-      systemMaterial: getSheetImmersiveMaterial(),
-      blurStyle: isSystemMaterialActive() ? BlurStyle.NONE : BlurStyle.COMPONENT_THICK,
-      backgroundColor: isSystemMaterialActive() ? undefined : ColorTokens.canvas,
-      showClose: true,
-      radius: { topLeft: RadiusTokens.xl, topRight: RadiusTokens.xl },
-    })
     }
     .titleBar(this.circleHdsTitleBarOptions())
     .titleMode(HdsNavigationTitleMode.MINI)
