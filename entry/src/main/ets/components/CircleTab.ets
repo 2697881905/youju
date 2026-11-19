@@ -44,7 +44,7 @@ import {
   isSystemMaterialActive,
 } from '../utils/immersiveMaterial';
 import { openCircleDetail, openPostDetail } from '../utils/nav';
-import { getMainNavStack, openCircleDetailViaNav, PostDetailNavParams } from '../utils/navigationTransition';
+import { getMainNavStack, openCircleDetailViaNav, openCircleDiscoverViaNav, PostDetailNavParams } from '../utils/navigationTransition';
 import { registerOverlayBackGuard, unregisterOverlayBackGuard, OVERLAY_GUARD_CIRCLE } from '../utils/overlayBackGuard';
 import { safeShowToast } from '../utils/toast';
 import { JoinedCirclesDialog } from './JoinedCirclesDialog';
@@ -1717,8 +1717,8 @@ export struct CircleTab {
         cosmicMode: this.cosmicMode,
         darkMode: this.isDarkMode,
         action: (): void => {
-          // 递增信号 → 本组件 @Watch：JoinedCirclesDialog 仍由本组件打开
-          this.circleJoinedSeq += 1;
+          // 已加入列表已并入发现页第二页签（不再开 CustomDialog）
+          openCircleDiscoverViaNav(1);
         },
       }) {
         Text('已加入')
@@ -1737,8 +1737,9 @@ export struct CircleTab {
         cosmicMode: this.cosmicMode,
         darkMode: this.isDarkMode,
         action: (): void => {
+          // 发现页为独立 NavDestination（半模态装不下内容橱窗，且同页只能有一个 bindSheet）
           this.dismissStarGuide();
-          this.exploreVisible = true;
+          openCircleDiscoverViaNav(0);
         },
       }) {
         Text('发现圈子')

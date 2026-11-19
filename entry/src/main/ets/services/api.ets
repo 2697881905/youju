@@ -676,6 +676,15 @@ export interface CircleOverviewPost {
   upCount: number;
 }
 
+// 圈子近 7 天的体裁构成（发现页「内容橱窗卡」用）。五值之和恒等于 postCount7d。
+export interface CircleContentMix {
+  review: number;
+  pitfall: number;
+  tutorial: number;
+  debate: number;
+  share: number;
+}
+
 export interface CircleOverviewItem {
   name: string;
   emoji: string;
@@ -691,6 +700,9 @@ export interface CircleOverviewItem {
   active7d: boolean;
   lastPostAt: string | null;
   latestPosts: CircleOverviewPost[];
+  // 近 7 天体裁定与总数（老接口可能缺省，客户端按全 0 兜底）
+  contentMix?: CircleContentMix;
+  postCount7d?: number;
 }
 
 export interface CircleDigestItem {

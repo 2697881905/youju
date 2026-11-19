@@ -11,6 +11,7 @@ import { Tag } from '../models/types';
 import { safeShowToast } from '../utils/toast';
 import { PublishMode, PublishModePanel } from '../components/PublishModePanel';
 import { SearchPanelDestination } from './SearchPanelDestination';
+import { CircleDiscoverDestination } from './CircleDiscoverDestination';
 import { SpringPanel } from '../design/motion/SpringPanel';
 import { DesignButton } from '../design/components/DesignButton';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
@@ -36,7 +37,7 @@ import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { takePushRoute, syncPushToken, requestNotificationPermission } from '../utils/push';
 import { readClipboardPostId, markClipboardIdHandled } from '../utils/clipboardJump';
 import { ClipboardPostSheet, ClipboardPostPayload } from '../components/ClipboardPostSheet';
-import { CircleDetailNavParams, setMainNavStack, setSharedUiContext } from '../utils/navigationTransition';
+import { CircleDetailNavParams, CircleDiscoverNavParams, setMainNavStack, setSharedUiContext } from '../utils/navigationTransition';
 import { consumeOverlayBackFor, OVERLAY_GUARD_CIRCLE } from '../utils/overlayBackGuard';
 import { AnimateCallback, CustomTransition } from '../utils/longTake/customNavigationUtils';
 import { setSerifTypeface, setSerifBodyTypeface } from '../utils/poster/posterText';
@@ -1058,7 +1059,18 @@ struct Index {
     } else if (name === 'SearchPanel') {
       // 搜索面板：首页搜索按钮一镜到底的落点（自定义转场，整页从按钮帧缩放展开）
       SearchPanelDestination()
+    } else if (name === 'CircleDiscover') {
+      // 发现圈子：星图标题栏两颗药丸的落点（0=发现 / 1=已加入）
+      CircleDiscoverDestination({ initialTab: this.circleDiscoverTabOf(param) })
     }
+  }
+
+  // 发现页初始页签：参数缺失时落「发现」，不因脏参数白屏
+  private circleDiscoverTabOf(param: Object): number {
+    if (param instanceof CircleDiscoverNavParams) {
+      return (param as CircleDiscoverNavParams).initialTab;
+    }
+    return 0;
   }
 
   // —— Dock 液态选中指示器：几何全部来自实测，动画来自 UIContext.animateTo ——

@@ -116,3 +116,20 @@ export class VideoPlayerNavParams {
 
 // 无参 navDestination 跳转占位（pushPathByName 的 param 需要显式类型，禁止裸字面量）
 export class EmptyNavParams {};
+
+// 发现圈子独立页跳转参数：initialTab 0=发现 1=已加入。
+// 星图标题栏两颗药丸各自有落点，不再走弹层。
+export class CircleDiscoverNavParams {
+  initialTab: number = 0;
+}
+
+export function openCircleDiscoverViaNav(initialTab: number): boolean {
+  const nav: NavPathStack | null = getMainNavStack();
+  if (nav === null) {
+    return false;
+  }
+  const params: CircleDiscoverNavParams = new CircleDiscoverNavParams();
+  params.initialTab = initialTab;
+  nav.pushPathByName('CircleDiscover', params);
+  return true;
+}
