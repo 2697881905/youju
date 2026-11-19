@@ -13,6 +13,9 @@ import { TypeTokens } from '../tokens/type';
 export struct ToggleChip {
   @Prop label: string = '';
   @Prop selected: boolean = false;
+  // 在「与容器底同色」的环境（深色材质面板上 elevated≈面板色）里，elevated 底看不出边界，
+  // 传 true 补一条发丝描边。默认 false，既有调用方视觉不变。
+  @Prop outlined: boolean = false;
   action: () => void = (): void => {};
 
   build() {
@@ -27,6 +30,11 @@ export struct ToggleChip {
         .fontWeight(this.selected ? 600 : 450)
         .fontColor(this.selected ? ColorTokens.primary : ColorTokens.secondary)
         .backgroundColor(this.selected ? ColorTokens.brandTint : ColorTokens.elevated)
+        .border({
+          width: this.outlined ? LayoutTokens.hairlineWidth : 0,
+          color: ColorTokens.separator,
+          style: BorderStyle.Solid,
+        })
         .borderRadius(RadiusTokens.pill)
         .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: 6, bottom: 6 })
     }

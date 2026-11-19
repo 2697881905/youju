@@ -214,6 +214,8 @@ export struct CircleExploreSheet {
     ToggleChip({
       label: item,
       selected: this.newCategory === item,
+      // 半模态材质面板上 elevated 底与面板同色，补发丝描边才有边界。
+      outlined: true,
       action: (): void => { this.newCategory = item; },
     })
   }
@@ -339,6 +341,8 @@ export struct CircleExploreSheet {
         .buttonStyle(ButtonStyleMode.NORMAL)
         .type(ButtonType.Capsule)
         .controlSize(ControlSize.SMALL)
+        // 与分类/城市胶囊同高（28）：行内三类小元素（chip 28、按钮 28、图标 34）不再参差。
+        .height(28)
         .fontSize(TypeTokens.overline.size)
         .fontColor(item.joined ? ColorTokens.warm : ColorTokens.brand)
         .backgroundColor(Color.Transparent)
@@ -366,6 +370,7 @@ export struct CircleExploreSheet {
     ToggleChip({
       label: city.name + (city.circleCount > 0 ? ' ' + city.circleCount : ''),
       selected: this.cityCode === city.code,
+      outlined: true,
       action: (): void => { this.pickCity(city); },
     })
   }
