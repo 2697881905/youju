@@ -323,16 +323,9 @@ export struct CircleTab {
   // 容量按环半径与卡片盒宽计算，保证同一星环上任意两颗星的标签盒永不重叠。
   private ringPlanKey: string = '';
   private ringPlanCache: Map<string, number> = new Map<string, number>();
-  private joinedDialogController: CustomDialogController = new CustomDialogController({
-    builder: JoinedCirclesDialog({
-      getCircles: (): CircleTag[] => this.joinedCircles(),
-      onOpenCircle: (name: string): void => { this.jumpCircle(name); },
-      onExplore: (): void => { this.exploreVisible = true; },
-    }),
-    alignment: DialogAlignment.Center,
-    customStyle: false,
-    autoCancel: true,
-  });
+  // 「已加入的圈子」：从 @CustomDialog 改为 bindSheet 半模态（表面交给 SheetOptions.systemMaterial）。
+  // 同一组件不能绑两个 bindSheet —— explore 那个挂在内部 Stack，这个挂在 HdsNavigation 上。
+  @State joinedSheetVisible: boolean = false;
 
   aboutToAppear(): void {
     // 页内覆盖层返回守卫：Index 是 @Entry，真正的拦截在 Index.onBackPress；
@@ -1610,7 +1603,7 @@ export struct CircleTab {
   }
 
   private showJoinedList(): void {
-    this.joinedDialogController.open();
+    this.joinedSheetVisible = true;
   }
 
   // 标题栏「已加入」药丸点击（Index 经 circleJoinedSeq 递增信号触发）
@@ -1761,6 +1754,23 @@ export struct CircleTab {
   private landingAccent(): string {
     const circle: CircleTag | undefined = this.landingCircle();
     return circle !== undefined ? categoryHue(circle.category, this.cosmicMode) : GalaxyTokens.brandAccentFallback;
+  }
+
+  // 已加入圈子：bindSheet 内容。跳转/去发现都先关 sheet，避免两层浮层叠加。
+  @Builder
+  joinedSheet() {
+    JoinedCirclesDialog({
+      getCircles: (): CircleTag[] => this.joinedCircles(),
+      onOpenCircle: (name: string): void => {
+        this.joinedSheetVisible = false;
+        this.jumpCircle(name);
+      },
+      onExplore: (): void => {
+        this.joinedSheetVisible = false;
+        this.exploreVisible = true;
+      },
+      onClose: (): void => { this.joinedSheetVisible = false; },
+    })
   }
 
   @Builder
@@ -1945,6 +1955,21 @@ export struct CircleTab {
       radius: { topLeft: RadiusTokens.xl, topRight: RadiusTokens.xl },
     })
     }
+    // 「已加入的圈子」：挂在 HdsNavigation 上（内部 Stack 已被 explore 的 bindSheet 占用，
+    // 同一组件不能绑两个半模态）。表面同样交给 SheetOptions.systemMaterial。
+    .bindSheet($$this.joinedSheetVisible, this.joinedSheet(), {
+      // 列表通常 2~5 行：FIT_CONTENT 按内容收高，不留半屏空白；仍可拖到 LARGE 看长列表。
+      detents: [SheetSize.FIT_CONTENT, SheetSize.LARGE],
+      systemMaterial: getSheetImmersiveMaterial(),
+      blurStyle: isSystemMaterialActive() ? BlurStyle.NONE : BlurStyle.COMPONENT_THICK,
+      backgroundColor: isSystemMaterialActive() ? undefined : ColorTokens.canvas,
+      // 关闭钮由内容标题行右侧那颗 IconButton 承担（与标题同一水平线）；
+      // 开着系统关闭钮会和它并排成两个 X。
+      showClose: false,
+      dragBar: true,
+      radius: { topLeft: RadiusTokens.xl, topRight: RadiusTokens.xl },
+      // 不写 onDisappear：$$ 双向绑定已负责关闭回写，再补一次会与「关闭后立刻重开」抢状态。
+    })
     .titleBar(this.circleHdsTitleBarOptions())
     .titleMode(HdsNavigationTitleMode.MINI)
     // 默认 Auto 在展开宽度切 Split，navBar 列被压成 240vp、右栏常驻预留 → 整页挤在左侧。
