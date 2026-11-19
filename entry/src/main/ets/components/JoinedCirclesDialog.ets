@@ -76,7 +76,12 @@ export struct JoinedCirclesDialog {
   }
 
   build() {
-    SpringPanel({ panelWidth: 344, panelPadding: SpaceTokens.lg, outlined: true, immersive: false }) {
+    // 表面：solid 档（elevated 实色 + separator 发丝描边 + cardAmbient 贴地投影），
+    // 与「今日圈内」「星图图例」同一套卡片语言。原先的 outlined 是透明底描边框，
+    // 在星图上读起来像一块空壳。
+    // 注：曾尝试改 bindSheet 半模态，但同页已有 explore 的 bindSheet——两个半模态绑定
+    // 会互相抢占，导致「发现圈子」入口完全失效，故保持 CustomDialog。
+    SpringPanel({ panelWidth: 344, panelPadding: SpaceTokens.lg, solid: true, immersive: false }) {
       Column({ space: SpaceTokens.base }) {
         Row({ space: SpaceTokens.sm }) {
           Column({ space: 2 }) {
