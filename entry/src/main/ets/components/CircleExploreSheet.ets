@@ -337,17 +337,18 @@ export struct CircleExploreSheet {
       // 一度换成 DesignButton outlined，真机上描边色(barBorder)比 brand 淡一档，
       // 白底行里几乎看不出边界 → 回退。原生 Button 本身属官方控件，
       // 不在此次「自绘冒充控件」的整改范围内（对比原分类/城市胶囊是 Text + onClick）。
+      // 行内次级动作降为文字级：原先每行一颗品牌色描边胶囊，五行并排就是一条蓝色色块列，
+      // 把视觉重心从「圈子名」抢走了。去描边/去底色后，未加入仍是品牌蓝字（唯一带色的动作），
+      // 已加入降为 secondary——状态靠颜色区分，可点性由 Button 自带的 44 触摸区保证。
       Button(item.joined ? '去看看' : '加入')
         .buttonStyle(ButtonStyleMode.NORMAL)
         .type(ButtonType.Capsule)
         .controlSize(ControlSize.SMALL)
-        // 与分类/城市胶囊同高（28）：行内三类小元素（chip 28、按钮 28、图标 34）不再参差。
         .height(28)
         .fontSize(TypeTokens.overline.size)
-        .fontColor(item.joined ? ColorTokens.warm : ColorTokens.brand)
+        .fontColor(item.joined ? ColorTokens.secondary : ColorTokens.brand)
         .backgroundColor(Color.Transparent)
-        .borderWidth(LayoutTokens.glassBorderWidth)
-        .borderColor(item.joined ? ColorTokens.warm : ColorTokens.brand)
+        .borderWidth(0)
         .onClick((): void => {
           if (item.joined) {
             this.onOpen(item.name);
