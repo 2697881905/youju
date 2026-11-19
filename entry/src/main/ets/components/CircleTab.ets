@@ -38,6 +38,7 @@ import { TypeTokens } from '../design/tokens/type';
 import {
   HDS_MATERIAL_TYPE_IMMERSIVE,
   HDS_MATERIAL_LEVEL_EXQUISITE,
+  TopButtonMaterialModifier,
   getSheetImmersiveMaterial,
   isImmersiveLightSenseSupported,
   isSystemMaterialActive,
@@ -183,9 +184,10 @@ const COSMIC_GLASS: string = '#1AECE6DA';      // 药丸兜底底/提示条
 // （「已加入」= 文案 + CountRoll，「发现圈子」= 文案）。
 //
 // 表面交给栏级沉浸材质：两颗药丸都驻留标题栏，整条栏挂 IMMERSIVE/EXQUISITE 之后
-// 自身不再挂通用组件材质——两轨叠加会成两层玻璃（同消息页分段栏的处置）。
-// 内容区已无调用方：「发现圈子」原本在星图右上，因系统材质在标题栏外不出图，
-// 只能按实渲染色复刻；2026-11-19 迁入标题栏后这条妥协一并撤掉。
+// 表面走「我的」页右上角两颗圆钮的同一条轨：组件级系统材质（TopButtonMaterialModifier）。
+// 栏级 systemMaterialEffect 只渲染栏面与官方 content.menu 槽位，**不会**给 stackBuilder
+// 里的自绘组件加表面——所以自绘胶囊要玻璃感，只能自己挂组件级材质。
+// 低版本（API<26）门禁不通过 → 落回原兜底色，视觉与改造前一致。
 const PILL_MATERIAL_FILL: string = '#40FFFFFF';
 @Component
 struct CircleHeaderPill {
@@ -193,19 +195,19 @@ struct CircleHeaderPill {
   @Prop cosmicMode: boolean = false;
   @Prop darkMode: boolean = false;
   action: () => void = (): void => {};
+  private materialModifier: TopButtonMaterialModifier = new TopButtonMaterialModifier();
 
   @Builder
   emptyContent(): void {}
 
   private materialActive(): boolean {
-    return isImmersiveLightSenseSupported();
+    return isSystemMaterialActive();
   }
 
-  // 栏级材质生效时用系统三级背景：玻璃栏面上留一层可辨的控件底。
-  // 不自绘色值（系统色随深浅色切换），也不叠沉浸材质。
+  // 材质生效时底色透明（表面完全交给系统）；低版本落回原三档兜底。
   private pillBackground(): ResourceColor {
     if (this.materialActive()) {
-      return $r('sys.color.comp_background_tertiary');
+      return Color.Transparent;
     }
     if (this.cosmicMode) {
       return COSMIC_GLASS;
@@ -228,6 +230,7 @@ struct CircleHeaderPill {
       .backgroundColor(this.pillBackground())
       .borderRadius(RadiusTokens.pill)
       .alignItems(VerticalAlign.Center)
+      .attributeModifier(this.materialModifier)
     }
   }
 }
