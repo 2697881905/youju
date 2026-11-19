@@ -26,6 +26,14 @@ import { IconButton } from '../design/components/IconButton';
 import { EmptyState } from '../design/components/EmptyState';
 import { ImmersiveSegmentBar, SegmentedItem } from '../design/components/ImmersiveSegmentBar';
 import { ToggleChip } from '../design/components/ToggleChip';
+import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import type {
+  HdsNavigationBackButtonItemOptions,
+  HdsNavigationIconOptions,
+  HdsNavigationTitleBarOptions,
+  TitleBarContentOptions,
+} from '@kit.UIDesignKit';
+import { resolveActionIcon } from '../utils/actionIcons';
 import { ColorTokens } from '../design/tokens/color';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { RadiusTokens } from '../design/tokens/radius';
@@ -68,6 +76,44 @@ export struct CircleDiscoverPage {
   // 分类默认每组只露 3 行：24 个圈子全铺开要滑三屏，等于把「索引」当成了主内容
   @State expandedCategory: string = '';
   @StorageLink('isDarkMode') isDarkMode: boolean = false;
+
+  // 标题栏：与圈子详情页同构（HdsNavigation MINI + 官方返回键）。
+  // avoidLayoutSafeArea=true 让栏体自己让开状态栏——这是「标题压到通知栏」的直接修复，
+  // 手搓顶栏配 hideTitleBar 时内容会从窗口原点开始。
+  private titleBarOptions(): HdsNavigationTitleBarOptions {
+    const content: TitleBarContentOptions = {
+      stackBuilder: (): void => { this.discoverBrandRow(); },
+    };
+    return {
+      content: content,
+      avoidLayoutSafeArea: true,
+      // 必须显式开：默认关闭时内容从窗口原点开始，标题会被状态栏压住
+      enableComponentSafeArea: true,
+    };
+  }
+
+  // 栏内一行：返回 + 标题 + 搜索。用 stackBuilder 而不是 backIcon，
+  // 否则 MINI 档会先占一行放返回键、标题再另起一行，顶部空成两层。
+  @Builder
+  discoverBrandRow(): void {
+    Row({ space: SpaceTokens.sm }) {
+      BackButton({ action: (): void => { this.onBack(); } })
+      Text('发现圈子')
+        .fontSize(TypeTokens.titleSerif.size).fontFamily(TypeTokens.fontFamilySerif)
+        .fontWeight(TypeTokens.titleSerif.weight)
+        .lineHeight(TypeTokens.titleSerif.lineHeight)
+        .fontColor(ColorTokens.primary)
+      Blank()
+      IconButton({
+        icon: 'search',
+        a11yText: '搜索圈子',
+        action: (): void => { this.searchVisible = !this.searchVisible; },
+      })
+    }
+    .width('100%')
+    .height(LayoutTokens.titleBarHeight)
+    .alignItems(VerticalAlign.Center)
+  }
 
   private segItems: SegmentedItem[] = [
     { key: 'discover', label: '发现' },
@@ -547,26 +593,8 @@ export struct CircleDiscoverPage {
   }
 
   build() {
+    HdsNavigation() {
     Column() {
-      Row({ space: SpaceTokens.sm }) {
-        BackButton({ action: (): void => { this.onBack(); } })
-        Text('发现圈子')
-          .fontSize(TypeTokens.titleSerif.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.titleSerif.weight)
-          .lineHeight(TypeTokens.titleSerif.lineHeight)
-          .fontColor(ColorTokens.primary)
-        Blank()
-        IconButton({
-          icon: 'search',
-          a11yText: '搜索圈子',
-          action: (): void => { this.searchVisible = !this.searchVisible; },
-        })
-      }
-      .width('100%')
-      .height(LayoutTokens.titleBarHeight)
-      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
-      .alignItems(VerticalAlign.Center)
-
       if (this.searchVisible) {
         Search({ value: this.keyword, placeholder: '搜圈子名或分类' })
           .height(40)
@@ -620,5 +648,12 @@ export struct CircleDiscoverPage {
       showClose: true,
       dragBar: true,
     })
+    }
+    .titleMode(HdsNavigationTitleMode.MINI)
+    .titleBar(this.titleBarOptions())
+    // 默认 Auto 在展开宽度切 Split，navBar 列被压窄 → 整页挤在左侧
+    .mode(NavigationMode.Stack)
+    .width('100%')
+    .height('100%')
   }
 }
