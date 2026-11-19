@@ -477,11 +477,11 @@ struct VideoPublishPage {
     }
   }
 
-  // 创作纸：标题 hero（大号衬线 + 发丝下划线）+ 软质正文编辑面板，写作是绝对主角。
+  // 创作纸：标题与正文同处一张软质纸面（subtle 底大圆角），发丝线分隔，统一写作面语言。
   @Builder
   writingSheet(): void {
     Reveal({ index: 1 }) {
-      Column({ space: SpaceTokens.md }) {
+      Column() {
         TextInput({
           text: $$this.title,
           placeholder: this.aiEnabled && this.title.length === 0 && this.content.trim().length > 0
@@ -496,10 +496,11 @@ struct VideoPublishPage {
           .fontColor(ColorTokens.primary)
           .placeholderColor(ColorTokens.tertiary)
           .backgroundColor(Color.Transparent)
-          .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
-          .border({ width: { bottom: LayoutTokens.hairlineWidth }, color: ColorTokens.separator })
+          .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.base, bottom: SpaceTokens.md })
           .enterKeyType(EnterKeyType.Next)
           .onChange((value: string) => { this.title = value; })
+        Divider().strokeWidth(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
+          .margin({ left: SpaceTokens.base, right: SpaceTokens.base })
         // @提及候选：输入框「上方」的横向条（左右滑动、点选回填）
         if (this.mentionActive) {
           AtMentionSuggest({
@@ -518,8 +519,7 @@ struct VideoPublishPage {
           .letterSpacing(TypeTokens.body.tracking)
           .fontColor(ColorTokens.primary)
           .placeholderColor(ColorTokens.tertiary)
-          .backgroundColor(ColorTokens.subtle)
-          .borderRadius(RadiusTokens.lg)
+          .backgroundColor(Color.Transparent)
           .padding(SpaceTokens.base)
           .showCounter(true, { highlightBorder: false })
           .onChange((value: string) => {
@@ -528,6 +528,8 @@ struct VideoPublishPage {
           })
       }
       .width('100%')
+      .backgroundColor(ColorTokens.subtle)
+      .borderRadius(RadiusTokens.lg)
       .alignItems(HorizontalAlign.Start)
     }
   }
@@ -668,6 +670,7 @@ struct VideoPublishPage {
       }
       .width('100%')
       .padding({ top: this.statusBarHeight })
+      .backgroundColor(ColorTokens.canvas)
     }
     .width('100%')
     .height('100%')

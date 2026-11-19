@@ -646,55 +646,62 @@ struct TextPublishPage {
     .alignItems(VerticalAlign.Center)
   }
 
-  // 创作纸：标题 hero + 软质正文编辑面板 + 封面海报附件条，写作是绝对主角。
+  // 创作纸：标题与正文同处一张软质纸面，发丝线分隔；封面海报作为附件条落在纸面外。
   @Builder
   writingSheet(): void {
     Reveal({ index: 0 }) {
       Column({ space: SpaceTokens.md }) {
-        TextInput({
-          text: $$this.title,
-          placeholder: this.aiEnabled && this.title.length === 0 && this.content.trim().length > 0
-            ? '写完正文了？AI 润色可顺带起标题'
-            : '给这篇起个标题',
-        })
-          .width('100%')
-          .fontSize(TypeTokens.displaySerif.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.displaySerif.weight)
-          .lineHeight(TypeTokens.displaySerif.lineHeight)
-          .fontColor(ColorTokens.primary)
-          .placeholderColor(ColorTokens.tertiary)
-          .backgroundColor(Color.Transparent)
-          .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
-          .border({ width: { bottom: LayoutTokens.hairlineWidth }, color: ColorTokens.separator })
-          .enterKeyType(EnterKeyType.Next)
-          .onChange((value: string) => { this.title = value; this.scheduleThumbnails(); })
-        // @提及候选：输入框「上方」的横向条（左右滑动、点选回填）
-        if (this.mentionActive) {
-          AtMentionSuggest({
-            keyword: this.mentionKeyword,
-            onPick: (c: MentionCandidate): void => { this.pickMention(c); },
+        Column() {
+          TextInput({
+            text: $$this.title,
+            placeholder: this.aiEnabled && this.title.length === 0 && this.content.trim().length > 0
+              ? '写完正文了？AI 润色可顺带起标题'
+              : '给这篇起个标题',
           })
             .width('100%')
+            .fontSize(TypeTokens.displaySerif.size).fontFamily(TypeTokens.fontFamilySerif)
+            .fontWeight(TypeTokens.displaySerif.weight)
+            .lineHeight(TypeTokens.displaySerif.lineHeight)
+            .fontColor(ColorTokens.primary)
+            .placeholderColor(ColorTokens.tertiary)
+            .backgroundColor(Color.Transparent)
+            .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.base, bottom: SpaceTokens.md })
+            .enterKeyType(EnterKeyType.Next)
+            .onChange((value: string) => { this.title = value; this.scheduleThumbnails(); })
+          Divider().strokeWidth(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
+            .margin({ left: SpaceTokens.base, right: SpaceTokens.base })
+          // @提及候选：输入框「上方」的横向条（左右滑动、点选回填）
+          if (this.mentionActive) {
+            AtMentionSuggest({
+              keyword: this.mentionKeyword,
+              onPick: (c: MentionCandidate): void => { this.pickMention(c); },
+            })
+              .width('100%')
+          }
+          TextArea({ text: this.content, placeholder: '展开写下背景、过程与结论' })
+            .width('100%')
+            .height(POSTER_BODY_HEIGHT)
+            .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.body.weight)
+            .lineHeight(TypeTokens.body.lineHeight)
+            .letterSpacing(TypeTokens.body.tracking)
+            .fontColor(ColorTokens.primary)
+            .placeholderColor(ColorTokens.tertiary)
+            .backgroundColor(Color.Transparent)
+            .padding(SpaceTokens.base)
+            .maxLength(MAX_LONG_FORM_CONTENT_LENGTH)
+            .showCounter(true, { highlightBorder: false })
+            .onChange((value: string) => {
+              this.content = value;
+              this.syncMention(value);
+              this.scheduleThumbnails();
+            })
         }
-        TextArea({ text: this.content, placeholder: '展开写下背景、过程与结论' })
-          .width('100%')
-          .height(POSTER_BODY_HEIGHT)
-          .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
-          .fontWeight(TypeTokens.body.weight)
-          .lineHeight(TypeTokens.body.lineHeight)
-          .letterSpacing(TypeTokens.body.tracking)
-          .fontColor(ColorTokens.primary)
-          .placeholderColor(ColorTokens.tertiary)
-          .backgroundColor(ColorTokens.subtle)
-          .borderRadius(RadiusTokens.lg)
-          .padding(SpaceTokens.base)
-          .maxLength(MAX_LONG_FORM_CONTENT_LENGTH)
-          .showCounter(true, { highlightBorder: false })
-          .onChange((value: string) => {
-            this.content = value;
-            this.syncMention(value);
-            this.scheduleThumbnails();
-          })
+        .width('100%')
+        .backgroundColor(ColorTokens.subtle)
+        .borderRadius(RadiusTokens.lg)
+        .alignItems(HorizontalAlign.Start)
+
         Column({ space: SpaceTokens.sm }) {
           this.blockCaption('封面海报', '所见即所得')
           this.textPosterStyleSelector()
@@ -842,6 +849,7 @@ struct TextPublishPage {
       }
       .width('100%')
       .padding({ top: this.statusBarHeight })
+      .backgroundColor(ColorTokens.canvas)
     }
     .width('100%')
     .height('100%')
