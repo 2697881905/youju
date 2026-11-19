@@ -7,6 +7,7 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { ShadowTokens } from '../design/tokens/shadow';
 import { SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
+import { immersiveCardWidth } from '../design/tokens/galaxy';
 import { Pressable } from '../design/motion/Pressable';
 
 @Component
@@ -16,17 +17,6 @@ export struct CircleDigestDock {
   @Prop maxItems: number = 3;
   onOpen: (postId: number) => void = (_postId: number): void => {};
   @StorageProp('currentBreakpoint') currentBreakpoint: string = 'sm';
-
-  // 每行是「圈名药丸 + 单行标题」，展开屏满幅会把标题拉得过长、右侧留死白；限宽后由外层居中。
-  private cardWidth(): Length {
-    if (this.currentBreakpoint === 'lg') {
-      return 600;
-    }
-    if (this.currentBreakpoint === 'md') {
-      return 520;
-    }
-    return '100%';
-  }
 
   private visibleItems(): CircleDigestItem[] {
     return this.items.slice(0, Math.max(1, this.maxItems));
@@ -99,7 +89,7 @@ export struct CircleDigestDock {
         this.digestRow(item, index === this.visibleItems().length - 1)
       }, (item: CircleDigestItem) => String(item.postId))
     }
-    .width(this.cardWidth())
+    .width(immersiveCardWidth(this.currentBreakpoint))
     .padding(SpaceTokens.md)
     .backgroundColor(ColorTokens.elevated)
     .borderRadius(RadiusTokens.lg)

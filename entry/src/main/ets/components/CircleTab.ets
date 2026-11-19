@@ -33,6 +33,7 @@ import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { categoryHue } from '../design/tokens/category';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
+import { GalaxyTokens } from '../design/tokens/galaxy';
 import { TypeTokens } from '../design/tokens/type';
 import { ShadowTokens } from '../design/tokens/shadow';
 import { TopButtonMaterialModifier, isSystemMaterialActive } from '../utils/immersiveMaterial';
@@ -98,10 +99,7 @@ const CIRCLE_VISUALS: CircleVisualMeta[] = [
 ];
 
 // 标签宽度必须纳入最外轨道的安全边距计算；过大会在 375vp 视口的左右边缘被裁切。
-// 与 CircleOrbitCanvas.PLANET_BOX_WIDTH 保持一致：标签从 9px 提升到 11px 后放宽命中盒，
-// 过窄会在标签两侧留下无效空白，也会让外环半径的安全边距算错。
-const PLANET_BOX_WIDTH: number = 72;
-const CENTER_AVATAR_SIZE: number = 64;
+// PLANET_BOX_WIDTH / CENTER_AVATAR_SIZE 与 CircleOrbitCanvas 共用 GalaxyTokens 单一来源。
 const TOP_ANGLE: number = -90;
 
 // @Observed 保证乐观更新人数与 joined 状态能立即驱动星环和详情卡同步刷新。
@@ -786,7 +784,7 @@ export struct CircleTab {
     if (radius <= 0) {
       return 1;
     }
-    const boxChord: number = PLANET_BOX_WIDTH + SpaceTokens.xs;
+    const boxChord: number = GalaxyTokens.planetBoxWidth + SpaceTokens.xs;
     const ratio: number = Math.min(1, boxChord / (2 * radius));
     const step: number = 2 * Math.asin(ratio) * 180 / Math.PI;
     return Math.max(1, Math.floor(360 / step));
@@ -1134,7 +1132,7 @@ export struct CircleTab {
   // 再让出行星半盒与一档呼吸；sm 上该基准(≈369)大于画布宽(363.5)，行为不变。
   private orbitBasis(): number {
     const centerY: number = this.scrollViewportHeight * 0.42;
-    const verticalBudget: number = centerY - this.circleTitleBarHeight() - PLANET_BOX_WIDTH / 2 - SpaceTokens.md;
+    const verticalBudget: number = centerY - this.circleTitleBarHeight() - GalaxyTokens.planetBoxWidth / 2 - SpaceTokens.md;
     const budgetBasis: number = Math.max(240, (verticalBudget - SpaceTokens.xs) / 0.46);
     return Math.min(this.galaxySize, budgetBasis);
   }
@@ -1146,13 +1144,13 @@ export struct CircleTab {
     const maxOuterRadius: number = Math.max(
       0,
       // 星系视口本身已有 4vp 页边距，无需在半径内重复预留，外环可再向外扩展。
-      basis / 2 - PLANET_BOX_WIDTH / 2,
+      basis / 2 - GalaxyTokens.planetBoxWidth / 2,
     );
     // 标签容器不再参与选中缩放，可安全借用页面两侧的 4vp 边距再外扩一档。
     const outerRadius: number = Math.min(basis * 0.46, maxOuterRadius) + SpaceTokens.xs;
     // 从头像外缘到最外环的可用径向距离严格三等分：
     // avatar→内环 = 内环→中环 = 中环→外环。
-    const avatarEdgeRadius: number = CENTER_AVATAR_SIZE / 2;
+    const avatarEdgeRadius: number = GalaxyTokens.centerAvatarSize / 2;
     const ringGap: number = Math.max(18, (outerRadius - avatarEdgeRadius) / 3);
     const innerRadius: number = avatarEdgeRadius + ringGap;
     const middleRadius: number = innerRadius + ringGap;
@@ -1692,7 +1690,7 @@ export struct CircleTab {
   // 降落页泛光：按圈子分类取低饱和色相，深色模式自动提亮。
   private landingAccent(): string {
     const circle: CircleTag | undefined = this.landingCircle();
-    return circle !== undefined ? categoryHue(circle.category, this.cosmicMode) : '#0066CC';
+    return circle !== undefined ? categoryHue(circle.category, this.cosmicMode) : GalaxyTokens.brandAccentFallback;
   }
 
   @Builder

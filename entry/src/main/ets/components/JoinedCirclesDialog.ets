@@ -4,7 +4,7 @@ import { IconButton } from '../design/components/IconButton';
 import { DesignButton } from '../design/components/DesignButton';
 import { SpringPanel } from '../design/motion/SpringPanel';
 import { ColorTokens } from '../design/tokens/color';
-import { SpaceTokens } from '../design/tokens/space';
+import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 
 // 已加入圈子只负责弹层内容；CircleTab 持有数据加载和跳转意图。
@@ -102,7 +102,7 @@ export struct JoinedCirclesDialog {
               ForEach(this.circles(), (circle: JoinedCircle, index: number) => {
                 this.circleRow(circle, index === this.circles().length - 1)
                 if (index < this.circles().length - 1) {
-                  Divider().color(ColorTokens.separator).strokeWidth(0.5)
+                  Divider().color(ColorTokens.separator).strokeWidth(LayoutTokens.hairlineWidth)
                 }
               }, (circle: JoinedCircle) => circle.name)
             }

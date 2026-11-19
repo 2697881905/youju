@@ -6,6 +6,7 @@ import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { categoryHue } from '../design/tokens/category';
 import { ShadowTokens } from '../design/tokens/shadow';
 import { SpaceTokens } from '../design/tokens/space';
+import { GalaxyTokens } from '../design/tokens/galaxy';
 import { TypeTokens } from '../design/tokens/type';
 
 export interface OrbitCircleItem {
@@ -58,11 +59,10 @@ interface SeedView {
   ring: number;
 }
 
-const PLANET_BOX_WIDTH: number = 72;
 const PLANET_BOX_HEIGHT: number = 88;
 // 行星热区：从 40 提到 44（≥ 应用最小触控目标），标签跟着加宽。
 const PLANET_ICON_HIT_SIZE: number = 44;
-const CENTER_AVATAR_SIZE: number = 64;
+// 标签盒宽度/中心头像尺寸与 CircleTab 共用 GalaxyTokens 单一来源。
 const RIPPLE_FIRST_SIZE: number = 68;
 const RIPPLE_SECOND_SIZE: number = 88;
 const RIPPLE_CYCLE_DURATION: number = 920;
@@ -494,9 +494,9 @@ export struct CircleOrbitCanvas {
         .hitTestBehavior(HitTestMode.None)
       if (this.avatar.length > 0) {
         Image(resolveDisplayImageUrl(this.avatar))
-          .width(CENTER_AVATAR_SIZE)
-          .height(CENTER_AVATAR_SIZE)
-          .borderRadius(CENTER_AVATAR_SIZE / 2)
+          .width(GalaxyTokens.centerAvatarSize)
+          .height(GalaxyTokens.centerAvatarSize)
+          .borderRadius(GalaxyTokens.centerAvatarSize / 2)
           .objectFit(ImageFit.Cover)
           .clip(true)
           // 中心头像落在横向 PanGesture 的星系面上：Image 默认 draggable=true，
@@ -506,19 +506,19 @@ export struct CircleOrbitCanvas {
         // 无头像时与全局 Avatar 组件一致：用品牌默认头像，而不是首字母占位，
         // 保证星系中心看到的就是「我的」个人主页那个头像。
         Image($r('app.media.default_avatar'))
-          .width(CENTER_AVATAR_SIZE)
-          .height(CENTER_AVATAR_SIZE)
-          .borderRadius(CENTER_AVATAR_SIZE / 2)
+          .width(GalaxyTokens.centerAvatarSize)
+          .height(GalaxyTokens.centerAvatarSize)
+          .borderRadius(GalaxyTokens.centerAvatarSize / 2)
           .objectFit(ImageFit.Cover)
           .clip(true)
           .draggable(false)
       }
     }
-    .width(CENTER_AVATAR_SIZE)
-    .height(CENTER_AVATAR_SIZE)
-    .borderRadius(CENTER_AVATAR_SIZE / 2)
+    .width(GalaxyTokens.centerAvatarSize)
+    .height(GalaxyTokens.centerAvatarSize)
+    .borderRadius(GalaxyTokens.centerAvatarSize / 2)
     // 不裁剪：呼吸光环（70/86）大于头像，需要溢出显示；头像圆形由 Image 自身 borderRadius 保证。
-    .position({ x: this.cx() - CENTER_AVATAR_SIZE / 2, y: this.cy() - CENTER_AVATAR_SIZE / 2 })
+    .position({ x: this.cx() - GalaxyTokens.centerAvatarSize / 2, y: this.cy() - GalaxyTokens.centerAvatarSize / 2 })
     .onAppear((): void => { this.startHaloBreath(); })
     .hitTestBehavior(HitTestMode.None)
   }
@@ -1024,7 +1024,7 @@ struct OrbitPlanet {
 
   private left(): number {
     const angle: number = (this.baseAngle + this.ringAngle) * Math.PI / 180;
-    return this.galaxySize / 2 + this.driftRadius() * Math.cos(angle) - PLANET_BOX_WIDTH / 2;
+    return this.galaxySize / 2 + this.driftRadius() * Math.cos(angle) - GalaxyTokens.planetBoxWidth / 2;
   }
 
   private top(): number {
@@ -1079,7 +1079,7 @@ struct OrbitPlanet {
     if (!this.isCentered()) {
       return 0;
     }
-    return this.galaxySize / 2 - (this.left() + PLANET_BOX_WIDTH / 2);
+    return this.galaxySize / 2 - (this.left() + GalaxyTokens.planetBoxWidth / 2);
   }
 
   private focusTranslateY(): number {
@@ -1185,7 +1185,7 @@ struct OrbitPlanet {
       }
       .width(PLANET_ICON_HIT_SIZE)
       .height(PLANET_ICON_HIT_SIZE)
-      .position({ x: (PLANET_BOX_WIDTH - PLANET_ICON_HIT_SIZE) / 2, y: 0 })
+      .position({ x: (GalaxyTokens.planetBoxWidth - PLANET_ICON_HIT_SIZE) / 2, y: 0 })
       // 亮度只压图标本体，不压名称标签：暗星态的 9px 灰字曾低到不可读。
       .opacity(this.planetOpacity())
       .scale({ x: this.isSelected() ? 1.12 : 1, y: this.isSelected() ? 1.12 : 1 })
@@ -1214,14 +1214,14 @@ struct OrbitPlanet {
             })
             .shadow({ radius: 8, color: this.pal().seedBlue + (this.darkMode ? '80' : '40'), offsetY: 0 })
           Text(this.unread > 99 ? '99+' : String(this.unread))
-            .fontSize(10)
+            .fontSize(TypeTokens.navLabel.size)
             .fontWeight(FontWeight.Bold)
             // 未读角标统一红底白字：深/浅两套色板下都满足对比度。
             .fontColor(Color.White)
         }
         .width(22)
         .height(22)
-        .position({ x: PLANET_BOX_WIDTH / 2 + 2, y: 2 })
+        .position({ x: GalaxyTokens.planetBoxWidth / 2 + 2, y: 2 })
         // 星子脉动：呼吸缩放+明暗（animateTo 无限交替，见 startSeedBreath）
         .scale({ x: this.seedScale, y: this.seedScale })
         .opacity(this.seedOpacity)
@@ -1234,7 +1234,7 @@ struct OrbitPlanet {
       }
       Column({ space: SpaceTokens.inlineTight }) {
         Text(this.name)
-          .width(PLANET_BOX_WIDTH)
+          .width(GalaxyTokens.planetBoxWidth)
           .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
           .fontWeight(TypeTokens.headline.weight)
           .lineHeight(TypeTokens.overline.lineHeight)
@@ -1243,11 +1243,11 @@ struct OrbitPlanet {
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
-      .width(PLANET_BOX_WIDTH)
+      .width(GalaxyTokens.planetBoxWidth)
       .position({ x: 0, y: PLANET_ICON_HIT_SIZE + SpaceTokens.xs })
       .hitTestBehavior(HitTestMode.None)
     }
-    .width(PLANET_BOX_WIDTH)
+    .width(GalaxyTokens.planetBoxWidth)
     .height(PLANET_BOX_HEIGHT)
     .hitTestBehavior(HitTestMode.Transparent)
     .animation({ duration: MotionTokens.base, curve: MotionCurves.standard })

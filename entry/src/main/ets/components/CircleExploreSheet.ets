@@ -1,10 +1,12 @@
 import { Tag } from '../models/types';
 import { CircleOverviewItem, CitySummary, getCircleOverview, listCities, listCityTags } from '../services/api';
 import { ColorTokens } from '../design/tokens/color';
+import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
-import { SpaceTokens } from '../design/tokens/space';
+import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { Pressable } from '../design/motion/Pressable';
+import { EmptyState } from '../design/components/EmptyState';
 import { TagIcon } from './TagIcon';
 
 // bindSheet 自带的关闭按钮固定在右上角（40vp 触控区、距右约 16vp）。
@@ -176,7 +178,7 @@ export struct CircleExploreSheet {
   createEntry(): void {
     Row({ space: SpaceTokens.md }) {
       Text('＋')
-        .fontSize(18).fontFamily(TypeTokens.fontFamily)
+        .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamily)
         .fontWeight(TypeTokens.headline.weight)
         .fontColor(ColorTokens.warm)
       Text(this.creating ? '收起创建' : '创建一个圈子')
@@ -190,7 +192,7 @@ export struct CircleExploreSheet {
     .padding(SpaceTokens.md)
     .margin({ top: SpaceTokens.md })
     .backgroundColor(ColorTokens.canvas)
-    .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
+    .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.separator, style: BorderStyle.Solid })
     .borderRadius(RadiusTokens.md)
     .onClick((): void => {
       if (this.creating) {
@@ -210,7 +212,7 @@ export struct CircleExploreSheet {
       .fontWeight(this.newCategory === item ? TypeTokens.headline.weight : FontWeight.Regular)
       .fontColor(this.newCategory === item ? ColorTokens.primary : ColorTokens.secondary)
       .backgroundColor(this.newCategory === item ? ColorTokens.brandTint : ColorTokens.subtle)
-      .border({ width: 1, color: this.newCategory === item ? ColorTokens.brand : ColorTokens.separator, style: BorderStyle.Solid })
+      .border({ width: LayoutTokens.glassBorderWidth, color: this.newCategory === item ? ColorTokens.brand : ColorTokens.separator, style: BorderStyle.Solid })
       .borderRadius(RadiusTokens.pill)
       .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: 6, bottom: 6 })
       .onClick((): void => { this.newCategory = item; })
@@ -358,7 +360,7 @@ export struct CircleExploreSheet {
         .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: 6, bottom: 6 })
         .backgroundColor(this.cityCode === city.code ? ColorTokens.brandTint : ColorTokens.subtle)
         .border({
-          width: 1,
+          width: LayoutTokens.glassBorderWidth,
           color: this.cityCode === city.code ? ColorTokens.brand : ColorTokens.separator,
           style: BorderStyle.Solid,
         })
@@ -412,7 +414,7 @@ export struct CircleExploreSheet {
       if (this.cityCode.length > 0) {
         if (this.cityLoading) {
           Row({ space: SpaceTokens.sm }) {
-            LoadingProgress().width(20).height(20)
+            LoadingProgress().width(IconTokens.small).height(IconTokens.small)
             Text('正在加载同城圈子…')
               .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
               .fontColor(ColorTokens.secondary)
@@ -428,7 +430,7 @@ export struct CircleExploreSheet {
         } else {
           ForEach(this.cityItems, (item: CatalogItem) => {
             this.row(item, true)
-            Divider().color(ColorTokens.separator).strokeWidth(0.5)
+            Divider().color(ColorTokens.separator).strokeWidth(LayoutTokens.hairlineWidth)
           }, (item: CatalogItem) => 'city-item-' + item.name)
         }
       }
@@ -451,15 +453,15 @@ export struct CircleExploreSheet {
         Column() {
           // 三期：点亮新星入口（置顶）+ 展开的创建表单
           this.createEntry()
-          Divider().color(ColorTokens.separator).strokeWidth(0.5)
+          Divider().color(ColorTokens.separator).strokeWidth(LayoutTokens.hairlineWidth)
           if (this.creating) {
             this.createForm()
-            Divider().color(ColorTokens.separator).strokeWidth(0.5)
+            Divider().color(ColorTokens.separator).strokeWidth(LayoutTokens.hairlineWidth)
           }
 
           if (this.cities.length > 0) {
             this.citySection()
-            Divider().color(ColorTokens.separator).strokeWidth(0.5)
+            Divider().color(ColorTokens.separator).strokeWidth(LayoutTokens.hairlineWidth)
           }
 
           // 选了城市就只看同城圈；点「清除筛选」回到全部圈子。
@@ -474,22 +476,27 @@ export struct CircleExploreSheet {
                 .margin({ top: SpaceTokens.md, bottom: SpaceTokens.xs })
               ForEach(group.items, (item: CatalogItem) => {
                 this.row(item)
-                Divider().color(ColorTokens.separator).strokeWidth(0.5)
+                Divider().color(ColorTokens.separator).strokeWidth(LayoutTokens.hairlineWidth)
               }, (item: CatalogItem) => item.name)
             }, (group: CatalogGroup) => group.category)
 
             if (this.groups.length === 0) {
-              Column({ space: SpaceTokens.sm }) {
-                Text(this.keyword.length > 0
-                  ? '没有找到「' + this.keyword + '」相关的圈子\n可以换个关键词，或创建一个新圈子'
-                  : '圈子目录加载中…')
-                  .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-                  .fontColor(ColorTokens.secondary)
-                  .textAlign(TextAlign.Center)
-                  .lineHeight(20)
+              if (this.keyword.length > 0) {
+                EmptyState({
+                  icon: $r('app.media.empty_search'),
+                  title: '没有找到「' + this.keyword + '」相关的圈子',
+                  message: '换个关键词，或创建一个新圈子',
+                })
+                .margin({ top: SpaceTokens.x3l })
+              } else {
+                Column({ space: SpaceTokens.sm }) {
+                  Text('圈子目录加载中…')
+                    .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+                    .fontColor(ColorTokens.secondary)
+                }
+                .width('100%')
+                .margin({ top: SpaceTokens.x3l })
               }
-              .width('100%')
-              .margin({ top: SpaceTokens.x3l })
             }
           }
         }

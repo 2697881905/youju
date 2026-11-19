@@ -10,12 +10,14 @@ import { safeShowToast } from '../utils/toast';
 import { openPostDetail } from '../utils/nav';
 import { getMainNavStack, PostDetailNavParams } from '../utils/navigationTransition';
 import { TagIcon } from './TagIcon';
+import { SoftChip } from '../design/components/SoftChip';
 import { ColorTokens } from '../design/tokens/color';
 import { StarPalette, DARK_PALETTE, PAPER_PALETTE, StarDot, STAR_DOTS } from '../design/tokens/starPalette';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { RadiusTokens } from '../design/tokens/radius';
 import { ShadowTokens } from '../design/tokens/shadow';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
+import { GalaxyTokens } from '../design/tokens/galaxy';
 import { TypeTokens } from '../design/tokens/type';
 
 // 帖子星星渲染模型：坐标为画布内绝对 vp（布局时按测得区域计算，确定性可复现）。
@@ -46,7 +48,7 @@ export struct CircleUniverse {
   @Prop category: string = '';
   @Prop memberCount: number = 0;
   // 圈子分类色相：宇宙泛光/核心光环染上该圈所属分类的低饱和色
-  @Prop accentColor: string = '#0066CC';
+  @Prop accentColor: string = GalaxyTokens.brandAccentFallback;
   @Prop joined: boolean = false;
   @Prop @Watch('onVisibleChanged') visible: boolean = false;
   @StorageLink('isDarkMode') darkMode: boolean = false;
@@ -549,13 +551,21 @@ export struct CircleUniverse {
         .position({ x: 0, y: this.areaH * 0.4 })
         .hitTestBehavior(HitTestMode.None)
       } else if (this.error.length > 0 && this.stars.length === 0) {
-        Text('宇宙信号丢失：' + this.error)
-          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-          .fontColor(ColorTokens.secondary)
-          .width('80%')
-          .textAlign(TextAlign.Center)
-          .position({ x: this.areaW * 0.1, y: this.areaH * 0.4 })
-          .hitTestBehavior(HitTestMode.None)
+        Column({ space: SpaceTokens.sm }) {
+          Text('宇宙信号丢失：' + this.error)
+            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+            .fontColor(ColorTokens.secondary)
+            .width('80%')
+            .textAlign(TextAlign.Center)
+          SoftChip({
+            label: '重试',
+            tone: 'brand',
+            action: (): void => { this.refresh(); },
+          })
+        }
+        .width('100%')
+        .position({ x: 0, y: this.areaH * 0.4 })
+        .hitTestBehavior(HitTestMode.Default)
       } else if (!this.loading && this.stars.length === 0) {
         Column({ space: SpaceTokens.sm }) {
           Text('这个圈子还没有帖子\n去发第一帖吧')
