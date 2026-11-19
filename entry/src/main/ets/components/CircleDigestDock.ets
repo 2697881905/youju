@@ -23,7 +23,7 @@ export struct CircleDigestDock {
   }
 
   @Builder
-  private digestRow(item: CircleDigestItem, isLast: boolean): void {
+  private digestRow(item: CircleDigestItem): void {
     Pressable({
       fillWidth: true,
       fullResponseRegion: true,
@@ -33,7 +33,9 @@ export struct CircleDigestDock {
         Text(item.circleName)
           .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
           .fontWeight(TypeTokens.headline.weight)
-          .fontColor(ColorTokens.brand)
+          // 蓝字压蓝 tint 在 11px 下只有 3.58:1（不达 AA），蓝色身份交给 tint 底承担，文字回主墨色。
+          // 与 ToggleChip/CircleExploreSheet 的同一口径。
+          .fontColor(ColorTokens.primary)
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .constraintSize({ maxWidth: 84 })
@@ -62,7 +64,7 @@ export struct CircleDigestDock {
           .fontColor(ColorTokens.tertiary)
       }
       .width('100%')
-      .padding({ top: SpaceTokens.xs, bottom: isLast ? SpaceTokens.none : SpaceTokens.xs })
+      .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
       .alignItems(VerticalAlign.Center)
     }
   }
@@ -74,9 +76,6 @@ export struct CircleDigestDock {
           .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamilySerif)
           .fontWeight(TypeTokens.headline.weight)
           .fontColor(ColorTokens.primary)
-        Text('· 已加入优先')
-          .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-          .fontColor(ColorTokens.tertiary)
         Blank()
         Text(String(this.visibleItems().length) + ' 条')
           .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
@@ -86,7 +85,16 @@ export struct CircleDigestDock {
       .alignItems(VerticalAlign.Center)
 
       ForEach(this.visibleItems(), (item: CircleDigestItem, index: number) => {
-        this.digestRow(item, index === this.visibleItems().length - 1)
+        Column() {
+          // 行间分隔：三行原本只靠 padding 挤在一起，读起来是一团。
+          if (index > 0) {
+            Divider()
+              .color(ColorTokens.separator)
+              .strokeWidth(LayoutTokens.hairlineWidth)
+          }
+          this.digestRow(item)
+        }
+        .width('100%')
       }, (item: CircleDigestItem) => String(item.postId))
     }
     .width(immersiveCardWidth(this.currentBreakpoint))
@@ -94,7 +102,8 @@ export struct CircleDigestDock {
     .backgroundColor(ColorTokens.elevated)
     .borderRadius(RadiusTokens.lg)
     .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.separator, style: BorderStyle.Solid })
-    .shadow(ShadowTokens.floating)
+    // 贴底的常驻内容卡，不是浮层：floating 那档投影会把它推离星图，像第三方贴片。
+    .shadow(ShadowTokens.cardAmbient)
     .alignItems(HorizontalAlign.Start)
   }
 }
