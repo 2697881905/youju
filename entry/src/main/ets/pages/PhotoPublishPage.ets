@@ -4,7 +4,6 @@ import { listTags, aiAssistEnabled, aiPolishDraft, AiPolishDraftResult } from '.
 import { Genre, StructuredData, StructuredDocument, Tag, MentionRef, MentionCandidate } from '../models/types';
 import { ImagePicker } from '../components/ImagePicker';
 import { safeShowToast } from '../utils/toast';
-import { AiAssistChip } from '../components/AiAssistChip';
 import { AiPolishPreviewSheet } from '../components/AiPolishPreviewSheet';
 import { findActiveAtMention, applyAtMention } from '../utils/atMention';
 import { AtMentionSuggest } from '../components/AtMentionSuggest';
@@ -60,7 +59,7 @@ struct PhotoPublishPage {
 
   // 一次点击同时产出优化标题与润色正文（轻度润色：只改语病，不新增事实）；确认后才覆盖
   private aiPolish(): void {
-    if (this.aiTitleBusy) {
+    if (!this.aiEnabled || this.aiTitleBusy) {
       return;
     }
     if (this.content.trim().length === 0) {
@@ -399,6 +398,23 @@ struct PhotoPublishPage {
     this.closeMention();
   }
 
+  // 清空是破坏性动作（标题/正文/已选媒体一并抹掉且不可恢复）：先二次确认，避免与「发布」并排误触。
+  private confirmClear(): void {
+    this.getUIContext().showAlertDialog({
+      title: '清空草稿？',
+      message: '标题、正文与已选媒体将被清空，且无法恢复。',
+      primaryButton: {
+        value: '取消',
+        action: (): void => {},
+      },
+      secondaryButton: {
+        value: '清空',
+        fontColor: ColorTokens.danger,
+        action: (): void => { this.reset(); },
+      },
+    });
+  }
+
   private currentGenreHint(): string {
     return publishGenreMeta(this.genre).hint;
   }
@@ -417,33 +433,11 @@ struct PhotoPublishPage {
   // 每个环节一张卡（PublishSection 自带衬线小节标题与错峰入场），
   // 不再是一整张巨卡里用 5 条 Divider 切字段。
 
-  @Builder
-  sectionLabel(text: string, fullWidth: boolean = true): void {
-    // fullWidth=false 供 Row 内标题行使用：100% 宽会把同行的 Blank/AI 胶囊挤出屏幕。
-    if (fullWidth) {
-      Text(text)
-        .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-        .fontWeight(TypeTokens.overline.weight)
-        .lineHeight(TypeTokens.overline.lineHeight)
-        .letterSpacing(TypeTokens.overline.tracking)
-        .fontColor(ColorTokens.tertiary)
-        .width('100%')
-    } else {
-      Text(text)
-        .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-        .fontWeight(TypeTokens.overline.weight)
-        .lineHeight(TypeTokens.overline.lineHeight)
-        .letterSpacing(TypeTokens.overline.tracking)
-        .fontColor(ColorTokens.tertiary)
-    }
-  }
-
   // 体裁：直接从 5 个候选里点选，取代「自绘玻璃按钮 → 系统滚轮弹窗 → 确认」三步。
   @Builder
   genreBar(): void {
     Reveal({ index: 0 }) {
       Column({ space: SpaceTokens.sm }) {
-        this.sectionLabel('内容体裁')
         // 内容体裁分段（官方 SegmentButton 默认轨道材质，内容区正常出图）
         ImmersiveSegmentBar({
           items: PUBLISH_GENRE_SEGMENTS,
@@ -464,7 +458,11 @@ struct PhotoPublishPage {
 
   @Builder
   mediaSection(): void {
-    PublishSection({ title: '图片', meta: '最多 ' + MAX_PICKED_IMAGES + ' 张', index: 1 }) {
+    PublishSection({
+      title: '图片',
+      meta: '最多 ' + MAX_PICKED_IMAGES + ' 张' + (this.images.length > 1 ? ' · 长按排序' : ''),
+      index: 1,
+    }) {
       ImagePicker({
         selected: $images,
         maxCount: MAX_PICKED_IMAGES,
@@ -474,20 +472,15 @@ struct PhotoPublishPage {
 
   @Builder
   bodySection(): void {
-    PublishSection({ title: '正文', meta: '标题 + 简短说明', index: 2 }) {
+    PublishSection({
+      title: '正文',
+      index: 2,
+      actionLabel: 'AI 优化',
+      actionBusy: this.aiTitleBusy,
+      actionAvailable: this.aiEnabled,
+      onAction: (): void => { this.aiPolish(); },
+    }) {
       Column({ space: SpaceTokens.sm }) {
-        Row({ space: SpaceTokens.sm }) {
-          this.sectionLabel('标题', false)
-          Blank().layoutWeight(1)
-          AiAssistChip({
-            label: 'AI 优化',
-            busy: this.aiTitleBusy,
-            available: this.aiEnabled,
-            action: (): void => { this.aiPolish(); },
-          })
-        }
-        .width('100%')
-        .alignItems(VerticalAlign.Center)
         TextInput({
           text: $$this.title,
           // 空标题引导（spec 1c）：正文就绪且 AI 可用时，提示润色可顺带起标题
@@ -507,7 +500,6 @@ struct PhotoPublishPage {
           .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
           .enterKeyType(EnterKeyType.Next)
           .onChange((value: string) => { this.title = value; })
-        this.sectionLabel('说明')
         // @提及候选：输入框「上方」的横向条（左右滑动、点选回填）
         if (this.mentionActive) {
           AtMentionSuggest({
@@ -516,7 +508,7 @@ struct PhotoPublishPage {
           })
             .width('100%')
         }
-        TextArea({ text: this.content, placeholder: '写下简短说明，无图时会生成文字封面。' })
+        TextArea({ text: this.content, placeholder: '写句说明，无图自动生成封面' })
           .width('100%')
           .height(PHOTO_BODY_HEIGHT)
           .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
@@ -544,7 +536,7 @@ struct PhotoPublishPage {
   @Builder
   circleSection(): void {
     PublishSection({
-      title: '分类',
+      title: '圈子与合集',
       meta: '已选 ' + this.selectedTags.length + '/' + MAX_SELECTED_TAGS,
       index: 3,
     }) {
@@ -586,10 +578,9 @@ struct PhotoPublishPage {
         Column({ space: SpaceTokens.md }) {
           Row().height(this.statusBarHeight + COMPOSER_TOP_RESERVE).width('100%')
           this.compositionColumn()
-          Row().height(SpaceTokens.x2l).width('100%')
         }
         .width('100%')
-        .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.x3l })
+        .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.x2l })
         .alignItems(HorizontalAlign.Start)
       }
       .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
@@ -618,7 +609,7 @@ struct PhotoPublishPage {
           progressTotal: DRAFT_PROGRESS_TOTAL,
           hint: this.draftHint(),
           previewDisabled: this.title.trim().length === 0,
-          onClear: (): void => { this.reset(); },
+          onClear: (): void => { this.confirmClear(); },
           onPreview: (): void => { this.onPublish(); },
           onBack: (): void => { this.getUIContext().getRouter().back(); },
         })

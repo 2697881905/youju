@@ -9,6 +9,12 @@ import { getMediaFileSize, readFileBytes, captureVideoCover, packVideoCoverBytes
 import { ensureLogin } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
 import { VideoPlayer } from './VideoPlayer';
+import { Pressable } from '../design/motion/Pressable';
+import { ColorTokens } from '../design/tokens/color';
+import { IconTokens } from '../design/tokens/icon';
+import { RadiusTokens } from '../design/tokens/radius';
+import { SpaceTokens } from '../design/tokens/space';
+import { TypeTokens } from '../design/tokens/type';
 
 @Component
 export struct VideoPicker {
@@ -148,7 +154,7 @@ export struct VideoPicker {
   }
 
   build() {
-    Column({ space: 8 }) {
+    Column({ space: SpaceTokens.sm }) {
       if (this.videoUrl.length > 0) {
         Stack() {
           VideoPlayer({ src: this.localUri || this.videoUrl, poster: this.localCover ?? this.videoCover })
@@ -158,44 +164,88 @@ export struct VideoPicker {
               .height(32)
               .color(Color.White)
           }
-          Text('×')
-            .fontSize(26).fontFamily($r('app.string.font_family'))
-            .fontColor(Color.White)
-            .fontWeight(FontWeight.Medium)
-            .backgroundColor('#80000000')
-            .width(40)
-            .height(40)
-            .borderRadius(20)
-            .textAlign(TextAlign.Center)
-            .position({ top: 8, right: 8 })
-            .onClick(() => this.reset())
+          // 删除键：28vp 可视圆底 + 44vp 命中包装（与图片删除键同一形态）。
+          Row() {
+            Row() {
+              Image($r('app.media.close_x_white'))
+                .width(14)
+                .height(14)
+                .fillColor(Color.White)
+            }
+            .width(28)
+            .height(28)
+            .justifyContent(FlexAlign.Center)
+            .backgroundColor(ColorTokens.mediaScrim)
+            .borderRadius(RadiusTokens.pill)
+          }
+          .width(44)
+          .height(44)
+          .justifyContent(FlexAlign.Center)
+          .position({ top: 4, right: 4 })
+          .onClick(() => this.reset())
         }
         .width('100%')
         .aspectRatio(this.videoAspectRatio)
-        .borderRadius(12)
+        .borderRadius(RadiusTokens.nested)
         .clip(true)
         .backgroundColor(Color.Black)
       } else {
-        Column() {
-          Text('+')
-            .fontSize(28).fontFamily($r('app.string.font_family'))
-            .fontColor($r('app.color.text_secondary'))
-          Text('视频')
-            .fontSize(12).fontFamily($r('app.string.font_family'))
-            .fontColor($r('app.color.text_secondary'))
+        // 空态紧凑入口（方案 A）：96vp 一行，取代满宽 3:4 大框（旧空态独占首屏约 47%）。
+        // 选中后才展开满宽真实比例预览，写作区因此回到首屏。
+        Pressable({
+          fillWidth: true,
+          visualHeight: 96,
+          touchTargetHeight: 96,
+          fullResponseRegion: true,
+          action: (): void => { this.pick(); },
+        }) {
+          Row({ space: SpaceTokens.md }) {
+            Row() {
+              Image($r('app.media.publish_video_outline'))
+                .width(26)
+                .height(26)
+                .objectFit(ImageFit.Contain)
+                .fillColor(ColorTokens.tertiary)
+            }
+            .width(56)
+            .height(56)
+            .justifyContent(FlexAlign.Center)
+            .backgroundColor(ColorTokens.panel)
+            .borderRadius(RadiusTokens.sm)
+
+            Column({ space: SpaceTokens.xs }) {
+              Text('添加视频')
+                .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+                .fontWeight(TypeTokens.headline.weight)
+                .lineHeight(TypeTokens.callout.lineHeight)
+                .fontColor(ColorTokens.primary)
+              Text('单段视频 ≤ 50MB')
+                .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+                .fontWeight(TypeTokens.caption.weight)
+                .lineHeight(TypeTokens.caption.lineHeight)
+                .fontColor(ColorTokens.tertiary)
+            }
+            .layoutWeight(1)
+            .alignItems(HorizontalAlign.Start)
+
+            Image($r('app.media.chevron_right'))
+              .width(IconTokens.compact)
+              .height(IconTokens.compact)
+              .fillColor(ColorTokens.tertiary)
+          }
+          .width('100%')
+          .height(96)
+          .padding({ left: SpaceTokens.item, right: SpaceTokens.item })
+          .backgroundColor(ColorTokens.subtle)
+          .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Dashed })
+          .borderRadius(RadiusTokens.nested)
+          .alignItems(VerticalAlign.Center)
         }
-        .width('100%')
-        .aspectRatio(0.75)
-        .justifyContent(FlexAlign.Center)
-        .backgroundColor($r('app.color.control_bg'))
-        .border({ width: 1, color: $r('app.color.divider'), style: BorderStyle.Dashed })
-        .borderRadius(8)
-        .onClick(() => this.pick())
       }
       if (this.errorTip.length > 0) {
         Text(this.errorTip)
-          .fontSize(12)
-          .fontColor($r('app.color.semantic_red'))
+          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+          .fontColor(ColorTokens.danger)
       }
     }
     .width('100%')

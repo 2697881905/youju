@@ -4,7 +4,6 @@ import { listTags, aiAssistEnabled, aiPolishDraft, AiPolishDraftResult } from '.
 import { Genre, StructuredData, StructuredDocument, Tag, MentionRef, MentionCandidate } from '../models/types';
 import { VideoPicker } from '../components/VideoPicker';
 import { safeShowToast } from '../utils/toast';
-import { AiAssistChip } from '../components/AiAssistChip';
 import { AiPolishPreviewSheet } from '../components/AiPolishPreviewSheet';
 import { findActiveAtMention, applyAtMention } from '../utils/atMention';
 import { AtMentionSuggest } from '../components/AtMentionSuggest';
@@ -37,8 +36,8 @@ const MAX_SELECTED_TAGS: number = 3;
 const DRAFT_PROGRESS_TOTAL: number = 3;
 // 顶栏占位：栏体 48vp + 与首张卡之间 12vp 呼吸（与 PublishTopBar 内高对齐）
 const COMPOSER_TOP_RESERVE: number = 60;
-// 视频正文区：5000 字的「展开讲讲」给 104vp，等于在小窗里滚动写长评
-const VIDEO_BODY_HEIGHT: number = 220;
+// 视频正文区：与长文同为 5000 字上限，统一长文档 280vp（原 220 无依据地比长文矮 60）。
+const VIDEO_BODY_HEIGHT: number = 280;
 const MAX_VIDEO_TITLE_LENGTH: number = 100;
 const MAX_VIDEO_CONTENT_LENGTH: number = 5000;
 
@@ -61,7 +60,7 @@ struct VideoPublishPage {
 
   // 一次点击同时产出优化标题与润色正文（轻度润色：只改语病，不新增事实）；确认后才覆盖
   private aiPolish(): void {
-    if (this.aiTitleBusy) {
+    if (!this.aiEnabled || this.aiTitleBusy) {
       return;
     }
     if (this.content.trim().length === 0) {
@@ -406,6 +405,23 @@ struct VideoPublishPage {
     this.closeMention();
   }
 
+  // 清空是破坏性动作（标题/正文/已选视频一并抹掉且不可恢复）：先二次确认，避免与「发布」并排误触。
+  private confirmClear(): void {
+    this.getUIContext().showAlertDialog({
+      title: '清空草稿？',
+      message: '标题、正文与已选视频将被清空，且无法恢复。',
+      primaryButton: {
+        value: '取消',
+        action: (): void => {},
+      },
+      secondaryButton: {
+        value: '清空',
+        fontColor: ColorTokens.danger,
+        action: (): void => { this.reset(); },
+      },
+    });
+  }
+
   private currentGenreHint(): string {
     return publishGenreMeta(this.genre).hint;
   }
@@ -424,33 +440,11 @@ struct VideoPublishPage {
   // 每个环节一张卡（PublishSection 自带衬线小节标题与错峰入场），
   // 不再是一整张巨卡里用 5 条 Divider 切字段。
 
-  @Builder
-  sectionLabel(text: string, fullWidth: boolean = true): void {
-    // fullWidth=false 供 Row 内标题行使用：100% 宽会把同行的 Blank/AI 胶囊挤出屏幕。
-    if (fullWidth) {
-      Text(text)
-        .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-        .fontWeight(TypeTokens.overline.weight)
-        .lineHeight(TypeTokens.overline.lineHeight)
-        .letterSpacing(TypeTokens.overline.tracking)
-        .fontColor(ColorTokens.tertiary)
-        .width('100%')
-    } else {
-      Text(text)
-        .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-        .fontWeight(TypeTokens.overline.weight)
-        .lineHeight(TypeTokens.overline.lineHeight)
-        .letterSpacing(TypeTokens.overline.tracking)
-        .fontColor(ColorTokens.tertiary)
-    }
-  }
-
   // 体裁：直接从 5 个候选里点选，取代「自绘玻璃按钮 → 系统滚轮弹窗 → 确认」三步。
   @Builder
   genreBar(): void {
     Reveal({ index: 0 }) {
       Column({ space: SpaceTokens.sm }) {
-        this.sectionLabel('内容体裁')
         // 内容体裁分段（官方 SegmentButton 默认轨道材质，内容区正常出图）
         ImmersiveSegmentBar({
           items: PUBLISH_GENRE_SEGMENTS,
@@ -478,20 +472,15 @@ struct VideoPublishPage {
 
   @Builder
   bodySection(): void {
-    PublishSection({ title: '正文', meta: '标题 + 说明', index: 2 }) {
+    PublishSection({
+      title: '正文',
+      index: 2,
+      actionLabel: 'AI 优化',
+      actionBusy: this.aiTitleBusy,
+      actionAvailable: this.aiEnabled,
+      onAction: (): void => { this.aiPolish(); },
+    }) {
       Column({ space: SpaceTokens.sm }) {
-        Row({ space: SpaceTokens.sm }) {
-          this.sectionLabel('标题', false)
-          Blank().layoutWeight(1)
-          AiAssistChip({
-            label: 'AI 优化',
-            busy: this.aiTitleBusy,
-            available: this.aiEnabled,
-            action: (): void => { this.aiPolish(); },
-          })
-        }
-        .width('100%')
-        .alignItems(VerticalAlign.Center)
         TextInput({
           text: $$this.title,
           // 空标题引导（spec 1c）：正文就绪且 AI 可用时，提示润色可顺带起标题
@@ -512,7 +501,6 @@ struct VideoPublishPage {
           .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
           .enterKeyType(EnterKeyType.Next)
           .onChange((value: string) => { this.title = value; })
-        this.sectionLabel('说明')
         // @提及候选：输入框「上方」的横向条（左右滑动、点选回填）
         if (this.mentionActive) {
           AtMentionSuggest({
@@ -521,7 +509,7 @@ struct VideoPublishPage {
           })
             .width('100%')
         }
-        TextArea({ text: this.content, placeholder: '展开讲讲背景、过程、结论。尽量给出你踩过的坑、判断标准和适用人群。' })
+        TextArea({ text: this.content, placeholder: '讲讲背景、过程与结论' })
           .maxLength(MAX_VIDEO_CONTENT_LENGTH)
           .width('100%')
           .height(VIDEO_BODY_HEIGHT)
@@ -549,7 +537,7 @@ struct VideoPublishPage {
   @Builder
   circleSection(): void {
     PublishSection({
-      title: '分类',
+      title: '圈子与合集',
       meta: '已选 ' + this.selectedTags.length + '/' + MAX_SELECTED_TAGS,
       index: 3,
     }) {
@@ -591,10 +579,9 @@ struct VideoPublishPage {
         Column({ space: SpaceTokens.md }) {
           Row().height(this.statusBarHeight + COMPOSER_TOP_RESERVE).width('100%')
           this.compositionColumn()
-          Row().height(SpaceTokens.x2l).width('100%')
         }
         .width('100%')
-        .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.x3l })
+        .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.x2l })
         .alignItems(HorizontalAlign.Start)
       }
       .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
@@ -623,7 +610,7 @@ struct VideoPublishPage {
           progressTotal: DRAFT_PROGRESS_TOTAL,
           hint: this.draftHint(),
           previewDisabled: this.title.trim().length === 0,
-          onClear: (): void => { this.reset(); },
+          onClear: (): void => { this.confirmClear(); },
           onPreview: (): void => { this.onPublish(); },
           onBack: (): void => { this.getUIContext().getRouter().back(); },
         })

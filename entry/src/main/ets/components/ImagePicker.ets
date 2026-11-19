@@ -12,6 +12,9 @@ import { ensureLogin } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
 import { User } from '../models/types';
 import { ColorTokens } from '../design/tokens/color';
+import { RadiusTokens } from '../design/tokens/radius';
+import { SpaceTokens } from '../design/tokens/space';
+import { TypeTokens } from '../design/tokens/type';
 
 interface PickedImage {
   id: string; // 稳定 key
@@ -195,7 +198,7 @@ export struct ImagePicker {
           .width(90)
           .height(90)
           .objectFit(ImageFit.Cover)
-          .borderRadius(8)
+          .borderRadius(RadiusTokens.nested)
           .opacity(0.9)
           .draggable(false)
       } else {
@@ -203,7 +206,7 @@ export struct ImagePicker {
           .width(90)
           .height(90)
           .objectFit(ImageFit.Cover)
-          .borderRadius(8)
+          .borderRadius(RadiusTokens.nested)
           .opacity(0.9)
           .draggable(false)
       }
@@ -218,7 +221,7 @@ export struct ImagePicker {
           .width('100%')
           .height('100%')
           .objectFit(ImageFit.Cover)
-          .borderRadius(8)
+          .borderRadius(RadiusTokens.nested)
           // 关闭 Image 自带拖拽，避免长按被系统拖拽接管、抢走 Grid 的排序手势。
           .draggable(false)
       } else {
@@ -226,7 +229,7 @@ export struct ImagePicker {
           .width('100%')
           .height('100%')
           .objectFit(ImageFit.Cover)
-          .borderRadius(8)
+          .borderRadius(RadiusTokens.nested)
           .draggable(false)
       }
       if (item.uploading) {
@@ -235,16 +238,25 @@ export struct ImagePicker {
           .height(28)
           .color(Color.White)
       }
-      Text('×')
-        .fontSize(16).fontFamily($r('app.string.font_family'))
-        .fontColor(Color.White)
+      // 删除键：28vp 可视圆底 + 44vp 命中包装（与视频删除键同一形态），整块落在格子内不越界。
+      Row() {
+        Row() {
+          Image($r('app.media.close_x_white'))
+            .width(14)
+            .height(14)
+            .fillColor(Color.White)
+        }
+        .width(28)
+        .height(28)
+        .justifyContent(FlexAlign.Center)
         .backgroundColor(ColorTokens.mediaScrim)
-        .width(20)
-        .height(20)
-        .borderRadius(10)
-        .textAlign(TextAlign.Center)
-        .position({ top: 2, right: 2 })
-        .onClick(() => this.removeAt(idx))
+        .borderRadius(RadiusTokens.pill)
+      }
+      .width(44)
+      .height(44)
+      .justifyContent(FlexAlign.Center)
+      .position({ top: 0, right: 0 })
+      .onClick(() => this.removeAt(idx))
     }
     .width('100%')
     .aspectRatio(1)
@@ -252,12 +264,12 @@ export struct ImagePicker {
     .border({
       width: this.dragIndex >= 0 && this.dragTargetIndex === idx ? 2 : 0,
       color: $r('app.color.ds_brand'),
-      radius: 8,
+      radius: RadiusTokens.nested,
     })
   }
 
   build() {
-    Column({ space: 8 }) {
+    Column({ space: SpaceTokens.sm }) {
       Grid() {
         ForEach(this.items, (item: PickedImage, idx: number) => {
           GridItem() {
@@ -269,26 +281,26 @@ export struct ImagePicker {
           GridItem() {
             Column() {
               Text('+')
-                .fontSize(28).fontFamily($r('app.string.font_family'))
-                .fontColor($r('app.color.text_secondary'))
+                .fontSize(TypeTokens.display.size).fontFamily(TypeTokens.fontFamily)
+                .fontColor(ColorTokens.tertiary)
               Text('添加')
-                .fontSize(12).fontFamily($r('app.string.font_family'))
-                .fontColor($r('app.color.text_secondary'))
+                .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+                .fontColor(ColorTokens.tertiary)
             }
             .width('100%')
             .aspectRatio(1)
             .justifyContent(FlexAlign.Center)
-            .backgroundColor($r('app.color.control_bg'))
-            .border({ width: 1, color: $r('app.color.divider'), style: BorderStyle.Dashed })
-            .borderRadius(8)
+            .backgroundColor(ColorTokens.subtle)
+            .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Dashed })
+            .borderRadius(RadiusTokens.nested)
             .onClick(() => this.pick())
           }
         }
       }
       .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .columnsTemplate('1fr 1fr 1fr')
-      .columnsGap(8)
-      .rowsGap(8)
+      .columnsGap(SpaceTokens.sm)
+      .rowsGap(SpaceTokens.sm)
       .width('100%')
       // 长按 170ms 进入编辑模式拖拽；补全拖拽生命周期以提供实时的落点高亮。
       .editMode(true)
@@ -318,15 +330,7 @@ export struct ImagePicker {
         // 把被拖起项移动到落点；拖到「+ 添加」格视为移到末尾。
         this.moveItem(from, this.clampTargetIndex(insertIndex));
       })
-
-      if (this.items.length > 1) {
-        Text('长按图片可拖动调整顺序')
-          .fontSize(12).fontFamily($r('app.string.font_family'))
-          .fontColor($r('app.color.text_secondary'))
-          .width('100%')
-      }
     }
     .width('100%')
-    .padding(12)
   }
 }
