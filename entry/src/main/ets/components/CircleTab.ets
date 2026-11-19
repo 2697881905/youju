@@ -36,7 +36,10 @@ import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { GalaxyTokens } from '../design/tokens/galaxy';
 import { TypeTokens } from '../design/tokens/type';
 import {
-  TopButtonMaterialModifier,
+  HDS_MATERIAL_TYPE_IMMERSIVE,
+  HDS_MATERIAL_LEVEL_EXQUISITE,
+  getSheetImmersiveMaterial,
+  isImmersiveLightSenseSupported,
   isSystemMaterialActive,
 } from '../utils/immersiveMaterial';
 import { openCircleDetail, openPostDetail } from '../utils/nav';
@@ -56,6 +59,7 @@ import type {
   TitleBarContentOptions,
   TitleBarStyleOptions,
   ScrollEffectOptions,
+  SystemMaterialParams,
 } from '@kit.UIDesignKit';
 import { LengthMetrics } from '@kit.ArkUI';
 import display from '@ohos.display';
@@ -178,35 +182,33 @@ const COSMIC_GLASS: string = '#1AECE6DA';      // 药丸兜底底/提示条
 // 尺寸/内边距/圆角/字色/表面全部在此定义；内容由调用方以尾随闭包传入
 // （「已加入」= 文案 + CountRoll，「发现圈子」= 文案）。
 //
-// 表面只有一种：系统沉浸光感（systemMaterial）。
-// - inTitleBar=true（驻留 TitleBar）：材质官方生效区，底色透明，表面完全交给系统。
-// - inTitleBar=false（星图右上）：同一颗材质挂上去**不出图**——真机二次复验（2026-11-19，
-//   装包后整颗胶囊只剩文字，见 utils/immersiveMaterial.ets 尾注），故按材质实测着色复刻：
-//   25% 白叠浅色暖底 = 249,246,239，与标题栏那颗材质的实渲染色 249,246,239 逐级相同。
-//   只复刻着色不做模糊：本页底是平滑暖色渐变，模糊在这里无可辨差异。
+// 表面交给栏级沉浸材质：两颗药丸都驻留标题栏，整条栏挂 IMMERSIVE/EXQUISITE 之后
+// 自身不再挂通用组件材质——两轨叠加会成两层玻璃（同消息页分段栏的处置）。
+// 内容区已无调用方：「发现圈子」原本在星图右上，因系统材质在标题栏外不出图，
+// 只能按实渲染色复刻；2026-11-19 迁入标题栏后这条妥协一并撤掉。
 const PILL_MATERIAL_FILL: string = '#40FFFFFF';
 @Component
 struct CircleHeaderPill {
   @BuilderParam content: () => void = this.emptyContent;
   @Prop cosmicMode: boolean = false;
   @Prop darkMode: boolean = false;
-  @Prop inTitleBar: boolean = false;
   action: () => void = (): void => {};
-  private materialModifier: TopButtonMaterialModifier = new TopButtonMaterialModifier();
 
   @Builder
   emptyContent(): void {}
 
   private materialActive(): boolean {
-    return this.inTitleBar && isSystemMaterialActive();
+    return isImmersiveLightSenseSupported();
   }
 
+  // 栏级材质生效时用系统三级背景：玻璃栏面上留一层可辨的控件底。
+  // 不自绘色值（系统色随深浅色切换），也不叠沉浸材质。
   private pillBackground(): ResourceColor {
+    if (this.materialActive()) {
+      return $r('sys.color.comp_background_tertiary');
+    }
     if (this.cosmicMode) {
       return COSMIC_GLASS;
-    }
-    if (this.materialActive()) {
-      return Color.Transparent;
     }
     // 深色无星（空态）时没有 COSMIC_GLASS 兜底，用 overlay 的 12.5% 白取同档抬升。
     return this.darkMode ? ColorTokens.overlay : PILL_MATERIAL_FILL;
@@ -226,7 +228,6 @@ struct CircleHeaderPill {
       .backgroundColor(this.pillBackground())
       .borderRadius(RadiusTokens.pill)
       .alignItems(VerticalAlign.Center)
-      .attributeModifier(this.materialModifier)
     }
   }
 }
@@ -1649,15 +1650,19 @@ export struct CircleTab {
   // 点行星即降落读帖/加入；选中行星仍保留飞心 + 涟漪编舞。
 
   // —— 顶栏（嵌套 HdsNavigation，路线 B，同首页结构，但避让策略相反）——
-  // MINI + stackBuilder 品牌行（「圈子」标题 + 「已加入」药丸）+ GRADIENT_BLUR。
+  // MINI + stackBuilder 品牌行（「圈子」标题 + 「已加入」/「发现圈子」两颗药丸）
+  // + 栏级 IMMERSIVE/EXQUISITE 材质 + 沉浸渐变模糊。
+  // 注意素材侧：本页 Scroll 禁用了滚动交互（星图是固定画布），滚动特效永远不会进入
+  // 生效区间，栏面观感**全靠栏级材质常驻**，不能只靠 scrollEffect 兜。
   // avoidLayoutSafeArea=true：标题栏自己让开状态栏（品牌行不被时钟压住）。
   // enableComponentSafeArea=false（首页为 true）：内容不被标题栏顶下去——
-  // 星图是全屏沉浸画布，必须铺到状态栏与标题栏之下，标题栏只作透明悬浮层；
-  // 开着 true 时画布从栏下方才开始，顶部就留下一条标题栏底色的白带（浅色尤其明显）。
+  // 星图是全屏沉浸画布，必须铺到状态栏与标题栏之下，由材质栏悬浮其上做采样；
+  // 开着 true 时画布从栏下方才开始，顶部就留下一条栏底色的白带（浅色尤其明显）。
   private circleHdsTitleBarOptions(): HdsNavigationTitleBarOptions {
+    const immersive: boolean = isImmersiveLightSenseSupported();
     const scrollEffect: ScrollEffectOptions = {
       enableScrollEffect: true,
-      scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
+      scrollEffectType: immersive ? ScrollEffectType.IMMERSIVE_GRADIENT_BLUR : ScrollEffectType.GRADIENT_BLUR,
       blurEffectiveStartOffset: LengthMetrics.vp(0),
       blurEffectiveEndOffset: LengthMetrics.vp(32),
     };
@@ -1667,6 +1672,13 @@ export struct CircleTab {
         backgroundStyle: { backgroundColor: Color.Transparent },
       },
     };
+    if (immersive) {
+      // 档位传数值字面量而非 hdsMaterial 枚举：该模块在 API 22 上不存在，值 import 即崩。
+      style.systemMaterialEffect = {
+        materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
+        materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE,
+      } as SystemMaterialParams;
+    }
     const content: TitleBarContentOptions = {
       stackBuilder: (): void => { this.circleBrandRow(); },
     };
@@ -1686,8 +1698,8 @@ export struct CircleTab {
     return this.statusBarHeight + LayoutTokens.titleBarHeight;
   }
 
-  // stackBuilder 品牌行：「圈子」标题 + 「已加入」药丸（原 Index.circleTitleBar 整体迁入）。
-  // 计数经 @Link 回写；点击药丸递增 seq 信号，由本组件 @Watch 承接弹窗。
+  // stackBuilder 品牌行：「圈子」标题 + 「已加入」/「发现圈子」两颗药丸。
+  // 计数经 @Link 回写；点击「已加入」递增 seq 信号，由本组件 @Watch 承接弹窗。
   // 状态栏避让由 avoidLayoutSafeArea(true) 承担（不再手动补 statusBarHeight 内边距）。
   @Builder
   circleBrandRow() {
@@ -1701,7 +1713,6 @@ export struct CircleTab {
       CircleHeaderPill({
         cosmicMode: this.cosmicMode,
         darkMode: this.isDarkMode,
-        inTitleBar: true,
         action: (): void => {
           // 递增信号 → 本组件 @Watch：JoinedCirclesDialog 仍由本组件打开
           this.circleJoinedSeq += 1;
@@ -1713,6 +1724,21 @@ export struct CircleTab {
           .fontColor(this.cosmicMode ? COSMIC_SUB : ColorTokens.secondary)
         CountRoll({ value: this.circleJoinedCount, prefix: '', textSize: TypeTokens.caption.size, textColor: this.cosmicMode ? COSMIC_INK : ColorTokens.primary })
         Text('个')
+          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.caption.weight)
+          .fontColor(this.cosmicMode ? COSMIC_SUB : ColorTokens.secondary)
+      }
+      // 探索星云入口：原为星图右上悬浮药丸，材质在标题栏外不出图只能复刻着色；
+      // 2026-11-19 迁入标题栏，与「已加入」同排，表面由栏级材质接管。
+      CircleHeaderPill({
+        cosmicMode: this.cosmicMode,
+        darkMode: this.isDarkMode,
+        action: (): void => {
+          this.dismissStarGuide();
+          this.exploreVisible = true;
+        },
+      }) {
+        Text('发现圈子')
           .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
           .fontWeight(TypeTokens.caption.weight)
           .fontColor(this.cosmicMode ? COSMIC_SUB : ColorTokens.secondary)
@@ -1760,29 +1786,6 @@ export struct CircleTab {
         setTimeout((): void => { this.jumpCircle(name); }, MotionTokens.fast) as number;
       },
     })
-  }
-
-  // 星图 Live：探索星云入口（悬浮于星图右上，标题栏之下）。
-  // Pressable 是自定义组件不能直接挂 position，外包一层定位容器。
-  // 顶栏不占内容区（enableComponentSafeArea=false）→ 标题栏是悬浮在星图上的，
-  // 这个入口要自己让开「状态栏 + 品牌行」，否则压进时钟和「已加入」药丸。
-  @Builder
-  exploreFab() {
-    Column() {
-      CircleHeaderPill({
-        cosmicMode: this.cosmicMode,
-        darkMode: this.isDarkMode,
-        action: (): void => { this.dismissStarGuide(); this.exploreVisible = true; },
-      }) {
-        Text('发现圈子')
-          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-          .fontWeight(TypeTokens.caption.weight)
-          .fontColor(this.cosmicMode ? COSMIC_SUB : ColorTokens.secondary)
-      }
-    }
-    .position({ x: '100%', y: this.circleTitleBarHeight() + SpaceTokens.xs })
-    .markAnchor({ x: '100%' })
-    .padding({ right: SpaceTokens.base })
   }
 
   // 今日圈内 Dock：内容优先，0 次点击可读；没有 digest 时才退回操作提示胶囊。
@@ -1895,7 +1898,6 @@ export struct CircleTab {
       .alignItems(HorizontalAlign.Start)
 
       if (this.hasStarCircles()) {
-        this.exploreFab()
         if (this.starGuideVisible && !this.starGuideSeen) {
           this.starGuideCard()
         } else if (this.digest.length > 0) {
@@ -1930,9 +1932,13 @@ export struct CircleTab {
     .animation({ duration: MotionTokens.base, curve: MotionCurves.standard })
     .bindSheet($$this.exploreVisible, this.exploreSheet(), {
       detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-      blurStyle: BlurStyle.COMPONENT_THICK,
+      // 材质载体是 SheetOptions.systemMaterial（半模态的唯一生效入口），
+      // 面板内部不再自绘底；材质生效时 blurStyle / backgroundColor 必须让位，
+      // 否则实色底与自绘模糊会把系统材质遮死（官方 FAQ）。
+      systemMaterial: getSheetImmersiveMaterial(),
+      blurStyle: isSystemMaterialActive() ? BlurStyle.NONE : BlurStyle.COMPONENT_THICK,
+      backgroundColor: isSystemMaterialActive() ? undefined : ColorTokens.canvas,
       showClose: true,
-      backgroundColor: ColorTokens.canvas,
       radius: { topLeft: RadiusTokens.xl, topRight: RadiusTokens.xl },
     })
     }
