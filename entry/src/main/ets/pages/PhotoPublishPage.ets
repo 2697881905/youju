@@ -29,15 +29,34 @@ import { PublishSection } from '../components/PublishSection';
 import { PublishCircleSelector } from '../components/PublishCircleSelector';
 import { PublishCollectionPicker } from '../components/PublishCollectionPicker';
 import { consumePendingPublishCircle } from '../utils/publishCircleIntent';
-import { PublishTopBar } from '../components/PublishTopBar';
-import { GlassBlurStyle, getSheetImmersiveMaterial, isSystemMaterialActive } from '../utils/immersiveMaterial';
+import { DesignButton } from '../design/components/DesignButton';
+import { resolveActionIcon } from '../utils/actionIcons';
+import { GlassBlurStyle, getSheetImmersiveMaterial, isSystemMaterialActive, isImmersiveLightSenseSupported, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
+import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit';
+import { LengthMetrics } from '@kit.ArkUI';
+import type {
+  HdsNavigationTitleBarOptions,
+  TitleBarContentOptions,
+  TitleBarStyleOptions,
+  ScrollEffectOptions,
+  SystemMaterialParams,
+  HdsTitleBarContentStyle,
+  HdsNavigationIconItemStyle,
+  HdsNavigationBackButtonItemOptions,
+  HdsNavigationIconOptions,
+} from '@kit.UIDesignKit';
 
 const MAX_SELECTED_TAGS: number = 3;
 const MAX_PICKED_IMAGES: number = 9;
 const MAX_PHOTO_CONTENT_LENGTH: number = 300;
 const DRAFT_PROGRESS_TOTAL: number = 3;
-// 顶栏占位：栏体 48vp + 与首张卡之间 12vp 呼吸（与 PublishTopBar 内高对齐）
-const COMPOSER_TOP_RESERVE: number = 60;
+// 官方返回键占 16~56vp（40vp 圆 + 16vp 左内缩）；stackBuilder 行全宽且 z 序高于返回键，
+// 不留出这段会吃掉返回键点击（草稿箱/ChatView 真机实证）。
+const HDS_BACK_SLOT_END_VP: number = 64;
+// HdsNavigation MINI 标题区栏体高（实测 175px ÷ 3.125 = 56vp）；穿底时内容按它让位。
+const PUBLISH_BAR_ROW_VP: number = 56;
+// 渐变模糊生效区间终点（vp）：与草稿箱/聊天页同量级。
+const PUBLISH_BLUR_END_VP: number = 32;
 // 说明区高度：300 字给 104vp 要在小窗里滚动，读不出排版感
 const PHOTO_BODY_HEIGHT: number = 148;
 
@@ -119,6 +138,9 @@ struct PhotoPublishPage {
   private mentionRefs: MentionRef[] = [];
   private unsubscribePublishFlow: () => void = () => {};
   private lastPublishFlowRevision: number = -1;
+
+  // 交给 HdsNavigation.bindToScrollable 驱动顶栏渐变模糊（同一实例挂 Scroll，不经 @Prop 复制）
+  private publishScroller: Scroller = new Scroller();
 
   private calcDraftProgress(): number {
     let done: number = 0;
@@ -621,64 +643,150 @@ struct PhotoPublishPage {
     }
   }
 
-  build() {
-    Stack({ alignContent: Alignment.Top }) {
-      Scroll() {
-        Column({ space: SpaceTokens.md }) {
-          Row().height(this.statusBarHeight + COMPOSER_TOP_RESERVE).width('100%')
-          this.compositionColumn()
+  // 顶栏配置：官方返回键 + stackBuilder（模式标题 + 进度提示 + 发布主钮）+ 沉浸渐变模糊。
+  // 与草稿箱/搜索页同配方：IMMERSIVE_GRADIENT_BLUR + 栏级 EXQUISITE 材质 + 穿底。
+  private publishTitleBarOptions(): HdsNavigationTitleBarOptions {
+    const immersive: boolean = isImmersiveLightSenseSupported();
+    const scrollEffect: ScrollEffectOptions = {
+      enableScrollEffect: true,
+      scrollEffectType: immersive ? ScrollEffectType.IMMERSIVE_GRADIENT_BLUR : ScrollEffectType.GRADIENT_BLUR,
+      blurEffectiveStartOffset: LengthMetrics.vp(0),
+      blurEffectiveEndOffset: LengthMetrics.vp(PUBLISH_BLUR_END_VP),
+    };
+    const style: TitleBarStyleOptions = {
+      scrollEffectOpts: scrollEffect,
+      originalStyle: {
+        backgroundStyle: { backgroundColor: Color.Transparent },
+        contentStyle: {
+          backIconStyle: { iconColor: ColorTokens.primary } as HdsNavigationIconItemStyle,
+        } as HdsTitleBarContentStyle,
+      },
+    };
+    if (immersive) {
+      style.systemMaterialEffect = {
+        materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
+        materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE,
+      } as SystemMaterialParams;
+    }
+    const backContent: HdsNavigationIconOptions = {
+      icon: resolveActionIcon('back'),
+      label: '返回',
+      action: (): void => { this.getUIContext().getRouter().back(); },
+    };
+    const backIcon: HdsNavigationBackButtonItemOptions = backContent;
+    const content: TitleBarContentOptions = {
+      stackBuilder: (): void => { this.publishTitleRow(); },
+      backIcon: backIcon,
+    };
+    const options: HdsNavigationTitleBarOptions = {
+      content: content,
+      style: style,
+      avoidLayoutSafeArea: true,
+      // false = 内容从窗口原点起算、可画到栏下被渐变模糊采样；让位量由 Scroll 内 topInset 补回
+      enableComponentSafeArea: false,
+    };
+    return options;
+  }
+
+  // stackBuilder 行：模式标题 + 细进度与下一步提示 + 发布主钮。左内缩让开官方返回键。
+  @Builder
+  publishTitleRow(): void {
+    Row({ space: SpaceTokens.sm }) {
+      Column({ space: SpaceTokens.xs }) {
+        Text('发布图文')
+          .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
+          .fontWeight(TypeTokens.headline.weight)
+          .lineHeight(TypeTokens.headline.lineHeight)
+          .fontColor(ColorTokens.primary)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Row({ space: SpaceTokens.inline }) {
+          Progress({ value: this.calcDraftProgress(), total: DRAFT_PROGRESS_TOTAL, type: ProgressType.Linear })
+            .width(44)
+            .color(ColorTokens.brand)
+            .backgroundColor(ColorTokens.separator)
+            .style({ strokeWidth: SpaceTokens.xs, strokeRadius: RadiusTokens.xs, enableSmoothEffect: true })
+          Text(this.draftHint())
+            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.caption.weight)
+            .lineHeight(TypeTokens.caption.lineHeight)
+            .fontColor(this.calcDraftProgress() >= DRAFT_PROGRESS_TOTAL ? ColorTokens.brand : ColorTokens.secondary)
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .layoutWeight(1)
+            .textAlign(TextAlign.Start)
         }
         .width('100%')
-        .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.x2l })
-        .alignItems(HorizontalAlign.Start)
+        .alignItems(VerticalAlign.Center)
       }
-      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
-      .width('100%')
-      .height('100%')
-      .scrollBar(BarState.Off)
-      .backgroundColor(ColorTokens.canvas)
-      // 全模态（AI 预览 / 结构化审稿）必须绑在「不承担 bindSheet 的另一个组件」上。
-      // 平台规格：同一组件同时绑 bindSheet 与 bindContentCover 时半模态生效、全模态静默不生效
-      // （表现为接口成功却弹不出预览），故圈子面板留在根 Stack、两个全模态挂这里。
-      .bindContentCover(this.aiSheetShown, this.aiPolishSheet(), {
-        modalTransition: ModalTransition.DEFAULT,
-        onDisappear: (): void => { this.aiSheetShown = false; },
-      })
-      // 结构化审稿：点发布弹出（AI 拆块 → 逐块确认 → 确认即发布）
-      .bindContentCover(this.reviewSheetShown, this.reviewSheet(), {
-        modalTransition: ModalTransition.DEFAULT,
-        onDisappear: (): void => { this.reviewSheetShown = false; },
-      })
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
 
-      // 顶栏是压在 Scroll 之上的浮层（本页不是 Navigation 页），CustomComponent 不能挂
-      // 通用属性 → 状态栏留白交给外层 Row
-      Row() {
-        PublishTopBar({
-          modeLabel: '发布图文',
-          progressValue: this.calcDraftProgress(),
-          progressTotal: DRAFT_PROGRESS_TOTAL,
-          hint: this.draftHint(),
-          previewDisabled: this.title.trim().length === 0,
-          onPreview: (): void => { this.onPublish(); },
-          onBack: (): void => { this.getUIContext().getRouter().back(); },
+      DesignButton({
+        label: '发布',
+        variant: 'primary',
+        visualHeight: LayoutTokens.segmentedHeight,
+        disabled: this.title.trim().length === 0,
+        action: (): void => { this.onPublish(); },
+      })
+    }
+    .width('100%')
+    .height('100%')
+    .alignItems(VerticalAlign.Center)
+    .padding({ left: HDS_BACK_SLOT_END_VP, right: SpaceTokens.md })
+  }
+
+  build() {
+    // 外层 Stack 承接 bindSheet（圈子），内层 Scroll 承接两个 bindContentCover（AI/审稿）——
+    // 保持「半模态与全模态分宿主」的平台规格；HdsNavigation 只负责标题栏渐变模糊与穿底。
+    Stack() {
+      HdsNavigation() {
+        Scroll(this.publishScroller) {
+          Column({ space: SpaceTokens.md }) {
+            // 穿底让位：enableComponentSafeArea=false 后内容从窗口原点起算，自补「状态栏 + 栏高 + 呼吸」
+            Row().height(this.statusBarHeight + PUBLISH_BAR_ROW_VP + SpaceTokens.sm).width('100%')
+            this.compositionColumn()
+          }
+          .width('100%')
+          .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.x2l })
+          .alignItems(HorizontalAlign.Start)
+        }
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+        .width('100%')
+        .height('100%')
+        .scrollBar(BarState.Off)
+        .backgroundColor(ColorTokens.canvas)
+        // 全模态（AI 预览 / 结构化审稿）绑在 Scroll（不承担 bindSheet 的组件）上。
+        .bindContentCover(this.aiSheetShown, this.aiPolishSheet(), {
+          modalTransition: ModalTransition.DEFAULT,
+          onDisappear: (): void => { this.aiSheetShown = false; },
+        })
+        .bindContentCover(this.reviewSheetShown, this.reviewSheet(), {
+          modalTransition: ModalTransition.DEFAULT,
+          onDisappear: (): void => { this.reviewSheetShown = false; },
         })
       }
+      .mode(NavigationMode.Stack)
+      .titleBar(this.publishTitleBarOptions())
+      .titleMode(HdsNavigationTitleMode.MINI)
+      // 渐变模糊滚动源：没有它栏后拿不到内容可采样，材质在画布上只差 2~3 级看不出
+      .bindToScrollable([this.publishScroller])
+      // 穿底绘制链路：HdsNavigation 自身不裁切（内容需画到栏下被模糊采样）
+      .clip(false)
       .width('100%')
-      .padding({ top: this.statusBarHeight })
+      .height('100%')
       .backgroundColor(ColorTokens.canvas)
     }
     .width('100%')
     .height('100%')
     .backgroundColor(ColorTokens.canvas)
-    // 选择圈子：bindSheet 底部弹层（替代原全屏覆盖面板）
+    // 选择圈子：bindSheet 底部弹层，宿主仍是外层 Stack（与全模态分离）
     .bindSheet(this.showTagPanel, this.tagSheet(), {
       height: '60%',
       dragBar: true,
-      // 材质载体是 SheetOptions.systemMaterial（半模态的唯一生效入口），面板内部不再自绘暖纸
       systemMaterial: getSheetImmersiveMaterial(),
       blurStyle: isSystemMaterialActive() ? BlurStyle.NONE : GlassBlurStyle.Floating,
       backgroundColor: isSystemMaterialActive() ? undefined : ColorTokens.canvas,
-      // 关闭由内容内「完成」按钮与下滑手势负责，隐藏系统右上角关闭按钮避免与标题重叠
       showClose: false,
       maskColor: '#33000000',
       onDisappear: (): void => { this.showTagPanel = false; },
