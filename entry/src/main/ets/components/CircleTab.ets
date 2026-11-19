@@ -36,7 +36,10 @@ import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { GalaxyTokens } from '../design/tokens/galaxy';
 import { TypeTokens } from '../design/tokens/type';
 import { ShadowTokens } from '../design/tokens/shadow';
-import { TopButtonMaterialModifier, isSystemMaterialActive } from '../utils/immersiveMaterial';
+import {
+  TopButtonMaterialModifier,
+  isSystemMaterialActive,
+} from '../utils/immersiveMaterial';
 import { openCircleDetail, openPostDetail } from '../utils/nav';
 import { getMainNavStack, openCircleDetailViaNav, PostDetailNavParams } from '../utils/navigationTransition';
 import { registerOverlayBackGuard, unregisterOverlayBackGuard, OVERLAY_GUARD_CIRCLE } from '../utils/overlayBackGuard';
@@ -173,6 +176,74 @@ const COSMIC_SUB: string = '#A8A094';          // 次级文字（暖灰）
 const COSMIC_GLASS: string = '#1AECE6DA';      // 药丸兜底底/提示条
 const COSMIC_GLASS_BORDER: string = '#26ECE6DA'; // 暖色描边
 
+// 「已加入」与「发现圈子」共用的药丸（唯一样式源，两处只传内容与动作，不再各写一份配方）。
+// 尺寸/内边距/圆角/底色/描边/阴影全部在此定义；内容由调用方以尾随闭包传入
+// （「已加入」= 文案 + CountRoll，「发现圈子」= 文案）。
+//
+// 材质按承载位置分档（硬约束，非取舍）：
+// - inTitleBar=true（驻留 TitleBar）：系统材质官方生效区。材质态底色透明、描边/阴影归零，
+//   由 systemMaterial 接管表面；低版本门禁不通过时回落 subtle 底 + 描边 + 轻影。
+// - inTitleBar=false（内容区）：systemMaterial 在内容区不出图（挂载即整个胶囊消失，
+//   真机 2026-10-26 证伪，见 utils/immersiveMaterial.ets 尾注），
+//   故按该药丸材质态观感复刻：纯白面 + 无描边 + 轻影。
+@Component
+struct CircleHeaderPill {
+  @BuilderParam content: () => void = this.emptyContent;
+  @Prop cosmicMode: boolean = false;
+  @Prop inTitleBar: boolean = false;
+  action: () => void = (): void => {};
+  private materialModifier: TopButtonMaterialModifier = new TopButtonMaterialModifier();
+
+  @Builder
+  emptyContent(): void {}
+
+  private materialActive(): boolean {
+    return this.inTitleBar && isSystemMaterialActive();
+  }
+
+  // 材质态由系统材质兜面，描边必须归零；内容区材质不出图，按材质态观感复刻为无描边。
+  private pillBorderWidth(): number {
+    if (this.materialActive()) {
+      return 0;
+    }
+    return this.inTitleBar ? LayoutTokens.glassBorderWidth : 0;
+  }
+
+  private pillBackground(): ResourceColor {
+    if (this.cosmicMode) {
+      return COSMIC_GLASS;
+    }
+    if (this.materialActive()) {
+      return Color.Transparent;
+    }
+    return this.inTitleBar ? ColorTokens.subtle : ColorTokens.canvas;
+  }
+
+  build() {
+    Pressable({
+      visualHeight: LayoutTokens.segmentedHeight,
+      touchTargetHeight: LayoutTokens.minTouchTarget,
+      action: this.action,
+    }) {
+      Row({ space: SpaceTokens.xs }) {
+        this.content()
+      }
+      .height(LayoutTokens.segmentedHeight)
+      .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+      .backgroundColor(this.pillBackground())
+      .border({
+        width: this.pillBorderWidth(),
+        color: this.cosmicMode ? COSMIC_GLASS_BORDER : ColorTokens.separator,
+        style: BorderStyle.Solid,
+      })
+      .borderRadius(RadiusTokens.pill)
+      .shadow(this.materialActive() ? ShadowTokens.none : ShadowTokens.cardContact)
+      .alignItems(VerticalAlign.Center)
+      .attributeModifier(this.inTitleBar ? this.materialModifier : undefined)
+    }
+  }
+}
+
 @Component
 export struct CircleTab {
   @State circles: CircleTag[] = [];
@@ -191,8 +262,6 @@ export struct CircleTab {
   // —— 顶栏（嵌套 HdsNavigation，路线 B，同首页结构）——
   // 星环视口 Scroller：交给 bindToScrollable 驱动标题栏渐变模糊（内容超高滚动时生效）
   private circleScroller: Scroller = new Scroller();
-  // 「已加入」药丸同源材质修饰器（沉浸光感，HDS 标题栏 = 官方生效区域）
-  private pillMaterial: TopButtonMaterialModifier = new TopButtonMaterialModifier();
   @State loading: boolean = false;
   @State error: string = '';
   @State selectedName: string = '';
@@ -1642,39 +1711,23 @@ export struct CircleTab {
         .lineHeight(TypeTokens.titleSerif.lineHeight)
         .fontColor(this.cosmicMode ? COSMIC_INK : ColorTokens.primary)
       Blank()
-      Pressable({
-        visualHeight: LayoutTokens.segmentedHeight,
-        touchTargetHeight: LayoutTokens.minTouchTarget,
+      CircleHeaderPill({
+        cosmicMode: this.cosmicMode,
+        inTitleBar: true,
         action: (): void => {
           // 递增信号 → 本组件 @Watch：JoinedCirclesDialog 仍由本组件打开
           this.circleJoinedSeq += 1;
         },
       }) {
-        Row({ space: SpaceTokens.xs }) {
-          Text('已加入')
-            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-            .fontWeight(TypeTokens.caption.weight)
-            .fontColor(this.cosmicMode ? COSMIC_SUB : ColorTokens.secondary)
-          CountRoll({ value: this.circleJoinedCount, prefix: '', textSize: TypeTokens.caption.size, textColor: this.cosmicMode ? COSMIC_INK : ColorTokens.primary })
-          Text('个')
-            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-            .fontWeight(TypeTokens.caption.weight)
-            .fontColor(this.cosmicMode ? COSMIC_SUB : ColorTokens.secondary)
-        }
-        .height(LayoutTokens.segmentedHeight)
-        .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-        // 沉浸光感：材质生效时自绘让位（底/描边/阴影归零），系统材质接管药丸表面；
-        // 低版本门禁不通过 → 保留原样式。星际模式下改用暗玻璃（白字深底）。
-        .backgroundColor(isSystemMaterialActive() ? Color.Transparent : (this.cosmicMode ? COSMIC_GLASS : ColorTokens.subtle))
-        .border({
-          width: isSystemMaterialActive() ? 0 : LayoutTokens.glassBorderWidth,
-          color: this.cosmicMode ? COSMIC_GLASS_BORDER : ColorTokens.separator,
-          style: BorderStyle.Solid,
-        })
-        .borderRadius(RadiusTokens.pill)
-        .shadow(isSystemMaterialActive() ? ShadowTokens.none : ShadowTokens.cardContact)
-        .alignItems(VerticalAlign.Center)
-        .attributeModifier(this.pillMaterial)
+        Text('已加入')
+          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.caption.weight)
+          .fontColor(this.cosmicMode ? COSMIC_SUB : ColorTokens.secondary)
+        CountRoll({ value: this.circleJoinedCount, prefix: '', textSize: TypeTokens.caption.size, textColor: this.cosmicMode ? COSMIC_INK : ColorTokens.primary })
+        Text('个')
+          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.caption.weight)
+          .fontColor(this.cosmicMode ? COSMIC_SUB : ColorTokens.secondary)
       }
     }
     .width('100%')
@@ -1728,29 +1781,15 @@ export struct CircleTab {
   @Builder
   exploreFab() {
     Column() {
-      Pressable({
-        visualHeight: 36,
-        touchTargetHeight: LayoutTokens.minTouchTarget,
+      CircleHeaderPill({
+        cosmicMode: this.cosmicMode,
+        inTitleBar: false,
         action: (): void => { this.dismissStarGuide(); this.exploreVisible = true; },
       }) {
-        Row({ space: SpaceTokens.xs }) {
-          Text('发现圈子')
-            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-            .fontWeight(TypeTokens.headline.weight)
-            .fontColor(this.cosmicMode ? COSMIC_INK : ColorTokens.primary)
-        }
-        .height(36)
-        .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-        // 内容区悬浮件只保留一种材质：实色纸面 + 1px 细线，不再用假玻璃逼近标题栏材质。
-        .backgroundColor(this.cosmicMode ? ColorTokens.elevated : ColorTokens.canvas)
-        .border({
-          width: LayoutTokens.glassBorderWidth,
-          color: this.cosmicMode ? COSMIC_GLASS_BORDER : ColorTokens.separator,
-          style: BorderStyle.Solid,
-        })
-        .borderRadius(RadiusTokens.pill)
-        .shadow(ShadowTokens.pillFloat)
-        .alignItems(VerticalAlign.Center)
+        Text('发现圈子')
+          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.caption.weight)
+          .fontColor(this.cosmicMode ? COSMIC_SUB : ColorTokens.secondary)
       }
     }
     .position({ x: '100%', y: this.circleTitleBarHeight() + SpaceTokens.xs })
