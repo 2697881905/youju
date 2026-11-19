@@ -8,6 +8,8 @@ import { TypeTokens } from '../design/tokens/type';
 import { Pressable } from '../design/motion/Pressable';
 import { EmptyState } from '../design/components/EmptyState';
 import { DesignButton } from '../design/components/DesignButton';
+import { GlowInput } from '../design/components/GlowInput';
+import { ToggleChip } from '../design/components/ToggleChip';
 import { TagIcon } from './TagIcon';
 
 // bindSheet 自带的关闭按钮固定在右上角（40vp 触控区、距右约 16vp）。
@@ -192,9 +194,8 @@ export struct CircleExploreSheet {
     .width('100%')
     .padding(SpaceTokens.md)
     .margin({ top: SpaceTokens.md })
-    .backgroundColor(ColorTokens.canvas)
-    .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.separator, style: BorderStyle.Solid })
-    .borderRadius(RadiusTokens.md)
+    // 这是一个动作行，不是输入区：不铺任何底色，靠上下 Divider 与「＋/收起创建」文案定位。
+    // 一度铺过 canvas / subtle / 系统三级背景，真机上三种都会和相邻的输入框撞成同一张「输入框」。
     .onClick((): void => {
       if (this.creating) {
         this.resetForm();
@@ -206,17 +207,13 @@ export struct CircleExploreSheet {
 
   @Builder
   categoryChip(item: string): void {
-    // 原型 catchip：选中=品牌色描边+浅底+墨字（11px 蓝字压蓝 tint 深色仅 3.58:1，不达 AA，
-    // 蓝色身份由 1px brand 描边 + tint 底承担，描边只需过 3:1 图形下限）
-    Text(item)
-      .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-      .fontWeight(this.newCategory === item ? TypeTokens.headline.weight : FontWeight.Regular)
-      .fontColor(this.newCategory === item ? ColorTokens.primary : ColorTokens.secondary)
-      .backgroundColor(this.newCategory === item ? ColorTokens.brandTint : ColorTokens.subtle)
-      .border({ width: LayoutTokens.glassBorderWidth, color: this.newCategory === item ? ColorTokens.brand : ColorTokens.separator, style: BorderStyle.Solid })
-      .borderRadius(RadiusTokens.pill)
-      .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: 6, bottom: 6 })
-      .onClick((): void => { this.newCategory = item; })
+    // 可选中迷你 chip 的家族唯一样式源（ToggleChip）：选中态由 brandTint 底 + 加粗 + 墨字承担。
+    // 原先手写的 brand 描边是「11px 品牌字压 tint 只有 3.58:1」的补偿手段，tint 底本身已足够示意。
+    ToggleChip({
+      label: item,
+      selected: this.newCategory === item,
+      action: (): void => { this.newCategory = item; },
+    })
   }
 
   @Builder
@@ -227,11 +224,15 @@ export struct CircleExploreSheet {
           .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
           .fontColor(ColorTokens.tertiary)
           .alignSelf(ItemAlign.Start)
-        TextInput({ text: this.newName, placeholder: '如：露营装备' })
-          .maxLength(8)
-          .height(40)
-          .fontSize(TypeTokens.callout.size)
-          .onChange((value: string): void => { this.newName = value; })
+        GlowInput({
+          text: $newName,
+          placeholder: '如：露营装备',
+          fillWidth: false,
+          inputHeight: 40,
+          fontSize: TypeTokens.callout.size,
+          maxLength: 8,
+          fillColor: $r('sys.color.comp_background_tertiary'),
+        })
       }
       Column({ space: SpaceTokens.xs }) {
         Text('分类')
@@ -250,11 +251,15 @@ export struct CircleExploreSheet {
           .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
           .fontColor(ColorTokens.tertiary)
           .alignSelf(ItemAlign.Start)
-        TextInput({ text: this.newDesc, placeholder: '这个圈子聊什么？' })
-          .maxLength(24)
-          .height(40)
-          .fontSize(TypeTokens.callout.size)
-          .onChange((value: string): void => { this.newDesc = value; })
+        GlowInput({
+          text: $newDesc,
+          placeholder: '这个圈子聊什么？',
+          fillWidth: false,
+          inputHeight: 40,
+          fontSize: TypeTokens.callout.size,
+          maxLength: 24,
+          fillColor: $r('sys.color.comp_background_tertiary'),
+        })
       }
       DesignButton({
         label: this.submitting ? '创建中…' : '创建圈子',
@@ -324,6 +329,10 @@ export struct CircleExploreSheet {
       }
       .layoutWeight(1)
 
+      // 保留原生 Button：这是行内次级 CTA，品牌描边就是它的可点性来源。
+      // 一度换成 DesignButton outlined，真机上描边色(barBorder)比 brand 淡一档，
+      // 白底行里几乎看不出边界 → 回退。原生 Button 本身属官方控件，
+      // 不在此次「自绘冒充控件」的整改范围内（对比原分类/城市胶囊是 Text + onClick）。
       Button(item.joined ? '去看看' : '加入')
         .buttonStyle(ButtonStyleMode.NORMAL)
         .type(ButtonType.Capsule)
@@ -350,24 +359,13 @@ export struct CircleExploreSheet {
 
   @Builder
   cityChip(city: CitySummary): void {
-    Pressable({
-      visualHeight: 34,
-      touchTargetHeight: 44,
+    // 与分类胶囊同一个可选中 chip 源（ToggleChip），不再各写一份底色/描边/字重配方。
+    // 触控区由 Pressable 的 minTouchTarget(44) 承担，视觉高度回落到家族标准 28。
+    ToggleChip({
+      label: city.name + (city.circleCount > 0 ? ' ' + city.circleCount : ''),
+      selected: this.cityCode === city.code,
       action: (): void => { this.pickCity(city); },
-    }) {
-      Text(city.name + (city.circleCount > 0 ? ' ' + city.circleCount : ''))
-        .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-        .fontWeight(this.cityCode === city.code ? TypeTokens.headline.weight : FontWeight.Regular)
-        .fontColor(this.cityCode === city.code ? ColorTokens.primary : ColorTokens.secondary)
-        .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: 6, bottom: 6 })
-        .backgroundColor(this.cityCode === city.code ? ColorTokens.brandTint : ColorTokens.subtle)
-        .border({
-          width: LayoutTokens.glassBorderWidth,
-          color: this.cityCode === city.code ? ColorTokens.brand : ColorTokens.separator,
-          style: BorderStyle.Solid,
-        })
-        .borderRadius(RadiusTokens.pill)
-    }
+    })
   }
 
   @Builder
@@ -448,6 +446,9 @@ export struct CircleExploreSheet {
       // 搜索框与它顶对齐后两者水平中线一致（2026-10-29 反馈）。
       Search({ value: this.keyword, placeholder: '搜索圈子名或分类…' })
         .height(40)
+        // 系统色底对齐官方 Search 外观（编译期 SDK 冻结的是 6.x 老样式）。
+        // 半模态内不挂 systemMaterial——通用组件材质只在标题栏生效区出图（同「发现圈子」的教训）。
+        .backgroundColor($r('sys.color.comp_background_tertiary'))
         .margin({ left: SpaceTokens.xl, right: SHEET_CLOSE_RESERVE, top: 0 })
         .onChange((value: string): void => { this.onKeywordChange(value); })
 

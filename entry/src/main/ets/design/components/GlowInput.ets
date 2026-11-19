@@ -42,6 +42,10 @@ export struct GlowInput {
   // 分段栏同款样式（搜索框试点）：半透明白玻璃底 + backdropBlur + 1px 高光边框 + lg 圆角，
   // 与 SegmentedControl immersive 完全同规格，视觉上输入框与分段栏属于同一材质体系
   @Prop segmentStyle: boolean = false;
+  // 填充底：默认 subtle（官方原生范式）。在系统材质/半模态面板上 subtle 与面板底同色、
+  // 输入框会失去全部边界 —— 这类场景传 $r('sys.color.comp_background_tertiary')，
+  // 与官方 Search 同一底色，既有调用方不传则视觉不变。
+  @Prop fillColor: ResourceColor = ColorTokens.subtle;
   // 最大输入长度（0=不限）
   @Prop maxLength: number = 0;
   onChange?: (value: string) => void = undefined;
@@ -67,7 +71,7 @@ export struct GlowInput {
         // 默认分支 = 官方原生样式：实色填充底（subtle）+ 无模糊 + 无描边 + lg 胶囊圆角；
         // segmentStyle 分支保留原「分段栏同款」玻璃配方（半透明白玻璃底 + backdropBlur + 1px 高光边框）
         .backdropBlur(this.segmentStyle ? GlassTokens.SEGMENT_BLUR : 0)
-        .backgroundColor(this.segmentStyle ? GlassTokens.SEGMENT_BG : ColorTokens.subtle)
+        .backgroundColor(this.segmentStyle ? GlassTokens.SEGMENT_BG : this.fillColor)
         .border({
           width: this.segmentStyle ? 1 : 0,
           color: this.segmentStyle ? GlassTokens.SEGMENT_BORDER : ColorTokens.barBorder,
