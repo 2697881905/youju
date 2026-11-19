@@ -3,7 +3,7 @@
 import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
 import { ShadowTokens } from '../design/tokens/shadow';
-import { SpaceTokens } from '../design/tokens/space';
+import { SpaceTokens, LayoutTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { immersiveCardWidth } from '../design/tokens/galaxy';
 import { DesignButton } from '../design/components/DesignButton';
@@ -51,9 +51,6 @@ export struct CircleStarGuide {
           .fontWeight(TypeTokens.headline.weight)
           .fontColor(ColorTokens.primary)
         Blank()
-        Text('只看这一次')
-          .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-          .fontColor(ColorTokens.tertiary)
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)
@@ -78,9 +75,10 @@ export struct CircleStarGuide {
     .width(immersiveCardWidth(this.currentBreakpoint))
     .padding(SpaceTokens.md)
     .backgroundColor(ColorTokens.elevated)
-    .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
+    .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.separator, style: BorderStyle.Solid })
     .borderRadius(RadiusTokens.lg)
-    .shadow(ShadowTokens.floating)
+    // 与「今日圈内」同口径：贴底常驻卡用贴地投影，不用浮层档。
+    .shadow(ShadowTokens.cardAmbient)
     .alignItems(HorizontalAlign.Start)
   }
 }
