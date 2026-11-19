@@ -24,6 +24,7 @@
 //  7. @Entry 的 build 根必须是内置容器，且自定义组件尾随闭包 `Shell({...}){...}` 之后不能再链 .bindSheet 等
 //     通用属性（会被解析成独立语句报 10505001/10905210）→ 用 Stack 包住外壳，bindSheet 挂 Stack。
 import { DesignButton } from '../design/components/DesignButton';
+import { IconButton } from '../design/components/IconButton';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
@@ -60,7 +61,10 @@ export struct PublishPageShell {
   @Prop progressValue: number = 0;
   @Prop progressTotal: number = 0;
   @Prop hint: string = '';
-  // actionLabel='' 时不渲染主钮（纯标题页可用）。
+  // 右侧动作二选一：actionIcon 非空时渲染图标钮（搜索等），否则用 actionLabel 文字主钮。
+  // 两个都空 = 纯标题页。
+  @Prop actionIcon: string = '';
+  @Prop actionA11y: string = '';
   @Prop actionLabel: string = '';
   @Prop actionDisabled: boolean = false;
   @Prop blurEndVp: number = DEFAULT_BLUR_END_VP;
@@ -154,7 +158,13 @@ export struct PublishPageShell {
       .layoutWeight(1)
       .alignItems(HorizontalAlign.Start)
 
-      if (this.actionLabel.length > 0) {
+      if (this.actionIcon.length > 0) {
+        IconButton({
+          icon: this.actionIcon,
+          a11yText: this.actionA11y,
+          action: (): void => { this.onAction(); },
+        })
+      } else if (this.actionLabel.length > 0) {
         DesignButton({
           label: this.actionLabel,
           variant: 'primary',

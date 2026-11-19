@@ -26,14 +26,7 @@ import { IconButton } from '../design/components/IconButton';
 import { EmptyState } from '../design/components/EmptyState';
 import { ImmersiveSegmentBar, SegmentedItem } from '../design/components/ImmersiveSegmentBar';
 import { ToggleChip } from '../design/components/ToggleChip';
-import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
-import type {
-  HdsNavigationBackButtonItemOptions,
-  HdsNavigationIconOptions,
-  HdsNavigationTitleBarOptions,
-  TitleBarContentOptions,
-} from '@kit.UIDesignKit';
-import { resolveActionIcon } from '../utils/actionIcons';
+import { PublishPageShell, PUBLISH_BAR_ROW_VP } from '../components/PublishPageShell';
 import { ColorTokens } from '../design/tokens/color';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { RadiusTokens } from '../design/tokens/radius';
@@ -76,44 +69,10 @@ export struct CircleDiscoverPage {
   // 分类默认每组只露 3 行：24 个圈子全铺开要滑三屏，等于把「索引」当成了主内容
   @State expandedCategory: string = '';
   @StorageLink('isDarkMode') isDarkMode: boolean = false;
+  // PublishPageShell 要求：同一个 Scroller 既给外壳 bindToScrollable、又挂 Scroll（外壳普通属性接）
+  @StorageLink('statusBarHeight') statusBarHeight: number = 0;
+  private scroller: Scroller = new Scroller();
 
-  // 标题栏：与圈子详情页同构（HdsNavigation MINI + 官方返回键）。
-  // avoidLayoutSafeArea=true 让栏体自己让开状态栏——这是「标题压到通知栏」的直接修复，
-  // 手搓顶栏配 hideTitleBar 时内容会从窗口原点开始。
-  private titleBarOptions(): HdsNavigationTitleBarOptions {
-    const content: TitleBarContentOptions = {
-      stackBuilder: (): void => { this.discoverBrandRow(); },
-    };
-    return {
-      content: content,
-      avoidLayoutSafeArea: true,
-      // 必须显式开：默认关闭时内容从窗口原点开始，标题会被状态栏压住
-      enableComponentSafeArea: true,
-    };
-  }
-
-  // 栏内一行：返回 + 标题 + 搜索。用 stackBuilder 而不是 backIcon，
-  // 否则 MINI 档会先占一行放返回键、标题再另起一行，顶部空成两层。
-  @Builder
-  discoverBrandRow(): void {
-    Row({ space: SpaceTokens.sm }) {
-      BackButton({ action: (): void => { this.onBack(); } })
-      Text('发现圈子')
-        .fontSize(TypeTokens.titleSerif.size).fontFamily(TypeTokens.fontFamilySerif)
-        .fontWeight(TypeTokens.titleSerif.weight)
-        .lineHeight(TypeTokens.titleSerif.lineHeight)
-        .fontColor(ColorTokens.primary)
-      Blank()
-      IconButton({
-        icon: 'search',
-        a11yText: '搜索圈子',
-        action: (): void => { this.searchVisible = !this.searchVisible; },
-      })
-    }
-    .width('100%')
-    .height(LayoutTokens.titleBarHeight)
-    .alignItems(VerticalAlign.Center)
-  }
 
   private segItems: SegmentedItem[] = [
     { key: 'discover', label: '发现' },
@@ -476,7 +435,7 @@ export struct CircleDiscoverPage {
 
   @Builder
   discoverTab(): void {
-    Scroll() {
+    Scroll(this.scroller) {
       Column() {
         if (this.recommended().length > 0) {
           this.eyebrow('为你挑的')
@@ -524,7 +483,7 @@ export struct CircleDiscoverPage {
 
   @Builder
   joinedTab(): void {
-    Scroll() {
+    Scroll(this.scroller) {
       Column() {
         this.eyebrow(String(this.joinedItems().length) + ' 个圈子 · '
           + String(this.unreadTotal()) + ' 条未读')
@@ -592,54 +551,76 @@ export struct CircleDiscoverPage {
     .align(Alignment.TopStart)
   }
 
+  // 让位量：外壳 enableComponentSafeArea=false，内容从窗口原点起算，
+  // 必须自己补 statusBar + 栏体高（同三个发布页的 topInset 算法）。
+  private topInset(): number {
+    return this.statusBarHeight + PUBLISH_BAR_ROW_VP + SpaceTokens.sm;
+  }
+
   build() {
-    HdsNavigation() {
-    Column() {
-      if (this.searchVisible) {
-        Search({ value: this.keyword, placeholder: '搜圈子名或分类' })
-          .height(40)
-          .backgroundColor($r('sys.color.comp_background_tertiary'))
-          .margin({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.sm })
-          .onChange((value: string): void => { this.keyword = value; })
-      }
-
-      Row() {
-        ImmersiveSegmentBar({ items: this.segItems, selectedIndex: $segIndex, fillWidth: true })
-      }
-      .width('100%')
-      .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.sm })
-
-      if (this.loading && this.circles.length === 0) {
+    Stack() {
+      PublishPageShell({
+        modeLabel: '发现圈子',
+        actionIcon: this.searchVisible ? 'close' : 'search',
+        actionA11y: this.searchVisible ? '关闭搜索' : '搜索圈子',
+        scroller: this.scroller,
+        onAction: (): void => { this.searchVisible = !this.searchVisible; },
+        onBack: (): void => { this.onBack(); },
+      }) {
         Column() {
-          LoadingProgress().width(28).height(28).color(ColorTokens.brand)
+          Row().height(this.topInset()).width('100%')
+
+          if (this.searchVisible) {
+            Search({ value: this.keyword, placeholder: '搜圈子名或分类' })
+              .height(40)
+              .backgroundColor($r('sys.color.comp_background_tertiary'))
+              .margin({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.sm })
+              .onChange((value: string): void => { this.keyword = value; })
+          }
+
+          Row() {
+            ImmersiveSegmentBar({ items: this.segItems, selectedIndex: $segIndex, fillWidth: true })
+          }
+          .width('100%')
+          .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.sm })
+          // 分段栏固定：给实色底，滚动内容滑到它下面时干净截断，不会露半行
+          .backgroundColor(ColorTokens.canvas)
+
+          if (this.loading && this.circles.length === 0) {
+            Column() {
+              LoadingProgress().width(28).height(28).color(ColorTokens.brand)
+            }
+            .width('100%')
+            .layoutWeight(1)
+            .justifyContent(FlexAlign.Center)
+          } else if (this.error.length > 0) {
+            Column() {
+              EmptyState({
+                icon: $r('app.media.status_warning'),
+                title: '加载失败',
+                message: this.error,
+                actionLabel: '重试',
+                onAction: (): void => { this.load(); },
+              })
+            }
+            .width('100%')
+            .layoutWeight(1)
+            .justifyContent(FlexAlign.Center)
+            .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
+          } else if (this.segIndex === 0) {
+            this.discoverTab()
+          } else {
+            this.joinedTab()
+          }
         }
         .width('100%')
-        .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
-      } else if (this.error.length > 0) {
-        Column() {
-          EmptyState({
-            icon: $r('app.media.status_warning'),
-            title: '加载失败',
-            message: this.error,
-            actionLabel: '重试',
-            onAction: (): void => { this.load(); },
-          })
-        }
-        .width('100%')
-        .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
-        .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
-      } else if (this.segIndex === 0) {
-        this.discoverTab()
-      } else {
-        this.joinedTab()
+        .height('100%')
       }
     }
     .width('100%')
     .height('100%')
     .backgroundColor(ColorTokens.canvas)
-    // 本页唯一 bindSheet（旧面板的 explore/joined 两个已随改版下线，单例约束不再冲突）
+    // 半模态挂外层 Stack（外壳规格：不能挂在 TailBuilder 的组件上）
     .bindSheet($$this.createVisible, this.createSheetContent(), {
       detents: [SheetSize.FIT_CONTENT, SheetSize.LARGE],
       systemMaterial: getSheetImmersiveMaterial(),
@@ -648,12 +629,5 @@ export struct CircleDiscoverPage {
       showClose: true,
       dragBar: true,
     })
-    }
-    .titleMode(HdsNavigationTitleMode.MINI)
-    .titleBar(this.titleBarOptions())
-    // 默认 Auto 在展开宽度切 Split，navBar 列被压窄 → 整页挤在左侧
-    .mode(NavigationMode.Stack)
-    .width('100%')
-    .height('100%')
   }
 }
