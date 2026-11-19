@@ -59,7 +59,7 @@ model Post {
   cityCode       String?  @db.VarChar(20) // 发帖所选城市（同城内容池；NULL=未带城市）
   videoAspectRatio Float? // 视频真实宽/高，供客户端等比例渲染
   images         Json? // 图片URL列表，最多9张
-  genre          String   @db.VarChar(20) // review | pitfall | tutorial | debate
+  genre          String   @db.VarChar(20) // review | pitfall | tutorial | debate | share
   tags           Json // 标签列表，1~3个
   structuredData Json? // 结构化字段（体裁不同，内容不同）
   structuredDocument Json? // V2 通用信息块文档（双读兼容，新增帖子优先写入）
@@ -85,6 +85,7 @@ model Post {
   collectionEntries CollectionPost[] // 合集内条目（一篇帖子至多一个条目，见 CollectionPost.postId 唯一）
 
   @@index([hotScore, status, deletedAt]) // 推荐/热榜按热度检索（未删+已发布过滤走 where，索引前缀含 hotScore）
+  @@index([createdAt]) // 圈子概览：全站近 7 天帖子聚合（发现页 contentMix / postCount7d）
 }
 
 // 评论表

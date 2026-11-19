@@ -331,6 +331,15 @@ export interface CircleOverviewPost {
   upCount: number;
 }
 
+// 圈子近 7 天的体裁构成。五键之和恒等于 postCount7d（见 listCircleOverview 的未知体裁兜底）。
+export interface CircleContentMix {
+  review: number;
+  pitfall: number;
+  tutorial: number;
+  debate: number;
+  share: number;
+}
+
 export interface CircleOverviewItem {
   name: string;
   emoji: string;
@@ -346,6 +355,10 @@ export interface CircleOverviewItem {
   active7d: boolean;
   lastPostAt: string | null;
   latestPosts: CircleOverviewPost[];
+  // 近 7 天体裁构成（不含更早的帖子）；发现页「内容橱窗卡」用。
+  contentMix: CircleContentMix;
+  // 近 7 天该圈帖子总数，与 contentMix 同源同窗口。
+  postCount7d: number;
 }
 
 export interface CircleDigestItem {
@@ -423,6 +436,23 @@ export async function listCircleOverview(
     return { circles: [], digest: [] };
   }
 
+  const now = Date.now();
+  const activeEdge = now - OVERVIEW_ACTIVE_WINDOW_MS;
+
+  // 近 7 天全站帖子：contentMix / postCount7d / active7d 的统一来源。
+  // 不能复用下面那个 120 条窗口——它是「全站按时间截断」，既非按圈、也没有时间下界：
+  // 站内一周超过 120 帖时单圈的 7 天帖会被截掉（数字系统性偏低），不足 120 时又混进更早的帖。
+  const recent7d = await prisma.post.findMany({
+    where: {
+      status: 1,
+      deletedAt: null,
+      user: { status: 1, deletedAt: null },
+      createdAt: { gte: new Date(activeEdge) },
+      ...(excluded.length > 0 ? { userId: { notIn: excluded } } : {}),
+    },
+    select: { tags: true, genre: true },
+  });
+
   const recentPosts = await prisma.post.findMany({
     where: {
       status: 1,
@@ -458,8 +488,33 @@ export async function listCircleOverview(
     }
   }
 
-  const now = Date.now();
-  const activeEdge = now - OVERVIEW_ACTIVE_WINDOW_MS;
+  // 近 7 天体裁定：按圈分桶。未知/空 genre 归入 review 兜底，
+  // 保证「五键之和 == postCount7d」这个对客户端可见的恒等式在任何脏数据下都成立。
+  const mixByTag = new Map<string, CircleContentMix>();
+  const count7dByTag = new Map<string, number>();
+  for (const post of recent7d) {
+    for (const name of postTagNames(post.tags)) {
+      if (!scopeNames.has(name)) {
+        continue;
+      }
+      count7dByTag.set(name, (count7dByTag.get(name) ?? 0) + 1);
+      const mix: CircleContentMix = mixByTag.get(name)
+        ?? { review: 0, pitfall: 0, tutorial: 0, debate: 0, share: 0 };
+      if (post.genre === 'pitfall') {
+        mix.pitfall += 1;
+      } else if (post.genre === 'tutorial') {
+        mix.tutorial += 1;
+      } else if (post.genre === 'debate') {
+        mix.debate += 1;
+      } else if (post.genre === 'share') {
+        mix.share += 1;
+      } else {
+        mix.review += 1;
+      }
+      mixByTag.set(name, mix);
+    }
+  }
+
   const readWindowEdge = activeEdge; // 从未读过：只统计近 7 天新帖，避免历史全量算未读
   const circles: CircleOverviewItem[] = tags.map((tag) => {
     const bucket = postsByTag.get(tag.name) ?? [];
@@ -484,13 +539,15 @@ export async function listCircleOverview(
       creatorId: tag.creatorId,
       weight: weightByName.get(tag.name) ?? 2,
       unread,
-      active7d: bucket.length > 0 && bucket[0].createdAt.getTime() >= activeEdge,
+      active7d: (count7dByTag.get(tag.name) ?? 0) > 0,
       lastPostAt: bucket.length > 0 ? bucket[0].createdAt.toISOString() : null,
       latestPosts: bucket.slice(0, 2).map((post) => ({
         id: post.id,
         title: post.title,
         upCount: post.upCount,
       })),
+      contentMix: mixByTag.get(tag.name) ?? { review: 0, pitfall: 0, tutorial: 0, debate: 0, share: 0 },
+      postCount7d: count7dByTag.get(tag.name) ?? 0,
     };
   });
 

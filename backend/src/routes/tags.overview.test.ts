@@ -21,6 +21,14 @@ jest.mock('../prisma', () => ({
   },
 }));
 
+interface ContentMix {
+  review: number;
+  pitfall: number;
+  tutorial: number;
+  debate: number;
+  share: number;
+}
+
 interface OverviewItem {
   name: string;
   joined: boolean;
@@ -29,6 +37,8 @@ interface OverviewItem {
   active7d: boolean;
   memberCount: number;
   latestPosts: Array<{ id: number; title: string }>;
+  contentMix: ContentMix;
+  postCount7d: number;
 }
 
 interface DigestItem {
@@ -119,6 +129,38 @@ describe('GET /v1/tags/overview', () => {
     expect(phone.latestPosts.map((p) => p.id)).toEqual([11, 13]);
     // 同一圈子只进一条 digest
     expect(body.data.digest.map((d) => d.circleName)).toEqual(['手机数码', '装修避坑']);
+  });
+
+  test('近 7 天体裁定：五键之和等于 postCount7d，无帖圈子全 0', async () => {
+    const idle = {
+      id: 9, name: '露营装备', emoji: '🏕', category: '兴趣休闲', description: '露营经验',
+      useCount: 0, followCount: 4, activeScore: 0, cityCode: null, createdAt: new Date(),
+    };
+    (prisma.tag.findMany as jest.Mock).mockResolvedValue([TAGS[0], idle]);
+    // 第一次 findMany 是「近 7 天全站帖子」（只取 tags/genre），第二次是 120 条窗口。
+    (prisma.post.findMany as jest.Mock)
+      .mockResolvedValueOnce([
+        { tags: ['手机数码'], genre: 'review' },
+        { tags: ['手机数码'], genre: 'pitfall' },
+        { tags: ['手机数码'], genre: 'share' },
+      ])
+      .mockResolvedValueOnce([post(21, '手机体验', '手机数码', 10)]);
+
+    const res = await fetch(`${base}/v1/tags/overview?scope=main`);
+    const body = (await res.json()) as OverviewBody;
+    const phone = body.data.circles.find((c) => c.name === '手机数码')!;
+    const camp = body.data.circles.find((c) => c.name === '露营装备')!;
+
+    expect(phone.contentMix).toEqual({ review: 1, pitfall: 1, tutorial: 0, debate: 0, share: 1 });
+    expect(phone.postCount7d).toBe(3);
+    expect(phone.contentMix.review + phone.contentMix.pitfall + phone.contentMix.tutorial
+      + phone.contentMix.debate + phone.contentMix.share).toBe(phone.postCount7d);
+    expect(phone.active7d).toBe(true);
+
+    // 近 7 天没有帖：构成条全 0、计数 0、不进活跃池（与「没有新帖」文案一致，不矛盾）
+    expect(camp.postCount7d).toBe(0);
+    expect(camp.contentMix).toEqual({ review: 0, pitfall: 0, tutorial: 0, debate: 0, share: 0 });
+    expect(camp.active7d).toBe(false);
   });
 
   test('登录后返回 joined/weight/unread，并优先已加入圈子的 digest', async () => {
