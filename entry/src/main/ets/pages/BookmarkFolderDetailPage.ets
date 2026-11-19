@@ -1,5 +1,7 @@
 // 收藏夹内帖子列表页：分页展示夹内收藏的帖子（复用 PostCard 网格），支持取消收藏 / 移入其他收藏夹
 import { BackButton } from '../design/components/BackButton';
+import { EmptyState } from '../design/components/EmptyState';
+import { resolveActionIcon } from '../utils/actionIcons';
 import { ColorTokens } from '../design/tokens/color';
 import { TypeTokens } from '../design/tokens/type';
 import { listFolderPosts, cancelBookmarkPost, listBookmarkFolders, createBookmarkFolder, moveBookmarkFolder, resolveDisplayImageUrl } from '../services/api';
@@ -274,12 +276,14 @@ export struct BookmarkFolderDetailPage {
         }
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
       } else if (this.posts.length === 0) {
-        Column({ space: 12 }) {
-          Text(this.error !== '' ? ('加载失败：' + this.error) : '这个收藏夹还是空的')
-            .fontSize(14).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary')).textAlign(TextAlign.Center);
-          if (this.error !== '') {
-            Button('重试').onClick(() => { this.load(true); });
-          }
+        Column() {
+          EmptyState({
+            icon: this.error !== '' ? resolveActionIcon('warning') : $r('app.media.empty_inbox'),
+            title: this.error !== '' ? '加载失败' : '这个收藏夹还是空的',
+            message: this.error !== '' ? this.error : '',
+            actionLabel: this.error !== '' ? '重试' : '',
+            onAction: (): void => { this.load(true); },
+          })
         }
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
       } else {

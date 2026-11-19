@@ -1,5 +1,7 @@
 // 收藏夹（专辑）管理页：创建/重命名/删除收藏夹，点击进入夹内帖子列表
 import { BackButton } from '../design/components/BackButton';
+import { EmptyState } from '../design/components/EmptyState';
+import { resolveActionIcon } from '../utils/actionIcons';
 import { listBookmarkFolders, createBookmarkFolder, renameBookmarkFolder, deleteBookmarkFolder, resolveDisplayImageUrl } from '../services/api';
 import { BookmarkFolderItem } from '../models/types';
 import { safeShowToast } from '../utils/toast';
@@ -204,13 +206,14 @@ export struct BookmarkFolderPage {
         }
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
       } else if (this.folders.length === 0) {
-        Column({ space: 12 }) {
-          Text(this.error !== '' ? ('加载失败：' + this.error) : '还没有收藏夹\n收藏帖子时可选分类归入')
-            .fontSize(14).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary'))
-            .textAlign(TextAlign.Center);
-          if (this.error !== '') {
-            Button('重试').onClick(() => { this.load(); });
-          }
+        Column() {
+          EmptyState({
+            icon: this.error !== '' ? resolveActionIcon('warning') : $r('app.media.empty_inbox'),
+            title: this.error !== '' ? '加载失败' : '还没有收藏夹',
+            message: this.error !== '' ? this.error : '收藏帖子时可选分类归入',
+            actionLabel: this.error !== '' ? '重试' : '',
+            onAction: (): void => { this.load(); },
+          })
         }
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
       } else {

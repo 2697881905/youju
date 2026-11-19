@@ -1,5 +1,7 @@
 // 合集（连载）管理页：创建/重命名/删除自己的合集，点击进入合集详情
 import { BackButton } from '../design/components/BackButton';
+import { EmptyState } from '../design/components/EmptyState';
+import { resolveActionIcon } from '../utils/actionIcons';
 import { listCollections, createCollection, updateCollection, deleteCollection, resolveDisplayImageUrl } from '../services/api';
 import { CollectionItem } from '../models/types';
 import { safeShowToast } from '../utils/toast';
@@ -175,13 +177,14 @@ export struct CollectionPage {
         }
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
       } else if (this.collections.length === 0) {
-        Column({ space: 12 }) {
-          Text(this.error !== '' ? ('加载失败：' + this.error) : '还没有合集\n把相关帖子编成连载，便于读者系统阅读')
-            .fontSize(14).fontFamily($r('app.string.font_family'))
-            .fontColor($r('app.color.text_secondary')).textAlign(TextAlign.Center);
-          if (this.error !== '') {
-            Button('重试').onClick(() => { this.load(); });
-          }
+        Column() {
+          EmptyState({
+            icon: this.error !== '' ? resolveActionIcon('warning') : $r('app.media.empty_inbox'),
+            title: this.error !== '' ? '加载失败' : '还没有合集',
+            message: this.error !== '' ? this.error : '把相关帖子编成连载，便于读者系统阅读',
+            actionLabel: this.error !== '' ? '重试' : '',
+            onAction: (): void => { this.load(); },
+          })
         }
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
       } else {

@@ -3,6 +3,8 @@ import { listFollowing, listFollowers, followUser, unfollowUser, resolveDisplayI
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { BackButton } from '../design/components/BackButton';
+import { EmptyState } from '../design/components/EmptyState';
+import { resolveActionIcon } from '../utils/actionIcons';
 import { ColorTokens } from '../design/tokens/color';
 import { TypeTokens } from '../design/tokens/type';
 import { openUserProfile, takeFollowListIntent } from '../utils/nav';
@@ -235,8 +237,13 @@ export struct MyFollowView {
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
       } else if (this.list.length === 0) {
         Column() {
-          Text(this.error ? ('加载失败：' + this.error) : '这里还什么都没有')
-            .fontSize(14).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary'));
+          EmptyState({
+            icon: this.error ? resolveActionIcon('warning') : $r('app.media.empty_inbox'),
+            title: this.error ? '加载失败' : '这里还什么都没有',
+            message: this.error ? this.error : '',
+            actionLabel: this.error ? '重试' : '',
+            onAction: (): void => { this.refresh(); },
+          })
         }
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
       } else {
