@@ -90,27 +90,13 @@ export struct CircleShowcaseCard {
         .justifyContent(FlexAlign.Center)
         .alignItems(HorizontalAlign.Center)
 
-        Column({ space: 2 }) {
-          Text(this.item.name)
-            .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamily)
-            .fontWeight(TypeTokens.headline.weight)
-            .fontColor(ColorTokens.primary)
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-          Text(this.metaText())
-            .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-            .fontColor(ColorTokens.quaternary)
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-        }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
-
-        // 没有脉搏数据时卡片走紧凑形态：加入动作直接放首行右侧，
-        // 不再单独占一行（否则卡里会空出一大片）。
-        if (!this.hasPulse()) {
-          this.actionPill()
-        }
+        Text(this.item.name)
+          .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.headline.weight)
+          .fontColor(ColorTokens.primary)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .layoutWeight(1)
       }
       .width('100%')
 
@@ -122,11 +108,11 @@ export struct CircleShowcaseCard {
           .fontColor(ColorTokens.secondary)
           .maxLines(2)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .margin({ top: SpaceTokens.sm })
+          .margin({ top: SpaceTokens.md })
       }
 
-      // 有近 7 天数据才出「构成条 + 脉搏行」；没有就只留一个干净的加入动作，
-      // 不在推荐卡上摆「近 7 天还没有新帖」这种劝退文案。
+      // 有近 7 天数据才出构成条；没有就跳过，但底部分隔线 + 状态行两种形态都保留，
+      // 让卡片骨架一致（名字 / 简介 / 状态 / 动作），不在推荐卡上摆「还没有新帖」这种劝退文案。
       if (this.hasPulse()) {
         CircleContentMixBar({
           mix: this.item.contentMix ?? { review: 0, pitfall: 0, tutorial: 0, debate: 0, share: 0 },
@@ -134,25 +120,30 @@ export struct CircleShowcaseCard {
           isDarkMode: this.isDarkMode,
         })
           .margin({ top: SpaceTokens.md })
-
-        Divider()
-          .color(ColorTokens.separator)
-          .strokeWidth(LayoutTokens.hairlineWidth)
-          .margin({ top: SpaceTokens.md, bottom: SpaceTokens.sm })
-
-        Row() {
-          Text('近 7 天 ' + String(this.item.postCount7d ?? 0) + ' 条')
-            .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-            .fontColor(ColorTokens.tertiary)
-          Blank()
-          this.actionPill()
-        }
-        .width('100%')
-        .alignItems(VerticalAlign.Center)
       }
+
+      Divider()
+        .color(ColorTokens.separator)
+        .strokeWidth(LayoutTokens.hairlineWidth)
+        .margin({ top: SpaceTokens.md, bottom: SpaceTokens.sm })
+
+      Row() {
+        Text(this.hasPulse()
+          ? '近 7 天 ' + String(this.item.postCount7d ?? 0) + ' 条'
+          : this.metaText())
+          .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
+          .fontColor(ColorTokens.tertiary)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .layoutWeight(1)
+        this.actionPill()
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
     }
     .width('100%')
-    .padding(SpaceTokens.base)
+    // 留白按渲染图放宽一档：卡片里要装下「名字/简介/构成/状态」四层，紧凑 padding 会显得憋
+    .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.base, bottom: SpaceTokens.base })
     .backgroundColor(ColorTokens.elevated)
     .border({ width: LayoutTokens.hairlineWidth, color: ColorTokens.separator, style: BorderStyle.Solid })
     .borderRadius(RadiusTokens.lg)
