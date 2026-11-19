@@ -375,7 +375,9 @@ export struct UserProfileView {
       Row() {
         BackButton({ action: (): void => { this.backAction(); } })
         Text(this.profile.deleted ? '已注销用户' : (this.profile.nickname !== '' ? this.profile.nickname : '用户主页'))
-          .fontSize(17).fontFamily($r('app.string.font_family')).fontWeight(600).layoutWeight(1).textAlign(TextAlign.Center);
+          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
+          .fontWeight(TypeTokens.title.weight).lineHeight(TypeTokens.title.lineHeight)
+          .fontColor(ColorTokens.primary).layoutWeight(1).textAlign(TextAlign.Center);
         if (!this.profile.deleted && !this.isSelf()) {
           Text('⋯')
             .width(44).height(44).textAlign(TextAlign.Center).fontSize(22)

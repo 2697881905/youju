@@ -1,5 +1,7 @@
 // 收藏夹内帖子列表页：分页展示夹内收藏的帖子（复用 PostCard 网格），支持取消收藏 / 移入其他收藏夹
 import { BackButton } from '../design/components/BackButton';
+import { ColorTokens } from '../design/tokens/color';
+import { TypeTokens } from '../design/tokens/type';
 import { listFolderPosts, cancelBookmarkPost, listBookmarkFolders, createBookmarkFolder, moveBookmarkFolder, resolveDisplayImageUrl } from '../services/api';
 import { Post, BookmarkFolderItem } from '../models/types';
 import { PostCard } from '../components/PostCard';
@@ -256,7 +258,10 @@ export struct BookmarkFolderDetailPage {
       Row() {
         BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
         Text(this.folderName)
-          .fontSize(17).fontFamily($r('app.string.font_family')).fontWeight(600).layoutWeight(1).textAlign(TextAlign.Center).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis });
+          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
+          .fontWeight(TypeTokens.title.weight).lineHeight(TypeTokens.title.lineHeight)
+          .fontColor(ColorTokens.primary).layoutWeight(1).textAlign(TextAlign.Center)
+          .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis });
         Text('').width(44);
       }
       .width('100%')

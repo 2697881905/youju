@@ -190,7 +190,9 @@ export struct BookmarkFolderPage {
       Row() {
         BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
         Text('收藏夹')
-          .fontSize(17).fontFamily($r('app.string.font_family')).fontWeight(600).layoutWeight(1).textAlign(TextAlign.Center);
+          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
+          .fontWeight(TypeTokens.title.weight).lineHeight(TypeTokens.title.lineHeight)
+          .fontColor(ColorTokens.primary).layoutWeight(1).textAlign(TextAlign.Center);
         Text('').width(44);
       }
       .width('100%').padding({ top: this.statusBarHeight + 12, bottom: 8 });

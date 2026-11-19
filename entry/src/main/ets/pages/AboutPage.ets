@@ -5,6 +5,8 @@ import { buildPageTransition } from '../utils/styles';
 import { APP_VERSION_NAME } from '../utils/buildMode';
 import { RadiusTokens } from '../design/tokens/radius';
 import { BackButton } from '../design/components/BackButton';
+import { ColorTokens } from '../design/tokens/color';
+import { TypeTokens } from '../design/tokens/type';
 
 @Entry
 @Component
@@ -22,9 +24,10 @@ export struct AboutPage {
       Row() {
         BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
         Text('关于')
-          .fontSize(17).fontFamily($r('app.string.font_family'))
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.text_primary'))
+          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
+          .fontWeight(TypeTokens.title.weight)
+          .lineHeight(TypeTokens.title.lineHeight)
+          .fontColor(ColorTokens.primary)
           .layoutWeight(1)
           .textAlign(TextAlign.Center);
         Text('')

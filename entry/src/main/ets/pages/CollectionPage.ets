@@ -159,7 +159,9 @@ export struct CollectionPage {
       Row() {
         BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
         Text('我的合集')
-          .fontSize(17).fontFamily($r('app.string.font_family')).fontWeight(600)
+          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
+          .fontWeight(TypeTokens.title.weight).lineHeight(TypeTokens.title.lineHeight)
+          .fontColor(ColorTokens.primary)
           .layoutWeight(1).textAlign(TextAlign.Center);
         Text('').width(44);
       }

@@ -13,6 +13,8 @@ import { buildPageTransition } from '../utils/styles';
 import { CARD_RADIUS, CARD_SHADOW } from '../utils/cardTokens';
 import { brandIconRes, brandTileTint } from '../utils/brandIcons';
 import { BackButton } from '../design/components/BackButton';
+import { ColorTokens } from '../design/tokens/color';
+import { TypeTokens } from '../design/tokens/type';
 
 @Entry
 @Component
@@ -183,9 +185,10 @@ struct AccountBindingPage {
       Row() {
         BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
         Text('账号绑定')
-          .fontSize(17).fontFamily($r('app.string.font_family'))
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.text_primary'))
+          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
+          .fontWeight(TypeTokens.title.weight)
+          .lineHeight(TypeTokens.title.lineHeight)
+          .fontColor(ColorTokens.primary)
           .layoutWeight(1)
           .textAlign(TextAlign.Center)
         Text('')

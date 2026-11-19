@@ -6,6 +6,9 @@ import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { CARD_RADIUS, CARD_SHADOW } from '../utils/cardTokens';
 import { BackButton } from '../design/components/BackButton';
+import { EmptyState } from '../design/components/EmptyState';
+import { ColorTokens } from '../design/tokens/color';
+import { TypeTokens } from '../design/tokens/type';
 import { getUserId } from '../utils/auth';
 
 @Entry
@@ -78,9 +81,10 @@ export struct PrivacySettingsPage {
       Row() {
         BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
         Text('隐私设置')
-          .fontSize(17).fontFamily($r('app.string.font_family'))
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.text_primary'))
+          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
+          .fontWeight(TypeTokens.title.weight)
+          .lineHeight(TypeTokens.title.lineHeight)
+          .fontColor(ColorTokens.primary)
           .layoutWeight(1)
           .textAlign(TextAlign.Center);
         // 保存按钮放在右侧
@@ -101,8 +105,12 @@ export struct PrivacySettingsPage {
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
       } else if (this.loadError) {
         Column() {
-          Text('加载失败').fontSize(15).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary'));
-          Button('重试').margin({ top: 12 }).onClick(() => { this.loadSettings(); });
+          EmptyState({
+            title: '加载失败',
+            message: this.loadError,
+            actionLabel: '重试',
+            onAction: (): void => { this.loadSettings(); },
+          })
         }
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
       } else {

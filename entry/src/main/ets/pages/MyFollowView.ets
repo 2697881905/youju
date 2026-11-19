@@ -3,6 +3,8 @@ import { listFollowing, listFollowers, followUser, unfollowUser, resolveDisplayI
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { BackButton } from '../design/components/BackButton';
+import { ColorTokens } from '../design/tokens/color';
+import { TypeTokens } from '../design/tokens/type';
 import { openUserProfile, takeFollowListIntent } from '../utils/nav';
 import { getMainNavStack, UserProfileNavParams } from '../utils/navigationTransition';
 import { getUserId } from '../utils/auth';
@@ -218,7 +220,9 @@ export struct MyFollowView {
       Row() {
         BackButton({ action: (): void => { this.backAction(); } })
         Text(this.mode === 'following' ? '我的关注' : '我的粉丝')
-          .fontSize(17).fontFamily($r('app.string.font_family')).fontWeight(600).layoutWeight(1).textAlign(TextAlign.Center);
+          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
+          .fontWeight(TypeTokens.title.weight).lineHeight(TypeTokens.title.lineHeight)
+          .fontColor(ColorTokens.primary).layoutWeight(1).textAlign(TextAlign.Center);
         Text('').width(44);
       }
       .width('100%').padding({ top: 12, bottom: 8 });

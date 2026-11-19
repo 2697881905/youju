@@ -2,6 +2,7 @@ import { ColorTokens } from '../tokens/color';
 import { MotionCurves, MotionTokens } from '../tokens/motion';
 import { SpaceTokens } from '../tokens/space';
 import { TypeTokens } from '../tokens/type';
+import { formatCount } from '../../utils/format';
 
 @Component
 export struct CountRoll {
@@ -45,7 +46,9 @@ export struct CountRoll {
   }
 
   build() {
-    Text(this.prefix + String(this.displayValue))
+    // 计数口径与全 App 统一（formatCount：≥1w 缩写）。滚动动效仍作用于 displayValue，
+    // 小于 1w 时逐值滚动，跨过 1w 后显示缩写——不破坏数字变化的反馈，只统一显示格式。
+    Text(this.prefix + formatCount(this.displayValue))
       .fontSize(this.textSize).fontFamily(TypeTokens.fontFamily)
       .fontWeight(TypeTokens.caption.weight)
       .lineHeight(TypeTokens.caption.lineHeight)

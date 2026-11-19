@@ -10,6 +10,8 @@ import { buildPageTransition } from '../utils/styles';
 import { CARD_RADIUS } from '../utils/cardTokens';
 import { APP_VERSION_NAME } from '../utils/buildMode';
 import { resolveSettingsIcon } from '../utils/settingsIcons';
+import { ColorTokens } from '../design/tokens/color';
+import { TypeTokens } from '../design/tokens/type';
 import { window } from '@kit.ArkUI';
 import { BackButton } from '../design/components/BackButton';
 import { shareUserDataExport } from '../utils/dataExport';
@@ -195,9 +197,10 @@ export struct SettingsPage {
       Row() {
         BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
         Text('设置')
-          .fontSize(17).fontFamily($r('app.string.font_family'))
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.text_primary'))
+          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
+          .fontWeight(TypeTokens.title.weight)
+          .lineHeight(TypeTokens.title.lineHeight)
+          .fontColor(ColorTokens.primary)
           .layoutWeight(1)
           .textAlign(TextAlign.Center);
         Text('').width(44);
