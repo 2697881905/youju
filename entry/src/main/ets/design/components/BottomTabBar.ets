@@ -262,14 +262,10 @@ export struct BottomTabBar {
     .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.barBorder, style: BorderStyle.Solid })
     .shadow({ radius: 18, color: ColorTokens.barShadow, offsetY: 8 })
     .clip(true)
-    .scale({
-      x: this.barPressed ? 0.994 : 1,
-      y: this.barPressed ? 0.98 : 1,
-    })
-    .animation({
-      duration: MotionTokens.fast,
-      curve: MotionCurves.standard,
-    })
+    // ⚠️ 这里不能再给整条底栏加 scale：长按拖动切换 tab 的整个过程中 barPressed 为 true，
+    // 底栏缩到 98% 后，图标与文字被非整数比例缩放重采样 → 文字发虚，松手回 1 才清晰
+    // （用户反馈的「滑动时底部图标文字模糊、停下瞬间闪一下变清晰」）。
+    // 按压缩放若要保留，只能作用在纯背景层或 SharedSlide 自己身上，不能包住文字。
     .onAreaChange((_old: Area, area: Area) => {
       this.barWidth = area.width as number;
     })

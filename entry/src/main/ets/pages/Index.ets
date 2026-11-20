@@ -1439,11 +1439,14 @@ struct Index {
           x: this.dockPillX - this.dockPillW / 2 - DOCK_PILL_MINI_PAD,
           y: this.dockPillY - this.dockPillH / 2 - DOCK_PILL_MINI_PAD,
         })
-        // 按压反馈（pressSlideScale=0.94）× 拖拽形变（deformScale）合成缩放；
+        // 只保留拖拽形变，不再叠加按压的 pressSlideScale(0.94)：
+        // 胶囊里装着图标与文字（tabItemContent 与官方页签共用同一 builder），
+        // 按住期间整块缩到 94% = 文字被非整数比例重采样 → 发虚，松手回 1 才清晰
+        // （用户反馈的「滑动时底部图标文字模糊、停下瞬间闪清晰」）。
         // 材质自带落影，自绘 shadow 不再叠加。
         .scale({
-          x: (this.dockPillPressed ? MotionTokens.pressSlideScale : 1) * this.dockPillDeformScaleX,
-          y: (this.dockPillPressed ? MotionTokens.pressSlideScale : 1) * this.dockPillDeformScaleY,
+          x: this.dockPillDeformScaleX,
+          y: this.dockPillDeformScaleY,
         })
         // ⚠️ 不挂 .animation：deformScale 拖拽中逐帧直写必须即时生效（挂了会被属性动画
         // 平滑、形变滞后于手势）；按压反馈的平滑由命中层 onTouch 里显式 animateTo 承担。
