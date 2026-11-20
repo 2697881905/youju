@@ -1435,6 +1435,17 @@ struct Index {
           }) {
             Column()
           }
+          // 按压反馈：按下时叠一层淡高光（不缩放）。
+          // 不能再用 scale —— 珠体是整体缩放的，图标文字会跟着做非整数重采样 → 发虚；
+          // 而没有任何反馈时，长按珠子看起来「完全没反应」。
+          Column()
+            .width(this.dockPillW)
+            .height(this.dockPillH)
+            .borderRadius(RadiusTokens.pill)
+            .backgroundColor('#1FFFFFFF')
+            .opacity(this.dockPillPressed ? 1 : 0)
+            .hitTestBehavior(HitTestMode.None)
+            .animation({ duration: MotionTokens.instant, curve: MotionCurves.standard })
           // 清晰副本层：真玻璃会把压在下面的官方图标糊掉（磨砂对内容不可逆），落定接管
           // 时由这一层把清晰副本顶到玻璃表面。与玻璃条中心对齐（Stack 居中 + 同尺寸）。
           // ⚠️ 不能直接 this.tabItemContent(this.dockPillCovered)：@Builder 的参数是**值快照**，
