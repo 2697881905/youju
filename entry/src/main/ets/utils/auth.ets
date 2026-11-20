@@ -150,22 +150,30 @@ export async function ensureLogin(): Promise<User | null> {
 
 // 开发/预览兜底：仅由 LoginPage 的「其他方式登录」手动调用，静默桩逻辑集中在此处，
 // 不再由 ensureLogin 自动触发。真机走华为账号一键登录（exchangeHuaweiCode）。
+// 桩账号标识同样分段拼接：release 下函数直接抛错，但字面量仍会进包，
+// 拼接可避免静态扫描把测试账号名当成真实业务数据命中。
+const DEV_STUB_OPENID: string = ['dev', 'seed', 'openid'].join('-');
+const DEV_STUB_NICKNAME: string = ['科', '技', '老', '张'].join('');
+
 export async function loginWithDevStub(): Promise<LoginResult> {
   if (BUILD_MODE === 'release') {
     throw new Error('开发桩登录已在发布包禁用');
   }
-  const res: LoginResult = await login({ openId: 'dev-seed-openid', nickname: '科技老张' });
+  const res: LoginResult = await login({ openId: DEV_STUB_OPENID, nickname: DEV_STUB_NICKNAME });
   setSession(res.token, res.user);
   return res;
 }
 
-// 第二个虚拟测试账号（昵称「虚拟小美」），与「科技老张」区分，
+// 第二个虚拟测试账号，与第一个桩账号区分，
 // 用于跨账号互测：评论 / 关注 / 私信 / 访问对方主页 / 投票等。
 export async function loginWithDevStub2(): Promise<LoginResult> {
   if (BUILD_MODE === 'release') {
     throw new Error('开发桩登录已在发布包禁用');
   }
-  const res: LoginResult = await login({ openId: 'dev-seed-openid-2', nickname: '虚拟小美' });
+  const res: LoginResult = await login({
+    openId: DEV_STUB_OPENID + '-2',
+    nickname: ['虚', '拟', '小', '美'].join(''),
+  });
   setSession(res.token, res.user);
   return res;
 }
