@@ -114,6 +114,9 @@ export struct MessagePage {
   @State unreadByType: UnreadByType = { comment: 0, up: 0, bookmark: 0, follow: 0, mention: 0, system: 0 };
   // 监听登录态：LoginPage 自动登录后 authToken 就绪，此页才加载（aboutToAppear 可能在登录前已跑过）
   @StorageLink('authToken') @Watch('onTokenReady') token: string = '';
+  // 隐私同意闸门：未同意前不拉会话（已登录用户冷启动时 token 已存在，
+  // 原先 aboutToAppear 会直接 loadFirst → 属于「未同意先联网」）。
+  @StorageLink('privacyAgreed') @Watch('onPrivacyAgreedChanged') privacyAgreed: string = '0';
   // 三类快捷筛选选中项（内容区顶部，无「全部」视图，默认赞和收藏）
   // 列表已由服务端按类型分页，切换筛选 = 换请求口径，必须重拉第一页
   @State @Watch('onFilterChanged') activeFilter: string = 'up_bookmark';
@@ -236,8 +239,16 @@ export struct MessagePage {
   }
 
   aboutToAppear(): void {
-    // 已有登录态则直接加载；否则等 onTokenReady 在 token 就绪后补加载
-    if (getToken() !== '') {
+    // 已有登录态则直接加载；否则等 onTokenReady 在 token 就绪后补加载。
+    // 两种情况都要过隐私闸门（本页是 TabContent 子页，未同意时同样会被挂载）。
+    if (getToken() !== '' && this.privacyAgreed === '1') {
+      this.loadFirst();
+    }
+  }
+
+  // 用户点「同意」后补拉一次（已加载过则跳过）
+  onPrivacyAgreedChanged(): void {
+    if (this.privacyAgreed === '1' && getToken() !== '' && this.conversations.length === 0) {
       this.loadFirst();
     }
   }

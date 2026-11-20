@@ -85,3 +85,9 @@ Thumbs.db
 
 # 冷启动造数的素材产物（300+ 张海报，约 30MB，可随时用 tools/seed-media 重渲染）
 /seed-assets/
+
+# 本地工具缓存与运行记录（IDE / agent 产生，不入库）
+.agent_history/
+.cache/
+.codex/
+.office-claw/

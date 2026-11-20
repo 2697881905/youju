@@ -222,15 +222,31 @@ export struct HomeTab {
     // 之后的登录/登出变化仍由 @StorageProp 驱动。
     this.authToken = getToken();
     this.guestBarReady = true;
-    this.loadTags();
-    // 默认加载推荐公开流（无需登录）；若已登录也保持推荐流默认
-    this.refresh();
+    // 默认加载推荐公开流（无需登录）；若已登录也保持推荐流默认。
+    // 注意：必须过隐私闸门——本组件是 TabContent 的子页，未同意时也会被挂载。
+    this.bootstrapContentIfAllowed();
     // 订阅帖子删除事件：删除后即时从 feed 移除，避免已删帖子残留在内存列表
     this.unsubDeletion = postDeletionStore.subscribe((deletedId: number): void => {
       this.setPagePosts(this.feedIndex, this.pagePostsOf(this.feedIndex).filter((p: DailyPost) => p.id !== deletedId));
     });
     // 展开态列数：按当前全局断点换算（断点中心异步就绪后经 @Watch 修正）
     this.feedColumns = gridColumnsForBreakpoint(this.currentBreakpoint);
+  }
+
+  // 隐私闸门：未同意不联网；同意后（@Watch）补一次，且只补一次。
+  private bootstrapContentIfAllowed(): void {
+    if (this.privacyAgreed !== '1' || this.contentBootstrapped) {
+      return;
+    }
+    this.contentBootstrapped = true;
+    this.loadTags();
+    this.refresh();
+  }
+
+  onPrivacyAgreedChanged(): void {
+    if (this.privacyAgreed === '1') {
+      this.bootstrapContentIfAllowed();
+    }
   }
 
   aboutToDisappear(): void {
@@ -413,6 +429,10 @@ export struct HomeTab {
 
   // 重置并加载第一页
   async refresh(): Promise<void> {
+    // 未同意隐私政策前不发起内容请求（与 bootstrapContentIfAllowed 同一判据）
+    if (this.privacyAgreed !== '1') {
+      return;
+    }
     this.page = 1;
     this.finished = false;
     // 这里刻意**不**重置 followingCount：它是空态 A/B 的判别依据，置成 0 就等于断言
@@ -938,6 +958,11 @@ export struct HomeTab {
   // seg 参数：Swiper 每页只读属于自己的 postsCache[seg]，拖动时相邻页显示各自内容。
   // 游客转化引导：登录态走 @StorageProp（登录后自动消失），首帧由 aboutToAppear 直读兜底
   @StorageProp('authToken') authToken: string = '';
+  // 隐私同意闸门：未同意前不发起任何内容请求（审核红线「告知—同意后再处理」）。
+  // 用 @StorageLink 而非直读函数，是为了在用户点「同意」后能收到变更、补拉首屏。
+  @StorageLink('privacyAgreed') @Watch('onPrivacyAgreedChanged') privacyAgreed: string = '0';
+  // 首屏内容是否已拉起（普通属性，不驱动 UI）
+  private contentBootstrapped: boolean = false;
   @State guestBarDismissed: boolean = false;
   @State guestBarReady: boolean = false;
 
