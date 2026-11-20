@@ -315,6 +315,10 @@
     {
       "name": "ds_gender_female_text",
       "value": "#FFD94F87"
+    },
+    {
+      "name": "dock_pill_fill",
+      "value": "#1F000000"
     }
   ]
 }
