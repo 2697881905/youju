@@ -1,7 +1,7 @@
 // 圈子「内容构成条」：近 7 天五种体裁的占比条 + 图例。
 //
 // 设计约束：
-// - 五段宽度按 count/total 分配，段之和恒等于 total（后端保证 contentMix 五键之和 == postCount7d）
+// - 五段宽度按 count/total 分配，段之和恒等于 total（后端保证 contentMix 五键之和 == recentPostCount）
 // - count 为 0 的段不渲染，段间 gap 从 2 收到 1（否则会出现 0 宽的空隙）
 // - 颜色是「体裁语义色」，不进 ColorTokens（与圈子分类色同性质：一次性映射，不是主题色）
 // - 深色下 教程绿 会偏暗，单独提亮一档
@@ -86,7 +86,7 @@ export struct CircleContentMixBar {
         this.bar()
         this.legend()
       } else {
-        // 与「近 7 天 N 条」同一段窗口：没帖时两边同时归零，不会一边说没有、一边说有
+        // 与「近期 N 篇」同一份样本：没帖时两边同时归零，不会一边说没有、一边说有
         Text('近 7 天还没有新帖')
           .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
           .fontColor(ColorTokens.tertiary)

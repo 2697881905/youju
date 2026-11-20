@@ -331,7 +331,7 @@ export interface CircleOverviewPost {
   upCount: number;
 }
 
-// 圈子近 7 天的体裁构成。五键之和恒等于 postCount7d（见 listCircleOverview 的未知体裁兜底）。
+// 圈子「最近若干篇」的体裁构成。五键之和恒等于 recentPostCount（见 listCircleOverview 的未知体裁兜底）。
 export interface CircleContentMix {
   review: number;
   pitfall: number;
@@ -355,10 +355,12 @@ export interface CircleOverviewItem {
   active7d: boolean;
   lastPostAt: string | null;
   latestPosts: CircleOverviewPost[];
-  // 近 7 天体裁构成（不含更早的帖子）；发现页「内容橱窗卡」用。
+  // 该圈最近 OVERVIEW_CONTENT_SAMPLE 篇的体裁构成；发现页「内容橱窗卡」用。
+  // 口径是「最近若干篇」而不是「最近若干天」：线上内容集中成批导入、之后长期停产，
+  // 固定时间窗口会让构成条长期归零（7 天、30 天实测都抓不到）。
   contentMix: CircleContentMix;
-  // 近 7 天该圈帖子总数，与 contentMix 同源同窗口。
-  postCount7d: number;
+  // 参与统计的帖子数（≤ OVERVIEW_CONTENT_SAMPLE），与 contentMix 同源同样本。
+  recentPostCount: number;
 }
 
 export interface CircleDigestItem {
@@ -377,6 +379,11 @@ export interface CircleOverview {
 
 const OVERVIEW_POST_WINDOW: number = 120;
 const OVERVIEW_ACTIVE_WINDOW_MS: number = 7 * 86400000;
+// 内容构成的样本量：每个圈子取最近这么多篇来算体裁分布。
+// 不用时间窗口（7 天 / 30 天实测都抓不到线上数据），改为按篇数取，停产期也能反映内容结构。
+const OVERVIEW_CONTENT_SAMPLE: number = 50;
+// 全站候选池：要覆盖所有圈子各取 50 篇，按当前圈子数量留足余量。
+const OVERVIEW_CONTENT_POOL: number = 600;
 const DIGEST_LIMIT: number = 3;
 
 // Json 列里的标签列表：只接受字符串项，脏数据直接丢弃。
@@ -439,17 +446,18 @@ export async function listCircleOverview(
   const now = Date.now();
   const activeEdge = now - OVERVIEW_ACTIVE_WINDOW_MS;
 
-  // 近 7 天全站帖子：contentMix / postCount7d / active7d 的统一来源。
-  // 不能复用下面那个 120 条窗口——它是「全站按时间截断」，既非按圈、也没有时间下界：
-  // 站内一周超过 120 帖时单圈的 7 天帖会被截掉（数字系统性偏低），不足 120 时又混进更早的帖。
-  const recent7d = await prisma.post.findMany({
+  // 近 30 天全站帖子：contentMix / postCount30d 的统一来源（active7d 仍走 7 天窗口）。
+  // 也不能复用下面那个 120 条窗口：它服务于 latestPosts/unread，按全站截断，
+  // 圈子一多就会把长尾圈子的帖子全挤掉。内容构成这里单独取更大的池子按篇数分配。
+  const recentForMix = await prisma.post.findMany({
     where: {
       status: 1,
       deletedAt: null,
       user: { status: 1, deletedAt: null },
-      createdAt: { gte: new Date(activeEdge) },
       ...(excluded.length > 0 ? { userId: { notIn: excluded } } : {}),
     },
+    orderBy: { createdAt: 'desc' },
+    take: OVERVIEW_CONTENT_POOL,
     select: { tags: true, genre: true },
   });
 
@@ -488,16 +496,20 @@ export async function listCircleOverview(
     }
   }
 
-  // 近 7 天体裁定：按圈分桶。未知/空 genre 归入 review 兜底，
-  // 保证「五键之和 == postCount7d」这个对客户端可见的恒等式在任何脏数据下都成立。
+  // 体裁定：按圈分桶，每圈最多取 OVERVIEW_CONTENT_SAMPLE 篇。未知/空 genre 归入 review 兜底，
+  // 保证「五键之和 == recentPostCount」这个对客户端可见的恒等式在任何脏数据下都成立。
   const mixByTag = new Map<string, CircleContentMix>();
-  const count7dByTag = new Map<string, number>();
-  for (const post of recent7d) {
+  const recentCountByTag = new Map<string, number>();
+  for (const post of recentForMix) {
     for (const name of postTagNames(post.tags)) {
       if (!scopeNames.has(name)) {
         continue;
       }
-      count7dByTag.set(name, (count7dByTag.get(name) ?? 0) + 1);
+      const taken: number = recentCountByTag.get(name) ?? 0;
+      if (taken >= OVERVIEW_CONTENT_SAMPLE) {
+        continue;
+      }
+      recentCountByTag.set(name, taken + 1);
       const mix: CircleContentMix = mixByTag.get(name)
         ?? { review: 0, pitfall: 0, tutorial: 0, debate: 0, share: 0 };
       if (post.genre === 'pitfall') {
@@ -539,7 +551,8 @@ export async function listCircleOverview(
       creatorId: tag.creatorId,
       weight: weightByName.get(tag.name) ?? 2,
       unread,
-      active7d: (count7dByTag.get(tag.name) ?? 0) > 0,
+      // 活跃仍按 7 天：用最新一条的 createdAt 比 activeEdge，与内容窗口解耦
+      active7d: bucket.length > 0 && bucket[0].createdAt.getTime() >= activeEdge,
       lastPostAt: bucket.length > 0 ? bucket[0].createdAt.toISOString() : null,
       latestPosts: bucket.slice(0, 2).map((post) => ({
         id: post.id,
@@ -547,7 +560,7 @@ export async function listCircleOverview(
         upCount: post.upCount,
       })),
       contentMix: mixByTag.get(tag.name) ?? { review: 0, pitfall: 0, tutorial: 0, debate: 0, share: 0 },
-      postCount7d: count7dByTag.get(tag.name) ?? 0,
+      recentPostCount: recentCountByTag.get(tag.name) ?? 0,
     };
   });
 

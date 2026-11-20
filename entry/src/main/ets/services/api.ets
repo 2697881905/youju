@@ -676,7 +676,8 @@ export interface CircleOverviewPost {
   upCount: number;
 }
 
-// 圈子近 7 天的体裁构成（发现页「内容橱窗卡」用）。五值之和恒等于 postCount7d。
+// 圈子「最近若干篇」的体裁构成（发现页「内容橱窗卡」用）。五值之和恒等于 recentPostCount。
+// 口径按篇数而非天数：线上内容成批导入后长期停产，时间窗口会让构成条长期归零。
 export interface CircleContentMix {
   review: number;
   pitfall: number;
@@ -702,7 +703,7 @@ export interface CircleOverviewItem {
   latestPosts: CircleOverviewPost[];
   // 近 7 天体裁定与总数（老接口可能缺省，客户端按全 0 兜底）
   contentMix?: CircleContentMix;
-  postCount7d?: number;
+  recentPostCount?: number;
 }
 
 export interface CircleDigestItem {

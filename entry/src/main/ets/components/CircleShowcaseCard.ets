@@ -50,7 +50,7 @@ export struct CircleShowcaseCard {
   }
 
   private hasPulse(): boolean {
-    return (this.item.postCount7d ?? 0) > 0;
+    return (this.item.recentPostCount ?? 0) > 0;
   }
 
   private actionLabel(): string {
@@ -111,12 +111,12 @@ export struct CircleShowcaseCard {
           .margin({ top: SpaceTokens.md })
       }
 
-      // 有近 7 天数据才出构成条；没有就跳过，但底部分隔线 + 状态行两种形态都保留，
+      // 有样本才出构成条；没有就跳过，但底部分隔线 + 状态行两种形态都保留，
       // 让卡片骨架一致（名字 / 简介 / 状态 / 动作），不在推荐卡上摆「还没有新帖」这种劝退文案。
       if (this.hasPulse()) {
         CircleContentMixBar({
           mix: this.item.contentMix ?? { review: 0, pitfall: 0, tutorial: 0, debate: 0, share: 0 },
-          total: this.item.postCount7d ?? 0,
+          total: this.item.recentPostCount ?? 0,
           isDarkMode: this.isDarkMode,
         })
           .margin({ top: SpaceTokens.md })
@@ -129,7 +129,7 @@ export struct CircleShowcaseCard {
 
       Row() {
         Text(this.hasPulse()
-          ? '近 7 天 ' + String(this.item.postCount7d ?? 0) + ' 条'
+          ? '近期 ' + String(this.item.recentPostCount ?? 0) + ' 篇'
           : this.metaText())
           .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
           .fontColor(ColorTokens.tertiary)
