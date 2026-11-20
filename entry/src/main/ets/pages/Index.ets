@@ -420,9 +420,6 @@ struct Index {
   // 槽位数据版本：dockSlotAreas 是普通成员（写入不触发重建），覆盖层图标需要在
   // 「某格首次量到」时重排一次，否则首帧全空 → 图标被推到屏幕外且永不回来。
   @State private dockSlotSignal: number = 0;
-  // 珠体拖拽锁：拖动期间关掉整页左右滑动，避免 Swiper 与珠子的横向手势竞争
-  //（实测症状：长按珠子拖，有时整页横滑走、珠子不动）。
-  @State private dockDragging: boolean = false;
   private dockLayerArea: DockArea | null = null;
   // 复位测量去重 + 有限重试：覆盖层与 TabBar 槽位谁先布局不固定。
   private dockPillMeasurePending: boolean = false;
@@ -1478,7 +1475,6 @@ struct Index {
             .gesture(
               PanGesture({ direction: PanDirection.Horizontal, fingers: 1, distance: 5 })
                 .onActionStart((): void => {
-                  this.dockDragging = true;
                   this.handleDockPillDragStart();
                 })
                 .onActionUpdate((event: GestureEvent): void => {
@@ -1486,11 +1482,6 @@ struct Index {
                 })
                 .onActionEnd((): void => {
                   this.handleDockPillDragEnd();
-                  this.dockDragging = false;
-                })
-                .onActionCancel((): void => {
-                  this.handleDockPillDragEnd();
-                  this.dockDragging = false;
                 })
             )
         }
@@ -2146,8 +2137,7 @@ struct Index {
         materialLevel: DOCK_MATERIAL_LEVEL,
       },
     })
-    // 整页左右滑动：常态开放；珠体拖拽期间临时关闭，否则 Swiper 会抢走横向手势
-    .scrollable(!this.dockDragging)
+    .scrollable(true)                        // 整页左右滑动切页已开放（发布是实体页，滑动链无断点）
     // 胶囊起飞点：挂在 onAnimationStart 而不是 onChange —— onChange 是**落定之后**才发，
     // 挂那里的话页面已经滑完了玻璃才飞过去，看着像两件事。动画起点触发才与翻页同批。
     // ⚠️ 做不到"贴着手指走"：HdsTabsAttribute 把 Tabs 的 onGestureSwipe / onContentDidScroll
