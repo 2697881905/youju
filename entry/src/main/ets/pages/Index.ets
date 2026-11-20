@@ -1138,6 +1138,28 @@ struct Index {
 
   // 切页：先鼓包 + 位移（行进），到点再 spring 收回静止尺寸 —— 原文那套「液态」观感的
   // tap 分支。（原文的速度形变只服务于它的拖拽手势，本应用不接拖拽，故不搬。）
+  // 按几何就近取槽：玻璃扫到哪一格，就把哪一格的官方份让位、由清晰副本顶上。
+  // 为什么要这么改：玻璃是覆盖层，官方图标压在上面时会被材质折射重采样 → 糊
+  // （用户反馈「滑动中图标文字模糊、停下才清晰」）。副本层只显示 dockPillCovered
+  // 那一项，所以必须让 covered 跟着玻璃走，而不是等落定才接管。
+  private dockIndexNear(centerX: number): number {
+    const count: number = this.bottomTabItems().length;
+    let best: number = this.dockPillCovered >= 0 ? this.dockPillCovered : this.currentIndex;
+    let bestDist: number = Number.MAX_VALUE;
+    for (let i = 0; i < count; i++) {
+      const frame: DockPillFrame | null = this.dockPillFrameOf(i);
+      if (frame === null) {
+        continue;
+      }
+      const dist: number = Math.abs(frame.cx - centerX);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = i;
+      }
+    }
+    return best;
+  }
+
   private dockPillTravel(index: number): void {
     if (!this.hdsFloatingBar) {
       return;
@@ -1159,7 +1181,9 @@ struct Index {
     // 「落定才接管」（用户拍板 2026-10-26：图标不跟玻璃跑）：行进期间玻璃珠是纯光标，
     // 官方份全部显示、图标留在槽位里（玻璃扫过谁、谁的图标在磨砂下短暂糊化）；settle
     // 到点才由玻璃接管目标槽——真磨砂下选中槽不接管则图标不可读，落定接管是唯一兼顾。
-    this.dockPillCovered = -1;
+    // 行进期间也直接交给清晰副本：原来置 -1 时玻璃底下露的是官方图标，
+    // 隔着磨砂会被折射糊掉，直到 settle 才清晰 —— 就是「滑的时候糊、停下闪清晰」。
+    this.dockPillCovered = index;
     // 行进曲线用 emphasized（无过冲）：springSoft 带 ~10% 位置过冲，拖拽松手时玻璃珠
     // 会冲过目标槽再弹回，读作「弹一下」（真机反馈 2026-10-26）；吸附要的是"利落到位"，
     // 弹动感由落定的 springBounce 尺寸果冻承担。
@@ -1286,6 +1310,11 @@ struct Index {
       this.dockPillDragOffsetX = x * DOCK_PILL_EDGE_DAMPING;
     } else {
       this.dockPillDragOffsetX = x;
+    }
+    // 扫到哪一格就把那一格换成清晰副本（只在跨格时写状态，避免逐帧重渲染）
+    const near: number = this.dockIndexNear(this.dockPillX + this.dockPillDragOffsetX);
+    if (near !== this.dockPillCovered) {
+      this.dockPillCovered = near;
     }
   }
 
