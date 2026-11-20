@@ -1141,7 +1141,6 @@ struct Index {
     this.dockPillY = frame.cy;
     this.dockPillW = frame.w;
     this.dockPillH = frame.h;
-    this.dockPillCovered = index;
     this.dockPillReady = true;
     return true;
   }
@@ -1200,17 +1199,14 @@ struct Index {
       return;
     }
     // 同一次切换会被 onTabBarClick 与 onAnimationStart 各触发一次；已经到位且无拖拽
-    // 残留就不要再发一遍动画（否则胶囊会在终点上重新鼓一次包）。
-    if (this.dockPillCovered === index && Math.abs(this.dockPillDragOffsetX) < 0.5
-      && Math.abs(this.dockPillX - frame.cx) < 0.5) {
+    // 残留就不要再发一遍动画（否则胶囊会在终点上重新鼓包一次，读作「闪一下」）。
+    // ⚠️ 判据只看几何，不能带 dockPillCovered：该状态已恒为 -1（副本层删除后不再接管），
+    // 一旦拿它参与判断，去重永远不成立，同一次切换跑两遍动画。
+    if (Math.abs(this.dockPillDragOffsetX) < 0.5
+      && Math.abs(this.dockPillX - frame.cx) < 0.5
+      && Math.abs(this.dockPillY - frame.cy) < 0.5) {
       return;
     }
-    // 「落定才接管」（用户拍板 2026-10-26：图标不跟玻璃跑）：行进期间玻璃珠是纯光标，
-    // 官方份全部显示、图标留在槽位里（玻璃扫过谁、谁的图标在磨砂下短暂糊化）；settle
-    // 到点才由玻璃接管目标槽——真磨砂下选中槽不接管则图标不可读，落定接管是唯一兼顾。
-    // 行进期间不接管：官方图标留在槽位、玻璃从上面滑过（副本只在落定后顶上）。
-    // 之前试过让副本跟随扫过的槽位，结果是「图标被玻璃带着走」——用户明确否掉。
-    this.dockPillCovered = -1;
     // 行进曲线用 emphasized（无过冲）：springSoft 带 ~10% 位置过冲，拖拽松手时玻璃珠
     // 会冲过目标槽再弹回，读作「弹一下」（真机反馈 2026-10-26）；吸附要的是"利落到位"，
     // 弹动感由落定的 springBounce 尺寸果冻承担。
@@ -1234,8 +1230,8 @@ struct Index {
         this.dockPillW = restW;
         this.dockPillH = restH;
       });
-      // 落定即接管：目标槽官方份隐掉、玻璃内清晰副本顶上（与官方份逐像素重合，无跳变）。
-      this.dockPillCovered = index;
+      // 落定不再接管：图标已由上层图标层统一绘制，珠体内再画一份会与它重叠 → 落定瞬间
+      // 两个图标叠在一起，读作「图标闪一下」（用户反馈）。副本层已整段删除。
     }, DOCK_PILL_TRAVEL_MS);
   }
 
@@ -1415,7 +1411,7 @@ struct Index {
         //   降到 ADAPTIVE 不糊了，但整块灰膜把图标压暗；
         //   而「清晰副本」只能补一个槽位，补到哪图标就跟到哪 —— 用户明确否掉「图标被玻璃带着走」。
         // 色块方案：12%(浅)/22%(深) 不透明度，图标原样透出、位置不动；代价是没有磨砂折射。
-        // 三层结构（全部居中叠放）：珠体色块 / 清晰副本层（V1 上下文，落定后接管）/
+        // 两层结构（全部居中叠放）：珠体（玻璃）/
         //   命中层（同尺寸透明层独占触摸，手势与按压全挂它）。
         Stack() {
           // 珠体：自绘半透明色块（曾用 HdsMiniBarButton 的系统玻璃材质，已退役）。
@@ -1446,26 +1442,8 @@ struct Index {
             .opacity(this.dockPillPressed ? 1 : 0)
             .hitTestBehavior(HitTestMode.None)
             .animation({ duration: MotionTokens.instant, curve: MotionCurves.standard })
-          // 清晰副本层：真玻璃会把压在下面的官方图标糊掉（磨砂对内容不可逆），落定接管
-          // 时由这一层把清晰副本顶到玻璃表面。与玻璃条中心对齐（Stack 居中 + 同尺寸）。
-          // ⚠️ 不能直接 this.tabItemContent(this.dockPillCovered)：@Builder 的参数是**值快照**，
-          // 落位后 index 变了那份副本不会刷新（真机实证：胶囊飞到「消息」里画的还是「首页」）。
-          // 用 key 随 dockPillCovered 变化的单元素 ForEach 强制重建这一项 —— key 生成器必须
-          // 含会变的字段，否则等于没 key。
-          Column() {
-            if (this.dockPillCovered >= 0) {
-              ForEach([this.dockPillCovered], (i: number) => {
-                this.tabItemContent(i)
-              }, (i: number): string => String(i))
-            }
-          }
-          .width(this.dockPillW)
-          .height(this.dockPillH)
-          // 副本必须与官方那份**逐像素重合**，否则落位瞬间图标会跳一下：官方那份是被
-          // Stack(alignContent: Center) 居中的，这里 Column 主轴默认从顶排，必须显式居中
-          // （真机实测漏写时副本比官方高 9px = 2.9vp）。
-          .justifyContent(FlexAlign.Center)
-          .alignItems(HorizontalAlign.Center)
+          // （原「清晰副本层」已删除：图标统一由上层图标层绘制，珠体内不再重复画一份。
+          //   曾经落定时会在这里补一个同款图标顶到玻璃表面，与图标层重叠 → 落定闪一下。）
           // 命中层：铺满定位容器（= Row 尺寸），独占玻璃区域的触摸（手势与按压全挂它）。
           Column()
             .width(this.dockPillW + DOCK_PILL_MINI_PAD * 2)
