@@ -1166,8 +1166,10 @@ struct Index {
     this.getUIContext().animateTo({ duration: DOCK_PILL_TRAVEL_MS, curve: MotionCurves.emphasized }, () => {
       this.dockPillX = frame.cx;
       this.dockPillY = frame.cy;
+      // 宽度加满、高度只加 40%：宽高同时 +10 会把 54×54 槽位撑成 64×64 正圆
+      // （pill 圆角吃光直边），玻璃珠行进中变球、盖住相邻两个图标，图标隔磨砂糊化。
       this.dockPillW = frame.w + DOCK_PILL_BULGE;
-      this.dockPillH = frame.h + DOCK_PILL_BULGE;
+      this.dockPillH = frame.h + DOCK_PILL_BULGE * 0.4;
       this.dockPillDragOffsetX = 0;
     });
     if (this.dockPillSettleTimer >= 0) {
@@ -1218,7 +1220,7 @@ struct Index {
       curve: MotionCurves.springBounce,
     }, () => {
       this.dockPillW = frame.w + DOCK_PILL_BULGE;
-      this.dockPillH = frame.h + DOCK_PILL_BULGE;
+      this.dockPillH = frame.h + DOCK_PILL_BULGE * 0.4;
     });
   }
 
