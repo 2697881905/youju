@@ -446,7 +446,7 @@ export struct CircleDiscoverPage {
               onOpen: (): void => { openCircleDetailViaNav(item.name); },
               onJoin: (): void => { this.join(item.name); },
             })
-              .margin({ bottom: SpaceTokens.sm })
+              .margin({ bottom: SpaceTokens.md })
           }, (item: CircleOverviewItem) => item.name)
         } else if (!this.loading && this.circles.length > 0) {
           // 都加入了 / 近 7 天没有活跃圈子：不硬凑卡片，直接给一句说明

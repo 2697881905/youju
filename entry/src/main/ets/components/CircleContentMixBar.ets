@@ -28,11 +28,12 @@ export struct CircleContentMixBar {
 
   private segments(): MixSegment[] {
     return [
-      { key: 'review', label: '测评', count: this.mix.review, color: '#0066CC' },
-      { key: 'pitfall', label: '踩坑', count: this.mix.pitfall, color: '#A06400' },
+      // 深色档整体提亮一档：品牌蓝/暖金在 #1E1E1E 上偏暗，分享的浅灰直接糊成底色
+      { key: 'review', label: '测评', count: this.mix.review, color: this.isDarkMode ? '#4D9AFF' : '#0066CC' },
+      { key: 'pitfall', label: '踩坑', count: this.mix.pitfall, color: this.isDarkMode ? '#D89A3C' : '#A06400' },
       { key: 'tutorial', label: '教程', count: this.mix.tutorial, color: this.isDarkMode ? '#4CAF87' : '#2E7D5B' },
       { key: 'debate', label: '观点', count: this.mix.debate, color: this.isDarkMode ? '#9A9AA0' : '#8A8A90' },
-      { key: 'share', label: '分享', count: this.mix.share, color: this.isDarkMode ? '#4A4A50' : '#C9C9CE' },
+      { key: 'share', label: '分享', count: this.mix.share, color: this.isDarkMode ? '#6E6E76' : '#C9C9CE' },
     ];
   }
 
