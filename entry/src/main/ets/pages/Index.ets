@@ -19,6 +19,7 @@ import { DOCK_WIDTH_SMALL, DOCK_BOTTOM_MARGIN_BASE, DOCK_SIDE_MARGIN_MIN, DOCK_G
 import { reportBottomAvoid, BOTTOM_NAV_INSET_KEY } from '../utils/navMode';
 import { RadiusTokens } from '../design/tokens/radius';
 import { ColorTokens } from '../design/tokens/color';
+import { HdsMiniBarButton } from '../components/HdsMiniBarButton';
 import { TypeTokens } from '../design/tokens/type';
 import { IconTokens } from '../design/tokens/icon';
 import { Pressable } from '../design/motion/Pressable';
@@ -113,6 +114,12 @@ const DOCK_PILL_BULGE: number = 10;
 const DOCK_PILL_TRAVEL_MS: number = 300;
 // 落定回弹时长：曲线换 springBounce（overshoot 果冻感）后给足走完物理行程的余量。
 const DOCK_PILL_SETTLE_MS: number = 400;
+// HdsMiniBarButton 容器 contentPadding（防光效裁切的余量）：容器高 = barHeight + padding×4，
+// 玻璃条在容器内居中 → position 补偿 contentPadding×2。
+const DOCK_PILL_MINI_PAD: number = 16;
+// 官方页签内容槽尺寸（与 tabBarBuilder 一致），覆盖层画图标时同尺寸对齐。
+const DOCK_SLOT_W: number = 64;
+const DOCK_SLOT_H: number = 54;
 // —— 拖拽液态交互参数（原型页 DockPillDragProtoPage 真机定档 2026-10-26，移植进主框架）——
 // 速度形变上限（vp）：快甩的拉扯感。
 const DOCK_PILL_SPEED_MAX_DEFORM: number = 22;
@@ -410,6 +417,9 @@ struct Index {
   //    实际渲染位置低 88px（真机实测：槽位渲染在 y=2439，接口回 2527），照它画会把
   //    胶囊甩到 Dock 底下。onAreaChange 与 .position() 同为 vp 窗口坐标，同源才不会偏。
   private dockSlotAreas: DockArea[] = [];
+  // 槽位数据版本：dockSlotAreas 是普通成员（写入不触发重建），覆盖层图标需要在
+  // 「某格首次量到」时重排一次，否则首帧全空 → 图标被推到屏幕外且永不回来。
+  @State private dockSlotSignal: number = 0;
   private dockLayerArea: DockArea | null = null;
   // 复位测量去重 + 有限重试：覆盖层与 TabBar 槽位谁先布局不固定。
   private dockPillMeasurePending: boolean = false;
@@ -1071,12 +1081,17 @@ struct Index {
 
   // 记录某个页签槽位的窗口矩形（vp）。五颗各回调一次，去重后统一补一次定位。
   private recordDockSlotArea(index: number, area: Area): void {
+    const firstTime: boolean = this.dockSlotAreas[index] === undefined;
     this.dockSlotAreas[index] = {
       x: Number(area.globalPosition.x),
       y: Number(area.globalPosition.y),
       w: Number(area.width),
       h: Number(area.height),
     };
+    // 只在首次量到某格时递增（最多 5 次），避免每帧布局都触发覆盖层重建
+    if (firstTime) {
+      this.dockSlotSignal += 1;
+    }
     this.scheduleDockPillRemeasure();
   }
 
@@ -1133,6 +1148,45 @@ struct Index {
 
   // 切页：先鼓包 + 位移（行进），到点再 spring 收回静止尺寸 —— 原文那套「液态」观感的
   // tap 分支。（原文的速度形变只服务于它的拖拽手势，本应用不接拖拽，故不搬。）
+  // 覆盖层图标的槽位左上角（相对 dockPillLayer）。
+  // ⚠️ 不能逐格调 dockPillFrameOf：它要求 dockSlotAreas[index] 有实测值，而首屏只有
+  // 当前格上报过，其余格会返回 null → 图标被推到屏幕外（真机实测：只剩「首页」有图标）。
+  // 这里用首尾两格反算槽距再线性推，任意格都能算出来；首尾缺数据时整体不接管。
+  private dockSlotCenterX(index: number): number {
+    const count: number = this.bottomTabItems().length;
+    const layer: DockArea | null = this.dockLayerArea;
+    const first: DockArea | undefined = this.dockSlotAreas[0];
+    const last: DockArea | undefined = this.dockSlotAreas[count - 1];
+    if (layer === null || layer.w <= 0 || first === undefined || last === undefined) {
+      return -9999;
+    }
+    const firstCx: number = first.x - layer.x + first.w / 2;
+    const lastCx: number = last.x - layer.x + last.w / 2;
+    const pitch: number = count > 1 ? (lastCx - firstCx) / (count - 1) : first.w;
+    return firstCx + pitch * index;
+  }
+
+  private dockSlotLeft(index: number): number {
+    // 读一下版本信号：@State 只有被读才建立重建依赖，否则槽位补齐后图标不会重排
+    if (this.dockSlotSignal < 0) {
+      return -9999;
+    }
+    const cx: number = this.dockSlotCenterX(index);
+    return cx < -9000 ? -9999 : cx - DOCK_SLOT_W / 2;
+  }
+
+  private dockSlotTop(): number {
+    if (this.dockSlotSignal < 0) {
+      return -9999;
+    }
+    const layer: DockArea | null = this.dockLayerArea;
+    if (layer === null || layer.h <= 0) {
+      return -9999;
+    }
+    const cy: number = layer.h - (DOCK_BOTTOM_MARGIN_BASE + this.dockNavInset) - DOCK_BAR_HEIGHT_VP / 2;
+    return cy - DOCK_SLOT_H / 2;
+  }
+
   private dockPillTravel(index: number): void {
     if (!this.hdsFloatingBar) {
       return;
@@ -1369,17 +1423,18 @@ struct Index {
           // ADAPTIVE 虽然不糊但整块灰膜把图标压暗；而「清晰副本」只能补一个槽位，
           // 补到哪就把图标拖到哪（用户明确否掉「图标被玻璃带着走」）。
           // 半透明色块不采样背景，图标原样透出来、位置不动，代价是没有磨砂折射质感。
-          Column()
-            .width(this.dockPillW)
-            .height(this.dockPillH)
-            .backgroundColor($r('app.color.dock_pill_fill'))
-            .borderRadius(RadiusTokens.pill)
-            .border({
-              width: LayoutTokens.glassBorderWidth,
-              color: $r('app.color.bar_selection_border'),
-              style: BorderStyle.Solid,
-            })
-            .shadow({ radius: 10, color: $r('app.color.bar_selection_shadow'), offsetY: 3 })
+          // 珠体恢复液态玻璃（HdsMiniBarButton 借系统材质通道）。
+          // 模糊问题不在这里解决，而是靠**层级**：5 个页签图标全部搬到珠体之上
+          //（tabBarBuilder 的官方份隐藏），玻璃从图标下方滑过 → 质感保留、图标不糊不遮也不动。
+          HdsMiniBarButton({
+            maskColor: '#00ffffff',
+            barWidth: this.dockPillW,
+            barHeight: this.dockPillH,
+            materialType: DOCK_MATERIAL_TYPE,
+            materialLevel: DOCK_MATERIAL_LEVEL,
+          }) {
+            Column()
+          }
           // 清晰副本层：真玻璃会把压在下面的官方图标糊掉（磨砂对内容不可逆），落定接管
           // 时由这一层把清晰副本顶到玻璃表面。与玻璃条中心对齐（Stack 居中 + 同尺寸）。
           // ⚠️ 不能直接 this.tabItemContent(this.dockPillCovered)：@Builder 的参数是**值快照**，
@@ -1402,8 +1457,8 @@ struct Index {
           .alignItems(HorizontalAlign.Center)
           // 命中层：铺满定位容器（= Row 尺寸），独占玻璃区域的触摸（手势与按压全挂它）。
           Column()
-            .width(this.dockPillW)
-            .height(this.dockPillH)
+            .width(this.dockPillW + DOCK_PILL_MINI_PAD * 2)
+            .height(this.dockPillH + DOCK_PILL_MINI_PAD * 2)
             .onTouch((event: TouchEvent): void => {
               const type: TouchType = event.type;
               const pressed: boolean = type === TouchType.Down || type === TouchType.Move;
@@ -1436,8 +1491,8 @@ struct Index {
         // 容器左上角为锚，需反向补偿 padding×2=16 让玻璃条中心对准锚点，副本与官方份的
         // 逐像素重合才成立（上一版只补 8，残差偏下 8vp 致底部溢出，真机实证）。
         .position({
-          x: this.dockPillX - this.dockPillW / 2,
-          y: this.dockPillY - this.dockPillH / 2,
+          x: this.dockPillX - this.dockPillW / 2 - DOCK_PILL_MINI_PAD,
+          y: this.dockPillY - this.dockPillH / 2 - DOCK_PILL_MINI_PAD,
         })
         // 只保留拖拽形变，不再叠加按压的 pressSlideScale(0.94)：
         // 胶囊里装着图标与文字（tabItemContent 与官方页签共用同一 builder），
@@ -1457,6 +1512,20 @@ struct Index {
         // 确认没吃掉官方页签的点击（防漂移第 31/39 条同源，已真机复点五格）。
         .hitTestBehavior(HitTestMode.Transparent)
       }
+
+      // 图标层（上层）：5 颗页签图标钉在各自槽位，压在珠体之上。
+      // 珠体只作背景从图标下方滑过 —— 液态玻璃质感保留，图标不糊、不被遮、位置也不动
+      //（此前把图标画进珠体 = 跟着玻璃跑；把玻璃压在图标上 = 磨砂折射糊掉，
+      // 提升材质档只能二选一，所以用层级根治）。整层不吃事件，点击仍由官方页签接。
+      ForEach([0, 1, 2, 3, 4], (i: number) => {
+        Stack() {
+          this.tabItemContent(i)
+        }
+        .width(DOCK_SLOT_W)
+        .height(DOCK_SLOT_H)
+        .position({ x: this.dockSlotLeft(i), y: this.dockSlotTop() })
+        .hitTestBehavior(HitTestMode.None)
+      }, (i: number): string => String(i))
     }
     .width('100%')
     .height('100%')
@@ -1516,8 +1585,10 @@ struct Index {
     Stack({ alignContent: Alignment.Center }) {
       this.tabItemContent(index)
     }
-    .width(64).height(54)
-    .opacity(this.dockPillCovered === index ? 0 : 1)
+    .width(DOCK_SLOT_W).height(DOCK_SLOT_H)
+    // 覆盖层就绪后官方份整列隐藏，由 dockSelectionPill 的图标层统一绘制：
+    // 两份同时可见会重影，而只隐 selected 那格会让玻璃扫过的其他格被折射糊掉。
+    .opacity(this.dockPillReady ? 0 : 1)
     .onAreaChange((_o: Area, n: Area): void => { this.recordDockSlotArea(index, n); })
   }
 
