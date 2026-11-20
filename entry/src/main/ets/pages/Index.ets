@@ -1535,7 +1535,11 @@ struct Index {
         .width(DOCK_SLOT_W)
         .height(DOCK_SLOT_H)
         .position({ x: this.dockSlotLeft(i), y: this.dockSlotTop() })
-        .hitTestBehavior(HitTestMode.None)
+        // ⚠️ 必须 enabled(false) 而不是只靠 hitTestBehavior(None)：
+        // 这层用 position 定位覆盖在珠体上，实测 None 没能让触摸穿透到珠体的命中层，
+        // 表现为「按珠子没高光、也拖不动」（事件被图标层吃掉）。
+        // enabled(false) 让整层彻底退出命中测试，同时照常渲染。
+        .enabled(false)
       }, (i: number): string => String(i))
     }
     .width('100%')
