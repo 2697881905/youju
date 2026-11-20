@@ -91,3 +91,10 @@ Thumbs.db
 .cache/
 .codex/
 .office-claw/
+
+# 本地工具产物与临时脚本（不入库）
+.pnpm-store/
+.qoder/
+dsh-model-fix/
+*:ai_tag
+scripts/_sync_scan_*.py
