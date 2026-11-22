@@ -85,9 +85,9 @@ export struct ProfilePage {
   @State loading: boolean = false;
   @State finished: boolean = false;
   @State isRefreshing: boolean = false;
-  // 刷新指示器显隐：isRefreshing 只在越过阈值后为 true，拉拽过程（Drag/OverDrag）不置位。
-  // Refresh 的 builder 内容**永远参与绘制**，.offset() 只挪绘制不挪布局——不做属性级门控，
-  // 「刷新中…」会常驻在分段栏下方（真机实证；同 HomeTab.ets:598 注释）。
+  // 刷新指示器显隐（fix-refresh-false-show 后仅留档）：Drag/OverDrag 在普通滚动回弹时
+  // 也会误上报，已不参与覆盖层显隐（见 refreshIndicatorOverlay 注释）；保留状态与
+  // onStateChange 回写以便后续需要区分拉拽阶段时复用。
   @State refreshIndicatorVisible: boolean = false;
   @State error: string = '';
   @State ready: boolean = false;
@@ -647,10 +647,30 @@ export struct ProfilePage {
   }
 
 
+  // Refresh 的自定义 builder：只保留固定高度透明占位。
+  // ⚠️ 指示区高度参与布局，builder 内容抽空会导致区域塌陷、内容区整体上移铺满屏幕
+  // （真机实证，HomeTab 同注释）——所以占位必须常驻、高度恒定，只是不再在这里画文字。
+  // 根因（测试反馈「刷新中…显示在屏幕中央」）：Refresh 自定义 builder 槽位默认渲染在
+  // 刷新区**中部**（真机实测：仅补 topInset 时图形停在 909~959px），此前又叠了大 offset
+  // 补偿（topInset+分段行+图标高+子分段），两段相加正好落在屏幕中央。覆盖层方案见
+  // refreshIndicatorOverlay：位置由 topInset 直接定位在分段栏之下，不再依赖槽位位置。
   @Builder
   refreshBuilder(): void {
-    // ⚠️ 显隐必须属性级驱动（opacity），禁止结构条件化渲染（if 包内容）：Refresh 的指示区高度
-    // 参与布局，builder 内容抽空会导致区域塌陷、内容区整体上移铺满屏幕（真机实证，HomeTab 同注释）。
+    Row()
+      .width('100%')
+      .height(24)
+      .hitTestBehavior(HitTestMode.None)
+  }
+
+  // 「刷新中…」指示器覆盖层：挂在 build() 根 Stack 上（Refresh 之上），水平居中，
+  // 纵向落在分段栏（及可选的「我收藏」子分段）之下的内容区顶部 —— 下拉刷新露出的
+  // 正是这一条，符合刷新头跟随顶部的交互惯例。
+  // 显隐修复（fix-refresh-false-show）：只由 isRefreshing（$$ 双向绑定的真正刷新态）驱动。
+  // 旧逻辑叠加 refreshIndicatorVisible（onStateChange 的 Drag/OverDrag 驱动）——普通滚动回弹/
+  // 惯性越顶时 Refresh 也会上报 Drag（不Refresh 无关），把「刷新中…」在普通下滚时带亮
+  // （真机偶现；MessagePage 同款问题已定论同修：msgRefreshBuilder 只认真正刷新态）。
+  @Builder
+  refreshIndicatorOverlay(): void {
     Row({ space: SpaceTokens.inline }) {
       LoadingProgress().width(IconTokens.compact).height(IconTokens.compact)
       Text('刷新中…')
@@ -660,16 +680,15 @@ export struct ProfilePage {
         .letterSpacing(TypeTokens.caption.tracking)
         .fontColor(ColorTokens.secondary)
     }
-    .opacity((this.isRefreshing || this.refreshIndicatorVisible) ? 1 : 0)
-    .hitTestBehavior((this.isRefreshing || this.refreshIndicatorVisible) ? HitTestMode.Default : HitTestMode.None)
-    // 穿底改造后 Refresh 盒子的顶边落在窗口顶部，指示器槽位整个藏在整条顶栏底下。
-    // offset 只挪绘制不挪布局：槽位仍是原来那一条高（下拉时内容只让开它），
-    // 图形画到「栏底之下」——topInset 到分段栏顶边，再补控件本体一条 + 自身高度，
-    // 才落到磨砂区之外（真机实测：只加 topInset 时图形停在 909~959，被 106~1071 的栏体糊住）。
-    // 「我收藏」再让开子分段那一条，否则图形压在 帖子/收藏夹 胶囊上（实测 1071 与 1089 重叠）。
-    .offset({
-      y: this.topInset + PROFILE_SEG_ROW_HEIGHT + IconTokens.compact
-        + (this.tabIdx === 1 ? LayoutTokens.segmentedHeight + 2 * SpaceTokens.xs : 0),
+    .width('100%')
+    .justifyContent(FlexAlign.Center)
+    .opacity(this.isRefreshing ? 1 : 0)
+    .hitTestBehavior(this.isRefreshing ? HitTestMode.Default : HitTestMode.None)
+    .position({
+      x: 0,
+      y: this.topInset + PROFILE_SEG_ROW_HEIGHT
+        + (this.tabIdx === 1 ? LayoutTokens.segmentedHeight + 2 * SpaceTokens.xs : 0)
+        + SpaceTokens.xs,
     })
   }
 
@@ -887,6 +906,8 @@ export struct ProfilePage {
   }
 
   build() {
+    // 根 Stack：承载 Refresh 与其上的「刷新中…」指示器覆盖层（见 refreshIndicatorOverlay）。
+    Stack({ alignContent: Alignment.TopStart }) {
     Refresh({ refreshing: $$this.isRefreshing, builder: this.refreshBuilder }) {
       // scroller 由 Index 创建并下发：标题栏渐变模糊（bindToScrollable）要读滚动源。
       // 必须从上游往下传，本页造好再回调上去会让首帧绑定为空、模糊慢一帧才出现。
@@ -983,5 +1004,12 @@ export struct ProfilePage {
     // 画布回白（1.0.1 原色）：材质画布（#F1F3F5）是为让官方 SegmentButton 轨道显层次引入的，
     // 分段栏已回迁自绘（透明轨道不吃画布层次），该适配随之退役。
     .backgroundColor(ColorTokens.canvas)
+
+    // 「刷新中…」指示器覆盖层：压在 Refresh 之上，位置在分段栏之下的内容区顶部
+    // （下拉刷新露出的那条），不再依赖 Refresh builder 槽位的默认位置（根因见 refreshBuilder 注释）。
+    this.refreshIndicatorOverlay()
+    }
+    .width('100%')
+    .height('100%')
   }
 }
