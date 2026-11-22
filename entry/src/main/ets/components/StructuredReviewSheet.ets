@@ -615,7 +615,7 @@ export struct StructuredReviewSheet {
 
   private itemsPlaceholderOf(blockId: string): string {
     const block: StructuredBlock | null = this.blockById(blockId);
-    return block !== null && block.type === 'steps' ? '每行一个步骤，按执行顺序填写' : '每行一个要点';
+    return block !== null && block.type === 'steps' ? '每行一个条目，按执行顺序填写' : '每行一个要点';
   }
 
   @Builder

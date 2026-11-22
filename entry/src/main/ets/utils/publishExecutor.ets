@@ -57,7 +57,7 @@ function uploadTextPosterWithTimeout(draft: PublishDraft): Promise<string> {
 export async function executePublish(draft: PublishDraft, uiContext: UIContext): Promise<PublishOutcome> {
   // 结构化体裁必须至少有一个信息块：空壳结构化帖没有阅读价值（与旧预览页同一道闸）
   if (publishGenreMeta(draft.genre).structured && !structuredDocumentHasContent(documentOf(draft))) {
-    safeShowToast(uiContext, { message: '请至少填写一个信息块（结论、清单、步骤或对比）' });
+    safeShowToast(uiContext, { message: '请至少填写一个信息块（结论、适合人群、清单或对比）' });
     return { ok: false };
   }
   let loggedIn: boolean = false;

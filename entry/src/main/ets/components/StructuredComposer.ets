@@ -344,7 +344,7 @@ export struct StructuredComposer {
     } else if (block.type === 'list' || block.type === 'steps') {
       TextArea({
         text: structuredItemsText(block),
-        placeholder: block.type === 'steps' ? '每行一个步骤，按执行顺序填写' : '每行一个要点，适合人群、工具、条件都可以',
+        placeholder: block.type === 'steps' ? '每行一个条目，按执行顺序填写' : '每行一个要点，适合人群、工具、条件都可以',
       })
         .width('100%')
         .height(104)

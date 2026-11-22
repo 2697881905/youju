@@ -40,8 +40,15 @@ export function structuredBlockTypeLabel(type: StructuredBlockType): string {
   switch (type) {
     case 'metric': return '数字';
     case 'insight': return '结论';
-    case 'list': return '清单';
-    case 'steps': return '步骤';
+    // list 块的实际内容语义是「适合谁」（官方骨架 block('list','适合谁')/字段 targetAudience），
+    // 旧名「清单」属命名设计错误（回归报告第 5 项遗留）；此处一处改动覆盖
+    // StructuredComposer / StructuredReviewSheet / StructuredFlowView 全部调用方展示。
+    // 内部字段名 type:'list' 影响面大，保持不动。
+    case 'list': return '适合什么样的人';
+    // 用户新口径（fix-step-block-label）：steps 块展示名定为「清单」——旧名「步骤」仅描述输入
+    // 形态；展示标签一处改动覆盖 Composer / ReviewSheet / FlowView 全部调用方。
+    // 内部字段名 type:'steps' 影响面大，保持不动。
+    case 'steps': return '清单';
     case 'compare': return '对比';
     default: return '信息';
   }
@@ -82,9 +89,13 @@ export function createStructuredBlock(type: StructuredBlockType): StructuredBloc
   if (type === 'metric') {
     title = '关键数字';
   } else if (type === 'list') {
-    title = '快速清单';
+    // 默认 title 会作为展示名直接渲染（详情页/编辑器优先读 block.title），旧名「快速清单」
+    // 同属「清单」命名遗留（回归报告第 5 项）；与 structuredBlockTypeLabel 同口径改掉。
+    title = '适合什么样的人';
   } else if (type === 'steps') {
-    title = '行动路径';
+    // 默认 title 会作为展示名直接渲染（详情页/编辑器优先读 block.title）；新口径块名为
+    // 「清单」，默认 title 与 structuredBlockTypeLabel 同口径同步（同上轮 list 块的处理模式）。
+    title = '清单';
   } else if (type === 'compare') {
     title = '两种选择';
   }

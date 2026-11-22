@@ -535,12 +535,23 @@ export struct StructuredFlowView {
     .width('100%')
   }
 
+  // 清单槽展示名（修复设计错误命名「清单」）：list 块的实际内容语义是「适合谁」——
+  // 官方骨架 append(document, block('list','适合谁'))、模板描述「结论 + 优缺点 + 适合谁」、
+  // 签名对字段就叫 targetAudience（适合人群）。标签优先读作者自定义 title（如「适合谁」
+  // 「准备工具」），为空时回退「适合什么样的人」；内部字段名 type:'list' 影响面大，保持不动。
+  private listSlotLabel(block: StructuredBlock): string {
+    if (block.title.length > 0) {
+      return block.title;
+    }
+    return '适合什么样的人';
+  }
+
   // —— 清单槽：chips 可点 → 搜索该关键词（工具、适合人群天然是检索词，规格 B1）。
   @Builder
   private listSection(block: StructuredBlock): void {
     Column({ space: SpaceTokens.sm }) {
       Row({ space: SpaceTokens.sm }) {
-        this.typeLabel('清单')
+        this.typeLabel(this.listSlotLabel(block))
         Blank().layoutWeight(1)
         if (evidenceOf(block).length > 0) {
           this.evidenceLink(block)
@@ -578,7 +589,8 @@ export struct StructuredFlowView {
   private stepsSection(block: StructuredBlock): void {
     Column({ space: SpaceTokens.md }) {
       Row({ space: SpaceTokens.sm }) {
-        this.typeLabel('步骤')
+        // 用户新口径（fix-step-block-label）：steps 块展示名「清单」（与 structuredBlockTypeLabel 同口径）
+        this.typeLabel('清单')
         Blank().layoutWeight(1)
         if (evidenceOf(block).length > 0) {
           this.evidenceLink(block)

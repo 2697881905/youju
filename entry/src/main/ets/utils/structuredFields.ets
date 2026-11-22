@@ -59,7 +59,7 @@ const PITFALL_FIELDS: StructuredFieldMeta[] = [
 const TUTORIAL_FIELDS: StructuredFieldMeta[] = [
   { key: 'tools', label: '准备工具', kind: 'chips', maxLength: 120, essential: false,
     hint: '螺丝刀、万用表（用顿号分隔）' },
-  { key: 'steps', label: '步骤拆解', kind: 'steps', maxLength: 1000, essential: true,
+  { key: 'steps', label: '清单拆解', kind: 'steps', maxLength: 1000, essential: true,
     hint: '每行一步：1. 先断电\n2. 拆后盖' },
   { key: 'timeDifficulty', label: '耗时/难度', kind: 'shortText', maxLength: 40, essential: false,
     hint: '20 分钟 / 入门' },
