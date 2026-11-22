@@ -10,7 +10,15 @@ import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
-import { FloatingTopButtonMaterialModifier, isSystemMaterialActive } from '../utils/immersiveMaterial';
+import { FloatingTopButtonMaterialModifier, isSystemMaterialActive, isImmersiveLightSenseSupported, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
+import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit';
+import type {
+  HdsNavigationTitleBarOptions,
+  TitleBarContentOptions,
+  TitleBarStyleOptions,
+  SystemMaterialParams,
+  ScrollEffectOptions,
+} from '@kit.UIDesignKit';
 
 // 搜索框 / 返回按钮的标准控件高度：与系统搜索栏一致。
 // 原生 Search 不显式定高时整体偏高（且返回按钮会跟着放大），故统一收敛到标准值。
@@ -248,7 +256,12 @@ export struct SearchPanel {
     return this.statusBarHeight + SpaceTokens.xs * 2 + SEARCH_FIELD_HEIGHT;
   }
 
-  // 标题栏：返回 + 系统原生搜索框 + 独立搜索按钮 ——原顶部工具栏整体驻留于此
+  // 标题栏：返回 + 系统原生搜索框 + 独立搜索按钮 ——原顶部工具栏整体驻留于此。
+  // 修复（测试反馈「搜索面板顶部未做沉浸光感适配」）：标题栏从原生 Navigation.title(STANDARD)
+  // 迁入 HdsNavigation 标题栏（见 build() 与 searchTitleBarOptions）——systemMaterial 只在
+  // HdsNavigation/HdsNavDestination 标题栏官方生效区渲染，原生标题栏里不出图；而
+  // isSystemMaterialActive() 只看 API 档，材质不渲染时描边已被关掉 → 三元素裸露无表面。
+  // 迁移后状态栏避让由 HdsNavigation(avoidLayoutSafeArea) 承担，不再手动下移 statusBarHeight。
   @Builder
   private searchTitleBar(): void {
     Row({ space: SpaceTokens.inline }) {
@@ -285,19 +298,58 @@ export struct SearchPanel {
       this.searchSubmitButton()
     }
     .width('100%')
-    // 不锁定行高：由搜索框原生高度 + 内边距决定（内容区即原生尺寸）。
-    // 标题栏总高 = 状态栏 + 内边距 + 搜索框高度，与 Builder 的实际高度严格一致。
-    .height(this.searchTitleBarHeight())
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+    .alignItems(VerticalAlign.Center)
     .padding({
       left: SpaceTokens.sm,
       right: SpaceTokens.sm,
-      top: this.statusBarHeight + SpaceTokens.xs,
-      bottom: SpaceTokens.xs,
     })
   }
 
+  // HdsNavigation 标题栏配置（配方同 SearchResultPage，基准 §7.6.31）：
+  // MINI + hideBackButton（返回钮留在 stackBuilder 行内，保留原自绘 Button 与材质）
+  // + stackBuilder 工具行 + 栏级 EXQUISITE 沉浸光感（官方生效区，三元素材质出图）。
+  // fix-search-press-light（真机「按压无光效、看不出沉浸光感」）：与结果页（材质真机可见）
+  // 逐项对比后对齐两处差异——①补 scrollEffectOpts（IMMERSIVE_GRADIENT_BLUR，与结果页同参）：
+  // 栏级 IMMERSIVE 材质渲染路径与滚动模糊配置同链路，结果页有、本页原先缺；本页无滚动列表，
+  // 模糊恒 0 不影响观感，仅对齐渲染链路；②HdsNavigation 挂 .clip(false)（见 build 注释）。
+  private searchTitleBarOptions(): HdsNavigationTitleBarOptions {
+    const scrollEffect: ScrollEffectOptions = {
+      enableScrollEffect: true,
+      scrollEffectType: ScrollEffectType.IMMERSIVE_GRADIENT_BLUR,
+      blurEffectiveStartOffset: LengthMetrics.vp(0),
+      blurEffectiveEndOffset: LengthMetrics.vp(32),
+    };
+    const content: TitleBarContentOptions = {
+      stackBuilder: (): void => { this.searchTitleBar(); },
+    };
+    const style: TitleBarStyleOptions = {
+      scrollEffectOpts: scrollEffect,
+      originalStyle: {
+        backgroundStyle: { backgroundColor: Color.Transparent },
+      },
+    };
+    if (isImmersiveLightSenseSupported()) {
+      style.systemMaterialEffect = {
+        materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
+        materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE,
+      } as SystemMaterialParams;
+    }
+    const options: HdsNavigationTitleBarOptions = {
+      content: content,
+      style: style,
+      avoidLayoutSafeArea: true,
+      // 内容从栏下开始、不穿底（与结果页同口径）：联想/历史卡片是白色表面，穿底无收益
+      enableComponentSafeArea: true,
+    };
+    return options;
+  }
+
   build() {
-    Navigation() {
+    // 根容器：HdsNavigation（修复沉浸光感，见 searchTitleBar 注释）——标题栏走
+    // titleBar(options) 官方生效区，状态栏避让由栏体承担；内容区从栏下开始。
+    HdsNavigation() {
       Column() {
         if (this.loadingState) {
         Column() {
@@ -456,11 +508,13 @@ export struct SearchPanel {
       .backgroundColor(ColorTokens.canvas)
     }
     .mode(NavigationMode.Stack)
-    .hideTitleBar(false)
-    .title({
-      builder: this.searchTitleBar,
-      height: this.searchTitleBarHeight(),
-    }, { barStyle: BarStyle.STANDARD, backgroundColor: ColorTokens.canvas })
+    .titleBar(this.searchTitleBarOptions())
+    .titleMode(HdsNavigationTitleMode.MINI)
+    // 返回钮留在 stackBuilder 工具行内（保留原自绘 Button 与触控热区），关掉官方返回键
+    .hideBackButton(true)
+    // fix-search-press-light：与结果页同构——HdsNavigation 自身不裁切（结果页同款属性），
+    // 排除栏体裁切对材质渲染链路的干扰
+    .clip(false)
     .width('100%')
     .height('100%')
   }
