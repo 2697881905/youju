@@ -354,6 +354,11 @@ struct PrivacyConsentDialog {
 @Component
 struct Index {
   @State currentIndex: number = 0;
+  // 点按切页内容淡入（fix-tab-tap-animation-v2）：HdsTabsAttribute 不继承 TabsAttribute、
+  // 无 animationMode，官方页签点按内部直跳不可控（animationDuration 只覆盖滑动/changeIndex 路径）。
+  // 点按（onTabBarClick 收口）对新页内容做 300ms 淡入（与玻璃珠行进同批），观感从「跳变」
+  // 变「平滑过渡」；滑动/拖珠路径不经此回调、不受影响。条件绑定 currentIndex：只有新页参与淡入。
+  @State tabFadeOpacity: number = 1;
   @State privacyDialogShown: boolean = false; // 防隐私弹窗重复弹出
   @State privacyDialogIsUpdate: boolean = false;
   // 版本更新二次征求的本次启动闸门（见 checkPrivacyUpdate）：非 @State，不参与渲染
@@ -1897,6 +1902,15 @@ struct Index {
     .height('100%')
     .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
     .alignItems(VerticalAlign.Center)
+    // 五个 tab 顶部区域手势隔离（fix-tab-top-gesture-isolation，机制见 HomeTab.homeBrandRow 注释）：
+    // priorityGesture 横向 Pan 空手势优先于 HdsTabs 内建翻页——「我的」标题行拖动不触发切页，
+    // 点击/纵向滚动不受影响。
+    .priorityGesture(
+      PanGesture({ direction: PanDirection.Horizontal, fingers: 1, distance: 5 })
+        .onActionStart((): void => {})
+        .onActionUpdate((_e: GestureEvent): void => {})
+        .onActionEnd((): void => {})
+    )
   }
 
   // 右上角官方圆钮排：content.menu 白送 40vp 项宽 / 8vp 间距 / 右缘避让 / 超量折叠成「更多」
@@ -1997,48 +2011,75 @@ struct Index {
     // 屏幕顶部（状态栏区域），首页 Tab 关闭裁剪，其余 Tab 内容各自不溢出、不受影响。
     // 首页：顶栏已整体迁入 Navigation 标题栏，这里通过 @Link 共享顶栏状态
     TabContent() {
-      HomeTab({
-        feedIndex: $feedIndex,
-        feedMode: $feedMode,
-        tagIndex: $tagIndex,
-        zoneIndex: $zoneIndex,
-        displayTags: $displayTags,
-        showCircleDropdown: $showCircleDropdown,
-      })
+      // 点按切页淡入层（fix-tab-tap-animation-v2）：条件绑定 currentIndex，只有切到的新页
+      // 参与 300ms 淡入（见 tabFadeOpacity 注释），滑动/拖珠路径恒为 1 不受影响。
+      Column() {
+        HomeTab({
+          feedIndex: $feedIndex,
+          feedMode: $feedMode,
+          tagIndex: $tagIndex,
+          zoneIndex: $zoneIndex,
+          displayTags: $displayTags,
+          showCircleDropdown: $showCircleDropdown,
+        })
+      }
+      .width('100%')
+      .height('100%')
+      .opacity(this.currentIndex === 0 ? this.tabFadeOpacity : 1)
     }
       .clip(false)
       .tabBar(this.tabBarBuilder(0))
     // 「圈子」：顶栏（圈子标题 + 已加入药丸）已迁入 CircleTab 内嵌 HdsNavigation（路线 B），
     // TabContent 关闭裁剪：内容超高滚动时需穿出顶边画到 HDS 标题栏下方（模糊采样素材）
     TabContent() {
-      CircleTab({
-        circleJoinedCount: $circleJoinedCount,
-      })
+      // 点按切页淡入层（fix-tab-tap-animation-v2，同首页注释）
+      Column() {
+        CircleTab({
+          circleJoinedCount: $circleJoinedCount,
+        })
+      }
+      .width('100%')
+      .height('100%')
+      .opacity(this.currentIndex === 1 ? this.tabFadeOpacity : 1)
     }
       .clip(false)
       .tabBar(this.tabBarBuilder(1))
     // 发布：一整页的发布方式选择（原先是半模态面板）。它可以被滑到、也可以停在上面，
     // 状态栏与悬浮 Dock 的避让由 PublishModePanel 自己做（本页没有内嵌 HdsNavigation）。
     TabContent() {
-      PublishModePanel({
-        onSelect: (mode: PublishMode): void => { this.openPublish(mode); },
-      })
+      // 点按切页淡入层（fix-tab-tap-animation-v2，同首页注释）
+      Column() {
+        PublishModePanel({
+          onSelect: (mode: PublishMode): void => { this.openPublish(mode); },
+        })
+      }
+      .width('100%')
+      .height('100%')
+      .opacity(this.currentIndex === 2 ? this.tabFadeOpacity : 1)
     }
       .tabBar(this.tabBarBuilder(2))
     // 「消息」：顶栏（消息 + 全部已读 + 分段栏）已迁入 MessagePage 内嵌 HdsNavigation（路线 B），
     // TabContent 关闭裁剪：列表滚动需穿出顶边画到 HDS 标题栏下方（模糊采样素材）
     TabContent() {
-      MessagePage({
-        dmTabIndex: $messageTabIndex,
-        tabPulse: $messageTabPulse,
-        markAllSeq: $messageMarkAllSeq,
-      })
+      // 点按切页淡入层（fix-tab-tap-animation-v2，同首页注释）
+      Column() {
+        MessagePage({
+          dmTabIndex: $messageTabIndex,
+          tabPulse: $messageTabPulse,
+          markAllSeq: $messageMarkAllSeq,
+        })
+      }
+      .width('100%')
+      .height('100%')
+      .opacity(this.currentIndex === 3 ? this.tabFadeOpacity : 1)
     }
       .clip(false)
       .tabBar(this.tabBarBuilder(3))
     // 「我的」：顶栏迁入本页内嵌 HdsNavigation（路线 B，与首页/圈子/消息同构）。
     // 顶栏状态仍由 Index 持有、@Link 下发给 ProfilePage —— 迁移只搬了渲染位置，没搬数据归属。
     TabContent() {
+      // 点按切页淡入层（fix-tab-tap-animation-v2，同首页注释）
+      Column() {
       HdsNavigation() {
         ProfilePage({
           user: $profileUser,
@@ -2092,6 +2133,10 @@ struct Index {
       .height('100%')
       // 资料区入场动效（translate/scale）与分段栏材质投影都要溢出各自行边界，链路上不能留 clip(true)
       .clip(false)
+      }
+      .width('100%')
+      .height('100%')
+      .opacity(this.currentIndex === 4 ? this.tabFadeOpacity : 1)
     }
       .clip(false)
       .tabBar(this.tabBarBuilder(4))
@@ -2109,6 +2154,10 @@ struct Index {
     .barOverlap(true)                        // 悬浮：页签覆盖内容
     .barPosition(BarPosition.End)            // 底部
     .vertical(false)                         // 水平
+    // 修复：tab 切换缺内容过渡动画。HdsTabs 默认 animationDuration 极短，点页签/拖珠切页
+    // 时内容近似跳变；显式给 300ms（与玻璃珠行进 DOCK_PILL_TRAVEL_MS 同批），整页左右滑
+    // 与翻页动画共用这一时长，观感一致。不引入第三方能力，纯 ArkUI 原生属性。
+    .animationDuration(DOCK_PILL_TRAVEL_MS)
     .barFloatingStyle({
       // barBottomMargin 在系统导航区之上再留 28vp：三键导航设备 navInset≈28-32vp，
       // 固定 28 会让底栏侵入导航条（审核问题③）；手势导航 navInset=0，维持原设计。
@@ -2138,7 +2187,21 @@ struct Index {
     .onAnimationStart((index: number, targetIndex: number, _e: TabsAnimationEvent): void => {
       this.dockPillTravel(targetIndex);
     })
-    .onTabBarClick((index: number): void => { this.selectTab(index); })
+    .onTabBarClick((index: number): void => {
+      // 点按切页内容淡入（fix-tab-tap-animation-v2，机制见 tabFadeOpacity 注释）：
+      // 先统一走 selectTab（状态 + 玻璃珠飞行），同格重复点击不触发淡入；
+      // 直写 0（与 currentIndex 更新同帧生效，旧页已不可见、只有新页透明）→
+      // animateTo 300ms 拉回 1，官方点按直跳被淡入掩盖，观感平滑。
+      const changed: boolean = this.currentIndex !== index;
+      this.selectTab(index);
+      if (!changed) {
+        return;
+      }
+      this.tabFadeOpacity = 0;
+      this.getUIContext().animateTo({ duration: DOCK_PILL_TRAVEL_MS, curve: MotionCurves.emphasized }, () => {
+        this.tabFadeOpacity = 1;
+      });
+    })
     .onChange((index: number): void => { this.selectTab(index); })
   }
 
@@ -2156,6 +2219,9 @@ struct Index {
     .clip(false)                             // 首页飞行卡向上抛射需溢出页面边界（状态栏区域）
     .vertical(false)
     .scrollable(true)
+    // 修复：与 API 23+ 分支同款——显式给内容切换动画时长（300ms），点击药丸/滑到新页时
+    // 内容平滑过渡不跳变（HdsTabs 分支注释同源，DOCK_PILL_TRAVEL_MS 与玻璃珠行进同批）。
+    .animationDuration(DOCK_PILL_TRAVEL_MS)
     .barHeight(0)
     .divider({ strokeWidth: 0, color: Color.Transparent })
     .onChange((index: number): void => { this.selectTab(index); })

@@ -1169,6 +1169,16 @@ export struct HomeTab {
     }
     .width('100%')
     .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+    // 五个 tab 顶部区域手势隔离（fix-tab-top-gesture-isolation）：顶部是组件放置区，
+    // priorityGesture 横向 Pan（空回调）优先于 HdsTabs 的内建翻页手势——顶部横向拖动
+    // 被手势仲裁吃掉、不再触发 tab 切换；点击/纵向滚动不受影响（Pan 只竞争 pan 事件）。
+    // 注意范围：只挂顶栏行（纯文本/按钮，无横向拖动组件）；分段行自带拖选，绝不挂此手势。
+    .priorityGesture(
+      PanGesture({ direction: PanDirection.Horizontal, fingers: 1, distance: 5 })
+        .onActionStart((): void => {})
+        .onActionUpdate((_e: GestureEvent): void => {})
+        .onActionEnd((): void => {})
+    )
   }
 
   // bottomBuilder 分段行：分段栏（推荐/关注/每日一帖）+ 圈子 chip（仅推荐流显示，与旧顶栏口径一致）。

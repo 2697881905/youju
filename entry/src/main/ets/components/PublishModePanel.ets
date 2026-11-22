@@ -102,6 +102,14 @@ export struct PublishModePanel {
       .alignItems(VerticalAlign.Center)
       // 标题左右边距统一为「我的」页基准 base(16vp)，四页 Title 与屏幕左缘等距。
       .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
+      // 五个 tab 顶部区域手势隔离（fix-tab-top-gesture-isolation，机制见 HomeTab.homeBrandRow 注释）：
+      // 发布页顶部标题行横向拖动不触发 tab 切换，主体区滑动保留。
+      .priorityGesture(
+        PanGesture({ direction: PanDirection.Horizontal, fingers: 1, distance: 5 })
+          .onActionStart((): void => {})
+          .onActionUpdate((_e: GestureEvent): void => {})
+          .onActionEnd((): void => {})
+      )
 
       Text('记录此刻，选择一种方式开始创作')
         .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)

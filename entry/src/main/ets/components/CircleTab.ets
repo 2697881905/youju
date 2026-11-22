@@ -1600,6 +1600,16 @@ export struct CircleTab {
     .alignItems(VerticalAlign.Center)
     // 标题左右边距统一为「我的」页基准 base(16vp)，四页 Title 与屏幕左缘等距。
     .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.xs, bottom: SpaceTokens.xs })
+    // 五个 tab 顶部区域手势隔离（fix-tab-top-gesture-isolation，机制见 HomeTab.homeBrandRow 注释）：
+    // priorityGesture 横向 Pan 空手势优先于 HdsTabs 内建翻页——顶部拖动不触发切页，点击/纵滚不受影响。
+    // 与历史已回退的「拖动锁」不同：那是全局锁整页（干扰珠体拖拽/Swiper），这里只在顶栏行内
+    // 做子组件优先仲裁，范围仅标题行，不触碰珠体拖拽与主体区滑动。
+    .priorityGesture(
+      PanGesture({ direction: PanDirection.Horizontal, fingers: 1, distance: 5 })
+        .onActionStart((): void => {})
+        .onActionUpdate((_e: GestureEvent): void => {})
+        .onActionEnd((): void => {})
+    )
   }
 
   private landingCircle(): CircleTag | undefined {

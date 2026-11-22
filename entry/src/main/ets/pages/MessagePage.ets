@@ -1415,6 +1415,14 @@ export struct MessagePage {
       top: SpaceTokens.xs,
       bottom: SpaceTokens.xs,
     })
+    // 五个 tab 顶部区域手势隔离（fix-tab-top-gesture-isolation，机制见 HomeTab.homeBrandRow 注释）：
+    // priorityGesture 横向 Pan 空手势优先于 HdsTabs 内建翻页——顶部拖动不触发切页，点击/纵滚不受影响。
+    .priorityGesture(
+      PanGesture({ direction: PanDirection.Horizontal, fingers: 1, distance: 5 })
+        .onActionStart((): void => {})
+        .onActionUpdate((_e: GestureEvent): void => {})
+        .onActionEnd((): void => {})
+    )
   }
 
   // 分段徽标计数：官方 SegmentButton 的 item 只有文本/图标，没有徽标位，红点单独叠一层（见 messageTabRow）
