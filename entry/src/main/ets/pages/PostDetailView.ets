@@ -81,7 +81,7 @@ import { FALLBACK_VIDEO_ASPECT_RATIO, normalizeVideoAspectRatio } from '../utils
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { postContentTextOf } from '../utils/postPlainText';
 import { resolveActionIcon } from '../utils/actionIcons';
-import { TopButtonMaterialModifier } from '../utils/immersiveMaterial';
+import { FloatingTopButtonMaterialModifier } from '../utils/immersiveMaterial';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 
 // 分享卡片链路的诊断输出统一走 hilog：console.* 在 H7 真机不进 hilog，抓日志会看不到。
@@ -228,8 +228,12 @@ export struct PostDetailView {
   // 与 LoginView / 圈子页等 20+ 页保持一致（同一 AppStorage 键）。
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
   // 顶栏（返回/分享/更多）驻留 Navigation 标题栏后的动作按钮材质（沉浸光感官方生效区域）。
+  // fix-detail-buttons-material：从 TopButtonMaterialModifier（关投影档）换为 FloatingTopButtonMaterialModifier
+  // （与左上官方返回钮同源 ULTRA_THIN + interactive 按压形变 + 保留落影）——关投影档在白画布上
+  // 表面只差 2 级、无浮起感，真机读作「没有玻璃珠材质与按压光效」；带投影档是「我的」页
+  // 自排动作钮已真机验证的官方同观感配方（官方圆钮的 rim + 落影 + 玻璃折射在此档出图）。
   // 低版本（API < 26）门禁不通过 → 材质自动跳过，按钮保持原透明图标观感。
-  private detailActionMaterial: TopButtonMaterialModifier = new TopButtonMaterialModifier();
+  private detailActionMaterial: FloatingTopButtonMaterialModifier = new FloatingTopButtonMaterialModifier();
   // 穿底架构（复用「我的」页三件套）：MINI 栏 56vp + 官方返回键 + stackBuilder 动作行；
   // 模糊出图开关——IMMERSIVE 变体的 blurRadius 由**绝对偏移** >0 门控（松手回弹打不灭，
   // 基准 §36 / 2026-10-25 消息页同款修复）
@@ -1744,8 +1748,36 @@ export struct PostDetailView {
     };
   }
 
+  // 标题栏动作钮统一规格：与左上官方返回键同档（HdsNavigation 官方圆钮实测 40vp 正圆，
+  // 见 Index.ets「官方 40vp 圆钮」注释）。此前两钮写 44vp（minTouchTarget）+ lg(20) 圆角，
+  // 44 下 20 圆角只是方圆、不是正圆 → 与返回钮并排时尺寸/形状/观感漂移（测试反馈）。
+  // 抽成常量 + 共用 builder，三颗钮规格从此单点维护、不再各自漂移。
+  private static readonly TITLE_ACTION_SIZE_VP: number = LayoutTokens.iconButton; // 40
+  private static readonly TITLE_ACTION_RADIUS_VP: number = RadiusTokens.lg;        // 20 = 40 的一半 → 正圆
+
+  // 标题栏动作钮（分享 / 更多）：40vp 正圆 + TopButtonMaterialModifier（与标题栏同源官方材质，
+  // 与左上官方返回键的材质档一致）。图标功能保持不变。
+  @Builder
+  detailTitleActionButton(icon: Resource, a11y: string, action?: () => void) {
+    Row() {
+      Image(icon)
+        .width(IconTokens.standard)
+        .height(IconTokens.standard)
+        .fillColor(ColorTokens.icon)
+        .draggable(false)
+    }
+    .width(PostDetailView.TITLE_ACTION_SIZE_VP)
+    .height(PostDetailView.TITLE_ACTION_SIZE_VP)
+    .justifyContent(FlexAlign.Center)
+    .alignItems(VerticalAlign.Center)
+    .borderRadius(PostDetailView.TITLE_ACTION_RADIUS_VP)
+    .attributeModifier(this.detailActionMaterial)
+    .accessibilityText(a11y)
+    .onClick((): void => { if (action !== undefined) { action(); } })
+  }
+
   // 标题栏：原 DetailToolbar（返回 + 分享 + 更多）整体驻留于此。
-  // stackBuilder 动作行：分享 / 更多（44×44 材质圆，标题栏生效区内出图）。
+  // stackBuilder 动作行：分享 / 更多（40×40 材质正圆，与左上官方返回键同规格，标题栏生效区内出图）。
   // ⚠️ 左内缩 64vp 让开官方返回键（16~56vp 圆钮）——本行 width('100%') 且住在
   // StackCustomNode（返回键 Button 的后一个兄弟节点、z 序更高），不留开会吃掉返回键点击
   //（ChatView 实测，基准防漂移 31）。「更多」的官方 Menu 仍锚在本钮（bindMenu 挂自有节点，
@@ -1754,36 +1786,11 @@ export struct PostDetailView {
   detailTitleRow(): void {
     Row({ space: SpaceTokens.xs }) {
       Blank()
-      Row() {
-        Image(resolveActionIcon('share'))
-          .width(IconTokens.standard)
-          .height(IconTokens.standard)
-          .fillColor(ColorTokens.icon)
-          .draggable(false)
-      }
-      .width(LayoutTokens.minTouchTarget)
-      .height(LayoutTokens.minTouchTarget)
-      .justifyContent(FlexAlign.Center)
-      .alignItems(VerticalAlign.Center)
-      .borderRadius(RadiusTokens.lg)
-      .attributeModifier(this.detailActionMaterial)
-      .accessibilityText('分享')
-      .onClick((): void => { this.onShare(); })
+      this.detailTitleActionButton(resolveActionIcon('share'), '分享', (): void => { this.onShare(); })
 
       Row() {
-        Image(resolveActionIcon('more'))
-          .width(IconTokens.standard)
-          .height(IconTokens.standard)
-          .fillColor(ColorTokens.icon)
-          .draggable(false)
+        this.detailTitleActionButton(resolveActionIcon('more'), '更多操作')
       }
-      .width(LayoutTokens.minTouchTarget)
-      .height(LayoutTokens.minTouchTarget)
-      .justifyContent(FlexAlign.Center)
-      .alignItems(VerticalAlign.Center)
-      .borderRadius(RadiusTokens.lg)
-      .attributeModifier(this.detailActionMaterial)
-      .accessibilityText('更多操作')
       .bindMenu(this.postActionsMenu)
     }
     .width('100%')
