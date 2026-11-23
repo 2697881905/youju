@@ -58,8 +58,9 @@ import type {
   HdsNavigationMenuItemOptions,
   HdsNavigationIconOptions,
   HdsTitleBarContentStyle, HdsNavigationIconItemStyle,
+
 } from '@kit.UIDesignKit';
-import { isImmersiveLightSenseSupported, isSystemMaterialActive, FloatingTopButtonMaterialModifier, GlassBlurStyle, getSheetImmersiveMaterial, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
+import { isImmersiveLightSenseSupported, FloatingTopButtonMaterialModifier, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
 import { requestSystemBarRefresh } from '../utils/systemBar';
 import { BottomTabBar } from '../design/components/BottomTabBar';
 import { PostDetailDestination } from './PostDetailDestination';
@@ -85,6 +86,7 @@ const PASTEBOARD_LINK_JUMP_ENABLED: boolean = false;
 // 资料卡 = 第 0 项（随列表滚走、穿到栏底之下被模糊），分段栏 = 吸顶组头。见基准 §7.6.13b。
 // 官方 MINI 标题行高：实测 175px ÷ 3.125 = 56vp，系统定值、不可调。
 const PROFILE_TITLE_ROW_VP: number = 56;
+
 // 滚动渐变模糊生效区间终点：与首页/圈子定稿一致
 const PROFILE_BLUR_END_VP: number = 32;
 // 标题栏高斯半径，沿用迁移前外层标题栏 backgroundEffect 的实测值。取值区间 [0,128]。
@@ -468,8 +470,9 @@ struct Index {
   @State profileFolderCount: number = 0;
   @State profilePresented: boolean = false;
   @State profileShareSeq: number = 0;
-  // 顶栏模糊出图开关：**绝对滚动偏移** >0 即开（onListScroll 喂入 currentOffset，非每帧增量
-  // ——增量正负会被松手回弹的负帧打灭，「松手模糊消失」根因，2026-10-24 修复）。
+  // 顶栏模糊出图开关：**绝对滚动偏移** >0 即开（onListScroll 喂入 ProfilePage 的 onDidScroll
+  // 增量累加，非 currentOffset——后者被 contentStartOffset 延迟会晚翻）。累加值松手回弹只
+  // 递减不归零（无「松手模糊消失」），真顶由 onReachStart 归零。2026-10-24 原修复 + 2026-11 修正。
   @State profileBarScrolled: boolean = false;
   // 「我的」整页只剩一条 List（资料卡是它的第 0 项，四分段改为点击切换），所以只有一个滚动源。
   // 交给内嵌 HdsNavigation 的 bindToScrollable 驱动标题栏渐变模糊 —— GRADIENT_BLUR 与
@@ -1670,7 +1673,6 @@ struct Index {
     return this.profileTabIdx === 1;
   }
 
-
   // 交给 List 的 contentStartOffset：内容起始端让开整条 56vp 标题栏，吸顶分段栏也就钉在那儿。
   // ⚠️ 必须含 statusBarHeight。`enableComponentSafeArea:false` 下 List 的**布局原点仍在窗口 0**，
   // 节点报 [0,106] 是裁剪后的可视框（防漂移第 12 条）。真机实测：只给 56vp 时资料卡项落在
@@ -1755,12 +1757,15 @@ struct Index {
   // 主分段 + （子分段）两行控件：交给 ProfilePage 那条 List 的吸顶组头（ListItemGroup.header），
   // 于是资料卡排在它上面、上滑时先滚走、这一行粘在 56vp 标题栏之下。
   // 标题行不在这儿——「我的」三个字走 content.stackBuilder，分享/设置走官方 content.menu。
+  // ⚠️ 2026-11-22 bottomBuilder 试点后回退：主分段栏出图成功，但资料卡（~230vp 背景图）
+  // 物理放不进标题栏 → 资料区层级倒挂到分段栏下方（用户否决）；子分段栏显隐联动也无法
+  // 平移。本页维持列表吸顶 + trackBlurFallback 近似（终态记入「分段栏统一改造终态」memory）。
   @Builder
   profileSegRows() {
     Column({ space: SpaceTokens.none }) {
       // 主分段栏：我发布 / 我收藏 / 我赞过 / 我评论（官方 SegmentButton）
-      // 不传 backgroundSystemMaterial——住在列表吸顶区（uiMaterial 不渲染），走官方
-      // 默认轨道材质（组件表面自带，非 TitleBar 挂载，内容区正常出图）。
+      // 吸顶区（ListItemGroup.header）uiMaterial 不渲染（真机实证）——THICK 观感走
+      // trackBlurFallback 通用模糊底（2026-11-22 全 App 分段栏统一）。
       // 外层 Row 给「我发布」右侧的合集入口留位；不显示时分段栏独占整行。
       Row({ space: SpaceTokens.xs }) {
         Column() {
@@ -1769,6 +1774,7 @@ struct Index {
             selectedIndex: $profileTabIdx,
             // 长条铺满整行（减左右 margin，用户拍板 2026-10-28）：四槽等分
             fillWidth: true,
+            trackBlurFallback: true,
             onSelect: (idx: number): void => {
               // 只写选中值：滑块弹性动画由官方状态动画承担，列表刷新由 @Watch(tabIdx) 承接
               this.profileTabIdx = idx;
@@ -1806,10 +1812,6 @@ struct Index {
         .width('100%')
         .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.xs })
 
-      // 「我收藏」子分段栏（帖子 | 收藏夹）：与主分段栏同一套官方配方（默认轨道材质，
-      // 内容区正常出图）。整行铺满（官方组件把可用宽度等分给两条目），管理入口靠右，
-      // 二者靠一层 layoutWeight 容器分格。出现/消失走 transition：栏高随 tabIdx 跳变那
-      // 一帧由淡入遮住。
       if (this.profileHasSubSeg()) {
         Row({ space: SpaceTokens.xs }) {
           // fillWidth 保持整行铺满（两条目各占一半），但外层套一个 layoutWeight(1) 容器：
@@ -1823,6 +1825,7 @@ struct Index {
               // 长条铺满加权格（用户拍板 2026-10-28，与主分段同语义）：两槽等分，
               // 右侧收藏夹管理入口靠 layoutWeight 分格不受挤占
               fillWidth: true,
+              trackBlurFallback: true,
             })
           }
           .layoutWeight(1)
@@ -1950,6 +1953,9 @@ struct Index {
       menu: menu,
       // 不再挂 bottomBuilder：栏体节点之内抓不到滚动源，装进栏里的东西等于从手势里摘出去。
       // 资料卡与分段栏都回到列表流里（heroHeader / segHeader），栏体只留这一行 56vp。
+      // ⚠️ 2026-11-22 试点后维持否决：bottomBuilder 让主分段栏出图成功，但资料卡（~230vp
+      // 背景图）物理放不进标题栏 → 层级倒挂（资料区跑到分段栏下方，用户否决）；子分段栏
+      // 显隐联动（profileHasSubSeg）也无法平移。本页维持列表吸顶 + trackBlurFallback 近似。
     };
     const scrollEffect: ScrollEffectOptions = {
       enableScrollEffect: true,
@@ -2098,8 +2104,9 @@ struct Index {
           segHeader: (): void => { this.profileSegRows(); },
           // 单一滚动源下发：标题栏渐变模糊要读它的滚动偏移
           scrollers: this.profileScrollers,
-          // 模糊出图开关：offsetY 为**绝对偏移**（ProfilePage 用 currentOffset 喂入），
-          // 停在滚动态恒为开、回顶归零即关——只在翻转帧写 @State，逐帧写会逐帧重建标题栏配置。
+          // 模糊出图开关：offsetY 为**绝对偏移**（ProfilePage 用 onDidScroll 增量累加喂入，
+          // 不受 contentStartOffset 延迟），停在滚动态恒为开、回顶归零即关——只在翻转帧写
+          // @State，逐帧写会逐帧重建标题栏配置。
           onListScroll: (offsetY: number): void => {
             const on: boolean = offsetY > 0;
             if (on !== this.profileBarScrolled) {

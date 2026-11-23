@@ -894,7 +894,7 @@ export struct DailyPostDeck {
         .letterSpacing(3)
         .fontColor(ColorTokens.tertiary)
       // 上新倒计时：与顶部「推荐/关注」分段栏同款（outlined 描边风格）
-      // 规格对齐 SegmentedControl.outlined 分支：透明底 + barBorder 细描边（glassBorderWidth）
+      // 沿用已退役自绘分段栏（SegmentedControl）outlined 分支的描边语言：透明底 + barBorder 细描边（glassBorderWidth）
       // + RadiusTokens.lg 圆角 + 无背景模糊 + 无阴影（与右上角搜索按钮同一描边语言）；
       // 高度同 segmentedHeight，文字走 callout 令牌层级（选中项：primary + headline 字重）
       Row({ space: SpaceTokens.sm }) {

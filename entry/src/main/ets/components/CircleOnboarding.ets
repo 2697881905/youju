@@ -9,7 +9,6 @@ import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { bottomNavInset } from '../utils/cardTokens';
 import { TypeTokens } from '../design/tokens/type';
 import { isImmersiveLightSenseSupported, GlassBlurStyle } from '../utils/immersiveMaterial';
-import { ImmersiveSurface } from '../design/components/ImmersiveSurface';
 
 // 新账号首次进入 Tab 页时展示的圈子选择层；实际加入仍走既有的标签关注接口。
 @Component

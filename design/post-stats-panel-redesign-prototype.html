@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数据面板重设计 · 三方案对比稿</title>
+<style>
+  :root {
+    --canvas: #FFFFFF;
+    --elevated: #F7F7F8;
+    --separator: #E8E8EC;
+    --text-primary: #1A1A1E;
+    --text-secondary: #5A5A60;
+    --text-tertiary: #8A8A90;
+    --brand: #0066CC;
+    --like: #E5484D;
+    --sans: 'HarmonyOS Sans SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    --serif: 'Songti SC', 'Noto Serif SC', 'STSong', Georgia, serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: var(--sans);
+    background: #F1F3F5;
+    padding: 40px 24px 64px;
+    color: var(--text-primary);
+  }
+  h1 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+  .sub { font-size: 13px; color: var(--text-secondary); margin-bottom: 32px; }
+  .row { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; }
+  .scheme { width: 344px; }
+  .scheme-tag {
+    font-size: 14px; font-weight: 700; margin-bottom: 4px; color: var(--text-primary);
+  }
+  .scheme-desc { font-size: 12px; color: var(--text-tertiary); margin-bottom: 12px; line-height: 1.5; }
+  /* 模拟半模态 sheet：顶部拖拽条 + 右上系统关闭钮 + 白底 */
+  .sheet {
+    width: 344px;
+    background: var(--canvas);
+    border-radius: 24px 24px 0 0;
+    padding: 10px 20px 24px;
+    position: relative;
+    box-shadow: 0 -2px 24px rgba(0,0,0,.10), 0 1px 3px rgba(0,0,0,.06);
+  }
+  .dragbar {
+    width: 36px; height: 4px; border-radius: 2px;
+    background: var(--separator); margin: 0 auto 14px;
+  }
+  .close {
+    position: absolute; top: 26px; right: 14px;
+    width: 28px; height: 28px; border-radius: 14px;
+    background: var(--elevated); color: var(--text-tertiary);
+    font-size: 14px; line-height: 28px; text-align: center;
+  }
+  .panel-title { font-family: var(--serif); font-size: 18px; font-weight: 700; color: var(--text-primary); }
+  .panel-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+  .hairline { height: 0.5px; background: var(--separator); }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* —— 方案 A：行式对齐（系统设置页）—— */
+  .a-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 13px 0;
+  }
+  .a-label { font-size: 14px; color: var(--text-secondary); }
+  .a-value { font-size: 17px; font-weight: 600; color: var(--text-primary); }
+  .a-value .unit { font-size: 12px; font-weight: 400; color: var(--text-tertiary); margin-left: 2px; }
+  .a-traffic { font-size: 12px; color: var(--text-tertiary); padding-top: 12px; }
+
+  /* —— 方案 B：居中四格（运动健康）—— */
+  .b-grid { display: flex; flex-wrap: wrap; padding: 6px 0 2px; }
+  .b-cell { width: 50%; text-align: center; padding: 16px 0 18px; }
+  .b-num { font-size: 24px; font-weight: 700; color: var(--text-primary); line-height: 1.1; }
+  .b-label { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+  .b-rate { text-align: center; padding: 14px 0 4px; }
+  .b-rate-num { font-size: 20px; font-weight: 700; color: var(--text-primary); }
+  .b-rate-num .star { color: #D9A514; margin-right: 2px; }
+  .b-rate-label { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+  .b-traffic { text-align: center; font-size: 12px; color: var(--text-tertiary); padding-top: 10px; }
+
+  /* —— 方案 C：编辑数据版面（有据衬线语言）—— */
+  .c-hero { padding: 14px 0 16px; }
+  .c-hero-num { font-family: var(--serif); font-size: 40px; font-weight: 700; line-height: 1.05; color: var(--text-primary); }
+  .c-hero-cap { font-size: 12px; color: var(--text-secondary); margin-top: 6px; letter-spacing: 1px; }
+  .c-counts { font-size: 13px; color: var(--text-primary); padding: 13px 0; font-variant-numeric: tabular-nums; }
+  .c-counts .dot { color: #B8B8BE; margin: 0 7px; }
+  .c-counts .star { color: #D9A514; }
+  .c-counts .rc { color: var(--text-tertiary); font-size: 11px; }
+  .c-flow { padding: 12px 0 2px; }
+  .c-flow-head { display: flex; align-items: baseline; justify-content: space-between; }
+  .c-flow-label { font-size: 11px; font-weight: 600; color: var(--text-secondary); letter-spacing: 1px; }
+  .c-flow-rate { font-size: 18px; font-weight: 600; color: var(--text-primary); }
+  .c-bar { height: 6px; border-radius: 3px; background: var(--elevated); margin-top: 10px; overflow: hidden; }
+  .c-bar-fill { height: 6px; border-radius: 3px; background: var(--brand); }
+  .c-funnel { font-size: 12px; color: var(--text-tertiary); padding: 10px 0 2px; font-variant-numeric: tabular-nums; }
+  .note {
+    max-width: 1080px; margin-top: 36px; font-size: 13px; color: var(--text-secondary);
+    line-height: 1.8; border-top: 1px solid var(--separator); padding-top: 16px;
+  }
+</style>
+</head>
+<body>
+  <h1>帖子数据面板 · 布局排版重设计（三方案对比稿）</h1>
+  <p class="sub">形态不变：系统半模态（顶部拖拽条 + 右上关闭钮）。以下三稿均为 344px 真实宽度，示例数据一致，看排版气质。</p>
+
+  <div class="row">
+    <!-- 方案 A -->
+    <div class="scheme">
+      <div class="scheme-tag">方案 A · 行式对齐（系统设置页风）</div>
+      <div class="scheme-desc">左标签右数值、发丝线逐行分隔。信息最清晰、最「原生系统」，无任何装饰。</div>
+      <div class="sheet">
+        <div class="dragbar"></div>
+        <div class="close">✕</div>
+        <div class="panel-title">帖子数据</div>
+        <div class="panel-sub">仅你自己可见</div>
+        <div style="height:14px"></div>
+        <div class="a-row"><span class="a-label">累计浏览</span><span class="a-value num">1.2w</span></div>
+        <div class="hairline"></div>
+        <div class="a-row"><span class="a-label">顶</span><span class="a-value num">234</span></div>
+        <div class="hairline"></div>
+        <div class="a-row"><span class="a-label">收藏</span><span class="a-value num">56</span></div>
+        <div class="hairline"></div>
+        <div class="a-row"><span class="a-label">评论</span><span class="a-value num">89</span></div>
+        <div class="hairline"></div>
+        <div class="a-row"><span class="a-label">社区评分</span><span class="a-value"><span style="color:#D9A514">★</span>4.5 <span class="unit">12人</span></span></div>
+        <div class="hairline"></div>
+        <div class="a-traffic num">曝光 1.8w · 点击 3456 · 转化 28%</div>
+      </div>
+    </div>
+
+    <!-- 方案 B -->
+    <div class="scheme">
+      <div class="scheme-tag">方案 B · 居中四格（运动健康周报风）</div>
+      <div class="scheme-desc">2×2 大数字居中格，纯留白分隔不用线；评分独立成行。数字是主角，呼吸感最强。</div>
+      <div class="sheet">
+        <div class="dragbar"></div>
+        <div class="close">✕</div>
+        <div class="panel-title">帖子数据</div>
+        <div class="panel-sub">仅你自己可见</div>
+        <div class="b-grid">
+          <div class="b-cell"><div class="b-num num">1.2w</div><div class="b-label">累计浏览</div></div>
+          <div class="b-cell"><div class="b-num num">234</div><div class="b-label">顶</div></div>
+          <div class="b-cell"><div class="b-num num">56</div><div class="b-label">收藏</div></div>
+          <div class="b-cell"><div class="b-num num">89</div><div class="b-label">评论</div></div>
+        </div>
+        <div class="hairline"></div>
+        <div class="b-rate">
+          <div class="b-rate-num num"><span class="star">★</span>4.5</div>
+          <div class="b-rate-label">社区评分 · 12人</div>
+        </div>
+        <div class="hairline"></div>
+        <div class="b-traffic num">曝光 1.8w · 点击 3456 · 转化 28%</div>
+      </div>
+    </div>
+
+    <!-- 方案 C -->
+    <div class="scheme">
+      <div class="scheme-tag">方案 C · 编辑数据版面（有据衬线语言）</div>
+      <div class="scheme-desc">衬线特大数字（与正文标题同语言）+ 单行计数 + 箭头流量叙事。报纸行情版气质，应用感最强。</div>
+      <div class="sheet">
+        <div class="dragbar"></div>
+        <div class="close">✕</div>
+        <div class="panel-title">帖子数据</div>
+        <div class="panel-sub">仅你自己可见</div>
+        <div class="c-hero">
+          <div class="c-hero-num num">1.2w</div>
+          <div class="c-hero-cap">累计浏览 · 本帖共获得</div>
+        </div>
+        <div class="hairline"></div>
+        <div class="c-counts num">顶 234<span class="dot">·</span>收藏 56<span class="dot">·</span>评论 89<span class="dot">·</span><span class="star">★</span>4.5<span class="rc">（12人）</span></div>
+        <div class="hairline"></div>
+        <div class="c-flow">
+          <div class="c-flow-head"><span class="c-flow-label">流量转化</span><span class="c-flow-rate num">28%</span></div>
+          <div class="c-bar"><div class="c-bar-fill" style="width:28%"></div></div>
+          <div class="c-funnel num">曝光 1.8w · 点击 3456</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    三稿对比要点：
+    ① <b>A 行式</b>——可读性优先，扫读最快，但「数据感」最弱；
+    ② <b>B 居中格</b>——最像系统自带 App 的数据页，中性与干净；
+    ③ <b>C 衬线版面</b>——最「有据」，与应用内暖纸衬线语言一致，浏览作为唯一大数字被强调，其余收成一行。
+    选定后我按所选方案落地 PostStatsDialog（深浅色两套 token 同步适配），半模态形态不动。
+  </div>
+</body>
+</html>

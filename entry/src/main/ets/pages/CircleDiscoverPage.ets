@@ -3,7 +3,7 @@
 // 设计依据：docs/superpowers/specs/2026-11-20-circle-discover-redesign-design.md
 // - 定位是「发现」不是目录：首屏三张内容橱窗卡，分类索引退到其后
 // - 已加入从弹窗并进来（原 JoinedCirclesDialog），减少一个浮层入口
-// - 组件优先官方：分段栏 ImmersiveSegmentBar / 返回 BackButton / 图标钮 IconButton /
+// - 组件优先官方：分段栏 ImmersiveSegmentBar / 官方 backIcon（经 PublishPageShell）/ 图标钮 IconButton /
 //   空态 EmptyState；卡片与构成条是自有组件（官方没有对应的「内容构成」控件）
 import {
   CircleOverview,
@@ -21,7 +21,6 @@ import {
 import { getToken } from '../utils/auth';
 import { CircleShowcaseCard } from '../components/CircleShowcaseCard';
 import { TagIcon } from '../components/TagIcon';
-import { BackButton } from '../design/components/BackButton';
 import { IconButton } from '../design/components/IconButton';
 import { EmptyState } from '../design/components/EmptyState';
 import { ImmersiveSegmentBar, SegmentedItem } from '../design/components/ImmersiveSegmentBar';
@@ -72,7 +71,6 @@ export struct CircleDiscoverPage {
   // PublishPageShell 要求：同一个 Scroller 既给外壳 bindToScrollable、又挂 Scroll（外壳普通属性接）
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
   private scroller: Scroller = new Scroller();
-
 
   private segItems: SegmentedItem[] = [
     { key: 'discover', label: '发现' },
@@ -539,10 +537,36 @@ export struct CircleDiscoverPage {
       .alignItems(HorizontalAlign.Start)
   }
 
+  // bottomBuilder 分段行高（2026-11-22）：分段栏本体 40 + 上投影净空 14 + 下投影净空 28
+  private static readonly SEG_BUILDER_ROW_H: number = 40 + 14 + 28;
+
+  // 分段栏（发现圈筛选）：✅ 2026-11-22 搬进标题栏 bottomBuilder（外壳 PublishPageShell
+  // 已透传 bottomContent）——uiMaterial 只在标题栏子树出图（§7.6.26 定论），站上栏级
+  // 材质与首页同源；分段栏固定于标题栏不再随内容滚动（用户拍板）。
+  @Builder
+  discoverSegBar(): void {
+    Column() {
+      ImmersiveSegmentBar({
+        items: this.segItems,
+        selectedIndex: $segIndex,
+        fillWidth: true,
+        overrideTrackMaterial: true,
+      })
+    }
+    .width('100%')
+    .padding({
+      left: SpaceTokens.base,
+      right: SpaceTokens.base,
+      top: 14,
+      bottom: 28,
+    })
+  }
+
   // 让位量：外壳 enableComponentSafeArea=false，内容从窗口原点起算，
   // 必须自己补 statusBar + 栏体高（同三个发布页的 topInset 算法）。
+  // 2026-11-22 加 bottomBuilder 分段行（82 = 40 本体 + 14/28 投影净空）。
   private topInset(): number {
-    return this.statusBarHeight + PUBLISH_BAR_ROW_VP + SpaceTokens.sm;
+    return this.statusBarHeight + PUBLISH_BAR_ROW_VP + SpaceTokens.sm + CircleDiscoverPage.SEG_BUILDER_ROW_H;
   }
 
   build() {
@@ -554,6 +578,9 @@ export struct CircleDiscoverPage {
         scroller: this.scroller,
         onAction: (): void => { this.searchVisible = !this.searchVisible; },
         onBack: (): void => { this.onBack(); },
+        // 分段栏搬进标题栏（2026-11-22，与首页/圈子详情同源）：站上栏级材质
+        bottomContent: (): void => { this.discoverSegBar(); },
+        bottomHeightVp: CircleDiscoverPage.SEG_BUILDER_ROW_H,
       }) {
         Scroll(this.scroller) {
         Column() {
@@ -566,12 +593,6 @@ export struct CircleDiscoverPage {
               .margin({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.sm })
               .onChange((value: string): void => { this.keyword = value; })
           }
-
-          Row() {
-            ImmersiveSegmentBar({ items: this.segItems, selectedIndex: $segIndex, fillWidth: true })
-          }
-          .width('100%')
-          .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.sm })
 
           if (this.loading && this.circles.length === 0) {
             Column() {

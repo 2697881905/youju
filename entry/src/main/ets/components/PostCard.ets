@@ -2,6 +2,7 @@ import { Post } from '../models/types';
 import { upPost, cancelUpPost } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 import { likeStore } from '../utils/likeStore';
+
 import { StatRow } from '../design/components/StatRow';
 import { PostCardAuthor } from './PostCardAuthor';
 import { PostCardMedia } from './PostCardMedia';
@@ -9,7 +10,6 @@ import { TextPosterCover } from './TextPosterCover';
 import { PostCardTitle } from './PostCardTitle';
 import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
-import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
 import { SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
@@ -25,8 +25,7 @@ export struct PostCard {
   @Prop allowLike: boolean = true;
   @Prop showStats: boolean = true;
   @Prop showAuthor: boolean = true;
-  // 创作者面板基础：个人主页「我发布」场景展示浏览数（其余列表默认不显示）
-  @Prop showBrowses: boolean = false;
+
   // 「一镜到底」飞行 id 前缀：**仅走 Navigation 一镜到底的列表面传入**（首页信息流
   // 'cardMedia-'）。其余 7 个 PostCard 场景（我发布/搜索/圈子/他人主页等都是 router
   // 详情）保持默认 ''——不挂 id。⚠️ 全窗口按 id 查矩形的 getRectangleById 不区分页面，
@@ -205,6 +204,7 @@ export struct PostCard {
 
   @Builder
   statSlot(): void {
+    // flexShrink(0)：核心互动数据（顶）不参与让位压缩，压了会变形——见 footerSlot 头注释。
     StatRow({
       liked: this.liked,
       likeCount: this.likeCount,
@@ -213,9 +213,15 @@ export struct PostCard {
       compact: this.compact,
       onLike: this.allowLike ? (): void => { this.onLike(); } : undefined,
     })
+      .flexShrink(0)
   }
 
   // 互动面与标题合并为同一块信息区：统一底色/边框/圆角，不再分成颜色不一的上下两区。
+  //
+  // ⚠️ 行内压缩层级（2026-11-23）：ArkUI 官方口径——Row 子元素 flexShrink 默认为 0（不压缩），
+  // 本行总宽超出卡宽时不收缩，最右端的头像+昵称会被整行推出卡片、再被外层 .clip(true) 裁掉。
+  // 显式声明压缩权重，让位顺序（先 → 后）：顶数(0 恒完整) → 评分(2 先让位，次要数据) →
+  // 作者昵称(1 后让位，头像不变形)。（浏览数已从卡片移除，只留帖子创作数据面板展示。）
   @Builder
   footerSlot(): void {
     Column({ space: SpaceTokens.inlineTight }) {
@@ -224,14 +230,7 @@ export struct PostCard {
           this.statSlot()
         }
         Blank().layoutWeight(1)
-        if (this.showBrowses && (this.post.viewCount ?? 0) > 0) {
-          Text('浏览 ' + String(this.post.viewCount ?? 0))
-            .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-            .fontWeight(TypeTokens.caption.weight)
-            .lineHeight(TypeTokens.overline.lineHeight)
-            .fontColor(ColorTokens.tertiary)
-            .margin({ right: SpaceTokens.sm })
-        }
+
         // 社区评分（2026-10-29）：有人打分才显示 ★均值·人数（信息流轻量呈现）
         if ((this.post.ratingCount ?? 0) > 0 && this.post.ratingAvg !== null
           && this.post.ratingAvg !== undefined) {
@@ -240,6 +239,9 @@ export struct PostCard {
             .fontWeight(TypeTokens.caption.weight)
             .lineHeight(TypeTokens.overline.lineHeight)
             .fontColor(ColorTokens.secondary)
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .flexShrink(2)
             .margin({ right: SpaceTokens.sm })
         }
         if (this.showAuthor && this.hasAuthor()) {
@@ -249,6 +251,7 @@ export struct PostCard {
             compact: this.compact,
             onOpen: (): void => { this.goUser(); },
           })
+            .flexShrink(1)
         }
       }
       .width('100%')

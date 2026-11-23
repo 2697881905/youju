@@ -1,5 +1,5 @@
 import { Genre } from '../models/types';
-// 仅取类型：避免 publishGenres 运行时依赖 SegmentedControl（发布页与预览页都静态依赖本文件）。
+// 仅取类型：避免 publishGenres 运行时依赖分段栏组件（发布页与预览页都静态依赖本文件）。
 import type { SegmentedItem } from '../design/components/ImmersiveSegmentBar';
 
 export interface PublishGenreItem {

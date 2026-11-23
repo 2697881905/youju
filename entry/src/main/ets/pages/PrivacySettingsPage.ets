@@ -5,10 +5,14 @@ import { PrivacySettingsData } from '../models/types';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { CARD_RADIUS, CARD_SHADOW } from '../utils/cardTokens';
-import { BackButton } from '../design/components/BackButton';
+import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
+import {
+  buildPageTitleBarOptions,
+  GlassTitleRow,
+  GlassBarInsetRow,
+} from '../design/components/HdsGlassBackSurface';
 import { EmptyState } from '../design/components/EmptyState';
-import { ColorTokens } from '../design/tokens/color';
-import { TypeTokens } from '../design/tokens/type';
 import { getUserId } from '../utils/auth';
 
 @Entry
@@ -19,6 +23,7 @@ export struct PrivacySettingsPage {
   @State loadError: string = '';
   @State saving: boolean = false;
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
+  private pageScroller: Scroller = new Scroller();
 
   private visibilityOptions: string[] = [
     'public',
@@ -75,173 +80,111 @@ export struct PrivacySettingsPage {
     this.saving = false;
   }
 
+  // 返回键走官方 backIcon（40vp 玻璃圆），action 槽仍是 router.back()，返回行为不变。
+  private privacySettingsTitleBarOptions(): HdsNavigationTitleBarOptions {
+    return buildPageTitleBarOptions({
+      back: (): void => { this.getUIContext().getRouter().back(); },
+      stackBuilder: (): void => { this.privacySettingsTitleRow(); },
+    });
+  }
+
+  @Builder
+  privacySettingsTitleRow(): void {
+    GlassTitleRow({
+      title: '隐私设置',
+      hasActions: true,
+      actions: (): void => { this.privacySaveAction(); },
+    });
+  }
+
+  // 保存按钮原样留在右侧
+  @Builder
+  privacySaveAction(): void {
+    Text(this.saving ? '保存中' : '保存')
+      .fontSize(15).fontFamily($r('app.string.font_family'))
+      .fontColor(this.saving ? $r('app.color.text_secondary') : $r('app.color.ds_brand'))
+      .width(56)
+      .textAlign(TextAlign.Center)
+      .onClick(() => { this.onSave(); });
+  }
+
   build() {
-    Column() {
-      // 顶栏
-      Row() {
-        BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
-        Text('隐私设置')
-          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.title.weight)
-          .lineHeight(TypeTokens.title.lineHeight)
-          .fontColor(ColorTokens.primary)
-          .layoutWeight(1)
-          .textAlign(TextAlign.Center);
-        // 保存按钮放在右侧
-        Text(this.saving ? '保存中' : '保存')
-          .fontSize(15).fontFamily($r('app.string.font_family'))
-          .fontColor(this.saving ? $r('app.color.text_secondary') : $r('app.color.ds_brand'))
-          .width(56)
-          .textAlign(TextAlign.Center)
-          .onClick(() => { this.onSave(); });
-      }
-      .width('100%')
-      .padding({ top: 12, bottom: 8 });
+    HdsNavigation() {
+      Column() {
+        if (!this.loadFinished) {
+          Column() {
+            LoadingProgress().width(40).height(40).color($r('app.color.text_secondary'));
+          }
+          .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
+        } else if (this.loadError) {
+          Column() {
+            EmptyState({
+              title: '加载失败',
+              message: this.loadError,
+              actionLabel: '重试',
+              onAction: (): void => { this.loadSettings(); },
+            })
+          }
+          .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
+        } else {
+          Scroll(this.pageScroller) {
+            Column({ space: 24 }) {
+              // 标题栏由 HdsNavigation 承担，内容先让出「状态栏 + 栏高」再排正文。
+              GlassBarInsetRow({ statusBarHeight: this.statusBarHeight })
 
-      if (!this.loadFinished) {
-        Column() {
-          LoadingProgress().width(40).height(40).color($r('app.color.text_secondary'));
-        }
-        .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
-      } else if (this.loadError) {
-        Column() {
-          EmptyState({
-            title: '加载失败',
-            message: this.loadError,
-            actionLabel: '重试',
-            onAction: (): void => { this.loadSettings(); },
-          })
-        }
-        .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
-      } else {
-        Scroll() {
-          Column({ space: 24 }) {
-            // 帖子可见性
-            Column({ space: 10 }) {
-              Text('帖子可见性')
-                .fontSize(13).fontFamily($r('app.string.font_family'))
-                .fontColor($r('app.color.text_secondary'))
-                .alignSelf(ItemAlign.Start)
-                .padding({ left: 4 });
+              // 帖子可见性
+              Column({ space: 10 }) {
+                Text('帖子可见性')
+                  .fontSize(13).fontFamily($r('app.string.font_family'))
+                  .fontColor($r('app.color.text_secondary'))
+                  .alignSelf(ItemAlign.Start)
+                  .padding({ left: 4 });
 
-              Column({ space: 0 }) {
-                ForEach(this.visibilityOptions, (opt: string, idx: number) => {
-                  Row() {
-                    Text(this.visibilityLabels[idx])
-                      .fontSize(15).fontFamily($r('app.string.font_family'))
-                      .fontColor($r('app.color.text_primary'))
-                      .layoutWeight(1);
-                    Radio({ value: opt, group: 'visibilityGroup' })
-                      .checked(this.settings.postVisibility === opt)
-                      .onChange((isChecked: boolean) => {
-                        if (isChecked) {
-                          this.settings.postVisibility = opt;
-                        }
-                      });
-                  }
-                  .width('100%')
-                  .padding({ left: 16, right: 16, top: 14, bottom: 14 })
-                  .backgroundColor($r('app.color.card_bg'));
-                  if (idx < this.visibilityOptions.length - 1) {
-                    Divider().color($r('app.color.divider')).margin({ left: 16 });
-                  }
-                });
-              }
-              .width('100%')
-              .backgroundColor($r('app.color.card_bg'))
-              .borderRadius(CARD_RADIUS)
-              .shadow(CARD_SHADOW)
-              .clip(true);
-            }
-            .width('100%');
-
-            // 允许关注
-            Column({ space: 10 }) {
-              Text('互动权限')
-                .fontSize(13).fontFamily($r('app.string.font_family'))
-                .fontColor($r('app.color.text_secondary'))
-                .alignSelf(ItemAlign.Start)
-                .padding({ left: 4 });
-
-              Row() {
-                Column() {
-                  Text('允许他人关注')
-                    .fontSize(15).fontFamily($r('app.string.font_family'))
-                    .fontColor($r('app.color.text_primary'));
-                  Text('关闭后其他用户将无法关注你')
-                    .fontSize(12).fontFamily($r('app.string.font_family'))
-                    .fontColor($r('app.color.text_secondary'))
-                    .margin({ top: 2 });
-                }
-                .layoutWeight(1)
-                .alignItems(HorizontalAlign.Start);
-
-                Toggle({ type: ToggleType.Switch, isOn: this.settings.allowFollow })
-                  .onChange((isOn: boolean) => {
-                    this.settings.allowFollow = isOn;
-                  });
-              }
-              .width('100%')
-              .padding({ left: 16, right: 16, top: 16, bottom: 16 })
-              .backgroundColor($r('app.color.card_bg'))
-              .borderRadius(CARD_RADIUS)
-              .shadow(CARD_SHADOW);
-
-              Column({ space: 0 }) {
-                ForEach(this.dmPolicyOptions, (opt: string, idx: number) => {
-                  Row() {
-                    Column() {
-                      Text(this.dmPolicyLabels[idx])
+                Column({ space: 0 }) {
+                  ForEach(this.visibilityOptions, (opt: string, idx: number) => {
+                    Row() {
+                      Text(this.visibilityLabels[idx])
                         .fontSize(15).fontFamily($r('app.string.font_family'))
                         .fontColor($r('app.color.text_primary'))
-                      Text(this.dmPolicyDesc[idx])
-                        .fontSize(12).fontFamily($r('app.string.font_family'))
-                        .fontColor($r('app.color.text_secondary'))
-                        .margin({ top: 2 })
+                        .layoutWeight(1);
+                      Radio({ value: opt, group: 'visibilityGroup' })
+                        .checked(this.settings.postVisibility === opt)
+                        .onChange((isChecked: boolean) => {
+                          if (isChecked) {
+                            this.settings.postVisibility = opt;
+                          }
+                        });
                     }
-                    .layoutWeight(1)
-                    .alignItems(HorizontalAlign.Start);
-
-                    Radio({ value: opt, group: 'dmPolicyGroup' })
-                      .checked(this.settings.dmPolicy === opt)
-                      .onChange((isChecked: boolean) => {
-                        if (isChecked) {
-                          this.settings.dmPolicy = opt;
-                        }
-                      });
-                  }
-                  .width('100%')
-                  .padding({ left: 16, right: 16, top: 14, bottom: 14 })
-                  .backgroundColor($r('app.color.card_bg'))
-                  if (idx < this.dmPolicyOptions.length - 1) {
-                    Divider().color($r('app.color.divider')).margin({ left: 16 });
-                  }
-                });
+                    .width('100%')
+                    .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+                    .backgroundColor($r('app.color.card_bg'));
+                    if (idx < this.visibilityOptions.length - 1) {
+                      Divider().color($r('app.color.divider')).margin({ left: 16 });
+                    }
+                  });
+                }
+                .width('100%')
+                .backgroundColor($r('app.color.card_bg'))
+                .borderRadius(CARD_RADIUS)
+                .shadow(CARD_SHADOW)
+                .clip(true);
               }
-              .width('100%')
-              .backgroundColor($r('app.color.card_bg'))
-              .borderRadius(CARD_RADIUS)
-              .shadow(CARD_SHADOW)
-              .clip(true);
-            }
-            .width('100%');
+              .width('100%');
 
-            // 个性化推荐（合规：《互联网信息服务算法推荐管理规定》第 17 条——
-            // 须提供便捷的关闭选项，且用户应能查看/选择/删除用于推荐的标签）
-            Column({ space: 10 }) {
-              Text('个性化推荐')
-                .fontSize(13).fontFamily($r('app.string.font_family'))
-                .fontColor($r('app.color.text_secondary'))
-                .alignSelf(ItemAlign.Start)
-                .padding({ left: 4 });
+              // 允许关注
+              Column({ space: 10 }) {
+                Text('互动权限')
+                  .fontSize(13).fontFamily($r('app.string.font_family'))
+                  .fontColor($r('app.color.text_secondary'))
+                  .alignSelf(ItemAlign.Start)
+                  .padding({ left: 4 });
 
-              Column({ space: 0 }) {
                 Row() {
                   Column() {
-                    Text('接收个性化推荐')
+                    Text('允许他人关注')
                       .fontSize(15).fontFamily($r('app.string.font_family'))
                       .fontColor($r('app.color.text_primary'));
-                    Text('关闭后「每日一贴」按热度与时间排序，不再依据你的浏览与互动记录')
+                    Text('关闭后其他用户将无法关注你')
                       .fontSize(12).fontFamily($r('app.string.font_family'))
                       .fontColor($r('app.color.text_secondary'))
                       .margin({ top: 2 });
@@ -249,86 +192,166 @@ export struct PrivacySettingsPage {
                   .layoutWeight(1)
                   .alignItems(HorizontalAlign.Start);
 
-                  Toggle({ type: ToggleType.Switch, isOn: this.settings.personalizedRecommendation })
+                  Toggle({ type: ToggleType.Switch, isOn: this.settings.allowFollow })
                     .onChange((isOn: boolean) => {
-                      this.settings.personalizedRecommendation = isOn;
+                      this.settings.allowFollow = isOn;
                     });
                 }
                 .width('100%')
                 .padding({ left: 16, right: 16, top: 16, bottom: 16 })
-                .backgroundColor($r('app.color.card_bg'));
+                .backgroundColor($r('app.color.card_bg'))
+                .borderRadius(CARD_RADIUS)
+                .shadow(CARD_SHADOW);
 
-                Divider().color($r('app.color.divider')).margin({ left: 16 });
+                Column({ space: 0 }) {
+                  ForEach(this.dmPolicyOptions, (opt: string, idx: number) => {
+                    Row() {
+                      Column() {
+                        Text(this.dmPolicyLabels[idx])
+                          .fontSize(15).fontFamily($r('app.string.font_family'))
+                          .fontColor($r('app.color.text_primary'))
+                        Text(this.dmPolicyDesc[idx])
+                          .fontSize(12).fontFamily($r('app.string.font_family'))
+                          .fontColor($r('app.color.text_secondary'))
+                          .margin({ top: 2 })
+                      }
+                      .layoutWeight(1)
+                      .alignItems(HorizontalAlign.Start);
 
-                Row() {
-                  Column() {
-                    Text('兴趣标签管理')
-                      .fontSize(15).fontFamily($r('app.string.font_family'))
-                      .fontColor($r('app.color.text_primary'));
-                    Text('查看并删除用于个性化推荐的标签')
-                      .fontSize(12).fontFamily($r('app.string.font_family'))
-                      .fontColor($r('app.color.text_secondary'))
-                      .margin({ top: 2 });
-                  }
-                  .layoutWeight(1)
-                  .alignItems(HorizontalAlign.Start);
-
-                  Text('›')
-                    .fontSize(18).fontFamily($r('app.string.font_family'))
-                    .fontColor($r('app.color.text_secondary'));
+                      Radio({ value: opt, group: 'dmPolicyGroup' })
+                        .checked(this.settings.dmPolicy === opt)
+                        .onChange((isChecked: boolean) => {
+                          if (isChecked) {
+                            this.settings.dmPolicy = opt;
+                          }
+                        });
+                    }
+                    .width('100%')
+                    .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+                    .backgroundColor($r('app.color.card_bg'))
+                    if (idx < this.dmPolicyOptions.length - 1) {
+                      Divider().color($r('app.color.divider')).margin({ left: 16 });
+                    }
+                  });
                 }
                 .width('100%')
-                .padding({ left: 16, right: 16, top: 16, bottom: 16 })
                 .backgroundColor($r('app.color.card_bg'))
-                .onClick(() => {
-                  this.getUIContext().getRouter().pushUrl({ url: 'pages/InterestTagsPage' });
-                });
-
-                Divider().color($r('app.color.divider')).margin({ left: 16 });
-
-                // 算法申诉入口（PIPL 第 24 条：自动化决策的说明请求与拒绝权）
-                Row() {
-                  Column() {
-                    Text('对推荐结果有疑问？')
-                      .fontSize(15).fontFamily($r('app.string.font_family'))
-                      .fontColor($r('app.color.text_primary'));
-                    Text('了解推荐原理，或按隐私政策第 8 节向我们申诉与反馈')
-                      .fontSize(12).fontFamily($r('app.string.font_family'))
-                      .fontColor($r('app.color.text_secondary'))
-                      .margin({ top: 2 });
-                  }
-                  .layoutWeight(1)
-                  .alignItems(HorizontalAlign.Start);
-
-                  Text('›')
-                    .fontSize(18).fontFamily($r('app.string.font_family'))
-                    .fontColor($r('app.color.text_secondary'));
-                }
-                .width('100%')
-                .padding({ left: 16, right: 16, top: 16, bottom: 16 })
-                .backgroundColor($r('app.color.card_bg'))
-                .onClick(() => {
-                  this.getUIContext().getRouter().pushUrl({ url: 'pages/PrivacyPage' });
-                });
+                .borderRadius(CARD_RADIUS)
+                .shadow(CARD_SHADOW)
+                .clip(true);
               }
-              .width('100%')
-              .backgroundColor($r('app.color.card_bg'))
-              .borderRadius(CARD_RADIUS)
-              .shadow(CARD_SHADOW)
-              .clip(true);
+              .width('100%');
+
+              // 个性化推荐（合规：《互联网信息服务算法推荐管理规定》第 17 条——
+              // 须提供便捷的关闭选项，且用户应能查看/选择/删除用于推荐的标签）
+              Column({ space: 10 }) {
+                Text('个性化推荐')
+                  .fontSize(13).fontFamily($r('app.string.font_family'))
+                  .fontColor($r('app.color.text_secondary'))
+                  .alignSelf(ItemAlign.Start)
+                  .padding({ left: 4 });
+
+                Column({ space: 0 }) {
+                  Row() {
+                    Column() {
+                      Text('接收个性化推荐')
+                        .fontSize(15).fontFamily($r('app.string.font_family'))
+                        .fontColor($r('app.color.text_primary'));
+                      Text('关闭后「每日一贴」按热度与时间排序，不再依据你的浏览与互动记录')
+                        .fontSize(12).fontFamily($r('app.string.font_family'))
+                        .fontColor($r('app.color.text_secondary'))
+                        .margin({ top: 2 });
+                    }
+                    .layoutWeight(1)
+                    .alignItems(HorizontalAlign.Start);
+
+                    Toggle({ type: ToggleType.Switch, isOn: this.settings.personalizedRecommendation })
+                      .onChange((isOn: boolean) => {
+                        this.settings.personalizedRecommendation = isOn;
+                      });
+                  }
+                  .width('100%')
+                  .padding({ left: 16, right: 16, top: 16, bottom: 16 })
+                  .backgroundColor($r('app.color.card_bg'));
+
+                  Divider().color($r('app.color.divider')).margin({ left: 16 });
+
+                  Row() {
+                    Column() {
+                      Text('兴趣标签管理')
+                        .fontSize(15).fontFamily($r('app.string.font_family'))
+                        .fontColor($r('app.color.text_primary'));
+                      Text('查看并删除用于个性化推荐的标签')
+                        .fontSize(12).fontFamily($r('app.string.font_family'))
+                        .fontColor($r('app.color.text_secondary'))
+                        .margin({ top: 2 });
+                    }
+                    .layoutWeight(1)
+                    .alignItems(HorizontalAlign.Start);
+
+                    Text('›')
+                      .fontSize(18).fontFamily($r('app.string.font_family'))
+                      .fontColor($r('app.color.text_secondary'));
+                  }
+                  .width('100%')
+                  .padding({ left: 16, right: 16, top: 16, bottom: 16 })
+                  .backgroundColor($r('app.color.card_bg'))
+                  .onClick(() => {
+                    this.getUIContext().getRouter().pushUrl({ url: 'pages/InterestTagsPage' });
+                  });
+
+                  Divider().color($r('app.color.divider')).margin({ left: 16 });
+
+                  // 算法申诉入口（PIPL 第 24 条：自动化决策的说明请求与拒绝权）
+                  Row() {
+                    Column() {
+                      Text('对推荐结果有疑问？')
+                        .fontSize(15).fontFamily($r('app.string.font_family'))
+                        .fontColor($r('app.color.text_primary'));
+                      Text('了解推荐原理，或按隐私政策第 8 节向我们申诉与反馈')
+                        .fontSize(12).fontFamily($r('app.string.font_family'))
+                        .fontColor($r('app.color.text_secondary'))
+                        .margin({ top: 2 });
+                    }
+                    .layoutWeight(1)
+                    .alignItems(HorizontalAlign.Start);
+
+                    Text('›')
+                      .fontSize(18).fontFamily($r('app.string.font_family'))
+                      .fontColor($r('app.color.text_secondary'));
+                  }
+                  .width('100%')
+                  .padding({ left: 16, right: 16, top: 16, bottom: 16 })
+                  .backgroundColor($r('app.color.card_bg'))
+                  .onClick(() => {
+                    this.getUIContext().getRouter().pushUrl({ url: 'pages/PrivacyPage' });
+                  });
+                }
+                .width('100%')
+                .backgroundColor($r('app.color.card_bg'))
+                .borderRadius(CARD_RADIUS)
+                .shadow(CARD_SHADOW)
+                .clip(true);
+              }
+              .width('100%');
             }
-            .width('100%');
+            .width('100%')
+            .padding({ left: 16, right: 16, top: 8, bottom: 32 });
           }
-          .width('100%')
-          .padding({ left: 16, right: 16, top: 8, bottom: 32 });
+          .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+          .layoutWeight(1)
+          .width('100%');
         }
-        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
-        .layoutWeight(1)
-        .width('100%');
       }
+      .width('100%')
+      .height('100%')
     }
+    .mode(NavigationMode.Stack)
+    .titleMode(HdsNavigationTitleMode.MINI)
+    .titleBar(this.privacySettingsTitleBarOptions())
+    .bindToScrollable([this.pageScroller])
+    .clip(false)
     .width('100%')
-    .padding({ top: this.statusBarHeight })
     .height('100%')
     .backgroundColor($r('app.color.bg_primary'))
     .transition(buildPageTransition())

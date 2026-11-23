@@ -17,13 +17,15 @@ import { timeAgo } from '../utils/format';
 import { notifIconRes } from '../utils/actionIcons';
 import { buildPageTransition } from '../utils/styles';
 import { barBottomReserve, bottomNavInset } from '../utils/cardTokens';
-import { BackButton } from '../design/components/BackButton';
+import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
+import { buildPageTitleBarOptions, GlassTitleRow, GlassBarInsetRow } from '../design/components/HdsGlassBackSurface';
 import { EmptyState } from '../design/components/EmptyState';
 import { MessageRow } from '../design/components/MessageRow';
 import { Reveal } from '../design/motion/Reveal';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
-import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
+import { SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 
 // 单页取满上限（系统通知量级很小；limit 服务端上限 50）
@@ -37,6 +39,7 @@ export struct SystemNoticePage {
   @State error: string = '';
   @State refreshing: boolean = false;
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
+  private pageScroller: Scroller = new Scroller();
 
   // 「举报中心」置顶消息：管理员视角归口消息页的举报中心入口（与 MessagePage 同口径）
   private isReportCenterItem(item: NotificationItem): boolean {
@@ -137,37 +140,16 @@ export struct SystemNoticePage {
     this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
   }
 
+  private titleBarOptions(): HdsNavigationTitleBarOptions {
+    return buildPageTitleBarOptions({
+      back: (): void => { this.getUIContext().getRouter().back(); },
+      stackBuilder: (): void => { this.titleRow(); },
+    });
+  }
+
   @Builder
-  topBar(): void {
-    Row() {
-      BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
-      Blank()
-      Text('系统通知')
-        .fontSize(TypeTokens.title.size)
-        .fontFamily(TypeTokens.fontFamilySerif)
-        .fontWeight(TypeTokens.title.weight)
-        .lineHeight(TypeTokens.title.lineHeight)
-        .fontColor(ColorTokens.primary)
-      Blank()
-      Row() {
-        if (this.refreshing) {
-          LoadingProgress().width(IconTokens.small).height(IconTokens.small)
-        } else {
-          Text('刷新')
-            .fontSize(TypeTokens.callout.size)
-            .fontFamily(TypeTokens.fontFamily)
-            .fontColor(ColorTokens.brand)
-        }
-      }
-      .width(LayoutTokens.minTouchTarget)
-      .height(LayoutTokens.minTouchTarget)
-      .justifyContent(FlexAlign.Center)
-      .alignItems(VerticalAlign.Center)
-      .onClick((): void => { this.refresh(); })
-    }
-    .width('100%')
-    .alignItems(VerticalAlign.Center)
-    .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+  titleRow(): void {
+    GlassTitleRow({ title: '系统通知', serif: true })
   }
 
   private refresh(): void {
@@ -249,14 +231,15 @@ export struct SystemNoticePage {
   }
 
   build() {
-    Column() {
-      this.topBar()
-
+    HdsNavigation() {
+      Column() {
       // 三态与列表统一包在 Refresh + Scroll 里：空态 / 错误态也能下拉刷新。
       // 全屏沉浸壳内列表一律用 Scroll（List 的滚动终点会被底部非安全区钳制）。
       Refresh({ refreshing: $$this.refreshing, offset: 80, friction: 48 }) {
-        Scroll() {
+        Scroll(this.pageScroller) {
           Column() {
+            // MINI 标题栏穿底：内容顶部让位（状态栏 + 栏体）
+            GlassBarInsetRow({ statusBarHeight: this.statusBarHeight })
             this.stateArea()
           }
           .width('100%')
@@ -279,7 +262,15 @@ export struct SystemNoticePage {
     }
     .width('100%')
     .height('100%')
-    .padding({ top: this.statusBarHeight, bottom: bottomNavInset() })
+      .padding({ bottom: bottomNavInset() })
+    }
+    .mode(NavigationMode.Stack)
+    .titleMode(HdsNavigationTitleMode.MINI)
+    .titleBar(this.titleBarOptions())
+    .bindToScrollable([this.pageScroller])
+    .clip(false)
+    .width('100%')
+    .height('100%')
     .backgroundColor(ColorTokens.canvas)
     .transition(buildPageTransition())
   }

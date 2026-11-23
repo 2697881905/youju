@@ -7,14 +7,19 @@ import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { openUserProfile } from '../utils/nav';
 import { barBottomReserve } from '../utils/cardTokens';
-import { BackButton } from '../design/components/BackButton';
+import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
+import {
+  buildPageTitleBarOptions,
+  GlassTitleRow,
+  GlassBarInsetRow,
+} from '../design/components/HdsGlassBackSurface';
 import { Avatar } from '../design/components/Avatar';
 import { EmptyState } from '../design/components/EmptyState';
 import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
 import { SoftChip } from '../design/components/SoftChip';
 import { IconTokens } from '../design/tokens/icon';
-import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { getUserId } from '../utils/auth';
@@ -30,6 +35,8 @@ export struct BlocklistPage {
   @State loadingMore: boolean = false;
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
   private pagination: Pagination = { page: 1, limit: 20, total: 0 };
+  // 交给 HdsNavigation.bindToScrollable，驱动顶栏渐变模糊
+  private pageScroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
     // 登录闸门：拉黑名单是「我自己的数据」，未登录进来只会是「加载失败」空壳。
@@ -102,27 +109,23 @@ export struct BlocklistPage {
     return s.length >= 10 ? s.slice(0, 10) : s;
   }
 
-  build() {
-    Column() {
-      // 顶栏：BackButton + 居中标题（与其它二级页一致）
-      Row() {
-        BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
-        Blank()
-        Text('拉黑管理')
-          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.title.weight)
-          .lineHeight(TypeTokens.title.lineHeight)
-          .fontColor(ColorTokens.primary)
-        Blank()
-        Text('')
-          .width(LayoutTokens.minTouchTarget)
-          .height(LayoutTokens.minTouchTarget)
-      }
-      .width('100%')
-      .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: SpaceTokens.md, bottom: SpaceTokens.sm })
-      .alignItems(VerticalAlign.Center)
+  // 标题栏：官方玻璃返回键 + stackBuilder 只放标题。
+  private blocklistTitleBarOptions(): HdsNavigationTitleBarOptions {
+    return buildPageTitleBarOptions({
+      back: (): void => { this.getUIContext().getRouter().back(); },
+      stackBuilder: (): void => { this.blocklistTitleRow(); },
+    });
+  }
 
-      if (!this.loadFinished) {
+  @Builder
+  blocklistTitleRow(): void {
+    GlassTitleRow({ title: '拉黑管理' });
+  }
+
+  build() {
+    HdsNavigation() {
+      Column() {
+        if (!this.loadFinished) {
         Column({ space: SpaceTokens.item }) {
           LoadingProgress().width(IconTokens.empty).height(IconTokens.empty).color(ColorTokens.secondary)
           Text('正在加载拉黑列表')
@@ -143,8 +146,11 @@ export struct BlocklistPage {
         }
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center)
       } else {
-        Scroll() {
+        Scroll(this.pageScroller) {
           Column({ space: SpaceTokens.none }) {
+            // 穿底让位：状态栏 + MINI 栏高
+            GlassBarInsetRow({ statusBarHeight: this.statusBarHeight })
+
             ForEach(this.users, (user: BlockUser) => {
               Pressable({
                 fillWidth: true,
@@ -214,9 +220,16 @@ export struct BlocklistPage {
         }
         .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .layoutWeight(1).width('100%')
+        }
       }
+      .width('100%').height('100%')
     }
-    .width('100%').padding({ top: this.statusBarHeight }).height('100%')
+    .mode(NavigationMode.Stack)
+    .titleMode(HdsNavigationTitleMode.MINI)
+    .titleBar(this.blocklistTitleBarOptions())
+    .bindToScrollable([this.pageScroller])
+    .clip(false)
+    .width('100%').height('100%')
     .backgroundColor(ColorTokens.canvas)
     .transition(buildPageTransition())
   }

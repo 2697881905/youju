@@ -2,11 +2,11 @@ import { FollowUser } from '../models/types';
 import { listFollowing, listFollowers, followUser, unfollowUser, resolveDisplayImageUrl } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
-import { BackButton } from '../design/components/BackButton';
+import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
+import { buildPageTitleBarOptions, GlassTitleRow, GlassBarInsetRow } from '../design/components/HdsGlassBackSurface';
 import { EmptyState } from '../design/components/EmptyState';
 import { resolveActionIcon } from '../utils/actionIcons';
-import { ColorTokens } from '../design/tokens/color';
-import { TypeTokens } from '../design/tokens/type';
 import { openUserProfile, takeFollowListIntent } from '../utils/nav';
 import { getMainNavStack, UserProfileNavParams } from '../utils/navigationTransition';
 import { getUserId } from '../utils/auth';
@@ -30,6 +30,7 @@ export struct MyFollowView {
   @State error: string = '';
   @State ready: boolean = false;
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
+  private pageScroller: Scroller = new Scroller();
 
   // 统一返回入口：Navigation 壳走 onBack（navStack.pop），router 壳走普通返回
   private backAction(): void {
@@ -217,18 +218,21 @@ export struct MyFollowView {
     this.getUIContext().getRouter().pushUrl({ url: 'pages/UserProfilePage', params: { userId: String(item.id) } });
   }
 
-  build() {
-    Column() {
-      Row() {
-        BackButton({ action: (): void => { this.backAction(); } })
-        Text(this.mode === 'following' ? '我的关注' : '我的粉丝')
-          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.title.weight).lineHeight(TypeTokens.title.lineHeight)
-          .fontColor(ColorTokens.primary).layoutWeight(1).textAlign(TextAlign.Center);
-        Text('').width(44);
-      }
-      .width('100%').padding({ top: 12, bottom: 8 });
+  private titleBarOptions(): HdsNavigationTitleBarOptions {
+    return buildPageTitleBarOptions({
+      back: (): void => { this.backAction(); },
+      stackBuilder: (): void => { this.titleRow(); },
+    });
+  }
 
+  @Builder
+  titleRow() {
+    GlassTitleRow({ title: this.mode === 'following' ? '我的关注' : '我的粉丝', serif: true })
+  }
+
+  build() {
+    HdsNavigation() {
+      Column() {
       if (!this.ready) {
         Column() {
           LoadingProgress().width(28).height(28);
@@ -248,7 +252,11 @@ export struct MyFollowView {
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
       } else {
         Refresh({ refreshing: $$this.isRefreshing }) {
-        List() {
+        List({ scroller: this.pageScroller }) {
+          // MINI 标题栏穿底：列表首位占位让出「状态栏 + 栏体」
+          ListItem() {
+            GlassBarInsetRow({ statusBarHeight: this.statusBarHeight })
+          }
           ForEach(this.list, (item: FollowUser) => {
             ListItem() {
               Row({ space: 12 }) {
@@ -290,8 +298,16 @@ export struct MyFollowView {
         .layoutWeight(1).width('100%')
         .onRefreshing(() => { this.refresh().finally(() => { this.isRefreshing = false; }); });
       }
+      }
+      .width('100%').height('100%')
     }
-    .width('100%').padding({ top: this.statusBarHeight }).height('100%').backgroundColor($r('app.color.bg_primary'))
+    .mode(NavigationMode.Stack)
+    .titleMode(HdsNavigationTitleMode.MINI)
+    .titleBar(this.titleBarOptions())
+    .bindToScrollable([this.pageScroller])
+    .clip(false)
+    .width('100%').height('100%')
+    .backgroundColor($r('app.color.bg_primary'))
     .transition(buildPageTransition())
   }
 }

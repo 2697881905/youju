@@ -16,30 +16,12 @@ import { ManagedPostFeed } from '../components/ManagedPostFeed';
 import { buildPageTransition } from '../utils/styles';
 import { openPostDetail } from '../utils/nav';
 import { getUserId } from '../utils/auth';
-import { resolveActionIcon } from '../utils/actionIcons';
-import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit';
-import { LengthMetrics } from '@kit.ArkUI';
-import type {
-  HdsNavigationTitleBarOptions,
-  TitleBarContentOptions,
-  TitleBarStyleOptions,
-  ScrollEffectOptions,
-  SystemMaterialParams,
-  HdsTitleBarContentStyle,
-  HdsNavigationIconItemStyle,
-  HdsNavigationBackButtonItemOptions,
-  HdsNavigationIconOptions,
-} from '@kit.UIDesignKit';
-// 栏级沉浸光感：与「我的」/首页/聊天页/草稿箱同一对字段、同一门禁（基准 §7.6.29）。
-import { isImmersiveLightSenseSupported, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
+import { buildPageTitleBarOptions, GlassTitleRow } from '../design/components/HdsGlassBackSurface';
+import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 
-// 官方返回键占 16~56vp（40vp 圆 + 16vp 左内缩）。stackBuilder 那行是全宽的、且在返回键的
-// 后一个兄弟节点上（z 序更高），不留出这段就会**吃掉返回键的点击**（ChatView 试点真机复现）。
-const HDS_BACK_SLOT_END_VP: number = 64;
 // 栏体高（vp）：MINI 标题区实测 175px ÷ 3.125 = 56vp。穿底时内容按这个值让位。
 const TRASH_BAR_ROW_VP: number = 56;
-// 渐变模糊生效区间终点（vp）：与草稿箱/聊天页同量级
-const TRASH_BLUR_END_VP: number = 32;
 
 @Entry
 @Component
@@ -121,68 +103,21 @@ struct TrashBoxPage {
     this.getUIContext().getRouter().pushUrl({ url: 'pages/DetailPage' });
   }
 
-  // 标题栏配置：官方返回键（backIcon）+ stackBuilder 只放「废纸篓」文字。
-  // 状态栏避让交给 avoidLayoutSafeArea(true)；内容侧 enableComponentSafeArea(false) + topInset
-  // 让帖子能穿到栏下被渐变模糊采样 —— 材质才有东西可折射。
+  // 标题栏配置：官方返回键（backIcon）+ stackBuilder 只放「废纸篓」文字，返回闭包原逻辑逐字保留。
+  // 渐变模糊/栏级材质/透明底配方收敛进 buildPageTitleBarOptions 内部的 buildGlassTitleBarStyle
+  // （同门禁、同 32vp 端点）；状态栏避让走缺省 avoidLayoutSafeArea(true)；内容侧缺省
+  // enableComponentSafeArea(false) + ManagedPostFeed topInset，让帖子穿到栏下被渐变模糊采样。
   private trashTitleBarOptions(): HdsNavigationTitleBarOptions {
-    const immersive: boolean = isImmersiveLightSenseSupported();
-    const scrollEffect: ScrollEffectOptions = {
-      enableScrollEffect: true,
-      scrollEffectType: immersive ? ScrollEffectType.IMMERSIVE_GRADIENT_BLUR : ScrollEffectType.GRADIENT_BLUR,
-      blurEffectiveStartOffset: LengthMetrics.vp(0),
-      blurEffectiveEndOffset: LengthMetrics.vp(TRASH_BLUR_END_VP),
-    };
-    const style: TitleBarStyleOptions = {
-      scrollEffectOpts: scrollEffect,
-      originalStyle: {
-        backgroundStyle: { backgroundColor: Color.Transparent },
-        contentStyle: {
-          backIconStyle: { iconColor: ColorTokens.primary } as HdsNavigationIconItemStyle,
-        } as HdsTitleBarContentStyle,
-      },
-    };
-    if (immersive) {
-      style.systemMaterialEffect = {
-        materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
-        materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE,
-      } as SystemMaterialParams;
-    }
-    // backIcon 带 action 槽 → 返回行为原样保留（还是 router.back()）
-    const backContent: HdsNavigationIconOptions = {
-      icon: resolveActionIcon('back'),
-      label: '返回',
-      action: (): void => { this.getUIContext().getRouter().back(); },
-    };
-    const backIcon: HdsNavigationBackButtonItemOptions = backContent;
-    const content: TitleBarContentOptions = {
+    return buildPageTitleBarOptions({
+      back: (): void => { this.getUIContext().getRouter().back(); },
       stackBuilder: (): void => { this.trashTitleRow(); },
-      backIcon: backIcon,
-    };
-    const options: HdsNavigationTitleBarOptions = {
-      content: content,
-      style: style,
-      avoidLayoutSafeArea: true,
-      enableComponentSafeArea: false,
-    };
-    return options;
+    });
   }
 
-  // stackBuilder 行：只剩「废纸篓」标题。
-  // ⚠️ 左内缩必须让开官方返回键 —— 这一行 width('100%') 且住在 StackCustomNode 里，
-  // 是返回键 Button 的后一个兄弟节点（z 序更高），不留开会把返回键的点击吃掉。
+  // stackBuilder 行：只剩「废纸篓」标题，居中与返回键让位样板收敛进 GlassTitleRow。
   @Builder
   trashTitleRow(): void {
-    Row() {
-      Text('废纸篓')
-        .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
-        .fontWeight(TypeTokens.headline.weight)
-        .lineHeight(TypeTokens.headline.lineHeight)
-        .fontColor(ColorTokens.primary)
-    }
-    .width('100%')
-    .height('100%')
-    .alignItems(VerticalAlign.Center)
-    .padding({ left: HDS_BACK_SLOT_END_VP, right: SpaceTokens.md })
+    GlassTitleRow({ title: '废纸篓', headlineSerif: true })
   }
 
   @Builder

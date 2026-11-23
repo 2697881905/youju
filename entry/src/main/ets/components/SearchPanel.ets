@@ -18,11 +18,16 @@ import type {
   TitleBarStyleOptions,
   SystemMaterialParams,
   ScrollEffectOptions,
+  HdsNavigationBackButtonItemOptions,
+  HdsNavigationIconOptions,
 } from '@kit.UIDesignKit';
 
 // 搜索框 / 返回按钮的标准控件高度：与系统搜索栏一致。
 // 原生 Search 不显式定高时整体偏高（且返回按钮会跟着放大），故统一收敛到标准值。
 const SEARCH_FIELD_HEIGHT: number = 40;
+// 官方返回键占 16~56vp（40vp 圆 + 16vp 左内缩）；stackBuilder 那行是全宽的且 z 序在返回键之上，
+// 不留开就会吃掉它的点击（配方同 SearchResultPage / 基准 §7.6.31）
+const HDS_BACK_SLOT_END_VP: number = 64;
 
 // 首页内的搜索探索页：玻璃工具栏 + 最近搜索 + 双列热搜。
 // 选项胶囊/格子复用首页「推荐/关注」分段栏的 outlined 风格：透明底 + 细边框 + 大圆角 + 无阴影。
@@ -39,6 +44,9 @@ export struct SearchPanel {
   // 用带投影的一份：这条工具栏驻留自带留白的 Navigation 标题栏，不会被 HdsNavigation
   // 那种窄行裁切，而纯白画布上无投影的材质表面只差 2 级灰度，浮不起来。
   private titleBarMaterial: FloatingTopButtonMaterialModifier = new FloatingTopButtonMaterialModifier();
+  // 内容区滚动源（交给 HdsNavigation.bindToScrollable 驱动栏体渐变模糊）：没有它栏后拿不到
+  // 内容可采样，浅色画布上材质表面只差 2~3 级看不出（配方同 SearchResultPage.ets:410）。
+  private panelScroller: Scroller = new Scroller();
 
   @State keyword: string = '';
   @State suggestions: string[] = []; // 搜索联想（输入时防抖拉取）
@@ -256,81 +264,57 @@ export struct SearchPanel {
     return this.statusBarHeight + SpaceTokens.xs * 2 + SEARCH_FIELD_HEIGHT;
   }
 
-  // 标题栏：返回 + 系统原生搜索框 + 独立搜索按钮 ——原顶部工具栏整体驻留于此。
-  // 修复（测试反馈「搜索面板顶部未做沉浸光感适配」）：标题栏从原生 Navigation.title(STANDARD)
-  // 迁入 HdsNavigation 标题栏（见 build() 与 searchTitleBarOptions）——systemMaterial 只在
-  // HdsNavigation/HdsNavDestination 标题栏官方生效区渲染，原生标题栏里不出图；而
-  // isSystemMaterialActive() 只看 API 档，材质不渲染时描边已被关掉 → 三元素裸露无表面。
-  // 迁移后状态栏避让由 HdsNavigation(avoidLayoutSafeArea) 承担，不再手动下移 statusBarHeight。
+  // 标题栏：官方返回键（backIcon，见 searchTitleBarOptions）+ 系统原生搜索框 + 独立搜索按钮。
+  // 修复（测试反馈「搜索面板顶部未做沉浸光感适配」）：返回钮由自绘 Button 改为 HdsNavigation
+  // 官方 backIcon（40vp 玻璃圆，配方同 SearchResultPage）——深色实测自绘钮 35 vs 官方圆 31，
+  // 两者材质链路不同源；工具行左内缩 HDS_BACK_SLOT_END_VP 让开官方返回键的点击热区（z 序更高）。
+  // 搜索框/搜索按钮材质与触控行为保持不变。
   @Builder
   private searchTitleBar(): void {
     Row({ space: SpaceTokens.inline }) {
-      // 返回：系统原生 Button 组件（低版本保留细描边兜底，材质生效时由系统接管表面）。
-      // 尺寸与搜索框统一为标准控件高度。
-      Button({ type: ButtonType.Normal, stateEffect: true }) {
-        Image(resolveActionIcon('back'))
-          .width(IconTokens.small)
-          .height(IconTokens.small)
-          .fillColor(ColorTokens.icon)
-      }
-      .width(SEARCH_FIELD_HEIGHT)
-      .height(SEARCH_FIELD_HEIGHT)
-      // 视觉与搜索框同高，触控热区仍保持 44（与全局 minTouchTarget 一致）
-      .responseRegion({
-        x: (SEARCH_FIELD_HEIGHT - LayoutTokens.minTouchTarget) / 2,
-        y: (SEARCH_FIELD_HEIGHT - LayoutTokens.minTouchTarget) / 2,
-        width: LayoutTokens.minTouchTarget,
-        height: LayoutTokens.minTouchTarget,
-      })
-      .backgroundColor(Color.Transparent)
-      // 材质生效时自绘描边让位（否则与材质叠成第二圈描边，见教程案例 4）
-      .border({
-        width: isSystemMaterialActive() ? 0 : LayoutTokens.glassBorderWidth,
-        color: ColorTokens.barBorder,
-        style: BorderStyle.Solid,
-      })
-      .borderRadius(RadiusTokens.lg)
-      .attributeModifier(this.titleBarMaterial)
-      .accessibilityText('返回')
-      .onClick((): void => { this.onCancel(); })
-
       this.searchInput()
       this.searchSubmitButton()
     }
     .width('100%')
     .height('100%')
-    .justifyContent(FlexAlign.Center)
     .alignItems(VerticalAlign.Center)
     .padding({
-      left: SpaceTokens.sm,
+      left: HDS_BACK_SLOT_END_VP,
       right: SpaceTokens.sm,
     })
   }
 
   // HdsNavigation 标题栏配置（配方同 SearchResultPage，基准 §7.6.31）：
-  // MINI + hideBackButton（返回钮留在 stackBuilder 行内，保留原自绘 Button 与材质）
-  // + stackBuilder 工具行 + 栏级 EXQUISITE 沉浸光感（官方生效区，三元素材质出图）。
-  // fix-search-press-light（真机「按压无光效、看不出沉浸光感」）：与结果页（材质真机可见）
-  // 逐项对比后对齐两处差异——①补 scrollEffectOpts（IMMERSIVE_GRADIENT_BLUR，与结果页同参）：
-  // 栏级 IMMERSIVE 材质渲染路径与滚动模糊配置同链路，结果页有、本页原先缺；本页无滚动列表，
-  // 模糊恒 0 不影响观感，仅对齐渲染链路；②HdsNavigation 挂 .clip(false)（见 build 注释）。
+  // MINI + 官方 backIcon（返回行为走 onCancel）+ stackBuilder 工具行（搜索框+搜索按钮）
+  // + 栏级 EXQUISITE 沉浸光感（官方生效区，材质出图）。
   private searchTitleBarOptions(): HdsNavigationTitleBarOptions {
+    const immersive: boolean = isImmersiveLightSenseSupported();
+    // 滚动模糊类型与结果页同口径：低版本（无沉浸光感）回退 GRADIENT_BLUR，
+    // 之前写死 IMMERSIVE_GRADIENT_BLUR 没有门禁，是与结果页的一处差异。
     const scrollEffect: ScrollEffectOptions = {
       enableScrollEffect: true,
-      scrollEffectType: ScrollEffectType.IMMERSIVE_GRADIENT_BLUR,
+      scrollEffectType: immersive ? ScrollEffectType.IMMERSIVE_GRADIENT_BLUR : ScrollEffectType.GRADIENT_BLUR,
       blurEffectiveStartOffset: LengthMetrics.vp(0),
       blurEffectiveEndOffset: LengthMetrics.vp(32),
     };
     const content: TitleBarContentOptions = {
       stackBuilder: (): void => { this.searchTitleBar(); },
     };
+    // backIcon 带 action 槽 → 返回行为原样保留（onCancel），触控与无障碍由官方组件承担
+    const backContent: HdsNavigationIconOptions = {
+      icon: resolveActionIcon('back'),
+      label: '返回',
+      action: (): void => { this.onCancel(); },
+    };
+    const backIcon: HdsNavigationBackButtonItemOptions = backContent;
+    content.backIcon = backIcon;
     const style: TitleBarStyleOptions = {
       scrollEffectOpts: scrollEffect,
       originalStyle: {
         backgroundStyle: { backgroundColor: Color.Transparent },
       },
     };
-    if (isImmersiveLightSenseSupported()) {
+    if (immersive) {
       style.systemMaterialEffect = {
         materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
         materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE,
@@ -347,16 +331,20 @@ export struct SearchPanel {
   }
 
   build() {
-    // 根容器：HdsNavigation（修复沉浸光感，见 searchTitleBar 注释）——标题栏走
-    // titleBar(options) 官方生效区，状态栏避让由栏体承担；内容区从栏下开始。
+    // 根容器：HdsNavigation（沉浸光感官方生效区，见 searchTitleBarOptions）——标题栏走
+    // titleBar(options)，状态栏避让由栏体承担（avoidLayoutSafeArea）；内容区从栏下开始。
+    // 内容区包进 Scroll 并经 bindToScrollable 挂给栏体：为栏体引入可采样滚动源
+    // （结果页配方，SearchResultPage.ets:409-410——没有它，栏后拿不到内容可采样，
+    // 浅色画布上材质表面只差 2~3 级看不出）。
     HdsNavigation() {
+      Scroll(this.panelScroller) {
       Column() {
         if (this.loadingState) {
         Column() {
           LoadingProgress().width(IconTokens.empty).height(IconTokens.empty)
         }
-        .layoutWeight(1)
         .width('100%')
+        .height('100%')
         .justifyContent(FlexAlign.Center)
       } else {
         Column() {
@@ -498,21 +486,23 @@ export struct SearchPanel {
           .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: 0, bottom: SpaceTokens.x3l })
           }
         }
-        .layoutWeight(1)
         .width('100%')
         .alignItems(HorizontalAlign.Start)
       }
       }
       .width('100%')
-      .height('100%')
+      }
+      // 画布色铺满 Scroll 视口（内容不足一屏时视口下部不露透底）
       .backgroundColor(ColorTokens.canvas)
+      // 滚动容器自身的越界回弹交给热搜 Grid（alwaysEnabled Spring）承担，外层不再叠加
+      .edgeEffect(EdgeEffect.None)
     }
     .mode(NavigationMode.Stack)
     .titleBar(this.searchTitleBarOptions())
     .titleMode(HdsNavigationTitleMode.MINI)
-    // 返回钮留在 stackBuilder 工具行内（保留原自绘 Button 与触控热区），关掉官方返回键
-    .hideBackButton(true)
-    // fix-search-press-light：与结果页同构——HdsNavigation 自身不裁切（结果页同款属性），
+    // 渐变模糊的滚动源：没有它，栏后拿不到内容可采样，材质在纯白画布上只差 2~3 级看不出
+    .bindToScrollable([this.panelScroller])
+    // 与结果页同构——HdsNavigation 自身不裁切（结果页同款属性），
     // 排除栏体裁切对材质渲染链路的干扰
     .clip(false)
     .width('100%')

@@ -30,8 +30,10 @@ import type {
   HdsNavigationIconOptions,
   HdsNavigationBackButtonItemOptions,
   SystemMaterialParams,
+  BottomBuilderParams,
 } from '@kit.UIDesignKit';
 import { LengthMetrics } from '@kit.ArkUI';
+import { HDS_BACK_SLOT_END_VP } from '../design/components/HdsGlassBackSurface';
 import { isImmersiveLightSenseSupported, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
 import { requestSystemBarRefresh } from '../utils/systemBar';
 import { BaseCard } from '../design/components/BaseCard';
@@ -973,6 +975,10 @@ export struct ReportAdminPage {
 
   // ───────────────────────── 标题栏（Navigation） ─────────────────────────
 
+  // bottomBuilder 双分段列高（2026-11-22）：顶投影净空 14 + 两行分段栏 40×2 + 行间距 8 + 底投影净空 28
+  private static readonly SEG_BARS_COLUMN_H: number = LayoutTokens.segmentBarTopRoom
+    + LayoutTokens.segmentBarHeight * 2 + SpaceTokens.sm + LayoutTokens.segmentBarShadowRoom;
+
   // 标题栏首帧估算：与 Builder 行结构同源（状态栏 + 导航行），实测回写后不再使用
   // （双分段栏已移出标题栏，见 pageTitleBar 注释）
   private titleBarEstimate(): number {
@@ -984,40 +990,42 @@ export struct ReportAdminPage {
     return this.titleBarContentHeight > 0 ? this.titleBarContentHeight : this.titleBarEstimate();
   }
 
-  // 标题栏：仅导航行（标题 + 操作按钮）驻留 Navigation 标题栏，沉浸光感由此出图。
-  // ⚠️ 双分段栏已移出标题栏（见 build 内列表上方固定区）：HdsNavigation 会把标题栏
-  // content 的布局高度钳制在 ~76vp，双分段栏（实际占 ~150vp）溢出悬浮、onAreaChange
-  // 回写的又是钳制值，列表让位不足直接压在卡片上（真机截图/UI 树实证 2026-10-28）。
-  // 分段栏的材质不受影响：overrideTrackMaterial 走官方 SegmentButton 组件表面材质
-  // 通道（backgroundSystemMaterial），内容区正常出图（消息页/我的页同款已验证）。
+  // 标题栏：导航行（标题 + 操作按钮）驻 stackBuilder；双分段栏 2026-11-22 搬回
+  // bottomBuilder（见 segBars/reportTitleBarOptions——uiMaterial 只在标题栏子树出图）。
   // 全屏沉浸布局下标题栏不代为避让状态栏：由本 Builder 手动下移（避让只此一处，
   // 内容区不再补 statusBarHeight），实测高度供列表让位使用。
   @Builder
   pageTitleBar(): void {
     Column() {
-      // 导航行：标题 + 操作按钮（刷新/删除，或选择态的取消/全选/删除选中）；返回键交官方 backIcon
-      Row() {
-        Blank()
+      // 导航行：标题 + 操作按钮（删除，或选择态的取消/全选/删除选中）；返回键交官方 backIcon
+      Stack({ alignContent: Alignment.Center }) {
         Text('举报中心')
           .fontSize(TypeTokens.title.size)
           .fontFamily(TypeTokens.fontFamilySerif)
           .fontWeight(TypeTokens.title.weight)
           .lineHeight(TypeTokens.title.lineHeight)
           .fontColor(ColorTokens.primary)
-        Blank()
-        if (this.selectMode) {
-          this.selectActions()
-        } else {
-          this.normalActions()
+          .width('100%')
+          .textAlign(TextAlign.Center)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .padding({ left: HDS_BACK_SLOT_END_VP, right: HDS_BACK_SLOT_END_VP })
+        Row() {
+          Blank()
+          if (this.selectMode) {
+            this.selectActions()
+          } else {
+            this.normalActions()
+          }
         }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
       }
       .width('100%')
-      .alignItems(VerticalAlign.Center)
-      .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+      .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
     }
     .width('100%')
-    // ⚠️ 左内缩 64vp 让开官方返回键（stackBuilder 全宽可点行会吃掉返回键——防漂移 31）
-    .padding({ left: 64, top: SpaceTokens.xs })
+    .padding({ top: SpaceTokens.xs })
     .onAreaChange((_old: Area, area: Area): void => {
       const h: number = parseFloat(String(area.height));
       if (h > 0 && Math.abs(h - this.titleBarContentHeight) > 0.5) {
@@ -1026,36 +1034,17 @@ export struct ReportAdminPage {
     })
   }
 
-  // 常规态右上角：刷新 + 删除（进入多选）
+  // 常规态右上角：删除（进入多选）
   @Builder
   normalActions(): void {
-    Row({ space: SpaceTokens.sm }) {
-      Row() {
-        if (this.isRefreshing) {
-          LoadingProgress().width(IconTokens.small).height(IconTokens.small)
-        } else {
-          Text('刷新')
-            .fontSize(TypeTokens.callout.size)
-            .fontFamily(TypeTokens.fontFamily)
-            .fontColor(ColorTokens.brand)
-        }
-      }
+    Text('删除')
+      .fontSize(TypeTokens.callout.size)
+      .fontFamily(TypeTokens.fontFamily)
+      .fontColor(ColorTokens.danger)
+      .textAlign(TextAlign.Center)
       .constraintSize({ minWidth: LayoutTokens.minTouchTarget })
       .height(LayoutTokens.minTouchTarget)
-      .justifyContent(FlexAlign.Center)
-      .alignItems(VerticalAlign.Center)
-      .onClick((): void => { this.refresh(); })
-
-      Text('删除')
-        .fontSize(TypeTokens.callout.size)
-        .fontFamily(TypeTokens.fontFamily)
-        .fontColor(ColorTokens.danger)
-        .textAlign(TextAlign.Center)
-        .constraintSize({ minWidth: LayoutTokens.minTouchTarget })
-        .height(LayoutTokens.minTouchTarget)
-        .onClick((): void => { this.enterSelect(); })
-    }
-    .alignItems(VerticalAlign.Center)
+      .onClick((): void => { this.enterSelect(); })
   }
 
   // 选择态右上角：取消 / 全选 / 删除选中
@@ -1090,18 +1079,18 @@ export struct ReportAdminPage {
     .alignItems(VerticalAlign.Center)
   }
 
-  // 两个分段栏：上「板块」（被举报对象类型：帖子/评论/用户），下「状态」（该板块内的状态）。
-  // 固定驻内容区顶部（2026-10-28 移出标题栏，原因见 pageTitleBar 注释）；
-  // 左右 padding 与下方列表一致，视觉同宽对齐。
+  // 双分段栏：上「板块」（被举报对象类型：帖子/评论/用户），下「状态」（该板块内的状态）。
+  // ✅ 2026-11-22 搬回 bottomBuilder（与圈子详情同款）：uiMaterial 只在标题栏子树出图
+  //（§7.6.26 定论），内容区任何挂法都不出图；bottomBuilder 高度自主不受 content 76vp
+  // 钳制（130vp < 圈子详情 160vp 已验证）。材质 overrideTrackMaterial 站上栏级材质。
+  // 上下投影净空按 bottomBuilder 口径配平（top 14 / bottom 28），左右与列表对齐。
   @Builder
   segBars(): void {
     Column({ space: SpaceTokens.sm }) {
       ImmersiveSegmentBar({
         items: TYPE_ITEMS,
         selectedIndex: $typeIndex,
-        // 表单式两行分段栏：铺满内容区宽
         fillWidth: true,
-        // 浮起档：官方组件表面材质（内容区正常出图）
         overrideTrackMaterial: true,
         onSelect: (index: number): void => { this.onTypeSelect(index); },
       })
@@ -1117,10 +1106,8 @@ export struct ReportAdminPage {
     .padding({
       left: SpaceTokens.pageCompact,
       right: SpaceTokens.pageCompact,
-      // 全屏沉浸壳内容器从屏顶起排，顶部让位穿底标题栏（statusBar + 导航行实测高），
-      // 与下方列表原让位口径一致；否则分段栏被标题行盖住（真机实证 2026-10-28）
-      top: this.reportListInset(),
-      bottom: SpaceTokens.sm,
+      top: LayoutTokens.segmentBarTopRoom,
+      bottom: LayoutTokens.segmentBarShadowRoom,
     })
   }
 
@@ -1575,9 +1562,9 @@ export struct ReportAdminPage {
   }
 
 
-  // 穿底让位：状态栏 + stackBuilder 实测高
+  // 穿底让位：状态栏 + stackBuilder 实测高 + bottomBuilder 双分段列（2026-11-22 搬回标题栏）
   private reportListInset(): number {
-    return this.statusBarHeight + this.titleBarHeight();
+    return this.statusBarHeight + this.titleBarHeight() + ReportAdminPage.SEG_BARS_COLUMN_H;
   }
 
   // 滚动态 → 模糊出图开关 + 系统栏补设（绝对偏移，§36/竞速同款）
@@ -1626,9 +1613,16 @@ export struct ReportAdminPage {
       action: (): void => { this.getUIContext().getRouter().back(); },
     };
     const backIcon: HdsNavigationBackButtonItemOptions = backContent;
+    // ✅ 2026-11-22 双分段栏搬回 bottomBuilder（130vp = 顶净空14 + 两行40×2 + 间距8 + 底净空28，
+    // 高度自主不受 content 76vp 钳制）——与圈子详情合体列同款；材质站上栏级 EXQUISITE 玻璃。
+    // ⚠️ builder 引用 @Builder 方法（segBars），不可闭包内联组件树（145 错陷阱）。
     const content: TitleBarContentOptions = {
       stackBuilder: (): void => { this.pageTitleBar(); },
       backIcon: backIcon,
+      bottomBuilder: {
+        builder: (): void => { this.segBars(); },
+        height: ReportAdminPage.SEG_BARS_COLUMN_H,
+      } as BottomBuilderParams,
     };
     return {
       content: content,
@@ -1642,10 +1636,8 @@ export struct ReportAdminPage {
     // 穿底三件套（序位③）：HdsNavigation 顶栏驻留（导航行 + 两个分段栏），内容区只剩列表三态。
     HdsNavigation() {
       Column() {
-        // 双分段栏（板块 + 状态）：固定在列表上方（不随滚动）。原驻留标题栏的穿底
-        // 结构被 HdsNavigation 的 content 高度钳制破坏（见 pageTitleBar 注释），移出后
-        // 宽度与列表 padding 对齐、材质走官方组件表面通道照常出图。
-        this.segBars()
+        // 双分段栏已搬进 bottomBuilder（见 segBars/reportTitleBarOptions，2026-11-22）：
+        // 站上栏级 EXQUISITE 材质与首页同源；内容区只剩列表三态。
         // 三态与列表统一包在 Refresh + Scroll 里：空态 / 错误态也能下拉刷新。
         // 全屏沉浸壳内列表一律用 Scroll（List/WaterFlow/Grid 的滚动终点会被底部非安全区钳制）。
         Refresh({ refreshing: this.isRefreshing, builder: this.refreshBuilder }) {
@@ -1656,9 +1648,9 @@ export struct ReportAdminPage {
             .width('100%')
             .constraintSize({ minHeight: '100%' })
             .justifyContent(this.stateCentered() ? FlexAlign.Center : FlexAlign.Start)
-            // 顶部不再补标题栏让位：分段栏固定区已承担 reportListInset（见 segBars），
-            // 列表顶 = 分段栏底，再补会出大空隙
-            .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, bottom: SpaceTokens.x2l })
+            // 顶部让位穿底标题栏（statusBar + 导航行 + bottomBuilder 双分段列）：分段栏搬进
+            // 标题栏后让位移交给列表（2026-11-22）
+            .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: this.reportListInset(), bottom: SpaceTokens.x2l })
           }
           .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
           .onDidScroll((): void => { this.syncReportScroll(); })

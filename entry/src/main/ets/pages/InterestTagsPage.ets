@@ -1,19 +1,25 @@
 // 兴趣标签管理页：查看 / 删除用于「每日一贴」个性化推荐的兴趣标签。
 // 合规依据：《互联网信息服务算法推荐管理规定》第 17 条第 2 款——用户应能查看、选择、删除
 // 用于个性化推荐的标签。删除即时生效，后端列表接口会立即反映。
-// 复用 design system 令牌 + 共享 BackButton/EmptyState，与其它二级页 UI 统一。
+// 复用 design system 令牌 + EmptyState，与其它二级页 UI 统一（返回键走玻璃顶栏三件套）。
 
 import { listTags, listFollowedTags, followTag, unfollowTag } from '../services/api';
 import { Tag } from '../models/types';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { barBottomReserve } from '../utils/cardTokens';
-import { BackButton } from '../design/components/BackButton';
+import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
+import {
+  buildPageTitleBarOptions,
+  GlassTitleRow,
+  GlassBarInsetRow,
+} from '../design/components/HdsGlassBackSurface';
 import { EmptyState } from '../design/components/EmptyState';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
-import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
+import { SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { getUserId } from '../utils/auth';
 
@@ -26,6 +32,8 @@ export struct InterestTagsPage {
   @State loadError: string = '';
   @State busy: boolean = false;
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
+  // 交给 HdsNavigation.bindToScrollable，驱动顶栏渐变模糊
+  private pageScroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
     // 登录闸门：我关注的标签挂在账号上（/v1/auth/me/followed-tags），未登录进来只是「加载失败」。
@@ -166,27 +174,23 @@ export struct InterestTagsPage {
     .width('100%')
   }
 
-  build() {
-    Column() {
-      // 顶栏：BackButton + 居中标题（与其它二级页一致）
-      Row() {
-        BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
-        Blank()
-        Text('兴趣标签')
-          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.title.weight)
-          .lineHeight(TypeTokens.title.lineHeight)
-          .fontColor(ColorTokens.primary)
-        Blank()
-        Text('')
-          .width(LayoutTokens.minTouchTarget)
-          .height(LayoutTokens.minTouchTarget)
-      }
-      .width('100%')
-      .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: SpaceTokens.md, bottom: SpaceTokens.sm })
-      .alignItems(VerticalAlign.Center)
+  // 标题栏：官方玻璃返回键 + stackBuilder 只放标题。
+  private interestTagsTitleBarOptions(): HdsNavigationTitleBarOptions {
+    return buildPageTitleBarOptions({
+      back: (): void => { this.getUIContext().getRouter().back(); },
+      stackBuilder: (): void => { this.interestTagsTitleRow(); },
+    });
+  }
 
-      if (!this.loadFinished) {
+  @Builder
+  interestTagsTitleRow(): void {
+    GlassTitleRow({ title: '兴趣标签' });
+  }
+
+  build() {
+    HdsNavigation() {
+      Column() {
+        if (!this.loadFinished) {
         Column({ space: SpaceTokens.item }) {
           LoadingProgress().width(IconTokens.empty).height(IconTokens.empty).color(ColorTokens.secondary)
           Text('正在加载兴趣标签')
@@ -206,8 +210,11 @@ export struct InterestTagsPage {
         }
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center)
       } else {
-        Scroll() {
+        Scroll(this.pageScroller) {
           Column({ space: SpaceTokens.section }) {
+            // 穿底让位：状态栏 + MINI 栏高
+            GlassBarInsetRow({ statusBarHeight: this.statusBarHeight })
+
             // 说明：这些标签的用途与删除效果
             Text('以下标签用于「每日一贴」的个性化推荐。你可以随时删除任意标签，删除后立即生效；也可以重新添加。')
               .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
@@ -254,9 +261,16 @@ export struct InterestTagsPage {
         }
         .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .layoutWeight(1).width('100%')
+        }
       }
+      .width('100%').height('100%')
     }
-    .width('100%').padding({ top: this.statusBarHeight }).height('100%')
+    .mode(NavigationMode.Stack)
+    .titleMode(HdsNavigationTitleMode.MINI)
+    .titleBar(this.interestTagsTitleBarOptions())
+    .bindToScrollable([this.pageScroller])
+    .clip(false)
+    .width('100%').height('100%')
     .backgroundColor(ColorTokens.canvas)
     .transition(buildPageTransition())
   }

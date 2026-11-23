@@ -4,7 +4,7 @@ import { MotionCurves, MotionTokens } from '../tokens/motion';
 import { RadiusTokens } from '../tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../tokens/space';
 import { TypeTokens } from '../tokens/type';
-import { isSystemMaterialActive, TopButtonMaterialModifier } from '../../utils/immersiveMaterial';
+import { isSystemMaterialActive, TopButtonMaterialModifier, PillImmersiveMaterialModifier } from '../../utils/immersiveMaterial';
 
 export type DesignButtonVariant = 'primary' | 'ghost' | 'glass' | 'outlined';
 
@@ -17,9 +17,13 @@ export struct DesignButton {
   @Prop visualHeight: number = LayoutTokens.minTouchTarget;
   @Prop cornerRadius: number = 0;
   // 沉浸光感：驻留 Navigation 标题栏时由系统材质接管按钮表面（低版本门禁自动跳过，保留原描边样式）。
-  // 与 SegmentedControl / TagNav 的 useSystemMaterial 同一范式。
+  // 与 TagNav 的 useSystemMaterial 同一范式。
   @Prop useSystemMaterial: boolean = false;
+  // 档位选择：false = 驻留钮档（ULTRA_THIN，图标钮）；true = 文字药丸档（REGULAR+光效，
+  // 标题栏内文字主钮，与「已加入/发现圈子」同档——配方表见 project-glass-design-system 记忆）。
+  @Prop materialPill: boolean = false;
   private materialModifier: TopButtonMaterialModifier = new TopButtonMaterialModifier();
+  private pillModifier: PillImmersiveMaterialModifier = new PillImmersiveMaterialModifier();
   @State readyPulse: boolean = false;
   private pulseTimer: number = 0;
   action?: () => void = undefined;
@@ -52,6 +56,26 @@ export struct DesignButton {
       return RadiusTokens.pill;
     }
     return this.isPrimary() || this.isGlass() ? RadiusTokens.pill : RadiusTokens.md;
+  }
+
+  // 材质接管时的表面让位：门禁生效时实底透明化（同节点实底会遮死材质，TagNav 同款处理），
+  // 文字翻 primary——玻璃面上 onBrand(白) 不可见（Index 页官方圆钮 iconColor 同一教训）。
+  private materialActive(): boolean {
+    return this.useSystemMaterial && isSystemMaterialActive();
+  }
+
+  private surfaceColor(): ResourceColor {
+    if (this.materialActive()) {
+      return Color.Transparent;
+    }
+    return this.isPrimary() ? ColorTokens.brandSolid : (this.isGlass() ? ColorTokens.elevated : Color.Transparent);
+  }
+
+  private labelColor(): ResourceColor {
+    if (this.materialActive()) {
+      return ColorTokens.primary;
+    }
+    return this.isPrimary() ? ColorTokens.onBrand : (this.isGlass() || this.isOutlined() ? ColorTokens.primary : ColorTokens.brand);
   }
 
   aboutToDisappear(): void {
@@ -92,12 +116,12 @@ export struct DesignButton {
         .fontWeight(TypeTokens.headline.weight)
         .lineHeight(TypeTokens.callout.lineHeight)
         .letterSpacing(TypeTokens.callout.tracking)
-        .fontColor(this.isPrimary() ? ColorTokens.onBrand : (this.isGlass() || this.isOutlined() ? ColorTokens.primary : ColorTokens.brand))
+        .fontColor(this.labelColor())
         .height(this.visualHeight)
         .width(this.fillWidth ? '100%' : 'auto')
         .padding({ left: SpaceTokens.block, right: SpaceTokens.block })
         .textAlign(TextAlign.Center)
-        .backgroundColor(this.isPrimary() ? ColorTokens.brandSolid : (this.isGlass() ? ColorTokens.elevated : Color.Transparent))
+        .backgroundColor(this.surfaceColor())
         .border({
           // 材质生效时自绘描边让位（材质已接管表面，自绘边框会叠成第二圈描边）
           width: (this.useSystemMaterial && isSystemMaterialActive())
@@ -124,7 +148,7 @@ export struct DesignButton {
         })
         // 沉浸光感：材质挂在按钮表面节点上（Pressable 尾随闭包之后不能再接属性链，
         // 与首页搜索按钮把材质挂在内层 Row 同一做法）；低版本门禁自动跳过
-        .attributeModifier(this.useSystemMaterial ? this.materialModifier : undefined)
+        .attributeModifier(this.useSystemMaterial ? (this.materialPill ? this.pillModifier : this.materialModifier) : undefined)
     }
   }
 }

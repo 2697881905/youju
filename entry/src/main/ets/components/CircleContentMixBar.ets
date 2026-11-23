@@ -7,7 +7,6 @@
 // - 深色下 教程绿 会偏暗，单独提亮一档
 import { CircleContentMix } from '../services/api';
 import { ColorTokens } from '../design/tokens/color';
-import { RadiusTokens } from '../design/tokens/radius';
 import { SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 

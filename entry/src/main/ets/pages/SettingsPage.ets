@@ -10,10 +10,14 @@ import { buildPageTransition } from '../utils/styles';
 import { CARD_RADIUS } from '../utils/cardTokens';
 import { APP_VERSION_NAME } from '../utils/buildMode';
 import { resolveSettingsIcon } from '../utils/settingsIcons';
-import { ColorTokens } from '../design/tokens/color';
-import { TypeTokens } from '../design/tokens/type';
 import { window } from '@kit.ArkUI';
-import { BackButton } from '../design/components/BackButton';
+import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
+import {
+  buildPageTitleBarOptions,
+  GlassTitleRow,
+  GlassBarInsetRow,
+} from '../design/components/HdsGlassBackSurface';
 import { shareUserDataExport } from '../utils/dataExport';
 
 @Entry
@@ -27,6 +31,8 @@ export struct SettingsPage {
   @StorageLink('isDarkMode') darkMode: boolean = false;
   @StorageLink('followSystem') followSystem: boolean = true;
   @State statusBarHeight: number = 0;
+  // 交给 HdsNavigation.bindToScrollable，驱动顶栏渐变模糊
+  private pageScroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
     this.isAdmin = getIsAdmin();
@@ -168,6 +174,21 @@ export struct SettingsPage {
     });
   }
 
+  // 标题栏：官方玻璃返回键 + stackBuilder 只放「设置」。
+  // 状态栏避让交给 avoidLayoutSafeArea(true)；内容侧 enableComponentSafeArea(false)，
+  // 由列表首位占位 ListItem 补回「状态栏 + 栏高」。
+  private settingsTitleBarOptions(): HdsNavigationTitleBarOptions {
+    return buildPageTitleBarOptions({
+      back: (): void => { this.getUIContext().getRouter().back(); },
+      stackBuilder: (): void => { this.settingsTitleRow(); },
+    });
+  }
+
+  @Builder
+  settingsTitleRow(): void {
+    GlassTitleRow({ title: '设置' });
+  }
+
   @Builder
   sectionRow(icon: string, title: string, onTap: () => void): void {
     ListItem() {
@@ -192,24 +213,15 @@ export struct SettingsPage {
   }
 
   build() {
-    Column() {
-      // 顶栏
-      Row() {
-        BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
-        Text('设置')
-          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.title.weight)
-          .lineHeight(TypeTokens.title.lineHeight)
-          .fontColor(ColorTokens.primary)
-          .layoutWeight(1)
-          .textAlign(TextAlign.Center);
-        Text('').width(44);
-      }
-      .width('100%')
-      .padding({ top: 12, bottom: 8 });
+    HdsNavigation() {
+      Column() {
+        List({ space: 8, scroller: this.pageScroller }) {
+          // 穿底让位：状态栏 + MINI 栏高（顶栏已不占布局）
+          ListItem() {
+            GlassBarInsetRow({ statusBarHeight: this.statusBarHeight })
+          }
 
-      List({ space: 8 }) {
-        // ===== 账号与安全 =====
+          // ===== 账号与安全 =====
         ListItem() {
           Text('账号与安全')
             .fontSize(13).fontFamily($r('app.string.font_family'))
@@ -402,10 +414,17 @@ export struct SettingsPage {
       .layoutWeight(1)
       .width('100%')
       .padding({ left: 16, right: 16, top: 8, bottom: 16 });
+      }
+      .width('100%')
+      .height('100%')
     }
+    .mode(NavigationMode.Stack)
+    .titleMode(HdsNavigationTitleMode.MINI)
+    .titleBar(this.settingsTitleBarOptions())
+    .bindToScrollable([this.pageScroller])
+    .clip(false)
     .width('100%')
     .height('100%')
-    .padding({ top: this.statusBarHeight })
     .backgroundColor($r('app.color.bg_primary'))
     .transition(buildPageTransition());
   }

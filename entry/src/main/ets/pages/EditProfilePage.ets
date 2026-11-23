@@ -4,21 +4,22 @@
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { image } from '@kit.ImageKit';
 import { http } from '@kit.NetworkKit';
-import { SegmentButton, SegmentButtonOptions, SegmentButtonTextItem, ItemRestriction } from '@kit.ArkUI';
+import { ImmersiveSegmentBar, SegmentedItem } from '../design/components/ImmersiveSegmentBar';
 import { getCurrentUser, setSession, ensureLogin, getToken, getUserId } from '../utils/auth';
 import { updateMe, getUploadSignature, getUserProfile, resolveUploadPutUrl, toStoredMediaRef } from '../services/api';
 import { compressAvatar, CompressedImage } from '../utils/image';
 import { safeShowToast } from '../utils/toast';
 import { User, UserProfile } from '../models/types';
 import { buildPageTransition } from '../utils/styles';
-import { BackButton } from '../design/components/BackButton';
+import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
+import { buildPageTitleBarOptions, GlassTitleRow, GlassBarInsetRow } from '../design/components/HdsGlassBackSurface';
 import { ColorTokens } from '../design/tokens/color';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { RadiusTokens } from '../design/tokens/radius';
-import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
+import { SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { EditableProfilePreview } from '../components/EditableProfilePreview';
-
 
 @Entry
 @Component
@@ -26,18 +27,16 @@ export struct EditProfilePage {
   @State nickname: string = '';
   @State bio: string = '';
   @State selectedGender: string = '1'; // '1'=男 '2'=女 '0'=保密
-  @State @Watch('onGenderIndexesChange') genderIndexes: number[] = [2];
-  // 官方 SegmentButton（tab 样式）：三档性别，选中态由 selectedIndexes 双向同步
-  // selectedBackgroundColor 必须自己给：官方 tab 档默认选中面在深色实测 #E5E5E5、不随主题翻，
-  // 而选中文字翻了白 → 白字压白珠 1.21:1（真机编辑资料页性别档实拍）。与 ImmersiveSegmentBar 同值。
-  @State genderOptions: SegmentButtonOptions = SegmentButtonOptions.tab({
-    buttons: [
-      { text: '男' },
-      { text: '女' },
-      { text: '保密' },
-    ] as ItemRestriction<SegmentButtonTextItem>,
-    selectedBackgroundColor: ColorTokens.barTabSelectedBg,
-  });
+  // 性别档与全 App 分段栏统一：走 ImmersiveSegmentBar 唯一入口（官方 SegmentButton tab 档
+  // + 沉浸光感材质 + CUSTOM 胶囊圆角）。key 直接采用 selectedGender 的值域，index↔key
+  // 映射单点维护（GENDER_KEYS）；选中面底色由封装统一给值，不再本页自设。
+  private static readonly GENDER_SEGMENTS: SegmentedItem[] = [
+    { key: '1', label: '男' },
+    { key: '2', label: '女' },
+    { key: '0', label: '保密' },
+  ];
+  private static readonly GENDER_KEYS: string[] = ['1', '2', '0'];
+  @State genderIndex: number = 0;
   @State avatar: string = ''; // 当前头像 URL 或 base64 data URI（COS 不可用时降级）
   @State avatarPreview: image.PixelMap | null = null; // 选图后的本地即时预览（不依赖网络/COS）
   @State avatarPending: boolean = false;
@@ -62,6 +61,8 @@ export struct EditProfilePage {
   private originalGender: string = '0';
   private pendingAvatarImage: CompressedImage | null = null;
   private pendingProfileBackgroundImage: CompressedImage | null = null;
+  // 交给 HdsNavigation.bindToScrollable，驱动顶栏渐变模糊
+  private pageScroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
     // 登录闸门：编辑资料只对自己有意义，未登录进来是一张空表单（保存必然 401）。
@@ -75,7 +76,8 @@ export struct EditProfilePage {
       this.nickname = u.nickname ?? '';
       this.bio = u.bio ?? '';
       this.selectedGender = u.gender ? String(u.gender) : '0';
-      this.genderIndexes = [this.selectedGender === '1' ? 0 : (this.selectedGender === '2' ? 1 : 2)];
+      const genderIdx: number = EditProfilePage.GENDER_KEYS.indexOf(this.selectedGender);
+      this.genderIndex = genderIdx >= 0 ? genderIdx : 2;
       this.avatar = u.avatar ?? '';
       this.profileBackground = u.profileBackground ?? '';
       this.profileId = u.id ?? 0;
@@ -134,11 +136,6 @@ export struct EditProfilePage {
     });
   }
 
-  private onGenderIndexesChange(): void {
-    const idx: number = this.genderIndexes.length > 0 ? this.genderIndexes[0] : 2;
-    this.selectedGender = idx === 0 ? '1' : (idx === 1 ? '2' : '0');
-  }
-
   // 从后端拉取最新资料补全 bio/gender（网络失败则保留本地缓存，不阻断编辑）
   private async syncFromServer(): Promise<void> {
     const u: User | null = getCurrentUser();
@@ -150,7 +147,8 @@ export struct EditProfilePage {
       const p: UserProfile = await getUserProfile(id);
       this.bio = p.bio ?? this.bio;
       this.selectedGender = p.gender ? String(p.gender) : '0';
-      this.genderIndexes = [this.selectedGender === '1' ? 0 : (this.selectedGender === '2' ? 1 : 2)];
+      const genderIdx: number = EditProfilePage.GENDER_KEYS.indexOf(this.selectedGender);
+      this.genderIndex = genderIdx >= 0 ? genderIdx : 2;
       this.profileBackground = p.profileBackground ?? this.profileBackground;
       this.profileId = p.id;
       this.followingCount = p.followingCount;
@@ -348,34 +346,50 @@ export struct EditProfilePage {
     }
   }
 
-  build() {
-    Column() {
-      // 普通顶栏：不悬浮、无玻璃、无流光，与页面同底色（保存仅在文本资料未保存变更时强调）。
-      Row() {
-        BackButton({ action: (): void => { this.onBack(); } })
-        Text('编辑资料')
-          .fontSize(17).fontFamily($r('app.string.font_family'))
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.text_primary'))
-          .layoutWeight(1)
-          .textAlign(TextAlign.Center);
-        Text(this.saving ? '保存中' : (this.saveSucceeded ? '已保存' : '保存'))
-          .fontSize(15).fontFamily($r('app.string.font_family'))
-          .fontColor(this.saving ? ColorTokens.secondary : (this.saveSucceeded ? ColorTokens.success : (this.hasUnsavedChanges() ? ColorTokens.brand : ColorTokens.tertiary)))
-          .width(56)
-          .textAlign(TextAlign.Center)
-          .scale({ x: this.saveSucceeded ? MotionTokens.successScale : 1, y: this.saveSucceeded ? MotionTokens.successScale : 1 })
-          .animation({ duration: MotionTokens.emphasis, curve: MotionCurves.springSoft })
-          .opacity(this.saving || this.saveSucceeded || this.hasUnsavedChanges() ? 1 : 0.45)
-          .onClick(() => { if (this.hasUnsavedChanges()) { this.onSave(); } });
-      }
-      .width('100%')
-      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.sm, bottom: SpaceTokens.sm });
+  // 标题栏：官方 40vp 玻璃返回键 + stackBuilder 标题行（右侧「保存」动作经 actions 插槽原样保留）。
+  // 返回仍走原 onBack（未保存变更时先弹放弃确认）。
+  private editProfileTitleBarOptions(): HdsNavigationTitleBarOptions {
+    return buildPageTitleBarOptions({
+      back: (): void => { this.onBack(); },
+      stackBuilder: (): void => { this.editProfileTitleRow(); },
+    });
+  }
 
-      Scroll() {
-        Column({ space: 20 }) {
-          // 资料预览也是图片编辑面：背景和头像都在最终主页位置直接修改。
-          Column({ space: SpaceTokens.sm }) {
+  // 标题行：标题居中样板收敛进 GlassTitleRow；右侧「保存/保存中/已保存」动作经 actions 插槽逐字保留。
+  @Builder
+  editProfileTitleRow(): void {
+    GlassTitleRow({
+      title: '编辑资料',
+      hasActions: true,
+      actions: (): void => { this.saveActionText(); },
+    })
+  }
+
+  @Builder
+  saveActionText(): void {
+    Text(this.saving ? '保存中' : (this.saveSucceeded ? '已保存' : '保存'))
+      .fontSize(15).fontFamily($r('app.string.font_family'))
+      .fontColor(this.saving ? ColorTokens.secondary : (this.saveSucceeded ? ColorTokens.success : (this.hasUnsavedChanges() ? ColorTokens.brand : ColorTokens.tertiary)))
+      .width(56)
+      .textAlign(TextAlign.Center)
+      .scale({ x: this.saveSucceeded ? MotionTokens.successScale : 1, y: this.saveSucceeded ? MotionTokens.successScale : 1 })
+      .animation({ duration: MotionTokens.emphasis, curve: MotionCurves.springSoft })
+      .opacity(this.saving || this.saveSucceeded || this.hasUnsavedChanges() ? 1 : 0.45)
+      .onClick(() => { if (this.hasUnsavedChanges()) { this.onSave(); } })
+      // 原标题行 Row 的 padding(right sm) 由 actions 行接管：GlassTitleRow 的 actions 行无内边距，
+      // 用右 margin 保住保存钮距屏右缘 12vp 的原位。
+      .margin({ right: SpaceTokens.sm })
+  }
+
+  build() {
+    HdsNavigation() {
+      Column() {
+        Scroll(this.pageScroller) {
+          Column({ space: 20 }) {
+            // 穿底让位：状态栏 + MINI 栏高
+            GlassBarInsetRow({ statusBarHeight: this.statusBarHeight })
+            // 资料预览也是图片编辑面：背景和头像都在最终主页位置直接修改。
+            Column({ space: SpaceTokens.sm }) {
             EditableProfilePreview({
               avatar: this.avatar,
               avatarPreview: $avatarPreview,
@@ -455,10 +469,13 @@ export struct EditProfilePage {
               .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
               .fontWeight(TypeTokens.callout.weight).fontColor(ColorTokens.primary)
               .alignSelf(ItemAlign.Start);
-            SegmentButton({
-              options: this.genderOptions,
-              selectedIndexes: $genderIndexes,
-
+            ImmersiveSegmentBar({
+              items: EditProfilePage.GENDER_SEGMENTS,
+              selectedIndex: $genderIndex,
+              fillWidth: true,
+              // Scroll 滚动子树 uiMaterial 不渲染——THICK 观感走 trackBlurFallback 通用模糊底。
+              trackBlurFallback: true,
+              onSelect: (index: number): void => { this.selectedGender = EditProfilePage.GENDER_KEYS[index]; },
             })
           }
           .width('100%');
@@ -468,16 +485,23 @@ export struct EditProfilePage {
         .padding({ left: 16, right: 16, top: 16, bottom: 32 });
       }
       .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
-      .layoutWeight(1)
+        .layoutWeight(1)
+        .width('100%')
+        .opacity(this.contentPresented ? 1 : 0)
+        .translate({ y: this.contentPresented ? 0 : 16 })
+        .animation({ duration: MotionTokens.container, curve: MotionCurves.emphasized });
+      }
       .width('100%')
-      .opacity(this.contentPresented ? 1 : 0)
-      .translate({ y: this.contentPresented ? 0 : 16 })
-      .animation({ duration: MotionTokens.container, curve: MotionCurves.emphasized });
+      .height('100%')
     }
+    .mode(NavigationMode.Stack)
+    .titleMode(HdsNavigationTitleMode.MINI)
+    .titleBar(this.editProfileTitleBarOptions())
+    .bindToScrollable([this.pageScroller])
+    .clip(false)
     .width('100%')
-    .padding({ top: this.statusBarHeight })
     .height('100%')
     .backgroundColor($r('app.color.bg_primary'))
     .transition(buildPageTransition())
   }
-  }
+}

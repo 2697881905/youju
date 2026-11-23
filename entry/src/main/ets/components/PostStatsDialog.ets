@@ -1,73 +1,64 @@
-// 帖子创作数据面板（作者侧）：浏览 → 互动 → 流量转化 的三段式轻数据表达。
+// 帖子创作数据面板（作者侧）：bindSheet 半模态内容组件。
 //
-// ⚠️ 实现形态：**页内覆盖层（父组件 if 分支渲染），不是 @CustomDialog**。
-// 原因（release 实测踩过）：动态 `new CustomDialogController({builder: ...})` 的 builder 里
-// 传 @Link 会直接 ReferenceError（`$postStats is not defined`）闪退；而 @Prop 在
-// CustomDialog 的 builder 里 open() 后不随父组件重渲染同步（面板永远停在「正在汇总」）。
-// 改为父组件 @State 驱动的 if 分支覆盖层后，@Prop 随父组件刷新，天然响应式。
+// ⚠️ 实现形态：**bindSheet 半模态内容组件**（PostDetailView 根节点挂 SheetOptions）——
+// 遮罩、右上角系统关闭钮、下滑拖拽关闭、点遮罩关闭、进出场全部由系统半模态承担，
+// 本组件只画数据区。sheet builder 与宿主同渲染上下文，@Prop 随父组件刷新，
+// 无 CustomDialog 的 @Prop 断联坑（最早 CustomDialogController builder 传 @Link 会闪退）。
 //
-// 面板材质：**与应用内容卡同款**（PostCard 的卡片语言）——实心 elevated 底 +
-// 1px separator 描边 + lg 圆角，**无模糊、无透明、无阴影、无流光**。
-// 踩坑记录：玻璃模糊（与暖纸背景不搭）、透明描边（遮罩上可视性差）都被否，
-// 最终回归应用的内容卡语言。
+// 内部布局（2026-11-23 重设计，用户拍板「原生统计网格」方向）：
+//   标题区（serif 帖子数据 / 仅你自己可见；右上角系统关闭钮）
+//   统计网格：核心大格「累计浏览」+ 2×2 小格（顶/收藏/评论/社区评分）——
+//     大数字 + 小标签左对齐平铺、发丝线十字分隔，系统「存储/运动健康」式数据呈现；
+//     serif 大 Hero、图标三列与 DataPanel 比例条两版实测观感差，全部弃用。
+//   流量转化：转化率右侧大数字 + 官方 DataPanel Line 比例条（brand=实际转化 / sunken=余量）
+//     + 曝光·点击口径行。曝光/点击同为 PostEvent 埋点、口径一致（均仅登录用户）；浏览
+//     viewCount 含游客且 1h 去重，不进此漏斗以免比例误导（2026-11-19 定）。
 //
-// 结构（自上而下）：
-//   标题区（serif 帖子数据 / 仅你自己可见 / 关闭）
-//   Hero：累计浏览（display 大数字，衬线体，编辑感）
-//   互动表现：顶 / 收藏 / 评论 三列（图标 + 数字 + 标签，细分隔线分组，无底色）
-//   流量转化：曝光 → 点击 → 浏览 三行比例条 + 「曝光→点击」转化率
-// 比例条用官方 component-collection dataPanelSample 的 DataPanelType.Line +
-// valueColors 双色（brand = 实际值 / sunken = 余量），不是手绘进度条。
-import { resolveActionIcon } from '../utils/actionIcons';
+// 面板材质：让位 SheetOptions.systemMaterial（沉浸玻璃·面板档，API ≥ 26 生效）；低版本
+// 回退 canvas 实色。内容侧不自绘底/边框/圆角。
+import { isSystemMaterialActive } from '../utils/immersiveMaterial';
 import { ColorTokens } from '../design/tokens/color';
-import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
-import { MotionCurves, MotionTokens } from '../design/tokens/motion';
-import { IconButton } from '../design/components/IconButton';
 import { SoftChip } from '../design/components/SoftChip';
 import { formatCount } from '../utils/format';
 import { PostStats } from '../services/api';
 
-// 流量漏斗比例条（官方 DataPanel，Line 型）的几何参数
-const FUNNEL_BAR_HEIGHT: number = 8;
-const FUNNEL_LABEL_WIDTH: number = 36;
-const FUNNEL_VALUE_WIDTH: number = 52;
+const HERO_NUMBER_SIZE: number = 28; // 大格数字（累计浏览）
+const CELL_NUMBER_SIZE: number = 20; // 小格数字（顶/收藏/评论/评分）
 
 @Component
 export struct PostStatsDialog {
   @Prop stats: PostStats | null = null;
   @Prop loading: boolean = false;
   @Prop error: string = '';
-  // 遮罩/关闭键：父组件置 statsPanelShow=false 卸载覆盖层
-  onClose: () => void = (): void => {};
+  // 社区评分（Post.ratingAvg/ratingCount 随帖传入；stats 接口不含评分）
+  @Prop ratingAvg: number | null = null;
+  @Prop ratingCount: number = 0;
   // 加载失败重试：父组件重新拉取，不重开面板
   onRetry: () => void = (): void => {};
 
-  // 漏斗的共用分母是曝光（漏斗顶端）；曝光为 0 时比例条为空，数值仍然可读
-  private funnelMax(): number {
-    return Math.max(this.stats?.expose ?? 1, 1);
+  private hasRating(): boolean {
+    return this.ratingAvg !== null && this.ratingAvg !== undefined;
   }
 
-  private clickRateText(): string {
-    return '曝光→点击 ' + (this.stats?.clickRate ?? 0) + '%';
+  // 无人打分显示「—」占位（格子不空缺，网格保持齐整）
+  private ratingCellText(): string {
+    return this.hasRating() ? '★' + (this.ratingAvg as number).toFixed(1) : '—';
   }
 
-  @Builder
-  sectionHeader(title: string, trailing: string) {
-    Row() {
-      Text(title)
-        .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-        .fontWeight(TypeTokens.overline.weight)
-        .fontColor(ColorTokens.secondary)
-      if (trailing.length > 0) {
-        Blank()
-        Text(trailing)
-          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-          .fontColor(ColorTokens.secondary)
-      }
-    }
-    .width('100%')
+  private ratingCellLabel(): string {
+    return this.hasRating() ? '社区评分·' + String(this.ratingCount) + '人' : '社区评分';
+  }
+
+  private exposureLine(): string {
+    const s: PostStats | null = this.stats;
+    return '曝光 ' + formatCount(s?.expose) + ' · 点击 ' + formatCount(s?.click);
+  }
+
+  // 转化率钳到 0-100（异常值不炸比例条）
+  private clickRateClamped(): number {
+    return Math.min(Math.max(this.stats?.clickRate ?? 0, 0), 100);
   }
 
   @Builder
@@ -79,171 +70,156 @@ export struct PostStatsDialog {
   }
 
   @Builder
-  funnelRow(label: string, value: number, max: number) {
-    Row({ space: SpaceTokens.sm }) {
-      Text(label)
-        .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-        .fontColor(ColorTokens.secondary)
-        .width(FUNNEL_LABEL_WIDTH)
-      DataPanel({
-        values: [value, Math.max(max - value, 0)],
-        max: Math.max(max, 1),
-        type: DataPanelType.Line,
-      })
-        .layoutWeight(1)
-        .height(FUNNEL_BAR_HEIGHT)
-        .valueColors([ColorTokens.brand, ColorTokens.sunken])
-      Text(formatCount(value))
-        .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-        .fontWeight(TypeTokens.headline.weight)
-        .fontColor(ColorTokens.primary)
-        .textAlign(TextAlign.End)
-        .width(FUNNEL_VALUE_WIDTH)
-    }
-    .width('100%')
-    .alignItems(VerticalAlign.Center)
+  cellDivider() {
+    Divider()
+      .vertical(true)
+      .strokeWidth(LayoutTokens.hairlineWidth)
+      .color(ColorTokens.separator)
   }
 
+  // 统计小格：大数字 + 小标签，左对齐（与系统统计页同范式）
   @Builder
-  interactCell(icon: Resource, value: number, label: string) {
+  statCell(value: string, label: string) {
     Column({ space: 2 }) {
-      Image(icon)
-        .width(18)
-        .height(18)
-        .fillColor(ColorTokens.icon)
-      Text(formatCount(value))
-        .fontSize(17).fontFamily(TypeTokens.fontFamily)
+      Text(value)
+        .fontSize(CELL_NUMBER_SIZE).fontFamily(TypeTokens.fontFamily)
         .fontWeight(TypeTokens.headline.weight)
+        .lineHeight(24)
         .fontColor(ColorTokens.primary)
       Text(label)
         .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
         .fontColor(ColorTokens.secondary)
     }
     .layoutWeight(1)
-    .alignItems(HorizontalAlign.Center)
+    .alignItems(HorizontalAlign.Start)
+    .padding({ top: SpaceTokens.md, bottom: SpaceTokens.md, right: SpaceTokens.base })
   }
 
   build() {
-    // 全屏覆盖层：暗色遮罩（点空白处关闭）+ 居中卡片
-    Stack({ alignContent: Alignment.Center }) {
-      Column()
-        .width('100%')
-        .height('100%')
-        .backgroundColor('rgba(0,0,0,0.35)')
-        .onClick((): void => { this.onClose(); })
+    // 半模态内容区：材质生效时透明（表面由 SheetOptions.systemMaterial 承载），
+    // 低版本回退 canvas 实色；遮罩/关闭钮/拖拽/进出场不再自绘（系统半模态全包）。
+    Column({ space: SpaceTokens.base }) {
+      // 标题区：右上角留空给系统 showClose 钮（标题左置，不与之重叠）
+      Row({ space: SpaceTokens.sm }) {
+        Column({ space: 2 }) {
+          Text('帖子数据')
+            .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
+            .fontWeight(TypeTokens.headline.weight)
+            .lineHeight(TypeTokens.headline.lineHeight)
+            .fontColor(ColorTokens.primary)
+          Text('仅你自己可见')
+            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+            .fontColor(ColorTokens.secondary)
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
 
-      // 卡片材质与应用内容卡（PostCard）同款：实心 elevated + 1px separator + lg 圆角，
-      // 无模糊/透明/阴影/流光；进出场用轻淡入 + 微缩放（与全局动效令牌一致）。
-      Column({ space: SpaceTokens.base }) {
-        // 标题区（与同族弹窗同构：衬线标题 + 关闭）
-        Row({ space: SpaceTokens.sm }) {
-          Column({ space: 2 }) {
-            Text('帖子数据')
-              .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
-              .fontWeight(TypeTokens.headline.weight)
-              .lineHeight(TypeTokens.headline.lineHeight)
-              .fontColor(ColorTokens.primary)
-            Text('仅你自己可见')
-              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-              .fontColor(ColorTokens.secondary)
-          }
-          .layoutWeight(1)
-          .alignItems(HorizontalAlign.Start)
-          IconButton({ icon: 'close', a11yText: '关闭', action: (): void => { this.onClose(); } })
+      if (this.loading && this.stats === null) {
+        Column({ space: SpaceTokens.sm }) {
+          LoadingProgress().width(22).height(22).color(ColorTokens.brand)
+          Text('正在汇总这篇帖子的数据…')
+            .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+            .fontColor(ColorTokens.secondary)
         }
         .width('100%')
-        .alignItems(VerticalAlign.Center)
-
-        if (this.loading && this.stats === null) {
-          Column({ space: SpaceTokens.sm }) {
-            LoadingProgress().width(22).height(22).color(ColorTokens.brand)
-            Text('正在汇总这篇帖子的数据…')
-              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-              .fontColor(ColorTokens.secondary)
-          }
-          .width('100%')
-          .alignItems(HorizontalAlign.Center)
-          .padding({ top: SpaceTokens.lg, bottom: SpaceTokens.lg })
-        } else if (this.stats !== null) {
-          // Hero：累计浏览
+        .alignItems(HorizontalAlign.Center)
+        .padding({ top: SpaceTokens.lg, bottom: SpaceTokens.lg })
+      } else if (this.stats !== null) {
+        // 统计网格：核心大格（浏览）+ 2×2 小格，发丝线十字分隔
+        Column({ space: SpaceTokens.none }) {
           Column({ space: 2 }) {
-            Text(formatCount(this.stats.viewCount))
-              .fontSize(TypeTokens.display.size).fontFamily(TypeTokens.fontFamilySerif)
-              .fontWeight(TypeTokens.display.weight)
-              .lineHeight(TypeTokens.display.lineHeight)
-              .fontColor(ColorTokens.primary)
             Text('累计浏览')
               .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
               .fontColor(ColorTokens.secondary)
+            Text(formatCount(this.stats.viewCount))
+              .fontSize(HERO_NUMBER_SIZE).fontFamily(TypeTokens.fontFamily)
+              .fontWeight(TypeTokens.headline.weight)
+              .lineHeight(34)
+              .fontColor(ColorTokens.primary)
           }
           .width('100%')
-          .alignItems(HorizontalAlign.Center)
+          .alignItems(HorizontalAlign.Start)
+          .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.md })
 
           this.hairline()
 
-          // 互动表现：三列 + 竖向细分隔线
-          this.sectionHeader('互动表现', '')
           Row() {
-            this.interactCell(resolveActionIcon('like'), this.stats.upCount, '顶')
-            Divider()
-              .vertical(true)
-              .strokeWidth(LayoutTokens.hairlineWidth)
-              .color(ColorTokens.separator)
-              .height(30)
-            this.interactCell(resolveActionIcon('bookmark'), this.stats.bookmarkCount, '收藏')
-            Divider()
-              .vertical(true)
-              .strokeWidth(LayoutTokens.hairlineWidth)
-              .color(ColorTokens.separator)
-              .height(30)
-            this.interactCell(resolveActionIcon('comment'), this.stats.commentCount, '评论')
+            this.statCell(formatCount(this.stats.upCount), '顶')
+            this.cellDivider()
+            this.statCell(formatCount(this.stats.bookmarkCount), '收藏')
           }
           .width('100%')
           .alignItems(VerticalAlign.Center)
 
           this.hairline()
 
-          // 流量转化：曝光→点击。两者同为 PostEvent 埋点、口径一致（均仅登录用户）。
-          // 「浏览」(viewCount) 含游客且 1h 去重、且已在上方 Hero 单独展示，
-          // 放进这条漏斗会因口径不同导致比例条误导，故不在此重复（2026-11-19 修）。
-          this.sectionHeader('流量转化', this.clickRateText())
-          Column({ space: SpaceTokens.sm }) {
-            this.funnelRow('曝光', this.stats.expose, this.funnelMax())
-            this.funnelRow('点击', this.stats.click, this.funnelMax())
+          Row() {
+            this.statCell(formatCount(this.stats.commentCount), '评论')
+            this.cellDivider()
+            this.statCell(this.ratingCellText(), this.ratingCellLabel())
           }
           .width('100%')
-        } else {
-          // 错误 / 空态
-          Column({ space: SpaceTokens.base }) {
-            Text(this.error !== '' ? ('加载失败：' + this.error) : '暂无数据')
-              .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
-              .fontColor(ColorTokens.secondary)
-              .textAlign(TextAlign.Center)
-            if (this.error !== '') {
-              SoftChip({
-                label: '重试',
-                tone: 'brand',
-                action: (): void => { this.onRetry(); },
-              })
-            }
-          }
-          .width('100%')
-          .alignItems(HorizontalAlign.Center)
-          .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+          .alignItems(VerticalAlign.Center)
         }
+        .width('100%')
+
+        // 流量转化可视化（2026-11-23 用户拍板「加进度条直观一点」）：
+        // 标签行 + 右侧转化率数字 → DataPanel 比例条 → 曝光·点击口径行。
+        Row() {
+          Text('流量转化')
+            .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.overline.weight)
+            .fontColor(ColorTokens.secondary)
+          Blank()
+          Text(String(this.clickRateClamped()) + '%')
+            .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.headline.weight)
+            .fontColor(ColorTokens.primary)
+            .fontFeature(TypeTokens.tabularFeature)
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+
+        DataPanel({
+          values: [this.clickRateClamped(), Math.max(100 - this.clickRateClamped(), 0)],
+          max: 100,
+          type: DataPanelType.Line,
+        })
+          .width('100%')
+          .height(6)
+          .valueColors([ColorTokens.brand, ColorTokens.sunken])
+          .margin({ top: SpaceTokens.sm })
+
+        Text(this.exposureLine())
+          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+          .fontColor(ColorTokens.tertiary)
+          .margin({ top: SpaceTokens.sm })
+          .width('100%')
+      } else {
+        // 错误 / 空态
+        Column({ space: SpaceTokens.base }) {
+          Text(this.error !== '' ? ('加载失败：' + this.error) : '暂无数据')
+            .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
+            .fontColor(ColorTokens.secondary)
+            .textAlign(TextAlign.Center)
+          if (this.error !== '') {
+            SoftChip({
+              label: '重试',
+              tone: 'brand',
+              action: (): void => { this.onRetry(); },
+            })
+          }
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Center)
+        .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
       }
-      // 弹窗宽度走应用标准 344（同收藏夹命名/分享面板）；内边距同族 lg=20；高度内容自适应
-      .width(344)
-      .padding(SpaceTokens.lg)
-      .backgroundColor(ColorTokens.elevated)
-      .border({ width: 1, color: ColorTokens.separator, style: BorderStyle.Solid })
-      .borderRadius(RadiusTokens.lg)
-      .transition(TransitionEffect.OPACITY
-        .animation({ duration: MotionTokens.container, curve: MotionCurves.springSoft })
-        .combine(TransitionEffect.scale({ x: MotionTokens.enterScale, y: MotionTokens.enterScale })
-          .animation({ duration: MotionTokens.container, curve: MotionCurves.springSoft })))
     }
     .width('100%')
-    .height('100%')
+    .padding(SpaceTokens.lg)
+    .backgroundColor(isSystemMaterialActive() ? Color.Transparent : ColorTokens.canvas)
   }
 }

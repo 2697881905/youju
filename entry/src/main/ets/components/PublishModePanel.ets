@@ -12,11 +12,9 @@
 // Dock 是 barOverlap 悬浮的，不让位最后一张瓦片会被压在玻璃底下。
 import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
-import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
-import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
+import { SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
-import { resolveActionIcon } from '../utils/actionIcons';
 import { bottomNavInset, DOCK_BAR_HEIGHT_VP, DOCK_BOTTOM_MARGIN_BASE } from '../utils/cardTokens';
 
 export type PublishMode = 'photo' | 'text' | 'video';

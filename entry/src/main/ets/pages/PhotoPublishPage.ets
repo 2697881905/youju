@@ -540,6 +540,8 @@ struct PhotoPublishPage {
           ImmersiveSegmentBar({
             items: PUBLISH_GENRE_SEGMENTS,
             selectedIndex: $genreIndex,
+            // Scroll 滚动子树 uiMaterial 不渲染——THICK 观感走 trackBlurFallback 通用模糊底。
+            trackBlurFallback: true,
             onSelect: (index: number): void => { this.selectGenre(index); },
           })
           Text(this.currentGenreHint())

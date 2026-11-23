@@ -112,9 +112,33 @@ export function isSystemMaterialActive(): boolean {
   return systemMaterialActive;
 }
 
+// —— 参数化工厂：7 个单例 getter 共用的构造入口 ——
+// spec 化 style / interactive / applyShadow / lightEffect 四个构造字段，
+// 新增沉浸材质场景只声明一份 spec，不再复制「单例 + getter + 构造」样板。
+// useLightEffect=true 时写入 lightEffect:{color:undefined}（跟随系统色，官方标配写法）。
+interface ImmersiveMaterialSpec {
+  style: uiMaterial.ImmersiveStyle;
+  interactive: boolean;
+  applyShadow: boolean;
+  useLightEffect: boolean;
+}
+
+function createImmersiveMaterial(spec: ImmersiveMaterialSpec): uiMaterial.Material {
+  // ArkTS 禁止对象字面量条件展开（arkts-no-spread），lightEffect 用可选字段赋值表达。
+  const options: uiMaterial.ImmersiveOptions = {
+    style: spec.style,
+    interactive: spec.interactive,
+    applyShadow: spec.applyShadow,
+  };
+  if (spec.useLightEffect) {
+    options.lightEffect = { color: undefined };
+  }
+  return new uiMaterial.ImmersiveMaterial(options);
+}
+
 function getTopButtonMaterial(): uiMaterial.Material {
   if (topButtonMaterial === null) {
-    topButtonMaterial = new uiMaterial.ImmersiveMaterial({
+    topButtonMaterial = createImmersiveMaterial({
       // 顶部常驻按钮：ULTRA_THIN（极强通透），与顶栏区域的光感规范一致。
       style: uiMaterial.ImmersiveStyle.ULTRA_THIN,
       // 按压交互形变：指尖触控牵引材质形变，强化 Z 轴空间反馈。
@@ -126,6 +150,7 @@ function getTopButtonMaterial(): uiMaterial.Material {
       // 材质只在标题栏官方生效区内渲染，内容区的同材质实例本就不出图，所以此处关闭
       // 不影响任何内容区按钮；半模态材质（getSheetImmersiveMaterial）保留默认投影。
       applyShadow: false,
+      useLightEffect: false,
     });
   }
   return topButtonMaterial;
@@ -143,6 +168,79 @@ export class TopButtonMaterialModifier implements AttributeModifier<CommonAttrib
   }
 }
 
+// 标题栏文字药丸的加厚档（「圈子」页「已加入 / 发现圈子」、消息页「全部已读」、聊天页「举报」、
+// 发布页主钮等标题栏文字钮共用）：
+// 档位演进（2026-11-23）：ULTRA_THIN 太透 → REGULAR 真机反馈「不像返回键玻璃珠」→ 升 THICK
+// （分段栏定稿档，用户真机确认「效果对了」）。栏级 EXQUISITE 折射玻璃珠只能渲染在官方
+// backIcon/content.menu 圆钮上（栏级入口），自绘文字钮的组件级材质以 THICK 为最接近档。
+// 独立单例：TopButtonMaterialModifier 的 ULTRA_THIN 被 GlassPillButton / DesignButton 等
+// 全站共用，直接改档会波及所有页面，故这里单独一份。
+let pillImmersiveMaterial: uiMaterial.Material | null = null;
+
+function getPillImmersiveMaterial(): uiMaterial.Material {
+  if (pillImmersiveMaterial === null) {
+    pillImmersiveMaterial = createImmersiveMaterial({
+      style: uiMaterial.ImmersiveStyle.THICK,
+      // 药丸是按压控件，保留指尖触控牵引形变（与 TopButtonMaterialModifier 同策略）。
+      interactive: true,
+      // 按压光感反馈：官方 Spatialization 配方与分段栏定稿均带 lightEffect（跟随系统色），
+      // 缺它则按压时只有材质形变、没有光效（用户真机反馈「按动没有光效」的根因）。
+      useLightEffect: true,
+      // 关投影：药丸挂在 stackBuilder 品牌行内（同 bottomBuilder 的窄行裁切场景），
+      // 投影会被行 clip 拦腰裁成灰带（见 getTopButtonMaterial 注释）。
+      applyShadow: false,
+    });
+  }
+  return pillImmersiveMaterial;
+}
+
+/**
+ * 标题栏文字药丸的加厚沉浸光感修饰器（REGULAR 档）。
+ * 低版本设备（API < 26）门禁不通过：不设置材质，药丸保留自绘兜底色，视觉零变化。
+ */
+export class PillImmersiveMaterialModifier implements AttributeModifier<CommonAttribute> {
+  applyNormalAttribute(instance: CommonAttribute): void {
+    if (deviceInfo.apiAvailable('26.0.0')) {
+      instance.systemMaterial(getPillImmersiveMaterial());
+    }
+  }
+}
+
+// 首页标题栏下拉 chip（「干货 / 随记」选择器）的加厚档：
+// 用户要求与返回键玻璃圆钮（栏级 EXQUISITE）观感对齐——与「已加入 / 发现圈子」药丸同定档
+// REGULAR(2)，表面存在感比 FloatingTopButtonMaterialModifier 的 ULTRA_THIN 明显。
+// 独立单例：FloatingTopButtonMaterialModifier 被 SearchPanel / SearchResultPage / Index 等共用，
+// 直接改档会波及其他页面。
+let dropdownChipImmersiveMaterial: uiMaterial.Material | null = null;
+
+function getDropdownChipImmersiveMaterial(): uiMaterial.Material {
+  if (dropdownChipImmersiveMaterial === null) {
+    dropdownChipImmersiveMaterial = createImmersiveMaterial({
+      style: uiMaterial.ImmersiveStyle.REGULAR,
+      // chip 是按压控件：保留指尖触控牵引形变。
+      interactive: true,
+      // 按压光感反馈（官方标配）：缺它按压只有形变没有光效（药丸真机反馈的同一根因）。
+      useLightEffect: true,
+      // 投影保留（与原 FloatingTopButtonMaterialModifier 同策略）：chip 所在标题栏行有净空，
+      // 且外层还有 CHIP_SHADOW 自绘阴影层（材质挂内层、阴影挂无材质外层，互不吞掉）。
+      applyShadow: true,
+    });
+  }
+  return dropdownChipImmersiveMaterial;
+}
+
+/**
+ * 标题栏下拉 chip 的加厚沉浸光感修饰器（REGULAR 档）。
+ * 低版本设备（API < 26）门禁不通过：不设置材质，chip 保留细描边兜底样式，视觉零变化。
+ */
+export class DropdownChipImmersiveMaterialModifier implements AttributeModifier<CommonAttribute> {
+  applyNormalAttribute(instance: CommonAttribute): void {
+    if (deviceInfo.apiAvailable('26.0.0')) {
+      instance.systemMaterial(getDropdownChipImmersiveMaterial());
+    }
+  }
+}
+
 // 带投影的顶部材质（与上面的唯一差别就是 applyShadow）：
 // getTopButtonMaterial 关投影是被 HdsNavigation 逼出来的——挂材质的控件都在 bottomBuilder 行内，
 // 该行 clip=true 且只比控件高 4vp，投影被拦腰裁成灰带（见 docs/tutorial-titlebar-immersive-light.md 案例 9）。
@@ -153,11 +251,12 @@ let floatingTopButtonMaterial: uiMaterial.Material | null = null;
 
 function getFloatingTopButtonMaterial(): uiMaterial.Material {
   if (floatingTopButtonMaterial === null) {
-    floatingTopButtonMaterial = new uiMaterial.ImmersiveMaterial({
+    floatingTopButtonMaterial = createImmersiveMaterial({
       // 与顶部常驻档一致，只放开投影，避免同一行里出现两套表面强度
       style: uiMaterial.ImmersiveStyle.ULTRA_THIN,
       interactive: true,
       applyShadow: true,
+      useLightEffect: false,
     });
   }
   return floatingTopButtonMaterial;
@@ -200,11 +299,14 @@ export function getSheetImmersiveMaterial(): uiMaterial.Material | undefined {
     return undefined;
   }
   if (sheetImmersiveMaterial === null) {
-    sheetImmersiveMaterial = new uiMaterial.ImmersiveMaterial({
+    sheetImmersiveMaterial = createImmersiveMaterial({
       // 沉浸光感设计指南 · 场景规范：半模态 / 弹框 → ULTRA_THICK（极强模糊）。
       style: uiMaterial.ImmersiveStyle.ULTRA_THICK,
       // 面板为静态承载容器，非按压控件，关闭触控形变。
       interactive: false,
+      // 显式写 true 与原省略写法等价（applyShadow 的 API 26 默认值即 true）。
+      applyShadow: true,
+      useLightEffect: false,
     });
   }
   return sheetImmersiveMaterial;
@@ -226,11 +328,14 @@ export function getMenuImmersiveMaterial(): uiMaterial.Material | undefined {
     return undefined;
   }
   if (menuImmersiveMaterial === null) {
-    menuImmersiveMaterial = new uiMaterial.ImmersiveMaterial({
+    menuImmersiveMaterial = createImmersiveMaterial({
       // 沉浸光感设计指南 · 场景规范：任意位置弹出 → THICK（强模糊）。
       style: uiMaterial.ImmersiveStyle.THICK,
       // 菜单为静态承载容器，选项形变由菜单项自身的按压态承担。
       interactive: false,
+      // 显式写 true 与原省略写法等价（applyShadow 的 API 26 默认值即 true）。
+      applyShadow: true,
+      useLightEffect: false,
     });
   }
   return menuImmersiveMaterial;
@@ -245,18 +350,33 @@ let segmentImmersiveMaterial: uiMaterial.Material | null = null;
  * 材质只能走 options 字段挂在组件容器上，把 systemMaterial 挂在包裹它的 Row/Column 上
  * 会被组件内部表面覆盖，且官方组件自带轨道/滑块两套表面，材质由系统统一渲染。
  *
- * @returns API ≥ 26 返回 ULTRA_THIN 材质（顶部驻留档，保留投影——宿主 bottomBuilder 行已按
+ * 2026-11 配方对齐官方沉浸光感示例（HarmonyOS_Samples/Spatialization 的 MaterialUtil）：
+ * THICK 是官方「任意位置弹出层」档位（其 openMenu 菜单即 THICK+interactive+lightEffect），
+ * lightEffect 为官方标配光感交互反馈（color:undefined=跟随系统）。
+ * 观感比旧配方（ULTRA_THIN 顶部驻留档）明显加厚——如需回退对比，THIN(1)/REGULAR(2) 可试。
+ *
+ * @returns API ≥ 26 返回 THICK 材质（保留投影——宿主 bottomBuilder 行已按
  *          segmentBarShadowRoom 留出净空），否则 undefined，使用处保留官方组件默认底色。
  */
 export function getSegmentImmersiveMaterial(): uiMaterial.Material | undefined {
   if (!deviceInfo.apiAvailable('26.0.0')) {
     return undefined;
   }
+  // 2026-11-22 定稿（实验 1/2/3 收敛）：THICK + interactive=false + applyShadow + lightEffect。
+  // - THICK：官方弹层档（HarmonyOS_Samples/Spatialization 的 MaterialUtil 用在 openMenu 配方），
+  //   观感比旧 ULTRA_THIN 明显加厚，用户真机确认「效果对了」。
+  // - interactive=false：实验 1 实证——材质按压形变与胶囊轨道不协调（形变时轨道边缘露形），
+  //   关闭后按压反馈由官方组件自身承担。
+  // - lightEffect：官方标配光感反馈，保留。
+  // 配套修复（ImmersiveSegmentBar.buildOptions）：borderRadiusMode=CUSTOM +
+  // backgroundBorderRadius=20vp 显式锁定轨道胶囊圆角——官方 auto 圆角在选中切换时退化
+  // （整条轨道变矩形，真机实证，与材质无关；实验 2 摘材质仍复现）。
   if (segmentImmersiveMaterial === null) {
-    segmentImmersiveMaterial = new uiMaterial.ImmersiveMaterial({
-      style: uiMaterial.ImmersiveStyle.ULTRA_THIN,
-      interactive: true,
+    segmentImmersiveMaterial = createImmersiveMaterial({
+      style: uiMaterial.ImmersiveStyle.THICK,
+      interactive: false,
       applyShadow: true,
+      useLightEffect: true,
     });
   }
   return segmentImmersiveMaterial;

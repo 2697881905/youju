@@ -12,12 +12,13 @@ import type {
   HdsNavigationIconItemStyle,
   HdsNavigationIconOptions,
   HdsNavigationBackButtonItemOptions,
+  HdsNavigationMenuContentOptions,
+  HdsNavigationMenuItemOptions,
   SystemMaterialParams,
 } from '@kit.UIDesignKit';
-import { LengthMetrics } from '@kit.ArkUI';
-import { isImmersiveLightSenseSupported, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
+import { LengthMetrics, ComponentContent } from '@kit.ArkUI';
+import { isImmersiveLightSenseSupported, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE, isSystemMaterialActive, getMenuImmersiveMaterial, getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
 import { requestSystemBarRefresh } from '../utils/systemBar';
-import { IconTokens } from '../design/tokens/icon';
 import {
   getPost,
   createComment,
@@ -40,14 +41,14 @@ import {
   getPostStats,
   PostStats,
 } from '../services/api';
-import { Genre, StructuredData, ReportReason, DebateVoteResult, DmSharePayload, Comment, BookmarkFolderItem, MentionRef, MentionCandidate } from '../models/types';
+import { Genre, ReportReason, DebateVoteResult, DmSharePayload, Comment, BookmarkFolderItem, MentionRef, MentionCandidate } from '../models/types';
 import { ReportDialog } from '../components/ReportDialog';
 import { FolderPickDialog } from '../components/FolderPickDialog';
 import { FolderNameDialog } from '../components/FolderNameDialog';
 import { PostStatsDialog } from '../components/PostStatsDialog';
 import { openUserProfile, openVideoPlayer, takePostDetailId, takePostDetailCommentId, takePostDetailIntent, PostDetailIntent } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
-import { getUserId, getToken, ensureLogin, writeActionError, getCurrentUser } from '../utils/auth';
+import { getUserId, getToken, ensureLogin, getCurrentUser } from '../utils/auth';
 import { startGripTracking, stopGripTracking, KEY_GRIP_ON_RIGHT } from '../utils/gripAwareness';
 import { likeStore } from '../utils/likeStore';
 import { postDeletionStore } from '../utils/postDeletionStore';
@@ -81,7 +82,7 @@ import { FALLBACK_VIDEO_ASPECT_RATIO, normalizeVideoAspectRatio } from '../utils
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { postContentTextOf } from '../utils/postPlainText';
 import { resolveActionIcon } from '../utils/actionIcons';
-import { FloatingTopButtonMaterialModifier } from '../utils/immersiveMaterial';
+
 import { hilog } from '@kit.PerformanceAnalysisKit';
 
 // 分享卡片链路的诊断输出统一走 hilog：console.* 在 H7 真机不进 hilog，抓日志会看不到。
@@ -98,11 +99,30 @@ export const DETAIL_HERO_ID: string = 'detailHeroMedia';
 export const DETAIL_HERO_SHELL_ID: string = 'detailHeroShellMedia';
 // 详情内容滚动视口 id：通知「跳转到具体评论」时量取视口矩形，换算滚动目标偏移
 const DETAIL_CONTENT_SCROLL_ID: string = 'detailContentScroll';
+// 收起正文后的锚定目标 id：挂在 detailBodyScroll() 的 DetailPostContent 实例上
+//（结构化信息流顶部节点），见 anchorScrollToBodyTop()
+const DETAIL_BODY_TOP_ID: string = 'detailBodyTop';
 // 宽屏双栏下评论区自己的滚动视口 id（评论锚点定位改量这一侧，见 locateTargetComment）
 const DETAIL_COMMENT_SCROLL_ID: string = 'detailCommentScroll';
 // 双栏分割线宽（vp）：SideBarContainer 的 divider 与加载壳的右栏占位共用同一出处
 const DETAIL_SPLIT_DIVIDER_VP: number = 0.5;
+// 「更多」系统 Menu 的弹出锚点 id：与标题栏「更多」官方圆钮同位的透明锚点组件（见 build()）
+const DETAIL_MORE_ANCHOR_ID: string = 'detailMoreMenuAnchor';
 
+// 「更多」系统 Menu 的 content builder（PromptAction.openMenu 专用，全局 @Builder 供 wrapBuilder 封装）。
+// 与原 bindMenu(postActionsMenu) 完全同构：直接 Menu/MenuItem，不包容器、不加箭头——
+// openMenu 渲染的就是系统 Menu，builder 内容一致则观感一致（此前丑是 Column+width('80%')+箭头所致）。
+// 选项集由 moreActionEntries() 动态给出（作者/他人分流），ForEach 渲染。
+@Builder
+function moreMenuBuilder(entries: MoreActionEntry[]): void {
+  Menu() {
+    ForEach(entries, (entry: MoreActionEntry, idx: number): void => {
+      MenuItem({ startIcon: entry.icon, content: entry.label })
+        .contentFontColor(entry.color)
+        .onClick((): void => { entry.action(); })
+    }, (entry: MoreActionEntry, idx: number): string => `${idx}`)
+  }
+}
 
 // 底部互动使用不可变快照。每次替换顶层 @State，保证 ArkUI 当帧重新渲染计数和选中态。
 class DetailInteractionState {
@@ -122,6 +142,16 @@ class DetailInteractionState {
 interface GenreMeta {
   label: string;
   iconRes: Resource;
+}
+
+// 「更多」操作菜单的选项集条目：图标 + 标签 + 文字色 + 触发动作。openMenu 系统 Menu 的
+// MenuItem 支持 startIcon 图标 + content 文本 + contentFontColor 色。颜色仍用于建立视觉
+// 层级：破坏性动作=danger 红，其余=primary（与 actionSheet 阶段同口径）。
+interface MoreActionEntry {
+  icon: Resource;
+  label: string;
+  color: ResourceColor;
+  action: () => void;
 }
 
 function genreMeta(genre?: Genre): GenreMeta {
@@ -227,14 +257,16 @@ export struct PostDetailView {
   // 海报落点偏高、交接真图时"瞬移下来"（本轮修的残余偏移）。
   // 与 LoginView / 圈子页等 20+ 页保持一致（同一 AppStorage 键）。
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
-  // 顶栏（返回/分享/更多）驻留 Navigation 标题栏后的动作按钮材质（沉浸光感官方生效区域）。
-  // fix-detail-buttons-material：从 TopButtonMaterialModifier（关投影档）换为 FloatingTopButtonMaterialModifier
-  // （与左上官方返回钮同源 ULTRA_THIN + interactive 按压形变 + 保留落影）——关投影档在白画布上
-  // 表面只差 2 级、无浮起感，真机读作「没有玻璃珠材质与按压光效」；带投影档是「我的」页
-  // 自排动作钮已真机验证的官方同观感配方（官方圆钮的 rim + 落影 + 玻璃折射在此档出图）。
-  // 低版本（API < 26）门禁不通过 → 材质自动跳过，按钮保持原透明图标观感。
-  private detailActionMaterial: FloatingTopButtonMaterialModifier = new FloatingTopButtonMaterialModifier();
-  // 穿底架构（复用「我的」页三件套）：MINI 栏 56vp + 官方返回键 + stackBuilder 动作行；
+  // 顶栏（返回/分享/更多）驻留 Navigation 标题栏：返回键走官方 backIcon，分享/更多走官方
+  // content.menu 圆钮——三者共享栏级 systemMaterialEffect(IMMERSIVE+EXQUISITE) 出玻璃珠
+  // （rim+落影+折射）。此前分享/更多是自绘按钮挂 uiMaterial（FloatingTopButtonMaterialModifier），
+  // 与返回键的 HDS 玻璃珠材质体系不同、观感不一致；迁官方圆钮后统一复用。
+  // 「更多」的弹菜单走系统 Menu（PromptAction.openMenu，API 18+）——官方 content.menu item 的
+  // action 是 Callback<void>、无编程弹菜单入口（SDK 确认无 submenu/builder 字段），openMenu 是
+  // 官方「不依赖 UI 组件的全局菜单」，builder 与原 bindMenu 同构（纯 Menu/MenuItem）观感一致。
+  // 「更多」系统 Menu 的 ComponentContent 载体（openMenu 需自行维护 content 以支持 update 换选项集）。
+  private moreMenuContent: ComponentContent<MoreActionEntry[]> | null = null;
+  // 穿底架构（复用「我的」页三件套）：MINI 栏 56vp + 官方返回键 + content.menu 动作行；
   // 模糊出图开关——IMMERSIVE 变体的 blurRadius 由**绝对偏移** >0 门控（松手回弹打不灭，
   // 基准 §36 / 2026-10-25 消息页同款修复）
   @State detailBarScrolled: boolean = false;
@@ -599,8 +631,7 @@ export struct PostDetailView {
       if (p.id !== undefined) {
         likeStore.syncFromServer(p.id, this.interaction.uped, this.interaction.upCount);
       }
-      // 浏览信号：详情已打开（后端 viewCount 已去重自增），列表页收到后静默刷新卡片浏览数
-      AppStorage.setOrCreate('postViewSignal', Date.now());
+
       this.fields = this.buildFields(p);
       this.images = this.imagesOf(p);
       this.videoUrl = resolveDisplayImageUrl(p.videoUrl ?? '');
@@ -683,6 +714,36 @@ export struct PostDetailView {
         }
       }, 2600);
     }, attempt === 0 ? 320 : 480);
+  }
+
+  // 「收起正文」后的锚定滚动：量正文区顶部（DETAIL_BODY_TOP_ID）与滚动视口的窗口 y 差值，
+  // px2vp 换算后加已滚动量得到目标绝对偏移，平滑滚回正文顶部（结构化信息流起点）。
+  // 复用 locateTargetComment 的 getRectangleById 测量模式；量不到（异常/NaN）静默降级
+  // ——不滚动、不提示。窄/宽屏正文列共用 detailScroller，评论区右栏滚动器不涉及。
+  private anchorScrollToBodyTop(): void {
+    try {
+      const utils = this.getUIContext().getComponentUtils();
+      const bodyRect = utils.getRectangleById(DETAIL_BODY_TOP_ID);
+      const scrollRect = utils.getRectangleById(DETAIL_CONTENT_SCROLL_ID);
+      if (!bodyRect || !scrollRect) {
+        return;
+      }
+      const deltaVp: number = this.getUIContext().px2vp(
+        (bodyRect.windowOffset?.y ?? 0) - (scrollRect.windowOffset?.y ?? 0)
+      );
+      if (Number.isNaN(deltaVp)) {
+        return;
+      }
+      // 正文顶部当前在视口内的相对偏移 + 已滚动量 = 目标绝对偏移；上留 16vp 呼吸空间
+      const target: number = Math.max(0, this.detailScroller.currentOffset().yOffset + deltaVp - 16);
+      this.detailScroller.scrollTo({
+        xOffset: 0,
+        yOffset: target,
+        animation: { duration: 360, curve: Curve.EaseOut },
+      });
+    } catch (e) {
+      // 静默降级：锚定失败不影响收起动作本身
+    }
   }
 
   // 账号切换/登出：已登录则重新加载本帖，以服务器为准校准点赞/收藏/投票态；
@@ -1188,51 +1249,93 @@ export struct PostDetailView {
     return this.post != null && this.post.userId === getUserId();
   }
 
-  // 帖子操作菜单（作者 / 他人共用）：官方 Menu + MenuItem，挂在标题栏「更多」按钮上。
-  // bindMenu 自带点击弹出、遮罩、点击外部关闭、返回键、屏幕边缘避让与多端适配 ——
-  // 不再自绘浮层，也不再依赖系统 ActionSheet（其 sheets 是 SheetInfo[]，
-  // 只有 title/icon/action，没有任何样式入口，观感与项目设计语言脱节）。
-  // 选项集：作者 = 数据面板 +（恢复帖子·彻底删除 | 删除帖子）；他人 = 举报该帖子（+ 分享）。
-  @Builder
-  private postActionsMenu(): void {
-    Menu() {
-      if (this.isPostOwner()) {
-        MenuItem({ content: '数据面板' })
-          .onClick((): void => { this.showPostStats(); })
-        if (this.postInTrash()) {
-          MenuItem({ content: '恢复帖子' })
-            .onClick((): void => { this.onRestorePost(); })
-          MenuItem({ content: '彻底删除' })
-            .onClick((): void => { this.onPermanentlyDelete(); })
-        } else {
-          MenuItem({ content: '删除帖子' })
-            .onClick((): void => { this.onDeletePost(); })
-        }
+  // 「更多」操作菜单的选项集（作者 / 他人共用分流）：数据面板/恢复+删除/举报(+分享)。
+  // showMoreActions() 把它装进 moreMenuContent 供 openMenu 渲染；破坏性动作 danger 红字。
+  private moreActionEntries(): MoreActionEntry[] {
+    if (this.isPostOwner()) {
+      const entries: MoreActionEntry[] = [
+        { icon: resolveActionIcon('book'), label: '数据面板', color: ColorTokens.primary, action: (): void => { this.showPostStats(); } },
+      ];
+      if (this.postInTrash()) {
+        entries.push({ icon: resolveActionIcon('check'), label: '恢复帖子', color: ColorTokens.primary, action: (): void => { this.onRestorePost(); } });
+        entries.push({ icon: resolveActionIcon('trash'), label: '彻底删除', color: ColorTokens.danger, action: (): void => { this.onPermanentlyDelete(); } });
       } else {
-        MenuItem({ content: '举报该帖子' })
-          .onClick((): void => { this.reportController.open(); })
-        if (EXTERNAL_SHARE_ENABLED) {
-          MenuItem({ content: '分享' })
-            .onClick((): void => { this.onShare(); })
-        }
+        entries.push({ icon: resolveActionIcon('trash'), label: '删除帖子', color: ColorTokens.danger, action: (): void => { this.onDeletePost(); } });
       }
+      return entries;
     }
+    const others: MoreActionEntry[] = [
+      { icon: resolveActionIcon('warning'), label: '举报该帖子', color: ColorTokens.primary, action: (): void => { this.reportController.open(); } },
+    ];
+    if (EXTERNAL_SHARE_ENABLED) {
+      others.push({ icon: resolveActionIcon('share'), label: '分享', color: ColorTokens.primary, action: (): void => { this.onShare(); } });
+    }
+    return others;
   }
 
-  // 打开帖子数据面板（作者本人）：重置旧数据防串帖 → 挂载覆盖层 → 拉取
+  // 弹「更多」系统 Menu（官方 content.menu 圆钮 action 回调里唯一可编程弹菜单入口）：
+  // ComponentContent 复用 + update 换选项集（作者/他人分流动态变化，不复用会串菜单项）。
+  // target：右上角与「更多」官方圆钮同位的透明锚点（build() 里 detailMoreMenuAnchor，
+  // string id）。content.menu 圆钮是 HDS 内部渲染、无 id 可引用；用根节点首子节点当锚
+  // 会把菜单弹在屏幕中间（全屏锚点的默认落点，真机实测）——必须用同位小锚点定位。
+  private showMoreActions(): void {
+    const entries: MoreActionEntry[] = this.moreActionEntries();
+    if (entries.length === 0) {
+      return;
+    }
+    const uiContext: UIContext = this.getUIContext();
+    if (this.moreMenuContent === null) {
+      this.moreMenuContent = new ComponentContent<MoreActionEntry[]>(uiContext, wrapBuilder(moreMenuBuilder), entries);
+    } else {
+      this.moreMenuContent.update(entries);
+    }
+    // placement 显式 BottomRight：菜单顶边贴锚点底边、右缘对齐锚点右缘——与 bindMenu 对
+    // 右上角按钮的系统默认观感一致（默认 BottomLeft 会把菜单弹到按钮左下方、出场动画
+    // 原点跑到菜单左上角，真机实测）。
+    // 弹层材质：沉浸玻璃配方·弹层菜单档（THICK，他人主页「更多」openMenu 定稿配方）；
+    // @since 26.0.0 的 systemMaterial 字段走 isSystemMaterialActive() 门禁，低版本不传退系统默认底。
+    const menuOptions: MenuOptions = { placement: Placement.BottomRight };
+    if (isSystemMaterialActive()) {
+      const material: SystemUiMaterial | undefined = getMenuImmersiveMaterial();
+      if (material !== undefined) {
+        menuOptions.systemMaterial = material;
+      }
+    }
+    uiContext.getPromptAction().openMenu(this.moreMenuContent, { id: DETAIL_MORE_ANCHOR_ID }, menuOptions)
+      .catch((): void => {
+        // 无有效 target 等异常：无操作
+      });
+  }
+
+  // 打开帖子数据面板（作者本人）：重置旧数据防串帖 → 弹出半模态 → 拉取
   private showPostStats(): void {
     const postId: number = this.post?.id ?? this.pid;
     if (isNaN(postId) || postId <= 0) {
       safeShowToast(this.getUIContext(), { message: '无效帖子ID' });
       return;
     }
-    // 先清掉上一帖的数据：覆盖层经 @Prop 同步，带着旧数据挂载会串帖
+    // 先清掉上一帖的数据：sheet 内容经 @Prop 同步，带着旧数据弹出会串帖
     this.postStats = null;
     this.statsLoading = true;
     this.statsError = '';
     this.statsPostId = postId;
     this.statsPanelShow = true;
     this.loadPostStats(postId);
+  }
+
+  // 数据面板半模态内容：sheet builder 与宿主同渲染上下文，@Prop 随父组件刷新，
+  // 无 CustomDialog 的 @Prop 断联坑（见 PostStatsDialog 头注释）。
+  // 评分随帖传入（post.ratingAvg/ratingCount），stats 接口不含评分。
+  @Builder
+  statsSheetContent(): void {
+    PostStatsDialog({
+      stats: this.postStats,
+      loading: this.statsLoading,
+      error: this.statsError,
+      ratingAvg: this.post?.ratingAvg ?? null,
+      ratingCount: this.post?.ratingCount ?? 0,
+      onRetry: (): void => { this.loadPostStats(this.statsPostId); },
+    })
   }
 
   // 拉取聚合数据（也供面板内「重试」复用，不重挂覆盖层）
@@ -1699,9 +1802,12 @@ export struct PostDetailView {
   // 与 detailTitleBar 的行内边距严格同源；内容固定（图标按钮，无折行/媒体等不定因素），
   // 按教程 Step 3「固定内容用 token 表达式直算」，无需 onAreaChange 实测回写。
   // HdsNavigation 标题栏配置（草稿箱模板 + 消息页模糊配方）：
-  // MINI + 官方返回键 backIcon（action 槽接 navigateBack，不换成栈默认 pop）+ stackBuilder 动作行
+  // MINI + 官方返回键 backIcon（action 槽接 navigateBack，不换成栈默认 pop）+ content.menu 动作行
+  //（分享/更多官方圆钮，与返回键共享栏级 systemMaterialEffect(IMMERSIVE+EXQUISITE) 玻璃珠）
   // + IMMERSIVE_GRADIENT_BLUR + 栏级 EXQUISITE 材质（栏级材质会盖掉普通 GRADIENT_BLUR 的透过
   // 模糊，共存必须 IMMERSIVE 变体 + 动态 blurRadius——基准 §36）+ 穿底（safeArea:false）。
+  // menuStyle 只写 originalStyle：与返回键 backIconStyle 同策略——originalStyle 只管 scroll
+  // 特效生效之前，接管后读 HDS 默认（深色画布上图标翻白），三钮滚动后同观感。
   private detailTitleBarOptions(): HdsNavigationTitleBarOptions {
     const immersive: boolean = isImmersiveLightSenseSupported();
     const scrollEffect: ScrollEffectOptions = {
@@ -1720,6 +1826,7 @@ export struct PostDetailView {
         },
         contentStyle: {
           backIconStyle: { iconColor: ColorTokens.primary } as HdsNavigationIconItemStyle,
+          menuStyle: { iconColor: ColorTokens.primary } as HdsNavigationIconItemStyle,
         } as HdsTitleBarContentStyle,
       },
     };
@@ -1735,8 +1842,25 @@ export struct PostDetailView {
       action: (): void => { this.navigateBack(); },
     };
     const backIcon: HdsNavigationBackButtonItemOptions = backContent;
+    // 分享/更多官方圆钮（content.menu）：与返回键同为官方圆钮、同出栏级玻璃珠。
+    // SDK 类型：MenuItemOptions = BadgeIconOptions { content?: IconOptions }——icon/label/action 嵌在 content 里。
+    // 「更多」action 走 showMoreActions()（openMenu 系统 Menu，见 moreActionEntries/moreMenuBuilder）。
+    const shareItem: HdsNavigationMenuItemOptions = {
+      content: {
+        icon: resolveActionIcon('share'),
+        label: '分享',
+        action: (): void => { this.onShare(); },
+      } as HdsNavigationIconOptions,
+    };
+    const moreItem: HdsNavigationMenuItemOptions = {
+      content: {
+        icon: resolveActionIcon('more'),
+        label: '更多操作',
+        action: (): void => { this.showMoreActions(); },
+      } as HdsNavigationIconOptions,
+    };
     const content: TitleBarContentOptions = {
-      stackBuilder: (): void => { this.detailTitleRow(); },
+      menu: { value: [shareItem, moreItem] } as HdsNavigationMenuContentOptions,
       backIcon: backIcon,
     };
     return {
@@ -1748,56 +1872,10 @@ export struct PostDetailView {
     };
   }
 
-  // 标题栏动作钮统一规格：与左上官方返回键同档（HdsNavigation 官方圆钮实测 40vp 正圆，
-  // 见 Index.ets「官方 40vp 圆钮」注释）。此前两钮写 44vp（minTouchTarget）+ lg(20) 圆角，
-  // 44 下 20 圆角只是方圆、不是正圆 → 与返回钮并排时尺寸/形状/观感漂移（测试反馈）。
-  // 抽成常量 + 共用 builder，三颗钮规格从此单点维护、不再各自漂移。
-  private static readonly TITLE_ACTION_SIZE_VP: number = LayoutTokens.iconButton; // 40
-  private static readonly TITLE_ACTION_RADIUS_VP: number = RadiusTokens.lg;        // 20 = 40 的一半 → 正圆
-
-  // 标题栏动作钮（分享 / 更多）：40vp 正圆 + TopButtonMaterialModifier（与标题栏同源官方材质，
-  // 与左上官方返回键的材质档一致）。图标功能保持不变。
-  @Builder
-  detailTitleActionButton(icon: Resource, a11y: string, action?: () => void) {
-    Row() {
-      Image(icon)
-        .width(IconTokens.standard)
-        .height(IconTokens.standard)
-        .fillColor(ColorTokens.icon)
-        .draggable(false)
-    }
-    .width(PostDetailView.TITLE_ACTION_SIZE_VP)
-    .height(PostDetailView.TITLE_ACTION_SIZE_VP)
-    .justifyContent(FlexAlign.Center)
-    .alignItems(VerticalAlign.Center)
-    .borderRadius(PostDetailView.TITLE_ACTION_RADIUS_VP)
-    .attributeModifier(this.detailActionMaterial)
-    .accessibilityText(a11y)
-    .onClick((): void => { if (action !== undefined) { action(); } })
-  }
-
-  // 标题栏：原 DetailToolbar（返回 + 分享 + 更多）整体驻留于此。
-  // stackBuilder 动作行：分享 / 更多（40×40 材质正圆，与左上官方返回键同规格，标题栏生效区内出图）。
-  // ⚠️ 左内缩 64vp 让开官方返回键（16~56vp 圆钮）——本行 width('100%') 且住在
-  // StackCustomNode（返回键 Button 的后一个兄弟节点、z 序更高），不留开会吃掉返回键点击
-  //（ChatView 实测，基准防漂移 31）。「更多」的官方 Menu 仍锚在本钮（bindMenu 挂自有节点，
-  // 官方 menu 项没有可编程弹菜单入口，不迁 content.menu——基准第 30 条）。
-  @Builder
-  detailTitleRow(): void {
-    Row({ space: SpaceTokens.xs }) {
-      Blank()
-      this.detailTitleActionButton(resolveActionIcon('share'), '分享', (): void => { this.onShare(); })
-
-      Row() {
-        this.detailTitleActionButton(resolveActionIcon('more'), '更多操作')
-      }
-      .bindMenu(this.postActionsMenu)
-    }
-    .width('100%')
-    .height('100%')
-    .padding({ left: 64, right: SpaceTokens.sm })
-    .alignItems(VerticalAlign.Center)
-  }
+  // 标题栏动作钮（分享/更多）已迁官方 content.menu 圆钮（与返回键同规格 40vp、同出栏级玻璃珠），
+  // 自绘 detailTitleActionButton/detailTitleRow/TITLE_ACTION 常量随迁移下线。此前「更多」的
+  // bindMenu 挂在 stackBuilder（StackCustomNode 非标准树节点）内失效——点击无反应（真机实测），
+  // 迁 content.menu + openMenu 后修复。
   // ── 宽屏左右分栏（官方 SideBarContainer）── 三段式装配：正文列 / 评论流 / 评论右栏
   // build() 里 `else if (this.post)` 的类型收窄不会带进独立 @Builder，故正文值统一走这个
   // 非空读口 —— 三个 builder 只在 post 非空的分支里被调用，渲染期取不到 null。
@@ -1927,7 +2005,11 @@ export struct PostDetailView {
             onVote: (choice: string): void => { this.onDebateVote(choice); },
             // 长按结构化卡片弹「复制正文」菜单（正文 Text 自带系统文本选择，见组件内说明）
             onLongPressContent: (event: GestureEvent): void => { this.openContentMenu(event); },
+            // 收起正文 → 锚定滚动回正文顶部（结构化信息流起点），见 anchorScrollToBodyTop
+            onBodyCollapsed: (): void => { this.anchorScrollToBodyTop(); },
           })
+            // 收起锚定的测量目标：结构化信息流顶部节点（正文列窄/宽屏共用）
+            .id(DETAIL_BODY_TOP_ID)
             .transition(this.animLayerEnter(120))
         }
 
@@ -1982,7 +2064,6 @@ export struct PostDetailView {
     .id(DETAIL_COMMENT_SCROLL_ID)
   }
 
-
   build() {
     Stack() {
       HdsNavigation() {
@@ -2002,6 +2083,18 @@ export struct PostDetailView {
       .height('100%')
       // 一镜到底飞行/材质圆溢出各行边界，链路不留 clip
       .clip(false)
+
+      // 「更多」系统 Menu 弹出锚点：与标题栏「更多」官方圆钮同位（右上、MINI 栏区内）。
+      // openMenu 的 target 必须是真实组件 id，而 content.menu 圆钮是 HDS 内部渲染无 id——
+      // 补一个不响应事件的透明锚点供菜单定位。position+markAnchor 贴右上：右缘让出 12vp
+      //（HDS 圆钮栏内右边距量级）、y=statusBarHeight+8（MINI 栏 56vp、圆钮 40vp 垂直居中）。
+      Row()
+        .id(DETAIL_MORE_ANCHOR_ID)
+        .width(40)
+        .height(40)
+        .hitTestBehavior(HitTestMode.None)
+        .position({ x: '100%', y: this.statusBarHeight + 8 })
+        .markAnchor({ x: 52, y: 0 })
 
       // —— 全屏覆盖层（if 分支渲染）：必须盖过标题栏与状态栏 ——
       // STANDARD 标题栏为占位式，Navigation 内容区从栏下开始：覆盖层若留在内容区会被压到
@@ -2082,21 +2175,6 @@ export struct PostDetailView {
           .padding({ top: this.statusBarHeight })
       }
 
-      // 帖子数据面板（作者侧）：页内覆盖层（if 分支渲染，同 ImageViewer 惯例）。
-      // position 脱离文档流，避免半透明遮罩把页面内容推走；zIndex 压过页面内容。
-      if (this.statsPanelShow) {
-        PostStatsDialog({
-          stats: this.postStats,
-          loading: this.statsLoading,
-          error: this.statsError,
-          onClose: (): void => { this.statsPanelShow = false; },
-          onRetry: (): void => { this.loadPostStats(this.statsPostId); },
-        })
-          .width('100%')
-          .height('100%')
-          .position({ x: 0, y: 0 })
-          .zIndex(210)
-      }
     }
     .width('100%')
     .height('100%')
@@ -2104,6 +2182,17 @@ export struct PostDetailView {
     // Navigation 壳和 bindContentCover 模态都由外层的明确转场状态机负责，
     // 页面本身不再叠加 fade/scale，避免与封面飞行产生双重动效。
     .transition(this.navMode ? this.navNoopTransition() : this.pageEnterTransition())
+    // 帖子数据面板（作者侧）：系统半模态（2026-11-23 从自绘覆盖层迁入）——遮罩/系统关闭钮/
+    // 下滑拖拽/进出场全部系统承担；detents 单档 FIT_CONTENT（数据区高度固定）。
+    // 材质沿用全站半模态配方：API ≥ 26 沉浸玻璃、低版本回退 canvas 实色。
+    .bindSheet($$this.statsPanelShow, this.statsSheetContent(), {
+      detents: [SheetSize.FIT_CONTENT],
+      systemMaterial: getSheetImmersiveMaterial(),
+      blurStyle: isSystemMaterialActive() ? BlurStyle.NONE : BlurStyle.COMPONENT_THICK,
+      backgroundColor: isSystemMaterialActive() ? undefined : ColorTokens.canvas,
+      showClose: true,
+      dragBar: true,
+    })
   }
 
   // 详情主体（加载壳 / 错误 / 帖子内容）：原 build 根 Column 的三分支原样平移进

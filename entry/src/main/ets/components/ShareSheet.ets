@@ -12,6 +12,7 @@ import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { FollowUser, DmSharePayload } from '../models/types';
 import { listFollowing, sendPostShare } from '../services/api';
+
 import { getUserId, getToken } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
 import { resolveActionIcon } from '../utils/actionIcons';

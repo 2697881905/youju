@@ -1,7 +1,7 @@
 import { resolveDisplayImageUrl } from '../services/api';
 import { LengthMetrics } from '@kit.ArkUI';
 import { getUserId } from '../utils/auth';
-import { Genre, StructuredData, StructuredDocument } from '../models/types';
+import { Genre, StructuredDocument } from '../models/types';
 import { PublishDraft } from '../utils/publishDraft';
 import { savePostDraft, SavedPostDraft } from '../utils/postDraftStore';
 import { publishFlowStore } from '../utils/publishFlowStore';
@@ -13,7 +13,9 @@ import { image } from '@kit.ImageKit';
 import { safeShowToast } from '../utils/toast';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { GlassPanel } from '../design/components/GlassPanel';
-import { BackButton } from '../design/components/BackButton';
+import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
+import { buildPageTitleBarOptions, GlassTitleRow, GlassBarInsetRow } from '../design/components/HdsGlassBackSurface';
 import { DesignButton } from '../design/components/DesignButton';
 import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
@@ -74,6 +76,8 @@ struct PublishPreviewPage {
   private previewDisposed: boolean = false;
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
   @StorageProp('currentBreakpoint') currentBreakpoint: string = 'sm';
+  // 交给 HdsNavigation.bindToScrollable，驱动顶栏渐变模糊
+  private pageScroller: Scroller = new Scroller();
 
   // 预览/编辑是单列表单：展开屏满幅 707vp 会让海报与输入行拉得过长。限宽后整列居中，
   // 顶栏与底部主操作同宽对齐（sm 不变）。
@@ -279,26 +283,36 @@ struct PublishPreviewPage {
     publishFlowStore.updatePreview(next);
   }
 
+  // 标题栏：官方 40vp 玻璃返回键 + stackBuilder 标题行（标题与「返回编辑可继续修改」提示经 actions 插槽原样保留）。
+  private publishPreviewTitleBarOptions(): HdsNavigationTitleBarOptions {
+    return buildPageTitleBarOptions({
+      back: (): void => { this.getUIContext().getRouter().back(); },
+      stackBuilder: (): void => { this.topBar(); },
+    });
+  }
+
+  // 标题行：标题居中样板收敛进 GlassTitleRow；「返回编辑可继续修改」提示经 actions 插槽保留在右侧。
   @Builder
   topBar(): void {
-    Row({ space: SpaceTokens.sm }) {
-      BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
-      Text('发布预览')
-        .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
-        .fontWeight(TypeTokens.headline.weight)
-        .lineHeight(TypeTokens.headline.lineHeight)
-        .fontColor(ColorTokens.primary)
-      Text('返回编辑可继续修改')
-        .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-        .fontWeight(TypeTokens.caption.weight)
-        .lineHeight(TypeTokens.caption.lineHeight)
-        .fontColor(ColorTokens.secondary)
-        .layoutWeight(1)
-        .textAlign(TextAlign.End)
-    }
-    .width('100%')
-    .height(LayoutTokens.minTouchTarget)
-    .alignItems(VerticalAlign.Center)
+    GlassTitleRow({
+      title: '发布预览',
+      headlineSerif: true,
+      hasActions: true,
+      actions: (): void => { this.previewHintText(); },
+    })
+  }
+
+  @Builder
+  previewHintText(): void {
+    Text('返回编辑可继续修改')
+      .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+      .fontWeight(TypeTokens.caption.weight)
+      .lineHeight(TypeTokens.caption.lineHeight)
+      .fontColor(ColorTokens.secondary)
+      .maxLines(1)
+      // 原右浮 Row 的 padding(right md) 由 actions 行接管：GlassTitleRow 的 actions 行无内边距，
+      // 用右 margin 保住提示距屏右缘 12vp 的原位。
+      .margin({ right: SpaceTokens.md })
   }
 
   // 单页文字海报预览：直接展示 renderPosterPixelMap 的产出，做到「预览即发布产物」。
@@ -547,18 +561,16 @@ struct PublishPreviewPage {
   }
 
   build() {
-    Column({ space: SpaceTokens.md }) {
-      Column() {
-        this.topBar()
-      }
-      .width('100%')
-      .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-      if (this.draft !== null) {
-        Scroll() {
-          Column({ space: SpaceTokens.md }) {
-            if (this.hasPreviewVideo()) {
-              this.videoPreview(this.currentDraft())
-            }
+    HdsNavigation() {
+      Column({ space: SpaceTokens.md }) {
+        if (this.draft !== null) {
+          Scroll(this.pageScroller) {
+            Column({ space: SpaceTokens.md }) {
+              // 穿底让位：状态栏 + MINI 栏高
+              GlassBarInsetRow({ statusBarHeight: this.statusBarHeight })
+              if (this.hasPreviewVideo()) {
+                this.videoPreview(this.currentDraft())
+              }
             Column({ space: SpaceTokens.md }) {
               this.postPreview(this.currentDraft())
               this.structuredPreview()
@@ -609,11 +621,19 @@ struct PublishPreviewPage {
         .width('100%')
         .justifyContent(FlexAlign.Center)
       }
+      }
+      .width('100%')
+      .height('100%')
+      // 底部操作区抬升避让三键导航条（审核问题③）；手势导航 navInset=0 不影响。
+      .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.md + bottomNavInset() })
     }
+    .mode(NavigationMode.Stack)
+    .titleMode(HdsNavigationTitleMode.MINI)
+    .titleBar(this.publishPreviewTitleBarOptions())
+    .bindToScrollable([this.pageScroller])
+    .clip(false)
     .width('100%')
     .height('100%')
-    // 底部操作区抬升避让三键导航条（审核问题③）；手势导航 navInset=0 不影响。
-    .padding({ top: this.statusBarHeight + SpaceTokens.sm, bottom: SpaceTokens.md + bottomNavInset() })
     .backgroundColor(ColorTokens.canvas)
   }
 }

@@ -12,9 +12,13 @@ import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { CARD_RADIUS, CARD_SHADOW } from '../utils/cardTokens';
 import { brandIconRes, brandTileTint } from '../utils/brandIcons';
-import { BackButton } from '../design/components/BackButton';
-import { ColorTokens } from '../design/tokens/color';
-import { TypeTokens } from '../design/tokens/type';
+import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
+import {
+  buildPageTitleBarOptions,
+  GlassTitleRow,
+  GlassBarInsetRow,
+} from '../design/components/HdsGlassBackSurface';
 
 @Entry
 @Component
@@ -23,6 +27,7 @@ struct AccountBindingPage {
   @State loading: boolean = false;
   @State pendingUnbindProvider: Provider = 'wechat';
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
+  private pageScroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
     // 登录闸门：账号绑定天然以「已登录」为前提。用 replaceUrl 把本页从路由栈里替换掉 ——
@@ -179,64 +184,74 @@ struct AccountBindingPage {
     .shadow(CARD_SHADOW)
   }
 
+  // 返回键走官方 backIcon（40vp 玻璃圆），action 槽仍是 router.back()，返回行为不变。
+  private accountBindingTitleBarOptions(): HdsNavigationTitleBarOptions {
+    return buildPageTitleBarOptions({
+      back: (): void => { this.getUIContext().getRouter().back(); },
+      stackBuilder: (): void => { this.accountBindingTitleRow(); },
+      avoidLayoutSafeArea: true,
+      enableComponentSafeArea: false,
+    });
+  }
+
+  @Builder
+  accountBindingTitleRow(): void {
+    GlassTitleRow({ title: '账号绑定', serif: true })
+  }
+
   build() {
-    Column() {
-      // 顶栏：返回 + 标题
-      Row() {
-        BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
-        Text('账号绑定')
-          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.title.weight)
-          .lineHeight(TypeTokens.title.lineHeight)
-          .fontColor(ColorTokens.primary)
+    HdsNavigation() {
+      Column() {
+        // 标题栏由 HdsNavigation 承担，内容先让出「状态栏 + 栏高」再排正文。
+        GlassBarInsetRow({ statusBarHeight: this.statusBarHeight })
+
+        // 说明
+        Text('以下账号可用于登录有据')
+          .fontSize(13).fontFamily($r('app.string.font_family'))
+          .fontColor($r('app.color.text_secondary'))
+          .width('100%')
+          .padding({ left: 16, right: 16, top: 4, bottom: 8 })
+
+        // 列表区
+        if (this.loading) {
+          Column() {
+            LoadingProgress().width(28).height(28)
+            Text('加载中…').fontSize(13).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary')).margin({ top: 10 })
+          }
           .layoutWeight(1)
-          .textAlign(TextAlign.Center)
-        Text('')
-          .width(44)
+          .width('100%')
+          .justifyContent(FlexAlign.Center)
+        } else {
+          Column({ space: 12 }) {
+            ForEach(this.bindings, (item: BindingItem) => {
+              if (item.provider === 'huawei') {
+                this.primaryRow(item)
+              } else {
+                this.boundRow(item)
+              }
+            }, (item: BindingItem) => item.provider)
+          }
+          .width('100%')
+          .padding(16)
+          .layoutWeight(1)
+        }
+
+        // 底部安全提示
+        Text('华为账号是你的登录方式，登录即完成绑定，不支持解绑。')
+          .fontSize(13).fontFamily($r('app.string.font_family'))
+          .fontColor($r('app.color.text_secondary'))
+          .width('100%')
+          .padding(16)
       }
       .width('100%')
-      .padding({ top: 12, bottom: 8 })
-
-      // 说明
-      Text('以下账号可用于登录有据')
-        .fontSize(13).fontFamily($r('app.string.font_family'))
-        .fontColor($r('app.color.text_secondary'))
-        .width('100%')
-        .padding({ left: 16, right: 16, top: 4, bottom: 8 })
-
-      // 列表区
-      if (this.loading) {
-        Column() {
-          LoadingProgress().width(28).height(28)
-          Text('加载中…').fontSize(13).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary')).margin({ top: 10 })
-        }
-        .layoutWeight(1)
-        .width('100%')
-        .justifyContent(FlexAlign.Center)
-      } else {
-        Column({ space: 12 }) {
-          ForEach(this.bindings, (item: BindingItem) => {
-            if (item.provider === 'huawei') {
-              this.primaryRow(item)
-            } else {
-              this.boundRow(item)
-            }
-          }, (item: BindingItem) => item.provider)
-        }
-        .width('100%')
-        .padding(16)
-        .layoutWeight(1)
-      }
-
-      // 底部安全提示
-      Text('华为账号是你的登录方式，登录即完成绑定，不支持解绑。')
-        .fontSize(13).fontFamily($r('app.string.font_family'))
-        .fontColor($r('app.color.text_secondary'))
-        .width('100%')
-        .padding(16)
+      .height('100%')
     }
+    .mode(NavigationMode.Stack)
+    .titleMode(HdsNavigationTitleMode.MINI)
+    .titleBar(this.accountBindingTitleBarOptions())
+    .bindToScrollable([this.pageScroller])
+    .clip(false)
     .width('100%')
-    .padding({ top: this.statusBarHeight })
     .height('100%')
     .backgroundColor($r('app.color.bg_primary'))
     .transition(buildPageTransition())

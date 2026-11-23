@@ -1,5 +1,7 @@
 // 合集详情页：有序帖子目录；作者可加帖（从自己已发布帖子中选）与移除
-import { BackButton } from '../design/components/BackButton';
+import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
+import { buildPageTitleBarOptions, GlassTitleRow, GlassBarInsetRow } from '../design/components/HdsGlassBackSurface';
 import { EmptyState } from '../design/components/EmptyState';
 import { resolveActionIcon } from '../utils/actionIcons';
 import {
@@ -36,6 +38,7 @@ export struct CollectionDetailPage {
   @State pickerVisible: boolean = false;
   @State pickCandidates: Post[] = [];
   @State pickLoading: boolean = false;
+  private pageScroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
     if (getUserId() === 0) {
@@ -244,19 +247,23 @@ export struct CollectionDetailPage {
     .borderRadius(RadiusTokens.md)
   }
 
-  build() {
-    Column() {
-      Row() {
-        BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
-        Text(this.title)
-          .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamily)
-          .fontWeight(TypeTokens.headline.weight).lineHeight(TypeTokens.headline.lineHeight)
-          .layoutWeight(1).textAlign(TextAlign.Center)
-          .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis });
-        Text('').width(44);
-      }
-      .width('100%').padding({ top: this.statusBarHeight + 12, bottom: 8 });
+  private titleBarOptions(): HdsNavigationTitleBarOptions {
+    return buildPageTitleBarOptions({
+      back: (): void => { this.getUIContext().getRouter().back(); },
+      stackBuilder: (): void => { this.titleRow(); },
+    });
+  }
 
+  @Builder
+  titleRow() {
+    GlassTitleRow({ title: this.title })
+  }
+
+  build() {
+    HdsNavigation() {
+      Column() {
+      // MINI 标题栏穿底：内容顶部统一让位（状态栏 + 栏体），固定区与滚动容器共用这一条
+      GlassBarInsetRow({ statusBarHeight: this.statusBarHeight })
       if (!this.ready) {
         Column() {
           LoadingProgress().width(28).height(28);
@@ -299,8 +306,9 @@ export struct CollectionDetailPage {
           .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
         } else {
           // 双列卡片流（与主页信息流同构）：Scroll > Row > 两列 Column，raw 下标 %2 分列
-          Scroll() {
+          Scroll(this.pageScroller) {
             Column({ space: SpaceTokens.xs }) {
+
               Row({ space: SpaceTokens.xs }) {
                 ForEach([0, 1], (colIdx: number) => {
                   Column({ space: SpaceTokens.xs }) {
@@ -339,7 +347,15 @@ export struct CollectionDetailPage {
             });
         }
       }
+      }
+      .width('100%').height('100%')
     }
-    .width('100%').height('100%').backgroundColor($r('app.color.bg_primary'));
+    .mode(NavigationMode.Stack)
+    .titleMode(HdsNavigationTitleMode.MINI)
+    .titleBar(this.titleBarOptions())
+    .bindToScrollable([this.pageScroller])
+    .clip(false)
+    .width('100%').height('100%')
+    .backgroundColor($r('app.color.bg_primary'));
   }
 }

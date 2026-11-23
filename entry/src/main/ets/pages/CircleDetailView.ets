@@ -21,7 +21,6 @@ import { TagIcon } from '../components/TagIcon';
 import { DesignButton } from '../design/components/DesignButton';
 import { EmptyState } from '../design/components/EmptyState';
 import { ImmersiveSegmentBar, SegmentedItem } from '../design/components/ImmersiveSegmentBar';
-import { isSystemMaterialActive } from '../utils/immersiveMaterial';
 import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit';
 import type {
   HdsNavigationTitleBarOptions,
@@ -33,17 +32,16 @@ import type {
   HdsNavigationIconOptions,
   HdsNavigationBackButtonItemOptions,
   SystemMaterialParams,
+  BottomBuilderParams,
 } from '@kit.UIDesignKit';
 import { LengthMetrics } from '@kit.ArkUI';
 import { isImmersiveLightSenseSupported, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
 import { requestSystemBarRefresh } from '../utils/systemBar';
 import { resolveActionIcon } from '../utils/actionIcons';
-import { Pressable } from '../design/motion/Pressable';
 import { Reveal } from '../design/motion/Reveal';
 import { MotionTokens } from '../design/tokens/motion';
 import { ColorTokens } from '../design/tokens/color';
 import { IconTokens } from '../design/tokens/icon';
-import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 
@@ -156,20 +154,6 @@ export struct CircleDetailView {
     } catch (e) {
       // 元信息失败不影响帖子流：标题栏退回通用副标题。
     }
-  }
-
-  private circleSubtitle(): string {
-    const parts: string[] = [];
-    if (this.circleMemberCount > 0) {
-      parts.push(this.circleMemberCount + ' 人已加入');
-    }
-    if (this.circleCategory.length > 0) {
-      parts.push(this.circleCategory);
-    }
-    if (this.circleDescription.length > 0) {
-      parts.push(this.circleDescription);
-    }
-    return parts.length > 0 ? parts.join(' · ') : '浏览这个圈子里的真实帖子';
   }
 
   // 空态「去发布」：把当前圈子作为预选意图带进发布流，再退出详情页切到发布 Tab。
@@ -333,6 +317,12 @@ export struct CircleDetailView {
   // 官方 MINI 标题栏体高（真机实测 57vp，2026-10-29）：标题栏回归纯返回键后无自定义
   // 内容可量，让位用固定值——statusBar 由 @StorageLink 注入
   private static readonly MINI_BAR_HEIGHT: number = 58;
+  // bottomBuilder 合体列高（2026-11-22 方案 C++ 字号升级）：身份行 78（图标44 + 名称
+  // displaySerif lineHeight44 / 介绍 body lineHeight24 / 间距2 + 顶呼吸8）+ 分段行 82
+  //（40 本体 + 14/28 投影净空）。合体列高度自主（bottomBuilder 无钳制），字号恢复原版
+  // 信息行观感。
+  private static readonly SEG_COLUMN_H: number = 78 + LayoutTokens.segmentBarHeight
+    + LayoutTokens.segmentBarTopRoom + LayoutTokens.segmentBarShadowRoom;
 
   private circleTitleBarHeight(): number {
     return CircleDetailView.MINI_BAR_HEIGHT;
@@ -350,9 +340,9 @@ export struct CircleDetailView {
     }
   }
 
-  // 穿底让位：状态栏 + stackBuilder 实测高（enableComponentSafeArea:false 后自管）
+  // 穿底让位：状态栏 + MINI 栏体 + bottomBuilder 合体列（身份行 + 分段行，2026-11-22 方案 C++）
   private circleListInset(): number {
-    return this.statusBarHeight + this.circleTitleBarHeight();
+    return this.statusBarHeight + this.circleTitleBarHeight() + CircleDetailView.SEG_COLUMN_H;
   }
 
   // HdsNavigation 标题栏配置（详情页同款配方）
@@ -389,11 +379,17 @@ export struct CircleDetailView {
       action: (): void => { this.backAction(); },
     };
     const backIcon: HdsNavigationBackButtonItemOptions = backContent;
-    // 标题栏回归纯官方（2026-10-29）：仅返回键，无 stackBuilder——MINI 栏体 57vp 装不下
-    // 双行信息行（~88vp），此前溢出栏底 3vp 且让位回写被污染。信息行驻内容区页头
-    //（见 circlePageHeader），身份承载不变。
+    // ✅ 2026-11-22 方案 C++：身份行 + 分段行合体进 bottomBuilder（126vp 高度自主）——
+    // uiMaterial 只在标题栏子树出图（§7.6.26 定论），分段栏站回栏级材质与首页 100% 同源；
+    // 垂直空间比 MINI 栏内身份行宽松一倍。stackBuilder 退场（返回键独占 MINI 栏）。
+    // ⚠️ builder 必须引用 @Builder 方法（circleHeaderColumn）——闭包内联组件树会破坏
+    // ArkUI builder 解析（width/titleMode 变 Cannot find name，145 错误级联，真机实证）。
     const content: TitleBarContentOptions = {
       backIcon: backIcon,
+      bottomBuilder: {
+        builder: (): void => { this.circleHeaderColumn(); },
+        height: CircleDetailView.SEG_COLUMN_H,
+      } as BottomBuilderParams,
     };
     return {
       content: content,
@@ -403,58 +399,74 @@ export struct CircleDetailView {
     };
   }
 
-  // 内容区页头：圈子信息行（图标 + 名称 + 副标题）+ 分段行（见 circleSegRow）。
-  // 2026-10-29 整体移出标题栏：MINI 标题栏本体仅 57vp，双行信息行（~88vp）物理放不下，
-  // 副标题溢出栏底 3vp、分段行让位回写被污染——标题栏回归纯官方（仅返回键，零自定义
-  // 内容即零溢出）。信息行左右 padding 与网格对齐。
+  // bottomBuilder 合体列：身份行 + 分段行（126vp，见 circleTitleBarOptions 注释）。
+  // 组件树必须在 @Builder 方法内——bottomBuilder 的 builder 闭包只能引用方法（内联组件树
+  // 会破坏 ArkUI builder 解析）。
   @Builder
-  circlePageHeader(): void {
+  circleHeaderColumn(): void {
     Column() {
-      Row({ space: SpaceTokens.item }) {
-        TagIcon({
-          name: this.circleName,
-          category: this.circleCategory,
-          iconSize: IconTokens.avatarProfile + 2,
-          tint: ColorTokens.brand,
-        })
-          .width(IconTokens.avatarProfile)
-          .height(IconTokens.avatarProfile)
+      this.circleTitleIdentityRow()
+      this.circleSegRow()
+    }
+    .width('100%')
+  }
 
-        Column({ space: SpaceTokens.inlineTight }) {
-          Text(this.circleName)
-            .fontSize(TypeTokens.display.size).fontFamily(TypeTokens.fontFamilySerif)
-            .fontWeight(TypeTokens.display.weight)
-            .lineHeight(TypeTokens.display.lineHeight)
-            .fontColor(ColorTokens.primary)
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-          Text(this.circleSubtitle())
-            .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-            .fontWeight(TypeTokens.callout.weight)
-            .lineHeight(TypeTokens.callout.lineHeight)
+  // 标题栏第二行文案：圈子介绍优先，无介绍时回退成员数（原副标题的精简版——分类由
+  // TagIcon 图标语义承载，不再重复文字）。
+  private circleIntroLine(): string {
+    if (this.circleDescription.length > 0) {
+      return this.circleDescription;
+    }
+    return this.circleMemberCount > 0 ? this.circleMemberCount + ' 人已加入' : '';
+  }
+
+  // 身份行（bottomBuilder 合体列首行）：圈子图标 + 名称/介绍双行。✅ 2026-11-22 字号升级
+  //（用户反馈 14fp 太小）：恢复原版信息行观感——名称 displaySerif(32/700)、介绍 body(16)、
+  // 图标 44。已脱离 MINI 栏（合体列 160vp 高度自主，bottomBuilder 无钳制）——无需让官方
+  // 返回键（返回键在上方 MINI 栏）——左右与网格对齐。
+  @Builder
+  circleTitleIdentityRow(): void {
+    Row({ space: SpaceTokens.item }) {
+      TagIcon({
+        name: this.circleName,
+        category: this.circleCategory,
+        iconSize: 44 + 2,
+        tint: ColorTokens.brand,
+      })
+        .width(44)
+        .height(44)
+      Column({ space: 2 }) {
+        Text(this.circleName)
+          .fontSize(TypeTokens.displaySerif.size).fontFamily(TypeTokens.fontFamilySerif)
+          .fontWeight(TypeTokens.displaySerif.weight)
+          .lineHeight(TypeTokens.displaySerif.lineHeight)
+          .fontColor(ColorTokens.primary)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        if (this.circleIntroLine().length > 0) {
+          Text(this.circleIntroLine())
+            .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.body.weight)
+            .lineHeight(TypeTokens.body.lineHeight)
             .fontColor(ColorTokens.secondary)
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
         }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
       }
-      .width('100%')
-      .padding({ left: GRID_PADDING, right: GRID_PADDING, bottom: SpaceTokens.item })
-
-      this.circleSegRow()
+      .alignItems(HorizontalAlign.Start)
+      .layoutWeight(1)
     }
     .width('100%')
-    // 全屏沉浸壳内容器从屏顶起排：顶部让位穿底标题栏（statusBar + 官方 MINI 栏体高），
-    // 否则页头被返回键行盖住（同举报中心 8a0ab3a 口径）
-    .padding({ top: this.circleListInset() })
+    .padding({ left: GRID_PADDING, right: GRID_PADDING, top: SpaceTokens.inlineTight })
+    .alignItems(VerticalAlign.Center)
   }
 
-  // 分段行（最新/热门 + 加入/退出按钮）：固定驻内容区顶部（2026-10-28 移出标题栏，
-  // 原因同举报中心——HdsNavigation 把 content 布局高度钳制 ~76vp，信息行+分段行 ~150vp
-  // 溢出悬浮、列表让位回写被污染，卡片顶与按钮底贴死）。分段栏恢复 itemWidth 64：
-  // 与「加入圈子」按钮并排的定宽场景（推导 45×2=90vp 过窄失衡）；材质走官方组件
-  // 表面通道（overrideTrackMaterial），内容区正常出图。左右 padding 与网格对齐。
+  // 分段行（最新/热门 + 加入/退出按钮）：✅ 2026-11-22 试点搬回 bottomBuilder——
+  // uiMaterial 只在标题栏子树出图（§7.6.26，摘材质实验 + 用户逐页实测定论），内容区
+  // 任何挂法都不出图。当年移出的是「信息行+分段行」~150vp 组合（超 MINI 栏体）；
+  // 信息行留内容区页头，单行分段行（SEG_BUILDER_ROW_H=82vp，首页同款高度）站回栏级
+  // 材质，与首页 100% 同源。材质换回 overrideTrackMaterial；上下投影净空按 bottomBuilder
+  // 口径配平（top 14 / bottom 28），左右与网格对齐。
   @Builder
   circleSegRow(): void {
     Row() {
@@ -466,9 +478,8 @@ export struct CircleDetailView {
         onSelect: (index: number): void => { this.switchSort(index); },
       })
       Blank()
-      // 加入/退出圈子：走描边而非材质接管表面——ULTRA_THIN 在浅色栏面上只比画布亮 2 级
-      //（真机 253 vs 255），DesignButton 挂材质时会把自绘描边一并置 0（DesignButton.ets:103）
-      // ——换来的那 2 级读不出来，按钮却没了可点性。描边才是这颗钮的实际表面。
+      // 加入/退出圈子：描边按钮——bottomBuilder 背板为栏级 EXQUISITE 玻璃，描边可读性佳；
+      // 不挂材质（DesignButton 挂材质会把自绘描边一并置 0，DesignButton.ets:103）。
       DesignButton({
         label: this.joined ? '退出圈子' : '加入圈子',
         variant: 'outlined',
@@ -482,7 +493,8 @@ export struct CircleDetailView {
     .padding({
       left: GRID_PADDING,
       right: GRID_PADDING,
-      bottom: SpaceTokens.sm,
+      top: LayoutTokens.segmentBarTopRoom,
+      bottom: LayoutTokens.segmentBarShadowRoom,
     })
   }
 
@@ -500,8 +512,7 @@ export struct CircleDetailView {
   build() {
     HdsNavigation() {
       Column() {
-        // 页头固定区（信息行 + 分段行）：2026-10-29 整体移出标题栏，见 circlePageHeader 注释
-        this.circlePageHeader()
+
         if (this.posts.length === 0 && this.loading) {
           Column({ space: SpaceTokens.item }) {
             LoadingProgress().width(IconTokens.empty).height(IconTokens.empty)
@@ -513,6 +524,7 @@ export struct CircleDetailView {
           .layoutWeight(1)
           .width('100%')
           .justifyContent(FlexAlign.Center)
+          .padding({ top: this.circleListInset() })
         } else if (this.posts.length === 0) {
           Column() {
             EmptyState({
@@ -531,6 +543,7 @@ export struct CircleDetailView {
           .layoutWeight(1)
           .width('100%')
           .justifyContent(FlexAlign.Center)
+          .padding({ top: this.circleListInset() })
         } else {
           // refreshing 走 $$ 双向绑定，置位交给组件内部状态机；勿在 onRefreshing 里手动置 true（见 HomeTab.ets:831）
           Refresh({ refreshing: $$this.refreshing, builder: this.refreshBuilder }) {
@@ -567,9 +580,9 @@ export struct CircleDetailView {
             .columnsTemplate(this.gridTemplate)
             .columnsGap(GRID_GAP)
             .rowsGap(GRID_GAP)
-            // 顶部不再补标题栏让位：分段行固定区已承担 circleListInset（见 circleSegRow），
-            // 卡片顶 = 分段行底，再补会出大空隙/贴死按钮（真机实证 2026-10-28）
-            .padding({ left: GRID_PADDING, right: GRID_PADDING, bottom: GRID_PADDING })
+            // 顶部让位穿底标题栏（statusBar + MINI 栏 + bottomBuilder 分段行）：信息行
+            // 搬进 stackBuilder 后让位移交给网格（2026-11-22 方案 C）
+            .padding({ left: GRID_PADDING, right: GRID_PADDING, top: this.circleListInset(), bottom: GRID_PADDING })
             .onScrollIndex((_start: number, end: number) => {
               if (end >= this.posts.length - 1) {
                 this.loadMore();

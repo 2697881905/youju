@@ -15,6 +15,7 @@ import {
   getUnreadCount,
   markNotificationRead,
   markAllRead,
+  markMessagesRead,
   getConversations,
   getDmUnreadCount,
   getAdminReportSummary,
@@ -46,7 +47,7 @@ import type {
   ScrollEffectOptions,
 } from '@kit.UIDesignKit';
 import { LengthMetrics } from '@kit.ArkUI';
-import { isImmersiveLightSenseSupported, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
+import { isImmersiveLightSenseSupported, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE, PillImmersiveMaterialModifier, isSystemMaterialActive } from '../utils/immersiveMaterial';
 import { requestSystemBarRefresh } from '../utils/systemBar';
 
 // 消息分段：通知 | 私信（导出给 Index 的标题栏渲染；本页 Swiper 与之共享选中态）
@@ -128,6 +129,9 @@ export struct MessagePage {
   @Link tabPulse: boolean;
   // 标题栏「全部已读」按钮 → 本页执行（递增序号触发 @Watch）
   @Link @Watch('onMarkAllRequested') markAllSeq: number;
+  // 「全部已读」胶囊：沉浸玻璃配方·文字药丸档（THICK+光效，玻璃配方表）
+  private markAllPillModifier: PillImmersiveMaterialModifier = new PillImmersiveMaterialModifier();
+
   @State conversations: Conversation[] = [];
   // —— 宽屏双栏（md/lg 断点）：会话列表 + 内嵌会话 ——
   // 断点来自全局断点中心；activeTab 用于切走消息页时卸载右栏（停掉聊天轮询，省接口配额）。
@@ -194,9 +198,9 @@ export struct MessagePage {
     return this.statusBarHeight + MESSAGE_TITLE_ROW_VP + MESSAGE_TAB_ROW_HEIGHT;
   }
 
-  // 「全部已读」可见性：仅通知分段且已登录（原 Index.messageMarkAllVisible 逻辑迁入）
+  // 「全部已读」可见性：登录即可见；通知/私信两分段都显示，动作按当前分段分流（各自独立标记）
   private markAllVisible(): boolean {
-    return this.dmTabIndex === 0 && this.token !== '';
+    return this.token !== '';
   }
   private tabPulseTimer: number = 0;
 
@@ -963,6 +967,47 @@ export struct MessagePage {
     }
   }
 
+  // 私信全部已读：后端无批量接口 → 对有未读的会话逐个标记（POST /v1/messages/:userId/read），
+  // 乐观更新本地（会话列表未读归零 + dmUnread 红点归零），与通知 onMarkAll 同一口径。
+  async onMarkAllDm(): Promise<void> {
+    const pending: Conversation[] = this.conversations.filter((c: Conversation): boolean => c.unreadCount > 0);
+    if (pending.length === 0) {
+      safeShowToast(this.getUIContext(), { message: '已全部标记为已读' });
+      return;
+    }
+    try {
+      const calls: Promise<void>[] = [];
+      for (let i = 0; i < pending.length; i++) {
+        calls.push(markMessagesRead(pending[i].peer.id));
+      }
+      await Promise.all(calls);
+      const updated: Conversation[] = this.conversations.map((c: Conversation): Conversation => {
+        return {
+          peer: c.peer,
+          lastType: c.lastType,
+          lastContent: c.lastContent,
+          lastSenderId: c.lastSenderId,
+          lastAt: c.lastAt,
+          unreadCount: 0,
+        };
+      });
+      this.conversations = updated;
+      this.dmUnread = 0;
+      safeShowToast(this.getUIContext(), { message: '已全部标记为已读' });
+    } catch (e) {
+      safeShowToast(this.getUIContext(), { message: '操作失败，请重试' });
+    }
+  }
+
+  // 「全部已读」入口统一分流：通知分段 → 通知全读；私信分段 → 会话全读（互不影响）
+  onMarkAllPressed(): void {
+    if (this.dmTabIndex === 1) {
+      this.onMarkAllDm();
+    } else {
+      this.onMarkAll();
+    }
+  }
+
   // 通知类型 → 图标资源（ArkTS V1 不支持 obj[key] 索引访问，用函数分发）
   private typeIcon(type: NotificationType | undefined): Resource {
     return notifIconRes(type);
@@ -985,9 +1030,9 @@ export struct MessagePage {
     }
   }
 
-  // 标题栏「全部已读」按钮触发（信号递增 → @Watch）
+  // 标题栏「全部已读」按钮触发（信号递增 → @Watch）：按当前分段分流
   onMarkAllRequested(): void {
-    this.onMarkAll();
+    this.onMarkAllPressed();
   }
 
   // 单个快捷筛选的未读数（服务端 unread-count 的 byType，跨全部分页的权威值）
@@ -1383,22 +1428,27 @@ export struct MessagePage {
         .fontColor(ColorTokens.primary)
       if (this.markAllVisible()) {
         Pressable({
-          visualHeight: LayoutTokens.minTouchTarget,
+          visualHeight: LayoutTokens.segmentedHeight,
           touchTargetHeight: LayoutTokens.minTouchTarget,
           action: (): void => {
-            // 递增信号 → 本组件 @Watch：标记全部已读仍由本页执行
-            this.markAllSeq += 1;
+            // 按当前分段分流：通知全读 / 私信全读（私信分段显示后原信号绕行不再必要，直调）
+            this.onMarkAllPressed();
           },
         }) {
           Text('全部已读')
-            .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-            .fontWeight(TypeTokens.headline.weight)
-            .lineHeight(TypeTokens.callout.lineHeight)
-            .letterSpacing(TypeTokens.callout.tracking)
-            .fontColor(ColorTokens.brand)
-            .height(LayoutTokens.minTouchTarget)
-            .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+            // 胶囊形态对齐圈子页「发现圈子」：caption + secondary 文字、36vp 高、md 内边距、
+            // pill 圆角；表面 = 沉浸玻璃配方·文字药丸档（THICK+光效，材质生效时 sunken 让位透明，
+            // 低版本落回 sunken 灰底，与发现圈子的「材质+兜底」双层结构同构）
+            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.caption.weight)
+            .fontColor(ColorTokens.secondary)
+            .height(LayoutTokens.segmentedHeight)
+            .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
             .textAlign(TextAlign.Center)
+            .backgroundColor(isSystemMaterialActive() ? Color.Transparent : ColorTokens.sunken)
+            .borderRadius(RadiusTokens.pill)
+            // 沉浸玻璃配方·文字药丸档：标题栏子树内出图；secondary 色随主题翻浅，玻璃面上可读
+            .attributeModifier(this.markAllPillModifier)
             .accessibilityText('全部已读')
         }
       }
@@ -1453,22 +1503,24 @@ export struct MessagePage {
   }
 
   // 分段行（官方 SegmentButton，bottomBuilder）：轨道/滑块/状态动画全系统实现，
-  // 栏体挂栏级 EXQUISITE（见 messageHdsTitleBarOptions），分段栏走官方默认轨道材质。
-  // 未读徽标叠加层保留（官方栏没有徽标位）。
+  // 栏体挂栏级 EXQUISITE（见 messageHdsTitleBarOptions）；分段栏走首页同款 THICK 浮起
+  // 材质（overrideTrackMaterial）——首页 bottomBuilder 即「栏级 EXQUISITE + THICK 分段栏」
+  // 叠加（用户认可的观感），消息页同构。未读徽标叠加层保留（官方栏没有徽标位）。
   @Builder
   messageTabRow() {
     Row() {
       Row() {
       Stack() {
-        // 分段栏（官方 SegmentButton）：轨道/滑块/状态动画全系统实现。不传
-        // backgroundSystemMaterial——标题栏已挂栏级 EXQUISITE，分段栏走官方默认
-        // 轨道材质直接站在栏级材质表面上，避免两层玻璃叠加。
+        // 分段栏（官方 SegmentButton）：轨道/滑块/状态动画全系统实现。首页同款 THICK
+        // 浮起材质（2026-11-22 统一：原「避免两层玻璃」是 ULTRA_THIN 时代口径，THICK
+        // 时代首页 bottomBuilder 即此叠加组合，观感用户认可）。
         ImmersiveSegmentBar({
           items: MESSAGE_SEGMENTS,
           selectedIndex: $dmTabIndex,
           // 长条铺满 bottomBuilder 行宽（用户拍板 2026-10-28）：两槽等分，徽标层
           // Stack 同为 '100%' 逐槽叠加，天然对齐
           fillWidth: true,
+          overrideTrackMaterial: true,
         })
         // 未读徽标层：分段栏把可用宽度等分，逐槽位叠一个「同字号透明标签 + 系统 Badge」，
         // 红点就落在各自标签右上角（与底部页签红点同一视觉语言，>99 自动 99+）。

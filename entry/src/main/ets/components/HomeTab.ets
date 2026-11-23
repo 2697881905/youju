@@ -1186,8 +1186,12 @@ export struct HomeTab {
   homeTabRow() {
     Row() {
       // 分段栏（官方 SegmentButton）：轨道/滑块/状态动画/命中全系统实现，视觉与原生
-      // App 分段栏同档（基准 §7.6.18/§7.7）。overrideTrackMaterial=ULTRA_THIN 浮起档
-      // ——bottomBuilder 行已按 segmentBarShadowRoom 留出材质投影净空。
+      // App 分段栏同档（基准 §7.6.18/§7.7）。overrideTrackMaterial=THICK 浮起档——
+      // bottomBuilder 行已按 segmentBarShadowRoom 留出材质投影净空。
+      // ✅ 决定性实验定论（2026-11-22）：摘掉本字段首页观感明显变化（用户实测「有变化」）
+      // → THICK 材质在 bottomBuilder 确实出图；反向证实 uiMaterial 只在标题栏子树渲染
+      //（内容区/吸顶区/滚动内容不出图，用户逐页实测吻合）——内容区分段栏统一走
+      // trackBlurFallback 通用模糊底（非 uiMaterial，无渲染边界）。
       ImmersiveSegmentBar({
         items: FEED_SEGMENTS,
         selectedIndex: $feedIndex,

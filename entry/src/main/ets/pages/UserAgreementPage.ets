@@ -1,104 +1,120 @@
 // 用户协议页：内置静态用户协议文本，无后端调用
 
 import { buildPageTransition } from '../utils/styles';
-import { BackButton } from '../design/components/BackButton';
-import { ColorTokens } from '../design/tokens/color';
-import { TypeTokens } from '../design/tokens/type';
+import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
+import {
+  buildPageTitleBarOptions,
+  GlassTitleRow,
+  GlassBarInsetRow,
+} from '../design/components/HdsGlassBackSurface';
 
 @Entry
 @Component
 export struct UserAgreementPage {
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
+  // 交给 bindToScrollable 驱动栏级渐变模糊
+  private pageScroller: Scroller = new Scroller();
+
+  private agreementTitleBarOptions(): HdsNavigationTitleBarOptions {
+    return buildPageTitleBarOptions({
+      // action 槽原样保留 router.back()
+      back: (): void => { this.getUIContext().getRouter().back(); },
+      stackBuilder: (): void => { this.agreementTitleRow(); },
+      avoidLayoutSafeArea: true,
+      enableComponentSafeArea: false,
+    });
+  }
+
+  @Builder
+  agreementTitleRow(): void {
+    GlassTitleRow({ title: '用户协议', serif: true })
+  }
 
   build() {
-    Column() {
-      // 顶栏
-      Row() {
-        BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
-        Text('用户协议')
-          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.title.weight)
-          .lineHeight(TypeTokens.title.lineHeight)
-          .fontColor(ColorTokens.primary)
-          .layoutWeight(1)
-          .textAlign(TextAlign.Center);
-        Text('')
-          .width(44);
+    HdsNavigation() {
+      Column() {
+        Scroll(this.pageScroller) {
+          Column({ space: 16 }) {
+            // 穿底让位：状态栏 + MINI 栏高
+            GlassBarInsetRow({ statusBarHeight: this.statusBarHeight });
+
+            Text('更新日期：2026 年 11 月 2 日\n生效日期：2026 年 11 月 2 日')
+              .fontSize(12).fontFamily($r('app.string.font_family'))
+              .fontColor($r('app.color.text_secondary'))
+              .width('100%')
+              .padding({ left: 16, right: 16 });
+
+            Text('欢迎使用有据（以下简称"本应用"）。本应用是面向大众的理性内容分享社区，运营主体为白逸飞（以下简称"我们"）。在使用本应用前，请您仔细阅读并充分理解本《用户协议》与《隐私政策》。本应用采用明示同意方式：您需在首次启动时的隐私政策与用户协议弹窗中主动点击「同意并继续」，并在登录页主动勾选「我已阅读并同意《用户协议》与《隐私政策》」后，方可注册和使用本应用；未勾选时登录入口不可用，我们也不会收集您的个人信息。您不同意前述协议的，可以停止使用并退出应用，这不影响您以访客身份浏览公开内容。')
+              .fontSize(15).fontFamily($r('app.string.font_family'))
+              .fontColor($r('app.color.text_primary'))
+              .lineHeight(24)
+              .width('100%')
+              .padding({ left: 16, right: 16 });
+
+            this.section('1. 服务条款', [
+              '本应用为面向大众的理性内容分享社区，提供图文、视频、文字内容发布、评论、收藏、关注和圈子等基础服务。',
+              '我们保留随时修改、暂停或终止部分或全部服务的权利，并在合理范围内提前通知。',
+              '您使用本应用应遵守中华人民共和国相关法律法规及平台社区规范。',
+            ]);
+
+            this.section('2. 账号注册与使用', [
+              '您需通过华为账号或本应用提供的其他登录方式注册账号，并保证所填信息真实、合法、有效。',
+              '您的账号由您本人妥善保管，因账号保管不善导致的损失由您自行承担。',
+              '您同意不将账号转让、出借或售卖给第三方；我们有权对违规账号采取限制或封禁措施。',
+            ]);
+
+            this.section('3. 内容发布规范', [
+              '您对所发布的内容（帖子、评论、图片等）的真实性、合法性负责。',
+              '禁止发布违法、暴力、色情、诈骗、侵犯他人权益、扰乱社区秩序或可能引起性别对立等不良导向的内容。',
+              '我们设有内容审核与用户举报机制，对违规内容可予以下架、删除等处理。',
+            ]);
+
+            this.section('4. 知识产权', [
+              '本应用相关的商标、标识、软件代码及版面设计等知识产权归我们所有。',
+              '您在本应用发布的内容，其著作权归您所有；您授予本应用在平台内展示、存储、分发的非独占许可。',
+              '若您的内容侵犯第三方知识产权，由您承担相应责任。',
+            ]);
+
+            this.section('5. 隐私保护', [
+              '我们重视你的个人信息保护。关于收集、使用、存储与保护个人信息的规则，请查阅《隐私政策》。',
+            ]);
+
+            this.section('6. 免责声明', [
+              '本应用按"现状"提供服务，除法定要求外，不对服务的连续性、适用性作出明示或默示担保。',
+              '因不可抗力、网络故障或第三方原因导致的服务中断或数据损失，我们在法律允许范围内不承担责任。',
+              '您因使用本应用产生的任何直接或间接损失，我们不承担超出法定范围的责任。',
+            ]);
+
+            this.section('7. 协议的变更与联系', [
+              '我们可能适时修订本协议，重大变更（包括《隐私政策》的实质性变更）将通过应用内弹窗重新征得您的同意，不会以您继续使用视为已同意。',
+              '若您不同意修订后的协议，可停止使用需要登录的功能并注销账号；您仍可以访客身份浏览公开内容。',
+              '如有任何疑问，请联系运营主体白逸飞：2697881905@qq.com',
+            ]);
+
+            Text('本协议的订立、效力、解释及争议解决均适用中华人民共和国法律。')
+              .fontSize(13).fontFamily($r('app.string.font_family'))
+              .fontColor($r('app.color.text_secondary'))
+              .lineHeight(20)
+              .width('100%')
+              .padding({ left: 16, right: 16, top: 16, bottom: 32 });
+          }
+          .width('100%')
+          .padding({ top: 8 });
+        }
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+        .layoutWeight(1)
+        .width('100%');
       }
       .width('100%')
-      .padding({ top: 12, bottom: 8 });
-
-      Scroll() {
-        Column({ space: 16 }) {
-          Text('更新日期：2026 年 11 月 2 日\n生效日期：2026 年 11 月 2 日')
-            .fontSize(12).fontFamily($r('app.string.font_family'))
-            .fontColor($r('app.color.text_secondary'))
-            .width('100%')
-            .padding({ left: 16, right: 16 });
-
-          Text('欢迎使用有据（以下简称"本应用"）。本应用是面向大众的理性内容分享社区，运营主体为白逸飞（以下简称"我们"）。在使用本应用前，请您仔细阅读并充分理解本《用户协议》与《隐私政策》。本应用采用明示同意方式：您需在首次启动时的隐私政策与用户协议弹窗中主动点击「同意并继续」，并在登录页主动勾选「我已阅读并同意《用户协议》与《隐私政策》」后，方可注册和使用本应用；未勾选时登录入口不可用，我们也不会收集您的个人信息。您不同意前述协议的，可以停止使用并退出应用，这不影响您以访客身份浏览公开内容。')
-            .fontSize(15).fontFamily($r('app.string.font_family'))
-            .fontColor($r('app.color.text_primary'))
-            .lineHeight(24)
-            .width('100%')
-            .padding({ left: 16, right: 16 });
-
-          this.section('1. 服务条款', [
-            '本应用为面向大众的理性内容分享社区，提供图文、视频、文字内容发布、评论、收藏、关注和圈子等基础服务。',
-            '我们保留随时修改、暂停或终止部分或全部服务的权利，并在合理范围内提前通知。',
-            '您使用本应用应遵守中华人民共和国相关法律法规及平台社区规范。',
-          ]);
-
-          this.section('2. 账号注册与使用', [
-            '您需通过华为账号或本应用提供的其他登录方式注册账号，并保证所填信息真实、合法、有效。',
-            '您的账号由您本人妥善保管，因账号保管不善导致的损失由您自行承担。',
-            '您同意不将账号转让、出借或售卖给第三方；我们有权对违规账号采取限制或封禁措施。',
-          ]);
-
-          this.section('3. 内容发布规范', [
-            '您对所发布的内容（帖子、评论、图片等）的真实性、合法性负责。',
-            '禁止发布违法、暴力、色情、诈骗、侵犯他人权益、扰乱社区秩序或可能引起性别对立等不良导向的内容。',
-            '我们设有内容审核与用户举报机制，对违规内容可予以下架、删除等处理。',
-          ]);
-
-          this.section('4. 知识产权', [
-            '本应用相关的商标、标识、软件代码及版面设计等知识产权归我们所有。',
-            '您在本应用发布的内容，其著作权归您所有；您授予本应用在平台内展示、存储、分发的非独占许可。',
-            '若您的内容侵犯第三方知识产权，由您承担相应责任。',
-          ]);
-
-          this.section('5. 隐私保护', [
-            '我们重视你的个人信息保护。关于收集、使用、存储与保护个人信息的规则，请查阅《隐私政策》。',
-          ]);
-
-          this.section('6. 免责声明', [
-            '本应用按"现状"提供服务，除法定要求外，不对服务的连续性、适用性作出明示或默示担保。',
-            '因不可抗力、网络故障或第三方原因导致的服务中断或数据损失，我们在法律允许范围内不承担责任。',
-            '您因使用本应用产生的任何直接或间接损失，我们不承担超出法定范围的责任。',
-          ]);
-
-          this.section('7. 协议的变更与联系', [
-            '我们可能适时修订本协议，重大变更（包括《隐私政策》的实质性变更）将通过应用内弹窗重新征得您的同意，不会以您继续使用视为已同意。',
-            '若您不同意修订后的协议，可停止使用需要登录的功能并注销账号；您仍可以访客身份浏览公开内容。',
-            '如有任何疑问，请联系运营主体白逸飞：2697881905@qq.com',
-          ]);
-
-          Text('本协议的订立、效力、解释及争议解决均适用中华人民共和国法律。')
-            .fontSize(13).fontFamily($r('app.string.font_family'))
-            .fontColor($r('app.color.text_secondary'))
-            .lineHeight(20)
-            .width('100%')
-            .padding({ left: 16, right: 16, top: 16, bottom: 32 });
-        }
-        .width('100%')
-        .padding({ top: 8 });
-      }
-      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
-      .layoutWeight(1)
-      .width('100%');
+      .height('100%')
     }
+    .mode(NavigationMode.Stack)
+    .titleMode(HdsNavigationTitleMode.MINI)
+    .titleBar(this.agreementTitleBarOptions())
+    .bindToScrollable([this.pageScroller])
+    .clip(false)
     .width('100%')
-    .padding({ top: this.statusBarHeight })
     .height('100%')
     .backgroundColor($r('app.color.bg_primary'))
     .transition(buildPageTransition())

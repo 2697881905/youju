@@ -5,10 +5,14 @@ import { NotificationPrefs } from '../models/types';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { CARD_RADIUS, CARD_SHADOW } from '../utils/cardTokens';
-import { BackButton } from '../design/components/BackButton';
+import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
+import {
+  buildPageTitleBarOptions,
+  GlassTitleRow,
+  GlassBarInsetRow,
+} from '../design/components/HdsGlassBackSurface';
 import { EmptyState } from '../design/components/EmptyState';
-import { ColorTokens } from '../design/tokens/color';
-import { TypeTokens } from '../design/tokens/type';
 import { getUserId } from '../utils/auth';
 
 interface PrefRow {
@@ -24,6 +28,7 @@ export struct NotificationSettingsPage {
   @State loadFinished: boolean = false;
   @State loadError: string = '';
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
+  private pageScroller: Scroller = new Scroller();
 
   private rows: PrefRow[] = [
     { key: 'comment', label: '评论通知', desc: '有人评论你的帖子时通知你' },
@@ -77,91 +82,101 @@ export struct NotificationSettingsPage {
     }
   }
 
+  // 返回键走官方 backIcon（40vp 玻璃圆），action 槽仍是 router.back()，返回行为不变。
+  private notificationSettingsTitleBarOptions(): HdsNavigationTitleBarOptions {
+    return buildPageTitleBarOptions({
+      back: (): void => { this.getUIContext().getRouter().back(); },
+      stackBuilder: (): void => { this.notificationSettingsTitleRow(); },
+      avoidLayoutSafeArea: true,
+      enableComponentSafeArea: false,
+    });
+  }
+
+  @Builder
+  notificationSettingsTitleRow(): void {
+    GlassTitleRow({ title: '通知设置', serif: true })
+  }
+
   build() {
-    Column() {
-      // 顶栏
-      Row() {
-        BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
-        Text('通知设置')
-          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.title.weight)
-          .lineHeight(TypeTokens.title.lineHeight)
-          .fontColor(ColorTokens.primary)
+    HdsNavigation() {
+      Column() {
+        if (!this.loadFinished) {
+          Column() {
+            LoadingProgress()
+              .width(40)
+              .height(40)
+              .color($r('app.color.text_secondary'));
+          }
           .layoutWeight(1)
-          .textAlign(TextAlign.Center);
-        Text('')
-          .width(44);
+          .width('100%')
+          .justifyContent(FlexAlign.Center);
+        } else if (this.loadError) {
+          Column() {
+            EmptyState({
+              title: '加载失败',
+              message: this.loadError,
+              actionLabel: '重试',
+              onAction: (): void => {
+                this.loadFinished = false;
+                this.loadPrefs();
+              },
+            })
+          }
+          .layoutWeight(1)
+          .width('100%')
+          .justifyContent(FlexAlign.Center);
+        } else {
+          Scroll(this.pageScroller) {
+            Column({ space: 10 }) {
+              // 标题栏由 HdsNavigation 承担，内容先让出「状态栏 + 栏高」再排正文。
+              GlassBarInsetRow({ statusBarHeight: this.statusBarHeight })
+
+              ForEach(this.rows, (row: PrefRow) => {
+                Row() {
+                  Column() {
+                    Text(row.label)
+                      .fontSize(15).fontFamily($r('app.string.font_family'))
+                      .fontColor($r('app.color.text_primary'));
+                    Text(row.desc)
+                      .fontSize(12).fontFamily($r('app.string.font_family'))
+                      .fontColor($r('app.color.text_secondary'))
+                      .margin({ top: 2 });
+                  }
+                  .layoutWeight(1)
+                  .alignItems(HorizontalAlign.Start);
+
+                  Toggle({ type: ToggleType.Switch, isOn: this.getPrefValue(row.key) })
+                    .onChange((isOn: boolean) => {
+                      this.setPrefValue(row.key, isOn);
+                      this.onToggle(row.key);
+                    });
+                }
+                .width('100%')
+                .padding({ left: 16, right: 16, top: 16, bottom: 16 })
+                .backgroundColor($r('app.color.card_bg'))
+                .borderRadius(CARD_RADIUS)
+                .shadow(CARD_SHADOW);
+              });
+            }
+            .width('100%')
+            .padding({ left: 16, right: 16, top: 8, bottom: 32 })
+            // 内容不足一屏时撑满视口：Scroll 默认会把不足一屏的子内容垂直居中，撑满即钉在顶部
+            .constraintSize({ minHeight: '100%' });
+          }
+          .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+          .layoutWeight(1)
+          .width('100%');
+        }
       }
       .width('100%')
-      .padding({ top: 12, bottom: 8 });
-
-      if (!this.loadFinished) {
-        Column() {
-          LoadingProgress()
-            .width(40)
-            .height(40)
-            .color($r('app.color.text_secondary'));
-        }
-        .layoutWeight(1)
-        .width('100%')
-        .justifyContent(FlexAlign.Center);
-      } else if (this.loadError) {
-        Column() {
-          EmptyState({
-            title: '加载失败',
-            message: this.loadError,
-            actionLabel: '重试',
-            onAction: (): void => {
-              this.loadFinished = false;
-              this.loadPrefs();
-            },
-          })
-        }
-        .layoutWeight(1)
-        .width('100%')
-        .justifyContent(FlexAlign.Center);
-      } else {
-        Scroll() {
-          Column({ space: 10 }) {
-            ForEach(this.rows, (row: PrefRow) => {
-              Row() {
-                Column() {
-                  Text(row.label)
-                    .fontSize(15).fontFamily($r('app.string.font_family'))
-                    .fontColor($r('app.color.text_primary'));
-                  Text(row.desc)
-                    .fontSize(12).fontFamily($r('app.string.font_family'))
-                    .fontColor($r('app.color.text_secondary'))
-                    .margin({ top: 2 });
-                }
-                .layoutWeight(1)
-                .alignItems(HorizontalAlign.Start);
-
-                Toggle({ type: ToggleType.Switch, isOn: this.getPrefValue(row.key) })
-                  .onChange((isOn: boolean) => {
-                    this.setPrefValue(row.key, isOn);
-                    this.onToggle(row.key);
-                  });
-              }
-              .width('100%')
-              .padding({ left: 16, right: 16, top: 16, bottom: 16 })
-              .backgroundColor($r('app.color.card_bg'))
-              .borderRadius(CARD_RADIUS)
-              .shadow(CARD_SHADOW);
-            });
-          }
-          .width('100%')
-          .padding({ left: 16, right: 16, top: 8, bottom: 32 })
-          // 内容不足一屏时撑满视口：Scroll 默认会把不足一屏的子内容垂直居中，撑满即钉在顶部
-          .constraintSize({ minHeight: '100%' });
-        }
-        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
-        .layoutWeight(1)
-        .width('100%');
-      }
+      .height('100%')
     }
+    .mode(NavigationMode.Stack)
+    .titleMode(HdsNavigationTitleMode.MINI)
+    .titleBar(this.notificationSettingsTitleBarOptions())
+    .bindToScrollable([this.pageScroller])
+    .clip(false)
     .width('100%')
-    .padding({ top: this.statusBarHeight })
     .height('100%')
     .backgroundColor($r('app.color.bg_primary'))
     .transition(buildPageTransition())

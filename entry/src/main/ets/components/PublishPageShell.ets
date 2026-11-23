@@ -31,6 +31,7 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { isImmersiveLightSenseSupported, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
+import { GlassTitleRow } from '../design/components/HdsGlassBackSurface';
 import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit';
 import { LengthMetrics } from '@kit.ArkUI';
 import type {
@@ -43,10 +44,10 @@ import type {
   HdsNavigationIconItemStyle,
   HdsNavigationBackButtonItemOptions,
   HdsNavigationIconOptions,
+  BottomBuilderParams,
 } from '@kit.UIDesignKit';
 
-// 官方返回键占 16~56vp（40vp 圆 + 16vp 左内缩）；stackBuilder 行需让出这段（见踩坑 5）。
-const HDS_BACK_SLOT_END_VP: number = 64;
+
 // HdsNavigation MINI 标题区栏体高（实测 175px ÷ 3.125 = 56vp）。导出供调用方算穿底让位 topInset。
 export const PUBLISH_BAR_ROW_VP: number = 56;
 // 渐变模糊生效区间终点默认值（vp）：与草稿箱/聊天页同量级。
@@ -72,6 +73,12 @@ export struct PublishPageShell {
   scroller: Scroller = new Scroller();
   onAction: () => void = () => {};
   onBack: () => void = () => {};
+  // bottomBuilder 透传（2026-11-22 圈子发现页分段栏搬进标题栏）：高度 > 0 时挂载。
+  // ⚠️ 必须是普通函数属性而非 @BuilderParam——本组件的 content 是 @BuilderParam 且全部
+  // 调用方用尾随闭包语法（ArkUI 规定尾随闭包只允许一个 @BuilderParam，双装饰直接 145 错）。
+  // CustomBuilder（BottomBuilderParams.builder）本身即普通函数类型，链路合法。
+  bottomContent: () => void = () => {};
+  @Prop bottomHeightVp: number = 0;
 
   @Builder
   emptyContent(): void {}
@@ -113,6 +120,13 @@ export struct PublishPageShell {
       stackBuilder: (): void => { this.titleRow(); },
       backIcon: backIcon,
     };
+    // bottomBuilder 透传（圈子发现页分段栏，2026-11-22）：站上栏级材质与首页同源
+    if (this.bottomHeightVp > 0) {
+      content.bottomBuilder = {
+        builder: (): void => { this.bottomContent(); },
+        height: this.bottomHeightVp,
+      } as BottomBuilderParams;
+    }
     const options: HdsNavigationTitleBarOptions = {
       content: content,
       style: style,
@@ -122,62 +136,73 @@ export struct PublishPageShell {
     return options;
   }
 
-  // 标题行：模式标题 + （可选）细进度与下一步提示 + （可选）主钮。左内缩让开官方返回键。
+  // 标题行：GlassTitleRow 承担 Stack 居中样板与标题文本（headlineSerif 形态 =
+  // headline 字号 + 衬线字族，与该页原 headline 档标题逐帧一致），
+  // 进度行 / 右侧动作经副行与动作插槽传入（builder 内容逐字保留）。
   @Builder
   titleRow(): void {
-    Row({ space: SpaceTokens.sm }) {
-      Column({ space: SpaceTokens.xs }) {
-        Text(this.modeLabel)
-          .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.headline.weight)
-          .lineHeight(TypeTokens.headline.lineHeight)
-          .fontColor(ColorTokens.primary)
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        if (this.progressTotal > 0) {
-          Row({ space: SpaceTokens.inline }) {
-            Progress({ value: this.progressValue, total: this.progressTotal, type: ProgressType.Linear })
-              .width(44)
-              .color(ColorTokens.brand)
-              .backgroundColor(ColorTokens.separator)
-              .style({ strokeWidth: SpaceTokens.xs, strokeRadius: RadiusTokens.xs, enableSmoothEffect: true })
-            Text(this.hint)
-              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-              .fontWeight(TypeTokens.caption.weight)
-              .lineHeight(TypeTokens.caption.lineHeight)
-              .fontColor(this.isReady() ? ColorTokens.brand : ColorTokens.secondary)
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-              .layoutWeight(1)
-              .textAlign(TextAlign.Start)
-          }
-          .width('100%')
-          .alignItems(VerticalAlign.Center)
-        }
-      }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
+    GlassTitleRow({
+      title: this.modeLabel,
+      headlineSerif: true,
+      hasSubRow: this.progressTotal > 0,
+      subRow: (): void => { this.publishProgressRow(); },
+      hasActions: this.actionIcon.length > 0 || this.actionLabel.length > 0,
+      actions: (): void => { this.publishActionRow(); },
+    })
+  }
 
-      if (this.actionIcon.length > 0) {
+  // 细进度与下一步提示行（原 titleRow 副行，逐字保留）
+  @Builder
+  publishProgressRow(): void {
+    Row({ space: SpaceTokens.inline }) {
+      Progress({ value: this.progressValue, total: this.progressTotal, type: ProgressType.Linear })
+        .width(44)
+        .color(ColorTokens.brand)
+        .backgroundColor(ColorTokens.separator)
+        .style({ strokeWidth: SpaceTokens.xs, strokeRadius: RadiusTokens.xs, enableSmoothEffect: true })
+      Text(this.hint)
+        .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+        .fontWeight(TypeTokens.caption.weight)
+        .lineHeight(TypeTokens.caption.lineHeight)
+        .fontColor(this.isReady() ? ColorTokens.brand : ColorTokens.secondary)
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+    }
+    .width('100%')
+    .justifyContent(FlexAlign.Center)
+    .alignItems(VerticalAlign.Center)
+  }
+
+  // 右侧动作浮层：图标钮 / 文字主钮二选一（原 titleRow 动作分支，逐字保留）
+  @Builder
+  publishActionRow(): void {
+    if (this.actionIcon.length > 0) {
+      Row() {
+        Blank()
         IconButton({
           icon: this.actionIcon,
           a11yText: this.actionA11y,
           action: (): void => { this.onAction(); },
         })
-      } else if (this.actionLabel.length > 0) {
+      }
+      .width('100%')
+      .padding({ right: SpaceTokens.md })
+    } else if (this.actionLabel.length > 0) {
+      Row() {
+        Blank()
         DesignButton({
           label: this.actionLabel,
           variant: 'primary',
+          useSystemMaterial: true,
+          materialPill: true,
           visualHeight: LayoutTokens.segmentedHeight,
           disabled: this.actionDisabled,
           action: (): void => { this.onAction(); },
         })
       }
+      .width('100%')
+      .padding({ right: SpaceTokens.md })
     }
-    .width('100%')
-    .height('100%')
-    .alignItems(VerticalAlign.Center)
-    .padding({ left: HDS_BACK_SLOT_END_VP, right: SpaceTokens.md })
   }
 
   build() {

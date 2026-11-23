@@ -16,30 +16,12 @@ import { PublishMode } from '../components/PublishModePanel';
 import { ManagedPostFeed } from '../components/ManagedPostFeed';
 import { resolveTextPosterStyle } from '../utils/poster/posterTokens';
 import { buildPageTransition } from '../utils/styles';
-import { resolveActionIcon } from '../utils/actionIcons';
-import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit';
-import { LengthMetrics } from '@kit.ArkUI';
-import type {
-  HdsNavigationTitleBarOptions,
-  TitleBarContentOptions,
-  TitleBarStyleOptions,
-  ScrollEffectOptions,
-  SystemMaterialParams,
-  HdsTitleBarContentStyle,
-  HdsNavigationIconItemStyle,
-  HdsNavigationBackButtonItemOptions,
-  HdsNavigationIconOptions,
-} from '@kit.UIDesignKit';
-// 栏级沉浸光感：与「我的」/首页/聊天页同一对字段、同一门禁（基准 §7.6.29）。
-import { isImmersiveLightSenseSupported, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
+import { buildPageTitleBarOptions, GlassTitleRow } from '../design/components/HdsGlassBackSurface';
+import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 
-// 官方返回键占 16~56vp（40vp 圆 + 16vp 左内缩）。stackBuilder 那行是全宽的、且在返回键的
-// 后一个兄弟节点上（z 序更高），不留出这段就会**吃掉返回键的点击**（ChatView 试点真机复现）。
-const HDS_BACK_SLOT_END_VP: number = 64;
 // 栏体高（vp）：MINI 标题区实测 175px ÷ 3.125 = 56vp。穿底时内容要按这个值让位。
 const DRAFT_BAR_ROW_VP: number = 56;
-// 渐变模糊生效区间终点（vp）：与聊天页/消息页同量级
-const DRAFT_BLUR_END_VP: number = 32;
 
 @Entry
 @Component
@@ -151,70 +133,21 @@ struct DraftBoxPage {
     return this.drafts.map((d: SavedPostDraft): string => resolveTextPosterStyle(d.textPosterStyle).key);
   }
 
-  // 标题栏配置：官方返回键（backIcon）+ stackBuilder 只放「草稿箱」文字。
-  // 状态栏避让交给 avoidLayoutSafeArea(true)；内容侧改用 enableComponentSafeArea(false)
-  // + 自己补 topInset，让草稿卡片能穿到栏下被渐变模糊采样 —— 材质才有东西可折射。
+  // 标题栏配置：官方返回键（backIcon）+ stackBuilder 只放「草稿箱」文字，返回闭包原逻辑逐字保留。
+  // 渐变模糊/栏级材质/透明底配方收敛进 buildPageTitleBarOptions 内部的 buildGlassTitleBarStyle
+  // （同门禁、同 32vp 端点）；状态栏避让走缺省 avoidLayoutSafeArea(true)；内容侧缺省
+  // enableComponentSafeArea(false) + 自己补 topInset，让草稿卡片能穿到栏下被渐变模糊采样。
   private draftTitleBarOptions(): HdsNavigationTitleBarOptions {
-    const immersive: boolean = isImmersiveLightSenseSupported();
-    const scrollEffect: ScrollEffectOptions = {
-      enableScrollEffect: true,
-      scrollEffectType: immersive ? ScrollEffectType.IMMERSIVE_GRADIENT_BLUR : ScrollEffectType.GRADIENT_BLUR,
-      blurEffectiveStartOffset: LengthMetrics.vp(0),
-      blurEffectiveEndOffset: LengthMetrics.vp(DRAFT_BLUR_END_VP),
-    };
-    const style: TitleBarStyleOptions = {
-      scrollEffectOpts: scrollEffect,
-      originalStyle: {
-        backgroundStyle: { backgroundColor: Color.Transparent },
-        contentStyle: {
-          backIconStyle: { iconColor: ColorTokens.primary } as HdsNavigationIconItemStyle,
-        } as HdsTitleBarContentStyle,
-      },
-    };
-    if (immersive) {
-      // 栏级材质：官方圆钮的 rim + 折射只在这一档出图（不传 → 默认 3% 黑平面，无轮廓）。
-      style.systemMaterialEffect = {
-        materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
-        materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE,
-      } as SystemMaterialParams;
-    }
-    // backIcon 带 action 槽 → 返回行为原样保留（还是 router.back()），不会被换成 NavPathStack 默认 pop
-    const backContent: HdsNavigationIconOptions = {
-      icon: resolveActionIcon('back'),
-      label: '返回',
-      action: (): void => { this.getUIContext().getRouter().back(); },
-    };
-    const backIcon: HdsNavigationBackButtonItemOptions = backContent;
-    const content: TitleBarContentOptions = {
+    return buildPageTitleBarOptions({
+      back: (): void => { this.getUIContext().getRouter().back(); },
       stackBuilder: (): void => { this.draftTitleRow(); },
-      backIcon: backIcon,
-    };
-    const options: HdsNavigationTitleBarOptions = {
-      content: content,
-      style: style,
-      avoidLayoutSafeArea: true,
-      // false = 内容从窗口原点起算、可以画到栏下（穿底）；让位量由 body 的 topInset 补回
-      enableComponentSafeArea: false,
-    };
-    return options;
+    });
   }
 
-  // stackBuilder 行：只剩「草稿箱」标题。
-  // ⚠️ 左内缩必须让开官方返回键 —— 这一行是 width('100%') 且住在 StackCustomNode 里，
-  // 是返回键 Button 的后一个兄弟节点（z 序更高），不留开就会把返回键的点击吃掉（ChatView 实测）。
+  // stackBuilder 行：只剩「草稿箱」标题，居中与返回键让位样板收敛进 GlassTitleRow。
   @Builder
   draftTitleRow(): void {
-    Row() {
-      Text('草稿箱')
-        .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
-        .fontWeight(TypeTokens.headline.weight)
-        .lineHeight(TypeTokens.headline.lineHeight)
-        .fontColor(ColorTokens.primary)
-    }
-    .width('100%')
-    .height('100%')
-    .alignItems(VerticalAlign.Center)
-    .padding({ left: HDS_BACK_SLOT_END_VP, right: SpaceTokens.md })
+    GlassTitleRow({ title: '草稿箱', headlineSerif: true })
   }
 
   @Builder

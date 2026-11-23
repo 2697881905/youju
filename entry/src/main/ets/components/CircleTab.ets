@@ -7,7 +7,6 @@ import {
   CircleDigestItem,
   CircleOverviewItem,
   CircleOverviewPost,
-  createTag,
   deleteTag,
   getCircleOverview,
   getUserProfile,
@@ -38,8 +37,7 @@ import { TypeTokens } from '../design/tokens/type';
 import {
   HDS_MATERIAL_TYPE_IMMERSIVE,
   HDS_MATERIAL_LEVEL_EXQUISITE,
-  TopButtonMaterialModifier,
-  getSheetImmersiveMaterial,
+  PillImmersiveMaterialModifier,
   isImmersiveLightSenseSupported,
   isSystemMaterialActive,
 } from '../utils/immersiveMaterial';
@@ -51,7 +49,6 @@ import { CircleUniverse } from './CircleUniverse';
 import { CircleDigestDock } from './CircleDigestDock';
 import { CircleStarGuide } from './CircleStarGuide';
 import { CircleOrbitCanvas, OrbitCircleItem, OrbitSeedPost } from './CircleOrbitCanvas';
-import { followTag } from '../services/api';
 import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit';
 import type {
   HdsNavigationTitleBarOptions,
@@ -178,10 +175,11 @@ const COSMIC_GLASS: string = '#1AECE6DA';      // 药丸兜底底/提示条
 // 尺寸/内边距/圆角/字色/表面全部在此定义；内容由调用方以尾随闭包传入
 // （「已加入」= 文案 + CountRoll，「发现圈子」= 文案）。
 //
-// 表面交给栏级沉浸材质：两颗药丸都驻留标题栏，整条栏挂 IMMERSIVE/EXQUISITE 之后
-// 表面走「我的」页右上角两颗圆钮的同一条轨：组件级系统材质（TopButtonMaterialModifier）。
+// 表面交给栏级沉浸材质：两颗药丸都驻留标题栏，表面走组件级系统材质轨。
 // 栏级 systemMaterialEffect 只渲染栏面与官方 content.menu 槽位，**不会**给 stackBuilder
 // 里的自绘组件加表面——所以自绘胶囊要玻璃感，只能自己挂组件级材质。
+// 档位演进（2026-11-23）：REGULAR → THICK（用户反馈「不像返回键玻璃珠」，分段栏定稿档，
+// 见 immersiveMaterial.ets 文字药丸档注释），全部标题栏文字药丸家族统一。
 // 低版本（API<26）门禁不通过 → 落回原兜底色，视觉与改造前一致。
 const PILL_MATERIAL_FILL: string = '#40FFFFFF';
 @Component
@@ -190,7 +188,7 @@ struct CircleHeaderPill {
   @Prop cosmicMode: boolean = false;
   @Prop darkMode: boolean = false;
   action: () => void = (): void => {};
-  private materialModifier: TopButtonMaterialModifier = new TopButtonMaterialModifier();
+  private materialModifier: PillImmersiveMaterialModifier = new PillImmersiveMaterialModifier();
 
   @Builder
   emptyContent(): void {}

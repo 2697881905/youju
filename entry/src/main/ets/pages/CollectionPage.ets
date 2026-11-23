@@ -1,5 +1,8 @@
 // 合集（连载）管理页：创建/重命名/删除自己的合集，点击进入合集详情
-import { BackButton } from '../design/components/BackButton';
+// 顶栏驻留 HdsNavigation，返回键走官方 content.backIcon（40vp 玻璃圆，与详情页同一套栏级材质）。
+import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
+import { buildPageTitleBarOptions, GlassTitleRow, GlassBarInsetRow } from '../design/components/HdsGlassBackSurface';
 import { EmptyState } from '../design/components/EmptyState';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { listCollections, createCollection, updateCollection, deleteCollection, resolveDisplayImageUrl } from '../services/api';
@@ -23,6 +26,8 @@ export struct CollectionPage {
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
 
   private nameController: CustomDialogController | null = null;
+  // 顶栏渐变模糊的滚动源
+  private pageScroller: Scroller = new Scroller();
   // 非 null 表示重命名，null 表示新建
   private editing: CollectionItem | null = null;
 
@@ -156,71 +161,86 @@ export struct CollectionPage {
     .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
   }
 
+  private collectionTitleBarOptions(): HdsNavigationTitleBarOptions {
+    return buildPageTitleBarOptions({
+      back: (): void => { this.getUIContext().getRouter().back(); },
+      stackBuilder: (): void => { this.collectionTitleRow(); },
+    });
+  }
+
+  @Builder
+  collectionTitleRow(): void {
+    GlassTitleRow({ title: '我的合集' });
+  }
+
   build() {
-    Column() {
-      Row() {
-        BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
-        Text('我的合集')
-          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.title.weight).lineHeight(TypeTokens.title.lineHeight)
-          .fontColor(ColorTokens.primary)
-          .layoutWeight(1).textAlign(TextAlign.Center);
-        Text('').width(44);
-      }
-      .width('100%').padding({ top: this.statusBarHeight + 12, bottom: 8 });
-
-      if (!this.ready) {
-        Column() {
-          LoadingProgress().width(28).height(28);
-          Text('加载中…').fontSize(13).fontFamily($r('app.string.font_family'))
-            .fontColor($r('app.color.text_secondary')).margin({ top: 10 });
-        }
-        .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
-      } else if (this.collections.length === 0) {
-        Column() {
-          EmptyState({
-            icon: this.error !== '' ? resolveActionIcon('warning') : $r('app.media.empty_inbox'),
-            title: this.error !== '' ? '加载失败' : '还没有合集',
-            message: this.error !== '' ? this.error : '把相关帖子编成连载，便于读者系统阅读',
-            actionLabel: this.error !== '' ? '重试' : '',
-            onAction: (): void => { this.load(); },
-          })
-        }
-        .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
-      } else {
-        List() {
-          ForEach(this.collections, (item: CollectionItem) => {
+    HdsNavigation() {
+      Column() {
+        if (!this.ready) {
+          Column() {
+            LoadingProgress().width(28).height(28);
+            Text('加载中…').fontSize(13).fontFamily($r('app.string.font_family'))
+              .fontColor($r('app.color.text_secondary')).margin({ top: 10 });
+          }
+          .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
+        } else if (this.collections.length === 0) {
+          Column() {
+            EmptyState({
+              icon: this.error !== '' ? resolveActionIcon('warning') : $r('app.media.empty_inbox'),
+              title: this.error !== '' ? '加载失败' : '还没有合集',
+              message: this.error !== '' ? this.error : '把相关帖子编成连载，便于读者系统阅读',
+              actionLabel: this.error !== '' ? '重试' : '',
+              onAction: (): void => { this.load(); },
+            })
+          }
+          .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
+        } else {
+          List({ scroller: this.pageScroller }) {
+            // 穿底让位：内容可画到标题栏下，顶部用「状态栏 + 栏高」空占位补回
             ListItem() {
-              Pressable({
-                fillWidth: true,
-                visualHeight: 72,
-                touchTargetHeight: LayoutTokens.minTouchTarget,
-                action: (): void => { this.openDetail(item); },
-              }) {
-                this.collectionRow(item)
-              }
+              GlassBarInsetRow({ statusBarHeight: this.statusBarHeight })
             }
-            .transition(
-              TransitionEffect.OPACITY
-                .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate })
-                .combine(TransitionEffect.translate({ y: 16 })
-                  .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate }))
-            )
-          }, (item: CollectionItem) => String(item.id));
-        }
-        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
-        .layoutWeight(1).width('100%');
-      }
 
-      Button('新建合集')
-        .width('calc(100% - 32vp)')
-        .height(44)
-        .margin({ left: 16, right: 16, top: 8, bottom: 20 })
-        .backgroundColor($r('app.color.ds_brand_solid'))
-        .fontColor($r('app.color.ds_on_brand'))
-        .borderRadius(22)
-        .onClick(() => { this.openNameDialog(null); });
+            ForEach(this.collections, (item: CollectionItem) => {
+              ListItem() {
+                Pressable({
+                  fillWidth: true,
+                  visualHeight: 72,
+                  touchTargetHeight: LayoutTokens.minTouchTarget,
+                  action: (): void => { this.openDetail(item); },
+                }) {
+                  this.collectionRow(item)
+                }
+              }
+              .transition(
+                TransitionEffect.OPACITY
+                  .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate })
+                  .combine(TransitionEffect.translate({ y: 16 })
+                    .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate }))
+              )
+            }, (item: CollectionItem) => String(item.id));
+          }
+          .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+          .layoutWeight(1).width('100%');
+        }
+
+        Button('新建合集')
+          .width('calc(100% - 32vp)')
+          .height(44)
+          .margin({ left: 16, right: 16, top: 8, bottom: 20 })
+          .backgroundColor($r('app.color.ds_brand_solid'))
+          .fontColor($r('app.color.ds_on_brand'))
+          .borderRadius(22)
+          .onClick(() => { this.openNameDialog(null); });
+      }
+      .width('100%').height('100%');
     }
-    .width('100%').height('100%').backgroundColor($r('app.color.bg_primary'));
+    .mode(NavigationMode.Stack)
+    .titleMode(HdsNavigationTitleMode.MINI)
+    .titleBar(this.collectionTitleBarOptions())
+    .bindToScrollable([this.pageScroller])
+    .clip(false)
+    .width('100%').height('100%')
+    .backgroundColor($r('app.color.bg_primary'));
   }
 }

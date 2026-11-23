@@ -1,13 +1,10 @@
 // 收藏夹命名弹窗：新建/重命名共用一个输入弹窗，回调返回输入名
 import { SpringPanel } from '../design/motion/SpringPanel';
 import { GlowInput } from '../design/components/GlowInput';
-import { resolveActionIcon } from '../utils/actionIcons';
 import { ColorTokens } from '../design/tokens/color';
-import { IconTokens } from '../design/tokens/icon';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
-import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { IconButton } from '../design/components/IconButton';
 
 @CustomDialog

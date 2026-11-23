@@ -3,11 +3,11 @@ import { StructuredFieldBlock, withoutHeadline } from './StructuredFieldView';
 import { formatCount } from '../utils/format';import { resolveActionIcon } from '../utils/actionIcons';
 import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
-import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
+import { SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
-import { GlassBlurStyle, getSheetImmersiveMaterial, isSystemMaterialActive } from '../utils/immersiveMaterial';
 import { debateVoteStore } from '../utils/debateVoteStore';
 import { doesTextFitInPoster } from '../utils/poster/posterRender';
+import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { ShadowTokens } from '../design/tokens/shadow';
 import { HighlightSegment, parseHighlightSegments } from '../utils/textHighlight';
 import { openCircleDetail, openUserProfile } from '../utils/nav';
@@ -16,6 +16,8 @@ import { MentionRef, StructuredDocument } from '../models/types';
 import { StructuredFlowView } from './StructuredFlowView';
 
 // 详情正文只负责体裁内容的展示；投票的请求和回滚仍由 DetailPage 持有。
+
+// 结构化帖正文收起/展开（2026-11-23 口径）：不设字数门槛，所有有正文的结构化帖均可收起展开
 
 @Component
 export struct DetailPostContent {
@@ -37,12 +39,25 @@ export struct DetailPostContent {
   // 正文 Text 已开启系统文本选择复制（copyOption），长按正文走原生选择，
   // 外层长按菜单不得与之竞争；标题同理在 DetailPostHeader 单独开启。
   onLongPressContent: (event: GestureEvent) => void = (_event: GestureEvent): void => {};
+  // 用户点击「收起正文」、bodyExpanded true→false 完成后同步回调（每次收起恰一次，展开不调用）。
+  // 详情页据此把滚动位置锚定回正文顶部（PostDetailView.anchorScrollToBodyTop）。
+  onBodyCollapsed: () => void = (): void => {};
+  // 正文展开态：支持收起展开的结构化帖打开时为 false（结构化优先，只展示导语预览，不设字数门槛），
+  // 其余帖子恒为 true（渲染与现状一致）。v1 不持久化、不跨组件提升。
+  @State bodyExpanded: boolean = false;
+  // 智感握姿（PostDetailView 订阅 motion.holdingHandChanged → animateTo 写 AppStorage.gripOnRight，
+  // 与 DetailPostHeader 同款消费范式）：收起/展开入口随握持手整组贴边——右手握持入口居右（拇指侧），
+  // 左手/未握持/双手/设备不支持/系统开关关闭 → 默认居左。换边过渡由 PostDetailView 的 animateTo 驱动。
+  @StorageProp('gripOnRight') gripOnRight: boolean = false;
   @State planAVotes: number = 0;
   @State planBVotes: number = 0;
   @State myVote: string = '';
   private unsubscribeVote: () => void = () => {};
 
   aboutToAppear(): void {
+    // 默认收起判定在这里落地：支持收起展开的帖子初始为收起态（结构化优先，不设字数门槛），
+    // 其余帖子恒为展开态，build 输出与现状完全一致。
+    this.bodyExpanded = !this.supportsBodyCollapse();
     this.refreshVoteState();
     this.unsubscribeVote = debateVoteStore.subscribe((postId: number): void => {
       if (postId === this.votePostId) {
@@ -114,6 +129,32 @@ export struct DetailPostContent {
     // InApp/LocalDevice 时长按弹出文本选择菜单）。Span 的 onClick 保留，点击仍可跳话题/用户。
     .copyOption(CopyOptions.LocalDevice)
     .selectedBackgroundColor(ColorTokens.brandTint)
+  }
+
+  // 收起态的导语预览：纯文本 2 行截断（不解析 @提及/#话题# 高亮、无文本选择交互——
+  // 展开后才是完整可交互正文），底部线性渐隐（透明→canvas 底色）提示下方还有正文。
+  @Builder
+  private collapsedPreview(): void {
+    Stack({ alignContent: Alignment.Bottom }) {
+      Text(this.content)
+        .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamilySerif)
+        .fontColor(ColorTokens.primary)
+        .lineHeight(32)
+        .width('100%')
+        .maxLines(2)
+        .textAlign(TextAlign.Start)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+      // 渐隐条与画布同色，文本底部渐出而非生硬截断；不拦截触控
+      Column()
+        .width('100%')
+        .height(20)
+        .linearGradient({
+          angle: 180,
+          colors: [[Color.Transparent, 0], [ColorTokens.canvas, 1]],
+        })
+        .hitTestBehavior(HitTestMode.None)
+    }
+    .width('100%')
   }
 
   // 点击 #话题# → 圈子详情
@@ -231,6 +272,13 @@ export struct DetailPostContent {
     return this.structuredDocument !== null && this.structuredDocument.blocks.length > 0;
   }
 
+  // 正文收起/展开能力判定（单一出处，不设字数门槛）：结构化信息流非空 + 正文未被海报完整容纳。
+  // 海报完整容纳正文时正文本来就不渲染，无收起可言；V1 字段投影旧帖/分享体裁天然不满足。
+  private supportsBodyCollapse(): boolean {
+    return this.hasStructuredFlow()
+      && (!this.coverOnlyTextPoster || !doesTextFitInPoster(this.content));
+  }
+
   // 字段块内容：头条指标（损失金额）已由结论卡承担，这里去掉避免同屏重复；
   // 辩论体裁的方案文字已合并进投票卡片，也不再重复展示。
   private bodyPairs(): StructuredFieldPair[] {
@@ -275,7 +323,52 @@ export struct DetailPostContent {
         // 文字海报已完整容纳正文时不再冗余展示纯文本；
         // 海报截断（省略号）时仍显示完整正文，确保读者不丢信息。
         if (!this.coverOnlyTextPoster || !doesTextFitInPoster(this.content)) {
-          this.highlightBody()
+          if (this.supportsBodyCollapse() && !this.bodyExpanded) {
+            // 收起态：导语预览 + 展开入口（结构化帖的结构化优先阅读，不设字数门槛）
+            this.collapsedPreview()
+            // 展开入口随握持手贴边滑动（右手握持 → 居右拇指侧，默认居左）：整行宽 Row 只做对齐
+            // 容器，点击热区仍只包文字本身。justifyContent 是可插值布局属性（DetailActionBar
+            // 握姿换边同款口径），换边由 PostDetailView 的 animateTo 驱动，无节点重建。
+            Row() {
+              Text('展开正文（约 ' + formatCount(this.content.length) + ' 字）')
+                .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+                .fontColor(ColorTokens.brand)
+                .onClick((): void => {
+                  this.getUIContext().animateTo({
+                    duration: MotionTokens.container,
+                    curve: MotionCurves.springInteract,
+                  }, (): void => {
+                    this.bodyExpanded = true;
+                  });
+                })
+            }
+            .width('100%')
+            .justifyContent(this.gripOnRight ? FlexAlign.End : FlexAlign.Start)
+          } else {
+            this.highlightBody()
+            // 展开态的收起入口：仅支持收起功能的帖子渲染，不满足收起条件的帖子
+            // 不出现任何入口（build 输出与现状完全一致）
+            if (this.supportsBodyCollapse()) {
+              // 收起入口与展开入口同组，同随握持手贴边（对称行为，见上方展开入口注释）
+              Row() {
+                Text('收起正文')
+                  .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+                  .fontColor(ColorTokens.brand)
+                  .onClick((): void => {
+                    this.getUIContext().animateTo({
+                      duration: MotionTokens.container,
+                      curve: MotionCurves.springInteract,
+                    }, (): void => {
+                      this.bodyExpanded = false;
+                    });
+                    // animateTo 的闭包同步执行：此刻状态已切换完成，每次收起恰回调一次
+                    this.onBodyCollapsed();
+                  })
+              }
+              .width('100%')
+              .justifyContent(this.gripOnRight ? FlexAlign.End : FlexAlign.Start)
+            }
+          }
         }
       }
     }

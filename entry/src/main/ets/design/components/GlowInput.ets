@@ -40,7 +40,7 @@ export struct GlowInput {
   // 圆角：默认 lg(20) —— 与 40vp 高度构成官方胶囊输入框
   @Prop radius: number = RadiusTokens.lg;
   // 分段栏同款样式（搜索框试点）：半透明白玻璃底 + backdropBlur + 1px 高光边框 + lg 圆角，
-  // 与 SegmentedControl immersive 完全同规格，视觉上输入框与分段栏属于同一材质体系
+  // 与分段栏（ImmersiveSegmentBar → 官方 SegmentButton）沉浸材质同体系，视觉上输入框与分段栏同源
   @Prop segmentStyle: boolean = false;
   // 填充底：默认 subtle（官方原生范式）。在系统材质/半模态面板上 subtle 与面板底同色、
   // 输入框会失去全部边界 —— 这类场景传 $r('sys.color.comp_background_tertiary')，

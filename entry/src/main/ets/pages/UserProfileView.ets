@@ -7,21 +7,57 @@ import { PostCard } from '../components/PostCard';
 import { ProfileIdentity } from '../components/ProfileIdentity';
 import { ProfileStatItem } from '../components/ProfileStatItem';
 import { ReportDialog } from '../components/ReportDialog';
-import { Pressable } from '../design/motion/Pressable';
 import { safeShowToast } from '../utils/toast';
 import { openChat, openFollowList, openPostDetail, takeUserProfileId } from '../utils/nav';
 import { getMainNavStack, EmptyNavParams, PostDetailNavParams } from '../utils/navigationTransition';
 import { buildPageTransition } from '../utils/styles';
-import { ColorTokens } from '../design/tokens/color';
-import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
-import { RadiusTokens } from '../design/tokens/radius';
+import { SpaceTokens } from '../design/tokens/space';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { TypeTokens } from '../design/tokens/type';
-import { BackButton } from '../design/components/BackButton';
+import {
+  HdsNavigation,
+  HdsNavigationTitleMode,
+  HdsNavigationTitleBarOptions,
+  HdsNavigationIconOptions,
+  HdsNavigationMenuItemOptions,
+} from '@kit.UIDesignKit';
+import { ComponentContent } from '@kit.ArkUI';
+import { ColorTokens } from '../design/tokens/color';
+import { resolveActionIcon } from '../utils/actionIcons';
+import {
+  HDS_MINI_BAR_ROW_VP,
+  buildPageTitleBarOptions,
+  GlassTitleRow,
+} from '../design/components/HdsGlassBackSurface';
 import { DesignButton } from '../design/components/DesignButton';
 import { GlassPillButton } from '../design/components/GlassPillButton';
 import { PostCollectionState } from '../components/PostCollectionState';
-import { gridColumnTemplate, gridColumnsForBreakpoint } from '../utils/responsive';
+import { isSystemMaterialActive, getMenuImmersiveMaterial } from '../utils/immersiveMaterial';
+import { gridColumnsForBreakpoint } from '../utils/responsive';
+
+// 「更多」系统 Menu 的弹出锚点 id：与标题栏「更多」官方圆钮同位的透明锚点（见 build()）
+const USER_PROFILE_MORE_ANCHOR_ID: string = 'userProfileMoreMenuAnchor';
+
+// 「更多」菜单项：图标 + 文案 + 文字色 + 动作（与帖子详情页 moreMenuBuilder 同构）
+interface ProfileMoreMenuItem {
+  icon: Resource;
+  label: string;
+  color: ResourceColor;
+  action: () => void;
+}
+
+// openMenu 渲染的就是系统 Menu；builder 写纯 Menu/MenuItem（startIcon + contentFontColor），
+// 与帖子详情页右上角「更多」的菜单渲染完全同构。
+@Builder
+function userProfileMoreMenuBuilder(items: ProfileMoreMenuItem[]): void {
+  Menu() {
+    ForEach(items, (item: ProfileMoreMenuItem, idx: number): void => {
+      MenuItem({ startIcon: item.icon, content: item.label })
+        .contentFontColor(item.color)
+        .onClick((): void => { item.action(); });
+    }, (item: ProfileMoreMenuItem, idx: number): string => `${idx}`)
+  }
+}
 
 // 关注态局部补丁（乐观更新时只传要改的字段）
 interface ProfileFollowPatch {
@@ -65,11 +101,13 @@ export struct UserProfileView {
     customStyle: true,
     width: 344,
   });
-  @StorageLink('statusBarHeight') statusBarHeight: number = 0;
+
   @StorageProp('currentBreakpoint') currentBreakpoint: string = 'sm';
-  // 标题栏（导航行 + 资料区）驻留 Navigation 标题栏后：资料区高度实测回写（内容驱动，
-  // 首帧用与 Builder 同源的估算兜底，见教程模板 E）；关注/私信按钮由系统材质接管表面。
-  @State titleBarProfileHeight: number = 0;
+  // 穿底前提：内容区从窗口原点起算（enableComponentSafeArea:false），列表再靠
+  // contentStartOffset 让开整条标题栏（状态栏 + 56vp 行高）。
+  @StorageProp('statusBarHeight') statusBarHeight: number = 0;
+  // 「更多」系统 Menu 的 ComponentContent 载体（openMenu 需自行维护 content 以支持 update 换选项集）
+  private profileMenuContent: ComponentContent<ProfileMoreMenuItem[]> | null = null;
   private profileEntranceTimer: number = 0;
   private followPulseTimer: number = 0;
   // 订阅帖子删除事件：该作者帖子被删除后，本页网格即时移除（不依赖刷新/重进）
@@ -90,6 +128,7 @@ export struct UserProfileView {
 
   aboutToDisappear(): void {
     this.unsubDeletion();
+    this.profileMenuContent = null;
     if (this.profileEntranceTimer !== 0) {
       clearTimeout(this.profileEntranceTimer);
       this.profileEntranceTimer = 0;
@@ -347,90 +386,127 @@ export struct UserProfileView {
     return this.targetId === getUserId();
   }
 
-  // 资料区首帧估算（与 profileInformation 行结构同源；onAreaChange 实测后不再使用）：
-  // ProfileIdentity 固定高 146 + 统计行(36 + 底部 sm) + 关注/私信按钮行(36 + 底部 xs，
-  // 注销用户/本人主页不显示)。背景图变体走 16:10 卡片，实测值下一帧即纠正。
-  private profileBlockEstimate(): number {
-    const stats: number = LayoutTokens.segmentedHeight + SpaceTokens.sm;
-    const actions: number = (!this.profile.deleted && !this.isSelf())
-      ? LayoutTokens.segmentedHeight + SpaceTokens.xs : 0;
-    return 146 + stats + actions;
+  // 标题栏只留一行（返回 + 昵称 + 更多官方圆钮）：资料卡回到列表流里随列表滚走。
+  // 栏体节点之内抓不到滚动源，装进栏里的东西等于从手势里摘出去（基准 §7.6.13b）。
+  private userProfileTitleBarOptions(): HdsNavigationTitleBarOptions {
+    const moreItem: HdsNavigationMenuItemOptions = {
+      content: {
+        icon: resolveActionIcon('more'),
+        label: '更多操作',
+        action: (): void => { this.showUserProfileMoreActions(); },
+      } as HdsNavigationIconOptions,
+    };
+    return buildPageTitleBarOptions({
+      back: (): void => { this.backAction(); },
+      stackBuilder: (): void => { this.userProfileNavRow(); },
+      // 已注销 / 本人主页不挂「更多」（menu 项构造与挂载条件同改造前）
+      menuItems: (!this.profile.deleted && !this.isSelf()) ? [moreItem] : undefined,
+      // content.menu 图标色默认白，浅色画布上不可见（工厂仅在挂 menu 时写入 menuStyle）
+      menuIconColor: ColorTokens.primary,
+      // true 会把内容区顶到栏体之下（列表起点 = 栏底）→ 资料卡穿不到栏底下。
+      // false 让内容区从窗口原点起算，让位由 List 的 contentStartOffset 承担。
+      enableComponentSafeArea: false,
+    });
   }
 
-  // 标题栏总高：状态栏 + 导航行(top 12 + 44 + bottom 8) + 资料区（非就绪态仅导航行）
-  private userProfileTitleBarHeight(): number {
-    const profile: number = this.ready
-      ? (this.titleBarProfileHeight > 0 ? this.titleBarProfileHeight : this.profileBlockEstimate())
-      : 0;
-    return this.statusBarHeight + SpaceTokens.md + LayoutTokens.minTouchTarget + SpaceTokens.sm + profile;
-  }
-
-  // 标题栏：导航行（返回 + 昵称 + ⋯ 菜单）+ 资料区（身份/统计/关注私信按钮，含背景图
-  // 变体与入场动效）整体驻留——用户指定边界为「关注/私信按钮及其以上区域」。
-  // 全屏布局下状态栏避让由本 Builder 的外层节点手动承担（同一节点写两次 .padding 是
-  // 整体覆盖，行内边距必须留在内层行上）；bindMenu 系统菜单全页面生效，可直接驻留。
-  @Builder
-  userProfileTitleBar(): void {
-    Column() {
-      Row() {
-        BackButton({ action: (): void => { this.backAction(); } })
-        Text(this.profile.deleted ? '已注销用户' : (this.profile.nickname !== '' ? this.profile.nickname : '用户主页'))
-          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.title.weight).lineHeight(TypeTokens.title.lineHeight)
-          .fontColor(ColorTokens.primary).layoutWeight(1).textAlign(TextAlign.Center);
-        if (!this.profile.deleted && !this.isSelf()) {
-          Text('⋯')
-            .width(44).height(44).textAlign(TextAlign.Center).fontSize(22)
-            .fontColor($r('app.color.text_primary'))
-            .bindMenu([
-              { value: this.profile.isBlocked === true ? '取消拉黑' : '拉黑该作者', action: (): void => { this.onBlockClick(); } },
-              { value: this.profile.isDisliked === true ? '取消不喜欢' : '不喜欢该作者', action: (): void => { this.onDislikeClick(); } },
-              { value: '举报该用户', action: (): void => { this.onReportClick(); } },
-            ])
-        } else {
-          Text('').width(44)
-        }
-      }
-      .width('100%').padding({ left: 16, right: 16, top: 12, bottom: 8 });
-
-      // 资料区整体驻留；高度实测回写供 .title({ height }) 使用（阈值防抖，模板 E）
-      if (this.ready) {
-        Column() {
-          if (this.profile.profileBackground && !this.profile.deleted) {
-            Stack() {
-              Image(resolveDisplayImageUrl(this.profile.profileBackground))
-                .width('100%')
-                .height('100%')
-                .objectFit(ImageFit.Cover);
-              Column() {
-                this.profileInformation(true);
-              }
-              .width('100%')
-              .height('100%')
-              .justifyContent(FlexAlign.End)
-              .backgroundColor('#52000000');
-            }
-            .width('100%')
-            .aspectRatio(16 / 10)
-            .borderRadius(10)
-            .clip(true)
-            .margin({ left: 8, right: 8, bottom: 8 });
-          } else {
-            this.profileInformation(false);
-          }
-        }
-        .width('100%')
-        .onAreaChange((_old: Area, area: Area): void => {
-          const h: number = parseFloat(String(area.height));
-          if (h > 0 && Math.abs(h - this.titleBarProfileHeight) > 0.5) {
-            this.titleBarProfileHeight = h;
-          }
-        })
+  // 弹「更多」系统 Menu（官方 content.menu 圆钮 action 里唯一可编程弹菜单入口）：
+  // target 用与圆钮同位的透明锚点，placement 显式 BottomRight（默认 BottomLeft 会把菜单弹到左下方）。
+  private showUserProfileMoreActions(): void {
+    const items: ProfileMoreMenuItem[] = [
+      {
+        icon: resolveActionIcon('lock'),
+        label: this.profile.isBlocked === true ? '取消拉黑' : '拉黑该作者',
+        color: ColorTokens.primary,
+        action: (): void => { this.onBlockClick(); },
+      },
+      {
+        icon: resolveActionIcon('close'),
+        label: this.profile.isDisliked === true ? '取消不喜欢' : '不喜欢该作者',
+        color: ColorTokens.primary,
+        action: (): void => { this.onDislikeClick(); },
+      },
+      {
+        icon: resolveActionIcon('warning'),
+        label: '举报该用户',
+        color: ColorTokens.primary,
+        action: (): void => { this.onReportClick(); },
+      },
+    ];
+    const uiContext: UIContext = this.getUIContext();
+    if (this.profileMenuContent === null) {
+      this.profileMenuContent = new ComponentContent<ProfileMoreMenuItem[]>(
+        uiContext, wrapBuilder(userProfileMoreMenuBuilder), items);
+    } else {
+      // 复用 + update：拉黑/不喜欢状态变化后选项文案随 @State 重建，不复用会串旧选项
+      this.profileMenuContent.update(items);
+    }
+    // 弹层材质：沉浸玻璃配方·弹层菜单档（THICK，与首页圈子下拉 bindMenu 同款配方）。
+    // @since 26.0.0 的 systemMaterial 字段走 isSystemMaterialActive() 门禁：
+    // 低版本不传该字段，菜单退回系统默认底色，其余行为不变。
+    const menuOptions: MenuOptions = {
+      placement: Placement.BottomRight,
+    };
+    if (isSystemMaterialActive()) {
+      // SystemUiMaterial 是全局声明类型（= uiMaterial.Material），无需 import uiMaterial
+      // （低版本设备加载即崩的老坑，TagNav.menuOptions 同款处理）。
+      const material: SystemUiMaterial | undefined = getMenuImmersiveMaterial();
+      if (material !== undefined) {
+        menuOptions.systemMaterial = material;
       }
     }
-    .width('100%')
-    // 手动避让状态栏（含在栏高内；避让只此一处——内容区根节点不再重复加）
-    .padding({ top: this.statusBarHeight })
+    uiContext.getPromptAction()
+      .openMenu(this.profileMenuContent, { id: USER_PROFILE_MORE_ANCHOR_ID }, menuOptions)
+      .catch((): void => {
+        // 无有效 target 等异常：无操作
+      });
+  }
+
+  // 列表首项要让开的整条标题栏（状态栏 + 56vp 行高）
+  private userProfileListInset(): number {
+    return this.statusBarHeight + HDS_MINI_BAR_ROW_VP;
+  }
+
+  // 导航行（昵称居中）：GlassTitleRow serif 形态承担居中样板与返回键让位；
+  // 「更多」已迁 content.menu 官方圆钮（栏级玻璃珠）
+  @Builder
+  userProfileNavRow(): void {
+    GlassTitleRow({
+      title: this.profile.deleted ? '已注销用户' : (this.profile.nickname !== '' ? this.profile.nickname : '用户主页'),
+      serif: true,
+    })
+  }
+
+  // 资料区（身份/统计/关注私信按钮，含背景图变体与入场动效）：列表第 0 项，随列表滚走
+  @Builder
+  userProfileProfileBlock(): void {
+    if (this.ready) {
+      Column() {
+        if (this.profile.profileBackground && !this.profile.deleted) {
+          Stack() {
+            Image(resolveDisplayImageUrl(this.profile.profileBackground))
+              .width('100%')
+              .height('100%')
+              .objectFit(ImageFit.Cover);
+            Column() {
+              this.profileInformation(true);
+            }
+            .width('100%')
+            .height('100%')
+            .justifyContent(FlexAlign.End)
+            .backgroundColor('#52000000');
+          }
+          .width('100%')
+          .aspectRatio(16 / 10)
+          .borderRadius(10)
+          .clip(true)
+          .margin({ left: 8, right: 8, bottom: 8 });
+        } else {
+          this.profileInformation(false);
+        }
+      }
+      .width('100%')
+
+    }
   }
 
   // 发起私信：使用短暂导航意图传递对端信息，跳转聊天页。
@@ -596,8 +672,8 @@ export struct UserProfileView {
 
       if (!this.profile.deleted && !this.isSelf()) {
         Row({ space: SpaceTokens.sm }) {
-          // 关注/私信走 GlassPillButton 模板（useSystemMaterial=true：驻留标题栏材质能出图，
-          // 让位守卫收在模板内）；关注成功的 spring 脉冲由 successPulse 承接
+          // 关注/私信走 GlassPillButton 模板（useSystemMaterial=false：内容区材质不出图，
+          // 走玻璃兜底配方）；关注成功的 spring 脉冲由 successPulse 承接
           Column() {
             GlassPillButton({
               label: this.followPending ? '处理中' : this.followBtnText(),
@@ -605,7 +681,7 @@ export struct UserProfileView {
               disabled: this.followPending,
               muted: this.profile.isFollowing,
               successPulse: this.followPulse,
-              useSystemMaterial: true,
+              useSystemMaterial: false,
               action: (): void => { this.onFollowClick(); },
             })
           }
@@ -614,7 +690,7 @@ export struct UserProfileView {
             GlassPillButton({
               label: '私信',
               fillWidth: true,
-              useSystemMaterial: true,
+              useSystemMaterial: false,
               action: (): void => { this.onMessageClick(); },
             })
           }
@@ -647,19 +723,31 @@ export struct UserProfileView {
   }
 
   build() {
-    Navigation() {
-      Column() {
-        this.userProfileContent()
+    HdsNavigation() {
+      Stack({ alignContent: Alignment.TopStart }) {
+        Column() {
+          this.userProfileContent()
+        }
+        .width('100%')
+        .height('100%')
+        .backgroundColor($r('app.color.bg_primary'))
+
+        // 「更多」系统 Menu 弹出锚点：与标题栏「更多」官方圆钮同位（右上、MINI 栏区内）。
+        // content.menu 圆钮是 HDS 内部渲染、无 id 可引用，故补一个不响应事件的透明锚点供 openMenu 定位。
+        Row()
+          .id(USER_PROFILE_MORE_ANCHOR_ID)
+          .width(40)
+          .height(40)
+          .hitTestBehavior(HitTestMode.None)
+          .position({ x: '100%', y: this.statusBarHeight + 8 })
+          .markAnchor({ x: 52, y: 0 })
       }
       .width('100%')
       .height('100%')
-      .backgroundColor($r('app.color.bg_primary'))
     }
     .mode(NavigationMode.Stack)
-    .title({
-      builder: this.userProfileTitleBar,
-      height: this.userProfileTitleBarHeight(),
-    }, { barStyle: BarStyle.STANDARD, backgroundColor: ColorTokens.canvas })
+    .titleMode(HdsNavigationTitleMode.MINI)
+    .titleBar(this.userProfileTitleBarOptions())
     .width('100%')
     .height('100%')
     .transition(buildPageTransition())
@@ -722,60 +810,115 @@ export struct UserProfileView {
         .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
       }
     } else {
-      // 帖子网格（资料区已随导航行迁入标题栏，见 userProfileTitleBar）
-      if (this.posts.length === 0 && this.loading) {
-        PostCollectionState({ loading: true })
-          .layoutWeight(1);
-      } else if (this.posts.length === 0) {
+      // 整页一条 List：资料卡是第 0 项（随列表滚走、一路滑到标题栏底下被磨砂糊掉），
+      // 帖子在第 1 项；让位由 contentStartOffset 承担（与「我的」页同构）。
+      Refresh({ refreshing: $$this.isRefreshing, builder: this.refreshBuilder }) {
+        List() {
+          ListItem() {
+            Column() {
+              this.userProfileProfileBlock()
+            }
+            .width('100%')
+            .padding({ top: SpaceTokens.xs })
+          }
+          .width('100%')
+
+          ListItem() {
+            Column() {
+              this.userProfileFeedBody()
+            }
+            .width('100%')
+          }
+          .width('100%')
+        }
+        .width('100%')
+        .height('100%')
+        .scrollBar(BarState.Off)
+        .contentStartOffset(this.userProfileListInset())
+        .edgeEffect(EdgeEffect.Spring)
+        .divider({ strokeWidth: 0 })
+        .padding({ bottom: SpaceTokens.xl })
+        .onReachEnd((): void => {
+          this.loadMore();
+        })
+      }
+      .onRefreshing(() => {
+        this.refresh().finally(() => {
+          this.isRefreshing = false;
+        });
+      })
+      .layoutWeight(1).width('100%');
+    }
+  }
+
+  // 帖子区（原网格平移）：空/加载态撑一个可视高度 —— 整页一条 List，
+  // 状态页若只有几十 vp，列表总高骤降会把当前滚动位钳死
+  @Builder
+  userProfileFeedBody(): void {
+    if (this.posts.length === 0 && this.loading) {
+      Column() {
+        PostCollectionState({ loading: true });
+      }
+      .width('100%')
+      .constraintSize({ minHeight: 360 });
+    } else if (this.posts.length === 0) {
+      Column() {
         PostCollectionState({
           error: this.error,
           emptyTitle: 'TA 还没有发布过帖子',
           onRetry: (): void => { this.refresh(); },
-        })
-          .layoutWeight(1);
-      } else {
-        // refreshing 走 $$ 双向绑定，置位交给组件内部状态机；勿在 onRefreshing 里手动置 true（见 HomeTab.ets:831）
-        Refresh({ refreshing: $$this.isRefreshing, builder: this.refreshBuilder }) {
-          Grid() {
-            ForEach(this.posts, (post: Post) => {
-              GridItem() {
-                PostCard({
-                  post: post,
-                  // 两列网格小卡用紧凑档（xs 圆角/小字号），与「我的」主页一致；
-                  // 默认大圆角(lg)在半宽卡片上与图片比例失调
-                  compact: true,
-                  navMode: this.navMode,
-                  onOpen: () => {
-                    this.goDetail(post);
-                  },
-                });
-              }
-            }, (post: Post) => post.id !== undefined ? post.id.toString() : '');
-            if (this.finished) {
-              GridItem() {
-                Text('没有更多了')
-                  .fontSize(12).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary'))
-                  .width('100%').textAlign(TextAlign.Center).padding(16);
-              }
-              .columnStart(0).columnEnd(gridColumnsForBreakpoint(this.currentBreakpoint) - 1);
-            }
-          }
-          .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
-          .columnsTemplate(gridColumnTemplate(gridColumnsForBreakpoint(this.currentBreakpoint)))
-          .columnsGap(12).rowsGap(12).padding(12)
-          .onScrollIndex((_start: number, end: number) => {
-            if (end >= this.posts.length - 1) {
-              this.loadMore();
-            }
-          });
-        }
-        .onRefreshing(() => {
-          this.refresh().finally(() => {
-            this.isRefreshing = false;
-          });
-        })
-        .layoutWeight(1).width('100%');
+        });
+      }
+      .width('100%')
+      .constraintSize({ minHeight: 360 });
+    } else {
+      this.multiColumnFeed()
+      if (this.finished) {
+        Text('没有更多了')
+          .fontSize(12).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary'))
+          .width('100%').textAlign(TextAlign.Center).padding(16);
       }
     }
+  }
+
+  // 多列：按原始下标对列数取模分列，首项恒在左上角。
+  // List 里不能放可滚动的 Grid（内层滚动源会把高度吞掉），故与「我的」页同用手排多列
+  @Builder
+  multiColumnFeed(): void {
+    Row({ space: SpaceTokens.xs }) {
+      ForEach(this.gridColumnIndexes(), (colIdx: number) => {
+        Column({ space: SpaceTokens.xs }) {
+          ForEach(this.posts.filter((_post: Post, idx: number) => idx % this.gridColumnCount() === colIdx),
+            (post: Post) => {
+              PostCard({
+                post: post,
+                // 两列网格小卡用紧凑档（xs 圆角/小字号），与「我的」主页一致；
+                // 默认大圆角(lg)在半宽卡片上与图片比例失调
+                compact: true,
+                navMode: this.navMode,
+                onOpen: () => {
+                  this.goDetail(post);
+                },
+              });
+            }, (post: Post) => 'col' + colIdx + '-' + (post.id ?? ''))
+        }
+        .layoutWeight(1)
+      }, (colIdx: number) => colIdx.toString())
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Top)
+    .padding({ left: 12, right: 12, top: 12 });
+  }
+
+  private gridColumnCount(): number {
+    return Math.max(2, Math.min(4, gridColumnsForBreakpoint(this.currentBreakpoint)));
+  }
+
+  private gridColumnIndexes(): number[] {
+    const arr: number[] = [];
+    for (let i = 0; i < this.gridColumnCount(); i++) {
+      arr.push(i);
+    }
+    return arr;
   }
 }

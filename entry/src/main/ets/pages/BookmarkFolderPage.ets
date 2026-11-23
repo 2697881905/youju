@@ -1,5 +1,8 @@
 // 收藏夹（专辑）管理页：创建/重命名/删除收藏夹，点击进入夹内帖子列表
-import { BackButton } from '../design/components/BackButton';
+// 顶栏驻留 HdsNavigation，返回键走官方 content.backIcon（40vp 玻璃圆，与详情页同一套栏级材质）。
+import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
+import { buildPageTitleBarOptions, GlassTitleRow, GlassBarInsetRow } from '../design/components/HdsGlassBackSurface';
 import { EmptyState } from '../design/components/EmptyState';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { listBookmarkFolders, createBookmarkFolder, renameBookmarkFolder, deleteBookmarkFolder, resolveDisplayImageUrl } from '../services/api';
@@ -28,6 +31,8 @@ export struct BookmarkFolderPage {
 
   private createController: CustomDialogController | null = null;
   private renameController: CustomDialogController | null = null;
+  // 顶栏渐变模糊的滚动源
+  private pageScroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
     // 登录闸门：收藏夹是「我自己的数据」，未登录进来只会是「加载失败」空壳。
@@ -187,73 +192,90 @@ export struct BookmarkFolderPage {
     .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
   }
 
+  private folderTitleBarOptions(): HdsNavigationTitleBarOptions {
+    return buildPageTitleBarOptions({
+      back: (): void => { this.getUIContext().getRouter().back(); },
+      stackBuilder: (): void => { this.folderTitleRow(); },
+    });
+  }
+
+  // 左内缩让开官方返回键（stackBuilder 行是返回键的后一个兄弟节点，z 序更高会吃掉点击）
+  @Builder
+  folderTitleRow(): void {
+    GlassTitleRow({ title: '收藏夹', serif: true })
+  }
+
   build() {
-    Column() {
-      Row() {
-        BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
-        Text('收藏夹')
-          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.title.weight).lineHeight(TypeTokens.title.lineHeight)
-          .fontColor(ColorTokens.primary).layoutWeight(1).textAlign(TextAlign.Center);
-        Text('').width(44);
-      }
-      .width('100%').padding({ top: this.statusBarHeight + 12, bottom: 8 });
-
-      if (!this.ready) {
-        Column() {
-          LoadingProgress().width(28).height(28);
-          Text('加载中…').fontSize(13).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary')).margin({ top: 10 });
-        }
-        .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
-      } else if (this.folders.length === 0) {
-        Column() {
-          EmptyState({
-            icon: this.error !== '' ? resolveActionIcon('warning') : $r('app.media.empty_inbox'),
-            title: this.error !== '' ? '加载失败' : '还没有收藏夹',
-            message: this.error !== '' ? this.error : '收藏帖子时可选分类归入',
-            actionLabel: this.error !== '' ? '重试' : '',
-            onAction: (): void => { this.load(); },
-          })
-        }
-        .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
-      } else {
-        List() {
-          ForEach(this.folders, (item: BookmarkFolderItem) => {
+    HdsNavigation() {
+      Column() {
+        if (!this.ready) {
+          Column() {
+            LoadingProgress().width(28).height(28);
+            Text('加载中…').fontSize(13).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary')).margin({ top: 10 });
+          }
+          .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
+        } else if (this.folders.length === 0) {
+          Column() {
+            EmptyState({
+              icon: this.error !== '' ? resolveActionIcon('warning') : $r('app.media.empty_inbox'),
+              title: this.error !== '' ? '加载失败' : '还没有收藏夹',
+              message: this.error !== '' ? this.error : '收藏帖子时可选分类归入',
+              actionLabel: this.error !== '' ? '重试' : '',
+              onAction: (): void => { this.load(); },
+            })
+          }
+          .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
+        } else {
+          List({ scroller: this.pageScroller }) {
+            // 穿底让位：内容可画到标题栏下，顶部用「状态栏 + 栏高」空占位补回
             ListItem() {
-              Pressable({
-                fillWidth: true,
-                visualHeight: 72,
-                touchTargetHeight: LayoutTokens.minTouchTarget,
-                action: (): void => { this.openFolder(item); },
-              }) {
-                this.folderRow(item)
-              }
+              GlassBarInsetRow({ statusBarHeight: this.statusBarHeight })
             }
-            // 列表项出现/消失过渡：ForEach key 稳定，仅被删项单独退场，其余项不重播
-            .transition(
-              TransitionEffect.OPACITY
-                .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate })
-                .combine(TransitionEffect.translate({ y: 16 })
-                  .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate }))
-            )
-          }, (item: BookmarkFolderItem) => String(item.id));
-        }
-        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
-        .layoutWeight(1).width('100%');
-      }
 
-      // 底部新建按钮
-      Button('新建收藏夹')
-        .width('calc(100% - 32vp)')
-        .height(44)
-        .margin({ left: 16, right: 16, top: 8, bottom: 20 })
-        .backgroundColor($r('app.color.ds_brand_solid'))
-        // 深色 brand 实色底走 ds_brand_solid（#0050A0），白字 7.91:1；
-        // 直接用 ds_brand #0A84FF 时白字只有 3.65:1，不达 AA
-        .fontColor($r('app.color.ds_on_brand'))
-        .borderRadius(22)
-        .onClick(() => { this.openCreate(); });
+            ForEach(this.folders, (item: BookmarkFolderItem) => {
+              ListItem() {
+                Pressable({
+                  fillWidth: true,
+                  visualHeight: 72,
+                  touchTargetHeight: LayoutTokens.minTouchTarget,
+                  action: (): void => { this.openFolder(item); },
+                }) {
+                  this.folderRow(item)
+                }
+              }
+              // 列表项出现/消失过渡：ForEach key 稳定，仅被删项单独退场，其余项不重播
+              .transition(
+                TransitionEffect.OPACITY
+                  .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate })
+                  .combine(TransitionEffect.translate({ y: 16 })
+                    .animation({ duration: MotionTokens.slow, curve: MotionCurves.decelerate }))
+              )
+            }, (item: BookmarkFolderItem) => String(item.id));
+          }
+          .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+          .layoutWeight(1).width('100%');
+        }
+
+        // 底部新建按钮
+        Button('新建收藏夹')
+          .width('calc(100% - 32vp)')
+          .height(44)
+          .margin({ left: 16, right: 16, top: 8, bottom: 20 })
+          .backgroundColor($r('app.color.ds_brand_solid'))
+          // 深色 brand 实色底走 ds_brand_solid（#0050A0），白字 7.91:1；
+          // 直接用 ds_brand #0A84FF 时白字只有 3.65:1，不达 AA
+          .fontColor($r('app.color.ds_on_brand'))
+          .borderRadius(22)
+          .onClick(() => { this.openCreate(); });
+      }
+      .width('100%').height('100%');
     }
-    .width('100%').height('100%').backgroundColor($r('app.color.bg_primary'));
+    .mode(NavigationMode.Stack)
+    .titleMode(HdsNavigationTitleMode.MINI)
+    .titleBar(this.folderTitleBarOptions())
+    .bindToScrollable([this.pageScroller])
+    .clip(false)
+    .width('100%').height('100%')
+    .backgroundColor($r('app.color.bg_primary'));
   }
 }

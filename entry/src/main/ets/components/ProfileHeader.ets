@@ -1,7 +1,6 @@
 import { ProfileIdentity } from './ProfileIdentity';
 import { ProfileStatItem } from './ProfileStatItem';
 import { GlassPillButton } from '../design/components/GlassPillButton';
-import { ColorTokens } from '../design/tokens/color';
 import { SpaceTokens } from '../design/tokens/space';
 
 // 个人资料区只负责呈现与操作意图；页面决定跳转、分享和数据加载等领域行为。
@@ -25,7 +24,6 @@ export struct ProfileHeader {
   onOpenDrafts: () => void = (): void => {};
   onOpenTrash: () => void = (): void => {};
   onLogin: () => void = (): void => {};
-
 
   build() {
     Column() {

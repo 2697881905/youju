@@ -16,7 +16,7 @@ import {
   isSystemMaterialActive,
   GlassBlurStyle,
   getMenuImmersiveMaterial,
-  FloatingTopButtonMaterialModifier,
+  DropdownChipImmersiveMaterialModifier,
 } from '../utils/immersiveMaterial';
 import { ImmersiveSurface } from '../design/components/ImmersiveSurface';
 import { FEED_ZONE_LABELS, zoneLabel } from '../utils/feedZones';
@@ -58,9 +58,10 @@ export struct TagNav {
   // 默认 false = 原有 token 配色；仅影响 chip 按钮形态（chipBarInner），下拉菜单不受影响。
   @Prop lightContent: boolean = false;
 
-  // 与同排官方分段栏同源：ULTRA_THIN / interactive / applyShadow:true。
+  // 用户拍板（2026-11-23）：与返回键玻璃圆钮（栏级 EXQUISITE）观感对齐，升 REGULAR 加厚档
+  // （DropdownChipImmersiveMaterialModifier：REGULAR + interactive + lightEffect + 投影）。
   // 不用 TopButtonMaterialModifier（那份关投影，是给窄行裁切场景的）。
-  private chipMaterialModifier: FloatingTopButtonMaterialModifier = new FloatingTopButtonMaterialModifier();
+  private chipMaterialModifier: DropdownChipImmersiveMaterialModifier = new DropdownChipImmersiveMaterialModifier();
 
   private chipItems(): ChipItem[] {
     return this.tags.map((tag: Tag): ChipItem => {

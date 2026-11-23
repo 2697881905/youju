@@ -1,4 +1,3 @@
-import { ColorTokens } from '../design/tokens/color';
 import { SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { MentionRef } from '../models/types';

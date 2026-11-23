@@ -1,5 +1,5 @@
 import { ItemRestriction, SegmentButton, SegmentButtonOptions, SegmentButtonTextItem,
-  TabSegmentButtonConstructionOptions, uiMaterial } from '@kit.ArkUI';
+  TabSegmentButtonConstructionOptions, uiMaterial, BorderRadiusMode, LengthMetrics } from '@kit.ArkUI';
 import { getSegmentImmersiveMaterial } from '../../utils/immersiveMaterial';
 import { ColorTokens } from '../tokens/color';
 
@@ -47,12 +47,22 @@ export struct ImmersiveSegmentBar {
   @Prop buttonHorizontalPadding: number = 8;
   // 浅色内容态：首页顶栏模糊背板转深时，标签随品牌行一起切白（官方 fontColor / selectedFontColor 字段）。
   @Prop @Watch('rebuildOptions') lightContent: boolean = false;
-  // 是否把轨道材质覆盖成 ULTRA_THIN。**必须与 lightContent 同值**：
-  //   ULTRA_THIN 薄到几乎只透背板 → 轨道随身后内容转深，此时白标签（lightContent）才有对比；
-  //   官方默认材质会把轨道提亮成近白，配白标签就是白字压白底（真机实测首页滑到位那一帧）。
-  // false = 不传 backgroundSystemMaterial，落回应用级 ohos.arkui.UIMaterial.state=enable
-  //         给 SegmentButton 的官方默认材质，与参考 App 同一档。
+  // 是否把轨道材质覆盖成沉浸光感浮起档（THICK，见 getSegmentImmersiveMaterial 定稿）。
+  // ⚠️ 「必须与 lightContent 同值」是 ULTRA_THIN 时代口径（薄到只透背板才配白标签）——
+  // THICK 定稿后首页已实证 true + 黑标签在白底无对比问题。
+  // ⚠️ uiMaterial 渲染边界（多条真机实证 2026-10~11）：**只在固定区出图**——bottomBuilder、
+  // 列表上方固定行可出图（首页/消息/搜索/举报管理/圈子详情）；**滚动内容（Scroll 滚动子树）
+  // 与吸顶区（ListItemGroup.header）完全不渲染**（圈子发现/发布×3/编辑资料性别档/我的页×2），
+  // 与「Sheet 内容 Column 不出图」「Dock 覆盖层不出图」同一条系统边界（见 immersiveMaterial.ets）。
+  // 滚动区宿主不传本字段（传了也不出图，只会误导）；这些页面的观感统一靠 CUSTOM 胶囊圆角 +
+  // 统一选中面底色 + 官方默认材质。
   @Prop @Watch('rebuildOptions') overrideTrackMaterial: boolean = false;
+  // 内容区 THICK 观感替代（2026-11-22）：uiMaterial 只在标题栏子树出图（§7.6.26 真机实证，
+  // 用户逐页实测：bottomBuilder/搜索标题栏生效区出图，一切内容区不出图），内容区宿主传
+  // true → 轨道透明 + 外层 Stack 挂通用 backgroundBlurStyle(COMPONENT_THICK) 模糊底
+  //（非 uiMaterial，无渲染边界）+ 胶囊圆角裁剪，近似首页材质观感。
+  // 与 overrideTrackMaterial 互斥：标题栏子树宿主传后者，内容区宿主传前者，都别叠。
+  @Prop @Watch('rebuildOptions') trackBlurFallback: boolean = false;
   onSelect?: (index: number) => void = undefined;
   // options 是官方组件的 @ObjectLink：只在 aboutToAppear 与影响样式的入参变化时重建，
   // 逐帧重建会打断组件内部状态。
@@ -113,12 +123,24 @@ export struct ImmersiveSegmentBar {
         left: this.buttonHorizontalPadding,
       } as Padding,
       // 选中面：官方默认值在深色下不翻（实测 #E5E5E5），会与翻白的选中文字撞成 1.20:1，
-      // 所以这一档必须自己给成对值；圆角 / 投影仍不传，走官方默认（"auto"）。
+      // 所以这一档必须自己给成对值；投影不传走官方默认，圆角见下方 CUSTOM 锁定。
       selectedBackgroundColor: ColorTokens.barTabSelectedBg,
+      // 实验 3（2026-11-22）：修复「点击未选中项后整条轨道圆角丢失变矩形」。
+      // 实验收敛（材质挂/摘均复现、interactive 无关）→ 与材质无关，根因是官方
+      // BorderRadiusMode.DEFAULT（auto 圆角计算）在选中态切换时退化。CUSTOM 模式
+      // 显式锁定轨道圆角为固定值：栏高 40vp（内容 21 + buttonPadding 9.5×2）→
+      // 胶囊圆角 = 20vp。选中面圆角（itemBorderRadius）不传走官方默认——用户确认
+      // 变形的是轨道不是滑块。
+      borderRadiusMode: BorderRadiusMode.CUSTOM,
+      backgroundBorderRadius: LengthMetrics.vp(20),
     };
     if (this.lightContent) {
       opts.fontColor = '#99FFFFFF';
       opts.selectedFontColor = Color.White;
+    }
+    if (this.trackBlurFallback) {
+      // 轨道透明：blur 底从外层 Stack 透出（见 trackBlurFallback 注释）
+      opts.backgroundColor = Color.Transparent;
     }
     if (this.overrideTrackMaterial) {
       const material: uiMaterial.Material | undefined = getSegmentImmersiveMaterial();
@@ -172,5 +194,10 @@ export struct ImmersiveSegmentBar {
       }
     }
     .width(this.barWidth())
+    // 内容区 THICK 观感替代底座（见 trackBlurFallback 注释）：通用模糊 + 胶囊裁剪。
+    // 未启用时全走默认值（BlurStyle.None/零圆角不裁剪），对标题栏子树宿主零影响。
+    .backgroundBlurStyle(this.trackBlurFallback ? BlurStyle.COMPONENT_THICK : BlurStyle.NONE)
+    .borderRadius(this.trackBlurFallback ? 20 : 0)
+    .clip(this.trackBlurFallback)
   }
 }

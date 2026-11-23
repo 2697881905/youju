@@ -12,6 +12,7 @@ import { IconTokens } from '../tokens/icon';
 import { RadiusTokens } from '../tokens/radius';
 import { LayoutTokens } from '../tokens/space';
 import { resolveActionIcon } from '../../utils/actionIcons';
+import { isSystemMaterialActive, TopButtonMaterialModifier } from '../../utils/immersiveMaterial';
 
 // 浅玻璃珠上的固定墨色（不随深浅模式翻转）
 const BEAD_INK: string = '#2B2B2B';
@@ -22,6 +23,10 @@ export struct IconButton {
   @Prop icon: string = 'close';
   @Prop bead: boolean = false;
   @Prop a11yText: string = '';
+  // 沉浸玻璃配方·驻留钮档（ULTRA_THIN）：仅在标题栏子树内出图（内容区/弹窗面板内白挂，
+  // 见 project-glass-design-system）；bead 常量浅底在材质生效时让位透明。
+  @Prop useSystemMaterial: boolean = false;
+  private materialModifier: TopButtonMaterialModifier = new TopButtonMaterialModifier();
   action: () => void = (): void => {};
 
   build() {
@@ -40,7 +45,8 @@ export struct IconButton {
       .height(this.bead ? 36 : LayoutTokens.minTouchTarget)
       .justifyContent(FlexAlign.Center)
       .alignItems(VerticalAlign.Center)
-      .backgroundColor(this.bead ? ColorTokens.glassWhite : Color.Transparent)
+      .backgroundColor(this.useSystemMaterial && isSystemMaterialActive() ? Color.Transparent : (this.bead ? ColorTokens.glassWhite : Color.Transparent))
+      .attributeModifier(this.useSystemMaterial ? this.materialModifier : undefined)
       .borderRadius(RadiusTokens.pill)
       .accessibilityText(this.a11yText)
     }

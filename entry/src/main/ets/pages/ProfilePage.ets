@@ -104,7 +104,11 @@ export struct ProfilePage {
   // ListItem 里 constraintSize minHeight 写 '100%' 实测不生效，必须给具体值（§7.6.25）。
   @Prop viewportMinHeightVp: number = 0;
   // 列表纵向**绝对偏移**上抛：顶栏模糊出图开关（IMMERSIVE 变体的 blurRadius 门控）读它。
-  // 用 currentOffset 而非每帧增量——增量正负会被松手回弹的负帧打灭（「松手模糊消失」根因）。
+  // 用 onDidScroll 每帧增量累加，而非 currentOffset().yOffset——后者被 contentStartOffset
+  // 延迟（inset 区读作 0），门控会晚翻、内容到屏顶才突然全糊（2026-11 修复）。增量不受
+  // inset 影响，累加得真绝对偏移；松手回弹负帧只递减不归零（无「松手模糊消失」），真顶由
+  // onReachStart 归零兜住丢帧漂移。
+  private listScrollOffset: number = 0;
   onListScroll?: (offsetY: number) => void = undefined;
   // 单一滚动源：整页一条 List（四分段改点击切换，不再有 4 页 Swiper 各带一条 Scroll）。
   // 必须**从上游往下传**而不是本页造好再回调上去——后者要让 Index 等一次异步握手，
@@ -120,9 +124,7 @@ export struct ProfilePage {
   // 切到本页时重新拉取列表，使「我赞过/我收藏」在跨页点赞、取消收藏后即时刷新。
   @StorageLink('activeTab') @Watch('onActiveTab') activeTab: number = 0;
   @StorageLink('authToken') @Watch('onTokenReady') token: string = '';
-  // 详情页浏览信号：每次打开帖子详情递增（PostDetailView.load 落笔）。收到后静默刷新
-  // 「我发布」—— 卡片浏览数即时，返回列表不再要切 Tab/下拉（QA 浏览量审计「卡片不即时」）。
-  @StorageProp('postViewSignal') @Watch('onPostViewSignal') postViewSignal: number = 0;
+
   // 响应式列数（按全局断点 2/3/4 列自适应）；断点后经 @Watch 修正
   @State gridColumns: number = 2;
   @State gridTemplate: string = '1fr 1fr';
@@ -377,13 +379,6 @@ export struct ProfilePage {
     }
   }
 
-  // 浏览信号到达：静默刷新「我发布」分段（stale-while-revalidate，无感知）。
-  // 其余分段不显示浏览数，不刷新。
-  private onPostViewSignal(): void {
-    if (this.tabIdx === 0) {
-      this.refresh();
-    }
-  }
 
   async refresh(): Promise<void> {
     const version: number = this.listVersion + 1;
@@ -721,8 +716,7 @@ export struct ProfilePage {
     PostCard({
       post: post,
       compact: true,
-      // 创作者面板基础：「我发布」网格展示浏览数（其他列表保持原样）
-      showBrowses: this.tabIdx === 0,
+
       // 一镜到底飞行 id：前缀带分段号 —— Swiper 四页常驻，同一帖可同时挂在两个分段，
       // 不带分段号会在 ProfilePage 内部复刻跨面 id 撞车；也绝不能与首页 cardMedia- 同前缀
       mediaTag: 'profileMedia' + seg + '-',
@@ -966,16 +960,28 @@ export struct ProfilePage {
       .height('100%')
       .scrollBar(BarState.Off)
       .contentStartOffset(this.topInset)
-      .onDidScroll((): void => {
+      .onDidScroll((scrollOffset: number): void => {
+        // 每帧增量累加为真绝对偏移（不受 contentStartOffset 延迟），见成员声明注释。
+        this.listScrollOffset += scrollOffset;
         if (this.onListScroll !== undefined) {
-          this.onListScroll(this.scrollers[0].currentOffset().yOffset);
+          this.onListScroll(this.listScrollOffset);
         }
       })
       // 滚动停止的权威复核：万一拖尾帧的 onDidScroll 丢失，静止后开关可能停在旧值
-      //（表现为松手后模糊异常消失/残留）——停止时按最终偏移重算一次，兜住所有手势路径
+      //（表现为松手后模糊异常消失/残留）——停止时按累加重算一次，兜住所有手势路径。
+      // 用 listScrollOffset 而非 currentOffset().yOffset：后者在 inset 区读 0，会误判回顶。
       .onScrollStop((): void => {
         if (this.onListScroll !== undefined) {
-          this.onListScroll(this.scrollers[0].currentOffset().yOffset);
+          this.onListScroll(this.listScrollOffset);
+        }
+      })
+      // 真顶归零：listScrollOffset 是累增量，末帧丢失时会在真顶残留小正值（门控误开）。
+      // onReachStart 在滚动到起始位置时触发，此处归零兜住该漂移；起始位置=滚动原点，与
+      // contentStartOffset 无关。
+      .onReachStart((): void => {
+        this.listScrollOffset = 0;
+        if (this.onListScroll !== undefined) {
+          this.onListScroll(0);
         }
       })
       .edgeEffect(EdgeEffect.Spring)

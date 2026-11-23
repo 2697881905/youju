@@ -6,7 +6,7 @@
 // - 长按消息弹出小菜单：文字=复制/删除；图片视频=保存/删除；自己发送且 5 分钟内可撤回
 //   （删除仅自己不可见；撤回双方均不可见，展示「已撤回」占位）
 // - 发送/已读后自增 dmRefreshSignal，驱动消息页会话列表与红点刷新
-import { DmMessage, User, DmSharePayload, ReportBody, ReportReason, MentionCandidate, MentionRef } from '../models/types';
+import { DmMessage, User, DmSharePayload, ReportReason, MentionCandidate, MentionRef } from '../models/types';
 import { findActiveAtMention, applyAtMention } from '../utils/atMention';
 import { AtMentionSuggest } from '../components/AtMentionSuggest';
 import { getMessages, sendMessage, markMessagesRead, uploadChatMedia, resolveDisplayImageUrl, deleteMessageForMe, recallMessage, reportUser } from '../services/api';
@@ -90,6 +90,7 @@ export struct ChatView {
   // 未注入（router 壳）时本组件自行走 utils/nav 意图通道 + router.pushUrl。
   onOpenVideo?: (url: string, poster: string) => void = undefined;
   @State peerId: number = 0;
+
   @State peerName: string = '';
   @State peerAvatar: string = '';
   @State myAvatar: string = '';
@@ -1411,11 +1412,16 @@ export struct ChatView {
       this.goPeer();
     });
     Text('举报')
-      .fontSize(13).fontFamily($r('app.string.font_family'))
-      .fontColor($r('app.color.text_tertiary'))
-      .height(LayoutTokens.minTouchTarget)
-      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+      // 胶囊形态对齐圈子页「发现圈子」：caption + secondary 文字、36vp 高、md 内边距、
+      // sunken 灰底（主题自适应，替代玻璃材质——用户拍板这两颗钮不上材质）+ pill 圆角
+      .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+      .fontWeight(TypeTokens.caption.weight)
+      .fontColor(ColorTokens.secondary)
+      .height(LayoutTokens.segmentedHeight)
+      .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
       .textAlign(TextAlign.Center)
+      .backgroundColor(ColorTokens.sunken)
+      .borderRadius(RadiusTokens.pill)
       .accessibilityText('举报该联系人或聊天内容')
       .onClick(() => {
         if (this.peerId > 0) {

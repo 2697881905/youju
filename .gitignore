@@ -90,6 +90,7 @@ Thumbs.db
 .agent_history/
 .cache/
 .codex/
+.hypium/
 .office-claw/
 
 # 本地工具产物与临时脚本（不入库）

@@ -12,8 +12,7 @@ import { EmptyState } from '../design/components/EmptyState';
 import { GlowInput } from '../design/components/GlowInput';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { ColorTokens } from '../design/tokens/color';
-import { RadiusTokens } from '../design/tokens/radius';
-import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
+import { SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 
 @CustomDialog

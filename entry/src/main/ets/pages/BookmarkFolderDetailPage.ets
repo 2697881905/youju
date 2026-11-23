@@ -1,10 +1,11 @@
 // 收藏夹内帖子列表页：分页展示夹内收藏的帖子（复用 PostCard 网格），支持取消收藏 / 移入其他收藏夹
-import { BackButton } from '../design/components/BackButton';
+// 顶栏驻留 HdsNavigation，返回键走官方 content.backIcon（40vp 玻璃圆，与详情页同一套栏级材质）。
+import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
+import { buildPageTitleBarOptions, GlassTitleRow, GlassBarInsetRow } from '../design/components/HdsGlassBackSurface';
 import { EmptyState } from '../design/components/EmptyState';
 import { resolveActionIcon } from '../utils/actionIcons';
-import { ColorTokens } from '../design/tokens/color';
-import { TypeTokens } from '../design/tokens/type';
-import { listFolderPosts, cancelBookmarkPost, listBookmarkFolders, createBookmarkFolder, moveBookmarkFolder, resolveDisplayImageUrl } from '../services/api';
+import { listFolderPosts, cancelBookmarkPost, listBookmarkFolders, createBookmarkFolder, moveBookmarkFolder} from '../services/api';
 import { Post, BookmarkFolderItem } from '../models/types';
 import { PostCard } from '../components/PostCard';
 import { openPostDetail } from '../utils/nav';
@@ -32,6 +33,8 @@ export struct BookmarkFolderDetailPage {
   private moveTarget: Post | null = null;
   private movePickController: CustomDialogController | null = null;
   private moveNameDialog: CustomDialogController | null = null;
+  // 顶栏渐变模糊的滚动源
+  private pageScroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
     // 登录闸门：收藏夹内容属于「我自己的数据」，未登录进来只会是「加载失败」空壳。
@@ -255,81 +258,94 @@ export struct BookmarkFolderDetailPage {
     .width('100%')
   }
 
-  build() {
-    Column() {
-      Row() {
-        BackButton({ action: (): void => { this.getUIContext().getRouter().back(); } })
-        Text(this.folderName)
-          .fontSize(TypeTokens.title.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.title.weight).lineHeight(TypeTokens.title.lineHeight)
-          .fontColor(ColorTokens.primary).layoutWeight(1).textAlign(TextAlign.Center)
-          .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis });
-        Text('').width(44);
-      }
-      .width('100%')
-      .padding({ top: this.statusBarHeight + 12, bottom: 8 });
+  private folderTitleBarOptions(): HdsNavigationTitleBarOptions {
+    return buildPageTitleBarOptions({
+      back: (): void => { this.getUIContext().getRouter().back(); },
+      stackBuilder: (): void => { this.folderTitleRow(); },
+    });
+  }
 
-      if (!this.ready) {
-        Column() {
-          LoadingProgress().width(28).height(28);
-          Text('加载中…').fontSize(13).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary')).margin({ top: 10 });
-        }
-        .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
-      } else if (this.posts.length === 0) {
-        Column() {
-          EmptyState({
-            icon: this.error !== '' ? resolveActionIcon('warning') : $r('app.media.empty_inbox'),
-            title: this.error !== '' ? '加载失败' : '这个收藏夹还是空的',
-            message: this.error !== '' ? this.error : '',
-            actionLabel: this.error !== '' ? '重试' : '',
-            onAction: (): void => { this.load(true); },
+  // 左内缩让开官方返回键（stackBuilder 行是返回键的后一个兄弟节点，z 序更高会吃掉点击）
+  @Builder
+  folderTitleRow(): void {
+    GlassTitleRow({ title: this.folderName, serif: true })
+  }
+
+  build() {
+    HdsNavigation() {
+      Column() {
+        if (!this.ready) {
+          Column() {
+            LoadingProgress().width(28).height(28);
+            Text('加载中…').fontSize(13).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary')).margin({ top: 10 });
+          }
+          .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
+        } else if (this.posts.length === 0) {
+          Column() {
+            EmptyState({
+              icon: this.error !== '' ? resolveActionIcon('warning') : $r('app.media.empty_inbox'),
+              title: this.error !== '' ? '加载失败' : '这个收藏夹还是空的',
+              message: this.error !== '' ? this.error : '',
+              actionLabel: this.error !== '' ? '重试' : '',
+              onAction: (): void => { this.load(true); },
+            })
+          }
+          .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
+        } else {
+          // 双列卡片流：偶数项固定左列、奇数项固定右列（与个人主页帖子网格一致的瀑布流效果）
+          Scroll(this.pageScroller) {
+            Column() {
+              // 穿底让位：内容可画到标题栏下，顶部用「状态栏 + 栏高」空占位补回
+              GlassBarInsetRow({ statusBarHeight: this.statusBarHeight })
+
+              Row({ space: 6 }) {
+                ForEach(this.columnIndexes(), (colIdx: number) => {
+                  Column({ space: 8 }) {
+                    ForEach(this.posts.filter((_p: Post, idx: number) => idx % this.columnCount() === colIdx), (p: Post) => {
+                      this.folderPostCard(p)
+                    }, (p: Post) => 'col' + colIdx + '-' + String(p.id))
+                  }
+                  .layoutWeight(1)
+                }, (colIdx: number) => colIdx.toString())
+              }
+              .width('100%')
+              .alignItems(VerticalAlign.Top)
+              if (!this.finished) {
+                Row({ space: 8 }) {
+                  LoadingProgress().width(20).height(20);
+                  Text('加载更多…').fontSize(12).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary'));
+                }
+                .width('100%').justifyContent(FlexAlign.Center).padding({ top: 8, bottom: 8 });
+              }
+              Column() {
+                Blank().width('100%').height(24)
+              }
+              .width('100%')
+            }
+            .width('100%')
+            // constraintSize minHeight 撑满视口：内容不足一屏时从顶部贴齐（规避 Scroll 内容垂直居中）
+            .constraintSize({ minHeight: '100%' })
+            .padding({ left: 6, right: 6, top: 4, bottom: 8 })
+          }
+          .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+          .layoutWeight(1)
+          .width('100%')
+          .scrollable(ScrollDirection.Vertical)
+          .onScrollEdge((edge: Edge) => {
+            if (edge === Edge.Bottom) {
+              this.onReachEnd();
+            }
           })
         }
-        .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center);
-      } else {
-        // 双列卡片流：偶数项固定左列、奇数项固定右列（与个人主页帖子网格一致的瀑布流效果）
-        Scroll() {
-          Column() {
-            Row({ space: 6 }) {
-              ForEach(this.columnIndexes(), (colIdx: number) => {
-                Column({ space: 8 }) {
-                  ForEach(this.posts.filter((_p: Post, idx: number) => idx % this.columnCount() === colIdx), (p: Post) => {
-                    this.folderPostCard(p)
-                  }, (p: Post) => 'col' + colIdx + '-' + String(p.id))
-                }
-                .layoutWeight(1)
-              }, (colIdx: number) => colIdx.toString())
-            }
-            .width('100%')
-            .alignItems(VerticalAlign.Top)
-            if (!this.finished) {
-              Row({ space: 8 }) {
-                LoadingProgress().width(20).height(20);
-                Text('加载更多…').fontSize(12).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary'));
-              }
-              .width('100%').justifyContent(FlexAlign.Center).padding({ top: 8, bottom: 8 });
-            }
-            Column() {
-              Blank().width('100%').height(24)
-            }
-            .width('100%')
-          }
-          .width('100%')
-          // constraintSize minHeight 撑满视口：内容不足一屏时从顶部贴齐（规避 Scroll 内容垂直居中）
-          .constraintSize({ minHeight: '100%' })
-          .padding({ left: 6, right: 6, top: 4, bottom: 8 })
-        }
-        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
-        .layoutWeight(1)
-        .width('100%')
-        .scrollable(ScrollDirection.Vertical)
-        .onScrollEdge((edge: Edge) => {
-          if (edge === Edge.Bottom) {
-            this.onReachEnd();
-          }
-        })
       }
+      .width('100%').height('100%');
     }
-    .width('100%').height('100%').backgroundColor($r('app.color.bg_primary'));
+    .mode(NavigationMode.Stack)
+    .titleMode(HdsNavigationTitleMode.MINI)
+    .titleBar(this.folderTitleBarOptions())
+    .bindToScrollable([this.pageScroller])
+    .clip(false)
+    .width('100%').height('100%')
+    .backgroundColor($r('app.color.bg_primary'));
   }
 }

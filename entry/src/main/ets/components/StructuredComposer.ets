@@ -17,7 +17,6 @@ import {
   moveStructuredBlock,
   removeStructuredBlock,
   removeStructuredEvidence,
-  setStructuredPrimary,
   structuredBlockTypesForGenre,
   structuredBlockTypeHint,
   structuredBlockTypeLabel,
