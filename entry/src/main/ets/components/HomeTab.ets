@@ -1042,6 +1042,7 @@ export struct HomeTab {
         this.loadMore();
       }
     })
+    .scrollBar(BarState.Off)
   }
 
   // 瀑布流（WaterFlow + LazyForEach）在 Swiper 三页下数据源无法按页隔离，

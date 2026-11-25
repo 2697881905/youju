@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>「有据」Logo 重设计提案 · 2026-11</title>
+<style>
+  :root {
+    --ink: #1a1d21;
+    --ink2: #5a6472;
+    --line: #e6e9ee;
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --brand: #0066cc;
+    --brand-press: #0050a0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, 'PingFang SC', 'HarmonyOS Sans SC', sans-serif; background: var(--bg); color: var(--ink); padding: 40px 24px 80px; }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  h1 { font-size: 26px; letter-spacing: .5px; }
+  .sub { color: var(--ink2); font-size: 14px; margin-top: 8px; line-height: 1.7; }
+  h2 { font-size: 18px; margin: 48px 0 6px; }
+  .h2note { color: var(--ink2); font-size: 13px; margin-bottom: 16px; line-height: 1.6; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 24px; }
+
+  /* 现状诊断 */
+  .diag { display: flex; gap: 28px; align-items: flex-start; }
+  .diag img { width: 128px; height: 128px; border-radius: 28px; box-shadow: 0 6px 24px rgba(0,40,90,.14); }
+  .diag ul { list-style: none; font-size: 13.5px; line-height: 1.9; color: var(--ink2); }
+  .diag li b { color: #c0392b; font-weight: 600; }
+  .diag li::before { content: '✕'; color: #e74c3c; font-weight: 700; margin-right: 8px; }
+
+  /* 方案卡 */
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+  .plan { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 24px; position: relative; }
+  .plan.recommend { border: 2px solid var(--brand); box-shadow: 0 8px 30px rgba(0,102,204,.10); }
+  .badge { position: absolute; top: -12px; left: 20px; background: var(--brand); color: #fff; font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 999px; }
+  .plan h3 { font-size: 16px; margin-bottom: 4px; }
+  .plan .en { color: var(--ink2); font-size: 12px; margin-bottom: 14px; }
+  .hero { display: flex; gap: 20px; align-items: center; }
+  .iconBox { width: 200px; height: 200px; border-radius: 44px; overflow: hidden; flex: none; box-shadow: 0 8px 28px rgba(0,40,90,.16); }
+  .iconBox svg { width: 100%; height: 100%; display: block; }
+  .meta { font-size: 13px; line-height: 1.8; color: var(--ink2); }
+  .meta b { color: var(--ink); font-weight: 600; }
+  .deskrow { display: flex; align-items: center; gap: 14px; margin-top: 18px; padding-top: 16px; border-top: 1px dashed var(--line); }
+  .cell { border-radius: 22px; overflow: hidden; flex: none; }
+  .cell.light { background: #f2f2f7; }
+  .cell.dark { background: #16181c; }
+  .cell svg { display: block; }
+  .celllabel { font-size: 11px; color: var(--ink2); text-align: center; margin-top: 6px; }
+  .proscons { margin-top: 16px; font-size: 13px; line-height: 1.9; }
+  .proscons .p::before { content: '＋'; color: #27ae60; font-weight: 700; margin-right: 6px; }
+  .proscons .c::before { content: '－'; color: #e67e22; font-weight: 700; margin-right: 6px; }
+  .proscons div { color: var(--ink2); }
+
+  /* 配色变体 */
+  .variants { display: flex; gap: 20px; flex-wrap: wrap; }
+  .variant { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; width: 240px; }
+  .variant .vicon { width: 132px; height: 132px; border-radius: 30px; overflow: hidden; margin: 0 auto; box-shadow: 0 6px 20px rgba(0,40,90,.14); }
+  .variant .vicon svg { width: 100%; height: 100%; display: block; }
+  .variant h4 { font-size: 14px; text-align: center; margin-top: 12px; }
+  .variant p { font-size: 12px; color: var(--ink2); text-align: center; margin-top: 6px; line-height: 1.6; }
+
+  /* 安全区 */
+  .safe { display: flex; gap: 32px; align-items: center; flex-wrap: wrap; }
+  .safe svg { width: 300px; height: 300px; }
+  .safe .txt { font-size: 13px; color: var(--ink2); line-height: 2; flex: 1; min-width: 280px; }
+  code { background: #eef2f6; border-radius: 6px; padding: 2px 7px; font-size: 12px; }
+
+  /* 讨论清单 */
+  ol.qs { padding-left: 20px; font-size: 14px; line-height: 2.1; color: var(--ink2); }
+  ol.qs b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>「有据」Logo 重设计提案</h1>
+  <p class="sub">com.youju.app · v1.0.6 · 2026-11-25 · 讨论稿（未落地）——四个创意方向 × 三种配色，先选方向再出正式稿。<br>合规约束：全部为原创抽象图形，不复刻华为注册商标（花瓣 Logo / HUAWEI 字样）。</p>
+
+  <h2>一、现状问题（旧图标诊断）</h2>
+  <div class="panel diag">
+    <img src="../AppScope/resources/base/media/app_icon.png" alt="旧图标">
+    <ul>
+      <li><b>拟物光泽过时</b>——2010 年代 iOS glossy 高光，塑料感，与全应用现代扁平 UI 割裂</li>
+      <li><b>前景超安全区</b>——图形几乎顶满画布，桌面圆形裁切时上下会被削</li>
+      <li><b>前景/背景撞色</b>——同为宝蓝系，合成后图形"陷进"背景，无层次</li>
+      <li><b>无识别度</b>——三块胶囊 + 随机装饰点，与任何产品语义都无关联，易与云盘/工具类混淆</li>
+    </ul>
+  </div>
+
+  <h2>二、四个创意方向</h2>
+  <p class="h2note">每张卡：大图（合成效果）→ 桌面模拟（浅色桌面 96px / 深色桌面 96px / 小尺寸 48px / 列表 28px）。配色均以「品牌蓝 × 浅底」示意，换配色见第三节。</p>
+  <div class="grid" id="plans"></div>
+
+  <h2>三、配色变体（以方案 A 为例）</h2>
+  <p class="h2note">V1 与应用内品牌色完全一致（#0066CC / #0A84FF 深色模式），落地时无需改任何应用代码；V2、V3 仅换图标资源本身。</p>
+  <div class="variants" id="variants"></div>
+
+  <h2>四、落地规格（确认方向后执行）</h2>
+  <div class="panel safe">
+    <svg viewBox="0 0 1024 1024" id="safeSvg"></svg>
+    <div class="txt">
+      <p><b>HarmonyOS 分层图标规范</b>（本次将替换的文件）：</p>
+      <p>① <code>AppScope/resources/base/media/foreground.png</code> — 前景层，图形收进中央圆形安全区（半径≈画布 1/3），四边留白</p>
+      <p>② <code>AppScope/resources/base/media/background.png</code> — 背景层，满铺渐变，与前景拉开明度对比</p>
+      <p>③ <code>app_icon.png</code> — 合成图，输出 6 档 dpi（sdpi ~ xxxldpi），由 <code>layered_image.json</code> 引用，不改任何代码</p>
+      <p>④ PNG 由设计稿 SVG 渲染导出（文字类方案落地前先转曲，避免字体依赖）</p>
+    </div>
+  </div>
+
+  <h2>五、待你拍板的讨论点</h2>
+  <div class="panel">
+    <ol class="qs">
+      <li><b>图形方向</b>：A 信息卡片 / B 「据」字印章 / C 双勾核验 / D 胶囊翻新——选一个，或说想混搭（比如 A 的卡片 + B 的印章点）。</li>
+      <li><b>配色</b>：V1 品牌蓝（省事、统一）还是 V2 蓝底白图（更醒目）？V3 深空属风格化选项。</li>
+      <li><b>小字识别</b>：你在意 28px 列表场景吗？在意的话 B（单字）优势最大，A/C/D 已按小尺寸简化设计。</li>
+      <li><b>是否连带</b>：本次只换桌面图标三件套，还是连 <code>design/beta-posters</code> 里出现的旧图标物料一起翻新？</li>
+    </ol>
+  </div>
+</div>
+
+<script>
+/* ---------- 方案 A：结构化信息卡片 ---------- */
+const A = `<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<linearGradient id="abg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F2F8FE"/><stop offset="1" stop-color="#D9EAF9"/></linearGradient>
+<linearGradient id="acd" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1787F0"/><stop offset="1" stop-color="#0066CC"/></linearGradient>
+</defs>
+<rect width="1024" height="1024" fill="url(#abg)"/>
+<rect x="342" y="452" width="340" height="248" rx="52" fill="#0A63C4" opacity="0.45"/>
+<rect x="296" y="330" width="424" height="300" rx="56" fill="url(#acd)"/>
+<rect x="350" y="394" width="222" height="30" rx="15" fill="#FFFFFF" opacity="0.95"/>
+<rect x="350" y="452" width="300" height="30" rx="15" fill="#FFFFFF" opacity="0.5"/>
+<rect x="350" y="510" width="156" height="30" rx="15" fill="#FFFFFF" opacity="0.28"/>
+<circle cx="672" cy="610" r="78" fill="#0050A0"/>
+<path d="M 638 612 L 664 638 L 708 580" fill="none" stroke="#FFFFFF" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`;
+
+/* ---------- 方案 B：「据」字印章 ---------- */
+const B = `<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<linearGradient id="bbg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F4F8FD"/><stop offset="1" stop-color="#DFECFA"/></linearGradient>
+<linearGradient id="bseal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1787F0"/><stop offset="1" stop-color="#0050A0"/></linearGradient>
+</defs>
+<rect width="1024" height="1024" fill="url(#bbg)"/>
+<rect x="330" y="330" width="364" height="364" rx="86" fill="url(#bseal)"/>
+<rect x="366" y="366" width="292" height="292" rx="64" fill="none" stroke="#FFFFFF" stroke-width="6" opacity="0.26"/>
+<text x="512" y="524" text-anchor="middle" dominant-baseline="central" font-family="-apple-system,'PingFang SC','HarmonyOS Sans SC',sans-serif" font-size="228" font-weight="800" fill="#FFFFFF">据</text>
+</svg>`;
+
+/* ---------- 方案 C：双勾核验 ---------- */
+const C = `<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<linearGradient id="cbg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F2F8FE"/><stop offset="1" stop-color="#D9EAF9"/></linearGradient>
+<linearGradient id="cck" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1787F0"/><stop offset="1" stop-color="#0050A0"/></linearGradient>
+</defs>
+<rect width="1024" height="1024" fill="url(#cbg)"/>
+<path d="M 348 486 L 428 566 L 596 356" fill="none" stroke="#8FC2F2" stroke-width="62" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M 436 566 L 548 676 L 762 404" fill="none" stroke="url(#cck)" stroke-width="88" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`;
+
+/* ---------- 方案 D：胶囊翻新 ---------- */
+const D = `<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<linearGradient id="dbg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F2F8FE"/><stop offset="1" stop-color="#D9EAF9"/></linearGradient>
+</defs>
+<rect width="1024" height="1024" fill="url(#dbg)"/>
+<rect x="352" y="298" width="320" height="142" rx="71" fill="#1787F0"/>
+<rect x="312" y="452" width="400" height="142" rx="71" fill="#0A63C4"/>
+<rect x="374" y="506" width="184" height="34" rx="17" fill="#FFFFFF" opacity="0.92"/>
+<rect x="352" y="606" width="320" height="142" rx="71" fill="#0050A0" opacity="0.85"/>
+</svg>`;
+
+/* ---------- 配色变体（方案 A） ---------- */
+const V2 = A
+  .replace('<stop offset="0" stop-color="#F2F8FE"/><stop offset="1" stop-color="#D9EAF9"/>','<stop offset="0" stop-color="#1787F0"/><stop offset="1" stop-color="#0052B0"/>')
+  .replace('<stop offset="0" stop-color="#1787F0"/><stop offset="1" stop-color="#0066CC"/>','<stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#EAF3FD"/>')
+  .replace('fill="#0A63C4" opacity="0.45"','fill="#FFFFFF" opacity="0.22"')
+  .replace('rx="15" fill="#FFFFFF" opacity="0.95"','rx="15" fill="#0066CC" opacity="0.95"')
+  .replace('rx="15" fill="#FFFFFF" opacity="0.5"','rx="15" fill="#0066CC" opacity="0.45"')
+  .replace('rx="15" fill="#FFFFFF" opacity="0.28"','rx="15" fill="#FFFFFF" opacity="0.35"')
+  .replace('<circle cx="672" cy="610" r="78" fill="#0050A0"/>','<circle cx="672" cy="610" r="78" fill="#FFFFFF"/>')
+  .replace('stroke="#FFFFFF" stroke-width="20"','stroke="#0050A0" stroke-width="20"');
+const V3 = A
+  .replace('<stop offset="0" stop-color="#F2F8FE"/><stop offset="1" stop-color="#D9EAF9"/>','<stop offset="0" stop-color="#12263F"/><stop offset="1" stop-color="#0A1830"/>')
+  .replace('<rect x="342" y="452" width="340" height="248" rx="52" fill="#0A63C4" opacity="0.45"/>','<rect x="342" y="452" width="340" height="248" rx="52" fill="#5AA7F0" opacity="0.35"/>');
+
+const PLANS = [
+  { key:'A', svg:A, name:'方案 A · 结构化信息卡片', en:'Structured cards + seal check', recommend:true,
+    meta:'<b>寓意</b>：AI 把正文拆成逐块确认的信息清单（产品核心能力），右下印章点 = 「盖章有据」。<br><b>构图</b>：两张错位卡片叠出层次，白信息条三行渐隐示意"信息块"，印章对勾做视觉锚点。',
+    pros:['与产品功能强关联，讲故事最顺','对勾锚点差异化，避开纯笔记类应用的撞型','小尺寸下卡片轮廓 + 印章仍清晰'],
+    cons:['卡片构图在笔记/文档类中较常见，靠细节拉开'] },
+  { key:'B', svg:B, name:'方案 B · 「据」字印章', en:'Seal logotype', recommend:false,
+    meta:'<b>寓意</b>：品牌名直出，「有理有据」的据。印章形制呼应"盖印为证"。<br><b>构图</b>：圆角方章 + 内细框 + 白色「据」字（示意用系统粗黑体，落地前转曲）。',
+    pros:['28px 列表场景识别度最高（单字）','中文 App 用户零理解成本'],
+    cons:['与"掘金"等蓝底白字中文 App 有撞型风险','字体版权需确认，落地需文字转曲'] },
+  { key:'C', svg:C, name:'方案 C · 双勾核验', en:'Double check marks', recommend:false,
+    meta:'<b>寓意</b>：一浅一深两枚对勾阶梯排布 = 逐条核验、层层有据；动势指向右上，有"成长感"。<br><b>构图</b>：极简笔画，纯线条语言，最"轻"的一个方向。',
+    pros:['笔画最少，任何尺寸都不糊','几何感现代，与扁平 UI 最搭'],
+    cons:['抽象度高，与产品功能的关联需要解释','对勾符号通用性强，独占性弱'] },
+  { key:'D', svg:D, name:'方案 D · 胶囊翻新（保底）', en:'Pills, modernized', recommend:false,
+    meta:'<b>寓意</b>：保留旧图标"三块堆叠"的记忆 continuity，全面扁平化、收进安全区、换品牌蓝体系。<br><b>构图</b>：三层胶囊竖排，中层加一条白信息条带出"内容"语义。',
+    pros:['改动最小，老用户感知平滑'],
+    cons:['识别度提升有限，仍偏"工具感"','本质是修补而非重设计'] },
+];
+
+const plansEl = document.getElementById('plans');
+PLANS.forEach(p => {
+  const el = document.createElement('div');
+  el.className = 'plan' + (p.recommend ? ' recommend' : '');
+  el.innerHTML = `
+    ${p.recommend ? '<div class="badge">推荐方向</div>' : ''}
+    <h3>${p.name}</h3><div class="en">${p.en}</div>
+    <div class="hero">
+      <div class="iconBox">${p.svg}</div>
+      <div class="meta">${p.meta}</div>
+    </div>
+    <div class="deskrow">
+      <div><div class="cell light"><svg width="96" height="96" viewBox="0 0 1024 1024">${p.svg.replace(/<svg[^>]*>/,'').replace('</svg>','')}</svg></div><div class="celllabel">浅色桌面 96px</div></div>
+      <div><div class="cell dark"><svg width="96" height="96" viewBox="0 0 1024 1024">${p.svg.replace(/<svg[^>]*>/,'').replace('</svg>','')}</svg></div><div class="celllabel">深色桌面 96px</div></div>
+      <div><div class="cell light"><svg width="48" height="48" viewBox="0 0 1024 1024">${p.svg.replace(/<svg[^>]*>/,'').replace('</svg>','')}</svg></div><div class="celllabel">小尺寸 48px</div></div>
+      <div><div class="cell light"><svg width="28" height="28" viewBox="0 0 1024 1024">${p.svg.replace(/<svg[^>]*>/,'').replace('</svg>','')}</svg></div><div class="celllabel">列表 28px</div></div>
+    </div>
+    <div class="proscons">
+      ${p.pros.map(x=>`<div class="p">${x}</div>`).join('')}
+      ${p.cons.map(x=>`<div class="c">${x}</div>`).join('')}
+    </div>`;
+  plansEl.appendChild(el);
+});
+
+const VARS = [
+  { svg:A, name:'V1 · 品牌蓝 × 浅底（推荐）', note:'前景 #1787F0→#0050A0，背景浅蓝白。与应用内 #0066CC 品牌色一致，零代码改动。' },
+  { svg:V2, name:'V2 · 蓝底白图反转', note:'前景白图压品牌蓝渐变底。桌面更醒目，类似系统相机分层逻辑。' },
+  { svg:V3, name:'V3 · 深空夜航（风格化）', note:'深蓝夜空底 + 亮蓝图形，暗色桌面突出、高端感，但浅色桌面略沉。' },
+];
+const varsEl = document.getElementById('variants');
+VARS.forEach(v => {
+  const el = document.createElement('div');
+  el.className = 'variant';
+  el.innerHTML = `<div class="vicon">${v.svg}</div><h4>${v.name}</h4><p>${v.note}</p>`;
+  varsEl.appendChild(el);
+});
+
+/* 安全区示意 */
+document.getElementById('safeSvg').innerHTML = `
+<defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1787F0"/><stop offset="1" stop-color="#0066CC"/></linearGradient></defs>
+<rect x="32" y="32" width="960" height="960" rx="216" fill="none" stroke="#B9C4CF" stroke-width="4" stroke-dasharray="14 12"/>
+<circle cx="512" cy="512" r="340" fill="none" stroke="#27AE60" stroke-width="4" stroke-dasharray="14 12"/>
+<circle cx="512" cy="512" r="34" fill="#27AE60"/>
+<g opacity="0.85">
+<rect x="330" y="400" width="364" height="240" rx="52" fill="url(#sg)"/>
+<circle cx="640" cy="600" r="64" fill="#0050A0"/>
+</g>
+<text x="512" y="90" text-anchor="middle" font-size="34" fill="#5A6472">桌面裁切轮廓（圆形/圆角方，随系统）</text>
+<text x="512" y="960" text-anchor="middle" font-size="34" fill="#27AE60">图形安全区 r≈340px：所有笔画收在此圆内</text>`;
+</script>
+</body>
+</html>

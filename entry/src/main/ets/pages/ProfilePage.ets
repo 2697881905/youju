@@ -103,6 +103,10 @@ export struct ProfilePage {
   // 它若只有几十 vp，列表总高骤降 → 滚动位被钳死且回不来 = 「点分段栏画面跳一下」。
   // ListItem 里 constraintSize minHeight 写 '100%' 实测不生效，必须给具体值（§7.6.25）。
   @Prop viewportMinHeightVp: number = 0;
+  // 资料卡实测高度（vp），由资料卡 ListItem 的 onAreaChange 写入。首帧为 0 时撑底计算偏大
+  // （呈现同旧版偏下），回调后即时修正。用于把空态/加载态撑底高度从整屏高收敛为
+  // 可视内容区高（见 emptyStateMinHeightVp / feedBody 注释）。
+  @State heroMeasuredVp: number = 0;
   // 列表纵向**绝对偏移**上抛：顶栏模糊出图开关（IMMERSIVE 变体的 blurRadius 门控）读它。
   // 用 onDidScroll 每帧增量累加，而非 currentOffset().yOffset——后者被 contentStartOffset
   // 延迟（inset 区读作 0），门控会晚翻、内容到屏顶才突然全糊（2026-11 修复）。增量不受
@@ -781,6 +785,20 @@ export struct ProfilePage {
   // 并穿到顶栏底下被栏体模糊，而不是钉死在标题栏 bottomBuilder 里占住 41% 屏高的手势盲区
   // （基准 §7.6.13b：栏体节点 [0,106][1136,1209] 之内一律抓不到滚动源）。
   // 分段栏仍留在标题栏里（它是控件行，不吃滚动是应有之义），栏体因此从 1103px 缩到约 425px。
+  // 空态/加载态**定高**（vp）＝可视内容区高：视口高 − 顶栏 inset − 资料卡实测高 − 分段行高
+  // （收藏分段另有子分段行，口径与 refreshIndicatorOverlay 既有偏移口径一致）；下限 160 防御
+  // 实测异常导致空态塌陷。根因（真机 UI 树实测 2026-11-25）：空态项在 List 中位于资料卡/
+  // 分段栏之后，仅用 constraintSize minHeight **管不住实际高度** —— PostCollectionState 根
+  // Column 是 height('100%')，父自适应+子 100% 时框架把 100% 解析为 List 视口高（实测空态
+  // Column 高 860.8vp=整屏，minHeight 505.04vp 形同虚设），居中点 = 空态顶 + 屏高/2 贴到
+  // 屏幕底。必须外层直接 .height(定值)，内层 100% 才会解析为该值、文案居中于可视内容区。
+  // 列表总高 ≈ topInset + 资料卡 + 分段行 + 本值 ≈ 视口高，切段防钳死语义（总高 ≥ 视口高）不回退。
+  private emptyStateHeightVp(): number {
+    return Math.max(160, this.viewportMinHeightVp - this.topInset - this.heroMeasuredVp
+      - PROFILE_SEG_ROW_HEIGHT
+      - (this.tabIdx === 1 ? LayoutTokens.segmentedHeight + 2 * SpaceTokens.xs : 0));
+  }
+
   @Builder
   feedBody(): void {
     if (!this.isLoggedIn()) {
@@ -788,16 +806,18 @@ export struct ProfilePage {
     } else if (this.tabIdx === 1 && this.bookmarkSubTab === 1) {
       this.folderListBody()
     } else if (this.pagePostsOf(this.tabIdx).length === 0 && (!this.ready || this.loading)) {
-      // ⚠️ 状态页必须撑满一屏（constraintSize minHeight 100%）。整页只有一条 List，
-      // 切段瞬间新分段缓存为空会渲染这一支；它若只有几十 vp，列表总高骤降 → 当前滚动位
-      // 被钳死 → 数据回来后内容长回去但滚动位回不来，表现为「点分段栏画面跳一下」
-      // 实测 +235px 整屏位移；预热缓存（不触发这一支）后位移归零，据此定位。
-      // 旧版每条 Scroll 的内层 Column 本来就有这条 minHeight，改单条 List 时丢过一次。
+      // ⚠️ 状态页必须撑满可视内容区且**外层直接定高**（height 值见 emptyStateHeightVp），
+      // 不能只用 constraintSize minHeight：内层 PostCollectionState 是 height('100%')，
+      // 父自适应+子 100% 时 100% 被解析为 List 视口高，把外层撑到整屏、minHeight 失效
+      // （真机 UI 树实测根因，见 emptyStateHeightVp 注释）。整页只有一条 List，切段瞬间
+      // 新分段缓存为空会渲染这一支；高度若只有几十 vp，列表总高骤降 → 当前滚动位被钳死
+      // → 数据回来后内容长回去但滚动位回不来，表现为「点分段栏画面跳一下」，实测
+      // +235px 整屏位移；预热缓存（不触发这一支）后位移归零，据此定位。
       Column() {
         PostCollectionState({ loading: true });
       }
       .width('100%')
-      .constraintSize({ minHeight: this.viewportMinHeightVp })
+      .height(this.emptyStateHeightVp())
       .padding({ top: SpaceTokens.xl, bottom: SpaceTokens.xl })
     } else if (this.pagePostsOf(this.tabIdx).length === 0) {
       Column() {
@@ -808,12 +828,22 @@ export struct ProfilePage {
             : this.tabIdx === 1
               ? '还没有收藏过帖子'
                 : this.tabIdx === 2 ? '还没有赞过的帖子' : '还没有评论过帖子',
+          emptyMessage: this.tabIdx === 0 ? '发布帖子后会显示在这里' : '',
           onRetry: (): void => { this.refresh(); },
         });
       }
       .width('100%')
-      .constraintSize({ minHeight: this.viewportMinHeightVp })
-      .padding({ top: SpaceTokens.xl, bottom: SpaceTokens.xl })
+      // 空态与加载态同口径定高（R3）：外层 .height 定值而非 minHeight（根因见上一分支注释
+      // 与 emptyStateHeightVp），内层 100% 才解析正确、文案居中于可视内容区。
+      .height(this.emptyStateHeightVp())
+      // 以 message（副文案）中心 = 真实可视内容区中心。口径：可视区 = 分段栏下界 ~ 悬浮
+      // 底栏上界（barBottomReserve 让位，末张卡片也只滚到栏上方）。推导：pb = padTop
+      // + E − m + R（E=EmptyState 组合高 111.84vp、m=message 行高 19.84vp、R=底栏让位
+      // barBottomReserve()，真机 UI 树实测 2026-11-25）→ message 中心 = 容器顶 + (H−R)/2，
+      // 即「空态顶~底栏上界」中点。92 = E − m 使组合上移锚定；R 项只挪视觉锚不缩列表总高，
+      // 切段防钳死语义（总高 ≥ 视口高）不回退。EmptyState 内部结构（icon 44vp/headline
+      // 行高/callout 行高/item 间距）变化时需同步核对 92。
+      .padding({ top: SpaceTokens.xl, bottom: SpaceTokens.xl + 92 + barBottomReserve() })
     } else {
       // refreshing 走 $$ 双向绑定（对齐 HomeTab.ets:836）：单向表达式会让内部手势态与外部
       // 变量不同源，「刷新中…」常驻收不回。onRefreshing 里不能再手动置 true。
@@ -917,6 +947,11 @@ export struct ProfilePage {
             this.heroHeader()
           }
           .width('100%')
+          // 实测资料卡高度（Area.height 为 vp 口径），供 emptyStateMinHeightVp 收敛撑底高度。
+          .onAreaChange((_old: Area, cur: Area) => {
+            // Area.height 是 Length（number|string|Resource），显式收敛为 number 存 @State。
+            this.heroMeasuredVp = Number(cur.height);
+          })
         }
         .width('100%')
 

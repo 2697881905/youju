@@ -13,7 +13,8 @@ import { UIContext } from '@kit.ArkUI';
 import { StructuredDocument } from '../models/types';
 import { collectStructuredDocument, structuredDocumentFromLegacy,
   structuredDocumentHasContent } from './structuredDocument';
-import { publishGenreMeta } from './publishGenres';
+import { FeedZone } from './feedZones';
+import { zoneOfGenre } from './publishZones';
 import { withCoverOnlyTextPoster } from './structuredFields';
 import { uploadTextPoster } from './poster/posterRender';
 import { FALLBACK_VIDEO_ASPECT_RATIO, normalizeVideoAspectRatio } from './video';
@@ -22,6 +23,11 @@ const TEXT_POSTER_TIMEOUT: number = 20000;
 
 export interface PublishOutcome {
   ok: boolean;
+}
+
+export interface PublishOptions {
+  // 仅「按原文发布」显式传 true：跳过「干货必须至少一个信息块」的闸门
+  allowEmptyStructured?: boolean;
 }
 
 function documentOf(draft: PublishDraft): StructuredDocument {
@@ -54,10 +60,14 @@ function uploadTextPosterWithTimeout(draft: PublishDraft): Promise<string> {
   });
 }
 
-export async function executePublish(draft: PublishDraft, uiContext: UIContext): Promise<PublishOutcome> {
-  // 结构化体裁必须至少有一个信息块：空壳结构化帖没有阅读价值（与旧预览页同一道闸）
-  if (publishGenreMeta(draft.genre).structured && !structuredDocumentHasContent(documentOf(draft))) {
-    safeShowToast(uiContext, { message: '请至少填写一个信息块（结论、适合人群、清单或对比）' });
+export async function executePublish(draft: PublishDraft, uiContext: UIContext,
+  options?: PublishOptions): Promise<PublishOutcome> {
+  // 干货必须至少有一个信息块：空壳结构化帖没有阅读价值。
+  // 判定按内容区（草稿 zone 优先，存量草稿由 genre 派生），随记不做结构化、不设该闸门。
+  const zone: FeedZone = draft.zone ?? zoneOfGenre(draft.genre);
+  if (zone === 'insight' && options?.allowEmptyStructured !== true
+    && !structuredDocumentHasContent(documentOf(draft))) {
+    safeShowToast(uiContext, { message: '请至少填写一个信息块，或改用「按原文发布」' });
     return { ok: false };
   }
   let loggedIn: boolean = false;

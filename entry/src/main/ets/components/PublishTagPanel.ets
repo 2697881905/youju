@@ -17,6 +17,7 @@ import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { ShadowTokens } from '../design/tokens/shadow';
 import { barBottomReserve } from '../utils/cardTokens';
+import { GroupCardStyle } from '../utils/groupCardStyle';
 import { isSystemMaterialActive } from '../utils/immersiveMaterial';
 
 const CHIP_LANES: number = 3;
@@ -36,6 +37,8 @@ export struct PublishTagPanel {
   @State recommendTags: string[] = [];
   onToggle: (name: string) => void = (_name: string): void => {};
   onClose: () => void = (): void => {};
+  // ListItemGroup 卡片底板统一样式（与设置页分组同源三件套）
+  private groupCard: GroupCardStyle = new GroupCardStyle();
 
   private tagName(tag: Tag): string {
     return tag.name ?? '';
@@ -241,6 +244,7 @@ export struct PublishTagPanel {
                 }
               }, (tag: Tag) => category + '_' + (tag.name ?? ''))
             }
+            .attributeModifier(this.groupCard)
           }, (category: string) => category)
           ListItem() {
             Row().height(barBottomReserve() + SpaceTokens.base).width('100%')

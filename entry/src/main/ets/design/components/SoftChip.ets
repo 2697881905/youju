@@ -1,5 +1,6 @@
 // SoftChip —— soft chip（家族唯一样式源）
 //
+// 分工口径（定稿）：SoftChip=实色软底动作件（neutral/brand/danger 三档 tone）。
 // 实色软底小胶囊动作件：「+ 加块 / 重试 / 取消拉黑」同款。新增小型实色动作 chip
 // 一律引用本组件，按 tone 选档，禁止再手写底色字色。
 // 三档：

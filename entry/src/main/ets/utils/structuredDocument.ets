@@ -42,11 +42,11 @@ export function structuredBlockTypeLabel(type: StructuredBlockType): string {
     case 'insight': return '结论';
     // list 块的实际内容语义是「适合谁」（官方骨架 block('list','适合谁')/字段 targetAudience），
     // 旧名「清单」属命名设计错误（回归报告第 5 项遗留）；此处一处改动覆盖
-    // StructuredComposer / StructuredReviewSheet / StructuredFlowView 全部调用方展示。
+    // StructuredReviewSheet / StructuredFlowView 全部调用方展示。
     // 内部字段名 type:'list' 影响面大，保持不动。
     case 'list': return '适合什么样的人';
     // 用户新口径（fix-step-block-label）：steps 块展示名定为「清单」——旧名「步骤」仅描述输入
-    // 形态；展示标签一处改动覆盖 Composer / ReviewSheet / FlowView 全部调用方。
+    // 形态；展示标签一处改动覆盖 ReviewSheet / FlowView 全部调用方。
     // 内部字段名 type:'steps' 影响面大，保持不动。
     case 'steps': return '清单';
     case 'compare': return '对比';

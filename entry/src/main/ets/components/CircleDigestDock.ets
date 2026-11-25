@@ -4,10 +4,10 @@
 import { CircleDigestItem } from '../services/api';
 import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
-import { ShadowTokens } from '../design/tokens/shadow';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { immersiveCardWidth } from '../design/tokens/galaxy';
+import { BaseCard } from '../design/components/BaseCard';
 import { Pressable } from '../design/motion/Pressable';
 
 @Component
@@ -70,40 +70,45 @@ export struct CircleDigestDock {
   }
 
   build() {
-    Column({ space: SpaceTokens.xs }) {
-      Row({ space: SpaceTokens.xs }) {
-        Text('今日圈内')
-          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.headline.weight)
-          .fontColor(ColorTokens.primary)
-        Blank()
-        Text(String(this.visibleItems().length) + ' 条')
-          .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-          .fontColor(ColorTokens.secondary)
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
-
-      ForEach(this.visibleItems(), (item: CircleDigestItem, index: number) => {
-        Column() {
-          // 行间分隔：三行原本只靠 padding 挤在一起，读起来是一团。
-          if (index > 0) {
-            Divider()
-              .color(ColorTokens.separator)
-              .strokeWidth(LayoutTokens.hairlineWidth)
+    // 断点限宽（sm 满幅 / md 520 / lg 600）：由外层透明容器承担（尾随闭包后不能直接链
+    // 通用属性），BaseCard width('100%') 撑满；宿主外层负责居中。
+    // 与「今日圈内」同口径：贴底常驻卡用贴地投影（BaseCard elevation=1 的 ambient 档），不用浮层档。
+    Column() {
+      BaseCard({
+        cardPadding: SpaceTokens.md,
+        radius: RadiusTokens.lg,
+        elevation: 1,
+      }) {
+        Column({ space: SpaceTokens.xs }) {
+          Row({ space: SpaceTokens.xs }) {
+            Text('今日圈内')
+              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamilySerif)
+              .fontWeight(TypeTokens.headline.weight)
+              .fontColor(ColorTokens.primary)
+            Blank()
+            Text(String(this.visibleItems().length) + ' 条')
+              .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
+              .fontColor(ColorTokens.secondary)
           }
-          this.digestRow(item)
+          .width('100%')
+          .alignItems(VerticalAlign.Center)
+
+          ForEach(this.visibleItems(), (item: CircleDigestItem, index: number) => {
+            Column() {
+              // 行间分隔：三行原本只靠 padding 挤在一起，读起来是一团。
+              if (index > 0) {
+                Divider()
+                  .color(ColorTokens.separator)
+                  .strokeWidth(LayoutTokens.hairlineWidth)
+              }
+              this.digestRow(item)
+            }
+            .width('100%')
+          }, (item: CircleDigestItem) => String(item.postId))
         }
         .width('100%')
-      }, (item: CircleDigestItem) => String(item.postId))
+      }
     }
     .width(immersiveCardWidth(this.currentBreakpoint))
-    .padding(SpaceTokens.md)
-    .backgroundColor(ColorTokens.elevated)
-    .borderRadius(RadiusTokens.lg)
-    .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.separator, style: BorderStyle.Solid })
-    // 贴底的常驻内容卡，不是浮层：floating 那档投影会把它推离星图，像第三方贴片。
-    .shadow(ShadowTokens.cardAmbient)
-    .alignItems(HorizontalAlign.Start)
   }
 }

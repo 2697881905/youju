@@ -1,4 +1,5 @@
 import { PublishDraft, PublishDraftMode, clonePublishDraft } from './publishDraft';
+import { FeedZone } from './feedZones';
 
 export type PublishMode = PublishDraftMode;
 export type PublishIntent = 'idle' | 'new' | 'edit' | 'sync' | 'reset';
@@ -17,6 +18,7 @@ function modeOfDraft(draft: PublishDraft): PublishMode {
 export interface PublishSession {
   intent: PublishIntent;
   mode: PublishMode;
+  zone: FeedZone;
   activeDraftId: string;
   previewDraft: PublishDraft | null;
   completedDraftId: string;
@@ -29,6 +31,7 @@ function copySession(session: PublishSession): PublishSession {
   return {
     intent: session.intent,
     mode: session.mode,
+    zone: session.zone,
     activeDraftId: session.activeDraftId,
     previewDraft: session.previewDraft === null ? null : clonePublishDraft(session.previewDraft),
     completedDraftId: session.completedDraftId,
@@ -40,6 +43,7 @@ class PublishFlowStoreImpl {
   private session: PublishSession = {
     intent: 'idle',
     mode: 'photo',
+    zone: 'insight',
     activeDraftId: '',
     previewDraft: null,
     completedDraftId: '',
@@ -51,30 +55,30 @@ class PublishFlowStoreImpl {
     return copySession(this.session);
   }
 
-  startNew(mode: PublishMode): void {
-    this.update('new', mode, '', null, '');
+  startNew(mode: PublishMode, zone: FeedZone): void {
+    this.update('new', mode, zone, '', null, '');
   }
 
   editSavedDraft(id: string, draft: PublishDraft): void {
-    this.update('edit', modeOfDraft(draft), id, draft, '');
+    this.update('edit', modeOfDraft(draft), this.session.zone, id, draft, '');
   }
 
   beginPreview(draft: PublishDraft, activeDraftId: string): void {
-    this.update('sync', modeOfDraft(draft), activeDraftId, draft, '');
+    this.update('sync', modeOfDraft(draft), this.session.zone, activeDraftId, draft, '');
   }
 
   updatePreview(draft: PublishDraft): void {
-    this.update('sync', modeOfDraft(draft), this.session.activeDraftId, draft, '');
+    this.update('sync', modeOfDraft(draft), this.session.zone, this.session.activeDraftId, draft, '');
   }
 
   setActiveDraftId(id: string): void {
-    this.update('sync', this.session.mode, id, this.session.previewDraft, '');
+    this.update('sync', this.session.mode, this.session.zone, id, this.session.previewDraft, '');
   }
 
   completePublish(): void {
     const version: number = AppStorage.get<number>('postPublishVersion') ?? 0;
     AppStorage.setOrCreate<number>('postPublishVersion', version + 1);
-    this.update('reset', this.session.mode, '', null, this.session.activeDraftId);
+    this.update('reset', this.session.mode, this.session.zone, '', null, this.session.activeDraftId);
   }
 
   subscribe(listener: PublishFlowListener): () => void {
@@ -87,11 +91,12 @@ class PublishFlowStoreImpl {
     };
   }
 
-  private update(intent: PublishIntent, mode: PublishMode, activeDraftId: string,
+  private update(intent: PublishIntent, mode: PublishMode, zone: FeedZone, activeDraftId: string,
     previewDraft: PublishDraft | null, completedDraftId: string): void {
     this.session = {
       intent: intent,
       mode: mode,
+      zone: zone,
       activeDraftId: activeDraftId,
       previewDraft: previewDraft === null ? null : clonePublishDraft(previewDraft),
       completedDraftId: completedDraftId,

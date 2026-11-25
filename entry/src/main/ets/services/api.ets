@@ -642,6 +642,14 @@ export interface PostStats {
   expose: number; // 信息流曝光次数
   click: number; // 信息流点击次数
   clickRate: number; // 曝光→点击转化率（%）
+  // 作者近 7 帖转化率基准（服务端聚合：Σclick/Σexpose；postCount=0 = 无历史帖可比）
+  authorBaseline?: AuthorStatsBaseline | null;
+}
+
+// 作者近 7 帖转化率基准（面板「流量转化 x% ▲▼」的对比口径）
+export interface AuthorStatsBaseline {
+  postCount: number;
+  clickRate: number;
 }
 
 export function getPostStats(postId: number): Promise<PostStats> {
@@ -1389,7 +1397,7 @@ export function exportUserData(): Promise<UserExportData> {
 
 // ===== AI 辅助创作（发布页：标题优化 / 正文整理结构化） =====
 // 服务端未配置 LLM 凭证时 /v1/ai/status 返回 enabled:false，入口整体隐藏（不报错不打扰）。
-// 铁律：AI 只做原文驱动的整理，产出灌入 StructuredComposer 由作者逐块确认；证据永远人工挂。
+// 铁律：AI 只做原文驱动的整理，产出灌入审稿层由作者逐块确认；证据永远人工挂。
 
 export interface AiStatusResult {
   enabled: boolean;
@@ -1435,7 +1443,9 @@ interface AiPolishDraftRequest {
 
 interface AiDraftRequest {
   content: string;
+  // 作者倾向；干货发布固定传 ''，让模型在干货体裁候选内自由推断
   genre: string;
+  zone: FeedZone;
 }
 
 // 查询 AI 功能是否可用；任何失败（网络/未登录/未配置）一律降级为 false，入口隐藏。
@@ -1470,7 +1480,8 @@ export function aiPolishDraft(title: string, content: string, genre: string, max
 }
 
 // POST /v1/ai/structure-draft：正文整理结构化，返回合法 V2/V3 文档草稿。
-export function aiStructureDraft(content: string, genre: string): Promise<AiDraftResult> {
-  const body: AiDraftRequest = { content: content, genre: genre };
+// zone 决定体裁候选集：insight 收窄到 4 类干货体裁；life 服务端直接拒绝（前端不该调）。
+export function aiStructureDraft(content: string, genre: string, zone: FeedZone): Promise<AiDraftResult> {
+  const body: AiDraftRequest = { content: content, genre: genre, zone: zone };
   return api.post<AiDraftResult>('/v1/ai/structure-draft', body);
 }

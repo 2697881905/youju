@@ -2,17 +2,21 @@
 //
 // 它封装了「沉浸渐变模糊顶栏 + 内容穿底 + 双模态分宿主」整套已验证结构，调用方只需塞内容：
 //   Stack() {                    // @Entry 根须内置容器；自定义组件尾随闭包后不能直接链通用属性
-//     PublishPageShell({ modeLabel, progressValue, progressTotal, hint, actionLabel,
-//                        actionDisabled, scroller, onAction, onBack }) {
-//       Scroll(同一个 scroller) { /* 页面内容，首行补 topInset 让位 */ }
-//         .bindContentCover(...) // 全模态挂调用方自己的 Scroll
+//     Stack() {                  // 内层 Stack 承担全模态（页面自有组件，状态变化即时重评估）
+//       PublishPageShell({ modeLabel, progressValue, progressTotal, hint, actionLabel,
+//                          actionDisabled, scroller, onAction, onBack }) {
+//         Scroll(同一个 scroller) { /* 页面内容，首行补 topInset 让位 */ }
+//       }
 //     }
+//     .bindContentCover(...)     // 全模态挂内层 Stack，绝不挂进尾随闭包
 //   }
+//   .transition(buildPageTransition()) // 页面转场必配，否则真实触摸全死（见踩坑 8）
 //   .bindSheet(...)              // 半模态挂外层 Stack
 //
 // ⚠️ 踩坑清单（新增页面务必遵守，逐条都是真机实证）：
-//  1. 双模态分宿主：bindSheet 挂外层 Stack、bindContentCover 挂内层 Scroll，绝不能同组件兼绑
-//     ——平台规格「同组件同时绑两者 → 半模态生效、全模态静默失效」。
+//  1. 双模态分宿主：bindSheet 挂外层根 Stack、bindContentCover 挂内层 Stack，绝不能同组件兼绑
+//     ——平台规格「同组件同时绑两者 → 半模态生效、全模态静默失效」。全模态也不能挂进尾随闭包
+//     内层 Scroll：外壳 props 不变即被复用、闭包不重评估，弹层开关改了绑定也不刷新（弹层永不出现）。
 //  2. bindToScrollable 必须绑「真正挂在 Scroll 上的同一个 Scroller 实例」：调用方建 private scroller，
 //     既传给外壳 scroller 属性、又挂 Scroll(scroller)。外壳用普通属性接（非 @Prop，@Prop 会复制实例致绑空）。
 //  3. 穿底：enableComponentSafeArea=false + clip(false)，内容从窗口原点起算可画到栏下被模糊采样；
@@ -23,6 +27,8 @@
 //     标题行由 props 驱动而非第二个 @BuilderParam。
 //  7. @Entry 的 build 根必须是内置容器，且自定义组件尾随闭包 `Shell({...}){...}` 之后不能再链 .bindSheet 等
 //     通用属性（会被解析成独立语句报 10505001/10905210）→ 用 Stack 包住外壳，bindSheet 挂 Stack。
+//  8. 调用方页面根必须 .transition(buildPageTransition())：未配置页面转场的路由页真实触摸在
+//     转场状态机上被禁（手指/注入全死、accessibility tap 绕过），2026-11-24 发布三页真机实证。
 import { DesignButton } from '../design/components/DesignButton';
 import { IconButton } from '../design/components/IconButton';
 import { resolveActionIcon } from '../utils/actionIcons';

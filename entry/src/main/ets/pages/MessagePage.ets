@@ -1299,6 +1299,7 @@ export struct MessagePage {
         })
         .width('100%')
         .layoutWeight(1)
+        .scrollBar(BarState.Off)
       }
       .onRefreshing(() => {
         this.loadConversations().finally(() => {
@@ -1460,8 +1461,8 @@ export struct MessagePage {
     .height('100%')
     // 标题左右边距统一为「我的」页基准 base(16vp)，四页 Title 与屏幕左缘等距。
     .padding({
-      left: SpaceTokens.base,
-      right: SpaceTokens.base,
+      left: SpaceTokens.pageCompact,
+      right: SpaceTokens.pageCompact,
       top: SpaceTokens.xs,
       bottom: SpaceTokens.xs,
     })
@@ -1688,6 +1689,7 @@ export struct MessagePage {
               .clip(false)
               .width('100%')
               .layoutWeight(1)
+              .scrollBar(BarState.Off)
             } else {
               Refresh({ refreshing: $$this.notifRefreshing, builder: this.msgRefreshBuilder, offset: 80, friction: 48 }) {
               // 通知列表：Scroll 单列（懒加载 List 会把滚动终点钳制在底部非安全区之上，
@@ -1743,6 +1745,7 @@ export struct MessagePage {
               })
               .width('100%')
               .layoutWeight(1)
+              .scrollBar(BarState.Off)
               }
               .onRefreshing(() => {
                 this.loadFirst().finally(() => {

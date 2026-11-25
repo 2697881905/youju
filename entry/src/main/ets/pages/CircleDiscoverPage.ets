@@ -469,7 +469,7 @@ export struct CircleDiscoverPage {
         this.createEntry()
       }
       .width('100%')
-      .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.x3l })
+      .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, bottom: SpaceTokens.x3l })
       .alignItems(HorizontalAlign.Start)
   }
 
@@ -533,7 +533,7 @@ export struct CircleDiscoverPage {
         }
       }
       .width('100%')
-      .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.x3l })
+      .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, bottom: SpaceTokens.x3l })
       .alignItems(HorizontalAlign.Start)
   }
 

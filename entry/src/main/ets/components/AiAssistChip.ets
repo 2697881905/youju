@@ -3,8 +3,8 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 
-// AI 辅助入口的统一小胶囊：空闲态 ✦ 前缀、加载态转圈。供「AI 优化标题」（三个发布页）
-// 与「AI 整理成结构化」（StructuredComposer）共用，保证入口观感一致。
+// AI 辅助入口的统一小胶囊：空闲态 ✦ 前缀、加载态转圈。供「AI 优化标题」（三个发布页）与
+// 结构化审稿层的重新整理共用，保证入口观感一致。
 //
 // enabled=false（服务端未配置 LLM 凭证）时整颗隐藏——调用方用 if 包裹，本组件不自行隐藏，
 // 以便 Row 布局里与提示文案的配合由调用方决定。

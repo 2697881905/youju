@@ -1,5 +1,6 @@
 // ToggleChip —— 迷你 toggle chip（家族唯一样式源）
 //
+// 分工口径（定稿）：ToggleChip=28vp 高双态选择迷你胶囊（tint 底选中态）。
 // 结构化创作 miniAction 同款：28 高小胶囊，选中/未选中双态。
 // 「选中」的身份由 tint 底 + 加粗 + 墨字承担——brand 字压 brandTint 深色只有 3.58:1
 // （11px 不达 AA），不用 brand 字色。新增可选中迷你 chip 一律引用本组件。

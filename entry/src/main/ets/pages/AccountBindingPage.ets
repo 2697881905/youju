@@ -11,6 +11,7 @@ import { getUserId } from '../utils/auth';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { CARD_RADIUS, CARD_SHADOW } from '../utils/cardTokens';
+import { SpaceTokens } from '../design/tokens/space';
 import { brandIconRes, brandTileTint } from '../utils/brandIcons';
 import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
 import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
@@ -210,7 +211,7 @@ struct AccountBindingPage {
           .fontSize(13).fontFamily($r('app.string.font_family'))
           .fontColor($r('app.color.text_secondary'))
           .width('100%')
-          .padding({ left: 16, right: 16, top: 4, bottom: 8 })
+          .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: 4, bottom: 8 })
 
         // 列表区
         if (this.loading) {

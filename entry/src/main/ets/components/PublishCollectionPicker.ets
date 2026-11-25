@@ -117,10 +117,21 @@ export struct PublishCollectionPicker {
         }
       }
       if (this.items.length === 0 && !this.loading) {
-        Text('还没有合集，先到「我的合集」创建一个')
-          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-          .fontColor(ColorTokens.tertiary)
+        Pressable({
+          visualHeight: LayoutTokens.segmentedHeight,
+          action: (): void => { this.getUIContext().getRouter().pushUrl({ url: 'pages/CollectionPage' }); },
+        }) {
+          Row({ space: SpaceTokens.inlineTight }) {
+            Text('还没有合集，先到「我的合集」创建一个')
+              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+              .fontColor(ColorTokens.tertiary)
+            Text('去创建 →')
+              .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+              .fontColor(ColorTokens.brand)
+          }
+          .width('100%')
           .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+        }
       }
     }
     .width('100%')

@@ -1,6 +1,7 @@
 // 用户协议页：内置静态用户协议文本，无后端调用
 
 import { buildPageTransition } from '../utils/styles';
+import { SpaceTokens } from '../design/tokens/space';
 import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
 import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import {
@@ -43,14 +44,14 @@ export struct UserAgreementPage {
               .fontSize(12).fontFamily($r('app.string.font_family'))
               .fontColor($r('app.color.text_secondary'))
               .width('100%')
-              .padding({ left: 16, right: 16 });
+              .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact });
 
             Text('欢迎使用有据（以下简称"本应用"）。本应用是面向大众的理性内容分享社区，运营主体为白逸飞（以下简称"我们"）。在使用本应用前，请您仔细阅读并充分理解本《用户协议》与《隐私政策》。本应用采用明示同意方式：您需在首次启动时的隐私政策与用户协议弹窗中主动点击「同意并继续」，并在登录页主动勾选「我已阅读并同意《用户协议》与《隐私政策》」后，方可注册和使用本应用；未勾选时登录入口不可用，我们也不会收集您的个人信息。您不同意前述协议的，可以停止使用并退出应用，这不影响您以访客身份浏览公开内容。')
               .fontSize(15).fontFamily($r('app.string.font_family'))
               .fontColor($r('app.color.text_primary'))
               .lineHeight(24)
               .width('100%')
-              .padding({ left: 16, right: 16 });
+              .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact });
 
             this.section('1. 服务条款', [
               '本应用为面向大众的理性内容分享社区，提供图文、视频、文字内容发布、评论、收藏、关注和圈子等基础服务。',
@@ -97,14 +98,15 @@ export struct UserAgreementPage {
               .fontColor($r('app.color.text_secondary'))
               .lineHeight(20)
               .width('100%')
-              .padding({ left: 16, right: 16, top: 16, bottom: 32 });
+              .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: 16, bottom: 32 });
           }
           .width('100%')
           .padding({ top: 8 });
         }
         .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .layoutWeight(1)
-        .width('100%');
+        .width('100%')
+        .scrollBar(BarState.Off);
       }
       .width('100%')
       .height('100%')
@@ -140,6 +142,6 @@ export struct UserAgreementPage {
       });
     }
     .width('100%')
-    .padding({ left: 16, right: 16 });
+    .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact });
   }
 }

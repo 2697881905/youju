@@ -21,7 +21,8 @@ export const PUBLISH_GENRES: PublishGenreItem[] = [
   { key: 'share', label: '分享', hint: '经验见闻与心得', iconRes: $r('app.media.genre_share'), structured: false },
 ];
 
-// 体裁 → 分段栏数据源：三个发布页共用同一份顺序，选中的就是列表里看到的那一个。
+// 体裁 → 分段栏数据源。发布页的体裁栏已改用内容区两段（publishZones.ets 的 PUBLISH_ZONE_SEGMENTS），
+// 本导出保留给仍引用体裁列表的调用方。
 export const PUBLISH_GENRE_SEGMENTS: SegmentedItem[] = PUBLISH_GENRES.map(
   (item: PublishGenreItem): SegmentedItem => {
     return { key: item.key, label: item.label };

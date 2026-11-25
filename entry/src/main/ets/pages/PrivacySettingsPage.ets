@@ -5,6 +5,7 @@ import { PrivacySettingsData } from '../models/types';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { CARD_RADIUS, CARD_SHADOW } from '../utils/cardTokens';
+import { SpaceTokens } from '../design/tokens/space';
 import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
 import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import {
@@ -138,7 +139,7 @@ export struct PrivacySettingsPage {
                   .fontSize(13).fontFamily($r('app.string.font_family'))
                   .fontColor($r('app.color.text_secondary'))
                   .alignSelf(ItemAlign.Start)
-                  .padding({ left: 4 });
+                  .padding({ left: SpaceTokens.pageCompact });
 
                 Column({ space: 0 }) {
                   ForEach(this.visibilityOptions, (opt: string, idx: number) => {
@@ -177,7 +178,7 @@ export struct PrivacySettingsPage {
                   .fontSize(13).fontFamily($r('app.string.font_family'))
                   .fontColor($r('app.color.text_secondary'))
                   .alignSelf(ItemAlign.Start)
-                  .padding({ left: 4 });
+                  .padding({ left: SpaceTokens.pageCompact });
 
                 Row() {
                   Column() {
@@ -249,7 +250,7 @@ export struct PrivacySettingsPage {
                   .fontSize(13).fontFamily($r('app.string.font_family'))
                   .fontColor($r('app.color.text_secondary'))
                   .alignSelf(ItemAlign.Start)
-                  .padding({ left: 4 });
+                  .padding({ left: SpaceTokens.pageCompact });
 
                 Column({ space: 0 }) {
                   Row() {
@@ -336,11 +337,12 @@ export struct PrivacySettingsPage {
               .width('100%');
             }
             .width('100%')
-            .padding({ left: 16, right: 16, top: 8, bottom: 32 });
+            .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: 8, bottom: 32 });
           }
           .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
           .layoutWeight(1)
-          .width('100%');
+          .width('100%')
+          .scrollBar(BarState.Off);
         }
       }
       .width('100%')

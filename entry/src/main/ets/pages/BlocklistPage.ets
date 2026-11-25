@@ -220,6 +220,7 @@ export struct BlocklistPage {
         }
         .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .layoutWeight(1).width('100%')
+        .scrollBar(BarState.Off)
         }
       }
       .width('100%').height('100%')

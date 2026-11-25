@@ -9,6 +9,7 @@ import { initAuthStorage, getToken, getUserId, setPrivacyAgreed, isPrivacyAgreed
 import { getUnreadCount, getDmUnreadCount, getMe, recordPrivacyConsent, followTag, listTags, getPost, PostWithComments, resolveDisplayImageUrl } from '../services/api';
 import { Tag } from '../models/types';
 import { safeShowToast } from '../utils/toast';
+import { AppModalController } from '../utils/modal';
 import { PublishMode, PublishModePanel } from '../components/PublishModePanel';
 import { SearchPanelDestination } from './SearchPanelDestination';
 import { CircleDiscoverDestination } from './CircleDiscoverDestination';
@@ -30,9 +31,10 @@ import { ProfileHeader } from '../components/ProfileHeader';
 import { ImmersiveSegmentBar } from '../design/components/ImmersiveSegmentBar';
 import { User } from '../models/types';
 import { common } from '@kit.AbilityKit';
-import { window, display, LengthMetrics } from '@kit.ArkUI';
+import { ComponentContent, window, display, LengthMetrics } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { publishFlowStore } from '../utils/publishFlowStore';
+import { FeedZone } from '../utils/feedZones';
 import { AppTab, subscribeTabSwitch, emitTabSwitch, openPostDetail, openPostDetailAtComment, openChat, openFollowList, openUserProfile } from '../utils/nav';
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { takePushRoute, syncPushToken, requestNotificationPermission } from '../utils/push';
@@ -190,10 +192,11 @@ interface IndexTabItem {
 //     不再用 iOS 亮红（旧实现 semantic_red 在浅色玻璃底上仅 3.1:1，不达 AA）。
 //   · 正文放 Scroll 并按屏高封顶（maxBodyHeightVp），长文滚动不塌陷、
 //     标题与按钮行常驻可见；面板宽度按屏宽封顶 344、下限 280，适配小屏与大屏。
-// 仅调整样式层：打开/关闭、协议跳转、同意/不同意行为与回调签名均未改动。
-@CustomDialog
+// 打开/关闭已迁 AppModalController 统一通道（utils/modal.ets，与 FolderNameDialog/FolderPickDialog
+// 等统一弹窗同体系）：本组件只负责内容壳与回调，不再持有 CustomDialogController。
+@Component
 struct PrivacyConsentDialog {
-  controller?: CustomDialogController;
+  onClose: () => void = (): void => {};
   getIsUpdate: () => boolean = (): boolean => false;
   onReadPrivacy: () => void = (): void => {};
   onReadAgreement: () => void = (): void => {};
@@ -294,7 +297,7 @@ struct PrivacyConsentDialog {
         .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .width('100%')
         .constraintSize({ maxHeight: this.maxBodyHeightVp() })
-        .scrollBar(BarState.Auto)
+        .scrollBar(BarState.Off)
 
         // 底部操作：主次分明。
         // ⚠️ 写法约束（ArkTS 解析规则，报 10505001）：自定义组件若带尾随闭包
@@ -330,7 +333,7 @@ struct PrivacyConsentDialog {
               }
             })
             .onClick((): void => {
-              this.controller?.close();
+              this.onClose();
               this.onDecline();
             })
 
@@ -339,7 +342,7 @@ struct PrivacyConsentDialog {
             fillWidth: true,
             visualHeight: LayoutTokens.minTouchTarget,
             action: (): void => {
-              this.controller?.close();
+              this.onClose();
               this.onAgree();
             },
           })
@@ -350,6 +353,31 @@ struct PrivacyConsentDialog {
       .width('100%')
     }
   }
+}
+
+// 协议弹窗参数对象：ComponentContent 需要「全局 @Builder + class 参数」——页面闭包与 @Builder
+// 方法引用均无法进 ComponentContent；回调闭包捕获 Index 的 this，在 showPrivacyDialog 内构造。
+// 关闭走 closeCustomDialog(content)：同步可靠，不依赖 dialogId（其 Promise 真机实为弹窗关闭时
+// 才回填，整个生命周期恒 -1——2026-11-25 双层弹窗实锤根因）。
+export class PrivacyConsentParams {
+  isUpdate: boolean = false;
+  onReadPrivacy: () => void = (): void => {};
+  onReadAgreement: () => void = (): void => {};
+  onAgree: () => void = (): void => {};
+  onDecline: () => void = (): void => {};
+  onClose: () => void = (): void => {};
+}
+
+@Builder
+function privacyConsentDialogBuilder(p: PrivacyConsentParams) {
+  PrivacyConsentDialog({
+    getIsUpdate: (): boolean => p.isUpdate,
+    onReadPrivacy: p.onReadPrivacy,
+    onReadAgreement: p.onReadAgreement,
+    onAgree: p.onAgree,
+    onDecline: p.onDecline,
+    onClose: p.onClose,
+  })
 }
 
 @Entry
@@ -510,30 +538,10 @@ struct Index {
     // 点击面板外/返回键关闭同样视为「忽略」：本会话内不再对该链接打扰
     cancel: (): void => { this.dismissClipboardPost(); },
   });
-  private privacyConsentController: CustomDialogController = new CustomDialogController({
-    builder: PrivacyConsentDialog({
-      getIsUpdate: (): boolean => this.privacyDialogIsUpdate,
-      onReadPrivacy: (): void => {
-        // 审核修复：先关闭弹窗再打开政策页，避免内容被 Modal 遮挡无法阅读；返回后未同意则重弹
-        this.privacyDialogShown = true;
-        this.privacyConsentController.close();
-        this.getUIContext().getRouter().pushUrl({ url: 'pages/PrivacyPage' });
-      },
-      onReadAgreement: (): void => {
-        this.privacyDialogShown = true;
-        this.privacyConsentController.close();
-        this.getUIContext().getRouter().pushUrl({ url: 'pages/UserAgreementPage' });
-      },
-      onAgree: (): void => { this.agreePrivacy(); },
-      onDecline: (): void => { this.declinePrivacy(); },
-    }),
-    alignment: DialogAlignment.Center,
-    customStyle: true,
-    // 明示同意弹窗只能走「同意并继续 / 不同意」两条明路。默认 autoCancel=true 时点面板外或
-    // 按返回键会直接把弹窗关掉：privacyAgreed 仍是 '0'，而 privacyDialogShown 没置位 →
-    // onPageShow 不再重弹，用户停在未同意空壳里（既绕过告知—同意闸门，也再也找不回入口）。
-    autoCancel: false,
-  });
+  // 明示同意弹窗走 AppModalController 统一通道；autoCancel=false（只能走两条明路，
+  // 否则点外关闭后 privacyAgreed 仍 '0' 且不再重弹，绕过告知—同意闸门），builder 在
+  // showPrivacyDialog() 内构建。
+  private privacyConsentModal: AppModalController = new AppModalController();
 
   private bottomTabItems(): IndexTabItem[] {
     return [
@@ -875,6 +883,10 @@ struct Index {
     // 隐私需「明示同意」：首启未同意时弹出自检同意弹窗（含「不同意」退出，满足审核红线）。
     // 不再叠加 checkPrivacyUpdate 的版本更新二次弹窗，避免多个隐私弹窗。
     if (!isPrivacyAgreed()) {
+      // 闸门补齐：置位让 checkPrivacyUpdate 的闸门正确拦截（否则版本核对路径会二次弹窗）。
+      // 旧 @CustomDialog 时代靠 controller.open() 的系统级防重掩盖了这处缺失，迁
+      // openCustomDialog 后 dialogId 异步防重被竞态窗口击穿（2026-11-25 真机双弹窗实锤）。
+      this.privacyDialogShown = true;
       this.showPrivacyDialog();
       return;
     }
@@ -979,9 +991,51 @@ struct Index {
     });
   }
 
+  // 协议弹窗内容：必须引用 @Builder 方法而非闭包内联组件——builder 闭包内直接组件调用
+  // 在真机会抛 TypeError: class constructor cannot called without 'new'（2026-11-25 实锤，
+  // 与 CircleDetailView bottomBuilder 的 builder 解析陷阱同族：组件调用片段只能活在 @Builder 里）。
+  @Builder
+  privacyConsentDialogBuilder(): void {
+    PrivacyConsentDialog({
+      getIsUpdate: (): boolean => this.privacyDialogIsUpdate,
+      onReadPrivacy: (): void => {
+        // 审核修复：先关闭弹窗再打开政策页，避免内容被 Modal 遮挡无法阅读；返回后未同意则重弹
+        this.privacyDialogShown = true;
+        this.privacyConsentModal.close();
+        this.getUIContext().getRouter().pushUrl({ url: 'pages/PrivacyPage' });
+      },
+      onReadAgreement: (): void => {
+        this.privacyDialogShown = true;
+        this.privacyConsentModal.close();
+        this.getUIContext().getRouter().pushUrl({ url: 'pages/UserAgreementPage' });
+      },
+      onAgree: (): void => { this.agreePrivacy(); },
+      onDecline: (): void => { this.declinePrivacy(); },
+      onClose: (): void => { this.privacyConsentModal.close(); },
+    })
+  }
+
   private showPrivacyDialog(isUpdate: boolean = false): void {
     this.privacyDialogIsUpdate = isUpdate;
-    this.privacyConsentController.open();
+    const params: PrivacyConsentParams = new PrivacyConsentParams();
+    params.isUpdate = isUpdate;
+    params.onReadPrivacy = (): void => {
+      // 审核修复：先关闭弹窗再打开政策页，避免内容被 Modal 遮挡无法阅读；返回后未同意则重弹
+      this.privacyDialogShown = true;
+      this.privacyConsentModal.close();
+      this.getUIContext().getRouter().pushUrl({ url: 'pages/PrivacyPage' });
+    };
+    params.onReadAgreement = (): void => {
+      this.privacyDialogShown = true;
+      this.privacyConsentModal.close();
+      this.getUIContext().getRouter().pushUrl({ url: 'pages/UserAgreementPage' });
+    };
+    params.onAgree = (): void => { this.agreePrivacy(); };
+    params.onDecline = (): void => { this.declinePrivacy(); };
+    params.onClose = (): void => { this.privacyConsentModal.close(); };
+    const content: ComponentContent<PrivacyConsentParams> =
+      new ComponentContent(this.getUIContext(), wrapBuilder(privacyConsentDialogBuilder), params);
+    this.privacyConsentModal.openContent(this.getUIContext(), content, { autoCancel: false });
   }
 
   private agreePrivacy(): void {
@@ -1027,12 +1081,12 @@ struct Index {
   // 未登录闸门：原先在页签点击拦截里（点发布先判登录），发布成为实体页之后挪到这里 ——
   // 停在发布页不要求登录，选定方式、真要进编辑器时才拦。取消登录返回时露出的就是发布页
   // （用户就站在这页上，可以再选一次或滑走），不会被莫名弹到别的页。
-  private openPublish(mode: PublishMode): void {
+  private openPublish(mode: PublishMode, zone: FeedZone): void {
     if (getToken() === '') {
       this.getUIContext().getRouter().pushUrl({ url: 'pages/LoginPage' });
       return;
     }
-    publishFlowStore.startNew(mode);
+    publishFlowStore.startNew(mode, zone);
     const url: string = mode === 'video' ? 'pages/VideoPublishPage'
       : (mode === 'text' ? 'pages/TextPublishPage' : 'pages/PhotoPublishPage');
     this.getUIContext().getRouter().pushUrl({ url: url });
@@ -2056,7 +2110,7 @@ struct Index {
       // 点按切页淡入层（fix-tab-tap-animation-v2，同首页注释）
       Column() {
         PublishModePanel({
-          onSelect: (mode: PublishMode): void => { this.openPublish(mode); },
+          onSelect: (mode: PublishMode, zone: FeedZone): void => { this.openPublish(mode, zone); },
         })
       }
       .width('100%')

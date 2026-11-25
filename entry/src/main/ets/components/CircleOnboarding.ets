@@ -111,6 +111,7 @@ export struct CircleOnboarding {
           .columnsGap(SpaceTokens.sm)
           .rowsGap(SpaceTokens.sm)
           .width('100%')
+          .scrollBar(BarState.Off)
         }
         .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .layoutWeight(1)

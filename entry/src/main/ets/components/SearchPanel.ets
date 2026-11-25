@@ -20,6 +20,8 @@ import type {
   ScrollEffectOptions,
   HdsNavigationBackButtonItemOptions,
   HdsNavigationIconOptions,
+  HdsTitleBarContentStyle,
+  HdsNavigationIconItemStyle,
 } from '@kit.UIDesignKit';
 
 // 搜索框 / 返回按钮的标准控件高度：与系统搜索栏一致。
@@ -312,6 +314,12 @@ export struct SearchPanel {
       scrollEffectOpts: scrollEffect,
       originalStyle: {
         backgroundStyle: { backgroundColor: Color.Transparent },
+        // 返回键图标色：HDS 默认按「栏压在 hero 媒体上」给白色（基准 §36），本面板栏下是
+        // 浅色画布——白色箭头浅色模式下不可见（2026-11-25 用户实报）。点名 primary（品牌
+        // 蓝深浅色 token，与 SearchResultPage/ChatView 同款），深浅色双模式可见。
+        contentStyle: {
+          backIconStyle: { iconColor: ColorTokens.primary } as HdsNavigationIconItemStyle,
+        } as HdsTitleBarContentStyle,
       },
     };
     if (immersive) {
@@ -476,6 +484,7 @@ export struct SearchPanel {
                 .rowsGap(SpaceTokens.sm)
                 .width('100%')
                 .height(this.hotGridHeight())
+                .scrollBar(BarState.Off)
               }
             }
             .width('100%')
@@ -496,6 +505,7 @@ export struct SearchPanel {
       .backgroundColor(ColorTokens.canvas)
       // 滚动容器自身的越界回弹交给热搜 Grid（alwaysEnabled Spring）承担，外层不再叠加
       .edgeEffect(EdgeEffect.None)
+      .scrollBar(BarState.Off)
     }
     .mode(NavigationMode.Stack)
     .titleBar(this.searchTitleBarOptions())

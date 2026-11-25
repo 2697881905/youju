@@ -216,6 +216,7 @@ export struct ShareToDmSheet {
         .width('100%')
         .layoutWeight(1)
         .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+        .scrollBar(BarState.Off)
       }
     }
     .width('100%')

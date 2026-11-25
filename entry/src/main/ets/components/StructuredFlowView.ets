@@ -361,7 +361,7 @@ export struct StructuredFlowView {
       }
       .layoutWeight(1)
       .width('100%')
-      .scrollBar(BarState.Auto)
+      .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
     }
     .width('100%')

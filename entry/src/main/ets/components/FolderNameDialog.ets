@@ -7,13 +7,13 @@ import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { IconButton } from '../design/components/IconButton';
 
-@CustomDialog
+@Component
 export struct FolderNameDialog {
-  controller: CustomDialogController;
   title: string = '新建收藏夹';
   placeholder: string = '输入收藏夹名称（最多 20 字）';
   initial: string = '';
   onSubmit: (name: string) => void = (_name: string): void => {};
+  onClose: () => void = (): void => {};
 
   @State text: string = '';
 
@@ -26,7 +26,7 @@ export struct FolderNameDialog {
     if (name.length === 0) {
       return;
     }
-    this.controller.close();
+    this.onClose();
     this.onSubmit(name);
   }
 
@@ -43,7 +43,7 @@ export struct FolderNameDialog {
             .lineHeight(TypeTokens.headline.lineHeight)
             .fontColor(ColorTokens.primary)
             .layoutWeight(1)
-          IconButton({ icon: 'close', a11yText: '关闭', action: (): void => { this.controller.close(); } })
+          IconButton({ icon: 'close', a11yText: '关闭', action: (): void => { this.onClose(); } })
         }
         .width('100%')
         .alignItems(VerticalAlign.Center)

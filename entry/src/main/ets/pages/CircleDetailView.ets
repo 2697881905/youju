@@ -14,30 +14,31 @@ import { emitTabSwitch, openPostDetail, takeCircleDetailName } from '../utils/na
 import { setPendingPublishCircle } from '../utils/publishCircleIntent';
 import { getMainNavStack, EmptyNavParams, PostDetailNavParams } from '../utils/navigationTransition';
 import { gridColumnTemplate, gridColumnsForBreakpoint } from '../utils/responsive';
-import { GRID_GAP, GRID_PADDING } from '../utils/cardTokens';
+import { GRID_GAP } from '../utils/cardTokens';
 import { safeShowToast } from '../utils/toast';
 import { PostCard } from '../components/PostCard';
 import { TagIcon } from '../components/TagIcon';
 import { DesignButton } from '../design/components/DesignButton';
 import { EmptyState } from '../design/components/EmptyState';
 import { ImmersiveSegmentBar, SegmentedItem } from '../design/components/ImmersiveSegmentBar';
-import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit';
+import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
 import type {
   HdsNavigationTitleBarOptions,
   TitleBarContentOptions,
   TitleBarStyleOptions,
-  ScrollEffectOptions,
-  HdsTitleBarContentStyle,
-  HdsNavigationIconItemStyle,
-  HdsNavigationIconOptions,
+
+
+
+
   HdsNavigationBackButtonItemOptions,
-  SystemMaterialParams,
+
   BottomBuilderParams,
 } from '@kit.UIDesignKit';
 import { LengthMetrics } from '@kit.ArkUI';
-import { isImmersiveLightSenseSupported, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
+import { HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
 import { requestSystemBarRefresh } from '../utils/systemBar';
 import { resolveActionIcon } from '../utils/actionIcons';
+import { buildGlassBackIcon, buildGlassTitleBarStyle } from '../design/components/HdsGlassBackSurface';
 import { Reveal } from '../design/motion/Reveal';
 import { MotionTokens } from '../design/tokens/motion';
 import { ColorTokens } from '../design/tokens/color';
@@ -347,38 +348,14 @@ export struct CircleDetailView {
 
   // HdsNavigation 标题栏配置（详情页同款配方）
   private circleTitleBarOptions(): HdsNavigationTitleBarOptions {
-    const immersive: boolean = isImmersiveLightSenseSupported();
-    const scrollEffect: ScrollEffectOptions = {
-      enableScrollEffect: true,
-      scrollEffectType: immersive ? ScrollEffectType.IMMERSIVE_GRADIENT_BLUR : ScrollEffectType.GRADIENT_BLUR,
-      blurEffectiveStartOffset: LengthMetrics.vp(0),
-      blurEffectiveEndOffset: LengthMetrics.vp(32),
-    };
-    const style: TitleBarStyleOptions = {
-      scrollEffectOpts: scrollEffect,
-      originalStyle: {
-        backgroundStyle: {
-          backgroundColor: Color.Transparent,
-          blurRadius: this.circleBarScrolled ? 50 : 0,
-          maskExtraHeight: 0,
-        },
-        contentStyle: {
-          backIconStyle: { iconColor: ColorTokens.primary } as HdsNavigationIconItemStyle,
-        } as HdsTitleBarContentStyle,
-      },
-    };
-    if (immersive) {
-      style.systemMaterialEffect = {
-        materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
-        materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE,
-      } as SystemMaterialParams;
-    }
-    const backContent: HdsNavigationIconOptions = {
-      icon: resolveActionIcon('back'),
-      label: '返回',
-      action: (): void => { this.backAction(); },
-    };
-    const backIcon: HdsNavigationBackButtonItemOptions = backContent;
+    // 栏样式走玻璃三件套共享入口；本页定制=滚动后常驻模糊门控（circleBarScrolled 动态
+    // blurRadius 50:0，IMMERSIVE 出图开关），经 scrolledBlur 参数显式声明，观感零变化。
+    const style: TitleBarStyleOptions = buildGlassTitleBarStyle({
+      scrolledBlur: (): boolean => this.circleBarScrolled,
+    });
+    const backIcon: HdsNavigationBackButtonItemOptions = buildGlassBackIcon((): void => {
+      this.backAction();
+    });
     // ✅ 2026-11-22 方案 C++：身份行 + 分段行合体进 bottomBuilder（126vp 高度自主）——
     // uiMaterial 只在标题栏子树出图（§7.6.26 定论），分段栏站回栏级材质与首页 100% 同源；
     // 垂直空间比 MINI 栏内身份行宽松一倍。stackBuilder 退场（返回键独占 MINI 栏）。
@@ -457,7 +434,7 @@ export struct CircleDetailView {
       .layoutWeight(1)
     }
     .width('100%')
-    .padding({ left: GRID_PADDING, right: GRID_PADDING, top: SpaceTokens.inlineTight })
+    .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: SpaceTokens.inlineTight })
     .alignItems(VerticalAlign.Center)
   }
 
@@ -491,8 +468,8 @@ export struct CircleDetailView {
     .width('100%')
     .alignItems(VerticalAlign.Center)
     .padding({
-      left: GRID_PADDING,
-      right: GRID_PADDING,
+      left: SpaceTokens.pageCompact,
+      right: SpaceTokens.pageCompact,
       top: LayoutTokens.segmentBarTopRoom,
       bottom: LayoutTokens.segmentBarShadowRoom,
     })
@@ -582,12 +559,13 @@ export struct CircleDetailView {
             .rowsGap(GRID_GAP)
             // 顶部让位穿底标题栏（statusBar + MINI 栏 + bottomBuilder 分段行）：信息行
             // 搬进 stackBuilder 后让位移交给网格（2026-11-22 方案 C）
-            .padding({ left: GRID_PADDING, right: GRID_PADDING, top: this.circleListInset(), bottom: GRID_PADDING })
+            .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: this.circleListInset(), bottom: SpaceTokens.pageCompact })
             .onScrollIndex((_start: number, end: number) => {
               if (end >= this.posts.length - 1) {
                 this.loadMore();
               }
             })
+            .scrollBar(BarState.Off)
           }
           .onRefreshing(() => {
             this.refresh(true).finally(() => { this.refreshing = false; });

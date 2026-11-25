@@ -5,6 +5,7 @@ import { NotificationPrefs } from '../models/types';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { CARD_RADIUS, CARD_SHADOW } from '../utils/cardTokens';
+import { SpaceTokens } from '../design/tokens/space';
 import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
 import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import {
@@ -159,13 +160,14 @@ export struct NotificationSettingsPage {
               });
             }
             .width('100%')
-            .padding({ left: 16, right: 16, top: 8, bottom: 32 })
+            .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: 8, bottom: 32 })
             // 内容不足一屏时撑满视口：Scroll 默认会把不足一屏的子内容垂直居中，撑满即钉在顶部
             .constraintSize({ minHeight: '100%' });
           }
           .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
           .layoutWeight(1)
-          .width('100%');
+          .width('100%')
+          .scrollBar(BarState.Off);
         }
       }
       .width('100%')

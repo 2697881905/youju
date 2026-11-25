@@ -1,6 +1,7 @@
 // 隐私政策页：内置静态隐私政策文本，无后端调用
 
 import { buildPageTransition } from '../utils/styles';
+import { SpaceTokens } from '../design/tokens/space';
 import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
 import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import {
@@ -43,14 +44,14 @@ export struct PrivacyPage {
               .fontSize(12).fontFamily($r('app.string.font_family'))
               .fontColor($r('app.color.text_secondary'))
               .width('100%')
-              .padding({ left: 16, right: 16 });
+              .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact });
 
             Text('有据由白逸飞（以下简称"我们"）提供，是用于分享购物测评、避坑指南、实用教程与生活心得并进行理性交流的社区应用。我们将按法律法规要求处理并保护你的个人信息。')
               .fontSize(15).fontFamily($r('app.string.font_family'))
               .fontColor($r('app.color.text_primary'))
               .lineHeight(24)
               .width('100%')
-              .padding({ left: 16, right: 16 });
+              .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact });
 
             this.section('1. 我们收集和使用的信息', [
               '账号信息：当你注册账号时，我们会收集你的鸿蒙账号 OpenID 或华为账号 UnionID、昵称和头像。',
@@ -113,14 +114,15 @@ export struct PrivacyPage {
               .fontColor($r('app.color.text_secondary'))
               .lineHeight(20)
               .width('100%')
-              .padding({ left: 16, right: 16, top: 16, bottom: 32 });
+              .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: 16, bottom: 32 });
           }
           .width('100%')
           .padding({ top: 8 });
         }
         .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .layoutWeight(1)
-        .width('100%');
+        .width('100%')
+        .scrollBar(BarState.Off);
       }
       .width('100%')
       .height('100%')
@@ -156,6 +158,6 @@ export struct PrivacyPage {
       });
     }
     .width('100%')
-    .padding({ left: 16, right: 16 });
+    .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact });
   }
 }

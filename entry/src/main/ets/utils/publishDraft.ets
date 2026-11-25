@@ -1,5 +1,6 @@
 import { Genre, StructuredData, StructuredDocument, MentionRef } from '../models/types';
 import { cloneStructuredDocument, structuredDocumentFromLegacy } from './structuredDocument';
+import { FeedZone } from './feedZones';
 
 export type PublishDraftMode = 'photo' | 'text' | 'video';
 
@@ -9,6 +10,8 @@ export interface PublishDraft {
   title: string;
   content: string;
   genre: Genre;
+  // 发布时作者选的内容区；存量草稿无该字段，消费方一律用 zone ?? zoneOfGenre(genre) 派生。
+  zone?: FeedZone;
   tags: string[];
   structuredData: StructuredData;
   structuredDocument: StructuredDocument;
@@ -30,6 +33,7 @@ export function clonePublishDraft(draft: PublishDraft): PublishDraft {
     title: draft.title,
     content: draft.content,
     genre: draft.genre,
+    zone: draft.zone,
     tags: [...draft.tags],
     structuredData: draft.structuredData,
     structuredDocument: cloneStructuredDocument(document),

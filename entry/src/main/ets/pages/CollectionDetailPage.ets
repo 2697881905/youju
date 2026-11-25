@@ -287,14 +287,14 @@ export struct CollectionDetailPage {
           Text(this.detail.description)
             .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
             .fontColor(ColorTokens.secondary).width('100%')
-            .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.sm });
+            .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, bottom: SpaceTokens.sm });
         }
         if (this.isOwner && this.pickerVisible) {
           Column() {
             this.pickerPanel()
           }
           .width('100%')
-          .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.sm })
+          .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, bottom: SpaceTokens.sm })
         }
         if (this.posts.length === 0) {
           Column() {
@@ -329,7 +329,8 @@ export struct CollectionDetailPage {
           }
           .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
           .scrollable(ScrollDirection.Vertical)
-          .layoutWeight(1).width('100%');
+          .layoutWeight(1).width('100%')
+          .scrollBar(BarState.Off);
         }
         if (this.isOwner) {
           Button(this.pickerVisible ? '收起选择器' : '添加帖子')

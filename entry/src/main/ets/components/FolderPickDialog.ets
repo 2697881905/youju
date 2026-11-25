@@ -16,15 +16,15 @@ interface FolderPickOption {
   count: number;
 }
 
-@CustomDialog
+@Component
 export struct FolderPickDialog {
-  controller: CustomDialogController;
   folders: BookmarkFolderItem[] = [];
   // 收藏后归类模式：帖子已完成收藏，弹窗只做可选归类——仅列已有收藏夹与新建入口，
   // 直接关闭弹窗即保持未分类。默认（移动归类）模式首行仍为「未分类」（移出收藏夹）。
   afterBookmark: boolean = false;
   onPick: (folderId: number) => void = (_folderId: number): void => {};
   onNewFolder: () => void = (): void => {};
+  onClose: () => void = (): void => {};
 
   private options(): FolderPickOption[] {
     const opts: FolderPickOption[] = [];
@@ -44,7 +44,7 @@ export struct FolderPickDialog {
       visualHeight: 48,
       touchTargetHeight: LayoutTokens.minTouchTarget,
       action: (): void => {
-        this.controller.close();
+        this.onClose();
         this.onPick(opt.id);
       },
     }) {
@@ -95,7 +95,7 @@ export struct FolderPickDialog {
           }
           .layoutWeight(1)
           .alignItems(HorizontalAlign.Start)
-          IconButton({ icon: 'close', a11yText: '关闭', action: (): void => { this.controller.close(); } })
+          IconButton({ icon: 'close', a11yText: '关闭', action: (): void => { this.onClose(); } })
         }
         .width('100%')
         .alignItems(VerticalAlign.Center)
@@ -112,7 +112,7 @@ export struct FolderPickDialog {
           visualHeight: 48,
           touchTargetHeight: LayoutTokens.minTouchTarget,
           action: (): void => {
-            this.controller.close();
+            this.onClose();
             this.onNewFolder();
           },
         }) {

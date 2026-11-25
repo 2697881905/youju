@@ -32,8 +32,8 @@ import type {
   SystemMaterialParams,
   BottomBuilderParams,
 } from '@kit.UIDesignKit';
-import { LengthMetrics } from '@kit.ArkUI';
-import { HDS_BACK_SLOT_END_VP } from '../design/components/HdsGlassBackSurface';
+import { ComponentContent, LengthMetrics } from '@kit.ArkUI';
+import { GlassTitleRow } from '../design/components/HdsGlassBackSurface';
 import { isImmersiveLightSenseSupported, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
 import { requestSystemBarRefresh } from '../utils/systemBar';
 import { BaseCard } from '../design/components/BaseCard';
@@ -47,6 +47,7 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { getUserId, getIsAdmin } from '../utils/auth';
+import { AppModalController } from '../utils/modal';
 
 const PAGE_SIZE: number = 20;
 // 聚合卡上最多并列展示几个举报理由 / 举报人（其余折成「等 N 类 / 等 N 人」）
@@ -340,10 +341,11 @@ const STATUS_ITEMS: SegmentedItem[] = [
 ];
 
 // 成立理由弹窗（自原内容审核台的驳回弹窗并入）：理由选填，填写后随「未通过审核」通知发给作者
-@CustomDialog
+@Component
 struct ResolveReasonDialog {
-  controller?: CustomDialogController;
+
   onSubmit: (reason: string) => void = (_r: string) => {};
+  onClose: () => void = (): void => {};
 
   @State reason: string = '';
 
@@ -374,7 +376,7 @@ struct ResolveReasonDialog {
           this.reason = v;
         })
       Row({ space: SpaceTokens.md }) {
-        DesignButton({ label: '取消', variant: 'outlined', fillWidth: true, action: (): void => { this.controller?.close(); } })
+        DesignButton({ label: '取消', variant: 'outlined', fillWidth: true, action: (): void => { this.onClose(); } })
           .layoutWeight(1)
         DesignButton({
           label: '确认成立',
@@ -382,7 +384,7 @@ struct ResolveReasonDialog {
           fillWidth: true,
           action: (): void => {
             const r: string = this.reason.trim();
-            this.controller?.close();
+            this.onClose();
             this.onSubmit(r);
           },
         })
@@ -394,6 +396,26 @@ struct ResolveReasonDialog {
     .backgroundColor(ColorTokens.elevated)
     .borderRadius(RadiusTokens.lg)
   }
+}
+
+// 处置理由弹窗参数对象：ComponentContent 需要「全局 @Builder + class 参数」，回调闭包捕获
+// ReportAdminPage 的 this 在 confirmResolve 内构造；关闭走 closeCustomDialog(content) 同步
+// 可靠（不依赖 dialogId——其 Promise 真机在弹窗关闭时才回填，2026-11-25 双层弹窗实锤）。
+export class ResolveReasonDialogParams {
+  onSubmit: (reason: string) => void = (_r: string) => {};
+  onClose: () => void = (): void => {};
+}
+
+@Builder
+function resolveReasonDialogBuilder(p: ResolveReasonDialogParams) {
+  ResolveReasonDialog({
+    onSubmit: (reason: string): void => {
+      p.onSubmit(reason);
+    },
+    onClose: (): void => {
+      p.onClose();
+    },
+  })
 }
 
 @Entry
@@ -440,15 +462,7 @@ export struct ReportAdminPage {
   // 成立理由弹窗：动作行 → 范围确认 → 本弹窗 → doResolve(resolved, reason)
   private pendingResolveType: ReportTargetType = 'post';
   private pendingResolveId: number = 0;
-  private resolveController: CustomDialogController = new CustomDialogController({
-    builder: ResolveReasonDialog({
-      onSubmit: (reason: string): void => {
-        this.doResolve(this.pendingResolveType, this.pendingResolveId, 'resolved', reason);
-      },
-    }),
-    alignment: DialogAlignment.Center,
-    customStyle: false,
-  });
+  private resolveModal: AppModalController = new AppModalController();
 
   aboutToAppear(): void {
     // 登录闸门：举报中心需要登录态 + 管理员权限，未登录连 401/403 都分不清（只会是空壳）。
@@ -746,7 +760,14 @@ export struct ReportAdminPage {
         action: (): void => {
           this.pendingResolveType = g.targetType;
           this.pendingResolveId = g.targetId;
-          this.resolveController.open();
+          const params: ResolveReasonDialogParams = new ResolveReasonDialogParams();
+          params.onSubmit = (reason: string): void => {
+            this.doResolve(this.pendingResolveType, this.pendingResolveId, 'resolved', reason);
+          };
+          params.onClose = (): void => { this.resolveModal.close(); };
+          const content: ComponentContent<ResolveReasonDialogParams> =
+            new ComponentContent(this.getUIContext(), wrapBuilder(resolveReasonDialogBuilder), params);
+          this.resolveModal.openContent(this.getUIContext(), content);
         },
       },
     });
@@ -997,30 +1018,15 @@ export struct ReportAdminPage {
   @Builder
   pageTitleBar(): void {
     Column() {
-      // 导航行：标题 + 操作按钮（删除，或选择态的取消/全选/删除选中）；返回键交官方 backIcon
-      Stack({ alignContent: Alignment.Center }) {
-        Text('举报中心')
-          .fontSize(TypeTokens.title.size)
-          .fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.title.weight)
-          .lineHeight(TypeTokens.title.lineHeight)
-          .fontColor(ColorTokens.primary)
-          .width('100%')
-          .textAlign(TextAlign.Center)
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .padding({ left: HDS_BACK_SLOT_END_VP, right: HDS_BACK_SLOT_END_VP })
-        Row() {
-          Blank()
-          if (this.selectMode) {
-            this.selectActions()
-          } else {
-            this.normalActions()
-          }
-        }
-        .width('100%')
-        .alignItems(VerticalAlign.Center)
-      }
+      // 导航行：标题 + 操作按钮（删除，或选择态的取消/全选/删除选中）；返回键交官方 backIcon。
+      // 手写 Stack 迁 GlassTitleRow 共享组件（窗口中心对齐 + 双侧 64vp 让位 + actions 层
+      // 命中修正由组件内置，serif 档与本页原 titleSerif 手写配置逐字等价）。
+      GlassTitleRow({
+        title: '举报中心',
+        serif: true,
+        hasActions: true,
+        actions: (): void => { this.adminTitleActions(); },
+      })
       .width('100%')
       .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
     }
@@ -1032,6 +1038,16 @@ export struct ReportAdminPage {
         this.titleBarContentHeight = h;
       }
     })
+  }
+
+  // 标题行右侧动作分流（选择态/常规态）——供 GlassTitleRow actions 槽引用
+  @Builder
+  adminTitleActions(): void {
+    if (this.selectMode) {
+      this.selectActions()
+    } else {
+      this.normalActions()
+    }
   }
 
   // 常规态右上角：删除（进入多选）

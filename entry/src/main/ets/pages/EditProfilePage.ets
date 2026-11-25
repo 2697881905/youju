@@ -482,14 +482,15 @@ export struct EditProfilePage {
         }
         .width('100%')
         .constraintSize({ minHeight: '100%' })
-        .padding({ left: 16, right: 16, top: 16, bottom: 32 });
+        .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: 16, bottom: 32 })
       }
       .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .layoutWeight(1)
         .width('100%')
         .opacity(this.contentPresented ? 1 : 0)
         .translate({ y: this.contentPresented ? 0 : 16 })
-        .animation({ duration: MotionTokens.container, curve: MotionCurves.emphasized });
+        .animation({ duration: MotionTokens.container, curve: MotionCurves.emphasized })
+        .scrollBar(BarState.Off);
       }
       .width('100%')
       .height('100%')

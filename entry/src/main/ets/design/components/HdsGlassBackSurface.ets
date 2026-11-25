@@ -13,6 +13,7 @@ import type {
   HdsTitleBarContentStyle,
   HdsNavigationIconItemStyle,
   HdsNavigationBackButtonItemOptions,
+  HdsNavigationBackgroundStyle,
 } from '@kit.UIDesignKit';
 import { LengthMetrics } from '@kit.ArkUI';
 import { ColorTokens } from '../tokens/color';
@@ -42,7 +43,23 @@ export function buildGlassBackIcon(action: () => void): HdsNavigationBackButtonI
   } as HdsNavigationBackButtonItemOptions;
 }
 
-export function buildGlassTitleBarStyle(): TitleBarStyleOptions {
+// IMMERSIVE 变体滚动后常驻模糊值（vp）：CircleDetail/PostDetail/Chat 三页统一口径 50，
+// 门控布尔（xxxB arScrolled）由页面经 scrolledBlur 传入（IMMERSIVE 磨砂出图开关，基准 §36）。
+const HDS_SCROLLED_BLUR_VP: number = 50;
+
+// 栏样式定制参数：全部可选，零参调用与升级前产出逐字一致（既有 21 页消费零影响）。
+export interface GlassTitleBarStyleParams {
+  // IMMERSIVE 滚动后常驻模糊门控（页面 @State 布尔闭包）：传入时 originalStyle.backgroundStyle
+  // 写动态 blurRadius（true→50 / false→0）；不传不写该字段（渐变行为不变）。闭包在 options
+  // 构建时求值，页面每次 build 重建 options → 响应式与页内手写等价。
+  scrolledBlur?: () => boolean;
+  // 追加 contentStyle.menuStyle（官方圆钮钮色，PostDetail「与返回键同策略」口径）
+  menuIconColor?: ResourceColor;
+  // 写 scrollEffectStyle（两态同值防漂移，Chat 口径：本页从不切白，接管前后同色）
+  writeScrollEffectStyle?: boolean;
+}
+
+export function buildGlassTitleBarStyle(params?: GlassTitleBarStyleParams): TitleBarStyleOptions {
   const immersive: boolean = isImmersiveLightSenseSupported();
   const scrollEffect: ScrollEffectOptions = {
     enableScrollEffect: true,
@@ -50,15 +67,29 @@ export function buildGlassTitleBarStyle(): TitleBarStyleOptions {
     blurEffectiveStartOffset: LengthMetrics.vp(0),
     blurEffectiveEndOffset: LengthMetrics.vp(BAR_BLUR_END_VP),
   };
+  const contentStyle: HdsTitleBarContentStyle = {
+    backIconStyle: { iconColor: ColorTokens.primary } as HdsNavigationIconItemStyle,
+  } as HdsTitleBarContentStyle;
+  if (params?.menuIconColor !== undefined) {
+    contentStyle.menuStyle = { iconColor: params.menuIconColor } as HdsNavigationIconItemStyle;
+  }
+  const backgroundStyle: HdsNavigationBackgroundStyle = {
+    backgroundColor: Color.Transparent,
+    maskExtraHeight: 0,
+  };
+  if (params?.scrolledBlur !== undefined) {
+    backgroundStyle.blurRadius = params.scrolledBlur() ? HDS_SCROLLED_BLUR_VP : 0;
+  }
   const style: TitleBarStyleOptions = {
     scrollEffectOpts: scrollEffect,
     originalStyle: {
-      backgroundStyle: { backgroundColor: Color.Transparent, maskExtraHeight: 0 },
-      contentStyle: {
-        backIconStyle: { iconColor: ColorTokens.primary } as HdsNavigationIconItemStyle,
-      } as HdsTitleBarContentStyle,
+      backgroundStyle: backgroundStyle,
+      contentStyle: contentStyle,
     },
   };
+  if (params?.writeScrollEffectStyle === true) {
+    style.scrollEffectStyle = { contentStyle: contentStyle };
+  }
   // 栏级材质是唯一能让官方圆钮出玻璃珠（rim + 折射）的入口，且只能整条栏挂。
   if (immersive) {
     style.systemMaterialEffect = {
@@ -153,6 +184,11 @@ export struct GlassTitleRow {
       }
       .width('100%')
       .alignItems(HorizontalAlign.Center)
+      // ⚠️ 标题层零交互、必须整体退出命中测试：Stack 两个全宽子节点完全重叠，若标题层
+      // 盖在 actions 层之上（真机 UI tree 实证标题 Text bound=[0,125,1136,200] 覆盖发布钮
+      // 中心点），Default 命中会被无手势的标题层吞掉——发布主钮「按压态亮但 onClick 不触发、
+      // 程序化 tap（accessibility 通道）有效」的真机 bug 根因。None 让手指必然穿透到 actions 层。
+      .hitTestBehavior(HitTestMode.None)
 
       if (this.hasActions) {
         Row() {
@@ -160,6 +196,13 @@ export struct GlassTitleRow {
           this.actions()
         }
         .width('100%')
+        // ⚠️ 必须撑满 MINI 标题区（同 MessagePage「全部已读」容器先例）：自适应高的全宽行
+        // 在 Stack 居中后坐标系相对栏体错位，按钮下半截溢出栏体下缘（真机 UI tree 实测
+        // 发布钮 bound y=137..250px、栏体 175px，中心 193px 在栏外）——HdsNavigation 标题栏
+        // 触摸命中存在区域边界，手指点中心（栏外段）无响应、程序化 tap（accessibility 通道）
+        // 无视边界却有效。撑满后按钮垂直居中回落栏内，命中区完整。
+        .height('100%')
+        .alignItems(VerticalAlign.Center)
       }
     }
     .width('100%')

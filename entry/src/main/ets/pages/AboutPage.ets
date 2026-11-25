@@ -3,7 +3,9 @@
 import { common } from '@kit.AbilityKit';
 import { buildPageTransition } from '../utils/styles';
 import { APP_VERSION_NAME } from '../utils/buildMode';
+import { CARD_RADIUS } from '../utils/cardTokens';
 import { RadiusTokens } from '../design/tokens/radius';
+import { SpaceTokens } from '../design/tokens/space';
 import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
 import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import {
@@ -74,7 +76,7 @@ export struct AboutPage {
                 .fontSize(13).fontFamily($r('app.string.font_family'))
                 .fontColor($r('app.color.text_secondary'))
                 .alignSelf(ItemAlign.Start)
-                .padding({ left: 4, bottom: 8 });
+                .padding({ left: SpaceTokens.pageCompact, bottom: 8 });
               Column() {
                 Text('有据是一个面向大众的理性内容分享社区。在这里，你可以分享购物测评、避坑指南、实用教程和生活心得，与志同道合的朋友互相学习、共同成长。')
                   .fontSize(15).fontFamily($r('app.string.font_family'))
@@ -84,7 +86,8 @@ export struct AboutPage {
               }
               .width('100%')
               .backgroundColor($r('app.color.card_bg'))
-              .borderRadius(8);
+              .borderRadius(CARD_RADIUS)
+              .clip(true);
             }
             .width('100%');
 
@@ -94,7 +97,7 @@ export struct AboutPage {
                 .fontSize(13).fontFamily($r('app.string.font_family'))
                 .fontColor($r('app.color.text_secondary'))
                 .alignSelf(ItemAlign.Start)
-                .padding({ left: 4, bottom: 8 });
+                .padding({ left: SpaceTokens.pageCompact, bottom: 8 });
               Column() {
                 Text('白逸飞')
                   .fontSize(15).fontFamily($r('app.string.font_family'))
@@ -107,7 +110,8 @@ export struct AboutPage {
               }
               .width('100%')
               .backgroundColor($r('app.color.card_bg'))
-              .borderRadius(8);
+              .borderRadius(CARD_RADIUS)
+              .clip(true);
             }
             .width('100%');
 
@@ -117,7 +121,7 @@ export struct AboutPage {
                 .fontSize(13).fontFamily($r('app.string.font_family'))
                 .fontColor($r('app.color.text_secondary'))
                 .alignSelf(ItemAlign.Start)
-                .padding({ left: 4, bottom: 8 });
+                .padding({ left: SpaceTokens.pageCompact, bottom: 8 });
               Column({ space: 8 }) {
                 Row() {
                   Text('ICP备案号')
@@ -171,16 +175,18 @@ export struct AboutPage {
               .width('100%')
               .padding({ left: 16, right: 16, top: 16, bottom: 16 })
               .backgroundColor($r('app.color.card_bg'))
-              .borderRadius(8);
+              .borderRadius(CARD_RADIUS)
+              .clip(true);
             }
             .width('100%');
           }
           .width('100%')
-          .padding({ left: 16, right: 16, top: 8, bottom: 32 });
+          .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: 8, bottom: 32 });
         }
         .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .layoutWeight(1)
-        .width('100%');
+        .width('100%')
+        .scrollBar(BarState.Off);
       }
       .width('100%')
       .height('100%')

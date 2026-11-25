@@ -246,8 +246,8 @@ export struct SystemNoticePage {
           .constraintSize({ minHeight: '100%' })
           .justifyContent(this.loading || this.list.length === 0 ? FlexAlign.Center : FlexAlign.Start)
           .padding({
-            left: SpaceTokens.sm,
-            right: SpaceTokens.sm,
+            left: SpaceTokens.pageCompact,
+            right: SpaceTokens.pageCompact,
             bottom: SpaceTokens.x2l,
           })
         }

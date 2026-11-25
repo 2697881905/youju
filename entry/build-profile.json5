@@ -13,7 +13,10 @@
       "arkOptions": {
         "obfuscation": {
           "ruleOptions": {
-            "enable": true,
+            // 2026-11-25 关闭：混淆与 wrapBuilder+ComponentContent 弹窗体系不兼容（真机实测
+            // 双空壳 dialog、协议弹窗不渲染，hilog 实证 openCustomDialog×2）——重新开启前必须
+            // 按 obfuscation-rules.txt 要求做全站弹窗/路由真机回归。
+            "enable": false,
             "files": [
               "./obfuscation-rules.txt"
             ]

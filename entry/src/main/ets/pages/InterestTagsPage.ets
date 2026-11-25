@@ -127,7 +127,7 @@ export struct InterestTagsPage {
       .lineHeight(TypeTokens.caption.lineHeight)
       .fontColor(ColorTokens.secondary)
       .alignSelf(ItemAlign.Start)
-      .padding({ left: SpaceTokens.inlineTight, bottom: SpaceTokens.inline });
+      .padding({ left: SpaceTokens.pageCompact, bottom: SpaceTokens.inline });
   }
 
   // 已关注标签：点击删除
@@ -261,6 +261,7 @@ export struct InterestTagsPage {
         }
         .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .layoutWeight(1).width('100%')
+        .scrollBar(BarState.Off)
         }
       }
       .width('100%').height('100%')

@@ -14,10 +14,6 @@ export struct Pressable {
   @Builder
   emptyContent(): void {}
 
-  private touchOffset(): number {
-    return this.visualHeight > 0 ? (this.visualHeight - this.touchTargetHeight) / 2 : 0;
-  }
-
   build() {
     Column() {
       this.content()
@@ -25,9 +21,9 @@ export struct Pressable {
     .width(this.fillWidth ? '100%' : 'auto')
     .responseRegion({
       x: 0,
-      y: this.touchOffset(),
+      y: 0,
       width: '100%',
-      height: this.fullResponseRegion ? '100%' : this.touchTargetHeight,
+      height: '100%',
     })
     .animation({ duration: MotionTokens.fast, curve: MotionCurves.standard })
     .stateStyles({

@@ -2,6 +2,7 @@ import { FollowUser } from '../models/types';
 import { listFollowing, listFollowers, followUser, unfollowUser, resolveDisplayImageUrl } from '../services/api';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
+import { SpaceTokens } from '../design/tokens/space';
 import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
 import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import { buildPageTitleBarOptions, GlassTitleRow, GlassBarInsetRow } from '../design/components/HdsGlassBackSurface';
@@ -287,16 +288,17 @@ export struct MyFollowView {
                     this.onToggle(item);
                   });
               }
-              .width('100%').padding({ left: 16, right: 16, top: 12, bottom: 12 });
+              .width('100%').padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: 12, bottom: 12 });
             }
           }, (item: FollowUser) => (item.id !== undefined ? item.id.toString() : '') + '-' + (item.isFollowing ? '1' : '0'));
         }
         .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .width('100%').height('100%')
-        .onReachEnd(() => { this.loadMore(); });
+        .onReachEnd(() => { this.loadMore(); })
+        .scrollBar(BarState.Off);
         }
         .layoutWeight(1).width('100%')
-        .onRefreshing(() => { this.refresh().finally(() => { this.isRefreshing = false; }); });
+        .onRefreshing(() => { this.refresh().finally(() => { this.isRefreshing = false; }); })
       }
       }
       .width('100%').height('100%')

@@ -13,7 +13,8 @@ import { openPostDetail, takeSearchKeyword } from '../utils/nav';
 import { safeShowToast } from '../utils/toast';
 import { buildPageTransition } from '../utils/styles';
 import { resolveActionIcon } from '../utils/actionIcons';
-import { GRID_GAP, GRID_PADDING } from '../utils/cardTokens';
+import { buildGlassBackIcon, buildGlassTitleBarStyle, HDS_BACK_SLOT_END_VP } from '../design/components/HdsGlassBackSurface';
+import { GRID_GAP } from '../utils/cardTokens';
 import { EmptyState } from '../design/components/EmptyState';
 import { ImmersiveSegmentBar, SegmentedItem } from '../design/components/ImmersiveSegmentBar';
 import { isSystemMaterialActive, FloatingTopButtonMaterialModifier } from '../utils/immersiveMaterial';
@@ -22,34 +23,32 @@ import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
-import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit';
+import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
 import { LengthMetrics } from '@kit.ArkUI';
 import type {
   HdsNavigationTitleBarOptions,
   TitleBarContentOptions,
   TitleBarStyleOptions,
-  ScrollEffectOptions,
+
   BottomBuilderParams,
-  SystemMaterialParams,
-  HdsTitleBarContentStyle,
-  HdsNavigationIconItemStyle,
+
+
+
   HdsNavigationBackButtonItemOptions,
-  HdsNavigationIconOptions,
+
 } from '@kit.UIDesignKit';
 // 栏级沉浸光感：与「我的」/首页/聊天页/草稿箱/废纸篓同一对字段、同一门禁（基准 §7.6.29）。
-import { isImmersiveLightSenseSupported, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
+import { HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
 
 // 搜索框 / 搜索按钮的标准控件高度：与搜索探索页（SearchPanel）完全一致
 const SEARCH_FIELD_HEIGHT: number = 40;
 // 官方返回键占 16~56vp（40vp 圆 + 16vp 左内缩）；stackBuilder 那行是全宽的且 z 序在返回键之上，
 // 不留开就会吃掉它的点击（基准 §7.6.31 / 防漂移第 31 条）
-const HDS_BACK_SLOT_END_VP: number = 64;
 // bottomBuilder 分段行高 = 官方分段栏本体 + 材质投影净空 + 行底留白
 //（投影净空必须给足，否则材质落影被行裁成一条硬边灰带，见 immersiveMaterial.ets 顶部注释）
 // 自绘分段栏行高：上 xs 呼吸位 + 底部 28vp 材质投影净空（与首页/消息同口径）
 const RESULTS_SEG_ROW_VP: number = LayoutTokens.segmentedHeight + SpaceTokens.xs + LayoutTokens.segmentBarShadowRoom;
 // 渐变模糊生效区间终点（vp）：与草稿箱/聊天页同量级
-const RESULTS_BLUR_END_VP: number = 32;
 
 const SEARCH_SORTS: SegmentedItem[] = [
   { key: 'latest', label: '最新' },
@@ -262,7 +261,7 @@ struct SearchResultPage {
       }
     }
     .width('100%')
-    .padding({ left: GRID_PADDING, right: GRID_PADDING, top: SpaceTokens.item })
+    .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: SpaceTokens.item })
   }
 
   // 工具栏行（stackBuilder）：系统原生搜索框（原生清除 ×）+ 独立搜索按钮。
@@ -319,35 +318,14 @@ struct SearchResultPage {
   // 顶栏配置：官方返回键（backIcon）+ stackBuilder 工具栏行 + bottomBuilder 计数/分段行。
   // 两行结构映射与首页同构；栏级材质 + IMMERSIVE 渐变模糊与「我的」/首页同口径。
   private resultsTitleBarOptions(): HdsNavigationTitleBarOptions {
-    const immersive: boolean = isImmersiveLightSenseSupported();
-    const scrollEffect: ScrollEffectOptions = {
-      enableScrollEffect: true,
-      scrollEffectType: immersive ? ScrollEffectType.IMMERSIVE_GRADIENT_BLUR : ScrollEffectType.GRADIENT_BLUR,
-      blurEffectiveStartOffset: LengthMetrics.vp(0),
-      blurEffectiveEndOffset: LengthMetrics.vp(RESULTS_BLUR_END_VP),
-    };
-    const style: TitleBarStyleOptions = {
-      scrollEffectOpts: scrollEffect,
-      originalStyle: {
-        backgroundStyle: { backgroundColor: Color.Transparent },
-        contentStyle: {
-          backIconStyle: { iconColor: ColorTokens.primary } as HdsNavigationIconItemStyle,
-        } as HdsTitleBarContentStyle,
-      },
-    };
-    if (immersive) {
-      style.systemMaterialEffect = {
-        materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
-        materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE,
-      } as SystemMaterialParams;
-    }
+    // 栏样式/返回键走玻璃三件套共享入口（样板收敛）；本页 blurEffectiveEndOffset=32 与工厂
+    // 默认同值（RESULTS_BLUR_END_VP 常量随收敛删除），穿底开关（safeArea true）与
+    // 工具栏行/bottomBuilder 保留页内组装。
+    const style: TitleBarStyleOptions = buildGlassTitleBarStyle();
     // backIcon 带 action 槽 → 返回行为原样保留（还是 router.back()）
-    const backContent: HdsNavigationIconOptions = {
-      icon: resolveActionIcon('back'),
-      label: '返回',
-      action: (): void => { this.getUIContext().getRouter().back(); },
-    };
-    const backIcon: HdsNavigationBackButtonItemOptions = backContent;
+    const backIcon: HdsNavigationBackButtonItemOptions = buildGlassBackIcon((): void => {
+      this.getUIContext().getRouter().back();
+    });
     const content: TitleBarContentOptions = {
       stackBuilder: (): void => { this.searchToolbar(); },
       backIcon: backIcon,
@@ -390,7 +368,7 @@ struct SearchResultPage {
     }
     .width('100%')
     .height(RESULTS_SEG_ROW_VP)
-    .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
+    .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact })
     .alignItems(VerticalAlign.Center)
   }
 
@@ -473,7 +451,7 @@ struct SearchResultPage {
               }, (w: string) => w)
             }
             .width('100%')
-            .padding({ left: GRID_PADDING, right: GRID_PADDING })
+            .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact })
           }
         }
         .layoutWeight(1)

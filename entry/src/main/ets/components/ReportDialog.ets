@@ -7,12 +7,12 @@ interface ReasonItem {
   label: string;
 }
 
-@CustomDialog
+@Component
 export struct ReportDialog {
-  controller: CustomDialogController;
   targetType: string = 'post';
   targetId: number = 0;
   onSubmit: (reason: ReportReason, description: string) => void = (_reason: ReportReason, _desc: string) => {};
+  onClose: () => void = (): void => {};
 
   @State selectedReason: ReportReason = 'political';
   @State description: string = '';
@@ -95,7 +95,7 @@ export struct ReportDialog {
           .backgroundColor($r('app.color.bg_primary'))
           .fontColor($r('app.color.text_secondary'))
           .onClick(() => {
-            this.controller.close();
+            this.onClose();
           })
         Button('提交举报')
           .layoutWeight(1)
@@ -108,6 +108,9 @@ export struct ReportDialog {
       .width('100%')
     }
     .padding(20)
+    // 344：原宿主 controller 的 width 参数（ChatView/UserProfileView）迁移后废弃，由内容壳
+    // 自承担定宽（同 FolderNameDialog SpringPanel panelWidth:344 惯例）
+    .width(344)
     .backgroundColor($r('app.color.card_bg'))
     .borderRadius(16)
   }

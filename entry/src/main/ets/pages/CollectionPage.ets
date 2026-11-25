@@ -16,16 +16,44 @@ import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { getUserId } from '../utils/auth';
+import { AppModalController } from '../utils/modal';
+import { ComponentContent } from '@kit.ArkUI';
+
+// 合集命名弹窗参数对象：ComponentContent 需要「全局 @Builder + class 参数」；editing 由
+// openNameDialog 在 open 前写入（含局部变量 item——builder 体不可捕获方法局部变量）。
+// 关闭走 closeCustomDialog(content) 同步可靠（不依赖 dialogId，2026-11-25 双层弹窗实锤）。
+export class CollectionFolderNameDialogParams {
+  editing: CollectionItem | null = null;
+  onSubmit: (name: string) => void = (_n: string) => {};
+  onClose: () => void = (): void => {};
+}
+
+@Builder
+function collectionFolderNameDialogBuilder(p: CollectionFolderNameDialogParams) {
+  FolderNameDialog({
+    title: p.editing === null ? '新建合集' : '重命名合集',
+    placeholder: '输入合集名称（最多 20 字）',
+    initial: p.editing === null ? '' : p.editing.title,
+    onSubmit: (name: string): void => {
+      p.onSubmit(name);
+    },
+    onClose: (): void => {
+      p.onClose();
+    },
+  })
+}
 
 @Entry
 @Component
 export struct CollectionPage {
+  // 弹窗内容 @Builder：builder 闭包内联组件调用真机崩（class constructor without new，
+  // 2026-11-25 实锤），统一改方法引用（同 Index.privacyConsentDialogBuilder 修复）。
   @State collections: CollectionItem[] = [];
   @State ready: boolean = false;
   @State error: string = '';
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
 
-  private nameController: CustomDialogController | null = null;
+  private nameModal: AppModalController = new AppModalController();
   // 顶栏渐变模糊的滚动源
   private pageScroller: Scroller = new Scroller();
   // 非 null 表示重命名，null 表示新建
@@ -40,7 +68,7 @@ export struct CollectionPage {
   }
 
   aboutToDisappear(): void {
-    this.nameController?.close();
+    this.nameModal.close();
   }
 
   private async load(): Promise<void> {
@@ -58,17 +86,13 @@ export struct CollectionPage {
 
   private openNameDialog(item: CollectionItem | null): void {
     this.editing = item;
-    this.nameController = new CustomDialogController({
-      builder: FolderNameDialog({
-        title: item === null ? '新建合集' : '重命名合集',
-        placeholder: '输入合集名称（最多 20 字）',
-        initial: item === null ? '' : item.title,
-        onSubmit: (name: string): void => { this.onSubmitName(name); },
-      }),
-      autoCancel: true,
-      customStyle: true,
-    });
-    this.nameController.open();
+    const params: CollectionFolderNameDialogParams = new CollectionFolderNameDialogParams();
+    params.editing = item;
+    params.onSubmit = (name: string): void => { this.onSubmitName(name); };
+    params.onClose = (): void => { this.nameModal.close(); };
+    const content: ComponentContent<CollectionFolderNameDialogParams> =
+      new ComponentContent(this.getUIContext(), wrapBuilder(collectionFolderNameDialogBuilder), params);
+    this.nameModal.openContent(this.getUIContext(), content, { onDismiss: (): void => { this.nameModal.close(); } });
   }
 
   private async onSubmitName(name: string): Promise<void> {
@@ -158,7 +182,7 @@ export struct CollectionPage {
         });
     }
     .width('100%')
-    .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+    .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
   }
 
   private collectionTitleBarOptions(): HdsNavigationTitleBarOptions {
@@ -221,7 +245,8 @@ export struct CollectionPage {
             }, (item: CollectionItem) => String(item.id));
           }
           .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
-          .layoutWeight(1).width('100%');
+          .layoutWeight(1).width('100%')
+          .scrollBar(BarState.Off);
         }
 
         Button('新建合集')

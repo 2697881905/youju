@@ -1,6 +1,6 @@
 // 图文发布页 — 独立 @Entry 页面，仅处理短文图文，不耦合视频/长文发布逻辑。
 // 媒体区直接渲染 ImagePicker，无 mediaTypeSelector 切换行。
-import { listTags, aiAssistEnabled, aiPolishDraft, AiPolishDraftResult } from '../services/api';
+import { listTags, aiAssistEnabled, aiPolishDraft, AiPolishDraftResult, resolveDisplayImageUrl } from '../services/api';
 import { Genre, StructuredData, StructuredDocument, Tag, MentionRef, MentionCandidate } from '../models/types';
 import { ImagePicker } from '../components/ImagePicker';
 import { safeShowToast } from '../utils/toast';
@@ -9,7 +9,6 @@ import { AiPolishPreviewSheet } from '../components/AiPolishPreviewSheet';
 import { findActiveAtMention, applyAtMention } from '../utils/atMention';
 import { AtMentionSuggest } from '../components/AtMentionSuggest';
 import { Reveal } from '../design/motion/Reveal';
-import { ImmersiveSegmentBar } from '../design/components/ImmersiveSegmentBar';
 import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
@@ -19,37 +18,59 @@ import { removePostDraft } from '../utils/postDraftStore';
 import { getUserId } from '../utils/auth';
 import { PublishSession, publishFlowStore } from '../utils/publishFlowStore';
 import { collectStructuredData } from '../utils/structuredFields';
-import { emptyStructuredDocument, filterStructuredDocumentForGenre } from '../utils/structuredDocument';
-import { StructuredComposer } from '../components/StructuredComposer';
+import { emptyStructuredDocument } from '../utils/structuredDocument';
 import { StructuredReviewSheet } from '../components/StructuredReviewSheet';
 import { executePublish, PublishOutcome } from '../utils/publishExecutor';
 import { PublishTagPanel } from '../components/PublishTagPanel';
-import { PUBLISH_GENRES, PUBLISH_GENRE_SEGMENTS, publishGenreMeta } from '../utils/publishGenres';
-import { PublishSection } from '../components/PublishSection';
+import { publishZoneIndexOf, publishZoneKey, zoneOfGenre, fallbackGenreOf } from '../utils/publishZones';
+import { FeedZone } from '../utils/feedZones';
 import { PublishCircleSelector } from '../components/PublishCircleSelector';
 import { PublishCollectionPicker } from '../components/PublishCollectionPicker';
 import { consumePendingPublishCircle } from '../utils/publishCircleIntent';
-import { PublishPageShell, PUBLISH_BAR_ROW_VP } from '../components/PublishPageShell';
+import { PUBLISH_BAR_ROW_VP } from '../components/PublishPageShell';
+import { DesignButton } from '../design/components/DesignButton';
+import { buildPageTitleBarOptions, GlassTitleRow } from '../design/components/HdsGlassBackSurface';
+import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import { GlassBlurStyle, getSheetImmersiveMaterial, isSystemMaterialActive } from '../utils/immersiveMaterial';
+import { buildPageTransition } from '../utils/styles';
+import { Pressable } from '../design/motion/Pressable';
+import { resolveTextPosterStyle, posterBucketOf, TEXT_POSTER_STYLES, TextPosterStyleOption } from '../utils/poster/posterTokens';
+import { renderPosterThumbnail } from '../utils/poster/posterRender';
+import { isSerifTypefaceReady } from '../utils/poster/posterText';
+import { image } from '@kit.ImageKit';
 
 const MAX_SELECTED_TAGS: number = 3;
 const MAX_PICKED_IMAGES: number = 9;
 const MAX_PHOTO_CONTENT_LENGTH: number = 300;
+const MAX_TITLE_LENGTH: number = 30;
 const DRAFT_PROGRESS_TOTAL: number = 3;
 // 说明区高度：300 字给 104vp 要在小窗里滚动，读不出排版感
 const PHOTO_BODY_HEIGHT: number = 148;
 
+// 样式选择器缩略图：3:4 小图（60×80），选的时候看到什么、发出来就是什么。
+// 重绘闸门：缩略图只依赖「标题 + 正文字长所在档」，只有这两者变化才重画；
+// 再叠一层防抖，避免每次按键都触发 4 张主线程栅格化。（与长文页同源同参）
+const POSTER_THUMB_WIDTH: number = 60;
+const POSTER_THUMB_HEIGHT: number = 80;
+const POSTER_THUMB_CHIP_HEIGHT: number = 108;
+const POSTER_THUMB_DEBOUNCE: number = 250;
+const POSTER_THUMB_FONT_RETRY_MAX: number = 10;
+const POSTER_THUMB_FONT_RETRY_INTERVAL: number = 200;
+
 @Entry
 @Component
 struct PhotoPublishPage {
-  @State genre: Genre = 'share';
-  @State genreIndex: number = 4; // share 位于 PUBLISH_GENRES 下标 4
+  @State zoneIndex: number = 0; // 默认干货
+  @State genre: Genre = 'review'; // 落库体裁；随记时恒为 'share'
   @State selectedTags: string[] = [];
   @State selectedCollectionId: number = 0;
   @State title: string = '';
   // —— AI 联合优化（标题 + 正文轻度润色）：结果先进「新旧对照」预览，作者确认才回填 ——
   @State aiTitleBusy: boolean = false;
   @State aiEnabled: boolean = false;
+  // AI 状态是否已落定：未落定时不拦截发布（R8）
+  @State aiStatusLoaded: boolean = false;
   @State aiSheetShown: boolean = false;
   @State aiOldTitle: string = '';
   @State aiNewTitle: string = '';
@@ -97,10 +118,15 @@ struct PhotoPublishPage {
   @State content: string = '';
   @State sd: StructuredData = {};
   @State structuredDocument: StructuredDocument = emptyStructuredDocument();
+  // 默认款：素纸（暖纸 + 纯排印，最克制、最像书页，也最像 App 里的东西）；无图帖发布时用作卡片封面
+  @State textPosterStyle: string = 'paper';
   @State images: string[] = [];
+  // 图片全屏预览：页面级根模态承载（ImagePicker 在 Reveal 内自挂模态渲染异常——黑屏实证）；
+  // 以 remoteUrl 定位（上传中的图无 remoteUrl 不参与预览），Swiper 在已上传列表内左右切换。
+  @State previewUrl: string = '';
+  private previewSwiperController: SwiperController = new SwiperController();
   @State tags: Tag[] = [];
-  // 结构化区默认折叠（2026-11-07 发布流改版）：主路径是「写说明 → 点发布 → AI 拆块 → 审稿」。
-  @State showFields: boolean = false;
+
   @State showTagPanel: boolean = false;
   // —— 结构化审稿层（点发布弹出；revision 用于弹层复用时强制重新初始化） ——
   @State reviewSheetShown: boolean = false;
@@ -110,6 +136,16 @@ struct PhotoPublishPage {
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
   @State categoryList: string[] = [];
   @State tagsByCategory: Record<string, Tag[]> = {};
+  // —— 封面海报样式缩略图 ——
+  // 与发布产物同源（renderPosterThumbnail → renderPosterPixelMap），只是倍率 0.22。
+  @State posterThumbs: image.PixelMap[] = [];
+  // 递增版本号：PixelMap 数组是引用类型，整体替换后配合版本号可靠触发刷新。
+  @State posterThumbVersion: number = 0;
+  private thumbTitle: string = '';
+  private thumbBucket: number = -1;
+  private thumbTimer: number = 0;
+  private thumbDisposed: boolean = false;
+  private thumbFontAttempt: number = 0;
   // —— 图文说明 @提及 选择器 ——
   @State mentionActive: boolean = false;
   @State mentionKeyword: string = '';
@@ -150,7 +186,9 @@ struct PhotoPublishPage {
   }
 
   aboutToAppear(): void {
-    aiAssistEnabled().then((enabled: boolean): void => { this.aiEnabled = enabled; });
+    aiAssistEnabled()
+      .then((enabled: boolean): void => { this.aiEnabled = enabled; })
+      .finally((): void => { this.aiStatusLoaded = true; });
     // 登录闸门（纵深防御）：发布页只该从 Index 底栏进入，而未登录在那边已被拦住。
     // 这里是第二道 —— 将来若新增入口直接 push 本页，也不允许带着空登录态进来。
     // 用 replaceUrl 而非 push：本页从路由栈里被替换掉，用户取消登录返回时落到主页，
@@ -165,11 +203,97 @@ struct PhotoPublishPage {
       this.applyPublishSession(session);
     });
     this.applyPublishSession(publishFlowStore.getSession());
+    this.scheduleThumbnails();
   }
 
   aboutToDisappear(): void {
     this.unsubscribePublishFlow();
     this.unsubscribePublishFlow = () => {};
+    this.thumbDisposed = true;
+    if (this.thumbTimer !== 0) {
+      clearTimeout(this.thumbTimer);
+      this.thumbTimer = 0;
+    }
+    this.releaseThumbnails();
+  }
+
+  // ───────────────────────── 封面海报样式缩略图 ─────────────────────────
+
+  private scheduleThumbnails(): void {
+    if (this.thumbDisposed) {
+      return;
+    }
+    if (this.thumbTimer !== 0) {
+      clearTimeout(this.thumbTimer);
+      this.thumbTimer = 0;
+    }
+    this.thumbTimer = setTimeout((): void => {
+      this.thumbTimer = 0;
+      this.refreshThumbnails();
+    }, POSTER_THUMB_DEBOUNCE) as number;
+  }
+
+  private refreshThumbnails(): void {
+    if (this.thumbDisposed) {
+      return;
+    }
+    const title: string = this.title.trim();
+    const bucket: number = posterBucketOf(this.content);
+    // 只有「标题」或「正文字长所在档」变了，画面才可能变 —— 否则直接跳过这次重绘
+    if (title === this.thumbTitle && bucket === this.thumbBucket && this.posterThumbs.length > 0) {
+      return;
+    }
+    // 衬线字体（Index.ets 启动时注册）未就绪：先不画，否则会用系统字体渲染出与发布产物不一致的一版
+    if (!isSerifTypefaceReady()) {
+      this.retryThumbsForFont(0);
+      return;
+    }
+    this.releaseThumbnails();
+    const maps: image.PixelMap[] = [];
+    for (const style of TEXT_POSTER_STYLES) {
+      try {
+        maps.push(renderPosterThumbnail(title, this.content, style.key));
+      } catch (e) {
+        // 单一样式渲染失败不阻断其余样式；该位置回退为纯色占位
+      }
+    }
+    if (this.thumbDisposed) {
+      for (const map of maps) {
+        map.release().catch((): void => {});
+      }
+      return;
+    }
+    this.thumbTitle = title;
+    this.thumbBucket = bucket;
+    this.posterThumbs = maps;
+    this.posterThumbVersion = this.posterThumbVersion + 1;
+  }
+
+  private releaseThumbnails(): void {
+    for (const map of this.posterThumbs) {
+      map.release().catch((): void => {});
+    }
+    if (this.posterThumbs.length > 0) {
+      this.posterThumbs = [];
+    }
+  }
+
+  // 字体未就绪时轮询等待，就绪后重绘一次；超过上限则放弃（保持纯色占位）。
+  private retryThumbsForFont(attempt: number): void {
+    if (this.thumbDisposed || attempt >= POSTER_THUMB_FONT_RETRY_MAX) {
+      return;
+    }
+    this.thumbFontAttempt = attempt;
+    setTimeout((): void => {
+      if (this.thumbDisposed) {
+        return;
+      }
+      if (isSerifTypefaceReady()) {
+        this.refreshThumbnails();
+      } else {
+        this.retryThumbsForFont(attempt + 1);
+      }
+    }, POSTER_THUMB_FONT_RETRY_INTERVAL) as number;
   }
 
   private onUserChange(): void {
@@ -276,8 +400,8 @@ struct PhotoPublishPage {
     this.mentionAt = -1;
   }
 
-  // 点发布：结构化体裁进审稿层（AI 拆块 → 逐块确认 → 确认即发布），
-  // 分享体裁保持「预览页 → 确认发布」原路径。发布永不被 AI 卡死：层内自带手动骨架兜底。
+  // 点发布：干货进审稿层（AI 拆块 → 逐块确认 → 确认即发布），
+  // 随记保持「预览页 → 确认发布」原路径。发布永不被 AI 卡死：层内自带手动骨架兜底。
   private onPublish(): void {
     if (!this.title.trim()) {
       safeShowToast(this.getUIContext(), { message: '请填写标题' });
@@ -287,7 +411,23 @@ struct PhotoPublishPage {
       safeShowToast(this.getUIContext(), { message: '图文说明最多 ' + MAX_PHOTO_CONTENT_LENGTH + ' 字' });
       return;
     }
-    if (publishGenreMeta(this.genre).structured) {
+    // 干货区依赖 AI 拆块：AI 明确不可用时先轻确认，避免作者点发布后才发现只能按原文发
+    if (this.currentZone() === 'insight' && this.aiStatusLoaded && !this.aiEnabled) {
+      this.getUIContext().showAlertDialog({
+        title: 'AI 整理暂不可用',
+        message: '将按原文发布到干货区，不在发布前整理成信息块。',
+        primaryButton: {
+          value: '取消',
+          action: (): void => {},
+        },
+        secondaryButton: {
+          value: '按原文发布',
+          action: (): void => { this.publishRaw(); },
+        },
+      });
+      return;
+    }
+    if (this.currentZone() === 'insight') {
       this.reviewSheetRevision = this.reviewSheetRevision + 1;
       this.reviewSheetShown = true;
       return;
@@ -301,17 +441,25 @@ struct PhotoPublishPage {
   private async confirmPublish(document: StructuredDocument, genre: string): Promise<void> {
     this.reviewSheetShown = false;
     this.structuredDocument = document;
-    if (genre.length > 0 && genre !== this.genre) {
-      for (let i = 0; i < PUBLISH_GENRES.length; i++) {
-        if (PUBLISH_GENRES[i].key === genre) {
-          this.genreIndex = i;
-          this.genre = PUBLISH_GENRES[i].key;
-          break;
-        }
-      }
+    const insightGenres: string[] = ['review', 'pitfall', 'tutorial', 'debate'];
+    if (insightGenres.indexOf(genre) >= 0) {
+      this.genre = genre as Genre;
+    } else if (this.currentZone() === 'insight') {
+      this.genre = 'review';
     }
-    const draft: PublishDraft = this.currentPublishDraft();
-    const outcome: PublishOutcome = await executePublish(draft, this.getUIContext());
+    const outcome: PublishOutcome = await executePublish(this.currentPublishDraft(), this.getUIContext());
+    if (outcome.ok) {
+      this.getUIContext().getRouter().back();
+    }
+  }
+
+  // 降级出口：不结构化、不带信息块，按原文直接发布。
+  private async publishRaw(): Promise<void> {
+    this.reviewSheetShown = false;
+    this.structuredDocument = emptyStructuredDocument();
+    this.genre = 'review';
+    const outcome: PublishOutcome = await executePublish(this.currentPublishDraft(), this.getUIContext(),
+      { allowEmptyStructured: true });
     if (outcome.ok) {
       this.getUIContext().getRouter().back();
     }
@@ -323,10 +471,12 @@ struct PhotoPublishPage {
       title: this.title.trim(),
       content: this.content,
       genre: this.genre,
+      zone: this.currentZone(),
       tags: this.selectedTags,
       structuredData: collectStructuredData(this.sd, this.genre),
       structuredDocument: this.structuredDocument,
       images: this.images,
+      textPosterStyle: this.textPosterStyle,
       mentions: this.mentionRefs.length > 0 ? this.mentionRefs : undefined,
       collectionId: this.selectedCollectionId,
     };
@@ -334,27 +484,24 @@ struct PhotoPublishPage {
 
   private applyDraft(draft: PublishDraft, savedDraftId: string): void {
     this.genre = draft.genre;
-    for (let i = 0; i < PUBLISH_GENRES.length; i++) {
-      if (PUBLISH_GENRES[i].key === draft.genre) {
-        this.genreIndex = i;
-        break;
-      }
-    }
+    this.zoneIndex = publishZoneIndexOf(zoneOfGenre(draft.genre));
     this.selectedTags = [...draft.tags];
     this.title = draft.title;
     this.content = draft.content;
     this.sd = draft.structuredData;
     this.structuredDocument = draft.structuredDocument;
     this.images = [...draft.images];
+    this.textPosterStyle = resolveTextPosterStyle(draft.textPosterStyle).key;
     this.selectedCollectionId = draft.collectionId ?? 0;
     this.editingSavedDraftId = savedDraftId;
-    this.showFields = false;
+
     this.showTagPanel = false;
     this.closeMention();
     this.mentionRefs = draft.mentions !== undefined ? draft.mentions.map((m: MentionRef): MentionRef => ({
       name: m.name,
       userId: m.userId,
     })) : [];
+    this.scheduleThumbnails();
   }
 
   private applyPublishSession(session: PublishSession): void {
@@ -365,6 +512,7 @@ struct PhotoPublishPage {
     if (session.intent === 'new') {
       // 新发布不自动弹系统相册：三种方式一律落在编辑页，选图由图片区的「+ 添加」触发。
       this.reset();
+      this.applyZone(session.zone);
       return;
     }
     if (session.intent === 'edit' && session.previewDraft !== null) {
@@ -384,8 +532,8 @@ struct PhotoPublishPage {
   }
 
   private reset(): void {
-    this.genre = 'share';
-    this.genreIndex = 4; // share 位于 PUBLISH_GENRES 下标 4
+    this.zoneIndex = 0;
+    this.genre = 'review';
     const pendingCircle: string = consumePendingPublishCircle();
     this.selectedTags = pendingCircle.length > 0 ? [pendingCircle] : [];
     this.title = '';
@@ -393,64 +541,115 @@ struct PhotoPublishPage {
     this.sd = {};
     this.structuredDocument = emptyStructuredDocument();
     this.images = [];
+    this.textPosterStyle = 'paper';
     this.editingSavedDraftId = '';
-    this.showFields = false;
+
     this.showTagPanel = false;
     this.mentionRefs = [];
     this.closeMention();
+    this.scheduleThumbnails();
   }
 
-  // 清空是破坏性动作（标题/正文/已选媒体一并抹掉且不可恢复）：先二次确认，避免与「发布」并排误触。
-  private confirmClear(): void {
-    this.getUIContext().showAlertDialog({
-      title: '清空草稿？',
-      message: '标题、正文与已选媒体将被清空，且无法恢复。',
-      primaryButton: {
-        value: '取消',
-        action: (): void => {},
-      },
-      secondaryButton: {
-        value: '清空',
-        fontColor: ColorTokens.danger,
-        action: (): void => { this.reset(); },
-      },
-    });
+  private currentZone(): FeedZone {
+    return publishZoneKey(this.zoneIndex);
   }
 
-  private currentGenreHint(): string {
-    return publishGenreMeta(this.genre).hint;
+  // 会话入口带来的内容区：只改分区与落库体裁，结构化文档由 R5 的确认分支决定去留
+  private applyZone(zone: FeedZone): void {
+    this.zoneIndex = publishZoneIndexOf(zone);
+    this.genre = fallbackGenreOf(zone);
   }
 
-  private selectGenre(index: number): void {
-    if (index < 0 || index >= PUBLISH_GENRES.length) {
-      return;
+  // 单片缩略图：与发布产物同源渲染，选中态用品牌色描边 + 标签变色（图片本身不能加底色）
+  @Builder
+  posterStyleThumb(index: number, style: TextPosterStyleOption): void {
+    Stack({ alignContent: Alignment.Center }) {
+      if (index < this.posterThumbs.length) {
+        Image(this.posterThumbs[index])
+          .width(POSTER_THUMB_WIDTH)
+          .height(POSTER_THUMB_HEIGHT)
+          .objectFit(ImageFit.Cover)
+          .interpolation(ImageInterpolation.High)
+          .draggable(false)
+      } else {
+        // 缩略图未就绪（衬线字体未注册 / 正在防抖重绘）：用款式底色占位，避免闪白
+        Column()
+          .width(POSTER_THUMB_WIDTH)
+          .height(POSTER_THUMB_HEIGHT)
+          .backgroundColor(style.background)
+      }
     }
-    const nextGenre: Genre = PUBLISH_GENRES[index].key;
-    this.genreIndex = index;
-    this.genre = nextGenre;
-    this.structuredDocument = filterStructuredDocumentForGenre(this.structuredDocument, nextGenre);
+    .width(POSTER_THUMB_WIDTH)
+    .height(POSTER_THUMB_HEIGHT)
+    .borderRadius(RadiusTokens.xs)
+    .clip(true)
+    .border({
+      width: this.textPosterStyle === style.key ? 2 : LayoutTokens.glassBorderWidth,
+      color: this.textPosterStyle === style.key ? ColorTokens.brand : ColorTokens.separator,
+      style: BorderStyle.Solid,
+    })
   }
 
-  // ─────────────── 版式（创作纸）：媒体附件 → 标题/正文纸面 → 发布设置托盘 → 结构化 ───────────────
-  // 写作是主角：标题与正文直接落在纸面上，不套表单卡；体裁/圈子/合集/AI/清空收进单一设置托盘。
+  @Builder
+  posterStyleChip(index: number, style: TextPosterStyleOption): void {
+    Pressable({
+      visualHeight: POSTER_THUMB_CHIP_HEIGHT,
+      action: (): void => { this.textPosterStyle = style.key; },
+    }) {
+      Column({ space: SpaceTokens.inlineTight }) {
+        this.posterStyleThumb(index, style)
+        Text(style.label)
+          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(this.textPosterStyle === style.key ? TypeTokens.headline.weight : TypeTokens.caption.weight)
+          .lineHeight(TypeTokens.caption.lineHeight)
+          .fontColor(this.textPosterStyle === style.key ? ColorTokens.brand : ColorTokens.secondary)
+      }
+      .height(POSTER_THUMB_CHIP_HEIGHT)
+      .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs })
+      .alignItems(HorizontalAlign.Center)
+    }
+  }
 
-  // 轻量分区题头（无卡壳）：左标签 + 右元信息，用于媒体等附件区与托盘内分组。
+  @Builder
+  textPosterStyleSelector(): void {
+    Column({ space: SpaceTokens.xs }) {
+      Scroll() {
+        Row({ space: SpaceTokens.sm }) {
+          // key 带上缩略图版本号：PixelMap 数组被整体替换时强制重建 Image，否则会留在旧帧
+          ForEach(TEXT_POSTER_STYLES, (style: TextPosterStyleOption, index: number) => {
+            this.posterStyleChip(index, style)
+          }, (style: TextPosterStyleOption) => style.key + '_' + this.posterThumbVersion)
+        }
+        .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs })
+        .alignItems(VerticalAlign.Top)
+      }
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+      .scrollable(ScrollDirection.Horizontal)
+      .scrollBar(BarState.Off)
+      .width('100%')
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  // ─────────────── 版式（创作纸）：媒体附件 → 标题/正文纸面 → 加入合集 → 圈子 ───────────────
+  // 写作是主角：标题与正文直接落在纸面上，不套表单卡；AI 优化驻纸面顶部，圈子/合集为轻量独立区块。
+
+  // 轻量分区题头（无卡壳）：左标签 + 右元信息，用于媒体等附件区与独立区块分组。
   @Builder
   blockCaption(label: string, meta: string): void {
     Row() {
       Text(label)
-        .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-        .fontWeight(TypeTokens.overline.weight)
-        .lineHeight(TypeTokens.overline.lineHeight)
-        .letterSpacing(TypeTokens.overline.tracking)
-        .fontColor(ColorTokens.tertiary)
+        .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+        .fontWeight(TypeTokens.headline.weight)
+        .lineHeight(TypeTokens.callout.lineHeight)
+        .fontColor(ColorTokens.secondary)
       Blank().layoutWeight(1)
       if (meta.length > 0) {
         Text(meta)
-          .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-          .fontWeight(TypeTokens.overline.weight)
-          .lineHeight(TypeTokens.overline.lineHeight)
-          .letterSpacing(TypeTokens.overline.tracking)
+          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.caption.weight)
+          .lineHeight(TypeTokens.caption.lineHeight)
           .fontColor(ColorTokens.tertiary)
       }
     }
@@ -467,6 +666,7 @@ struct PhotoPublishPage {
         ImagePicker({
           selected: $images,
           maxCount: MAX_PICKED_IMAGES,
+          onPreview: (url: string): void => { this.previewUrl = url; },
         })
       }
       .width('100%')
@@ -474,131 +674,111 @@ struct PhotoPublishPage {
     }
   }
 
-  // 创作纸：标题与正文同处一张软质纸面（subtle 底大圆角），发丝线分隔，统一写作面语言。
+  // 创作纸：标题与正文同处一张软质纸面（subtle 底大圆角），发丝线分隔，统一写作面语言；
+  // 纸面之下挂「封面海报」区块（与长文页 writingSheet 同位）：无图帖发布时该样式即帖子卡片封面。
   @Builder
   writingSheet(): void {
     Reveal({ index: 1 }) {
-      Column() {
-        TextInput({
-          text: $$this.title,
-          placeholder: this.aiEnabled && this.title.length === 0 && this.content.trim().length > 0
-            ? '写完正文了？AI 润色可顺带起标题'
-            : '给这篇起个标题',
-        })
-          .width('100%')
-          .fontSize(TypeTokens.displaySerif.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.displaySerif.weight)
-          .lineHeight(TypeTokens.displaySerif.lineHeight)
-          .fontColor(ColorTokens.primary)
-          .placeholderColor(ColorTokens.tertiary)
-          .backgroundColor(Color.Transparent)
-          .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.base, bottom: SpaceTokens.md })
-          .enterKeyType(EnterKeyType.Next)
-          .onChange((value: string) => { this.title = value; })
-        Divider().strokeWidth(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
-          .margin({ left: SpaceTokens.base, right: SpaceTokens.base })
-        // @提及候选：输入框「上方」的横向条（左右滑动、点选回填）
-        if (this.mentionActive) {
-          AtMentionSuggest({
-            keyword: this.mentionKeyword,
-            onPick: (c: MentionCandidate): void => { this.pickMention(c); },
+      Column({ space: SpaceTokens.md }) {
+        Column() {
+
+          TextArea({
+            text: $$this.title,
+            placeholder: this.aiEnabled && this.title.length === 0 && this.content.trim().length > 0
+              ? '写完正文了？AI 润色可顺带起标题'
+              : '给这篇起个标题',
           })
             .width('100%')
+            .fontSize(TypeTokens.titleSerif.size).fontFamily(TypeTokens.fontFamilySerif)
+            .fontWeight(TypeTokens.titleSerif.weight)
+            .lineHeight(TypeTokens.titleSerif.lineHeight)
+            .fontColor(ColorTokens.primary)
+            .placeholderColor(ColorTokens.tertiary)
+            .backgroundColor(Color.Transparent)
+            .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.base, bottom: SpaceTokens.md })
+            .maxLines(3)
+            .maxLength(MAX_TITLE_LENGTH)
+            .showCounter(true, { highlightBorder: false })
+            .onChange((value: string) => { this.title = value; this.scheduleThumbnails(); })
+          Divider().strokeWidth(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
+            .margin({ left: SpaceTokens.base, right: SpaceTokens.base })
+          // @提及候选：输入框「上方」的横向条（左右滑动、点选回填）
+          if (this.mentionActive) {
+            AtMentionSuggest({
+              keyword: this.mentionKeyword,
+              onPick: (c: MentionCandidate): void => { this.pickMention(c); },
+            })
+              .width('100%')
+          }
+          TextArea({ text: this.content, placeholder: '写句说明，无图自动生成封面' })
+            .width('100%')
+            .constraintSize({ minHeight: PHOTO_BODY_HEIGHT })
+            .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.body.weight)
+            .lineHeight(TypeTokens.body.lineHeight)
+            .letterSpacing(TypeTokens.body.tracking)
+            .fontColor(ColorTokens.primary)
+            .placeholderColor(ColorTokens.tertiary)
+            .backgroundColor(Color.Transparent)
+            .padding(SpaceTokens.base)
+            .maxLength(MAX_PHOTO_CONTENT_LENGTH)
+            .showCounter(true, { highlightBorder: false })
+            .onChange((value: string) => {
+              this.content = value;
+              this.syncMention(value);
+              this.scheduleThumbnails();
+            })
         }
-        TextArea({ text: this.content, placeholder: '写句说明，无图自动生成封面' })
+        .width('100%')
+        .backgroundColor(ColorTokens.subtle)
+        .borderRadius(RadiusTokens.lg)
+        .alignItems(HorizontalAlign.Start)
+
+        Row() {
+          Blank().layoutWeight(1)
+          AiAssistChip({ label: 'Ai润色', busy: this.aiTitleBusy, available: this.aiEnabled,
+            action: (): void => { this.aiPolish(); } })
+        }
+        .width('100%')
+        .onClick((): void => { this.aiPolish(); })
+
+        if (this.images.length === 0) {
+          Column({ space: SpaceTokens.sm }) {
+            this.blockCaption('封面海报', '未加图时用作帖子卡片')
+            this.textPosterStyleSelector()
+          }
           .width('100%')
-          .height(PHOTO_BODY_HEIGHT)
-          .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
-          .fontWeight(TypeTokens.body.weight)
-          .lineHeight(TypeTokens.body.lineHeight)
-          .letterSpacing(TypeTokens.body.tracking)
-          .fontColor(ColorTokens.primary)
-          .placeholderColor(ColorTokens.tertiary)
-          .backgroundColor(Color.Transparent)
-          .padding(SpaceTokens.base)
-          .maxLength(MAX_PHOTO_CONTENT_LENGTH)
-          .showCounter(true, { highlightBorder: false })
-          .onChange((value: string) => {
-            this.content = value;
-            this.syncMention(value);
-          })
+          .alignItems(HorizontalAlign.Start)
+          .transition(TransitionEffect.OPACITY.animation({ duration: 200, curve: Curve.EaseInOut }))
+        }
       }
       .width('100%')
-      .backgroundColor(ColorTokens.subtle)
-      .borderRadius(RadiusTokens.lg)
       .alignItems(HorizontalAlign.Start)
     }
   }
 
-  // 发布设置托盘：体裁 / 圈子 / 合集 / AI / 清空 收进单一卡，发丝线分组，取代四张平级表单卡。
+  // 加入合集：轻量独立区块（无卡壳），入场节奏顺延 writingSheet（Reveal index 2）。
   @Builder
-  settingsTray(): void {
-    PublishSection({ title: '发布设置', index: 2 }) {
-      Column({ space: SpaceTokens.md }) {
-        Column({ space: SpaceTokens.sm }) {
-          this.blockCaption('体裁', '')
-          ImmersiveSegmentBar({
-            items: PUBLISH_GENRE_SEGMENTS,
-            selectedIndex: $genreIndex,
-            // Scroll 滚动子树 uiMaterial 不渲染——THICK 观感走 trackBlurFallback 通用模糊底。
-            trackBlurFallback: true,
-            onSelect: (index: number): void => { this.selectGenre(index); },
-          })
-          Text(this.currentGenreHint())
-            .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-            .fontWeight(TypeTokens.callout.weight)
-            .lineHeight(TypeTokens.callout.lineHeight)
-            .fontColor(ColorTokens.secondary)
-            .width('100%')
-        }
-        .width('100%')
-        .alignItems(HorizontalAlign.Start)
-
-        Divider().strokeWidth(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
-
-        Column({ space: SpaceTokens.sm }) {
-          this.blockCaption('圈子', '已选 ' + this.selectedTags.length + '/' + MAX_SELECTED_TAGS)
-          PublishCircleSelector({
-            selectedTags: this.selectedTags,
-            maxSelected: MAX_SELECTED_TAGS,
-            onAdd: (): void => { this.showTagPanel = true; },
-            onRemove: (name: string): void => { this.toggleTag(name); },
-          })
-        }
-        .width('100%')
-        .alignItems(HorizontalAlign.Start)
-
-        Divider().strokeWidth(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
-
+  collectionBlock(): void {
+    Reveal({ index: 2 }) {
+      Column({ space: SpaceTokens.sm }) {
+        this.blockCaption('加入合集', '')
         PublishCollectionPicker({ selectedId: $selectedCollectionId })
+      }
+      .width('100%')
+      .alignItems(HorizontalAlign.Start)
+    }
+  }
 
-        Divider().strokeWidth(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
-
-        Row() {
-          Row() {
-            AiAssistChip({
-              label: 'AI 优化',
-              busy: this.aiTitleBusy,
-              available: this.aiEnabled,
-              action: (): void => { this.aiPolish(); },
-            })
-          }
-          .height(LayoutTokens.minTouchTarget)
-          .alignItems(VerticalAlign.Center)
-          .onClick((): void => { this.aiPolish(); })
-          Blank().layoutWeight(1)
-          Row() {
-            Text('清空草稿')
-              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-              .fontWeight(TypeTokens.callout.weight)
-              .fontColor(ColorTokens.tertiary)
-          }
-          .height(LayoutTokens.minTouchTarget)
-          .alignItems(VerticalAlign.Center)
-          .onClick((): void => { this.confirmClear(); })
-        }
-        .width('100%')
-        .alignItems(VerticalAlign.Center)
+  // 圈子：轻量独立区块（无卡壳），入场节奏顺延加入合集（Reveal index 3）。
+  @Builder
+  circleBlock(): void {
+    Reveal({ index: 3 }) {
+      Column({ space: SpaceTokens.sm }) {
+        this.blockCaption('圈子', '已选 ' + this.selectedTags.length + '/' + MAX_SELECTED_TAGS)
+        PublishCircleSelector({ selectedTags: this.selectedTags, maxSelected: MAX_SELECTED_TAGS,
+          onAdd: (): void => { this.showTagPanel = true; },
+          onRemove: (name: string): void => { this.toggleTag(name); } })
       }
       .width('100%')
       .alignItems(HorizontalAlign.Start)
@@ -609,64 +789,112 @@ struct PhotoPublishPage {
   compositionColumn(): void {
     this.mediaBlock()
     this.writingSheet()
-    this.settingsTray()
-    // 分享体裁是轻量图文，不展示结构化信息流编辑区（见 publishGenres 的 structured 标记）
-    if (publishGenreMeta(this.genre).structured) {
-      Reveal({ index: 3 }) {
-        StructuredComposer({
-          document: this.structuredDocument,
-          genreLabel: this.genre,
-          contentText: this.content,
-          expanded: $showFields,
-          onDocumentChange: (document: StructuredDocument): void => { this.structuredDocument = document; },
-        })
-      }
+    this.collectionBlock()
+    this.circleBlock()
+  }
+
+  // 标题栏配置走 buildPageTitleBarOptions 工厂（与 EditProfilePage 保存钮同一实证可点模式）。
+  private photoTitleBarOptions(): HdsNavigationTitleBarOptions {
+    return buildPageTitleBarOptions({
+      back: (): void => { this.getUIContext().getRouter().back(); },
+      stackBuilder: (): void => { this.photoPublishTitleRow(); },
+    });
+  }
+
+  // 标题行：GlassTitleRow 居中标题样板 + 进度副行 + 右侧发布主钮。
+  @Builder
+  photoPublishTitleRow(): void {
+    GlassTitleRow({
+      title: '发布图文',
+      headlineSerif: true,
+      hasSubRow: true,
+      subRow: (): void => { this.photoProgressRow(); },
+      hasActions: true,
+      actions: (): void => { this.publishActionButton(); },
+    })
+  }
+
+  @Builder
+  photoProgressRow(): void {
+    Row({ space: SpaceTokens.inline }) {
+      Progress({ value: this.calcDraftProgress(), total: DRAFT_PROGRESS_TOTAL, type: ProgressType.Linear })
+        .width(44)
+        .color(ColorTokens.brand)
+        .backgroundColor(ColorTokens.separator)
+        .style({ strokeWidth: SpaceTokens.xs, strokeRadius: RadiusTokens.xs, enableSmoothEffect: true })
+      Text(this.draftHint())
+        .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+        .fontWeight(TypeTokens.caption.weight)
+        .lineHeight(TypeTokens.caption.lineHeight)
+        .fontColor(this.calcDraftProgress() >= DRAFT_PROGRESS_TOTAL ? ColorTokens.brand : ColorTokens.secondary)
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
     }
+    .width('100%')
+    .justifyContent(FlexAlign.Center)
+    .alignItems(VerticalAlign.Center)
+  }
+
+  // 发布主钮：与 PublishPageShell.publishActionRow 同源（DesignButton 材质药丸）。
+  @Builder
+  publishActionButton(): void {
+    DesignButton({
+      label: '发布',
+      variant: 'primary',
+      useSystemMaterial: true,
+      materialPill: true,
+      visualHeight: LayoutTokens.segmentedHeight,
+      disabled: this.title.trim().length === 0,
+      action: (): void => { this.onPublish(); },
+    })
+      .margin({ right: SpaceTokens.md })
   }
 
   build() {
-    // 统一外壳 PublishPageShell 封装渐变模糊顶栏 + 穿底。@Entry 根须内置容器，且自定义组件尾随闭包后
-    // 不能直接链通用属性 → 用 Stack 包住外壳：bindSheet 挂 Stack（半模态），bindContentCover 挂内层 Scroll（全模态）。
-    Stack() {
-      PublishPageShell({
-        modeLabel: '发布图文',
-        progressValue: this.calcDraftProgress(),
-        progressTotal: DRAFT_PROGRESS_TOTAL,
-        hint: this.draftHint(),
-        actionLabel: '发布',
-        actionDisabled: this.title.trim().length === 0,
-        scroller: this.publishScroller,
-        onAction: (): void => { this.onPublish(); },
-        onBack: (): void => { this.getUIContext().getRouter().back(); },
-      }) {
-        Scroll(this.publishScroller) {
-          Column({ space: SpaceTokens.md }) {
-            // 穿底让位：状态栏 + 栏高 + 呼吸（enableComponentSafeArea=false 后自补）
-            Row().height(this.statusBarHeight + PUBLISH_BAR_ROW_VP + SpaceTokens.sm).width('100%')
-            this.compositionColumn()
-          }
-          .width('100%')
-          .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.x2l })
-          .alignItems(HorizontalAlign.Start)
+    // HdsNavigation 直接做 @Entry build 根（EditProfilePage 同款结构）。
+    // 模态分宿主：圈子半模态挂栏根节点、两个全模态挂内层 Scroll——同组件兼绑两者会让
+    // 全模态静默失效（a39dfc9c 平台规格）；两个宿主都是页面自有组件，弹层开关状态变化
+    // 即时重评估绑定（挂进外壳尾随闭包会随外壳复用而不重评估，弹层永不出现）。
+    HdsNavigation() {
+      Scroll(this.publishScroller) {
+        Column({ space: SpaceTokens.md }) {
+          // 穿底让位：状态栏 + 栏高 + 呼吸（enableComponentSafeArea=false 后自补）
+          Row().height(this.statusBarHeight + PUBLISH_BAR_ROW_VP + SpaceTokens.sm).width('100%')
+          this.compositionColumn()
         }
-        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .width('100%')
-        .height('100%')
-        .scrollBar(BarState.Off)
-        .backgroundColor(ColorTokens.canvas)
-        .bindContentCover(this.aiSheetShown, this.aiPolishSheet(), {
-          modalTransition: ModalTransition.DEFAULT,
-          onDisappear: (): void => { this.aiSheetShown = false; },
-        })
-        .bindContentCover(this.reviewSheetShown, this.reviewSheet(), {
-          modalTransition: ModalTransition.DEFAULT,
-          onDisappear: (): void => { this.reviewSheetShown = false; },
-        })
+        .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, bottom: SpaceTokens.x2l })
+        .alignItems(HorizontalAlign.Start)
       }
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+      .width('100%')
+      .height('100%')
+      .scrollBar(BarState.Off)
+      .backgroundColor(ColorTokens.canvas)
+      .bindContentCover(this.aiSheetShown, this.aiPolishSheet(), {
+        modalTransition: ModalTransition.DEFAULT,
+        onDisappear: (): void => { this.aiSheetShown = false; },
+      })
+      .bindContentCover(this.reviewSheetShown, this.reviewSheet(), {
+        modalTransition: ModalTransition.DEFAULT,
+        onDisappear: (): void => { this.reviewSheetShown = false; },
+      })
+      .bindContentCover(this.previewUrl.length > 0, this.previewOverlay(), {
+        modalTransition: ModalTransition.DEFAULT,
+        onDisappear: (): void => { this.previewUrl = ''; },
+      })
     }
+    .mode(NavigationMode.Stack)
+    .titleMode(HdsNavigationTitleMode.MINI)
+    .titleBar(this.photoTitleBarOptions())
+    .bindToScrollable([this.publishScroller])
+    .clip(false)
     .width('100%')
     .height('100%')
     .backgroundColor(ColorTokens.canvas)
+    // 页面转场是真实触摸可用的前提：发布三页曾是全站唯三未配置转场的路由页，
+    // 手指点击全死、accessibility tap 绕过（2026-11-24 真机实证），与全站路由页同款。
+    .transition(buildPageTransition())
     .bindSheet(this.showTagPanel, this.tagSheet(), {
       height: '60%',
       dragBar: true,
@@ -679,16 +907,59 @@ struct PhotoPublishPage {
     })
   }
 
+  // 图片全屏预览：页面级根模态承载（ImagePicker 在 Reveal 内自挂模态渲染异常——黑屏实证）。
+  // Swiper 多图左右切换：打开时按 remoteUrl 在已上传列表中定位；点图或 ✕ 退出。
+  // 页面级模态与审稿层同宿主（PixelMap/网络图渲染成功先例），此前 Swiper 黑屏根因是 Reveal 内自挂模态。
+  @Builder
+  previewOverlay(): void {
+    Stack({ alignContent: Alignment.TopEnd }) {
+      Swiper(this.previewSwiperController) {
+        ForEach(this.images, (url: string) => {
+          Image(resolveDisplayImageUrl(url))
+            .width('100%')
+            .height('100%')
+            .objectFit(ImageFit.Contain)
+            .onClick(() => { this.previewUrl = ''; })
+        }, (url: string) => url)
+      }
+      .index(Math.max(0, this.images.indexOf(this.previewUrl)))
+      .width('100%')
+      .height('100%')
+      .indicator(true)
+      .loop(false)
+      .backgroundColor(Color.Black)
+      Text('✕')
+        .fontSize(22)
+        .fontColor(Color.White)
+        .width(44)
+        .height(44)
+        .textAlign(TextAlign.Center)
+        .margin({ top: 48, right: 12 })
+        .onClick(() => { this.previewUrl = ''; })
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor(Color.Black)
+  }
+
   // 结构化审稿弹层：revision 递增驱动内部重新初始化（复用实例时 aboutToAppear 不会再跑）
   @Builder
   reviewSheet(): void {
     StructuredReviewSheet({
-      genre: this.genre,
+      zone: this.currentZone(),
+      genre: this.currentZone() === 'insight' ? '' : this.genre,
       contentText: this.content,
       initialDocument: this.structuredDocument,
       aiAvailable: this.aiEnabled,
       resetKey: this.reviewSheetRevision,
+      draftTitle: this.title,
+      draftTags: this.selectedTags,
+      draftMentions: this.mentionRefs,
+      draftMediaUrl: '',
+      draftVideoUrl: '',
+      draftPosterStyle: this.textPosterStyle,
       onConfirm: (document: StructuredDocument, genre: string): void => { this.confirmPublish(document, genre); },
+      onPublishRaw: (): void => { this.publishRaw(); },
       onClose: (): void => { this.reviewSheetShown = false; },
     })
   }

@@ -581,6 +581,7 @@ struct PublishPreviewPage {
           }
           .width(this.formWidth())
           .alignItems(HorizontalAlign.Start)
+
         }
         .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .layoutWeight(1)

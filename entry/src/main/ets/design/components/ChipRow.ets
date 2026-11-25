@@ -1,3 +1,9 @@
+// ChipRow —— 标签 chip 行容器（家族唯一样式源）
+//
+// 分工口径（定稿）：ChipRow=带 TagIcon 的标签 chip 行容器。
+// 横向滚动的可选标签行（showIcon 时 item.iconName 渲染 TagIcon，选中态样式按
+// compact/glass 档位承担）；与 SoftChip（实色软底动作件）、ToggleChip（双态选择
+// 迷你胶囊）三件分工互斥：标签导航行一律引用本组件，禁止手写同形态。
 import { TagIcon } from '../../components/TagIcon';
 import { Pressable } from '../motion/Pressable';
 import { ColorTokens } from '../tokens/color';

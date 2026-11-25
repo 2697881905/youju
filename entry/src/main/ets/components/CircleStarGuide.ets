@@ -2,10 +2,10 @@
 // 用一张贴底卡片替代一长句黑话提示，减少理解成本，也不长期占据星图。
 import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
-import { ShadowTokens } from '../design/tokens/shadow';
-import { SpaceTokens, LayoutTokens } from '../design/tokens/space';
+import { SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { immersiveCardWidth } from '../design/tokens/galaxy';
+import { BaseCard } from '../design/components/BaseCard';
 import { DesignButton } from '../design/components/DesignButton';
 
 @Component
@@ -44,41 +44,45 @@ export struct CircleStarGuide {
   }
 
   build() {
-    Column({ space: SpaceTokens.sm }) {
-      Row({ space: SpaceTokens.xs }) {
-        Text('星图怎么看')
-          .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
-          .fontWeight(TypeTokens.headline.weight)
-          .fontColor(ColorTokens.primary)
-        Blank()
+    // 断点限宽（sm 满幅 / md 520 / lg 600）：由外层透明容器承担（尾随闭包后不能直接链
+    // 通用属性），BaseCard width('100%') 撑满；宿主外层负责居中。
+    Column() {
+      BaseCard({
+        cardPadding: SpaceTokens.md,
+        radius: RadiusTokens.lg,
+        elevation: 1,
+      }) {
+        Column({ space: SpaceTokens.sm }) {
+          Row({ space: SpaceTokens.xs }) {
+            Text('星图怎么看')
+              .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
+              .fontWeight(TypeTokens.headline.weight)
+              .fontColor(ColorTokens.primary)
+            Blank()
+          }
+          .width('100%')
+          .alignItems(VerticalAlign.Center)
+
+          this.legendRow('环', ColorTokens.warm, '金环 = 已加入', '有金环的圈子，你已经关注')
+          this.legendRow('亮', ColorTokens.brand, '亮 = 近 7 天有新帖', '暗一些的圈子近期比较安静')
+          this.legendRow('3', ColorTokens.danger, '红点 = 未读新帖', '点红点直接读最新一帖')
+
+          Text('点行星进圈 · 拖行星调关注 · 点 ✦ 看新帖')
+            .width('100%')
+            .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
+            .fontColor(ColorTokens.secondary)
+            .padding({ top: SpaceTokens.xs })
+
+          DesignButton({
+            label: '知道了',
+            variant: 'primary',
+            action: (): void => { this.onDismiss(); },
+          })
+            .width('100%')
+        }
+        .width('100%')
       }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
-
-      this.legendRow('环', ColorTokens.warm, '金环 = 已加入', '有金环的圈子，你已经关注')
-      this.legendRow('亮', ColorTokens.brand, '亮 = 近 7 天有新帖', '暗一些的圈子近期比较安静')
-      this.legendRow('3', ColorTokens.danger, '红点 = 未读新帖', '点红点直接读最新一帖')
-
-      Text('点行星进圈 · 拖行星调关注 · 点 ✦ 看新帖')
-        .width('100%')
-        .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-        .fontColor(ColorTokens.secondary)
-        .padding({ top: SpaceTokens.xs })
-
-      DesignButton({
-        label: '知道了',
-        variant: 'primary',
-        action: (): void => { this.onDismiss(); },
-      })
-        .width('100%')
     }
     .width(immersiveCardWidth(this.currentBreakpoint))
-    .padding(SpaceTokens.md)
-    .backgroundColor(ColorTokens.elevated)
-    .border({ width: LayoutTokens.glassBorderWidth, color: ColorTokens.separator, style: BorderStyle.Solid })
-    .borderRadius(RadiusTokens.lg)
-    // 与「今日圈内」同口径：贴底常驻卡用贴地投影，不用浮层档。
-    .shadow(ShadowTokens.cardAmbient)
-    .alignItems(HorizontalAlign.Start)
   }
 }

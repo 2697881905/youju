@@ -3,6 +3,8 @@
 // 本地用 PixelMap 即时预览；直传成功后把远端 URL 写入 @Link selected（供发布器提交）。
 // 多图场景下支持长按单张图片拖拽排序：Grid 进入编辑模式后长按拖动即可调整图片顺序。
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
+import { dataSharePredicates } from '@kit.ArkData';
+import { common } from '@kit.AbilityKit';
 
 import { image } from '@kit.ImageKit';
 import { http } from '@kit.NetworkKit';
@@ -126,7 +128,12 @@ export struct ImagePicker {
         if (this.items.length >= this.maxCount) {
           break;
         }
-        const compressed: CompressedImage = await compressImage(u);
+        // 方向优先走媒体库数据库（PhotoAsset.ORIENTATION）：文件 EXIF 可能被导出链路剥掉（2339.jpg 实锤），
+        // 而相册显示仍正——方向存在数据库不在文件里。picker URI 查询无需 READ_IMAGEVIDEO 权限。
+        const dbOrientation = await this.orientationOf(u);
+        // cacheDir 取自全局 getContext（getHostContext 在此组件实测返回 undefined，导致 staged 路径被跳过）
+        const cacheDir = (getContext(this) as common.Context).cacheDir ?? '';
+        const compressed: CompressedImage = await compressImage(u, 1920, cacheDir, dbOrientation);
         const preview: image.PixelMap = compressed.preview;
         const bytes: ArrayBuffer = compressed.bytes;
         const item: PickedImage = { id: 'img_' + this.pickSeq++, preview, uploading: true };
@@ -187,6 +194,43 @@ export struct ImagePicker {
     this.items = nextItems;
     this.selected = nextSelected;
     this.reordering = false;
+  }
+
+  // 从媒体库数据库读方向（picker URI 查询无需 READ_IMAGEVIDEO 权限——官方「指定URI获取图片或视频资源」路径）。
+  // 相册方向存在数据库而非文件 EXIF：导出链路会剥掉文件 EXIF 但相册仍显示正（2339.jpg 字节实锤无 EXIF 段）。
+  private async orientationOf(uri: string): Promise<number> {
+    try {
+      const ctx = getContext(this) as common.Context;
+      const helper = photoAccessHelper.getPhotoAccessHelper(ctx);
+      const pred: dataSharePredicates.DataSharePredicates = new dataSharePredicates.DataSharePredicates();
+      pred.equalTo(photoAccessHelper.PhotoKeys.URI, uri);
+      const options: photoAccessHelper.FetchOptions = {
+        fetchColumns: [photoAccessHelper.PhotoKeys.ORIENTATION],
+        predicates: pred,
+      };
+      const result = await helper.getAssets(options);
+      const asset: photoAccessHelper.PhotoAsset | undefined = await result.getFirstObject();
+      const rawO = asset !== undefined ? asset.get(photoAccessHelper.PhotoKeys.ORIENTATION) : '0';
+      const o: number = asset !== undefined ? parseInt(String(rawO), 10) || 0 : 0;
+      result.close();
+      console.info('IMG_EXIF_DB ' + o);
+      return o;
+    } catch (e) {
+      console.info('IMG_EXIF_DB fail: ' + (e as Error).message);
+      return 0;
+    }
+  }
+
+  // 图片预览由宿主页面承载（Reveal 内自挂 bindContentCover 渲染异常——黑屏实证）：
+  // 这里上抛点击图片的 remoteUrl，宿主页面在已上传列表中定位并支持左右切换。
+  onPreview?: (url: string) => void = undefined;
+
+  private openPreview(idx: number): void {
+    // 仅已上传完成（remoteUrl 已回填）的格子可预览：上传中的图不在宿主已上传列表里
+    const url = this.items[idx].remoteUrl ?? '';
+    if (url.length > 0 && this.onPreview !== undefined) {
+      this.onPreview(url);
+    }
   }
 
   // 拖拽浮层：跟随手指的缩略图。
@@ -258,6 +302,7 @@ export struct ImagePicker {
       .position({ top: 0, right: 0 })
       .onClick(() => this.removeAt(idx))
     }
+    .onClick(() => this.openPreview(idx))
     .width('100%')
     .aspectRatio(1)
     // 拖拽中高亮当前落点格子，给出明确的插入位置反馈。
@@ -297,7 +342,7 @@ export struct ImagePicker {
           }
         }
       }
-      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+      .edgeEffect(EdgeEffect.Spring)
       .columnsTemplate('1fr 1fr 1fr')
       .columnsGap(SpaceTokens.sm)
       .rowsGap(SpaceTokens.sm)
@@ -330,7 +375,9 @@ export struct ImagePicker {
         // 把被拖起项移动到落点；拖到「+ 添加」格视为移到末尾。
         this.moveItem(from, this.clampTargetIndex(insertIndex));
       })
+      .scrollBar(BarState.Off)
     }
     .width('100%')
+
   }
 }

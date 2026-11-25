@@ -10,6 +10,9 @@ export struct PostCollectionState {
   @Prop loading: boolean = false;
   @Prop error: string = '';
   @Prop emptyTitle: string = '';
+  // 空态副文案（可覆盖）。默认『内容出现后会显示在这里』是通用口径；各分段可传贴切文案
+  //（如「我发布」分段传『发布帖子后会显示在这里』），不影响未传参的调用方（UserProfileView 等）。
+  @Prop emptyMessage: string = '';
   onRetry: () => void = (): void => {};
 
   build() {
@@ -26,7 +29,8 @@ export struct PostCollectionState {
       } else {
         EmptyState({
           title: this.error.length > 0 ? '加载失败' : this.emptyTitle,
-          message: this.error.length > 0 ? this.error : '内容出现后会显示在这里',
+          message: this.error.length > 0 ? this.error
+            : (this.emptyMessage.length > 0 ? this.emptyMessage : '内容出现后会显示在这里'),
           actionLabel: this.error.length > 0 ? '重试' : '',
           onAction: (): void => { this.onRetry(); },
         })

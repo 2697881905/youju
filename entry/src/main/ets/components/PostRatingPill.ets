@@ -3,9 +3,10 @@ import { TypeTokens } from '../design/tokens/type';
 import { ratePost, PostRatingResult } from '../services/api';
 
 // 帖子社区评分胶囊（2026-10-29 替代作者主观「推荐指数」主视觉）：
-// 收起态 = ★均值 · N人（无人打分 = 「评分」引导位），挂在详情页标题区体裁行右侧；
-// 点击展开半星打分条（5 颗星、每颗左右半区各 0.5 步进），点星即提交（upsert 可改票）。
-// 未登录点击走 onNeedLogin 由宿主接登录流程；提交后回写聚合（均值/人数/我的评分）。
+// 胶囊 = ★均值 · N人（无人打分 = 「评分」引导位），挂在详情页标题区体裁行右侧；
+// 打分条默认展开（2026-11-24，半星打分：5 颗星、每颗左右半区各 0.5 步进），点星即提交
+// （upsert 可改票）；点胶囊可收起/再展开。未登录点星走 onNeedLogin 由宿主接登录流程；
+// 提交后回写聚合（均值/人数/我的评分）。
 @Component
 export struct PostRatingPill {
   @Prop postId: number = 0;
@@ -16,7 +17,8 @@ export struct PostRatingPill {
   // 展开打分条前询问宿主：已登录返回 true（组件展开）；未登录宿主拉起登录并返回 false
   onExpandRequest: () => boolean = (): boolean => true;
 
-  @State private expanded: boolean = false;
+  // 打分条默认展开（2026-11-24：点星即评分的引导前置，胶囊点击变为收起/再展开开关）
+  @State private expanded: boolean = true;
   @State private submitting: boolean = false;
 
   // 我的评分显示（星，一位小数）：0 = 未打
@@ -35,6 +37,13 @@ export struct PostRatingPill {
 
   private async submit(scoreX2: number): Promise<void> {
     if (this.submitting) {
+      return;
+    }
+    if (this.postId <= 0) {
+      return;
+    }
+    // 默认展开后登录门控移到点星时：未登录由宿主拉起登录页且不发起提交
+    if (!this.onExpandRequest()) {
       return;
     }
     this.submitting = true;

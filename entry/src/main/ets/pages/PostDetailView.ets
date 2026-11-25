@@ -2,22 +2,22 @@
 import { buildPageTransition, buildFadePageTransition } from '../utils/styles';
 import { TypeTokens } from '../design/tokens/type';
 import { ColorTokens } from '../design/tokens/color';
-import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit';
+import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
 import type {
   HdsNavigationTitleBarOptions,
   TitleBarContentOptions,
   TitleBarStyleOptions,
-  ScrollEffectOptions,
-  HdsTitleBarContentStyle,
-  HdsNavigationIconItemStyle,
+
+
+
   HdsNavigationIconOptions,
   HdsNavigationBackButtonItemOptions,
   HdsNavigationMenuContentOptions,
   HdsNavigationMenuItemOptions,
-  SystemMaterialParams,
+
 } from '@kit.UIDesignKit';
-import { LengthMetrics, ComponentContent } from '@kit.ArkUI';
-import { isImmersiveLightSenseSupported, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE, isSystemMaterialActive, getMenuImmersiveMaterial, getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
+import { ComponentContent } from '@kit.ArkUI';
+import { isSystemMaterialActive, getMenuImmersiveMaterial, getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
 import { requestSystemBarRefresh } from '../utils/systemBar';
 import {
   getPost,
@@ -40,9 +40,12 @@ import {
   PostWithComments,
   getPostStats,
   PostStats,
+  listPosts,
+  ListResult,
 } from '../services/api';
-import { Genre, ReportReason, DebateVoteResult, DmSharePayload, Comment, BookmarkFolderItem, MentionRef, MentionCandidate } from '../models/types';
+import { Post, Genre, ReportReason, DebateVoteResult, DmSharePayload, Comment, BookmarkFolderItem, MentionRef, MentionCandidate } from '../models/types';
 import { ReportDialog } from '../components/ReportDialog';
+import { AppModalController } from '../utils/modal';
 import { FolderPickDialog } from '../components/FolderPickDialog';
 import { FolderNameDialog } from '../components/FolderNameDialog';
 import { PostStatsDialog } from '../components/PostStatsDialog';
@@ -82,6 +85,8 @@ import { FALLBACK_VIDEO_ASPECT_RATIO, normalizeVideoAspectRatio } from '../utils
 import { MotionCurves, MotionTokens } from '../design/tokens/motion';
 import { postContentTextOf } from '../utils/postPlainText';
 import { resolveActionIcon } from '../utils/actionIcons';
+import { buildGlassBackIcon, buildGlassTitleBarStyle } from '../design/components/HdsGlassBackSurface';
+import { PointerMenu, PointerMenuEntry } from '../design/components/PointerMenu';
 
 import { hilog } from '@kit.PerformanceAnalysisKit';
 
@@ -173,6 +178,89 @@ function genreMeta(genre?: Genre): GenreMeta {
 
 // 帖子详情「主体视图」：router 壳（pages/DetailPage）与 Navigation 壳（pages/PostDetailDestination）共用。
 // 差异点全部收敛为注入回调：Navigation 壳负责返回和二级跳转，router 壳使用系统 router。
+// —— 弹窗参数对象（ComponentContent 需要「全局 @Builder + class 参数」，回调闭包捕获宿主
+// this 在 open 时构造；关闭走 closeCustomDialog(content) 同步可靠，不依赖 dialogId——其
+// Promise 真机在弹窗关闭时才回填，2026-11-25 双层弹窗实锤）——
+export class PostReportDialogParams {
+  onSubmit: (reason: ReportReason, description: string) => void = (_r: ReportReason, _d: string) => {};
+  onClose: () => void = (): void => {};
+}
+
+export class CommentReportDialogParams {
+  onSubmit: (reason: ReportReason, description: string) => void = (_r: ReportReason, _d: string) => {};
+  onClose: () => void = (): void => {};
+}
+
+export class FolderNameDialogParams {
+  onSubmit: (name: string) => void = (_n: string) => {};
+  onClose: () => void = (): void => {};
+}
+
+export class FolderPickDialogParams {
+  folders: BookmarkFolderItem[] = [];
+  onPick: (folderId: number) => void = (_f: number) => {};
+  onNewFolder: () => void = (): void => {};
+  onClose: () => void = (): void => {};
+}
+
+@Builder
+function postReportDialogBuilder(p: PostReportDialogParams) {
+  ReportDialog({
+    targetType: 'post',
+    targetId: 0,
+    onSubmit: (reason: ReportReason, description: string): void => {
+      p.onSubmit(reason, description);
+    },
+    onClose: (): void => {
+      p.onClose();
+    },
+  })
+}
+
+@Builder
+function commentReportDialogBuilder(p: CommentReportDialogParams) {
+  ReportDialog({
+    targetType: 'comment',
+    targetId: 0,
+    onSubmit: (reason: ReportReason, description: string): void => {
+      p.onSubmit(reason, description);
+    },
+    onClose: (): void => {
+      p.onClose();
+    },
+  })
+}
+
+@Builder
+function folderNameDialogBuilder(p: FolderNameDialogParams) {
+  FolderNameDialog({
+    title: '新建收藏夹',
+    onSubmit: (name: string): void => {
+      p.onSubmit(name);
+    },
+    onClose: (): void => {
+      p.onClose();
+    },
+  })
+}
+
+@Builder
+function folderPickDialogBuilder(p: FolderPickDialogParams) {
+  FolderPickDialog({
+    folders: p.folders,
+    afterBookmark: true,
+    onPick: (folderId: number): void => {
+      p.onPick(folderId);
+    },
+    onNewFolder: (): void => {
+      p.onNewFolder();
+    },
+    onClose: (): void => {
+      p.onClose();
+    },
+  })
+}
+
 @Component
 export struct PostDetailView {
   // —— 壳注入（Navigation 壳 pages/PostDetailDestination 使用）——
@@ -242,10 +330,10 @@ export struct PostDetailView {
   // 标题与正文 Text 已开启系统文本选择复制（copyOption，见 DetailPostHeader / DetailPostContent），
   // 长按它们走原生选择；「复制正文」长按菜单只挂结构化卡片（DetailPostContent 内部），
   // 不与正文文本选择的长按竞争。bindContextMenu 会被子组件 onClick 竞争掉（同 ChatView
-  // 消息菜单的结论），故用自绘遮罩浮层。
+  // 消息菜单的结论），故用共享 PointerMenu 遮罩浮层。
   @State contentMenuVisible: boolean = false;
-  @State contentMenuX: number = 0; // 菜单卡片左上角 x（内容区 Stack 本地坐标，按按压点定位）
-  @State contentMenuY: number = 0; // 菜单卡片左上角 y
+  @State pressGx: number = 0; // 按压点全局坐标（GestureEvent 提取，PointerMenu 内做本地换算与钳制）
+  @State pressGy: number = 0;
   // 内容区 Stack 的全局原点与尺寸：按压点全局坐标 → 本地坐标换算 & 边界钳制依赖它
   private contentAreaGlobalX: number = 0;
   private contentAreaGlobalY: number = 0;
@@ -301,8 +389,8 @@ export struct PostDetailView {
   private originalKeyboardMode: KeyboardAvoidMode | null = null;
   // 收藏夹选择（收藏时归类）
   @State folderPickFolders: BookmarkFolderItem[] = [];
-  private folderPickController: CustomDialogController | null = null;
-  private folderNameDialog: CustomDialogController | null = null;
+  private folderPickModal: AppModalController = new AppModalController();
+  private folderNameModal: AppModalController = new AppModalController();
   // 帖子数据面板（作者本人）
   @State postStats: PostStats | null = null;
   @State statsLoading: boolean = false;
@@ -312,6 +400,16 @@ export struct PostDetailView {
   // 传 @Prop 又不随父组件刷新（两个坑都踩过，见 PostStatsDialog 头注释）。
   @State statsPanelShow: boolean = false;
   private statsPostId: number = 0;
+  // 面板基准：自己近 7 帖均值（▲▼ 对比日常水准 + 解读文案用；0 / null = 无基准）
+  @State avgView: number = 0;
+  @State avgUp: number = 0;
+  @State avgBookmark: number = 0;
+  @State avgComment: number = 0;
+  @State avgRating: number | null = null;
+  @State avgPostCount: number = 0;
+  // 转化率基准兜底（旧后端 stats 无 authorBaseline 时，前端拉近 7 帖 stats 汇总曝光/点击）
+  @State fallbackClickCount: number = 0;
+  @State fallbackClickRate: number = 0;
   // 监听登录账号：切换账号/登出时重新加载本帖，以服务器为准校准点赞/收藏/投票态（避免 likeStore 单例残留串号）
   @StorageLink('authUserId') @Watch('onAccountSwitch') accountId: string = '';
   // 智感握姿：原始握持手状态（gripAwareness 写入；1=左手 2=右手 0=未握持/不支持）
@@ -401,30 +499,26 @@ export struct PostDetailView {
   }
 
   // 帖子举报弹窗控制器
-  private reportController: CustomDialogController = new CustomDialogController({
-    builder: ReportDialog({
-      targetType: 'post',
-      targetId: 0,
-      onSubmit: (reason: ReportReason, description: string) => {
-        this.submitReport(reason, description);
-      },
-    }),
-    alignment: DialogAlignment.Center,
-    customStyle: false,
-  });
+  private reportModal: AppModalController = new AppModalController();
 
   // 评论举报弹窗控制器
-  private commentReportController: CustomDialogController = new CustomDialogController({
-    builder: ReportDialog({
-      targetType: 'comment',
-      targetId: 0,
-      onSubmit: (reason: ReportReason, description: string) => {
-        this.submitCommentReport(reason, description);
+  private commentReportModal: AppModalController = new AppModalController();
+
+  // 打开帖子举报弹窗（more 菜单入口；builder 闭包 open 时求值，读宿主现值）
+  private openPostReportDialog(): void {
+    const params: PostReportDialogParams = new PostReportDialogParams();
+    params.onSubmit = (reason: ReportReason, description: string): void => {
+      this.submitReport(reason, description);
+    };
+    params.onClose = (): void => { this.reportModal.close(); };
+    const content: ComponentContent<PostReportDialogParams> =
+      new ComponentContent(this.getUIContext(), wrapBuilder(postReportDialogBuilder), params);
+    this.reportModal.openContent(this.getUIContext(), content, {
+      onDismiss: (): void => {
+        this.reportModal.close();
       },
-    }),
-    alignment: DialogAlignment.Center,
-    customStyle: false,
-  });
+    });
+  }
 
   // 分享面板控制器（底部拉起式菜单：关注头像直发私信/更多/复制链接/复制标题/系统分享/分享卡片）
   private shareController: CustomDialogController = new CustomDialogController({
@@ -881,17 +975,18 @@ export struct PostDetailView {
 
   // 新建收藏夹（从收藏夹选择弹窗进入）
   private onNewFolderFromPick(): void {
-    this.folderNameDialog = new CustomDialogController({
-      builder: FolderNameDialog({
-        title: '新建收藏夹',
-        onSubmit: (name: string): void => {
-          this.onCreateFolderAndBookmark(name);
-        },
-      }),
-      autoCancel: true,
-      customStyle: true,
+    const params: FolderNameDialogParams = new FolderNameDialogParams();
+    params.onSubmit = (name: string): void => {
+      this.onCreateFolderAndBookmark(name);
+    };
+    params.onClose = (): void => { this.folderNameModal.close(); };
+    const content: ComponentContent<FolderNameDialogParams> =
+      new ComponentContent(this.getUIContext(), wrapBuilder(folderNameDialogBuilder), params);
+    this.folderNameModal.openContent(this.getUIContext(), content, {
+      onDismiss: (): void => {
+        this.folderNameModal.close();
+      },
     });
-    this.folderNameDialog.open();
   }
 
   // 新建收藏夹后归入该夹（帖子已在收藏态，走移动；弹窗期间恰已取消收藏则仅建夹不归入）
@@ -911,17 +1006,16 @@ export struct PostDetailView {
   }
 
   private openFolderPick(): void {
-    this.folderPickController = new CustomDialogController({
-      builder: FolderPickDialog({
-        folders: this.folderPickFolders,
-        afterBookmark: true,
-        onPick: (folderId: number): void => { this.onFolderPick(folderId); },
-        onNewFolder: (): void => { this.onNewFolderFromPick(); },
-      }),
-      autoCancel: true,
-      customStyle: true,
+    const params: FolderPickDialogParams = new FolderPickDialogParams();
+    params.folders = this.folderPickFolders;
+    params.onPick = (folderId: number): void => { this.onFolderPick(folderId); };
+    params.onNewFolder = (): void => { this.onNewFolderFromPick(); };
+    params.onClose = (): void => { this.folderPickModal.close(); };
+    const content: ComponentContent<FolderPickDialogParams> =
+      new ComponentContent(this.getUIContext(), wrapBuilder(folderPickDialogBuilder), params);
+    this.folderPickModal.openContent(this.getUIContext(), content, {
+      onDismiss: (): void => { this.folderPickModal.close(); },
     });
-    this.folderPickController.open();
   }
 
   onShare(): void {
@@ -1004,8 +1098,8 @@ export struct PostDetailView {
     this.contentMenuVisible = false;
   }
 
-  // 长按定位：菜单显示在长按内容的**上方**（卡片底边距按压点 10vp，不遮住被长按的文字），
-  // 水平中心对准按压点；贴近内容区顶部放不下时翻转到按压点下方；均钳制在内容区边界内。
+  // 长按定位：提取按压点全局坐标（兜底内容区中心）；上方放置/顶部翻转与边界钳制收敛进
+  // 共享 PointerMenu（placement 'above'：卡片底边距按压点 10vp，不遮住被长按的文字）
   private openContentMenu(event: GestureEvent): void {
     // 兜底中心点（fingerList 理论上必有值，防御性处理）
     let gx: number = this.contentAreaGlobalX + this.contentAreaWidth / 2;
@@ -1014,22 +1108,8 @@ export struct PostDetailView {
       gx = event.fingerList[0].globalX;
       gy = event.fingerList[0].globalY;
     }
-    // 全局坐标 → 内容区 Stack 本地坐标
-    const lx: number = gx - this.contentAreaGlobalX;
-    const ly: number = gy - this.contentAreaGlobalY;
-    // 单行菜单卡片（行高 42 + 上下内边距 8）
-    const cardW: number = 148;
-    const cardH: number = 50;
-    const gap: number = 10;
-    const maxX: number = Math.max(8, this.contentAreaWidth - cardW - 8);
-    const maxY: number = Math.max(8, this.contentAreaHeight - cardH - 8);
-    this.contentMenuX = Math.max(8, Math.min(maxX, lx - cardW / 2));
-    let y: number = ly - cardH - gap;
-    if (y < 8) {
-      // 上方放不下（长按位置贴近内容区顶部）：翻转到按压点下方
-      y = ly + gap;
-    }
-    this.contentMenuY = Math.max(8, Math.min(maxY, y));
+    this.pressGx = gx;
+    this.pressGy = gy;
     this.contentMenuVisible = true;
   }
 
@@ -1058,6 +1138,13 @@ export struct PostDetailView {
     } catch (e) {
       safeShowToast(this.getUIContext(), { message: '复制失败，请重试' });
     }
+  }
+
+  // 菜单项构造（长按结构化卡片固定单项：复制正文；点击先关菜单由 PointerMenu 统一处理）
+  private contentMenuEntries(): PointerMenuEntry[] {
+    const entries: PointerMenuEntry[] = [];
+    entries.push({ label: '复制正文', action: (): void => { this.copyPostContent(); } });
+    return entries;
   }
 
   // 系统分享占位：真实域名确定后接入 @ohos.application.SystemShareKit 系统分享面板
@@ -1265,7 +1352,7 @@ export struct PostDetailView {
       return entries;
     }
     const others: MoreActionEntry[] = [
-      { icon: resolveActionIcon('warning'), label: '举报该帖子', color: ColorTokens.primary, action: (): void => { this.reportController.open(); } },
+      { icon: resolveActionIcon('warning'), label: '举报该帖子', color: ColorTokens.primary, action: (): void => { this.openPostReportDialog(); } },
     ];
     if (EXTERNAL_SHARE_ENABLED) {
       others.push({ icon: resolveActionIcon('share'), label: '分享', color: ColorTokens.primary, action: (): void => { this.onShare(); } });
@@ -1319,8 +1406,61 @@ export struct PostDetailView {
     this.statsLoading = true;
     this.statsError = '';
     this.statsPostId = postId;
+    // 基准重置防上一轮残留；随后异步拉近 7 帖均值（失败静默降级为无基准标记）
+    this.avgView = 0;
+    this.avgUp = 0;
+    this.avgBookmark = 0;
+    this.avgComment = 0;
+    this.avgRating = null;
+    this.avgPostCount = 0;
+    this.fallbackClickCount = 0;
+    this.fallbackClickRate = 0;
     this.statsPanelShow = true;
     this.loadPostStats(postId);
+    this.loadStatsBaseline();
+  }
+
+  // 拉自己近 7 帖（排除当前帖）算均值：面板 ▲▼ 基准与解读文案用。
+  // 数据来自 listPosts（author=自己，latest 8 条）；口径与面板一致（互动 = 顶 + 收藏 + 评论）。
+  private loadStatsBaseline(): void {
+    const uid: number = getUserId();
+    if (uid <= 0) {
+      return;
+    }
+    // limit 20 与 ProfilePage「我发布」同口径：取更多历史帖供排除当前帖后凑满近 7 帖
+    listPosts({ author: uid, limit: 20, sort: 'latest' }).then((res: ListResult<Post>): void => {
+      const all: Post[] = res.list ?? [];
+      const others: Post[] = all.filter((p: Post): boolean => (p.id ?? 0) !== this.statsPostId);
+      const n: number = Math.min(others.length, 7);
+      if (n <= 0) {
+        return;
+      }
+      let view: number = 0;
+      let up: number = 0;
+      let bookmark: number = 0;
+      let comment: number = 0;
+      let ratingSum: number = 0;
+      let ratingN: number = 0;
+      for (let i: number = 0; i < n; i++) {
+        const p: Post = others[i];
+        view += p.viewCount ?? 0;
+        up += p.upCount ?? 0;
+        bookmark += p.bookmarkCount ?? 0;
+        comment += p.commentCount ?? 0;
+        if (typeof p.ratingAvg === 'number') {
+          ratingSum += p.ratingAvg;
+          ratingN += 1;
+        }
+      }
+      this.avgView = Math.round(view / n);
+      this.avgUp = Math.round(up / n);
+      this.avgBookmark = Math.round(bookmark / n);
+      this.avgComment = Math.round(comment / n);
+      this.avgRating = ratingN > 0 ? Math.round(ratingSum * 10 / ratingN) / 10 : null;
+      this.avgPostCount = n;
+    }).catch((): void => {
+      // 基准失败不影响面板主体：保持无基准态（不显示 ▲▼ 与对比句）
+    });
   }
 
   // 数据面板半模态内容：sheet builder 与宿主同渲染上下文，@Prop 随父组件刷新，
@@ -1334,7 +1474,18 @@ export struct PostDetailView {
       error: this.statsError,
       ratingAvg: this.post?.ratingAvg ?? null,
       ratingCount: this.post?.ratingCount ?? 0,
-      onRetry: (): void => { this.loadPostStats(this.statsPostId); },
+      avgView: this.avgView,
+      avgUp: this.avgUp,
+      avgBookmark: this.avgBookmark,
+      avgComment: this.avgComment,
+      avgRating: this.avgRating,
+      baselineCount: this.avgPostCount,
+      fallbackClickCount: this.fallbackClickCount,
+      fallbackClickRate: this.fallbackClickRate,
+      onRetry: (): void => {
+        this.loadPostStats(this.statsPostId);
+        this.loadStatsBaseline();
+      },
     })
   }
 
@@ -1345,9 +1496,54 @@ export struct PostDetailView {
     getPostStats(postId).then((s: PostStats): void => {
       this.postStats = s;
       this.statsLoading = false;
+      this.maybeLoadClickBaseline(s);
     }).catch((e: Error): void => {
       this.statsLoading = false;
       this.statsError = (e as Error).message;
+    });
+  }
+
+  // 转化率基准兜底：新后端 stats 已带 authorBaseline 时直接用（不产生额外请求）；
+  // 旧后端字段缺失时并发拉近 7 帖 stats 汇总 Σclick/Σexpose——转化率 ▲▼ 不依赖
+  // 后端部署节奏（2026-11-23 用户反馈「流量转化还是没有▲▼」的后端未部署场景）。
+  private maybeLoadClickBaseline(s: PostStats): void {
+    this.fallbackClickCount = 0;
+    this.fallbackClickRate = 0;
+    if (s.authorBaseline !== null && s.authorBaseline !== undefined) {
+      return;
+    }
+    const uid: number = getUserId();
+    if (uid <= 0) {
+      return;
+    }
+    listPosts({ author: uid, limit: 20, sort: 'latest' }).then((res: ListResult<Post>): void => {
+      const others: Post[] = (res.list ?? [])
+        .filter((p: Post): boolean => (p.id ?? 0) !== this.statsPostId)
+        .slice(0, 7);
+      if (others.length <= 0) {
+        return;
+      }
+      const tasks: Promise<PostStats>[] = [];
+      for (let i: number = 0; i < others.length; i++) {
+        const pid: number = others[i].id ?? 0;
+        if (pid > 0) {
+          tasks.push(getPostStats(pid));
+        }
+      }
+      Promise.all(tasks).then((arr: PostStats[]): void => {
+        let expose: number = 0;
+        let click: number = 0;
+        for (let i: number = 0; i < arr.length; i++) {
+          expose += arr[i].expose ?? 0;
+          click += arr[i].click ?? 0;
+        }
+        this.fallbackClickCount = arr.length;
+        this.fallbackClickRate = expose > 0 ? Math.round(click * 1000 / expose) / 10 : 0;
+      }).catch((): void => {
+        // 兜底失败：保持无基准态（不显示 ▲▼）
+      });
+    }).catch((): void => {
+      // 同上
     });
   }
 
@@ -1357,17 +1553,17 @@ export struct PostDetailView {
     // 从分享/落地/通知等特殊入口进入时 URL id 可能解析失败，服务器端校验会报"无效帖子ID"。
     const targetId: number = (typeof this.post?.id === 'number' && this.post.id > 0) ? this.post.id : this.pid;
     if (isNaN(targetId) || targetId <= 0) {
-      this.reportController.close();
+      this.reportModal.close();
       safeShowToast(this.getUIContext(), { message: '无效帖子ID' });
       return;
     }
     try {
       await reportPost(targetId, { reason, description: description || undefined });
-      this.reportController.close();
+      this.reportModal.close();
       safeShowToast(this.getUIContext(), { message: '举报已提交，我们会在48小时内处理' });
     } catch (e) {
       const msg: string = (e as Error).message;
-      this.reportController.close();
+      this.reportModal.close();
       safeShowToast(this.getUIContext(), { message: msg });
     }
   }
@@ -1375,18 +1571,29 @@ export struct PostDetailView {
   // 打开评论举报弹窗
   private openCommentReport(commentId: number): void {
     this.commentReportId = commentId;
-    this.commentReportController.open();
+    const params: CommentReportDialogParams = new CommentReportDialogParams();
+    params.onSubmit = (reason: ReportReason, description: string): void => {
+      this.submitCommentReport(reason, description);
+    };
+    params.onClose = (): void => { this.commentReportModal.close(); };
+    const content: ComponentContent<CommentReportDialogParams> =
+      new ComponentContent(this.getUIContext(), wrapBuilder(commentReportDialogBuilder), params);
+    this.commentReportModal.openContent(this.getUIContext(), content, {
+      onDismiss: (): void => {
+        this.commentReportModal.close();
+      },
+    });
   }
 
   // 提交评论举报
   private async submitCommentReport(reason: ReportReason, description: string): Promise<void> {
     try {
       await reportComment(this.commentReportId, { reason, description: description || undefined });
-      this.commentReportController.close();
+      this.commentReportModal.close();
       safeShowToast(this.getUIContext(), { message: '举报已提交，我们会在48小时内处理' });
     } catch (e) {
       const msg: string = (e as Error).message;
-      this.commentReportController.close();
+      this.commentReportModal.close();
       safeShowToast(this.getUIContext(), { message: msg });
     }
   }
@@ -1644,47 +1851,22 @@ export struct PostDetailView {
     }
   }
 
-  @Builder
-  private contentMenuRow(label: string, action: () => void): void {
-    Text(label)
-      .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
-      .fontWeight(TypeTokens.headline.weight)
-      .fontColor(ColorTokens.primary)
-      .width('100%')
-      .height(42)
-      .textAlign(TextAlign.Center)
-      .onClick(() => { action(); })
-  }
-
-  // 长按结构化内容菜单浮层：全屏透明遮罩（点击关闭）+ 卡片显示在长按内容上方 + 轻量进场动效
+  // 长按结构化内容菜单浮层：共享 PointerMenu（全屏透明遮罩点击关闭 + 按压点上方定位 + 进场动效）。
+  // 遮罩 zIndex 2 盖过底部互动栏（zIndex 1）：菜单打开时点互动栏先关菜单，不误触发点赞/评论
   @Builder
   private contentActionSheet(): void {
-    Column() {
-      Column() {
-        this.contentMenuRow('复制正文', (): void => { this.copyPostContent(); })
-      }
-      .width(148)
-      .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
-      .backgroundColor(ColorTokens.elevated)
-      .borderRadius(RadiusTokens.md)
-      .clip(true)
-      .shadow({ radius: 20, color: ColorTokens.barShadow, offsetY: 6 })
-      // 按压点定位（openContentMenu 已把坐标钳制在内容区边界内，不溢出屏幕）
-      .position({ x: this.contentMenuX, y: this.contentMenuY })
-      // 进/出场：淡入 + 轻微缩放（0.94→1），只动 transform/opacity 保证性能
-      .transition(
-        TransitionEffect.opacity(0)
-          .combine(TransitionEffect.scale({ x: 0.94, y: 0.94 }))
-          .animation({ duration: 180, curve: MotionCurves.standard })
-      )
-    }
-    .width('100%')
-    .height('100%')
-    // 透明遮罩：视觉上无灰色覆盖，但仍捕获点击以关闭菜单
-    .backgroundColor(Color.Transparent)
-    // 盖过底部互动栏（zIndex 1）：菜单打开时点互动栏先关菜单，不误触发点赞/评论
-    .zIndex(2)
-    .onClick((): void => { this.closeContentMenu(); })
+    PointerMenu({
+      entries: this.contentMenuEntries(),
+      pressX: this.pressGx,
+      pressY: this.pressGy,
+      areaX: this.contentAreaGlobalX,
+      areaY: this.contentAreaGlobalY,
+      areaWidth: this.contentAreaWidth,
+      areaHeight: this.contentAreaHeight,
+      placement: 'above',
+      overlayZ: 2,
+      onClose: (): void => { this.closeContentMenu(); },
+    })
   }
 
   // 帖子在废纸篓中（软删标记非空）→ 作者菜单给的选项集不同
@@ -1760,7 +1942,7 @@ export struct PostDetailView {
             .id(DETAIL_HERO_SHELL_ID)
         }
         .layoutWeight(1)
-        .padding({ left: 16, right: 16, top: 16 + this.detailListInset(), bottom: 16 })
+        .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: 16 + this.detailListInset(), bottom: 16 })
         if (this.isWidePane) {
           Column()
             .width(this.commentPaneWidthVp() + DETAIL_SPLIT_DIVIDER_VP)
@@ -1809,39 +1991,15 @@ export struct PostDetailView {
   // menuStyle 只写 originalStyle：与返回键 backIconStyle 同策略——originalStyle 只管 scroll
   // 特效生效之前，接管后读 HDS 默认（深色画布上图标翻白），三钮滚动后同观感。
   private detailTitleBarOptions(): HdsNavigationTitleBarOptions {
-    const immersive: boolean = isImmersiveLightSenseSupported();
-    const scrollEffect: ScrollEffectOptions = {
-      enableScrollEffect: true,
-      scrollEffectType: immersive ? ScrollEffectType.IMMERSIVE_GRADIENT_BLUR : ScrollEffectType.GRADIENT_BLUR,
-      blurEffectiveStartOffset: LengthMetrics.vp(0),
-      blurEffectiveEndOffset: LengthMetrics.vp(32),
-    };
-    const style: TitleBarStyleOptions = {
-      scrollEffectOpts: scrollEffect,
-      originalStyle: {
-        backgroundStyle: {
-          backgroundColor: Color.Transparent,
-          blurRadius: this.detailBarScrolled ? 50 : 0,
-          maskExtraHeight: 0,
-        },
-        contentStyle: {
-          backIconStyle: { iconColor: ColorTokens.primary } as HdsNavigationIconItemStyle,
-          menuStyle: { iconColor: ColorTokens.primary } as HdsNavigationIconItemStyle,
-        } as HdsTitleBarContentStyle,
-      },
-    };
-    if (immersive) {
-      style.systemMaterialEffect = {
-        materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
-        materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE,
-      } as SystemMaterialParams;
-    }
-    const backContent: HdsNavigationIconOptions = {
-      icon: resolveActionIcon('back'),
-      label: '返回',
-      action: (): void => { this.navigateBack(); },
-    };
-    const backIcon: HdsNavigationBackButtonItemOptions = backContent;
+    // 栏样式走玻璃三件套共享入口；定制=滚动后常驻模糊门控（detailBarScrolled）+ menuStyle
+    // 官方圆钮钮色（与返回键 backIconStyle 同策略，两态同值 primary）。
+    const style: TitleBarStyleOptions = buildGlassTitleBarStyle({
+      scrolledBlur: (): boolean => this.detailBarScrolled,
+      menuIconColor: ColorTokens.primary,
+    });
+    const backIcon: HdsNavigationBackButtonItemOptions = buildGlassBackIcon((): void => {
+      this.navigateBack();
+    });
     // 分享/更多官方圆钮（content.menu）：与返回键同为官方圆钮、同出栏级玻璃珠。
     // SDK 类型：MenuItemOptions = BadgeIconOptions { content?: IconOptions }——icon/label/action 嵌在 content 里。
     // 「更多」action 走 showMoreActions()（openMenu 系统 Menu，见 moreActionEntries/moreMenuBuilder）。
@@ -2023,7 +2181,7 @@ export struct PostDetailView {
           .width('100%')
           .height(barBottomReserve())
       }
-      .padding({ left: 16, right: 16, top: 16 + this.detailListInset(), bottom: 16 })
+      .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: 16 + this.detailListInset(), bottom: 16 })
       .width('100%')
       // 宽屏限宽居中：折叠展开/平板上正文列不再拉满全宽（通用对齐默认水平居中）
       .constraintSize({ maxWidth: LayoutTokens.contentMaxWidth })
@@ -2036,6 +2194,8 @@ export struct PostDetailView {
     // 滚回顶部时触发系统栏内容色补设（HDS 回写竞速，见 utils/systemBar.ets）
     .onDidScroll((): void => { this.syncBarScrolled(); })
     .onScrollStop((): void => { this.syncBarScrolled(); })
+    // 滚动条关闭（全站滚动视口同款惯例，BarState.Auto 默认滚动时显示影响观感）
+    .scrollBar(BarState.Off)
   }
 
   // 宽屏右栏：SideBarContainer 的第一个子组件（侧边栏，靠 End 落到右侧）= 独立滚动的评论区
@@ -2048,7 +2208,7 @@ export struct PostDetailView {
           .width('100%')
           .height(barBottomReserve())
       }
-      .padding({ left: 16, right: 16, top: 16 + this.detailListInset(), bottom: 16 })
+      .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: 16 + this.detailListInset(), bottom: 16 })
       .width('100%')
     }
     // SideBarContainer 给侧边栏画了自带底（实测 #F3F3F3，与页面 canvas #FFF 不同色）。
@@ -2061,6 +2221,7 @@ export struct PostDetailView {
     .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
     .width('100%')
     .height('100%')
+    .scrollBar(BarState.Off)
     .id(DETAIL_COMMENT_SCROLL_ID)
   }
 

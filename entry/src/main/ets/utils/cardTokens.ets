@@ -9,7 +9,6 @@ export const CARD_PADDING: number = SpaceTokens.base;
 export const CARD_COVER_RADIUS: number = RadiusTokens.xs;
 export const CARD_SHADOW: ShadowOptions = ShadowTokens.cardAmbient;
 export const GRID_GAP: number = LayoutTokens.gridGutter;
-export const GRID_PADDING: number = SpaceTokens.pageCompact;
 export const CARD_INNER_GAP: number = SpaceTokens.item;
 export const PAGE_HORIZONTAL_PADDING: number = SpaceTokens.pageCompact;
 export const SECTION_GAP: number = SpaceTokens.block;

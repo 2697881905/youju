@@ -189,7 +189,7 @@ export struct BookmarkFolderPage {
         });
     }
     .width('100%')
-    .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+    .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
   }
 
   private folderTitleBarOptions(): HdsNavigationTitleBarOptions {
@@ -253,7 +253,8 @@ export struct BookmarkFolderPage {
             }, (item: BookmarkFolderItem) => String(item.id));
           }
           .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
-          .layoutWeight(1).width('100%');
+          .layoutWeight(1).width('100%')
+          .scrollBar(BarState.Off);
         }
 
         // 底部新建按钮

@@ -9,28 +9,29 @@ import { findActiveAtMention, applyAtMention } from '../utils/atMention';
 import { AtMentionSuggest } from '../components/AtMentionSuggest';
 import { Pressable } from '../design/motion/Pressable';
 import { Reveal } from '../design/motion/Reveal';
-import { ImmersiveSegmentBar } from '../design/components/ImmersiveSegmentBar';
+
 import { ColorTokens } from '../design/tokens/color';
 import { RadiusTokens } from '../design/tokens/radius';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
+
 import { PublishDraft } from '../utils/publishDraft';
 import { removePostDraft } from '../utils/postDraftStore';
 import { getUserId } from '../utils/auth';
 import { PublishSession, publishFlowStore } from '../utils/publishFlowStore';
 import { collectStructuredData } from '../utils/structuredFields';
-import { emptyStructuredDocument, filterStructuredDocumentForGenre } from '../utils/structuredDocument';
-import { StructuredComposer } from '../components/StructuredComposer';
+import { emptyStructuredDocument } from '../utils/structuredDocument';
 import { StructuredReviewSheet } from '../components/StructuredReviewSheet';
 import { executePublish, PublishOutcome } from '../utils/publishExecutor';
 import { PublishTagPanel } from '../components/PublishTagPanel';
-import { PUBLISH_GENRES, PUBLISH_GENRE_SEGMENTS, publishGenreMeta } from '../utils/publishGenres';
-import { PublishSection } from '../components/PublishSection';
+import { FeedZone } from '../utils/feedZones';
+import { publishZoneKey, publishZoneIndexOf, zoneOfGenre, fallbackGenreOf } from '../utils/publishZones';
 import { PublishCircleSelector } from '../components/PublishCircleSelector';
 import { PublishCollectionPicker } from '../components/PublishCollectionPicker';
 import { consumePendingPublishCircle } from '../utils/publishCircleIntent';
 import { PublishPageShell, PUBLISH_BAR_ROW_VP } from '../components/PublishPageShell';
 import { GlassBlurStyle, getSheetImmersiveMaterial, isSystemMaterialActive } from '../utils/immersiveMaterial';
+import { buildPageTransition } from '../utils/styles';
 import { resolveTextPosterStyle, posterBucketOf, TEXT_POSTER_STYLES, TextPosterStyleOption } from '../utils/poster/posterTokens';
 import { renderPosterThumbnail } from '../utils/poster/posterRender';
 import { isSerifTypefaceReady } from '../utils/poster/posterText';
@@ -38,6 +39,7 @@ import { image } from '@kit.ImageKit';
 
 const MAX_SELECTED_TAGS: number = 3;
 const MAX_LONG_FORM_CONTENT_LENGTH: number = 5000;
+const MAX_TITLE_LENGTH: number = 30;
 const DRAFT_PROGRESS_TOTAL: number = 3;
 // 长文正文区：5000 字却给 104vp，等于逼用户在小窗里滚动写长文
 const POSTER_BODY_HEIGHT: number = 280;
@@ -55,14 +57,16 @@ const POSTER_THUMB_FONT_RETRY_INTERVAL: number = 200;
 @Entry
 @Component
 struct TextPublishPage {
-  @State genre: Genre = 'share';
-  @State genreIndex: number = 4; // share 位于 PUBLISH_GENRES 下标 4
+  // 内容区（干货/随记）决定发布路径；体裁由内容区派生并可由 AI 回填，作者不再手选
+  @State zoneIndex: number = 0; // 默认干货
+  @State genre: Genre = 'review'; // 随记时恒为 'share'
   @State selectedTags: string[] = [];
   @State selectedCollectionId: number = 0;
   @State title: string = '';
   // —— AI 联合优化（标题 + 正文轻度润色）：结果先进「新旧对照」预览，作者确认才回填 ——
   @State aiTitleBusy: boolean = false;
   @State aiEnabled: boolean = false;
+  @State aiStatusLoaded: boolean = false;
   @State aiSheetShown: boolean = false;
   @State aiOldTitle: string = '';
   @State aiNewTitle: string = '';
@@ -113,9 +117,7 @@ struct TextPublishPage {
   // 默认款：素纸（暖纸 + 纯排印，最克制、最像书页，也最像 App 里的东西）
   @State textPosterStyle: string = 'paper';
   @State tags: Tag[] = [];
-  // 结构化区默认折叠（2026-11-07 发布流改版）：主路径是「写正文 → 点发布 → AI 拆块 → 审稿」，
-  // 编辑器不再是每个作者都要面对的第一屏；想手填/挂证据的作者手动展开。
-  @State showFields: boolean = false;
+
   @State showTagPanel: boolean = false;
   // —— 结构化审稿层（点发布弹出；revision 用于弹层复用时强制重新初始化） ——
   @State reviewSheetShown: boolean = false;
@@ -176,7 +178,9 @@ struct TextPublishPage {
   }
 
   aboutToAppear(): void {
-    aiAssistEnabled().then((enabled: boolean): void => { this.aiEnabled = enabled; });
+    aiAssistEnabled()
+      .then((enabled: boolean): void => { this.aiEnabled = enabled; })
+      .finally((): void => { this.aiStatusLoaded = true; });
     // 登录闸门（纵深防御）：发布页只该从 Index 底栏进入，而未登录在那边已被拦住。
     // 这里是第二道 —— 将来若新增入口直接 push 本页，也不允许带着空登录态进来。
     // 用 replaceUrl 而非 push：本页从路由栈里被替换掉，用户取消登录返回时落到主页，
@@ -390,8 +394,8 @@ struct TextPublishPage {
     }
   }
 
-  // 点发布：结构化体裁进审稿层（AI 拆块 → 逐块确认 → 确认即发布），
-  // 分享体裁保持「预览页 → 确认发布」原路径。发布永不被 AI 卡死：层内自带手动骨架兜底。
+  // 点发布：干货进审稿层（AI 拆块 → 逐块确认 → 确认即发布），
+  // 随记保持「预览页 → 确认发布」原路径。发布永不被 AI 卡死：层内自带手动骨架与「按原文发布」兜底。
   private onPublish(): void {
     if (!this.title.trim()) {
       safeShowToast(this.getUIContext(), { message: '请填写标题' });
@@ -401,7 +405,22 @@ struct TextPublishPage {
       safeShowToast(this.getUIContext(), { message: '长文最多 ' + MAX_LONG_FORM_CONTENT_LENGTH + ' 字' });
       return;
     }
-    if (publishGenreMeta(this.genre).structured) {
+    if (this.currentZone() === 'insight' && this.aiStatusLoaded && !this.aiEnabled) {
+      this.getUIContext().showAlertDialog({
+        title: 'AI 整理暂不可用',
+        message: '将按原文发布到干货区，不在发布前整理成信息块。',
+        primaryButton: {
+          value: '取消',
+          action: (): void => {},
+        },
+        secondaryButton: {
+          value: '按原文发布',
+          action: (): void => { this.publishRaw(); },
+        },
+      });
+      return;
+    }
+    if (this.currentZone() === 'insight') {
       this.reviewSheetRevision = this.reviewSheetRevision + 1;
       this.reviewSheetShown = true;
       return;
@@ -415,17 +434,26 @@ struct TextPublishPage {
   private async confirmPublish(document: StructuredDocument, genre: string): Promise<void> {
     this.reviewSheetShown = false;
     this.structuredDocument = document;
-    if (genre.length > 0 && genre !== this.genre) {
-      for (let i = 0; i < PUBLISH_GENRES.length; i++) {
-        if (PUBLISH_GENRES[i].key === genre) {
-          this.genreIndex = i;
-          this.genre = PUBLISH_GENRES[i].key;
-          break;
-        }
-      }
+    const INSIGHT_GENRES: string[] = ['review', 'pitfall', 'tutorial', 'debate'];
+    if (INSIGHT_GENRES.indexOf(genre) >= 0) {
+      this.genre = genre as Genre;
+    } else if (this.currentZone() === 'insight') {
+      this.genre = 'review'; // AI 未给出可用户体裁时的兜底
     }
     const draft: PublishDraft = this.currentPublishDraft();
     const outcome: PublishOutcome = await executePublish(draft, this.getUIContext());
+    if (outcome.ok) {
+      this.getUIContext().getRouter().back();
+    }
+  }
+
+  // 降级出口：正文按原文发布，不要求信息块（干货闸门显式豁免）
+  private async publishRaw(): Promise<void> {
+    this.reviewSheetShown = false;
+    this.structuredDocument = emptyStructuredDocument();
+    this.genre = 'review';
+    const draft: PublishDraft = this.currentPublishDraft();
+    const outcome: PublishOutcome = await executePublish(draft, this.getUIContext(), { allowEmptyStructured: true });
     if (outcome.ok) {
       this.getUIContext().getRouter().back();
     }
@@ -437,6 +465,7 @@ struct TextPublishPage {
       title: this.title.trim(),
       content: this.content,
       genre: this.genre,
+      zone: this.currentZone(),
       tags: this.selectedTags,
       structuredData: collectStructuredData(this.sd, this.genre),
       structuredDocument: this.structuredDocument,
@@ -449,12 +478,7 @@ struct TextPublishPage {
 
   private applyDraft(draft: PublishDraft, savedDraftId: string): void {
     this.genre = draft.genre;
-    for (let i = 0; i < PUBLISH_GENRES.length; i++) {
-      if (PUBLISH_GENRES[i].key === draft.genre) {
-        this.genreIndex = i;
-        break;
-      }
-    }
+    this.zoneIndex = publishZoneIndexOf(zoneOfGenre(draft.genre));
     this.selectedTags = [...draft.tags];
     this.title = draft.title;
     this.content = draft.content;
@@ -463,7 +487,6 @@ struct TextPublishPage {
     this.textPosterStyle = resolveTextPosterStyle(draft.textPosterStyle).key;
     this.selectedCollectionId = draft.collectionId ?? 0;
     this.editingSavedDraftId = savedDraftId;
-    this.showFields = false;
     this.showTagPanel = false;
     this.closeMention();
     this.mentionRefs = draft.mentions !== undefined ? draft.mentions.map((m: MentionRef): MentionRef => ({
@@ -480,6 +503,7 @@ struct TextPublishPage {
     this.lastPublishFlowRevision = session.revision;
     if (session.intent === 'new') {
       this.reset();
+      this.applyZone(session.zone);
       return;
     }
     if (session.intent === 'edit' && session.previewDraft !== null) {
@@ -499,8 +523,8 @@ struct TextPublishPage {
   }
 
   private reset(): void {
-    this.genre = 'share';
-    this.genreIndex = 4; // share 位于 PUBLISH_GENRES 下标 4
+    this.zoneIndex = 0; // 回到干货默认值
+    this.genre = 'review';
     // 从圈子详情空态进入发布流时，新建草稿预选该圈子（只消费一次）。
     const pendingCircle: string = consumePendingPublishCircle();
     this.selectedTags = pendingCircle.length > 0 ? [pendingCircle] : [];
@@ -510,42 +534,20 @@ struct TextPublishPage {
     this.structuredDocument = emptyStructuredDocument();
     this.textPosterStyle = 'paper';
     this.editingSavedDraftId = '';
-    this.showFields = false;
     this.showTagPanel = false;
     this.mentionRefs = [];
     this.closeMention();
     this.scheduleThumbnails();
   }
 
-  // 清空是破坏性动作（标题/正文/海报样式一并抹掉且不可恢复）：先二次确认，避免与「发布」并排误触。
-  private confirmClear(): void {
-    this.getUIContext().showAlertDialog({
-      title: '清空草稿？',
-      message: '标题、正文与海报样式将被清空，且无法恢复。',
-      primaryButton: {
-        value: '取消',
-        action: (): void => {},
-      },
-      secondaryButton: {
-        value: '清空',
-        fontColor: ColorTokens.danger,
-        action: (): void => { this.reset(); },
-      },
-    });
+  private currentZone(): FeedZone {
+    return publishZoneKey(this.zoneIndex);
   }
 
-  private currentGenreHint(): string {
-    return publishGenreMeta(this.genre).hint;
-  }
-
-  private selectGenre(index: number): void {
-    if (index < 0 || index >= PUBLISH_GENRES.length) {
-      return;
-    }
-    const nextGenre: Genre = PUBLISH_GENRES[index].key;
-    this.genreIndex = index;
-    this.genre = nextGenre;
-    this.structuredDocument = filterStructuredDocumentForGenre(this.structuredDocument, nextGenre);
+  // 内容区落定：以进入发布页时传入的 zone 为准，页内不可改；只改发布路径与兜底体裁，不动已写内容
+  private applyZone(zone: FeedZone): void {
+    this.zoneIndex = publishZoneIndexOf(zone);
+    this.genre = fallbackGenreOf(zone);
   }
 
   // 单片缩略图：与发布产物同源渲染，选中态用品牌色描边 + 标签变色（图片本身不能加底色）
@@ -620,26 +622,24 @@ struct TextPublishPage {
     .alignItems(HorizontalAlign.Start)
   }
 
-  // ─────────────── 版式（创作纸）：标题/正文/海报纸面 → 发布设置托盘 → 结构化 ───────────────
-  // 写作是主角：标题与正文直接落在纸面上，不套表单卡；体裁/圈子/合集/AI/清空收进单一设置托盘。
+  // ─────────────── 版式（创作纸）：标题/正文/海报纸面 → 加入合集 → 圈子 ───────────────
+  // 写作是主角：标题与正文直接落在纸面上，不套表单卡；圈子与合集为纸面之下的轻量独立区块。
 
-  // 轻量分区题头（无卡壳）：左标签 + 右元信息，用于海报附件区与托盘内分组。
+  // 轻量分区题头（无卡壳）：左标签 + 右元信息，用于海报附件区与独立区块题头。
   @Builder
   blockCaption(label: string, meta: string): void {
     Row() {
       Text(label)
-        .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-        .fontWeight(TypeTokens.overline.weight)
-        .lineHeight(TypeTokens.overline.lineHeight)
-        .letterSpacing(TypeTokens.overline.tracking)
-        .fontColor(ColorTokens.tertiary)
+        .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
+        .fontWeight(TypeTokens.headline.weight)
+        .lineHeight(TypeTokens.callout.lineHeight)
+        .fontColor(ColorTokens.secondary)
       Blank().layoutWeight(1)
       if (meta.length > 0) {
         Text(meta)
-          .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
-          .fontWeight(TypeTokens.overline.weight)
-          .lineHeight(TypeTokens.overline.lineHeight)
-          .letterSpacing(TypeTokens.overline.tracking)
+          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.caption.weight)
+          .lineHeight(TypeTokens.caption.lineHeight)
           .fontColor(ColorTokens.tertiary)
       }
     }
@@ -647,27 +647,30 @@ struct TextPublishPage {
     .alignItems(VerticalAlign.Center)
   }
 
-  // 创作纸：标题与正文同处一张软质纸面，发丝线分隔；封面海报作为附件条落在纸面外。
+  // 创作纸：标题与正文同处一张软质纸面，AI 优化钮落在纸面末尾右下角，发丝线分隔；封面海报作为附件条落在纸面外。
   @Builder
   writingSheet(): void {
     Reveal({ index: 0 }) {
       Column({ space: SpaceTokens.md }) {
         Column() {
-          TextInput({
+
+          TextArea({
             text: $$this.title,
             placeholder: this.aiEnabled && this.title.length === 0 && this.content.trim().length > 0
               ? '写完正文了？AI 润色可顺带起标题'
               : '给这篇起个标题',
           })
             .width('100%')
-            .fontSize(TypeTokens.displaySerif.size).fontFamily(TypeTokens.fontFamilySerif)
-            .fontWeight(TypeTokens.displaySerif.weight)
-            .lineHeight(TypeTokens.displaySerif.lineHeight)
+            .maxLines(3)
+            .fontSize(TypeTokens.titleSerif.size).fontFamily(TypeTokens.fontFamilySerif)
+            .fontWeight(TypeTokens.titleSerif.weight)
+            .lineHeight(TypeTokens.titleSerif.lineHeight)
             .fontColor(ColorTokens.primary)
             .placeholderColor(ColorTokens.tertiary)
             .backgroundColor(Color.Transparent)
             .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.base, bottom: SpaceTokens.md })
-            .enterKeyType(EnterKeyType.Next)
+            .maxLength(MAX_TITLE_LENGTH)
+            .showCounter(true, { highlightBorder: false })
             .onChange((value: string) => { this.title = value; this.scheduleThumbnails(); })
           Divider().strokeWidth(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
             .margin({ left: SpaceTokens.base, right: SpaceTokens.base })
@@ -681,7 +684,7 @@ struct TextPublishPage {
           }
           TextArea({ text: this.content, placeholder: '展开写下背景、过程与结论' })
             .width('100%')
-            .height(POSTER_BODY_HEIGHT)
+            .constraintSize({ minHeight: POSTER_BODY_HEIGHT })
             .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
             .fontWeight(TypeTokens.body.weight)
             .lineHeight(TypeTokens.body.lineHeight)
@@ -703,6 +706,14 @@ struct TextPublishPage {
         .borderRadius(RadiusTokens.lg)
         .alignItems(HorizontalAlign.Start)
 
+        Row() {
+          Blank().layoutWeight(1)
+          AiAssistChip({ label: 'Ai润色', busy: this.aiTitleBusy, available: this.aiEnabled,
+            action: (): void => { this.aiPolish(); } })
+        }
+        .width('100%')
+        .onClick((): void => { this.aiPolish(); })
+
         Column({ space: SpaceTokens.sm }) {
           this.blockCaption('封面海报', '所见即所得')
           this.textPosterStyleSelector()
@@ -715,75 +726,31 @@ struct TextPublishPage {
     }
   }
 
-  // 发布设置托盘：体裁 / 圈子 / 合集 / AI / 清空 收进单一卡，发丝线分组。
+  // 加入合集：纸面之下的轻量独立区块（无卡壳），Reveal index 顺延保持入场节奏
   @Builder
-  settingsTray(): void {
-    PublishSection({ title: '发布设置', index: 1 }) {
-      Column({ space: SpaceTokens.md }) {
-        Column({ space: SpaceTokens.sm }) {
-          this.blockCaption('体裁', '')
-          ImmersiveSegmentBar({
-            items: PUBLISH_GENRE_SEGMENTS,
-            selectedIndex: $genreIndex,
-            // Scroll 滚动子树 uiMaterial 不渲染——THICK 观感走 trackBlurFallback 通用模糊底。
-            trackBlurFallback: true,
-            onSelect: (index: number): void => { this.selectGenre(index); },
-          })
-          Text(this.currentGenreHint())
-            .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-            .fontWeight(TypeTokens.callout.weight)
-            .lineHeight(TypeTokens.callout.lineHeight)
-            .fontColor(ColorTokens.secondary)
-            .width('100%')
-        }
-        .width('100%')
-        .alignItems(HorizontalAlign.Start)
-
-        Divider().strokeWidth(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
-
-        Column({ space: SpaceTokens.sm }) {
-          this.blockCaption('圈子', '已选 ' + this.selectedTags.length + '/' + MAX_SELECTED_TAGS)
-          PublishCircleSelector({
-            selectedTags: this.selectedTags,
-            maxSelected: MAX_SELECTED_TAGS,
-            onAdd: (): void => { this.showTagPanel = true; },
-            onRemove: (name: string): void => { this.toggleTag(name); },
-          })
-        }
-        .width('100%')
-        .alignItems(HorizontalAlign.Start)
-
-        Divider().strokeWidth(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
-
+  collectionBlock(): void {
+    Reveal({ index: 1 }) {
+      Column({ space: SpaceTokens.sm }) {
+        this.blockCaption('加入合集', '')
         PublishCollectionPicker({ selectedId: $selectedCollectionId })
+      }
+      .width('100%')
+      .alignItems(HorizontalAlign.Start)
+    }
+  }
 
-        Divider().strokeWidth(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
-
-        Row() {
-          Row() {
-            AiAssistChip({
-              label: 'AI 优化',
-              busy: this.aiTitleBusy,
-              available: this.aiEnabled,
-              action: (): void => { this.aiPolish(); },
-            })
-          }
-          .height(LayoutTokens.minTouchTarget)
-          .alignItems(VerticalAlign.Center)
-          .onClick((): void => { this.aiPolish(); })
-          Blank().layoutWeight(1)
-          Row() {
-            Text('清空草稿')
-              .fontSize(TypeTokens.callout.size).fontFamily(TypeTokens.fontFamily)
-              .fontWeight(TypeTokens.callout.weight)
-              .fontColor(ColorTokens.tertiary)
-          }
-          .height(LayoutTokens.minTouchTarget)
-          .alignItems(VerticalAlign.Center)
-          .onClick((): void => { this.confirmClear(); })
-        }
-        .width('100%')
-        .alignItems(VerticalAlign.Center)
+  // 圈子：纸面之下的轻量独立区块（无卡壳），Reveal index 顺延保持入场节奏
+  @Builder
+  circleBlock(): void {
+    Reveal({ index: 2 }) {
+      Column({ space: SpaceTokens.sm }) {
+        this.blockCaption('圈子', '已选 ' + this.selectedTags.length + '/' + MAX_SELECTED_TAGS)
+        PublishCircleSelector({
+          selectedTags: this.selectedTags,
+          maxSelected: MAX_SELECTED_TAGS,
+          onAdd: (): void => { this.showTagPanel = true; },
+          onRemove: (name: string): void => { this.toggleTag(name); },
+        })
       }
       .width('100%')
       .alignItems(HorizontalAlign.Start)
@@ -793,64 +760,62 @@ struct TextPublishPage {
   @Builder
   compositionColumn(): void {
     this.writingSheet()
-    this.settingsTray()
-    // 分享体裁是轻量图文，不展示结构化信息流编辑区（见 publishGenres 的 structured 标记）
-    if (publishGenreMeta(this.genre).structured) {
-      Reveal({ index: 2 }) {
-        StructuredComposer({
-          document: this.structuredDocument,
-          genreLabel: this.genre,
-          contentText: this.content,
-          expanded: $showFields,
-          onDocumentChange: (document: StructuredDocument): void => { this.structuredDocument = document; },
-        })
-      }
-    }
+    this.collectionBlock()
+    this.circleBlock()
   }
 
   build() {
     // 统一外壳 PublishPageShell 封装渐变模糊顶栏 + 穿底。@Entry 根须内置容器，且自定义组件尾随闭包后
-    // 不能直接链通用属性 → 用 Stack 包住外壳：bindSheet 挂 Stack（半模态），bindContentCover 挂内层 Scroll（全模态）。
+    // 不能直接链通用属性 → 用 Stack 包住外壳。模态分宿主且都挂页面自有组件：
+    // 圈子半模态挂外层根 Stack、两个全模态挂内层 Stack——同组件兼绑两者会让全模态静默失效
+    // （a39dfc9c 平台规格）；挂进尾随闭包内层 Scroll 会随外壳复用不重评估，弹层永不出现。
     Stack() {
-      PublishPageShell({
-        modeLabel: '发布长文',
-        progressValue: this.calcDraftProgress(),
-        progressTotal: DRAFT_PROGRESS_TOTAL,
-        hint: this.draftHint(),
-        actionLabel: '发布',
-        actionDisabled: this.title.trim().length === 0,
-        scroller: this.publishScroller,
-        onAction: (): void => { this.onPublish(); },
-        onBack: (): void => { this.getUIContext().getRouter().back(); },
-      }) {
-        Scroll(this.publishScroller) {
-          Column({ space: SpaceTokens.md }) {
-            // 穿底让位：状态栏 + 栏高 + 呼吸（enableComponentSafeArea=false 后自补）
-            Row().height(this.statusBarHeight + PUBLISH_BAR_ROW_VP + SpaceTokens.sm).width('100%')
-            this.compositionColumn()
+      Stack() {
+        PublishPageShell({
+          modeLabel: '发布长文',
+          progressValue: this.calcDraftProgress(),
+          progressTotal: DRAFT_PROGRESS_TOTAL,
+          hint: this.draftHint(),
+          actionLabel: '发布',
+          actionDisabled: this.title.trim().length === 0,
+          scroller: this.publishScroller,
+          onAction: (): void => { this.onPublish(); },
+          onBack: (): void => { this.getUIContext().getRouter().back(); },
+        }) {
+          Scroll(this.publishScroller) {
+            Column({ space: SpaceTokens.md }) {
+              // 穿底让位：状态栏 + 栏高 + 呼吸（enableComponentSafeArea=false 后自补）
+              Row().height(this.statusBarHeight + PUBLISH_BAR_ROW_VP + SpaceTokens.sm).width('100%')
+              this.compositionColumn()
+            }
+            .width('100%')
+            .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, bottom: SpaceTokens.x2l })
+            .alignItems(HorizontalAlign.Start)
           }
+          .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
           .width('100%')
-          .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.x2l })
-          .alignItems(HorizontalAlign.Start)
+          .height('100%')
+          .scrollBar(BarState.Off)
+          .backgroundColor(ColorTokens.canvas)
         }
-        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
-        .width('100%')
-        .height('100%')
-        .scrollBar(BarState.Off)
-        .backgroundColor(ColorTokens.canvas)
-        .bindContentCover(this.aiSheetShown, this.aiPolishSheet(), {
-          modalTransition: ModalTransition.DEFAULT,
-          onDisappear: (): void => { this.aiSheetShown = false; },
-        })
-        .bindContentCover(this.reviewSheetShown, this.reviewSheet(), {
-          modalTransition: ModalTransition.DEFAULT,
-          onDisappear: (): void => { this.reviewSheetShown = false; },
-        })
       }
+      .width('100%')
+      .height('100%')
+      .bindContentCover(this.aiSheetShown, this.aiPolishSheet(), {
+        modalTransition: ModalTransition.DEFAULT,
+        onDisappear: (): void => { this.aiSheetShown = false; },
+      })
+      .bindContentCover(this.reviewSheetShown, this.reviewSheet(), {
+        modalTransition: ModalTransition.DEFAULT,
+        onDisappear: (): void => { this.reviewSheetShown = false; },
+      })
     }
     .width('100%')
     .height('100%')
     .backgroundColor(ColorTokens.canvas)
+    // 页面转场是真实触摸可用的前提：发布三页曾是全站唯三未配置转场的路由页，
+    // 手指点击全死、accessibility tap 绕过（2026-11-24 真机实证），与全站路由页同款。
+    .transition(buildPageTransition())
     .bindSheet(this.showTagPanel, this.tagSheet(), {
       height: '60%',
       dragBar: true,
@@ -867,12 +832,20 @@ struct TextPublishPage {
   @Builder
   reviewSheet(): void {
     StructuredReviewSheet({
-      genre: this.genre,
+      zone: this.currentZone(),
+      genre: this.currentZone() === 'insight' ? '' : this.genre,
       contentText: this.content,
       initialDocument: this.structuredDocument,
       aiAvailable: this.aiEnabled,
       resetKey: this.reviewSheetRevision,
+      draftTitle: this.title,
+      draftTags: this.selectedTags,
+      draftMentions: this.mentionRefs,
+      draftMediaUrl: '',
+      draftVideoUrl: '',
+      draftPosterStyle: this.textPosterStyle,
       onConfirm: (document: StructuredDocument, genre: string): void => { this.confirmPublish(document, genre); },
+      onPublishRaw: (): void => { this.publishRaw(); },
       onClose: (): void => { this.reviewSheetShown = false; },
     })
   }

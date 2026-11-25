@@ -18,10 +18,11 @@ import { saveChatMediaToGallery } from '../utils/mediaSave';
 import { compressImage, CompressedImage } from '../utils/image';
 import { AvatarView } from '../components/AvatarView';
 import { ReportDialog } from '../components/ReportDialog';
+import { AppModalController } from '../utils/modal';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { ImageViewer } from '../components/ImageViewer';
 import { OVERLAY_GUARD_CHAT, registerOverlayBackGuard, unregisterOverlayBackGuard } from '../utils/overlayBackGuard';
-import { KeyboardAvoidMode, LengthMetrics } from '@kit.ArkUI';
+import { ComponentContent, KeyboardAvoidMode } from '@kit.ArkUI';
 import { common } from '@kit.AbilityKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { fileIo } from '@kit.CoreFileKit';
@@ -30,32 +31,32 @@ import { IconTokens } from '../design/tokens/icon';
 import { LayoutTokens, SpaceTokens } from '../design/tokens/space';
 import { RadiusTokens } from '../design/tokens/radius';
 import { TypeTokens } from '../design/tokens/type';
-import { MotionCurves } from '../design/tokens/motion';
 import { GlowInput } from '../design/components/GlowInput';
+import { PointerMenu, PointerMenuEntry } from '../design/components/PointerMenu';
 import { HighlightedText } from '../components/HighlightedText';
 import { openUserProfile, openVideoPlayer, takeChatIntent, openPostDetail } from '../utils/nav';
 import { getMainNavStack, PostDetailNavParams, UserProfileNavParams } from '../utils/navigationTransition';
 import { openExternalUrl } from '../utils/openExternal';
-import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit';
+import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
 import { requestSystemBarRefresh } from '../utils/systemBar';
 import type {
   HdsNavigationTitleBarOptions,
   TitleBarContentOptions,
   TitleBarStyleOptions,
-  ScrollEffectOptions,
-  SystemMaterialParams,
-  HdsTitleBarContentStyle,
-  HdsNavigationIconItemStyle,
+
+
+
+
   HdsNavigationBackButtonItemOptions,
-  HdsNavigationIconOptions,
+
 } from '@kit.UIDesignKit';
 // 栏级沉浸光感：与「我的」/首页同一对字段、同一门禁（基准 §7.6.29）。
 // 档位传数值字面量而非 hdsMaterial 枚举 —— hdsMaterial 模块在 API 22 上不存在，值 import 即崩。
-import { isImmersiveLightSenseSupported, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
+import { HDS_MATERIAL_LEVEL_EXQUISITE } from '../utils/immersiveMaterial';
 import { resolveActionIcon } from '../utils/actionIcons';
+import { buildGlassBackIcon, buildGlassTitleBarStyle } from '../design/components/HdsGlassBackSurface';
 
 // HDS 顶栏渐变模糊生效区间终点（vp）：0 → 32，滚动 32vp 内模糊线性到位（与消息页同量级）
-const CHAT_BLUR_END_VP: number = 32;
 
 // 长按菜单哨兵消息：menuMsgId 无命中时返回（正常路径被外层 if 挡住，纯防御性兜底；
 // type='' 使菜单只显示「删除」，senderId=0 使撤回项不出现）
@@ -77,6 +78,28 @@ export interface EmbedChatPeer {
   avatar: string;
 }
 
+// 举报弹窗参数对象：ComponentContent 需要「全局 @Builder + class 参数」，回调闭包捕获宿主
+// this 在 open 时构造；关闭走 closeCustomDialog(content) 同步可靠（不依赖 dialogId——其
+// Promise 真机在弹窗关闭时才回填，2026-11-25 双层弹窗实锤）。
+export class UserReportDialogParams {
+  onSubmit: (reason: ReportReason, description: string) => void = (_r: ReportReason, _d: string) => {};
+  onClose: () => void = (): void => {};
+}
+
+@Builder
+function userReportDialogBuilder(p: UserReportDialogParams) {
+  ReportDialog({
+    targetType: 'user',
+    targetId: 0,
+    onSubmit: (reason: ReportReason, description: string): void => {
+      p.onSubmit(reason, description);
+    },
+    onClose: (): void => {
+      p.onClose();
+    },
+  })
+}
+
 @Component
 export struct ChatView {
   @Prop navMode: boolean = false;
@@ -95,18 +118,23 @@ export struct ChatView {
   @State peerAvatar: string = '';
   @State myAvatar: string = '';
   // 举报对话框（举报对端用户：聊天骚扰等场景）
-  private reportController: CustomDialogController = new CustomDialogController({
-    builder: ReportDialog({
-      targetType: 'user',
-      targetId: 0,
-      onSubmit: (reason: ReportReason, description: string): void => {
-        this.submitUserReport(reason, description);
+  private reportModal: AppModalController = new AppModalController();
+
+  // 打开对端用户举报弹窗（builder 闭包 open 时求值，读宿主现值）
+  private openUserReport(): void {
+    const params: UserReportDialogParams = new UserReportDialogParams();
+    params.onSubmit = (reason: ReportReason, description: string): void => {
+      this.submitUserReport(reason, description);
+    };
+    params.onClose = (): void => { this.reportModal.close(); };
+    const content: ComponentContent<UserReportDialogParams> =
+      new ComponentContent(this.getUIContext(), wrapBuilder(userReportDialogBuilder), params);
+    this.reportModal.openContent(this.getUIContext(), content, {
+      onDismiss: (): void => {
+        this.reportModal.close();
       },
-    }),
-    alignment: DialogAlignment.Center,
-    customStyle: true,
-    width: 344,
-  });
+    });
+  }
   @State myName: string = '';
   @State messages: DmMessage[] = [];
   @State loading: boolean = true;
@@ -825,12 +853,12 @@ export struct ChatView {
     }
   }
 
-  // ===== 长按消息小菜单（自绘浮层，替代 bindContextMenu）=====
+  // ===== 长按消息小菜单（共享 PointerMenu 浮层，替代 bindContextMenu）=====
   // bindContextMenu(ResponseType.LongPress) 会被消息内容组件的 onClick（图片预览/视频播放）
   // 竞争掉导致长按无响应；改用标准 LongPressGesture（与子组件点击正确共存）+ 遮罩浮层菜单。
   @State menuMsgId: number = 0; // 当前弹菜单的消息 id（0=未弹出）
-  @State menuX: number = 0; // 菜单卡片左上角 x（消息区 Stack 本地坐标，按按压点定位）
-  @State menuY: number = 0; // 菜单卡片左上角 y
+  @State pressGx: number = 0; // 按压点全局坐标（GestureEvent 提取，PointerMenu 内做本地换算与钳制）
+  @State pressGy: number = 0;
   // 消息区 Stack 的全局原点与尺寸（按压点全局坐标 → 本地坐标换算 & 边界钳制用）
   private msgAreaGlobalX: number = 0;
   private msgAreaGlobalY: number = 0;
@@ -853,7 +881,8 @@ export struct ChatView {
     this.menuMsgId = 0;
   }
 
-  // 长按定位：菜单卡片中心对准按压手指位置（跟手），并钳制在消息区边界内不溢出屏幕
+  // 长按定位：提取按压点全局坐标（兜底消息区中心）；本地换算、中心对准与边界钳制
+  // 收敛进共享 PointerMenu
   private openMenu(m: DmMessage, event: GestureEvent): void {
     // 兜底中心点（fingerList 理论上必有值，防御性处理）
     let gx: number = this.msgAreaGlobalX + this.msgAreaWidth / 2;
@@ -862,91 +891,41 @@ export struct ChatView {
       gx = event.fingerList[0].globalX;
       gy = event.fingerList[0].globalY;
     }
-    // 全局坐标 → 消息区 Stack 本地坐标
-    const lx: number = gx - this.msgAreaGlobalX;
-    const ly: number = gy - this.msgAreaGlobalY;
-    // 按可见项数估算卡片高度（行高 42 + hairline 分隔线 + 上下 xs 内边距）
-    let rows: number = 1; // 删除
-    if (m.type === 'text' || m.type === 'image' || m.type === 'video') {
-      rows += 1;
-    }
-    if (this.canRecall(m)) {
-      rows += 1;
-    }
-    const cardW: number = 148;
-    const cardH: number = rows * 42 + (rows - 1) * 0.5 + 8;
-    // 卡片中心对准按压点后钳制在消息区边界内
-    let x: number = lx - cardW / 2;
-    let y: number = ly - cardH / 2;
-    const maxX: number = Math.max(8, this.msgAreaWidth - cardW - 8);
-    const maxY: number = Math.max(8, this.msgAreaHeight - cardH - 8);
-    this.menuX = Math.max(8, Math.min(maxX, x));
-    this.menuY = Math.max(8, Math.min(maxY, y));
+    this.pressGx = gx;
+    this.pressGy = gy;
     this.menuMsgId = m.id;
   }
 
-  @Builder
-  menuRow(label: string, m: DmMessage, action: (msg: DmMessage) => void) {
-    Text(label)
-      .fontSize(TypeTokens.body.size).fontFamily(TypeTokens.fontFamily)
-      .fontWeight(TypeTokens.headline.weight)
-      .fontColor(ColorTokens.primary)
-      .width('100%')
-      .height(42)
-      .textAlign(TextAlign.Center)
-      .onClick(() => {
-        this.closeMenu();
-        action(m);
-      })
+  // 菜单项分流（语义逐字保留）：text→复制、image/video→保存、恒有删除、canRecall→撤回
+  private menuEntries(): PointerMenuEntry[] {
+    const m: DmMessage = this.menuMsg();
+    const entries: PointerMenuEntry[] = [];
+    if (m.type === 'text') {
+      entries.push({ label: '复制', action: (): void => { this.copyMsg(m); } });
+    }
+    if (m.type === 'image' || m.type === 'video') {
+      entries.push({ label: '保存', action: (): void => { this.saveMediaMsg(m); } });
+    }
+    entries.push({ label: '删除', action: (): void => { this.deleteMsg(m); } });
+    if (this.canRecall(m)) {
+      entries.push({ label: '撤回', action: (): void => { this.recallMsg(m); } });
+    }
+    return entries;
   }
 
-  @Builder
-  menuDivider() {
-    Divider()
-      .color(ColorTokens.separator)
-      .strokeWidth(LayoutTokens.hairlineWidth)
-  }
-
-  // 长按菜单浮层：全屏透明遮罩（点击关闭）+ 卡片按按压点定位（跟手）+ 轻量进场动效
+  // 长按菜单浮层：共享 PointerMenu（全屏透明遮罩点击关闭 + 按压点跟手钳制定位 + 进场动效）
   @Builder
   msgActionSheet() {
-    Column() {
-      Column() {
-        if (this.menuMsg().type === 'text') {
-          this.menuRow('复制', this.menuMsg(), (msg: DmMessage): void => { this.copyMsg(msg); })
-          this.menuDivider()
-        }
-        if (this.menuMsg().type === 'image' || this.menuMsg().type === 'video') {
-          this.menuRow('保存', this.menuMsg(), (msg: DmMessage): void => { this.saveMediaMsg(msg); })
-          this.menuDivider()
-        }
-        this.menuRow('删除', this.menuMsg(), (msg: DmMessage): void => { this.deleteMsg(msg); })
-        if (this.canRecall(this.menuMsg())) {
-          this.menuDivider()
-          this.menuRow('撤回', this.menuMsg(), (msg: DmMessage): void => { this.recallMsg(msg); })
-        }
-      }
-      .width(148)
-      .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
-      .backgroundColor(ColorTokens.elevated)
-      .borderRadius(RadiusTokens.md)
-      .clip(true)
-      .shadow({ radius: 20, color: ColorTokens.barShadow, offsetY: 6 })
-      // 按压点定位（openMenu 已把坐标钳制在消息区边界内，不溢出屏幕）
-      .position({ x: this.menuX, y: this.menuY })
-      // 进/出场：淡入 + 轻微缩放（0.94→1），只动 transform/opacity 保证性能
-      .transition(
-        TransitionEffect.opacity(0)
-          .combine(TransitionEffect.scale({ x: 0.94, y: 0.94 }))
-          .animation({ duration: 180, curve: MotionCurves.standard })
-      )
-    }
-    .width('100%')
-    .height('100%')
-    // 透明遮罩：视觉上无灰色覆盖，但仍捕获点击以关闭菜单
-    .backgroundColor(Color.Transparent)
-    .onClick((): void => {
-      this.closeMenu();
+    PointerMenu({
+      entries: this.menuEntries(),
+      pressX: this.pressGx,
+      pressY: this.pressGy,
+      areaX: this.msgAreaGlobalX,
+      areaY: this.msgAreaGlobalY,
+      areaWidth: this.msgAreaWidth,
+      areaHeight: this.msgAreaHeight,
+      placement: 'center',
+      onClose: (): void => { this.closeMenu(); },
     })
   }
 
@@ -1255,12 +1234,12 @@ export struct ChatView {
   // 提交对端用户举报（聊天模块举报渠道）
   private async submitUserReport(reason: ReportReason, description: string): Promise<void> {
     if (this.peerId <= 0) {
-      this.reportController.close();
+      this.reportModal.close();
       return;
     }
     try {
       await reportUser(this.peerId, { reason: reason, description: description });
-      this.reportController.close();
+      this.reportModal.close();
       safeShowToast(this.getUIContext(), { message: '举报已提交，我们会尽快处理' });
     } catch (e) {
       const err: Error = e as Error;
@@ -1327,46 +1306,16 @@ export struct ChatView {
   // 行为不变：backIcon 带 action 槽，直接接回原来的 backAction()（nav 模式走宿主 onBack、
   // router 模式走 router.back()），没有换成 NavPathStack 默认 pop。
   private chatTitleBarOptions(): HdsNavigationTitleBarOptions {
-    const immersive: boolean = isImmersiveLightSenseSupported();
-    const scrollEffect: ScrollEffectOptions = {
-      enableScrollEffect: true,
-      // 折射要这两个字段成对开，且同为 @6.1.0(23)（§7.6.29）
-      scrollEffectType: immersive ? ScrollEffectType.IMMERSIVE_GRADIENT_BLUR : ScrollEffectType.GRADIENT_BLUR,
-      blurEffectiveStartOffset: LengthMetrics.vp(0),
-      blurEffectiveEndOffset: LengthMetrics.vp(CHAT_BLUR_END_VP),
-    };
-    // 官方返回键默认色按 HDS 约定是白的（假定栏压在 hero 媒体上）；本页栏下是聊天背景，必须点名。
-    // 两个态各写一遍：originalStyle 只管 scroll 特效生效之前，接管后改读 scrollEffectStyle
-    //（防漂移第 25 条）。本页从不切白（对端昵称/举报都是静态 token），所以两态同值。
-    const backIconStyle: HdsNavigationIconItemStyle = { iconColor: ColorTokens.primary };
-    const contentStyle: HdsTitleBarContentStyle = { backIconStyle: backIconStyle };
-    const style: TitleBarStyleOptions = {
-      scrollEffectOpts: scrollEffect,
-      originalStyle: {
-        // blurRadius 是 IMMERSIVE 变体的模糊出图开关（基准 §36：不设则全页无磨砂，
-        // 消息锐利透出——2026-10-25 实测），由 chatBarScrolled（绝对偏移>0）门控；
-        // maskExtraHeight 0 = 磨砂正好停在栏底
-        backgroundStyle: {
-          backgroundColor: Color.Transparent,
-          blurRadius: this.chatBarScrolled ? 50 : 0,
-          maskExtraHeight: 0,
-        },
-        contentStyle: contentStyle,
-      },
-      scrollEffectStyle: { contentStyle: contentStyle },
-    };
-    if (immersive) {
-      style.systemMaterialEffect = {
-        materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
-        materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE,
-      } as SystemMaterialParams;
-    }
-    const backContent: HdsNavigationIconOptions = {
-      icon: resolveActionIcon('back'),
-      label: '返回',
-      action: (): void => { this.backAction(); },
-    };
-    const backIcon: HdsNavigationBackButtonItemOptions = backContent;
+    // 栏样式走玻璃三件套共享入口；定制=滚动后常驻模糊门控（chatBarScrolled，IMMERSIVE 磨砂
+    // 出图开关，2026-10-25 实测）+ scrollEffectStyle 两态同值（防漂移第 25 条：本页从不切白，
+    // 接管前后同色）。CHAT_BLUR_END_VP=32 与工厂默认同值，常量随收敛删除。
+    const style: TitleBarStyleOptions = buildGlassTitleBarStyle({
+      scrolledBlur: (): boolean => this.chatBarScrolled,
+      writeScrollEffectStyle: true,
+    });
+    const backIcon: HdsNavigationBackButtonItemOptions = buildGlassBackIcon((): void => {
+      this.backAction();
+    });
     const content: TitleBarContentOptions = {
       stackBuilder: (): void => { this.chatHdsTopRow(); },
       backIcon: backIcon,
@@ -1425,7 +1374,7 @@ export struct ChatView {
       .accessibilityText('举报该联系人或聊天内容')
       .onClick(() => {
         if (this.peerId > 0) {
-          this.reportController.open();
+          this.openUserReport();
         }
       });
   }
@@ -1495,14 +1444,14 @@ export struct ChatView {
             )
           }
           .width('100%')
-          .padding({ left: 12, right: 12, top: 8 + this.chatListInset(), bottom: 8 })
+          .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: 8 + this.chatListInset(), bottom: 8 })
           .onAreaChange((_old: Area, area: Area) => {
             // 记录消息内容高度，供 scrollToBottom 判断是否需要滚动（不足一屏保持顶部）
             this.msgContentHeight = area.height as number;
           })
         }
         .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
-        .scrollBar(BarState.Auto)
+        .scrollBar(BarState.Off)
         .width('100%')
         // 消息区外层是 Stack（默认子项居中），layoutWeight 在 Stack 中不生效，
         // 必须显式 height('100%') 填满视口，Scroll 内容才会从消息区顶部开始。

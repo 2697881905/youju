@@ -4,6 +4,7 @@ import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
 import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import { buildPageTitleBarOptions, GlassTitleRow, GlassBarInsetRow } from '../design/components/HdsGlassBackSurface';
 import { EmptyState } from '../design/components/EmptyState';
+import { SpaceTokens } from '../design/tokens/space';
 import { resolveActionIcon } from '../utils/actionIcons';
 import { listFolderPosts, cancelBookmarkPost, listBookmarkFolders, createBookmarkFolder, moveBookmarkFolder} from '../services/api';
 import { Post, BookmarkFolderItem } from '../models/types';
@@ -14,6 +15,52 @@ import { FolderPickDialog } from '../components/FolderPickDialog';
 import { FolderNameDialog } from '../components/FolderNameDialog';
 import { getUserId } from '../utils/auth';
 import { gridColumnsForBreakpoint } from '../utils/responsive';
+import { AppModalController } from '../utils/modal';
+import { ComponentContent } from '@kit.ArkUI';
+
+// —— 移动收藏夹弹窗参数对象（ComponentContent 需要「全局 @Builder + class 参数」，回调闭包
+// 捕获宿主 this 在 open 时构造；关闭走 closeCustomDialog(content) 同步可靠，不依赖
+// dialogId——其 Promise 真机在弹窗关闭时才回填，2026-11-25 双层弹窗实锤）——
+export class MovePickDialogParams {
+  folders: BookmarkFolderItem[] = [];
+  onPick: (folderId: number) => void = (_f: number) => {};
+  onNewFolder: () => void = (): void => {};
+  onClose: () => void = (): void => {};
+}
+
+export class MoveNameDialogParams {
+  onSubmit: (name: string) => void = (_n: string) => {};
+  onClose: () => void = (): void => {};
+}
+
+@Builder
+function movePickDialogBuilder(p: MovePickDialogParams) {
+  FolderPickDialog({
+    folders: p.folders,
+    onPick: (folderId: number): void => {
+      p.onPick(folderId);
+    },
+    onNewFolder: (): void => {
+      p.onNewFolder();
+    },
+    onClose: (): void => {
+      p.onClose();
+    },
+  })
+}
+
+@Builder
+function moveNameDialogBuilder(p: MoveNameDialogParams) {
+  FolderNameDialog({
+    title: '新建收藏夹',
+    onSubmit: (name: string): void => {
+      p.onSubmit(name);
+    },
+    onClose: (): void => {
+      p.onClose();
+    },
+  })
+}
 
 @Entry
 @Component
@@ -31,8 +78,8 @@ export struct BookmarkFolderDetailPage {
   @State error: string = '';
   @State moveFolders: BookmarkFolderItem[] = [];
   private moveTarget: Post | null = null;
-  private movePickController: CustomDialogController | null = null;
-  private moveNameDialog: CustomDialogController | null = null;
+  private movePickModal: AppModalController = new AppModalController();
+  private moveNameModal: AppModalController = new AppModalController();
   // 顶栏渐变模糊的滚动源
   private pageScroller: Scroller = new Scroller();
 
@@ -142,16 +189,14 @@ export struct BookmarkFolderDetailPage {
       safeShowToast(this.getUIContext(), { message: '收藏夹加载失败，请稍后重试' });
       return;
     }
-    this.movePickController = new CustomDialogController({
-      builder: FolderPickDialog({
-        folders: this.moveFolders,
-        onPick: (folderId: number): void => { this.onMovePick(folderId); },
-        onNewFolder: (): void => { this.openMoveNewFolder(); },
-      }),
-      autoCancel: true,
-      customStyle: true,
-    });
-    this.movePickController.open();
+    const params: MovePickDialogParams = new MovePickDialogParams();
+    params.folders = this.moveFolders;
+    params.onPick = (folderId: number): void => { this.onMovePick(folderId); };
+    params.onNewFolder = (): void => { this.openMoveNewFolder(); };
+    params.onClose = (): void => { this.movePickModal.close(); };
+    const content: ComponentContent<MovePickDialogParams> =
+      new ComponentContent(this.getUIContext(), wrapBuilder(movePickDialogBuilder), params);
+    this.movePickModal.openContent(this.getUIContext(), content, { onDismiss: (): void => { this.movePickModal.close(); } });
   }
 
   // 选择目标夹：folderId=0 移出收藏夹；=当前夹 则无变化
@@ -192,15 +237,12 @@ export struct BookmarkFolderDetailPage {
 
   // 新建收藏夹并移入
   private openMoveNewFolder(): void {
-    this.moveNameDialog = new CustomDialogController({
-      builder: FolderNameDialog({
-        title: '新建收藏夹',
-        onSubmit: (name: string): void => { this.onCreateMoveFolder(name); },
-      }),
-      autoCancel: true,
-      customStyle: true,
-    });
-    this.moveNameDialog.open();
+    const params: MoveNameDialogParams = new MoveNameDialogParams();
+    params.onSubmit = (name: string): void => { this.onCreateMoveFolder(name); };
+    params.onClose = (): void => { this.moveNameModal.close(); };
+    const content: ComponentContent<MoveNameDialogParams> =
+      new ComponentContent(this.getUIContext(), wrapBuilder(moveNameDialogBuilder), params);
+    this.moveNameModal.openContent(this.getUIContext(), content, { onDismiss: (): void => { this.moveNameModal.close(); } });
   }
 
   private async onCreateMoveFolder(name: string): Promise<void> {
@@ -253,7 +295,7 @@ export struct BookmarkFolderDetailPage {
           .fontSize(12).fontFamily($r('app.string.font_family')).fontColor($r('app.color.text_secondary'))
           .onClick(() => { this.onUnbookmark(p); });
       }
-      .width('100%').padding({ left: 4 });
+      .width('100%').padding({ left: SpaceTokens.pageCompact });
     }
     .width('100%')
   }
@@ -325,7 +367,7 @@ export struct BookmarkFolderDetailPage {
             .width('100%')
             // constraintSize minHeight 撑满视口：内容不足一屏时从顶部贴齐（规避 Scroll 内容垂直居中）
             .constraintSize({ minHeight: '100%' })
-            .padding({ left: 6, right: 6, top: 4, bottom: 8 })
+            .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: 4, bottom: 8 })
           }
           .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
           .layoutWeight(1)
@@ -336,6 +378,7 @@ export struct BookmarkFolderDetailPage {
               this.onReachEnd();
             }
           })
+          .scrollBar(BarState.Off)
         }
       }
       .width('100%').height('100%');

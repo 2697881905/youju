@@ -7,6 +7,7 @@ import { PostCard } from '../components/PostCard';
 import { ProfileIdentity } from '../components/ProfileIdentity';
 import { ProfileStatItem } from '../components/ProfileStatItem';
 import { ReportDialog } from '../components/ReportDialog';
+import { AppModalController } from '../utils/modal';
 import { safeShowToast } from '../utils/toast';
 import { openChat, openFollowList, openPostDetail, takeUserProfileId } from '../utils/nav';
 import { getMainNavStack, EmptyNavParams, PostDetailNavParams } from '../utils/navigationTransition';
@@ -67,6 +68,28 @@ interface ProfileFollowPatch {
   isDisliked?: boolean;
 }
 
+// 举报弹窗参数对象：ComponentContent 需要「全局 @Builder + class 参数」，回调闭包捕获宿主
+// this 在 open 时构造；关闭走 closeCustomDialog(content) 同步可靠（不依赖 dialogId——其
+// Promise 真机在弹窗关闭时才回填，2026-11-25 双层弹窗实锤）。
+export class UserReportDialogParams {
+  onSubmit: (reason: ReportReason, description: string) => void = (_r: ReportReason, _d: string) => {};
+  onClose: () => void = (): void => {};
+}
+
+@Builder
+function userReportDialogBuilder(p: UserReportDialogParams) {
+  ReportDialog({
+    targetType: 'user',
+    targetId: 0,
+    onSubmit: (reason: ReportReason, description: string): void => {
+      p.onSubmit(reason, description);
+    },
+    onClose: (): void => {
+      p.onClose();
+    },
+  })
+}
+
 @Component
 export struct UserProfileView {
   @Prop navMode: boolean = false;
@@ -89,18 +112,7 @@ export struct UserProfileView {
   @State followPending: boolean = false;
   @State followPulse: boolean = false;
   // 举报用户（防骚扰/违规账号；targetType='user'，复用聊天举报链路）
-  private reportController: CustomDialogController = new CustomDialogController({
-    builder: ReportDialog({
-      targetType: 'user',
-      targetId: 0,
-      onSubmit: (reason: ReportReason, description: string): void => {
-        this.submitUserReport(reason, description);
-      },
-    }),
-    alignment: DialogAlignment.Center,
-    customStyle: true,
-    width: 344,
-  });
+  private reportModal: AppModalController = new AppModalController();
 
   @StorageProp('currentBreakpoint') currentBreakpoint: string = 'sm';
   // 穿底前提：内容区从窗口原点起算（enableComponentSafeArea:false），列表再靠
@@ -537,18 +549,29 @@ export struct UserProfileView {
       safeShowToast(this.getUIContext(), { message: '请先登录后再举报' });
       return;
     }
-    this.reportController.open();
+    const params: UserReportDialogParams = new UserReportDialogParams();
+    params.onSubmit = (reason: ReportReason, description: string): void => {
+      this.submitUserReport(reason, description);
+    };
+    params.onClose = (): void => { this.reportModal.close(); };
+    const content: ComponentContent<UserReportDialogParams> =
+      new ComponentContent(this.getUIContext(), wrapBuilder(userReportDialogBuilder), params);
+    this.reportModal.openContent(this.getUIContext(), content, {
+      onDismiss: (): void => {
+        this.reportModal.close();
+      },
+    });
   }
 
   // 提交用户举报（targetType='user'，复用后端 /v1/users/:id/report）
   private async submitUserReport(reason: ReportReason, description: string): Promise<void> {
     if (this.targetId <= 0) {
-      this.reportController.close();
+      this.reportModal.close();
       return;
     }
     try {
       await reportUser(this.targetId, { reason: reason, description: description });
-      this.reportController.close();
+      this.reportModal.close();
       safeShowToast(this.getUIContext(), { message: '举报已提交，我们会尽快处理' });
     } catch (e) {
       const err: Error = e as Error;
@@ -907,7 +930,7 @@ export struct UserProfileView {
     }
     .width('100%')
     .alignItems(VerticalAlign.Top)
-    .padding({ left: 12, right: 12, top: 12 });
+    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: 12 });
   }
 
   private gridColumnCount(): number {

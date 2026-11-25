@@ -7,7 +7,8 @@ import { deactivateAccount, clearSearchHistory, exportUserData } from '../servic
 import { safeShowToast } from '../utils/toast';
 import { toggleDarkMode, setFollowSystem } from '../utils/theme';
 import { buildPageTransition } from '../utils/styles';
-import { CARD_RADIUS } from '../utils/cardTokens';
+import { SpaceTokens } from '../design/tokens/space';
+import { GroupCardStyle } from '../utils/groupCardStyle';
 import { APP_VERSION_NAME } from '../utils/buildMode';
 import { resolveSettingsIcon } from '../utils/settingsIcons';
 import { window } from '@kit.ArkUI';
@@ -33,6 +34,8 @@ export struct SettingsPage {
   @State statusBarHeight: number = 0;
   // 交给 HdsNavigation.bindToScrollable，驱动顶栏渐变模糊
   private pageScroller: Scroller = new Scroller();
+  // ListItemGroup 卡片底板统一样式（圆角/底色/裁剪三件套）；本页即全站基准
+  private groupCard: GroupCardStyle = new GroupCardStyle();
 
   aboutToAppear(): void {
     this.isAdmin = getIsAdmin();
@@ -226,7 +229,7 @@ export struct SettingsPage {
           Text('账号与安全')
             .fontSize(13).fontFamily($r('app.string.font_family'))
             .fontColor($r('app.color.text_secondary'))
-            .padding({ left: 16, top: 8 })
+            .padding({ left: SpaceTokens.pageCompact, top: 8 })
         }
 
         ListItemGroup() {
@@ -247,16 +250,14 @@ export struct SettingsPage {
             }
           })
         }
-        .borderRadius(CARD_RADIUS)
-        .backgroundColor($r('app.color.card_bg'))
-        .clip(true)
+        .attributeModifier(this.groupCard)
 
         // ===== 隐私 =====
         ListItem() {
           Text('隐私')
             .fontSize(13).fontFamily($r('app.string.font_family'))
             .fontColor($r('app.color.text_secondary'))
-            .padding({ left: 16, top: 8 })
+            .padding({ left: SpaceTokens.pageCompact, top: 8 })
         }
 
         ListItemGroup() {
@@ -267,16 +268,14 @@ export struct SettingsPage {
             this.openGated('pages/NotificationSettingsPage');
           })
         }
-        .borderRadius(CARD_RADIUS)
-        .backgroundColor($r('app.color.card_bg'))
-        .clip(true)
+        .attributeModifier(this.groupCard)
 
         // ===== 通用 =====
         ListItem() {
           Text('通用')
             .fontSize(13).fontFamily($r('app.string.font_family'))
             .fontColor($r('app.color.text_secondary'))
-            .padding({ left: 16, top: 8 })
+            .padding({ left: SpaceTokens.pageCompact, top: 8 })
         }
 
         ListItemGroup() {
@@ -342,16 +341,14 @@ export struct SettingsPage {
             this.onClearCacheClick();
           })
         }
-        .borderRadius(CARD_RADIUS)
-        .backgroundColor($r('app.color.card_bg'))
-        .clip(true)
+        .attributeModifier(this.groupCard)
 
         // ===== 关于 =====
         ListItem() {
           Text('关于')
             .fontSize(13).fontFamily($r('app.string.font_family'))
             .fontColor($r('app.color.text_secondary'))
-            .padding({ left: 16, top: 8 })
+            .padding({ left: SpaceTokens.pageCompact, top: 8 })
         }
 
         ListItemGroup() {
@@ -362,9 +359,7 @@ export struct SettingsPage {
             this.getUIContext().getRouter().pushUrl({ url: 'pages/PrivacyPage' });
           })
         }
-        .borderRadius(CARD_RADIUS)
-        .backgroundColor($r('app.color.card_bg'))
-        .clip(true)
+        .attributeModifier(this.groupCard)
 
         // ===== 退出登录 / 账号注销 =====
         if (this.loggedIn()) {
@@ -405,15 +400,14 @@ export struct SettingsPage {
               .onClick(() => { this.onDeactivateClick(); })
             }
           }
-          .borderRadius(CARD_RADIUS)
-          .backgroundColor($r('app.color.card_bg'))
-          .clip(true)
+          .attributeModifier(this.groupCard)
         }
       }
       .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .layoutWeight(1)
       .width('100%')
-      .padding({ left: 16, right: 16, top: 8, bottom: 16 });
+      .padding({ left: SpaceTokens.pageCompact, right: SpaceTokens.pageCompact, top: 8, bottom: 16 })
+      .scrollBar(BarState.Off);
       }
       .width('100%')
       .height('100%')
