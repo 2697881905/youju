@@ -1,0 +1,153 @@
+---
+title: "HarmonyProject1_2026-10-05.md"
+id: markdown_798285c88467638f6a8dc28635ad6f33_8461419a7ef539352c46336a43f3dca27505655250320770
+kb: 有据-YouJu
+folder: "问题记录"
+media_type: 7
+tags: []
+source: ima
+exported_at: 2026-11-23T14:52:37.917Z
+---
+---
+date: 2026-10-05
+generated_at: 2026-10-06T00:02:32
+project_root: /Users/itxiaobai/HarmonyProject1
+source: idle-scheduled
+---
+
+# 每日经验反思报告
+
+## 总览
+
+- 项目根目录：`/Users/itxiaobai/HarmonyProject1`
+- 经验库：`/Users/itxiaobai/HarmonyProject1/.codeartsdoer/experience-reuse/experiences`
+- collect 执行次数：9
+- refine 执行次数：3
+- 新增/更新/合并/归档/降噪/冲突消解：9/5/1/1/0/0
+- 跳过或异常数量：2
+
+## Collect 摘要
+
+## 今日新增经验
+
+### Collect 1
+
+- 快照：`ses_ef83a32abffeqQK4CIw6C2fSzm`
+- 新增/跳过：1/0
+- 涉及经验：
+  - `coding-pattern/2026-10-05-hmos-custom-to-native-component-replacement.md`
+- 最终摘要：
+  - 从会话中提取了自定义封装组件替换为官方原生组件的决策与实施模式，包含 GlowInput→TextInput/TextArea 和 SegmentedControl→SegmentButton 的替换经验，以及从 SDK d.ts 定位官方高级组件的方法。
+
+### Collect 2
+
+- 快照：`ses_ef827e304ffeuiLPjBo8YrCKhs`
+- 新增/跳过：1/0
+- 涉及经验：
+  - `coding-pattern/2026-10-05-arkui-link-component-callback-unreliable-watch-sync.md`
+- 最终摘要：
+  - 本次会话的核心经验（自定义组件替换为官方原生组件）已被现有文档 2026-10-05-hmos-custom-to-native-component-replacement 覆盖；新提取了一个未被覆盖的陷阱经验——SegmentButton 的 onItemClicked 回调不可靠，需用 @Watch 监听 @Link 变量同步衍生状态。
+
+### Collect 3
+
+- 快照：`ses_ef8234f23ffeETeqqs3OOUmQ6j`
+- 新增/跳过：1/0
+- 涉及经验：
+  - `coding-pattern/2026-10-05-arkui-segmentbutton-event-callback-constructor-param.md`
+- 最终摘要：
+  - 本次会话的自定义→原生组件替换流程已被现有经验 2026-10-05-hmos-custom-to-native-component-replacement 覆盖，但 SegmentButton 的 onItemClicked 构造参数陷阱（编译错误信息不直观）是新的非显然知识发现，值得单独记录。
+
+### Collect 4
+
+- 快照：`ses_ef7da101dffefTedHnEGa69Rmk`
+- 新增/跳过：1/0
+- 涉及经验：
+  - `workflow/2026-10-05-huawei-trademark-compliance-restriction.md`
+- 最终摘要：
+  - session trace 中 SegmentButton 回调不可靠、构造参数语法、自定义→原生组件迁移三个经验已被既有文件覆盖（2026-10-05-arkui-link-component-callback-unreliable-watch-sync / 2026-10-05-arkui-segmentbutton-event-callback-constructor-param / 2026-10-05-hmos-custom-to-native-component-replacement），仅新增未被覆盖的华为商标合规经验
+
+### Collect 5
+
+- 快照：`ses_ef7d4ffb8ffe2h3ntbT3BLV2HR`
+- 新增/跳过：1/0
+- 涉及经验：
+  - `coding-pattern/2026-10-05-arkui-settings-list-itemgroup-migration.md`
+- 最终摘要：
+  - 会话中 4 个已有经验（自定义组件替换、@Link 回调不可靠、SegmentButton 构造参数、华为商标合规）已被前序 collect 覆盖；本次仅提取未被覆盖的新经验——设置页从 Scroll+Column+sectionRow 迁移到官方 List+ListItemGroup+ListItem 的决策与实施模式。
+
+### Collect 6
+
+- 快照：`ses_ef7c7c067ffeXmTICXQRRlqqzl`
+- 新增/跳过：1/0
+- 涉及经验：
+  - `workflow/2026-10-05-huawei-trademark-compliance-brand-logo.md`
+- 最终摘要：
+  - 会话中 4 个经验已由先前收集覆盖（SegmentButton 回调不可靠、构造参数传入、自定义→原生组件替换、设置页 List 迁移），本次仅新增华为商标合规限制经验
+
+### Collect 7
+
+- 快照：`ses_ef7be98c0ffeXihnM9YeIAvvu3`
+- 新增/跳过：1/0
+- 涉及经验：
+  - `coding-pattern/2026-10-05-hmos-tab-component-selection-api-version-adaptation.md`
+- 最终摘要：
+  - 从探索会话中提取了 HarmonyOS Tab 组件选择与 API 版本适配分支策略经验，涵盖 HdsTabs/内置 Tabs/SegmentButton/自定义组件的选择决策和 API 23+ vs 20-22 的视觉不降级适配方案。
+
+### Collect 8
+
+- 快照：`ses_ef426a915ffeLEQY6iyjaQOim1`
+- 新增/跳过：2/0
+- 涉及经验：
+  - `architecture/2026-10-05-arkui-child-local-mutation-parent-sync-contract.md`
+  - `coding-pattern/2026-10-05-arkui-state-nested-property-update-no-rerender.md`
+- 最终摘要：
+  - 会话已完成 bug 修复并通过 assembleHap 编译验证（强触发：难 bug 定位 + 知识发现），提取出两条同源但分工不同的经验——状态刷新机制（@State 嵌套属性赋值不触发跨组件刷新，需顶层替换/独立快照）与父子数据所有权契约（@Prop 拷贝语义下变更必须经回调链回传父级并做乐观计数校准）；未改动任何现有经验文档、归档目录与 index.md。
+
+### Collect 9
+
+- 快照：`ses_ef425c69dffeUdhrY4JizYAwwm`
+- 新增/跳过：0/0
+- 最终摘要：
+  - 会话轨迹的可复用结论（ArkUI 嵌套属性刷新 + 子组件变更回传契约）已由既有 S 级经验完整覆盖，仅新增不修改，故不生成重复文档。
+
+## Refine 摘要
+
+### Refine 1
+
+- 快照：`ses_ef836ac93ffeLGqOurq0DP37Cc`
+- 更新/合并/归档/降噪/冲突消解/跳过：2/1/1/0/0/1
+- 涉及经验：
+  - `.archived/coding-pattern/2026-10-04-arkui-wrapper-hides-native-component-identification.md`
+  - `architecture/2026-10-04-publish-draft-three-layer-state-architecture.md`
+  - `coding-pattern/2026-10-05-hmos-custom-to-native-component-replacement.md`
+- 最终摘要：
+  - 合并了同一 session 产生的两篇高度重叠的自定义组件替换经验（wrapper-hides → custom-to-native-replacement），并在草稿三层架构经验中补充了对保存跳转例外分支的反向引用。
+
+### Refine 2
+
+- 快照：`ses_ef82c4fa5ffe4K5owyz8lPUvLN`
+- 更新/合并/归档/降噪/冲突消解/跳过：0/0/0/0/0/0
+- 涉及经验：
+  - `coding-pattern/2026-10-05-hmos-custom-to-native-component-replacement.md`
+- 最终摘要：
+  - 新经验文档质量高(89)、效用高(90)、与现有经验无冗余或冲突，保持原样无需修改
+
+### Refine 3
+
+- 快照：`ses_ef7d01d2dffeOCgBRJK3FuR7KS`
+- 更新/合并/归档/降噪/冲突消解/跳过：3/0/0/0/0/1
+- 涉及经验：
+  - `coding-pattern/2026-10-05-arkui-link-component-callback-unreliable-watch-sync.md`
+  - `coding-pattern/2026-10-05-arkui-segmentbutton-event-callback-constructor-param.md`
+  - `coding-pattern/2026-10-05-hmos-custom-to-native-component-replacement.md`
+- 最终摘要：
+  - 3个新经验（SegmentButton构造参数陷阱、设置页List迁移、华为商标合规）与现有经验相似度0.53-0.58属部分重叠，无需合并；为SegmentButton编译层/运行时层两个回调问题添加双向交叉引用和边界区分，并为自定义组件替换主经验补充两个衍生经验的反向引用。
+
+## 质量观察
+
+- 今日存在归档 1 条、降噪 0 条，建议关注低价值经验来源。
+- 今日存在去重 0 条、合并 1 条，说明近期经验存在相近内容。
+
+## 明日关注
+
+- 复核 refine 快照的归档/降噪结果：`ses_ef836ac93ffeLGqOurq0DP37Cc`

@@ -1,0 +1,45 @@
+---
+title: "sequence-diagram.mermaid"
+id: markdown_798285c88467638f6a8dc28635ad6f33_28bd8482735bdfa59f164a25ce1a7bf97505655250320770
+kb: 有据-YouJu
+folder: "开发文档"
+media_type: 7
+tags: []
+source: ima
+exported_at: 2026-11-23T14:52:37.917Z
+---
+sequenceDiagram
+    actor U as 用户
+    participant ABP as AccountBindingPage
+    participant API as api.ets
+    participant AUTH as auth 中间件
+    participant SVC as AccountBindingService
+    participant DB as Prisma / MySQL
+
+    U->>ABP: 打开账号绑定页
+    ABP->>API: listBindings()
+    API->>AUTH: GET 带 Authorization: Bearer <token>
+    AUTH-->>API: req.userId（JWT 解析）
+    API->>SVC: listBindings(userId)
+    SVC->>DB: 读 User.unionID（为空则退回 openId）+ UserBinding
+    DB-->>SVC: 用户 + 绑定行
+    SVC-->>API: BindingItem[]（huawei 主账号置顶，externalId 已脱敏）
+    API-->>ABP: BindingItem[]
+    Note over ABP: 登录即绑定：华为主账号行只读，无绑定入口也无解绑按钮
+    ABP->>ABP: 渲染列表（主账号 / 已绑定 / 未绑定）
+
+    Note over U,DB: ===== 解绑流程（仅第三方，如微信）=====
+
+    U->>ABP: 点击「解绑微信」
+    ABP->>ABP: AlertDialog 二次确认
+    U->>ABP: 点「确定解绑」
+    ABP->>API: unbindAccount('wechat')
+    API->>AUTH: DELETE 带 Authorization: Bearer <token>
+    AUTH-->>API: req.userId
+    API->>SVC: unbind(userId, 'wechat')
+    SVC->>DB: 删 UserBinding (WHERE userId & provider)
+    DB-->>SVC: 删除行
+    SVC-->>API: ok({ provider:'wechat', unbound:true })
+    API-->>ABP: 成功
+    ABP->>ABP: 刷新列表 + safeShowToast('解绑成功')
+    Note over ABP: 华为主账号行无解绑按钮；即便误调 DELETE /v1/account/bindings/huawei，接口直接 403（解绑会置空 unionID = 永久失去登录能力）
