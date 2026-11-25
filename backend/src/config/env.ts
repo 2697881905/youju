@@ -112,8 +112,11 @@ export const env = {
     model: process.env.AI_MODEL ?? '',
     // 单次上游调用超时：结构化整理是长输出，默认 30s
     timeoutMs: clampPositiveInt(process.env.AI_TIMEOUT_MS, 30000),
-    // 每用户每日调用上限（polish-title 与 structure-draft 合并计数），防刷量兜底
+    // 辅助创作（润色 / 标签推荐 / 搜索救援）每用户每日上限，防刷量兜底
     dailyLimit: clampPositiveInt(process.env.AI_DAILY_LIMIT, 20),
+    // 发布整理（structure-draft）单独一套日额度：发布整理是发布流必经一步，
+    // 额度按「发帖量」而非「试用探索量」给，与辅助创作互不挤占，默认 100。
+    publishDailyLimit: clampPositiveInt(process.env.AI_PUBLISH_DAILY_LIMIT, 100),
   },
 };
 

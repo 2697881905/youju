@@ -41,12 +41,15 @@ router.post('/polish-draft', auth, aiLimiter, asyncHandler(async (req: AuthReque
   return ok(res, result);
 }));
 
-// POST /v1/ai/structure-draft：正文整理结构化。{ content, genre? } → { document, genre, template }
+// POST /v1/ai/structure-draft：正文整理结构化。{ content, genre?, zone? } → { document, genre, template }
 // genre 可选：空则 LLM 从正文推断体裁；响应 genre 为推断/回退结果、template 为推荐骨架 key。
+// zone 可选：缺省 'insight'（干货）；'life'（随记）前端不会调用，服务端防御性拒绝。
 // 返回的 document 已过 validateStructuredDocument 硬校验，前端灌入审稿层由作者逐块确认。
 router.post('/structure-draft', auth, aiLimiter, asyncHandler(async (req: AuthRequest, res: Response) => {
   const userId: number = userIdOf(req);
-  const result = await structureDraft(userId, stringField(req.body, 'content'), stringField(req.body, 'genre'));
+  const zoneRaw: string = stringField(req.body, 'zone');
+  const zone: 'insight' | 'life' = zoneRaw === 'life' ? 'life' : 'insight';
+  const result = await structureDraft(userId, stringField(req.body, 'content'), stringField(req.body, 'genre'), zone);
   return ok(res, result);
 }));
 

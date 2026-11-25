@@ -29,6 +29,9 @@ const GENRE_BLOCK_TYPES: Record<string, string[]> = {
 // AI 推断体裁的白名单与推荐骨架：响应带 { document, genre, template }，
 // 前端审稿层据此回填体裁分段栏、展示「参考了哪副骨架」。share 是轻量体裁，骨架用通用「一句结论」。
 const GENRE_WHITELIST: string[] = ['review', 'pitfall', 'tutorial', 'debate', 'share'];
+// 干货（insight）内容区只接受这 4 个体裁：share 属随记区，
+// 模型给出 share 或未知体裁时一律回退 review，绝不把 share 落进干货区。
+const INSIGHT_GENRES: string[] = ['review', 'pitfall', 'tutorial', 'debate'];
 const GENRE_TEMPLATE: Record<string, string> = {
   review: 'review_score',
   pitfall: 'pitfall_case',
@@ -52,21 +55,35 @@ export function aiEnabled(): boolean {
 }
 
 // —— 每用户每日配额（内存计数）：进程重启清零。定位是防刷兜底，不是计费口径。 ——
-const usage = new Map<number, { day: string; count: number }>();
+// 两套额度分账独立计数：发布整理（publish）与辅助创作（assist）互不挤占。
+type AiQuotaScope = 'assist' | 'publish';
 
-function consumeQuota(userId: number): void {
-  // ADMIN_USER_IDS 内的账号豁免日配额：管理员测试/运营操作不受 20 次/日限制
+const usage: Record<AiQuotaScope, Map<number, { day: string; count: number }>> = {
+  assist: new Map<number, { day: string; count: number }>(),
+  publish: new Map<number, { day: string; count: number }>(),
+};
+
+function quotaLimitOf(scope: AiQuotaScope): number {
+  return scope === 'publish' ? env.ai.publishDailyLimit : env.ai.dailyLimit;
+}
+
+function consumeQuota(userId: number, scope: AiQuotaScope): void {
+  // ADMIN_USER_IDS 内的账号豁免日配额：管理员测试/运营操作不受日上限限制
   // （2026-11-07：真机联调连点发布撞 429；普通用户防刷不变）。突刺限流豁免在 rateLimit.aiLimiter。
   if (env.adminUserIds.includes(userId)) {
     return;
   }
+  const limit: number = quotaLimitOf(scope);
+  const bucket: Map<number, { day: string; count: number }> = usage[scope];
   const day: string = new Date().toISOString().slice(0, 10);
-  const hit = usage.get(userId);
+  const hit = bucket.get(userId);
   const count: number = hit && hit.day === day ? hit.count : 0;
-  if (count >= env.ai.dailyLimit) {
-    throw new ValidationError('今天的 AI 次数已用完（' + env.ai.dailyLimit + ' 次），明天再来');
+  if (count >= limit) {
+    throw new ValidationError(scope === 'publish'
+      ? '今天的 AI 发布整理次数已用完（' + limit + ' 次），可点「按原文发布」'
+      : '今天的 AI 次数已用完（' + limit + ' 次），明天再来');
   }
-  usage.set(userId, { day: day, count: count + 1 });
+  bucket.set(userId, { day: day, count: count + 1 });
 }
 
 // —— AI 调用统计（2026-11-07）：每成功一次 LLM 调用落一行，采用率按 endpoint×day 聚合 ——
@@ -158,37 +175,47 @@ function clampText(value: unknown, max: number): string {
 }
 
 // —— P0：正文整理结构化。产出合法 V2/V3 文档草稿，前端灌入审稿层由作者逐块确认。
-// genre 允许为空：空则 LLM 从正文自行推断体裁（隐式发布流不再强迫作者先懂「体裁」）；
-// 非空则作为作者倾向传入，模型优先尊重、明显不符才推翻。响应扩为 { document, genre, template }。
-export async function structureDraft(userId: number, content: string, genre: string): Promise<{ document: Record<string, unknown>; genre: string; template: string }> {
-  consumeQuota(userId);
+// 本接口只服务「干货」发布区的审稿层：zone='life'（随记）不走 AI，直接抛 ValidationError。
+// genre 允许为空：空则由 LLM 从正文自行推断体裁（隐式发布流不再强迫作者先懂「体裁」）；
+// 非空且属于干货 4 类时作为作者倾向传入，模型优先尊重、明显不符才推翻。
+// 响应扩为 { document, genre, template }，genre 恒为干货体裁。
+export async function structureDraft(
+  userId: number,
+  content: string,
+  genre: string,
+  zone: 'insight' | 'life'
+): Promise<{ document: Record<string, unknown>; genre: string; template: string }> {
+  if (zone === 'life') {
+    throw new ValidationError('随记内容不需要 AI 整理');
+  }
+  consumeQuota(userId, 'publish');
   const body: string = content.trim();
   if (body.length < DRAFT_MIN_CONTENT) {
     throw new ValidationError('正文太短（至少 ' + DRAFT_MIN_CONTENT + ' 字），AI 整理不出有价值的结构');
   }
-  const userGenre: string = GENRE_WHITELIST.indexOf(genre) >= 0 ? genre : '';
+  const userGenre: string = INSIGHT_GENRES.indexOf(genre) >= 0 ? genre : '';
   const genreLine: string = userGenre.length > 0
     ? '作者在发布页标记的体裁是「' + userGenre + '」，优先尊重；只有正文明显不符时才推翻。'
     : '作者未标记体裁，请从正文内容判断。';
   const system: string = [
     '你是社区「有据」的结构化编辑助手。任务：先判断正文的体裁，再把正文整理成结构化信息块草稿。',
-    '体裁候选：review（测评/实测对比）、pitfall（踩坑与正确做法）、tutorial（教程/步骤拆解）、debate（正反观点对照）、share（经验见闻）。',
+    '体裁候选：review（测评/实测对比）、pitfall（踩坑与正确做法）、tutorial（教程/步骤拆解）、debate（正反观点对照）。',
     genreLine,
     '铁律：',
     '1. 只允许使用正文里已有的事实与表述，禁止新增、推测、夸大任何内容；',
     '2. 禁止生成任何出处、来源、证据——证据只能由作者本人提供；',
     '3. 语言风格与正文保持一致，不写套话；',
     '4. 块数量 2-' + MAX_BLOCKS + ' 个，宁缺毋滥；每条 item 不超过 40 字。',
-    '块类型按体裁选用：review 用 insight、compare、list；pitfall 用 insight、steps、list；tutorial 用 steps、list、insight；debate 用 compare、insight；share 用 insight、list。',
+    '块类型按体裁选用：review 用 insight、compare、list；pitfall 用 insight、steps、list；tutorial 用 steps、list、insight；debate 用 compare、insight。',
     '示例形态：{"type":"insight","value":"一句话结论"}；{"type":"compare","leftLabel":"优点","leftValue":"...","rightLabel":"缺点","rightValue":"..."}；{"type":"steps","items":["步骤一","步骤二"]}；{"type":"list","items":["条目一","条目二"]}。',
     '输出：仅一个 JSON 对象 {"genre":"体裁","blocks":[...]}，不要输出任何解释或 markdown 代码块。',
   ].join('\n');
   const user: string = '体裁倾向：' + (userGenre.length > 0 ? userGenre : '未指定') + '\n正文：' + body.slice(0, 3000);
   const raw: Record<string, unknown> = extractJson(await chatJson(system, user, 1200));
-  // 推断体裁必须过白名单：模型幻觉出未知体裁时回退作者标记，再回退 share（最通用的轻量体裁）。
+  // 推断体裁必须落在干货 4 类内：模型给出 share（随记）或未知体裁时回退作者标记，再回退 review。
   const inferred: string = asText(raw.genre);
-  const finalGenre: string = GENRE_WHITELIST.indexOf(inferred) >= 0 ? inferred
-    : (userGenre.length > 0 ? userGenre : 'share');
+  const finalGenre: string = INSIGHT_GENRES.indexOf(inferred) >= 0 ? inferred
+    : (userGenre.length > 0 ? userGenre : 'review');
   const allowed: string[] = GENRE_BLOCK_TYPES[finalGenre] ?? ['insight', 'list'];
   const rawBlocks: unknown[] = Array.isArray(raw.blocks) ? raw.blocks : [];
 
@@ -287,7 +314,7 @@ export async function polishDraft(
   genre: string,
   maxContent: number
 ): Promise<{ title: string; content: string }> {
-  consumeQuota(userId);
+  consumeQuota(userId, 'assist');
   const body: string = content.trim();
   if (body.length === 0) {
     throw new ValidationError('先写点正文，AI 才有依据润色');
@@ -338,7 +365,7 @@ export async function polishDraft(
 // 标签是检索基建（搜索按 tags 过滤），编造的标签搜不到东西还污染体系。
 // 所以铁律是「挑选而非创造」：白名单外的名字一律剔除，挑不出就宁可不给。
 export async function suggestTags(userId: number, content: string, genre: string, excludeTags: string[]): Promise<{ tags: string[] }> {
-  consumeQuota(userId);
+  consumeQuota(userId, 'assist');
   const body: string = content.trim();
   if (body.length < 10) {
     throw new ValidationError('先写点正文，AI 才有依据推荐标签');
@@ -384,7 +411,7 @@ export async function suggestTags(userId: number, content: string, genre: string
 // 定位：内容量小阶段关键词命中率低是常态，救援把「搜不到」变成「知道该搜什么」；
 // 输出是改写词不是内容生成，不引入事实；内容量上来后空结果自然变少，本功能自然闲置。
 export async function searchRescue(userId: number, keyword: string): Promise<{ suggestions: string[] }> {
-  consumeQuota(userId);
+  consumeQuota(userId, 'assist');
   const q: string = asText(keyword).slice(0, 50);
   if (q.length === 0) {
     throw new ValidationError('搜索词为空');

@@ -92,6 +92,66 @@
   .c-bar { height: 6px; border-radius: 3px; background: var(--elevated); margin-top: 10px; overflow: hidden; }
   .c-bar-fill { height: 6px; border-radius: 3px; background: var(--brand); }
   .c-funnel { font-size: 12px; color: var(--text-tertiary); padding: 10px 0 2px; font-variant-numeric: tabular-nums; }
+  /* —— 第二轮：均衡优化（甲/乙/丙）—— */
+  .duo { display: flex; padding: 14px 0 16px; }
+  .duo-cell { flex: 1; }
+  .duo-num { font-family: var(--serif); font-size: 36px; font-weight: 700; line-height: 1.05; color: var(--text-primary); }
+  .duo-cap { font-size: 12px; color: var(--text-secondary); margin-top: 6px; }
+  .e-grid { display: flex; flex-wrap: wrap; padding: 4px 0 6px; }
+  .e-cell { width: 33.333%; padding: 15px 0 17px 14px; }
+  .e-cell:first-child, .e-cell:nth-child(4) { padding-left: 0; }
+  .e-cell:nth-child(2), .e-cell:nth-child(3), .e-cell:nth-child(5), .e-cell:nth-child(6) { border-left: 0.5px solid var(--separator); }
+  .e-num { font-family: var(--serif); font-size: 26px; font-weight: 700; color: var(--text-primary); line-height: 1.1; }
+  .e-num .star { color: #D9A514; font-size: 20px; margin-right: 1px; }
+  .e-label { font-size: 11px; color: var(--text-secondary); margin-top: 5px; }
+  .f-hero { padding: 12px 0 12px; }
+  .f-hero-num { font-family: var(--serif); font-size: 32px; font-weight: 700; line-height: 1.05; color: var(--text-primary); }
+  .f-grid { display: flex; flex-wrap: wrap; padding: 2px 0 8px; }
+  .f-cell { width: 50%; padding: 14px 0 16px; }
+  .f-cell:nth-child(2), .f-cell:nth-child(4) { border-left: 0.5px solid var(--separator); padding-left: 16px; }
+  .f-num { font-family: var(--serif); font-size: 26px; font-weight: 700; color: var(--text-primary); }
+  .f-num .star { color: #D9A514; font-size: 20px; margin-right: 1px; }
+  .f-label { font-size: 11px; color: var(--text-secondary); margin-top: 5px; }
+  .f-label .rc { color: var(--text-tertiary); }
+
+  /* —— 第三轮：全可视化（原生图元，非 ECharts）—— */
+  .g-duo { display: flex; justify-content: space-between; padding: 12px 0 4px; }
+  .g-duo-num { font-family: var(--serif); font-size: 26px; font-weight: 700; color: var(--text-primary); line-height: 1.1; }
+  .g-duo-cap { font-size: 11px; color: var(--text-secondary); margin-top: 3px; }
+  .g-ring-row { display: flex; align-items: center; gap: 18px; padding: 12px 0; }
+  .g-ring { width: 92px; height: 92px; border-radius: 50%; position: relative; flex-shrink: 0;
+    background: conic-gradient(#C0392B 0 62%, #9A6206 62% 77.2%, #5856D6 77.2% 100%); }
+  .g-ring::after { content: ''; position: absolute; inset: 11px; border-radius: 50%; background: var(--canvas); }
+  .g-ring-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1; }
+  .g-ring-num { font-family: var(--serif); font-size: 22px; font-weight: 700; }
+  .g-ring-cap { font-size: 10px; color: var(--text-secondary); }
+  .g-legend { flex: 1; }
+  .g-legend-row { display: flex; align-items: baseline; justify-content: space-between; padding: 6px 0; }
+  .g-legend-name { font-size: 13px; color: var(--text-secondary); }
+  .g-legend-name .sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
+  .g-legend-val { font-size: 17px; font-weight: 600; color: var(--text-primary); }
+  .g-legend-pct { font-size: 11px; color: var(--text-tertiary); margin-left: 4px; }
+  .g-section { display: flex; align-items: baseline; justify-content: space-between; font-size: 11px; font-weight: 600; color: var(--text-secondary); letter-spacing: 1px; margin: 14px 0 8px; }
+  .g-section .g-headval { font-size: 17px; font-weight: 600; color: var(--text-primary); letter-spacing: 0; }
+  .g-section .g-headval .rc { font-size: 11px; color: var(--text-tertiary); font-weight: 400; }
+  .g-section .g-headval .star { color: #D9A514; }
+  .g-section .g-max { font-size: 10px; color: var(--text-tertiary); font-weight: 400; letter-spacing: 0; }
+  .g-bar { height: 6px; border-radius: 3px; background: var(--elevated); overflow: hidden; }
+  .g-bar-fill { height: 6px; border-radius: 3px; }
+
+  /* —— 第四轮：解读层（质量指标 / 对比基准 / 解读文案）—— */
+  .h-legend-row { display: flex; align-items: baseline; padding: 6px 0; }
+  .h-legend-row .g-legend-name { flex: 1; }
+  .h-legend-row .h-pct { font-size: 11px; color: var(--text-tertiary); width: 36px; text-align: right; }
+  .h-legend-row .h-rate { font-size: 11px; color: var(--text-secondary); font-weight: 600; width: 46px; text-align: right; }
+  .h-mark-up { color: #2E9E5B; font-size: 11px; font-weight: 600; margin-left: 5px; }
+  .h-mark-down { color: #D93025; font-size: 11px; font-weight: 600; margin-left: 5px; }
+  .h-base-note { font-size: 10px; color: var(--text-tertiary); text-align: right; margin-top: 8px; }
+  .h-insight { background: var(--elevated); border-radius: 10px; padding: 10px 12px; margin-top: 14px; }
+  .h-insight-title { font-size: 11px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+  .h-insight-body { font-size: 12px; color: var(--text-secondary); line-height: 1.7; }
+  .h-insight-body b { color: var(--text-primary); }
+
   .note {
     max-width: 1080px; margin-top: 36px; font-size: 13px; color: var(--text-secondary);
     line-height: 1.8; border-top: 1px solid var(--separator); padding-top: 16px;
@@ -175,6 +235,241 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <h1 style="margin-top:56px">第二轮 · 均衡优化稿（解决「浏览独大」）</h1>
+  <p class="sub">保持衬线语言与半模态形态。核心问题：C 版浏览 40px 独占视觉权重，互动四项挤成一行小字——三稿把注意力还给互动数据。</p>
+
+  <div class="row">
+    <!-- 第二轮 甲 -->
+    <div class="scheme">
+      <div class="scheme-tag">甲 · 双大数字（浏览 vs 互动合计）</div>
+      <div class="scheme-desc">互动聚合（顶+收藏+评论）成第二个大数字，与浏览对视；明细保留单行。改动最小。</div>
+      <div class="sheet">
+        <div class="dragbar"></div>
+        <div class="close">✕</div>
+        <div class="panel-title">帖子数据</div>
+        <div class="panel-sub">仅你自己可见</div>
+        <div class="duo">
+          <div class="duo-cell"><div class="duo-num num">1.2w</div><div class="duo-cap">累计浏览</div></div>
+          <div class="duo-cell"><div class="duo-num num">379</div><div class="duo-cap">互动合计</div></div>
+        </div>
+        <div class="hairline"></div>
+        <div class="c-counts num">顶 234<span class="dot">·</span>收藏 56<span class="dot">·</span>评论 89<span class="dot">·</span><span class="star">★</span>4.5<span class="rc">（12人）</span></div>
+        <div class="hairline"></div>
+        <div class="c-flow">
+          <div class="c-flow-head"><span class="c-flow-label">流量转化</span><span class="c-flow-rate num">28%</span></div>
+          <div class="c-bar"><div class="c-bar-fill" style="width:28%"></div></div>
+          <div class="c-funnel num">曝光 1.8w · 点击 3456</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 第二轮 乙 -->
+    <div class="scheme">
+      <div class="scheme-tag">乙 · 六宫格全均衡（推荐）</div>
+      <div class="scheme-desc">3×2 六格同级衬线数字，浏览降为普通格；「互动」聚合指标填格。每项都可扫读，注意力不再被浏览独占。</div>
+      <div class="sheet">
+        <div class="dragbar"></div>
+        <div class="close">✕</div>
+        <div class="panel-title">帖子数据</div>
+        <div class="panel-sub">仅你自己可见</div>
+        <div class="e-grid">
+          <div class="e-cell"><div class="e-num num">1.2w</div><div class="e-label">浏览</div></div>
+          <div class="e-cell"><div class="e-num num">379</div><div class="e-label">互动</div></div>
+          <div class="e-cell"><div class="e-num num">234</div><div class="e-label">顶</div></div>
+          <div class="e-cell"><div class="e-num num">56</div><div class="e-label">收藏</div></div>
+          <div class="e-cell"><div class="e-num num">89</div><div class="e-label">评论</div></div>
+          <div class="e-cell"><div class="e-num"><span class="star">★</span>4.5</div><div class="e-label">评分 · 12人</div></div>
+        </div>
+        <div class="hairline"></div>
+        <div class="c-flow">
+          <div class="c-flow-head"><span class="c-flow-label">流量转化</span><span class="c-flow-rate num">28%</span></div>
+          <div class="c-bar"><div class="c-bar-fill" style="width:28%"></div></div>
+          <div class="c-funnel num">曝光 1.8w · 点击 3456</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 第二轮 丙 -->
+    <div class="scheme">
+      <div class="scheme-tag">丙 · 浏览缩小 + 互动 2×2 格</div>
+      <div class="scheme-desc">浏览 Hero 降为 32px，互动四项升级为衬线大数字格；保留「浏览→互动」漏斗叙事。</div>
+      <div class="sheet">
+        <div class="dragbar"></div>
+        <div class="close">✕</div>
+        <div class="panel-title">帖子数据</div>
+        <div class="panel-sub">仅你自己可见</div>
+        <div class="f-hero">
+          <div class="f-hero-num num">1.2w</div>
+          <div class="c-hero-cap">累计浏览 · 本帖共获得</div>
+        </div>
+        <div class="hairline"></div>
+        <div class="f-grid">
+          <div class="f-cell"><div class="f-num num">234</div><div class="f-label">顶</div></div>
+          <div class="f-cell"><div class="f-num num">56</div><div class="f-label">收藏</div></div>
+          <div class="f-cell"><div class="f-num num">89</div><div class="f-label">评论</div></div>
+          <div class="f-cell"><div class="f-num"><span class="star">★</span>4.5</div><div class="f-label">评分 <span class="rc">· 12人</span></div></div>
+        </div>
+        <div class="hairline"></div>
+        <div class="c-flow">
+          <div class="c-flow-head"><span class="c-flow-label">流量转化</span><span class="c-flow-rate num">28%</span></div>
+          <div class="c-bar"><div class="c-bar-fill" style="width:28%"></div></div>
+          <div class="c-funnel num">曝光 1.8w · 点击 3456</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" style="margin-top:24px">
+    第二轮推荐乙：浏览独大的根源是它独占 Hero 位；六宫格让五项数据同级呈现，注意力自然分散到互动质量上。「互动」= 顶 + 收藏 + 评论 求和，口径透明。
+  </div>
+
+  <h1 style="margin-top:56px">第三轮 · 全可视化稿（每条数据都有图形）</h1>
+  <p class="sub">ECharts 需 Web 组件承载（初始化慢 / 包体积 +1MB / 与半模态下滑手势冲突），不采用；本稿用官方 DataPanel 环图 + 比例条实现同等直观度，纯原生零依赖。环三色即全站互动语义色（顶红 / 收藏金 / 评论靛，深浅色成对 token）。</p>
+
+  <div class="row">
+    <div class="scheme">
+      <div class="scheme-tag">全可视化 · 构成环 + 分项比例条</div>
+      <div class="scheme-desc">浏览/互动同级双数字 → 互动构成环（三色扇区即占比，中心互动合计）→ 评分 4.5/5 金条 → 转化 28% 蓝条。每条数据都有图形，强弱一眼可读。</div>
+      <div class="sheet">
+        <div class="dragbar"></div>
+        <div class="close">✕</div>
+        <div class="panel-title">帖子数据</div>
+        <div class="panel-sub">仅你自己可见</div>
+        <div class="g-duo">
+          <div><div class="g-duo-num num">1.2w</div><div class="g-duo-cap">浏览</div></div>
+          <div style="text-align:right"><div class="g-duo-num num">379</div><div class="g-duo-cap">互动</div></div>
+        </div>
+        <div class="hairline"></div>
+        <div class="g-ring-row">
+          <div class="g-ring"><div class="g-ring-center"><div class="g-ring-num num">379</div><div class="g-ring-cap">互动</div></div></div>
+          <div class="g-legend">
+            <div class="g-legend-row"><span class="g-legend-name"><span class="sw" style="background:#C0392B"></span>顶</span><span><span class="g-legend-val num">234</span><span class="g-legend-pct">62%</span></span></div>
+            <div class="hairline"></div>
+            <div class="g-legend-row"><span class="g-legend-name"><span class="sw" style="background:#9A6206"></span>收藏</span><span><span class="g-legend-val num">56</span><span class="g-legend-pct">15%</span></span></div>
+            <div class="hairline"></div>
+            <div class="g-legend-row"><span class="g-legend-name"><span class="sw" style="background:#5856D6"></span>评论</span><span><span class="g-legend-val num">89</span><span class="g-legend-pct">24%</span></span></div>
+          </div>
+        </div>
+        <div class="hairline"></div>
+        <div class="g-section">社区评分 <span class="g-headval num"><span class="star">★</span>4.5<span class="rc">（12人）</span></span><span class="g-max">满分 5</span></div>
+        <div class="g-bar"><div class="g-bar-fill" style="width:90%;background:#D9A514"></div></div>
+        <div class="g-section">流量转化 <span class="g-headval num">28%</span><span class="g-max">曝光 1.8w · 点击 3456</span></div>
+        <div class="g-bar"><div class="g-bar-fill" style="width:28%;background:var(--brand)"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <h1 style="margin-top:56px">第四轮 · 解读层稿（回答「好不好」，不再只是陈列数字）</h1>
+  <p class="sub">视觉沿用第三轮全可视化（构成环 + 比例条），叠加解读层。三卡渐进：① 质量指标化（零新数据）→ ② 加对比基准（需拉自己近 7 帖均值）→ ③ 加规则派生解读文案。</p>
+
+  <div class="row">
+    <!-- 第四轮 ① -->
+    <div class="scheme">
+      <div class="scheme-tag">① 质量指标化（零新数据，立即可落地）</div>
+      <div class="scheme-desc">双数字改「浏览 | 互动率」（互动÷浏览，质量核心指标）；图例加第三列「每 100 次浏览带来的互动」（占浏览比）。面板从陈列数字变成判断质量。</div>
+      <div class="sheet">
+        <div class="dragbar"></div>
+        <div class="close">✕</div>
+        <div class="panel-title">帖子数据</div>
+        <div class="panel-sub">仅你自己可见</div>
+        <div class="g-duo">
+          <div><div class="g-duo-num num">1.2w</div><div class="g-duo-cap">浏览</div></div>
+          <div style="text-align:right"><div class="g-duo-num num">3.2%</div><div class="g-duo-cap">互动率 · 379 / 1.2w</div></div>
+        </div>
+        <div class="hairline"></div>
+        <div class="g-ring-row">
+          <div class="g-ring"><div class="g-ring-center"><div class="g-ring-num num">379</div><div class="g-ring-cap">互动</div></div></div>
+          <div class="g-legend">
+            <div class="h-legend-row"><span class="g-legend-name"><span class="sw" style="background:#C0392B"></span>顶</span><span><span class="g-legend-val num">234</span><span class="h-pct">62%</span></span><span class="h-rate num">1.9%</span></div>
+            <div class="hairline"></div>
+            <div class="h-legend-row"><span class="g-legend-name"><span class="sw" style="background:#9A6206"></span>收藏</span><span><span class="g-legend-val num">56</span><span class="h-pct">15%</span></span><span class="h-rate num">0.5%</span></div>
+            <div class="hairline"></div>
+            <div class="h-legend-row"><span class="g-legend-name"><span class="sw" style="background:#5856D6"></span>评论</span><span><span class="g-legend-val num">89</span><span class="h-pct">24%</span></span><span class="h-rate num">0.7%</span></div>
+            <div class="h-base-note">左二列：占互动比 · 右列：每 100 次浏览带来的互动</div>
+          </div>
+        </div>
+        <div class="hairline"></div>
+        <div class="g-section">社区评分 <span class="g-headval num"><span class="star">★</span>4.5<span class="rc">（12人）</span></span><span class="g-max">满分 5</span></div>
+        <div class="g-bar"><div class="g-bar-fill" style="width:90%;background:#D9A514"></div></div>
+        <div class="g-section">流量转化 <span class="g-headval num">28%</span><span class="g-max">曝光 1.8w · 点击 3456</span></div>
+        <div class="g-bar"><div class="g-bar-fill" style="width:28%;background:var(--brand)"></div></div>
+      </div>
+    </div>
+
+    <!-- 第四轮 ② -->
+    <div class="scheme">
+      <div class="scheme-tag">② 指标 + 对比基准（需拉近 7 帖均值）</div>
+      <div class="scheme-desc">① 全部内容，每项指标加 ▲▼ 对比自己近 7 帖均值——「好不好」直接可见。代价：前端多一次历史帖请求（或后端聚合接口）。</div>
+      <div class="sheet">
+        <div class="dragbar"></div>
+        <div class="close">✕</div>
+        <div class="panel-title">帖子数据</div>
+        <div class="panel-sub">仅你自己可见</div>
+        <div class="g-duo">
+          <div><div class="g-duo-num num">1.2w</div><div class="g-duo-cap">浏览</div></div>
+          <div style="text-align:right"><div class="g-duo-num num">3.2%<span class="h-mark-up">▲12%</span></div><div class="g-duo-cap">互动率 · 379 / 1.2w</div></div>
+        </div>
+        <div class="hairline"></div>
+        <div class="g-ring-row">
+          <div class="g-ring"><div class="g-ring-center"><div class="g-ring-num num">379</div><div class="g-ring-cap">互动</div></div></div>
+          <div class="g-legend">
+            <div class="h-legend-row"><span class="g-legend-name"><span class="sw" style="background:#C0392B"></span>顶</span><span><span class="g-legend-val num">234</span><span class="h-mark-up">▲45%</span></span><span class="h-rate num">1.9%</span></div>
+            <div class="hairline"></div>
+            <div class="h-legend-row"><span class="g-legend-name"><span class="sw" style="background:#9A6206"></span>收藏</span><span><span class="g-legend-val num">56</span><span class="h-mark-down">▼8%</span></span><span class="h-rate num">0.5%</span></div>
+            <div class="hairline"></div>
+            <div class="h-legend-row"><span class="g-legend-name"><span class="sw" style="background:#5856D6"></span>评论</span><span><span class="g-legend-val num">89</span><span class="h-mark-up">▲5%</span></span><span class="h-rate num">0.7%</span></div>
+          </div>
+        </div>
+        <div class="hairline"></div>
+        <div class="g-section">社区评分 <span class="g-headval num"><span class="star">★</span>4.5<span class="h-mark-up">▲2%</span><span class="rc">（12人）</span></span><span class="g-max">满分 5</span></div>
+        <div class="g-bar"><div class="g-bar-fill" style="width:90%;background:#D9A514"></div></div>
+        <div class="g-section">流量转化 <span class="g-headval num">28%<span class="h-mark-down">▼3%</span></span><span class="g-max">曝光 1.8w · 点击 3456</span></div>
+        <div class="g-bar"><div class="g-bar-fill" style="width:28%;background:var(--brand)"></div></div>
+        <div class="h-base-note">▲▼ = 对比自己近 7 帖均值（涨绿跌红）</div>
+      </div>
+    </div>
+
+    <!-- 第四轮 ③ -->
+    <div class="scheme">
+      <div class="scheme-tag">③ 指标 + 基准 + 解读文案（完整版）</div>
+      <div class="scheme-desc">② 全部内容，底部加规则派生解读块——把数据翻译成一句话判断，告诉创作者「现状 + 短板」。</div>
+      <div class="sheet">
+        <div class="dragbar"></div>
+        <div class="close">✕</div>
+        <div class="panel-title">帖子数据</div>
+        <div class="panel-sub">仅你自己可见</div>
+        <div class="g-duo">
+          <div><div class="g-duo-num num">1.2w</div><div class="g-duo-cap">浏览</div></div>
+          <div style="text-align:right"><div class="g-duo-num num">3.2%<span class="h-mark-up">▲12%</span></div><div class="g-duo-cap">互动率 · 379 / 1.2w</div></div>
+        </div>
+        <div class="hairline"></div>
+        <div class="g-ring-row">
+          <div class="g-ring"><div class="g-ring-center"><div class="g-ring-num num">379</div><div class="g-ring-cap">互动</div></div></div>
+          <div class="g-legend">
+            <div class="h-legend-row"><span class="g-legend-name"><span class="sw" style="background:#C0392B"></span>顶</span><span><span class="g-legend-val num">234</span><span class="h-mark-up">▲45%</span></span><span class="h-rate num">1.9%</span></div>
+            <div class="hairline"></div>
+            <div class="h-legend-row"><span class="g-legend-name"><span class="sw" style="background:#9A6206"></span>收藏</span><span><span class="g-legend-val num">56</span><span class="h-mark-down">▼8%</span></span><span class="h-rate num">0.5%</span></div>
+            <div class="hairline"></div>
+            <div class="h-legend-row"><span class="g-legend-name"><span class="sw" style="background:#5856D6"></span>评论</span><span><span class="g-legend-val num">89</span><span class="h-mark-up">▲5%</span></span><span class="h-rate num">0.7%</span></div>
+          </div>
+        </div>
+        <div class="hairline"></div>
+        <div class="g-section">社区评分 <span class="g-headval num"><span class="star">★</span>4.5<span class="h-mark-up">▲2%</span><span class="rc">（12人）</span></span><span class="g-max">满分 5</span></div>
+        <div class="g-bar"><div class="g-bar-fill" style="width:90%;background:#D9A514"></div></div>
+        <div class="g-section">流量转化 <span class="g-headval num">28%<span class="h-mark-down">▼3%</span></span><span class="g-max">曝光 1.8w · 点击 3456</span></div>
+        <div class="g-bar"><div class="g-bar-fill" style="width:28%;background:var(--brand)"></div></div>
+        <div class="h-insight">
+          <div class="h-insight-title">📌 解读</div>
+          <div class="h-insight-body">互动以顶为主（62%），<b>收藏率 0.5% 低于近 7 帖均值</b>——内容有热度、留存偏弱；转化 28% 略低于日常。考虑在正文加引导收藏的实用小结。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" style="margin-top:24px">
+    推荐节奏：① 先落地（零新数据，立刻回答「好不好」）；② 需要你确认接受「前端拉自己近 7 帖算均值」的一次请求（或后端出聚合接口）；③ 的文案规则依赖 ② 的基准数据。▲ 涨 / ▼ 跌，涨绿跌红。
   </div>
 
   <div class="note">

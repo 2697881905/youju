@@ -242,12 +242,54 @@ describe('POST /v1/ai/structure-draft', () => {
     const res = await req('POST', '/v1/ai/structure-draft', {
       content: '这段正文足够长，用来验证未知体裁回退到作者标记体裁后的块类型过滤逻辑。',
       genre: 'review',
+      zone: 'insight',
     }, authHeader());
     expect(res.status).toBe(200);
     expect(res.json.data.genre).toBe('review');
     // steps 不在 review 的可用类型里 → 被丢弃
     expect(res.json.data.document.blocks).toHaveLength(1);
     expect(res.json.data.document.blocks[0].type).toBe('insight');
+  });
+
+  it('干货模式：模型推断 share → 回退 review，模板回表 review_score', async () => {
+    mockChatContent(JSON.stringify({
+      genre: 'share',
+      blocks: [{ type: 'insight', value: '一句经验见闻' }],
+    }));
+    const res = await req('POST', '/v1/ai/structure-draft', {
+      content: '这段正文足够长，用来验证随记体裁不会落进干货区，服务端应回退到 review。',
+      zone: 'insight',
+    }, authHeader());
+    expect(res.status).toBe(200);
+    expect(res.json.data.genre).toBe('review');
+    expect(res.json.data.template).toBe('review_score');
+  });
+
+  it('干货模式：作者倾向传 share 且模型也给 share → 仍回退 review', async () => {
+    mockChatContent(JSON.stringify({
+      genre: 'share',
+      blocks: [{ type: 'insight', value: '仍然回退 review' }],
+    }));
+    const res = await req('POST', '/v1/ai/structure-draft', {
+      content: '这段正文足够长，用来验证作者把 share 当倾向传进来时也不会落进干货区。',
+      genre: 'share',
+      zone: 'insight',
+    }, authHeader());
+    expect(res.status).toBe(200);
+    expect(res.json.data.genre).toBe('review');
+    expect(res.json.data.template).toBe('review_score');
+  });
+
+  it('随记内容区（zone=life）→ 400 且不调用 AI', async () => {
+    const fetchMock = jest.fn();
+    (globalThis as any).fetch = fetchMock;
+    const res = await req('POST', '/v1/ai/structure-draft', {
+      content: '随记正文也足够长，但随记内容不需要 AI 整理，服务端应直接拒绝。',
+      zone: 'life',
+    }, authHeader());
+    expect(res.status).toBe(400);
+    expect(res.json.message).toContain('随记内容不需要 AI 整理');
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('AI 返回空 blocks → 503 + 可理解文案', async () => {
@@ -361,33 +403,82 @@ describe('POST /v1/ai/search-rescue', () => {
 describe('AI 配额与管理员豁免', () => {
   // 独立 userId：consumeQuota 是模块级内存计数，与 TEST_USER_ID=1 的既有用例互不污染
   const QUOTA_USER = 99;
-  const savedDailyLimit = env.ai.dailyLimit;
+  const savedPublishLimit = env.ai.publishDailyLimit;
 
   afterAll(() => {
-    env.ai.dailyLimit = savedDailyLimit;
+    env.ai.publishDailyLimit = savedPublishLimit;
     env.adminUserIds = [];
   });
 
-  it('非管理员超日配额 → 400 已用完', async () => {
-    env.ai.dailyLimit = 1;
+  it('非管理员超发布整理日配额 → 400 已用完，提示按原文发布', async () => {
+    env.ai.publishDailyLimit = 1;
     env.adminUserIds = [];
     mockChatContent('{"genre":"review","blocks":[{"type":"insight","value":"续航实测 8.4 小时"}]}');
-    const body = { content: '这三周我每天记录亮屏时间，平均 8.4 小时。', genre: 'review' };
+    const body = { content: '这三周我每天记录亮屏时间，平均 8.4 小时。', genre: 'review', zone: 'insight' };
     const first = await req('POST', '/v1/ai/structure-draft', body, authHeader(QUOTA_USER));
     expect(first.status).toBe(200);
     const second = await req('POST', '/v1/ai/structure-draft', body, authHeader(QUOTA_USER));
     expect(second.status).toBe(400);
     expect(second.json.message).toContain('已用完');
+    expect(second.json.message).toContain('按原文发布');
   });
 
-  it('管理员（ADMIN_USER_IDS）豁免日配额：同账号连续调用不受 20 次/日限制', async () => {
-    env.ai.dailyLimit = 1;
+  it('管理员（ADMIN_USER_IDS）豁免日配额：同账号连续调用不受日上限限制', async () => {
+    env.ai.publishDailyLimit = 1;
     env.adminUserIds = [QUOTA_USER];
-    const body = { content: '这三周我每天记录亮屏时间，平均 8.4 小时。', genre: 'review' };
+    const body = { content: '这三周我每天记录亮屏时间，平均 8.4 小时。', genre: 'review', zone: 'insight' };
     for (let i = 0; i < 3; i++) {
       mockChatContent('{"genre":"review","blocks":[{"type":"insight","value":"续航实测 ' + i + ' 小时"}]}');
       const res = await req('POST', '/v1/ai/structure-draft', body, authHeader(QUOTA_USER));
       expect(res.status).toBe(200);
     }
+  });
+});
+
+describe('AI 额度分账（publish / assist 互不影响）', () => {
+  const savedDailyLimit = env.ai.dailyLimit;
+  const savedPublishLimit = env.ai.publishDailyLimit;
+  const BODY = '这三周我每天记录这台手机的亮屏时间，平均 8.4 小时。';
+
+  afterAll(() => {
+    env.ai.dailyLimit = savedDailyLimit;
+    env.ai.publishDailyLimit = savedPublishLimit;
+    env.adminUserIds = [];
+  });
+
+  it('发布整理额度耗尽，辅助创作额度仍可用', async () => {
+    const user = 96;
+    env.adminUserIds = [];
+    env.ai.publishDailyLimit = 1;
+    env.ai.dailyLimit = 5;
+    mockChatContent('{"genre":"review","blocks":[{"type":"insight","value":"续航实测 8.4 小时"}]}');
+    const body = { content: BODY, zone: 'insight' };
+    expect((await req('POST', '/v1/ai/structure-draft', body, authHeader(user))).status).toBe(200);
+    const over = await req('POST', '/v1/ai/structure-draft', body, authHeader(user));
+    expect(over.status).toBe(400);
+    expect(over.json.message).toContain('AI 发布整理次数已用完');
+
+    mockPrisma.tag.findMany.mockResolvedValue([{ name: '数码选购' }]);
+    mockChatContent('{"tags":["数码选购"]}');
+    const assist = await req('POST', '/v1/ai/suggest-tags', { content: BODY }, authHeader(user));
+    expect(assist.status).toBe(200);
+    expect(assist.json.data.tags).toEqual(['数码选购']);
+  });
+
+  it('辅助创作额度耗尽，发布整理额度仍可用', async () => {
+    const user = 95;
+    env.adminUserIds = [];
+    env.ai.dailyLimit = 1;
+    env.ai.publishDailyLimit = 5;
+    mockPrisma.tag.findMany.mockResolvedValue([{ name: '数码选购' }]);
+    mockChatContent('{"tags":["数码选购"]}');
+    expect((await req('POST', '/v1/ai/suggest-tags', { content: BODY }, authHeader(user))).status).toBe(200);
+    const over = await req('POST', '/v1/ai/suggest-tags', { content: BODY }, authHeader(user));
+    expect(over.status).toBe(400);
+    expect(over.json.message).toContain('AI 次数已用完');
+
+    mockChatContent('{"genre":"review","blocks":[{"type":"insight","value":"结论仍有效"}]}');
+    const publish = await req('POST', '/v1/ai/structure-draft', { content: BODY, zone: 'insight' }, authHeader(user));
+    expect(publish.status).toBe(200);
   });
 });

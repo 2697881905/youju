@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>发布流视觉重设计原型 · 有据</title>
+<style>
+  /* ── 全站 token 对齐（entry/src/main/ets/design/tokens/color.ets 深色档） ── */
+  :root {
+    --canvas: #121212;          /* materialCanvas 深色 */
+    --elevated: #1E1E1E;        /* 卡片底 */
+    --panel: #28282C;           /* 次级面板底 */
+    --sunken: #0D0D0F;
+    --primary: #FFFFFF;
+    --secondary: #A8A8AE;
+    --tertiary: #6E6E74;
+    --brand: #0A84FF;           /* 文字/描边蓝 */
+    --brand-solid: #0050A0;     /* 实色底 */
+    --brand-tint: rgba(10,132,255,.14);
+    --warm: #E8963C;
+    --warm-tint: rgba(232,150,60,.14);
+    --glass: rgba(255,255,255,.06);
+    --glass-border: rgba(255,255,255,.10);
+    --separator: rgba(255,255,255,.08);
+    --serif: 'Noto Serif SC','Songti SC',serif;
+    --sans: -apple-system,'PingFang SC','HarmonyOS Sans',sans-serif;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0A0A0B; color:var(--primary); font-family:var(--sans); padding:32px 24px 64px; }
+  h1.page { font-size:20px; font-weight:700; margin-bottom:6px; }
+  p.page-sub { color:var(--secondary); font-size:13px; margin-bottom:28px; }
+  .row { display:flex; gap:28px; flex-wrap:wrap; align-items:flex-start; }
+  .frame-wrap { flex:0 0 auto; }
+  .frame-label { font-size:13px; color:var(--secondary); margin-bottom:10px; font-weight:600; }
+  .frame-label b { color:var(--primary); }
+  .phone {
+    width:390px; height:780px; border-radius:40px; background:var(--canvas);
+    border:1px solid rgba(255,255,255,.14); overflow:hidden; position:relative;
+    display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,.5);
+  }
+  .statusbar { height:44px; display:flex; justify-content:space-between; align-items:center; padding:0 24px; font-size:13px; color:var(--primary); font-weight:600; flex:0 0 auto; }
+  .dock {
+    position:absolute; left:16px; right:16px; bottom:10px; height:64px; border-radius:36px;
+    background:rgba(40,40,44,.72); backdrop-filter:blur(24px); border:1px solid rgba(255,255,255,.10);
+    display:flex; align-items:center; justify-content:space-around; font-size:11px; color:var(--secondary);
+  }
+  .dock .tab { display:flex; flex-direction:column; align-items:center; gap:3px; width:64px; }
+  .dock .tab svg { width:22px; height:22px; }
+  .dock .tab.active { color:var(--brand); }
+  .dock .plus { width:52px; height:44px; border-radius:24px; background:rgba(10,132,255,.18); border:1px solid rgba(10,132,255,.35);
+    display:flex; align-items:center; justify-content:center; color:var(--brand); font-size:24px; font-weight:300; margin-top:-14px; }
+  .content { flex:1; padding:8px 20px 96px; display:flex; flex-direction:column; overflow:hidden; }
+
+  /* ── 通用 ── */
+  .h-serif { font-family:var(--serif); font-size:34px; font-weight:700; letter-spacing:.5px; }
+  .step-pill {
+    display:inline-flex; align-items:center; gap:6px; padding:6px 14px; border-radius:20px;
+    background:var(--brand-tint); color:var(--brand); font-size:14px; font-weight:600; border:1px solid rgba(10,132,255,.3);
+  }
+  .card { background:var(--elevated); border-radius:24px; border:1px solid var(--glass-border); }
+  .chip { display:inline-flex; padding:5px 12px; border-radius:14px; font-size:12px; color:var(--secondary);
+    background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); }
+  .btn-solid {
+    height:52px; border-radius:26px; background:var(--brand-solid); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-size:17px; font-weight:600;
+  }
+  .btn-ghost {
+    height:52px; border-radius:26px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.10);
+    color:var(--secondary); display:flex; align-items:center; justify-content:center; font-size:16px;
+  }
+  .btn-disabled {
+    height:52px; border-radius:26px; background:rgba(255,255,255,.04); color:var(--tertiary);
+    display:flex; align-items:center; justify-content:center; font-size:16px;
+  }
+
+  /* ── 屏1：意图卡 ── */
+  .intent-stack { flex:1; display:flex; flex-direction:column; gap:16px; margin-top:18px; }
+  .intent-card { flex:1; padding:24px; position:relative; display:flex; flex-direction:column; justify-content:flex-end; gap:10px; cursor:pointer; }
+  .intent-card .glyph { position:absolute; top:20px; left:24px; width:44px; height:44px; border-radius:14px;
+    display:flex; align-items:center; justify-content:center; font-size:22px; }
+  .intent-card.insight .glyph { background:var(--brand-tint); color:var(--brand); }
+  .intent-card.life .glyph { background:var(--warm-tint); color:var(--warm); }
+  .intent-card .arrow { position:absolute; top:26px; right:24px; color:var(--tertiary); font-size:20px; }
+  .intent-card .t { font-size:24px; font-weight:700; }
+  .intent-card.insight .t { color:#7CB8FF; }
+  .intent-card.life .t { color:var(--warm); }
+  .intent-card .d { font-size:14px; color:var(--secondary); line-height:1.5; }
+  .intent-card .chips { display:flex; gap:8px; }
+  .intent-card.insight .chips .chip { color:#7CB8FF; background:rgba(10,132,255,.10); border-color:rgba(10,132,255,.22); }
+
+  /* ── 屏2：形式瓦片 ── */
+  .mode-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:18px; }
+  .mode-tile {
+    background:var(--glass); backdrop-filter:blur(20px); border:1px solid var(--glass-border);
+    border-radius:20px; padding:18px 10px 14px; display:flex; flex-direction:column; align-items:center; gap:10px;
+  }
+  .mode-tile .icon-box { width:52px; height:52px; border-radius:16px; display:flex; align-items:center; justify-content:center; font-size:24px; }
+  .mode-tile .icon-box.photo { background:var(--brand-tint); color:#7CB8FF; }
+  .mode-tile .icon-box.video { background:var(--warm-tint); color:var(--warm); }
+  .mode-tile .icon-box.text  { background:rgba(125,122,255,.14); color:#9B98FF; }
+  .mode-tile .n { font-size:16px; font-weight:600; }
+  .mode-tile .s { font-size:12px; color:var(--tertiary); }
+  .ai-note {
+    margin-top:16px; border-radius:20px; padding:18px; background:var(--brand-tint);
+    border:1px solid rgba(10,132,255,.22); display:flex; gap:12px; align-items:flex-start;
+  }
+  .ai-note .spark { font-size:20px; line-height:1.2; }
+  .ai-note .tt { font-size:15px; font-weight:600; color:#7CB8FF; margin-bottom:4px; }
+  .ai-note .dd { font-size:13px; color:var(--secondary); line-height:1.55; }
+
+  /* ── 屏3：编辑页行 ── */
+  .section { background:var(--elevated); border-radius:20px; padding:6px 18px; margin-top:14px; }
+  .section .cap { font-size:13px; color:var(--tertiary); padding:12px 0 4px; font-weight:600; }
+  .rowline { display:flex; align-items:center; gap:12px; padding:14px 0; border-top:1px solid var(--separator); }
+  .rowline .lead { font-size:16px; color:var(--primary); font-weight:500; }
+  .rowline .chev { margin-left:auto; color:var(--tertiary); font-size:18px; }
+  .zone-chip { display:inline-flex; align-items:center; padding:4px 12px; border-radius:12px; font-size:13px; font-weight:600; }
+  .zone-chip.insight { background:var(--brand-tint); color:#7CB8FF; }
+  .zone-chip.life { background:var(--warm-tint); color:var(--warm); }
+  .hint { font-size:12px; color:var(--tertiary); line-height:1.5; padding:2px 0 14px; }
+  .locknote { font-size:12px; color:var(--tertiary); padding-bottom:14px; }
+
+  /* ── 屏4：审稿层 ── */
+  .sheet-top { display:flex; align-items:center; justify-content:space-between; padding:14px 0 6px; }
+  .sheet-title { font-size:20px; font-weight:700; }
+  .close-x { color:var(--tertiary); font-size:20px; }
+  .reason { font-size:17px; font-weight:600; color:#FF9F6A; margin-top:22px; line-height:1.5; }
+  .reason-sub { font-size:13px; color:var(--secondary); margin-top:6px; line-height:1.5; }
+  .skel-row { display:flex; gap:8px; margin-top:20px; flex-wrap:wrap; }
+  .skel { padding:10px 16px; border-radius:16px; background:var(--panel); border:1px solid var(--glass-border); font-size:14px; color:var(--secondary); }
+  .add-block {
+    margin-top:16px; border:1.5px dashed rgba(255,255,255,.16); border-radius:18px; padding:16px;
+    display:flex; align-items:center; justify-content:center; gap:8px; color:var(--secondary); font-size:14px;
+  }
+  .btn-stack { margin-top:auto; display:flex; flex-direction:column; gap:10px; padding-bottom:8px; }
+</style>
+</head>
+<body>
+<h1 class="page">发布流视觉重设计 · 深色档</h1>
+<p class="page-sub">四屏并排：入口第一屏 / 第二屏 / 编辑页设置行 / 审稿层空态。全部色值取自全站 token（深色档），玻璃配方对齐 immersiveMaterial。</p>
+
+<div class="row">
+
+  <!-- ═══ 屏1：意图卡 ═══ -->
+  <div class="frame-wrap">
+    <div class="frame-label"><b>屏 1</b> · 发布入口 — 选「发到哪」</div>
+    <div class="phone">
+      <div class="statusbar"><span>12:07</span><span>▲◀▎⌁</span></div>
+      <div class="content">
+        <div class="h-serif">发布</div>
+        <div style="font-size:14px;color:var(--secondary);margin-top:8px;">你想让大家看到什么？</div>
+        <div class="intent-stack">
+          <div class="card intent-card insight">
+            <div class="glyph">◈</div>
+            <div class="arrow">›</div>
+            <div class="t">发干货</div>
+            <div class="d">AI 把正文整理成信息块，发布前逐块确认——证据永远是你自己挂的。</div>
+            <div class="chips"><span class="chip">测评</span><span class="chip">避坑</span><span class="chip">教程</span><span class="chip">辩论</span></div>
+          </div>
+          <div class="card intent-card life">
+            <div class="glyph">○</div>
+            <div class="arrow">›</div>
+            <div class="t">发随记</div>
+            <div class="d">轻量记录，写完直接发，不整理结构。</div>
+          </div>
+        </div>
+      </div>
+      <div class="dock">
+        <div class="tab">⌂<span>首页</span></div>
+        <div class="tab">◎<span>圈子</span></div>
+        <div class="plus">+</div>
+        <div class="tab">◔<span>消息</span></div>
+        <div class="tab">◉<span>我的</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 屏2：形式瓦片 ═══ -->
+  <div class="frame-wrap">
+    <div class="frame-label"><b>屏 2</b> · 发布入口 — 选「用什么形式」</div>
+    <div class="phone">
+      <div class="statusbar"><span>12:07</span><span>▲◀▎⌁</span></div>
+      <div class="content">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div class="h-serif" style="font-size:28px;">发干货</div>
+          <span class="step-pill">改 ✕</span>
+        </div>
+        <div style="font-size:14px;color:var(--secondary);margin-top:8px;">选择一种方式开始创作</div>
+        <div class="mode-grid">
+          <div class="mode-tile">
+            <div class="icon-box photo">▣</div>
+            <div class="n">图文</div>
+            <div class="s">图片 + 文字</div>
+          </div>
+          <div class="mode-tile">
+            <div class="icon-box video">▶</div>
+            <div class="n">视频</div>
+            <div class="s">短片叙事</div>
+          </div>
+          <div class="mode-tile">
+            <div class="icon-box text">Aa</div>
+            <div class="n">长文</div>
+            <div class="s">深度书写</div>
+          </div>
+        </div>
+        <div class="ai-note">
+          <div class="spark">✦</div>
+          <div>
+            <div class="tt">发布前 AI 会做什么</div>
+            <div class="dd">正文会先被整理成结论、数据、清单等信息块；你在下一屏逐块确认后才会发出。不想整理？随时可以「按原文发布」。</div>
+          </div>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px;">
+          <span class="chip">草稿箱 · 2 篇</span>
+          <span class="chip">上次发到：干货</span>
+        </div>
+      </div>
+      <div class="dock">
+        <div class="tab">⌂<span>首页</span></div>
+        <div class="tab">◎<span>圈子</span></div>
+        <div class="plus">+</div>
+        <div class="tab">◔<span>消息</span></div>
+        <div class="tab">◉<span>我的</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 屏3：编辑页设置行 ═══ -->
+  <div class="frame-wrap">
+    <div class="frame-label"><b>屏 3</b> · 编辑页 — 「发布到」收敛为一行</div>
+    <div class="phone">
+      <div class="statusbar"><span>12:07</span><span>▲◀▎⌁</span></div>
+      <div class="content">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:36px;height:36px;border-radius:12px;background:var(--glass);border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;color:var(--secondary);">‹</div>
+          <div style="font-family:var(--serif);font-size:18px;font-weight:700;">编辑帖子</div>
+        </div>
+        <div class="section">
+          <div class="cap">发布设置</div>
+          <div class="rowline">
+            <span style="color:var(--brand);">◈</span>
+            <span class="lead">发布到</span>
+            <span class="zone-chip insight">干货</span>
+            <span class="chev">›</span>
+          </div>
+          <div class="hint">干货帖发布前由 AI 整理成信息块，发布前逐块确认。</div>
+          <div class="rowline">
+            <span style="color:var(--secondary);">◎</span>
+            <span class="lead">圈子</span>
+            <span style="margin-left:auto;font-size:13px;color:var(--tertiary);">已选 2/3</span>
+            <span class="chev">›</span>
+          </div>
+          <div class="rowline">
+            <span style="color:var(--secondary);">▤</span>
+            <span class="lead">加入合集</span>
+            <span style="margin-left:auto;font-size:13px;color:var(--tertiary);">工学椅半年记</span>
+            <span class="chev">›</span>
+          </div>
+        </div>
+        <div class="section" style="margin-top:12px;">
+          <div class="cap">已发布帖 · 只读</div>
+          <div class="rowline">
+            <span style="color:var(--brand);">◈</span>
+            <span class="lead">发布到</span>
+            <span class="zone-chip insight">干货</span>
+          </div>
+          <div class="locknote">已发布帖不可改内容区（体裁跟随首发布）。</div>
+        </div>
+      </div>
+      <div class="dock" style="opacity:.35;">
+        <div class="tab">⌂<span>首页</span></div>
+        <div class="tab">◎<span>圈子</span></div>
+        <div class="plus">+</div>
+        <div class="tab">◔<span>消息</span></div>
+        <div class="tab">◉<span>我的</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 屏4：审稿层空态 ═══ -->
+  <div class="frame-wrap">
+    <div class="frame-label"><b>屏 4</b> · 审稿层 — AI 不可用时的空态（主按钮=按原文发布）</div>
+    <div class="phone">
+      <div class="statusbar"><span>12:07</span><span>▲◀▎⌁</span></div>
+      <div class="content">
+        <div class="sheet-top">
+          <div class="sheet-title">发布前确认</div>
+          <div class="close-x">✕</div>
+        </div>
+        <div class="reason">AI 服务暂时不可用（今日整理额度已用完）</div>
+        <div class="reason-sub">可以重试、选骨架手动起步，或按原文直接发布——发布不会被 AI 卡住。</div>
+        <div class="skel-row">
+          <span class="skel">测评骨架</span><span class="skel">避坑骨架</span><span class="skel">教程骨架</span><span class="skel">辩论骨架</span>
+        </div>
+        <div class="add-block">＋ 手动加一块（结论 / 数据 / 清单 / 对比）</div>
+        <div class="btn-stack">
+          <div class="btn-solid">按原文发布到「干货」</div>
+          <div class="btn-disabled">确认发布（先加一个信息块）</div>
+        </div>
+      </div>
+      <div class="dock" style="opacity:.35;">
+        <div class="tab">⌂<span>首页</span></div>
+        <div class="tab">◎<span>圈子</span></div>
+        <div class="plus">+</div>
+        <div class="tab">◔<span>消息</span></div>
+        <div class="tab">◉<span>我的</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

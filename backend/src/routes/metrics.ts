@@ -83,6 +83,28 @@ router.get('/posts/:id/stats', auth, asyncHandler(async (req: AuthRequest, res: 
     if (g.action === 'expose') expose = g._count._all;
     else if (g.action === 'click') click = g._count._all;
   }
+  // 作者近 7 帖转化率基准（排除当前帖）：面板「流量转化 x% ▲▼」的对比口径。
+  // 口径与单帖一致（Σclick / Σexpose，均仅登录用户埋点）；独立于列表均值——
+  // 曝光/点击不在帖子列表响应里，浏览/顶等基准仍由前端 listPosts 计算。
+  const recentPosts = await prisma.post.findMany({
+    where: { userId: post.userId, id: { not: postId } },
+    orderBy: { createdAt: 'desc' },
+    take: 7,
+    select: { id: true },
+  });
+  let baselineExpose = 0;
+  let baselineClick = 0;
+  if (recentPosts.length > 0) {
+    const baselineGrouped = await prisma.postEvent.groupBy({
+      by: ['action'],
+      where: { postId: { in: recentPosts.map((p) => p.id) }, action: { in: ['expose', 'click'] } },
+      _count: { _all: true },
+    });
+    for (const g of baselineGrouped) {
+      if (g.action === 'expose') baselineExpose += g._count._all;
+      else if (g.action === 'click') baselineClick += g._count._all;
+    }
+  }
   return ok(res, {
     viewCount: post.viewCount,
     upCount: post.upCount,
@@ -92,6 +114,13 @@ router.get('/posts/:id/stats', auth, asyncHandler(async (req: AuthRequest, res: 
     click,
     // 曝光→点击转化率（无曝光时为 0）
     clickRate: expose > 0 ? Number(((click / expose) * 100).toFixed(1)) : 0,
+    // 作者近 7 帖转化率基准：postCount=0 表示无历史帖可比（前端不显示 ▲▼）
+    authorBaseline: {
+      postCount: recentPosts.length,
+      clickRate: baselineExpose > 0
+        ? Number(((baselineClick / baselineExpose) * 100).toFixed(1))
+        : 0,
+    },
   });
 }));
 

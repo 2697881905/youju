@@ -103,3 +103,4 @@ scripts/_sync_scan_*.py
 # 调试快照与配置留底（含签名材料，不入库）
 .tmp-ui/
 *.bak-2026*
+.temp_ui_dump/
