@@ -22,6 +22,7 @@ jest.mock('../prisma', () => ({
       findFirst: jest.fn(),
       findUnique: jest.fn(),
       count: jest.fn(),
+      deleteMany: jest.fn(),
     },
     up: {
       findFirst: jest.fn(),
@@ -34,11 +35,21 @@ jest.mock('../prisma', () => ({
     debateVote: {
       findMany: jest.fn().mockResolvedValue([]),
       findFirst: jest.fn().mockResolvedValue(null),
+      deleteMany: jest.fn(),
     },
     // getPost 楼中楼：评论改为独立查询后由 buildCommentTree 组装（测试用空列表即可）
     comment: {
       findMany: jest.fn().mockResolvedValue([]),
       count: jest.fn().mockResolvedValue(0),
+    },
+    commentUp: {
+      deleteMany: jest.fn(),
+    },
+    report: {
+      deleteMany: jest.fn(),
+    },
+    mediaDeletionTask: {
+      createMany: jest.fn(),
     },
     user: {
       findUnique: jest.fn().mockResolvedValue({ status: 1, deletedAt: null }),
@@ -117,6 +128,8 @@ afterAll((done) => {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockPrisma.$transaction.mockReset();
+  mockPrisma.$transaction.mockImplementation((ops: any) => Promise.all(ops ?? []));
 });
 
 function req(
@@ -520,6 +533,174 @@ describe('GET /v1/posts/:id（详情，软鉴权）', () => {
 });
 
 describe('废纸篓路由', () => {
+  it('空废纸篓全部删除返回 0 且不执行删除', async () => {
+    const tx = {
+      post: {
+        findMany: jest.fn().mockResolvedValue([]),
+        deleteMany: jest.fn(),
+      },
+    };
+    mockPrisma.$transaction.mockImplementation(async (callback: any) => callback(tx));
+
+    const res = await req('DELETE', '/v1/posts/trash', undefined, authHeader());
+
+    expect(res.status).toBe(200);
+    expect(res.json.data).toEqual({ deletedCount: 0 });
+    expect(tx.post.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { userId: TEST_USER_ID, deletedAt: { not: null }, id: { gt: 0 } },
+      orderBy: { id: 'asc' },
+      take: 25,
+    }));
+    expect(tx.post.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it('全部删除覆盖当前账号整个废纸篓并清理媒体与关联数据', async () => {
+    const tx = {
+      post: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: 9, coverImage: 'cos://posts/cover-9.jpg', videoUrl: null, videoCover: null, images: ['cos://posts/image-9.jpg'], structuredDocument: {
+            schemaVersion: 3,
+            primaryBlockId: 'block-9',
+            theme: 'editorial',
+            blocks: [{
+              id: 'block-9', type: 'insight', title: '结论', value: '实测结论', items: [],
+              evidence: [
+                { type: 'image', ref: 'cos://posts/evidence-9.jpg', note: '证据图' },
+                { type: 'source', ref: 'https://example.com/spec', note: '官方规格' },
+              ],
+            }],
+          } },
+          { id: 10, coverImage: '', videoUrl: 'cos://posts/video-10.mp4', videoCover: null, images: [], structuredDocument: null },
+        ]),
+        deleteMany: jest.fn().mockResolvedValue({ count: 2 }),
+      },
+      comment: {
+        findMany: jest.fn().mockResolvedValue([{ id: 31 }, { id: 32 }]),
+      },
+      mediaDeletionTask: {
+        createMany: jest.fn().mockResolvedValue({ count: 3 }),
+      },
+      commentUp: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      report: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 2 }),
+      },
+      debateVote: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+    mockPrisma.$transaction.mockImplementation(async (callback: any) => callback(tx));
+
+    const res = await req('DELETE', '/v1/posts/trash', undefined, authHeader());
+
+    expect(res.status).toBe(200);
+    expect(res.json.data).toEqual({ deletedCount: 2 });
+    expect(tx.post.findMany).toHaveBeenCalledWith({
+      where: { userId: TEST_USER_ID, deletedAt: { not: null }, id: { gt: 0 } },
+      orderBy: { id: 'asc' },
+      take: 25,
+      select: { id: true, coverImage: true, videoUrl: true, videoCover: true, images: true, structuredDocument: true },
+    });
+    expect(tx.mediaDeletionTask.createMany).toHaveBeenCalledWith({
+      data: [
+        { key: 'posts/cover-9.jpg' },
+        { key: 'posts/image-9.jpg' },
+        { key: 'posts/evidence-9.jpg' },
+        { key: 'posts/video-10.mp4' },
+      ],
+      skipDuplicates: true,
+    });
+    expect(tx.commentUp.deleteMany).toHaveBeenCalledWith({ where: { commentId: { in: [31, 32] } } });
+    expect(tx.report.deleteMany).toHaveBeenCalledWith({
+      where: {
+        OR: [
+          { targetType: 'post', targetId: { in: [9, 10] } },
+          { targetType: 'comment', targetId: { in: [31, 32] } },
+        ],
+      },
+    });
+    expect(tx.debateVote.deleteMany).toHaveBeenCalledWith({ where: { postId: { in: [9, 10] } } });
+    expect(tx.post.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: [9, 10] }, userId: TEST_USER_ID, deletedAt: { not: null } },
+    });
+  });
+
+  it('超过 25 篇时按 ID 游标分批删除', async () => {
+    const firstBatch = Array.from({ length: 25 }, (_, index) => ({
+      id: index + 1,
+      coverImage: '',
+      videoUrl: null,
+      videoCover: null,
+      images: [],
+      structuredDocument: null,
+    }));
+    const makeTx = (posts: Array<Record<string, unknown>>) => ({
+      post: {
+        findMany: jest.fn().mockResolvedValue(posts),
+        deleteMany: jest.fn().mockResolvedValue({ count: posts.length }),
+      },
+      comment: { findMany: jest.fn().mockResolvedValue([]) },
+      mediaDeletionTask: { createMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      commentUp: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      report: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      debateVote: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
+    });
+    const firstTx = makeTx(firstBatch);
+    const secondTx = makeTx([{ id: 26, coverImage: '', videoUrl: null, videoCover: null, images: [], structuredDocument: null }]);
+    mockPrisma.$transaction
+      .mockImplementationOnce(async (callback: any) => callback(firstTx))
+      .mockImplementationOnce(async (callback: any) => callback(secondTx));
+
+    const res = await req('DELETE', '/v1/posts/trash', undefined, authHeader());
+
+    expect(res.status).toBe(200);
+    expect(res.json.data).toEqual({ deletedCount: 26 });
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(2);
+    expect(firstTx.post.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { userId: TEST_USER_ID, deletedAt: { not: null }, id: { gt: 0 } },
+      take: 25,
+    }));
+    expect(secondTx.post.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { userId: TEST_USER_ID, deletedAt: { not: null }, id: { gt: 25 } },
+      take: 25,
+    }));
+  });
+
+  it('删除期间帖子离开废纸篓时拒绝部分删除', async () => {
+    const tx = {
+      post: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: 9, coverImage: '', videoUrl: null, videoCover: null, images: [] },
+        ]),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      comment: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      mediaDeletionTask: {
+        createMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      commentUp: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      report: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      debateVote: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+    };
+    mockPrisma.$transaction.mockImplementation(async (callback: any) => callback(tx));
+
+    const res = await req('DELETE', '/v1/posts/trash', undefined, authHeader());
+
+    expect(res.status).toBe(500);
+    expect(tx.post.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: [9] }, userId: TEST_USER_ID, deletedAt: { not: null } },
+    });
+  });
+
   it('删除帖子时仅移入废纸篓', async () => {
     mockPrisma.post.findUnique.mockResolvedValue({ id: 9, userId: TEST_USER_ID, deletedAt: null });
     mockPrisma.post.update.mockResolvedValue({ id: 9, deletedAt: new Date() });

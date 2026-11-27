@@ -753,6 +753,99 @@ export async function listTrashedPosts(userId: number, page: number = 1, limit: 
   };
 }
 
+const TRASH_DELETE_BATCH_SIZE = 25;
+
+function structuredEvidenceImageRefs(document: unknown): string[] {
+  if (typeof document !== 'object' || document === null) return [];
+  const blocks = (document as Record<string, unknown>).blocks;
+  if (!Array.isArray(blocks)) return [];
+  const refs: string[] = [];
+  for (const block of blocks) {
+    if (typeof block !== 'object' || block === null) continue;
+    const evidence = (block as Record<string, unknown>).evidence;
+    if (!Array.isArray(evidence)) continue;
+    for (const item of evidence) {
+      if (typeof item !== 'object' || item === null) continue;
+      const record = item as Record<string, unknown>;
+      if (record.type === 'image' && typeof record.ref === 'string') {
+        refs.push(record.ref);
+      }
+    }
+  }
+  return refs;
+}
+
+export async function permanentlyDeleteAllTrashed(userId: number) {
+  let cursor = 0;
+  let deletedCount = 0;
+  while (true) {
+    const result = await prisma.$transaction(async (tx) => {
+      const posts = await tx.post.findMany({
+        where: { userId, deletedAt: { not: null }, id: { gt: cursor } },
+        orderBy: { id: 'asc' },
+        take: TRASH_DELETE_BATCH_SIZE,
+        select: {
+          id: true,
+          coverImage: true,
+          videoUrl: true,
+          videoCover: true,
+          images: true,
+          structuredDocument: true,
+        },
+      });
+      if (posts.length === 0) {
+        return { deletedCount: 0, lastId: cursor, done: true };
+      }
+
+      const ids = posts.map((post) => post.id);
+      const comments = await tx.comment.findMany({
+        where: { postId: { in: ids } },
+        select: { id: true },
+      });
+      const commentIds = comments.map((comment) => comment.id);
+      const mediaValues: unknown[] = [];
+      for (const post of posts) {
+        mediaValues.push(
+          post.coverImage,
+          post.videoUrl,
+          post.videoCover,
+          post.images,
+          ...structuredEvidenceImageRefs(post.structuredDocument),
+        );
+      }
+
+      await enqueueMediaDeletion(tx, mediaValues);
+      await tx.commentUp.deleteMany({ where: { commentId: { in: commentIds } } });
+      await tx.report.deleteMany({
+        where: {
+          OR: [
+            { targetType: 'post', targetId: { in: ids } },
+            { targetType: 'comment', targetId: { in: commentIds } },
+          ],
+        },
+      });
+      await tx.debateVote.deleteMany({ where: { postId: { in: ids } } });
+      const deleted = await tx.post.deleteMany({
+        where: { id: { in: ids }, userId, deletedAt: { not: null } },
+      });
+      // 数量不符说明并发恢复/删除改变了状态，回滚本批，避免误删已恢复帖子。
+      if (deleted.count !== ids.length) {
+        throw new Error('废纸篓状态已变化，请重试');
+      }
+      return {
+        deletedCount: deleted.count,
+        lastId: posts[posts.length - 1].id,
+        done: posts.length < TRASH_DELETE_BATCH_SIZE,
+      };
+    });
+    deletedCount += result.deletedCount;
+    if (result.done) {
+      return { deletedCount };
+    }
+    cursor = result.lastId;
+  }
+}
+
 export async function restorePost(id: number, userId: number) {
   const post = await prisma.post.findUnique({ where: { id } });
   if (!post) return { ok: false, reason: 'not_found' };

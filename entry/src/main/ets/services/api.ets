@@ -140,7 +140,12 @@ function isAuthEndpoint(path: string): boolean {
     path.indexOf('/users/huawei/') >= 0;
 }
 
-async function request<T>(method: string, path: string, body?: Object, extraHeaders?: Record<string, string>): Promise<T> {
+interface RequestTimeout {
+  connect?: number;
+  read?: number;
+}
+
+async function request<T>(method: string, path: string, body?: Object, extraHeaders?: Record<string, string>, timeout?: RequestTimeout): Promise<T> {
   const url = BASE_URL + path;
   const req = http.createHttp();
   const token: string = (AppStorage.get<string>('authToken') ?? '') as string;
@@ -162,8 +167,8 @@ async function request<T>(method: string, path: string, body?: Object, extraHead
       // 降级成原始字符串（/v1/posts 列表 75KB 稳定触发），code 字段读不到 →
       // 全部业务接口报「请求失败」。STRING 模式无此限制，解析失败时回退旧路径。
       expectDataType: http.HttpDataType.STRING,
-      connectTimeout: 10000,
-      readTimeout: 10000,
+      connectTimeout: timeout?.connect ?? 10000,
+      readTimeout: timeout?.read ?? 10000,
     });
     // 手动 parse：合法 JSON → ApiResult；非法/空 → null，走下方 fallback
     let result: ApiResult<T> | null = null;
@@ -217,7 +222,7 @@ interface ApiClient {
   get: <T>(path: string) => Promise<T>;
   post: <T>(path: string, body?: Object) => Promise<T>;
   put: <T>(path: string, body?: Object) => Promise<T>;
-  del: <T>(path: string, headers?: Record<string, string>) => Promise<T>;
+  del: <T>(path: string, headers?: Record<string, string>, timeout?: RequestTimeout) => Promise<T>;
   patch: <T>(path: string, body?: Object) => Promise<T>;
 }
 
@@ -225,8 +230,8 @@ export const api: ApiClient = {
   get: <T>(path: string): Promise<T> => request<T>(http.RequestMethod.GET, path),
   post: <T>(path: string, body?: Object): Promise<T> => request<T>(http.RequestMethod.POST, path, body),
   put: <T>(path: string, body?: Object): Promise<T> => request<T>(http.RequestMethod.PUT, path, body),
-  del: <T>(path: string, headers?: Record<string, string>): Promise<T> =>
-    request<T>(http.RequestMethod.DELETE, path, undefined, headers),
+  del: <T>(path: string, headers?: Record<string, string>, timeout?: RequestTimeout): Promise<T> =>
+    request<T>(http.RequestMethod.DELETE, path, undefined, headers, timeout),
   patch: <T>(path: string, body?: Object): Promise<T> => request<T>('PATCH', path, body),
 };
 
@@ -450,6 +455,14 @@ export async function deletePost(id: number): Promise<void> {
 
 export function listTrashedPosts(page: number = 1, limit: number = 20): Promise<ListResult<Post>> {
   return api.get<ListResult<Post>>('/v1/posts/trash' + toQuery([['page', page], ['limit', limit]]));
+}
+
+export interface DeleteAllTrashedResult {
+  deletedCount: number;
+}
+
+export function deleteAllTrashedPosts(): Promise<DeleteAllTrashedResult> {
+  return api.del<DeleteAllTrashedResult>('/v1/posts/trash', undefined, { read: 60000 });
 }
 
 export async function restorePost(id: number): Promise<void> {

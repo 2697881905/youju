@@ -5,11 +5,11 @@
 //
 // 草稿的 Post 没有 id，列表的稳定 key 由草稿 id 提供，因此点击/删除回调都按 key 反查草稿。
 import { getCurrentUser, getUserId } from '../utils/auth';
-import { removePostDraft, listPostDrafts, SavedPostDraft, subscribePostDrafts } from '../utils/postDraftStore';
+import { removePostDraft, removeAllPostDrafts, listPostDrafts, SavedPostDraft, subscribePostDrafts } from '../utils/postDraftStore';
 import { Post } from '../models/types';
 import { safeShowToast } from '../utils/toast';
 import { ColorTokens } from '../design/tokens/color';
-import { SpaceTokens } from '../design/tokens/space';
+import { SpaceTokens, LayoutTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { publishFlowStore } from '../utils/publishFlowStore';
 import { PublishMode } from '../components/PublishModePanel';
@@ -93,6 +93,26 @@ struct DraftBoxPage {
     });
   }
 
+  private confirmRemoveAll(): void {
+    if (this.drafts.length === 0) {
+      return;
+    }
+    const count: number = this.drafts.length;
+    this.getUIContext().showAlertDialog({
+      title: '删除全部草稿？',
+      message: '将删除当前账号的 ' + String(count) + ' 份草稿，删除后无法恢复。',
+      primaryButton: { value: '取消', action: (): void => {} },
+      secondaryButton: {
+        value: '全部删除',
+        fontColor: ColorTokens.danger,
+        action: (): void => {
+          const removed: number = removeAllPostDrafts(getUserId());
+          safeShowToast(this.getUIContext(), { message: '已删除 ' + String(removed) + ' 份草稿' });
+        },
+      },
+    });
+  }
+
   private postForDraft(draft: SavedPostDraft): Post {
     const videoUrl: string = draft.videoUrl ?? '';
     const videoCover: string = draft.videoCover ?? '';
@@ -147,7 +167,25 @@ struct DraftBoxPage {
   // stackBuilder 行：只剩「草稿箱」标题，居中与返回键让位样板收敛进 GlassTitleRow。
   @Builder
   draftTitleRow(): void {
-    GlassTitleRow({ title: '草稿箱', headlineSerif: true })
+    GlassTitleRow({
+      title: '草稿箱',
+      headlineSerif: true,
+      hasActions: this.drafts.length > 0,
+      actions: (): void => { this.draftDeleteAllAction(); },
+    })
+  }
+
+  @Builder
+  draftDeleteAllAction(): void {
+    Text('全部删除')
+      .fontSize(TypeTokens.callout.size)
+      .fontFamily(TypeTokens.fontFamily)
+      .fontColor(ColorTokens.danger)
+      .textAlign(TextAlign.Center)
+      .constraintSize({ minWidth: 72 })
+      .height(LayoutTokens.minTouchTarget)
+      .padding({ right: SpaceTokens.pageCompact })
+      .onClick((): void => { this.confirmRemoveAll(); })
   }
 
   @Builder

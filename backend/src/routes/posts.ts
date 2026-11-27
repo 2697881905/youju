@@ -121,6 +121,15 @@ router.get('/trash', auth, asyncHandler(async (req: AuthRequest, res: Response) 
   return ok(res, await postService.listTrashedPosts(req.userId!, page, limit));
 }));
 
+router.delete('/trash', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
+  try {
+    const result = await postService.permanentlyDeleteAllTrashed(req.userId!);
+    return ok(res, result, '已彻底删除');
+  } catch (e) {
+    return internalError(res, 'posts.deleteTrash', e);
+  }
+}));
+
 // 帖子详情：GET /v1/posts/:id
 // 软鉴权：匿名可访问公开帖；废纸篓中的软删除帖仅允许原作者带 token 查看。
 router.get('/:id', asyncHandler(async (req: AuthRequest, res: Response) => {

@@ -7,15 +7,16 @@
 // （点卡片 → 详情 → 标题栏「更多」→ 恢复帖子 / 彻底删除）。
 // 后端 getPost 已允许作者本人查看自己的已删除帖子（postService.getPost），该路径成立。
 import { Post } from '../models/types';
-import { listTrashedPosts } from '../services/api';
+import { listTrashedPosts, deleteAllTrashedPosts } from '../services/api';
 import { Pressable } from '../design/motion/Pressable';
 import { ColorTokens } from '../design/tokens/color';
-import { SpaceTokens } from '../design/tokens/space';
+import { SpaceTokens, LayoutTokens } from '../design/tokens/space';
 import { TypeTokens } from '../design/tokens/type';
 import { ManagedPostFeed } from '../components/ManagedPostFeed';
 import { buildPageTransition } from '../utils/styles';
 import { openPostDetail } from '../utils/nav';
 import { getUserId } from '../utils/auth';
+import { safeShowToast } from '../utils/toast';
 import { buildPageTitleBarOptions, GlassTitleRow } from '../design/components/HdsGlassBackSurface';
 import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
 import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
@@ -27,7 +28,9 @@ const TRASH_BAR_ROW_VP: number = 56;
 @Component
 struct TrashBoxPage {
   @State posts: Post[] = [];
+  @State total: number = 0;
   @State loading: boolean = false;
+  @State deletingAll: boolean = false;
   @State error: string = '';
   @StorageLink('statusBarHeight') statusBarHeight: number = 0;
   // 交给 HdsNavigation.bindToScrollable 驱动顶栏渐变模糊（配方同草稿箱）
@@ -50,10 +53,47 @@ struct TrashBoxPage {
       const result = await listTrashedPosts(1, 50);
       // 展示口径（补齐封面）在数据层一次归一化，列表组件只消费结果
       this.posts = result.list.map((p: Post): Post => this.postForDisplay(p));
+      this.total = result.pagination.total;
     } catch (e) {
       this.error = (e as Error).message;
     } finally {
       this.loading = false;
+    }
+  }
+
+  private confirmDeleteAll(): void {
+    if (this.deletingAll || this.total <= 0) {
+      return;
+    }
+    const count: number = this.total;
+    this.getUIContext().showAlertDialog({
+      title: '彻底删除全部帖子？',
+      message: '将彻底删除废纸篓中的全部 ' + String(count) + ' 篇帖子，相关评论、互动和媒体也会被清除，删除后无法恢复。',
+      primaryButton: { value: '取消', action: (): void => {} },
+      secondaryButton: {
+        value: '全部删除',
+        fontColor: ColorTokens.danger,
+        action: (): void => { this.deleteAll(); },
+      },
+    });
+  }
+
+  private async deleteAll(): Promise<void> {
+    if (this.deletingAll) {
+      return;
+    }
+    this.deletingAll = true;
+    try {
+      const result = await deleteAllTrashedPosts();
+      this.posts = [];
+      this.total = 0;
+      this.error = '';
+      safeShowToast(this.getUIContext(), { message: '已彻底删除 ' + String(result.deletedCount) + ' 篇帖子' });
+    } catch (e) {
+      safeShowToast(this.getUIContext(), { message: (e as Error).message });
+      await this.reload();
+    } finally {
+      this.deletingAll = false;
     }
   }
 
@@ -117,7 +157,27 @@ struct TrashBoxPage {
   // stackBuilder 行：只剩「废纸篓」标题，居中与返回键让位样板收敛进 GlassTitleRow。
   @Builder
   trashTitleRow(): void {
-    GlassTitleRow({ title: '废纸篓', headlineSerif: true })
+    GlassTitleRow({
+      title: '废纸篓',
+      headlineSerif: true,
+      hasActions: this.posts.length > 0 && !this.loading && this.error.length === 0,
+      actions: (): void => { this.trashDeleteAllAction(); },
+    })
+  }
+
+  @Builder
+  trashDeleteAllAction(): void {
+    Text(this.deletingAll ? '删除中…' : '全部删除')
+      .fontSize(TypeTokens.callout.size)
+      .fontFamily(TypeTokens.fontFamily)
+      .fontColor(ColorTokens.danger)
+      .textAlign(TextAlign.Center)
+      .constraintSize({ minWidth: 72 })
+      .height(LayoutTokens.minTouchTarget)
+      .padding({ right: SpaceTokens.pageCompact })
+      .opacity(this.deletingAll ? 0.4 : 1)
+      .enabled(!this.deletingAll)
+      .onClick((): void => { this.confirmDeleteAll(); })
   }
 
   @Builder

@@ -174,3 +174,14 @@ export function removePostDraft(ownerId: number, id: string): void {
   const owner: string = String(ownerId);
   writeDrafts(allDrafts().filter((draft: SavedPostDraft): boolean => draft.ownerId !== owner || draft.id !== id));
 }
+
+export function removeAllPostDrafts(ownerId: number): number {
+  const owner: string = String(ownerId);
+  const drafts: SavedPostDraft[] = allDrafts();
+  const remaining: SavedPostDraft[] = drafts.filter((draft: SavedPostDraft): boolean => draft.ownerId !== owner);
+  const removed: number = drafts.length - remaining.length;
+  if (removed > 0) {
+    writeDrafts(remaining);
+  }
+  return removed;
+}
